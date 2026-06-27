@@ -63,51 +63,6 @@ function showSettings() {
     (v) => Settings.set('inpaScreens', v),
   ));
 
-  // interface selector (cable vs OBDLink MX+)
-  const ifaceRow = settingRow(
-    'Diagnostic interface',
-    'K+DCAN cable (wired, best for E46 K-line) or OBDLink MX+ (ELM/STN over Wi-Fi). MX+ K-line coverage on the E46 may be partial.',
-    [
-      { val: 'cable', label: 'K+DCAN cable' },
-      { val: 'elm', label: 'OBDLink MX+' },
-    ],
-    'cable',
-    async (v) => {
-      await api('/api/interface', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: v }) }).catch(() => {});
-      elmHostRow.style.display = v === 'elm' ? '' : 'none';
-      if (v === 'elm') refreshElmStatus();
-      refreshStatus();
-    },
-  );
-  wrap.appendChild(ifaceRow);
-
-  // MX+ status (ELM mode only): auto-detected Bluetooth serial port
-  const elmHostRow = document.createElement('div');
-  elmHostRow.className = 'setting-row';
-  elmHostRow.style.display = 'none';
-  elmHostRow.innerHTML = `
-    <div class="setting-text">
-      <div class="setting-title">OBDLink MX+ (Bluetooth)</div>
-      <div class="setting-desc" id="elm-status">Pair the MX+ in System Settings → Bluetooth. It appears as a serial port automatically.</div>
-    </div>`;
-  wrap.appendChild(elmHostRow);
-
-  function refreshElmStatus() {
-    api('/api/port').then(p => {
-      const el = elmHostRow.querySelector('#elm-status');
-      if (el) el.textContent = p.port
-        ? `Detected: ${p.port}`
-        : 'No OBDLink MX+ found. Pair it in System Settings → Bluetooth first.';
-    }).catch(() => {});
-  }
-
-  // load current interface state
-  api('/api/interface').then(cfg => {
-    ifaceRow.querySelectorAll('.seg-btn').forEach(b => b.classList.toggle('active', b.textContent === (cfg.mode === 'elm' ? 'OBDLink MX+' : 'K+DCAN cable')));
-    elmHostRow.style.display = cfg.mode === 'elm' ? '' : 'none';
-    if (cfg.mode === 'elm') refreshElmStatus();
-  }).catch(() => {});
-
   view.appendChild(wrap);
   stagger(wrap, 40);
 

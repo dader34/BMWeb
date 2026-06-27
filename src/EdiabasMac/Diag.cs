@@ -27,25 +27,6 @@ public sealed class Diag : IDisposable
         _ediabas.EdInterfaceClass = obd;
     }
 
-    // OBDLink MX+ (ELM327/STN) over Bluetooth. macOS exposes the paired MX+ as a
-    // serial port (/dev/cu.OBDLinkMX...), routed via EdElmSerialInterface.
-    public void AttachElmSerial(string serialPort, int baud = 115200)
-    {
-        EdElmSerialInterface.SerialPortName = serialPort;
-        EdElmSerialInterface.BaudRate = baud;
-        var obd = new EdInterfaceObd { ComPort = "ELM327SERIAL:" + serialPort };
-        _ediabas.EdInterfaceClass = obd;
-    }
-
-    // MX+ over TCP/WiFi (ELM327WIFI), for MX+ in WiFi mode.
-    public void AttachElm(string host, int port)
-    {
-        EdElmWifiInterface.ElmIp = host;
-        EdElmWifiInterface.ElmPort = port;
-        var obd = new EdInterfaceObd { ComPort = "ELM327WIFI" };
-        _ediabas.EdInterfaceClass = obd;
-    }
-
     public void Load(string sgbd) => _ediabas.ResolveSgbdFile(sgbd);
 
     public string LoadedSgbd => _ediabas.SgbdFileName;

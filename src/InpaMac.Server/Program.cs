@@ -40,21 +40,9 @@ async Task<T> OnBus<T>(Func<T> work)
     finally { busLock.Release(); }
 }
 
-// active interface. "cable" = wired K+DCAN, "elm" = OBDLink MX+ (ELM/STN).
-var iface = new InterfaceConfig { Mode = "cable", ElmHost = "192.168.0.10", ElmPort = 35000 };
-
-// attach the selected transport to a Diag for a live job
+// attach the K+DCAN serial transport to a Diag for a live job
 bool AttachLive(Diag diag, string? portOverride)
 {
-    if (iface.Mode == "elm")
-    {
-        // MX+ over Bluetooth is a serial port (/dev/cu.OBDLink*)
-        string? elmPort = iface.ElmHost != "" && iface.ElmHost.StartsWith("/dev/")
-            ? iface.ElmHost : DetectElmPort();
-        if (elmPort == null) return false;
-        diag.AttachElmSerial(elmPort);
-        return true;
-    }
     string? p = portOverride ?? AutoDetectPort();
     if (p == null) return false;
     diag.AttachSerial(p);
@@ -62,16 +50,6 @@ bool AttachLive(Diag diag, string? portOverride)
 }
 
 app.MapGet("/api/health", () => Results.Json(new { ok = true, ecuPath, hasEcu = Directory.Exists(ecuPath) }));
-
-// get/set active interface
-app.MapGet("/api/interface", () => Results.Json(new { mode = iface.Mode, elmHost = iface.ElmHost, elmPort = iface.ElmPort }));
-app.MapPost("/api/interface", (InterfaceConfig cfg) =>
-{
-    if (cfg.Mode is "cable" or "elm") iface.Mode = cfg.Mode;
-    if (!string.IsNullOrWhiteSpace(cfg.ElmHost)) iface.ElmHost = cfg.ElmHost;
-    if (cfg.ElmPort > 0) iface.ElmPort = cfg.ElmPort;
-    return Results.Json(new { mode = iface.Mode, elmHost = iface.ElmHost, elmPort = iface.ElmPort });
-});
 
 app.MapGet("/api/chassis", () => Results.Json(config.ChassisIds()));
 
@@ -204,20 +182,12 @@ app.MapGet("/api/state", async (string? port, string? sgbd) =>
     });
 });
 
-app.MapGet("/api/port", () =>
-{
-    if (iface.Mode == "elm")
-    {
-        string? p = DetectElmPort();
-        return Results.Json(new { port = p != null ? $"OBDLink MX+ ({p.Replace("/dev/", "")})" : (string?)null });
-    }
-    return Results.Json(new { port = AutoDetectPort() });
-});
+app.MapGet("/api/port", () => Results.Json(new { port = AutoDetectPort() }));
 
 app.MapPost("/api/ecu/{sgbd}/read", (string sgbd, string? port) => OnBus<IResult>(() =>
 {
     using var diag = NewDiag();
-    if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in K+DCAN (or select OBDLink MX+ in settings)" });
+    if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
     try
     {
         diag.Load(sgbd);
@@ -233,7 +203,7 @@ app.MapPost("/api/ecu/{sgbd}/read", (string sgbd, string? port) => OnBus<IResult
 app.MapPost("/api/ecu/{sgbd}/clear", (string sgbd, string? port) => OnBus<IResult>(() =>
 {
     using var diag = NewDiag();
-    if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in K+DCAN (or select OBDLink MX+ in settings)" });
+    if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
     try
     {
         diag.Load(sgbd);
@@ -247,7 +217,7 @@ app.MapPost("/api/ecu/{sgbd}/clear", (string sgbd, string? port) => OnBus<IResul
 app.MapPost("/api/ecu/{sgbd}/run/{job}", (string sgbd, string job, string? port, string? arg) => OnBus<IResult>(() =>
 {
     using var diag = NewDiag();
-    if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in K+DCAN (or select OBDLink MX+ in settings)" });
+    if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
     try
     {
         diag.Load(sgbd);
@@ -263,7 +233,7 @@ app.MapPost("/api/ecu/{sgbd}/run/{job}", (string sgbd, string job, string? port,
 // identify the DME (VIN, HW/SW refs, programming status) before any flash op
 app.MapPost("/api/flash/{sgbd}/identify", (string sgbd, string? port) => OnBus<IResult>(() =>
 {
-    string? p = iface.Mode == "elm" ? DetectElmPort() : (port ?? AutoDetectPort());
+    string? p = port ?? AutoDetectPort();
     if (p == null) return Results.BadRequest(new { error = "no interface for flashing - use the K+DCAN cable" });
     try
     {
@@ -283,7 +253,7 @@ app.MapPost("/api/flash/{sgbd}/identify", (string sgbd, string? port) => OnBus<I
 // 'done:<name>' events, one per file.
 app.MapPost("/api/flash/{sgbd}/read/{region}", async (HttpContext ctx, string sgbd, string region, string? port) =>
 {
-    string? p = iface.Mode == "elm" ? DetectElmPort() : (port ?? AutoDetectPort());
+    string? p = port ?? AutoDetectPort();
     if (p == null) { ctx.Response.StatusCode = 400; await ctx.Response.WriteAsJsonAsync(new { error = "no interface - use the K+DCAN cable" }); return; }
 
     // region(s) to read in this single session
@@ -379,14 +349,6 @@ static string? AutoDetectPort()
     return null;
 }
 
-// MX+ paired over Bluetooth shows up as /dev/cu.OBDLink*
-static string? DetectElmPort()
-{
-    foreach (var dev in Directory.EnumerateFiles("/dev", "cu.OBDLink*")) return dev;
-    foreach (var dev in Directory.EnumerateFiles("/dev", "cu.STN*")) return dev;
-    return null;
-}
-
 static string FindRepoRoot()
 {
     // explicit root (set by packaged app) wins
@@ -401,12 +363,4 @@ static string FindRepoRoot()
         dir = dir.Parent;
     }
     return Directory.GetCurrentDirectory();
-}
-
-// active interface selection (cable vs OBDLink MX+ ELM)
-class InterfaceConfig
-{
-    public string Mode { get; set; } = "cable";
-    public string ElmHost { get; set; } = "192.168.0.10";
-    public int ElmPort { get; set; } = 35000;
 }
