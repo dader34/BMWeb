@@ -1,7 +1,7 @@
 {
   "name": "bmacw",
   "productName": "BMacW",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "BMacW, native macOS BMW diagnostics (Chromium shell over the EDIABAS engine)",
   "main": "main.js",
   "scripts": {

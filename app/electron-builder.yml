@@ -6,6 +6,9 @@ directories:
   output: ../dist-release
   buildResources: .
 
+# re-sign ad-hoc after extraResources land, else the seal breaks ("damaged")
+afterPack: ./build/after-pack.js
+
 # What goes inside the app's app.asar (the Electron front-end).
 files:
   - main.js

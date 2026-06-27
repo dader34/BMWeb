@@ -61,10 +61,31 @@ ignition on, and select your chassis.
   fault-map builders.
 
 
+## Installing a release build
+
+The `.dmg` is unsigned (there is no Apple Developer account behind it), so macOS
+flags it on first launch. After dragging BMacW to Applications, clear the
+download quarantine once:
+
+```
+xattr -dr com.apple.quarantine /Applications/BMacW.app
+```
+
+Or run the helper, which also re-signs the bundle ad-hoc:
+
+```
+./scripts/install-macos.sh
+```
+
+Then open BMacW normally.
+
+
 ## Packaging
 
-`app/electron-builder.yml` builds a signed `.dmg`. The BMW data is bundled into
-the app under `Resources/data` so the release runs standalone.
+`app/electron-builder.yml` builds the `.dmg`. The BMW data is bundled into the
+app under `Resources/data` so the release runs standalone. A post-pack hook
+(`app/build/after-pack.js`) re-signs the bundle ad-hoc after that data is copied
+in, so the signature seal stays valid.
 
 
 ## License
