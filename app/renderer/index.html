@@ -8,6 +8,27 @@
   <link rel="stylesheet" href="themes.css" />
 </head>
 <body>
+  <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
+  <div class="splash" id="splash" aria-hidden="true">
+    <div class="splash-inner">
+      <svg class="splash-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMacW">
+        <circle class="logo-ring" cx="50" cy="50" r="48" />
+        <clipPath id="splash-disc"><circle cx="50" cy="50" r="31"/></clipPath>
+        <g clip-path="url(#splash-disc)">
+          <rect class="logo-quad-white" x="19" y="19" width="31" height="31" />
+          <rect class="logo-quad-white" x="50" y="50" width="31" height="31" />
+          <rect class="logo-quad-color" x="50" y="19" width="31" height="31" />
+          <rect class="logo-quad-color" x="19" y="50" width="31" height="31" />
+        </g>
+        <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
+      </svg>
+      <div class="splash-name">BMacW</div>
+      <div class="splash-tag">BMW diagnostics for macOS</div>
+      <div class="splash-bar"><span class="splash-bar-fill" id="splash-bar-fill"></span></div>
+      <div class="splash-status" id="splash-status">starting engine</div>
+    </div>
+  </div>
+
   <!-- grain + scanline overlay -->
   <div class="grain" aria-hidden="true"></div>
 

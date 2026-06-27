@@ -163,15 +163,33 @@ async function refreshStatus() {
   }
 }
 
+function dismissSplash() {
+  const s = document.getElementById('splash');
+  if (!s || s.classList.contains('hide')) return;
+  s.classList.add('hide');
+  setTimeout(() => s.remove(), 600);
+}
+function splashStatus(msg) {
+  const el = document.getElementById('splash-status');
+  if (el) el.textContent = msg;
+}
+
 (async function boot() {
+  const splashStart = Date.now();
   // wait for the sidecar, then show the start screen
   for (let i = 0; i < 40; i++) {
     await pollEngine();
     if (engineUp) break;
+    if (i === 6) splashStatus('warming up the engine');
     await new Promise(r => setTimeout(r, 400));
   }
+  splashStatus(engineUp ? 'connecting to interface' : 'engine did not start');
   await pollCable();
   setInterval(refreshStatus, 3000);
+  // hold the splash briefly so it never just flickers
+  const minMs = 1100;
+  const wait = Math.max(0, minMs - (Date.now() - splashStart));
+  setTimeout(dismissSplash, wait);
   document.getElementById('settings-btn').onclick = showSettings;
   document.getElementById('flash-btn').onclick = showFlashing;
   // custom window controls (frameless window for Aero)

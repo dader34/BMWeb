@@ -95,6 +95,63 @@ html, body {
 .brand-logo .logo-inner-ring { fill: none; stroke: var(--logo-inner-border); stroke-width: 2px; }
 .brand-mark { color: var(--amber); font-size: 16px; }
 .brand-name { font-weight: 900; letter-spacing: .08em; font-size: 15px; line-height: 1; }
+
+/* boot splash. covers the window until the sidecar answers, then fades out.
+   logo reuses the theme logo vars so it tracks the selected skin. */
+.splash {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(120% 120% at 50% 35%, var(--panel-2) 0%, var(--bg) 70%);
+  -webkit-app-region: drag;
+  opacity: 1; transition: opacity .5s ease;
+}
+.splash.hide { opacity: 0; pointer-events: none; }
+.splash-inner {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; transform: translateY(-4px);
+}
+.splash-logo {
+  width: 128px; height: 128px; display: block; margin-bottom: 18px;
+  filter: drop-shadow(0 14px 30px rgba(0,0,0,.55));
+  animation: splash-pop .6s cubic-bezier(.2,.9,.25,1.1) both;
+}
+.splash-logo .logo-ring { fill: var(--logo-bg); stroke: var(--logo-border); stroke-width: 3px; }
+.splash-logo .logo-quad-white { fill: var(--logo-quad-1); }
+.splash-logo .logo-quad-color { fill: var(--logo-quad-2); }
+.splash-logo .logo-inner-ring { fill: none; stroke: var(--logo-inner-border); stroke-width: 2px; }
+.splash-name {
+  font-family: var(--display); font-weight: 900; letter-spacing: .14em;
+  font-size: 30px; color: var(--ink); text-transform: none;
+  animation: splash-fade .6s ease .1s both;
+}
+.splash-tag {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  color: var(--ink-dim); margin-top: 2px; margin-bottom: 22px;
+  animation: splash-fade .6s ease .2s both;
+}
+.splash-bar {
+  width: 188px; height: 3px; border-radius: 999px;
+  background: var(--line); overflow: hidden; position: relative;
+  animation: splash-fade .6s ease .25s both;
+}
+.splash-bar-fill {
+  position: absolute; inset: 0; width: 38%; border-radius: 999px;
+  background: var(--gauge-fill);
+  animation: splash-sweep 1.15s ease-in-out infinite;
+}
+.splash-status {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .03em;
+  color: var(--ink-faint); margin-top: 12px; min-height: 1em;
+  animation: splash-fade .6s ease .3s both;
+}
+@keyframes splash-pop {
+  0% { opacity: 0; transform: scale(.82) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes splash-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes splash-sweep {
+  0% { left: -40%; } 100% { left: 100%; }
+}
 .brand-dot { color: var(--amber); }
 .brand-sub {
   font-family: var(--mono); font-size: 9px; letter-spacing: .16em;

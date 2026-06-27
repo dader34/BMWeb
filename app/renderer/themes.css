@@ -56,6 +56,19 @@ html[data-theme="aero"] body {
       rgba(11,95,176, calc(var(--aero-opacity) * 0.97)) 45%,
       rgba(7,61,130, calc(var(--aero-opacity) * 1.02)) 100%) !important;
 }
+/* splash matches the aero glass gradient instead of the dark radial */
+html[data-theme="aero"] .splash {
+  background:
+    radial-gradient(1100px 700px at 75% -15%, rgba(127,227,255,.92) 0%, transparent 55%),
+    radial-gradient(900px 700px at -10% 120%, rgba(182,255,122,.82) 0%, transparent 50%),
+    linear-gradient(160deg, rgba(26,143,227,.97) 0%, rgba(11,95,176,.96) 45%, rgba(7,61,130,1) 100%);
+}
+html[data-theme="aero"] .splash-name { color: #fff; text-shadow: 0 2px 6px rgba(0,30,70,.5); }
+html[data-theme="aero"] .splash-tag { color: rgba(255,255,255,.82); }
+html[data-theme="aero"] .splash-bar { background: rgba(255,255,255,.28); }
+html[data-theme="aero"] .splash-status { color: rgba(255,255,255,.7); }
+html[data-theme="aero"] .splash-logo { filter: drop-shadow(0 14px 30px rgba(0,30,70,.45)); }
+
 /* glossy glass panels with top highlight */
 html[data-theme="aero"] .section, html[data-theme="aero"] .chassis-card,
 html[data-theme="aero"] .group-tile, html[data-theme="aero"] .menu-section,
