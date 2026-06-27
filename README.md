@@ -22,18 +22,21 @@ read/backup only for now; writing is not enabled.
 - A K+DCAN USB cable (appears as `/dev/tty.usbserial-*`)
 - BMW EDIABAS and INPA data (from BMW Standard Tools)
 
-The BMW data is proprietary and is not included in this repository. Place your own
-copy under `vendor/EDIABAS` and `vendor/EC-APPS` before running.
+The EDIABAS and INPA data (`vendor/EDIABAS/Ecu`, `vendor/EC-APPS`) is committed via
+Git LFS, so a clone with LFS pulls it automatically. The original BMW Standard Tools
+package is also available [here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl).
 
 
 ## Setup
 
-1. Add the BMW data:
+1. Clone with Git LFS so the BMW data comes down:
 
    ```
-   vendor/EDIABAS/Ecu/        SGBD .prg files
-   vendor/EC-APPS/INPA/       SGDAT and CFGDAT
+   git lfs install
+   git clone <repo-url>
    ```
+
+   The data lives at `vendor/EDIABAS/Ecu` and `vendor/EC-APPS`.
 
 2. Install dependencies and start the app:
 

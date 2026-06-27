@@ -1,0 +1,10 @@
+vendor/EDIABAS/**/*.prg filter=lfs diff=lfs merge=lfs -text
+vendor/EDIABAS/**/*.dll filter=lfs diff=lfs merge=lfs -text
+vendor/EDIABAS/**/*.exe filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.IPO filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.grp filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.prg filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.ipo filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.dll filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.exe filter=lfs diff=lfs merge=lfs -text
+vendor/EC-APPS/**/*.chm filter=lfs diff=lfs merge=lfs -text

@@ -1,8 +1,11 @@
-# Vendored BMW binaries and ECU data are large and proprietary, do not commit.
-# Exception: ms45-flasher is open source (GPLv3) and the flash code is ported from it.
-vendor/*
-!vendor/ms45-flasher/
+# Vendored data. EDIABAS/Ecu and EC-APPS are BMW proprietary, committed via Git LFS.
+# The app only reads EDIABAS/Ecu, so the Windows Bin/Hardware are excluded.
 vendor/ms45-flasher/.git/
+vendor/ediabaslib-src/
+vendor/BMW Standard Tools/
+vendor/EDIABAS/Bin/
+vendor/EDIABAS/Hardware/
+vendor/**/*.bak
 # .NET build output
 bin/
 obj/
