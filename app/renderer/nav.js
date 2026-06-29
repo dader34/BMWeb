@@ -208,11 +208,11 @@ async function showScriptSelection(chassisId) {
       <div class="inpa-ss-bar">Script selection&nbsp;&nbsp;&nbsp;<span class="inpa-ss-hint">(&lt;TAB&gt; to change listbox, &lt;ESC&gt; to abort)</span></div>
       <div class="inpa-ss-panes">
         <div class="inpa-ss-left" id="ss-left">
-          <div class="inpa-ss-head selected">${dispChassis(chassisId)}</div>
+          <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${dispChassis(chassisId)}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${s.name}</button>`).join('')}
         </div>
         <div class="inpa-ss-right" id="ss-right">
-          <div class="inpa-ss-head">Functional jobs</div>
+          <div class="inpa-ss-head" id="ss-head">Functional jobs</div>
           <div class="inpa-ss-jobs" id="ss-jobs"></div>
         </div>
       </div>
@@ -225,26 +225,40 @@ async function showScriptSelection(chassisId) {
   overlay.onclick = (e) => { if (e.target === overlay) close(); };
 
   const jobsPane = overlay.querySelector('#ss-jobs');
+  const headEl = overlay.querySelector('#ss-head');
   const items = overlay.querySelectorAll('.inpa-ss-item');
-  // right pane leads with "Functional Jobs" (whole-vehicle Identify/Fault sweep),
-  // then the section modules. sweep only validated for E46, so gate it.
+  // Functional Jobs (whole-vehicle Identify/Fault sweep) only validated for E46.
   const allowFunc = chassisId.toUpperCase() === 'E46';
-  const showSection = (i) => {
-    items.forEach((it, j) => it.classList.toggle('active', j === i));
-    const sec = ch.sections[i];
-    const funcJob = allowFunc ? `<button class="inpa-ss-job func" data-func="1">Functional Jobs</button>` : '';
-    const ecus = sec.ecus.length
-      ? sec.ecus.map(e => `<button class="inpa-ss-job" data-sgbd="${e.sgbd}" data-code="${e.code}" data-label="${e.label.replace(/"/g, '&quot;')}">${e.label}</button>`).join('')
-      : '';
-    jobsPane.innerHTML = funcJob + (ecus || (allowFunc ? '' : '<div class="inpa-ss-empty">No modules</div>'));
+
+  // chassis row selected: right pane is Functional Jobs only, nothing else.
+  const showChassisJobs = () => {
+    items.forEach(it => it.classList.toggle('active', it.dataset.i === '-1'));
+    headEl.textContent = 'Functional jobs';
+    jobsPane.innerHTML = allowFunc
+      ? `<button class="inpa-ss-job func" data-func="1">Functional Jobs</button>`
+      : '<div class="inpa-ss-empty">No functional jobs</div>';
     const fb = jobsPane.querySelector('.inpa-ss-job.func');
     if (fb) fb.onclick = () => { close(); showFunctionalJobs(chassisId); };
-    jobsPane.querySelectorAll('.inpa-ss-job:not(.func)').forEach(b => {
+  };
+
+  // section row selected: right pane is that section's ECU modules, no jobs.
+  const showSection = (i) => {
+    items.forEach(it => it.classList.toggle('active', it.dataset.i === String(i)));
+    const sec = ch.sections[i];
+    headEl.textContent = sec.name;
+    jobsPane.innerHTML = sec.ecus.length
+      ? sec.ecus.map(e => `<button class="inpa-ss-job" data-sgbd="${e.sgbd}" data-code="${e.code}" data-label="${e.label.replace(/"/g, '&quot;')}">${e.label}</button>`).join('')
+      : '<div class="inpa-ss-empty">No modules</div>';
+    jobsPane.querySelectorAll('.inpa-ss-job').forEach(b => {
       b.onclick = () => { close(); showEcu(chassisId, sec.name, { sgbd: b.dataset.sgbd, code: b.dataset.code, label: b.dataset.label }); };
     });
   };
-  items.forEach((it, i) => it.onclick = () => showSection(i));
-  if (ch.sections.length) showSection(0); // preselect first section
+
+  items.forEach(it => {
+    const i = Number(it.dataset.i);
+    it.onclick = () => (i === -1 ? showChassisJobs() : showSection(i));
+  });
+  showChassisJobs(); // open on the chassis row: Functional Jobs only
 }
 
 // INPA "Functional Jobs" menu: F2 Identification (quickIdentSweep), F4 Fault

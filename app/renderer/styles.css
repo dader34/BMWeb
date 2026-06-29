@@ -476,7 +476,6 @@ html[data-theme="inpa"] .inpa-script-row:hover { background: #eef2ff; }
   font-family: var(--mono); font-weight: 700; font-size: 13.5px;
   padding: 5px 8px; color: var(--ink);
 }
-.inpa-ss-head.selected { background: var(--amber); color: #1a1206; } /* selected chassis */
 /* indented section items, bold mono */
 .inpa-ss-item, .inpa-ss-job {
   -webkit-app-region: no-drag; cursor: pointer; display: block; width: 100%; text-align: left;
@@ -485,6 +484,9 @@ html[data-theme="inpa"] .inpa-script-row:hover { background: #eef2ff; }
 }
 .inpa-ss-item:hover, .inpa-ss-job:hover { background: rgba(127,127,127,.12); }
 .inpa-ss-item.active { background: rgba(127,127,127,.18); }
+/* chassis row sits flush like a header, not indented like a section */
+.inpa-ss-chassis { padding-left: 8px; }
+.inpa-ss-chassis.active { background: var(--amber); color: #1a1206; }
 .inpa-ss-job { padding-left: 12px; }
 .inpa-ss-job.func { font-weight: 700; color: var(--amber); }
 html[data-theme="inpa"] .inpa-ss-job.func { color: #000080; }
@@ -493,10 +495,10 @@ html[data-theme="inpa"] .inpa-ss-job.func { color: #000080; }
 html[data-theme="inpa"] .inpa-scriptsel { background: #d4d0c8; border-color: #808080; }
 html[data-theme="inpa"] .inpa-ss-bar { background: #d4d0c8; color: #000; }
 html[data-theme="inpa"] .inpa-ss-left, html[data-theme="inpa"] .inpa-ss-right { background: #fff; border-color: #808080; }
-html[data-theme="inpa"] .inpa-ss-head.selected { background: #0a246a; color: #fff; }
 html[data-theme="inpa"] .inpa-ss-item, html[data-theme="inpa"] .inpa-ss-job { color: #000; }
 html[data-theme="inpa"] .inpa-ss-item:hover, html[data-theme="inpa"] .inpa-ss-job:hover { background: #e8eefc; }
 html[data-theme="inpa"] .inpa-ss-item.active { background: #cfe0ff; }
+html[data-theme="inpa"] .inpa-ss-chassis.active { background: #0a246a; color: #fff; }
 
 /* quick sweep: chassis-wide fault/ident scan */
 .quick-sweep { }
