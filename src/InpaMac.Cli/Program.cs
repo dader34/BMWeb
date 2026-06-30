@@ -111,6 +111,21 @@ internal static class Program
                     foreach (var line in diag.ResultsOf(job)) Console.WriteLine($"  {line}");
                     return 0;
 
+                case "arguments":
+                case "args":
+                    if (rest.Count == 0) { Console.Error.WriteLine("usage: arguments <JOB> [sgbd]"); return 2; }
+                    string ajob = rest[0];
+                    sgbd = rest.Count > 1 ? rest[1] : DefaultSgbd;
+                    diag.Load(sgbd);
+                    Console.WriteLine($"Arguments of {ajob} in {diag.LoadedSgbd}:");
+                    foreach (var set in diag.Run("_ARGUMENTS", ajob))
+                    {
+                        var row = set.Where(kv => !kv.Key.StartsWith("_"))
+                                     .Select(kv => $"{kv.Key}={Diag.Format(kv.Value)}");
+                        Console.WriteLine("  " + string.Join("  ", row));
+                    }
+                    return 0;
+
                 case "read":
                     return LiveFaultCodes(diag, sgbd, port, clear: false);
 

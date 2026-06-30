@@ -1,0 +1,1953 @@
+{
+ "ecu": "GSB233_ea.IPO",
+ "screens": [
+  {
+   "group": "Physical hardware no.",
+   "job": "PHYSIKALISCHE_HW_NR_LESEN",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "ID_LIEF_TEXT",
+     "label": "ID supplier",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fault memory",
+   "job": "FS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "F_ORT_TEXT",
+     "label": "Fault location",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_SYMPTOM_TEXT",
+     "label": "Fault symptom",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_WARNUNG_TEXT",
+     "label": "Fault warning",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_VORHANDEN_TEXT",
+     "label": "Fault present",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_READY_TEXT",
+     "label": "Fault readiness",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_PCODE_TEXT",
+     "label": "Fault P-code",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Engine RPM",
+   "job": "STATUS_MOTORDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORDREHZAHL_WERT",
+     "label": "Engine RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_MOTORTEMPERATUR_WERT",
+     "label": "Engine temp",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_MOTORISTMOMENT_WERT",
+     "label": "Engine actual torque",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_MOTORSOLLMOMENT_WERT",
+     "label": "Engine target torque",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_GANGANZEIGE_TEXT",
+     "label": "Ganganzeige",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSFCTR_KUPPLUNG_A_WERT",
+     "label": "Adaptation values Ksfctr Clutch A",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSFCTR_KUPPLUNG_B_WERT",
+     "label": "Adaptation values Ksfctr Clutch B",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSFCTR_KUPPLUNG_C_WERT",
+     "label": "Adaptation values Ksfctr Clutch C",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSFCTR_KUPPLUNG_D_WERT",
+     "label": "Adaptation values Ksfctr Clutch D",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSFCTR_KUPPLUNG_E_WERT",
+     "label": "Adaptation values Ksfctr Clutch E",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_A_WERT",
+     "label": "Adaptation values Ksf Clutch A",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_B_WERT",
+     "label": "Adaptation values Ksf Clutch B",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_C_WERT",
+     "label": "Adaptation values Ksf Clutch C",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_D_WERT",
+     "label": "Adaptation values Ksf Clutch D",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_E_WERT",
+     "label": "Adaptation values Ksf Clutch E",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KPFCTR_KUPPLUNG_A_WERT",
+     "label": "Adaptation values Kpfctr Clutch A",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KPFCTR_KUPPLUNG_B_WERT",
+     "label": "Adaptation values Kpfctr Clutch B",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KPFCTR_KUPPLUNG_C_WERT",
+     "label": "Adaptation values Kpfctr Clutch C",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KPFCTR_KUPPLUNG_D_WERT",
+     "label": "Adaptation values Kpfctr Clutch D",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_KPFCTR_KUPPLUNG_E_WERT",
+     "label": "Adaptation values Kpfctr Clutch E",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    }
+   ]
+  },
+  {
+   "group": "Input shaft RPM",
+   "job": "STATUS_EINGANGSDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_EINGANGSDREHZAHL_WERT",
+     "label": "Input shaft RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Ausgangsdrehzahl",
+   "job": "STATUS_AUSGANGSDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_AUSGANGSDREHZAHL_WERT",
+     "label": "Ausgangsdrehzahl",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Info memory / readiness",
+   "job": "IS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ISTGANG_TEXT",
+     "label": "Actual gear",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KICK_DOWN_EIN_TEXT",
+     "label": "Kick Down on",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_WANDLERKUPPLUNG_TEXT",
+     "label": "Wandlerkupplung",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_POSITION_AUS_FAHRERWUNSCH_TEXT",
+     "label": "Position off driver demand",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MAGNETVENTIL_POS_TEXT",
+     "label": "Solenoid valve Pos",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MAGNETVENTIL_MSA_TEXT",
+     "label": "Solenoid valve Msa",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DR_MV_SPANNUNG_WERT",
+     "label": "Pressure ctrl Mv Voltage",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TASTER_LENKRAD_SCHALTWIPPE_PLUS_TEXT",
+     "label": "Button Lenkrad Schaltwippe Plus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TASTER_LENKRAD_SCHALTWIPPE_MINUS_TEXT",
+     "label": "Button Lenkrad Schaltwippe Minus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BREMSLICHTSCHALTER_EIN_TEXT",
+     "label": "Bremslichtschalter on",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Battery",
+   "job": "STATUS_BATTERIE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_UBAT_WERT",
+     "label": "Ubat",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Accelerator pedal",
+   "job": "STATUS_FAHRPEDAL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FAHRPEDAL_WERT",
+     "label": "Accelerator pedal",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Feststellbremse",
+   "job": "STATUS_FESTSTELLBREMSE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FESTSTELLBREMSE_EIN_TEXT",
+     "label": "Feststellbremse on",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Anhaengerbetrieb",
+   "job": "STATUS_ANHAENGERBETRIEB",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ANHAENGERBETRIEB_EIN_TEXT",
+     "label": "Anhaengerbetrieb on",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Speed",
+   "job": "STATUS_GESCHWINDIGKEIT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GESCHWINDIGKEIT_WERT",
+     "label": "Vehicle speed",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    }
+   ]
+  },
+  {
+   "group": "Wheel speed",
+   "job": "STATUS_RADGESCHWINDIGKEIT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_RADGESCHWINDIGKEIT_WERT",
+     "label": "Wheel speed",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    }
+   ]
+  },
+  {
+   "group": "Getriebeoeltemperatur",
+   "job": "STATUS_GETRIEBEOELTEMPERATUR",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GETRIEBEOELTEMPERATUR_WERT",
+     "label": "Getriebeoeltemperatur",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    }
+   ]
+  },
+  {
+   "group": "Odometer",
+   "job": "STATUS_KILOMETERSTAND",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KILOMETERSTAND_WERT",
+     "label": "Odometer",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Klemme15",
+   "job": "STATUS_KLEMME15",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KL15_TEXT",
+     "label": "Terminal 15 (ignition)",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Lernfkt",
+   "job": "STATUS_LERNFKT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_HA_BERECHNETER_WERT",
+     "label": "Rear-axle calculated",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_BERECHNETER_WERT",
+     "label": "Rear-axle calculated",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_WERT",
+     "label": "Rear-axle",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_WERT",
+     "label": "Rear-axle",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_START_WERT",
+     "label": "Rear-axle Start",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_START_WERT",
+     "label": "Rear-axle Start",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ANZAHL_HA_LERN_WERT",
+     "label": "Anzahl rear-axle Lern",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "ANZAHL_HA_LERN_WERT",
+     "label": "Anzahl rear-axle Lern",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_AVR_WERT",
+     "label": "Rear-axle Avr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_AVR_WERT",
+     "label": "Rear-axle Avr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_1_MESS_WERT",
+     "label": "Rear-axle 1 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_1_MESS_WERT",
+     "label": "Rear-axle 1 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_2_MESS_WERT",
+     "label": "Rear-axle 2 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_2_MESS_WERT",
+     "label": "Rear-axle 2 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_3_MESS_WERT",
+     "label": "Rear-axle 3 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_3_MESS_WERT",
+     "label": "Rear-axle 3 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_4_MESS_WERT",
+     "label": "Rear-axle 4 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_4_MESS_WERT",
+     "label": "Rear-axle 4 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_5_MESS_WERT",
+     "label": "Rear-axle 5 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_5_MESS_WERT",
+     "label": "Rear-axle 5 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_6_MESS_WERT",
+     "label": "Rear-axle 6 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_6_MESS_WERT",
+     "label": "Rear-axle 6 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_7_MESS_WERT",
+     "label": "Rear-axle 7 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_7_MESS_WERT",
+     "label": "Rear-axle 7 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_8_MESS_WERT",
+     "label": "Rear-axle 8 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_8_MESS_WERT",
+     "label": "Rear-axle 8 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_9_MESS_WERT",
+     "label": "Rear-axle 9 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_9_MESS_WERT",
+     "label": "Rear-axle 9 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_10_MESS_WERT",
+     "label": "Rear-axle 10 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_10_MESS_WERT",
+     "label": "Rear-axle 10 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_HA_11_MESS_WERT",
+     "label": "Rear-axle 11 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "HA_11_MESS_WERT",
+     "label": "Rear-axle 11 Mess",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Read Actuator",
+   "job": "STATUS_LESEN_STELLGLIED",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT0_WERT",
+     "label": "Read Actuator Out0",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT1_WERT",
+     "label": "Read Actuator Out1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT2_WERT",
+     "label": "Read Actuator Out2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT3_WERT",
+     "label": "Read Actuator Out3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT4_WERT",
+     "label": "Read Actuator Out4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT5_WERT",
+     "label": "Read Actuator Out5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT6_WERT",
+     "label": "Read Actuator Out6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT7_WERT",
+     "label": "Read Actuator Out7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT10_WERT",
+     "label": "Read Actuator Out10",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT11_WERT",
+     "label": "Read Actuator Out11",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT13_WERT",
+     "label": "Read Actuator Out13",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LESEN_STELLGLIED_OUT14_WERT",
+     "label": "Read Actuator Out14",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Solenoid valve",
+   "job": "STATUS_MAGNETVENTIL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MAGNETVENTIL_PS_TEXT",
+     "label": "Solenoid valve Ps",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "SBW Values",
+   "job": "STATUS_SBW_VALUES",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BIT0_TEXT",
+     "label": "Bit0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT1_TEXT",
+     "label": "Bit1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT2_TEXT",
+     "label": "Bit2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT3_TEXT",
+     "label": "Bit3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT4_7_TEXT",
+     "label": "Bit4 7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT8_TEXT",
+     "label": "Bit8",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT9_TEXT",
+     "label": "Bit9",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT10_TEXT",
+     "label": "Bit10",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT11_TEXT",
+     "label": "Bit11",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT12_TEXT",
+     "label": "Bit12",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT13_TEXT",
+     "label": "Bit13",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT14_TEXT",
+     "label": "Bit14",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BIT15_TEXT",
+     "label": "Bit15",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Substrattemperatur",
+   "job": "STATUS_SIGNAL_SUBSTRATTEMPERATUR",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_SUBSTRATTEMPERATUR_TEXT",
+     "label": "Signal Substrattemperatur",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Getriebeoeltemperatur",
+   "job": "STATUS_SIGNAL_GETRIEBEOELTEMPERATUR",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_GETRIEBEOELTEMPERATUR_TEXT",
+     "label": "Signal Getriebeoeltemperatur",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Input shaft RPM",
+   "job": "STATUS_SIGNAL_EINGANGSDREHZAHL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_EINGANGSDREHZAHL_TEXT",
+     "label": "Signal Input shaft RPM",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Output shaft RPM",
+   "job": "STATUS_SIGNAL_ABTRIEBSDREHZAHL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_ABTRIEBSDREHZAHL_TEXT",
+     "label": "Signal Output shaft RPM",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Motordrehzahl",
+   "job": "STATUS_SIGNAL_MOTORDREHZAHL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_MOTORDREHZAHL_TEXT",
+     "label": "Engine RPM",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Throttle",
+   "job": "STATUS_SIGNAL_DROSSELKLAPPE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_DROSSELKLAPPE_TEXT",
+     "label": "Signal Throttle",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Parksperrenanforderung",
+   "job": "STATUS_SIGNAL_PARKSPERRENANFORDERUNG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_PARKSPERRENANFORDERUNG_TEXT",
+     "label": "Signal Parksperrenanforderung",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Drehrichtung",
+   "job": "STATUS_SIGNAL_DREHRICHTUNG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_DREHRICHTUNG_TEXT",
+     "label": "Signal Drehrichtung",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Fahrertuer",
+   "job": "STATUS_SIGNAL_FAHRERTUER",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_FAHRERTUER_TEXT",
+     "label": "Signal Fahrertuer",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal Fahrersitz",
+   "job": "STATUS_SIGNAL_FAHRERSITZ",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_FAHRERSITZ_TEXT",
+     "label": "Signal Fahrersitz",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "MSA Haltemagnet",
+   "job": "STATUS_MSA_HALTEMAGNET",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MSA_HALTEMAGNET_TEXT",
+     "label": "Msa Haltemagnet",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Lernfkt MSA",
+   "job": "STATUS_LERNFKT_MSA",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LERNFKT_MSA_TEXT",
+     "label": "Lernfkt Msa",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "MSA Abschaltverhinderer",
+   "job": "STATUS_MSA_ABSCHALTVERHINDERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MSA_ABSCHALTVERHINDERER_TEXT",
+     "label": "Msa Abschaltverhinderer",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_1_2_WERT",
+     "label": "Adaptation values Glshsctrkf1 1 2",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_1_3_WERT",
+     "label": "Adaptation values Glshsctrkf1 1 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_2_3_WERT",
+     "label": "Adaptation values Glshsctrkf1 2 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_2_4_WERT",
+     "label": "Adaptation values Glshsctrkf1 2 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_3_4_WERT",
+     "label": "Adaptation values Glshsctrkf1 3 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_3_5_WERT",
+     "label": "Adaptation values Glshsctrkf1 3 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_4_5_WERT",
+     "label": "Adaptation values Glshsctrkf1 4 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_4_6_WERT",
+     "label": "Adaptation values Glshsctrkf1 4 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_5_6_WERT",
+     "label": "Adaptation values Glshsctrkf1 5 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_5_7_WERT",
+     "label": "Adaptation values Glshsctrkf1 5 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_6_7_WERT",
+     "label": "Adaptation values Glshsctrkf1 6 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_6_8_WERT",
+     "label": "Adaptation values Glshsctrkf1 6 8",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_7_8_WERT",
+     "label": "Adaptation values Glshsctrkf1 7 8",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_1_2_WERT",
+     "label": "Adaptation values Glshsctrkf2 1 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_1_3_WERT",
+     "label": "Adaptation values Glshsctrkf2 1 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_2_3_WERT",
+     "label": "Adaptation values Glshsctrkf2 2 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_2_4_WERT",
+     "label": "Adaptation values Glshsctrkf2 2 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_3_4_WERT",
+     "label": "Adaptation values Glshsctrkf2 3 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_3_5_WERT",
+     "label": "Adaptation values Glshsctrkf2 3 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_4_5_WERT",
+     "label": "Adaptation values Glshsctrkf2 4 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_4_6_WERT",
+     "label": "Adaptation values Glshsctrkf2 4 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_5_6_WERT",
+     "label": "Adaptation values Glshsctrkf2 5 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_5_7_WERT",
+     "label": "Adaptation values Glshsctrkf2 5 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_6_7_WERT",
+     "label": "Adaptation values Glshsctrkf2 6 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_6_8_WERT",
+     "label": "Adaptation values Glshsctrkf2 6 8",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_7_8_WERT",
+     "label": "Adaptation values Glshsctrkf2 7 8",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_2_1_WERT",
+     "label": "Adaptation values Glsrsctrkf1 2 1",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_3_1_WERT",
+     "label": "Adaptation values Glsrsctrkf1 3 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_3_2_WERT",
+     "label": "Adaptation values Glsrsctrkf1 3 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_4_2_WERT",
+     "label": "Adaptation values Glsrsctrkf1 4 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_4_3_WERT",
+     "label": "Adaptation values Glsrsctrkf1 4 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_5_1_WERT",
+     "label": "Adaptation values Glsrsctrkf1 5 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_5_3_WERT",
+     "label": "Adaptation values Glsrsctrkf1 5 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_5_4_WERT",
+     "label": "Adaptation values Glsrsctrkf1 5 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_6_3_WERT",
+     "label": "Adaptation values Glsrsctrkf1 6 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_6_4_WERT",
+     "label": "Adaptation values Glsrsctrkf1 6 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_6_5_WERT",
+     "label": "Adaptation values Glsrsctrkf1 6 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_7_1_WERT",
+     "label": "Adaptation values Glsrsctrkf1 7 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_7_5_WERT",
+     "label": "Adaptation values Glsrsctrkf1 7 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_7_6_WERT",
+     "label": "Adaptation values Glsrsctrkf1 7 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_2_WERT",
+     "label": "Adaptation values Glsrsctrkf1 8 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_4_WERT",
+     "label": "Adaptation values Glsrsctrkf1 8 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_6_WERT",
+     "label": "Adaptation values Glsrsctrkf1 8 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_7_WERT",
+     "label": "Adaptation values Glsrsctrkf1 8 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_2_1_WERT",
+     "label": "Adaptation values Glsrsctrkf2 2 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_3_1_WERT",
+     "label": "Adaptation values Glsrsctrkf2 3 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_3_2_WERT",
+     "label": "Adaptation values Glsrsctrkf2 3 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_4_2_WERT",
+     "label": "Adaptation values Glsrsctrkf2 4 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_4_3_WERT",
+     "label": "Adaptation values Glsrsctrkf2 4 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_5_1_WERT",
+     "label": "Adaptation values Glsrsctrkf2 5 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_5_3_WERT",
+     "label": "Adaptation values Glsrsctrkf2 5 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_5_4_WERT",
+     "label": "Adaptation values Glsrsctrkf2 5 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_6_3_WERT",
+     "label": "Adaptation values Glsrsctrkf2 6 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_6_4_WERT",
+     "label": "Adaptation values Glsrsctrkf2 6 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_6_5_WERT",
+     "label": "Adaptation values Glsrsctrkf2 6 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_7_1_WERT",
+     "label": "Adaptation values Glsrsctrkf2 7 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_7_5_WERT",
+     "label": "Adaptation values Glsrsctrkf2 7 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_7_6_WERT",
+     "label": "Adaptation values Glsrsctrkf2 7 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_2_WERT",
+     "label": "Adaptation values Glsrsctrkf2 8 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_4_WERT",
+     "label": "Adaptation values Glsrsctrkf2 8 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_6_WERT",
+     "label": "Adaptation values Glsrsctrkf2 8 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_7_WERT",
+     "label": "Adaptation values Glsrsctrkf2 8 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_2_1_WERT",
+     "label": "Adaptation values Bflglsrs 2 1",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_3_1_WERT",
+     "label": "Adaptation values Bflglsrs 3 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_3_2_WERT",
+     "label": "Adaptation values Bflglsrs 3 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_4_2_WERT",
+     "label": "Adaptation values Bflglsrs 4 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_4_3_WERT",
+     "label": "Adaptation values Bflglsrs 4 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_5_1_WERT",
+     "label": "Adaptation values Bflglsrs 5 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_5_3_WERT",
+     "label": "Adaptation values Bflglsrs 5 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_5_4_WERT",
+     "label": "Adaptation values Bflglsrs 5 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_6_3_WERT",
+     "label": "Adaptation values Bflglsrs 6 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_6_4_WERT",
+     "label": "Adaptation values Bflglsrs 6 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_6_5_WERT",
+     "label": "Adaptation values Bflglsrs 6 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_7_1_WERT",
+     "label": "Adaptation values Bflglsrs 7 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_7_5_WERT",
+     "label": "Adaptation values Bflglsrs 7 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_7_6_WERT",
+     "label": "Adaptation values Bflglsrs 7 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_2_WERT",
+     "label": "Adaptation values Bflglsrs 8 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_4_WERT",
+     "label": "Adaptation values Bflglsrs 8 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_6_WERT",
+     "label": "Adaptation values Bflglsrs 8 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_7_WERT",
+     "label": "Adaptation values Bflglsrs 8 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_1_2_WERT",
+     "label": "Adaptation values Bflglshs 1 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_1_3_WERT",
+     "label": "Adaptation values Bflglshs 1 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_2_3_WERT",
+     "label": "Adaptation values Bflglshs 2 3",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_2_4_WERT",
+     "label": "Adaptation values Bflglshs 2 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_3_4_WERT",
+     "label": "Adaptation values Bflglshs 3 4",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_3_5_WERT",
+     "label": "Adaptation values Bflglshs 3 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_4_5_WERT",
+     "label": "Adaptation values Bflglshs 4 5",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_4_6_WERT",
+     "label": "Adaptation values Bflglshs 4 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_5_6_WERT",
+     "label": "Adaptation values Bflglshs 5 6",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_5_7_WERT",
+     "label": "Adaptation values Bflglshs 5 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_6_7_WERT",
+     "label": "Adaptation values Bflglshs 6 7",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_6_8_WERT",
+     "label": "Adaptation values Bflglshs 6 8",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_7_8_WERT",
+     "label": "Adaptation values Bflglshs 7 8",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    }
+   ]
+  },
+  {
+   "group": "Adaptation values NIC",
+   "job": "STATUS_ADAPTIONSWERTE_NIC",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ADAPTIONSWERTE_NIC_WERT",
+     "label": "Adaptation values NIC",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_NICCTR_WERT",
+     "label": "Adaptation values Nicctr",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    }
+   ]
+  },
+  {
+   "group": "Adaptation values GE",
+   "job": "STATUS_ADAPTIONSWERTE_GE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "_SBC_WERT",
+     "label": "SBC",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_LCCFP_I_F_ADA_WERT",
+     "label": "Adaptation values Lccfp I F Ada",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_LCCFP_BEWERTUNG_WERT",
+     "label": "Adaptation values Lccfp Bewertung",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ADAPTIONSWERTE_LCCFP_GWK_AKTIV_WERT",
+     "label": "Adaptation values Lccfp Gwk active",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    }
+   ]
+  },
+  {
+   "group": "Oil-temperature collective",
+   "job": "STATUS_OELTEMPERATURKOLLEKTIV",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TEMPERATURBEREICH_1_WERT",
+     "label": "Temp range 1",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_2_WERT",
+     "label": "Temp range 2",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_3_WERT",
+     "label": "Temp range 3",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_4_WERT",
+     "label": "Temp range 4",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_5_WERT",
+     "label": "Temp range 5",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_6_WERT",
+     "label": "Temp range 6",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_7_WERT",
+     "label": "Temp range 7",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_8_WERT",
+     "label": "Temp range 8",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_9_WERT",
+     "label": "Temp range 9",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_10_WERT",
+     "label": "Temp range 10",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_11_WERT",
+     "label": "Temp range 11",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_12_WERT",
+     "label": "Temp range 12",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TEMPERATURBEREICH_13_WERT",
+     "label": "Temp range 13",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    }
+   ]
+  }
+ ],
+ "inputs": [
+  {
+   "job": null,
+   "field": "Control data bytes",
+   "kind": "hex",
+   "example": "22,40,0A",
+   "args_template": "comma/semicolon-separated hex bytes passed as the control telegram"
+  },
+  {
+   "job": null,
+   "field": "Output file path",
+   "kind": "text",
+   "example": "c:\\\\Temp\\\\GSB233_Daten.txt",
+   "args_template": "full path incl. file name where the data export is written"
+  }
+ ]
+}

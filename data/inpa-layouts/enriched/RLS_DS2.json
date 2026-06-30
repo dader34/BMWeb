@@ -1,0 +1,66 @@
+{
+  "ecu": "RLS_DS2.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": null,
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Amplification",
+      "job": "STATUS_LESEN_VERSTAERKUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_V_WERT", "label": "Amplification (gain)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I1_WERT", "label": "Amplification channel 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I2_WERT", "label": "Amplification channel 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I3_WERT", "label": "Amplification channel 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I4_WERT", "label": "Amplification channel 4", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Light",
+      "job": "STATUS_LESEN_LICHT",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_UMLI_WERT", "label": "Ambient light", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FROLI_WERT", "label": "Windshield (front) light", "unit": null, "min": null, "max": null },
+        { "key": "STAT_UMLIFILT_WERT", "label": "Ambient light (filtered)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FROLIFILT_WERT", "label": "Windshield light (filtered)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Heater",
+      "job": "STATUS_LESEN_HEIZUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_HEIZTEMP_WERT", "label": "Heater temperature", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Measurement paths",
+      "job": "STATUS_LESEN_MESSSTRECKEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MESS1_WERT", "label": "Measurement path 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS2_WERT", "label": "Measurement path 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS3_WERT", "label": "Measurement path 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS4_WERT", "label": "Measurement path 4", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

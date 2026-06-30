@@ -1,0 +1,77 @@
+{
+  "ecu": "Ms43_sp2.IPO",
+  "screens": [
+    {
+      "group": "Maximum overrev RPM",
+      "job": "STATUS_MAX_UEBERDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MAX_UEBERDREHZAHL_WERT", "label": "Maximum overrev RPM", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Overrev operating state",
+      "job": "STATUS_BETRIEB_UEBERDREHZAHL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_BETRIEB_UEBERDREHZAHL_WERT", "label": "Overrev operating state", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Overrev counter",
+      "job": "STATUS_ZAEHLER_UEBERDREHZAHL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ZAEHLER_UEBERDREHZAHL_WERT", "label": "Overrev event counter", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Pedal misoperation",
+      "job": "STATUS_FUSSHEBELFEHLBETAETIGUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FUSSHEBELFEHLBETAETIGUNG_WERT", "label": "Pedal misoperation count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FUSSHEBELFEHLBETAETIGUNG_KM_MAX_WERT", "label": "Pedal misoperation at max mileage", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Maximum torque intervention",
+      "job": "STATUS_MAX_EINGRIFF",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MAX_EINGRIFF_WERT", "label": "Maximum torque intervention", "unit": "Nm", "min": 0, "max": 600 }
+      ]
+    },
+    {
+      "group": "Maximum intervention time",
+      "job": "STATUS_MAX_ZEITEINGRIFF",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MAX_ZEITEINGRIFF_WERT", "label": "Maximum time intervention", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Number of interventions",
+      "job": "STATUS_ANZAHL_EINGRIFFE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ANZAHL_EINGRIFFE_WERT", "label": "Number of interventions", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

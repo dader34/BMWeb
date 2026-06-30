@@ -784,6 +784,10 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .act-label { font-size: 14px; font-weight: 600; }
 .act-jobs { font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* STATUS_X readback after activating (the value INPA shows, e.g. fan 98 %) */
+.act-readback { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-top: 5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-card.running .act-readback { color: var(--green); }
 .act-btn { flex: none; min-width: 92px; justify-content: center; }
 .act-btn.on { animation: actpulse 1.4s ease-in-out infinite; }
 @keyframes actpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,66,66,.5); } 50% { box-shadow: 0 0 0 4px rgba(255,66,66,0); } }
@@ -877,12 +881,14 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .modal-overlay.show { background: rgba(4, 7, 10, .62); backdrop-filter: blur(3px); }
 .modal {
   width: min(440px, 86vw);
+  max-height: 88vh; display: flex; flex-direction: column;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border: 1px solid var(--line-bright); border-radius: 6px;
   box-shadow: 0 30px 70px -20px rgba(0,0,0,.85);
   padding: 24px 24px 18px; transform: translateY(10px) scale(.98); opacity: 0;
   transition: transform .18s cubic-bezier(.2,.7,.2,1), opacity .18s;
 }
+.modal-title, .modal-body, .modal-actions { flex: none; }
 .modal-overlay.show .modal { transform: none; opacity: 1; }
 .modal.danger { border-top: 2px solid var(--red); }
 .modal-title { font-size: 19px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 10px; }
@@ -902,6 +908,20 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .modal-input.shake { animation: inpShake .32s; border-color: var(--red); }
 @keyframes inpShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)} }
 .modal-body .muted { color: var(--ink-dim); }
+/* multi-field job-argument dialog (built from the _ARGUMENTS schema) */
+/* scroll the field list, not the whole modal, so many-arg jobs (e.g. AIF_SCHREIBEN
+   with 9 fields) stay on screen with the title and Run/Cancel fixed */
+.arg-fields { margin-bottom: 18px; max-height: 52vh; overflow-y: auto; padding-right: 4px; }
+.arg-row { margin-bottom: 14px; }
+.arg-row:last-child { margin-bottom: 0; }
+.arg-label { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.arg-label .arg-type { font-family: var(--mono); font-size: 10.5px; font-weight: 400; color: var(--ink-faint); }
+.arg-row .modal-input { margin-bottom: 5px; }
+.arg-hint { font-size: 11px; color: var(--ink-faint); line-height: 1.4; }
+select.modal-input { appearance: none; cursor: pointer; }
+.arg-warn { font-size: 11px; color: var(--red); line-height: 1.45; margin-top: 5px;
+  border-left: 2px solid var(--red); padding-left: 8px; }
+.arg-warn .mono { font-family: var(--mono); color: var(--amber); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .modal-actions .btn { display: inline-flex; align-items: center; gap: 9px; }
 .modal-cancel { background: var(--panel); }

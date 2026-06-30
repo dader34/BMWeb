@@ -1,0 +1,13 @@
+{
+  "ecu": "ews4_dme.IPO",
+  "screens": [],
+  "inputs": [
+    {
+      "job": "STATUS_EWS4_SK",
+      "field": "Enter vehicle order number (V-number)",
+      "kind": "text",
+      "example": "0123456789",
+      "args_template": "V-number string passed as the job parameter to read the EWS4 secret-key status"
+    }
+  ]
+}

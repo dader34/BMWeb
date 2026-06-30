@@ -1,0 +1,1901 @@
+{
+  "ecu": "vdc_25.IPO",
+  "screens": [
+    {
+      "group": "Manufacturer info",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Environmental / VIN context",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Data memory message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "System context timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "System context customer time year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "System context customer time month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "System context customer time day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "System context customer time stunde",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "System context customer time minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "System context customer time second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "System context wegstrecke kilometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "System context voltage min",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "System context voltage max",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "System context temperature exterior",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "System context temperature motor drivetrain",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "System context speed min",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "System context speed max",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "System context RPM crankshaft min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "System context RPM crankshaft max",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "System context terminals at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "System context terminals before fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "System context time terminal change",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "System context operating status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "System context operating status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "System context time opstatuswechsel",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "System context time wecken",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "System context time first kl r on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "System context time first kl 15 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "System context time first kl 50 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "System context fault-memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy-saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy-saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Manufacturer info",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software/component versions",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status values",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VERBAUKENNUNG_TEXT",
+          "label": "Damper valve installation ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_IIST_WERT",
+          "label": "Damper valve front left actual current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_ISOLL_WERT",
+          "label": "Damper valve front left target current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_PWMSOLL_WERT",
+          "label": "Damper valve front left target PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_VORGABE_TEXT",
+          "label": "Damper valve front left setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_IIST_WERT",
+          "label": "Damper valve rear left actual current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_ISOLL_WERT",
+          "label": "Damper valve rear left target current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_PWMSOLL_WERT",
+          "label": "Damper valve rear left target PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_VORGABE_TEXT",
+          "label": "Damper valve rear left setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_IIST_WERT",
+          "label": "Damper valve front right actual current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_ISOLL_WERT",
+          "label": "Damper valve front right target current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_PWMSOLL_WERT",
+          "label": "Damper valve front right target PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_VORGABE_TEXT",
+          "label": "Damper valve front right setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_IIST_WERT",
+          "label": "Damper valve rear right actual current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_ISOLL_WERT",
+          "label": "Damper valve rear right target current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_PWMSOLL_WERT",
+          "label": "Damper valve rear right target PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_VORGABE_TEXT",
+          "label": "Damper valve rear right setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_STATUS_TEXT",
+          "label": "Damper valve front left status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_STATUS_TEXT",
+          "label": "Damper valve rear left status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_STATUS_TEXT",
+          "label": "Damper valve front right status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_STATUS_TEXT",
+          "label": "Damper valve rear right status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_PWM_WERT",
+          "label": "Damper valve front left PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_PWM_WERT",
+          "label": "Damper valve front right PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_PWM_WERT",
+          "label": "Damper valve rear left PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_PWM_WERT",
+          "label": "Damper valve rear right PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_I_SOLL_ON_LIMIT_WERT",
+          "label": "I target on limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_I_SOLL_OFF_LIMIT_WERT",
+          "label": "I target off limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_I_IST_OFF_LIMIT_WERT",
+          "label": "I actual off limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_I_SOLL_MAX_LIMIT_WERT",
+          "label": "I target max limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IREFCHG_DIDTLIMIT_WERT",
+          "label": "Irefchg didtlimit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IREFCHG_DECAYLIMIT_WERT",
+          "label": "Irefchg decaylimit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_D3_MIN_WERT",
+          "label": "D3 min",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_D3_MAX_WERT",
+          "label": "D3 max",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DW_MAX_CALC_CURR_WERT",
+          "label": "Dw max calc curr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DW_MAX_OUT_CURR_WERT",
+          "label": "Dw max out curr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_R_MIN_WERT",
+          "label": "R min",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_R_MAX_WERT",
+          "label": "R max",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_R0_WERT",
+          "label": "R0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_L0_WERT",
+          "label": "L0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_R_FACTOR_WERT",
+          "label": "R factor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_L_FACTOR_WERT",
+          "label": "L factor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_F_MIN_WERT",
+          "label": "U f min",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_F_MAX_WERT",
+          "label": "U f max",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_F_1D_WERT",
+          "label": "U f 1d",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_1_DURCHLAUFZEIT_WERT",
+          "label": "1 durchlaufzeit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NENNER1_WERT",
+          "label": "Nenner1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_I_MITTE_WERT",
+          "label": "I mitte",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FILTER_GRENZWERT_0_WERT",
+          "label": "Filter limit value 0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FILTER_GRENZWERT_1_WERT",
+          "label": "Filter limit value 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VALVE_KL0_U_WERT",
+          "label": "Valve kl0 u",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VALVE_ML0_U_WERT",
+          "label": "Valve ml0 u",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PUSH_TIMER_1_WERT",
+          "label": "Push button timer 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PUSH_TIMER_2_WERT",
+          "label": "Push button timer 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PUSH_CURRENT_1_WERT",
+          "label": "Push button current 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PUSH_CURRENT_2_WERT",
+          "label": "Push button current 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DITHER_VALUE_1_WERT",
+          "label": "Dither value 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DITHER_VALUE_2_WERT",
+          "label": "Dither value 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DITHER_CURRENT_0_WERT",
+          "label": "Dither current 0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DITHER_CURRENT_1_WERT",
+          "label": "Dither current 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DITHER_CURRENT_2_WERT",
+          "label": "Dither current 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PUSH_CURRENT_REAL_WERT",
+          "label": "Push button current real",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PUSH_TIMER_REAL_WERT",
+          "label": "Push button timer real",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_VERBAUTYP_TEXT",
+          "label": "Sensor 1 installation type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_VERBAUPOSITION_TEXT",
+          "label": "Sensor 1 installation position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_VERBAUTYP_TEXT",
+          "label": "Sensor 2 installation type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_VERBAUPOSITION_TEXT",
+          "label": "Sensor 2 installation position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_VERBAUTYP_TEXT",
+          "label": "Sensor 3 installation type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_VERBAUPOSITION_TEXT",
+          "label": "Sensor 3 installation position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_VERBAUTYP_TEXT",
+          "label": "Sensor 4 installation type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_VERBAUPOSITION_TEXT",
+          "label": "Sensor 4 installation position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_OFFSET_DYNAMISCH_WERT",
+          "label": "Sensor 1 offset dynamic",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_OFFSET_DYNAMISCH_WERT",
+          "label": "Sensor 2 offset dynamic",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_OFFSET_DYNAMISCH_WERT",
+          "label": "Sensor 3 offset dynamic",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_OFFSET_DYNAMISCH_WERT",
+          "label": "Sensor 4 offset dynamic",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_STEIGUNG_WERT",
+          "label": "Sensor 1 slope",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_BASISOFFSET_WERT",
+          "label": "Sensor 1 base offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_STEIGUNG_WERT",
+          "label": "Sensor 2 slope",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_BASISOFFSET_WERT",
+          "label": "Sensor 2 base offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_STEIGUNG_WERT",
+          "label": "Sensor 3 slope",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_BASISOFFSET_WERT",
+          "label": "Sensor 3 base offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_STEIGUNG_WERT",
+          "label": "Sensor 4 slope",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_BASISOFFSET_WERT",
+          "label": "Sensor 4 base offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_LERNIND_WERT",
+          "label": "Damper valve front left learn index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_LERNR_WERT",
+          "label": "Damper valve front left learn value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_LERNIND_WERT",
+          "label": "Damper valve front right learn index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_LERNR_WERT",
+          "label": "Damper valve front right learn value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_LERNIND_WERT",
+          "label": "Damper valve rear left learn index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_LERNR_WERT",
+          "label": "Damper valve rear left learn value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_LERNIND_WERT",
+          "label": "Damper valve rear right learn index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_LERNR_WERT",
+          "label": "Damper valve rear right learn value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_NORMIND_WERT",
+          "label": "Damper valve front left normalization index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_NORMR_WERT",
+          "label": "Damper valve front left normalization",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_NORMIND_WERT",
+          "label": "Damper valve front right normalization index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_NORMR_WERT",
+          "label": "Damper valve front right normalization",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_NORMIND_WERT",
+          "label": "Damper valve rear left normalization index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_NORMR_WERT",
+          "label": "Damper valve rear left normalization",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_NORMIND_WERT",
+          "label": "Damper valve rear right normalization index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_NORMR_WERT",
+          "label": "Damper valve rear right normalization",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_DITHERAMPLLOW_WERT",
+          "label": "Damper valve ditherampllow",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_DITHERAMPLHIGH_WERT",
+          "label": "Damper valve ditheramplhigh",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_DITHERFREQ_WERT",
+          "label": "Damper valve ditherfreq",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPANNUNG_MIN_SENSOR_WERT",
+          "label": "Voltage min sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_MAX_SENSOR_WERT",
+          "label": "Voltage max sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_VERSORGUNG_MIN_SENSOR_WERT",
+          "label": "Voltage supply min sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_VERSORGUNG_MAX_SENSOR_WERT",
+          "label": "Voltage supply max sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_STEIGUNG_WERT",
+          "label": "Sensor slope",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_BASISOFFSET_WERT",
+          "label": "Sensor base offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_PHYS_STATUS_TEXT",
+          "label": "Sensor 1 phys status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_VERSORGUNG_STATUS_TEXT",
+          "label": "Sensor 1 supply status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_PHYS_STATUS_TEXT",
+          "label": "Sensor 2 phys status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_VERSORGUNG_STATUS_TEXT",
+          "label": "Sensor 2 supply status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_PHYS_STATUS_TEXT",
+          "label": "Sensor 3 phys status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_VERSORGUNG_STATUS_TEXT",
+          "label": "Sensor 3 supply status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_PHYS_STATUS_TEXT",
+          "label": "Sensor 4 phys status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_VERSORGUNG_STATUS_TEXT",
+          "label": "Sensor 4 supply status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_PHYS_WERT",
+          "label": "Sensor 1 phys",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_OFFSET_ABGLEICH_WERT",
+          "label": "Sensor 1 offset abgleich",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_PHYS_WERT",
+          "label": "Sensor 2 phys",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_OFFSET_ABGLEICH_WERT",
+          "label": "Sensor 2 offset abgleich",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_PHYS_WERT",
+          "label": "Sensor 3 phys",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_OFFSET_ABGLEICH_WERT",
+          "label": "Sensor 3 offset abgleich",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_PHYS_WERT",
+          "label": "Sensor 4 phys",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_OFFSET_ABGLEICH_WERT",
+          "label": "Sensor 4 offset abgleich",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_1_ROHWERT_WERT",
+          "label": "Sensor 1 raw value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_ROHWERT_WERT",
+          "label": "Sensor 2 raw value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_ROHWERT_WERT",
+          "label": "Sensor 3 raw value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_ROHWERT_WERT",
+          "label": "Sensor 4 raw value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPANNUNG_KLEMME_30_WERT",
+          "label": "Voltage terminal 30",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_KLEMME_15N_WERT",
+          "label": "Voltage terminal 15n",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_1_VERSORGUNG_WERT",
+          "label": "Sensor 1 supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_2_VERSORGUNG_WERT",
+          "label": "Sensor 2 supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_3_VERSORGUNG_WERT",
+          "label": "Sensor 3 supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_4_VERSORGUNG_WERT",
+          "label": "Sensor 4 supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ROUTINE_STATUS_TEXT",
+          "label": "Routine status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_DETAIL_VL_TEXT",
+          "label": "Vdc detail front left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_DETAIL_VR_TEXT",
+          "label": "Vdc detail front right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_DETAIL_HL_TEXT",
+          "label": "Vdc detail rear left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_DETAIL_HR_TEXT",
+          "label": "Vdc detail rear right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_REGLERSCHNELL_2MS5_NETTO_WERT",
+          "label": "Vdc reglerschnell 2ms5 net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_REGLERSCHNELL_2MS5_BRUTTO_WERT",
+          "label": "Vdc reglerschnell 2ms5 gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_REGLERLANGSAM1_10MS_NETTO_WERT",
+          "label": "Vdc reglerlangsam1 10ms net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_REGLERLANGSAM1_10MS_BRUTTO_WERT",
+          "label": "Vdc reglerlangsam1 10ms gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_REGLERLANGSAM2_10MS_NETTO_WERT",
+          "label": "Vdc reglerlangsam2 10ms net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_REGLERLANGSAM2_10MS_BRUTTO_WERT",
+          "label": "Vdc reglerlangsam2 10ms gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_SYSTEMSTATUS_10MS_NETTO_WERT",
+          "label": "Vdc systemstatus 10ms net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_SYSTEMSTATUS_10MS_BRUTTO_WERT",
+          "label": "Vdc systemstatus 10ms gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK1_CYC0_STATIC_NETTO_WERT",
+          "label": "Vdc comtask1 cyc0 static net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK1_CYC0_STATIC_BRUTTO_WERT",
+          "label": "Vdc comtask1 cyc0 static gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK2_CYC0_DYN_NETTO_WERT",
+          "label": "Vdc comtask2 cyc0 dynamic net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK2_CYC0_DYN_BRUTTO_WERT",
+          "label": "Vdc comtask2 cyc0 dynamic gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK3_CYC1_STATIC_NETTO_WERT",
+          "label": "Vdc comtask3 cyc1 static net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK3_CYC1_STATIC_BRUTTO_WERT",
+          "label": "Vdc comtask3 cyc1 static gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK4_CYC1_DYN_NETTO_WERT",
+          "label": "Vdc comtask4 cyc1 dynamic net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK4_CYC1_DYN_BRUTTO_WERT",
+          "label": "Vdc comtask4 cyc1 dynamic gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK5_CYC0_STATIC_NETTO_WERT",
+          "label": "Vdc comtask5 cyc0 static net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_COMTASK5_CYC0_STATIC_BRUTTO_WERT",
+          "label": "Vdc comtask5 cyc0 static gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_FLEXRAYSYNC_NETTO_WERT",
+          "label": "Vdc flexraysync net",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDC_FLEXRAYSYNC_BRUTTO_WERT",
+          "label": "Vdc flexraysync gross",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_KRITISCH_1_WERT",
+          "label": "Idle fault critical 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_HAEUFIGKEIT_1_WERT",
+          "label": "Idle fault frequency 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_1_1_WERT",
+          "label": "Idle ambient condition 1 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_1_2_WERT",
+          "label": "Idle ambient condition 1 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_1_3_WERT",
+          "label": "Idle ambient condition 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_1_4_WERT",
+          "label": "Idle ambient condition 1 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_1_5_WERT",
+          "label": "Idle ambient condition 1 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_KRITISCH_2_WERT",
+          "label": "Idle fault critical 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_HAEUFIGKEIT_2_WERT",
+          "label": "Idle fault frequency 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_2_1_WERT",
+          "label": "Idle ambient condition 2 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_2_2_WERT",
+          "label": "Idle ambient condition 2 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_2_3_WERT",
+          "label": "Idle ambient condition 2 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_2_4_WERT",
+          "label": "Idle ambient condition 2 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_2_5_WERT",
+          "label": "Idle ambient condition 2 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_KRITISCH_3_WERT",
+          "label": "Idle fault critical 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_HAEUFIGKEIT_3_WERT",
+          "label": "Idle fault frequency 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_3_1_WERT",
+          "label": "Idle ambient condition 3 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_3_2_WERT",
+          "label": "Idle ambient condition 3 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_3_3_WERT",
+          "label": "Idle ambient condition 3 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_3_4_WERT",
+          "label": "Idle ambient condition 3 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_3_5_WERT",
+          "label": "Idle ambient condition 3 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_KRITISCH_4_WERT",
+          "label": "Idle fault critical 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_HAEUFIGKEIT_4_WERT",
+          "label": "Idle fault frequency 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_4_1_WERT",
+          "label": "Idle ambient condition 4 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_4_2_WERT",
+          "label": "Idle ambient condition 4 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_4_3_WERT",
+          "label": "Idle ambient condition 4 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_4_4_WERT",
+          "label": "Idle ambient condition 4 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_4_5_WERT",
+          "label": "Idle ambient condition 4 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_KRITISCH_5_WERT",
+          "label": "Idle fault critical 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_FEHLER_HAEUFIGKEIT_5_WERT",
+          "label": "Idle fault frequency 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_5_1_WERT",
+          "label": "Idle ambient condition 5 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_5_2_WERT",
+          "label": "Idle ambient condition 5 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_5_3_WERT",
+          "label": "Idle ambient condition 5 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_5_4_WERT",
+          "label": "Idle ambient condition 5 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_UMWELTBEDINGUNG_5_5_WERT",
+          "label": "Idle ambient condition 5 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HAUPT_VERSION_WERT",
+          "label": "Haupt version",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTER_VERSION_WERT",
+          "label": "Under version",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PATCH_VERSION_WERT",
+          "label": "Patch version",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VL_STROM_WERT",
+          "label": "Damper valve front left current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_VR_STROM_WERT",
+          "label": "Damper valve front right current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HL_STROM_WERT",
+          "label": "Damper valve rear left current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DAEMPFER_VENTIL_HR_STROM_WERT",
+          "label": "Damper valve rear right current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SEN_BORDSPANNUNG_E_TEXT",
+          "label": "Vehicle voltage sensor (input)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SEN_BORDNETZSPANNUNG_E_TEXT",
+          "label": "Vehicle voltage sensor (input)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_KRITISCH_LL_TEXT",
+          "label": "Fault critical idle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_UNKRITISCH_LL_TEXT",
+          "label": "Fault unkritisch idle",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": null,
+      "field": "New entry",
+      "kind": "text",
+      "example": "-",
+      "args_template": "new value entered by user"
+    },
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Enter comment to store",
+      "kind": "text",
+      "example": "Inspection done",
+      "args_template": "comment string sent to ECU"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter comment to store",
+      "kind": "text",
+      "example": "Inspection done",
+      "args_template": "comment string sent to ECU"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Entry cancelled (discards values)",
+      "kind": "text",
+      "example": "-",
+      "args_template": "no value sent"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Entry cancelled (discards values)",
+      "kind": "text",
+      "example": "-",
+      "args_template": "no value sent"
+    },
+    {
+      "job": "SVK_LESEN",
+      "field": "New entry",
+      "kind": "text",
+      "example": "-",
+      "args_template": "new value entered by user"
+    },
+    {
+      "job": "SVK_LESEN",
+      "field": "Enter release password",
+      "kind": "text",
+      "example": "BMW123",
+      "args_template": "password string for unlock"
+    }
+  ]
+}

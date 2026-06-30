@@ -1,0 +1,934 @@
+{
+  "ecu": "MRENTW.IPO",
+  "screens": [
+    {
+      "group": "Speed warning display",
+      "job": "STATUS_GWSZ_ANZEIGE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GWSZ_ANZEIGE_WERT",
+          "label": "Speed warning display",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault Ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault Symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_P_CODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF1_TEXT",
+          "label": "Fault freeze frame 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF1_WERT",
+          "label": "Fault freeze frame 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF2_TEXT",
+          "label": "Fault freeze frame 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF2_WERT",
+          "label": "Fault freeze frame 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF3_TEXT",
+          "label": "Fault freeze frame 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF3_WERT",
+          "label": "Fault freeze frame 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF4_TEXT",
+          "label": "Fault freeze frame 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF4_WERT",
+          "label": "Fault freeze frame 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF5_TEXT",
+          "label": "Fault freeze frame 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF5_WERT",
+          "label": "Fault freeze frame 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF6_TEXT",
+          "label": "Fault freeze frame 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF6_WERT",
+          "label": "Fault freeze frame 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF7_TEXT",
+          "label": "Fault freeze frame 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF7_WERT",
+          "label": "Fault freeze frame 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF8_TEXT",
+          "label": "Fault freeze frame 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF8_WERT",
+          "label": "Fault freeze frame 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF9_TEXT",
+          "label": "Fault freeze frame 9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF9_WERT",
+          "label": "Fault freeze frame 9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF10_TEXT",
+          "label": "Fault freeze frame 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF10_WERT",
+          "label": "Fault freeze frame 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF11_TEXT",
+          "label": "Fault freeze frame 11",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_FF11_WERT",
+          "label": "Fault freeze frame 11",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW1_TEXT",
+          "label": "Fault environment 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW1_WERT",
+          "label": "Fault environment 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW2_TEXT",
+          "label": "Fault environment 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW2_WERT",
+          "label": "Fault environment 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW3_TEXT",
+          "label": "Fault environment 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW3_WERT",
+          "label": "Fault environment 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW4_TEXT",
+          "label": "Fault environment 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_UW4_WERT",
+          "label": "Fault environment 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABS_TEXT",
+          "label": "ABS status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABS_WERT",
+          "label": "ABS status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LOWBAT_TEXT",
+          "label": "Low battery",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LOWBAT_WERT",
+          "label": "Low battery",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPERREKP_TEXT",
+          "label": "Clutch lockout",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPERREKP_WERT",
+          "label": "Clutch lockout",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPA_TEXT",
+          "label": "Throttle pot adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPA_WERT",
+          "label": "Throttle pot adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGAN_TEXT",
+          "label": "Gear engaged",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGAN_WERT",
+          "label": "Gear engaged",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA1_TEXT",
+          "label": "Gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA1_WERT",
+          "label": "Gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA2_TEXT",
+          "label": "Gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA2_WERT",
+          "label": "Gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA3_TEXT",
+          "label": "Gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA3_WERT",
+          "label": "Gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA4_TEXT",
+          "label": "Gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA4_WERT",
+          "label": "Gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA5_TEXT",
+          "label": "Gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA5_WERT",
+          "label": "Gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA6_TEXT",
+          "label": "Gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGA6_WERT",
+          "label": "Gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UADPSHS_TEXT",
+          "label": "Idle stop adaptation voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UADPSHS_WERT",
+          "label": "Idle stop adaptation voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADO1_TEXT",
+          "label": "Throttle pot adapt upper 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADO1_WERT",
+          "label": "Throttle pot adapt upper 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADU1_TEXT",
+          "label": "Throttle pot adapt lower 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADU1_WERT",
+          "label": "Throttle pot adapt lower 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADO2_TEXT",
+          "label": "Throttle pot adapt upper 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADO2_WERT",
+          "label": "Throttle pot adapt upper 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADU2_TEXT",
+          "label": "Throttle pot adapt lower 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADU2_WERT",
+          "label": "Throttle pot adapt lower 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADO1_TEXT",
+          "label": "Pedal sensor adapt upper 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADO1_WERT",
+          "label": "Pedal sensor adapt upper 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADU1_TEXT",
+          "label": "Pedal sensor adapt lower 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADU1_WERT",
+          "label": "Pedal sensor adapt lower 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADO2_TEXT",
+          "label": "Pedal sensor adapt upper 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADO2_WERT",
+          "label": "Pedal sensor adapt upper 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADU2_TEXT",
+          "label": "Pedal sensor adapt lower 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADU2_WERT",
+          "label": "Pedal sensor adapt lower 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADAPT_TEXT",
+          "label": "Pedal sensor adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWGADAPT_WERT",
+          "label": "Pedal sensor adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADAPT_TEXT",
+          "label": "Throttle pot adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DKPADAPT_WERT",
+          "label": "Throttle pot adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVAD_WERT",
+          "label": "Throttle valve voltage adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVAD_TEXT",
+          "label": "Throttle valve voltage adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UDKP1MX_WERT",
+          "label": "Throttle pot 1 max voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UDKP1MX_TEXT",
+          "label": "Throttle pot 1 max voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKA_WERT",
+          "label": "Throttle control deviation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKA_TEXT",
+          "label": "Throttle control deviation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKA2_WERT",
+          "label": "Throttle control deviation 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKA2_TEXT",
+          "label": "Throttle control deviation 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAO_WERT",
+          "label": "Idle adaptation upper",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAO_TEXT",
+          "label": "Idle adaptation upper",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAO2_WERT",
+          "label": "Idle adaptation upper 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAO2_TEXT",
+          "label": "Idle adaptation upper 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAU_WERT",
+          "label": "Idle adaptation lower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAU_TEXT",
+          "label": "Idle adaptation lower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAU2_WERT",
+          "label": "Idle adaptation lower 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRAU2_TEXT",
+          "label": "Idle adaptation lower 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKAZ_WERT",
+          "label": "Throttle control deviation counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKAZ_TEXT",
+          "label": "Throttle control deviation counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKAZ2_WERT",
+          "label": "Throttle control deviation counter 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKAZ2_TEXT",
+          "label": "Throttle control deviation counter 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLA_WERT",
+          "label": "Mixture adaptation idle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLA_TEXT",
+          "label": "Mixture adaptation idle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLA2_WERT",
+          "label": "Mixture adaptation idle 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLA2_TEXT",
+          "label": "Mixture adaptation idle 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLVA_WERT",
+          "label": "Mixture adaptation part-load",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLVA_TEXT",
+          "label": "Mixture adaptation part-load",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLVA2_WERT",
+          "label": "Mixture adaptation part-load 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FMSLVA2_TEXT",
+          "label": "Mixture adaptation part-load 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NWFEHLER_WERT",
+          "label": "Camshaft fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NWFEHLER_TEXT",
+          "label": "Camshaft fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_YAWRAD_WERT",
+          "label": "Yaw rate",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_YAWRAD_TEXT",
+          "label": "Yaw rate",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Vehicle variant",
+      "job": "STATUS_VARIANT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FZG_CODE_TEXT",
+          "label": "Vehicle code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Vehicle variant",
+      "job": "STATUS_VARIANTE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FZG_CODE_TEXT",
+          "label": "Vehicle code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VARIANTE_ABS_WERT",
+          "label": "ABS variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VARIANTE_ABS_TEXT",
+          "label": "ABS variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Vehicle order fault memory",
+      "job": "C_FA_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault Symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault Ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "AIF_LESEN",
+      "field": "File path",
+      "kind": "text",
+      "example": "C:\\INPA\\AIF.DAT",
+      "args_template": "path string passed to AIF_LESEN"
+    }
+  ]
+}

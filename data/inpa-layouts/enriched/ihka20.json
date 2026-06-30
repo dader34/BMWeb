@@ -1,0 +1,978 @@
+{
+  "ecu": "ihka20.IPO",
+  "screens": [
+    {
+      "group": "Operating mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy-saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Climate sensors and voltages",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HOCHSPANNUNG_WERT",
+          "label": "High voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_KLEMME_30_WERT",
+          "label": "Terminal 30 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BUS_IN_TEMP_AUSSEN_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BUS_IN_BESCHLAGSENSOR_WERT",
+          "label": "Fogging sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BUS_IN_R134A_DRUCK_WERT",
+          "label": "R134a refrigerant pressure",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_BUS_IN_AUC_SENSOR_WERT",
+          "label": "AUC air quality sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BUS_IN_SOLARSENSOR_LINKS_WERT",
+          "label": "Solar sensor, left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BUS_IN_SOLARSENSOR_RECHTS_WERT",
+          "label": "Solar sensor, right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BUS_IN_POTI_SCHICHTUNG_FOND_WERT",
+          "label": "Rear stratification potentiometer",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LEISTUNG_WERT",
+          "label": "Power draw",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_AC_WERT",
+          "label": "AC current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_DC_WERT",
+          "label": "DC current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMPERATUR_WERT",
+          "label": "Temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FBM_TASTEN_VORHANDEN_WERT",
+          "label": "Control panel buttons present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EKMV_DREHZAHL_IST_WERT",
+          "label": "Blower speed actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_EKMV_DREHZAHL_SOLL_WERT",
+          "label": "Blower speed target",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Climate temperatures",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEMP_INNEN_WERT",
+          "label": "Interior temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_BELUEFTUNG_LINKS_WERT",
+          "label": "Vent temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_BELUEFTUNG_RECHTS_WERT",
+          "label": "Vent temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_BELUEFTUNG_WERT",
+          "label": "Vent temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_FUSSRAUM_LINKS_WERT",
+          "label": "Footwell temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_FUSSRAUM_RECHTS_WERT",
+          "label": "Footwell temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_FUSSRAUM_WERT",
+          "label": "Footwell temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_VERDAMPFER_WERT",
+          "label": "Evaporator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TIMER_EINLAUFSCHUTZ_WERT",
+          "label": "Inlet protection timer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMA_VORNE_SOLLTEMP_LINKS_WERT",
+          "label": "Target temp front left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLIMA_VORNE_SOLLTEMP_RECHTS_WERT",
+          "label": "Target temp front right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLIMA_SOLLTEMP_MITTE_WERT",
+          "label": "Target temp center",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Flap actual positions",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLP_ISTPOS_MISCHLUFT_LINKS_WERT",
+          "label": "Mixed-air flap position, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_MISCHLUFT_RECHTS_WERT",
+          "label": "Mixed-air flap position, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_MISCHLUFT_WERT",
+          "label": "Mixed-air flap position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_SCHICHTUNG_LI_WERT",
+          "label": "Stratification flap position, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_SCHICHTUNG_RE_WERT",
+          "label": "Stratification flap position, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_TEMP_LUFT_FOND_WERT",
+          "label": "Rear air temperature flap position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_DEFROST_WERT",
+          "label": "Defrost flap position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLP_ISTPOS_UMLUFT_WERT",
+          "label": "Recirculation flap position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOT_ISTPOS_BEL_FUSS_LINKS_WERT",
+          "label": "Vent/footwell motor position, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOT_ISTPOS_BEL_FUSS_RECHTS_WERT",
+          "label": "Vent/footwell motor position, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOT_ISTPOS_ZENTRALANTRIEB_WERT",
+          "label": "Central drive motor position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_POTI_SCHICHTUNG_MITTE_WERT",
+          "label": "Stratification potentiometer, center",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Configuration",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLIMA_VARIANTE_NR_TEXT",
+          "label": "Climate variant number",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMA_DISPLAY_EINHEIT_NR_TEXT",
+          "label": "Display unit number",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KALIBRIERLAUF_NR_TEXT",
+          "label": "Calibration run number",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BETRIEB_NR_TEXT",
+          "label": "Operating state",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Stepper motor positions",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTOR_1_NR_TEXT",
+          "label": "Motor 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_2_NR_TEXT",
+          "label": "Motor 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_3_NR_TEXT",
+          "label": "Motor 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_4_NR_TEXT",
+          "label": "Motor 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_5_NR_TEXT",
+          "label": "Motor 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_6_NR_TEXT",
+          "label": "Motor 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_7_NR_TEXT",
+          "label": "Motor 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_8_NR_TEXT",
+          "label": "Motor 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_9_NR_TEXT",
+          "label": "Motor 9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_10_NR_TEXT",
+          "label": "Motor 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_11_NR_TEXT",
+          "label": "Motor 11",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_12_NR_TEXT",
+          "label": "Motor 12",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_13_NR_TEXT",
+          "label": "Motor 13",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_14_NR_TEXT",
+          "label": "Motor 14",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_15_NR_TEXT",
+          "label": "Motor 15",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_16_NR_TEXT",
+          "label": "Motor 16",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flap adjustment range",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE1_WERT",
+          "label": "Flap 1 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE2_WERT",
+          "label": "Flap 2 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE3_WERT",
+          "label": "Flap 3 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE4_WERT",
+          "label": "Flap 4 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE5_WERT",
+          "label": "Flap 5 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE6_WERT",
+          "label": "Flap 6 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE7_WERT",
+          "label": "Flap 7 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE8_WERT",
+          "label": "Flap 8 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE9_WERT",
+          "label": "Flap 9 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE10_WERT",
+          "label": "Flap 10 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE11_WERT",
+          "label": "Flap 11 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE12_WERT",
+          "label": "Flap 12 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE13_WERT",
+          "label": "Flap 13 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE14_WERT",
+          "label": "Flap 14 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE15_WERT",
+          "label": "Flap 15 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_KLAPPE16_WERT",
+          "label": "Flap 16 adjustment range",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System context (fault snapshot)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Diagnostic message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "Timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "Customer time, year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "Customer time, month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "Customer time, day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "Customer time, hour",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "Customer time, minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "Customer time, second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "Distance at fault",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "Battery voltage min at fault",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "Battery voltage max at fault",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "Outside temperature at fault",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "Engine temperature at fault",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "Speed min at fault",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "Speed max at fault",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "Crankshaft RPM min at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "Crankshaft RPM max at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "Fault memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "Terminal status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "Terminal status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "Operation status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "Operation status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "Time of terminal change at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "Time of operation status change at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "Time of wake-up (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "First terminal R on (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "First terminal 15 on (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "First terminal 50 on (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault location",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Inspection status",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software version (SVK)",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "ecu": "ABSASC4G.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": null,
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Wheel speeds",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_RAD_GESCHW_VL_WERT", "label": "Wheel speed front left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_VR_WERT", "label": "Wheel speed front right", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HL_WERT", "label": "Wheel speed rear left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HR_WERT", "label": "Wheel speed rear right", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Engine speed",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORDREHZAHL_WERT", "label": "Engine speed", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Cycle counter",
+      "job": "TAKTZAEHLER_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "TAKTZAEHLER_IST_WERT", "label": "Cycle counter actual", "unit": null, "min": null, "max": null },
+        { "key": "TAKTZAEHLER_GRENZ_WERT", "label": "Cycle counter limit", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -1,0 +1,707 @@
+{
+  "ecu": "rema_re.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "Fault SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System context (VIN)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Diagnostic message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "System context timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "System context customer time year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "System context customer time month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "System context customer time day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "System context customer time hour",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "System context customer time minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "System context customer time second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "System context distance (km)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "System context voltage min",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "System context voltage max",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "System context outside temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "System context engine/drive temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "System context speed min",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "System context speed max",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "System context crankshaft RPM min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "System context crankshaft RPM max",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "System context terminals at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "System context terminals before fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "System context time terminal change",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "System context op-status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "System context op-status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "System context time op-status change",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "System context time wake",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "System context time first terminal R on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "System context time first terminal 15 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "System context time first terminal 50 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "System context fault-memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy save mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy save mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software version",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANALOGWERT_KL30_WERT",
+          "label": "Terminal 30 analog",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TEMPS_WERT",
+          "label": "Temperature sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ANALOGWERT_KL30B_WERT",
+          "label": "Terminal 30B analog",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_GURTSCHALTER_TEXT",
+          "label": "Belt switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STATUS_KL30_TEXT",
+          "label": "Terminal 30 status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HWS_TEXT",
+          "label": "Head restraint status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMPM_TEXT",
+          "label": "Temperature (master)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VDA_TEXT",
+          "label": "VDA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BSR_TEXT",
+          "label": "BSR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PCM_TEXT",
+          "label": "PCM",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BSR_LOOP_TEXT",
+          "label": "BSR LOOP",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BEFU_TEXT",
+          "label": "Belt tensioner status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BOBBIN_SENS_POSITION_WERT",
+          "label": "Bobbin sensor Position",
+          "unit": "mm",
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_BOBBIN_SENS_SPEED_WERT",
+          "label": "Bobbin sensor SPEED",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BOBBING_SENS_STATUS_NR_TEXT",
+          "label": "Bobbin sensor status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BOBBIN_SENS_DIRECTION_NR_TEXT",
+          "label": "Bobbin sensor direction NR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BOBBIN_MOVE_NR_TEXT",
+          "label": "Bobbin movement NR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TVDA_WERT",
+          "label": "TVDA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AVDA_WERT",
+          "label": "AVDA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TKAF_WERT",
+          "label": "TKAF",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AKAF_WERT",
+          "label": "AKAF",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TFRR_WERT",
+          "label": "TFRR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AFRR_WERT",
+          "label": "AFRR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TDBC_WERT",
+          "label": "TDBC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADBC_WERT",
+          "label": "ADBC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TPCMC_WERT",
+          "label": "TPCMC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_APCMC_WERT",
+          "label": "APCMC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TROLL_WERT",
+          "label": "TROLL",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AROLL_WERT",
+          "label": "AROLL",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TPDIAG_WERT",
+          "label": "TPDIAG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_APDIAG_WERT",
+          "label": "APDIAG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TBSR_WERT",
+          "label": "TBSR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABSR_WERT",
+          "label": "ABSR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TBSRDIAG_WERT",
+          "label": "TBSRDIAG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABSRDIAG_WERT",
+          "label": "ABSRDIAG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYST_PCR_1_WERT",
+          "label": "SYST PCR 1",
+          "unit": "ms",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_SYST_PCR_2_WERT",
+          "label": "SYST PCR 2",
+          "unit": "ms",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_SYST_PCR_ACT_1_WERT",
+          "label": "SYST PCR ACT 1",
+          "unit": "ms",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_SYST_PCR_ACT_2_WERT",
+          "label": "SYST PCR ACT 2",
+          "unit": "ms",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_PCR_ACT_1_TEXT",
+          "label": "PCR ACT 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PCR_PROFILE_1_TEXT",
+          "label": "PCR profile 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PCR_ACT_2_TEXT",
+          "label": "PCR ACT 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PCR_PROFILE_2_TEXT",
+          "label": "PCR profile 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ERGEBNIS_EXT_BSR_AKT_TEXT",
+          "label": "Result EXT BSR AKT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ERGEBNIS_EXT_PCR_AKT_TEXT",
+          "label": "Result EXT PCR AKT",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Sensor note",
+      "args_template": "Free text written to sensor ident comment"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "Free text stored with fault-memory readout"
+    }
+  ]
+}

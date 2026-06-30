@@ -1,0 +1,41 @@
+{
+  "ecu": "MS410.IPO",
+  "screens": [
+    {
+      "group": "Smooth running (misfire) per cylinder",
+      "job": "STATUS_KLOPF_ADC2_WERT",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT", "label": "Cylinder 1 roughness", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT", "label": "Cylinder 5 roughness", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT", "label": "Cylinder 3 roughness", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT", "label": "Cylinder 6 roughness", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL5_WERT", "label": "Cylinder 2 roughness", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL6_WERT", "label": "Cylinder 4 roughness", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "ROM check",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ROM_LESEN_WERT", "label": "ROM status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "RAM check",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "RAM_LESEN_WERT", "label": "RAM status", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

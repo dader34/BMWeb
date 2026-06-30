@@ -1,0 +1,158 @@
+{
+  "ecu": "sme_04.IPO",
+  "screens": [
+    {
+      "group": "Fault location",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SAE_CODE_TEXT", "label": "SAE code", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault info",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_SYMPTOM_TEXT", "label": "Fault symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Readiness", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Energy save mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIESPARMODE_WERT", "label": "Energy save mode", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Supplier info",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Software version",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "PROZESSKLASSE_TEXT", "label": "Version", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "SENSOR_HERSTELLER_TEXT", "label": "Sensor manufacturer", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "HV battery status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_HV_STROM_WERT", "label": "HV current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_HV_SPANNUNG_WERT", "label": "HV voltage", "unit": "V", "min": 0, "max": 500 },
+        { "key": "STAT_HV_SPANNUNG_BERECHNET_WERT", "label": "HV voltage (calculated)", "unit": "V", "min": 0, "max": 500 },
+        { "key": "STAT_LADUNG_AMP_STUNDEN_WERT", "label": "Charge", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_ENTLADUNG_AMP_STUNDEN_WERT", "label": "Discharge", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_TEMP_KUEHLKREISLAUF_WERT", "label": "Coolant circuit temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_ISOWIDERSTAND_WERT", "label": "Isolation resistance", "unit": "kOhm", "min": null, "max": null },
+        { "key": "STAT_GUELTIG_TEXT", "label": "Test valid", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AUFSTART_VERHINDERER_TEXT", "label": "HV startup inhibitor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOC_WERT", "label": "State of charge", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_SOC_MAX_WERT", "label": "State of charge, max", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_SOC_MIN_WERT", "label": "State of charge, min", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_SOH_WERT", "label": "State of health", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_KL30C_SPANNUNG_WERT", "label": "Terminal 30C voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_ANZAHL_SCHALTUNGEN_WERT", "label": "Contactor switching count (no-load and under load)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHUETZ_FREIGABE_TEXT", "label": "Contactor release", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Cell voltages",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ZELLSPANNUNG_1_WERT", "label": "Cell voltage 1", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_2_WERT", "label": "Cell voltage 2", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_3_WERT", "label": "Cell voltage 3", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_4_WERT", "label": "Cell voltage 4", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_5_WERT", "label": "Cell voltage 5", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_6_WERT", "label": "Cell voltage 6", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_7_WERT", "label": "Cell voltage 7", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_8_WERT", "label": "Cell voltage 8", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_9_WERT", "label": "Cell voltage 9", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_10_WERT", "label": "Cell voltage 10", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_11_WERT", "label": "Cell voltage 11", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_12_WERT", "label": "Cell voltage 12", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_13_WERT", "label": "Cell voltage 13", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_14_WERT", "label": "Cell voltage 14", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_15_WERT", "label": "Cell voltage 15", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_16_WERT", "label": "Cell voltage 16", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_17_WERT", "label": "Cell voltage 17", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_18_WERT", "label": "Cell voltage 18", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_19_WERT", "label": "Cell voltage 19", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_20_WERT", "label": "Cell voltage 20", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_21_WERT", "label": "Cell voltage 21", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_22_WERT", "label": "Cell voltage 22", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_23_WERT", "label": "Cell voltage 23", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_24_WERT", "label": "Cell voltage 24", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_25_WERT", "label": "Cell voltage 25", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_26_WERT", "label": "Cell voltage 26", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_27_WERT", "label": "Cell voltage 27", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_28_WERT", "label": "Cell voltage 28", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_29_WERT", "label": "Cell voltage 29", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_30_WERT", "label": "Cell voltage 30", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_31_WERT", "label": "Cell voltage 31", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_32_WERT", "label": "Cell voltage 32", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_33_WERT", "label": "Cell voltage 33", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_34_WERT", "label": "Cell voltage 34", "unit": "V", "min": 0, "max": 5 },
+        { "key": "STAT_ZELLSPANNUNG_35_WERT", "label": "Cell voltage 35", "unit": "V", "min": 0, "max": 5 }
+      ]
+    },
+    {
+      "group": "Cell temperatures",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TEMP_SENSOR_1_WERT", "label": "Temperature sensor 1", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TEMP_SENSOR_2_WERT", "label": "Temperature sensor 2", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TEMP_SENSOR_3_WERT", "label": "Temperature sensor 3", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TEMP_SENSOR_4_WERT", "label": "Temperature sensor 4", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "SENSOREN_IDENT_LESEN", "field": "Comment to store", "kind": "text", "example": "Replaced sensor", "args_template": "free text comment stored with sensor ident" },
+    { "job": "HS_LESEN", "field": "Comment to store", "kind": "text", "example": "Service note", "args_template": "free text comment stored in ECU memory" }
+  ]
+}

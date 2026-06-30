@@ -1,0 +1,239 @@
+{
+  "ecu": "ABSASC5.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": null,
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Wheel speeds",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAD_GESCHW_VL_WERT",
+          "label": "Wheel speed front left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RAD_GESCHW_VR_WERT",
+          "label": "Wheel speed front right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RAD_GESCHW_HL_WERT",
+          "label": "Wheel speed rear left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RAD_GESCHW_HR_WERT",
+          "label": "Wheel speed rear right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Engine signals",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DROSSELKLAPPEN_IST_WERT",
+          "label": "Throttle valve position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_NORM_FUELLUNG_SOLL_WERT",
+          "label": "Injection volume signal setpoint",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_NORM_FUELLUNG_FAHRER_WERT",
+          "label": "Injection volume signal driver",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Steering angle",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LENKWINKEL_WERT",
+          "label": "Steering angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Wheel speeds (speed job)",
+      "job": "STATUS_IO_LESEN_GESCHW",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAD_GESCHW_VL_WERT",
+          "label": "Wheel speed front left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RAD_GESCHW_VR_WERT",
+          "label": "Wheel speed front right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RAD_GESCHW_HL_WERT",
+          "label": "Wheel speed rear left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RAD_GESCHW_HR_WERT",
+          "label": "Wheel speed rear right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Analog sensors",
+      "job": "STATUS_IO_LESEN_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LENKWINKEL_WERT",
+          "label": "Steering angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DREHRATE_WERT",
+          "label": "Yaw rate",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DRUCK_WERT",
+          "label": "Brake pressure",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_QUERBESCHLEUNIGUNG_WERT",
+          "label": "Lateral acceleration",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Switch inputs (analog)",
+      "job": "STATUS_IO_LESEN_ANALOG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PASSIVTASTER_WERT",
+          "label": "Passive (DSC off) switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BREMSLICHTSCHALTER_SPANNUNG_WERT",
+          "label": "Brake light switch voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDUNG_WERT",
+          "label": "Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DREHZAHLFUEHLER_SPANNUNG_WERT",
+          "label": "Speed sensor voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Engine RPM (CAN)",
+      "job": "STATUS_IO_LESEN_CAN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

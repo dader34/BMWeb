@@ -1,0 +1,81 @@
+{
+  "ecu": "LSZ.IPO",
+  "screens": [
+    {
+      "group": "Supplier ID",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Service interval data",
+      "job": "SIA_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "GESAMTWEGSTRECKE_WERT", "label": "Total trip counter [100 km]", "unit": null, "min": null, "max": null },
+        { "key": "SI_LITERZAEHLER_WERT", "label": "Service consumption counter [l]", "unit": "l", "min": null, "max": null },
+        { "key": "SI_WEGSTRECKE_LETZTER_OELSERVICE_WERT", "label": "Distance at last oil service [100 km]", "unit": null, "min": null, "max": null },
+        { "key": "SI_ZEITINSPEKTIONSZAEHLER_WERT", "label": "Time inspection counter [days]", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Coding parameters",
+      "job": "CODIERUNG_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "COD_PERIODENDAUER_KALTUEBERWACHUNG_WERT", "label": "Cold detection period [sec]", "unit": "s", "min": null, "max": null },
+        { "key": "COD_BLS_B_SCHWELL_WERT", "label": "Brake-light switch acceleration limit [m/s²]", "unit": "m/s²", "min": null, "max": null },
+        { "key": "COD_T_WARTE_FEHLER_BLS_WERT", "label": "Delay before brake-light switch fault [sec]", "unit": "s", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Voltage inputs",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SCHALTER_BLK_WERT", "label": "Hazard switch voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SCHALTER_FL_LH_WERT", "label": "Front fog light switch voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_BATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_EINGANGSSPANNUNG_DIMMER_WERT", "label": "Dimmer input voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_EINGANGSSPANNUNG_FOTOZELLE_WERT", "label": "Photocell input voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_EINGANGSSPANNUNG_LWR_POTI_WERT", "label": "Headlight range pot voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_BELADUNGSSENSOR_VORN_WERT", "label": "Front load sensor voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Operating-hour counters",
+      "job": "BETRIEBSSTUNDENZAEHLER_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "BETRIEBSZEIT_AL_LINKS_WERT", "label": "Low beam left operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_AL_RECHTS_WERT", "label": "Low beam right operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_BL_L_WERT", "label": "Brake light left operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_BL_R_WERT", "label": "Brake light right operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_SL_LH_WERT", "label": "Rear side light left operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_SL_RH_WERT", "label": "Rear side light right operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_BLK_L_WERT", "label": "Turn signal left operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_BLK_R_WERT", "label": "Turn signal right operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_NSL_WERT", "label": "Rear fog light operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_NSW_RELAIS_WERT", "label": "Fog light relay operating time", "unit": null, "min": null, "max": null },
+        { "key": "BETRIEBSZEIT_LSZ_WERT", "label": "Total light switch center operating time", "unit": null, "min": null, "max": null },
+        { "key": "ANZAHL_BETAETIGUNGEN_BLS_WERT", "label": "Brake-light switch activation count", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "CODIERUNG_LESEN", "field": "Brake-light switch 2 query enabled", "kind": "number", "example": "1", "args_template": "0/1 flag written to coding (COD_BLS2_ABFRAGE_EIN)" },
+    { "job": "CODIERUNG_LESEN", "field": "AHM query time in low-power mode", "kind": "number", "example": "500", "args_template": "time value written to coding (COD_ABFRAGEZEIT_AHM_IN_LOW_POWER_MODE)" }
+  ]
+}

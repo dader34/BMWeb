@@ -1,0 +1,350 @@
+{
+  "ecu": "LCM.IPO",
+  "screens": [
+    {
+      "group": "Status values",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_U_BATT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_AL_DEFEKT_WERT",
+          "label": "Lamp-fault detection voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_EINGANGSSPANNUNG_LWR_POTI_WERT",
+          "label": "Headlight-aim potentiometer input voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_EINGANGSSPANNUNG_DIMMER_WERT",
+          "label": "Dimmer input voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TOG_HEIZZEIT_WERT",
+          "label": "Heating time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TOG_ABKUEHLZEIT_WERT",
+          "label": "Cooling time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status values (E52)",
+      "job": "STATUS_LESEN_E52",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FL_LH_SCHALTER_WERT",
+          "label": "High-beam / flasher switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BLK_SCHALTER_WERT",
+          "label": "Turn-signal switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_BATT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_EINGANGSSPANNUNG_LWR_POTI_WERT",
+          "label": "Headlight-aim potentiometer input voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_EINGANGSSPANNUNG_DIMMER_WERT",
+          "label": "Dimmer input voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TOG_HEIZZEIT_WERT",
+          "label": "Heating time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TOG_ABKUEHLZEIT_WERT",
+          "label": "Cooling time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Steering-column switch",
+      "job": "STATUS_LENKSTOCKSCHALTER",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SPANNUNG_BLK_SCHALTER_WERT",
+          "label": "Turn-signal switch voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_FL_LH_SCHALTER_WERT",
+          "label": "High-beam / flasher switch voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_LWR_POTI_BEI_PU_LTG_LOW_WERT",
+          "label": "Headlight-aim poti voltage (pull-up low)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_LWR_POTI_BEI_PU_LTG_HIGH_WERT",
+          "label": "Headlight-aim poti voltage (pull-up high)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_DIMMER_POTI_BEI_PU_LTG_LOW_WERT",
+          "label": "Dimmer poti voltage (pull-up low)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_DIMMER_POTI_BEI_PU_LTG_HIGH_WERT",
+          "label": "Dimmer poti voltage (pull-up high)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Steering-column switch (LSS)",
+      "job": "STATUS_LESEN_LSS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SPANNUNG_BLK_SCHALTER_WERT",
+          "label": "Turn-signal switch voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_FL_LH_SCHALTER_WERT",
+          "label": "High-beam / flasher switch voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_LWR_POTI_BEI_PU_LTG_LOW_WERT",
+          "label": "Headlight-aim poti voltage (pull-up low)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_LWR_POTI_BEI_PU_LTG_HIGH_WERT",
+          "label": "Headlight-aim poti voltage (pull-up high)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_DIMMER_POTI_BEI_PU_LTG_LOW_WERT",
+          "label": "Dimmer poti voltage (pull-up low)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_DIMMER_POTI_BEI_PU_LTG_HIGH_WERT",
+          "label": "Dimmer poti voltage (pull-up high)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Service interval (SIA)",
+      "job": "SIA_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "GESAMTWEGSTRECKE_WERT",
+          "label": "Total distance [100 km]",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SI_WEGZAEHLER_WERT",
+          "label": "Service-interval distance counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SI_WEGSTRECKE_LETZTER_OELSERVICE_WERT",
+          "label": "Distance since last oil service [100 km]",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SI_ZEITINSPEKTIONSZAEHLER_WERT",
+          "label": "Time-inspection counter [days]",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Coding values",
+      "job": "CODIERUNG_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "COD_PERIODENDAUER_KALTUEBERWACHUNG_WERT",
+          "label": "Cold-monitoring period [s]",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "COD_PERIODENDAUER_GEDIMMTE_LICHTER_WERT",
+          "label": "Dimmed-lights period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "COD_BLS_B_SCHWELL_WERT",
+          "label": "Brake-light-switch acceleration threshold",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "COD_T_WARTE_FEHLER_BLS_WERT",
+          "label": "Brake-light-switch fault delay [s]",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "COD_MINIMALE_DIMMERSPANNUNG_WERT",
+          "label": "Minimum dimmer voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "COD_DELTA_MIN_UND_MAX_DIMMERSPANNUNG_WERT",
+          "label": "Min/max dimmer voltage delta",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "COD_SPANNUNGSBEGRENZUNG_STANDLICHT_WERT",
+          "label": "Voltage limit, parking light",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "COD_SPANNUNGSBEGRENZUNG_GEDIMMTE_BREMSLICHTER_WERT",
+          "label": "Voltage limit, dimmed brake lights",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "COD_SPANNUNGSBEGRENZUNG_GEDIMMTE_BLK_VORNE_WERT",
+          "label": "Voltage limit, dimmed front turn signals",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "STATUS_VORGEBEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "CODIERUNG_LESEN",
+      "field": "Coding parameter (AHM standby-mode query time)",
+      "kind": "hex",
+      "example": "22,40,0A",
+      "args_template": "Coding address/parameter bytes passed as the job's hex argument"
+    }
+  ]
+}

@@ -1,0 +1,463 @@
+{
+  "ecu": "ehc_01.IPO",
+  "screens": [
+    {
+      "group": "Calibration / test stamp",
+      "job": "PRUEFSTEMPEL_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABWEICHUNG_LINKS_WERT",
+          "label": "Deviation left",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABWEICHUNG_RECHTS_WERT",
+          "label": "Deviation right",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUFLOESUNG_LINKS_WERT",
+          "label": "Resolution left",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUFLOESUNG_RECHTS_WERT",
+          "label": "Resolution right",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_H_RL_FASTFILTER_WERT",
+          "label": "Height rear-left (fast filter)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_H_RR_FASTFILTER_WERT",
+          "label": "Height rear-right (fast filter)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_OFFSET_LINKS_ALT_WERT",
+          "label": "Offset left (old)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFFSET_LINKS_NEU_WERT",
+          "label": "Offset left (new)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFFSET_RECHTS_ALT_WERT",
+          "label": "Offset right (old)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFFSET_RECHTS_NEU_WERT",
+          "label": "Offset right (new)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SG_HOEHE_LINKS_WERT",
+          "label": "ECU height left",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SG_HOEHE_RECHTS_WERT",
+          "label": "ECU height right",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status values",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANALOG_RL_WERT",
+          "label": "Analog rear-left level",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ANALOG_RR_WERT",
+          "label": "Analog rear-right level",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ANALOG_UKL30_WERT",
+          "label": "Analog terminal 30 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ANALOG_USENS1_WERT",
+          "label": "Analog sensor 1 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ANALOG_USENS2_WERT",
+          "label": "Analog sensor 2 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_E_MODECONTROL_WERT",
+          "label": "Mode control",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIP_OPTION_WERT",
+          "label": "SIP option",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze-frame / system context",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Diagnostic message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "Freeze-frame: crankshaft RPM max",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "Freeze-frame: crankshaft RPM min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "Freeze-frame: fault-memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "Freeze-frame: speed max",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "Freeze-frame: speed min",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "Freeze-frame: terminals at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "Freeze-frame: terminals before fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "Freeze-frame: customer time year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "Freeze-frame: customer time minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "Freeze-frame: customer time month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "Freeze-frame: customer time second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "Freeze-frame: customer time hour",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "Freeze-frame: customer time day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "Freeze-frame: operating status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "Freeze-frame: operating status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "Freeze-frame: voltage max",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "Freeze-frame: voltage min",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "Freeze-frame: outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "Freeze-frame: engine/drive temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "Freeze-frame: distance",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "Freeze-frame: timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "Freeze-frame: time first terminal 15 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "Freeze-frame: time first terminal 50 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "Freeze-frame: time first terminal R on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "Freeze-frame: time of terminal change",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "Freeze-frame: time of op-status change",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "Freeze-frame: wake time",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy-saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy-saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FASTFILTER_RL_WERT",
+          "label": "Fast filter rear-left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FASTFILTER_RR_WERT",
+          "label": "Fast filter rear-right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ORGFASTFILTER_RL_WERT",
+          "label": "Original fast filter rear-left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ORGFASTFILTER_RR_WERT",
+          "label": "Original fast filter rear-right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SLOWFILTER_RL_WERT",
+          "label": "Slow filter rear-left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SLOWFILTER_RR_WERT",
+          "label": "Slow filter rear-right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "PRUEFSTEMPEL_LESEN",
+      "field": "Deviation from target height (input value)",
+      "kind": "number",
+      "example": "-3",
+      "args_template": "Signed numeric deviation in mm passed as the job argument."
+    },
+    {
+      "job": "PRUEFSTEMPEL_LESEN",
+      "field": "Actual height (left/right) input",
+      "kind": "number",
+      "example": "352",
+      "args_template": "Numeric actual-height value in mm passed as the job argument."
+    }
+  ]
+}

@@ -1,0 +1,1775 @@
+{
+  "ecu": "bdc.IPO",
+  "screens": [
+    {
+      "group": "Manufacturer info",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Environmental / VIN context",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Data memory message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "System context timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "System context customer time year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "System context customer time month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "System context customer time day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "System context customer time stunde",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "System context customer time minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "System context customer time second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "System context wegstrecke kilometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "System context voltage min",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "System context voltage max",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "System context temperature exterior",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "System context temperature motor drivetrain",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "System context speed min",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "System context speed max",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "System context RPM crankshaft min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "System context RPM crankshaft max",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "System context terminals at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "System context terminals before fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "System context time terminal change",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "System context operating status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "System context operating status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "System context time opstatuswechsel",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "System context time wecken",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "System context time first kl r on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "System context time first kl 15 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "System context time first kl 50 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "System context fault-memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy-saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy-saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIESPARMODE_TEXT",
+          "label": "Energy-saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Manufacturer info",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software/component versions",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "PROZESSKLASSE_WERT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status values",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CA_ANTENNEN_TEST_OKAY_TEXT",
+          "label": "Comfort access antenna test OK",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KOMM_TEST_OKAY_TEXT",
+          "label": "Komm test OK",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_FA_INIT_NR_TEXT",
+          "label": "Window driver init nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_BF_INIT_NR_TEXT",
+          "label": "Window passenger init nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_FA_BEWEGUNG_NR_TEXT",
+          "label": "Window driver movement nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_BF_BEWEGUNG_NR_TEXT",
+          "label": "Window passenger movement nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_FAH_INIT_NR_TEXT",
+          "label": "Window driver door init nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_BFH_INIT_NR_TEXT",
+          "label": "Window passenger door init nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_FAH_BEWEGUNG_NR_TEXT",
+          "label": "Window driver door movement nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FH_BFH_BEWEGUNG_NR_TEXT",
+          "label": "Window passenger door movement nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_ZAEHLER_WERT",
+          "label": "Driver reversing counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_1_POS_HALL_WERT",
+          "label": "Driver reversing 1 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_1_KM_WERT",
+          "label": "Driver reversing 1 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_1_SPANNUNG_WERT",
+          "label": "Driver reversing 1 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_1_GESCHWINDIGKEIT_WERT",
+          "label": "Driver reversing 1 speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_1_ATEMP_WERT",
+          "label": "Driver reversing 1 temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_2_POS_HALL_WERT",
+          "label": "Driver reversing 2 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_2_KM_WERT",
+          "label": "Driver reversing 2 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_2_SPANNUNG_WERT",
+          "label": "Driver reversing 2 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_2_GESCHWINDIGKEIT_WERT",
+          "label": "Driver reversing 2 speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_2_ATEMP_WERT",
+          "label": "Driver reversing 2 temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_3_POS_HALL_WERT",
+          "label": "Driver reversing 3 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_3_KM_WERT",
+          "label": "Driver reversing 3 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_3_SPANNUNG_WERT",
+          "label": "Driver reversing 3 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_3_GESCHWINDIGKEIT_WERT",
+          "label": "Driver reversing 3 speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_FA_REVERSIEREN_3_ATEMP_WERT",
+          "label": "Driver reversing 3 temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_ZAEHLER_WERT",
+          "label": "Passenger reversing counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_1_POS_HALL_WERT",
+          "label": "Passenger reversing 1 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_1_KM_WERT",
+          "label": "Passenger reversing 1 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_1_SPANNUNG_WERT",
+          "label": "Passenger reversing 1 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_1_GESCHWINDIGKEIT_WERT",
+          "label": "Passenger reversing 1 speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_1_ATEMP_WERT",
+          "label": "Passenger reversing 1 temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_2_POS_HALL_WERT",
+          "label": "Passenger reversing 2 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_2_KM_WERT",
+          "label": "Passenger reversing 2 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_2_SPANNUNG_WERT",
+          "label": "Passenger reversing 2 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_2_GESCHWINDIGKEIT_WERT",
+          "label": "Passenger reversing 2 speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_2_ATEMP_WERT",
+          "label": "Passenger reversing 2 temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_3_POS_HALL_WERT",
+          "label": "Passenger reversing 3 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_3_KM_WERT",
+          "label": "Passenger reversing 3 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_3_SPANNUNG_WERT",
+          "label": "Passenger reversing 3 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_3_GESCHWINDIGKEIT_WERT",
+          "label": "Passenger reversing 3 speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_BF_REVERSIEREN_3_ATEMP_WERT",
+          "label": "Passenger reversing 3 temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FA_DENORM_ZAEHLER_WERT",
+          "label": "Driver denormalization counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_DENORM_1_POS_HALL_WERT",
+          "label": "Driver denormalization 1 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_DENORM_1_KM_WERT",
+          "label": "Driver denormalization 1 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_RESERVED_1_WERT",
+          "label": "Driver reserved 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_DENORM_2_POS_HALL_WERT",
+          "label": "Driver denormalization 2 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_DENORM_2_KM_WERT",
+          "label": "Driver denormalization 2 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_RESERVED_2_WERT",
+          "label": "Driver reserved 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_DENORM_3_POS_HALL_WERT",
+          "label": "Driver denormalization 3 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_DENORM_3_KM_WERT",
+          "label": "Driver denormalization 3 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FA_RESERVED_3_WERT",
+          "label": "Driver reserved 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_ZAEHLER_WERT",
+          "label": "Passenger denormalization counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_1_POS_HALL_WERT",
+          "label": "Passenger denormalization 1 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_1_KM_WERT",
+          "label": "Passenger denormalization 1 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_RESERVED_1_WERT",
+          "label": "Passenger reserved 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_2_POS_HALL_WERT",
+          "label": "Passenger denormalization 2 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_2_KM_WERT",
+          "label": "Passenger denormalization 2 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_RESERVED_2_WERT",
+          "label": "Passenger reserved 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_3_POS_HALL_WERT",
+          "label": "Passenger denormalization 3 position hall sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_DENORM_3_KM_WERT",
+          "label": "Passenger denormalization 3 mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BF_RESERVED_3_WERT",
+          "label": "Passenger reserved 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPIEGEL_HEIZUNG_WERT",
+          "label": "Mirror heizung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUSSENSPIEGEL_ABBLEND_WERT",
+          "label": "Exterior mirror dimming",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UGDO_LAND_NR_TEXT",
+          "label": "Garage door (UGDO) land nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UGDO_MODE_NR_TEXT",
+          "label": "Garage door (UGDO) mode nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INNENSPIEGEL_ABBLEND_WERT",
+          "label": "Interior mirror dimming",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_POTI_DIMMUNG_WERT",
+          "label": "Potentiometer dimmung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_HOR_LINKS_WERT",
+          "label": "Position hor links",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_VER_LINKS_WERT",
+          "label": "Position ver links",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_HOR_RECHTS_WERT",
+          "label": "Position hor rechts",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_VER_RECHTS_WERT",
+          "label": "Position ver rechts",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AHL_REFERENZLAUF_NR_TEXT",
+          "label": "Ahl reference run nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LWR_REFERENZLAUF_NR_TEXT",
+          "label": "Lwr reference run nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TUERKONTAKT_FA_TEXT",
+          "label": "Door contact driver",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TUERKONTAKT_BF_TEXT",
+          "label": "Door contact passenger",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TUERKONTAKT_FAH_TEXT",
+          "label": "Door contact driver door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TUERKONTAKT_BFH_TEXT",
+          "label": "Door contact passenger door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTER_MOTORHAUBE_AKTIV_TEXT",
+          "label": "Switch motorhaube active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHLOSSNUSS_HALLSENSOR1_TEXT",
+          "label": "Lock barrel hallsensor1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHLOSSNUSS_HALLSENSOR2_TEXT",
+          "label": "Lock barrel hallsensor2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTER_BREMSLICHT_AKTIV_TEXT",
+          "label": "Switch bremslicht active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUEHLMITTELSTAND_WERT",
+          "label": "Kuehlmittelstand",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WASSERVENTIL_LI_PWM_WERT",
+          "label": "Water valve li PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WASSERVENTIL_RE_PWM_WERT",
+          "label": "Water valve re PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FONDSCHICHTUNGS_POTI_WERT",
+          "label": "Rear stratification potentiometer",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KLIMAKOMPRESSOR_PWM_WERT",
+          "label": "AC compressor PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOLARSENSOR_FA_WERT",
+          "label": "Solar sensor driver",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLARSENSOR_BF_WERT",
+          "label": "Solar sensor passenger",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUC_SENSOR_NR_TEXT",
+          "label": "Auc sensor nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BESCHLAGSENSOR_WERT",
+          "label": "Humidity sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WASCHDUESENHEIZUNG_WERT",
+          "label": "Waschduesenheizung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WASCHWASSERSTAND_WERT",
+          "label": "Waschwasserstand",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKSTOCK_WISCHER_RAENDEL_NR_TEXT",
+          "label": "Lenkstock wischer raendel nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADHEIZUNG_STROM_WERT",
+          "label": "Steering wheel heating current",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_LENKRADHEIZUNG_AKTUATOR_STATUS_NR_TEXT",
+          "label": "Steering wheel heating actuator status nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TASTER_LENKRAD_MFL_FGR_TIPPRAENDEL_NR_TEXT",
+          "label": "Button steering wheel steering wheel buttons fgr thumbwheel nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TASTER_LENKRAD_MFL_TIPPRAENDEL_BC_NR_TEXT",
+          "label": "Button steering wheel steering wheel buttons thumbwheel bc nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRAD_SCHALTPADPLE_NR_TEXT",
+          "label": "Steering wheel schaltpadple nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTPADDLES_AD_WERT",
+          "label": "Shift paddles ad",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TLC_AKTUATOR_STATUS_NR_TEXT",
+          "label": "TLC actuator status nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TLC_TASTER_LED_NR_TEXT",
+          "label": "TLC button led nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TLC_AKTUATOR_WERT",
+          "label": "TLC actuator",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TLC_AKTUATOR_HW_LEITUNG_WERT",
+          "label": "TLC actuator hw leitung",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TAGE_ER_FT_TEXT",
+          "label": "Days er driver door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_ER_BFT_TEXT",
+          "label": "Days er passenger door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_ER_FTH_TEXT",
+          "label": "Days er driver rear door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_ER_BFTH_TEXT",
+          "label": "Days er passenger rear door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_FT_TEXT",
+          "label": "Days driver door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_BFT_TEXT",
+          "label": "Days passenger door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_FTH_TEXT",
+          "label": "Days driver rear door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAGE_BFTH_TEXT",
+          "label": "Days passenger rear door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CAS_MONTAGEMODUS_TEXT",
+          "label": "CAS assembly mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPANNUNG_KLEMME_30L1_WERT",
+          "label": "Voltage terminal 30l1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNG_KLEMME_30L2_WERT",
+          "label": "Voltage terminal 30l2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_KEY_VAILD_NR_AKTUELL_TEXT",
+          "label": "Key vaild nr present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PIA_NR_AKTUELL_TEXT",
+          "label": "Pia nr present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SELBSTTEST_NR_TEXT",
+          "label": "Self-test nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SELBSTTEST_FC_NR_TEXT",
+          "label": "Self-test fc nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WISCHER_LIN_EINLERNVORGANG_TEXT",
+          "label": "Wischer lin einlernvorgang",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ROUTINE_TEXT",
+          "label": "Routine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WISCHEREINLERNVORGANG_TEXT",
+          "label": "Wischereinlernvorgang",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ANZAHL_WISCHZYKLEN_WERT",
+          "label": "Count wipe cycles",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Cornering light step losses",
+      "job": "STATUS_KURVENLICHT_SCHRITTVERLUSTE",
+      "args": "0x01",
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SCHRITTVERLUSTGRENZE_1_WERT",
+          "label": "Step loss limit 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHRITTVERLUSTGRENZE_2_WERT",
+          "label": "Step loss limit 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHRITTVERLUSTGRENZE_3_WERT",
+          "label": "Step loss limit 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHRITTVERLUSTGRENZE_4_WERT",
+          "label": "Step loss limit 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHRITTVERLUSTGRENZE_5_WERT",
+          "label": "Step loss limit 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHRITTVERLUSTGRENZE_6_WERT",
+          "label": "Step loss limit 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Central locking status",
+      "job": "STATUS_ZV_AKTUELL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZV_STATUS_TEXT",
+          "label": "Central locking status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZV_FT_TEXT",
+          "label": "Central locking driver door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZV_BFT_TEXT",
+          "label": "Central locking passenger door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZV_FTH_TEXT",
+          "label": "Central locking driver rear door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZV_BFTH_TEXT",
+          "label": "Central locking passenger rear door",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZV_HECKKLAPPE_TEXT",
+          "label": "Central locking heckklappe",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZV_HECKSCHEIBE_TEXT",
+          "label": "Central locking heckscheibe",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lamp output (digital)",
+      "job": "STATUS_LEUCHTENAUSGANG_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMMENSTATUS_TEXT",
+          "label": "Terminal status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MONTAGEMODUS_TEXT",
+          "label": "Assembly mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Terminal inhibitors",
+      "job": "STATUS_KLEMMEN_VERHINDERER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KL15_EIN_VERHINDERER_TEXT",
+          "label": "Terminal 15 (ignition) on inhibitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL15_AUS_VERHINDERER_TEXT",
+          "label": "Terminal 15 (ignition) aus inhibitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL50_EIN_VERHINDERER_TEXT",
+          "label": "Kl50 on inhibitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Chassis number (VIN)",
+      "job": "STATUS_FAHRGESTELLNUMMER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FGNR17_WERT",
+          "label": "Fgnr17",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAS frequency type",
+      "job": "STATUS_CAS_FREQ_TYPE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INIT_FREQ_TEXT",
+          "label": "Init frequency",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRSP_TYPE_TEXT",
+          "label": "Transponder type",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "First registration date",
+      "job": "STATUS_CAS_INIT_LOC_DATE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INIT_YEAR_WERT",
+          "label": "Init year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INIT_MONTH_WERT",
+          "label": "Init month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INIT_DAY_WERT",
+          "label": "Init day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INIT_LOCATION_WERT",
+          "label": "Init location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INIT_STATION_WERT",
+          "label": "Init station",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HAENDLER_NUMMER_WERT",
+          "label": "Haendler nummer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ERSTZULASSUNGSDATUM_JAHR_WERT",
+          "label": "First registration date year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ERSTZULASSUNGSDATUM_MONAT_WERT",
+          "label": "First registration date month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ERSTZULASSUNGSDATUM_TAG_WERT",
+          "label": "First registration date day",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "EGS individual serial number",
+      "job": "STATUS_EGS_ISN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EGS_ISN_WERT",
+          "label": "Transmission (EGS) serial number",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAS wake-up",
+      "job": "STATUS_CAS_WUP",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FBD_WAKEUP_WERT",
+          "label": "Remote key wake-up",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FBDEMPFAENGER1_WAKEUP_WERT",
+          "label": "Fbdempfaenger1 wake-up",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Key data",
+      "job": "STATUS_SCHLUESSELDATEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KEY_ID_WERT",
+          "label": "Key ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PIA_NR_TEXT",
+          "label": "Pia nr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INIT_DONE_TEXT",
+          "label": "Init done",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KEY_DISABLED_TEXT",
+          "label": "Key disabled",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Key transponder",
+      "job": "STATUS_SCHLUESSEL_TRSP",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KEY_ID_WERT",
+          "label": "Key ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KEY_TRSP_TYPE_TEXT",
+          "label": "Key transponder type",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Remote key (FBD) telegram",
+      "job": "STATUS_FBD_TELEGRAMM",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FBD_AKTION_TEXT",
+          "label": "Remote key aktion",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KEY_ID_WERT",
+          "label": "Key ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CA_SUCH_ORT_TEXT",
+          "label": "Comfort access search location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TAB_INDEX_TEXT",
+          "label": "Tab index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FBD_FELDSTAERKE_WERT",
+          "label": "Remote key feldstaerke",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Operating mode",
+      "job": "STATUS_BETRIEBSMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BETRIEBSMODE_WERT",
+          "label": "Operating mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BETRIEBSMODE_TEXT",
+          "label": "Operating mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Terminal 30F shutdown history",
+      "job": "STATUS_HISTORIE_30F_ABSCHALTUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KILOMETERSTAND_WERT",
+          "label": "Kilometerstand",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Enter comment to store",
+      "kind": "text",
+      "example": "Inspection done",
+      "args_template": "comment string sent to ECU"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter comment to store",
+      "kind": "text",
+      "example": "Inspection done",
+      "args_template": "comment string sent to ECU"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Enter remote key (FFB) ID",
+      "kind": "hex",
+      "example": "1A,2B",
+      "args_template": "key ID bytes appended to job args"
+    }
+  ]
+}

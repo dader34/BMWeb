@@ -1,0 +1,45 @@
+{
+  "ecu": "RLS_E65.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "Fault P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "Fault P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SYMPTOM_TEXT", "label": "Logistic counter", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Fault ready status", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Fault warning", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Read all status values",
+      "job": "STATUS_LESEN_ALLE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_V_WERT", "label": "Base amplification factor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I0_WERT", "label": "Integrator 0 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I1_WERT", "label": "Integrator 1 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I2_WERT", "label": "Integrator 2 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_I3_WERT", "label": "Integrator 3 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_UMLI_WERT", "label": "Ambient light (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FROLI_WERT", "label": "Forward light (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_UMLIFILT_WERT", "label": "Ambient light, filtered (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FROLIFILT_WERT", "label": "Forward light, filtered (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS1_WERT", "label": "Measurement 1 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS2_WERT", "label": "Measurement 2 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS3_WERT", "label": "Measurement 3 (digits)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESS4_WERT", "label": "Measurement 4 (digits)", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

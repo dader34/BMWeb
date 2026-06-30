@@ -1,0 +1,36 @@
+{
+  "ecu": "MSS50.IPO",
+  "screens": [
+    {
+      "group": "Calibration flag (memory test)",
+      "job": "ABGLEICHFLAG_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ABGLEICHFLAG_LESEN_WERT", "label": "Calibration flag status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "ROM memory test",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ROM_LESEN_WERT", "label": "ROM check result", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "RAM memory test",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "RAM_LESEN_WERT", "label": "RAM check result", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

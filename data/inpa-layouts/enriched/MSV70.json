@@ -1,0 +1,691 @@
+{
+  "ecu": "MSV70.IPO",
+  "screens": [
+    {
+      "group": "Running roughness power loss (engine orders)",
+      "job": "STATUS_MESSWERTE_LRP",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AMO_05_WERT",
+          "label": "Total DFT 0.5 engine order",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AMO_10_WERT",
+          "label": "Total DFT 1.0 engine order",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AMO_15_WERT",
+          "label": "Total DFT 1.5 engine order",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AMO_20_WERT",
+          "label": "Total DFT 2.0 engine order",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Minimum lift adaptation",
+      "job": "STATUS_MESSWERTE_LRP",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MINHUB_WERT",
+          "label": "Effective minimum lift",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_F_MINHUB_WERT",
+          "label": "Min-lift fade-in/out factor",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Filtered running-roughness delta (per cylinder)",
+      "job": "STATUS_MESSWERTE_LRP",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LURABS_F_0_WERT",
+          "label": "Running-roughness delta, cylinder 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURABS_F_4_WERT",
+          "label": "Running-roughness delta, cylinder 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURABS_F_2_WERT",
+          "label": "Running-roughness delta, cylinder 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURABS_F_5_WERT",
+          "label": "Running-roughness delta, cylinder 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURABS_F_1_WERT",
+          "label": "Running-roughness delta, cylinder 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURABS_F_3_WERT",
+          "label": "Running-roughness delta, cylinder 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Mean running-roughness deviation (per cylinder)",
+      "job": "STATUS_MESSWERTE_LRP",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LURDIF_F_0_WERT",
+          "label": "Mean running-roughness deviation, cylinder 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURDIF_F_4_WERT",
+          "label": "Mean running-roughness deviation, cylinder 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURDIF_F_2_WERT",
+          "label": "Mean running-roughness deviation, cylinder 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURDIF_F_5_WERT",
+          "label": "Mean running-roughness deviation, cylinder 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURDIF_F_1_WERT",
+          "label": "Mean running-roughness deviation, cylinder 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LURDIF_F_3_WERT",
+          "label": "Mean running-roughness deviation, cylinder 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD readiness: misfire & fuel system",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MONITOR_VA_WERT",
+          "label": "Misfire monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_VA_WERT",
+          "label": "Misfire readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MONITOR_KSS_WERT",
+          "label": "Fuel system monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_KSS_WERT",
+          "label": "Fuel system readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD readiness: catalyst",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MONITOR_KAT_WERT",
+          "label": "Catalyst monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_KAT_WERT",
+          "label": "Catalyst readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MONITOR_KH_WERT",
+          "label": "Catalyst heating monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_KH_WERT",
+          "label": "Catalyst heating readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD readiness: O2 sensors",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MONITOR_LS_WERT",
+          "label": "O2 sensor monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_LS_WERT",
+          "label": "O2 sensor readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MONITOR_LSH_WERT",
+          "label": "O2 sensor heating monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_LSH_WERT",
+          "label": "O2 sensor heating readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Mixture adaptation (TI correction)",
+      "job": "STATUS_ADAPTION_GEMISCH",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_INT_WERT",
+          "label": "TI correction, bank 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_INT_2_WERT",
+          "label": "TI correction, bank 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage, pre-cat",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x5A50,0x5A51",
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_WERT",
+          "label": "O2 sensor voltage pre-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_L_SONDE_2_WERT",
+          "label": "O2 sensor voltage pre-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage, post-cat",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_H_WERT",
+          "label": "O2 sensor voltage post-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_L_SONDE_2_H_WERT",
+          "label": "O2 sensor voltage post-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Camshaft spread (VANOS)",
+      "job": "STATUS_MESSWERTE_VANOS",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_EINLASS_WERT",
+          "label": "Intake camshaft spread, actual",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        },
+        {
+          "key": "STAT_EINLASS_SOLL_WERT",
+          "label": "Intake camshaft spread, target",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        },
+        {
+          "key": "STAT_AUSLASS_WERT",
+          "label": "Exhaust camshaft spread, actual",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        },
+        {
+          "key": "STAT_AUSLASS_SOLL_WERT",
+          "label": "Exhaust camshaft spread, target",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        }
+      ]
+    },
+    {
+      "group": "Camshaft spread (measurement block)",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x5818,0x4500,0x4502,0x4508,0x4509,0x58E2,0x58E0,0x4610,0x4600,0x5A77,0x4205,0x4201,0x58E4",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NW_EINLASSSPREIZUNG_WERT",
+          "label": "Intake camshaft spread, actual",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        },
+        {
+          "key": "STAT_NW_AUSLASSSPREIZUNG_WERT",
+          "label": "Exhaust camshaft spread, actual",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        }
+      ]
+    },
+    {
+      "group": "DISA flap & throttle",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x5818,0x4500,0x4502,0x4508,0x4509,0x58E2,0x58E0,0x4610,0x4600,0x5A77,0x4205,0x4201,0x58E4",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DISAKLAPPEN_POSITION_WERT",
+          "label": "DISA flap current position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DROSSELKLAPPENWINKEL_WERT",
+          "label": "Throttle valve, current value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Tank vent valve & boost pressure",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x5818,0x4500,0x4502,0x4508,0x4509,0x58E2,0x58E0,0x4610,0x4600,0x5A77,0x4205,0x4201,0x58E4",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEV_PWM_WERT",
+          "label": "Tank vent valve (TEV) PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADEDRUCK_WERT",
+          "label": "Intake manifold pressure 1 / boost 1",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Coolant temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADC_TMOT_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Intake air temperature",
+      "job": "STATUS_AN_LUFTTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_WERT",
+          "label": "Intake air temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ADC_TANS1_WERT",
+          "label": "Intake air temperature sensor 1 (raw)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Mass air flow",
+      "job": "STATUS_HFMS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADC_HFMS_WERT",
+          "label": "Hot-film mass air flow (raw)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Battery voltage",
+      "job": "STATUS_UBATT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADC_UVSG_WERT",
+          "label": "Control unit supply voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Throttle position sensor voltage",
+      "job": "STATUS_DKP_VOLT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DKP_VOLT_WERT",
+          "label": "Throttle position sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADC2_DK_WERT",
+          "label": "Throttle ADC channel 2 (raw)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Throttle adaptation",
+      "job": "STATUS_ADAPTION_DK",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DK_ADD_WERT",
+          "label": "Throttle additive adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DK_FAC_WERT",
+          "label": "Throttle multiplicative adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CO adjustment",
+      "job": "STATUS_CO_ABGLEICH",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CO_ABGLEICH_WERT",
+          "label": "CO adjustment value",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power management: battery balance",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Total battery charge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Total battery discharge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_BILANZ_WERT",
+          "label": "Battery charge balance",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTENTLADUNG_GESAMT_BEI_MOTOR_LAEUFT_WERT",
+          "label": "Total discharge while engine running",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "2nd-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "3rd-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "4th-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power management: battery capacity",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery capacity",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Crank wheel adaptation",
+      "job": "STATUS_GEBERRAD_ADAPTION",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSE_WERT",
+          "label": "Crank wheel adaptation, intake side",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSA_WERT",
+          "label": "Crank wheel adaptation, exhaust side",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

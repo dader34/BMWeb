@@ -1,0 +1,176 @@
+{
+  "ecu": "svt_rrs2.IPO",
+  "screens": [
+    {
+      "group": "Servo controller status (EVV)",
+      "job": "STATUS_EVV_REGLER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_STROM_IST_WERT", "label": "Actual current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_STROM_SOLL_WERT", "label": "Target current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_TASTVERHAELTNIS_WERT", "label": "Duty cycle", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STATUS_SERVO_RAMPE_TEXT", "label": "Servo ramp status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_STATUS_SERVO_REGLER_TEXT", "label": "Servo controller status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Voltages",
+      "job": "STATUS_SPANNUNGEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SPANNUNG_KLEMME30_WERT", "label": "Terminal 30 voltage (battery)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_KLEMME15_WAKEUP_WERT", "label": "Terminal 15 wakeup voltage (ignition)", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Bus information",
+      "job": "STATUS_BUSINFORMATIONEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_LENKRADWINKEL_WERT", "label": "Steering wheel angle", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_GESCHWINDIGKEIT_TEXT", "label": "Vehicle speed fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_LENKRADWINKEL_TEXT", "label": "Steering wheel angle fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_KILOMETERSTAND_TEXT", "label": "Odometer fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_AUSSENTEMPERATUR_TEXT", "label": "Outside temperature fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_DAEMPFERPROGRAMM_TEXT", "label": "Damper program fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_KLEMMENSTATUS_TEXT", "label": "Terminal status fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FEHLER_MOTORDATEN_TEXT", "label": "Engine data fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EDCK_PROGRAMM_KOMFORT_TEXT", "label": "EDC-K comfort program", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Servo controller status",
+      "job": "STATUS_SERVO_REGLER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_STROM_IST_WERT", "label": "Actual current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_TASTVERHAELTNIS_WERT", "label": "Duty cycle", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Energy saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIESPARMODE_WERT", "label": "Energy saving mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MODE_WERT", "label": "Mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FERTIGUNGSMODE_WERT", "label": "Production mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TRANSPORTMODE_WERT", "label": "Transport mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WERKSTATTMODE_WERT", "label": "Workshop mode", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier ID", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "SENSOR_HERSTELLER_TEXT", "label": "Sensor manufacturer", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "SVK / process class",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "PROZESSKLASSE_TEXT", "label": "Process class", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "Fault P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "Fault P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SAE_CODE_TEXT", "label": "SAE fault code", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault details",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_READY_TEXT", "label": "Readiness status", "unit": null, "min": null, "max": null },
+        { "key": "F_SYMPTOM_TEXT", "label": "Fault symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "System context (freeze frame)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DM_MELDUNG_TEXT", "label": "Diagnostic message", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT", "label": "Speed at fault (min)", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT", "label": "Speed at fault (max)", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT", "label": "Crankshaft RPM (min)", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT", "label": "Crankshaft RPM (max)", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT", "label": "Voltage at fault (min)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT", "label": "Voltage at fault (max)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT", "label": "Outside temperature at fault", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT", "label": "Engine/drivetrain temperature at fault", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT", "label": "Distance at fault", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT", "label": "Fault memory lock active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT", "label": "Terminal state before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT", "label": "Terminal state at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT", "label": "Operating status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT", "label": "Operating status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT", "label": "Timestamp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT", "label": "Customer time: year", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT", "label": "Customer time: month", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT", "label": "Customer time: day", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT", "label": "Customer time: hour", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT", "label": "Customer time: minute", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT", "label": "Customer time: second", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT", "label": "Time first terminal 15 on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT", "label": "Time first terminal 50 on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT", "label": "Time first terminal R on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT", "label": "Time of terminal change", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT", "label": "Time of operating status change", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT", "label": "Time of wakeup", "unit": null, "min": null, "max": null },
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "Free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "Free-text comment string passed to the job"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "ecu": "ZKE4TEST.IPO",
+  "screens": [
+    {
+      "group": "ZKE4 fault memory check",
+      "job": "PRUEFUNG_FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

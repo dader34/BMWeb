@@ -1,0 +1,1981 @@
+{
+ "ecu": "ME9_N62.IPO",
+ "screens": [
+  {
+   "group": "Fault memory",
+   "job": "FS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "F_ORT_TEXT",
+     "label": "Fault location",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_SYMPTOM_TEXT",
+     "label": "Fault symptom",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_READY_TEXT",
+     "label": "Fault readiness",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_VORHANDEN_TEXT",
+     "label": "Fault present",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_WARNUNG_TEXT",
+     "label": "Fault warning",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF1_TEXT",
+     "label": "Fault Ff1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF2_TEXT",
+     "label": "Fault Ff2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF3_WERT",
+     "label": "Fault Ff3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF4_WERT",
+     "label": "Fault Ff4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF5_WERT",
+     "label": "Fault Ff5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF6_WERT",
+     "label": "Fault Ff6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF7_WERT",
+     "label": "Fault Ff7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF8_WERT",
+     "label": "Fault Ff8",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF9_WERT",
+     "label": "Fault Ff9",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF10_WERT",
+     "label": "Fault Ff10",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_FF11_WERT",
+     "label": "Fault Ff11",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW9_WERT",
+     "label": "Fault Uw9",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW5_WERT",
+     "label": "Fault Uw5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW1_WERT",
+     "label": "Fault Uw1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW10_WERT",
+     "label": "Fault Uw10",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW6_WERT",
+     "label": "Fault Uw6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW2_WERT",
+     "label": "Fault Uw2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW11_WERT",
+     "label": "Fault Uw11",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW7_WERT",
+     "label": "Fault Uw7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW3_WERT",
+     "label": "Fault Uw3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW12_WERT",
+     "label": "Fault Uw12",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW8_WERT",
+     "label": "Fault Uw8",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_UW4_WERT",
+     "label": "Fault Uw4",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Shadow fault memory",
+   "job": "HS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "F_PCODE_TEXT",
+     "label": "Fault P-code",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_PCODE7_TEXT",
+     "label": "Fault P-code (7-digit)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "ID_LIEF_TEXT",
+     "label": "ID supplier",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fasta4",
+   "job": "STATUS_FASTA4",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MINHUB_WERT",
+     "label": "Minhub",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_UPWG_WERT",
+     "label": "Upwg",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_COPOT_WERT",
+     "label": "Copot",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_GVIST_WERT",
+     "label": "Gvist",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FTBR_WERT",
+     "label": "Ftbr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FHO_WERT",
+     "label": "Fho",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FTVDK_WERT",
+     "label": "Ftvdk",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MSNVVTOLL_WERT",
+     "label": "Msnvvtoll",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSESPRS_WERT",
+     "label": "Vsesprs",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSE2SPRS_WERT",
+     "label": "Vse2sprs",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSASPRS_WERT",
+     "label": "Vsasprs",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSA2SPRS_WERT",
+     "label": "Vsa2sprs",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Messwerte",
+   "job": "STATUS_MESSWERTE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_UB_WERT",
+     "label": "Ub",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_NSOL_WERT",
+     "label": "Nsol",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_NMOT_WERT",
+     "label": "Nmot",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VFZG_WERT",
+     "label": "Vfzg",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_TANS_WERT",
+     "label": "Tans",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MSHFM_WERT",
+     "label": "Mshfm",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TKA_WERT",
+     "label": "Tka",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TMOT_WERT",
+     "label": "Tmot",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN0_WERT",
+     "label": "Rkrn0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN1_WERT",
+     "label": "Rkrn1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN2_WERT",
+     "label": "Rkrn2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN3_WERT",
+     "label": "Rkrn3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN4_WERT",
+     "label": "Rkrn4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN5_WERT",
+     "label": "Rkrn5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN6_WERT",
+     "label": "Rkrn6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKRN7_WERT",
+     "label": "Rkrn7",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "DK KT",
+   "job": "STATUS_DK_KT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_WDKBA_WERT",
+     "label": "Wdkba",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_WDKS_WERT",
+     "label": "Wdks",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Misfire roughness",
+   "job": "STATUS_LAUFUNRUHE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LUTSFI1_WERT",
+     "label": "Lutsfi1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI2_WERT",
+     "label": "Lutsfi2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI3_WERT",
+     "label": "Lutsfi3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI4_WERT",
+     "label": "Lutsfi4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI5_WERT",
+     "label": "Lutsfi5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI6_WERT",
+     "label": "Lutsfi6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI7_WERT",
+     "label": "Lutsfi7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LUTSFI8_WERT",
+     "label": "Lutsfi8",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "L Sonde",
+   "job": "STATUS_L_SONDE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_L_SONDE_WERT",
+     "label": "L Sonde",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "L Sonde 2",
+   "job": "STATUS_L_SONDE_2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_L_SONDE_2_WERT",
+     "label": "L Sonde 2",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "L Sonde H",
+   "job": "STATUS_L_SONDE_H",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_L_SONDE_H_WERT",
+     "label": "L Sonde H",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "L Sonde 2 H",
+   "job": "STATUS_L_SONDE_2_H",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_L_SONDE_2_H_WERT",
+     "label": "L Sonde 2 H",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "INT",
+   "job": "STATUS_INT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_INT_WERT",
+     "label": "Int",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "INT 2",
+   "job": "STATUS_INT_2",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_INT_2_WERT",
+     "label": "Int 2",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Additive",
+   "job": "STATUS_ADD",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ADD_WERT",
+     "label": "Additive",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Additive 2",
+   "job": "STATUS_ADD_2",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ADD_2_WERT",
+     "label": "Additive 2",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Multiplicative",
+   "job": "STATUS_MUL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MUL_WERT",
+     "label": "Multiplicative",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Multiplicative 2",
+   "job": "STATUS_MUL_2",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MUL_2_WERT",
+     "label": "Multiplicative 2",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fasta5",
+   "job": "STATUS_FASTA5",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_EVHUBI_WERT",
+     "label": "Evhubi",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EVHUBI2_WERT",
+     "label": "Evhubi2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EVHUBS_WERT",
+     "label": "Evhubs",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EXWINKI_WERT",
+     "label": "Exwinki",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EXWINKI2_WERT",
+     "label": "Exwinki2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EXWINKS_WERT",
+     "label": "Exwinks",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DFSERESZ_WERT",
+     "label": "Dfseresz",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMVADFK_WERT",
+     "label": "Dmvadfk",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMVADLL_WERT",
+     "label": "Dmvadll",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FE_WERT",
+     "label": "Fe",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Ausgaenge",
+   "job": "STATUS_AUSGAENGE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VSESPRI_WERT",
+     "label": "Vsespri",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSESPRI2_WERT",
+     "label": "Vsespri2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSETV_WERT",
+     "label": "Vsetv",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VSETV2_WERT",
+     "label": "Vsetv2",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VSASPRI_WERT",
+     "label": "Vsaspri",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSASPRI2_WERT",
+     "label": "Vsaspri2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSATV_WERT",
+     "label": "Vsatv",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VSATV2_WERT",
+     "label": "Vsatv2",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Sensor wheel Adaptation",
+   "job": "STATUS_GEBERRAD_ADAPTION",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GEBERRAD_ADAPTION_VSA_WERT",
+     "label": "Sensor wheel Adaptation Vsa",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_GEBERRAD_ADAPTION_VSA_2_WERT",
+     "label": "Sensor wheel Adaptation Vsa 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_GEBERRAD_ADAPTION_VSE_WERT",
+     "label": "Sensor wheel Adaptation Vse",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_GEBERRAD_ADAPTION_VSE_2_WERT",
+     "label": "Sensor wheel Adaptation Vse 2",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    }
+   ]
+  },
+  {
+   "group": "DISA KT",
+   "job": "STATUS_DISA_KT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DISA_WERT",
+     "label": "Disa",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Accelerator pedal potentiometer Voltage",
+   "job": "STATUS_PWG_POTI_SPANNUNG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_PWG_POTI_SPANNUNG_1_WERT",
+     "label": "Accelerator pedal potentiometer Voltage 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_PWG_POTI_SPANNUNG_2_WERT",
+     "label": "Accelerator pedal potentiometer Voltage 2",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "Fasta1",
+   "job": "STATUS_FASTA1",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TSG_WERT",
+     "label": "Tsg",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMVAD_WERT",
+     "label": "Dmvad",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DPS_WERT",
+     "label": "Dps",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DPSRAUS_WERT",
+     "label": "Dpsraus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FKMSVVT_WERT",
+     "label": "Fkmsvvt",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FPRSTEP_WERT",
+     "label": "Fprstep",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LRNSTEP_WERT",
+     "label": "Lrnstep",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MSNVVTO_WERT",
+     "label": "Msnvvto",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NNW10_WERT",
+     "label": "Nnw10",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NNW11_WERT",
+     "label": "Nnw11",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NNW12_WERT",
+     "label": "Nnw12",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NNW20_WERT",
+     "label": "Nnw20",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NNW21_WERT",
+     "label": "Nnw21",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NNW22_WERT",
+     "label": "Nnw22",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fasta2",
+   "job": "STATUS_FASTA2",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_NSOLFASTA_WERT",
+     "label": "Nsolfasta",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RL_WERT",
+     "label": "Rl",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RLSOL_WERT",
+     "label": "Rlsol",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TE_WERT",
+     "label": "Te",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TE2_WERT",
+     "label": "Te2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VVTSTATUS_WERT",
+     "label": "Vvtstatus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_WDKBAFASTA_WERT",
+     "label": "Wdkbafasta",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_WPED_WERT",
+     "label": "Wped",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZWIST_WERT",
+     "label": "Zwist",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMLLRI_WERT",
+     "label": "Dmllri",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MIMIN_WERT",
+     "label": "Mimin",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fasta3",
+   "job": "STATUS_FASTA3",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MDGEN_WERT",
+     "label": "Mdgen",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MDKO_WERT",
+     "label": "Mdko",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMRLLR_WERT",
+     "label": "Dmrllr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MDWAN_WERT",
+     "label": "Mdwan",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DWKR_WERT",
+     "label": "Dwkr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DZWS_WERT",
+     "label": "Dzws",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DFFGEN_WERT",
+     "label": "Dffgen",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TUMG_WERT",
+     "label": "Tumg",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMVADFS_WERT",
+     "label": "Dmvadfs",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMVADKO_WERT",
+     "label": "Dmvadko",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DLAHI_WERT",
+     "label": "Dlahi",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DLAHI2_WERT",
+     "label": "Dlahi2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RINH_WERT",
+     "label": "Rinh",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RINH2_WERT",
+     "label": "Rinh2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RKATS_WERT",
+     "label": "Rkats",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DPSSOL_WERT",
+     "label": "Dpssol",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fasta6",
+   "job": "STATUS_FASTA6",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FKMSVVTA_WERT",
+     "label": "Fkmsvvta",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FOFRESZ_WERT",
+     "label": "Fofresz",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MSDIF_WERT",
+     "label": "Msdif",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TABGM_WERT",
+     "label": "Tabgm",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TNSE_WERT",
+     "label": "Tnse",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZRWPERM_WERT",
+     "label": "Ozrwperm",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZRWKVB_WERT",
+     "label": "Ozrwkvb",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZOELZEIT_WERT",
+     "label": "Ozoelzeit",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZKVBSM_WERT",
+     "label": "Ozkvbsm",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZPERMLOW_WERT",
+     "label": "Ozpermlow",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZPERMEX_WERT",
+     "label": "Ozpermex",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZPERMOFF_WERT",
+     "label": "Ozpermoff",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZKVBOG_WERT",
+     "label": "Ozkvbog",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OZPERMBOG_WERT",
+     "label": "Ozpermbog",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Fasta7",
+   "job": "STATUS_FASTA7",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_NADMTLL_WERT",
+     "label": "Nadmtll",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NTGLM_WERT",
+     "label": "Ntglm",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NTKLM_WERT",
+     "label": "Ntklm",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NDIPFRO_WERT",
+     "label": "Ndipfro",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_NKFL_WERT",
+     "label": "Nkfl",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SSLLCNT_WERT",
+     "label": "Ssllcnt",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MINHUBFAK_WERT",
+     "label": "Minhubfak",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MINADRDY_WERT",
+     "label": "Minadrdy",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FDLUBBGL_WERT",
+     "label": "Fdlubbgl",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OFWNKBG1_WERT",
+     "label": "Ofwnkbg1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OFWNKBG2_WERT",
+     "label": "Ofwnkbg2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OFWNKMX_WERT",
+     "label": "Ofwnkmx",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "System check SEK Air",
+   "job": "STATUS_SYSTEMCHECK_SEK_LUFT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SYSTEMCHECK_SEK_LUFT_WERT",
+     "label": "System check Sek Air",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Purge valve function check",
+   "job": "STATUS_SYSTEMCHECK_TEV_FUNC",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "LESEN_SYSTEMCHECK_TEV_WERT",
+     "label": "Read System check purge valve",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSTEMCHECK_TEV_FUNC_WERT",
+     "label": "System check purge valve Func",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "VVT end stop",
+   "job": "STATUS_VVT_ANSCHLAG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VVT_ANSCHL1_TEXT",
+     "label": "VVT Anschl1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VVT_ANSCHL2_TEXT",
+     "label": "VVT Anschl2",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Power management info 1",
+   "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KM_STAND_AKTUELL_WERT",
+     "label": "Km reading Current",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+     "label": "Km reading pre 1 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_2_TAG_WERT",
+     "label": "Km reading pre 2 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_3_TAG_WERT",
+     "label": "Km reading pre 3 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_4_TAG_WERT",
+     "label": "Km reading pre 4 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_5_TAG_WERT",
+     "label": "Km reading pre 5 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+     "label": "Battery replacement (last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+     "label": "Battery replacement (2nd last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+     "label": "Battery replacement (3rd last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+     "label": "Battery replacement (4th last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+     "label": "Battery replacement (5th last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+     "label": "Time in charge range 0 20",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+     "label": "Time in charge range 20 40",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+     "label": "Time in charge range 40 60",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+     "label": "Time in charge range 60 80",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+     "label": "Time in charge range 80 100",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+     "label": "Time in temp range to 0",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+     "label": "Time in temp range 0 20",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+     "label": "Time in temp range 20 40",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+     "label": "Time in temp range 40 60",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+     "label": "Time in temp range from 60",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+     "label": "Total battery charge",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+     "label": "Total battery discharge",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIELADUNG_BILANZ_WERT",
+     "label": "Battery charge balance",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTENTLADUNG_GESAMT_BEI_MOTOR_LAEUFT_WERT",
+     "label": "Total battery discharge, engine running",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+     "label": "Ibs Fehlerzaehler Bsd Parity",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+     "label": "Ibs Fehlerzaehler Watchdog Reset",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+     "label": "Ibs Fehlerzaehler Power On Reset",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+     "label": "Ktbs Fehlerzaehler Bsd Erweitert",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+     "label": "Ktibs Fehlerzaehler Bsd",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT",
+     "label": "Ktibs Fehlerzaehler Ebsd Checksumme",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Power management info 2",
+   "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_Q_SOC_AKTUELL_WERT",
+     "label": "Q SOC Current",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+     "label": "Q SOC pre 1 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_2_TAG_WERT",
+     "label": "Q SOC pre 2 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_3_TAG_WERT",
+     "label": "Q SOC pre 3 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_4_TAG_WERT",
+     "label": "Q SOC pre 4 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_5_TAG_WERT",
+     "label": "Q SOC pre 5 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+     "label": "Start capability limit (current)",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+     "label": "Start capability limit pre 1 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+     "label": "Start capability limit pre 2 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+     "label": "Start capability limit pre 3 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+     "label": "Start capability limit pre 4 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+     "label": "Start capability limit pre 5 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+     "label": "Charge state (current)",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+     "label": "Ladungszustand pre 1 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+     "label": "Ladungszustand pre 2 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+     "label": "Ladungszustand pre 3 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+     "label": "Ladungszustand pre 4 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+     "label": "Ladungszustand pre 5 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+     "label": "Battery capacity",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SOH_WERT",
+     "label": "SOH",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SOC_FIT_WERT",
+     "label": "SOC fit",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TEMP_SAISON_WERT",
+     "label": "Temperature season",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KALIBRIER_EVENT_CNT_WERT",
+     "label": "Kalibrier Event Cnt",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+     "label": "Ibs Fehlerzaehler Download Checksumme",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler Eeprom Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler Ram Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler Prom Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler I2c Nac Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT",
+     "label": "Ibs Fehlerzaehler I2c Bus Collision",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Messwerte Oil",
+   "job": "STATUS_MESSWERTE_OEL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_OELNIV_KURZMITTEL_WERT",
+     "label": "Oil level Kurzmittel",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OELNIV_LANGMITTEL_WERT",
+     "label": "Oil level Langmittel",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OELNIV_SENSOR_WERT",
+     "label": "Oil level Sensor",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OELTEMP_SENSOR_WERT",
+     "label": "Oil temp Sensor",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_OELPERM_SENSOR_WERT",
+     "label": "Oil permittivity Sensor",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

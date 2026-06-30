@@ -1,0 +1,338 @@
+{
+  "ecu": "ZKE3.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Analog values (GM3)",
+      "job": "STATUS_ANALOG_GM3",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TACHOA_WERT",
+          "label": "Speedometer output",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_KMH_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_GKL_WERT",
+          "label": "Speed class",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_TEMP_WERT",
+          "label": "Temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_IFHFH_WERT",
+          "label": "Window motor current, front left",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_IFHBH_WERT",
+          "label": "Window motor current, rear left",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_IFHMAX_WERT",
+          "label": "Window motor max current, front left",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_IBHMAX_WERT",
+          "label": "Window motor max current, rear left",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_UEKSFH_WERT",
+          "label": "Anti-jam strip voltage, front left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_UEKSBH_WERT",
+          "label": "Anti-jam strip voltage, rear left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ISERV_WERT",
+          "label": "Servo valve current",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_ASERV_WERT",
+          "label": "Servo valve drive",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_U30L1_WERT",
+          "label": "Power circuit 1 voltage (terminal 30)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_U30L2_WERT",
+          "label": "Power circuit 2 voltage (terminal 30)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADVP_WERT",
+          "label": "ADV position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UWIINT_WERT",
+          "label": "Wiper interval voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_AIB_WERT",
+          "label": "Interior light PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Analog values (front door)",
+      "job": "STATUS_ANALOG_FT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UFHFTA_WERT",
+          "label": "Window regulator voltage, front right (open)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_UFHFTZ_WERT",
+          "label": "Window regulator voltage, front right (close)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_IFHFT_WERT",
+          "label": "Window motor current, front right",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_IFTMAX_WERT",
+          "label": "Window motor max current, front right",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_UEKSF_WERT",
+          "label": "Anti-jam strip voltage, right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USPFH_WERT",
+          "label": "Mirror potentiometer voltage, horizontal",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USPFV_WERT",
+          "label": "Mirror potentiometer voltage, vertical",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_LEDKISI_WERT",
+          "label": "Child safety lock LED",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Analog values (rear door)",
+      "job": "STATUS_ANALOG_BT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UFHBTA_WERT",
+          "label": "Window regulator voltage, rear right (open)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_UFHBTZ_WERT",
+          "label": "Window regulator voltage, rear right (close)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_IFHBT_WERT",
+          "label": "Window motor current, rear right",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_IBTMAX_WERT",
+          "label": "Window motor max current, rear right",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_UEKSF_WERT",
+          "label": "Anti-jam strip voltage, right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USPFH_WERT",
+          "label": "Mirror potentiometer voltage, horizontal",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USPFV_WERT",
+          "label": "Mirror potentiometer voltage, vertical",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_LEDKISI_WERT",
+          "label": "Child safety lock LED",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Analog values (sunroof)",
+      "job": "STATUS_ANALOG_SHD",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UMOT_WERT",
+          "label": "Sunroof motor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_DMOT_WERT",
+          "label": "Sunroof motor torque",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SHDPOS_WERT",
+          "label": "Sunroof position",
+          "unit": "mm",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_AKT_POS_WERT",
+          "label": "Sunroof actual position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_MOT_WERT",
+          "label": "Motor rotor temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_U_IST_WERT",
+          "label": "Sunroof motor voltage, actual",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_U_BATT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -28,6 +28,8 @@ extraResources:
     to: data/vendor/EC-APPS
   - from: ../tools/translations
     to: data/tools/translations
+  - from: ../data/inpa-layouts/enriched
+    to: data/inpa-layouts/enriched
 
 mac:
   category: public.app-category.utilities

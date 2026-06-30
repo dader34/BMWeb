@@ -43,10 +43,83 @@ function promptDialog({ title, body, placeholder = '', value = '' }) {
   });
 }
 
+// fetch a job's declared arguments from the SGBD (_ARGUMENTS). returns the list
+// of {ARG, ARGTYPE, ARGCOMMENT0..} rows, or [] if the job takes none / on error.
+async function fetchJobArgs(ecu, job) {
+  try {
+    const d = await api(`/api/ecu/${ecu.sgbd}/arguments/${encodeURIComponent(job)}`);
+    return (d.arguments || []).filter(a => a.ARG); // header row has no ARG
+  } catch { return []; }
+}
+
+// multi-field argument dialog built from the _ARGUMENTS schema. one input per arg,
+// the German ARGCOMMENT as a hint, and a <select> when comments enumerate values
+// (ARGCOMMENT0/1 like 'Programm'/'Daten'). resolves to the ';'-joined arg string
+// EDIABAS expects, or null if cancelled.
+function argsDialog(job, argSpecs) {
+  return new Promise((resolve) => {
+    const tr = (s) => (typeof deGerman === 'function' ? deGerman(s) : s) || s;
+    const fieldHtml = argSpecs.map((a, i) => {
+      const hint = tr((a.ARGCOMMENT0 || '').replace(/^'|'$/g, ''));
+      // enumerated values: ARGCOMMENT0/1/2 each a quoted token
+      const enumVals = Object.keys(a).filter(k => /^ARGCOMMENT\d+$/.test(k))
+        .map(k => a[k]).filter(v => /^'.*'$/.test(v)).map(v => v.replace(/^'|'$/g, ''));
+      const isEnum = enumVals.length >= 2 && (a.ARGTYPE === 'string');
+      const isBinary = a.ARGTYPE === 'binary';
+      // arg name comes from the SGBD in German (ZEIT, DAUER); humanize + translate
+      const argName = tr(humanizeKey(a.ARG));
+      const label = `${argName} <span class="arg-type">(${a.ARGTYPE || 'string'})</span>`;
+      let note = !isEnum && hint ? `<div class="arg-hint">${hint}</div>` : '';
+      if (isBinary) note += `<div class="arg-warn">Binary argument: enter raw hex (e.g. <span class="mono">01 00 0A ...</span>). Must be a valid pre-built buffer for this job, or it may fail or harm the ECU.</div>`;
+      const placeholder = isBinary ? 'hex bytes, e.g. 01 00 0A' : (a.ARGTYPE === 'int' ? '0' : '');
+      const field = isEnum
+        ? `<select class="modal-input arg-field" data-i="${i}">${enumVals.map(v => `<option>${v}</option>`).join('')}</select>`
+        : `<input class="modal-input arg-field" data-i="${i}" data-binary="${isBinary ? 1 : 0}" type="text" placeholder="${placeholder}" />`;
+      return `<div class="arg-row"><label class="arg-label">${label}</label>${field}${note}</div>`;
+    }).join('');
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-title">${jobLabel(job)}</div>
+        <div class="modal-body">This job needs ${argSpecs.length} argument${argSpecs.length === 1 ? '' : 's'}.</div>
+        <div class="arg-fields">${fieldHtml}</div>
+        <div class="modal-actions">
+          <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
+          <button class="btn primary modal-confirm">Run<span class="modal-key">⏎</span></button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    const fields = [...overlay.querySelectorAll('.arg-field')];
+    const collect = () => fields.map(f => {
+      let v = f.value.trim();
+      // binary args: normalize hex to a compact "0xAABBCC" form EDIABAS accepts
+      if (f.dataset.binary === '1' && v) {
+        const hex = v.replace(/0x/gi, '').replace(/[^0-9a-fA-F]/g, '');
+        v = hex ? '0x' + hex.toUpperCase() : '';
+      }
+      return v;
+    }).join(';');
+    const close = (val) => { overlay.classList.remove('show'); window.removeEventListener('keydown', onKey, true); setTimeout(() => overlay.remove(), 160); resolve(val); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(collect()); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    overlay.querySelector('.modal-cancel').onclick = () => close(null);
+    overlay.querySelector('.modal-confirm').onclick = () => close(collect());
+    overlay.onclick = (e) => { if (e.target === overlay) close(null); };
+    setTimeout(() => fields[0] && fields[0].focus(), 50);
+  });
+}
+
 // run a job and render its result sets. FS_LESEN gets the fault-card view, others
 // a generic key/value table.
 async function runJob(ecu, job, container, danger, presetArg) {
-  // resolve a required argument first
+  // resolve a required argument first. hand-tuned JOB_ARGS overrides win (they
+  // encode special encodings like CBS_RESET's tail); otherwise ask the SGBD what
+  // the job declares and build a dialog from that.
   let arg = presetArg;
   const spec = JOB_ARGS[job];
   if (arg == null && spec) {
@@ -55,6 +128,12 @@ async function runJob(ecu, job, container, danger, presetArg) {
       arg = await promptDialog({ title: jobLabel(job), body: spec.prompt, placeholder: spec.placeholder || '' });
       if (arg == null) return; // cancelled
       if (spec.suffix) arg += spec.suffix; // e.g. CBS_RESET service code + tail
+    }
+  } else if (arg == null) {
+    const argSpecs = await fetchJobArgs(ecu, job);
+    if (argSpecs.length) {
+      arg = await argsDialog(job, argSpecs);
+      if (arg == null) return; // cancelled
     }
   }
   if (danger) {

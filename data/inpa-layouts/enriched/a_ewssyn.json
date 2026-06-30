@@ -1,0 +1,84 @@
+{
+  "ecu": "a_ewssyn.IPO",
+  "screens": [
+    {
+      "group": "EWS3 sync with EMS2K",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "EWS_RESULT_TEXT", "label": "EWS sync result", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "DME line status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "EWS_RESULT_TEXT", "label": "DME line free", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Immobilizer status",
+      "job": "STATUS_IO_EWS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "EWS_RESULT_TEXT", "label": "Immobilizer active / not learnt", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sync mode (status)",
+      "job": "STATUS_SYNC_MODE_TEXT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "EWS_RESULT_TEXT", "label": "Sync mode status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sync mode (control)",
+      "job": "STATUS_IO_EWS",
+      "args": "0x00",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STEUERN_SYNC_MODE_TEXT", "label": "Sync mode control", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "ISN (serial number)",
+      "job": "ISN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ISN_LESEN_WERT", "label": "Individual serial number (ISN)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Service data",
+      "job": "KD_DATEN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "KD_DATEN_TEXT", "label": "Service / dealer data", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_DIGITAL",
+      "field": "Manual selector / manual-entry mode",
+      "kind": "number",
+      "example": "0",
+      "args_template": "Enter the manual switch mode value; passed as the mode argument to the status job"
+    }
+  ]
+}

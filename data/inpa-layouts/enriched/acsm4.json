@@ -1,0 +1,137 @@
+{
+  "ecu": "acsm4.IPO",
+  "screens": [
+    {
+      "group": "Ignition circuit resistances",
+      "job": "STATUS_WIDERSTAND_ZUENDKREIS",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_AB1_FA_WERT", "label": "Airbag stage 1, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_AB2_FA_WERT", "label": "Airbag stage 2, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_AB_FA_VENTIL_WERT", "label": "Airbag valve, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_AB1_BF_WERT", "label": "Airbag stage 1, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_AB2_BF_WERT", "label": "Airbag stage 2, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_AB_BF_VENTIL_WERT", "label": "Airbag valve, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_GS_FA_WERT", "label": "Belt tensioner, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_EBS_FA_WERT", "label": "Belt force limiter, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_GKB_FA_WERT", "label": "Belt buckle tensioner, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_GS_BF_WERT", "label": "Belt tensioner, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_EBS_BF_WERT", "label": "Belt force limiter, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_GKB_BF_WERT", "label": "Belt buckle tensioner, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_KNIE_AB_FA_WERT", "label": "Knee airbag, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_KNIE_AB_BF_WERT", "label": "Knee airbag, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_KOS_FA_WERT", "label": "Head/thorax airbag, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_KOS_BF_WERT", "label": "Head/thorax airbag, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_GS_HLI_WERT", "label": "Belt tensioner, rear left", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_GS_HRE_WERT", "label": "Belt tensioner, rear right", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_ARS_FA_WERT", "label": "Active headrest, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_ARS_BF_WERT", "label": "Active headrest, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_SEITEN_AB_FA_WERT", "label": "Side airbag, driver", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_SEITEN_AB_BF_WERT", "label": "Side airbag, passenger", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_KOPF_AB_LI_WERT", "label": "Head airbag, left", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_KOPF_AB_RE_WERT", "label": "Head airbag, right", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_SBK1_WERT", "label": "Battery cutoff squib 1", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_SBK2_WERT", "label": "Battery cutoff squib 2", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_FGS_VLI_WERT", "label": "Pedestrian protection, front left", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_FGS_VRE_WERT", "label": "Pedestrian protection, front right", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_FGS_HLI_WERT", "label": "Pedestrian protection, rear left", "unit": "ohm", "min": 0, "max": 10 },
+        { "key": "STAT_FGS_HRE_WERT", "label": "Pedestrian protection, rear right", "unit": "ohm", "min": 0, "max": 10 }
+      ]
+    },
+    {
+      "group": "Seat belt contacts",
+      "job": "STATUS_GURTKONTAKTE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GK_FA_WERT", "label": "Belt buckle, driver", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GK_BF_WERT", "label": "Belt buckle, passenger", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GK_HLI_WERT", "label": "Belt buckle, rear left", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GK_HRE_WERT", "label": "Belt buckle, rear right", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GK_HMI_WERT", "label": "Belt buckle, rear center", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SITZPOSITIONSSENSOR_FA_WERT", "label": "Seat position sensor, driver", "unit": null, "min": null, "max": null },
+        { "key": "STAT_POS_WERT", "label": "Seat position", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Energy-save mode status",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIESPARMODE_WERT", "label": "Energy-save mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FERTIGUNGSMODE_WERT", "label": "Production mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TRANSPORTMODE_WERT", "label": "Transport mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WERKSTATTMODE_WERT", "label": "Workshop mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MODE_WERT", "label": "Current mode", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Central locking status",
+      "job": "STATUS_VERRIEGELUNG_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VERRIEGELUNG_LESEN_01_WERT", "label": "Locking status 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VERRIEGELUNG_LESEN_02_WERT", "label": "Locking status 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VERRIEGELUNG_LESEN_03_WERT", "label": "Locking status 3", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Model series",
+      "job": "STATUS_BAUREIHE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_BAUREIHE_TEXT", "label": "Model series", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "System context / fault environment (VIN read)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DM_MELDUNG_TEXT", "label": "Diagnostic message", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT", "label": "Timestamp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT", "label": "Customer time, year", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT", "label": "Customer time, month", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT", "label": "Customer time, day", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT", "label": "Customer time, hour", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT", "label": "Customer time, minute", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT", "label": "Customer time, second", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT", "label": "Odometer at fault", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT", "label": "Voltage min", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT", "label": "Voltage max", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT", "label": "Outside temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT", "label": "Engine/drivetrain temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT", "label": "Speed min", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT", "label": "Speed max", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT", "label": "Crankshaft RPM min", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT", "label": "Crankshaft RPM max", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT", "label": "Terminals at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT", "label": "Terminals before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT", "label": "Time of terminal change", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT", "label": "Operating status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT", "label": "Operating status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT", "label": "Time of operating status change", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT", "label": "Wake-up time", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT", "label": "Time first Terminal R on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT", "label": "Time first Terminal 15 on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT", "label": "Time first Terminal 50 on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT", "label": "Fault memory lock active", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "HS_LESEN", "field": "Comment to store", "kind": "text", "example": "Replaced ACSM module", "args_template": "free-text comment string passed to the job" },
+    { "job": "SENSOREN_IDENT_LESEN", "field": "Comment to store", "kind": "text", "example": "Sensor identification note", "args_template": "free-text comment string passed to the job" }
+  ]
+}

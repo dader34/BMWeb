@@ -95,7 +95,7 @@ public static class MenuGen
         return null;
     }
 
-    static readonly string[] Order = { "Faults","Status","Activations","Identity","Service","Programming","Other" };
+    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","Service","Special","Programming","Other" };
     static readonly Regex Danger = new("FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN|STELLGLIED", RegexOptions.IgnoreCase);
     // suffix verbs moved to front of label
     static readonly Dictionary<string,string> FrontVerb = new(StringComparer.OrdinalIgnoreCase)
@@ -108,9 +108,74 @@ public static class MenuGen
         if (j is "IDENT" or "INFO" or "SERIENNUMMER_LESEN" || j.StartsWith("IDENT")) return "Identity";
         if (j.Contains("VERSION") || j.Contains("HARDWARE") || j.Contains("REFERENZ") || j.Contains("_HW_")) return "Identity";
         if (j.StartsWith("STATUS") || j.StartsWith("MW_") || j.Contains("MESSWERT")) return "Status";
-        if (j.StartsWith("STEUERN") || j.Contains("STELLGLIED")) return "Activations";
+        if (j.StartsWith("STEUERN") || j.Contains("STELLGLIED") || j.Contains("AUSGAENGE_SCHALTEN")) return "Activations";
         if (j.Contains("FLASH") || j.Contains("PROGRAMMIER") || j.Contains("AUTHENTISIERUNG") || j.Contains("SIGNATUR")) return "Programming";
-        if (j.Contains("CBS")) return "Service";
+        // INPA has no generic "Other": every job lives in a named menu. split the
+        // former catch-all into INPA's submenus (System-Check, Codierung, Ident,
+        // Service-Funktionen, Sonderfunktionen).
+        if (j.Contains("SYSTEMCHECK")) return "System Check";
+        if (j.Contains("CODIER") || j.Contains("ECU_CONFIG") || j.Contains("SET_PARAMETER")
+            || j.Contains("BAUDRATE") || j.Contains("INTERFACETYPE") || j.Contains("ACCESS_TIMING")) return "Coding";
+        if (j.Contains("AIF") || j.Contains("ZIF") || j.Contains("PRUEFCODE")
+            || j.Contains("C_CI") || j.Contains("C_FG") || j.Contains("C_C_")) return "Identity";
+        if (j.Contains("EWS") || j.Contains("DISTANCE_MIL") || j.StartsWith("SPEICHER")) return "Special";
+        if (j.Contains("CBS") || j.Contains("PRUEFSTEMPEL") || j.Contains("PRUEFFLAG")
+            || j.Contains("DIAGNOSEPROTOKOLL")
+            || j.Contains("RESET") || j.Contains("STARTWERT") || j.Contains("SLEEP")
+            || j.Contains("ADAP_SELEKTIV") || j.Contains("INNENTEMP")) return "Service";
+
+        // E36/early-E46 engine and body ECUs expose many DS1/DS2-era jobs the rules
+        // above miss. route them into INPA's named submenus (verified against the
+        // a_smot/a_dmot frontends and the .prg job sets) so nothing lands in "Other".
+
+        // self-tests, actuator/sensor diagnostics, ABS/DSC bleeding + pressure
+        // build/hold cycles, hydraulic/pump tests, simulations -> System-Check.
+        if (j.Contains("SELBSTTEST") || j.Contains("PRUEFLAUF") || j.Contains("IO_STATUS")
+            || j.Contains("I_O_DIAGNOSE") || j.StartsWith("TEST_") || j.Contains("TESTPRG")
+            || j.Contains("TEST_PRG") || j.Contains("SIMULATION") || j.Contains("_SIM_")
+            || j.Contains("SIM_HA") || j.Contains("EINSPURMODELL") || j.Contains("MCS_AKTIVIEREN")
+            || j.Contains("DISPLAYTEST") || j.Contains("DISPLAY_TEST") || j.StartsWith("DOWNLOAD_")
+            || j.Contains("DRUCKABBAU") || j.Contains("DRUCKAUFBAU") || j.Contains("DRUCKHALTEN")
+            || j.Contains("PUMPEN") || j.Contains("ENTLUEFTUNG") || j.Contains("BLEEDMASTER")
+            || j.Contains("VAKUUM") || j.Contains("FUEHLER") || j.Contains("ANFAHREN_POSITION")
+            || j.Contains("MOTOR_FAHREN") || j.Contains("TIPP_FUNKTION") || j.Contains("TANK_LECK")
+            || j.Contains("CRASH_AUSLOESEN") || j.Contains("EICHLAUF")) return "System Check";
+
+        // variant/equipment/vehicle-data coding -> Coding.
+        if (j.StartsWith("COD_") || j.StartsWith("COD") && j.Contains("LESEN") || j.Contains("KODIER")
+            || j.Contains("VAR_COD") || j.Contains("EMK_COD") || j.Contains("AGR_COD")
+            || j.Contains("AUSSTATTUNG") || j.Contains("KFZ_DATEN") || j.Contains("PARAMETERSATZ")
+            || j.Contains("ZCS") || j.Contains("DATENSATZNUMMER") || j.Contains("FAKTOR_SCHREIBEN")
+            || j.Contains("TRIG_SCHREIBEN")) return "Coding";
+
+        // production/identification data, counters, system-address + KD reads -> Identity.
+        if (j.Contains("PROD_NR") || j.Contains("BMW_NR") || j.Contains("FG_NR") || j.Contains("FGNR")
+            || j.Contains("HERSTELLDAT") || j.Contains("HERSTELLDATEN") || j.Contains("HERSTELLERDATEN")
+            || j.Contains("HERSTELLER_DATEN") || j.Contains("TYP_LESEN") || j.Contains("ZAEHLERSTAENDE")
+            || j.Contains("SYS_ADR") || j.Contains("SYSTEM_ADRESSEN") || j.Contains("MAX_BLOCK")
+            || j.Contains("KD_DATEN") || j.Contains("KD_INIT") || j.Contains("ZUSTAND_LESEN")
+            || j.Contains("ZCS_LESEN")) return "Identity";
+
+        // memory dumps, immobilizer ISN, security access (login/seed/password),
+        // rolling code + key data, function/lock state -> Special.
+        if (j.StartsWith("RAM_") || j.StartsWith("ROM_") || j.Contains("EEPROM") || j.Contains("ISN")
+            || j.Contains("SEED") || j.Contains("LOGIN") || j.Contains("PASSWORT")
+            || j.Contains("WECHSELCODE") || j.Contains("SCHLUESSEL") || j.StartsWith("SCHL_")
+            || j.Contains("INFOSPEICHER") || j == "IS_LESEN" || j.Contains("FUNKTIONSSPERRE")
+            || j.Contains("VERRIEGELUNG") || j.Contains("INIT_SPERRE")) return "Special";
+
+        // adaptation clears, CO/idle/consumption adjustment, programming-voltage,
+        // battery messages, diagnostic-session control, end-of-line -> Service.
+        if (j.Contains("ADAPT") || j.Contains("ABGLEICH") || j.Contains("ABGAS_VARIANTE")
+            || j.Contains("UPROG") || j.Contains("MESSE_VERSTELLZEIT") || j.Contains("BATTERIE_MELDUNG")
+            || j.Contains("DIAGNOSE_") || j.Contains("DIAGNOSTICEND") || j.Contains("START_BUS")
+            || j.StartsWith("BET_") || j.Contains("RPA_EOL") || j.EndsWith("_LOESCHEN")) return "Service";
+
+        // raw OBD-II mode readouts + transparent/raw access, ADC + parameter reads -> Status.
+        if (j.Contains("_MODE") || j.Contains("_REQ") || j.Contains("RAWMODE")
+            || j.Contains("TRANSPARENT") || j.Contains("ADC_LESEN") || j == "PARAMETER_LESEN")
+            return "Status";
+
         return "Other";
     }
 

@@ -1,0 +1,336 @@
+{
+  "ecu": "msd87.IPO",
+  "screens": [
+    {
+      "group": "Engine status inputs",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KL15_EIN_WERT", "label": "Terminal 15 (ignition)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MOTOR_AUS_WERT", "label": "Engine RPM", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Clutch / brake inputs",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KUPPL_EIN_WERT", "label": "Clutch input", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BLS_EIN_WERT", "label": "Brake light switch", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BTS_EIN_WERT", "label": "Brake test switch", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Load status",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LL_WERT", "label": "Idle", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VL_WERT", "label": "Full load", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DK_ABGLEICH_WERT", "label": "Throttle adaptation", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Drive status",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KICKDOWN_WERT", "label": "Kickdown", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHUBAB_WERT", "label": "Overrun fuel cutoff", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FAHRSTUFE_WERT", "label": "Gear position", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "O2 sensors, bank 1",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LSVK1_WERT", "label": "O2 sensor pre-cat, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LSHK1_WERT", "label": "O2 sensor post-cat, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LS1_REGELUNG_WERT", "label": "Control loop, bank 1", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "O2 sensors, bank 2",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LSVK2_WERT", "label": "O2 sensor pre-cat, bank 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LSHK2_WERT", "label": "O2 sensor post-cat, bank 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LS2_REGELUNG_WERT", "label": "Control loop, bank 2", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Generator fault status",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FI_GENKOMM_WERT", "label": "Generator communication fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FI_GENUPL_WERT", "label": "Generator type plausibility", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FI_GENHT_WERT", "label": "Generator high-temperature fault", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Generator electrical/mechanical fault",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FI_GENMECH_WERT", "label": "Generator mechanical fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FI_GENEL_WERT", "label": "Generator electrical fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DF_HIGH_WERT", "label": "Generator load too high", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Generator test tolerances",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GENITEST_TOL_WERT", "label": "Current setpoint deviation tolerance", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GENUTEST_TOL_WERT", "label": "Voltage setpoint deviation tolerance", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Generator test values",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_I_GENTEST_WERT", "label": "Modeled generator current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_U_GENTEST_WERT", "label": "Generator setpoint voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Desulfurization: temperature control",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TNT_MDL_L_WERT", "label": "Temperature control actual", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TNT_MDL_MV_WERT", "label": "Desulfurization threshold temp", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Desulfurization: timer / sulfur load",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_T_NT_SO2P_EXT_ADJ_ACT_WERT", "label": "Desulfurization timer", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NT_SUL_WERT", "label": "Sulfur load", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Desulfurization: lambda setpoints",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LAMB_SP_WERT", "label": "Lambda setpoint mean", "unit": "lambda", "min": 0, "max": 2 },
+        { "key": "STAT_LAMB_SP1_WERT", "label": "Lambda setpoint bank 1", "unit": "lambda", "min": 0, "max": 2 }
+      ]
+    },
+    {
+      "group": "Desulfurization: lambda bank 2 / RPM",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LAMB_SP2_WERT", "label": "Lambda setpoint bank 2", "unit": "lambda", "min": 0, "max": 2 },
+        { "key": "STAT_N_32_WERT", "label": "RPM", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Desulfurization: speed / pedal",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VS_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_PV_WERT", "label": "Pedal value", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Injector adjustment cylinder 1",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_1_WERT", "label": "Energy adjustment injector 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_1_WERT", "label": "Flow adjustment injector 1", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adjustment cylinder 2",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_2_WERT", "label": "Energy adjustment injector 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_2_WERT", "label": "Flow adjustment injector 2", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adjustment cylinder 3",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_3_WERT", "label": "Energy adjustment injector 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_3_WERT", "label": "Flow adjustment injector 3", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adjustment cylinder 4",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_4_WERT", "label": "Energy adjustment injector 4", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_4_WERT", "label": "Flow adjustment injector 4", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adjustment cylinder 5",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_5_WERT", "label": "Energy adjustment injector 5", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_5_WERT", "label": "Flow adjustment injector 5", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adjustment cylinder 6",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_6_WERT", "label": "Energy adjustment injector 6", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_6_WERT", "label": "Flow adjustment injector 6", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Camshaft spread (intake/exhaust)",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x4ABC",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NW_EINLASSSPREIZUNG_WERT", "label": "Intake camshaft spread", "unit": "°C", "min": null, "max": null },
+        { "key": "STAT_NW_AUSLASSSPREIZUNG_WERT", "label": "Exhaust camshaft spread", "unit": "°C", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "DISA flap / throttle position",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4508,0x4509",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DISAKLAPPEN_POSITION_WERT", "label": "DISA flap current position", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_DROSSELKLAPPENWINKEL_WERT", "label": "Throttle angle current value", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Tank vent valve / boost pressure",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4610,0x5858",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TEV_PWM_WERT", "label": "Tank vent valve TEV PWM", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADEDRUCK_WERT", "label": "Manifold/boost pressure 1", "unit": "mbar", "min": 0, "max": 2500 }
+      ]
+    },
+    {
+      "group": "OBD mode 9: monitoring counts",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_OBDCOND_WERT", "label": "OBD monitoring conditions encountered counts", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IGNCNTR_WERT", "label": "Engine start count", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "OBD mode 9: evap / catalyst bank 2",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EVAPCOMP_WERT", "label": "Evap monitor completion", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EVAPCOND_WERT", "label": "Evap monitor condition", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CATCOMP2_WERT", "label": "Catalyst monitor completion bank 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CATCOND2_WERT", "label": "Catalyst monitor condition bank 2", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "OBD mode 9: SO2 sensor monitor counts",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VVTCOMP1_WERT", "label": "SO2 sensor monitor completion counts bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOND1_WERT", "label": "SO2 sensor monitor condition counts bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOMP2_WERT", "label": "SO2 sensor monitor completion counts bank 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOND2_WERT", "label": "SO2 sensor monitor condition counts bank 2", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to save with sensor identification",
+      "kind": "text",
+      "example": "Replaced 2026-06",
+      "args_template": "free-text comment stored alongside the read sensor identification"
+    },
+    {
+      "job": "ZIF_LESEN",
+      "field": "Standby-current measurement parameters (current/time thresholds)",
+      "kind": "number",
+      "example": "12.5",
+      "args_template": "numeric values: max current 0.0-1310.7 A and timing thresholds (sek) parameterize the standby-current measurement"
+    },
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Injector coding data (per cylinder)",
+      "kind": "number",
+      "example": "0.087",
+      "args_template": "numeric injector coding values per cylinder within stated ranges, written to the ECU injector adjustment block"
+    }
+  ]
+}

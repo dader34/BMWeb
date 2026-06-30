@@ -1,0 +1,73 @@
+{
+  "ecu": "ZKE5.IPO",
+  "screens": [
+    {
+      "group": "ECU identification",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Supply voltages",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_V30E_WERT", "label": "Terminal 30E voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_V30P_WERT", "label": "Terminal 30 pull-up voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Window regulator currents",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_IFHF_WERT", "label": "Window current, driver front", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFHB_WERT", "label": "Window current, passenger front", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFFH_WERT", "label": "Window current, driver rear", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFBH_WERT", "label": "Window current, passenger rear", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFHFMAX_WERT", "label": "Window startup current, driver front", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFHBMAX_WERT", "label": "Window startup current, passenger front", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFFHMAX_WERT", "label": "Window startup current, driver rear", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFBHMAX_WERT", "label": "Window startup current, passenger rear", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_I_ULQ_WERT", "label": "Driver-stage quiescent current (IC17 ULQ2003)", "unit": "A", "min": 0, "max": 30 }
+      ]
+    },
+    {
+      "group": "Wiper / speed",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SWINT_WERT", "label": "Wiper potentiometer voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_POTI_STUFE_WERT", "label": "Wiper potentiometer position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KMH_WERT", "label": "Speed (K-bus)", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_GKL_WERT", "label": "Wipe/wash speed class", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Anti-pinch system",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EKSFT_WERT", "label": "Anti-pinch voltage ratio, driver door", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_EKSBT_WERT", "label": "Anti-pinch voltage ratio, passenger door", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_EKSFH_WERT", "label": "Anti-pinch voltage ratio, driver door rear", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_EKSBH_WERT", "label": "Anti-pinch voltage ratio, passenger door rear", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_V_KL30_EKS_WERT", "label": "Terminal 30 voltage for anti-pinch", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_V_VA1_WERT", "label": "Load shedding 1 voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    }
+  ],
+  "inputs": []
+}

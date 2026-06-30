@@ -1,0 +1,1051 @@
+{
+  "ecu": "EPS_72.IPO",
+  "screens": [
+    {
+      "group": "Fault memory (background)",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System context / VIN",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Diagnostic message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "System context timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "System context customer time year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "System context customer time month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "System context customer time day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "System context customer time hour",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "System context customer time minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "System context customer time second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "System context distance km",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "System context voltage min",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "System context voltage max",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "System context exterior temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "System context engine/drive temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "Min speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "Max speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "System context crankshaft RPM min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "System context crankshaft RPM max",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "System context terminals at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "System context terminals before fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "System context terminal-change time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "System context operating status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "System context operating status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "System context op-status-change time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "System context wake-up time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "System context first terminal R on time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "System context first terminal 15 on time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "System context first terminal 50 on time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "System context fault memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "Fault SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault Symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault Ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Manufacturer info",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software version",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "EPS system status",
+      "job": "STATUS_EPS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMSTATUS_TEXT",
+          "label": "System status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSORGUNGSSPANNUNG_TEXT",
+          "label": "Supply voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ZUENDUNG_BERECHNET_TEXT",
+          "label": "Ignition calculated",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMPERATUR_STEUERGERAET_WERT",
+          "label": "Control unit temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FAHRZEUGGESCHWINDIGKEIT_GEFILTERT_WERT",
+          "label": "Speed filtered",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SW_ENDANSCHLAG_MITTENOFFSET_WERT",
+          "label": "SW end stop center offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SW_ENDANSCHLAG_TOLERANZ_LENKHUB_WERT",
+          "label": "SW end stop steering-travel tolerance",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SW_BEZEICHNUNG_ZF_LENKSYSTEME_TEXT",
+          "label": "ZF steering software designation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VARIANTENCODIERUNG_TEXT",
+          "label": "Variant coding",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBEVORZEICHEN_TEXT",
+          "label": "Gearbox sign",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Input signals",
+      "job": "STATUS_INPUT_SIGNALE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VERSORGUNGSSPANNUNG_WERT",
+          "label": "Supply voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FAHRZEUGGESCHWINDIGKEIT_CAN_WERT",
+          "label": "Speed (CAN)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_CAN_WERT",
+          "label": "Steering wheel angle (CAN)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GIERRATE_CAN_WERT",
+          "label": "Yaw rate (CAN)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QUERBESCHLEUNIGUNG_CAN_WERT",
+          "label": "Lateral acceleration (CAN)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Output signals",
+      "job": "STATUS_OUTPUT_SIGNALE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUEFTERSTUFE_EPS_WERT",
+          "label": "EPS fan stage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORSOLLMOMENT_WERT",
+          "label": "Engine torque setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_REDUZIERTES_MOTORSOLLMOMENT_WERT",
+          "label": "Reduced engine torque setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_REDUKTIONSFAKTOR_WERT",
+          "label": "Reduction factor",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Steering wheel angle",
+      "job": "STATUS_LENKRADWINKEL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LENKRADWINKEL_CAN_WERT",
+          "label": "Steering wheel angle (CAN)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKWINKELTREIBER_TEXT",
+          "label": "Steering angle driver",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTERNER_LENKRADWINKEL_WERT",
+          "label": "Steering wheel angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_NICHT_KORRIGIERT_WERT",
+          "label": "Steering wheel angle uncorrected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_KORRIGIERT_WERT",
+          "label": "Steering wheel angle corrected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_LANGZEITKORREKTUR_WERT",
+          "label": "Steering wheel angle long-term correction",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_KURZZEITKORREKTUR_WERT",
+          "label": "Steering wheel angle short-term correction",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKELGESCHWINDIGKEIT_WERT",
+          "label": "Speed",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKELGESCHWINDIGKEIT_CAN_WERT",
+          "label": "Speed (CAN)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Motor currents",
+      "job": "STATUS_STROEME",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORSTROM_1_WERT",
+          "label": "Motor current 1",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOTORSTROM_2_WERT",
+          "label": "Motor current 2",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOTORSTROM_3_WERT",
+          "label": "Motor current 3",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Torque sensor",
+      "job": "STATUS_MOMENTENSENSOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LENKRADMOMENT_MAIN_WERT",
+          "label": "Steering wheel torque main",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_LENKRADMOMENT_BACKUP_WERT",
+          "label": "Steering wheel torque backup",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MOMENTENSENSOR_TEXT",
+          "label": "Torque sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIN_DMS_1_WERT",
+          "label": "Strain gauge sine 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_COS_DMS_1_WERT",
+          "label": "Strain gauge cosine 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIN_DMS_2_WERT",
+          "label": "Strain gauge sine 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_COS_DMS_2_WERT",
+          "label": "Strain gauge cosine 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLERTYP_DMS_1_TEXT",
+          "label": "Strain gauge fault type 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLERTYP_DMS_2_TEXT",
+          "label": "Strain gauge fault type 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Rotor position sensor",
+      "job": "STATUS_ROTORLAGESENSOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ROTORDREHZAHL_WERT",
+          "label": "Rotor speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_ROTORLAGE_WERT",
+          "label": "Rotor position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RLS_MAIN_SIN_WERT",
+          "label": "Rotor sensor main sine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RLS_MAIN_COS_WERT",
+          "label": "Rotor sensor main cosine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RLS_BACKUP_SIN_WERT",
+          "label": "Rotor sensor backup sine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RLS_BACKUP_COS_WERT",
+          "label": "Rotor sensor backup cosine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MECH_WINKELOFFSET_MAIN_WERT",
+          "label": "Mechanical angle offset main",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MECH_WINKELOFFSET_BACKUP_WERT",
+          "label": "Mechanical angle offset backup",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 7",
+      "job": "STATUS_ROTORLAGESENSOR",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SIGNAL_TEXT",
+          "label": "Signal",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SIGNAL_TEXT",
+          "label": "Signal",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Signals",
+      "job": "STATUS_SIGNALE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UBAT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USENS_WERT",
+          "label": "Sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_UREF_WERT",
+          "label": "Reference voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_TEMPFET_WERT",
+          "label": "FET temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_STROM1_WERT",
+          "label": "Current 1",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STROM2_WERT",
+          "label": "Current 2",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STROM3_WERT",
+          "label": "Current 3",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SPNG1_WERT",
+          "label": "Voltage 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPNG2_WERT",
+          "label": "Voltage 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPNG3_WERT",
+          "label": "Voltage 3",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_LWSPEED_WERT",
+          "label": "Steering wheel speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SENSSIN_WERT",
+          "label": "Sensor sine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSCOS_WERT",
+          "label": "Sensor cosine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ROTDREHZAHL_WERT",
+          "label": "Rotor speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FZGSPEED_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_MOTSPEED_WERT",
+          "label": "Motor speed",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LMSIN_WERT",
+          "label": "Position sine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LMCOS_WERT",
+          "label": "Position cosine",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TBMOM_WERT",
+          "label": "Torque bar moment",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MOTMOM_WERT",
+          "label": "Motor torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_UMOM_WERT",
+          "label": "Torque voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BUMOM_WERT",
+          "label": "Torque voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flash programming status",
+      "job": "FLASH_PROGRAMMIER_STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "FLASH_PROGRAMMIER_STATUS_TEXT",
+          "label": "Flash programming status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    }
+  ]
+}

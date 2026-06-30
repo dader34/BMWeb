@@ -1,0 +1,757 @@
+{
+  "ecu": "ihka89.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "Fault SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy save mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy save mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software version",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Heater/AC measured values",
+      "job": "STATUS_IHX_WERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_T_FUSSRAUM_WERT",
+          "label": "Footwell temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_BELUEFTUNG_WERT",
+          "label": "Vent temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_SOLAR_WERT",
+          "label": "Solar temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SOLAR_WERT",
+          "label": "Solar sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_VERDAMPFER_WERT",
+          "label": "Evaporator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_AUSSEN_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_DRUCK_KAELTEMITTEL_WERT",
+          "label": "Refrigerant pressure",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_KLEMME_30_WERT",
+          "label": "Terminal 30",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_SOLLWERT_FA_WERT",
+          "label": "Target temp passenger",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_SOLLWERT_BF_WERT",
+          "label": "Target temp driver",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Y_WERT",
+          "label": "Control deviation (Y)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_T_IHX_WERT",
+          "label": "Heater unit temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_AUC_WERT",
+          "label": "Air quality (AUC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLWERT_GEBLAESE_WERT",
+          "label": "Blower target",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LVT_WERT",
+          "label": "Air outlet temperature",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Run-in protection timer",
+      "job": "STATUS_TIMER_EINLAUFSCHUTZ",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TIMER_WERT",
+          "label": "Timer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Analog setpoint potentiometers",
+      "job": "STATUS_POTI_ANALOG_PORT",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SOLLWERT_LINKS_WERT",
+          "label": "Target left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLWERT_RECHTS_WERT",
+          "label": "Target right",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flap positions (increment)",
+      "job": "STATUS_MOTOR_KLAPPENPOSITION_INKREMENT",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SCHICHTUNG_WERT",
+          "label": "Stratification flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEFROST_WERT",
+          "label": "Defrost flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRISCHLUFT_UMLUFT_WERT",
+          "label": "Fresh/recirc air flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISCHLUFT_LINKS_WERT",
+          "label": "Mixed-air flap left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_WERT",
+          "label": "Footwell flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BELUEFTUNG_WERT",
+          "label": "Ventilation flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISCHLUFT_RECHTS_WERT",
+          "label": "Mixed-air flap right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISCHLUFT_WERT",
+          "label": "Mixed-air flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZENTRALANTRIEB_WERT",
+          "label": "Central drive flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Misting sensor",
+      "job": "STATUS_CAN_BESCHLAGSENSOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BESCHLAGSENSOR_WERT",
+          "label": "Misting sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Air-quality sensor (AUC)",
+      "job": "STATUS_CAN_AUC_SENSOR",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AUC_SENSOR_WERT",
+          "label": "Air-quality sensor (AUC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Refrigerant pressure sensor",
+      "job": "STATUS_CAN_DRUCKSENSORSENSOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DRUCKSENSOR_WERT",
+          "label": "Pressure sensor",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Center console variant",
+      "job": "STATUS_SZM_VARIANTE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SZM_VARIANTE_WERT",
+          "label": "Center console variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flap motor positions",
+      "job": "STATUS_MOTOR_KLAPPENPOSITION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FRISCHLUFT_UMLUFT_IST_WERT",
+          "label": "Fresh/recirc air flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DEFROST_IST_WERT",
+          "label": "Defrost flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BELUEFTUNG_IST_WERT",
+          "label": "Ventilation flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUSSRAUM_IST_WERT",
+          "label": "Footwell flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SCHICHTUNG_IST_WERT",
+          "label": "Stratification flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MISCHLUFT_LINKS_IST_WERT",
+          "label": "Mixed-air flap left actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MISCHLUFT_RECHTS_IST_WERT",
+          "label": "Mixed-air flap right actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZENTRALANTRIEB_IST_WERT",
+          "label": "Central drive flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MISCHLUFT_IST_WERT",
+          "label": "Mixed-air flap actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "AC system configuration",
+      "job": "STATUS_KLIMASYSTEM",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLIMAGERAETTYP_TEXT",
+          "label": "AC unit type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMAGERAETTYP_WERT",
+          "label": "AC unit type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMABEDIENTEILTYP_TEXT",
+          "label": "AC control panel type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMABEDIENTEILTYP_WERT",
+          "label": "AC control panel type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEFROST_ADRESSE_WERT",
+          "label": "Defrost flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRISCHLUFT_UMLUFT_ADRESSE_WERT",
+          "label": "Fresh/recirc air flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISCHLUFT_LINKS_ADRESSE_WERT",
+          "label": "Mixed-air flap left address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_ADRESSE_WERT",
+          "label": "Footwell flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BELUEFTUNG_ADRESSE_WERT",
+          "label": "Ventilation flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHICHTUNG_ADRESSE_WERT",
+          "label": "Stratification flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISCHLUFT_RECHTS_ADRESSE_WERT",
+          "label": "Mixed-air flap right address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZENTRALANTRIEB_ADRESSE_WERT",
+          "label": "Central drive flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISCHLUFT_ADRESSE_WERT",
+          "label": "Mixed-air flap address",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flap calibration run",
+      "job": "STATUS_MOTOR_EICHLAUF",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EICHLAUF_TEXT",
+          "label": "Calibration run",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EICHLAUF_WERT",
+          "label": "Calibration run",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EICHLAUF_IO_WERT",
+          "label": "Calibration run OK",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EICHLAUF_HISTORY_TEXT",
+          "label": "Calibration history",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EICHLAUF_HISTORY_WERT",
+          "label": "Calibration history",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flap adjustment ranges",
+      "job": "STATUS_KLAPPEN_VERSTELLBEREICH",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VERSTELLBEREICH_DEFROST_WERT",
+          "label": "Adjustment range Defrost flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_FRISCHLUFT_UMLUFT_WERT",
+          "label": "Adjustment range Fresh/recirc air flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_MISCHLUFT_LINKS_WERT",
+          "label": "Adjustment range Mixed-air flap left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_FUSSRAUM_WERT",
+          "label": "Adjustment range Footwell flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_BELUEFTUNG_WERT",
+          "label": "Adjustment range Ventilation flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_SCHICHTUNG_WERT",
+          "label": "Adjustment range Stratification flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_MISCHLUFT_RECHTS_WERT",
+          "label": "Adjustment range Mixed-air flap right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_MISCHLUFT_WERT",
+          "label": "Adjustment range Mixed-air flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_DEFROSTNOCKE_WERT",
+          "label": "Adjustment range defrost cam",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_FUSSRAUMNOCKE_WERT",
+          "label": "Adjustment range footwell cam",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLBEREICH_NOCKENABSTAND_WERT",
+          "label": "Adjustment range cam spacing",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Blower",
+      "job": "STATUS_GEBLAESE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWM_VALUE_WERT",
+          "label": "PWM value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Sensor note",
+      "args_template": "Free text written to sensor ident comment"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "Free text stored with fault-memory readout"
+    }
+  ]
+}

@@ -87,6 +87,19 @@ app.MapGet("/api/ecu/{sgbd}/results/{job}", (string sgbd, string job) =>
     return Results.Json(diag.ResultsOf(job));
 });
 
+// a job's declared arguments (offline, via the _ARGUMENTS pseudo-job). lets the
+// UI know which jobs need input (flash address/parameter, etc.) and their types.
+app.MapGet("/api/ecu/{sgbd}/arguments/{job}", (string sgbd, string job) =>
+{
+    using var diag = NewDiag();
+    diag.Load(sgbd);
+    var args = new List<Dictionary<string, string>>();
+    foreach (var set in diag.Run("_ARGUMENTS", job))
+        args.Add(set.Where(kv => !kv.Key.StartsWith("_"))
+                    .ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value)));
+    return Results.Json(new { job, arguments = args });
+});
+
 // actuator tests (INPA F6 'Steuern'): STEUERN_X paired with STEUERN_X_ENDE
 app.MapGet("/api/ecu/{sgbd}/activations", (string sgbd) =>
 {
@@ -104,10 +117,22 @@ app.MapGet("/api/ecu/{sgbd}/activations", (string sgbd) =>
 // job/args, render type (analog gauge / digital / value), per-row
 // label/unit/min/max, plus any input-requiring functions. 404 when the ECU isnt
 // mapped (renderer falls back to /menu).
-app.MapGet("/api/ecu/{sgbd}/layout", (string sgbd) =>
+app.MapGet("/api/ecu/{sgbd}/layout", (string sgbd, string? code) =>
 {
-    // case-insensitive: enriched files keep original .IPO casing
-    string? file = FindLayoutFile(layoutDir, sgbd);
+    // enriched layout files are named by INPA code (MS450.json), not SGBD
+    // (ms450ds0). try: the code hint, then the SGBD, then SGBD with common
+    // suffixes stripped (ds0, ds2, _n). case-insensitive throughout.
+    string? file = (code != null ? FindLayoutFile(layoutDir, code) : null)
+                   ?? FindLayoutFile(layoutDir, sgbd);
+    if (file == null)
+    {
+        foreach (var suf in new[] { "ds0", "ds2", "ds1", "_n", "ds" })
+            if (sgbd.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
+            {
+                file = FindLayoutFile(layoutDir, sgbd[..^suf.Length]);
+                if (file != null) break;
+            }
+    }
     if (file == null) return Results.NotFound(new { error = $"no layout for {sgbd}" });
     try
     {

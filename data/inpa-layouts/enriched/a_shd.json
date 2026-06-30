@@ -1,0 +1,16 @@
+{
+  "ecu": "a_shd.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": "C_FG_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

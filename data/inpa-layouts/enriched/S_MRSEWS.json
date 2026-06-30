@@ -1,0 +1,19 @@
+{
+  "ecu": "S_MRSEWS.IPO",
+  "screens": [
+    {
+      "group": "Service data",
+      "job": "KD_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "KD_DATEN_TEXT", "label": "Service / customer data", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "KD_DATEN_LESEN", "field": "Enter ELDI work order number", "kind": "text",
+      "example": "ELDI-0001", "args_template": "Order number is passed to the service-data write/read job as the job argument" }
+  ]
+}

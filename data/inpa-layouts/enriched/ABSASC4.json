@@ -1,0 +1,44 @@
+{
+  "ecu": "ABSASC4.IPO",
+  "screens": [
+    {
+      "group": "Status inputs / outputs",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORVARIANTE_TEXT", "label": "Engine variant", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GETRIEBEVARIANTE_TEXT", "label": "Transmission variant", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DROSSELKLAPPEN_IST_WERT", "label": "Throttle position", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_PEDALWEGSENSOR_WERT", "label": "Pedal travel sensor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MOTORDREHZAHL_WERT", "label": "Engine speed", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Wheel speeds",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_RAD_GESCHW_VL_WERT", "label": "Wheel speed front left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_VR_WERT", "label": "Wheel speed front right", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HL_WERT", "label": "Wheel speed rear left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HR_WERT", "label": "Wheel speed rear right", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Cycle counter",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "TAKTZAEHLER_IST_WERT", "label": "Cycle counter actual", "unit": null, "min": null, "max": null },
+        { "key": "TAKTZAEHLER_GRENZ_WERT", "label": "Cycle counter limit", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -1,0 +1,67 @@
+{
+  "ecu": "ZKE6.IPO",
+  "screens": [
+    {
+      "group": "ECU identification",
+      "job": "STATUS_ZUENDUNG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window regulator currents",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_IFHF_WERT", "label": "Window current, driver front", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFHB_WERT", "label": "Window current, passenger front", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFLH_WERT", "label": "Window current, rear left", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFRH_WERT", "label": "Window current, rear right", "unit": "A", "min": 0, "max": 30 }
+      ]
+    },
+    {
+      "group": "Wiper / speed",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SWINT_WERT", "label": "Wiper potentiometer voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_POTI_STUFE_WERT", "label": "Wiper potentiometer position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GKL_WERT", "label": "Wipe/wash speed class", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Anti-pinch system",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SEKSFF_WERT", "label": "Anti-pinch impedance, driver door", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SEKSBF_WERT", "label": "Anti-pinch impedance, passenger door", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SEKSLH_WERT", "label": "Anti-pinch impedance, rear left", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SEKSRH_WERT", "label": "Anti-pinch impedance, rear right", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Battery and temperature",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VBAT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_THERMISTOR_WERT", "label": "Thermistor resistance", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "EldiAuftragEingeben", "field": "Diagnostic job/order entry", "kind": "text", "example": "STATUS_ANALOG", "args_template": "Entered job name is dispatched to EDIABAS; no hex args" }
+  ]
+}

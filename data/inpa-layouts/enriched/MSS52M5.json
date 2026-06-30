@@ -1,0 +1,153 @@
+{
+  "ecu": "MSS52M5.IPO",
+  "screens": [
+    {
+      "group": "EWS sync status",
+      "job": "STATUS_SYNC_MODE_TEXT",
+      "args": "0x01",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STEUERN_SYNC_MODE_TEXT", "label": "EWS sync mode", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Vehicle speed",
+      "job": "STATUS_GESCHWINDIGKEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Coolant outlet temperature",
+      "job": "STATUS_KUEHLW_AUSL_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KUEHLW_AUSL_TEMPERATUR_WERT", "label": "Coolant outlet temp", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Air mass (MAF)",
+      "job": "STATUS_LMM_MASSE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LMM_MASSE_WERT", "label": "Air mass (MAF)", "unit": "mg/stk", "min": -700, "max": 700 }
+      ]
+    },
+    {
+      "group": "Injection time",
+      "job": "STATUS_EINSPRITZZEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EINSPRITZZEIT_WERT", "label": "Injection time", "unit": "ms", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Throttle position angle",
+      "job": "STATUS_DKP_WINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DKP_WINKEL_WERT", "label": "Throttle angle", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Accelerator pedal sensor voltage",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_PWG_POTI_SPANNUNG_1_WERT", "label": "Accelerator pedal pot voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "VANOS intake cam position, bank 1",
+      "job": "STATUS_VANOS_NW_LAGE_EINLASS_BANK_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VANOS_NW_LAGE_EINLASS_BANK_1_WERT", "label": "VANOS intake cam position, bank 1", "unit": "°", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "VANOS intake cam position, bank 2",
+      "job": "STATUS_VANOS_NW_LAGE_EINLASS_BANK_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VANOS_NW_LAGE_EINLASS_BANK_2_WERT", "label": "VANOS intake cam position, bank 2", "unit": "°", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Roughness running (misfire) per cylinder",
+      "job": "STATUS_VANOS_NW_LAGE_EINLASS_BANK_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT", "label": "Roughness cylinder 1", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT", "label": "Roughness cylinder 2", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT", "label": "Roughness cylinder 3", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT", "label": "Roughness cylinder 4", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL5_WERT", "label": "Roughness cylinder 5", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL6_WERT", "label": "Roughness cylinder 6", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL7_WERT", "label": "Roughness cylinder 7", "unit": null, "min": null, "max": null },
+        { "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL8_WERT", "label": "Roughness cylinder 8", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Tank vent valve start",
+      "job": "STATUS_LDP_START",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LDP_START_WERT", "label": "Leak detection pump start", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Tank vent valve period",
+      "job": "STATUS_LDP_PERIODENDAUER",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LDP_PERIODENDAUER_WERT", "label": "Leak detection pump period", "unit": "ms", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "ROM read",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ROM_LESEN_WERT", "label": "ROM value", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "RAM read",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "RAM_LESEN_WERT", "label": "RAM value", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

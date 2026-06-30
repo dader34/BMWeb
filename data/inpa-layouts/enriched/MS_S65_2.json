@@ -1,0 +1,133 @@
+{
+  "ecu": "MS_S65_2.IPO",
+  "screens": [],
+  "inputs": [
+    {
+      "job": "DATEN_REFERENZ_LESEN",
+      "field": "Vehicle name (e.g. VS-XY-1)",
+      "kind": "text",
+      "example": "VS-XY-1",
+      "args_template": "free text label, sent as-is"
+    },
+    {
+      "job": "DATEN_REFERENZ_LESEN",
+      "field": "Engine number (e.g. 850110)",
+      "kind": "text",
+      "example": "850110",
+      "args_template": "engine serial string, sent as-is"
+    },
+    {
+      "job": "STATUS_SSP",
+      "field": "Spread / valve-overlap angle (e.g. 70)",
+      "kind": "number",
+      "example": "70",
+      "args_template": "degrees value passed as job parameter"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "Start address (0x0000 - 0xFFFFFF) and length",
+      "kind": "hex",
+      "example": "0x0000",
+      "args_template": "hex start address (and length) as job args"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "DSC mode (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-3 mapped to args byte"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "SMG program (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-3 mapped to args byte"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "SMG stage (0..6)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-6 mapped to args byte"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "Engine program (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-3 mapped to args byte"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "EDCK stage (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-3 mapped to args byte"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "ALBV stage (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-3 mapped to args byte"
+    },
+    {
+      "job": "STATUS_FEHLER_FILTER_MAX_IGN",
+      "field": "Power mode (0..2)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer 0-2 mapped to args byte"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Activation key",
+      "kind": "text",
+      "example": "",
+      "args_template": "unlock key string passed to job"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Ratio (0%-99%)",
+      "kind": "number",
+      "example": "50",
+      "args_template": "percent 0-99 passed to job"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Ratio (0%-100%)",
+      "kind": "number",
+      "example": "50",
+      "args_template": "percent 0-100 passed to job"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Timeout (0s-300s)",
+      "kind": "number",
+      "example": "30",
+      "args_template": "seconds 0-300 passed to job"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Timeout (0s-510s)",
+      "kind": "number",
+      "example": "60",
+      "args_template": "seconds 0-510 passed to job"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Timeout (0s-25s)",
+      "kind": "number",
+      "example": "10",
+      "args_template": "seconds 0-25 passed to job"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Idle speed (max. 2000 rpm)",
+      "kind": "number",
+      "example": "800",
+      "args_template": "rpm value (<=2000) passed to job"
+    }
+  ],
+  "_note": "S65 V8 DME (E9x M3). ipo_bundle reports 0 SCREEN MASKS: INPA exposes data via STATUS_MESSWERTBLOCK_LESEN and many STATUS_FREEZEFRAME_*/STATUS_* status jobs, but the .IPO defines no paired LABELS+KEYS gauge display masks (all 415 raw screens are single-key value reads, 0 multi-key masks, only 7 carry a unit). No faithful gauge screens to render. Input prompts are real and enriched/translated below; duplicate developer prompts (s_ident_entw) collapsed to unique set."
+}

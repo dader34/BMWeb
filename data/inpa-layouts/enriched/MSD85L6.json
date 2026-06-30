@@ -1,0 +1,339 @@
+{
+  "ecu": "MSD85L6.IPO",
+  "screens": [
+    {
+      "group": "Engine status inputs",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KL15_EIN_WERT",
+          "label": "Terminal 15 input (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_AUS_WERT",
+          "label": "Engine off",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Clutch / brake switch inputs",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KUPPL_EIN_WERT",
+          "label": "Clutch switch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BLS_EIN_WERT",
+          "label": "Brake-light switch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BTS_EIN_WERT",
+          "label": "Brake-test switch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD monitoring conditions (Mode 9)",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OBDCOND_WERT",
+          "label": "OBD monitoring conditions encountered count",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_IGNCNTR_WERT",
+          "label": "Number of engine starts",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness: EVAP / catalyst monitor (Mode 9)",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EVAPCOMP_WERT",
+          "label": "EVAP monitor completion count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EVAPCOND_WERT",
+          "label": "EVAP monitor condition count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CATCOMP2_WERT",
+          "label": "Catalyst monitor completion, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CATCOND2_WERT",
+          "label": "Catalyst monitor condition, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness: VVT monitor counts (Mode 9)",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_VVTCOMP1_WERT",
+          "label": "VVT monitor completion count, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTCOND1_WERT",
+          "label": "VVT monitor condition count, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTCOMP2_WERT",
+          "label": "VVT monitor completion count, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTCOND2_WERT",
+          "label": "VVT monitor condition count, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Generator current / supply voltage",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4602,0x4603,0x4604,0x4609,0x460A,0x460E,0x460F,0x4612,0x4613,0x4614,0x4615,0x4616,0x4617,0x4618,0x461A",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GENERATOR_STROM_WERT",
+          "label": "Generator current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KL87_SPANNUNG_WERT",
+          "label": "Terminal 87 voltage / DME supply",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Generator test tolerances",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GENITEST_TOL_WERT",
+          "label": "Current setpoint deviation tolerance",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GENUTEST_TOL_WERT",
+          "label": "Voltage setpoint deviation tolerance",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Generator modelled values",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_I_GENTEST_WERT",
+          "label": "Modelled generator current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_GENTEST_WERT",
+          "label": "Generator target voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "replaced 2024",
+      "args_template": "free text stored to sensor identification"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Two values separated by semicolon (e.g. 5;15)",
+      "kind": "text",
+      "example": "5;15",
+      "args_template": "two numbers joined by ';' passed to job"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Current (0.0-1310.7 A)",
+      "kind": "number",
+      "example": "40.0",
+      "args_template": "amperes value passed to quiescent-current job"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Time (0.0-2.55 s)",
+      "kind": "number",
+      "example": "1.0",
+      "args_template": "seconds value passed to job"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Time (0.0-0.51 s)",
+      "kind": "number",
+      "example": "0.25",
+      "args_template": "seconds value passed to job"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Time (0.0-25.5 s)",
+      "kind": "number",
+      "example": "10.0",
+      "args_template": "seconds value passed to job"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Quiescent-current measurement parameters",
+      "kind": "number",
+      "example": "",
+      "args_template": "parameter set for quiescent-current measurement"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Injector coding data (cyl. 1-8)",
+      "kind": "hex",
+      "example": "",
+      "args_template": "injector calibration code per cylinder passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (0 - 1.99996)",
+      "kind": "number",
+      "example": "1.0",
+      "args_template": "factor value passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (0 - 1.99218797)",
+      "kind": "number",
+      "example": "1.0",
+      "args_template": "factor value passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (-0.128 - 0.127)",
+      "kind": "number",
+      "example": "0.0",
+      "args_template": "signed offset passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (0 - 255)",
+      "kind": "number",
+      "example": "128",
+      "args_template": "byte value passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (0 - 1.999997)",
+      "kind": "number",
+      "example": "1.0",
+      "args_template": "factor value passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (0.0 - 429496729.5)",
+      "kind": "number",
+      "example": "0.0",
+      "args_template": "large counter value passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (0.0 - 347776.0)",
+      "kind": "number",
+      "example": "0.0",
+      "args_template": "value passed to job"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Value (-3276.8 - 3276.7)",
+      "kind": "number",
+      "example": "0.0",
+      "args_template": "signed value passed to job"
+    }
+  ],
+  "_note": "MSD8x petrol DME (N63/S63 V8, 8 injectors). 8 INPA display masks: 2 digital input-status, 3 OBD Mode-9 readiness counters, 3 generator current/voltage (analog). Labels aligned to keys by meaning and translated; mangled umlauts inferred. Generator current key carries unit % in raw data (INPA scaling), kept as analog %. Input prompts translated; duplicate injector-coding prompts (cyl 1-8) collapsed."
+}

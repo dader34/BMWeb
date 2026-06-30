@@ -1,0 +1,1651 @@
+{
+  "ecu": "pm_8x_6x_32.IPO",
+  "screens": [
+    {
+      "group": "Acc",
+      "job": "ACC_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADUNGSMENGE_GESAMT_WERT",
+          "label": "Total charge amount",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IN_MSA_GESAMT_WERT",
+          "label": "Total time in start-stop",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_1_DAUER_WERT",
+          "label": "Start-stop stop 1 duration",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_2_DAUER_WERT",
+          "label": "Start-stop stop 2 duration",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_3_DAUER_WERT",
+          "label": "Start-stop stop 3 duration",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_1_AH_VERBRAUCH_WERT",
+          "label": "Start-stop stop 1 Ah consumption",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MSA_STOP_2_AH_VERBRAUCH_WERT",
+          "label": "Start-stop stop 2 Ah consumption",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MSA_STOP_3_AH_VERBRAUCH_WERT",
+          "label": "Start-stop stop 3 Ah consumption",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MSA_STOP_1_DELTA_KM_BIT_WERT",
+          "label": "Start-stop stop 1 delta km",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_2_DELTA_KM_BIT_WERT",
+          "label": "Start-stop stop 2 delta km",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_3_DELTA_KM_BIT_WERT",
+          "label": "Start-stop stop 3 delta km",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_STOP_1_MIN_SPANNUNG_WERT",
+          "label": "Start-stop stop 1 min voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MSA_STOP_2_MIN_SPANNUNG_WERT",
+          "label": "Start-stop stop 2 min voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MSA_STOP_3_MIN_SPANNUNG_WERT",
+          "label": "Start-stop stop 3 min voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_URSACHE_EA_TEXT",
+          "label": "Cause shutdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_WERT",
+          "label": "Cause shutdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_VORHER_1_TEXT",
+          "label": "Cause shutdown -1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_VORHER_1_WERT",
+          "label": "Cause shutdown -1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_VORHER_2_TEXT",
+          "label": "Cause shutdown -2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_VORHER_2_WERT",
+          "label": "Cause shutdown -2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_VORHER_3_TEXT",
+          "label": "Cause shutdown -3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_EA_VORHER_3_WERT",
+          "label": "Cause shutdown -3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_AKTUELLER_AV_TEXT",
+          "label": "Cause current shutdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_AKTUELLER_AV_WERT",
+          "label": "Cause current shutdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_LETZTER_PMAV_TEXT",
+          "label": "Cause last PM shutdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_LETZTER_PMAV_WERT",
+          "label": "Cause last PM shutdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_PMAV_VORHER_1_TEXT",
+          "label": "Cause PM shutdown -1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_PMAV_VORHER_1_WERT",
+          "label": "Cause PM shutdown -1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_PMAV_VORHER_2_TEXT",
+          "label": "Cause PM shutdown -2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_PMAV_VORHER_2_WERT",
+          "label": "Cause PM shutdown -2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_PMAV_VORHER_3_TEXT",
+          "label": "Cause PM shutdown -3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_URSACHE_PMAV_VORHER_3_WERT",
+          "label": "Cause PM shutdown -3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_1_TEXT",
+          "label": "Shutdown difference -1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_1_WERT",
+          "label": "Shutdown difference -1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_2_TEXT",
+          "label": "Shutdown difference -2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_2_WERT",
+          "label": "Shutdown difference -2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_3_TEXT",
+          "label": "Shutdown difference -3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_3_WERT",
+          "label": "Shutdown difference -3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_4_TEXT",
+          "label": "Shutdown difference -4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_4_WERT",
+          "label": "Shutdown difference -4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_5_TEXT",
+          "label": "Shutdown difference -5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_5_WERT",
+          "label": "Shutdown difference -5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_6_TEXT",
+          "label": "Shutdown difference -6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_6_WERT",
+          "label": "Shutdown difference -6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_7_TEXT",
+          "label": "Shutdown difference -7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_7_WERT",
+          "label": "Shutdown difference -7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_8_TEXT",
+          "label": "Shutdown difference -8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_8_WERT",
+          "label": "Shutdown difference -8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_9_TEXT",
+          "label": "Shutdown difference -9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UNTERSCHIED_AV_VORHER_9_WERT",
+          "label": "Shutdown difference -9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL1_STOPDAUER_UNTER_10S_WERT",
+          "label": "Battery dSOC interval 1 stop <10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL2_STOPDAUER_UNTER_10S_WERT",
+          "label": "Battery dSOC interval 2 stop <10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL3_STOPDAUER_UNTER_10S_WERT",
+          "label": "Battery dSOC interval 3 stop <10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL4_STOPDAUER_UNTER_10S_WERT",
+          "label": "Battery dSOC interval 4 stop <10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL1_STOPDAUER_UEBER_10S_WERT",
+          "label": "Battery dSOC interval 1 stop >10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL2_STOPDAUER_UEBER_10S_WERT",
+          "label": "Battery dSOC interval 2 stop >10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL3_STOPDAUER_UEBER_10S_WERT",
+          "label": "Battery dSOC interval 3 stop >10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTSPG_DSOC_INTERVALL4_STOPDAUER_UEBER_10S_WERT",
+          "label": "Battery dSOC interval 4 stop >10s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_UNTER_5S_WERT",
+          "label": "Stop frequency under 5s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_UEBER_45S_WERT",
+          "label": "Stop frequency over 45s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_ZWISCHEN_5S_20S_WERT",
+          "label": "Stop frequency 5-20s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_ZWISCHEN_20S_45S_WERT",
+          "label": "Stop frequency 20-45s",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_OUT_M_WERT",
+          "label": "Oil-quality output (mean)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_QUALI_M_WERT",
+          "label": "Oil quality (mean)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_OUT_1_WERT",
+          "label": "Oil-quality output 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_OUT_2_WERT",
+          "label": "Oil-quality output 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_OUT_3_WERT",
+          "label": "Oil-quality output 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_OUT_4_WERT",
+          "label": "Oil-quality output 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_OUT_5_WERT",
+          "label": "Oil-quality output 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_QUALI_1_WERT",
+          "label": "Oil quality 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_QUALI_2_WERT",
+          "label": "Oil quality 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_QUALI_3_WERT",
+          "label": "Oil quality 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_QUALI_4_WERT",
+          "label": "Oil quality 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_QUALI_5_WERT",
+          "label": "Oil quality 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_TD1_WERT",
+          "label": "Oil-quality temp 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_TD2_WERT",
+          "label": "Oil-quality temp 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_TD3_WERT",
+          "label": "Oil-quality temp 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_TD4_WERT",
+          "label": "Oil-quality temp 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_TD5_WERT",
+          "label": "Oil-quality temp 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QVC_STATUS_1_WERT",
+          "label": "Oil-quality status 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QVC_STATUS_2_WERT",
+          "label": "Oil-quality status 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_NV_EZM_WERT",
+          "label": "Oil quality NV EZM",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_H2O_WERT",
+          "label": "Water in oil",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QV_H2OQUALI_WERT",
+          "label": "Water-in-oil quality",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_ANTL_WERT",
+          "label": "Integrator ANTL",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_ANTM_WERT",
+          "label": "Integrator ANTM",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_ANTH_WERT",
+          "label": "Integrator ANTH",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_M_AGO_WERT",
+          "label": "Integrator M_AGO",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_H_AGO_WERT",
+          "label": "Integrator H_AGO",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_QLAD_WERT",
+          "label": "Integrator QLAD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_QLAD_M_WERT",
+          "label": "Integrator QLAD_M",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_QELAD_WERT",
+          "label": "Integrator QELAD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_TMED_WERT",
+          "label": "Integrator TMED",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGR_THIGH_WERT",
+          "label": "Integrator THIGH",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REG_SEIT_WERT",
+          "label": "Control since",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REG_DAUER_WERT",
+          "label": "Control duration",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TM_IERRLLRED_WERT",
+          "label": "Idle-current-error reduction time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TM_IERRTRED_WERT",
+          "label": "Transient-current-error reduction time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TM_ENTLFUNK_WERT",
+          "label": "Discharge functional time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TM_ENTLSICH_WERT",
+          "label": "Discharge safety time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_AKTUELL_WERT",
+          "label": "Mileage current",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+          "label": "Mileage 1 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_2_TAG_WERT",
+          "label": "Mileage 2 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_3_TAG_WERT",
+          "label": "Mileage 3 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_4_TAG_WERT",
+          "label": "Mileage 4 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_5_TAG_WERT",
+          "label": "Mileage 5 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_AKTUELL_WERT",
+          "label": "Charge SOC current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+          "label": "Charge SOC 1 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_2_TAG_WERT",
+          "label": "Charge SOC 2 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_3_TAG_WERT",
+          "label": "Charge SOC 3 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_4_TAG_WERT",
+          "label": "Charge SOC 4 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_5_TAG_WERT",
+          "label": "Charge SOC 5 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+          "label": "Charge state current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+          "label": "Charge state 1 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+          "label": "Charge state 2 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+          "label": "Charge state 3 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+          "label": "Charge state 4 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+          "label": "Charge state 5 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+          "label": "Start capability limit current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+          "label": "Start capability limit 1 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+          "label": "Start capability limit 2 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+          "label": "Start capability limit 3 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+          "label": "Start capability limit 4 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+          "label": "Start capability limit 5 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery capacity",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KALIBRIER_EVENT_CNT_WERT",
+          "label": "Calibration event count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Total battery charge",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Total battery discharge",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOH_WERT",
+          "label": "State of health",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOC_FIT_WERT",
+          "label": "State of charge fit",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_TEMP_SAISON_WERT",
+          "label": "Seasonal temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "2nd-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "3rd-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "4th-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTENTLADUNG_GESAMT_BEI_MOTOR_LAEUFT_WERT",
+          "label": "Total discharge while engine running",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+          "label": "Time in charge range 0-20%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+          "label": "Time in charge range 20-40%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+          "label": "Time in charge range 40-60%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+          "label": "Time in charge range 60-80%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+          "label": "Time in charge range 80-100%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+          "label": "Time in temp range below 0",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+          "label": "Time in temp range 0-20",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+          "label": "Time in temp range 20-40",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+          "label": "Time in temp range 40-60",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+          "label": "Time in temp range above 60",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+          "label": "IBS fault counter BSD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+          "label": "IBS fault counter BSD_PARITY",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+          "label": "IBS fault counter POWER_ON_RESET",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+          "label": "IBS fault counter WATCHDOG_RESET",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+          "label": "BSD fault counter BSD_ERWEITERT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT",
+          "label": "IBS fault counter EBSD_CHECKSUMME",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+          "label": "IBS fault counter RAM_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+          "label": "IBS fault counter PROM_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+          "label": "IBS fault counter EEPROM_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+          "label": "IBS fault counter I2C_NAC_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT",
+          "label": "IBS fault counter I2C_BUS_COLLISION",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+          "label": "IBS fault counter DOWNLOAD_CHECKSUMME",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness / test condition",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "CARB warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Zif",
+      "job": "ZIF_LESEN",
+      "args": "0x00",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KM_STAND_AKTUELL_WERT",
+          "label": "Mileage current",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+          "label": "Mileage 1 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_2_TAG_WERT",
+          "label": "Mileage 2 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_3_TAG_WERT",
+          "label": "Mileage 3 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_4_TAG_WERT",
+          "label": "Mileage 4 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_5_TAG_WERT",
+          "label": "Mileage 5 day(s) ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_AKTUELL_WERT",
+          "label": "Charge SOC current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+          "label": "Charge SOC 1 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_2_TAG_WERT",
+          "label": "Charge SOC 2 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_3_TAG_WERT",
+          "label": "Charge SOC 3 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_4_TAG_WERT",
+          "label": "Charge SOC 4 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_5_TAG_WERT",
+          "label": "Charge SOC 5 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+          "label": "Charge state current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+          "label": "Charge state 1 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+          "label": "Charge state 2 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+          "label": "Charge state 3 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+          "label": "Charge state 4 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+          "label": "Charge state 5 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+          "label": "Start capability limit current",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+          "label": "Start capability limit 1 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+          "label": "Start capability limit 2 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+          "label": "Start capability limit 3 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+          "label": "Start capability limit 4 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+          "label": "Start capability limit 5 day(s) ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery capacity",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KALIBRIER_EVENT_CNT_WERT",
+          "label": "Calibration event count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Total battery charge",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Total battery discharge",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOH_WERT",
+          "label": "State of health",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOC_FIT_WERT",
+          "label": "State of charge fit",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_TEMP_SAISON_WERT",
+          "label": "Seasonal temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "2nd-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "3rd-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "4th-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTENTLADUNG_GESAMT_BEI_MOTOR_LAEUFT_WERT",
+          "label": "Total discharge while engine running",
+          "unit": "Ah",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+          "label": "Time in charge range 0-20%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+          "label": "Time in charge range 20-40%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+          "label": "Time in charge range 40-60%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+          "label": "Time in charge range 60-80%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+          "label": "Time in charge range 80-100%",
+          "unit": "s",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+          "label": "Time in temp range below 0",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+          "label": "Time in temp range 0-20",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+          "label": "Time in temp range 20-40",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+          "label": "Time in temp range 40-60",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+          "label": "Time in temp range above 60",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+          "label": "IBS fault counter BSD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+          "label": "IBS fault counter BSD_PARITY",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+          "label": "IBS fault counter POWER_ON_RESET",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+          "label": "IBS fault counter WATCHDOG_RESET",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+          "label": "BSD fault counter BSD_ERWEITERT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT",
+          "label": "IBS fault counter EBSD_CHECKSUMME",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+          "label": "IBS fault counter RAM_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+          "label": "IBS fault counter PROM_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+          "label": "IBS fault counter EEPROM_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+          "label": "IBS fault counter I2C_NAC_DIAGNOSE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT",
+          "label": "IBS fault counter I2C_BUS_COLLISION",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+          "label": "IBS fault counter DOWNLOAD_CHECKSUMME",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_0_80_GESAMT_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_80_200_GESAMT_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_200_1000_GESAMT_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_AB_1000_GESAMT_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_0_80_GESAMT_OHNE_SV_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_80_200_GESAMT_OHNE_SV_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_200_1000_GESAMT_OHNE_SV_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_RUHESTROM_AB_1000_GESAMT_OHNE_SV_WERT",
+          "label": "Quiescent current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+          "label": "5th-last battery replacement",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "ZIF_LESEN",
+      "field": "Language selection",
+      "kind": "text",
+      "example": "de",
+      "args_template": "language code string"
+    }
+  ]
+}

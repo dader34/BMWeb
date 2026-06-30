@@ -1,0 +1,1300 @@
+{
+  "ecu": "AFS_90.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "AFS status",
+      "job": "STATUS_AFS",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMME15_TEXT",
+          "label": "Terminal 15 (ignition) status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_KLEMME15_WERT",
+          "label": "Terminal 15 (ignition) value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FN_AFS_WERT",
+          "label": "AFS fault number (bits 0-3)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SELBSTHALT_TEXT",
+          "label": "Self-hold status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SELBSTHALT_WERT",
+          "label": "Self-hold value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FN_AFS_TEXT",
+          "label": "AFS fault number text",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_RESET_CAN_TEXT",
+          "label": "Reset CAN status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_RESET_CAN_WERT",
+          "label": "Reset CAN value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_ENDSTUFE_TEXT",
+          "label": "Output stage status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_ENDSTUFE_WERT",
+          "label": "Output stage value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_RELAIS_TEXT",
+          "label": "Relay status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_RELAIS_WERT",
+          "label": "Relay value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SPERRE_TEXT",
+          "label": "Lock status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SPERRE_WERT",
+          "label": "Lock value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_ERSATZMASSNAHME_HEX_WERT",
+          "label": "Contingency measures (hex)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GUELTIGKEIT_MOTORLAGEWINKEL_TEXT",
+          "label": "Motor position angle validity",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_GUELTIGKEIT_MOTORLAGEWINKEL_WERT",
+          "label": "Motor position angle validity value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GUELTIGKEIT_SUMMENLENKWINKEL_TEXT",
+          "label": "Total steering angle validity",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_GUELTIGKEIT_SUMMENLENKWINKEL_WERT",
+          "label": "Total steering angle validity value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GUELTIGKEIT_FAHRERLENKWINKEL_TEXT",
+          "label": "Driver steering angle validity",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_GUELTIGKEIT_FAHRERLENKWINKEL_WERT",
+          "label": "Driver steering angle validity value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MOTORDYNAMIK_TEXT",
+          "label": "Motor dynamics status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_MOTORDYNAMIK_WERT",
+          "label": "Motor dynamics value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_VERBRENNUNGSMOTOR_TEXT",
+          "label": "Combustion engine status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_VERBRENNUNGSMOTOR_WERT",
+          "label": "Combustion engine value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "AFS operating system",
+      "job": "STATUS_AFS_OS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEM_MPC_AKTUELL_TEXT",
+          "label": "MPC system state, current",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SYSTEM_NEC_AKTUELL_TEXT",
+          "label": "NEC system state, current",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SYSTEM_MPC_DESIRE_TEXT",
+          "label": "MPC system state, desired",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SYSTEM_NEC_DESIRE_TEXT",
+          "label": "NEC system state, desired",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_CURRENT_OP_MODE_TEXT",
+          "label": "Current OS operating mode",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_WUNSCH_BMW_MODE_TEXT",
+          "label": "BMW state machine state",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_PREINIT_TEXT",
+          "label": "PREINIT state",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_INIT_1_TEXT",
+          "label": "INIT 1 state",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_INIT_2_TEXT",
+          "label": "INIT 2 state",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_POSTRUN_TEXT",
+          "label": "POSTRUN state",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_COMM_ERROR_TEXT",
+          "label": "Communication error",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_DXJOB_TEXT",
+          "label": "Current DX job",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_DXSTATUS_TEXT",
+          "label": "DX status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "DSC info",
+      "job": "STATUS_DSC_INFO",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GUELTIGKEIT_DSC_TEXT",
+          "label": "DSC validity",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_REGELUNG_DSC_TEXT",
+          "label": "DSC control status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "SZL (steering column switch cluster)",
+      "job": "STATUS_SZL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SZL_INFO_TEXT",
+          "label": "SZL info",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SZL_MUX_WERT",
+          "label": "MUX alive counter (F-CAN)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "CAN error signals",
+      "job": "STATUS_CAN_FEHLER_SIGNALE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CAN_FEHLER_FGNR_WERT",
+          "label": "CAN fault, chassis number value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_CAN_FEHLER_FGNR_TEXT",
+          "label": "CAN fault, chassis number text",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Supplier ID (SSI)",
+      "job": "IDENT_SSI_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Alive counters",
+      "job": "STATUS_ALIVE_INFO",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAHRER_LENKWINKEL_ALIVECOUNTER_FWCAN_WERT",
+          "label": "Driver steering angle alive counter (F-CAN)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_ALIVECOUNTER_WERT",
+          "label": "Total steering angle alive counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_TEILSOLLWERT_GMK_DSC_ALIVECOUNTER_WERT",
+          "label": "GMK partial setpoint alive counter (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_DSC_ALIVECOUNTER_WERT",
+          "label": "DSC alive counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SENSORCLUSTER_1_ALIVECOUNTER_WERT",
+          "label": "Sensor cluster 1 alive counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SENSORCLUSTER_2_ALIVECOUNTER_WERT",
+          "label": "Sensor cluster 2 alive counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "IDENT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Supply voltages",
+      "job": "STATUS_VERSORGUNGEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMME30_WERT",
+          "label": "Terminal 30 (battery)",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VERSORGUNG_SENSOREN_5V_WERT",
+          "label": "Sensor supply 5V",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Temperatures",
+      "job": "STATUS_TEMPERATUREN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTOR_TEMPERATUR_MPC_WERT",
+          "label": "Motor temperature (MPC)",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MOTOR_TEMPERATUR_NEC_WERT",
+          "label": "Motor temperature (NEC)",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ENDSTUFE_TEMPERATUR_NEC_WERT",
+          "label": "Output stage temperature (NEC)",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ENDSTUFE_TEMPERATUR_NEC_DPRAM_WERT",
+          "label": "Output stage temperature (NEC DPRAM)",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Driver steering angle",
+      "job": "STATUS_FAHRERLENKWINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAHRER_LENKWINKEL_WERT",
+          "label": "Driver steering angle, current",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_FAHRER_LENKWINKEL_GESCHWINDIGKEIT_WERT",
+          "label": "Driver steering angle speed",
+          "unit": "°/s",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "SZL serial number",
+      "job": "STATUS_EEPROM_SERIENNUMMER_SZL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EEPROM_SERIENNUMMER_SZL_WERT",
+          "label": "SZL serial number in AFS EEPROM",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Total steering angle (physical)",
+      "job": "STATUS_LWG_WINKELWERTE_PHYSIKALISCH",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SUMMENLENKWINKEL_WERT",
+          "label": "Total steering angle (LO-CAN)",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Total steering angle (absolute)",
+      "job": "STATUS_LWG_WINKELWERTE_ABSOLUT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SUMMENLENKWINKEL_ABSOLUT_WERT",
+          "label": "Total steering angle, absolute (LO-CAN)",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_GESCHWINDIGKEIT_ABSOLUT_WERT",
+          "label": "Total steering angle speed, absolute",
+          "unit": "°/s",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Total steering angle sensor",
+      "job": "STATUS_SUMMENLENKWINKEL_SENSOR",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SUMMENLENKWINKEL_SENSOR_GUELTIGKEIT_SPANNUNGSVERSORUNG_WERT",
+          "label": "Sensor supply voltage validity",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_SENSOR_ALIVECOUNTER_WERT",
+          "label": "Sensor alive counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_SENSOR_CAN_WERT",
+          "label": "Raw value from total steering angle sensor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_SENSOR_STATUS_BIT0_TEXT",
+          "label": "Sensor status, bit 0",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_SENSOR_STATUS_BIT1_TEXT",
+          "label": "Sensor status, bit 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_SENSOR_CAN_ERROR_TEXT",
+          "label": "Sensor CAN error",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Angle values",
+      "job": "STATUS_WINKELWERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAHRER_LENKWINKEL_WERT",
+          "label": "Driver steering angle, current",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_WERT",
+          "label": "Total steering angle (LO-CAN)",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_ABSOLUT_WERT",
+          "label": "Total steering angle, absolute (LO-CAN)",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LENKRADWINKELSCHIEFSTAND_WERT",
+          "label": "Steering wheel misalignment, current",
+          "unit": "°",
+          "min": -90,
+          "max": 90,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Dynamics",
+      "job": "STATUS_DYNAMIK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAHRER_LENKWINKEL_WERT",
+          "label": "Driver steering angle, current",
+          "unit": "°",
+          "min": -720,
+          "max": 720,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_FAHRER_LENKWINKEL_GESCHWINDIGKEIT_WERT",
+          "label": "Driver steering angle speed",
+          "unit": "°/s",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ABWEICHUNG_MOTORWINKEL_WERT",
+          "label": "Motor angle deviation",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Phase currents",
+      "job": "STATUS_PHASENSTROEME",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PHASENSTROM_I1_WERT",
+          "label": "Phase current I1",
+          "unit": "A",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_PHASENSTROM_I2_WERT",
+          "label": "Phase current I2",
+          "unit": "A",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_PHASENSTROM_I3_WERT",
+          "label": "Phase current I3",
+          "unit": "A",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Phase voltages",
+      "job": "STATUS_PHASENSPANNUNGEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PHASENSPANNUNG_U1_WERT",
+          "label": "Phase voltage U1",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_PHASENSPANNUNG_U2_WERT",
+          "label": "Phase voltage U2",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_PHASENSPANNUNG_U3_WERT",
+          "label": "Phase voltage U3",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Speeds",
+      "job": "STATUS_GESCHWINDIGKEITEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAD_GESCHWINDIGKEIT_VL_WERT",
+          "label": "Wheel speed, front left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RAD_GESCHWINDIGKEIT_VR_WERT",
+          "label": "Wheel speed, front right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RAD_GESCHWINDIGKEIT_HL_WERT",
+          "label": "Wheel speed, rear left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RAD_GESCHWINDIGKEIT_HR_WERT",
+          "label": "Wheel speed, rear right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_GIERGESCHWINDIGKEIT_1_WERT",
+          "label": "Yaw rate 1",
+          "unit": "°/s",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_GIERGESCHWINDIGKEIT_2_WERT",
+          "label": "Yaw rate 2",
+          "unit": "°/s",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_FAHRZEUG_GESCHWINDIGKEIT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Lateral acceleration",
+      "job": "STATUS_QUERBESCHLEUNIGUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_QUERBESCHLEUNIGUNG_1_WERT",
+          "label": "Lateral acceleration 1",
+          "unit": "m/s²",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_QUERBESCHLEUNIGUNG_2_WERT",
+          "label": "Lateral acceleration 2",
+          "unit": "m/s²",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "GMK (yaw moment control)",
+      "job": "STATUS_GMK",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GMK_ENABLE_WERT",
+          "label": "GMK enable",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GMK_AKTIV_WERT",
+          "label": "GMK active",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GMK_TEILSOLLWERT_DSC_ALIVECOUNTER_WERT",
+          "label": "GMK partial setpoint alive counter (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GMK_TEILSOLLWERT_WERT",
+          "label": "GMK partial setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_GMK_AFS_TEXT",
+          "label": "GMK AFS text",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_GMK_QUAL_WERT",
+          "label": "GMK qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "ECO current",
+      "job": "STATUS_ECO_STROM_MA",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ECO_STROM_WERT",
+          "label": "ECO valve current",
+          "unit": "mA",
+          "min": 0,
+          "max": 2000,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Servo current",
+      "job": "STATUS_SERVO_STROM_MA",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SERVO_STROM_WERT",
+          "label": "Servo valve current",
+          "unit": "mA",
+          "min": 0,
+          "max": 2000,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "EEPROM sensor offsets",
+      "job": "STATUS_EEPROM_SENSOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GIERRATEN_1_OFFSET_WERT",
+          "label": "Yaw rate offset 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GIERRATEN_2_OFFSET_WERT",
+          "label": "Yaw rate offset 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OUERBESCH_1_OFFSET_WERT",
+          "label": "Lateral acceleration offset 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OUERBESCH_2_OFFSET_WERT",
+          "label": "Lateral acceleration offset 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GIERRATEN_EMPFINDLICHKEIT_1_WERT",
+          "label": "Yaw rate sensitivity 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GIERRATEN_EMPFINDLICHKEIT_2_WERT",
+          "label": "Yaw rate sensitivity 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_OFFSET_WERT",
+          "label": "Total steering angle offset",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Adaptive data alignment",
+      "job": "STATUS_ADAPTIVDATEN_ABGLEICH_ABFRAGEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSORCLUSTER_OFFSET_ABGLEICH_WERT",
+          "label": "Sensor cluster offset alignment",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GIERRATENEMPFINDLICHKEIT_ABGLEICH_WERT",
+          "label": "Yaw rate sensitivity alignment",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_OFFSET_ABGLEICH_WERT",
+          "label": "Total steering angle offset alignment",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Terminal info",
+      "job": "STATUS_KLEMMEN_INFO",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMME_15_TEXT",
+          "label": "Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "MPC revision (SSS)",
+      "job": "IDENT_SSS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "MPC564_REVISIONS_TEXT",
+          "label": "MPC revision number (SSS)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Sensor qualifiers",
+      "job": "STATUS_QUALIFIER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAHRERLENKWINKEL_QUAL_WERT",
+          "label": "Driver steering angle qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_QUERBESCH_QUAL_WERT",
+          "label": "Lateral acceleration qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GIERGESCHW_QUAL_WERT",
+          "label": "Yaw rate qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_REFGESCHW_AFS_QUAL_WERT",
+          "label": "Reference speed AFS qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SUMMENLENKWINKEL_QUAL_WERT",
+          "label": "Total steering angle qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MOTORDYNAMIK_QUAL_WERT",
+          "label": "Motor dynamics qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GMK_QUAL_WERT",
+          "label": "GMK qualifier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_QUALIFIER",
+      "field": "Steering-angle-module init query (LWM_INIT)",
+      "kind": "text",
+      "example": "start",
+      "args_template": "trigger string requesting LWM init status"
+    }
+  ]
+}

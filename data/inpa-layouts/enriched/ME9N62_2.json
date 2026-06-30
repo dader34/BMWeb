@@ -1,0 +1,67 @@
+{
+  "ecu": "ME9N62_2.IPO",
+  "screens": [
+    {
+      "group": "Intake flap system check - status flags 1",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_15_WERT", "label": "Fault status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_12_WERT", "label": "Tester actuation, upper air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_13_WERT", "label": "Tester actuation, lower air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_14_WERT", "label": "Communication status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intake flap system check - diagnosis complete",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_8_WERT", "label": "Heating", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_11_WERT", "label": "Self-diagnosis lower air flap complete", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_10_WERT", "label": "Self-diagnosis upper air flap complete", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_9_WERT", "label": "Electrical diagnosis complete", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intake flap system check - faults detected",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_7_WERT", "label": "System test active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_6_WERT", "label": "Fault lower air flap detected", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_5_WERT", "label": "Fault upper air flap detected", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_4_WERT", "label": "Electrical fault detected", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intake flap system check - variant detection",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_3_WERT", "label": "Communication query status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_2_WERT", "label": "Learned variant status, lower air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_1_WERT", "label": "Learned variant status, upper air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_0_WERT", "label": "Variant detection status", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "DATA_ID_LESEN", "field": "Enter your comment for line 1 and line 2", "kind": "text", "example": "Workshop note", "args_template": "two free-text comment lines stored in ID block" },
+    { "job": "STATUS_SYSTEMCHECK_DMTL", "field": "Status query fault (DMTL leak diagnosis module)", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for DMTL status query" },
+    { "job": "STATUS_SYSTEMCHECK_SEK_LUFT", "field": "Status query fault (secondary air)", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for secondary air status query" },
+    { "job": "STATUS_SYSTEMCHECK_LSH", "field": "Status query fault, O2 sensor heating system test, DME right", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for O2 heating system test query" },
+    { "job": "STATUS_SYSTEMCHECK_GRUNDADAPT", "field": "Status query fault, start basic adaptations", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes to start basic adaptations" },
+    { "job": "STATUS_SYSTEMCHECK_GLF", "field": "Communication query", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for intake flap communication query" },
+    { "job": "STATUS_SYSTEMCHECK_LAMBDA_AUS", "field": "Status query fault, lambda control off", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for lambda-control-off status query" },
+    { "job": "STATUS_SYSTEMCHECK_TEV_FUNC", "field": "Status query fault (tank vent valve function)", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for tank vent valve function query" }
+  ]
+}

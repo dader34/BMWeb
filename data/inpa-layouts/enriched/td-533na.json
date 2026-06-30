@@ -1,0 +1,43 @@
+{
+  "ecu": "td-533na.IPO",
+  "screens": [
+    {
+      "group": "Power supply ripple history (FSSP) by RPM band",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FSSP_ERRCTR_WERT", "label": "FSSP fault counter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_1_WERT", "label": "Count, band 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_2_WERT", "label": "Count, band 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_3_WERT", "label": "Count, 992-1504 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_4_WERT", "label": "Count, 1504-2016 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_5_WERT", "label": "Count, 2016-2528 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_6_WERT", "label": "Count, 2528-3040 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_7_WERT", "label": "Count, above 3040 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_8_WERT", "label": "Count, band 8", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_9_WERT", "label": "Count, 992-1504 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_10_WERT", "label": "Count, 1504-2016 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_11_WERT", "label": "Count, 2016-2528 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_12_WERT", "label": "Count, 2528-3040 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_13_WERT", "label": "Count, above 3040 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_14_WERT", "label": "Count, band 14", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_15_WERT", "label": "Count, 992-1504 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_16_WERT", "label": "Count, 1504-2016 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_17_WERT", "label": "Count, 2016-2528 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_18_WERT", "label": "Count, 2528-3040 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_19_WERT", "label": "Count, above 3040 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_20_WERT", "label": "Count, band 20", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_21_WERT", "label": "Count, 992-1504 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_22_WERT", "label": "Count, 1504-2016 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_23_WERT", "label": "Count, 2016-2528 rpm", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FSSP_HIST_24_WERT", "label": "Count, 2528-3040 rpm", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "STATUS_FILE_CLOSE", "field": "Value to enter, then confirm with OK", "kind": "text",
+      "example": "value", "args_template": "entered text passed as the job parameter" }
+  ]
+}

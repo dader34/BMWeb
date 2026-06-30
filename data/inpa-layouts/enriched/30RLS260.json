@@ -1,0 +1,16 @@
+{
+  "ecu": "30RLS260.IPO",
+  "screens": [
+    {
+      "group": "ECU identification",
+      "job": "DIAGNOSEPROTOKOLL_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier number", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

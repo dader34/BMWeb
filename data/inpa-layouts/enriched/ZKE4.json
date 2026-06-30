@@ -1,0 +1,72 @@
+{
+  "ecu": "ZKE4.IPO",
+  "screens": [
+    {
+      "group": "ECU identification",
+      "job": "INFOSPEICHER_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Coding / window regulator parameters",
+      "job": "COD_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "COD_EKS_EMPFINDLICHKEIT_FH_VORN_WERT", "label": "Anti-pinch sensitivity, front window", "unit": null, "min": null, "max": null },
+        { "key": "COD_ANLAUF_UNTERDR_GLEICHE_RICHTUNG_FH_VORN_WERT", "label": "Startup suppression, same direction, front window", "unit": null, "min": null, "max": null },
+        { "key": "COD_ANLAUF_UNTERDR_GEGEN_RICHTUNG_FH_VORN_WERT", "label": "Startup suppression, opposite direction, front window", "unit": null, "min": null, "max": null },
+        { "key": "COD_ABSCHALTUNG_SCHEIBENABSENKUNG_BEIM_SCHLIESSEN_WERT", "label": "Window-drop cutoff on closing", "unit": null, "min": null, "max": null },
+        { "key": "COD_ABSCHALTUNG_SCHEIBENABSENKUNG_BEIM_OEFFNEN_WERT", "label": "Window-drop cutoff on opening", "unit": null, "min": null, "max": null },
+        { "key": "COD_POS_FH_VORN_EKS_MIN_WERT", "label": "Anti-pinch minimum position, front window", "unit": null, "min": null, "max": null },
+        { "key": "COD_POS_FH_VORN_EKS_MAX_WERT", "label": "Anti-pinch maximum position, front window", "unit": null, "min": null, "max": null },
+        { "key": "COD_GESAMTWEG_FH_VORN_WERT", "label": "Window regulator total travel, front", "unit": null, "min": null, "max": null },
+        { "key": "COD_QUITTUNGSDAUER_AKUSTISCHER_ALARM_WERT", "label": "Acoustic alarm acknowledgement duration", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Analog voltages",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_V30E_WERT", "label": "Terminal 30E voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_V31L_WERT", "label": "Terminal 31L voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_VIGV_WERT", "label": "Ignition supply voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_VMFFZ_WERT", "label": "Driver window motor voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_VMFBZ_WERT", "label": "Passenger window motor voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Window positions",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FFPOS_WERT", "label": "Driver window position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FBPOS_WERT", "label": "Passenger window position", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window regulator currents",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_IFFHMAX_WERT", "label": "Driver window max current", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFBHMAX_WERT", "label": "Passenger window max current", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFFH_WERT", "label": "Driver window current", "unit": "A", "min": 0, "max": 30 },
+        { "key": "STAT_IFBH_WERT", "label": "Passenger window current", "unit": "A", "min": 0, "max": 30 }
+      ]
+    }
+  ],
+  "inputs": []
+}

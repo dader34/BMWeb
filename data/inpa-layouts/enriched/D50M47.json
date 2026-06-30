@@ -1,0 +1,406 @@
+{
+  "ecu": "D50M47.IPO",
+  "screens": [
+    {
+      "group": "Fault details",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Logistic counter / symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Running roughness RPM (per cylinder)",
+      "job": "STATUS_LAUFUNRUHE_DREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL1_WERT",
+          "label": "Running roughness RPM, cylinder 1",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL2_WERT",
+          "label": "Running roughness RPM, cylinder 2",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL3_WERT",
+          "label": "Running roughness RPM, cylinder 3",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL4_WERT",
+          "label": "Running roughness RPM, cylinder 4",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "EWS status",
+      "job": "ABGLEICH_IMA_LESEN",
+      "args": "0x00",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EWS_WERT",
+          "label": "EWS immobilizer status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Steering wheel buttons",
+      "job": "STATUS_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MFLEINP_WERT",
+          "label": "Operating device button +",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MFLEINM_WERT",
+          "label": "Operating device button -",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MFLWA_WERT",
+          "label": "Operating device button reopen",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MFLAUS_WERT",
+          "label": "Operating device button off",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery voltage",
+      "job": "STATUS_UBATT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UBATT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Air mass (sensor)",
+      "job": "STATUS_LMM_MASSE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LMM_MASSE_WERT",
+          "label": "Air mass flow",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Engine RPM",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Coolant temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Intake air temperature",
+      "job": "STATUS_AN_LUFTTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_WERT",
+          "label": "Intake air temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Pedal sensor potentiometer 1",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_WERT",
+          "label": "Pedal sensor potentiometer 1 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Pedal sensor potentiometer 2",
+      "job": "STATUS_PEDALWERTGEBER_POTI_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PEDALWERTGEBER_POTI_2_WERT",
+          "label": "Pedal sensor potentiometer 2 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Idle control quantity (per cylinder)",
+      "job": "STATUS_LAUFUNRUHE_LLR_MENGE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL1_WERT",
+          "label": "Idle controller quantity, cylinder 1",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL2_WERT",
+          "label": "Idle controller quantity, cylinder 2",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL3_WERT",
+          "label": "Idle controller quantity, cylinder 3",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL4_WERT",
+          "label": "Idle controller quantity, cylinder 4",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Boost pressure setpoint",
+      "job": "STATUS_LADEDRUCK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADEDRUCK_SOLL_WERT",
+          "label": "Boost pressure setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Boost pressure actual",
+      "job": "STATUS_LADEDRUCK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADEDRUCK_IST_WERT",
+          "label": "Boost pressure actual",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Rail pressure setpoint",
+      "job": "STATUS_RAILDRUCK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAILDRUCK_SOLL_WERT",
+          "label": "Rail pressure setpoint",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Rail pressure actual",
+      "job": "STATUS_RAILDRUCK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAILDRUCK_IST_WERT",
+          "label": "Rail pressure actual",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Air mass setpoint",
+      "job": "STATUS_LUFTMASSE_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUFTMASSE_SOLL_WERT",
+          "label": "Air mass setpoint",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Air mass actual",
+      "job": "STATUS_LUFTMASSE_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUFTMASSE_IST_WERT",
+          "label": "Air mass actual",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

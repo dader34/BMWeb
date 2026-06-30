@@ -18,8 +18,13 @@ const HIDDEN_JOBS = new Set([
 // destructive/flash/security jobs: shown but flagged, never auto-run
 const DANGEROUS_JOBS = /FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|PARAMETER_SETZEN/;
 
-const jobLabel = (j) => JOB_LABELS[j] || j.replace(/_/g, ' ').toLowerCase()
-  .replace(/\b\w/g, c => c.toUpperCase());
+const jobLabel = (j) => {
+  if (JOB_LABELS[j]) return JOB_LABELS[j];
+  // humanize SNAKE_CASE then translate any German verbs/nouns left in the name
+  let s = j.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+  if (typeof deGerman === 'function') s = deGerman(s) || s;
+  return s;
+};
 
 // fold the mined .IPO screen layout into the menu. each layout screen becomes a
 // function item (definition under `_screen`), bucketed into INPA sections by
@@ -30,15 +35,9 @@ function mergeLayoutIntoMenu(menu, layout) {
     if (!buckets.has(section)) buckets.set(section, []);
     buckets.get(section).push(item);
   };
-  const sectionFor = (group) => {
-    const g = (group || '').toLowerCase();
-    if (/adapt/.test(g)) return 'Adaptations';
-    if (/lambda|o2 sensor|mixture|fuel|injection|misfire/.test(g)) return 'Fuel & lambda';
-    if (/temp|coolant|intake|boost|pressure|air|throttle|load|rpm|idle/.test(g)) return 'Engine values';
-    if (/vanos|valvetronic|timing|ignition/.test(g)) return 'Timing & VANOS';
-    if (/config|coding|variant|identif|version/.test(g)) return 'Configuration';
-    return 'Status';
-  };
+  // every mined .IPO screen is a Status readout, so they all live under Status
+  // (matches INPA, which lists them in one status list rather than split buckets).
+  const sectionFor = () => 'Status';
   layout.screens.forEach((scr, i) => {
     const label = scr.group || (scr.job ? jobLabel(scr.job) : `Screen ${i + 1}`);
     put(sectionFor(scr.group), { job: scr.job || `__screen_${i}`, label, danger: false, _screen: scr });
@@ -105,7 +104,7 @@ async function showEcu(chassisId, sectionName, ecu) {
   lastScreen = () => showEcu(chassisId, sectionName, ecu);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
-    { label: dispChassis(chassisId), fn: () => showSections(chassisId) },
+    { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
     { label: ecu.label },
   ]);
   sbLeft.textContent = `${ecu.sgbd}.prg`;
@@ -127,10 +126,13 @@ async function showEcu(chassisId, sectionName, ecu) {
       p.port ? `cable: ${p.port.replace('/dev/', '')}` : 'no cable';
   }).catch(() => {});
 
-  // mined .IPO layout when this ECU is mapped, else the job-name menu
+  // mined .IPO layout when this ECU is mapped, else the job-name menu. pass the
+  // INPA code (e.g. MS450) so the server can match MS450.json even though the
+  // SGBD is ms450ds0.
   let menu, layout = null;
   try {
-    layout = await api(`/api/ecu/${ecu.sgbd}/layout`);
+    const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
+    layout = await api(`/api/ecu/${ecu.sgbd}/layout${codeHint}`);
   } catch { /* no layout, fall back below */ }
   try {
     menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
@@ -152,7 +154,7 @@ async function showEcu(chassisId, sectionName, ecu) {
       key: String(i + 1), label: sec.section,
       fn: () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section),
     }));
-    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showSections(chassisId) });
+    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => backToModules(chassisId) });
     setActions(acts);
     return;
   }
@@ -176,7 +178,7 @@ async function showEcu(chassisId, sectionName, ecu) {
     key: String(i + 1), label: sec.section,
     fn: () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section),
   }));
-  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showSections(chassisId) });
+  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => backToModules(chassisId) });
   setActions(acts);
 }
 

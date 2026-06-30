@@ -1,0 +1,1077 @@
+{
+  "ecu": "SMG_60.IPO",
+  "screens": [
+    {
+      "group": "Fault memory (background)",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault Symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault Ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Stored positions",
+      "job": "SPEICHER_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "POS_SCHALTZYLINDER_2_4_GANG_2_WERT",
+          "label": "Shift cylinder position 2 4 gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_6_7_GANG_6_WERT",
+          "label": "Shift cylinder position 6 7 gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_5_3_GANG_5_WERT",
+          "label": "Shift cylinder position 5 3 gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder position R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_2_4_GANG_4_WERT",
+          "label": "Shift cylinder position 2 4 gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_6_7_GANG_7_WERT",
+          "label": "Shift cylinder position 6 7 gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_5_3_GANG_3_WERT",
+          "label": "Shift cylinder position 5 3 gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder position R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Actual values",
+      "job": "STATUS_ISTWERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_POS_SCHALTSTANGE_2_4_WERT",
+          "label": "Shift rod position 2 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_SCHALTSTANGE_6_7_WERT",
+          "label": "Shift rod position 6 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_SCHALTSTANGE_5_3_WERT",
+          "label": "Shift rod position 5 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_SCHALTSTANGE_R_1_WERT",
+          "label": "Shift rod position R 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTGANG_TEXT",
+          "label": "Istgang",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_AUSKUP_WERT",
+          "label": "Clutch disengage position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_EINKUP_WERT",
+          "label": "Clutch engage position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS2_SCHALTSTANGE_R_1_WERT",
+          "label": "Shift rod position redundant R 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HYDRAULIKDRUCK_WERT",
+          "label": "Hydraulic pressure",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UBAT_WERT",
+          "label": "Battery voltage",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_CAN_WERT",
+          "label": "Engine RPM ((CAN))",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHL_WERT",
+          "label": "Input RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FAHRPEDAL_WERT",
+          "label": "Accelerator pedal",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELSTELLUNG_TEXT",
+          "label": "Selector lever position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STATUS_TESTPRG_TEXT",
+          "label": "Test program status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTGANG_WERT",
+          "label": "Istgang",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELSTELLUNG_WERT",
+          "label": "Selector lever position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KILOMETERSTAND_WERT",
+          "label": "Odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FREEZE_FRAME_REFERENZ_TEXT",
+          "label": "Freeze frame reference",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGANZEIGE_TEXT",
+          "label": "Gear indicator",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELANZEIGE_TEXT",
+          "label": "Selector lever display",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPLUNG_TEXT",
+          "label": "Kupplung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_TEXT",
+          "label": "Getriebe",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAHRZUSTAND_TEXT",
+          "label": "Driving state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FGR_TEXT",
+          "label": "Fgr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PROGRAMMINFO_TEXT",
+          "label": "Program info",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORMOMENT_WERT",
+          "label": "Engine torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_USENSA_WERT",
+          "label": "Sensor voltage A",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USENSB_WERT",
+          "label": "Sensor voltage B",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_UMGEBUNGSTEMPERATUR_WERT",
+          "label": "Ambient temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_HYDRAULIKTEMPERATUR_WERT",
+          "label": "Hydraulic temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_VL_WERT",
+          "label": "Speed front-left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_VR_WERT",
+          "label": "Speed front-right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_HL_WERT",
+          "label": "Speed rear-left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_HR_WERT",
+          "label": "Speed rear-right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_AUSGANGSDREHZAHL_WERT",
+          "label": "Output RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_STROM_KUP_WERT",
+          "label": "Clutch current",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_POS_KUP_WERT",
+          "label": "Clutch position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_DRUCK_REGELVENTIL1_WERT",
+          "label": "Pressure control valve current 1",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_POS2_KUP_WERT",
+          "label": "Clutch position redundant",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_DRUCK_REGELVENTIL2_WERT",
+          "label": "Pressure control valve current 2",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STROM_SCHALTZYLINDER_R_1_WERT",
+          "label": "Shift cylinder current R 1",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STROM_SCHALTZYLINDER_2_4_WERT",
+          "label": "Shift cylinder current 2 4",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STROM_SCHALTZYLINDER_5_3_WERT",
+          "label": "Shift cylinder current 5 3",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STROM_SCHALTZYLINDER_6_7_WERT",
+          "label": "Shift cylinder current 6 7",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ALAENGS_SENSOR_WERT",
+          "label": "Alaengs Sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ALAENGS_SMG_WERT",
+          "label": "Alaengs Smg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AQUER_CAN_WERT",
+          "label": "Aquer Can",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation values",
+      "job": "ADAPTIONSWERTE_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "POS_SW_N_WERT",
+          "label": "SW position neutral",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ANSCHLAG_SW_ODD_WERT",
+          "label": "SW end stop odd gears",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ANSCHLAG_SW_EVEN_WERT",
+          "label": "SW end stop even gears",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WW_GASSE_R_WERT",
+          "label": "Gate resistance R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WW_GASSE_1_2_WERT",
+          "label": "Gate resistance 1 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WW_GASSE_3_4_WERT",
+          "label": "Gate resistance 3 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WW_GASSE_5_6_WERT",
+          "label": "Gate resistance 5 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESS_WERT",
+          "label": "Mess",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder position R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS2_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder position redundant R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_2_4_GANG_2_WERT",
+          "label": "Shift cylinder position 2 4 gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_5_3_GANG_3_WERT",
+          "label": "Shift cylinder position 5 3 gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_2_4_GANG_4_WERT",
+          "label": "Shift cylinder position 2 4 gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_5_3_GANG_5_WERT",
+          "label": "Shift cylinder position 5 3 gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_6_7_GANG_6_WERT",
+          "label": "Shift cylinder position 6 7 gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_6_7_GANG_7_WERT",
+          "label": "Shift cylinder position 6 7 gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder position R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS2_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder position redundant R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Test program state",
+      "job": "STATUS_TESTPRG_ISTZUSTAND",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_STATUS_TESTPRG_TEXT",
+          "label": "Test program status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUSTAND_TESTPRG_TEXT",
+          "label": "Test program state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESS_WERT",
+          "label": "Mess",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLERMELDUNG_TEXT",
+          "label": "Fault message",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Wear data",
+      "job": "VERSCHLEISSDATEN_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "KUPPL_SCHLEIF_PKT_WERT",
+          "label": "Clutch contact point",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "NULLPUNKT_KUPPL_POS_WERT",
+          "label": "Clutch zero point position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "I_NULL_VENT_KUPPL_WERT",
+          "label": "Clutch valve zero current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "UEBERDECKUNG_VENT_KUPPL_WERT",
+          "label": "Clutch valve overlap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_EINKUP_WERT",
+          "label": "Clutch engage position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_AUSKUP_WERT",
+          "label": "Clutch disengage position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ADAPT_P0_WERT",
+          "label": "Adapt P0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ADAPT_P1_WERT",
+          "label": "Adapt P1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ADAPT_P2_WERT",
+          "label": "Adapt P2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ADAPT_P3_WERT",
+          "label": "Adapt P3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ADAPT_P4_WERT",
+          "label": "Adapt P4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ADAPT_P5_WERT",
+          "label": "Adapt P5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_R_1_VOR_WERT",
+          "label": "Shift cylinder current R 1 before",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_R_1_RUECK_WERT",
+          "label": "Shift cylinder current R 1 (reverse)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_R_1_SPERRL_WERT",
+          "label": "Shift cylinder current R 1 (lock layer)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_5_3_VOR_WERT",
+          "label": "Shift cylinder current 5 3 before",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_5_3_RUECK_WERT",
+          "label": "Shift cylinder current 5 3 (reverse)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_5_3_SPERRL_WERT",
+          "label": "Shift cylinder current 5 3 (lock layer)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_2_4_VOR_WERT",
+          "label": "Shift cylinder current 2 4 before",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_2_4_RUECK_WERT",
+          "label": "Shift cylinder current 2 4 (reverse)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_2_4_SPERRL_WERT",
+          "label": "Shift cylinder current 2 4 (lock layer)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_6_7_VOR_WERT",
+          "label": "Shift cylinder current 6 7 before",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_6_7_RUECK_WERT",
+          "label": "Shift cylinder current 6 7 (reverse)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "OFF_STROM_SCHALTZYLINDER_6_7_SPERRL_WERT",
+          "label": "Shift cylinder current 6 7 (lock layer)",
+          "unit": "A",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder position R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder pre-sync position R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder position R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder pre-sync position R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder correction R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder correction R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS2_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder position redundant R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS2_VOR_SYNC_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder pre-sync position redundant R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS2_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder position redundant R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS2_VOR_SYNC_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder pre-sync position redundant R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR2_SCHALTZYLINDER_R_1_GANG_R_WERT",
+          "label": "Shift cylinder correction 2 R 1 gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR2_SCHALTZYLINDER_R_1_GANG_1_WERT",
+          "label": "Shift cylinder correction 2 R 1 gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_5_3_GANG_5_WERT",
+          "label": "Shift cylinder position 5 3 gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_5_3_GANG_5_WERT",
+          "label": "Shift cylinder pre-sync position 5 3 gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_5_3_GANG_3_WERT",
+          "label": "Shift cylinder position 5 3 gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_5_3_GANG_5_WERT",
+          "label": "Shift cylinder correction 5 3 gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_5_3_GANG_3_WERT",
+          "label": "Shift cylinder correction 5 3 gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_2_4_GANG_2_WERT",
+          "label": "Shift cylinder position 2 4 gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_2_4_GANG_2_WERT",
+          "label": "Shift cylinder pre-sync position 2 4 gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_2_4_GANG_4_WERT",
+          "label": "Shift cylinder position 2 4 gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_2_4_GANG_4_WERT",
+          "label": "Shift cylinder pre-sync position 2 4 gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_2_4_GANG_2_WERT",
+          "label": "Shift cylinder correction 2 4 gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_2_4_GANG_4_WERT",
+          "label": "Shift cylinder correction 2 4 gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_6_7_GANG_6_WERT",
+          "label": "Shift cylinder position 6 7 gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_6_7_GANG_6_WERT",
+          "label": "Shift cylinder pre-sync position 6 7 gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_SCHALTZYLINDER_6_7_GANG_7_WERT",
+          "label": "Shift cylinder position 6 7 gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "POS_VOR_SYNC_SCHALTZYLINDER_6_7_GANG_7_WERT",
+          "label": "Shift cylinder pre-sync position 6 7 gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_6_7_GANG_6_WERT",
+          "label": "Shift cylinder correction 6 7 gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KORR_SCHALTZYLINDER_6_7_GANG_7_WERT",
+          "label": "Shift cylinder correction 6 7 gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

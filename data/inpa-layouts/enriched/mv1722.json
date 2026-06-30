@@ -1,0 +1,1988 @@
+{
+ "ecu": "mv1722.IPO",
+ "screens": [
+  {
+   "group": "Fault memory",
+   "job": "FS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "F_ORT_TEXT",
+     "label": "Fault location",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_PCODE_TEXT",
+     "label": "Fault P-code",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_PCODE7_TEXT",
+     "label": "Fault P-code (7-digit)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_SAE_CODE_TEXT",
+     "label": "Fault SAE code code",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "System context (freeze frame)",
+   "job": "STATUS_VIN_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DM_MELDUNG_TEXT",
+     "label": "Diagnostic message",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+     "label": "System context timestamp",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+     "label": "Customer time year",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+     "label": "Customer time month",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+     "label": "Customer time day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+     "label": "Customer time hour",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+     "label": "Customer time minute",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+     "label": "Customer time second",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+     "label": "Mileage at fault",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+     "label": "Voltage min at fault",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+     "label": "Voltage max at fault",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+     "label": "Outside temp at fault",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+     "label": "Engine temp at fault",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+     "label": "Vehicle speed",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+     "label": "Vehicle speed",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+     "label": "Crank RPM min at fault",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+     "label": "Crank RPM max at fault",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+     "label": "Terminal status at fault",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+     "label": "Terminal status before fault",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+     "label": "Time of terminal change",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+     "label": "Operation status at fault",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+     "label": "Operation status before fault",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+     "label": "Time of operation status change",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+     "label": "Wake time",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+     "label": "First terminal R on time",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+     "label": "First terminal 15 on time",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+     "label": "First terminal 50 on time",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+     "label": "Fault memory lock active",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Info memory / readiness",
+   "job": "IS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "F_VORHANDEN_TEXT",
+     "label": "Fault present",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_SYMPTOM_TEXT",
+     "label": "Fault symptom",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_READY_TEXT",
+     "label": "Fault readiness",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_WARNUNG_TEXT",
+     "label": "Fault warning",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Sensor identification",
+   "job": "SENSOREN_IDENT_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "SENSOR_HERSTELLER_TEXT",
+     "label": "Sensor manufacturer",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Energy saving / mode status",
+   "job": "STATUS_ENERGIESPARMODE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ENERGIESPARMODE_WERT",
+     "label": "Energy saving mode",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FERTIGUNGSMODE_WERT",
+     "label": "Manufacturing mode",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TRANSPORTMODE_WERT",
+     "label": "Transport mode",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_WERKSTATTMODE_WERT",
+     "label": "Workshop mode",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MODE_WERT",
+     "label": "Mode",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Manufacturer info",
+   "job": "HERSTELLINFO_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "ID_LIEF_TEXT",
+     "label": "ID supplier",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Software version (SVK)",
+   "job": "SVK_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "PROZESSKLASSE_TEXT",
+     "label": "Prozessklasse",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Neutral gear detection",
+   "job": "STATUS_NULLGANG_ERKENNUNG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_PHY_NG_LERN_WERT",
+     "label": "Neutral gear learn",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PHY_NG_POSITION_WERT",
+     "label": "Neutral gear position",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Measurement block / status flags",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BEDINGUNG_SICHERHEITSKRAFTSTOFFABSCHALTUNG_WERT",
+     "label": "Safety fuel cutoff condition",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BEDINGUNG_EKP_WERT",
+     "label": "Fuel pump condition",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LAMPE_CHECK_ENGINE_EIN_WERT",
+     "label": "Check-engine lamp on",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_STARTRELAIS_UEBER_CAN_AKTIV_WERT",
+     "label": "Starter relay via CAN active",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_STATUS_LS_HEIZUNG_HINTER_KATALYSATOR_BANK_1_WERT",
+     "label": "O2 sensor Heater post catalyst bank 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STATUS_LS_HEIZUNG_VOR_KATALYSATOR_BANK_1_WERT",
+     "label": "O2 sensor Heater pre catalyst bank 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STATUS_KLOPFEN_WERT",
+     "label": "Klopfen",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DREHMOMENTEINGRIFF_UEBER_CAN_WERT",
+     "label": "Torque intervention via CAN",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_OELDRUCKSCHALTER_EIN_WERT",
+     "label": "Oil pressure switch on",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_STARTERRELAIS_AKTIV_WERT",
+     "label": "Starter relay active",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BEDINGUNG_EVANOS_IM_ANSCHLAG_BEIM_LETZTEN_ABSTELLEN_WERT",
+     "label": "Intake VANOS at stop on last shutdown",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VVT_ENTLASTUNGSRELAIS_EIN_WERT",
+     "label": "VVT relief relay on",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_LAMPE_FGR_EIN_WERT",
+     "label": "Cruise lamp on",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT0_WERT",
+     "label": "Messwert0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT1_WERT",
+     "label": "Messwert1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT2_WERT",
+     "label": "Messwert2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT3_WERT",
+     "label": "Messwert3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT4_WERT",
+     "label": "Messwert4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT5_WERT",
+     "label": "Messwert5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT6_WERT",
+     "label": "Messwert6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT7_WERT",
+     "label": "Messwert7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MESSWERT8_WERT",
+     "label": "Messwert8",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMTL_PUMPE_EIN_WERT",
+     "label": "DMTL pump on",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DMTL_VENTIL_EIN_WERT",
+     "label": "DMTL valve on",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MIL_LAMPE_EIN_WERT",
+     "label": "MIL lamp on",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Measurement values",
+   "job": "STATUS_MESSWERTBLOCK_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LAMBDAVERSCHIEBUNG_RUECKFUEHRREGLER_1_WERT",
+     "label": "Lambda offset feedback ctrl 1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PD_ANTEIL_LANGSAM_LEERLAUFREGELUNG_WERT",
+     "label": "Idle control PD slow term",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PD_ANTEIL_SCHNELL_LEERLAUFREGELUNG_WERT",
+     "label": "Idle control PD fast term",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SAUGROHRDRUCK_1_ODER_LADEDRUCK_1_WERT",
+     "label": "Manifold/boost pressure 1",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_KORREKTURFAKTOR_MASSENSTROM_WERT",
+     "label": "Mass-flow correction factor",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_ZUSTAND_LAMBDAREGELUNG_BANK_1_WERT",
+     "label": "Lambda control state, bank 1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KRAFTSTOFFTANK_FUELLSTAND_WERT",
+     "label": "Fuel tank level",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_SUMMENZAEHLER_ABGASRELEVANTER_AUSSETZER_WERT",
+     "label": "Total emission-relevant misfires",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_INDIVIDUELLER_ZAEHLER_AUSSETZERKENNUNG_ZYL_1_WERT",
+     "label": "Misfire counter cyl 1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_INDIVIDUELLER_ZAEHLER_AUSSETZERKENNUNG_ZYL_2_WERT",
+     "label": "Misfire counter cyl 2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_INDIVIDUELLER_ZAEHLER_AUSSETZERKENNUNG_ZYL_3_WERT",
+     "label": "Misfire counter cyl 3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_INDIVIDUELLER_ZAEHLER_AUSSETZERKENNUNG_ZYL_4_WERT",
+     "label": "Misfire counter cyl 4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BERECHNETER_GANG_WERT",
+     "label": "Calculated gear",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_INTERVALZAEHLER_FUER_ABGASRELEVANTER_AUSSETZER_WERT",
+     "label": "Interval emission-relevant misfires",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KILOMETERSTAND_WERT",
+     "label": "Odometer",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KUPPLUNGSMOMENT_ISTWERT_WERT",
+     "label": "Clutch torque (actual)",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_LEERLAUF_SOLLDREHZAHL_WERT",
+     "label": "Idle target RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_BETRIEBSART_ISTWERT_WERT",
+     "label": "Operating mode (actual)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_O2_SPEICHERFAEHIGKEIT_KATALYSATOR_WERT",
+     "label": "Catalyst O2 storage capacity",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KRAFTSTOFFVERBRAUCH_SEIT_LETZTEM_SERVICE_WERT",
+     "label": "Fuel used since last service",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KLIMASYSTEMDRUCK_WERT",
+     "label": "A/C system pressure",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_BREMSDRUCK_WERT",
+     "label": "Brake pressure",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_NORMIERTE_HEIZLEISTUNG_DER_LAMBDASONDE_HINTER_KAT_WERT",
+     "label": "Normalized O2 heater power post-cat",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SAUGROHRDRUCK_WERT",
+     "label": "Manifold pressure",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_UMGEBUNGSDRUCK_WERT",
+     "label": "Ambient pressure",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_ADDITIVE_GEMISCHADAPTION_LEERLAUF_BANK_1_WERT",
+     "label": "Additive mixture adaptation, idle, bank 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_RELATIVE_LAST_WERT",
+     "label": "Relative load",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_ABSTELLZEIT_WERT",
+     "label": "Engine-off time",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TASTVERHAELTNIS_FUER_LAMBDASONDENHEIZUNG_WERT",
+     "label": "O2 heater duty cycle",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TASTVERHAELTNIS_E_LUEFTER_WERT",
+     "label": "Electric fan duty cycle",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TANKENTLUEFTUNGSVENTIL_TEV_PWM_WERT",
+     "label": "Purge valve (TEV) PWM",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_ABGASTEMPERATUR_NACH_KAT_AUS_MODELL_WERT",
+     "label": "Exhaust temp post-cat (model)",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_BEHEIZTER_THERMOSTAT_PWM_WERT",
+     "label": "Heated thermostat PWM",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_MOTOROELTEMPERATUR_WERT",
+     "label": "Engine oil temp",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_UMGEBUNGSTEMPERATUR_WERT",
+     "label": "Ambient temperature",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_GESCHWINDIGKEIT_WERT",
+     "label": "Vehicle speed",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_DROSSELKLAPPENWINKEL_BEZOGEN_AUF_UNTEREN_ANSCHLAG_WERT",
+     "label": "Throttle angle from lower stop",
+     "unit": "°",
+     "min": -180,
+     "max": 180
+    },
+    {
+     "key": "STAT_DROSSELKLAPPE_SOLLWERT_WERT",
+     "label": "Throttle setpoint",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEDALWERT_FAHRERWUNSCH_IN_PROZENT_WERT",
+     "label": "Accelerator pedal (driver demand)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_STATUS_FGR_WERT",
+     "label": "Fgr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZUENDWINKEL_ZYLINDER1_WERT",
+     "label": "Ignition angle cyl 1",
+     "unit": "°",
+     "min": -180,
+     "max": 180
+    },
+    {
+     "key": "STAT_SOLLWERT_E_LUEFTER_ALS_PWM_WERT",
+     "label": "Electric fan setpoint (PWM)",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VSAADPFL0_WERT",
+     "label": "Vsaadpfl0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSAADPFL1_WERT",
+     "label": "Vsaadpfl1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSAADPFL2_WERT",
+     "label": "Vsaadpfl2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSAADPFL3_WERT",
+     "label": "Vsaadpfl3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSEADPFL0_WERT",
+     "label": "Vseadpfl0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSEADPFL1_WERT",
+     "label": "Vseadpfl1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSEADPFL2_WERT",
+     "label": "Vseadpfl2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSEADPFL3_WERT",
+     "label": "Vseadpfl3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ADD_WERT",
+     "label": "Additive",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_MUL_WERT",
+     "label": "Multiplicative",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_AKTUELLER_DROSSELKLAPPENWINKEL_WERT",
+     "label": "Throttle angle (actual)",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LAMBDASONDENHEIZUNG_PWM_HINTER_KATALYSATOR_BANK_1_WERT",
+     "label": "O2 heater PWM post-cat, bank 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VANOS_PWM_WERT_EINLASS_WERT",
+     "label": "Intake VANOS PWM",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_EINLASS_VANOS_PWM_WERT",
+     "label": "Intake VANOS PWM",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Camshaft adaptation",
+   "job": "STATUS_NWGADAPTION",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VSEADP_WERT",
+     "label": "Vseadp",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VSAADP_WERT",
+     "label": "Vsaadp",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Power management info 1",
+   "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KM_STAND_AKTUELL_WERT",
+     "label": "Km reading Current",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+     "label": "Km reading pre 1 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_2_TAG_WERT",
+     "label": "Km reading pre 2 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_3_TAG_WERT",
+     "label": "Km reading pre 3 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_4_TAG_WERT",
+     "label": "Km reading pre 4 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KM_STAND_VOR_5_TAG_WERT",
+     "label": "Km reading pre 5 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+     "label": "Battery replacement (last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+     "label": "Battery replacement (2nd last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+     "label": "Battery replacement (3rd last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+     "label": "Battery replacement (4th last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+     "label": "Battery replacement (5th last)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+     "label": "Time in charge range 0 20",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+     "label": "Time in charge range 20 40",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+     "label": "Time in charge range 40 60",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+     "label": "Time in charge range 60 80",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+     "label": "Time in charge range 80 100",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+     "label": "Time in temp range to 0",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+     "label": "Time in temp range 0 20",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+     "label": "Time in temp range 20 40",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+     "label": "Time in temp range 40 60",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+     "label": "Time in temp range from 60",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+     "label": "Total battery charge",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+     "label": "Total battery discharge",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTERIELADUNG_BILANZ_WERT",
+     "label": "Battery charge balance",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTENTLADUNG_GESAMT_BEI_MOTOR_LAEUFT_WERT",
+     "label": "Total battery discharge, engine running",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+     "label": "Ibs Fehlerzaehler Bsd Parity",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+     "label": "Ibs Fehlerzaehler Watchdog Reset",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+     "label": "Ibs Fehlerzaehler Power On Reset",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+     "label": "Ktbs Fehlerzaehler Bsd Erweitert",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+     "label": "Ktibs Fehlerzaehler Bsd",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT",
+     "label": "Ktibs Fehlerzaehler Ebsd Checksumme",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Power management info 2",
+   "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_Q_SOC_AKTUELL_WERT",
+     "label": "Q SOC Current",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+     "label": "Q SOC pre 1 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_2_TAG_WERT",
+     "label": "Q SOC pre 2 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_3_TAG_WERT",
+     "label": "Q SOC pre 3 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_4_TAG_WERT",
+     "label": "Q SOC pre 4 day",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_Q_SOC_VOR_5_TAG_WERT",
+     "label": "Q SOC pre 5 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+     "label": "Start capability limit (current)",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+     "label": "Start capability limit pre 1 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+     "label": "Start capability limit pre 2 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+     "label": "Start capability limit pre 3 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+     "label": "Start capability limit pre 4 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+     "label": "Start capability limit pre 5 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+     "label": "Charge state (current)",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+     "label": "Ladungszustand pre 1 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+     "label": "Ladungszustand pre 2 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+     "label": "Ladungszustand pre 3 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+     "label": "Ladungszustand pre 4 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+     "label": "Ladungszustand pre 5 day",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+     "label": "Battery capacity",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SOH_WERT",
+     "label": "SOH",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SOC_FIT_WERT",
+     "label": "SOC fit",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TEMP_SAISON_WERT",
+     "label": "Temperature season",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KALIBRIER_EVENT_CNT_WERT",
+     "label": "Kalibrier Event Cnt",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+     "label": "Ibs Fehlerzaehler Download Checksumme",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler Eeprom Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler Ram Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler Prom Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+     "label": "Ibs Fehlerzaehler I2c Nac Diagnose",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT",
+     "label": "Ibs Fehlerzaehler I2c Bus Collision",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Purge valve function check",
+   "job": "STATUS_SYSTEMCHECK_TEV_FUNC",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SYSTEMCHECK_TEV_FUNC_WERT",
+     "label": "System check purge valve Func",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Catalyst system check",
+   "job": "STATUS_SYSTEMCHECK_KAT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SYSTEMCHECK_KAT_WERT",
+     "label": "System check cat",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Lambda-control-off check",
+   "job": "STATUS_SYSTEMCHECK_L_REGELUNG_AUS",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_L_REGELUNG_WERT",
+     "label": "L Control",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Idle increase check",
+   "job": "STATUS_SYSTEMCHECK_LLERH",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LL_TEXT",
+     "label": "Ll",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Engine RPM",
+   "job": "STATUS_MOTORDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORDREHZAHL_WERT",
+     "label": "Engine RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "DMTL system check",
+   "job": "STATUS_SYSTEMCHECK_DMTL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_DMTL_WERT",
+     "label": "Fs Dmtl",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Basic adaptation check",
+   "job": "STATUS_SYSTEMCHECK_GRUNDADAPT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GAS_TEXT",
+     "label": "Gas",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "EGR-off system check",
+   "job": "STATUS_SYSTEMCHECK_IGR_AUS",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_IGRD_WERT",
+     "label": "Fs Igrd",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Idle/overrun status",
+   "job": "STATUS_LLABG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DNLLMV_WERT",
+     "label": "Dnllmv",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DNSACMV_WERT",
+     "label": "Dnsacmv",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DNSLBV_WERT",
+     "label": "Dnslbv",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DNFSACMV_WERT",
+     "label": "Dnfsacmv",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DNFSMV_WERT",
+     "label": "Dnfsmv",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "VVT status",
+   "job": "STATUS_VVT",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DIFF_FSR_RSR_WERT",
+     "label": "VANOS diff FSR-RSR",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Quiescent current measurement",
+   "job": "STATUS_RUHESTROMMESSUNG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_RUHESTROM_WERT",
+     "label": "Quiescent current",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_STAT_RUHESTROM_WERT",
+     "label": "Quiescent current",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    }
+   ]
+  },
+  {
+   "group": "VVT end-stop system check",
+   "job": "STATUS_SYSTEMCHECK_VVT_ANSCHLAG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VVTCHKSF1_WERT",
+     "label": "Vvtchksf1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VVTCHKSF2_WERT",
+     "label": "Vvtchksf2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EXWNKFSR_WERT",
+     "label": "Exwnkfsr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_EXWNKRSR_WERT",
+     "label": "Exwnkrsr",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "O2 heater pre-cat check",
+   "job": "STATUS_SYSTEMCHECK_LSVK",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_LSVK_WERT",
+     "label": "Fs Lsvk",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "O2 heater post-cat check",
+   "job": "STATUS_SYSTEMCHECK_LSHK",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_LSHK_WERT",
+     "label": "Fs Lshk",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Auto start-stop (MSA) info",
+   "job": "STATUS_MSAINFO",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LADUNGSMENGE_GESAMT_WERT",
+     "label": "Total charge quantity",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL1_UNTER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall1 below temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL2_UNTER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall2 below temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL3_UNTER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall3 below temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL4_UNTER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall4 below temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL1_UEBER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall1 above temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL2_UEBER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall2 above temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL3_UEBER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall3 above temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_BATTSPG_DSOC_INTERVALL4_UEBER_TGRENZ_WERT",
+     "label": "Battspg Dsoc Intervall4 above temp limit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_UNTER_5S_WERT",
+     "label": "Rel frequency stops duration below 5s",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_ZWISCHEN_5S_20S_WERT",
+     "label": "Rel frequency stops duration between 5s 20s",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_ZWISCHEN_20S_45S_WERT",
+     "label": "Rel frequency stops duration between 20s 45s",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_REL_HAEUFIGKEIT_STOPS_DAUER_UEBER_45S_WERT",
+     "label": "Rel frequency stops duration above 45s",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_MSA_STOP_1_MIN_SPANNUNG_WERT",
+     "label": "Msa Stop 1 min Voltage",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_MSA_STOP_1_KM_BIT_WERT",
+     "label": "Msa Stop 1 Km Bit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MSA_STOP_1_TEMP_WERT",
+     "label": "Msa Stop 1 Temperature",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_MSA_STOP_1_AH_VERBRAUCH_WERT",
+     "label": "Msa Stop 1 Ah consumption",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MSA_STOP_2_MIN_SPANNUNG_WERT",
+     "label": "Msa Stop 2 min Voltage",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MSA_STOP_2_KM_BIT_WERT",
+     "label": "Msa Stop 2 Km Bit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MSA_STOP_2_TEMP_WERT",
+     "label": "Msa Stop 2 Temperature",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_MSA_STOP_2_AH_VERBRAUCH_WERT",
+     "label": "Msa Stop 2 Ah consumption",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MSA_STOP_3_MIN_SPANNUNG_WERT",
+     "label": "Msa Stop 3 min Voltage",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MSA_STOP_3_KM_BIT_WERT",
+     "label": "Msa Stop 3 Km Bit",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MSA_STOP_3_TEMP_WERT",
+     "label": "Msa Stop 3 Temperature",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_MSA_STOP_3_AH_VERBRAUCH_WERT",
+     "label": "Msa Stop 3 Ah consumption",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  }
+ ],
+ "inputs": [
+  {
+   "job": "SENSOREN_IDENT_LESEN",
+   "field": "Comment to store with the reading",
+   "kind": "text",
+   "example": "Workshop note",
+   "args_template": "free text saved alongside the read result"
+  },
+  {
+   "job": "HS_LESEN",
+   "field": "Comment to store with the reading",
+   "kind": "text",
+   "example": "Workshop note",
+   "args_template": "free text saved alongside the read result"
+  },
+  {
+   "job": "HS_LESEN",
+   "field": "Quiescent-current measurement parameter",
+   "kind": "number",
+   "example": "50",
+   "args_template": "numeric threshold (mA) parameterizing the standby-current measurement"
+  },
+  {
+   "job": "STATUS_ZUENDUNG",
+   "field": "Quiescent-current measurement parameter",
+   "kind": "number",
+   "example": "50",
+   "args_template": "numeric threshold (mA) parameterizing the standby-current measurement"
+  },
+  {
+   "job": "STATUS_CAS_DIAGNOSE",
+   "field": "Cylinder/channel selection (1-17)",
+   "kind": "text",
+   "example": "5;15",
+   "args_template": "one or more indices 1-17, semicolon-separated, passed as selection list"
+  },
+  {
+   "job": "STATUS_NULLGANG_ERKENNUNG",
+   "field": "Hex value",
+   "kind": "hex",
+   "example": "0x2884",
+   "args_template": "hexadecimal value (0x-prefixed) passed as the job argument"
+  },
+  {
+   "job": "STATUS_RUHESTROMMESSUNG",
+   "field": "Quiescent-current measurement parameter",
+   "kind": "number",
+   "example": "50",
+   "args_template": "numeric threshold (mA) parameterizing the standby-current measurement"
+  },
+  {
+   "job": "STATUS_FEHLERCODE",
+   "field": "Fault location (hex)",
+   "kind": "hex",
+   "example": "0xA1",
+   "args_template": "hex fault-location code passed as the job argument"
+  },
+  {
+   "job": "STATUS_FEHLERCODE",
+   "field": "Actuation duration",
+   "kind": "number",
+   "example": "2000",
+   "args_template": "numeric duration in ms for the actuation/control routine"
+  },
+  {
+   "job": "STATUS_SCHALTERSTATI",
+   "field": "Actuation duration",
+   "kind": "number",
+   "example": "2000",
+   "args_template": "numeric duration in ms for the actuation/control routine"
+  },
+  {
+   "job": "STATUS_MESSWERTBLOCK_LESEN",
+   "field": "Actuation duration",
+   "kind": "number",
+   "example": "2000",
+   "args_template": "numeric duration in ms for the actuation/control routine"
+  }
+ ]
+}

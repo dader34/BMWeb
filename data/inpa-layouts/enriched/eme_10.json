@@ -1,0 +1,107 @@
+{
+  "ecu": "eme_10.IPO",
+  "screens": [
+    {
+      "group": "System context at fault time (VIN read)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DM_MELDUNG_TEXT", "label": "Diagnostic message", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT", "label": "Timestamp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT", "label": "Customer time - year", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT", "label": "Customer time - month", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT", "label": "Customer time - day", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT", "label": "Customer time - hour", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT", "label": "Customer time - minute", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT", "label": "Customer time - second", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT", "label": "Distance at fault", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT", "label": "Board voltage min at fault", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT", "label": "Board voltage max at fault", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT", "label": "Outside temperature at fault", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT", "label": "Engine temperature at fault", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT", "label": "Speed min at fault", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT", "label": "Speed max at fault", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT", "label": "Crankshaft RPM min at fault", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT", "label": "Crankshaft RPM max at fault", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT", "label": "Terminal status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT", "label": "Terminal status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT", "label": "Time of terminal status change at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT", "label": "Operation status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT", "label": "Operation status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT", "label": "Time of operation status change at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT", "label": "Wake-up time (current power cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT", "label": "Time first terminal R on (current cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT", "label": "Time first terminal 15 on (current cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT", "label": "Time first terminal 50 on (current cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT", "label": "Fault memory lock active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Energy-save / operating mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIESPARMODE_WERT", "label": "Energy-save mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FERTIGUNGSMODE_WERT", "label": "Production mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TRANSPORTMODE_WERT", "label": "Transport mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WERKSTATTMODE_WERT", "label": "Workshop mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MODE_WERT", "label": "Current mode", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Rotor position sensor",
+      "job": "STATUS_EEP_WRITE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ROTORLAGESENSOR_STATUS_MODE_TEXT", "label": "Rotor position sensor status mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ROTORLAGESENSOR_WERT", "label": "Rotor position sensor value", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Electric machine and DC/DC converter live values",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EPSOFF_WERT", "label": "EPS off", "unit": null, "min": null, "max": null },
+        { "key": "STAT_POSITIONSGEBER_WERT", "label": "Position encoder", "unit": null, "min": null, "max": null },
+        { "key": "STAT_STROM_DC_HV_WERT_DCDC_WERT", "label": "HV DC current (DC/DC)", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_EMK_STROM_DC_WERT", "label": "EMF DC current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_STROM_UBAT_WERT", "label": "Battery current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_STROM_DCDC_LV_WERT", "label": "LV DC/DC current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_SPANNUNG_DC_HV_WERT", "label": "HV DC voltage", "unit": "V", "min": null, "max": null },
+        { "key": "STAT_SPANNUNG_DC_HV_DCDC_WERT", "label": "HV DC voltage (DC/DC)", "unit": "V", "min": null, "max": null },
+        { "key": "STAT_SPANNUNG_DCDC_LV_WERT", "label": "LV DC/DC voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_UBAT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KL50L_NR_TEXT", "label": "Terminal 50L status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BA_DCDC_IST_NR_TEXT", "label": "DC/DC operating mode actual", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BA_DCDC_KOMM_NR_TEXT", "label": "DC/DC operating mode commanded", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TEMP_LE_UVW_MAX_WERT", "label": "Power electronics temp UVW max", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TEMP_LE_U_WERT", "label": "Power electronics temp phase U", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TEMP_LE_V_WERT", "label": "Power electronics temp phase V", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TEMP_SG_WERT_DCDC_TRAFO_WERT", "label": "DC/DC transformer temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_ELEKTRISCHE_MASCHINE_DREHZAHL_WERT", "label": "Electric machine RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_ELEKTRISCHE_MASCHINE_IST_MOMENT_WERT", "label": "Electric machine actual torque", "unit": "Nm", "min": 0, "max": 600 },
+        { "key": "STAT_ELEKTRISCHE_MASCHINE_SOLL_MOMENT_WERT", "label": "Electric machine target torque", "unit": "Nm", "min": 0, "max": 600 },
+        { "key": "STAT_EME_PUMPE_DREHZAHL_WERT", "label": "EME pump RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_ANZAHL_BREMSBTG_WERT", "label": "Brake actuation count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LAUFZEIT_ELUP_S_WERT", "label": "Electric pump runtime", "unit": "s", "min": null, "max": null },
+        { "key": "STAT_ANLAUFE_ELUP_WERT", "label": "Electric pump starts", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOC_HVB_WERT", "label": "HV battery state of charge", "unit": "%", "min": 0, "max": 100 }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "HS_LESEN", "field": "Comment to store", "kind": "text",
+      "example": "INSPECTED 2026-06", "args_template": "free text written into the manufacturer info comment" },
+    { "job": "HS_LESEN", "field": "Set DC/DC converter to standby mode?", "kind": "text",
+      "example": "yes", "args_template": "confirmation that triggers DC/DC standby command" }
+  ]
+}

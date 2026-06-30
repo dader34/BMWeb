@@ -138,10 +138,24 @@ public sealed class InpaConfig
         return null;
     }
 
+    // cross-ECU tokens that show up in many engine .ipo scripts (login/check
+    // references) but are never the engine's own SGBD. without this the S54 M3
+    // entry MSS54M3 (true SGBD MSS54DS0, which does not prefix-match the code)
+    // tied with the stray "EWS" reference and resolved to the immobilizer. these
+    // sink below real SGBD candidates of equal prefix-rank; insertion order still
+    // decides among real variants (e.g. ABS5 over ASC5 for absasc5).
+    private static readonly HashSet<string> GenericIpoTokens =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "EWS", "EWS3", "DME", "KAT", "HLM", "LMM", "ASC", "ASR", "MSR",
+            "SIM", "VON", "BIT", "DSP", "CAS", "FLASH", "UTILITY",
+        };
+
     // uppercase tokens in an .ipo that look like SGBD names, ranked so the right
     // variant wins: tokens starting with the entry code first (KOMBI46 over the
     // stray "CARB" in "check engine CARB"), and within those, the one whose
     // trailing digits match the chassis (E46 -> KOMBI46) before other variants.
+    // generic cross-ECU references (EWS, DME, ...) sink below real candidates.
     private IEnumerable<string> SgbdVariantsFromIpo(string code, string chassisId = null)
     {
         if (!Directory.Exists(_sgDat)) yield break;
@@ -170,7 +184,9 @@ public sealed class InpaConfig
             if (prefix) return 1;    // any KOMBI* variant
             return 2;                // unrelated tokens (CARB, IKE, ...)
         }
-        foreach (string n in names.OrderBy(Rank))
+        // stable: real SGBDs before generic cross-refs within the same Rank,
+        // original .ipo order preserved otherwise.
+        foreach (string n in names.OrderBy(Rank).ThenBy(n => GenericIpoTokens.Contains(n) ? 1 : 0))
             yield return n;
     }
 

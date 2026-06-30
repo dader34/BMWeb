@@ -1,0 +1,1049 @@
+{
+  "ecu": "TD-53016.IPO",
+  "screens": [
+    {
+      "group": "Line parameters (test)",
+      "job": null,
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "TEST_GET_LINE_PAR_TEXT",
+          "label": "TEST GET LINE PAR",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System time",
+      "job": "SYSTEM_ZEIT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "MENU_TEXT",
+          "label": "Menu Text",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Terminal status",
+      "job": "STATUS_KLEMMEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KL15_WERT",
+          "label": "Terminal 15",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLR_WERT",
+          "label": "Klr",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Trip odometer display",
+      "job": "STATUS_GWSZ_ANZEIGE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GWSZ_ANZEIGE_WERT",
+          "label": "Trip odometer display",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Absolute trip odometer",
+      "job": "STATUS_ABSOLUTER_GWSZ",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GWSZ_WERT",
+          "label": "Trip odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-char)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Mfg / hardware info",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery history",
+      "job": "STATUS_BATTERIE_HISTORY",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+          "label": "State of charge (current)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+          "label": "State of charge 1 day ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_2_TAGEN_WERT",
+          "label": "State of charge 2 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_3_TAGEN_WERT",
+          "label": "State of charge 3 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_4_TAGEN_WERT",
+          "label": "State of charge 4 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_5_TAGEN_WERT",
+          "label": "State of charge 5 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_6_TAGEN_WERT",
+          "label": "State of charge 6 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_7_TAGEN_WERT",
+          "label": "State of charge 7 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_8_TAGEN_WERT",
+          "label": "State of charge 8 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_9_TAGEN_WERT",
+          "label": "State of charge 9 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_AKTUELL_WERT",
+          "label": "Odometer (current)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+          "label": "Odometer 1 day ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_2_TAGEN_WERT",
+          "label": "Odometer 2 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_3_TAGEN_WERT",
+          "label": "Odometer 3 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_4_TAGEN_WERT",
+          "label": "Odometer 4 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_5_TAGEN_WERT",
+          "label": "Odometer 5 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_6_TAGEN_WERT",
+          "label": "Odometer 6 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_7_TAGEN_WERT",
+          "label": "Odometer 7 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_8_TAGEN_WERT",
+          "label": "Odometer 8 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_9_TAGEN_WERT",
+          "label": "Odometer 9 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Batterietausch Letzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "Batterietausch Zweitletzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "Batterietausch Drittletzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "Batterietausch Viertletzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+          "label": "Batterietausch Fuenftletzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_SECHSTLETZTER_WERT",
+          "label": "Batterietausch Sechstletzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_SIEBTLETZTER_WERT",
+          "label": "Batterietausch Siebtletzter",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power management history",
+      "job": "STATUS_POWERMANAGEMENT_HISTORY",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_Q_SOC_AKTUELL_WERT",
+          "label": "Charge Q (current)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+          "label": "Charge Q 1 day ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_2_TAGEN_WERT",
+          "label": "Charge Q 2 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_3_TAGEN_WERT",
+          "label": "Charge Q 3 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_4_TAGEN_WERT",
+          "label": "Charge Q 4 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_5_TAGEN_WERT",
+          "label": "Charge Q 5 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_6_TAGEN_WERT",
+          "label": "Charge Q 6 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_7_TAGEN_WERT",
+          "label": "Charge Q 7 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_8_TAGEN_WERT",
+          "label": "Charge Q 8 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_9_TAGEN_WERT",
+          "label": "Charge Q 9 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+          "label": "Starting capability limit (current)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+          "label": "Starting capability limit 1 day ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAGEN_WERT",
+          "label": "Starting capability limit 2 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAGEN_WERT",
+          "label": "Starting capability limit 3 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAGEN_WERT",
+          "label": "Starting capability limit 4 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAGEN_WERT",
+          "label": "Starting capability limit 5 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_6_TAGEN_WERT",
+          "label": "Starting capability limit 6 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_7_TAGEN_WERT",
+          "label": "Starting capability limit 7 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_8_TAGEN_WERT",
+          "label": "Starting capability limit 8 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_9_TAGEN_WERT",
+          "label": "Starting capability limit 9 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery statistics",
+      "job": "STATUS_BATTERIE_STATISTIC",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH__0_10_WERT",
+          "label": "Time IM Ladungsbereich 0 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_10_20_WERT",
+          "label": "Time IM Ladungsbereich 10 20",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_30_WERT",
+          "label": "Time IM Ladungsbereich 20 30",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_30_40_WERT",
+          "label": "Time IM Ladungsbereich 30 40",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_50_WERT",
+          "label": "Time IM Ladungsbereich 40 50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_50_60_WERT",
+          "label": "Time IM Ladungsbereich 50 60",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_70_WERT",
+          "label": "Time IM Ladungsbereich 60 70",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_70_80_WERT",
+          "label": "Time IM Ladungsbereich 70 80",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_90_WERT",
+          "label": "Time IM Ladungsbereich 80 90",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_90_100_WERT",
+          "label": "Time IM Ladungsbereich 90 100",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+          "label": "Time IM Temperaturbereich 20 40",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+          "label": "Time IM Temperaturbereich 40 60",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+          "label": "Time IM Temperaturbereich AB 60",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Batterieladung Gesamt",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Batterieentladung Gesamt",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOH_WERT",
+          "label": "Soh",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery quality",
+      "job": "STATUS_BATTERIEQUALITAET",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIEQUALITAET_WERT",
+          "label": "Battery quality",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIE_RESTLAUFZEIT_WERT",
+          "label": "Battery Restlaufzeit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIEQUALITAET_BACKUP_KOMBI_WERT",
+          "label": "Battery quality Backup KOMBI",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery state of charge",
+      "job": "STATUS_BATTERIELADUNGSZUSTAND",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery Kapazitaet",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIE_LADUNGSZUSTAND_WERT",
+          "label": "Battery State of charge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIE_LADUNGSZUSTAND_REL_WERT",
+          "label": "Battery State of charge REL",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power management info",
+      "job": "STATUS_POWERMANAGEMENT_INFO",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SOC_FIT_WERT",
+          "label": "SOC FIT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_WERT",
+          "label": "Q SOC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_KAL_1STD_WERT",
+          "label": "U KAL 1STD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_KAL_2STD_WERT",
+          "label": "U KAL 2STD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_KAL_6STD_WERT",
+          "label": "U KAL 6STD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_SAISON_WERT",
+          "label": "TEMP Saison",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Voltage values",
+      "job": "STATUS_SPANNUNGSWERTE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_U_BATTERIE_WERT",
+          "label": "U battery",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_GENERATOR_VORGABE_WERT",
+          "label": "U Generator Vorgabe",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_U_BATTERIE_WUNSCH_WERT",
+          "label": "U battery Wunsch",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Temperature",
+      "job": "STATUS_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIETEMPERATUR_WERT",
+          "label": "Batterietemperatur",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_HYBRIDTEMPERATUR_WERT",
+          "label": "Hybridtemperatur",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Quiescent-current wake counter",
+      "job": "STATUS_RUHESTROMWECKZAEHLER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RUHESTROMWECKZAEHLER_WERT",
+          "label": "Ruhestromweckzaehler",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Reset counter",
+      "job": "STATUS_RESETZAEHLER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RESETZAEHLER_WERT",
+          "label": "Reset counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Check Control history",
+      "job": "STATUS_CHECKCONTROL_HISTORY",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GWSZ_STAND_WERT",
+          "label": "Trip odometer STAND",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Wake-up status",
+      "job": "STATUS_WAKE_UP_STATUS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_WAKE_UP_STATUS_TEXT",
+          "label": "Wake UP Status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Ability to wake",
+      "job": "STATUS_ABILITY_TO_WAKE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABILITY_TO_WAKE_TEXT",
+          "label": "Ability TO wake",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Device temperature",
+      "job": "STATUS_GERAETE_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEMPERATUR_WERT",
+          "label": "Temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "TEMPERATUR_WERT",
+          "label": "Temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Analog temperature",
+      "job": "STATUS_ANALOG_TEMPERATUR",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEMP_FOT_WERT",
+          "label": "TEMP FOT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_LCD_WERT",
+          "label": "TEMP LCD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_MOD_WERT",
+          "label": "TEMP MOD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_ENDSTU_WERT",
+          "label": "TEMP Endstu",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Bluetooth paired devices",
+      "job": "BT_PAIRED_DEVICES_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "FLASH_PROGRAMMIER_STATUS_TEXT",
+          "label": "Flash programming status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CBS service data",
+      "job": "CBS_DATEN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "AVAI_BOS_WERT",
+          "label": "AVAI BOS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ZIEL_MM_WERT",
+          "label": "ZIEL MM",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ZIEL_YY_WERT",
+          "label": "ZIEL YY",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "RMMI_BOS_WERT",
+          "label": "RMMI BOS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "COU_RSTG_BOS_MESS_WERT",
+          "label": "COU RSTG BOS MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_FN_BOS_MESS_TEXT",
+          "label": "FN BOS MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AVAI_CBS_WERT",
+          "label": "AVAI CBS service",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "RMMI_CBS_WERT",
+          "label": "RMMI CBS service",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "COU_RSTG_CBS_MESS_WERT",
+          "label": "COU RSTG CBS service MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_FN_CBS_MESS_TEXT",
+          "label": "FN CBS service MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "MOST bus 3dB",
+      "job": "STATUS_MOST_3DB",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOST_3DB_TEXT",
+          "label": "MOST bus 3DB",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "BT_OPERATIONMODE_LESEN",
+      "field": "Enter value and confirm with OK",
+      "kind": "text",
+      "example": "ON",
+      "args_template": "value confirmed with OK -> job"
+    }
+  ]
+}

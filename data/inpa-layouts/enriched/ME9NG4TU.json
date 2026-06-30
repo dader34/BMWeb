@@ -1,0 +1,1925 @@
+{
+  "ecu": "ME9NG4TU.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Main measurements",
+      "job": "STATUS_MESSWERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UB_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NSOL_WERT",
+          "label": "Idle speed setpoint",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NMOT_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VFZG_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TANS_WERT",
+          "label": "Intake air temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MSHFM_WERT",
+          "label": "Air mass (HFM)",
+          "unit": "kg/h",
+          "min": 0,
+          "max": 1000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TKA_WERT",
+          "label": "Coolant outlet temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TMOT_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_WDKBA_WERT",
+          "label": "Throttle angle",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_UPWG_WERT",
+          "label": "Accelerator pedal voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RKRN0_WERT",
+          "label": "Knock control retard, cyl. 0",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RKRN1_WERT",
+          "label": "Knock control retard, cyl. 1",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RKRN2_WERT",
+          "label": "Knock control retard, cyl. 2",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RKRN3_WERT",
+          "label": "Knock control retard, cyl. 3",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Differential pressure sensor",
+      "job": "STATUS_DIFFERENZDRUCKSENSOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DPS_WERT",
+          "label": "Differential pressure, actual",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DPSSOL_WERT",
+          "label": "Differential pressure, setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Intake manifold (flap/valve learning)",
+      "job": "STATUS_SAUGROHR",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EISYDKFKAF_WERT",
+          "label": "Throttle valve learned full-open position",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_EISYDKKOFF_WERT",
+          "label": "Throttle valve learned closed offset",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_EISYEVFKAF_WERT",
+          "label": "Intake valve learned full-open position",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_EISYEVKOFF_WERT",
+          "label": "Intake valve learned closed offset",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Running roughness (misfire)",
+      "job": "STATUS_LAUFUNRUHE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUTSFI1_WERT",
+          "label": "Running roughness, cyl. 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LUTSFI2_WERT",
+          "label": "Running roughness, cyl. 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LUTSFI3_WERT",
+          "label": "Running roughness, cyl. 3",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LUTSFI4_WERT",
+          "label": "Running roughness, cyl. 4",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor, bank 1 pre-cat",
+      "job": "STATUS_L_SONDE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_WERT",
+          "label": "O2 sensor pre-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor, bank 1 post-cat",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_H_WERT",
+          "label": "O2 sensor post-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Integrator, bank 1",
+      "job": "STATUS_INT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INT_WERT",
+          "label": "Lambda integrator, bank 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Additive adaptation, bank 1",
+      "job": "STATUS_ADD",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADD_WERT",
+          "label": "Additive mixture adaptation, bank 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Multiplicative adaptation, bank 1",
+      "job": "STATUS_MUL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MUL_WERT",
+          "label": "Multiplicative mixture adaptation, bank 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor, bank 2 pre-cat",
+      "job": "STATUS_L_SONDE_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_WERT",
+          "label": "O2 sensor pre-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor, bank 2 post-cat",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_H_WERT",
+          "label": "O2 sensor post-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Integrator, bank 2",
+      "job": "STATUS_INT_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INT_2_WERT",
+          "label": "Lambda integrator, bank 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Additive adaptation, bank 2",
+      "job": "STATUS_ADD_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADD_2_WERT",
+          "label": "Additive mixture adaptation, bank 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Multiplicative adaptation, bank 2",
+      "job": "STATUS_MUL_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MUL_2_WERT",
+          "label": "Multiplicative mixture adaptation, bank 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Accelerator pedal sensor voltages",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_1_WERT",
+          "label": "Pedal potentiometer voltage 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_2_WERT",
+          "label": "Pedal potentiometer voltage 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Minimum lift adaptation",
+      "job": "STATUS_MINHUB",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MINHUB_WERT",
+          "label": "Valvetronic minimum lift",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Sender wheel adaptation",
+      "job": "STATUS_GEBERRAD_ADAPTION",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSA_WERT",
+          "label": "Sender wheel adaptation, exhaust cam",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSE_WERT",
+          "label": "Sender wheel adaptation, intake cam",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Outputs (camshaft actuators)",
+      "job": "STATUS_AUSGAENGE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VSESPRI_WERT",
+          "label": "Intake cam advance solenoid, primary",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSETV_WERT",
+          "label": "Intake cam solenoid duty",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSASPRI_WERT",
+          "label": "Exhaust cam advance solenoid, primary",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSATV_WERT",
+          "label": "Exhaust cam solenoid duty",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Secondary air test",
+      "job": "STATUS_SYSTEMCHECK_SEK_LUFT",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMCHECK_SEK_LUFT_WERT",
+          "label": "Secondary air system test value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_SEK_LUFT_TEXT",
+          "label": "Secondary air system test status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Tank vent valve test",
+      "job": "STATUS_SYSTEMCHECK_TEV_FUNC",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMCHECK_TEV_FUNC_WERT",
+          "label": "Tank vent valve test value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_TEV_FUNC_TEXT",
+          "label": "Tank vent valve test status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Valvetronic end position",
+      "job": "STATUS_VVT_ANSCHLAG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VVT_ANSCHL1_TEXT",
+          "label": "Valvetronic end-position status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Power management info 1",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KM_STAND_AKTUELL_WERT",
+          "label": "Mileage, current",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+          "label": "Mileage, 1 day ago",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_2_TAG_WERT",
+          "label": "Mileage, 2 days ago",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_3_TAG_WERT",
+          "label": "Mileage, 3 days ago",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_4_TAG_WERT",
+          "label": "Mileage, 4 days ago",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_5_TAG_WERT",
+          "label": "Mileage, 5 days ago",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Battery change, last",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "Battery change, 2nd last",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "Battery change, 3rd last",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "Battery change, 4th last",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+          "label": "Time in charge range 0-20%",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+          "label": "Time in charge range 20-40%",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+          "label": "Time in charge range 40-60%",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+          "label": "Time in charge range 60-80%",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+          "label": "Time in charge range 80-100%",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+          "label": "Time in temp range below 0 C",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+          "label": "Time in temp range 0-20 C",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+          "label": "Time in temp range 20-40 C",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+          "label": "Time in temp range 40-60 C",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+          "label": "Time in temp range above 60 C",
+          "unit": "min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Total battery charge",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Total battery discharge",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_BILANZ_WERT",
+          "label": "Battery charge balance",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTENTLADUNG_GESAMT_BEI_MOTOR_LAEUFT_WERT",
+          "label": "Total discharge while engine running",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+          "label": "IBS error counter: BSD parity",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+          "label": "IBS error counter: watchdog reset",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+          "label": "IBS error counter: power-on reset",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+          "label": "IBS error counter: BSD extended",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+          "label": "IBS error counter: BSD",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT",
+          "label": "IBS error counter: EBSD checksum",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Power management info 2",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_Q_SOC_AKTUELL_WERT",
+          "label": "Charge throughput SOC, current",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+          "label": "Charge throughput SOC, 1 day ago",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_2_TAG_WERT",
+          "label": "Charge throughput SOC, 2 days ago",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_3_TAG_WERT",
+          "label": "Charge throughput SOC, 3 days ago",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_4_TAG_WERT",
+          "label": "Charge throughput SOC, 4 days ago",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_5_TAG_WERT",
+          "label": "Charge throughput SOC, 5 days ago",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+          "label": "Start capability limit, current",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+          "label": "Start capability limit, 1 day ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+          "label": "Start capability limit, 2 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+          "label": "Start capability limit, 3 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+          "label": "Start capability limit, 4 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+          "label": "Start capability limit, 5 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+          "label": "Charge state, current",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+          "label": "Charge state, 1 day ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+          "label": "Charge state, 2 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+          "label": "Charge state, 3 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+          "label": "Charge state, 4 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+          "label": "Charge state, 5 days ago",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery capacity",
+          "unit": "Ah",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_SOH_WERT",
+          "label": "State of health",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_SOC_FIT_WERT",
+          "label": "SOC fit",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TEMP_SAISON_WERT",
+          "label": "Seasonal temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KALIBRIER_EVENT_CNT_WERT",
+          "label": "Calibration event count",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+          "label": "IBS error counter: download checksum",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+          "label": "IBS error counter: EEPROM diagnostic",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+          "label": "IBS error counter: RAM diagnostic",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+          "label": "IBS error counter: PROM diagnostic",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+          "label": "IBS error counter: I2C NAC diagnostic",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT",
+          "label": "IBS error counter: I2C bus collision",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 1",
+      "job": "STATUS_FASTA1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TSG_WERT",
+          "label": "Control unit temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DMVAD_WERT",
+          "label": "Throttle adaptation torque delta",
+          "unit": "Nm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DPS_WERT",
+          "label": "Differential pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DPSRAUS_WERT",
+          "label": "Differential pressure, raw",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FKMSVVT_WERT",
+          "label": "Valvetronic correction factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FPRSTEP_WERT",
+          "label": "Fuel pressure step",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LRNSTEP_WERT",
+          "label": "Learn step",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MSNVVTO_WERT",
+          "label": "Air mass setpoint (Valvetronic)",
+          "unit": "kg/h",
+          "min": 0,
+          "max": 1000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NNW10_WERT",
+          "label": "Camshaft position 1-0",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_NNW11_WERT",
+          "label": "Camshaft position 1-1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_NNW12_WERT",
+          "label": "Camshaft position 1-2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_NNW20_WERT",
+          "label": "Camshaft position 2-0",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_NNW21_WERT",
+          "label": "Camshaft position 2-1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_NNW22_WERT",
+          "label": "Camshaft position 2-2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 2",
+      "job": "STATUS_FASTA2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NSOLFASTA_WERT",
+          "label": "Speed setpoint (FASTA)",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RL_WERT",
+          "label": "Relative air charge, actual",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_RLSOL_WERT",
+          "label": "Relative air charge, setpoint",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TE_WERT",
+          "label": "Injection time, bank 1",
+          "unit": "ms",
+          "min": 0,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TE2_WERT",
+          "label": "Injection time, bank 2",
+          "unit": "ms",
+          "min": 0,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VVTSTATUS_WERT",
+          "label": "Valvetronic status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_WDKBAFASTA_WERT",
+          "label": "Throttle angle (FASTA)",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_WDKS_WERT",
+          "label": "Throttle angle setpoint",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_WPED_WERT",
+          "label": "Accelerator pedal angle",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_ZWIST_WERT",
+          "label": "Ignition angle, actual",
+          "unit": "°",
+          "min": -30,
+          "max": 60,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DMLLRI_WERT",
+          "label": "Idle controller air mass delta",
+          "unit": "kg/h",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MIMIN_WERT",
+          "label": "Minimum indicated torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 3",
+      "job": "STATUS_FASTA3",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MDGEN_WERT",
+          "label": "Alternator torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MDKO_WERT",
+          "label": "Comfort torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DMRLLR_WERT",
+          "label": "Idle controller torque delta",
+          "unit": "Nm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MDWAN_WERT",
+          "label": "Requested torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DWKR_WERT",
+          "label": "Knock control retard",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DZWS_WERT",
+          "label": "Ignition angle delta",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DFFGEN_WERT",
+          "label": "Alternator field factor delta",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_TUMG_WERT",
+          "label": "Ambient temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DMVADFS_WERT",
+          "label": "Throttle adapt torque delta (FS)",
+          "unit": "Nm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DMVADKO_WERT",
+          "label": "Throttle adapt torque delta (comfort)",
+          "unit": "Nm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DLAHI_WERT",
+          "label": "Charge actual delta 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_DLAHI2_WERT",
+          "label": "Charge actual delta 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_RINH_WERT",
+          "label": "Injection suppression 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_RINH2_WERT",
+          "label": "Injection suppression 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_RKATS_WERT",
+          "label": "Catalyst protection retard",
+          "unit": "°",
+          "min": -30,
+          "max": 30,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DPSSOL_WERT",
+          "label": "Differential pressure setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 4",
+      "job": "STATUS_FASTA4",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_COPOT_WERT",
+          "label": "CO potentiometer value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_UPWG_WERT",
+          "label": "Accelerator pedal voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MINHUB_WERT",
+          "label": "Valvetronic minimum lift",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GVIST_WERT",
+          "label": "Gear, actual",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FTBR_WERT",
+          "label": "Operating mode factor (combustion)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FHO_WERT",
+          "label": "Altitude correction factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FTVDK_WERT",
+          "label": "Throttle temperature factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MSNVVTOLL_WERT",
+          "label": "Air mass setpoint (Valvetronic idle)",
+          "unit": "kg/h",
+          "min": 0,
+          "max": 1000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSESPRS_WERT",
+          "label": "Intake cam spread, setpoint",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSE2SPRS_WERT",
+          "label": "Intake cam 2 spread, setpoint",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSASPRS_WERT",
+          "label": "Exhaust cam spread, setpoint",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_VSA2SPRS_WERT",
+          "label": "Exhaust cam 2 spread, setpoint",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 5",
+      "job": "STATUS_FASTA5",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EVHUBI_WERT",
+          "label": "Intake valve lift, actual",
+          "unit": "mm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_EVHUBS_WERT",
+          "label": "Intake valve lift, setpoint",
+          "unit": "mm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_EXWINKI_WERT",
+          "label": "Eccentric shaft angle, actual",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_EXWINKS_WERT",
+          "label": "Eccentric shaft angle, setpoint",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_EVHUBI2_WERT",
+          "label": "Intake valve lift 2, actual",
+          "unit": "mm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DFSERESZ_WERT",
+          "label": "Lambda controller reset delta",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_DMVADFK_WERT",
+          "label": "Throttle adapt torque delta (FK)",
+          "unit": "Nm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_DMVADLL_WERT",
+          "label": "Throttle adapt torque delta (idle)",
+          "unit": "Nm",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_EXWINKI2_WERT",
+          "label": "Eccentric shaft angle 2, actual",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_FE_WERT",
+          "label": "Enrichment factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 6",
+      "job": "STATUS_FASTA6",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FKMSVVTA_WERT",
+          "label": "Valvetronic air mass correction factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FOFRESZ_WERT",
+          "label": "Lambda offset reset factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MSDIF_WERT",
+          "label": "Air mass difference",
+          "unit": "kg/h",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TABGM_WERT",
+          "label": "Exhaust gas temperature, modeled",
+          "unit": "°C",
+          "min": 0,
+          "max": 1000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_TNSE_WERT",
+          "label": "Catalyst temperature",
+          "unit": "°C",
+          "min": 0,
+          "max": 1000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_OZRWPERM_WERT",
+          "label": "Oil level: permanent raw value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZRWKVB_WERT",
+          "label": "Oil level: KVB raw value",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZOELZEIT_WERT",
+          "label": "Oil level: measurement time",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZKVBSM_WERT",
+          "label": "Oil level: KVB sum",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZPERMLOW_WERT",
+          "label": "Oil level: permanent low",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZPERMEX_WERT",
+          "label": "Oil level: permanent extreme",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZPERMOFF_WERT",
+          "label": "Oil level: permanent offset",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZKVBOG_WERT",
+          "label": "Oil level: KVB upper limit",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OZPERMBOG_WERT",
+          "label": "Oil level: permanent upper limit",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 7",
+      "job": "STATUS_FASTA7",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NADMTLL_WERT",
+          "label": "Idle speed adaptation",
+          "unit": "1/min",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NTGLM_WERT",
+          "label": "Low-idle speed limit",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NTKLM_WERT",
+          "label": "Cold-idle speed limit",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NDIPFRO_WERT",
+          "label": "Dip-protection speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_NKFL_WERT",
+          "label": "Characteristic-map idle speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_SSLLCNT_WERT",
+          "label": "Idle controller step counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MINHUBFAK_WERT",
+          "label": "Minimum lift factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_MINADRDY_WERT",
+          "label": "Minimum lift adaptation ready",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_FDLUBBGL_WERT",
+          "label": "Charge balance correction factor",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_OFWNKBG1_WERT",
+          "label": "Eccentric shaft offset, limit 1",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_OFWNKBG2_WERT",
+          "label": "Eccentric shaft offset, limit 2",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_OFWNKMX_WERT",
+          "label": "Eccentric shaft offset, max",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "analog"
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

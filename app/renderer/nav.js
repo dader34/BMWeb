@@ -228,8 +228,9 @@ async function showScriptSelection(chassisId) {
   const jobsPane = overlay.querySelector('#ss-jobs');
   const headEl = overlay.querySelector('#ss-head');
   const items = overlay.querySelectorAll('.inpa-ss-item');
-  // Functional Jobs (whole-vehicle Identify/Fault sweep) only validated for E46.
-  const allowFunc = chassisId.toUpperCase() === 'E46';
+  // Functional Jobs (whole-vehicle Identify/Fault sweep). enabled for chassis with
+  // variant-group + sweep-priority tables, so the sweep skips dead variants.
+  const allowFunc = !!VARIANT_GROUPS[chassisId.toUpperCase()];
 
   // chassis row selected: the single "Functional jobs" header is the entry,
   // clickable, with nothing listed beneath it.
@@ -357,20 +358,35 @@ function showSpecialTests(chassisId) {
   });
 }
 
-// E46 variant groups: ECUs sharing one diagnostic address, only one installed.
-// once a member responds the rest are absent (or echoes), so the sweep skips them.
-// engine group alone has 12 mutually-exclusive DMEs at ~7s each.
-const E46_VARIANT_GROUPS = {
-  engine: ['DDE40', 'D50M47', 'D50M57', 'BMS46', 'ME9_4N', 'ME9NG4TU', 'MS420', 'MS430', 'MS450', 'MSS54M3', 'CARB'],
-  trans:  ['gsds2', 'gs30', 'smg2'],
-  dsc:    ['ascdsc46', 'absasc5', 'dscmk60'],
+// variant groups: ECUs sharing one diagnostic address, only one installed. once a
+// member responds the rest are absent (or echoes), so the sweep skips them. keyed
+// by chassis since the variant sets differ. the engine group is the big win: E46
+// has ~11 mutually-exclusive DMEs, E36 ~14, each ~7s whether it answers or not.
+const VARIANT_GROUPS = {
+  E46: {
+    engine: ['DDE40', 'D50M47', 'D50M57', 'BMS46', 'ME9_4N', 'ME9NG4TU', 'MS420', 'MS430', 'MS450', 'MSS54M3', 'CARB'],
+    trans:  ['gsds2', 'gs30', 'smg2'],
+    dsc:    ['ascdsc46', 'absasc5', 'dscmk60'],
+  },
+  // E36: one DME (VNC/CARB excluded - VNC is the S50 VANOS box that coexists with
+  // a DME, CARB is a dealer interface, neither shares the DME address). one
+  // gearbox; one ABS/ASC/DSC brake controller (Mk4..Mk60).
+  E36: {
+    engine: ['DDE21', 'DME17', 'BMS43', 'BMS46', 'DME338K2', 'MSS50', 'MSS54M3',
+             'DME331', 'DME524', 'MS401', 'MS410', 'MS411', 'MS420', 'MS430'],
+    trans:  ['gsds2', 'gs41x', 'gs7x_k', 'jatco', 'smg'],
+    dsc:    ['absasc4', 'absasc4g', 'ascdsc46', 'absasc5', 'dscmk60'],
+  },
 };
-// INPA entry code -> group key (case-insensitive). the groups list ENTRY codes
-// (MS450, gsds2), which the chassis API returns as ecu.code; ecu.sgbd is the
-// resolved .prg name (ms450ds0) and would never match.
-const _groupOf = (code) => {
+// INPA entry code -> group key (case-insensitive), within a chassis. the groups
+// list ENTRY codes (MS450, gsds2), which the chassis API returns as ecu.code;
+// ecu.sgbd is the resolved .prg name (ms450ds0) and would never match. unknown
+// chassis -> no grouping (every ECU scanned), which is safe, just slower.
+const _groupOf = (code, chassisId) => {
+  const groups = VARIANT_GROUPS[(chassisId || '').toUpperCase()];
+  if (!groups) return null;
   const s = (code || '').toLowerCase();
-  for (const [k, list] of Object.entries(E46_VARIANT_GROUPS))
+  for (const [k, list] of Object.entries(groups))
     if (list.some(x => x.toLowerCase() === s)) return k;
   return null;
 };
@@ -398,7 +414,7 @@ async function quickErrorSweep(chassisId) {
   let ch;
   try { ch = await api(`/api/chassis/${id}`); }
   catch (e) { out.innerHTML = errorBlock(e.message); return; }
-  const ecus = dedupEcus(ch); sortByPriority(ecus);
+  const ecus = dedupEcus(ch); sortByPriority(ecus, id);
   out.innerHTML = `<div class="quick-sweep">
     <div class="quick-bar">
       <div class="quick-head">${ecus.length} modules · scanning…</div>
@@ -419,7 +435,7 @@ async function quickErrorSweep(chassisId) {
   const faulty = [];               // modules that reported faults, for the deep pass
   for (const ecu of ecus) {
     if (!alive()) return;          // user left the sweep; stop reading the bus
-    const grp = _groupOf(ecu.code);
+    const grp = _groupOf(ecu.code, id);
     const row = addSweepRow(rows, ecu.label);
 
     if (grp && groupDone.has(grp)) {
@@ -649,7 +665,7 @@ async function quickIdentSweep(chassisId) {
   let ch;
   try { ch = await api(`/api/chassis/${id}`); }
   catch (e) { out.innerHTML = errorBlock(e.message); return; }
-  const ecus = dedupEcus(ch); sortByPriority(ecus);
+  const ecus = dedupEcus(ch); sortByPriority(ecus, id);
   out.innerHTML = `<div class="quick-sweep"><div class="quick-head">${ecus.length} modules · identifying…</div><div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   const head_ = out.querySelector('.quick-head');
@@ -657,7 +673,7 @@ async function quickIdentSweep(chassisId) {
   const groupDone = new Set();
   for (const ecu of ecus) {
     if (!alive()) return;          // user left the sweep; stop reading the bus
-    const grp = _groupOf(ecu.code);
+    const grp = _groupOf(ecu.code, id);
     const row = addSweepRow(rows, ecu.label);
     if (grp && groupDone.has(grp)) { row.classList.add('noresp'); row.querySelector('.quick-status').textContent = 'skipped (variant)'; continue; }
     try {
@@ -682,9 +698,16 @@ function dedupEcus(ch) {
   ch.sections.forEach(s => s.ecus.forEach(e => { if (!ecus.find(x => x.sgbd === e.sgbd)) ecus.push(e); }));
   return ecus;
 }
-const SWEEP_PRIORITY = ['MS450', 'MS430', 'MS420', 'ME9_4N', 'MSS54M3', 'BMS46', 'gsds2', 'smg2', 'ascdsc46', 'absasc5'];
-function sortByPriority(ecus) {
-  const prio = (e) => { const i = SWEEP_PRIORITY.findIndex(p => p.toLowerCase() === (e.code || '').toLowerCase()); return i < 0 ? 99 : i; };
+// likeliest-installed variant first, so the sweep claims each group early and
+// skips its dead siblings. per chassis; unknown chassis -> original order.
+const SWEEP_PRIORITY = {
+  E46: ['MS450', 'MS430', 'MS420', 'ME9_4N', 'MSS54M3', 'BMS46', 'gsds2', 'smg2', 'ascdsc46', 'absasc5'],
+  E36: ['MS420', 'MS430', 'MS410', 'MS411', 'DME331', 'MSS54M3', 'MSS50', 'DME338K2', 'DME524', 'DME17',
+        'gsds2', 'gs41x', 'smg', 'absasc4', 'absasc4g', 'ascdsc46', 'absasc5'],
+};
+function sortByPriority(ecus, chassisId) {
+  const order = SWEEP_PRIORITY[(chassisId || '').toUpperCase()] || [];
+  const prio = (e) => { const i = order.findIndex(p => p.toLowerCase() === (e.code || '').toLowerCase()); return i < 0 ? 99 : i; };
   ecus.sort((a, b) => prio(a) - prio(b));
 }
 function addSweepRow(rows, label) {
@@ -703,6 +726,13 @@ function syncVselState() {
   const ignOn = ignLed && ignLed.classList.contains('on');
   bs.className = 'inpa-kl-led' + (batOn ? ' on' : ''); bv.textContent = batOn ? (batVal.textContent) : 'off';
   is.className = 'inpa-kl-led' + (ignOn ? ' on' : ''); iv.textContent = ignOn ? 'on' : 'off';
+}
+
+// where "Back" from an ECU should land. in INPA mode the module list is the
+// Script selection popup, so return there; in modern mode, the sections screen.
+function backToModules(chassisId) {
+  if (typeof inpaMode === 'function' && inpaMode()) showScriptSelection(chassisId);
+  else showSections(chassisId);
 }
 
 // screen 2: sections sidebar + ECU list

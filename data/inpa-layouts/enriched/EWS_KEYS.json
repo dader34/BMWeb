@@ -1,0 +1,16 @@
+{
+  "ecu": "EWS_KEYS.IPO",
+  "screens": [
+    {
+      "group": "EWS key test",
+      "job": "SCHL_DATEN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "SCHL_FREIGABE_TEXT", "label": "Key release status", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

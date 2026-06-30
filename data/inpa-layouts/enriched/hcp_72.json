@@ -1,0 +1,1550 @@
+{
+  "ecu": "hcp_72.IPO",
+  "screens": [
+    {
+      "group": "Operating mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTION_TEXT",
+          "label": "FETRAWE status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy-saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Autostart inhibitors",
+      "job": "STATUS_ABSCHALTVERHINDERER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DATA_VALIDITY_TEXT",
+          "label": "Data validity",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DRIVEABILITY_TEXT",
+          "label": "Driveability",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ECM_REQUEST_TEXT",
+          "label": "ECM request",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ECM_OVERRIDE_TEXT",
+          "label": "ECM override",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEVICE_CONTROL_AUTOSTART_OVERRIDE_TEXT",
+          "label": "Device control autostart override",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KEY_FORCED_AUTOSTART_REQUEST_TEXT",
+          "label": "Key-forced autostart request",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REMOTE_START_TEXT",
+          "label": "Remote start",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUNCRANK_NOT_ACTIVE_TEXT",
+          "label": "Crankshaft running",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MINIMUM_RUN_TIME_NOT_MET_TEXT",
+          "label": "Minimum run time not met",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HOOD_OPEN_TEXT",
+          "label": "Engine hood open",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TOWHAUL_SWITCH_ON_TEXT",
+          "label": "Tow/haul mode on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REVERSE_GRADE_TEXT",
+          "label": "Reverse on grade",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSMISSION_RANGE_TEXT",
+          "label": "Transmission range (transition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VEHICLE_SPEED_TOO_HIGH_TEXT",
+          "label": "Vehicle speed too high",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUXILIARY_TRANSMISSION_PUMP_TEXT",
+          "label": "Auxiliary transmission oil pump",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEM_VOLTAGE_LOW_TEXT",
+          "label": "System voltage low",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEM_OPTIMIZATION_TEXT",
+          "label": "System optimization",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REMEDIAL_ACTIONS_TEXT",
+          "label": "Remedial actions",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ELECTRIC_MOTOR_TEMPERATURE_TEXT",
+          "label": "E-motor temperature",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ELECTRIC_MOTOR_INVERTER_TEMPERATURE_TEXT",
+          "label": "E-motor inverter temperature",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENGINE_COOLANT_TEMPERATURE_OVER_MAXLIM_TEXT",
+          "label": "Coolant temp over max limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENGINE_COOLANT_TEMPERATURE_UNDER_MINLIM_TEXT",
+          "label": "Coolant temp under min limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERY_PACK_TEMPERATURE_OVER_MAXLIM_TEXT",
+          "label": "HV battery temp over max limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERY_PACK_TEMPERATURE_UNDER_MINLIM_TEXT",
+          "label": "HV battery temp under min limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERY_MODULE_VOLTAGE_TEXT",
+          "label": "HV battery module voltage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERY_PACK_VOLTAGE_LEVEL_TEXT",
+          "label": "HV battery pack voltage level",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERY_POWER_LIMITS_TEXT",
+          "label": "HV battery power limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERY_STATE_OF_CHARGE_TEXT",
+          "label": "HV battery state of charge",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Degradation sources",
+      "job": "STATUS_DEGRADATION_SOURCE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DEGR_BAT_ENTLADELEISTUNG_FAHRMODUS_AKTIV_TEXT",
+          "label": "Battery discharge power by drive mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_BAT_ENTLADELEISTUNG_FAHRMODUS_EDRIVE_AKTIV_TEXT",
+          "label": "Battery discharge power by drive mode (eDrive)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_BAT_ENTLADELEISTUNG_SOC_EDRIVE_AKTIV_TEXT",
+          "label": "Battery discharge power by SOC (eDrive)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_BAT_ENTLADELEISTUNG_TEMP_HV_SPEICHER_AKTIV_TEXT",
+          "label": "Battery discharge power by HV storage temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_BAT_ENTLADELEISTUNG_TMP_HV_SPEICH_EDRIVE_AKTIV_TEXT",
+          "label": "Battery discharge power by HV storage temp (eDrive)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_BAT_LADELEISTUNG_SOC_AKTIV_TEXT",
+          "label": "Battery charge power by SOC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_BAT_LADELEISTUNG_TEMP_HV_SPEICHER_AKTIV_TEXT",
+          "label": "Battery charge power by HV storage temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_EMOT_A_AKTIV_TEXT",
+          "label": "AC compressor by e-machine A temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_EMOT_B_AKTIV_TEXT",
+          "label": "AC compressor by e-machine B temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_GETR_OEL_AKTIV_TEXT",
+          "label": "AC compressor by transmission oil temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_HV_SPEICHER_AKTIV_TEXT",
+          "label": "AC compressor by HV storage temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_VMOT_KUEHLM_AKTIV_TEXT",
+          "label": "AC compressor by engine coolant temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_VMOT_OEL_AKTIV_TEXT",
+          "label": "AC compressor by engine oil temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_EKK_TEMP_WMK_AKTIV_TEXT",
+          "label": "AC compressor by WMK temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_A_TEMP_APM_AKTIV_TEXT",
+          "label": "E-machine A torque by APM temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_A_TEMP_EMOT_A_AKTIV_TEXT",
+          "label": "E-machine A torque by e-machine A temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_A_TEMP_GETR_OEL_AKTIV_TEXT",
+          "label": "E-machine A torque by transmission oil temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_A_TEMP_INVERTER_EMOT_A_AKTIV_TEXT",
+          "label": "E-machine A torque by inverter A temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_B_TEMP_APM_AKTIV_TEXT",
+          "label": "E-machine B torque by APM temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_B_TEMP_EMOT_B_AKTIV_TEXT",
+          "label": "E-machine B torque by e-machine B temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_B_TEMP_GETR_OEL_AKTIV_TEXT",
+          "label": "E-machine B torque by transmission oil temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_EMOT_B_TEMP_INVERTER_EMOT_B_AKTIV_TEXT",
+          "label": "E-machine B torque by inverter B temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_VMOT_TEMP_EMOT_A_AKTIV_TEXT",
+          "label": "Engine torque by e-machine A temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_VMOT_TEMP_EMOT_B_AKTIV_TEXT",
+          "label": "Engine torque by e-machine B temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_VMOT_TEMP_INVERTER_EMOT_A_AKTIV_TEXT",
+          "label": "Engine torque by inverter A temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_VMOT_TEMP_INVERTER_EMOT_B_AKTIV_TEXT",
+          "label": "Engine torque by inverter B temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DEGR_MOMENT_VMOT_TEMP_WMK_AKTIV_TEXT",
+          "label": "Engine torque by WMK temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Overall vehicle degradation",
+      "job": "STATUS_GESAMTFZG_DEGRADATION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GESAMTFZG_DEGR_BAT_ENTLADEN_WERT",
+          "label": "Battery discharge degradation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_BAT_ENTLADEN_EFAHREN_WERT",
+          "label": "Battery discharge degradation (eDrive)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_BAT_LADEN_WERT",
+          "label": "Battery charge degradation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_EMOT_A_WERT",
+          "label": "E-machine A degradation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_EMOT_B_WERT",
+          "label": "E-machine B degradation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_KLIMAKOMPR_WERT",
+          "label": "AC compressor degradation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG01_WERT",
+          "label": "Engine degradation gear 1",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG02_WERT",
+          "label": "Engine degradation gear 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG03_WERT",
+          "label": "Engine degradation gear 3",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG04_WERT",
+          "label": "Engine degradation gear 4",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG05_WERT",
+          "label": "Engine degradation gear 5",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG06_WERT",
+          "label": "Engine degradation gear 6",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG07_WERT",
+          "label": "Engine degradation gear 7",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG08_WERT",
+          "label": "Engine degradation gear 8",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESAMTFZG_DEGR_VMOT_GANG09_WERT",
+          "label": "Engine degradation gear 9",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "HV battery and charge",
+      "job": "STATUS_SOC_ACC_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SOC_WERT",
+          "label": "State of charge",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOC_ACC_WERT",
+          "label": "State of charge (accessory)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "HV voltages",
+      "job": "STATUS_VOLTAGE_HCP_HV_SIDE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HV_SPANNUNG_MCPA_WERT",
+          "label": "HV voltage MCP A",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_HV_SPANNUNG_MCPB_WERT",
+          "label": "HV voltage MCP B",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "HV isolation and interlock",
+      "job": "STATUS_HV_ISOLATION",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HV_ISOLATION_BATTERIE_TEXT",
+          "label": "Isolation status, battery",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_ISOLATION_MCPA_TEXT",
+          "label": "Isolation status, MCP A",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_ISOLATION_MCPB_TEXT",
+          "label": "Isolation status, MCP B",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "HV interlock loop (HVIL)",
+      "job": "STATUS_HVIL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HVIL_TEXT",
+          "label": "HVIL overall state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HV_BATTERIE_TEXT",
+          "label": "HVIL state, battery",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Terminal 15 voltage",
+      "job": "STATUS_KL_15",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KL_15_VOLTAGE_WERT",
+          "label": "Terminal 15 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "E-machine speeds",
+      "job": "STATUS_E_MOTOR_CONTROL_CHECK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_E_MOTOR_CONTROL_CHECK_DREHZAHL_MOTOR_A_WERT",
+          "label": "E-machine A speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_E_MOTOR_CONTROL_CHECK_DREHZAHL_MOTOR_B_WERT",
+          "label": "E-machine B speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "EMPI status",
+      "job": "STATUS_EMPI",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EMPI_MODE_TEXT",
+          "label": "EMPI mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EMPI_DREHZAHL_WERT",
+          "label": "EMPI speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EMPI_DREHZAHL_PROZENT_WERT",
+          "label": "EMPI speed",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_EMPI_HV_STROM_WERT",
+          "label": "EMPI HV current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "APM jump assist",
+      "job": "STATUS_APM_JUMPASSIST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_APM_JUMP_ASSIST_MODE_TEXT",
+          "label": "Jump assist mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_APM_ASSIST_LADESTROM_WERT",
+          "label": "Jump assist charge current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Idle speed control",
+      "job": "STATUS_LL_REGELUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LL_REGLER_TEXT",
+          "label": "Idle controller status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LL_REGELABWEICHUNG_WERT",
+          "label": "Idle control deviation",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Torque split and recuperation",
+      "job": "STATUS_RECUPERATIONSMOMENT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BREMSMOMENT_WERT",
+          "label": "Braking torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SCHUBMOMENT_WERT",
+          "label": "Overrun torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MOMENTENAUFTEILUNG_BESCHLEUNIGEN_WERT",
+          "label": "Torque split (acceleration)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOMENT_BREMSEN_WERT",
+          "label": "Torque split (braking)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Energy and time shares",
+      "job": "STATUS_HISR_HOS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZEIT_ABSOLUT_WERT",
+          "label": "Absolute time share",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KM_STAND_RESET_USECASES_WERT",
+          "label": "Mileage at use-case reset",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_ASSIST_WERT",
+          "label": "Energy share: assist",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_BOOST_WERT",
+          "label": "Energy share: boost",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_ELEKTRISCH_FAHREN_WERT",
+          "label": "Energy share: electric drive",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_LASTPUNKTANHEBUNG_WERT",
+          "label": "Energy share: load point raising",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_MSA_WERT",
+          "label": "Energy share: start/stop",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_REKUPERATION_WERT",
+          "label": "Energy share: recuperation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENERGIEANTEIL_SCHUBREKUPERATION_WERT",
+          "label": "Energy share: overrun recuperation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_ASSIST_WERT",
+          "label": "Time share: assist",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_BOOST_WERT",
+          "label": "Time share: boost",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_BREMSREKUPERATION_WERT",
+          "label": "Time share: brake recuperation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_ELEKTRISCHFAHREN_WERT",
+          "label": "Time share: electric drive",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_LASTPUNKTANHEBUNG_WERT",
+          "label": "Time share: load point raising",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MSA_WERT",
+          "label": "Time share: start/stop",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_REKUPERATION_WERT",
+          "label": "Time share: recuperation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_SCHUBREKUPERATION_WERT",
+          "label": "Time share: overrun recuperation",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_STANDLADEN_WERT",
+          "label": "Time share: stationary charging",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MODE_P_WERT",
+          "label": "Time share: mode P",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MODE_R_WERT",
+          "label": "Time share: mode R",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MODE_N_WERT",
+          "label": "Time share: mode N",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MODE_D_WERT",
+          "label": "Time share: mode D",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MODE_S_WERT",
+          "label": "Time share: mode S",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEITANTEIL_MODE_M_WERT",
+          "label": "Time share: mode M",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Drive type and gear",
+      "job": "STATUS_HCP_ANTRIEBSART",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HCP_ANTRIEBSART_TEXT",
+          "label": "HCP drive configuration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Externally commanded drive type",
+      "job": "STATUS_ANTRIEBSART_ZUGRIFF",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANTRIEBSART_TEXT",
+          "label": "Currently commanded drive type",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Current gear",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ISTGANG_TEXT",
+          "label": "Current actual gear",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Actual transmission position",
+      "job": "STATUS_AKTUELLE_GETRIEBEPOSITION",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ISTPOSITION_TEXT",
+          "label": "Actual transmission position",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "HPMR state",
+      "job": "STATUS_HPMR_STATE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HPMR_STATE_TEXT",
+          "label": "HPMR state",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery contactor",
+      "job": "STATUS_BATT_CONN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIE_SCHUETZ_TEXT",
+          "label": "Battery contactor closed",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Crash detection signal",
+      "job": "STATUS_CRASH_DETECTION_SIGNAL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CRASH_DETECTION_SIGNAL_EIN_TEXT",
+          "label": "Crash detection line status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Pyrofuse / rapid shutdown",
+      "job": "STATUS_ADAPTIONSWERTE_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PYROFUSE_RAPID_SHUTDOWN_AKTIV_TEXT",
+          "label": "Shutdown triggered by pyrofuse",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power launch counter",
+      "job": "STATUS_LESEN_PWRLNCH_COUNTER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWRLNCH_CNT_WERT",
+          "label": "Power launch count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PWRLNCH_CONTIN_CNT_WERT",
+          "label": "Continuous power launch count",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "AC compressor power limit (boost)",
+      "job": "STATUS_EKK_LEISTUNGSLIMITIERUNG_BOOST",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EKK_LEISTUNGSLIMITIERUNG_BOOST_WERT",
+          "label": "AC compressor power limit (boost)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "AC compressor power limit (reverse grade)",
+      "job": "STATUS_EKK_LEISTUNGSLIMITIERUNG_REVGRADE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EKK_LEISTUNGSLIMITIERUNG_REVGRADE_WERT",
+          "label": "AC compressor power limit (reverse grade)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Charge percentage",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PERCENTAGE_WERT",
+          "label": "Charge percentage",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "System context (fault snapshot)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DM_MELDUNG_TEXT",
+          "label": "Diagnostic message",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "Timestamp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "Customer time, year",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "Customer time, month",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "Customer time, day",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "Customer time, hour",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "Customer time, minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "Customer time, second",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "Distance at fault",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "Battery voltage min at fault",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "Battery voltage max at fault",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "Outside temperature at fault",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "Engine temperature at fault",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "Speed min at fault",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "Speed max at fault",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "Crankshaft RPM min at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "Crankshaft RPM max at fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "Fault memory lock active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "Terminal status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "Terminal status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "Operation status at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "Operation status before fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "Time of terminal change at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "Time of operation status change at fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "Time of wake-up (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "First terminal R on (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "First terminal 15 on (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "First terminal 50 on (current power cycle)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault location",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "SAE code",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Inspection status",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software version (SVK)",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Replaced sensor 2026-06",
+      "args_template": "free-text comment string passed to the job"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "ecu": "cdm_rr4.IPO",
+  "screens": [
+    {
+      "group": "Status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KLEMME_30B_1_WERT", "label": "Terminal 30B-1 voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KLEMME_30B_2_WERT", "label": "Terminal 30B-2 voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KLEMME_30B_3_WERT", "label": "Terminal 30B-3 voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SUCHBELEUCHTUNG_TEXT", "label": "Search lighting", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KUEHLERFIGUR_NR_TEXT", "label": "Radiator figure (Spirit of Ecstasy) status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KUEHLERFIGUR_BUSSIGNAL_NR_TEXT", "label": "Radiator figure bus signal", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KUEHLERFIGUR_SPIELSCHUTZ_ZEIT_WERT", "label": "Radiator figure anti-pinch time", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CID_MOTOR_NR_TEXT", "label": "CID motor status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CID_MOTOR_CAN_SIGNAL_NR_TEXT", "label": "CID motor CAN signal", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CID_TASTE_CAN_SIGNAL_NR_TEXT", "label": "CID button CAN signal", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CID_KLAPPE_NR_TEXT", "label": "CID flap status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CODIERUNG_LENKSEITE_NR_TEXT", "label": "Coded steering side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_COSI_FAH_NR_TEXT", "label": "Comfort seat, driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_COSI_BFH_NR_TEXT", "label": "Comfort seat, passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VARIANTE_VORHANG_NR_TEXT", "label": "Curtain variant", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_MOTOR_TUER_FAH_NR_TEXT", "label": "Curtain motor, door driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_MOTOR_TUER_BFH_NR_TEXT", "label": "Curtain motor, door passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_MOTOR_HECK_FAH_NR_TEXT", "label": "Curtain motor, rear driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_MOTOR_HECK_BFH_NR_TEXT", "label": "Curtain motor, rear passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_SPIELSCHUTZ_TUER_FAH_ZEIT_WERT", "label": "Curtain anti-pinch time, door driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_SPIELSCHUTZ_TUER_BFH_ZEIT_WERT", "label": "Curtain anti-pinch time, door passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_SPIELSCHUTZ_HECK_FAH_ZEIT_WERT", "label": "Curtain anti-pinch time, rear driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VORHANG_SPIELSCHUTZ_HECK_BFH_ZEIT_WERT", "label": "Curtain anti-pinch time, rear passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TUER_INNENGRIFF_FAH_NR_TEXT", "label": "Door inner handle, driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TUER_INNENGRIFF_BFH_NR_TEXT", "label": "Door inner handle, passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TUER_VORRAST_FAH_NR_TEXT", "label": "Door detent, driver side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TUER_VORRAST_BFH_NR_TEXT", "label": "Door detent, passenger side", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZZH_DREHWINKELSENSOR_FAH_SPG_WERT", "label": "Hinge angle sensor voltage, driver side", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_ZZH_DREHWINKELSENSOR_BFH_SPG_WERT", "label": "Hinge angle sensor voltage, passenger side", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Energy-save mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MODE_WERT", "label": "Mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ENERGIESPARMODE_WERT", "label": "Energy-save mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FERTIGUNGSMODE_WERT", "label": "Production mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TRANSPORTMODE_WERT", "label": "Transport mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WERKSTATTMODE_WERT", "label": "Workshop mode", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "System context (fault snapshot)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DM_MELDUNG_TEXT", "label": "Diagnostic message", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT", "label": "Timestamp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT", "label": "Terminals before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT", "label": "Terminals at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT", "label": "Operating status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT", "label": "Operating status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT", "label": "Voltage min", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT", "label": "Voltage max", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT", "label": "Speed min", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT", "label": "Speed max", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT", "label": "Crankshaft RPM min", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT", "label": "Crankshaft RPM max", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT", "label": "Ambient temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT", "label": "Engine/drivetrain temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT", "label": "Odometer distance", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT", "label": "Fault memory lock active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT", "label": "Customer time - year", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT", "label": "Customer time - month", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT", "label": "Customer time - day", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT", "label": "Customer time - hour", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT", "label": "Customer time - minute", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT", "label": "Customer time - second", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT", "label": "Time since wake-up", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT", "label": "Time of first terminal 15 on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT", "label": "Time of first terminal 50 on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT", "label": "Time of first terminal R on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT", "label": "Time of terminal change", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT", "label": "Time of operating-status change", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SAE_CODE_TEXT", "label": "SAE code", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault detail",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_SYMPTOM_TEXT", "label": "Fault symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Readiness", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "SENSOR_HERSTELLER_TEXT", "label": "Sensor manufacturer", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Software version",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "PROZESSKLASSE_TEXT", "label": "Process class / version", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "HS_LESEN", "field": "Comment to store", "kind": "text", "example": "Door module replaced", "args_template": "free-text comment passed to the history-store job" }
+  ]
+}

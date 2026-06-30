@@ -1,0 +1,19 @@
+{
+  "ecu": "EWS_DME2.IPO",
+  "screens": [
+    {
+      "group": "Ignition / EWS synchronization status",
+      "job": "STATUS_ZUENDUNG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STEUERN_SYNC_MODE_TEXT", "label": "Sync mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EWS_WERT", "label": "EWS status", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "STATUS_ZUENDUNG", "field": "Enter EDIABAS job", "kind": "text", "example": "STATUS_ZUENDUNG", "args_template": "Free-form EDIABAS job name entered by the user and executed against the ECU" }
+  ]
+}

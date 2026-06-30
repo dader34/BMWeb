@@ -1,0 +1,604 @@
+{
+  "ecu": "MSV90.IPO",
+  "screens": [
+    {
+      "group": "Digital inputs",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KL15_EIN_WERT",
+          "label": "Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_AUS_WERT",
+          "label": "Engine off",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Digital inputs",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KUPPL_EIN_WERT",
+          "label": "Clutch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BLS_EIN_WERT",
+          "label": "Brake light switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BTS_EIN_WERT",
+          "label": "Brake test switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap system check",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_15_WERT",
+          "label": "Collective fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_12_WERT",
+          "label": "Upper air flap actuation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_13_WERT",
+          "label": "Lower air flap actuation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_14_WERT",
+          "label": "Communication status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap system check",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_8_WERT",
+          "label": "Self-diagnosis performed",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_11_WERT",
+          "label": "Lower air flap self-diagnosis done",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_10_WERT",
+          "label": "Upper air flap self-diagnosis done",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_9_WERT",
+          "label": "Electrical diagnosis done",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap system check",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_7_WERT",
+          "label": "System test active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_6_WERT",
+          "label": "Lower air flap fault detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_5_WERT",
+          "label": "Upper air flap fault detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_4_WERT",
+          "label": "Electrical fault detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap system check",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_3_WERT",
+          "label": "Communication query status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_2_WERT",
+          "label": "Lower air flap learned variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_1_WERT",
+          "label": "Upper air flap learned variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_0_WERT",
+          "label": "Variant detection status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Idle speed control check",
+      "job": "STATUS_SYSTEMCHECK_ODR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NKW_SOLL_WERT",
+          "label": "RPM setpoint",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_NKW_WERT",
+          "label": "RPM actual",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Generator system check",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FI_GENKOMM_WERT",
+          "label": "Generator communication fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FI_GENUPL_WERT",
+          "label": "Generator type fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FI_GENHT_WERT",
+          "label": "Generator high-temp fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Generator system check",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FI_GENMECH_WERT",
+          "label": "Generator mechanical fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FI_GENEL_WERT",
+          "label": "Generator electrical fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DF_HIGH_WERT",
+          "label": "Generator load too high",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Generator system check",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GENITEST_TOL_WERT",
+          "label": "Current setpoint tolerance band",
+          "unit": "A",
+          "min": 0,
+          "max": 250
+        },
+        {
+          "key": "STAT_GENUTEST_TOL_WERT",
+          "label": "Voltage setpoint tolerance band",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Generator system check",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_I_GENTEST_WERT",
+          "label": "Modelled generator current",
+          "unit": "A",
+          "min": 0,
+          "max": 250
+        },
+        {
+          "key": "STAT_U_GENTEST_WERT",
+          "label": "Generator setpoint voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "OBD mode 9 monitor counts",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OBDCOND_WERT",
+          "label": "OBD monitoring conditions count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IGNCNTR_WERT",
+          "label": "Engine start count",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD mode 9 monitor counts",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EVAPCOMP_WERT",
+          "label": "EVAP monitor completion",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EVAPCOND_WERT",
+          "label": "EVAP monitor conditions",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CATCOMP2_WERT",
+          "label": "Catalyst monitor completion bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CATCOND2_WERT",
+          "label": "Catalyst monitor conditions bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD mode 9 monitor counts",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_VVTCOMP1_WERT",
+          "label": "O2 sensor monitor completion bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTCOND1_WERT",
+          "label": "O2 sensor monitor conditions bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTCOMP2_WERT",
+          "label": "O2 sensor monitor completion bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTCOND2_WERT",
+          "label": "O2 sensor monitor conditions bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measured value block",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4602,0x4603,0x4604,0x4609,0x460A,0x460E,0x460F,0x4612,0x4613,0x4614,0x4615,0x4616,0x4617,0x4618,0x461A",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GENERATOR_STROM_WERT",
+          "label": "Generator current",
+          "unit": "A",
+          "min": 0,
+          "max": 250
+        },
+        {
+          "key": "STAT_KL87_SPANNUNG_WERT",
+          "label": "Terminal 87 voltage / DME supply",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Enter comment to store",
+      "kind": "text",
+      "example": "text",
+      "args_template": "stored as a string/comment"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter comment to store",
+      "kind": "text",
+      "example": "text",
+      "args_template": "stored as a string/comment"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter value (0.0-1310.7 A)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter value (0.0-2.55 sek)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter value (0.0-0.51 sek)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Enter value (0.0-25.5 sek)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Quiescent current measurement parameters",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Quiescent current measurement parameters",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_RUHESTROMMESSUNG",
+      "field": "Quiescent current measurement parameters",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_ENERGIESPARMODE",
+      "field": "Quiescent current measurement parameters",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (1-2)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0-255)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0-5)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (500-2000)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0-100)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0-20)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (-102.4-101.6)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0.0 - 65.535)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0-1.99218797)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (-0.128 - 0.127)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    },
+    {
+      "job": "STATUS_DIGITAL_0",
+      "field": "Enter value (0.0 - 25.5)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "numeric value encoded into job args"
+    }
+  ]
+}

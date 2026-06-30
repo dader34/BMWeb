@@ -1,0 +1,455 @@
+{
+  "ecu": "mvd1746k.IPO",
+  "screens": [
+    {
+      "group": "Bus / sensor availability (CAN)",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AGR_WERT", "label": "EGR present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BN2000_WERT", "label": "BN2000 bus present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TMP_CAN_WERT", "label": "Temperature via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ANSK_WERT", "label": "Intake air flap present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Charging / exhaust concept",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TURBO_WERT", "label": "Turbo with wastegate", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TURBO_VTG_WERT", "label": "Turbo with VTG", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_MONO_WERT", "label": "Exhaust concept mono", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_Y_WERT", "label": "Exhaust concept Y", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Exhaust / air flaps",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SLP_WERT", "label": "Secondary air pump present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SLV_WERT", "label": "Secondary air valve present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_WERT", "label": "Exhaust flap present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOK_WERT", "label": "Sound flap present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Misc sensors / switches",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MFL_WERT", "label": "Multifunction steering wheel present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SPT_WERT", "label": "Sport mode present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOZNIV_WERT", "label": "Oil level sensor present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_HS_WERT", "label": "Manual switch present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Control modules on CAN",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KOMBI_WERT", "label": "Instrument cluster via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LDM_WERT", "label": "Longitudinal dynamics management", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LMM_WERT", "label": "Mass air flow sensor present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ICM_WERT", "label": "ICM present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensors on BSD / LIN bus",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EWAP_BSD_WERT", "label": "Electric water pump via BSD", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OZS_BSD_WERT", "label": "Oil condition sensor via BSD", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AFS_BN2020_WERT", "label": "Electric steering present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_LIN_WERT", "label": "Battery sensor on LIN", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Alternator test result",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GENIUTEST_ERR_WERT", "label": "Alternator test fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GENIUTEST_AB_WERT", "label": "Alternator test abort conditions", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GENITEST_TOL_WERT", "label": "Current tolerance range", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GENUTEST_TOL_WERT", "label": "Voltage tolerance range", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Alternator test values",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_I_GENTEST_WERT", "label": "Modeled alternator current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_U_GENTEST_WERT", "label": "Alternator target voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Readiness: catalyst / LSU (bank 1)",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_BHKT_WERT", "label": "Catalyst monitor, bank 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_BHKT_WERT", "label": "Catalyst monitor, bank 1 (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CDLSU_WERT", "label": "LSU too slow, bank 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDLSU_WERT", "label": "LSU too slow, bank 1 (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: evap / tank leak",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_ATEVTLD_WERT", "label": "Purge valve check with tank leak diag (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_ATEVTLD_WERT", "label": "Purge valve check with tank leak diag (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CTESG_WERT", "label": "Tank diagnosis gross leak (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTESG_WERT", "label": "Tank diagnosis gross leak (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: tank fine leak / module",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CDMTK_WERT", "label": "Tank diagnosis fine leak (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDMTK_WERT", "label": "Tank diagnosis fine leak (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CDMTL_WERT", "label": "Tank diagnosis module fault (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDMTL_WERT", "label": "Tank diagnosis module fault (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: camshaft control (bank 1)",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CENWS_WERT", "label": "Intake camshaft control, bank 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CENWS_WERT", "label": "Intake camshaft control, bank 1 (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CANWS_WERT", "label": "Exhaust camshaft control, bank 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CANWS_WERT", "label": "Exhaust camshaft control, bank 1 (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: camshaft locking diag (bank 1)",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CNWVE_WERT", "label": "Intake cam locking diag, bank 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CNWVE_WERT", "label": "Intake cam locking diag, bank 1 (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CNWVA_WERT", "label": "Exhaust cam locking diag, bank 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CNWVA_WERT", "label": "Exhaust cam locking diag, bank 1 (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: cam-to-crank assignment",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_EPMCASOFSERRCASI1_WERT", "label": "Intake cam to crankshaft assignment (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_EPMCASOFSERRCASI1_WERT", "label": "Intake cam to crankshaft assignment (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_EPMCASOFSERRCASO1_WERT", "label": "Exhaust cam to crankshaft assignment (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_EPMCASOFSERRCASO1_WERT", "label": "Exhaust cam to crankshaft assignment (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: secondary air / overrun LSU adapt",
+      "job": "STATUS_RBMME1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_ADSLS_WERT", "label": "Secondary air system (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_ADSLS_WERT", "label": "Secondary air system (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CSLSU_WERT", "label": "Overrun adaptation factor LSU monitor (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CSLSU_WERT", "label": "Overrun adaptation factor LSU monitor (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: CAN timer / O2 heater post-cat",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CCUHR_WERT", "label": "CAN relative timer (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CCUHR_WERT", "label": "CAN relative timer (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CHSHK_WERT", "label": "O2 sensor heater post-cat (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CHSV_WERT", "label": "O2 sensor heater pre-cat (numerator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: O2 heater pre-cat / idle control",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CHSV_WERT", "label": "O2 sensor heater pre-cat (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CHSV_WERT", "label": "O2 sensor heater pre-cat (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_BLLRH_WERT", "label": "Idle speed control (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_BLLRH_WERT", "label": "Idle speed control (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: idle during cat-heating / ambient pressure",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_BLLRKH_WERT", "label": "Idle control during cat heating (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_BLLRKH_WERT", "label": "Idle control during cat heating (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CPUR_WERT", "label": "Ambient pressure sensor range check (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CPUR_WERT", "label": "Ambient pressure sensor range check (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: intake air temp before throttle",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CTAVDC_WERT", "label": "Cold-start diag intake air temp before throttle (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTAVDC_WERT", "label": "Cold-start diag intake air temp before throttle (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CTAVDR_WERT", "label": "Intake air temp before throttle diag (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTAVDR_WERT", "label": "Intake air temp before throttle diag (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: intake air temp after air filter",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CTANLC_WERT", "label": "Cold-start diag intake air temp after air filter (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTANLC_WERT", "label": "Cold-start diag intake air temp after air filter (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CTANLR_WERT", "label": "Intake air temp after air filter diag (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTANLR_WERT", "label": "Intake air temp after air filter diag (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: engine temperature",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CTM_WERT", "label": "Engine temperature TMOT (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTM_WERT", "label": "Engine temperature TMOT (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CTMCS_WERT", "label": "Engine temp sensor at cold start (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTMCS_WERT", "label": "Engine temp sensor at cold start (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: ambient temp / vehicle speed",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CTUM_WERT", "label": "Ambient temperature TUM (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTUM_WERT", "label": "Ambient temperature TUM (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CVFZ_WERT", "label": "Vehicle speed signal (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CVFZ_WERT", "label": "Vehicle speed signal (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: DV-E function / position deviation",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CDVEF_WERT", "label": "DV-E function check (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDVEF_WERT", "label": "DV-E function check (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CDVEL_WERT", "label": "DV-E position deviation (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDVEL_WERT", "label": "DV-E position deviation (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: DV-E control range / MAF plausibility",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CDVER_WERT", "label": "DV-E control range (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDVER_WERT", "label": "DV-E control range (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_BMW_HFMPL_WERT", "label": "Mass air flow plausibility (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_BMW_HFMPL_WERT", "label": "Mass air flow plausibility (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: manifold pressure plausibility / throttle pot",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_BMW_DKPSRPL_WERT", "label": "Intake manifold pressure sensor plausibility (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_BMW_DKPSRPL_WERT", "label": "Intake manifold pressure sensor plausibility (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CDK_WERT", "label": "Throttle potentiometer (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDK_WERT", "label": "Throttle potentiometer (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: throttle potentiometers 1 / 2",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CDK1P_WERT", "label": "Throttle potentiometer 1 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDK1P_WERT", "label": "Throttle potentiometer 1 (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CDK2P_WERT", "label": "Throttle potentiometer 2 (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CDK2P_WERT", "label": "Throttle potentiometer 2 (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: clutch pedal sensor / pre-throttle pressure",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CKUP_WERT", "label": "Clutch pedal sensor (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CKUP_WERT", "label": "Clutch pedal sensor (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CPVDR_WERT", "label": "Pre-throttle pressure sensor plausibility (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CPVDR_WERT", "label": "Pre-throttle pressure sensor plausibility (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: cam actuator diag (CERS)",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CENCS_WERT", "label": "Intake cam actuator diag CERS (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CENCS_WERT", "label": "Intake cam actuator diag CERS (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CANCS_WERT", "label": "Exhaust cam actuator diag CERS (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CANCS_WERT", "label": "Exhaust cam actuator diag CERS (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: CAN clock fast / slow",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CTEOEH_WERT", "label": "CAN clock too fast (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTEOEH_WERT", "label": "CAN clock too fast (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CTEOEL_WERT", "label": "CAN clock too slow (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTEOEL_WERT", "label": "CAN clock too slow (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: CAN clock one-sided / both-sided",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CTEOES_WERT", "label": "CAN clock one-sided fault (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTEOES_WERT", "label": "CAN clock one-sided fault (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_CTEOET_WERT", "label": "CAN clock fault both-sided check (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CTEOET_WERT", "label": "CAN clock fault both-sided check (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness: ignition efficiency / boost pressure",
+      "job": "STATUS_RBMME2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_NUM_FID_CETKHT_WERT", "label": "Ignition angle efficiency at cat heating CERS (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_CETKHT_WERT", "label": "Ignition angle efficiency at cat heating CERS (denominator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NUM_FID_BMW_ATLDIAG_WERT", "label": "Boost pressure diagnosis (numerator)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DEN_FID_BMW_ATLDIAG_WERT", "label": "Boost pressure diagnosis (denominator)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "OBD monitoring counters",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_OBDCOND_WERT", "label": "OBD monitoring conditions encountered count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IGNCNTR_WERT", "label": "Number of engine starts", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Evap / VVT monitor completion counters",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EVAPCOMP_WERT", "label": "Evap monitor completion count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EVAPCOND_WERT", "label": "Evap monitor condition count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOMP1_WERT", "label": "VVT monitor completion count, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOND1_WERT", "label": "VVT monitor condition count, bank 1", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "VVT monitor completion counters (bank 1 / bank 2)",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VVTCOMP1_WERT", "label": "VVT monitor completion count, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOND1_WERT", "label": "VVT monitor condition count, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOMP2_WERT", "label": "VVT monitor completion count, bank 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCOND2_WERT", "label": "VVT monitor condition count, bank 2", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Raw byte value (0-255)", "kind": "number", "example": "128", "args_template": "single byte argument" },
+    { "job": "STATUS_LESEN", "field": "Two values separated by semicolon", "kind": "text", "example": "5;15", "args_template": "two numeric params split on ';'" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "RPM target (500-2000)", "kind": "number", "example": "800", "args_template": "RPM setpoint" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "Percentage (0-100)", "kind": "number", "example": "50", "args_template": "percentage value" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "Camshaft actuation (-102.4 to 101.6)", "kind": "number", "example": "0", "args_template": "camshaft position value" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "Lambda value (0-1.999997)", "kind": "number", "example": "1.0", "args_template": "lambda setpoint" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "Injector coding data (injectors 1-6)", "kind": "text", "example": "per-injector coding string", "args_template": "coding data per injector" },
+    { "job": "STATUS_ATLDIAG", "field": "Boost diagnosis value (0-99.61)", "kind": "number", "example": "50", "args_template": "boost diag parameter" },
+    { "job": "STATUS_ATLDIAG", "field": "Fine adjustment (-0.128 to 0.127)", "kind": "number", "example": "0", "args_template": "fine offset value" },
+    { "job": "STATUS_RUHESTROMMESSUNG", "field": "Quiescent current measurement parameter", "kind": "number", "example": "10", "args_template": "measurement parameter for closed-circuit current test" }
+  ]
+}

@@ -33,6 +33,31 @@ const FAULT_PHRASES = [
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
 const DE_TOKENS = [
+  // ---- job-name verbs/nouns (humanized SGBD job names, e.g. "Flash Crc Pruefen") ----
+  [/\bPruefen\b|\bPrüfen\b/gi, 'Check'], [/\bLesen\b/gi, 'Read'],
+  [/\bSchreiben\b/gi, 'Write'], [/\bSetzen\b/gi, 'Set'], [/\bLoeschen\b|\bLöschen\b/gi, 'Clear'],
+  [/\bSteuern\b/gi, 'Activate'], [/\bSignatur\b/gi, 'Signature'],
+  [/\bBlocklaenge\b|\bBlocklänge\b/gi, 'Block length'], [/\bZeiten\b/gi, 'Times'],
+  // ---- job-argument dialog terms (from the SGBD _ARGUMENTS schema) ----
+  [/Datum der SG-Programmierung/gi, 'date of ECU programming'],
+  [/Zusammenbaunummer/gi, 'assembly number'],
+  [/Datensatznummer/gi, 'dataset number'], [/Softwarenummer/gi, 'software number'],
+  [/Behoerdennummer|Behördennummer/gi, 'authority number'],
+  [/Haendlernummer|Händlernummer/gi, 'dealer number'],
+  [/Fahrgestellnummer/gi, 'chassis number (VIN)'],
+  [/Tester Seriennummer/gi, 'tester serial number'],
+  [/Seriennummer/gi, 'serial number'],
+  [/Zeit in Sekunden/gi, 'time in seconds'],
+  [/Einschaltzeit/gi, 'on-time'], [/Periodendauer/gi, 'period'],
+  [/Tastverhältnis|Tastverhaeltnis/gi, 'duty cycle'],
+  [/Abgleichswert/gi, 'adjustment value'], [/Sollwert/gi, 'target value'],
+  [/ohne Argument/gi, 'without argument'], [/Wechsel/gi, 'toggle'],
+  [/Klima und Fahrbedingung/gi, 'A/C and driving condition'],
+  [/mit Klimaanlage/gi, 'with A/C'], [/mit Fahrstufe/gi, 'with gear engaged'],
+  [/niedriger UBatt/gi, 'low battery voltage'],
+  [/Ein=1 Aus=0|1=Ein 0=Aus|1=Ein, 0=Aus/gi, '1=on 0=off'],
+  [/\bEin\b/gi, 'on'], [/\bAus\b/gi, 'off'], [/\bZeit\b/gi, 'time'],
+  [/\bDauer\b/gi, 'duration'], [/\bFaktor\b/gi, 'factor'], [/\bbis\b/gi, 'to'],
   // ---- multi-word phrases (must precede their component words) ----
   [/Drehzahlfühler Impulsrad/gi, 'speed sensor reluctor ring'],
   [/periodische Überwachung/gi, 'periodic monitoring'],

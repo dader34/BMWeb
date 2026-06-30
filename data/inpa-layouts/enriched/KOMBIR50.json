@@ -1,0 +1,66 @@
+{
+  "ecu": "KOMBIR50.IPO",
+  "screens": [
+    {
+      "group": "Manufacturer data",
+      "job": "HERSTELLERDATEN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Service interval (SIA) data",
+      "job": "AIF_SIA_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORTYP_TEXT", "label": "Fuel type", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GETRIEBE_TEXT", "label": "Transmission type", "unit": null, "min": null, "max": null },
+        { "key": "STAT_INSPEKTIONSGRENZE_WERT", "label": "Fuel between service", "unit": "l", "min": null, "max": null },
+        { "key": "STAT_KRAFTSTOFFMENGE_WERT", "label": "Fuel used since last service", "unit": "l", "min": null, "max": null },
+        { "key": "STAT_ZEITGRENZE_WERT", "label": "Service interval", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZEIT_INSP_ZAEHLER_WERT", "label": "Time since last service", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Mileage counter",
+      "job": "AIF_GWSZ_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GWSZ_WERT", "label": "Odometer reading", "unit": "km", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Analog status values",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AMBIENT_TEMP_WERT", "label": "Ambient temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_AMBIENT_TEMP_RESISTANCE_WERT", "label": "Ambient temp sensor resistance", "unit": "Ohm", "min": null, "max": null },
+        { "key": "STAT_AD5_BATTERY_VOLTS_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_ROAD_SPEED_CAN_WERT", "label": "Road speed (CAN)", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_TACHO_CAN_WERT", "label": "Engine RPM (CAN)", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_FUEL_CONSUMPTION_CAN_WERT", "label": "Fuel consumption (CAN)", "unit": "µl", "min": null, "max": null },
+        { "key": "STAT_ENGINE_TEMP_CAN_WERT", "label": "Engine temperature (CAN)", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_AD2_AMBIENT_TEMP_WERT", "label": "Ambient temp (AD2 raw)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD3_AMBIENT_LIGHT_LEVEL_WERT", "label": "Ambient light level (AD3 raw)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD0_FUEL_SENDER_2_WERT", "label": "Fuel sender 2 (AD0 raw)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD1_FUEL_SENDER_1_WERT", "label": "Fuel sender 1 (AD1 raw)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD6_WERT", "label": "AD6 raw value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD7_WERT", "label": "AD7 raw value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD4_WERT", "label": "AD4 raw value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD0_FUEL_SENDER_1_WERT", "label": "Fuel sender 1 (AD0 raw)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AD1_FUEL_SENDER_2_WERT", "label": "Fuel sender 2 (AD1 raw)", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}
