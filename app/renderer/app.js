@@ -2,6 +2,7 @@
 let lastScreen = showChassis; // where to return to when leaving settings
 
 function showSettings() {
+  if (typeof cancelSweep === 'function') cancelSweep(); // stop a running sweep
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Settings' }]);
   sbLeft.textContent = 'settings';
   view.innerHTML = head('Preferences', 'Settings', 'Configure how BMacW displays diagnostics.');

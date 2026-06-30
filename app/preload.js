@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('bmacw', {
   // append one CSV row
   appendLog: (id, cells) => ipcRenderer.invoke('log:append', id, cells),
   stopLog: (id) => ipcRenderer.invoke('log:stop', id),
+  // render report HTML to PDF + save dialog. returns { ok, path } or { ok:false }
+  savePdf: (suggestedName, html) => ipcRenderer.invoke('pdf:save', suggestedName, html),
   // native background transparent vs solid per theme
   setTranslucent: (on) => ipcRenderer.invoke('window:translucent', on),
   setDockIcon: (dataUrl) => ipcRenderer.invoke('window:setDockIcon', dataUrl),

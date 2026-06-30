@@ -476,6 +476,11 @@ html[data-theme="inpa"] .inpa-script-row:hover { background: #eef2ff; }
   font-family: var(--mono); font-weight: 700; font-size: 13.5px;
   padding: 5px 8px; color: var(--ink);
 }
+/* header doubles as the clickable Functional Jobs entry on the chassis row */
+.inpa-ss-head.func { -webkit-app-region: no-drag; cursor: pointer; color: var(--amber); }
+.inpa-ss-head.func:hover { background: rgba(127,127,127,.12); }
+html[data-theme="inpa"] .inpa-ss-head.func { color: #000080; }
+html[data-theme="inpa"] .inpa-ss-head.func:hover { background: #e8eefc; }
 /* indented section items, bold mono */
 .inpa-ss-item, .inpa-ss-job {
   -webkit-app-region: no-drag; cursor: pointer; display: block; width: 100%; text-align: left;
@@ -502,6 +507,23 @@ html[data-theme="inpa"] .inpa-ss-chassis.active { background: #0a246a; color: #f
 
 /* quick sweep: chassis-wide fault/ident scan */
 .quick-sweep { }
+.quick-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.quick-bar .quick-head { margin-bottom: 0; }
+.quick-bar-btns { display: flex; gap: 8px; align-items: center; }
+.quick-clear-all {
+  -webkit-app-region: no-drag; cursor: pointer; font-family: var(--mono); font-size: 11.5px;
+  color: var(--red); background: none; border: 1px solid var(--red); border-radius: 3px;
+  padding: 4px 12px; white-space: nowrap;
+}
+.quick-clear-all:hover:not(:disabled) { background: var(--red); color: #fff; }
+.quick-clear-all:disabled { opacity: .35; cursor: default; }
+.quick-pdf {
+  -webkit-app-region: no-drag; cursor: pointer; font-family: var(--mono); font-size: 11.5px;
+  color: var(--ink-dim); background: none; border: 1px solid var(--line-bright); border-radius: 3px;
+  padding: 4px 12px; white-space: nowrap;
+}
+.quick-pdf:hover:not(:disabled) { background: var(--raised); color: var(--ink); border-color: var(--ink-dim); }
+.quick-pdf:disabled { opacity: .35; cursor: default; }
 .quick-head { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-bottom: 10px; }
 .quick-rows { display: grid; gap: 2px; }
 .quick-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
@@ -512,6 +534,29 @@ html[data-theme="inpa"] .inpa-ss-chassis.active { background: #0a246a; color: #f
 .quick-row.has-faults .quick-status { color: var(--red); }
 .quick-row.clean { border-left: 3px solid var(--green); }
 .quick-row.noresp { opacity: .55; }
+.quick-row.scanning-detail .quick-status { color: var(--amber); }
+.quick-status { display: inline-flex; align-items: center; gap: 8px; }
+.quick-clear {
+  -webkit-app-region: no-drag; cursor: pointer; font-family: var(--mono); font-size: 10.5px;
+  color: var(--red); background: none; border: 1px solid var(--red); border-radius: 3px;
+  padding: 2px 8px;
+}
+.quick-clear:hover { background: var(--red); color: #fff; }
+.quick-clearing { color: var(--amber); font-style: italic; }
+.quick-cleared { color: var(--green); }
+.quick-clear-fail { color: var(--red); }
+/* deep-scan DTC rows, listed under a faulty module */
+.quick-detail { display: grid; gap: 1px; margin: 1px 0 4px 14px;
+  border-left: 3px solid var(--line-bright); }
+.quick-detail-row { display: grid; grid-template-columns: 76px 1fr auto; gap: 12px;
+  align-items: baseline; padding: 5px 14px; background: var(--panel-2);
+  font-size: 12.5px; }
+.quick-detail-code { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+.quick-detail-name { color: var(--ink-dim); }
+.quick-detail-state { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+  color: var(--ink-faint); }
+.quick-detail-row.present .quick-detail-code { color: var(--red); }
+.quick-detail-row.present .quick-detail-state { color: var(--red); }
 
 
 /* ECU main menu: SGBD subline + function list */

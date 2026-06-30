@@ -184,17 +184,58 @@ app.MapGet("/api/state", async (string? port, string? sgbd) =>
 
 app.MapGet("/api/port", () => Results.Json(new { port = AutoDetectPort() }));
 
+// FS_LESEN result is "set 0 = status" then one set per fault. keep only sets
+// carrying a fault id (F_ORT_NR/F_HEX_CODE); the trailing summary set has neither.
+static List<Dictionary<string, string>> ReadFaults(Diag diag, string sgbd)
+{
+    diag.Load(sgbd);
+    var sets = diag.Run("FS_LESEN");
+    var codes = new List<Dictionary<string, string>>();
+    for (int i = 1; i < sets.Count; i++)
+    {
+        var row = sets[i].ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value));
+        if (row.ContainsKey("F_ORT_NR") || row.ContainsKey("F_HEX_CODE"))
+            codes.Add(row);
+    }
+    return codes;
+}
+// a fault whose location text is the SGBD's "unknown location" placeholder is
+// unlabeled; a sibling SGBD variant may name it.
+static bool IsUnknownLoc(Dictionary<string, string> f) =>
+    f.TryGetValue("F_ORT_TEXT", out var t) && t != null &&
+    t.Replace(" ", "").ToLowerInvariant().Contains("unbekannter");
+
 app.MapPost("/api/ecu/{sgbd}/read", (string sgbd, string? port) => OnBus<IResult>(() =>
 {
     using var diag = NewDiag();
     if (!AttachLive(diag, port)) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
     try
     {
-        diag.Load(sgbd);
-        var sets = diag.Run("FS_LESEN");
-        var codes = new List<Dictionary<string, string>>();
-        for (int i = 1; i < sets.Count; i++)
-            codes.Add(sets[i].ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value)));
+        var codes = ReadFaults(diag, sgbd);
+        // multi-variant merge: if the primary SGBD left any fault as "unknown
+        // location", a sibling variant (e.g. zke5 -> zke5_s12) may label it.
+        // read siblings only when needed, and only replace the unknown ones.
+        var variants = config.SgbdVariants(sgbd);
+        if (variants.Count > 1 && codes.Any(IsUnknownLoc))
+        {
+            foreach (var v in variants.Skip(1))
+            {
+                if (!codes.Any(IsUnknownLoc)) break;
+                List<Dictionary<string, string>> alt;
+                try { alt = ReadFaults(diag, v); } catch { continue; }
+                foreach (var f in codes.Where(IsUnknownLoc).ToList())
+                {
+                    if (!f.TryGetValue("F_ORT_NR", out var nr)) continue;
+                    var better = alt.FirstOrDefault(a =>
+                        a.TryGetValue("F_ORT_NR", out var anr) && anr == nr && !IsUnknownLoc(a));
+                    if (better != null)
+                    {
+                        int idx = codes.IndexOf(f);
+                        codes[idx] = better; // keep the labeled variant's entry
+                    }
+                }
+            }
+        }
         return Results.Json(new { port, count = codes.Count, codes });
     }
     catch (Exception ex) { return Results.BadRequest(new { error = Explain(ex), raw = ex.Message }); }

@@ -1,5 +1,6 @@
 // navigation: chassis select, INPA script picker, sweeps, sections
 async function showChassis() {
+  cancelSweep();                 // leaving for the chassis list stops any sweep
   lastScreen = showChassis;
   setCrumbs([{ label: 'Vehicles' }]);
   sbLeft.textContent = 'select chassis';
@@ -230,15 +231,14 @@ async function showScriptSelection(chassisId) {
   // Functional Jobs (whole-vehicle Identify/Fault sweep) only validated for E46.
   const allowFunc = chassisId.toUpperCase() === 'E46';
 
-  // chassis row selected: right pane is Functional Jobs only, nothing else.
+  // chassis row selected: the single "Functional jobs" header is the entry,
+  // clickable, with nothing listed beneath it.
   const showChassisJobs = () => {
     items.forEach(it => it.classList.toggle('active', it.dataset.i === '-1'));
     headEl.textContent = 'Functional jobs';
-    jobsPane.innerHTML = allowFunc
-      ? `<button class="inpa-ss-job func" data-func="1">Functional Jobs</button>`
-      : '<div class="inpa-ss-empty">No functional jobs</div>';
-    const fb = jobsPane.querySelector('.inpa-ss-job.func');
-    if (fb) fb.onclick = () => { close(); showFunctionalJobs(chassisId); };
+    jobsPane.innerHTML = '';
+    headEl.classList.toggle('func', allowFunc);
+    headEl.onclick = allowFunc ? () => { close(); showFunctionalJobs(chassisId); } : null;
   };
 
   // section row selected: right pane is that section's ECU modules, no jobs.
@@ -246,6 +246,8 @@ async function showScriptSelection(chassisId) {
     items.forEach(it => it.classList.toggle('active', it.dataset.i === String(i)));
     const sec = ch.sections[i];
     headEl.textContent = sec.name;
+    headEl.classList.remove('func');
+    headEl.onclick = null;
     jobsPane.innerHTML = sec.ecus.length
       ? sec.ecus.map(e => `<button class="inpa-ss-job" data-sgbd="${e.sgbd}" data-code="${e.code}" data-label="${e.label.replace(/"/g, '&quot;')}">${e.label}</button>`).join('')
       : '<div class="inpa-ss-empty">No modules</div>';
@@ -377,19 +379,35 @@ const _groupOf = (code) => {
 const _faultSig = (codes) =>
   (codes || []).map(c => c.F_HEX_CODE || `nr:${c.F_ORT_NR}`).join(',');
 
+// a sweep ties up the K-line for a while. each sweep takes a token; navigating
+// away (or starting another sweep) bumps it, and the running loop bails on its
+// next iteration so we stop hammering the bus after the user leaves.
+let _sweepToken = 0;
+const cancelSweep = () => { _sweepToken++; };
+
 // quick error memory test (INPA FSQUICK): read fault memory on every chassis ECU,
 // combined report of which modules have stored faults.
 async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => showSections(id) }, { label: 'Quick error sweep' }]);
+  const token = ++_sweepToken;            // claim this run
+  const alive = () => token === _sweepToken;
+  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Quick error sweep' }]);
   view.innerHTML = head('Special tests', 'Quick error memory test', `Scanning every module on the ${dispChassis(id)} for stored faults…`);
   const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showSections(id) }]);
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => { cancelSweep(); showSections(id); } }]);
   let ch;
   try { ch = await api(`/api/chassis/${id}`); }
   catch (e) { out.innerHTML = errorBlock(e.message); return; }
   const ecus = dedupEcus(ch); sortByPriority(ecus);
-  out.innerHTML = `<div class="quick-sweep"><div class="quick-head">${ecus.length} modules · scanning…</div><div class="quick-rows" id="quick-rows"></div></div>`;
+  out.innerHTML = `<div class="quick-sweep">
+    <div class="quick-bar">
+      <div class="quick-head">${ecus.length} modules · scanning…</div>
+      <div class="quick-bar-btns">
+        <button class="quick-pdf" id="quick-pdf" disabled>Export PDF</button>
+        <button class="quick-clear-all" id="quick-clear-all" disabled>Clear all</button>
+      </div>
+    </div>
+    <div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   let withFaults = 0, scanned = 0, dupes = 0, skipped = 0;
   // each read costs ~7s (K-line wake-up) whether the ECU answers or not. variant
@@ -398,7 +416,9 @@ async function quickErrorSweep(chassisId) {
   // variants to ~1-2 reads.
   const seen = new Map();          // fault-signature -> first ECU label
   const groupDone = new Set();     // variant-group key that already responded
+  const faulty = [];               // modules that reported faults, for the deep pass
   for (const ecu of ecus) {
+    if (!alive()) return;          // user left the sweep; stop reading the bus
     const grp = _groupOf(ecu.code);
     const row = addSweepRow(rows, ecu.label);
 
@@ -422,6 +442,8 @@ async function quickErrorSweep(chassisId) {
           seen.set(sig, ecu.label);
           withFaults++; row.classList.add('has-faults');
           row.querySelector('.quick-status').innerHTML = `<b>${n} fault${n === 1 ? '' : 's'}</b>`;
+          const codes = (data.codes || []).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
+          faulty.push({ ecu, row, codes });
         }
       } else { row.classList.add('clean'); row.querySelector('.quick-status').textContent = 'OK'; }
     } catch (e) {
@@ -430,18 +452,200 @@ async function quickErrorSweep(chassisId) {
     scanned++;
     out.querySelector('.quick-head').textContent = `${scanned} read · ${skipped} skipped · ${withFaults} with faults`;
   }
+
+  // deep pass: every module that reported faults gets a detailed read for the
+  // specific DTCs (FS_LESEN_DETAIL), shown inline under its row.
+  if (faulty.length) {
+    out.querySelector('.quick-head').textContent =
+      `${scanned} read, ${skipped} skipped · ${withFaults} with faults · reading details…`;
+    let done = 0;
+    for (const f of faulty) {
+      if (!alive()) return;        // user left mid deep-read; stop
+      f.row.classList.add('scanning-detail');
+      f.row.querySelector('.quick-status').innerHTML =
+        `<b>${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}</b> · reading…`;
+      try { await fillFaultDetail(f.ecu.sgbd, f.codes); } catch { /* keep base codes */ }
+      f.row.classList.remove('scanning-detail');
+      setRowFaultStatus(f);
+      appendFaultDetailRows(f.row, f.codes);
+      done++;
+      out.querySelector('.quick-head').textContent =
+        `${scanned} read, ${skipped} skipped · ${withFaults} with faults · details ${done}/${faulty.length}`;
+    }
+  }
+
+  // wire up Clear all (clears every faulty module in turn) once we know them.
+  const clearAllBtn = out.querySelector('#quick-clear-all');
+  if (faulty.length) {
+    clearAllBtn.disabled = false;
+    clearAllBtn.onclick = async () => {
+      const ok = await confirmDialog({
+        title: 'Clear all fault memory?',
+        body: `Erase stored faults on ${faulty.length} module${faulty.length === 1 ? '' : 's'}. This cannot be undone.`,
+        confirmLabel: 'Clear all', danger: true,
+      });
+      if (!ok) return;
+      clearAllBtn.disabled = true; clearAllBtn.textContent = 'Clearing…';
+      for (const f of faulty) await clearModule(f);
+      clearAllBtn.textContent = 'Cleared';
+    };
+  }
+
+  // Export PDF: a clean per-module fault report. available even with no faults
+  // (records a clean bill of health).
+  const pdfBtn = out.querySelector('#quick-pdf');
+  if (pdfBtn && window.bmacw && window.bmacw.savePdf) {
+    pdfBtn.disabled = false;
+    pdfBtn.onclick = () => exportFaultPdf(id, faulty, { scanned, skipped, withFaults });
+  } else if (pdfBtn) {
+    pdfBtn.remove(); // PDF export needs the Electron bridge
+  }
+
   out.querySelector('.quick-head').textContent =
     `Done · ${scanned} read, ${skipped} skipped · ${withFaults} with stored faults${dupes ? ` · ${dupes} echoes hidden` : ''}`;
   sbLeft.textContent = `quick sweep · ${withFaults} faulty`;
 }
 
+// status cell for a faulty module: fault count plus a Clear button.
+function setRowFaultStatus(f) {
+  const n = f.codes.length;
+  const st = f.row.querySelector('.quick-status');
+  st.innerHTML = `<b>${n} fault${n === 1 ? '' : 's'}</b><button class="quick-clear" title="Clear ${f.ecu.label}">Clear</button>`;
+  st.querySelector('.quick-clear').onclick = () => clearModule(f);
+}
+
+// erase one module's fault memory (FS_LOESCHEN), then mark the row cleared.
+async function clearModule(f) {
+  const st = f.row.querySelector('.quick-status');
+  st.innerHTML = '<span class="quick-clearing">clearing…</span>';
+  try {
+    await api(`/api/ecu/${f.ecu.sgbd}/clear`, { method: 'POST' });
+    f.row.classList.remove('has-faults'); f.row.classList.add('clean');
+    st.innerHTML = '<span class="quick-cleared">cleared</span>';
+    if (f.row.nextElementSibling?.classList.contains('quick-detail')) f.row.nextElementSibling.remove();
+  } catch (e) {
+    setRowFaultStatus(f); // rebuild the count + working Clear button
+    const fail = document.createElement('span');
+    fail.className = 'quick-clear-fail'; fail.textContent = ' clear failed';
+    fail.title = e.message;
+    st.appendChild(fail);
+    setTimeout(() => fail.remove(), 4000);
+  }
+}
+
+// render the specific DTCs for one faulty module beneath its sweep row.
+// shared fault projection: code, English name, present/stored. used by the
+// inline detail rows and the PDF report so both read the same.
+function faultFields(c) {
+  const hex = c.F_HEX_CODE || '';
+  const code = bmwCode(c.F_ORT_TEXT, hex);
+  const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || pCode(c.F_ORT_TEXT, hex) || '';
+  const vt = (c.F_VORHANDEN_TEXT || '').toLowerCase();
+  const present = vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden');
+  return { code: code || pstr || hex || '—', name: faultName(c.F_ORT_TEXT, hex), present };
+}
+function appendFaultDetailRows(row, codes) {
+  const wrap = document.createElement('div');
+  wrap.className = 'quick-detail';
+  wrap.innerHTML = codes.map(c => {
+    const { code, name, present } = faultFields(c);
+    return `<div class="quick-detail-row${present ? ' present' : ''}">
+      <span class="quick-detail-code">${code}</span>
+      <span class="quick-detail-name">${name}</span>
+      <span class="quick-detail-state">${present ? 'PRESENT' : 'stored'}</span>
+    </div>`;
+  }).join('');
+  row.insertAdjacentElement('afterend', wrap);
+}
+
+// build a clean, self-contained fault-report PDF and save it via the Electron
+// bridge. groups faults by module, shows code + English name + present/stored.
+async function exportFaultPdf(chassisId, faulty, stats) {
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+  const now = new Date();
+  const stamp = now.toLocaleString();
+  const totalFaults = faulty.reduce((n, f) => n + f.codes.length, 0);
+
+  const moduleBlocks = faulty.map(f => {
+    const rows = f.codes.map(c => {
+      const { code, name, present } = faultFields(c);
+      return `<tr class="${present ? 'present' : ''}">
+        <td class="c-code">${esc(code)}</td>
+        <td class="c-name">${esc(name)}</td>
+        <td class="c-state">${present ? 'PRESENT' : 'stored'}</td></tr>`;
+    }).join('');
+    return `<section class="mod">
+      <h2>${esc(f.ecu.label)} <span class="sgbd">${esc(f.ecu.sgbd)}</span>
+        <span class="modcount">${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}</span></h2>
+      <table><thead><tr><th>Code</th><th>Description</th><th>State</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </section>`;
+  }).join('');
+
+  const clean = faulty.length === 0
+    ? `<div class="clean-note">No stored faults. ${stats.scanned} module${stats.scanned === 1 ? '' : 's'} read, ${stats.skipped} skipped.</div>`
+    : '';
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+    * { box-sizing: border-box; }
+    body { font: 13px -apple-system, "Helvetica Neue", Arial, sans-serif; color: #14181d; margin: 0; padding: 0 4px; }
+    header { border-bottom: 2px solid #14181d; padding-bottom: 10px; margin-bottom: 16px; }
+    .brand { font-size: 22px; font-weight: 800; letter-spacing: .04em; }
+    .sub { color: #555; font-size: 12px; margin-top: 2px; }
+    .meta { margin-top: 8px; font-size: 11.5px; color: #333; display: flex; gap: 22px; flex-wrap: wrap; }
+    .meta b { color: #14181d; }
+    .mod { margin: 0 0 16px; page-break-inside: avoid; }
+    .mod h2 { font-size: 14px; margin: 0 0 5px; border-left: 4px solid #c0392b; padding-left: 8px; }
+    .mod .sgbd { font: 600 10.5px "SF Mono", Menlo, monospace; color: #888; }
+    .mod .modcount { float: right; font-size: 11px; color: #c0392b; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #777;
+         border-bottom: 1px solid #ccc; padding: 4px 6px; }
+    td { padding: 5px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .c-code { font: 700 12px "SF Mono", Menlo, monospace; white-space: nowrap; width: 72px; }
+    .c-state { font: 600 10.5px "SF Mono", Menlo, monospace; color: #777; white-space: nowrap; width: 64px; text-align: right; }
+    tr.present .c-code, tr.present .c-state { color: #c0392b; }
+    .clean-note { padding: 24px; text-align: center; color: #2e7d32; font-size: 15px; font-weight: 600;
+                  border: 1px solid #cde6cd; border-radius: 6px; background: #f3faf3; }
+    footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }
+  </style></head><body>
+    <header>
+      <div class="brand">BMacW Fault Report</div>
+      <div class="sub">${esc(dispChassis(chassisId))} · fault memory across all modules</div>
+      <div class="meta">
+        <span>Generated <b>${esc(stamp)}</b></span>
+        <span>Modules with faults <b>${faulty.length}</b></span>
+        <span>Total faults <b>${totalFaults}</b></span>
+        <span>Read <b>${stats.scanned}</b> · skipped <b>${stats.skipped}</b></span>
+      </div>
+    </header>
+    ${clean}${moduleBlocks}
+    <footer>BMacW · native macOS BMW diagnostics. Codes read over K+DCAN; descriptions are best-effort translations.</footer>
+  </body></html>`;
+
+  const datePart = now.toISOString().slice(0, 10);
+  const name = `BMacW-faults-${dispChassis(chassisId)}-${datePart}.pdf`;
+  const btn = document.getElementById('quick-pdf');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const res = await window.bmacw.savePdf(name, html);
+    if (btn) btn.textContent = res && res.ok ? 'Saved' : 'Export PDF';
+    if (btn) btn.disabled = false;
+  } catch {
+    if (btn) { btn.textContent = 'Export PDF'; btn.disabled = false; }
+  }
+}
+
 // quick identification (INPA IDQUICK): read IDENT on every chassis ECU
 async function quickIdentSweep(chassisId) {
   const id = chassisId || 'E46';
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => showSections(id) }, { label: 'Quick identification' }]);
+  const token = ++_sweepToken;
+  const alive = () => token === _sweepToken;
+  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Quick identification' }]);
   view.innerHTML = head('Special tests', 'Quick identification', `Identifying every module on the ${dispChassis(id)}…`);
   const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showSections(id) }]);
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => { cancelSweep(); showSections(id); } }]);
   let ch;
   try { ch = await api(`/api/chassis/${id}`); }
   catch (e) { out.innerHTML = errorBlock(e.message); return; }
@@ -452,6 +656,7 @@ async function quickIdentSweep(chassisId) {
   let present = 0, scanned = 0;
   const groupDone = new Set();
   for (const ecu of ecus) {
+    if (!alive()) return;          // user left the sweep; stop reading the bus
     const grp = _groupOf(ecu.code);
     const row = addSweepRow(rows, ecu.label);
     if (grp && groupDone.has(grp)) { row.classList.add('noresp'); row.querySelector('.quick-status').textContent = 'skipped (variant)'; continue; }
@@ -502,6 +707,7 @@ function syncVselState() {
 
 // screen 2: sections sidebar + ECU list
 async function showSections(id, selectIndex = 0) {
+  cancelSweep();                 // entering the section list stops any sweep
   lastScreen = () => showSections(id, selectIndex);
   if (id.toUpperCase() === 'E46') autoScanE46(); // background scan on E46 open
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }]);

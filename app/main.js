@@ -114,6 +114,33 @@ ipcMain.handle('log:stop', (_evt, id) => {
   return { ok: true };
 });
 
+// render a fault report (self-contained HTML) to PDF via an offscreen window,
+// then save it through the native dialog. returns { ok, path } or { ok:false }.
+ipcMain.handle('pdf:save', async (_evt, suggestedName, html) => {
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Save fault report as PDF',
+    defaultPath: suggestedName || 'bmacw-faults.pdf',
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (res.canceled || !res.filePath) return { ok: false };
+  let worker;
+  try {
+    worker = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+    await worker.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    const pdf = await worker.webContents.printToPDF({
+      printBackground: true,
+      margins: { marginType: 'custom', top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 },
+      pageSize: 'Letter',
+    });
+    fs.writeFileSync(res.filePath, pdf);
+    return { ok: true, path: res.filePath };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  } finally {
+    if (worker && !worker.isDestroyed()) worker.destroy();
+  }
+});
+
 // set native backgroundColor so opaque themes dont flash the transparent base on
 // load/resize. see-through itself is a CSS concern.
 ipcMain.handle('window:translucent', (_evt, on) => {

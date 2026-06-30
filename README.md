@@ -88,6 +88,13 @@ app under `Resources/data` so the release runs standalone. A post-pack hook
 in, so the signature seal stays valid.
 
 
+## Contributing fault-code translations
+
+BMacW shows an English description for each fault code it reads. Those live in
+plain JSON files under `data/faults/`, so adding a translation is a small pull
+request, no code required. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+
 ## License
 
 GPLv3. The DME flash code is ported from
