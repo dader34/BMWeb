@@ -1,7 +1,10 @@
 // file-logging bridge for Status multi-watch stream-to-file
 const { contextBridge, ipcRenderer } = require('electron');
 
-const { version } = require('./package.json');
+// sandboxed preload: require() of app files throws (and would kill the whole
+// bridge), so main passes the version in via additionalArguments
+const version = (process.argv.find(a => a.startsWith('--bmacw-version=')) || '')
+  .split('=')[1] || '';
 
 contextBridge.exposeInMainWorld('bmacw', {
   // app version, for the settings page

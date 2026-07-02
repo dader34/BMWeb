@@ -95,7 +95,11 @@ function createWindow() {
     hasShadow: false,                // native shadow cant render on transparent window
     backgroundColor: '#00000000',    // transparent base, renderer fills per theme
     icon: path.join(__dirname, 'icon.png'),
-    webPreferences: { contextIsolation: true, preload: path.join(__dirname, 'preload.js') },
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: [`--bmacw-version=${app.getVersion()}`],
+    },
   });
   // pass sidecar base URL to renderer
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'), {
