@@ -17,17 +17,27 @@ files:
   - icon.png
 
 # Self-contained extras placed under Contents/Resources:
-#  - server-dist : the published .NET engine (single self-contained binary)
-#  - data        : the EDIABAS/INPA data the engine reads (BMACW_ROOT/vendor, /tools)
+#  - server-dist : the published .NET engine (self-contained single-file publish:
+#                  InpaMac.Server executable + native libs; no .NET runtime
+#                  needed on the user's machine — see build:server in package.json)
+#  - data        : the EDIABAS/INPA data the engine reads (BMACW_ROOT/vendor, /tools).
+#                  Only EDIABAS/Ecu is read at runtime (Program.cs: root/vendor/EDIABAS/Ecu);
+#                  Bin (Win32 tools) and Hardware (drivers) are dead weight, so skip them.
 extraResources:
   - from: server-dist
     to: server-dist
-  - from: ../vendor/EDIABAS
-    to: data/vendor/EDIABAS
+  - from: ../vendor/EDIABAS/Ecu
+    to: data/vendor/EDIABAS/Ecu
   - from: ../vendor/EC-APPS
     to: data/vendor/EC-APPS
   - from: ../tools/translations
     to: data/tools/translations
+  - from: ../data/inpa-layouts/enriched
+    to: data/inpa-layouts/enriched
+
+# ship only English locale packs (drops ~55 unused .lproj/.pak, ~40MB)
+electronLanguages:
+  - en
 
 mac:
   category: public.app-category.utilities

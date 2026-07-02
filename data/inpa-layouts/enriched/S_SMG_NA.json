@@ -1,0 +1,185 @@
+{
+  "ecu": "S_SMG_NA.IPO",
+  "screens": [
+    {
+      "group": "Engine RPM",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Gear position",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GANG_WERT",
+          "label": "Gear position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANG_TEXT",
+          "label": "Gear position (text)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Pedal / throttle position",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_WERT",
+          "label": "Accelerator pedal position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WDK_WERT",
+          "label": "Throttle angle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Fault location",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Coding / adaptation values",
+      "job": "COD_ADAPT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "OSSWW_WERT",
+          "label": "Output shaft speed sensor adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG1_WERT",
+          "label": "Gear shift sensor value, gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG2_WERT",
+          "label": "Gear shift sensor value, gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG3_WERT",
+          "label": "Gear shift sensor value, gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG4_WERT",
+          "label": "Gear shift sensor value, gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG5_WERT",
+          "label": "Gear shift sensor value, gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG6_WERT",
+          "label": "Gear shift sensor value, gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWGR_WERT",
+          "label": "Gear shift sensor value, reverse",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWN_WERT",
+          "label": "Shift travel neutral",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWAGG_WERT",
+          "label": "Shift travel even gears",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWAUG_WERT",
+          "label": "Shift travel odd gears",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWAGUD_WERT",
+          "label": "Shift travel even/odd through neutral",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "EldiAuftragEingeben",
+      "field": "Service job / work order number",
+      "kind": "text",
+      "example": "123456",
+      "args_template": "work order identifier entered by the technician, passed through as job context (not a hex/numeric ECU argument)"
+    }
+  ]
+}

@@ -1,0 +1,1347 @@
+{
+  "ecu": "MSD85_EA.IPO",
+  "screens": [
+    {
+      "group": "Inputs: engine status",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KL15_EIN_WERT",
+          "label": "Terminal 15 (ignition) input",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_AUS_WERT",
+          "label": "Engine off",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Inputs: clutch & brake",
+      "job": "STATUS_DIGITAL_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KUPPL_EIN_WERT",
+          "label": "Clutch switch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BLS_EIN_WERT",
+          "label": "Brake light switch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BTS_EIN_WERT",
+          "label": "Brake test switch input",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status: idle / full load",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LL_WERT",
+          "label": "Idle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VL_WERT",
+          "label": "Full load",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DK_ABGLEICH_WERT",
+          "label": "Throttle adaptation done",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Status: kickdown / overrun / gear",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KICKDOWN_WERT",
+          "label": "Kickdown",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHUBAB_WERT",
+          "label": "Overrun fuel cutoff",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAHRSTUFE_WERT",
+          "label": "Gear position",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensors, bank 1",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LSVK1_WERT",
+          "label": "O2 sensor pre-cat, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LSHK1_WERT",
+          "label": "O2 sensor post-cat, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LS1_REGELUNG_WERT",
+          "label": "Control loop, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensors, bank 2",
+      "job": "STATUS_DIGITAL_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LSVK2_WERT",
+          "label": "O2 sensor pre-cat, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LSHK2_WERT",
+          "label": "O2 sensor post-cat, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LS2_REGELUNG_WERT",
+          "label": "Control loop, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness: misfire & fuel system",
+      "job": "STATUS_READINESS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MISSFIRE_MONITOR_WERT",
+          "label": "Misfire monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MISSFIRE_WERT",
+          "label": "Misfire readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUELSYSTEM_MONITOR_WERT",
+          "label": "Fuel system monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUELSYSTEM_WERT",
+          "label": "Fuel system readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness: catalyst & cat heating",
+      "job": "STATUS_READINESS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KATMON_EIN_WERT",
+          "label": "Catalyst monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KATRDY_EIN_WERT",
+          "label": "Catalyst readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HKATMON_EIN_WERT",
+          "label": "Cat heating monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HKATRDY_EIN_WERT",
+          "label": "Cat heating readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness: tank vent & A/C",
+      "job": "STATUS_READINESS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TESMON_EIN_WERT",
+          "label": "Tank ventilation monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TESRDY_EIN_WERT",
+          "label": "Tank ventilation readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMAMON_EIN_WERT",
+          "label": "A/C monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLIMARDY_EIN_WERT",
+          "label": "A/C readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lambda pre-cat (both banks)",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x5A50,0x5A51",
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_BANK1_WERT",
+          "label": "Lambda pre-cat, bank 1",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_LAMBDA_BANK2_WERT",
+          "label": "Lambda pre-cat, bank 2",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "Air flap diagnosis: status",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_15_WERT",
+          "label": "Collective fault status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_12_WERT",
+          "label": "Tester drive, upper air flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_13_WERT",
+          "label": "Tester drive, lower air flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_14_WERT",
+          "label": "Communication status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap diagnosis: completion",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_8_WERT",
+          "label": "Diagnosis performed",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_11_WERT",
+          "label": "Self-diagnosis lower flap done",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_10_WERT",
+          "label": "Self-diagnosis upper flap done",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_9_WERT",
+          "label": "Electrical diagnosis done",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap diagnosis: faults",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_7_WERT",
+          "label": "System test active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_6_WERT",
+          "label": "Lower flap fault detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_5_WERT",
+          "label": "Upper flap fault detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_4_WERT",
+          "label": "Electrical fault detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Air flap diagnosis: variant",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GLF_3_WERT",
+          "label": "Communication query status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_2_WERT",
+          "label": "Learned variant, lower flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_1_WERT",
+          "label": "Learned variant, upper flap",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLF_0_WERT",
+          "label": "Variant detection status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Idle speed control (ODR)",
+      "job": "STATUS_SYSTEMCHECK_ODR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NKW_SOLL_WERT",
+          "label": "Target RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_NKW_WERT",
+          "label": "Actual RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Generator: communication / HT fault",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FI_GENKOMM_WERT",
+          "label": "Generator type / communication fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FI_GENUPL_WERT",
+          "label": "Generator voltage fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FI_GENHT_WERT",
+          "label": "Generator high-temperature fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Generator: mech / elec / load",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FI_GENMECH_WERT",
+          "label": "Generator mechanical fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FI_GENEL_WERT",
+          "label": "Generator electrical fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DF_HIGH_WERT",
+          "label": "Generator load too high",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Generator: tolerances",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GENITEST_TOL_WERT",
+          "label": "Current setpoint deviation tolerance",
+          "unit": "A",
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "STAT_GENUTEST_TOL_WERT",
+          "label": "Voltage setpoint deviation tolerance",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Generator: test current/voltage",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_I_GENTEST_WERT",
+          "label": "Modelled generator current",
+          "unit": "A",
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "STAT_U_GENTEST_WERT",
+          "label": "Generator target voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Desulfurization: temperature",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TNT_MDL_L_WERT",
+          "label": "Temperature control actual value",
+          "unit": "°C",
+          "min": -40,
+          "max": 1000
+        },
+        {
+          "key": "STAT_TNT_MDL_MV_WERT",
+          "label": "Desulfurization threshold temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 1000
+        }
+      ]
+    },
+    {
+      "group": "Desulfurization: timer & sulfur load",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_T_NT_SO2P_EXT_ADJ_ACT_WERT",
+          "label": "Desulfurization timer",
+          "unit": "s",
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_NT_SUL_WERT",
+          "label": "Sulfur loading",
+          "unit": "mg",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Desulfurization: lambda setpoints",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMB_SP_WERT",
+          "label": "Lambda setpoint mean",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_LAMB_SP_1_WERT",
+          "label": "Lambda setpoint, bank 1",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "Desulfurization: setpoint bank 2 / RPM",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMB_SP_2_WERT",
+          "label": "Lambda setpoint, bank 2",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_N_32_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Desulfurization: speed & pedal",
+      "job": "STATUS_DESULFATISIERUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VS_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_PV_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Injector 1 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_1_WERT",
+          "label": "Injector 1 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_1_WERT",
+          "label": "Injector 1 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 2 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_2_WERT",
+          "label": "Injector 2 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_2_WERT",
+          "label": "Injector 2 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 3 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_3_WERT",
+          "label": "Injector 3 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_3_WERT",
+          "label": "Injector 3 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 4 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_4_WERT",
+          "label": "Injector 4 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_4_WERT",
+          "label": "Injector 4 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 5 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_5_WERT",
+          "label": "Injector 5 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_5_WERT",
+          "label": "Injector 5 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 6 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_6_WERT",
+          "label": "Injector 6 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_6_WERT",
+          "label": "Injector 6 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 7 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_7_WERT",
+          "label": "Injector 7 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_7_WERT",
+          "label": "Injector 7 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Injector 8 adjustment",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_8_WERT",
+          "label": "Injector 8 energy adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_8_WERT",
+          "label": "Injector 8 flow adjustment",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Readiness (IS): misfire & fuel",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MONITOR_VA_WERT",
+          "label": "Misfire monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_VA_WERT",
+          "label": "Misfire readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MONITOR_KSS_WERT",
+          "label": "Fuel system monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_KSS_WERT",
+          "label": "Fuel system readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness (IS): catalyst & cat heating",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MONITOR_KAT_WERT",
+          "label": "Catalyst monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_KAT_WERT",
+          "label": "Catalyst readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MONITOR_KH_WERT",
+          "label": "Cat heating monitor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_READINESS_KH_WERT",
+          "label": "Cat heating readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lambda voltage pre-cat",
+      "job": "STATUS_L_SONDE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_WERT",
+          "label": "Lambda voltage pre-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_L_SONDE_2_WERT",
+          "label": "Lambda voltage pre-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Lambda voltage post-cat",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_H_WERT",
+          "label": "Lambda voltage post-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_L_SONDE_2_H_WERT",
+          "label": "Lambda voltage post-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Camshaft spread",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x4509,0x5A77,0x58E4",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NW_EINLASSSPREIZUNG_WERT",
+          "label": "Intake cam spread",
+          "unit": "°",
+          "min": 0,
+          "max": 360
+        },
+        {
+          "key": "STAT_NW_AUSLASSSPREIZUNG_WERT",
+          "label": "Exhaust cam spread",
+          "unit": "°",
+          "min": 0,
+          "max": 360
+        }
+      ]
+    },
+    {
+      "group": "DISA flap / throttle position",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x4509,0x5A77,0x58E4",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DISAKLAPPEN_POSITION_WERT",
+          "label": "DISA flap position",
+          "unit": "°",
+          "min": 0,
+          "max": 360
+        },
+        {
+          "key": "STAT_DROSSELKLAPPENWINKEL_WERT",
+          "label": "Throttle angle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "NOx sensor signals",
+      "job": "STATUS_NOX1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PHY_ULNOX1_WERT",
+          "label": "NOx sensor binary voltage signal",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PHY_LLNOX1_WERT",
+          "label": "NOx sensor linear lambda signal",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "Operating data: time",
+      "job": "STATUS_KRANN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZEIT_MAX_WERT",
+          "label": "Time",
+          "unit": "s",
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_SUMMIERT_WERT",
+          "label": "Sum of times",
+          "unit": "s",
+          "min": 0,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Operating data: clutch & overrun time",
+      "job": "STATUS_KRANN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KUPPLUNG_WERT",
+          "label": "Clutch",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_SUMMIERT_WERT",
+          "label": "Sum of times",
+          "unit": "s",
+          "min": 0,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Operating data: torque & speed",
+      "job": "STATUS_KRANN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TQI_AV_WERT",
+          "label": "Torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_VS_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Operating data: pedal & gear ratio",
+      "job": "STATUS_KRANN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PV_AV_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GEAR_WERT",
+          "label": "Gear ratio",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Operating data: temperatures",
+      "job": "STATUS_KRANN",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_TAM_WERT",
+          "label": "Ambient temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TCO_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Operating data: clutch & warn threshold",
+      "job": "STATUS_KRANN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LV_CS_WERT",
+          "label": "Clutch",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WARN_THD_WERT",
+          "label": "Warning threshold",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Generator current & supply voltage",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4602,0x4603,0x4604,0x4609,0x460A,0x460E,0x460F,0x4612,0x4613,0x4614,0x4615,0x4616,0x4617,0x4618,0x461A",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GENERATOR_STROM_WERT",
+          "label": "Generator current",
+          "unit": "A",
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "STAT_KL87_SPANNUNG_WERT",
+          "label": "Terminal 87 voltage / DME supply",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Battery load & generator excitation",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4602,0x4603,0x4604,0x4609,0x460A,0x460E,0x460F,0x4612,0x4613,0x4614,0x4615,0x4616,0x4617,0x4618,0x461A",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIELAST_WERT",
+          "label": "Battery load",
+          "unit": "A",
+          "min": 0,
+          "max": 200
+        },
+        {
+          "key": "STAT_GENERATOR_ERREGERSTROM_WERT",
+          "label": "Generator 1 excitation current",
+          "unit": "A",
+          "min": 0,
+          "max": 200
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_RBMMS2",
+      "field": "Request telegram (WinDS2-style, semicolon-separated)",
+      "kind": "hex",
+      "example": "22,40,0A",
+      "args_template": "raw service+data bytes passed as the telegram"
+    },
+    {
+      "job": "DATEN_REFERENZ_LESEN",
+      "field": "Quiescent current measurement parameters",
+      "kind": "number",
+      "example": "100",
+      "args_template": "reference parameter value"
+    },
+    {
+      "job": "STATUS_RUHESTROMMESSUNG",
+      "field": "Quiescent current measurement parameters",
+      "kind": "number",
+      "example": "100",
+      "args_template": "measurement threshold/duration value"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 1 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 1 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 2 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 2 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 3 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 3 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 4 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 4 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 5 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 5 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 6 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 6 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 7 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 7 calibration code bytes"
+    },
+    {
+      "job": "STATUS_DIGITAL_1",
+      "field": "Injector 8 coding data",
+      "kind": "hex",
+      "example": "1A2B3C",
+      "args_template": "injector 8 calibration code bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Air flap communication query",
+      "kind": "number",
+      "example": "1",
+      "args_template": "communication query trigger"
+    }
+  ]
+}

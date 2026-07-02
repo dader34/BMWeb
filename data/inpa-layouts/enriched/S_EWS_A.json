@@ -1,0 +1,17 @@
+{
+  "ecu": "S_EWS_A.IPO",
+  "screens": [
+    {
+      "group": "EWS sync mode",
+      "job": "STATUS_SYNC_MODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STEUERN_SYNC_MODE_TEXT", "label": "Sync mode status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EWS_WERT", "label": "EWS status", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

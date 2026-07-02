@@ -1,0 +1,310 @@
+{
+  "ecu": "IHKAR50.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": null,
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Setpoints (I/O analogue)",
+      "job": "STATUS_IO_ANALOGUE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEMP_SET_POINT_WERT",
+          "label": "Temperature set point",
+          "unit": "°F",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BLOWER_SET_POINT_WERT",
+          "label": "Blower set point",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LCD_DUTY_CYCLE_WERT",
+          "label": "LCD duty cycle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Cabin temperatures",
+      "job": "STATUS_SYSTEM_PARAMETER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SUN_LOAD_WERT",
+          "label": "Sun load",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CABIN_TEMP_WERT",
+          "label": "Cabin temperature",
+          "unit": "°F",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HEATER_AIR_OFF_TEMP_WERT",
+          "label": "Heater air outlet temperature",
+          "unit": "°F",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Motor current feedback",
+      "job": "STATUS_SYSTEM_PARAMETER",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BLENDDOOR_CURRENT_FDBK_WERT",
+          "label": "Blend door current feedback",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DISTRIB_CURRENT_FDBK_WERT",
+          "label": "Distribution door current feedback",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Voltages",
+      "job": "STATUS_SYSTEM_PARAMETER",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MINUS_BLOWER_VOLTAGE_WERT",
+          "label": "Blower negative voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PLUS_BLOWER_VOLTAGE_WERT",
+          "label": "Blower positive voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BATTERY_VOLTAGE_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Aspirator diagnosis",
+      "job": "STATUS_SYSTEM_PARAMETER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ASPIRATOR_DIAG_FREQ_WERT",
+          "label": "Aspirator diagnosis frequency",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Software / calibration",
+      "job": "STATUS_SYSTEM_PARAMETER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SOFTWARE_VERSION_WERT",
+          "label": "Software version",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOFTWARE_INDEX_WERT",
+          "label": "Software index",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CALIBRATION_DISTRI_MOTOR_WERT",
+          "label": "Distribution motor calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CALIBRATION_BLEND_MOTOR_WERT",
+          "label": "Blend motor calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Temperature setpoint (control unit)",
+      "job": "STATUS_SG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEMP_SOLL_WERT",
+          "label": "Temperature setpoint",
+          "unit": "°F",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "LCD PWM",
+      "job": "STATUS_SG_LED_LCD",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LCD_PWM_WERT",
+          "label": "LCD PWM",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System parameters (sensors)",
+      "job": "STATUS_SYSTEMPARAMETER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SOLARSEN_WERT",
+          "label": "Solar sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_INNEN_WERT",
+          "label": "Interior temperature",
+          "unit": "°F",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_WT_WERT",
+          "label": "Heat exchanger temperature",
+          "unit": "°F",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RM_TKLAPPE_WERT",
+          "label": "Response motor mixing flap temperature",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RM_LV_WERT",
+          "label": "Response motor air distribution",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KF_MOTOREN_WERT",
+          "label": "Calibration motors",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System parameter voltages",
+      "job": "STATUS_SYSTEMPARAMETER",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SPG_GEBL_WERT",
+          "label": "Blower voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPG_KLR_WERT",
+          "label": "A/C control voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Blower motor frequency",
+      "job": "STATUS_SYSTEMPARAMETER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FREQ_BEMO_WERT",
+          "label": "Blower motor frequency",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

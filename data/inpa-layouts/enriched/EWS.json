@@ -1,0 +1,58 @@
+{
+  "ecu": "EWS.IPO",
+  "screens": [
+    {
+      "group": "Key data",
+      "job": "SCHL_DATEN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "SCHL_FREIGABE_TEXT", "label": "Key release status", "unit": null, "min": null, "max": null },
+        { "key": "SCHL_IDENT_TEXT", "label": "Key identification", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Customer data",
+      "job": "KD_DATEN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "KD_DATEN_TEXT", "label": "Customer data status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Individual serial number (ISN)",
+      "job": "ISN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "EWS status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AKTUELLE_SCHLUESSEL_ID_TEXT", "label": "Current key identification", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AKTUELLER_WC_TEXT", "label": "Current changing code", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Password",
+      "job": "PASSWORT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "PASSWORT_TEXT", "label": "Password status", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

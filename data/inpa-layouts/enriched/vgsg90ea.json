@@ -1,0 +1,1615 @@
+{
+  "ecu": "vgsg90ea.IPO",
+  "screens": [
+    {
+      "group": "Physical hardware number",
+      "job": "PHYSIKALISCHE_HW_NR_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Coding data",
+      "job": "STATUS_CODIERDATEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BAUREIHE_TEXT",
+          "label": "Model series",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORISIERUNG_TEXT",
+          "label": "Motorisierung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBEART_TEXT",
+          "label": "Getriebeart",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NOTLAUFREGLER_TEXT",
+          "label": "Limp-mode controller",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBEVARIANTE_TEXT",
+          "label": "Transmission variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GRENZARBEIT_OEL_WERT",
+          "label": "Oil work limit",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SERVICE_WERT",
+          "label": "Service value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_REIFENRADIUS_WERT",
+          "label": "Tire radius",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS1_WERT",
+          "label": "Gear ratio gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS2_WERT",
+          "label": "Gear ratio gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS3_WERT",
+          "label": "Gear ratio gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS4_WERT",
+          "label": "Gear ratio gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS5_WERT",
+          "label": "Gear ratio gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS6_WERT",
+          "label": "Gear ratio gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_US_SS7_WERT",
+          "label": "Gear ratio gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ACHS_US_WERT",
+          "label": "Axle ratio",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS1_WERT",
+          "label": "Clutch torque gear 1",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS2_WERT",
+          "label": "Clutch torque gear 2",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS3_WERT",
+          "label": "Clutch torque gear 3",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS4_WERT",
+          "label": "Clutch torque gear 4",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS5_WERT",
+          "label": "Clutch torque gear 5",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS6_WERT",
+          "label": "Clutch torque gear 6",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS7_WERT",
+          "label": "Clutch torque gear 7",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS8_WERT",
+          "label": "Clutch torque gear 8",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS9_WERT",
+          "label": "Clutch torque gear 9",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNG_MK_SS10_WERT",
+          "label": "Clutch torque gear 10",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "KUPPLUNG_KALIB_WERT",
+          "label": "Clutch calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPLUNG_REG_WERT",
+          "label": "Clutch control",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMELLEN_ARBEIT_1_WERT",
+          "label": "Plate work 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMELLEN_ARBEIT_2_WERT",
+          "label": "Plate work 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMELLEN_ARBEIT_3_WERT",
+          "label": "Plate work 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_ARBEIT_1_WERT",
+          "label": "Transmission work 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_ARBEIT_2_WERT",
+          "label": "Transmission work 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_00_TEXT",
+          "label": "Diagnostic switch 00",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_01_TEXT",
+          "label": "Diagnostic switch 01",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_02_TEXT",
+          "label": "Diagnostic switch 02",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_03_TEXT",
+          "label": "Diagnostic switch 03",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_04_TEXT",
+          "label": "Diagnostic switch 04",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_05_TEXT",
+          "label": "Diagnostic switch 05",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_06_TEXT",
+          "label": "Diagnostic switch 06",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_07_TEXT",
+          "label": "Diagnostic switch 07",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_08_TEXT",
+          "label": "Diagnostic switch 08",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_09_TEXT",
+          "label": "Diagnostic switch 09",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_10_TEXT",
+          "label": "Diagnostic switch 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_11_TEXT",
+          "label": "Diagnostic switch 11",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_12_TEXT",
+          "label": "Diagnostic switch 12",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_13_TEXT",
+          "label": "Diagnostic switch 13",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_14_TEXT",
+          "label": "Diagnostic switch 14",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_15_TEXT",
+          "label": "Diagnostic switch 15",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_16_TEXT",
+          "label": "Diagnostic switch 16",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_17_TEXT",
+          "label": "Diagnostic switch 17",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_18_TEXT",
+          "label": "Diagnostic switch 18",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_19_TEXT",
+          "label": "Diagnostic switch 19",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_20_TEXT",
+          "label": "Diagnostic switch 20",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_21_TEXT",
+          "label": "Diagnostic switch 21",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_22_TEXT",
+          "label": "Diagnostic switch 22",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_23_TEXT",
+          "label": "Diagnostic switch 23",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_24_TEXT",
+          "label": "Diagnostic switch 24",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_25_TEXT",
+          "label": "Diagnostic switch 25",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_26_TEXT",
+          "label": "Diagnostic switch 26",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_27_TEXT",
+          "label": "Diagnostic switch 27",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_28_TEXT",
+          "label": "Diagnostic switch 28",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_29_TEXT",
+          "label": "Diagnostic switch 29",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_30_TEXT",
+          "label": "Diagnostic switch 30",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_31_TEXT",
+          "label": "Diagnostic switch 31",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_32_TEXT",
+          "label": "Diagnostic switch 32",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_33_TEXT",
+          "label": "Diagnostic switch 33",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_34_TEXT",
+          "label": "Diagnostic switch 34",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_35_TEXT",
+          "label": "Diagnostic switch 35",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_36_TEXT",
+          "label": "Diagnostic switch 36",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_37_TEXT",
+          "label": "Diagnostic switch 37",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_38_TEXT",
+          "label": "Diagnostic switch 38",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_39_TEXT",
+          "label": "Diagnostic switch 39",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_40_TEXT",
+          "label": "Diagnostic switch 40",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_41_TEXT",
+          "label": "Diagnostic switch 41",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_42_TEXT",
+          "label": "Diagnostic switch 42",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_43_TEXT",
+          "label": "Diagnostic switch 43",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_44_TEXT",
+          "label": "Diagnostic switch 44",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_45_TEXT",
+          "label": "Diagnostic switch 45",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_46_TEXT",
+          "label": "Diagnostic switch 46",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_47_TEXT",
+          "label": "Diagnostic switch 47",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_48_TEXT",
+          "label": "Diagnostic switch 48",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_49_TEXT",
+          "label": "Diagnostic switch 49",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_50_TEXT",
+          "label": "Diagnostic switch 50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_51_TEXT",
+          "label": "Diagnostic switch 51",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_52_TEXT",
+          "label": "Diagnostic switch 52",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_53_TEXT",
+          "label": "Diagnostic switch 53",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_54_TEXT",
+          "label": "Diagnostic switch 54",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_55_TEXT",
+          "label": "Diagnostic switch 55",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_56_TEXT",
+          "label": "Diagnostic switch 56",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_57_TEXT",
+          "label": "Diagnostic switch 57",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_58_TEXT",
+          "label": "Diagnostic switch 58",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_59_TEXT",
+          "label": "Diagnostic switch 59",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_60_TEXT",
+          "label": "Diagnostic switch 60",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_61_TEXT",
+          "label": "Diagnostic switch 61",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_62_TEXT",
+          "label": "Diagnostic switch 62",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAG_SCH_63_TEXT",
+          "label": "Diagnostic switch 63",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CS_TEXT",
+          "label": "Coding detail: coding index C04",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Coding data",
+      "job": "STATUS_CODIERDATEN",
+      "args": "0x000000c9",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OFFSETKORREKTUR_0_WERT",
+          "label": "Offset correction 0",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_1_WERT",
+          "label": "Offset correction 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_2_WERT",
+          "label": "Offset correction 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_3_WERT",
+          "label": "Offset correction 3",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_4_WERT",
+          "label": "Offset correction 4",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_5_WERT",
+          "label": "Offset correction 5",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_6_WERT",
+          "label": "Offset correction 6",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_7_WERT",
+          "label": "Offset correction 7",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_8_WERT",
+          "label": "Offset correction 8",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_9_WERT",
+          "label": "Offset correction 9",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_10_WERT",
+          "label": "Offset correction 10",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_11_WERT",
+          "label": "Offset correction 11",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_12_WERT",
+          "label": "Offset correction 12",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_13_WERT",
+          "label": "Offset correction 13",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_OFFSETKORREKTUR_14_WERT",
+          "label": "Offset correction 14",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_STEIGUNGSKORREKTUR_0_WERT",
+          "label": "Slope correction 0",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_STEIGUNGSKORREKTUR_1_WERT",
+          "label": "Slope correction 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_STEIGUNGSKORREKTUR_2_WERT",
+          "label": "Slope correction 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_STEIGUNGSKORREKTUR_3_WERT",
+          "label": "Slope correction 3",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_STEIGUNGSKORREKTUR_4_WERT",
+          "label": "Slope correction 4",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_MSPERRMAX_WERT",
+          "label": "Max torque lock",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SMKAL_WERT",
+          "label": "Torque calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PHISTART_1_WERT",
+          "label": "Phi start 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BREITE_1_WERT",
+          "label": "Width 1",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PHISTART_2_WERT",
+          "label": "Phi start 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BREITE_2_WERT",
+          "label": "Width 2",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PHISTART_3_WERT",
+          "label": "Phi start 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BREITE_3_WERT",
+          "label": "Width 3",
+          "unit": "mm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KALSTART_WERT",
+          "label": "Calibration start",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KALSTOP_WERT",
+          "label": "Calibration stop",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PHIDIFFMAX_WERT",
+          "label": "Max phi difference",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFFSETMAX_WERT",
+          "label": "Max offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFFSETFAKTOR_WERT",
+          "label": "Offset factor",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Terminal voltage",
+      "job": "STATUS_KLEMMENSPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMMENSPG_VGSG_WERT",
+          "label": "Terminal voltage (VGSG)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_KLEMMENSPG_G_VGSG_WERT",
+          "label": "Terminal voltage ground (VGSG)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_KLEMME_15_WAKEUP_TEXT",
+          "label": "Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Engine RPM",
+      "job": "STATUS_N_MOT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_N_MOT_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Vehicle speed",
+      "job": "STATUS_V_FZG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_V_FZG_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Actuator current",
+      "job": "STATUS_AKTUATOR_STROM",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTUATOR_STROM_WERT",
+          "label": "Actuator current",
+          "unit": "A",
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Transfer-case actuator position",
+      "job": "STATUS_VG_AKTUATOR_POSITION",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTUATOR_POSITION_WERT",
+          "label": "Actuator position",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Clutch torque target",
+      "job": "STATUS_MK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MK_SOLL_WERT",
+          "label": "Clutch torque target",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Clutch torque actual",
+      "job": "STATUS_MK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MK_IST_WERT",
+          "label": "Clutch torque actual",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Coding status",
+      "job": "STATUS_CODIERSTATUS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CODIERUNG_TEXT",
+          "label": "Coding status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Clutch",
+      "job": "STATUS_KUPPLUNG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ERR_INFO_TEXT",
+          "label": "Err Info",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STATUS_INFO_TEXT",
+          "label": "Status Info",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Actuator thermal load",
+      "job": "STATUS_T_BELASTUNG_AKTUATOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_THERMISCHE_BELASTUNG_AKTUATOR_WERT",
+          "label": "Thermal load actuator",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Clutch thermal load",
+      "job": "STATUS_T_BELASTUNG_KUPPLUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_THERMISCHE_BELASTUNG_KUPPLUNG_WERT",
+          "label": "Thermal load clutch",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Transfer-case actuator temperature",
+      "job": "STATUS_VG_AKTUATOR_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTUATOR_TEMPERATUR_WERT",
+          "label": "Actuator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Transfer-case oil temperature",
+      "job": "STATUS_VG_OEL_TEMP",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OEL_TEMP_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Classification memory",
+      "job": "STATUS_KLASSIERSPEICHER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RESISTOR_KLASS_ADC_TEXT",
+          "label": "Resistor class (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RESISTOR_KLASS_AKTUAL_TEXT",
+          "label": "Resistor class (current)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RESISTOR_KLASS_EEPROM_TEXT",
+          "label": "Resistor class (EEPROM)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Calibration",
+      "job": "STATUS_KALIBRIERUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KALIB_INFO_TEXT",
+          "label": "Calibration info",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PHISPERREKAL_WERT",
+          "label": "Phi lock calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DELTAPHI_WERT",
+          "label": "Delta phi",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Plate integrators",
+      "job": "STATUS_LAMELLEN_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMELLE_1_WERT",
+          "label": "Plate integrator 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMELLE_2_WERT",
+          "label": "Plate integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMELLE_3_WERT",
+          "label": "Plate integrator 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Transmission integrators",
+      "job": "STATUS_GETRIEBE_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GETRIEBE_1_WERT",
+          "label": "Transmission integrator 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBE_2_WERT",
+          "label": "Transmission integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRATOR_KM_WERT",
+          "label": "Integrator mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lifetime plate integrators",
+      "job": "STATUS_LT_LAMELLEN_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LT_LAMELLE_1_WERT",
+          "label": "Lifetime plate integrator 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LT_LAMELLE_2_WERT",
+          "label": "Lifetime plate integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LT_LAMELLE_3_WERT",
+          "label": "Lifetime plate integrator 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lifetime transmission integrators",
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LT_GETRIEBE_1_WERT",
+          "label": "Lifetime transmission integrator 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LT_GETRIEBE_2_WERT",
+          "label": "Lifetime transmission integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LT_INTEGRATOR_KM_WERT",
+          "label": "Lifetime integrator mileage",
+          "unit": "km",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "CARB fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Test condition",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Current AIF / programming info",
+      "job": "STATUS_AKTUELLES_AIF_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AIF_AKTUELL_ZB_NR_TEXT",
+          "label": "BMW assembly number",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AIF_AKTUELL_DATUM_TEXT",
+          "label": "BMW programming date",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AIF_AKTUELL_FG_NR_TEXT",
+          "label": "Chassis number (short)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AIF_AKTUELL_FG_NR_LANG_TEXT",
+          "label": "Chassis number (long)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flash programming status",
+      "job": "FLASH_PROGRAMMIER_STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "FLASH_PROGRAMMIER_STATUS_TEXT",
+          "label": "Flash programming status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Clutch",
+      "job": "STATUS_KUPPLUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MK_SOLL_WERT",
+          "label": "Clutch torque target",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MK_IST_WERT",
+          "label": "Clutch torque actual",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Lifetime transmission integrators",
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness / test condition",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "CARB warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_MK_IST",
+      "field": "High-output plate integrator value",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_MK_IST",
+      "field": "High-output transmission integrator value",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_MK_IST",
+      "field": "Lifetime plate integrator value",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_MK_IST",
+      "field": "Lifetime transmission integrator value",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "ZIF_BACKUP_LESEN",
+      "field": "Filename for VGSG test protocol",
+      "kind": "text",
+      "example": "VGSG_TEST",
+      "args_template": "filename string"
+    },
+    {
+      "job": "STATUS_LAMELLEN_INTEGRATOREN",
+      "field": "Value to write",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_GETRIEBE_INTEGRATOREN",
+      "field": "Value to write",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_LT_LAMELLEN_INTEGRATOREN",
+      "field": "Value to write",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "field": "Value to write",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value -> job arg"
+    },
+    {
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "field": "Target clutch torque (held ~10s)",
+      "kind": "number",
+      "example": "200",
+      "args_template": "value -> Nm arg"
+    },
+    {
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "field": "Filename for fault memory + ECU status",
+      "kind": "text",
+      "example": "FS_DUMP",
+      "args_template": "filename string"
+    },
+    {
+      "job": "IS_LESEN",
+      "field": "Your name + chassis no. + mileage",
+      "kind": "text",
+      "example": "Doe FA12345 80000",
+      "args_template": "free text string"
+    }
+  ]
+}

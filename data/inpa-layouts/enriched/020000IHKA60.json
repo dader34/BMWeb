@@ -1,0 +1,26 @@
+{
+  "ecu": "020000IHKA60.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": "DIAGNOSEPROTOKOLL_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Interior temperature",
+      "job": "SG_INNENTEMP_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "SG_INNENTEMP", "label": "Interior temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -1,0 +1,153 @@
+{
+  "ecu": "D40TMCA.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "Fault P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "Fault P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SYMPTOM_TEXT", "label": "Logistic counter", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Fault ready status", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Fault warning", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "EWS status",
+      "job": "SPEICHER_LESEN",
+      "args": "0x00",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EWS_WERT", "label": "EWS status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Battery voltage",
+      "job": "STATUS_UBATT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_UBATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Air mass meter ground",
+      "job": "STATUS_LMM_MASSE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LMM_MASSE_WERT", "label": "Air mass meter ground", "unit": "mg/stk", "min": -700, "max": 700 }
+      ]
+    },
+    {
+      "group": "Engine RPM",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORDREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORTEMPERATUR_WERT", "label": "Engine temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Intake air temperature",
+      "job": "STATUS_AN_LUFTTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AN_LUFTTEMPERATUR_WERT", "label": "Intake air temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Accelerator pedal sensor voltage",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_PWG_POTI_SPANNUNG_WERT", "label": "Accelerator pedal sensor voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Accelerator pedal sensor potentiometer 1",
+      "job": "STATUS_PEDALWERTGEBER_POTI_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_PEDALWERTGEBER_POTI_1_WERT", "label": "Pedal sensor potentiometer 1", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Accelerator pedal sensor potentiometer 2",
+      "job": "STATUS_PEDALWERTGEBER_POTI_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_PEDALWERTGEBER_POTI_2_WERT", "label": "Pedal sensor potentiometer 2", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Rail pressure setpoint",
+      "job": "STATUS_RAILDRUCK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_RAILDRUCK_SOLL_WERT", "label": "Rail pressure setpoint", "unit": "bar", "min": 0, "max": 5 }
+      ]
+    },
+    {
+      "group": "Rail pressure actual",
+      "job": "STATUS_RAILDRUCK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_RAILDRUCK_IST_WERT", "label": "Rail pressure actual", "unit": "bar", "min": 0, "max": 5 }
+      ]
+    },
+    {
+      "group": "Air mass setpoint",
+      "job": "STATUS_LUFTMASSE_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LUFTMASSE_SOLL_WERT", "label": "Air mass setpoint", "unit": "mg/stk", "min": -700, "max": 700 }
+      ]
+    },
+    {
+      "group": "Air mass actual",
+      "job": "STATUS_LUFTMASSE_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LUFTMASSE_IST_WERT", "label": "Air mass actual", "unit": "mg/stk", "min": -700, "max": 700 }
+      ]
+    }
+  ],
+  "inputs": []
+}

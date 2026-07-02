@@ -1,0 +1,545 @@
+{
+  "ecu": "IHKA65.IPO",
+  "screens": [
+    {
+      "group": "Fault memory / Identification",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Auxiliary fan stage",
+      "job": "STATUS_ZUSATZLUEFTER_STUFE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_STUFE_ZUSATZL_WERT",
+          "label": "Auxiliary fan stage",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Stepper motor flap positions",
+      "job": "STATUS_MOTOR_KLAPPENPOSITION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FRISCHLUFT_WERT",
+          "label": "Fresh air flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UMLUFT_WERT",
+          "label": "Recirculation flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENTFROSTUNG_WERT",
+          "label": "Defrost flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FONDRAUM_LI_WERT",
+          "label": "Rear compartment, left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FONDRAUM_RE_WERT",
+          "label": "Rear compartment, right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_KALTLUFT_LI_WERT",
+          "label": "Cold air flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KALTLUFT_RE_WERT",
+          "label": "Cold air flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WARMLUFT_LI_WERT",
+          "label": "Warm air flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WARMLUFT_RE_WERT",
+          "label": "Warm air flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUSSRAUM_LI_WERT",
+          "label": "Footwell flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUSSRAUM_RE_WERT",
+          "label": "Footwell flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Compressor / I-O",
+      "job": "STATUS_IO",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANSTEUERUNG_KMV_WERT",
+          "label": "Compressor control valve drive",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Control panel",
+      "job": "STATUS_BEDIENTEIL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMME_58G_WERT",
+          "label": "Terminal 58g (dimmer)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_POTI_TEMP_LI_WERT",
+          "label": "Temperature potentiometer, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_POTI_GEBL_LI_WERT",
+          "label": "Blower potentiometer, left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POTI_TEMP_RE_WERT",
+          "label": "Temperature potentiometer, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_POTI_GEBL_RE_WERT",
+          "label": "Blower potentiometer, right",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Controller values",
+      "job": "STATUS_REGLERGROESSEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TAUSSEN_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TINNEN_WERT",
+          "label": "Interior temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SOLL_LI_WERT",
+          "label": "Setpoint temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SOLL_RE_WERT",
+          "label": "Setpoint temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SOLL_LI_KORRIGIERT_WERT",
+          "label": "Corrected setpoint, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SOLL_RE_KORRIGIERT_WERT",
+          "label": "Corrected setpoint, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_Y_LI_WERT",
+          "label": "Control output Y, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Y_RE_WERT",
+          "label": "Control output Y, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DREHZAHL_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SPEED_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_WT_LI_WERT",
+          "label": "Heat exchanger temp, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WT_RE_WERT",
+          "label": "Heat exchanger temp, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WTSOLL_LI_WERT",
+          "label": "Heat exchanger setpoint, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WTSOLL_RE_WERT",
+          "label": "Heat exchanger setpoint, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_YWT_LI_WERT",
+          "label": "Heat exchanger valve output, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_YWT_RE_WERT",
+          "label": "Heat exchanger valve output, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WVOEFFNZEIT_LI_WERT",
+          "label": "Water valve opening time, left",
+          "unit": "ms",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_WVOEFFNZEIT_RE_WERT",
+          "label": "Water valve opening time, right",
+          "unit": "ms",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_LUFTLEISTUNG_WERT",
+          "label": "Air output",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Analog inputs",
+      "job": "STATUS_ANALOGEINGAENGE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TAUSSEN_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TKUEHLERWASSER_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TINNEN_WERT",
+          "label": "Interior temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMP_VERDAMFER_WERT",
+          "label": "Evaporator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WT_LI_WERT",
+          "label": "Heat exchanger temp, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WT_RE_WERT",
+          "label": "Heat exchanger temp, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_UB_VOR_AUC_WERT",
+          "label": "Supply voltage before AUC",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_AUC_SENSOR_WERT",
+          "label": "AUC sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_DRUCK_UB_WERT",
+          "label": "Pressure sensor supply voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_DRUCKSENSOR_WERT",
+          "label": "Pressure sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SOLARSENSOR_LI_WERT",
+          "label": "Solar sensor, left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SOLARSENSOR_RE_WERT",
+          "label": "Solar sensor, right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FONDRAUM_VERSORGUNG_WERT",
+          "label": "Rear compartment supply voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FONDRAUM_LI_WERT",
+          "label": "Rear compartment, left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FONDRAUM_RE_WERT",
+          "label": "Rear compartment, right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_POTI_TEMP_LI_WERT",
+          "label": "Temperature potentiometer, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_POTI_TEMP_RE_WERT",
+          "label": "Temperature potentiometer, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_POTI_GEBL_LI_WERT",
+          "label": "Blower potentiometer, left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POTI_GEBL_RE_WERT",
+          "label": "Blower potentiometer, right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GEBLAESE_FOND_LI_WERT",
+          "label": "Rear blower voltage, left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_GEBLAESE_FOND_RE_WERT",
+          "label": "Rear blower voltage, right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SCHICHTUNG_LI_WERT",
+          "label": "Air stratification, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SCHICHTUNG_RE_WERT",
+          "label": "Air stratification, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

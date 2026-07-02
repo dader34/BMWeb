@@ -1,0 +1,53 @@
+{
+  "ecu": "IHKA01.IPO",
+  "screens": [
+    {
+      "group": "Fault memory detail",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "Fault P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "Fault P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SAE_CODE_TEXT", "label": "SAE code", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intermittent fault status",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_SYMPTOM_TEXT", "label": "Fault symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Readiness", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Manufacturer info",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Version / process class",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "PROZESSKLASSE_TEXT", "label": "Process class / version", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

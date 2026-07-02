@@ -1,0 +1,3326 @@
+{
+  "ecu": "MS_S65.IPO",
+  "screens": [
+    {
+      "group": "Stored fault details",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "P-code (7)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lambda adaptation",
+      "job": "STATUS_LAMBDA_ADAPTION",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAM_ADAPT_B1_TEXT",
+          "label": "Lambda adaptation bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAM_ADAPT_B2_TEXT",
+          "label": "Lambda adaptation bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "RAM read",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "RAM_LESEN_WERT",
+          "label": "RAM read",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: VANOS",
+      "job": "STATUS_SYSTEMCHECK_VAN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DIAGNOSE_TEXT",
+          "label": "Diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: purge",
+      "job": "STATUS_SYSTEMCHECK_PKSR",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PL_ST_TEXT",
+          "label": "Purge status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: max RPM event",
+      "job": "STATUS_FREEZEFRAME_NMAX",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NMAX_WERT",
+          "label": "Max RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_N_VANOS_WERT",
+          "label": "VANOS RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_N_GETRIEBE_WERT",
+          "label": "Transmission RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_NBEGR_EGAS_WERT",
+          "label": "RPM limit (e-throttle)",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_NBEGR_TI_WERT",
+          "label": "RPM limit (injection)",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_TSUM_EGAS_WERT",
+          "label": "Summed time (e-throttle)",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TSUM_TI_WERT",
+          "label": "Summed time (injection)",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_NBEGR_EGAS_WERT",
+          "label": "RPM-limit time (e-throttle)",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_KM_STAND_WERT",
+          "label": "Odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_V_HINTEN_WERT",
+          "label": "Speed (rear)",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_PWG_WERT",
+          "label": "Pedal value sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ML_WERT",
+          "label": "Air mass",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        },
+        {
+          "key": "STAT_MD_FAHRER_WERT",
+          "label": "Driver torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MD_WUNSCH_WERT",
+          "label": "Torque demand",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MD_IST_WERT",
+          "label": "Actual torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_N_GRAD_WERT",
+          "label": "RPM gradient",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_TMOT_WERT",
+          "label": "Engine temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TOEL_WERT",
+          "label": "Oil temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SCHALTER_INJ_WERT",
+          "label": "Injection switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUSTAND_MOTOR_WERT",
+          "label": "Engine state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANG_WERT",
+          "label": "Gear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SMG_ST_WERT",
+          "label": "SMG status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: max speed event",
+      "job": "STATUS_FREEZEFRAME_VMAX",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VMAX_WERT",
+          "label": "Max speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_VMAX_SCHW_WERT",
+          "label": "Max speed threshold",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_V_HINTEN_WERT",
+          "label": "Speed (rear)",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_V_DIREKT_WERT",
+          "label": "Speed (direct)",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_N_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FAHRER_WUNSCH_WERT",
+          "label": "Driver demand",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTMOMENT_WERT",
+          "label": "Actual torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KM_STAND_WERT",
+          "label": "Odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANG_WERT",
+          "label": "Gear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BEGRENZER_WERT",
+          "label": "Limiter",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: idle actuator",
+      "job": "STATUS_FREEZEFRAME_LLS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DREHZAHL_B1_WERT",
+          "label": "RPM bank 1",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FUELLUNG_B1_WERT",
+          "label": "Air charge bank 1",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UB_B1_WERT",
+          "label": "Battery voltage bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SOLLWERT_B1_WERT",
+          "label": "Setpoint bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_B1_WERT",
+          "label": "Actual value bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RETUNRNSOLLWERT_B1_WERT",
+          "label": "Return setpoint bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DREHZAHL_B2_WERT",
+          "label": "RPM bank 2",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FUELLUNG_B2_WERT",
+          "label": "Air charge bank 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UB_B2_WERT",
+          "label": "Battery voltage bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SOLLWERT_B2_WERT",
+          "label": "Setpoint bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_B2_WERT",
+          "label": "Actual value bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RETUNRNSOLLWERT_B2_WERT",
+          "label": "Return setpoint bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: throttle",
+      "job": "STATUS_FREEZEFRAME_DK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DREHZAHL_B1_WERT",
+          "label": "RPM bank 1",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FUELLUNG_AQ_B1_WERT",
+          "label": "Air charge (cross-section) bank 1",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUELLUNG_HFM_B1_WERT",
+          "label": "Air charge (MAF) bank 1",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UB_B1_WERT",
+          "label": "Battery voltage bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SOLLWERT_B1_WERT",
+          "label": "Setpoint bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_B1_WERT",
+          "label": "Actual value bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_ANALOG_B1_WERT",
+          "label": "Actual value (analog) bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPANNUNG_B1_WERT",
+          "label": "Voltage bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_RETUNRNSOLLWERT_B1_WERT",
+          "label": "Return setpoint bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DREHZAHL_B2_WERT",
+          "label": "RPM bank 2",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FUELLUNG_AQ_B2_WERT",
+          "label": "Air charge (cross-section) bank 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUELLUNG_HFM_B2_WERT",
+          "label": "Air charge (MAF) bank 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UB_B2_WERT",
+          "label": "Battery voltage bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SOLLWERT_B2_WERT",
+          "label": "Setpoint bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_B2_WERT",
+          "label": "Actual value bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_ANALOG_B2_WERT",
+          "label": "Actual value (analog) bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPANNUNG_B2_WERT",
+          "label": "Voltage bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_RETUNRNSOLLWERT_B2_WERT",
+          "label": "Return setpoint bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: fuel cutoff (injection)",
+      "job": "STATUS_FREEZEFRAME_SK_INJ",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DREHZAHL_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FUELLUNG_WERT",
+          "label": "Air charge",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UB_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FAHRERWUNSCH_WERT",
+          "label": "Driver demand",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTMOMENT_WERT",
+          "label": "Actual torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_PEDALWERT_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: fuel cutoff (ignition)",
+      "job": "STATUS_FREEZEFRAME_SK_IGN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DREHZAHL_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FUELLUNG_WERT",
+          "label": "Air charge",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UB_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FAHRERWUNSCH_WERT",
+          "label": "Driver demand",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTMOMENT_WERT",
+          "label": "Actual torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_PEDALWERT_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: torque",
+      "job": "STATUS_FREEZEFRAME_MD",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DREHZAHL_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FAHRERWUNSCHMOMENT_WERT",
+          "label": "Driver-demand torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SOLLMOMENT_TZ_WERT",
+          "label": "Torque setpoint (ignition)",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SOLLMOMENT_DK_WERT",
+          "label": "Torque setpoint (throttle)",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_IND_SOLLMOMENT_TZ_WERT",
+          "label": "Indicated torque setpoint (ignition)",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_IND_SOLLMOMENT_DK_WERT",
+          "label": "Indicated torque setpoint (throttle)",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ISTMOMENT_WERT",
+          "label": "Actual torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_PEDALWERTGEBER_WERT",
+          "label": "Pedal sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MINIMALMOMENT_WERT",
+          "label": "Minimum torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MIN_ZUENDWINKEL_ETA_WERT",
+          "label": "Min ignition angle (efficiency)",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ETA_NE_WERT",
+          "label": "Ignition angle (efficiency, RPM)",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SOLLFUELLUNG_WERT",
+          "label": "Air charge setpoint",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_OEFFNUNG_WERT",
+          "label": "Opening",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: SMG transmission",
+      "job": "STATUS_FREEZEFRAME_SMG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KILOMETER_WERT",
+          "label": "Distance",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OELTEMPERATUR_WERT",
+          "label": "Oil temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_DREHZAHL_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_GETRIEBEDREHZAHL_WERT",
+          "label": "Transmission RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_GETRIEBEZIELDREHZAHL_WERT",
+          "label": "Transmission target RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_VORDERACHSGESCHWINDIGKEIT_WERT",
+          "label": "Front axle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_HINTERACHSGESCHWINDIGKEIT_WERT",
+          "label": "Rear axle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_PEDALWERTGEBER_WERT",
+          "label": "Pedal sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FAHRERWUNSCHMOMENT_WERT",
+          "label": "Driver-demand torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SOLLMOMENT_WERT",
+          "label": "Torque setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ISTMOMENT_WERT",
+          "label": "Actual torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNGSSOLLMOMENT_WERT",
+          "label": "Clutch torque setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_KUPPLUNGSMOMENT_WERT",
+          "label": "Clutch torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: crank fault (injection)",
+      "job": "STATUS_FREEZEFRAME_KW_FEHLER_INJ",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABRISSDREHZAHL_WERT",
+          "label": "Signal-loss RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_ABRISSZAHNDREHZAHL_WERT",
+          "label": "Tooth-loss RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_VORLETZTE_ZAHNPERIODE_WERT",
+          "label": "Previous tooth period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_ZAHNPERIODE_WERT",
+          "label": "Last tooth period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_EREIGNISZEIT_WERT",
+          "label": "Last event time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_ZAHNZEIT_WERT",
+          "label": "Last tooth time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: crank signal loss",
+      "job": "STATUS_FREEZEFRAME_KW_ABRISS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABRISSDREHZAHL_WERT",
+          "label": "Signal-loss RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_ABRISSZAHNDREHZAHL_WERT",
+          "label": "Tooth-loss RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_VORLETZTE_ZAHNPERIODE_WERT",
+          "label": "Previous tooth period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_ZAHNPERIODE_WERT",
+          "label": "Last tooth period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_EREIGNISZEIT_WERT",
+          "label": "Last event time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_ZAHNZEIT_WERT",
+          "label": "Last tooth time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Freeze frame: crank fault (ignition)",
+      "job": "STATUS_FREEZEFRAME_KW_FEHLER_IGN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABRISSDREHZAHL_WERT",
+          "label": "Signal-loss RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_ABRISSZAHNDREHZAHL_WERT",
+          "label": "Tooth-loss RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_VORLETZTE_ZAHNPERIODE_WERT",
+          "label": "Previous tooth period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_ZAHNPERIODE_WERT",
+          "label": "Last tooth period",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_EREIGNISZEIT_WERT",
+          "label": "Last event time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LETZTE_ZAHNZEIT_WERT",
+          "label": "Last tooth time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Electric fan",
+      "job": "STATUS_E_LUEFTER",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_E_LUEFTER_WERT",
+          "label": "Electric fan",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Ventilation",
+      "job": "STATUS_BELU",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BELU_TEXT",
+          "label": "Ventilation",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Camshaft spread",
+      "job": "STATUS_SSP",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SSP_TEXT",
+          "label": "Spread",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measured value block",
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "args": "0x000",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier ID",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measured value block",
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTIVIERUNG_AUSSETZERERKENNUNG_B1_WERT",
+          "label": "Misfire detection active bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AKTIVIERUNG_AUSSETZERERKENNUNG_B2_WERT",
+          "label": "Misfire detection active bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUSTANDSVARIABLE_ZUENDERKENNUNG_WERT",
+          "label": "State: ignition detection",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUSTANDSVARIABLE_VERBRENNUNGSAUSSETZER_WERT",
+          "label": "State: combustion misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUSTANDSVARIABLE_NEBENSCHLUSS_WERT",
+          "label": "State: shunt",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL1_WERT",
+          "label": "Spark burn duration cyl. 1",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL2_WERT",
+          "label": "Spark burn duration cyl. 2",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL3_WERT",
+          "label": "Spark burn duration cyl. 3",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL4_WERT",
+          "label": "Spark burn duration cyl. 4",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL5_WERT",
+          "label": "Spark burn duration cyl. 5",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL6_WERT",
+          "label": "Spark burn duration cyl. 6",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL7_WERT",
+          "label": "Spark burn duration cyl. 7",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL8_WERT",
+          "label": "Spark burn duration cyl. 8",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL9_WERT",
+          "label": "Spark burn duration cyl. 9",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKENBRENNDAUER_ZYL10_WERT",
+          "label": "Spark burn duration cyl. 10",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL1_WERT",
+          "label": "Integral ion conductivity cyl. 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL2_WERT",
+          "label": "Integral ion conductivity cyl. 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL3_WERT",
+          "label": "Integral ion conductivity cyl. 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL4_WERT",
+          "label": "Integral ion conductivity cyl. 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL5_WERT",
+          "label": "Integral ion conductivity cyl. 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL6_WERT",
+          "label": "Integral ion conductivity cyl. 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL7_WERT",
+          "label": "Integral ion conductivity cyl. 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL8_WERT",
+          "label": "Integral ion conductivity cyl. 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL9_WERT",
+          "label": "Integral ion conductivity cyl. 9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL10_WERT",
+          "label": "Integral ion conductivity cyl. 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_RELATIVE_FUELLUNG_WERT",
+          "label": "Relative air charge",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_MOTORZUSTAND_TEXT",
+          "label": "Engine state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PEDALWERTGEBER_GEFILTERT_RELATIV_WERT",
+          "label": "Pedal sensor (filtered, relative)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_KRAFTSTOFFDRUCK_RELATIV_WERT",
+          "label": "Fuel pressure (relative)",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_BATTERIESPANNUNG_KL87_WERT",
+          "label": "Battery voltage term.87",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ZUSTANDSVARIABLE_AUSSETZERERKENNUNG_WERT",
+          "label": "State: misfire detection",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL1_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 1 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL2_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 2 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL3_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 3 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL4_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 4 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL5_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 5 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL6_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 6 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL7_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 7 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL8_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 8 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL9_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 9 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INTEGRAL_IONENLEITWERT_ZYL10_BEI_AUSSETZER_WERT",
+          "label": "Integral ion conductivity cyl. 10 at misfire",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SUMMENINTEGRAL_IONENLEITWERT_B1_WERT",
+          "label": "Sum integral ion conductivity bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SUMMENINTEGRAL_IONENLEITWERT_B2_WERT",
+          "label": "Sum integral ion conductivity bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFFSET_IONENSPANNUNG_ZYL1_WERT",
+          "label": "Ion voltage offset cyl. 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL2_WERT",
+          "label": "Min ion voltage cyl. 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL3_WERT",
+          "label": "Min ion voltage cyl. 3",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL4_WERT",
+          "label": "Min ion voltage cyl. 4",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL5_WERT",
+          "label": "Min ion voltage cyl. 5",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL6_WERT",
+          "label": "Min ion voltage cyl. 6",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL7_WERT",
+          "label": "Min ion voltage cyl. 7",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL8_WERT",
+          "label": "Min ion voltage cyl. 8",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL9_WERT",
+          "label": "Min ion voltage cyl. 9",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINIMALWERT_IONENSPANNUNG_ZYL10_WERT",
+          "label": "Min ion voltage cyl. 10",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_BEI_AUSSETZER_WERT",
+          "label": "Engine RPM at misfire",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_RELATIVE_FUELLUNG_BEI_AUSSETZER_WERT",
+          "label": "Relative air charge at misfire",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL1_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 1 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL2_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 2 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL3_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 3 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL4_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 4 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL5_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 5 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL6_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 6 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL7_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 7 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL8_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 8 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL9_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 9 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUENDWINKEL_ZYL10_BEI_AUSSETZER_WERT",
+          "label": "Ignition angle cyl. 10 at misfire",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUSLASTUNGSGRAD_GENERATOR_WERT",
+          "label": "Generator utilization",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GENERATORSTROM_WERT",
+          "label": "Generator current",
+          "unit": "A",
+          "min": 0,
+          "max": 250
+        },
+        {
+          "key": "STAT_GENERATORSOLLSPANNUNG_WERT",
+          "label": "Generator setpoint voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BATTERIESPANNUNG_VOM_IBS_WERT",
+          "label": "Battery voltage from IBS",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_BATTERIESTROM_VON_IBS_GEMESSEN_WERT",
+          "label": "Battery current from IBS",
+          "unit": "A",
+          "min": 0,
+          "max": 250
+        },
+        {
+          "key": "STAT_GENERATORDIODENTEMPERATUR_WERT",
+          "label": "Generator diode temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_GENERATORTEMPERATUR_WERT",
+          "label": "Generator temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_BATTERIETEMPERATUR_WERT",
+          "label": "Battery temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ABSTAND_ZUR_STARTFAEHIGKEITSGRENZE_WERT",
+          "label": "Margin to start capability limit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BSD_FEHLERZAEHLER_IBS_WERT",
+          "label": "BSD fault counter IBS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BSD_FEHLERZAEHLER_GENERATOR_WERT",
+          "label": "BSD fault counter generator",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BSD_FEHLERZAEHLER_OELSENSOR_WERT",
+          "label": "BSD fault counter oil sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Dynamic pre-cat O2 sensor diagnosis",
+      "job": "STATUS_DYN_VK_SONDENDIAG_ADAPTION",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAVK_OBD_DYN_ST_B1_TEXT",
+          "label": "Lambda pre-cat OBD dynamic status bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAVK_OBD_DYN_ST_B2_TEXT",
+          "label": "Lambda pre-cat OBD dynamic status bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Intake air temp sensor 1",
+      "job": "STATUS_AN_LUFTTEMPERATUR_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_1_ADC_WERT",
+          "label": "Intake air temp 1 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_1_WERT",
+          "label": "Intake air temp 1",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Intake air temp sensor 2",
+      "job": "STATUS_AN_LUFTTEMPERATUR_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_2_ADC_WERT",
+          "label": "Intake air temp 2 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_2_WERT",
+          "label": "Intake air temp 2",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Air mass meter 1",
+      "job": "STATUS_HFM_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HFM_1_ADC_WERT",
+          "label": "Air mass meter 1 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HFM_1_WERT",
+          "label": "Air mass meter 1",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Air mass meter 2",
+      "job": "STATUS_HFM_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_HFM_2_ADC_WERT",
+          "label": "Air mass meter 2 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HFM_2_WERT",
+          "label": "Air mass meter 2",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORTEMPERATUR_ADC_WERT",
+          "label": "Engine temp (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Charge air temperature",
+      "job": "STATUS_KA_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KA_TEMPERATUR_ADC_WERT",
+          "label": "Charge air temp (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KA_TEMPERATUR_WERT",
+          "label": "Charge air temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Exhaust gas temp sensor 3",
+      "job": "STATUS_ABGASTEMPERATUR_3",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABGASTEMPERATUR_3_ADC_WERT",
+          "label": "Exhaust gas temp 3 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABGASTEMPERATUR_3_WERT",
+          "label": "Exhaust gas temp 3",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Exhaust gas temp sensor 4",
+      "job": "STATUS_ABGASTEMPERATUR_4",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ABGASTEMPERATUR_4_ADC_WERT",
+          "label": "Exhaust gas temp 4 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ABGASTEMPERATUR_4_WERT",
+          "label": "Exhaust gas temp 4",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Fuel pressure",
+      "job": "STATUS_KRAFTSTOFFDRUCK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KRAFTSTOFFDRUCK_ADC_WERT",
+          "label": "Fuel pressure (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KRAFTSTOFFDRUCK_WERT",
+          "label": "Fuel pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Fuel pressure sensor 1",
+      "job": "STATUS_FWV_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FWV_1_ADC_WERT",
+          "label": "Fuel pressure sensor 1 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWV_1_WERT",
+          "label": "Fuel pressure sensor 1",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Fuel pressure sensor 2",
+      "job": "STATUS_FWV_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FWV_2_ADC_WERT",
+          "label": "Fuel pressure sensor 2 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FWV_2_WERT",
+          "label": "Fuel pressure sensor 2",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Sensor signal 1",
+      "job": "STATUS_FW_1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FW_1_ADC_WERT",
+          "label": "Sensor signal 1 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FW_1_WERT",
+          "label": "Sensor signal 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor signal 2",
+      "job": "STATUS_FW_2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FW_2_ADC_WERT",
+          "label": "Sensor signal 2 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FW_2_WERT",
+          "label": "Sensor signal 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Ambient pressure",
+      "job": "STATUS_UMGEBUNGSDRUCK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UMGEBUNGSDRUCK_ADC_WERT",
+          "label": "Ambient pressure (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UMGEBUNGSDRUCK_WERT",
+          "label": "Ambient pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "DME internal temperature",
+      "job": "STATUS_DME_INNENTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DME_INNENTEMPERATUR_ADC_WERT",
+          "label": "DME internal temp (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DME_INNENTEMPERATUR_WERT",
+          "label": "DME internal temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Oil condition sensor",
+      "job": "STATUS_QLT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OZ_NIV_WERT",
+          "label": "Oil level",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZ_NIV_TEMP_KOR_WERT",
+          "label": "Oil level temp correction",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_OZ_TEMP_WERT",
+          "label": "Oil temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_OZ_PERM_WERT",
+          "label": "Oil quality permittivity",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake camshaft 1",
+      "job": "STATUS_VAN_NW_E1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_NW_E1_WERT",
+          "label": "VANOS camshaft intake 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust camshaft 1",
+      "job": "STATUS_VAN_NW_A1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_NW_A1_WERT",
+          "label": "VANOS camshaft exhaust 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake camshaft 2",
+      "job": "STATUS_VAN_NW_E2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_NW_E2_WERT",
+          "label": "VANOS camshaft intake 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust camshaft 2",
+      "job": "STATUS_VAN_NW_A2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_NW_A2_WERT",
+          "label": "VANOS camshaft exhaust 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS setpoint intake 1",
+      "job": "STATUS_VAN_SOLL_E1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_SOLL_E1_WERT",
+          "label": "VANOS setpoint intake 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS setpoint exhaust 1",
+      "job": "STATUS_VAN_SOLL_A1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_SOLL_A1_WERT",
+          "label": "VANOS setpoint exhaust 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS setpoint intake 2",
+      "job": "STATUS_VAN_SOLL_E2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_SOLL_E2_WERT",
+          "label": "VANOS setpoint intake 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS setpoint exhaust 2",
+      "job": "STATUS_VAN_SOLL_A2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_SOLL_A2_WERT",
+          "label": "VANOS setpoint exhaust 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake 1",
+      "job": "STATUS_VAN_E1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_TV_E1_WERT",
+          "label": "VANOS pulse ratio intake 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VAN_FREQ_E1_WERT",
+          "label": "VANOS frequency intake 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake 2",
+      "job": "STATUS_VAN_E2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_TV_E2_WERT",
+          "label": "VANOS pulse ratio intake 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VAN_FREQ_E2_WERT",
+          "label": "VANOS frequency intake 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust 1",
+      "job": "STATUS_VAN_A1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_TV_A1_WERT",
+          "label": "VANOS pulse ratio exhaust 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VAN_FREQ_A1_WERT",
+          "label": "VANOS frequency exhaust 1",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust 2",
+      "job": "STATUS_VAN_A2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_TV_A2_WERT",
+          "label": "VANOS pulse ratio exhaust 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VAN_FREQ_A2_WERT",
+          "label": "VANOS frequency exhaust 2",
+          "unit": "°",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS directional valve",
+      "job": "STATUS_VAN_DSV",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VAN_DSV_TV_WERT",
+          "label": "VANOS DSV pulse ratio",
+          "unit": "°",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VAN_DSV_TEXT",
+          "label": "VANOS directional valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor pre-cat, bank 1",
+      "job": "STATUS_L_SONDE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_ADC_WERT",
+          "label": "O2 sensor pre-cat, bank 1 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_L_SONDE_WERT",
+          "label": "O2 sensor pre-cat, bank 1",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor pre-cat, bank 2",
+      "job": "STATUS_L_SONDE_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_ADC_WERT",
+          "label": "O2 sensor pre-cat, bank 2 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_L_SONDE_2_WERT",
+          "label": "O2 sensor pre-cat, bank 2",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor post-cat, bank 1",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_H_ADC_WERT",
+          "label": "O2 sensor post-cat, bank 1 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_L_SONDE_H_WERT",
+          "label": "O2 sensor post-cat, bank 1",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor post-cat, bank 2",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_H_ADC_WERT",
+          "label": "O2 sensor post-cat, bank 2 (ADC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_L_SONDE_2_H_WERT",
+          "label": "O2 sensor post-cat, bank 2",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        }
+      ]
+    },
+    {
+      "group": "Throttle 1",
+      "job": "STATUS_DK_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SPANNUNG_GEBER_WERT",
+          "label": "Sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_POSITION_GEBER_WERT",
+          "label": "Position sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_WERT",
+          "label": "Actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RETURNSOLLWERT_WERT",
+          "label": "Return setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Idle actuator 1",
+      "job": "STATUS_LLS_1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ISTWERT_WERT",
+          "label": "Actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RETURNSOLLWERT_WERT",
+          "label": "Return setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Throttle 2",
+      "job": "STATUS_DK_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SPANNUNG_GEBER_WERT",
+          "label": "Sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_POSITION_GEBER_WERT",
+          "label": "Position sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTWERT_WERT",
+          "label": "Actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RETURNSOLLWERT_WERT",
+          "label": "Return setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Idle actuator 2",
+      "job": "STATUS_LLS_2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ISTWERT_WERT",
+          "label": "Actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RETURNSOLLWERT_WERT",
+          "label": "Return setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Condition-based service data",
+      "job": "CBS_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "RMMI_BOS_WERT",
+          "label": "Service data",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Statistics data 2",
+      "job": "STATUS_STATISTIKDATEN_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_N_RF_PROFIL_WERT",
+          "label": "RPM profile",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Statistics data",
+      "job": "STATUS_STATISTIKDATEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TDME_PROFIL_WERT",
+          "label": "DME temp profile",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TMOT_PROFIL_WERT",
+          "label": "Engine temp profile",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TOEL_PROFIL_WERT",
+          "label": "Oil temp profile",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Oil pump 1",
+      "job": "STATUS_OELPUMPE_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OELPUMPE_1_TEXT",
+          "label": "Oil pump 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Oil pump 2",
+      "job": "STATUS_OELPUMPE_2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OELPUMPE_2_TEXT",
+          "label": "Oil pump 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Electric vacuum pump",
+      "job": "STATUS_ELUP",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MVAC_P_SENSOR_WERT",
+          "label": "Vacuum pressure (sensor)",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_MVAC_P_MODELL_WERT",
+          "label": "Vacuum pressure (model)",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ELUP_TEXT",
+          "label": "Electric vacuum pump",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: EGR",
+      "job": "STATUS_SYSTEMCHECK_EDR",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DIAGNOSE_TEXT",
+          "label": "Diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: idle speed control",
+      "job": "STATUS_SYSTEMCHECK_LLFS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DIAGNOSE_TEXT",
+          "label": "Diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: tank leak diagnosis (DMTL)",
+      "job": "STATUS_SYSTEMCHECK_DMTL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DMTL_ST_TEXT",
+          "label": "DMTL status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMTL_ST_NV_TEXT",
+          "label": "DMTL status (NV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: idle elevation",
+      "job": "STATUS_SYSTEMCHECK_LLERH",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DIAGNOSE_WERT",
+          "label": "Diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_N_SOLL_WERT",
+          "label": "RPM setpoint",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_N_WERT",
+          "label": "RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "System check: tank vent valve",
+      "job": "STATUS_SYSTEMCHECK_TEV",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TE_OBD_ST_TEXT",
+          "label": "TEV OBD status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LL_CNT_WERT",
+          "label": "TEV OBD idle count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LL_OK_WERT",
+          "label": "TEV OBD idle OK",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LL_DELTA_WERT",
+          "label": "TEV OBD idle delta",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LAM_OK_TEV1_WERT",
+          "label": "TEV OBD lambda OK TEV1",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_TE_OBD_AUSS_OK_TEV1_WERT",
+          "label": "TEV OBD misfire OK TEV1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LAM_DELTA_TEV1_WERT",
+          "label": "TEV OBD lambda delta TEV1",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_TE_OBD_AUSS_DELTA_TEV1_WERT",
+          "label": "TEV OBD misfire delta TEV1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_RESULT_TEV1_TEXT",
+          "label": "TEV OBD result TEV1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LAM_OK_TEV2_WERT",
+          "label": "TEV OBD lambda OK TEV2",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_TE_OBD_AUSS_OK_TEV2_WERT",
+          "label": "TEV OBD misfire OK TEV2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_LAM_DELTA_TEV2_WERT",
+          "label": "TEV OBD lambda delta TEV2",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_TE_OBD_AUSS_DELTA_TEV2_WERT",
+          "label": "TEV OBD misfire delta TEV2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_OBD_RESULT_TEV2_TEXT",
+          "label": "TEV OBD result TEV2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: secondary air",
+      "job": "STATUS_SYSTEMCHECK_SEK_LUFT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SLP_ST_WERT",
+          "label": "Sec-air pump status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAGNOSE_WERT",
+          "label": "Diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAGNOSE_TEXT",
+          "label": "Diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_ST_WERT",
+          "label": "Sec-air OBD status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_ST_TEXT",
+          "label": "Sec-air OBD status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_DIAG_ST_WERT",
+          "label": "Sec-air OBD diag status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_DIAG_ST_TEXT",
+          "label": "Sec-air OBD diag status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SL_ML_HFM_WERT",
+          "label": "Sec-air mass (MAF)",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_SLP_DEF_WERT",
+          "label": "Sec-air OBD: pump defect",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_MDF_MIN_DEF_WERT",
+          "label": "Sec-air OBD: MAF min defect",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_MDF_MAX_DEF_WERT",
+          "label": "Sec-air OBD: MAF max defect",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_SLV_MAX_WERT",
+          "label": "Sec-air OBD: valve max",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_T_MDF_WERT",
+          "label": "Sec-air OBD MAF time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_MDF_MAX_INTG_WERT",
+          "label": "Sec-air OBD MAF max integral",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_T_AUFHEIZ_WERT",
+          "label": "Sec-air OBD: heat-up time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_T_HFM_DIA_WERT",
+          "label": "Sec-air OBD: MAF diag time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLP_TIME_ON_NV_WERT",
+          "label": "Sec-air pump on-time (NV)",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_T_ML_PLAUSI_WERT",
+          "label": "Sec-air OBD: air-mass plausibility time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_PL_T_MDF_STOP_WERT",
+          "label": "Sec-air OBD: MAF stop time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_MDF_MIN_INTG_WERT",
+          "label": "Sec-air OBD MAF min integral",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_T_SLV_INT_START_WERT",
+          "label": "Sec-air OBD: valve integration start time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBD_TIMER_WERT",
+          "label": "Sec-air OBD timer",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_T_MDF_LAM_WERT",
+          "label": "Sec-air OBD MAF lambda time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_LAM_INTG_WERT",
+          "label": "Sec-air OBD lambda integral",
+          "unit": "lambda",
+          "min": 0,
+          "max": 2
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_ASV_LI_OPE_WERT",
+          "label": "Sec-air OBD: shutoff valve left open",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K_SLS_OBDH_ASV_RE_OPE_WERT",
+          "label": "Sec-air OBD: shutoff valve right open",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLV_ST_WERT",
+          "label": "Sec-air valve status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLP_ST_TEXT",
+          "label": "Sec-air pump status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_MDF_ST_WERT",
+          "label": "Sec-air OBD MAF status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBD_ABBRUCH_ST_WERT",
+          "label": "Sec-air OBD abort status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_MDF_MAX_INTG_NORM_WERT",
+          "label": "Sec-air OBD MAF max integral (norm)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLS_OBDH_MDF_MIN_INTG_NORM_WERT",
+          "label": "Sec-air OBD MAF min integral (norm)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TIME_REL_WERT",
+          "label": "Relative time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check: dynamic O2 sensor / catalyst",
+      "job": "STATUS_SYSTEMCHECK_DYN_L_SONDE_KAT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KAT_OBD_ZUST_ST_B1_WERT",
+          "label": "Catalyst OBD status bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KAT_OBD_ZUST_ST_B1_TEXT",
+          "label": "Catalyst OBD status bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAVK_OBD_DYN_ST_B1_WERT",
+          "label": "Lambda pre-cat OBD dynamic status bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAVK_OBD_DYN_ST_B1_TEXT",
+          "label": "Lambda pre-cat OBD dynamic status bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KAT_OBD_ZUST_ST_B2_WERT",
+          "label": "Catalyst OBD status bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KAT_OBD_ZUST_ST_B2_TEXT",
+          "label": "Catalyst OBD status bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAVK_OBD_DYN_ST_B2_WERT",
+          "label": "Lambda pre-cat OBD dynamic status bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAVK_OBD_DYN_ST_B2_TEXT",
+          "label": "Lambda pre-cat OBD dynamic status bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MODE_TEXT",
+          "label": "Mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "DATEN_REFERENZ_LESEN",
+      "field": "Enter vehicle name (e.g. VS-XY-1)",
+      "kind": "text",
+      "example": "text",
+      "args_template": "stored as comment/string"
+    },
+    {
+      "job": "DATEN_REFERENZ_LESEN",
+      "field": "Enter engine number (e.g. 850110)",
+      "kind": "text",
+      "example": "text",
+      "args_template": "stored as comment/string"
+    },
+    {
+      "job": "STATUS_SSP",
+      "field": "Enter camshaft spread",
+      "kind": "text",
+      "example": "text",
+      "args_template": "stored as comment/string"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter start address (0x0000-0xFFFFFF) and length",
+      "kind": "hex",
+      "example": "0x0000",
+      "args_template": "value passed as job arg (hex)"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter DSC mode (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter SMG program (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter SMG level (0..6)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter engine program (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter EDC-K level (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter ALBV level (0..3)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_VAN_SOLL_",
+      "field": "Enter power mode (0..2)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Enter activation key",
+      "kind": "text",
+      "example": "text",
+      "args_template": "stored as comment/string"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Enter ratio (0%-99%)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Enter timeout (0s-25s)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Enter ratio (0%-100%)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Enter timeout (0s-510s)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    },
+    {
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "field": "Enter idle RPM (max 2000 rpm)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "value encoded into job args"
+    }
+  ]
+}

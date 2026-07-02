@@ -1,0 +1,221 @@
+{
+  "ecu": "DSC_87.IPO",
+  "screens": [
+    {
+      "group": "Wheel speeds",
+      "job": "STATUS_RADGESCHWINDIGKEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_RAD_GESCHW_VL_WERT", "label": "Wheel speed front left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_VR_WERT", "label": "Wheel speed front right", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HL_WERT", "label": "Wheel speed rear left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HR_WERT", "label": "Wheel speed rear right", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RICHTUNG_VL_TEXT", "label": "Rotation direction front left", "unit": null, "min": null, "max": null },
+        { "key": "STAT_RICHTUNG_VR_TEXT", "label": "Rotation direction front right", "unit": null, "min": null, "max": null },
+        { "key": "STAT_RICHTUNG_HL_TEXT", "label": "Rotation direction rear left", "unit": null, "min": null, "max": null },
+        { "key": "STAT_RICHTUNG_HR_TEXT", "label": "Rotation direction rear right", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DFA_SIM_TEXT", "label": "Speed sensor output simulation", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensors",
+      "job": "STATUS_SENSOREN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DRUCKSENSOR_1_WERT", "label": "Pressure sensor 1", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_DRUCKSENSOR_VL_WERT", "label": "Pressure sensor front left", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_DRUCKSENSOR_VR_WERT", "label": "Pressure sensor front right", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_DRUCKSENSOR_HL_WERT", "label": "Pressure sensor rear left", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_DRUCKSENSOR_HR_WERT", "label": "Pressure sensor rear right", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_LENKWINKEL_WERT", "label": "Steering angle", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DREHRATE_WERT", "label": "Yaw rate", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DREHRATE_AFS_WERT", "label": "Yaw rate (active steering)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_QUERBESCHLEUNIGUNG_WERT", "label": "Lateral acceleration", "unit": null, "min": null, "max": null },
+        { "key": "STAT_QUERBESCHLEUNIGUNG_AFS_WERT", "label": "Lateral acceleration (active steering)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LAENGSBESCHLEUNIGUNG_WERT", "label": "Longitudinal acceleration", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SENSOR_TEMPERATUR_WERT", "label": "Sensor temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SPANNUNG_UREF_WERT", "label": "Reference voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_PUMPE_WERT", "label": "Pump voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_KLEMME_30_WERT", "label": "Terminal 30 voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_VCC_WERT", "label": "VCC supply voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Sensor offsets",
+      "job": "STATUS_SENSOREN_OFFSET",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_OFFSET_DRUCKSENSOR_1_WERT", "label": "Pressure sensor 1 offset", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_OFFSET_DRUCKSENSOR_VL_WERT", "label": "Pressure sensor front left offset", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_OFFSET_DRUCKSENSOR_VR_WERT", "label": "Pressure sensor front right offset", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_OFFSET_DRUCKSENSOR_HL_WERT", "label": "Pressure sensor rear left offset", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_OFFSET_DRUCKSENSOR_HR_WERT", "label": "Pressure sensor rear right offset", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_OFFSET_LENKWINKEL_WERT", "label": "Steering angle offset", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OFFSET_DREHRATE_WERT", "label": "Yaw rate offset", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OFFSET_DREHRATE_AFS_WERT", "label": "Yaw rate offset (active steering)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OFFSET_QUERBESCHLEUNIGUNG_WERT", "label": "Lateral acceleration offset", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OFFSET_QUERBESCHLEUNIGUNG_AFS_WERT", "label": "Lateral acceleration offset (active steering)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OFFSET_LAENGSBESCHLEUNIGUNG_WERT", "label": "Longitudinal acceleration offset", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Steering angle (FlexRay CAN)",
+      "job": "STATUS_F_CAN_LW",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LW_OBEN_WERT", "label": "Steering angle (upper sensor)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LW_RAD_WERT", "label": "Steering angle (road wheel)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensor cluster type",
+      "job": "STATUS_F_CAN_TYP_SENSORCLUSTER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_CLUSTER_TYP_TEXT", "label": "Sensor cluster type", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Steering column switches (audio/tel)",
+      "job": "STATUS_F_CAN_TASTER_AUDIO_TEL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TASTER_TELEFON_TEXT", "label": "Telephone button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TASTER_AUDIO_LAUTSTAERKE_TEXT", "label": "Audio volume button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TASTER_AUDIO_SUCHLAUF_TEXT", "label": "Audio seek button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TASTER_PUSH_TO_HEAR_TEXT", "label": "Push-to-hear button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TASTER_SONDERFUNKTION_TEXT", "label": "Special function button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TASTER_PUSH_TO_TALK_TEXT", "label": "Push-to-talk button", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Wiper switch",
+      "job": "STATUS_F_CAN_WISCHERTASTER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_WISCHERTASTER_TEXT", "label": "Wiper switch", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WISCHERPOTI_TEXT", "label": "Wiper potentiometer", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Cruise control / ACC switches",
+      "job": "STATUS_F_CAN_TEMPOMAT_ACC",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TASTER_TEMPOMAT_ACC_TEXT", "label": "Cruise control button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ABSTANDSWAHL_ACC_TEXT", "label": "ACC distance selection", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Roll-over pressure adaptation (RPA)",
+      "job": "STATUS_LESEN_RPA",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GESCHWINDIGKEITSBEREICH_1_TEXT", "label": "Speed range 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GESCHWINDIGKEITSBEREICH_2_TEXT", "label": "Speed range 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GESCHWINDIGKEITSBEREICH_3_TEXT", "label": "Speed range 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GESCHWINDIGKEITSBEREICH_4_TEXT", "label": "Speed range 4", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GESCHWINDIGKEITSBEREICH_5_TEXT", "label": "Speed range 5", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GESCHWINDIGKEITSBEREICH_6_TEXT", "label": "Speed range 6", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_1_TEXT", "label": "Curve compensation 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_2_TEXT", "label": "Curve compensation 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_3_TEXT", "label": "Curve compensation 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_4_TEXT", "label": "Curve compensation 4", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_5_TEXT", "label": "Curve compensation 5", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_6_TEXT", "label": "Curve compensation 6", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_7_TEXT", "label": "Curve compensation 7", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KURVENKOMPENSATION_8_TEXT", "label": "Curve compensation 8", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "CBS brake fluid sensor",
+      "job": "STATUS_CBS_SENSOR_BBV",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_CBS_BBV_SENSOR_VA_TEXT", "label": "CBS brake fluid sensor status, front axle", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CBS_BBV_SENSOR_HA_TEXT", "label": "CBS brake fluid sensor status, rear axle", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "CBS service data",
+      "job": "CBS_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "COU_RSTG_CBS_MESS_WERT", "label": "CBS brake measurement counter", "unit": "%", "min": 0, "max": 100 },
+        { "key": "RMMI_CBS_WERT", "label": "Service counter", "unit": "%", "min": 0, "max": 100 },
+        { "key": "MANIP_CBS_TEXT", "label": "Manipulation byte", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SAE_CODE_TEXT", "label": "SAE code", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault detail",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_SYMPTOM_TEXT", "label": "Fault symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Readiness", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Software version",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "PROZESSKLASSE_TEXT", "label": "Process class / version", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "HS_LESEN", "field": "Comment to store", "kind": "text", "example": "Pad replaced 06/2026", "args_template": "free-text comment passed to the history-store job" }
+  ]
+}

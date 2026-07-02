@@ -4,7 +4,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   lastScreen = () => showEcuSection(chassisId, sectionName, ecu, menu, sectionKey);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
-    { label: dispChassis(chassisId), fn: () => showSections(chassisId) },
+    { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
     { label: ecu.label, fn: () => showEcu(chassisId, sectionName, ecu) },
     { label: sec.section },
   ]);
@@ -35,6 +35,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   const jobs0 = sec.items.map(i => i.job);
   const isFaults = jobs0.includes('FS_LESEN') && !isStatus;
   if (isFaults) {
+    loadFaultDb(); // warm the name db before any read renders
     const backToEcu = () => showEcu(chassisId, sectionName, ecu);
     const hasJob = (j) => jobs0.includes(j);
     // only the jobs MS45 has
@@ -82,7 +83,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     row.className = 'job-row' + (it.danger ? ' danger' : '') + (isStatus ? ' selectable' : '');
     row.innerHTML = `
       ${isStatus ? '<span class="job-check" role="checkbox" aria-checked="false"></span>' : '<span class="job-bullet"></span>'}
-      <span class="job-label">${itemLabel(it)}</span>
+      <span class="job-label">${esc(itemLabel(it))}</span>
       ${it.danger ? '<span class="job-warn">write</span>' : ''}`;
     if (isStatus) {
       rowByJob.set(it.job, row);
@@ -130,7 +131,7 @@ async function showActivations(ecu, sec, container) {
   container.innerHTML = `<div class="empty"><span class="loader"></span><span>Loading actuator tests…</span></div>`;
   let acts;
   try { acts = await api(`/api/ecu/${ecu.sgbd}/activations`); }
-  catch (e) { container.innerHTML = `<div class="empty"><div>${e.message}</div></div>`; return; }
+  catch (e) { container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
 
   if (!acts.length) {
     container.innerHTML = `<div class="empty"><div>No actuator tests for this module.</div></div>`;
@@ -153,8 +154,8 @@ async function showActivations(ecu, sec, container) {
     const running = activeTests.has(a.start);
     card.innerHTML = `
       <div class="act-info">
-        <div class="act-label">${a.label.replace(/^Activate /, '')}</div>
-        <div class="act-jobs">${a.start}${a.stop ? ` · ${a.stop}` : ''}</div>
+        <div class="act-label">${esc(a.label.replace(/^Activate /, ''))}</div>
+        <div class="act-jobs">${esc(`${a.start}${a.stop ? ` · ${a.stop}` : ''}`)}</div>
       </div>
       <button class="btn act-btn ${a.momentary ? '' : (running ? 'danger on' : 'primary')}">${
         a.momentary ? 'Run' : (running ? 'Stop' : 'Activate')
@@ -204,11 +205,52 @@ const actValue = (job) => actSpec(job).on;
 const keepAliveTimers = new Map(); // start job -> interval id
 
 async function sendActivation(ecu, job, value) {
-  const q = value == null ? '' : `?arg=${value}`;
+  const q = value == null || value === '' ? '' : `?arg=${encodeURIComponent(value)}`;
   const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, { method: 'POST' });
   // ECU verdict: OKAY vs condition/sequence error
   const last = (data.sets || []).slice(-1)[0] || {};
   return last.JOB_STATUS || '';
+}
+
+// the actual arg string for an activation, resolved from the SGBD's _ARGUMENTS
+// schema. single ON/percent args get a sensible default and run straight away;
+// multi-param tests (injector DAUER/PERIODE, idle offsets) open the arg dialog so
+// the user supplies real values. cached per start-job for the keep-alive re-send.
+const _actArgCache = new Map();
+async function resolveActivationArg(ecu, startJob) {
+  if (_actArgCache.has(startJob)) return _actArgCache.get(startJob);
+  const specs = await fetchJobArgs(ecu, startJob);
+  let arg;
+  if (specs.length === 0) {
+    arg = null; // no argument
+  } else if (specs.length === 1 && /^(ON|PWM|MODE)$/.test(specs[0].ARG)) {
+    // single on/percent: default on, no prompt (Stop sends 0 separately)
+    arg = specs[0].ARG === 'PWM' ? String(actValue(startJob) || 99) : '1';
+  } else {
+    // multiple or value params (injectors, idle offsets, CO%) -> ask
+    arg = await argsDialog(startJob, specs);
+    if (arg == null) { _actArgCache.delete(startJob); return undefined; } // cancelled
+  }
+  _actArgCache.set(startJob, arg);
+  return arg;
+}
+
+// after activating, read the matching STATUS_<X> job and return a short readback
+// string (INPA shows STAT_AUSGANG_TEXT/value/unit). null if no readback available.
+async function activationReadback(ecu, startJob) {
+  const statusJob = startJob.replace(/^STEUERN_/, 'STATUS_');
+  try {
+    const d = await api(`/api/ecu/${ecu.sgbd}/run/${statusJob}`, { method: 'POST' });
+    const set = (d.sets || []).find(s => Object.keys(s).some(k => k.startsWith('STAT_')));
+    if (!set) return null;
+    // prefer the labeled output value/unit INPA displays
+    const txt = set.STAT_AUSGANG_TEXT || set.STAT_TEXT;
+    const val = set.STAT_AUSGANG || set.STAT_WERT;
+    const unit = set.STAT_AUSGANG_EINH || set.STAT_EINH || '';
+    if (val != null) return `${txt ? txt + ': ' : ''}${val}${unit ? ' ' + unit : ''}`.trim();
+    if (txt) return String(txt);
+    return null;
+  } catch { return null; }
 }
 
 async function toggleActivation(ecu, a, card, btn) {
@@ -216,23 +258,27 @@ async function toggleActivation(ecu, a, card, btn) {
   if (!running || a.momentary) {
     const ok = await confirmDialog({
       title: `Run actuator test?`,
-      body: `<b>${a.label.replace(/^Activate /, '')}</b> will drive a component on <b>${ecu.label}</b> (<span class="mono">${a.start}</span>).${a.momentary ? '' : ' It stays active (re-sent continuously) until you press Stop or leave this screen.'} Continue?`,
+      body: `<b>${esc(a.label.replace(/^Activate /, ''))}</b> will drive a component on <b>${esc(ecu.label)}</b> (<span class="mono">${esc(a.start)}</span>).${a.momentary ? '' : ' It stays active (re-sent continuously) until you press Stop or leave this screen.'} Continue?`,
       confirmLabel: a.momentary ? 'Run' : 'Activate',
       danger: true,
     });
     if (!ok) return;
   }
-  const value = actValue(a.start);
   try {
     if (a.momentary) {
+      const value = await resolveActivationArg(ecu, a.start);
+      if (value === undefined) return; // arg dialog cancelled
       const st = await sendActivation(ecu, a.start, value);
       btn.classList.add('flash');
-      sbLeft.textContent = st === 'OKAY' ? `${a.start} ran` : st;
-      if (st && st !== 'OKAY') showActivationError(a, st);
+      if (st && st !== 'OKAY') { showActivationError(a, st); sbLeft.textContent = st; return; }
+      const rb = await activationReadback(ecu, a.start);
+      showActivationResult(card, rb);
+      sbLeft.textContent = rb ? `${a.start}: ${rb}` : `${a.start} ran`;
       return;
     }
     if (running) {
       stopKeepAlive(a.start);
+      _actArgCache.delete(a.start); // re-prompt next activate
       // Stop = drive the output to 0. The ECU rejects _ENDE in an active session,
       // but arg=0 de-energizes (verified: fuel pump, e-fan). _ENDE only as fallback.
       const off = await sendActivation(ecu, a.start, 0).catch(() => 'ERR');
@@ -241,28 +287,46 @@ async function toggleActivation(ecu, a, card, btn) {
       }
       activeTests.delete(a.start);
       btn.textContent = 'Activate'; btn.className = 'btn act-btn primary'; card.classList.remove('running');
+      showActivationResult(card, null);
       sbLeft.textContent = `${a.start} stopped`;
     } else {
+      const value = await resolveActivationArg(ecu, a.start);
+      if (value === undefined) return; // arg dialog cancelled
       const st = await sendActivation(ecu, a.start, value);
       if (st && st !== 'OKAY') { showActivationError(a, st); sbLeft.textContent = st; return; }
       activeTests.add(a.start);
       btn.textContent = 'Stop'; btn.className = 'btn act-btn danger on'; card.classList.add('running');
-      sbLeft.textContent = `${a.start} active`;
+      const rb = await activationReadback(ecu, a.start);
+      showActivationResult(card, rb);
+      sbLeft.textContent = rb ? `${a.start}: ${rb}` : `${a.start} active`;
       // keep-alive: re-send before the ECU watchdog times out
       const t = setInterval(() => sendActivation(ecu, a.start, value).catch(() => {}), 500);
       keepAliveTimers.set(a.start, t);
     }
   } catch (e) {
     sbLeft.textContent = 'test failed';
-    confirmDialog({ title: 'Test failed', body: e.message, confirmLabel: 'OK', cancelLabel: 'Close' });
+    confirmDialog({ title: 'Test failed', body: esc(e.message), confirmLabel: 'OK', cancelLabel: 'Close' });
   }
+}
+
+// show (or clear) the STATUS_X readback line on an activation card
+function showActivationResult(card, readback) {
+  const info = card.querySelector('.act-info');
+  let line = info.querySelector('.act-readback');
+  if (!readback) { if (line) line.remove(); return; }
+  if (!line) {
+    line = document.createElement('div');
+    line.className = 'act-readback';
+    info.appendChild(line);
+  }
+  line.textContent = readback;
 }
 
 function showActivationError(a, status) {
   const e = explainError(status);
   confirmDialog({
-    title: `${a.label.replace(/^Activate /, '')}: ${e.title}`,
-    body: `${e.detail}<br><br>${e.fix}<br><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">${status}</span>`,
+    title: `${esc(a.label.replace(/^Activate /, ''))}: ${e.title}`,
+    body: `${esc(e.detail)}<br><br>${e.fix}<br><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">${esc(status)}</span>`,
     confirmLabel: 'OK', cancelLabel: 'Close',
   });
 }

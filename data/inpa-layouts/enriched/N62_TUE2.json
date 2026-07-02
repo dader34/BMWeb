@@ -1,0 +1,111 @@
+{
+  "ecu": "N62_TUE2.IPO",
+  "screens": [
+    {
+      "group": "Intake flap system check - status flags 1",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_15_WERT", "label": "Fault status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_12_WERT", "label": "Tester actuation, upper air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_13_WERT", "label": "Tester actuation, lower air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_14_WERT", "label": "Communication status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intake flap system check - diagnosis complete",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_8_WERT", "label": "Heating", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_11_WERT", "label": "Self-diagnosis lower air flap complete", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_10_WERT", "label": "Self-diagnosis upper air flap complete", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_9_WERT", "label": "Electrical diagnosis complete", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intake flap system check - faults detected",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_7_WERT", "label": "System test active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_6_WERT", "label": "Fault lower air flap detected", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_5_WERT", "label": "Fault upper air flap detected", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_4_WERT", "label": "Electrical fault detected", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Intake flap system check - variant detection",
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GLF_3_WERT", "label": "Communication query status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_2_WERT", "label": "Learned variant status, lower air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_1_WERT", "label": "Learned variant status, upper air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GLF_0_WERT", "label": "Variant detection status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Alternator system check - fault status",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FI_GENKOMM_WERT", "label": "Alternator communication fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FI_GENUPL_WERT", "label": "Alternator type", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FI_GENHT_WERT", "label": "Alternator high-temperature fault status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Alternator system check - mechanical/electrical fault",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FI_GENMECH_WERT", "label": "Alternator mechanical fault status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FI_GENEL_WERT", "label": "Alternator electrical fault status", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DF_HIGH_WERT", "label": "Alternator load too high status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Alternator system check - test tolerances",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GENITEST_TOL_WERT", "label": "Tolerance band for current setpoint deviation", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_GENUTEST_TOL_WERT", "label": "Tolerance band for voltage setpoint deviation", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Alternator system check - test values",
+      "job": "STATUS_SYSTEMCHECK_GEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_I_GENTEST_WERT", "label": "Modelled alternator current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_U_GENTEST_WERT", "label": "Alternator setpoint voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "DATA_ID_LESEN", "field": "Enter your comment for line 1 and line 2", "kind": "text", "example": "Workshop note", "args_template": "two free-text comment lines stored in ID block" },
+    { "job": "FS_LESEN", "field": "Request telegram (entry as in WinDS2; separator = semicolon)", "kind": "hex", "example": "22,40,0A", "args_template": "comma-separated hex bytes passed as the diagnostic request telegram" },
+    { "job": "STATUS_DIAGNOSE_LSV", "field": "Parameter entry for quiescent current measurement", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for quiescent current measurement" },
+    { "job": "STATUS_DIGITAL", "field": "Parameter entry for quiescent current measurement", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for quiescent current measurement" },
+    { "job": "STATUS_RUHESTROMMESSUNG", "field": "Parameter entry for quiescent current measurement", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for quiescent current measurement" },
+    { "job": "STATUS_SYSTEMCHECK_GLF", "field": "Communication query", "kind": "hex", "example": "22,40,0A", "args_template": "hex parameter bytes for intake flap communication query" }
+  ]
+}

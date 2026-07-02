@@ -1,0 +1,6 @@
+{
+  "ecu": "TD-413st.IPO",
+  "screens": [],
+  "inputs": [],
+  "_note": "Body/energy-management ECU (battery management, CBS service data, power management, VIN/SW-component identification, GWSZ mileage, connected-drive/HV status). INPA exposes NO analog/digital measurement-block display masks for this ECU (ipo_bundle reports 0 SCREEN MASKS); all 811 raw screens are single-key text/value status dumps with no gauge mask, mostly read by STATUS_LESEN. The raw 'INPUT PROMPTS' are false-positive STAT_*_WERT key-name matches, not real user input prompts. No gauge screens to render."
+}

@@ -1,0 +1,643 @@
+{
+  "ecu": "sm_01.IPO",
+  "screens": [
+    {
+      "group": "Status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AS_MAGNET_WERT",
+          "label": "Adjuster solenoid",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AS_NOCKENMOTOR_WERT",
+          "label": "Adjuster cam motor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AS_NOCKENSCHALTER_WERT",
+          "label": "Adjuster cam switch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LD_PUMPE_WERT",
+          "label": "Lordosis pump",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LD_VENTIL_WERT",
+          "label": "Lordosis valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_FEH_TEXT",
+          "label": "Motor fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_KHV_TEXT",
+          "label": "Motor (KHV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_LBV_TEXT",
+          "label": "Motor (LBV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_LKV_TEXT",
+          "label": "Motor (LKV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_LNV_TEXT",
+          "label": "Motor (LNV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_SHV_TEXT",
+          "label": "Motor (SHV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_SLV_TEXT",
+          "label": "Motor (SLV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_SNV_TEXT",
+          "label": "Motor (SNV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_STV_TEXT",
+          "label": "Motor (STV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MS_DRUCKVERTEILER_WERT",
+          "label": "Massage pressure distributor",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_MS_PUMP_ANF_WERT",
+          "label": "Massage pump request",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHLAUFZEIT_KLEMME_30B_WERT",
+          "label": "Run-on time Terminal 30B",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SHZ_AD_SENSE_KISSEN_WERT",
+          "label": "Seat heating A/D sense Cushion",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SHZ_AD_SENSE_LEHNE_WERT",
+          "label": "Seat heating A/D sense Backrest",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SHZ_PWM_KISSEN_WERT",
+          "label": "Seat heating PWM Cushion",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SHZ_PWM_LEHNE_WERT",
+          "label": "Seat heating PWM Backrest",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SHZ_TEMP_KISSEN_WERT",
+          "label": "Seat heating temp Cushion",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SHZ_TEMP_LEHNE_WERT",
+          "label": "Seat heating temp Backrest",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SKL_AD_DREHZAHL_KISSEN_WERT",
+          "label": "Lumbar A/D RPM Cushion",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SKL_AD_DREHZAHL_LEHNE_WERT",
+          "label": "Lumbar A/D RPM Backrest",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SKL_VERSORGUNG_WERT",
+          "label": "Lumbar supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPANNUNG_KLEMME_30B_WERT",
+          "label": "Voltage Terminal 30B",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SV_COUNTER_KHV_WERT",
+          "label": "Valve counter (KHV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_LBV_WERT",
+          "label": "Valve counter (LBV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_LKV_WERT",
+          "label": "Valve counter (LKV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_LNV_WERT",
+          "label": "Valve counter (LNV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_SHV_WERT",
+          "label": "Valve counter (SHV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_SLV_WERT",
+          "label": "Valve counter (SLV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_SNV_WERT",
+          "label": "Valve counter (SNV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_COUNTER_STV_WERT",
+          "label": "Valve counter (STV)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_KHV_UNTEN_TEXT",
+          "label": "Valve norm. status (KHV) lower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_LBV_BREIT_TEXT",
+          "label": "Valve norm. status (LBV) wide",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_LKV_HINTEN_TEXT",
+          "label": "Valve norm. status (LKV) rear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_LNV_VORNE_TEXT",
+          "label": "Valve norm. status (LNV) front",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_SHV_UNTEN_TEXT",
+          "label": "Valve norm. status (SHV) lower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_SLV_HINTEN_TEXT",
+          "label": "Valve norm. status (SLV) rear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_SLV_VORNE_TEXT",
+          "label": "Valve norm. status (SLV) front",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_SNV_OBEN_TEXT",
+          "label": "Valve norm. status (SNV) upper",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_SNV_UNTEN_TEXT",
+          "label": "Valve norm. status (SNV) lower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SV_NORMIERSTATUS_STV_HINTEN_TEXT",
+          "label": "Valve norm. status (STV) rear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZAEHLER_LNV_NORM_VORNE_WERT",
+          "label": "Counter (LNV) norm. front",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZAEHLER_SLV_NORM_HINTEN_WERT",
+          "label": "Counter (SLV) norm. rear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZAEHLER_SLV_NORM_VORNE_CC_SCHWELLE_WERT",
+          "label": "Counter (SLV) norm. front CC threshold",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZAEHLER_SLV_NORM_VORNE_WERT",
+          "label": "Counter (SLV) norm. front",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZAEHLER_SNV_NORM_OBEN_WERT",
+          "label": "Counter (SNV) norm. upper",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy save mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy save mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FERTIGUNGSMODE_WERT",
+          "label": "Production mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MODE_WERT",
+          "label": "STAT_WERKSTATTMODE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TRANSPORTMODE_WERT",
+          "label": "Transport mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WERKSTATTMODE_WERT",
+          "label": "Workshop mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System context (freeze frame)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT",
+          "label": "1/min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT",
+          "label": "System context Crankshaft RPM min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT",
+          "label": "System context Fault memory lock Aktiv",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT",
+          "label": "System context Speed max",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT",
+          "label": "System context Speed min",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT",
+          "label": "1/min",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT",
+          "label": "System context Terminals before Fault",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT",
+          "label": "System context Customer time Jahr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT",
+          "label": "System context Customer time Minute",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT",
+          "label": "System context Customer time Monat",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT",
+          "label": "System context Customer time Sekunde",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT",
+          "label": "System context Customer time Stunde",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT",
+          "label": "System context Customer time Tag",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT",
+          "label": "System context Operating status at Fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT",
+          "label": "System context Operating status before Fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT",
+          "label": "System context Voltage max",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT",
+          "label": "System context Voltage min",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT",
+          "label": "System context Outside temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT",
+          "label": "System context Drive motor temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT",
+          "label": "System context Distance",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT",
+          "label": "System context Timestamp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT",
+          "label": "System context: first terminal 15 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT",
+          "label": "System context: first terminal 50 on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT",
+          "label": "System context: first terminal R on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT",
+          "label": "System context: terminal-change time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT",
+          "label": "System context: op-status-change time",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT",
+          "label": "System context: wake-up time",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Sensor replaced 06/2026",
+      "args_template": "free text stored as job parameter"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Sensor replaced 06/2026",
+      "args_template": "free text stored as job parameter"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Input value (0-17)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer in range 0-17, passed as job arg"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Input value (0-26)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer in range 0-26, passed as job arg"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Input value (0-2)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "integer in range 0-2, passed as job arg"
+    }
+  ]
+}

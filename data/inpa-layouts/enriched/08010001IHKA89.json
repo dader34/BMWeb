@@ -1,0 +1,16 @@
+{
+  "ecu": "08010001IHKA89.IPO",
+  "screens": [
+    {
+      "group": "Identification",
+      "job": "DIAGNOSEPROTOKOLL_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier delivery number", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

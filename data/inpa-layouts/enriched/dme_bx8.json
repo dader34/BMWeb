@@ -1,0 +1,119 @@
+{
+  "ecu": "dme_bx8.IPO",
+  "screens": [
+    {
+      "group": "Sensor / actuator configuration (CAN)",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AGR_WERT", "label": "EGR present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BN2000_WERT", "label": "BN2000 bus", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TMP_CAN_WERT", "label": "Temperature via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ANSK_WERT", "label": "Intake air flap", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Turbo / exhaust concept configuration",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TURBO_WERT", "label": "Turbo with wastegate", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TURBO_VTG_WERT", "label": "Turbo with VTG", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_MONO_WERT", "label": "Exhaust concept mono", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_Y_WERT", "label": "Exhaust concept Y", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Air / exhaust valves",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SLP_WERT", "label": "Secondary air pump", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SLV_WERT", "label": "Secondary air valve", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_WERT", "label": "Exhaust flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOK_WERT", "label": "Sound flap", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Oil level sensor / manual switch",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MFL_WERT", "label": "Multifunction steering wheel", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SPT_WERT", "label": "Sport button", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOZNIV_WERT", "label": "Oil level sensor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_HS_WERT", "label": "Manual switch", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Bus participants (CAN)",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KOMBI_WERT", "label": "Instrument cluster", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LDM_WERT", "label": "Longitudinal dynamics management", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LMM_WERT", "label": "Mass air flow meter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ICM_WERT", "label": "ICM", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Oil condition / steering / battery sensor",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EWAP_BSD_WERT", "label": "Oil condition sensor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OZS_BSD_WERT", "label": "Oil condition sensor (BSD)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AFS_BN2020_WERT", "label": "Electric steering", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_LIN_WERT", "label": "Battery sensor on LIN", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "OBD monitoring counters",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_OBDCOND_WERT", "label": "OBD monitoring conditions encountered counts", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IGNCNTR_WERT", "label": "Engine start count", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "EVAP / O2 sensor monitor counters",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EVAPCOMP_WERT", "label": "EVAP venting monitor completion counts", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EVAPCOND_WERT", "label": "EVAP venting monitor condition counts", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SO2COMP1_WERT", "label": "O2 sensor monitor completion counts, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SO2COND1_WERT", "label": "O2 sensor monitor condition counts, bank 1", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Throttle valve setpoint (STEUERN_DK)", "kind": "number", "example": "50", "args_template": "0-100 % mapped to actuation byte" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Exhaust camshaft angle setpoint (STEUERN_ANWS)", "kind": "number", "example": "0", "args_template": "-102.4..101.6 deg crank angle" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Intake camshaft angle setpoint (STEUERN_ENWS)", "kind": "number", "example": "0", "args_template": "-102.4..101.6 deg crank angle" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "VVT valve setpoint (STEUERN_VVT)", "kind": "number", "example": "50", "args_template": "0-99 % duty" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Raw byte value", "kind": "number", "example": "128", "args_template": "0-255 single byte" },
+    { "job": "STATUS_LESEN", "field": "Idle speed setpoint (STEUERN_RRZ)", "kind": "number", "example": "5", "args_template": "0.0-15 s ramp time" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Residual-current limit (STEUERN_IERRGRENZ)", "kind": "number", "example": "10", "args_template": "0.0-25 A" },
+    { "job": "STATUS_SYSTEMCHECK_EVAUSBL", "field": "Injector coding data (cylinders 1-4)", "kind": "text", "example": "AB12CD...", "args_template": "per-injector IMA coding string written to ECU" },
+    { "job": "STATUS_MSAINFO_AEP", "field": "Quiescent-current measurement parameters", "kind": "number", "example": "0.5", "args_template": "current 0.0-1310.7 A; timers 0.0-25.5 s" },
+    { "job": "STATUS_LESEN", "field": "Lambda control setpoint", "kind": "number", "example": "1.5", "args_template": "-102.4..101.6 trim entered, range-checked" }
+  ]
+}

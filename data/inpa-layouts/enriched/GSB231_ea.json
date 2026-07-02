@@ -1,0 +1,1885 @@
+{
+  "ecu": "GSB231_ea.IPO",
+  "screens": [
+    {
+      "group": "Status read",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CODIERUNG_MIL_TEXT",
+          "label": "Coding MIL",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CODIERUNG_NIC_TEXT",
+          "label": "Coding NIC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CODIERUNG_SCANTOOL_TEXT",
+          "label": "Coding SCANTOOL",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHL_WERT",
+          "label": "Input speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_AUSGANGSDREHZAHL_WERT",
+          "label": "Output speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_ISTGANG_TEXT",
+          "label": "ISTGANG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_PRND_TEXT",
+          "label": "POS PRND",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UBAT_WERT",
+          "label": "UBAT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAHRPEDAL_WERT",
+          "label": "Accelerator pedal",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_HL_WERT",
+          "label": "RADGESCHWINDIGKEIT HL",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_HR_WERT",
+          "label": "RADGESCHWINDIGKEIT HR",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_VL_WERT",
+          "label": "RADGESCHWINDIGKEIT VL",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_VR_WERT",
+          "label": "RADGESCHWINDIGKEIT VR",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_MOTOROELTEMPERATUR_WERT",
+          "label": "Engine oil temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_GETRIEBEOELTMEPERATUR_WERT",
+          "label": "Transmission oil temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KILOMETERSTAND_WERT",
+          "label": "Odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WANDLERKUPPLUNG_TEXT",
+          "label": "Torque converter clutch",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGANZEIGE_TEXT",
+          "label": "GANGANZEIGE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELANZEIGE_TEXT",
+          "label": "WAEHLHEBELANZEIGE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TASTER_LENKRAD_SCHALTWIPPE_MINUS_TEXT",
+          "label": "TASTER LENKRAD SCHALTWIPPE MINUS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TASTER_LENKRAD_SCHALTWIPPE_PLUS_TEXT",
+          "label": "TASTER LENKRAD SCHALTWIPPE PLUS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_WERT",
+          "label": "HA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_AVR_WERT",
+          "label": "HA AVR",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_START_WERT",
+          "label": "HA START",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_1_MESS_WERT",
+          "label": "HA 1 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_2_MESS_WERT",
+          "label": "HA 2 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_3_MESS_WERT",
+          "label": "HA 3 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_4_MESS_WERT",
+          "label": "HA 4 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_5_MESS_WERT",
+          "label": "HA 5 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_6_MESS_WERT",
+          "label": "HA 6 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_7_MESS_WERT",
+          "label": "HA 7 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_8_MESS_WERT",
+          "label": "HA 8 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_9_MESS_WERT",
+          "label": "HA 9 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_10_MESS_WERT",
+          "label": "HA 10 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_11_MESS_WERT",
+          "label": "HA 11 MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ANZAHL_HA_LERN_WERT",
+          "label": "ANZAHL HA learn",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HA_BERECHNETER_WERT",
+          "label": "HA BERECHNETER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUTO_P_EMF2_ZAEHLER_WERT",
+          "label": "AUTO P EMF2 ZAEHLER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUTO_P_EMF3_ZAEHLER_WERT",
+          "label": "AUTO P EMF3 ZAEHLER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUTO_P_EMF1_ZAEHLER_WERT",
+          "label": "AUTO P EMF1 ZAEHLER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_D_ZAEHLER_WERT",
+          "label": "D ZAEHLER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_S_ZAEHLER_WERT",
+          "label": "S ZAEHLER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_M_ZAEHLER_WERT",
+          "label": "M ZAEHLER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT0_WERT",
+          "label": "Read STELLGLIED OUT0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT1_WERT",
+          "label": "Read STELLGLIED OUT1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT2_WERT",
+          "label": "Read STELLGLIED OUT2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT3_WERT",
+          "label": "Read STELLGLIED OUT3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT4_WERT",
+          "label": "Read STELLGLIED OUT4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT5_WERT",
+          "label": "Read STELLGLIED OUT5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT6_WERT",
+          "label": "Read STELLGLIED OUT6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT7_WERT",
+          "label": "Read STELLGLIED OUT7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT10_WERT",
+          "label": "Read STELLGLIED OUT10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT11_WERT",
+          "label": "Read STELLGLIED OUT11",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT13_WERT",
+          "label": "Read STELLGLIED OUT13",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LESEN_STELLGLIED_OUT14_WERT",
+          "label": "Read STELLGLIED OUT14",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PEGEL_L1_LEITUNG_TEXT",
+          "label": "PEGEL L1 LEITUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PEGEL_L2_LEITUNG_TEXT",
+          "label": "PEGEL L2 LEITUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PEGEL_L3_LEITUNG_TEXT",
+          "label": "PEGEL L3 LEITUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PEGEL_L4_LEITUNG_TEXT",
+          "label": "PEGEL L4 LEITUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIGNAL_DREHRICHTUNG_TEXT",
+          "label": "SIGNAL DREHRICHTUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIGNAL_FAHRERSITZ_TEXT",
+          "label": "SIGNAL FAHRERSITZ",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIGNAL_FAHRERTUER_TEXT",
+          "label": "SIGNAL FAHRERTUER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SIGNAL_SUBSTRATTEMPERATUR_TEXT",
+          "label": "SIGNAL Substrate temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "_GLS_KF1_1_2_WERT",
+          "label": "GLS KF1 1 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_2_3_WERT",
+          "label": "GLS KF1 2 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_3_4_WERT",
+          "label": "GLS KF1 3 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_4_5_WERT",
+          "label": "GLS KF1 4 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_5_6_WERT",
+          "label": "GLS KF1 5 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_7_8_WERT",
+          "label": "GLS KF1 7 8",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_1_3_WERT",
+          "label": "GLS KF1 1 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_2_4_WERT",
+          "label": "GLS KF1 2 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_3_5_WERT",
+          "label": "GLS KF1 3 5",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_4_6_WERT",
+          "label": "GLS KF1 4 6",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_5_7_WERT",
+          "label": "GLS KF1 5 7",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_6_8_WERT",
+          "label": "GLS KF1 6 8",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_2_1_WERT",
+          "label": "GLS KF1 2 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_3_2_WERT",
+          "label": "GLS KF1 3 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_4_3_WERT",
+          "label": "GLS KF1 4 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_5_4_WERT",
+          "label": "GLS KF1 5 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_6_5_WERT",
+          "label": "GLS KF1 6 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_7_6_WERT",
+          "label": "GLS KF1 7 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_8_7_WERT",
+          "label": "GLS KF1 8 7",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_3_1_WERT",
+          "label": "GLS KF1 3 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_4_2_WERT",
+          "label": "GLS KF1 4 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_5_3_WERT",
+          "label": "GLS KF1 5 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_6_4_WERT",
+          "label": "GLS KF1 6 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_7_5_WERT",
+          "label": "GLS KF1 7 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_8_6_WERT",
+          "label": "GLS KF1 8 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "_GLS_KF1_5_1_WERT",
+          "label": "GLS KF1 5 1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_6_3_WERT",
+          "label": "GLS KF1 6 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_7_1_WERT",
+          "label": "GLS KF1 7 1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_8_2_WERT",
+          "label": "GLS KF1 8 2",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF1_8_4_WERT",
+          "label": "GLS KF1 8 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_1_2_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 1 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_1_3_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_2_3_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 2 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_2_4_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 2 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_3_4_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 3 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_3_5_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 3 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_4_5_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 4 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_4_6_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 4 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_5_6_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 5 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_5_7_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_6_7_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 6 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_6_8_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 6 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF1_7_8_WERT",
+          "label": "Adaptation values GLSHSCTRKF1 7 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_2_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 2 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_3_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 3 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_3_2_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 3 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_4_2_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 4 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_4_3_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 4 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_5_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 5 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_5_3_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 5 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_5_4_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 5 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_6_3_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 6 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_6_4_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_6_5_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 6 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_7_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 7 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_7_5_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 7 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_7_6_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 7 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_2_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 8 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_4_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 8 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_6_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 8 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF1_8_7_WERT",
+          "label": "Adaptation values GLSRSCTRKF1 8 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_2_1_WERT",
+          "label": "Adaptation values FLACTR 2 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_3_1_WERT",
+          "label": "Adaptation values FLACTR 3 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_3_2_WERT",
+          "label": "Adaptation values FLACTR 3 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_4_2_WERT",
+          "label": "Adaptation values FLACTR 4 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_4_3_WERT",
+          "label": "Adaptation values FLACTR 4 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_5_1_WERT",
+          "label": "Adaptation values FLACTR 5 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_5_3_WERT",
+          "label": "Adaptation values FLACTR 5 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_5_4_WERT",
+          "label": "Adaptation values FLACTR 5 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_6_3_WERT",
+          "label": "Adaptation values FLACTR 6 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_6_4_WERT",
+          "label": "Adaptation values FLACTR 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_6_5_WERT",
+          "label": "Adaptation values FLACTR 6 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_7_1_WERT",
+          "label": "Adaptation values FLACTR 7 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_7_5_WERT",
+          "label": "Adaptation values FLACTR 7 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_7_6_WERT",
+          "label": "Adaptation values FLACTR 7 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_8_2_WERT",
+          "label": "Adaptation values FLACTR 8 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_8_4_WERT",
+          "label": "Adaptation values FLACTR 8 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_8_6_WERT",
+          "label": "Adaptation values FLACTR 8 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_FLACTR_8_7_WERT",
+          "label": "Adaptation values FLACTR 8 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_1_2_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 1 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_1_3_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_2_3_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 2 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_2_4_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 2 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_3_4_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 3 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_3_5_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 3 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_4_5_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 4 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_4_6_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 4 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_5_6_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 5 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_5_7_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_6_7_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 6 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_6_8_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 6 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSHSCTRKF2_7_8_WERT",
+          "label": "Adaptation values GLSHSCTRKF2 7 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_2_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 2 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_3_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 3 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_3_2_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 3 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_4_2_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 4 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_4_3_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 4 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_5_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 5 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_5_3_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 5 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_5_4_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 5 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_6_3_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 6 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_6_4_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_6_5_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 6 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_7_1_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 7 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_7_5_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 7 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_7_6_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 7 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_2_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 8 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_4_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 8 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_6_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 8 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_GLSRSCTRKF2_8_7_WERT",
+          "label": "Adaptation values GLSRSCTRKF2 8 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_2_1_WERT",
+          "label": "Adaptation values BFLGLSRS 2 1",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_3_1_WERT",
+          "label": "Adaptation values BFLGLSRS 3 1",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_3_2_WERT",
+          "label": "Adaptation values BFLGLSRS 3 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_4_2_WERT",
+          "label": "Adaptation values BFLGLSRS 4 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_4_3_WERT",
+          "label": "Adaptation values BFLGLSRS 4 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_5_1_WERT",
+          "label": "Adaptation values BFLGLSRS 5 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_5_3_WERT",
+          "label": "Adaptation values BFLGLSRS 5 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_5_4_WERT",
+          "label": "Adaptation values BFLGLSRS 5 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_6_3_WERT",
+          "label": "Adaptation values BFLGLSRS 6 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_6_4_WERT",
+          "label": "Adaptation values BFLGLSRS 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_6_5_WERT",
+          "label": "Adaptation values BFLGLSRS 6 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_7_1_WERT",
+          "label": "Adaptation values BFLGLSRS 7 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_7_5_WERT",
+          "label": "Adaptation values BFLGLSRS 7 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_7_6_WERT",
+          "label": "Adaptation values BFLGLSRS 7 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_2_WERT",
+          "label": "Adaptation values BFLGLSRS 8 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_4_WERT",
+          "label": "Adaptation values BFLGLSRS 8 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_6_WERT",
+          "label": "Adaptation values BFLGLSRS 8 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSRS_8_7_WERT",
+          "label": "Adaptation values BFLGLSRS 8 7",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_1_2_WERT",
+          "label": "Adaptation values BFLGLSHS 1 2",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_1_3_WERT",
+          "label": "Adaptation values BFLGLSHS 1 3",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_2_3_WERT",
+          "label": "Adaptation values BFLGLSHS 2 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_2_4_WERT",
+          "label": "Adaptation values BFLGLSHS 2 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_3_4_WERT",
+          "label": "Adaptation values BFLGLSHS 3 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_3_5_WERT",
+          "label": "Adaptation values BFLGLSHS 3 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_4_5_WERT",
+          "label": "Adaptation values BFLGLSHS 4 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_4_6_WERT",
+          "label": "Adaptation values BFLGLSHS 4 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_5_6_WERT",
+          "label": "Adaptation values BFLGLSHS 5 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_5_7_WERT",
+          "label": "Adaptation values BFLGLSHS 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_6_7_WERT",
+          "label": "Adaptation values BFLGLSHS 6 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_6_8_WERT",
+          "label": "Adaptation values BFLGLSHS 6 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_BFLGLSHS_7_8_WERT",
+          "label": "Adaptation values BFLGLSHS 7 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERT1_SBC_WERT",
+          "label": "Adaptation value 1 SBC",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERT2_SBC_WERT",
+          "label": "Adaptation value 2 SBC",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ADAPTIONSWERT3_SBC_WERT",
+          "label": "Adaptation value 3 SBC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERT4_SBC_WERT",
+          "label": "Adaptation value 4 SBC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_A_WERT",
+          "label": "Adaptation values KSF Clutch A",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_B_WERT",
+          "label": "Adaptation values KSF Clutch B",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_C_WERT",
+          "label": "Adaptation values KSF Clutch C",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_D_WERT",
+          "label": "Adaptation values KSF Clutch D",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KSF_KUPPLUNG_E_WERT",
+          "label": "Adaptation values KSF Clutch E",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_LCCFP_I_F_ADA_WERT",
+          "label": "Adaptation values LCCFP I F ADA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_LCCFP_BEWERTUNG_WERT",
+          "label": "Adaptation values LCCFP BEWERTUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_LCCFP_GWK_AKTIV_WERT",
+          "label": "Adaptation values LCCFP GWK active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KPF_KUPPLUNG_A_WERT",
+          "label": "Adaptation values KPF Clutch A",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KPF_KUPPLUNG_B_WERT",
+          "label": "Adaptation values KPF Clutch B",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KPF_KUPPLUNG_C_WERT",
+          "label": "Adaptation values KPF Clutch C",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KPF_KUPPLUNG_D_WERT",
+          "label": "Adaptation values KPF Clutch D",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_KPF_KUPPLUNG_E_WERT",
+          "label": "Adaptation values KPF Clutch E",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "_GLS_KF2_1_2_WERT",
+          "label": "GLS KF2 1 2",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_2_3_WERT",
+          "label": "GLS KF2 2 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_3_4_WERT",
+          "label": "GLS KF2 3 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_4_5_WERT",
+          "label": "GLS KF2 4 5",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_6_7_WERT",
+          "label": "GLS KF2 6 7",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_7_8_WERT",
+          "label": "GLS KF2 7 8",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_1_3_WERT",
+          "label": "GLS KF2 1 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_2_4_WERT",
+          "label": "GLS KF2 2 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_3_5_WERT",
+          "label": "GLS KF2 3 5",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_4_6_WERT",
+          "label": "GLS KF2 4 6",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_5_7_WERT",
+          "label": "GLS KF2 5 7",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_6_8_WERT",
+          "label": "GLS KF2 6 8",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_2_1_WERT",
+          "label": "GLS KF2 2 1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_3_2_WERT",
+          "label": "GLS KF2 3 2",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_4_3_WERT",
+          "label": "GLS KF2 4 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_5_4_WERT",
+          "label": "GLS KF2 5 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_6_5_WERT",
+          "label": "GLS KF2 6 5",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_7_6_WERT",
+          "label": "GLS KF2 7 6",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_8_7_WERT",
+          "label": "GLS KF2 8 7",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_3_1_WERT",
+          "label": "GLS KF2 3 1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_4_2_WERT",
+          "label": "GLS KF2 4 2",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_5_3_WERT",
+          "label": "GLS KF2 5 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_6_4_WERT",
+          "label": "GLS KF2 6 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_7_5_WERT",
+          "label": "GLS KF2 7 5",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_8_6_WERT",
+          "label": "GLS KF2 8 6",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_5_1_WERT",
+          "label": "GLS KF2 5 1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_6_3_WERT",
+          "label": "GLS KF2 6 3",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_7_1_WERT",
+          "label": "GLS KF2 7 1",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_8_2_WERT",
+          "label": "GLS KF2 8 2",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "_GLS_KF2_8_4_WERT",
+          "label": "GLS KF2 8 4",
+          "unit": "A",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELSTELLUNG_TEXT",
+          "label": "WAEHLHEBELSTELLUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELSTELLUNG_P_TASTER_TEXT",
+          "label": "WAEHLHEBELSTELLUNG P TASTER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_HALTEMAGNET_TEXT",
+          "label": "MSA HALTEMAGNET",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_ANFORDERUNG_TEXT",
+          "label": "MSA ANFORDERUNG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSA_ABSCHALTVERHINDERER_TEXT",
+          "label": "MSA ABSCHALTVERHINDERER",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORSOLLMOMENT_WERT",
+          "label": "MOTORSOLLMOMENT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORISTMOMENT_WERT",
+          "label": "MOTORISTMOMENT",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_LESEN",
+      "field": "Enter SVK backup number",
+      "kind": "number",
+      "example": "5",
+      "args_template": "value entered by user is passed as the job argument"
+    }
+  ]
+}

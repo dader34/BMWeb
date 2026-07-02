@@ -1,0 +1,377 @@
+{
+  "ecu": "IHKA87.IPO",
+  "screens": [
+    {
+      "group": "Fault memory / Identification",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-digit)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Auxiliary heater",
+      "job": "STATUS_SHZH",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FLAMME_WERT",
+          "label": "Flame detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SHZH_WERT",
+          "label": "Auxiliary heater status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Climate values",
+      "job": "STATUS_IHX_WERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_T_INNEN_WERT",
+          "label": "Interior temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_AUSSEN_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_FUSSRAUM_WERT",
+          "label": "Footwell temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_BELUEFTUNG_WERT",
+          "label": "Ventilation temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SOLAR_WERT",
+          "label": "Solar sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_VERDAMPFER_WERT",
+          "label": "Evaporator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_DRUCK_KAELTEMITTEL_WERT",
+          "label": "Refrigerant pressure",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_KLEMME_30_WERT",
+          "label": "Terminal 30 (battery)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_AUC_WERT",
+          "label": "AUC sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_EC_LUEFTER_STUFE_WERT",
+          "label": "EC fan stage",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_SOLLWERT_FA_WERT",
+          "label": "Setpoint temp, driver",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_T_SOLLWERT_BF_WERT",
+          "label": "Setpoint temp, passenger",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_Y_WERT",
+          "label": "Control output Y",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LVT_WERT",
+          "label": "Air distribution angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLWERT_GEBLAESE_WERT",
+          "label": "Blower setpoint position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TASTER_KULISSENSCHEIBE_WERT",
+          "label": "Crank-disk microswitch",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Stepper motor flap positions",
+      "job": "STATUS_MOTOR_KLAPPENPOSITION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PTC_WERT",
+          "label": "PTC heater",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRISCHLUFT_UMLUFT_WERT",
+          "label": "Fresh air / recirculation flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_DEFROST_WERT",
+          "label": "Defrost flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BELUEFTUNG_WERT",
+          "label": "Ventilation flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUSSRAUM_WERT",
+          "label": "Footwell flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FOND_WERT",
+          "label": "Rear compartment flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FRONT_SCHICHTUNG_WERT",
+          "label": "Front air stratification",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MISCHLUFT_LINKS_WERT",
+          "label": "Mixed air flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MISCHLUFT_RECHTS_WERT",
+          "label": "Mixed air flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_MISCHLUFT_WERT",
+          "label": "Mixed air flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZENTRALANTRIEB_WERT",
+          "label": "Central drive flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Run-on protection timer",
+      "job": "STATUS_TIMER_EINLAUFSCHUTZ",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TIMER_WERT",
+          "label": "Run-on protection timer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Auxiliary heater identification",
+      "job": "STATUS_SHZH_IDENT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SH_VARIANTE_WERT",
+          "label": "Auxiliary heater variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Auxiliary heater I-O",
+      "job": "STATUS_SHZH_IO",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BETRIEBSSPANNUNG_WERT",
+          "label": "Operating voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FUNKTIONSZUSTAND_TEXT",
+          "label": "Function state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUNKTIONSZUSTAND_WERT",
+          "label": "Function state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FLAMME_WERT",
+          "label": "Flame detected",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GLUEHELEMENTWIDERSTAND_WERT",
+          "label": "Glow element resistance",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -1,0 +1,541 @@
+{
+  "ecu": "PM65.IPO",
+  "screens": [
+    {
+      "group": "Battery / power-management data",
+      "job": "ZIF_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Total battery discharge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Total battery charge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIEQUALITAET_BACKUP_KOMBI_WERT",
+          "label": "Battery quality backup (cluster)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIEQUALITAET_WERT",
+          "label": "Battery quality",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "Battery change (3rd last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+          "label": "Battery change (5th last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Battery change (last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_SECHSTLETZTER_WERT",
+          "label": "Battery change (6th last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_SIEBTLETZTER_WERT",
+          "label": "Battery change (7th last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "Battery change (4th last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "Battery change (2nd last)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery capacity",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIE_LADUNGSZUSTAND_REL_WERT",
+          "label": "Battery charge state (relative)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIE_LADUNGSZUSTAND_WERT",
+          "label": "Battery charge state",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_BATTERIE_RESTLAUFZEIT_WERT",
+          "label": "Battery remaining runtime",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_AKTUELL_WERT",
+          "label": "Odometer (current)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+          "label": "Odometer (1 day ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_2_TAGEN_WERT",
+          "label": "Odometer (2 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_3_TAGEN_WERT",
+          "label": "Odometer (3 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_4_TAGEN_WERT",
+          "label": "Odometer (4 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_5_TAGEN_WERT",
+          "label": "Odometer (5 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_6_TAGEN_WERT",
+          "label": "Odometer (6 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_7_TAGEN_WERT",
+          "label": "Odometer (7 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_8_TAGEN_WERT",
+          "label": "Odometer (8 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_9_TAGEN_WERT",
+          "label": "Odometer (9 days ago)",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+          "label": "Charge state (current)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+          "label": "Charge state (1 day ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_2_TAGEN_WERT",
+          "label": "Charge state (2 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_3_TAGEN_WERT",
+          "label": "Charge state (3 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_4_TAGEN_WERT",
+          "label": "Charge state (4 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_5_TAGEN_WERT",
+          "label": "Charge state (5 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_6_TAGEN_WERT",
+          "label": "Charge state (6 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_7_TAGEN_WERT",
+          "label": "Charge state (7 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_8_TAGEN_WERT",
+          "label": "Charge state (8 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_9_TAGEN_WERT",
+          "label": "Charge state (9 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_AKTUELL_WERT",
+          "label": "Charge quantity SOC (current)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+          "label": "Charge quantity SOC (1 day ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_2_TAGEN_WERT",
+          "label": "Charge quantity SOC (2 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_3_TAGEN_WERT",
+          "label": "Charge quantity SOC (3 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_4_TAGEN_WERT",
+          "label": "Charge quantity SOC (4 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_5_TAGEN_WERT",
+          "label": "Charge quantity SOC (5 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_6_TAGEN_WERT",
+          "label": "Charge quantity SOC (6 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_7_TAGEN_WERT",
+          "label": "Charge quantity SOC (7 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_8_TAGEN_WERT",
+          "label": "Charge quantity SOC (8 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_9_TAGEN_WERT",
+          "label": "Charge quantity SOC (9 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Q_SOC_WERT",
+          "label": "Charge quantity SOC",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RESETZAEHLER_WERT",
+          "label": "Reset counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROMWECKZAEHLER_WERT",
+          "label": "Quiescent-current wake counter",
+          "unit": "mA",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOC_FIT_WERT",
+          "label": "SOC fit value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOH_WERT",
+          "label": "State of health (SOH)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+          "label": "Start capability limit (current)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+          "label": "Start capability limit (1 day ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAGEN_WERT",
+          "label": "Start capability limit (2 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAGEN_WERT",
+          "label": "Start capability limit (3 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAGEN_WERT",
+          "label": "Start capability limit (4 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAGEN_WERT",
+          "label": "Start capability limit (5 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_6_TAGEN_WERT",
+          "label": "Start capability limit (6 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_7_TAGEN_WERT",
+          "label": "Start capability limit (7 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_8_TAGEN_WERT",
+          "label": "Start capability limit (8 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_9_TAGEN_WERT",
+          "label": "Start capability limit (9 days ago)",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_TEMP_SAISON_WERT",
+          "label": "Seasonal temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_U_KAL_1STD_WERT",
+          "label": "Calibration voltage (1 h)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_U_KAL_2STD_WERT",
+          "label": "Calibration voltage (2 h)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_U_KAL_6STD_WERT",
+          "label": "Calibration voltage (6 h)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_10_20_WERT",
+          "label": "Time in charge range 10-20%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_30_WERT",
+          "label": "Time in charge range 20-30%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_30_40_WERT",
+          "label": "Time in charge range 30-40%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_50_WERT",
+          "label": "Time in charge range 40-50%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_50_60_WERT",
+          "label": "Time in charge range 50-60%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_70_WERT",
+          "label": "Time in charge range 60-70%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_70_80_WERT",
+          "label": "Time in charge range 70-80%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_90_WERT",
+          "label": "Time in charge range 80-90%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_90_100_WERT",
+          "label": "Time in charge range 90-100%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH__0_10_WERT",
+          "label": "Time in charge range 0-10%",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "IS_LESEN",
+      "field": "Email address (info report recipient)",
+      "kind": "text",
+      "example": "name@example.com",
+      "args_template": "Free-text email string passed as the job argument."
+    }
+  ]
+}

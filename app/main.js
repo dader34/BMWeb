@@ -1,9 +1,10 @@
-// electron main. spawns .NET sidecar (EDIABAS engine), waits for /api/health,
-// opens window, kills sidecar on quit.
+// electron main. spawns .NET sidecar (EDIABAS engine) and opens the window
+// immediately; the renderer polls /api/health while its boot splash shows.
+// on quit: SIGTERM the sidecar (server runs flash-recovery cleanup), then
+// hard-kill after ~3s if it hangs.
 
 const { app, BrowserWindow, ipcMain, dialog, Menu, nativeImage } = require('electron');
 const { spawn } = require('child_process');
-const http = require('http');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,7 +13,26 @@ app.setName('BMacW');
 
 const SIDECAR_URL = 'http://127.0.0.1:8777';
 let sidecar = null;
+let sidecarExited = false;
 let win = null;
+
+// sidecar stdout/stderr -> ~/Library/Logs/BMacW/sidecar.log so crashes are
+// debuggable ("sidecar exited: null" used to be all we had). append mode;
+// truncated at spawn once it grows past 5MB.
+function openSidecarLog() {
+  try {
+    const logDir = app.getPath('logs');
+    fs.mkdirSync(logDir, { recursive: true });
+    const logPath = path.join(logDir, 'sidecar.log');
+    try {
+      if (fs.statSync(logPath).size > 5 * 1024 * 1024) fs.truncateSync(logPath, 0);
+    } catch {}
+    return fs.createWriteStream(logPath, { flags: 'a' });
+  } catch (e) {
+    console.error(`sidecar log unavailable: ${e.message}`);
+    return null;
+  }
+}
 
 function startSidecar() {
   // EDIABAS data root (vendor/EDIABAS, vendor/EC-APPS, tools/translations).
@@ -32,31 +52,31 @@ function startSidecar() {
   if (fs.existsSync(bundled)) serverBin = bundled;
   else if (fs.existsSync(local)) serverBin = local;
 
+  const log = openSidecarLog();
+  const logLine = (msg) => { if (log) log.write(`[${new Date().toISOString()}] ${msg}\n`); };
+
+  let cmdDesc;
   if (serverBin) {
-    sidecar = spawn(serverBin, [], { cwd: path.dirname(serverBin), stdio: 'ignore', env });
+    cmdDesc = serverBin;
+    sidecar = spawn(serverBin, [], {
+      cwd: path.dirname(serverBin), stdio: ['ignore', 'pipe', 'pipe'], env,
+    });
   } else {
     const serverProj = path.join(dataRoot, 'src', 'InpaMac.Server');
+    cmdDesc = `dotnet run --project ${serverProj} -c Release`;
     sidecar = spawn('dotnet', ['run', '--project', serverProj, '-c', 'Release'], {
-      cwd: dataRoot, stdio: 'ignore', env,
+      cwd: dataRoot, stdio: ['ignore', 'pipe', 'pipe'], env,
     });
   }
-  sidecar.on('exit', (code) => console.log(`sidecar exited: ${code}`));
-}
-
-function waitForHealth(retries = 60) {
-  return new Promise((resolve, reject) => {
-    const tick = () => {
-      http.get(`${SIDECAR_URL}/api/health`, (res) => {
-        res.resume();
-        if (res.statusCode === 200) return resolve();
-        retry();
-      }).on('error', retry);
-    };
-    const retry = () => {
-      if (--retries <= 0) return reject(new Error('sidecar never became healthy'));
-      setTimeout(tick, 500);
-    };
-    tick();
+  logLine(`spawn: ${cmdDesc} (pid ${sidecar.pid}, BMACW_ROOT=${env.BMACW_ROOT})`);
+  if (sidecar.stdout) sidecar.stdout.pipe(log || process.stdout, { end: false });
+  if (sidecar.stderr) sidecar.stderr.pipe(log || process.stderr, { end: false });
+  sidecar.on('error', (err) => logLine(`spawn error: ${err.message}`));
+  sidecar.on('exit', (code, signal) => {
+    sidecarExited = true;
+    logLine(`sidecar exited: code=${code} signal=${signal}`);
+    console.log(`sidecar exited: code=${code} signal=${signal}`);
+    if (log) log.end();
   });
 }
 
@@ -75,7 +95,11 @@ function createWindow() {
     hasShadow: false,                // native shadow cant render on transparent window
     backgroundColor: '#00000000',    // transparent base, renderer fills per theme
     icon: path.join(__dirname, 'icon.png'),
-    webPreferences: { contextIsolation: true, preload: path.join(__dirname, 'preload.js') },
+    webPreferences: {
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: [`--bmacw-version=${app.getVersion()}`],
+    },
   });
   // pass sidecar base URL to renderer
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'), {
@@ -114,6 +138,33 @@ ipcMain.handle('log:stop', (_evt, id) => {
   return { ok: true };
 });
 
+// render a fault report (self-contained HTML) to PDF via an offscreen window,
+// then save it through the native dialog. returns { ok, path } or { ok:false }.
+ipcMain.handle('pdf:save', async (_evt, suggestedName, html) => {
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Save fault report as PDF',
+    defaultPath: suggestedName || 'bmacw-faults.pdf',
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (res.canceled || !res.filePath) return { ok: false };
+  let worker;
+  try {
+    worker = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
+    await worker.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    const pdf = await worker.webContents.printToPDF({
+      printBackground: true,
+      margins: { marginType: 'custom', top: 0.5, bottom: 0.5, left: 0.5, right: 0.5 },
+      pageSize: 'Letter',
+    });
+    fs.writeFileSync(res.filePath, pdf);
+    return { ok: true, path: res.filePath };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  } finally {
+    if (worker && !worker.isDestroyed()) worker.destroy();
+  }
+});
+
 // set native backgroundColor so opaque themes dont flash the transparent base on
 // load/resize. see-through itself is a CSS concern.
 ipcMain.handle('window:translucent', (_evt, on) => {
@@ -150,7 +201,7 @@ function csvCell(v) {
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) {
     try { app.dock.setIcon(path.join(__dirname, 'icon.png')); } catch {}
   }
@@ -175,12 +226,9 @@ app.whenReady().then(async () => {
       { role: 'windowMenu' },
     ]));
   }
+  // window first: spawn the sidecar and open the UI immediately. the renderer
+  // polls /api/health behind its boot splash, so no 30s blank-app wait here.
   startSidecar();
-  try {
-    await waitForHealth();
-  } catch (e) {
-    console.error(e.message);
-  }
   createWindow();
 
   app.on('activate', () => {
@@ -188,15 +236,24 @@ app.whenReady().then(async () => {
   });
 });
 
-// tear down sidecar and any orphan server on quit
-function killSidecar() {
-  if (sidecar && !sidecar.killed) {
-    try { sidecar.kill('SIGTERM'); } catch {}
-    // force-kill if it ignored SIGTERM
-    const pid = sidecar.pid;
-    setTimeout(() => { try { process.kill(pid, 'SIGKILL'); } catch {} }, 800);
-  }
-  // kill any InpaMac.Server still holding the port
+// tear down sidecar on quit: SIGTERM first so the server can run its
+// flash-recovery cleanup, wait up to ~3s for exit, then SIGKILL. pkill only
+// as a last resort for orphans not tracked by our child handle.
+function stopSidecarGracefully() {
+  return new Promise((resolve) => {
+    if (!sidecar || sidecarExited) return resolve();
+    const child = sidecar;
+    const timer = setTimeout(() => {
+      try { child.kill('SIGKILL'); } catch {}
+      resolve();
+    }, 3000);
+    child.once('exit', () => { clearTimeout(timer); resolve(); });
+    try { child.kill('SIGTERM'); } catch { clearTimeout(timer); resolve(); }
+  });
+}
+
+// sweep orphaned servers still holding the port (e.g. from a crashed run)
+function killOrphans() {
   try {
     require('child_process').execSync(
       "pkill -9 -f InpaMac.Server 2>/dev/null; lsof -ti:8777 2>/dev/null | xargs kill -9 2>/dev/null",
@@ -205,10 +262,19 @@ function killSidecar() {
 }
 
 app.on('window-all-closed', () => {
-  killSidecar();
   app.quit(); // quit on macOS too: closing the window quits BMacW
 });
 
-app.on('before-quit', killSidecar);
-app.on('will-quit', killSidecar);
-process.on('exit', killSidecar);
+let quitting = false;
+app.on('before-quit', (e) => {
+  if (quitting) return;
+  quitting = true;
+  e.preventDefault(); // hold quit until the sidecar had its chance to clean up
+  stopSidecarGracefully().then(() => {
+    killOrphans();
+    app.quit();
+  });
+});
+
+// last-resort sync sweep if the process exits some other way
+process.on('exit', () => { if (!quitting) killOrphans(); });

@@ -1,0 +1,48 @@
+{
+  "ecu": "gs1912_ea.IPO",
+  "screens": [],
+  "inputs": [
+    {
+      "job": "FS_LESEN",
+      "field": "Name and chassis number (FG-Nr.)",
+      "kind": "text",
+      "example": "Smith / WBA12345678901234",
+      "args_template": "free-text technician name plus vehicle chassis number, stored with the fault-memory/control-unit-status log"
+    },
+    {
+      "job": "FS_LESEN",
+      "field": "Filename for fault memory and ECU status",
+      "kind": "text",
+      "example": "gs19_fs_log",
+      "args_template": "free-text filename used when saving the fault-memory and control-unit status report"
+    },
+    {
+      "job": "SPEICHER_LESEN",
+      "field": "Name for the test code",
+      "kind": "text",
+      "example": "ADP_CHECK",
+      "args_template": "free-text label saved with the read memory/test code"
+    },
+    {
+      "job": "FS_LESEN",
+      "field": "Desired line pressure",
+      "kind": "number",
+      "example": "5.0",
+      "args_template": "numeric line pressure setpoint (bar) passed to the transmission pressure control routine"
+    },
+    {
+      "job": "FS_LESEN",
+      "field": "Desired TCC (torque converter clutch) pressure",
+      "kind": "number",
+      "example": "3.0",
+      "args_template": "numeric TCC pressure setpoint (bar) passed to the converter clutch control routine"
+    },
+    {
+      "job": "FS_LESEN",
+      "field": "Clutch C1-C4 / TCC ON-OFF command",
+      "kind": "text",
+      "example": "ON",
+      "args_template": "ON or OFF per clutch (C1, C2, C3, C4, TCC) to command the shift-element solenoid state"
+    }
+  ]
+}

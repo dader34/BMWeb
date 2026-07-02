@@ -1,0 +1,234 @@
+{
+  "ecu": "IHKA.IPO",
+  "screens": [
+    {
+      "group": "Analog status values",
+      "job": "STATUS_LESEN_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_INNENRAUMTEMP_WERT",
+          "label": "Interior temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_AUSSENTEMP_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_VERDAMPFERTEMP_WERT",
+          "label": "Evaporator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_LI_TAUSCHERTEMP_WERT",
+          "label": "Heat-exchanger temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_RE_TAUSCHERTEMP_WERT",
+          "label": "Heat-exchanger temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_LI_INNENTEMP_SOLL_WERT",
+          "label": "Target temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_RE_INNENTEMP_SOLL_WERT",
+          "label": "Target temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_LI_INNENTEMP_KORR_SOLL_WERT",
+          "label": "Corrected target temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_RE_INNENTEMP_KORR_SOLL_WERT",
+          "label": "Corrected target temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_LI_FUEHRUNGSREGLER_WERT",
+          "label": "Master controller, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RE_FUEHRUNGSREGLER_WERT",
+          "label": "Master controller, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LI_TAKTVENTIL_TASTVERH_WERT",
+          "label": "Cycling-valve duty cycle, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RE_TAKTVENTIL_TASTVERH_WERT",
+          "label": "Cycling-valve duty cycle, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FRISCHLUFTKLAPPENPOS_WERT",
+          "label": "Fresh-air flap position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_ENTFROSTKLAPPE_WERT",
+          "label": "Defrost flap",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_UMLUFTKLAPPENPOS_WERT",
+          "label": "Recirculation flap position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LI_SCHICHTUNGSKLAPPE_WERT",
+          "label": "Stratification flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RE_SCHICHTUNGSKLAPPE_WERT",
+          "label": "Stratification flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LI_BELUEFTUNG_VORNE_WERT",
+          "label": "Front ventilation flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RE_BELUEFTUNG_VORNE_WERT",
+          "label": "Front ventilation flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LI_FUSSRAUMKLAPPE_WERT",
+          "label": "Footwell flap, left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RE_FUSSRAUMKLAPPE_WERT",
+          "label": "Footwell flap, right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SCHICHTUNGSSTELLER_WERT",
+          "label": "Stratification actuator",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LUFTMENGENWAEHLRAD_WERT",
+          "label": "Blower selector wheel",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SPANNUNG_KL15_WERT",
+          "label": "Terminal 15 voltage (ignition)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_GEBLAESESTEUERSPG_WERT",
+          "label": "Blower control voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FAHRGESCHWINDIGKEIT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Control panel",
+      "job": "STATUS_BEDIENTEIL",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_LI_INNENTEMP_SOLL_WERT",
+          "label": "Target temperature, left",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_RE_INNENTEMP_SOLL_WERT",
+          "label": "Target temperature, right",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_LUFTMENGENWAEHLRAD_WERT",
+          "label": "Blower setting",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

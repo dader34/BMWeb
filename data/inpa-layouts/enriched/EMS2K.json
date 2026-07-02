@@ -1,0 +1,1749 @@
+{
+ "ecu": "EMS2K.IPO",
+ "screens": [
+  {
+   "group": "Manufacturer / supplier info",
+   "job": null,
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "ID_LIEF_TEXT",
+     "label": "ID supplier",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog CAN DME2",
+   "job": "STATUS_ANA_CAN_DME2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_CRU_SET_LAMP_WERT",
+     "label": "CAN Cru Set Lamp",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_MUL_INFO_WERT",
+     "label": "CAN multiplicative Info",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_MUL_COD_WERT",
+     "label": "CAN multiplicative Cod",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_TCO_WERT",
+     "label": "CAN Tco",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_PV_AV_WERT",
+     "label": "CAN Pv Av",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Battery voltage",
+   "job": "STATUS_UBATT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_UBATT_WERT",
+     "label": "Battery voltage",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    }
+   ]
+  },
+  {
+   "group": "Analog Engine9",
+   "job": "STATUS_ANA_ENGINE9",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VS_WERT",
+     "label": "Vs",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_VB_WERT",
+     "label": "Vb",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_N_WERT",
+     "label": "N",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_VS_CVT_WERT",
+     "label": "Vs CVT",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_GR_MT_WERT",
+     "label": "Gr Mt",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_GR_AT_WERT",
+     "label": "Gr At",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CPPWM_WERT",
+     "label": "Cppwm",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LOAD_CLC_WERT",
+     "label": "Load Clc",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Engine RPM",
+   "job": "STATUS_MOTORDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORDREHZAHL_WERT",
+     "label": "Engine RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_N_SP_ADD_KWP_LTA_WERT",
+     "label": "N Sp additive Kwp Lta",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Ignition angle",
+   "job": "STATUS_ZUENDWINKEL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ZUENDWINKEL_WERT",
+     "label": "Ignition angle",
+     "unit": "°",
+     "min": -180,
+     "max": 180
+    }
+   ]
+  },
+  {
+   "group": "Engine temp",
+   "job": "STATUS_MOTORTEMPERATUR",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORTEMPERATUR_WERT",
+     "label": "Engine temp",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "Analog Engine5",
+   "job": "STATUS_ANA_ENGINE5",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KNKS_BAS_WERT",
+     "label": "Knks Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_IGA_CYL_KNK0_WERT",
+     "label": "Iga Cyl Knk0",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_KNKWB_0_WERT",
+     "label": "Knkwb 0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KNKWD_0_WERT",
+     "label": "Knkwd 0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KNK_EGY_0_WERT",
+     "label": "Knk Egy 0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KNKS_0_WERT",
+     "label": "Knks 0",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_IGA_IGC_0_WERT",
+     "label": "Iga Igc 0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IGA_IGC_3_WERT",
+     "label": "Iga Igc 3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IGA_IGC_1_WERT",
+     "label": "Iga Igc 1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IGA_IGC_2_WERT",
+     "label": "Iga Igc 2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_IGA_SP_WERT",
+     "label": "Iga Sp",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog in Air temp",
+   "job": "STATUS_AN_LUFTTEMPERATUR",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_AN_LUFTTEMPERATUR_WERT",
+     "label": "Analog in Air temp",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    }
+   ]
+  },
+  {
+   "group": "Analog Engine4",
+   "job": "STATUS_ANA_ENGINE4",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TRANS_OIL_TEMP_WERT",
+     "label": "Trans Oil Temperature",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    },
+    {
+     "key": "STAT_TPS_MTC_1_WERT",
+     "label": "Tps Mtc 1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TPS_MTC_2_WERT",
+     "label": "Tps Mtc 2",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_PV_AV_1_WERT",
+     "label": "Pv Av 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_PV_AV_2_WERT",
+     "label": "Pv Av 2",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TPS_WERT",
+     "label": "Tps",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_PV_AV_WERT",
+     "label": "Pv Av",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VLS_UP_1_WERT",
+     "label": "Vls Up 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VLS_DOWN_1_WERT",
+     "label": "Vls Down 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VB_RLY_WERT",
+     "label": "Vb Rly",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VB_KEY_WERT",
+     "label": "Vb Key",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TCO_WERT",
+     "label": "Tco",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TIA_WERT",
+     "label": "Tia",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_MAP_WERT",
+     "label": "Map",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_MAP_UP_WERT",
+     "label": "Map Up",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_AC_PRS_WERT",
+     "label": "Ac Prs",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Air-mass meter Mass",
+   "job": "STATUS_LMM_MASSE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LMM_MASSE_WERT",
+     "label": "Air-mass meter Mass",
+     "unit": "ms",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Injection time",
+   "job": "STATUS_EINSPRITZZEIT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_EINSPRITZZEIT_WERT",
+     "label": "Injection time",
+     "unit": "ms",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog CAN DME5",
+   "job": "STATUS_ANA_CAN_DME5",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_DES_AIM_POSITION_WERT",
+     "label": "CAN Des Aim Position",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_DES_CMD_TYPE_WERT",
+     "label": "CAN Des Cmd Type",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_DES_AIM_SPEED_WERT",
+     "label": "CAN Des Aim Speed",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_DES_CLU_SOL_DR_WERT",
+     "label": "CAN Des Clu Sol pressure ctrl",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_CLUTCH_CODES_WERT",
+     "label": "CAN clutch Codes",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_DES_SDRY_PRES_DR_WERT",
+     "label": "CAN Des Sdry Pres pressure ctrl",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_SDRY_PRES_CODES_WERT",
+     "label": "CAN Sdry Pres Codes",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_MAP_WERT",
+     "label": "CAN Map",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog Wheel Torque",
+   "job": "STATUS_ANA_WHEEL_TORQUE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_TQ_AT_WHEELS_WOUT_LOSS_WERT",
+     "label": "CAN Tq At Wheels Wout Loss",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_CAN_TW_NORM_WERT",
+     "label": "CAN Tw Norm",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_CAN_TW_TQ_LOSS_WERT",
+     "label": "CAN Tw Tq Loss",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_TW_TQI_REQ_TRA_WERT",
+     "label": "CAN Tw Tqi Req Tra",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog FUEL CONS",
+   "job": "STATUS_ANA_FUEL_CONS",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TI_SUM_FCO_WERT",
+     "label": "Ti Sum Fco",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog CAN DME1",
+   "job": "STATUS_ANA_CAN_DME1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_N_WERT",
+     "label": "CAN N",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Analog Engine2",
+   "job": "STATUS_ANA_ENGINE2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_STATE_CP_WERT",
+     "label": "State Cp",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_ALTER_WERT",
+     "label": "Alter",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog INJ TIME",
+   "job": "STATUS_ANA_INJ_TIME",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TIPR_WERT",
+     "label": "Tipr",
+     "unit": "ms",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TI_V_000_WERT",
+     "label": "Ti V 000",
+     "unit": "ms",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog Engine3",
+   "job": "STATUS_ANA_ENGINE3",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TCO_BAS_WERT",
+     "label": "Tco Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TIA_BAS_WERT",
+     "label": "Tia Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MAP_BAS_WERT",
+     "label": "Map Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MAP_UP_BAS_WERT",
+     "label": "Map Up Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_AC_PRS_BAS_WERT",
+     "label": "Ac Prs Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TOIL_CVT_BAS_WERT",
+     "label": "Toil CVT Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TPS_1_BAS_WERT",
+     "label": "Tps 1 Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_TPS_2_BAS_WERT",
+     "label": "Tps 2 Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_PVS_1_BAS_WERT",
+     "label": "Pvs 1 Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_PVS_2_BAS_WERT",
+     "label": "Pvs 2 Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VLS_UP_1_BAS_WERT",
+     "label": "Vls Up 1 Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VLS_DOWN_1_BAS_WERT",
+     "label": "Vls Down 1 Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VBK_BAS_WERT",
+     "label": "Vbk Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VBR_BAS_WERT",
+     "label": "Vbr Bas",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "Analog O2 Heater",
+   "job": "STATUS_ANA_O2_HEATER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LSHPWM_UP_1_WERT",
+     "label": "Lshpwm Up 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LSHPWM_DOWN_WERT",
+     "label": "Lshpwm Down",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog Engine7",
+   "job": "STATUS_ANA_ENGINE7",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MAF_KGH_WERT",
+     "label": "Maf Kgh",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_MAP_SP_WERT",
+     "label": "Map Sp",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_MAP_UP_SP_WERT",
+     "label": "Map Up Sp",
+     "unit": "mbar",
+     "min": 0,
+     "max": 2500
+    },
+    {
+     "key": "STAT_TPS_SP_CLC_WERT",
+     "label": "Tps Sp Clc",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_V_TPS_AD_BOL_1_WERT",
+     "label": "V Tps Ad Bol 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_V_TPS_AD_BOL_2_WERT",
+     "label": "V Tps Ad Bol 2",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_V_TPS_AD_EL_BOL_1_WERT",
+     "label": "V Tps Ad El Bol 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_V_TPS_AD_EL_BOL_2_WERT",
+     "label": "V Tps Ad El Bol 2",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_V_TPS_AD_LIH_1_WERT",
+     "label": "V Tps Ad Lih 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_V_TPS_AD_LIH_2_WERT",
+     "label": "V Tps Ad Lih 2",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_N_SP_IS_WERT",
+     "label": "N Sp Is",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_TPS_LIH_WERT",
+     "label": "Tps Lih",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Analog FUEL TRIM",
+   "job": "STATUS_ANA_FUEL_TRIM",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TI_LAM_1_WERT",
+     "label": "Ti Lam 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LAM_MV_1_WERT",
+     "label": "Lam Mv 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TI_AD_ADD_MMV_0_WERT",
+     "label": "Ti Ad additive Mmv 0",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TI_AD_ADD_MMV_REL_0_WERT",
+     "label": "Ti Ad additive Mmv rel 0",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TI_AD_FAC_MMV_0_WERT",
+     "label": "Ti Ad Fac Mmv 0",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TI_AD_FAC_MMV_REL_0_WERT",
+     "label": "Ti Ad Fac Mmv rel 0",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog BASE Engine",
+   "job": "STATUS_ANA_BASE_ENGINE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TQ_DIF_I_IS_WERT",
+     "label": "Tq Dif I Is",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    },
+    {
+     "key": "STAT_TQ_DIF_P_D_IS_WERT",
+     "label": "Tq Dif P D Is",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_TQ_DIF_IS_AD_WERT",
+     "label": "Tq Dif Is Ad",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    }
+   ]
+  },
+  {
+   "group": "Analog Wheel Speed",
+   "job": "STATUS_ANA_WHEEL_SPEED",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_VRD_LV_ASC_WERT",
+     "label": "CAN Vrd Lv Asc",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    },
+    {
+     "key": "STAT_CAN_VRD_RV_ASC_WERT",
+     "label": "CAN Vrd Rv Asc",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    }
+   ]
+  },
+  {
+   "group": "Analog CAN ASC4",
+   "job": "STATUS_ANA_CAN_ASC4",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_RR_WERT",
+     "label": "CAN Rr",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_TQI_TW_ASR_WERT",
+     "label": "CAN Tqi Tw Asr",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_TQI_TW_MSR_WERT",
+     "label": "CAN Tqi Tw Msr",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Analog CVT1",
+   "job": "STATUS_ANA_CVT1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_CURRENT_POSITION_WERT",
+     "label": "CAN Current Position",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_MOTOR_CDN_COD_WERT",
+     "label": "CAN Engine Cdn Cod",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_DRIV_LED_STATUS_WERT",
+     "label": "CAN Driv Led Status",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_CLU_AV_DR_WERT",
+     "label": "CAN Clu Av pressure ctrl",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_CLU_CDN_COD_WERT",
+     "label": "CAN Clu Cdn Cod",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_DRIV_LED_ERR_WERT",
+     "label": "CAN Driv Led Err",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_SDRY_PRS_AV_DR_WERT",
+     "label": "CAN Sdry Prs Av pressure ctrl",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_SDRY_PRS_CDN_COD_WERT",
+     "label": "CAN Sdry Prs Cdn Cod",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CAN_GIB_SW_NR_WERT",
+     "label": "CAN get software no.",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog CAN EGS1",
+   "job": "STATUS_ANA_CAN_EGS1",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_GR_AT_WERT",
+     "label": "CAN Gr At",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_L_GS_WERT",
+     "label": "CAN L Gs",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_GR_AT_SEL_WERT",
+     "label": "CAN Gr At Sel",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CAN_GR_MOD_WERT",
+     "label": "CAN Gr Mod",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog CVT2",
+   "job": "STATUS_ANA_CVT2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CMD_TYPE_WERT",
+     "label": "Cmd Type",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MODE_CURRENT_WERT",
+     "label": "Mode Current",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_ENG_SPD_TARGET_WERT",
+     "label": "Eng Spd Target",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    },
+    {
+     "key": "STAT_CVT_DFT_TOT_DIST_WERT",
+     "label": "CVT Dft Tot Dist",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    }
+   ]
+  },
+  {
+   "group": "Analog CVT ratio Adaptation",
+   "job": "STATUS_ANA_CVT_RATIO_ADAPTION",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_00_WERT",
+     "label": "Tab Ip Tran Crv Adjust 00",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_01_WERT",
+     "label": "Tab Ip Tran Crv Adjust 01",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_02_WERT",
+     "label": "Tab Ip Tran Crv Adjust 02",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_03_WERT",
+     "label": "Tab Ip Tran Crv Adjust 03",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_04_WERT",
+     "label": "Tab Ip Tran Crv Adjust 04",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_05_WERT",
+     "label": "Tab Ip Tran Crv Adjust 05",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_06_WERT",
+     "label": "Tab Ip Tran Crv Adjust 06",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_07_WERT",
+     "label": "Tab Ip Tran Crv Adjust 07",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_08_WERT",
+     "label": "Tab Ip Tran Crv Adjust 08",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_09_WERT",
+     "label": "Tab Ip Tran Crv Adjust 09",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_10_WERT",
+     "label": "Tab Ip Tran Crv Adjust 10",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_11_WERT",
+     "label": "Tab Ip Tran Crv Adjust 11",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_12_WERT",
+     "label": "Tab Ip Tran Crv Adjust 12",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_13_WERT",
+     "label": "Tab Ip Tran Crv Adjust 13",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_14_WERT",
+     "label": "Tab Ip Tran Crv Adjust 14",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TAB_IP_TRAN_CRV_ADJUST_15_WERT",
+     "label": "Tab Ip Tran Crv Adjust 15",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_FAST_ADAPT_WERT",
+     "label": "Fast Adapt",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog CVT clutch Adaptation",
+   "job": "STATUS_ANA_CVT_CLUTCH_ADAPTION",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BP_ADAPTION_D_WERT",
+     "label": "Bp Adaptation D",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_BP_ADAPTION_R_WERT",
+     "label": "Bp Adaptation R",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    },
+    {
+     "key": "STAT_CLU_BITE_POINT_EOL_D_WERT",
+     "label": "Clu Bite Point Eol D",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CLU_BITE_POINT_EOL_R_WERT",
+     "label": "Clu Bite Point Eol R",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LONG_TERM_ADPT_D_WERT",
+     "label": "Long Term Adpt D",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_LONG_TERM_ADPT_R_WERT",
+     "label": "Long Term Adpt R",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_CLU_MOD_ACTIVE_WERT",
+     "label": "Clu Mod Active",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_TQ_AV_WERT",
+     "label": "Tq Av",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    }
+   ]
+  },
+  {
+   "group": "Analog CAN Instr2",
+   "job": "STATUS_ANA_CAN_INSTR2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_FTL_WERT",
+     "label": "CAN Ftl",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_CAN_DIST_WERT",
+     "label": "CAN Dist",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog MAN TEST",
+   "job": "STATUS_ANA_MAN_TEST",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VLS_CYC_MMV_EOL_1_WERT",
+     "label": "Vls Cyc Mmv Eol 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VLSH_UP_1_WERT",
+     "label": "Vlsh Up 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_VLSH_DOWN_1_WERT",
+     "label": "Vlsh Down 1",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MIS_B0_WERT",
+     "label": "Mis B0",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    },
+    {
+     "key": "STAT_MIS_B3_WERT",
+     "label": "Mis B3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MIS_B1_WERT",
+     "label": "Mis B1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MIS_B2_WERT",
+     "label": "Mis B2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_MMV_EOL_000_WERT",
+     "label": "Er Mmv Eol 000",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_MMV_EOL_003_WERT",
+     "label": "Er Mmv Eol 003",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_MMV_EOL_001_WERT",
+     "label": "Er Mmv Eol 001",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_MMV_EOL_002_WERT",
+     "label": "Er Mmv Eol 002",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_THD_000_WERT",
+     "label": "Er Thd 000",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_THD_003_WERT",
+     "label": "Er Thd 003",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_THD_001_WERT",
+     "label": "Er Thd 001",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ER_THD_002_WERT",
+     "label": "Er Thd 002",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog EWS",
+   "job": "STATUS_ANA_EWS",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CTR_SDR_1_IMOB_WERT",
+     "label": "Ctr Sdr 1 Imob",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CTR_SDR_2_IMOB_WERT",
+     "label": "Ctr Sdr 2 Imob",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CTR_SDR_3_IMOB_WERT",
+     "label": "Ctr Sdr 3 Imob",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Analog AC EVAP",
+   "job": "STATUS_ANA_AC_EVAP",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CAN_AC_TEMP_WERT",
+     "label": "CAN Ac Temperature",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    }
+   ]
+  },
+  {
+   "group": "Analog OBD2",
+   "job": "STATUS_ANA_OBD2",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DIF_AR_RED_WERT",
+     "label": "Dif Ar Red",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_SLOP_AR_RED_WERT",
+     "label": "Slop Ar Red",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_DIF_MAF_SCHA_SAV_WERT",
+     "label": "Dif Maf Scha Sav",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_DOWN_DYN_MEM_CAT_WERT",
+     "label": "Down Dyn Mem Cat",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VLS_CYC_SUM_MEM_WERT",
+     "label": "Vls Cyc Sum Mem",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_VLS_CYC_MAX_MEM_WERT",
+     "label": "Vls Cyc max Mem",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_SEG_AD_MMV_000_WERT",
+     "label": "Seg Ad Mmv 000",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_SEG_AD_MMV_001_WERT",
+     "label": "Seg Ad Mmv 001",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_SEG_AD_MMV_002_WERT",
+     "label": "Seg Ad Mmv 002",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_SEG_AD_MMV_003_WERT",
+     "label": "Seg Ad Mmv 003",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_DIST_ACT_MIL_WERT",
+     "label": "Dist Act Mil",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_DIST_ACT_WAL_1_WERT",
+     "label": "Dist Act Wal 1",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "STAT_DIST_ACT_WAL_2_WERT",
+     "label": "Dist Act Wal 2",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    }
+   ]
+  },
+  {
+   "group": "Accelerator pedal Angle",
+   "job": "STATUS_PWG_WINKEL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_PWG_WINKEL_WERT",
+     "label": "Accelerator pedal Angle",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "O2 sensor pre-cat Heater duty cycle 1",
+   "job": "STATUS_LS_VKAT_HEIZUNG_TV_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LS_VKAT_HEIZUNG_TV_1_WERT",
+     "label": "O2 sensor pre-cat Heater duty cycle 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "O2 sensor post-cat Heater duty cycle 1",
+   "job": "STATUS_LS_NKAT_HEIZUNG_TV_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LS_NKAT_HEIZUNG_TV_1_WERT",
+     "label": "O2 sensor post-cat Heater duty cycle 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Lambda integrator 1",
+   "job": "STATUS_LAMBDA_INTEGRATOR_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LAMBDA_INTEGRATOR_1_WERT",
+     "label": "Lambda integrator 1",
+     "unit": "%",
+     "min": -50,
+     "max": 50
+    }
+   ]
+  },
+  {
+   "group": "Lambda additive 1",
+   "job": "STATUS_LAMBDA_ADD_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LAMBDA_ADD_1_WERT",
+     "label": "Lambda additive 1",
+     "unit": "ms",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Lambda multiplicative 1",
+   "job": "STATUS_LAMBDA_MUL_1",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LAMBDA_MUL_1_WERT",
+     "label": "Lambda multiplicative 1",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "System check Misfire roughness",
+   "job": "STATUS_SYSTEMCHECK_LAUFUNRUHE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT",
+     "label": "System check Misfire roughness Zyl1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT",
+     "label": "System check Misfire roughness Zyl2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT",
+     "label": "System check Misfire roughness Zyl3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT",
+     "label": "System check Misfire roughness Zyl4",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

@@ -1,0 +1,26 @@
+{
+  "ecu": "A_AEWS3.IPO",
+  "screens": [
+    {
+      "group": "Coding data (ZCS)",
+      "job": "ZCS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "KD_DATEN_TEXT", "label": "Vehicle order / coding data", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Supplier identification",
+      "job": "C_ZCS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier ID", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

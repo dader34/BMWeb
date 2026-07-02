@@ -1,0 +1,1031 @@
+{
+  "ecu": "ARS_70.IPO",
+  "screens": [
+    {
+      "group": "CAN alive / CPU status",
+      "job": "STATUS_CAN_ALIVE_ARS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ALIVE_ZAEHLER_TEXT",
+          "label": "Alive counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ALIVE_ZAEHLER_WERT",
+          "label": "Alive counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ARS_TEXT",
+          "label": "Ars",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ARS_WERT",
+          "label": "Ars",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAN temperatures",
+      "job": "STATUS_CAN_TEMP_ARS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AUSSENTEMPERATUR_WERT",
+          "label": "Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FEHLER_AUSSENTEMPERATUR_TEXT",
+          "label": "Fault: Outside temperature",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_AUSSENTEMPERATUR_WERT",
+          "label": "Fault: Outside temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FEHLER_MOTORTEMPERATUR_TEXT",
+          "label": "Fault: Engine temperature",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_MOTORTEMPERATUR_WERT",
+          "label": "Fault: Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "CAN rotor position",
+      "job": "STATUS_CAN_ROTOR_POSITION",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CODSTR2_TEXT",
+          "label": "Coding string 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_CODSTR2_WERT",
+          "label": "Coding string 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_ROTOR_POSITION_ACTUAL_VALUE_TEXT",
+          "label": "Fault: Rotor position actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_ROTOR_POSITION_ACTUAL_VALUE_WERT",
+          "label": "Fault: Rotor position actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_ROTOR_POSITION_STAT_TEXT",
+          "label": "Fault: Rotor position status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_ROTOR_POSITION_STAT_WERT",
+          "label": "Fault: Rotor position status",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ROTOR_POSITION_ACTUAL_VALUE_WERT",
+          "label": "Rotor position actual value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ROTOR_POSITION_STAT_AFS_TEXT",
+          "label": "Rotor position status (AFS)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ROTOR_POSITION_STAT_AFS_WERT",
+          "label": "Rotor position status (AFS)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAN engine RPM",
+      "job": "STATUS_CAN_DREHZAHL_ARS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DREHZAHL_MOTOR_FEHLER_WERT",
+          "label": "Engine RPM error",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_DREHZAHL_MOTOR_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FEHLER_DREHZAHL_MOTOR_FEHLER_TEXT",
+          "label": "Fault: Engine RPM error",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_DREHZAHL_MOTOR_FEHLER_WERT",
+          "label": "Fault: Engine RPM error",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_FEHLER_DREHZAHL_MOTOR_TEXT",
+          "label": "Fault: Engine RPM",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_DREHZAHL_MOTOR_WERT",
+          "label": "Fault: Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "ARS sensors",
+      "job": "STATUS_ARS_SENSOREN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DRUCK_HA_HW_WERT",
+          "label": "Pressure rear axle (hardware)",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_DRUCK_HA_SW_WERT",
+          "label": "Pressure rear axle (software)",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_DRUCK_HA_TEXT",
+          "label": "Pressure rear axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DRUCK_HA_WERT",
+          "label": "Pressure rear axle",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_DRUCK_VA_HW_WERT",
+          "label": "Pressure front axle (hardware)",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_DRUCK_VA_SW_WERT",
+          "label": "Pressure front axle (software)",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_DRUCK_VA_TEXT",
+          "label": "Pressure front axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DRUCK_VA_WERT",
+          "label": "Pressure front axle",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_OELSTAND_HW_WERT",
+          "label": "Oil level (hardware)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OELSTAND_SW_WERT",
+          "label": "Oil level (software)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POSITION_HW_WERT",
+          "label": "Position (hardware)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POSITION_SW_WERT",
+          "label": "Position (software)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POSITION_TEXT",
+          "label": "Position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POSITION_WERT",
+          "label": "Position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QUERBESCHLSEN_TEXT",
+          "label": "Lateral acceleration sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QUERBESCHLSEN_WERT",
+          "label": "Lateral acceleration sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QUERBESCHL_HW_WERT",
+          "label": "Lateral acceleration (hardware)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QUERBESCHL_SW_WERT",
+          "label": "Lateral acceleration (software)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WECKLEITUNG_HW_WERT",
+          "label": "Wake line (hardware)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAN signals (terminals / DSC)",
+      "job": "STATUS_CAN_SIGNALE_ARS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DSC_WERT",
+          "label": "DSC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_DSC_TEXT",
+          "label": "Fault: DSC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_DSC_WERT",
+          "label": "Fault: DSC",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_KL15_TEXT",
+          "label": "Fault: Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_KL15_WERT",
+          "label": "Fault: Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_KL50_TEXT",
+          "label": "Fault: Terminal 50 (starter)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_KL50_WERT",
+          "label": "Fault: Terminal 50 (starter)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL15_NR_WERT",
+          "label": "Terminal 15 (ignition) value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL15_TEXT",
+          "label": "Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL50_NR_WERT",
+          "label": "Terminal 50 (starter) value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL50_TEXT",
+          "label": "Terminal 50 (starter)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Commissioning status",
+      "job": "STATUS_INBETRIEBNAHME_ABFRAGEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FA_CODE_WERT",
+          "label": "Order code (FA)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INBETRIEBNAHME_FEHLER_TEXT",
+          "label": "Commissioning fault",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_INBETRIEBNAHME_WARNUNG_TEXT",
+          "label": "Commissioning warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAN vehicle speed",
+      "job": "STATUS_CAN_GESCHWINDIGKEIT_ARS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FEHLER_GESCHWINDIGKEIT_FZG_TEXT",
+          "label": "Fault: Vehicle speed",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_GESCHWINDIGKEIT_FZG_WERT",
+          "label": "Fault: Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_FZG_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "CAN miscellaneous",
+      "job": "STATUS_CAN_DIVERSES_ARS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FEHLER_KILOMETERSTAND_TEXT",
+          "label": "Fault: Odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_KILOMETERSTAND_WERT",
+          "label": "Fault: Odometer",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_LENKRADWINKEL_FEHLER_TEXT",
+          "label": "Fault: Steering angle error",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_LENKRADWINKEL_FEHLER_WERT",
+          "label": "Fault: Steering angle error",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_LENKRADWINKEL_TEXT",
+          "label": "Fault: Steering angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_LENKRADWINKEL_WERT",
+          "label": "Fault: Steering angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KILOMETERSTAND_WERT",
+          "label": "Odometer",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_FEHLER_TEXT",
+          "label": "Steering angle error",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LENKRADWINKEL_WERT",
+          "label": "Steering angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CAN acceleration (DSC)",
+      "job": "STATUS_CAN_BESCHLEUNIGUNG_ARS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FEHLER_QUERBESCHL_DSC_TEXT",
+          "label": "Fault: Lateral acceleration (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_QUERBESCHL_DSC_WERT",
+          "label": "Fault: Lateral acceleration (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_WINKELGESCHW_DSC_TEXT",
+          "label": "Fault: Yaw rate (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLER_WINKELGESCHW_DSC_WERT",
+          "label": "Fault: Yaw rate (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_QUERBESCHL_DSC_WERT",
+          "label": "Lateral acceleration (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WINKELGESCHW_DSC_WERT",
+          "label": "Yaw rate (DSC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Supply voltages",
+      "job": "STATUS_VERSORGUNGEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMME30_WERT",
+          "label": "Terminal 30 (battery)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSORGUNG_HA_WERT",
+          "label": "Supply rear axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSORGUNG_QUERBESCHL_WERT",
+          "label": "Supply lateral-accel sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSORGUNG_SCHALTSEN_WERT",
+          "label": "Supply switching sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSORGUNG_VA_WERT",
+          "label": "Supply front axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Offset values rear axle",
+      "job": "STATUS_OFFSET_WERTE_HA",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_DRUCK_HA_WERT",
+          "label": "Zero-point offset pressure rear axle",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Offset values HGLV",
+      "job": "STATUS_OFFSET_WERTE_HGLV",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_DRUCK_HGLV_FLH_WERT",
+          "label": "Zero-point offset pressure HGLV front-left",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_DRUCK_HGLV_FRH_WERT",
+          "label": "Zero-point offset pressure HGLV front-right",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_DRUCK_HGLV_RLH_WERT",
+          "label": "Zero-point offset pressure HGLV rear-left",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_DRUCK_HGLV_RRH_WERT",
+          "label": "Zero-point offset pressure HGLV rear-right",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Offset values front axle",
+      "job": "STATUS_OFFSET_WERTE_VA",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_DRUCK_VA_WERT",
+          "label": "Zero-point offset pressure front axle",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Lateral-acceleration offset",
+      "job": "STATUS_OFFSET_QUERBESCH",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NULLPUNKT_OFFSET_QUERBESCH_WERT",
+          "label": "Zero-point offset lateral acceleration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Proportional valves",
+      "job": "STATUS_PROPORTIONAL_VENTILE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWM_HA_WERT",
+          "label": "PWM rear axle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_PWM_VA_WERT",
+          "label": "PWM front axle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOLLSTROM_HA_WERT",
+          "label": "Target current rear axle",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_SOLLSTROM_VA_WERT",
+          "label": "Target current front axle",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_STEUERSTROM_HA_WERT",
+          "label": "Control current rear axle",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_STEUERSTROM_VA_WERT",
+          "label": "Control current front axle",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_VENTIL_HA_TEXT",
+          "label": "Valve rear axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VENTIL_HA_WERT",
+          "label": "Valve rear axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VENTIL_VA_TEXT",
+          "label": "Valve front axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VENTIL_VA_WERT",
+          "label": "Valve front axle",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Switching valves",
+      "job": "STATUS_SCHALTVENTILE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWM_RICHTVENT_WERT",
+          "label": "PWM directional valve",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_PWM_SICHVENT_WERT",
+          "label": "PWM safety valve",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RICHTUNGSVENTIL_TEXT",
+          "label": "Directional valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RICHTUNGSVENTIL_WERT",
+          "label": "Directional valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SICHERHEITSVENTIL_TEXT",
+          "label": "Safety valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SICHERHEITSVENTIL_WERT",
+          "label": "Safety valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_RICHTVENT_WERT",
+          "label": "Target current directional valve",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_SOLLSTROM_SICHVENT_WERT",
+          "label": "Target current safety valve",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_STROM_RICHTVENT_WERT",
+          "label": "Current directional valve",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        },
+        {
+          "key": "STAT_STROM_SICHVENT_WERT",
+          "label": "Current safety valve",
+          "unit": "A",
+          "min": 0,
+          "max": 30
+        }
+      ]
+    },
+    {
+      "group": "New lateral-acceleration values",
+      "job": "STATUS_NEUE_WERTE_QUERBESCH",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSOR_NULLPKT_AQUER_WERT",
+          "label": "Sensor zero-point lateral accel",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_STEIGUNG_AQUER_WERT",
+          "label": "Sensor slope lateral accel",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "New sensor values rear axle",
+      "job": "STATUS_NEUE_SENSOR_WERTE_HA",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSOR_NULLPKT_HA_WERT",
+          "label": "Sensor zero-point rear axle",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_STEIGUNG_HA_WERT",
+          "label": "Sensor slope rear axle",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "New sensor values HGLV",
+      "job": "STATUS_NEUE_SENSOR_WERTE_HGLV",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSOR_NULLPKT_HGLV_WERT",
+          "label": "Sensor zero-point HGLV",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_STEIGUNG_HGLV_WERT",
+          "label": "Sensor slope HGLV",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "New sensor values front axle",
+      "job": "STATUS_NEUE_SENSOR_WERTE_VA",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSOR_NULLPKT_VA_WERT",
+          "label": "Sensor zero-point front axle",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_STEIGUNG_VA_WERT",
+          "label": "Sensor slope front axle",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "ECU temperature",
+      "job": "STATUS_SG_TEMP",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SG_TEMP_WERT",
+          "label": "ECU temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_INBETRIEBNAHME_ABFRAGEN",
+      "field": "Confirm commissioning query",
+      "kind": "text",
+      "example": "yes",
+      "args_template": "Job invoked with no argument; confirms the commissioning status read."
+    }
+  ]
+}

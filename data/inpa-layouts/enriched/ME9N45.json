@@ -1,0 +1,1319 @@
+{
+  "ecu": "ME9N45.IPO",
+  "screens": [
+    {
+      "group": "Mfg / hardware info",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault P-code",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault P-code (7-char)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Info memory / readiness",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measured values",
+      "job": "STATUS_MESSWERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UB_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_NSOL_WERT",
+          "label": "Target engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_NMOT_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_VFZG_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_TANS_WERT",
+          "label": "Intake air temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_MSHFM_WERT",
+          "label": "Air mass (HFM)",
+          "unit": "g/s",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "key": "STAT_TKA_WERT",
+          "label": "Coolant outlet temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TMOT_WERT",
+          "label": "Engine temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WDKBA_WERT",
+          "label": "Throttle angle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UPWG_WERT",
+          "label": "Accelerator pedal sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_RKRN0_WERT",
+          "label": "Rkrn0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN1_WERT",
+          "label": "Rkrn1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN2_WERT",
+          "label": "Rkrn2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN3_WERT",
+          "label": "Rkrn3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN4_WERT",
+          "label": "Rkrn4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN5_WERT",
+          "label": "Rkrn5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN6_WERT",
+          "label": "Rkrn6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKRN7_WERT",
+          "label": "Rkrn7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_SEK_LUFT_TEXT",
+          "label": "System check SEK LUFT",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_TEV_WERT",
+          "label": "Status Tank vent valve check",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_TEV_TEXT",
+          "label": "LESEN system check TEV",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Smooth-running (roughness)",
+      "job": "STATUS_LAUFUNRUHE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUTSFI1_WERT",
+          "label": "Lutsfi1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI2_WERT",
+          "label": "Lutsfi2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI3_WERT",
+          "label": "Lutsfi3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI4_WERT",
+          "label": "Lutsfi4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI5_WERT",
+          "label": "Lutsfi5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI6_WERT",
+          "label": "Lutsfi6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI7_WERT",
+          "label": "Lutsfi7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUTSFI8_WERT",
+          "label": "Lutsfi8",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor pre-cat, bank 1",
+      "job": "STATUS_L_SONDE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_WERT",
+          "label": "L O2 sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor pre-cat, bank 2",
+      "job": "STATUS_L_SONDE_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_WERT",
+          "label": "L O2 sensor 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor post-cat, bank 1",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_H_WERT",
+          "label": "L O2 sensor H",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor post-cat, bank 2",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_H_WERT",
+          "label": "L O2 sensor 2 H",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Integrator, bank 1",
+      "job": "STATUS_INT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INT_WERT",
+          "label": "Integrator",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Integrator, bank 2",
+      "job": "STATUS_INT_2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INT_2_WERT",
+          "label": "Integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Additive mixture adaptation, bank 1",
+      "job": "STATUS_ADD",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADD_WERT",
+          "label": "Additive",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Additive mixture adaptation, bank 2",
+      "job": "STATUS_ADD_2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADD_2_WERT",
+          "label": "Additive 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Multiplicative mixture adaptation, bank 1",
+      "job": "STATUS_MUL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MUL_WERT",
+          "label": "Multiplicative",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Multiplicative mixture adaptation, bank 2",
+      "job": "STATUS_MUL_2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MUL_2_WERT",
+          "label": "Multiplicative 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 5",
+      "job": "STATUS_FASTA5",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EVHUBI_WERT",
+          "label": "Evhubi",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EVHUBI2_WERT",
+          "label": "Evhubi2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EVHUBS_WERT",
+          "label": "Evhubs",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EXWINKI_WERT",
+          "label": "Exwinki",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_EXWINKI2_WERT",
+          "label": "Exwinki2",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_EXWINKS_WERT",
+          "label": "Exwinks",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DFSERESZ_WERT",
+          "label": "Dfseresz",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVADFK_WERT",
+          "label": "Dmvadfk",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVADLL_WERT",
+          "label": "Dmvadll",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FE_WERT",
+          "label": "Fe",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Outputs",
+      "job": "STATUS_AUSGAENGE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VSESPRI_WERT",
+          "label": "Vsespri",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_VSESPRI2_WERT",
+          "label": "Vsespri2",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_VSETV_WERT",
+          "label": "Vsetv",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_VSETV2_WERT",
+          "label": "Vsetv2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_VSASPRI_WERT",
+          "label": "Vsaspri",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_VSASPRI2_WERT",
+          "label": "Vsaspri2",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_VSATV_WERT",
+          "label": "Vsatv",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_VSATV2_WERT",
+          "label": "Vsatv2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Sensor-wheel adaptation",
+      "job": "STATUS_GEBERRAD_ADAPTION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSA_WERT",
+          "label": "Sensor wheel adaptation VSA",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSA_2_WERT",
+          "label": "Sensor wheel adaptation VSA 2",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSE_WERT",
+          "label": "Sensor wheel adaptation VSE",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        },
+        {
+          "key": "STAT_GEBERRAD_ADAPTION_VSE_2_WERT",
+          "label": "Sensor wheel adaptation VSE 2",
+          "unit": "°",
+          "min": -90,
+          "max": 90
+        }
+      ]
+    },
+    {
+      "group": "DISA intake-flap adaptation",
+      "job": "STATUS_DISA_KT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DISA_WERT",
+          "label": "DISA intake flap",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Throttle adaptation",
+      "job": "STATUS_DK_KT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_WDKBA_WERT",
+          "label": "Throttle angle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WDKS_WERT",
+          "label": "Wdks",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Accelerator pedal sensor voltage",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_1_WERT",
+          "label": "Accelerator pedal sensor potentiometer voltage 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 1",
+      "job": "STATUS_FASTA1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TSG_WERT",
+          "label": "Tsg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVAD_WERT",
+          "label": "Dmvad",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DPS_WERT",
+          "label": "Dps",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DPSRAUS_WERT",
+          "label": "Dpsraus",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FKMSVVT_WERT",
+          "label": "Fkmsvvt",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FPRSTEP_WERT",
+          "label": "Fprstep",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LRNSTEP_WERT",
+          "label": "Lrnstep",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSNVVTO_WERT",
+          "label": "Msnvvto",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NNW10_WERT",
+          "label": "Nnw10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NNW11_WERT",
+          "label": "Nnw11",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NNW12_WERT",
+          "label": "Nnw12",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NNW20_WERT",
+          "label": "Nnw20",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NNW21_WERT",
+          "label": "Nnw21",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NNW22_WERT",
+          "label": "Nnw22",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 2",
+      "job": "STATUS_FASTA2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NSOLFASTA_WERT",
+          "label": "Nsolfasta",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_RL_WERT",
+          "label": "Rear-left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RLSOL_WERT",
+          "label": "Rlsol",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE_WERT",
+          "label": "Te",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TE2_WERT",
+          "label": "Te2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VVTSTATUS_WERT",
+          "label": "Vvtstatus",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WDKBAFASTA_WERT",
+          "label": "Wdkbafasta",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WDKS_WERT",
+          "label": "Wdks",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WPED_WERT",
+          "label": "Wped",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZWIST_WERT",
+          "label": "Zwist",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMLLRI_WERT",
+          "label": "Dmllri",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MIMIN_WERT",
+          "label": "Mimin",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 3",
+      "job": "STATUS_FASTA3",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MDGEN_WERT",
+          "label": "Mdgen",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MDKO_WERT",
+          "label": "Mdko",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMRLLR_WERT",
+          "label": "Dmrllr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MDWAN_WERT",
+          "label": "Mdwan",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DWKR_WERT",
+          "label": "Dwkr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DZWS_WERT",
+          "label": "Dzws",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DFFGEN_WERT",
+          "label": "Dffgen",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TUMG_WERT",
+          "label": "Tumg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVADFS_WERT",
+          "label": "Dmvadfs",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DMVADKO_WERT",
+          "label": "Dmvadko",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DLAHI_WERT",
+          "label": "Dlahi",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DLAHI2_WERT",
+          "label": "Dlahi2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RINH_WERT",
+          "label": "Rinh",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RINH2_WERT",
+          "label": "Rinh2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RKATS_WERT",
+          "label": "Rkats",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DPSSOL_WERT",
+          "label": "Dpssol",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 4",
+      "job": "STATUS_FASTA4",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_COPOT_WERT",
+          "label": "Copot",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_UPWG_WERT",
+          "label": "Accelerator pedal sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MINHUB_WERT",
+          "label": "Minhub",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GVIST_WERT",
+          "label": "Gvist",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FTBR_WERT",
+          "label": "Ftbr",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FHO_WERT",
+          "label": "Fho",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FTVDK_WERT",
+          "label": "Ftvdk",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSNVVTOLL_WERT",
+          "label": "Msnvvtoll",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VSESPRS_WERT",
+          "label": "Vsesprs",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VSE2SPRS_WERT",
+          "label": "Vse2sprs",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VSASPRS_WERT",
+          "label": "Vsasprs",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VSA2SPRS_WERT",
+          "label": "Vsa2sprs",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 6",
+      "job": "STATUS_FASTA6",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FKMSVVTA_WERT",
+          "label": "Fkmsvvta",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FOFRESZ_WERT",
+          "label": "Fofresz",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MSDIF_WERT",
+          "label": "Msdif",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TABGM_WERT",
+          "label": "Tabgm",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TNSE_WERT",
+          "label": "Tnse",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZRWPERM_WERT",
+          "label": "Ozrwperm",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZRWKVB_WERT",
+          "label": "Ozrwkvb",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZOELZEIT_WERT",
+          "label": "Ozoelzeit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZKVBSM_WERT",
+          "label": "Ozkvbsm",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZPERMLOW_WERT",
+          "label": "Ozpermlow",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZPERMEX_WERT",
+          "label": "Ozpermex",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZPERMOFF_WERT",
+          "label": "Ozpermoff",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZKVBOG_WERT",
+          "label": "Ozkvbog",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZPERMBOG_WERT",
+          "label": "Ozpermbog",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "FASTA block 7",
+      "job": "STATUS_FASTA7",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NADMTLL_WERT",
+          "label": "Nadmtll",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NTGLM_WERT",
+          "label": "Ntglm",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NTKLM_WERT",
+          "label": "Ntklm",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NDIPFRO_WERT",
+          "label": "Ndipfro",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NKFL_WERT",
+          "label": "Nkfl",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SSLLCNT_WERT",
+          "label": "Ssllcnt",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MINHUBFAK_WERT",
+          "label": "Minhubfak",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MINADRDY_WERT",
+          "label": "Minadrdy",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FDLUBBGL_WERT",
+          "label": "Fdlubbgl",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFWNKBG1_WERT",
+          "label": "Ofwnkbg1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFWNKBG2_WERT",
+          "label": "Ofwnkbg2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OFWNKMX_WERT",
+          "label": "Ofwnkmx",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": null,
+      "field": "Enter job/order command",
+      "kind": "text",
+      "example": "STATUS_MESSWERTE",
+      "args_template": "job name -> EDIABAS request"
+    }
+  ]
+}

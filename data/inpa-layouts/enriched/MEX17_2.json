@@ -1,0 +1,182 @@
+{
+  "ecu": "MEX17_2.IPO",
+  "screens": [
+    {
+      "group": "Camshaft (NWG) adaptation",
+      "job": "STATUS_NWGADAPTION",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VSAADP_WERT", "label": "Intake cam adaptation Vsa_adp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSEADP_WERT", "label": "Exhaust cam adaptation Vse_adp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSAADPFL0_WERT", "label": "Intake cam adaptation Vsa_adp_fl0", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSAADPFL1_WERT", "label": "Intake cam adaptation Vsa_adp_fl1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSAADPFL2_WERT", "label": "Intake cam adaptation Vsa_adp_fl2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSAADPFL3_WERT", "label": "Intake cam adaptation Vsa_adp_fl3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSEADPFL0_WERT", "label": "Exhaust cam adaptation Vse_adp_fl0", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSEADPFL1_WERT", "label": "Exhaust cam adaptation Vse_adp_fl1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSEADPFL2_WERT", "label": "Exhaust cam adaptation Vse_adp_fl2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VSEADPFL3_WERT", "label": "Exhaust cam adaptation Vse_adp_fl3", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Valvetronic (VVT)",
+      "job": "STATUS_VVT",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VVTIW_WERT", "label": "Actual lift", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTSW_WERT", "label": "Target lift", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTSTROM_WERT", "label": "Motor current", "unit": "A", "min": 0, "max": 16 },
+        { "key": "STAT_VVTSPG_WERT", "label": "Motor voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_VVTFSR_WERT", "label": "Position sensor value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DIFF_FSR_RSR_WERT", "label": "Sensor difference FSR-RSR", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTUEBERLAST_WERT", "label": "Motor overload", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTNOTL_WERT", "label": "Limp mode", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Power management info 1 (mileage and battery history)",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KM_STAND_AKTUELL_WERT", "label": "Mileage current", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_KM_STAND_VOR_1_TAG_WERT", "label": "Mileage 1 day ago", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_KM_STAND_VOR_2_TAG_WERT", "label": "Mileage 2 days ago", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_KM_STAND_VOR_3_TAG_WERT", "label": "Mileage 3 days ago", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_KM_STAND_VOR_4_TAG_WERT", "label": "Mileage 4 days ago", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_KM_STAND_VOR_5_TAG_WERT", "label": "Mileage 5 days ago", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_BATTERIETAUSCH_LETZTER_WERT", "label": "Last battery replacement at km", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT", "label": "2nd-last battery replacement at km", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT", "label": "3rd-last battery replacement at km", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT", "label": "4th-last battery replacement at km", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT", "label": "5th-last battery replacement at km", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT", "label": "Hours in charge range 0-20%", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT", "label": "Hours in charge range 20-40%", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT", "label": "Hours in charge range 40-60%", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT", "label": "Hours in charge range 60-80%", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT", "label": "Hours in charge range 80-100%", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT", "label": "Minutes at temperature up to 0 C", "unit": "min", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT", "label": "Minutes at temperature 0-20 C", "unit": "min", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT", "label": "Minutes at temperature 20-40 C", "unit": "min", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT", "label": "Minutes at temperature 40-60 C", "unit": "min", "min": null, "max": null },
+        { "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT", "label": "Minutes at temperature above 60 C", "unit": "min", "min": null, "max": null },
+        { "key": "STAT_BATTERIELADUNG_GESAMT_WERT", "label": "Total battery charge", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT", "label": "Total battery discharge", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_BATTERIELADUNG_BILANZ_WERT", "label": "Battery charge balance", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT", "label": "IBS fault counter BSD parity", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT", "label": "IBS fault counter watchdog reset", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT", "label": "IBS fault counter power-on reset", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT", "label": "KTBS fault counter BSD extended", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT", "label": "KTIBS fault counter BSD", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT", "label": "KTIBS fault counter EBSD checksum", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Power management info 2 (state of charge and health)",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_Q_SOC_AKTUELL_WERT", "label": "SOC charge current", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_Q_SOC_VOR_1_TAG_WERT", "label": "SOC charge 1 day ago", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_Q_SOC_VOR_2_TAG_WERT", "label": "SOC charge 2 days ago", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_Q_SOC_VOR_3_TAG_WERT", "label": "SOC charge 3 days ago", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_Q_SOC_VOR_4_TAG_WERT", "label": "SOC charge 4 days ago", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_Q_SOC_VOR_5_TAG_WERT", "label": "SOC charge 5 days ago", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT", "label": "Start capability limit current", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT", "label": "Start capability limit 1 day ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT", "label": "Start capability limit 2 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT", "label": "Start capability limit 3 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT", "label": "Start capability limit 4 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT", "label": "Start capability limit 5 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT", "label": "State of charge current", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT", "label": "State of charge 1 day ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT", "label": "State of charge 2 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT", "label": "State of charge 3 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT", "label": "State of charge 4 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT", "label": "State of charge 5 days ago", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_BATTERIE_KAPAZITAET_WERT", "label": "Battery capacity", "unit": "Ah", "min": null, "max": null },
+        { "key": "STAT_SOH_WERT", "label": "State of health (SOH)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_SOC_FIT_WERT", "label": "SOC fit", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TEMP_SAISON_WERT", "label": "Seasonal temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_KALIBRIER_EVENT_CNT_WERT", "label": "Calibration events", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT", "label": "IBS fault counter download checksum", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT", "label": "IBS fault counter EEPROM diagnosis", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT", "label": "IBS fault counter RAM diagnosis", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT", "label": "IBS fault counter PROM diagnosis", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT", "label": "IBS fault counter I2C NAC diagnosis", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT", "label": "IBS fault counter I2C bus collision", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Idle adjustment values",
+      "job": "STATUS_LLABG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DNLLMV_WERT", "label": "Idle speed adjustment value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DNSACMV_WERT", "label": "Idle air mass adjustment value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DNSLBV_WERT", "label": "Idle load adjustment value", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DNFSACMV_WERT", "label": "Idle air mass enable flag", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DNFSMV_WERT", "label": "Idle adjustment enable flag", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Idle speed increase",
+      "job": "STATUS_SYSTEMCHECK_LLERH",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LL_WERT", "label": "Idle RPM adjust", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Valvetronic stop system check",
+      "job": "STATUS_SYSTEMCHECK_VVT_ANSCHLAG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VVTCHKSF1_WERT", "label": "VVT stop check flag 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VVTCHKSF2_WERT", "label": "VVT stop check flag 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EXWNKFSR_WERT", "label": "Stop angle forward (FSR)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EXWNKRSR_WERT", "label": "Stop angle reverse (RSR)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness monitor mode 9",
+      "job": "STATUS_RBM_MODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_M9GENDEN_WERT", "label": "General denominator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9IGNCYC_WERT", "label": "Ignition cycle counter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9NMCAT1_WERT", "label": "Catalyst bank 1 numerator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9DNCAT1_WERT", "label": "Catalyst bank 1 denominator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9NMOXS1_WERT", "label": "O2 sensor bank 1 numerator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9DNOXS1_WERT", "label": "O2 sensor bank 1 denominator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9NMEGR_WERT", "label": "EGR numerator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9DNEGR_WERT", "label": "EGR denominator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9NMEVAP_WERT", "label": "EVAP numerator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_M9DNEVAP_WERT", "label": "EVAP denominator", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "DATA_ID_LESEN", "field": "Comment to store (lines 1 and 2)", "kind": "text",
+      "example": "REPLACED 2026-06", "args_template": "free text written into ID comment field" },
+    { "job": "STATUS_LLABG", "field": "Idle RPM value between 400 and 1200 rpm", "kind": "number",
+      "example": "750", "args_template": "RPM value passed as idle adjustment target" },
+    { "job": "STATUS_SYSTEMCHECK_LLERH", "field": "Idle RPM value between 400 and 1200 rpm", "kind": "number",
+      "example": "750", "args_template": "RPM value passed as idle increase target" }
+  ]
+}

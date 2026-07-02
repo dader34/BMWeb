@@ -98,7 +98,7 @@ public sealed class InpaConfig
                 string label = parts.Length > 1 ? parts[1].Trim() : code;
                 if (code.Length == 0) continue;
 
-                string sgbd = ResolveSgbd(code);
+                string sgbd = ResolveSgbd(code, chassisId);
                 if (sgbd != null) // SGBD must exist on disk
                     current.Ecus.Add(new EcuEntry(code, label, sgbd));
             }
@@ -114,8 +114,9 @@ public sealed class InpaConfig
     }
 
     // resolve an ENTRY code to a real SGBD .prg name (no extension).
-    // 1) "SGBD: <NAME>" from SGDAT/<CODE>.IPO  2) fall back to <code>ds0.
-    private string ResolveSgbd(string code)
+    // 1) "SGBD: <NAME>" from SGDAT/<CODE>.IPO  2) fall back to <code>ds0
+    // 3) variant list from the .ipo, chassis-matched.
+    private string ResolveSgbd(string code, string chassisId = null)
     {
         string fromIpo = SgbdFromIpo(code);
         foreach (string candidate in new[] { fromIpo, code + "ds0", code }.Where(c => c != null))
@@ -127,9 +128,9 @@ public sealed class InpaConfig
             string hit = FindPrgCaseInsensitive(prg);
             if (hit != null) return hit;
         }
-        // group/variant entries (e.g. gsds2 = auto trans) have no direct .prg; their
-        // .ipo lists concrete variants (GS20, GS832, ...). take the first on disk.
-        foreach (string variant in SgbdVariantsFromIpo(code))
+        // group/variant entries (e.g. gsds2 = auto trans, kombi = cluster) have no
+        // direct .prg; their .ipo lists concrete variants (GS20, KOMBI46, ...).
+        foreach (string variant in SgbdVariantsFromIpo(code, chassisId))
         {
             string hit = FindPrgCaseInsensitive(variant.ToLowerInvariant());
             if (hit != null) return hit;
@@ -137,8 +138,25 @@ public sealed class InpaConfig
         return null;
     }
 
-    // uppercase tokens in an .ipo that look like SGBD names, file order
-    private IEnumerable<string> SgbdVariantsFromIpo(string code)
+    // cross-ECU tokens that show up in many engine .ipo scripts (login/check
+    // references) but are never the engine's own SGBD. without this the S54 M3
+    // entry MSS54M3 (true SGBD MSS54DS0, which does not prefix-match the code)
+    // tied with the stray "EWS" reference and resolved to the immobilizer. these
+    // sink below real SGBD candidates of equal prefix-rank; insertion order still
+    // decides among real variants (e.g. ABS5 over ASC5 for absasc5).
+    private static readonly HashSet<string> GenericIpoTokens =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            "EWS", "EWS3", "DME", "KAT", "HLM", "LMM", "ASC", "ASR", "MSR",
+            "SIM", "VON", "BIT", "DSP", "CAS", "FLASH", "UTILITY",
+        };
+
+    // uppercase tokens in an .ipo that look like SGBD names, ranked so the right
+    // variant wins: tokens starting with the entry code first (KOMBI46 over the
+    // stray "CARB" in "check engine CARB"), and within those, the one whose
+    // trailing digits match the chassis (E46 -> KOMBI46) before other variants.
+    // generic cross-ECU references (EWS, DME, ...) sink below real candidates.
+    private IEnumerable<string> SgbdVariantsFromIpo(string code, string chassisId = null)
     {
         if (!Directory.Exists(_sgDat)) yield break;
         string ipo = Directory.EnumerateFiles(_sgDat)
@@ -147,12 +165,29 @@ public sealed class InpaConfig
         if (ipo == null) yield break;
         string text;
         try { text = File.ReadAllText(ipo, Latin1()); } catch { yield break; }
+
+        var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Match m in Regex.Matches(text, @"\b([A-Z][A-Z0-9_]{2,12})\b"))
         {
             string name = m.Groups[1].Value;
-            if (seen.Add(name)) yield return name;
+            if (seen.Add(name)) names.Add(name);
         }
+        string codeUp = (code ?? "").ToUpperInvariant();
+        // chassis digits, e.g. E46 -> "46", to favour the matching variant
+        string chassisNum = chassisId != null ? Regex.Match(chassisId, @"\d+").Value : "";
+        int Rank(string n)
+        {
+            bool prefix = n.StartsWith(codeUp, StringComparison.OrdinalIgnoreCase);
+            bool chassis = prefix && chassisNum.Length > 0 && n.Contains(chassisNum);
+            if (chassis) return 0;   // KOMBI46 for E46
+            if (prefix) return 1;    // any KOMBI* variant
+            return 2;                // unrelated tokens (CARB, IKE, ...)
+        }
+        // stable: real SGBDs before generic cross-refs within the same Rank,
+        // original .ipo order preserved otherwise.
+        foreach (string n in names.OrderBy(Rank).ThenBy(n => GenericIpoTokens.Contains(n) ? 1 : 0))
+            yield return n;
     }
 
     private string SgbdFromIpo(string code)
@@ -173,16 +208,46 @@ public sealed class InpaConfig
         return null;
     }
 
+    // one enumeration of the Ecu dir, shared by FindPrgCaseInsensitive and
+    // SgbdVariants. name -> name with original casing, keyed case-insensitively.
+    private readonly object _prgLock = new();
     private readonly Dictionary<string, string> _prgCache = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> PrgCache()
+    {
+        lock (_prgLock)
+        {
+            if (_prgCache.Count == 0 && Directory.Exists(_ecuPath))
+            {
+                foreach (string f in Directory.EnumerateFiles(_ecuPath, "*.prg")
+                             .Concat(Directory.EnumerateFiles(_ecuPath, "*.PRG")))
+                    _prgCache[Path.GetFileNameWithoutExtension(f)] = Path.GetFileNameWithoutExtension(f);
+            }
+            return _prgCache;
+        }
+    }
+
     private string FindPrgCaseInsensitive(string baseName)
     {
-        if (_prgCache.Count == 0 && Directory.Exists(_ecuPath))
+        return PrgCache().TryGetValue(baseName, out string hit) ? hit : null;
+    }
+
+    // SGBD variants of a module that share its fault tables, e.g. zke5 ->
+    // [zke5, zke5_s12]. some modules ship a base SGBD plus suffixed variants
+    // (_s12, _hi, ...); the base may label faults as "unbekannter Fehlerort"
+    // while a variant names them. primary is returned first, then siblings on
+    // disk whose name is the primary plus a _suffix. case-insensitive.
+    public IReadOnlyList<string> SgbdVariants(string primarySgbd)
+    {
+        var list = new List<string> { primarySgbd };
+        if (string.IsNullOrEmpty(primarySgbd)) return list;
+        string prefix = primarySgbd.ToLowerInvariant() + "_";
+        foreach (string name in PrgCache().Values)
         {
-            foreach (string f in Directory.EnumerateFiles(_ecuPath, "*.prg")
-                         .Concat(Directory.EnumerateFiles(_ecuPath, "*.PRG")))
-                _prgCache[Path.GetFileNameWithoutExtension(f)] = Path.GetFileNameWithoutExtension(f);
+            if (name.ToLowerInvariant().StartsWith(prefix) &&
+                !list.Contains(name, StringComparer.OrdinalIgnoreCase))
+                list.Add(name);
         }
-        return _prgCache.TryGetValue(baseName, out string hit) ? hit : null;
+        return list;
     }
 
     private static string Pretty(string rootKey) =>
@@ -190,9 +255,8 @@ public sealed class InpaConfig
             ? char.ToUpperInvariant(s[0]) + s.Substring(1)
             : rootKey;
 
-    private static Encoding Latin1()
-    {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        return Encoding.GetEncoding(1252);
-    }
+    // cached: GetEncoding does a lookup, and this is called inside parse loops.
+    // the CodePages provider itself is registered once in EncodingBootstrap.
+    private static readonly Encoding s_latin1 = Encoding.GetEncoding(1252);
+    private static Encoding Latin1() => s_latin1;
 }

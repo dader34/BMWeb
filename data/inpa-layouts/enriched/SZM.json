@@ -1,0 +1,56 @@
+{
+  "ecu": "SZM.IPO",
+  "screens": [
+    {
+      "group": "Supplier identification",
+      "job": "STATUS_INTERN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Seat module status (seat heating / sun blind)",
+      "job": "STATUS_IO",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_TSOLL_SITZHEIZUNG_LINKS_WERT", "label": "Seat heating target temp, left", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TSOLL_SITZHEIZUNG_RECHTS_WERT", "label": "Seat heating target temp, right", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TIST_SITZHEIZUNG_LINKS_WERT", "label": "Seat heating actual temp, left", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TIST_SITZHEIZUNG_RECHTS_WERT", "label": "Seat heating actual temp, right", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TIST_PLATINE_LINKS_WERT", "label": "Circuit board temp, left", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TIST_PLATINE_RECHTS_WERT", "label": "Circuit board temp, right", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_LEISTUNG_SITZHEIZUNG_LINKS_WERT", "label": "Seat heating power, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LEISTUNG_SITZHEIZUNG_RECHTS_WERT", "label": "Seat heating power, right", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Sun blind motor current",
+      "job": "STATUS_IO",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORSTROM_SONNENROLLO_WERT", "label": "Sun blind motor current", "unit": "A", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Terminal 30 voltage",
+      "job": "STATUS_IO",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KLEMME_30_WERT", "label": "Terminal 30 voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "CODIERUNG_LESEN", "field": "Plausibility check response time", "kind": "number", "example": "5", "args_template": "Numeric response-time value passed to CODIERUNG_LESEN coding read" },
+    { "job": "CODIERUNG_LESEN", "field": "Plausibility check shutoff", "kind": "number", "example": "1", "args_template": "Numeric shutoff/disable value passed to CODIERUNG_LESEN coding read" }
+  ]
+}

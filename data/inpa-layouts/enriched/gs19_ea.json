@@ -1,0 +1,1414 @@
+{
+ "ecu": "gs19_ea.IPO",
+ "screens": [
+  {
+   "group": "Fault memory",
+   "job": "FS_LESEN",
+   "args": null,
+   "render": "value",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "ID_LIEF_TEXT",
+     "label": "ID supplier",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_READY_TEXT",
+     "label": "Fault readiness",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNATUR_PAF_WERT",
+     "label": "Signatur Paf",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNATUR_DAF_WERT",
+     "label": "Signatur Daf",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Engine RPM",
+   "job": "STATUS_MOTORDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "PFN_1_WERT",
+     "label": "PFN 1",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "PFN_2_WERT",
+     "label": "PFN 2",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "PFN_3_WERT",
+     "label": "PFN 3",
+     "unit": "A",
+     "min": 0,
+     "max": 200
+    },
+    {
+     "key": "PFN_4_WERT",
+     "label": "PFN 4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "PFN_5_WERT",
+     "label": "PFN 5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "SBC_1_WERT",
+     "label": "SBC 1",
+     "unit": "bar",
+     "min": 0,
+     "max": 5
+    },
+    {
+     "key": "STAT_MOTORDREHZAHL_WERT",
+     "label": "Engine RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Backup fault memory",
+   "job": "BACKUP_FS_LESEN",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "F_ORT_TEXT",
+     "label": "Fault location",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_SYMPTOM_TEXT",
+     "label": "Fault symptom",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_VORHANDEN_TEXT",
+     "label": "Fault present",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_WARNUNG_TEXT",
+     "label": "Fault warning",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "F_ERSATZFUNKTION_TEXT",
+     "label": "Fault Ersatzfunktion",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Auto-N steering-column counter",
+   "job": "STATUS_AUTO_N_SZL_ZAEHLER",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ZAEHLER_WERT",
+     "label": "Counter",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal status 0",
+   "job": "STATUS_SIGNAL_0",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_POSITIONSSENOR_TEXT",
+     "label": "Signal Positionssenor",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_ABTRIEBSDREHZAHL_TEXT",
+     "label": "Signal Output shaft RPM",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_PARKSPERRENSENSOR_TEXT",
+     "label": "Signal Parksperrensensor",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_TURNBINENDREHZAHL_TEXT",
+     "label": "Signal Turnbinendrehzahl",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_SUBSTRATTEMPERATUR_TEXT",
+     "label": "Signal Substrattemperatur",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_GETRIEBEOELTEMPERATUR_TEXT",
+     "label": "Signal Getriebeoeltemperatur",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal status 1",
+   "job": "STATUS_SIGNAL_1",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_MOMENT1_TEXT",
+     "label": "Signal Moment1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_DROSSELKLAPPE_TEXT",
+     "label": "Signal Throttle",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_MOTORDREHZAHL_TEXT",
+     "label": "Engine RPM",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_PARKSPERRENANFORDERUNG_TEXT",
+     "label": "Signal Parksperrenanforderung",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal status 2",
+   "job": "STATUS_SIGNAL_2",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_BREMSSIGNAL_TEXT",
+     "label": "Signal Bremssignal",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_DREHRICHTUNG_TEXT",
+     "label": "Signal Drehrichtung",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_RADGESCHWINDIGKEIT_HL_TEXT",
+     "label": "Signal Wheel speed Hl",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_RADGESCHWINDIGKEIT_HR_TEXT",
+     "label": "Signal Wheel speed Hr",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_RADGESCHWINDIGKEIT_VL_TEXT",
+     "label": "Signal Wheel speed Vl",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Signal status 3",
+   "job": "STATUS_SIGNAL_3",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SIGNAL_KL15_TEXT",
+     "label": "Terminal 15 (ignition)",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_POS_CAN_TEXT",
+     "label": "Signal Pos CAN",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_S_TASTER_TEXT",
+     "label": "Signal S button",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_FAHRERSITZ_TEXT",
+     "label": "Signal Fahrersitz",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_FAHRERTUER_TEXT",
+     "label": "Signal Fahrertuer",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_TIP_TASTER_TEXT",
+     "label": "Signal Tip button",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_POS_SERIELL_TEXT",
+     "label": "Signal Pos Seriell",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SIGNAL_SCHLUESSEL_STECKT_TEXT",
+     "label": "Signal Key Steckt",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Timeout diagnosis",
+   "job": "STATUS_TIMEOUTDIAGNOSE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KLEMMENSTATUS_TEXT",
+     "label": "Klemmenstatus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZV_KLAPPENZUSTAND_TEXT",
+     "label": "Zv Klappenzustand",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DREHMOMENT1_TEXT",
+     "label": "Drehmoment1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DREHMOMENT2_TEXT",
+     "label": "Drehmoment2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DREHMOMENT3_TEXT",
+     "label": "Drehmoment3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MOTORDATEN_TEXT",
+     "label": "Motordaten",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_REGELGESCHWINDIGKEIT_STUEFENTEMPOMAT_TEXT",
+     "label": "Regelgeschwindigkeit Stuefentempomat",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RADGESCHWINDIGKEIT_TEXT",
+     "label": "Wheel speed",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_STATUS_DSC_TEXT",
+     "label": "Dsc",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_GECHWINDIGKEIT_TEXT",
+     "label": "Gechwindigkeit",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_RADTOLERANZABGLEICH_TEXT",
+     "label": "Radtoleranzabgleich",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ANZEIGE_ACC_TEXT",
+     "label": "Anzeige Acc",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DREHMOMENTANFORDERUNG_ACC_TEXT",
+     "label": "Drehmomentanforderung Acc",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_VERZOEGERUNGSANFORDERUNG_EMF_TEXT",
+     "label": "Verzoegerungsanforderung Emf",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KILOMETERSTAND_TEXT",
+     "label": "Odometer",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SITZBELEGUNG_GURTKONTAKTE_TEXT",
+     "label": "Sitzbelegung Gurtkontakte",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BEDIENUNG_GETRIEBEWAHLSCHALTER_TEXT",
+     "label": "Bedienung Getriebewahlschalter",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_POWERMANAGEMENT_BATTERIESPANNUNG_TEXT",
+     "label": "Battery voltage",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Standard safeguard",
+   "job": "STATUS_STANDARDABSICHERUNG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SA_ACC_TEXT",
+     "label": "Sa Acc",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SA_CAS_TEXT",
+     "label": "Sa Cas",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SA_DME1_TEXT",
+     "label": "Sa Dme1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SA_DME2_TEXT",
+     "label": "Sa Dme2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SA_DME3_TEXT",
+     "label": "Sa Dme3",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Backup programs 3",
+   "job": "STATUS_ERSATZPROGRAMME_3",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KMN_GRAUS_TEXT",
+     "label": "Kmn Graus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_MM_SLIM_TEXT",
+     "label": "Kmn Mm Slim",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_PMAX_TEXT",
+     "label": "Kmn Pmax",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_FANZ_TEXT",
+     "label": "Kmn Fanz",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_MV3AUS_TEXT",
+     "label": "Kmn Mv3aus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_MV4AUS_TEXT",
+     "label": "Kmn Mv4aus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_LOWSIDE_OFF_TEXT",
+     "label": "Kmn Lowside Off",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_SBCAUS_TEXT",
+     "label": "Kmn Sbcaus",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Backup programs 2",
+   "job": "STATUS_ERSATZPROGRAMME_2",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KMN_WKAUF_TEXT",
+     "label": "Kmn Wkauf",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_AFIX_TEXT",
+     "label": "Kmn Afix",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_NRAERS_TEXT",
+     "label": "Kmn Nraers",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_NABERS_TEXT",
+     "label": "Kmn Nabers",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_PNAUS_TEXT",
+     "label": "Kmn Pnaus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_GFIX_TEXT",
+     "label": "Kmn Gfix",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_G5FIX_TEXT",
+     "label": "Kmn G5fix",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_G4FIX_TEXT",
+     "label": "Kmn G4fix",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Backup programs 1",
+   "job": "STATUS_ERSATZPROGRAMME_1",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KMN_ENPG5_TEXT",
+     "label": "Kmn Enpg5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_ENPG35_TEXT",
+     "label": "Kmn Enpg35",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_ADAPT_AUS_TEXT",
+     "label": "Kmn Adapt off",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Backup programs 0",
+   "job": "STATUS_ERSATZPROGRAMME_0",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KMN_G3FIX_TEXT",
+     "label": "Kmn G3fix",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_KEIN_R_TEXT",
+     "label": "Kmn Kein R",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_BENPG3_TEXT",
+     "label": "Kmn Benpg3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_BENPG4_TEXT",
+     "label": "Kmn Benpg4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_BENPG1_TEXT",
+     "label": "Kmn Benpg1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_BENPG2_TEXT",
+     "label": "Kmn Benpg2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_KEIND_TEXT",
+     "label": "Kmn Keind",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_KMN_HOLDP_TEXT",
+     "label": "Kmn Holdp",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Turbine RPM",
+   "job": "STATUS_TURBINENDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TURBINENDREHZAHL_WERT",
+     "label": "Turbine RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Output shaft RPM",
+   "job": "STATUS_ABTRIEBSDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ABTRIEBSDREHZAHL_WERT",
+     "label": "Output shaft RPM",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Wheel speeds",
+   "job": "STATUS_RADGESCHWINDIGKEITEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_RADGESCHWINDIGKEITEN_WERT",
+     "label": "Wheel speeds",
+     "unit": "km/h",
+     "min": 0,
+     "max": 260
+    }
+   ]
+  },
+  {
+   "group": "Transmission temp",
+   "job": "STATUS_GETRIEBETEMPERATUR",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GETRIEBETEMPERATUR_WERT",
+     "label": "Transmission temp",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    }
+   ]
+  },
+  {
+   "group": "Battery voltage",
+   "job": "STATUS_BATTERIESPANNUNG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BATTERIESPANNUNG_WERT",
+     "label": "Battery voltage",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "Pressure-control solenoid voltage",
+   "job": "STATUS_DR_MV_SPANNUNG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DR_MV_SPANNUNG_WERT",
+     "label": "Pressure ctrl Mv Voltage",
+     "unit": "V",
+     "min": 0,
+     "max": 16
+    }
+   ]
+  },
+  {
+   "group": "Input levels",
+   "job": "STATUS_INPUTPEGEL",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_PEGEL_L1_TEXT",
+     "label": "Level L1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEGEL_L2_TEXT",
+     "label": "Level L2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEGEL_L3_TEXT",
+     "label": "Level L3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEGEL_L4_TEXT",
+     "label": "Level L4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEGEL_TIP_PLUS_WERT",
+     "label": "Level Tip Plus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEGEL_TIP_MINUS_WERT",
+     "label": "Level Tip Minus",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_PEGEL_M_GASSE_WERT",
+     "label": "Level M Gasse",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Electronic shift inputs",
+   "job": "STATUS_E_SCHALTUNG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KL_15_CAN_TEXT",
+     "label": "Kl 15 CAN",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_WECKLEITUNG_TEXT",
+     "label": "Wake line",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SCHLUESSEL_TEXT",
+     "label": "Key",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TUER_TEXT",
+     "label": "Door",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SITZ_TEXT",
+     "label": "Seat",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_AUTO_N_TEXT",
+     "label": "Auto N",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_AUTO_P_TEXT",
+     "label": "Auto P",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_N_HALTEPHASE_TEXT",
+     "label": "N Hold phase",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Solenoid valves",
+   "job": "STATUS_MAGNETVENTILE",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MV1_TEXT",
+     "label": "Mv1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MV2_TEXT",
+     "label": "Mv2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_MV3_TEXT",
+     "label": "Mv3",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Actual gear",
+   "job": "STATUS_ISTGANG",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ISTGANG_TEXT",
+     "label": "Actual gear",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Lock-up clutch status",
+   "job": "STATUS_WK",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_WK_TEXT",
+     "label": "Lock-up clutch",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Gear",
+   "job": "STATUS_GEAR",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SA_TEXT",
+     "label": "Sa",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Selector lever position",
+   "job": "STATUS_WH_POSITION",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_WH_POSITION_TEXT",
+     "label": "Selector lever Position",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Transmission position",
+   "job": "STATUS_GETRIEBEPOSITION",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GETRIEBEPOSITION_TEXT",
+     "label": "Transmission position",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Adaptive transmission control",
+   "job": "STATUS_AGS",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SCHALTDIAGRAMM_AGS_TEXT",
+     "label": "Schaltdiagramm Adaptive transmission control",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Steptronic status",
+   "job": "STATUS_STEPTRONIC",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TIP_PLUS_LINKS_TEXT",
+     "label": "Tip Plus Links",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TIP_PLUS_RECHTS_TEXT",
+     "label": "Tip Plus Rechts",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TIP_MINUS_LINKS_TEXT",
+     "label": "Tip Minus Links",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_TIP_MINUS_RECHTS_TEXT",
+     "label": "Tip Minus Rechts",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_P_TASTER_TEXT",
+     "label": "P button",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_S_TASTER_TEXT",
+     "label": "S button",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BREMSE_GETRETEN_TEXT",
+     "label": "Brake Getreten",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  },
+  {
+   "group": "Accelerator pedal angle",
+   "job": "STATUS_FAHRPEDALWINKEL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FAHRPEDALWINKEL_WERT",
+     "label": "Accelerator pedal angle",
+     "unit": "%",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "group": "Engine temp",
+   "job": "STATUS_MOTORTEMPERATUR",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORTEMPERATUR_WERT",
+     "label": "Engine temp",
+     "unit": "°C",
+     "min": -40,
+     "max": 140
+    }
+   ]
+  },
+  {
+   "group": "Engine actual torque",
+   "job": "STATUS_MOTORISTMOMENT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORISTMOMENT_WERT",
+     "label": "Engine actual torque",
+     "unit": "Nm",
+     "min": 0,
+     "max": 600
+    }
+   ]
+  },
+  {
+   "group": "Engine target torque",
+   "job": "STATUS_MOTORSOLLMOMENT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MOTORSOLLMOMENT_WERT",
+     "label": "Engine target torque",
+     "unit": "1/min",
+     "min": 0,
+     "max": 8000
+    }
+   ]
+  },
+  {
+   "group": "Temperature collective",
+   "job": "STATUS_TEMPERATURKOLLEKTIV",
+   "args": null,
+   "render": "digital",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_CGTKO_0_WERT",
+     "label": "Temp class 0",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_1_WERT",
+     "label": "Temp class 1",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_2_WERT",
+     "label": "Temp class 2",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_3_WERT",
+     "label": "Temp class 3",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_4_WERT",
+     "label": "Temp class 4",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_5_WERT",
+     "label": "Temp class 5",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_6_WERT",
+     "label": "Temp class 6",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_7_WERT",
+     "label": "Temp class 7",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_8_WERT",
+     "label": "Temp class 8",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_CGTKO_9_WERT",
+     "label": "Temp class 9",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZEIT_UPTDATE_WERT",
+     "label": "Time update",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SUMME_8_9_WERT",
+     "label": "Sum 8 9",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_SUMME_8_9_ALT_WERT",
+     "label": "Sum 8 9 Alt",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_BRIF_TEXT",
+     "label": "Brif",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_ZIF_TEXT",
+     "label": "Zif",
+     "unit": null,
+     "min": null,
+     "max": null
+    },
+    {
+     "key": "STAT_DIF_TEXT",
+     "label": "Dif",
+     "unit": null,
+     "min": null,
+     "max": null
+    }
+   ]
+  }
+ ],
+ "inputs": [
+  {
+   "job": null,
+   "field": "Job/order number",
+   "kind": "text",
+   "example": "123456",
+   "args_template": "order or job number entered for the workshop record"
+  },
+  {
+   "job": "FS_LESEN",
+   "field": "Control data bytes",
+   "kind": "hex",
+   "example": "22,40,0A",
+   "args_template": "comma/semicolon-separated hex bytes passed as the control telegram"
+  },
+  {
+   "job": "STATUS_SW_STAND_ENTWICKLUNG",
+   "field": "Test-code name",
+   "kind": "text",
+   "example": "PRUEF1",
+   "args_template": "name label for the development test code"
+  },
+  {
+   "job": "STATUS_SW_STAND_ENTWICKLUNG",
+   "field": "Control data bytes",
+   "kind": "hex",
+   "example": "22,40,0A",
+   "args_template": "comma/semicolon-separated hex bytes passed as the control telegram"
+  },
+  {
+   "job": "SEKUNDAER_FS_LESEN",
+   "field": "Test-code name",
+   "kind": "text",
+   "example": "PRUEF1",
+   "args_template": "name label for the development test code"
+  },
+  {
+   "job": "SEKUNDAER_FS_LESEN",
+   "field": "Memory dump name",
+   "kind": "text",
+   "example": "DUMP1",
+   "args_template": "name label for the requested memory readout"
+  },
+  {
+   "job": "SEKUNDAER_FS_LESEN",
+   "field": "Memory segment",
+   "kind": "text",
+   "example": "ROMI",
+   "args_template": "one of ROMI, ROMX, RAMIS, RAMXX, RAMIL"
+  },
+  {
+   "job": "SEKUNDAER_FS_LESEN",
+   "field": "Start address",
+   "kind": "hex",
+   "example": "0x8000",
+   "args_template": "hex start address of the memory block to read"
+  },
+  {
+   "job": "SEKUNDAER_FS_LESEN",
+   "field": "Length",
+   "kind": "hex",
+   "example": "0x100",
+   "args_template": "hex byte count to read from the start address"
+  }
+ ]
+}

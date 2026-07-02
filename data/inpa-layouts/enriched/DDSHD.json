@@ -1,0 +1,27 @@
+{
+  "ecu": "DDSHD.IPO",
+  "screens": [
+    {
+      "group": "I/O status",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SPANNUNG_U_BATT_WERT", "label": "Incremental sensor supply voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Cover position",
+      "job": "STATUS_POS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_POS_V_DECKEL_WERT", "label": "Front cover position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_POS_H_DECKEL_WERT", "label": "Rear cover position", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

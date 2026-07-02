@@ -1,0 +1,26 @@
+{
+  "ecu": "S_ABSASC.IPO",
+  "screens": [
+    {
+      "group": "Brake light switch status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_BREMSLICHT_SCHALTER_EIN", "label": "Brake light switch on", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Ignition status",
+      "job": "STATUS_ZUENDUNG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ZUENDUNG", "label": "Ignition (Terminal 15)", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

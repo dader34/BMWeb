@@ -206,6 +206,51 @@ html, body {
 }
 .setting-title { font-weight: 700; font-size: 15px; }
 .setting-desc { color: var(--ink-dim); font-size: 12.5px; margin-top: 4px; max-width: 46ch; }
+/* dropdown setting (chassis picker) */
+.setting-select {
+  flex: none; min-width: 180px; cursor: pointer;
+  font-family: var(--mono); font-size: 13px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line-bright); border-radius: 4px;
+  padding: 9px 12px; outline: none;
+}
+.setting-select:focus { border-color: var(--amber); }
+/* searchable custom dropdown (startup vehicle) */
+.combo { position: relative; flex: none; min-width: 200px; }
+.combo-btn {
+  width: 100%; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-family: var(--mono); font-size: 13px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line-bright); border-radius: 4px; padding: 9px 12px;
+}
+.combo-btn:hover { border-color: var(--ink-dim); }
+.combo.open .combo-btn { border-color: var(--amber); }
+.combo-caret { color: var(--ink-faint); font-size: 10px; transition: transform .15s; }
+.combo.open .combo-caret { transform: rotate(180deg); }
+.combo-pop {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; width: max(200px, 100%);
+  background: var(--panel-2); border: 1px solid var(--line-bright); border-radius: 5px;
+  box-shadow: 0 18px 40px -14px rgba(0,0,0,.7); overflow: hidden;
+}
+/* open upward when there isn't room below */
+.combo.drop-up .combo-pop { top: auto; bottom: calc(100% + 4px); }
+.combo-search {
+  width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 13px;
+  padding: 10px 12px; outline: none;
+}
+.combo-list { max-height: 240px; overflow-y: auto; padding: 4px; }
+.combo-item {
+  width: 100%; text-align: left; cursor: pointer; display: block;
+  font-family: var(--mono); font-size: 13px; color: var(--ink);
+  background: none; border: none; border-radius: 3px; padding: 8px 10px;
+}
+.combo-item:hover { background: var(--raised); }
+.combo-item.active { color: #1a1206; background: linear-gradient(180deg, var(--amber), var(--amber-soft)); font-weight: 700; }
+/* INPA theme highlights with navy, so the selected item needs white text */
+html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
+.combo-empty { padding: 12px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); }
+/* version footer under the settings list */
+.settings-version { max-width: 720px; margin: 16px auto 0; text-align: center;
+  font-family: var(--mono); font-size: 11px; letter-spacing: .05em; color: var(--ink-faint); }
 
 /* opacity slider */
 .opacity-control { display: flex; align-items: center; gap: 10px; flex: none; min-width: 280px; }
@@ -234,11 +279,13 @@ html, body {
 .seg-btn:hover { color: var(--ink); }
 .seg-btn.active { background: linear-gradient(180deg, var(--amber), var(--amber-soft)); color: #1a1206; }
 
-.led { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint);
-       box-shadow: 0 0 0 0 transparent; transition: all .25s; }
-.led.ok   { background: var(--green); box-shadow: 0 0 10px 1px rgba(56,224,138,.6); }
-.led.idle { background: var(--amber); box-shadow: 0 0 9px 1px rgba(255,158,44,.45); }
-.led.off  { background: var(--red);   box-shadow: 0 0 10px 1px rgba(255,66,66,.5); }
+/* connection light, styled like the Battery/Ignition circles: outline when
+   inactive, filled white when active (cable connected). */
+.led { width: 10px; height: 10px; border-radius: 50%; background: transparent;
+       border: 1.5px solid var(--ink); flex: none; transition: all .2s; }
+.led.ok   { background: var(--ink); border-color: var(--ink); }
+.led.idle { background: transparent; }
+.led.off  { background: transparent; }
 
 /* view */
 .view {
@@ -476,7 +523,11 @@ html[data-theme="inpa"] .inpa-script-row:hover { background: #eef2ff; }
   font-family: var(--mono); font-weight: 700; font-size: 13.5px;
   padding: 5px 8px; color: var(--ink);
 }
-.inpa-ss-head.selected { background: var(--amber); color: #1a1206; } /* selected chassis */
+/* header doubles as the clickable Functional Jobs entry on the chassis row */
+.inpa-ss-head.func { -webkit-app-region: no-drag; cursor: pointer; color: var(--amber); }
+.inpa-ss-head.func:hover { background: rgba(127,127,127,.12); }
+html[data-theme="inpa"] .inpa-ss-head.func { color: #000080; }
+html[data-theme="inpa"] .inpa-ss-head.func:hover { background: #e8eefc; }
 /* indented section items, bold mono */
 .inpa-ss-item, .inpa-ss-job {
   -webkit-app-region: no-drag; cursor: pointer; display: block; width: 100%; text-align: left;
@@ -485,6 +536,9 @@ html[data-theme="inpa"] .inpa-script-row:hover { background: #eef2ff; }
 }
 .inpa-ss-item:hover, .inpa-ss-job:hover { background: rgba(127,127,127,.12); }
 .inpa-ss-item.active { background: rgba(127,127,127,.18); }
+/* chassis row sits flush like a header, not indented like a section */
+.inpa-ss-chassis { padding-left: 8px; }
+.inpa-ss-chassis.active { background: var(--amber); color: #1a1206; }
 .inpa-ss-job { padding-left: 12px; }
 .inpa-ss-job.func { font-weight: 700; color: var(--amber); }
 html[data-theme="inpa"] .inpa-ss-job.func { color: #000080; }
@@ -493,13 +547,30 @@ html[data-theme="inpa"] .inpa-ss-job.func { color: #000080; }
 html[data-theme="inpa"] .inpa-scriptsel { background: #d4d0c8; border-color: #808080; }
 html[data-theme="inpa"] .inpa-ss-bar { background: #d4d0c8; color: #000; }
 html[data-theme="inpa"] .inpa-ss-left, html[data-theme="inpa"] .inpa-ss-right { background: #fff; border-color: #808080; }
-html[data-theme="inpa"] .inpa-ss-head.selected { background: #0a246a; color: #fff; }
 html[data-theme="inpa"] .inpa-ss-item, html[data-theme="inpa"] .inpa-ss-job { color: #000; }
 html[data-theme="inpa"] .inpa-ss-item:hover, html[data-theme="inpa"] .inpa-ss-job:hover { background: #e8eefc; }
 html[data-theme="inpa"] .inpa-ss-item.active { background: #cfe0ff; }
+html[data-theme="inpa"] .inpa-ss-chassis.active { background: #0a246a; color: #fff; }
 
 /* quick sweep: chassis-wide fault/ident scan */
 .quick-sweep { }
+.quick-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.quick-bar .quick-head { margin-bottom: 0; }
+.quick-bar-btns { display: flex; gap: 8px; align-items: center; }
+.quick-clear-all {
+  -webkit-app-region: no-drag; cursor: pointer; font-family: var(--mono); font-size: 11.5px;
+  color: var(--red); background: none; border: 1px solid var(--red); border-radius: 3px;
+  padding: 4px 12px; white-space: nowrap;
+}
+.quick-clear-all:hover:not(:disabled) { background: var(--red); color: #fff; }
+.quick-clear-all:disabled { opacity: .35; cursor: default; }
+.quick-pdf {
+  -webkit-app-region: no-drag; cursor: pointer; font-family: var(--mono); font-size: 11.5px;
+  color: var(--ink-dim); background: none; border: 1px solid var(--line-bright); border-radius: 3px;
+  padding: 4px 12px; white-space: nowrap;
+}
+.quick-pdf:hover:not(:disabled) { background: var(--raised); color: var(--ink); border-color: var(--ink-dim); }
+.quick-pdf:disabled { opacity: .35; cursor: default; }
 .quick-head { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); margin-bottom: 10px; }
 .quick-rows { display: grid; gap: 2px; }
 .quick-row { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center;
@@ -510,6 +581,29 @@ html[data-theme="inpa"] .inpa-ss-item.active { background: #cfe0ff; }
 .quick-row.has-faults .quick-status { color: var(--red); }
 .quick-row.clean { border-left: 3px solid var(--green); }
 .quick-row.noresp { opacity: .55; }
+.quick-row.scanning-detail .quick-status { color: var(--amber); }
+.quick-status { display: inline-flex; align-items: center; gap: 8px; }
+.quick-clear {
+  -webkit-app-region: no-drag; cursor: pointer; font-family: var(--mono); font-size: 10.5px;
+  color: var(--red); background: none; border: 1px solid var(--red); border-radius: 3px;
+  padding: 2px 8px;
+}
+.quick-clear:hover { background: var(--red); color: #fff; }
+.quick-clearing { color: var(--amber); font-style: italic; }
+.quick-cleared { color: var(--green); }
+.quick-clear-fail { color: var(--red); }
+/* deep-scan DTC rows, listed under a faulty module */
+.quick-detail { display: grid; gap: 1px; margin: 1px 0 4px 14px;
+  border-left: 3px solid var(--line-bright); }
+.quick-detail-row { display: grid; grid-template-columns: 76px 1fr auto; gap: 12px;
+  align-items: baseline; padding: 5px 14px; background: var(--panel-2);
+  font-size: 12.5px; }
+.quick-detail-code { font-family: var(--mono); font-weight: 700; color: var(--ink); }
+.quick-detail-name { color: var(--ink-dim); }
+.quick-detail-state { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em;
+  color: var(--ink-faint); }
+.quick-detail-row.present .quick-detail-code { color: var(--red); }
+.quick-detail-row.present .quick-detail-state { color: var(--red); }
 
 
 /* ECU main menu: SGBD subline + function list */
@@ -737,6 +831,10 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .act-label { font-size: 14px; font-weight: 600; }
 .act-jobs { font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* STATUS_X readback after activating (the value INPA shows, e.g. fan 98 %) */
+.act-readback { font-family: var(--mono); font-size: 12px; color: var(--cyan); margin-top: 5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-card.running .act-readback { color: var(--green); }
 .act-btn { flex: none; min-width: 92px; justify-content: center; }
 .act-btn.on { animation: actpulse 1.4s ease-in-out infinite; }
 @keyframes actpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,66,66,.5); } 50% { box-shadow: 0 0 0 4px rgba(255,66,66,0); } }
@@ -830,12 +928,14 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .modal-overlay.show { background: rgba(4, 7, 10, .62); backdrop-filter: blur(3px); }
 .modal {
   width: min(440px, 86vw);
+  max-height: 88vh; display: flex; flex-direction: column;
   background: linear-gradient(180deg, var(--panel-2), var(--panel));
   border: 1px solid var(--line-bright); border-radius: 6px;
   box-shadow: 0 30px 70px -20px rgba(0,0,0,.85);
   padding: 24px 24px 18px; transform: translateY(10px) scale(.98); opacity: 0;
   transition: transform .18s cubic-bezier(.2,.7,.2,1), opacity .18s;
 }
+.modal-title, .modal-body, .modal-actions { flex: none; }
 .modal-overlay.show .modal { transform: none; opacity: 1; }
 .modal.danger { border-top: 2px solid var(--red); }
 .modal-title { font-size: 19px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 10px; }
@@ -855,6 +955,20 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .modal-input.shake { animation: inpShake .32s; border-color: var(--red); }
 @keyframes inpShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)} }
 .modal-body .muted { color: var(--ink-dim); }
+/* multi-field job-argument dialog (built from the _ARGUMENTS schema) */
+/* scroll the field list, not the whole modal, so many-arg jobs (e.g. AIF_SCHREIBEN
+   with 9 fields) stay on screen with the title and Run/Cancel fixed */
+.arg-fields { margin-bottom: 18px; max-height: 52vh; overflow-y: auto; padding-right: 4px; }
+.arg-row { margin-bottom: 14px; }
+.arg-row:last-child { margin-bottom: 0; }
+.arg-label { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+.arg-label .arg-type { font-family: var(--mono); font-size: 10.5px; font-weight: 400; color: var(--ink-faint); }
+.arg-row .modal-input { margin-bottom: 5px; }
+.arg-hint { font-size: 11px; color: var(--ink-faint); line-height: 1.4; }
+select.modal-input { appearance: none; cursor: pointer; }
+.arg-warn { font-size: 11px; color: var(--red); line-height: 1.45; margin-top: 5px;
+  border-left: 2px solid var(--red); padding-left: 8px; }
+.arg-warn .mono { font-family: var(--mono); color: var(--amber); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .modal-actions .btn { display: inline-flex; align-items: center; gap: 9px; }
 .modal-cancel { background: var(--panel); }

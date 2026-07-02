@@ -1,0 +1,333 @@
+{
+  "ecu": "mvd1722.IPO",
+  "screens": [
+    {
+      "group": "ECU configuration",
+      "job": "STATUS_ECU_CONFIG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TURBO_WERT", "label": "Turbo with wastegate", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TURBO_VTG_WERT", "label": "Turbo with VTG", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_MONO_WERT", "label": "Exhaust concept mono", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_Y_WERT", "label": "Exhaust concept Y", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_STEREO_WERT", "label": "Two O2 sensors pre-cat", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_KAT_WERT", "label": "Catalytic converter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_WERT", "label": "Sound flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SLP_WERT", "label": "Secondary air pump", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SLV_WERT", "label": "Exhaust flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOK_WERT", "label": "Sound flap actuator", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ANSK_WERT", "label": "Intake air flap", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGR_WERT", "label": "EGR via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BN2000_WERT", "label": "BN2000 electrical system", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TMP_CAN_WERT", "label": "Temperature via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KOMBI_WERT", "label": "Instrument cluster via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LDM_WERT", "label": "Longitudinal dynamics management", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LMM_WERT", "label": "Air mass meter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ICM_WERT", "label": "ICM", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MFL_WERT", "label": "Oil level sensor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SPT_WERT", "label": "Manual transmission", "unit": null, "min": null, "max": null },
+        { "key": "STAT_HS_WERT", "label": "Manual switch", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOZNIV_WERT", "label": "Oil level sensor (TOZNIV)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EWAP_BSD_WERT", "label": "Oil condition sensor (BSD)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OZS_BSD_WERT", "label": "Electric steering (BSD)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AFS_BN2020_WERT", "label": "Battery sensor on LIN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_LIN_WERT", "label": "IBS battery sensor on LIN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EMF_WERT", "label": "Electric fan 1000W", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DKG_WERT", "label": "Dual clutch gearbox", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_OELSENS_WERT", "label": "Oil sensor", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AOEL_WERT", "label": "Oil level (analog)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ASC_WERT", "label": "ASC", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MSA_WERT", "label": "Auto start/stop (MSA)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SAT_WERT", "label": "SAT", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SGR_LIN_WERT", "label": "Cruise control on LIN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KLJ_WERT", "label": "Air conditioning", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EBL_WERT", "label": "Electric coolant pump", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ELUE_400_WERT", "label": "Electric fan 400W", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ELUE_600_WERT", "label": "Electric fan 600W", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ELUE_850_WERT", "label": "Electric fan 850W", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BLSVK_WERT", "label": "Bus list (BLSVK)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LLSVK_WERT", "label": "Delivery list (LLSVK)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_1000_WERT", "label": "Config flag 1000", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Function status",
+      "job": "STATUS_FUNKTIONSSTATI",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LL_EIN_TEXT", "label": "Idle control on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LR_EIN_TEXT", "label": "Lambda control on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LRNRDY_EIN_TEXT", "label": "Lambda control ready", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VL_EIN_TEXT", "label": "Full load on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SA_EIN_TEXT", "label": "Overrun fuel cutoff on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KD_EIN_TEXT", "label": "Kickdown on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FS_EIN_TEXT", "label": "Limp mode on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_PEDSPORT_EIN_TEXT", "label": "Sport pedal map on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SBBVK_EIN_TEXT", "label": "Heater pre-cat on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SBBHK_EIN_TEXT", "label": "Heater post-cat on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TEHB_EIN_TEXT", "label": "Electric brake booster on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ECULOCK_EIN_TEXT", "label": "ECU lock on", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Operating mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIESPARMODE_WERT", "label": "Energy-saving mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FERTIGUNGSMODE_WERT", "label": "Production mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TRANSPORTMODE_WERT", "label": "Transport mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WERKSTATTMODE_WERT", "label": "Workshop mode", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MODE_WERT", "label": "Mode", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Cooling system",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KUEHLWASSERTEMPERATUR_WERT", "label": "Coolant temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_KUEHLWASSERTEMPERATUR_ROH_WERT", "label": "Coolant temp (raw)", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_KUEHLERAUSLASSTEMPERATUR_WERT", "label": "Radiator outlet temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_KUEHLMITTELTEMPERATUR_KUEHLERAUSGANG_WERT", "label": "Coolant temp at radiator outlet", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_BEHEIZTER_THERMOSTAT_PWM_WERT", "label": "Heated thermostat PWM", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_E_LUEFTER_PWM_WERT", "label": "Electric fan PWM", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Measured value block",
+      "job": "STATUS_MESSWERTBLOCK_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTOR_DREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_LEERLAUF_SOLLDREHZAHL_WERT", "label": "Idle target RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_ANSAUGLUFTTEMPERATUR_WERT", "label": "Intake air temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_OELTEMPERATUR_WERT", "label": "Oil temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_UMGEBUNGSTEMPERATUR_WERT", "label": "Ambient temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_MOTORTEMPERATUR_BEIM_START_WERT", "label": "Engine temp at start", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_UMGEBUNGSDRUCK_WERT", "label": "Ambient pressure", "unit": "mbar", "min": 0, "max": 2500 },
+        { "key": "STAT_SAUGROHRDRUCK_WERT", "label": "Manifold pressure", "unit": "mbar", "min": 0, "max": 2500 },
+        { "key": "STAT_SAUGROHRDRUCK_1_LADEDRUCK_1_WERT", "label": "Boost pressure", "unit": "mbar", "min": 0, "max": 2500 },
+        { "key": "STAT_LUFTMASSE_GEMESSEN_WERT", "label": "Measured air mass", "unit": "mg/stk", "min": -700, "max": 700 },
+        { "key": "STAT_AKTUELLER_DROSSELKLAPPENWINKEL_WERT", "label": "Throttle angle (from lower stop)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_DROSSELKLAPPE_SOLLWERT_WERT", "label": "Throttle target", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LAMBDA_ISTWERT_GRUPPE_1_WERT", "label": "Lambda actual, group 1", "unit": "lambda", "min": 0, "max": 2 },
+        { "key": "STAT_LAMBDA_SOLLWERT_BANK1_WERT", "label": "Lambda target, bank 1", "unit": "lambda", "min": 0, "max": 2 },
+        { "key": "STAT_LAMBDAWERT_VOR_KAT_BANK_1_WERT", "label": "Lambda pre-cat, bank 1", "unit": "lambda", "min": 0, "max": 2 },
+        { "key": "STAT_SPANNUNG_LAMBDASONDE_VOR_KAT_BANK1_WERT", "label": "O2 sensor voltage pre-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_LAMBDASONDE_VOR_KAT_BANK_1_WERT", "label": "O2 sensor voltage pre-cat, bank 1 (alt)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_LAMBDASONDE_HINTER_KAT_BANK_1_WERT", "label": "O2 sensor voltage post-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_LAMBDASONDENHEIZUNG_PWM_VOR_KAT_BANK_1_WERT", "label": "O2 heater PWM pre-cat, bank 1", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_LAMBDASONDENHEIZUNG_PWM_HINTER_KAT_BANK_1_WERT", "label": "O2 heater PWM post-cat, bank 1", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_STATUS_LS_HEIZUNG_VOR_KAT_BANK_1_WERT", "label": "O2 heater status pre-cat, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_INTEGRATOR_BANK_1_WERT", "label": "Integrator, bank 1", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STAT_MULTIPLIKATIVE_GEMISCHKORREKTUR_DER_GEMISCHADAPTION_WERT", "label": "Multiplicative mixture adaptation", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STAT_LAUFUNRUHE_ZYLINDER_1_WERT", "label": "Roughness, cylinder 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LAUFUNRUHE_ZYLINDER_2_WERT", "label": "Roughness, cylinder 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LAUFUNRUHE_ZYLINDER_3_WERT", "label": "Roughness, cylinder 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LAUFUNRUHE_ZYLINDER_4_WERT", "label": "Roughness, cylinder 4", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EINLASS_VANOS_PWM_WERT", "label": "Intake VANOS PWM", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSLASS_VANOS_PWM_WERT", "label": "Exhaust VANOS PWM", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_ISTWERT_EINLASSSPREIZUNG_WERT", "label": "Intake spread actual", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ISTWERT_AUSLASSSPREIZUNG_WERT", "label": "Exhaust spread actual", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOLLWERT_EINLASSSPREIZUNG_WERT", "label": "Intake spread target", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ISTWERT_EXZENTERWINKEL_VVT_WERT", "label": "VVT eccentric angle actual", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOLLWERT_EXZENTERWINKEL_VVT_WERT", "label": "VVT eccentric angle target", "unit": null, "min": null, "max": null },
+        { "key": "STAT_STROM_FUER_VVT_MOTOR_WERT", "label": "VVT motor current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_SUMMENSTROM_VVT_BEI_TESTERANSTEUERUNG_WERT", "label": "VVT total current (tester drive)", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_VERSTELLZEIT_VVT_BEI_TESTERANSTEUERUNG_WERT", "label": "VVT adjustment time (tester drive)", "unit": "ms", "min": null, "max": null },
+        { "key": "STAT_WASTEGATE_1_PWM_WERT", "label": "Wastegate 1 PWM", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_TEV_PWM_WERT", "label": "Purge valve PWM", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_TASTVERHAELTNIS_E_LUEFTER_WERT", "label": "Electric fan duty cycle", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_SPANNUNG_PEDALWERTGEBER_1_WERT", "label": "Pedal sensor 1 voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_PEDALWERTGEBER_2_WERT", "label": "Pedal sensor 2 voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_BATTERIESPANNUNG_VOM_AD_WANDLER_DME_WERT", "label": "Battery voltage (DME A/D)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_BATTERIESPANNUNG_VON_IBS_GEMESSEN_WERT", "label": "Battery voltage (IBS)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KLEMME_87_SPANNUNGSVERSORGUNG_DME_WERT", "label": "Terminal 87 supply voltage (DME)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_BATTERIELAST_WERT", "label": "Battery load", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_GENERATOR_SOLLSPANNUNG_WERT", "label": "Alternator target voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_NOMINALE_GENERATORSPANNUNG_WERT", "label": "Nominal alternator voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_VOM_GENERATOR_EMPFANGENE_SOLLSPANNUNG_WERT", "label": "Alternator received target voltage", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_KOPIE_GENERATOR_1_LR_VORGABE_AUF_BUS_GELEGT_WERT", "label": "Alternator 1 load setpoint on bus", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_GENERATOR_STROM_WERT", "label": "Alternator current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_GEFILTERTES_GENERATORMOMENT_ABSOLUT_AUSGANG_WERT", "label": "Filtered alternator torque (absolute)", "unit": "Nm", "min": 0, "max": 600 },
+        { "key": "STAT_CHIPTEMPERATUR_GENERATOR_1_WERT", "label": "Alternator 1 chip temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_HERSTELLERCODE_GENERATOR_1_WERT", "label": "Alternator 1 manufacturer code", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KENNUNG_GENERATORT_P_GENERATOR_1_WERT", "label": "Alternator 1 type identifier", "unit": null, "min": null, "max": null },
+        { "key": "STAT_REGLERVERSION_GENERATOR_1_WERT", "label": "Alternator 1 regulator version", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DMTL_STROM_REFERENZLECK_WERT", "label": "DMTL reference leak current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_DMTL_STROM_GROBLECK_WERT", "label": "DMTL gross leak current", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_DMTL_STROM_DIAGNOSEENDE_WERT", "label": "DMTL current at diagnosis end", "unit": "A", "min": null, "max": null },
+        { "key": "STAT_KRAFTSTOFFVERBRAUCH_SEIT_LETZTEM_SERVICE_WERT", "label": "Fuel consumed since last service", "unit": "l", "min": null, "max": null },
+        { "key": "STAT_ABSTAND_ZUR_STARTFAEHIGKEITSGRENZE_WERT", "label": "Margin to start-capability limit", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BETRIEBSSTUNDENZAEHLER_WERT", "label": "Operating hours counter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZEIT_MOTOR_STEHT_WERT", "label": "Engine-off time", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ABGASKLAPPE_EIN_WERT", "label": "Exhaust flap on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LAMPE_CHECK_ENGINE_EIN_WERT", "label": "Check engine lamp on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MIL_LAMPE_EIN_WERT", "label": "MIL lamp on", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MESSWERT0_TEXT", "label": "Measured value 0", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Neutral gear detection",
+      "job": "STATUS_NULLGANG_ERKENNUNG",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_PHY_NG_LERN_WERT", "label": "Neutral gear sensor learned", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "DMTL system check",
+      "job": "STATUS_SYSTEMCHECK_DMTL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DIAGNOSE1_TEXT", "label": "DMTL diagnosis result", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DIAGNOSE2_TEXT", "label": "Diagnosis time", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Idle speed regulator system check",
+      "job": "STATUS_SYSTEMCHECK_IGR_AUS",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SYSTEMCHECK_IGR_WERT_TEXT", "label": "IGRD function status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Purge valve system check",
+      "job": "STATUS_SYSTEMCHECK_TEV",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FS_DFTE_TEXT", "label": "Purge valve fault status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "CBS service data",
+      "job": "CBS_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_FN_CBS_MESS_TEXT", "label": "CBS identifier", "unit": null, "min": null, "max": null },
+        { "key": "RMMI_CBS_WERT", "label": "Remaining mileage", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "System context (fault snapshot)",
+      "job": "STATUS_VIN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DM_MELDUNG_TEXT", "label": "Diagnostic message", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEITSTEMPEL_WERT", "label": "Timestamp", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_JAHR_WERT", "label": "Customer time, year", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MONAT_WERT", "label": "Customer time, month", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_TAG_WERT", "label": "Customer time, day", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_STUNDE_WERT", "label": "Customer time, hour", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_MINUTE_WERT", "label": "Customer time, minute", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KUNDENZEIT_SEKUNDE_WERT", "label": "Customer time, second", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_WEGSTRECKE_KILOMETER_WERT", "label": "Distance at fault", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MIN_WERT", "label": "Battery voltage min at fault", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_SPANNUNG_MAX_WERT", "label": "Battery voltage max at fault", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_AUSSEN_WERT", "label": "Outside temperature at fault", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_TEMPERATUR_MOTOR_ANTRIEB_WERT", "label": "Engine temperature at fault", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MIN_WERT", "label": "Speed min at fault", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_GESCHWINDIGKEIT_MAX_WERT", "label": "Speed max at fault", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MIN_WERT", "label": "Crankshaft RPM min at fault", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_DREHZAHL_KURBELWELLE_MAX_WERT", "label": "Crankshaft RPM max at fault", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_SYSKONTEXT_FEHLERSPEICHERSPERRE_AKTIV_WERT", "label": "Fault memory lock active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_BEI_FEHLER_WERT", "label": "Terminal status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_KLEMMEN_VOR_FEHLER_WERT", "label": "Terminal status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_BEI_FEHLER_WERT", "label": "Operation status at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_OPSTATUS_VOR_FEHLER_WERT", "label": "Operation status before fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_KLEMMENWECHSEL_WERT", "label": "Time of terminal change at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_OPSTATUSWECHSEL_WERT", "label": "Time of operation status change at fault", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_WECKEN_WERT", "label": "Time of wake-up (current power cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_R_EIN_WERT", "label": "First terminal R on (current power cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_15_EIN_WERT", "label": "First terminal 15 on (current power cycle)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSKONTEXT_ZEIT_ERSTE_KL_50_EIN_WERT", "label": "First terminal 50 on (current power cycle)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fault location",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SAE_CODE_TEXT", "label": "SAE code", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Inspection status",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "F_READY_TEXT", "label": "Readiness", "unit": null, "min": null, "max": null },
+        { "key": "F_SYMPTOM_TEXT", "label": "Symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Software version (SVK)",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "PROZESSKLASSE_TEXT", "label": "Process class", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "SENSOR_HERSTELLER_TEXT", "label": "Sensor manufacturer", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "SENSOREN_IDENT_LESEN", "field": "Comment to store", "kind": "text", "example": "Replaced sensor 2026-06", "args_template": "free-text comment string passed to the job" },
+    { "job": "HS_LESEN", "field": "Comment to store", "kind": "text", "example": "Replaced sensor 2026-06", "args_template": "free-text comment string passed to the job" },
+    { "job": "CBS_DATEN_LESEN", "field": "CBS service entry", "kind": "text", "example": "Oel;100;1", "args_template": "service type;value;index separated by semicolons, e.g. Oel;100;1" },
+    { "job": "STATUS_CAS_DIAGNOSE", "field": "CAS diagnosis selection (1-17)", "kind": "text", "example": "5;15", "args_template": "one or more indices 1-17 separated by semicolons, e.g. 5;15" }
+  ]
+}

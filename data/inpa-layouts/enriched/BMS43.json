@@ -1,0 +1,90 @@
+{
+  "ecu": "BMS43.IPO",
+  "screens": [
+    {
+      "group": "Digital status",
+      "job": "STATUS_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_LL_EIN", "label": "Idle speed", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_TL_EIN", "label": "Part load", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_VL_EIN", "label": "Full throttle", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_AC_EIN", "label": "A/C compressor", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_KO_EIN", "label": "Condenser/contact", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_FS_EIN", "label": "Vehicle speed signal", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_GE_EIN", "label": "Transmission signal", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_BESCHLANR_AKTIV_EIN", "label": "Acceleration enrichment active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_SCHUBAB_AKTIV_EIN", "label": "Overrun fuel cutoff active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_TEV_AKTIV_EIN", "label": "Tank vent valve active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_CAN_EIN", "label": "CAN bus active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_ASR_EIN", "label": "Traction control (ASR)", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_MSR_EIN", "label": "Engine drag control (MSR)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Analog values 1",
+      "job": null,
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_UBATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_MOTORDREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STATUS_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STATUS_AN_LUFTTEMPERATUR_WERT", "label": "Intake air temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STATUS_MOTORTEMPERATUR_WERT", "label": "Coolant temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STATUS_ZUENDWINKEL_WERT", "label": "Ignition angle", "unit": "°KW", "min": null, "max": null },
+        { "key": "STATUS_DKP_VOLT_WERT", "label": "Throttle potentiometer voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_LAST_WERT", "label": "Load", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STATUS_LMM_WERT", "label": "Total air consumption (HFM)", "unit": "kg/h", "min": null, "max": null },
+        { "key": "STATUS_LL_LUFTBEDARF_WERT", "label": "Idle air demand", "unit": "kg/h", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Analog values 2",
+      "job": null,
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_L_SONDE_WERT", "label": "O2 sensor voltage 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_INT_WERT", "label": "Lambda integrator 1", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STATUS_ADD_WERT", "label": "Mixture adaptation, additive 1", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STATUS_MUL_WERT", "label": "Mixture adaptation, multiplicative 1", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "Analog values 3",
+      "job": null,
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_LMM_VOLT_WERT", "label": "Air mass meter (HFM) voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Memory check",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ROM_LESEN_WERT", "label": "ROM read result", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Memory check",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "RAM_LESEN_WERT", "label": "RAM read result", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

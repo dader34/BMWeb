@@ -1,0 +1,836 @@
+{
+  "ecu": "vgsg70ea.IPO",
+  "screens": [
+    {
+      "group": "Supplier ID",
+      "job": "PHYSIKALISCHE_HW_NR_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Coding data",
+      "job": "STATUS_CODIERDATEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BAUREIHE_TEXT",
+          "label": "Vehicle series",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_MOTORISIERUNG_TEXT",
+          "label": "Engine variant",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_GETRIEBEART_TEXT",
+          "label": "Transmission type",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_OELVERSCHLEISS_TEXT",
+          "label": "Oil wear",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_CBS_TEXT",
+          "label": "CBS",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_TEMP_CALIB_TEXT",
+          "label": "Temperature calibration",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_MILE_CALIB_TEXT",
+          "label": "Mileage calibration",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Terminal voltage",
+      "job": "STATUS_KLEMMENSPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLEMMENSPG_VGSG_WERT",
+          "label": "Terminal voltage VGSG",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KLEMMENSPG_G_VGSG_WERT",
+          "label": "Terminal voltage VGSG (filtered)",
+          "unit": "V",
+          "min": 0,
+          "max": 16,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_KLEMME_15_WAKEUP_TEXT",
+          "label": "Terminal 15 wake-up",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Engine speed",
+      "job": "STATUS_N_MOT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_N_MOT_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Vehicle speed",
+      "job": "STATUS_V_FZG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_V_FZG_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Actuator current",
+      "job": "STATUS_AKTUATOR_STROM",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTUATOR_STROM_WERT",
+          "label": "Actuator current",
+          "unit": "A",
+          "min": 0,
+          "max": 10,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Actuator position",
+      "job": "STATUS_VG_AKTUATOR_POSITION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTUATOR_POSITION_WERT",
+          "label": "Actuator position",
+          "unit": "°",
+          "min": 0,
+          "max": 360,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Clutch torque setpoint",
+      "job": "STATUS_MK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MK_SOLL_WERT",
+          "label": "Clutch torque setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Clutch torque actual",
+      "job": "STATUS_MK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MK_IST_WERT",
+          "label": "Clutch torque actual",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Coding status",
+      "job": "STATUS_CODIERSTATUS",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_CODIERUNG_TEXT",
+          "label": "Coding status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Clutch",
+      "job": "STATUS_KUPPLUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ERR_INFO_TEXT",
+          "label": "Error info",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_STATUS_INFO_TEXT",
+          "label": "Status info",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_MK_SOLL_WERT",
+          "label": "Clutch torque setpoint",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        },
+        {
+          "key": "STAT_MK_IST_WERT",
+          "label": "Clutch torque actual",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Thermal load, actuator",
+      "job": "STATUS_T_BELASTUNG_AKTUATOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_THERMISCHE_BELASTUNG_AKTUATOR_WERT",
+          "label": "Thermal load, actuator",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Thermal load, clutch",
+      "job": "STATUS_T_BELASTUNG_KUPPLUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_THERMISCHE_BELASTUNG_KUPPLUNG_WERT",
+          "label": "Thermal load, clutch",
+          "unit": "%",
+          "min": 0,
+          "max": 100,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Actuator temperature",
+      "job": "STATUS_VG_AKTUATOR_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AKTUATOR_TEMPERATUR_WERT",
+          "label": "Actuator temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Transfer case oil temperature",
+      "job": "STATUS_VG_OEL_TEMP",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OEL_TEMP_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Classification memory",
+      "job": "STATUS_KLASSIERSPEICHER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RESISTOR_KLASS_ADC_TEXT",
+          "label": "Resistor classification, ADC",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_RESISTOR_KLASS_AKTUAL_TEXT",
+          "label": "Resistor classification, current",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_RESISTOR_KLASS_EEPROM_TEXT",
+          "label": "Resistor classification, EEPROM",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Calibration",
+      "job": "STATUS_KALIBRIERUNG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KALIB_INFO_TEXT",
+          "label": "Calibration info",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_PHISPERREKAL_WERT",
+          "label": "Lock-angle calibration",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_DELTAPHI_WERT",
+          "label": "Delta angle",
+          "unit": "°",
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Disc-pack integrators",
+      "job": "STATUS_LAMELLEN_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMELLE_1_WERT",
+          "label": "Disc integrator 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LAMELLE_2_WERT",
+          "label": "Disc integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LAMELLE_3_WERT",
+          "label": "Disc integrator 3",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Transmission integrators",
+      "job": "STATUS_GETRIEBE_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GETRIEBE_1_WERT",
+          "label": "Transmission integrator 1",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_GETRIEBE_2_WERT",
+          "label": "Transmission integrator 2",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_INTEGRATOR_KM_WERT",
+          "label": "Integrator mileage",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Disc-pack integrators (long-term)",
+      "job": "STATUS_LT_LAMELLEN_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LT_LAMELLE_1_WERT",
+          "label": "Disc integrator 1, long-term",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LT_LAMELLE_2_WERT",
+          "label": "Disc integrator 2, long-term",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LT_LAMELLE_3_WERT",
+          "label": "Disc integrator 3, long-term",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "Transmission integrators (long-term)",
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LT_GETRIEBE_1_WERT",
+          "label": "Transmission integrator 1, long-term",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LT_GETRIEBE_2_WERT",
+          "label": "Transmission integrator 2, long-term",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "STAT_LT_INTEGRATOR_KM_WERT",
+          "label": "Integrator mileage, long-term",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "value"
+        }
+      ]
+    },
+    {
+      "group": "CBS data",
+      "job": "CBS_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "RMMI_CBS_WERT",
+          "label": "CBS remaining mileage",
+          "unit": "km",
+          "min": 0,
+          "max": 400000,
+          "render": "value"
+        },
+        {
+          "key": "AVAI_CBS_WERT",
+          "label": "CBS availability",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "COU_RSTG_CBS_MESS_WERT",
+          "label": "CBS reset counter",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "value"
+        },
+        {
+          "key": "MANIP_CBS_TEXT",
+          "label": "CBS manipulation",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault type",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "CARB fault",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Test condition",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Readiness",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Current AIF (programming info)",
+      "job": "STATUS_AKTUELLES_AIF_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AIF_AKTUELL_ZB_NR_TEXT",
+          "label": "BMW assembly number",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_AIF_AKTUELL_DATUM_TEXT",
+          "label": "BMW programming date",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_AIF_AKTUELL_FG_NR_TEXT",
+          "label": "Chassis number (short)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        },
+        {
+          "key": "STAT_AIF_AKTUELL_FG_NR_LANG_TEXT",
+          "label": "Chassis number (long)",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Flash programming status",
+      "job": "FLASH_PROGRAMMIER_STATUS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "FLASH_PROGRAMMIER_STATUS_TEXT",
+          "label": "Flash programming status",
+          "unit": null,
+          "min": null,
+          "max": null,
+          "render": "digital"
+        }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Oil",
+      "job": "STATUS_OEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PHY_TOEL_WERT",
+          "label": "Oil temperature (physical)",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        }
+      ]
+    },
+    {
+      "group": "Transmission temperature",
+      "job": "STATUS_GETRIEBETEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GETRIEBETEMPERATUR_WERT",
+          "label": "Transmission temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140,
+          "render": "analog"
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "STATUS_LAMELLEN_INTEGRATOREN",
+      "field": "Disc-pack integrator value to set",
+      "kind": "number",
+      "example": "100",
+      "args_template": "entered integer written as the disc integrator value"
+    },
+    {
+      "job": "STATUS_GETRIEBE_INTEGRATOREN",
+      "field": "Transmission integrator value to set",
+      "kind": "number",
+      "example": "100",
+      "args_template": "entered integer written as the transmission integrator value"
+    },
+    {
+      "job": "STATUS_LT_LAMELLEN_INTEGRATOREN",
+      "field": "Long-term disc-pack integrator value to set",
+      "kind": "number",
+      "example": "100",
+      "args_template": "entered integer written as the long-term disc integrator value"
+    },
+    {
+      "job": "STATUS_LT_GETRIEBE_INTEGRATOREN",
+      "field": "Long-term transmission integrator value / clutch torque setpoint (held ~10 s)",
+      "kind": "number",
+      "example": "250",
+      "args_template": "entered integer used as MK setpoint or integrator value"
+    },
+    {
+      "job": "ZIF_BACKUP_LESEN",
+      "field": "Filename for VGSG test protocol",
+      "kind": "text",
+      "example": "vgsg_protocol.txt",
+      "args_template": "filename string for saving the protocol"
+    },
+    {
+      "job": "FS_LESEN",
+      "field": "Filename for fault memory and ECU status export",
+      "kind": "text",
+      "example": "vgsg_fs.txt",
+      "args_template": "filename string for the export"
+    },
+    {
+      "job": "IS_LESEN",
+      "field": "Technician name and remark",
+      "kind": "text",
+      "example": "J. Smith - inspection",
+      "args_template": "free text stored with the info log"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "ecu": "SHD46.IPO",
+  "screens": [
+    {
+      "group": "Digital signals, sunroof",
+      "job": "STATUS_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SSHDA_AKTIV", "label": "Switch open", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SSHDZ_AKTIV", "label": "Switch close", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SSHDH_AKTIV", "label": "Switch lift", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TIPP_A_AKTIV", "label": "Single-shot open", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TIPP_Z_AKTIV", "label": "Single-shot close", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TIPP_H_AKTIV", "label": "Single-shot lift", "unit": null, "min": null, "max": null },
+        { "key": "STAT_RSHDA_AKTIV", "label": "Relay open", "unit": null, "min": null, "max": null },
+        { "key": "STAT_RSHDZ_AKTIV", "label": "Relay close", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KOMFORT_AKTIV", "label": "Comfort function", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EKS_AKTIV", "label": "Jam protection enabled", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NORM_AKTIV", "label": "Sunroof normalized", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DISABLE_AKTIV", "label": "Sunroof disabled", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SICHER_AKTIV", "label": "In safety range", "unit": null, "min": null, "max": null },
+        { "key": "STAT_REV_ZU_AKTIV", "label": "Reverse from close direction", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Analog signals, sunroof",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SHD_POSITION_WERT", "label": "Sunroof position", "unit": "motor revolutions", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Digital signals, sunroof (sensors)",
+      "job": "STATUS_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_INKR_M_AKTIV", "label": "Incremental encoder, master", "unit": null, "min": null, "max": null },
+        { "key": "STAT_INKR_S_AKTIV", "label": "Incremental encoder, slave", "unit": null, "min": null, "max": null },
+        { "key": "STAT_THERMO_AKTIV", "label": "Electronic thermal protection", "unit": null, "min": null, "max": null },
+        { "key": "STAT_U_LOW_AKTIV", "label": "Low voltage detected", "unit": null, "min": null, "max": null },
+        { "key": "STAT_U_HIGH_AKTIV", "label": "High voltage detected", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "SPEICHER_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

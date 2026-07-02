@@ -1,0 +1,16 @@
+{
+  "ecu": "a_r56rls.ipo",
+  "screens": [
+    {
+      "group": "Rain/light sensor identification",
+      "job": "AE_INDEX_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "RLS_ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

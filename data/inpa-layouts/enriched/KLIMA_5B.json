@@ -1,0 +1,665 @@
+{
+  "ecu": "KLIMA_5B.IPO",
+  "screens": [
+    {
+      "group": "Analog inputs",
+      "job": "STATUS_ANALOGEINGAENGE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_AUC_HEIZUNG_WERT",
+          "label": "AUC heating",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUC_VERSORGUNG_WERT",
+          "label": "AUC supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUC_WERT",
+          "label": "Air quality (AUC)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BELUEFT_LI_WERT",
+          "label": "Ventilation left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BELUEFT_RE_WERT",
+          "label": "Ventilation right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DREHZAHL_WERT",
+          "label": "RPM",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_DRUCKSENSOR_WERT",
+          "label": "Pressure sensor",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_FONDRAUM_VERSORGUNG_WERT",
+          "label": "Rear cabin Supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FONDRAUM_WERT",
+          "label": "Rear cabin",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FONDSCH_WERT",
+          "label": "Rear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_LI_VERZ_WERT",
+          "label": "Footwell left delay",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_LI_WERT",
+          "label": "Footwell left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_RE_VERZ_WERT",
+          "label": "Footwell right delay",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_RE_WERT",
+          "label": "Footwell right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GEBLAESE_LI_WERT",
+          "label": "Blower",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GEBLAESE_PWM_WERT",
+          "label": "Blower PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GEBLAESE_RE_WERT",
+          "label": "Blower",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GEBLAESE_TEXT",
+          "label": "Blower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GEBLAESE_WERT",
+          "label": "Blower",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GEBL_RUECK_TEXT",
+          "label": "Blower feedback",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GEBL_RUECK_WERT",
+          "label": "Blower",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_HEIZ_AUC_WERT",
+          "label": "AUC heating",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLEMME15_WERT",
+          "label": "Terminal 15 (ignition)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLEMME30G_WERT",
+          "label": "Terminal 30G",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLEMME30_WERT",
+          "label": "Terminal 30",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUFTVERTEILUNG_POTI_TEXT",
+          "label": "Air distribution pot",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUFTVERTEILUNG_POTI_WERT",
+          "label": "Air manifold Poti",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUFTVERT_TEXT",
+          "label": "Air distribution",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUFTVERT_WERT",
+          "label": "Air manifold",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LWS_FUEHLER_WERT",
+          "label": "Latent heat storage sensor",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PHOTOTRANSISTOR_WERT",
+          "label": "Phototransistor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_PROGRAMMWAHLSCHALTER_POTI_WERT",
+          "label": "Program selection switch Poti",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHICHT_HI_WERT",
+          "label": "Stratification rear",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SCHICHT_VO_WERT",
+          "label": "Stratification front",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SENSORV_WERT",
+          "label": "Sensor supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SENSOR_VERSORGUNG_WERT",
+          "label": "Sensor supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLARSENSOR_LI_WERT",
+          "label": "Solar sensor left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOLARSENSOR_RE_WERT",
+          "label": "Solar sensor right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOLARSENSOR_WERT",
+          "label": "Solar sensor",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOLL_LI_WERT",
+          "label": "Setpoint left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLL_RE_WERT",
+          "label": "Setpoint right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLL_WERT",
+          "label": "Setpoint",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_TAUSSEN_WERT",
+          "label": "Outside temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TINNEN_WERT",
+          "label": "Cabin temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TI_FUEGEBL_WERT",
+          "label": "Blower intake temp",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TKUEHLERWASSER_WERT",
+          "label": "Coolant temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TVERDAMPFER_WERT",
+          "label": "Evaporator temp",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_WT_LI_VERZ_WERT",
+          "label": "Heat exch. left delay",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WT_LI_WERT",
+          "label": "Heat exch. left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WT_RE_VERZ_WERT",
+          "label": "Heat exch. right delay",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WT_RE_WERT",
+          "label": "Heat exch. right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WT_WERT",
+          "label": "Heat exchanger",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Flap motor positions",
+      "job": "STATUS_MOTOR_KLAPPENPOSITION",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_BELUEFTUNG_LI_WERT",
+          "label": "Ventilation left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BELUEFTUNG_RE_WERT",
+          "label": "Ventilation right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BELUEFTUNG_WERT",
+          "label": "Ventilation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENTFROSTUNG_WERT",
+          "label": "Defrost",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRISCHLUFT_LI_WERT",
+          "label": "Fresh air left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRISCHLUFT_RE_WERT",
+          "label": "Fresh air right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FRISCHLUFT_WERT",
+          "label": "Fresh air",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FUSSRAUM_WERT",
+          "label": "Footwell",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LUFTVERTEILUNG_WERT",
+          "label": "Air distribution",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHICHTUNG_LI_WERT",
+          "label": "Stratification left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHICHTUNG_RE_WERT",
+          "label": "Stratification right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STAUDRUCK_WERT",
+          "label": "Ram pressure",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_TEMPERATURMISCHUNG_WERT",
+          "label": "Temperature mixing",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_UMLUFT_WERT",
+          "label": "Recirculation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZENTRALANTRIEB_WERT",
+          "label": "Central actuator",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Controller values",
+      "job": "STATUS_REGLERGROESSEN",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_FUEHR_LI_WERT",
+          "label": "Guide temp left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUEHR_RE_WERT",
+          "label": "Guide temp right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FUEHR_WERT",
+          "label": "Guide temp",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_SOLL_KORRIGIERT_WERT",
+          "label": "Corrected set value",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLL_LI_KORRIGIERT_WERT",
+          "label": "Corrected set value left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLL_RE_KORRIGIERT_WERT",
+          "label": "Corrected set value right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPEED_WERT",
+          "label": "Speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_WASSERVENTIL_LI_WERT",
+          "label": "Water valve left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WASSERVENTIL_RE_WERT",
+          "label": "Water valve right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WASSERVENTIL_WERT",
+          "label": "Water valve",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WTSOLL_LI_WERT",
+          "label": "Heat exch. setpoint left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WTSOLL_RE_WERT",
+          "label": "Heat exch. setpoint right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WTSOLL_WERT",
+          "label": "Heat exch. setpoint",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_YWT_LI_WERT",
+          "label": "Heat exch. control left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_YWT_RE_WERT",
+          "label": "Heat exch. control right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_YWT_WERT",
+          "label": "Heat exch. control",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Y_LI_WERT",
+          "label": "Y left",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Y_RE_WERT",
+          "label": "Y right",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_Y_WERT",
+          "label": "Y",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Control panel",
+      "job": "STATUS_BEDIENTEIL",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GEBLAESESTUFE_WERT",
+          "label": "Blower",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KLEMME_58G_WERT",
+          "label": "Terminal 58G (dimmer)",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

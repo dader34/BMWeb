@@ -1,0 +1,1032 @@
+{
+  "ecu": "MS420.IPO",
+  "screens": [
+    {
+      "group": "Emissions system check",
+      "job": "STATUS_LS_NKAT_HEIZUNG_TV_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "LESEN_SYSTEMCHECK_SEK_LUFT_BANK_1_WERT",
+          "label": "Secondary air, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SEK_LUFT_BANK_2_WERT",
+          "label": "Secondary air, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_R_NKAT_BANK1_WERT",
+          "label": "Probe heater resistance, post-cat bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_R_NKAT_BANK2_WERT",
+          "label": "Probe heater resistance, post-cat bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_R_VKAT_BANK1_WERT",
+          "label": "Probe heater resistance, pre-cat bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_R_VKAT_BANK2_WERT",
+          "label": "Probe heater resistance, pre-cat bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_ULS_MAX_BANK1_WERT",
+          "label": "Probe heater voltage max, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_ULS_MAX_BANK2_WERT",
+          "label": "Probe heater voltage max, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_ULS_MIN_BANK1_WERT",
+          "label": "Probe heater voltage min, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_SONDENHEIZUNG_ULS_MIN_BANK2_WERT",
+          "label": "Probe heater voltage min, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_TANK_LECK_AKTIV_WERT",
+          "label": "Tank leak test active",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_TANK_LECK_PER_WERT",
+          "label": "Tank leak test result",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_TEV_FUNC_DIAG_WERT",
+          "label": "Purge valve diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_TEV_FUNC_TATE_WERT",
+          "label": "Purge valve function state",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LS_NKAT_HEIZUNG_TV_2_WERT",
+          "label": "O2 heater duty post-cat, bank 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "LIN memory read",
+      "job": "SPEICHER_LIN_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SPEICHER_LIN_LESEN_WERT",
+          "label": "LIN memory read",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Intake air temperature",
+      "job": "STATUS_AN_LUFTTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_WERT",
+          "label": "Intake air temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust tightness",
+      "job": "STATUS_DICHTHEIT_MESS_VANOS_A",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DICHTHEIT_MESS_VANOS_A_WERT",
+          "label": "VANOS exhaust tightness test",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake tightness",
+      "job": "STATUS_DICHTHEIT_MESS_VANOS_E",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DICHTHEIT_MESS_VANOS_E_WERT",
+          "label": "VANOS intake tightness test",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Throttle plate angle",
+      "job": "STATUS_DKP_WINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DKP_WINKEL_WERT",
+          "label": "Throttle plate angle",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Injection time",
+      "job": "STATUS_EINSPRITZZEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EINSPRITZZEIT_WERT",
+          "label": "Injection time",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Vehicle speed",
+      "job": "STATUS_GESCHWINDIGKEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Knock control adaptation",
+      "job": "STATUS_KR_ADAP",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KR_ADAP_WERT",
+          "label": "Knock control adaptation",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Coolant outlet temperature",
+      "job": "STATUS_KUEHLW_AUSL_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KUEHLW_AUSL_TEMPERATUR_WERT",
+          "label": "Coolant outlet temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Lambda additive trim, bank 1",
+      "job": "STATUS_LAMBDA_ADD_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_ADD_1_WERT",
+          "label": "Lambda additive trim, bank 1",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lambda additive trim, bank 2",
+      "job": "STATUS_LAMBDA_ADD_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_ADD_2_WERT",
+          "label": "Lambda additive trim, bank 2",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Lambda integrator, bank 1",
+      "job": "STATUS_LAMBDA_INTEGRATOR_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_INTEGRATOR_1_WERT",
+          "label": "Lambda integrator, bank 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Lambda integrator, bank 2",
+      "job": "STATUS_LAMBDA_INTEGRATOR_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_INTEGRATOR_2_WERT",
+          "label": "Lambda integrator, bank 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Lambda multiplicative trim, bank 1",
+      "job": "STATUS_LAMBDA_MUL_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_MUL_1_WERT",
+          "label": "Lambda multiplicative trim, bank 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Lambda multiplicative trim, bank 2",
+      "job": "STATUS_LAMBDA_MUL_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAMBDA_MUL_2_WERT",
+          "label": "Lambda multiplicative trim, bank 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Idle integrator",
+      "job": "STATUS_LL_INTEGRATOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LL_INTEGRATOR_WERT",
+          "label": "Idle integrator",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Idle actuator duty cycle",
+      "job": "STATUS_LL_STELLER_TV",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LL_STELLER_TV_WERT",
+          "label": "Idle actuator duty cycle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Air mass flow",
+      "job": "STATUS_LMM_MASSE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LMM_MASSE_WERT",
+          "label": "Air mass flow",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 heater current post-cat, bank 1",
+      "job": "STATUS_LS_NKAT_HEIZUNG_STROM_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_NKAT_HEIZUNG_STROM_1_WERT",
+          "label": "O2 heater current post-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 heater current post-cat, bank 2",
+      "job": "STATUS_LS_NKAT_HEIZUNG_STROM_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_NKAT_HEIZUNG_STROM_2_WERT",
+          "label": "O2 heater current post-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 heater duty post-cat, bank 1",
+      "job": "STATUS_LS_NKAT_HEIZUNG_TV_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_NKAT_HEIZUNG_TV_1_WERT",
+          "label": "O2 heater duty post-cat, bank 1",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "O2 signal post-cat, bank 2",
+      "job": "STATUS_LS_NKAT_SIGNAL_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_NKAT_SIGNAL_2_WERT",
+          "label": "O2 signal post-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 heater current pre-cat, bank 1",
+      "job": "STATUS_LS_VKAT_HEIZUNG_STROM_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_VKAT_HEIZUNG_STROM_1_WERT",
+          "label": "O2 heater current pre-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 heater current pre-cat, bank 2",
+      "job": "STATUS_LS_VKAT_HEIZUNG_STROM_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_VKAT_HEIZUNG_STROM_2_WERT",
+          "label": "O2 heater current pre-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 heater duty pre-cat, bank 1",
+      "job": "STATUS_LS_VKAT_HEIZUNG_TV_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_VKAT_HEIZUNG_TV_1_WERT",
+          "label": "O2 heater duty pre-cat, bank 1",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "O2 heater duty pre-cat, bank 2",
+      "job": "STATUS_LS_VKAT_HEIZUNG_TV_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_VKAT_HEIZUNG_TV_2_WERT",
+          "label": "O2 heater duty pre-cat, bank 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "O2 signal pre-cat, bank 1",
+      "job": "STATUS_LS_VKAT_SIGNAL_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_VKAT_SIGNAL_1_WERT",
+          "label": "O2 signal pre-cat, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "O2 signal pre-cat, bank 2",
+      "job": "STATUS_LS_VKAT_SIGNAL_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LS_VKAT_SIGNAL_2_WERT",
+          "label": "O2 signal pre-cat, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Throttle 1 potentiometer adaptation",
+      "job": "STATUS_MDK1_POTI_ADAPTION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MDK1_POTI_ADAPTION_WERT",
+          "label": "Throttle 1 potentiometer adaptation",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Throttle 2 potentiometer adaptation",
+      "job": "STATUS_MDK2_POTI_ADAPTION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MDK2_POTI_ADAPTION_WERT",
+          "label": "Throttle 2 potentiometer adaptation",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Throttle potentiometer voltage",
+      "job": "STATUS_MDK_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MDK_POTI_SPANNUNG_1_WERT",
+          "label": "Throttle potentiometer voltage 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_MDK_POTI_SPANNUNG_2_WERT",
+          "label": "Throttle potentiometer voltage 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Engine RPM",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Oil temperature",
+      "job": "STATUS_OEL_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OEL_TEMPERATUR_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Pedal sensor 1 adaptation",
+      "job": "STATUS_PWG1_POTI_ADAPTION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG1_POTI_ADAPTION_WERT",
+          "label": "Pedal sensor 1 adaptation",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Pedal sensor 2 adaptation",
+      "job": "STATUS_PWG2_POTI_ADAPTION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG2_POTI_ADAPTION_WERT",
+          "label": "Pedal sensor 2 adaptation",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "Pedal sensor voltage",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_1_WERT",
+          "label": "Pedal sensor voltage 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_2_WERT",
+          "label": "Pedal sensor voltage 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Pedal angle",
+      "job": "STATUS_PWG_WINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_WINKEL_WERT",
+          "label": "Pedal angle",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Cylinder roughness",
+      "job": "STATUS_SYSTEMCHECK_LAUFUNRUHE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT",
+          "label": "Roughness cyl 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT",
+          "label": "Roughness cyl 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT",
+          "label": "Roughness cyl 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT",
+          "label": "Roughness cyl 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL5_WERT",
+          "label": "Roughness cyl 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL6_WERT",
+          "label": "Roughness cyl 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Battery voltage",
+      "job": "STATUS_UBATT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UBATT_WERT",
+          "label": "Battery voltage",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "VANOS energizing time adapt",
+      "job": "STATUS_VANOS_NW_BESTROMUNGSZEIT_ADAPT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_BESTROMUNGSZEIT_ADAPT_AUSLASS_WERT",
+          "label": "VANOS energizing time adapt, exhaust",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_BESTROMUNGSZEIT_ADAPT_EINLASS_WERT",
+          "label": "VANOS energizing time adapt, intake",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS edge adaptation",
+      "job": "STATUS_VANOS_NW_FLANKENADAPTION",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_FLANKENADAPTION_AUSLASS_WERT",
+          "label": "VANOS edge adaptation, exhaust",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_FLANKENADAPTION_EINLASS_WERT",
+          "label": "VANOS edge adaptation, intake",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS holding duty adapt",
+      "job": "STATUS_VANOS_NW_HALTE_TV_ADAPT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_HALTE_TV_ADAPT_AUSLASS_WERT",
+          "label": "VANOS holding duty adapt, exhaust",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_HALTE_TV_ADAPT_EINLASS_WERT",
+          "label": "VANOS holding duty adapt, intake",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust position",
+      "job": "STATUS_VANOS_NW_LAGE_AUSLASS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_LAGE_AUSLASS_IST_WERT",
+          "label": "VANOS position exhaust, actual",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_LAGE_AUSLASS_REF_WERT",
+          "label": "VANOS position exhaust, reference",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_LAGE_AUSLASS_SOLL_WERT",
+          "label": "VANOS position exhaust, target",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake position",
+      "job": "STATUS_VANOS_NW_LAGE_EINLASS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_LAGE_EINLASS_IST_WERT",
+          "label": "VANOS position intake, actual",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_LAGE_EINLASS_REF_WERT",
+          "label": "VANOS position intake, reference",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VANOS_NW_LAGE_EINLASS_SOLL_WERT",
+          "label": "VANOS position intake, target",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS valve temp model",
+      "job": "STATUS_VANOS_NW_MV_TEMP_MODEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_MV_TEMP_MODEL_WERT",
+          "label": "VANOS valve temperature model",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "VANOS exhaust adjust time",
+      "job": "STATUS_VERSTELLZEIT_MESS_VANOS_A",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VERSTELLZEIT_MESS_VANOS_A_FR_WERT",
+          "label": "VANOS exhaust adjust time, advance",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLZEIT_MESS_VANOS_A_SP_WERT",
+          "label": "VANOS exhaust adjust time, retard",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake adjust time",
+      "job": "STATUS_VERSTELLZEIT_MESS_VANOS_E",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VERSTELLZEIT_MESS_VANOS_E_FR_WERT",
+          "label": "VANOS intake adjust time, advance",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSTELLZEIT_MESS_VANOS_E_SP_WERT",
+          "label": "VANOS intake adjust time, retard",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Ignition angle",
+      "job": "STATUS_ZUENDWINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZUENDWINKEL_WERT",
+          "label": "Ignition angle",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fs Shadow Lesen",
+      "job": "FS_SHADOW_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STEUERN_SYNC_MODE_TEXT",
+          "label": "Sync mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

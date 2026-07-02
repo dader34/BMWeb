@@ -1,0 +1,99 @@
+{
+  "ecu": "MS401.IPO",
+  "screens": [
+    {
+      "group": "Production number / control register",
+      "job": "STATUS_ZSR_EIN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "PROD_NR_LESEN_WERT", "label": "Production number read", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "ROM test",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "ROM_LESEN_WERT", "label": "ROM checksum status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "RAM test",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "RAM_LESEN_WERT", "label": "RAM test status", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Engine analog values",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_MOTORDREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STATUS_MOTORTEMPERATUR_WERT", "label": "Coolant temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STATUS_AN_LUFTTEMPERATUR_WERT", "label": "Intake air temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STATUS_UBATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STATUS_LMM_VOLT_WERT", "label": "Air mass meter voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_LMM_WERT", "label": "Air mass", "unit": "mg/stk", "min": -700, "max": 700 },
+        { "key": "STATUS_ZUENDWINKEL_WERT", "label": "Ignition angle", "unit": "°", "min": null, "max": null },
+        { "key": "STATUS_DKP_WERT", "label": "Throttle position", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STATUS_LL_LUFTBEDARF_WERT", "label": "Idle air demand", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Lambda control",
+      "job": "STATUS_LAMBDAREGELUNG_1_EIN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_L_SONDE_WERT", "label": "O2 sensor pre-cat voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_H_SONDE_WERT", "label": "O2 sensor post-cat voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_INT_WERT", "label": "Lambda integrator", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STATUS_MUL_WERT", "label": "Lambda multiplicative correction", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STATUS_ADD_WERT", "label": "Lambda additive adaptation", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STATUS_TEV_WERT", "label": "Purge valve duty cycle", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Knock sensor",
+      "job": "STATUS_KLOPF_EIN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_KLOPF_ADC1_WERT", "label": "Knock sensor 1 level", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STATUS_KLOPF_ADC2_WERT", "label": "Knock sensor 2 level", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Digital status",
+      "job": "STATUS_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STATUS_LL_EIN", "label": "Idle switch", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_VL_EIN", "label": "Full load switch", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_AC_EIN", "label": "A/C request", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_ASC_EIN", "label": "ASC traction control active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_MSR_EIN", "label": "Engine drag torque control active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_FS_EIN", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_GE_EIN", "label": "Transmission intervention", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_KO_EIN", "label": "Knock control active", "unit": null, "min": null, "max": null },
+        { "key": "STATUS_TEV_EIN", "label": "Purge valve active", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

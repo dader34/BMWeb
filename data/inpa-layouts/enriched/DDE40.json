@@ -1,0 +1,1023 @@
+{
+  "ecu": "DDE40.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "FS_SHADOW_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STEUERN_SYNC_MODE_TEXT",
+          "label": "Sync mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Immobilizer / sync",
+      "job": "FS_SHADOW_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EWS_WERT",
+          "label": "EWS immobilizer status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sync mode",
+      "job": "STATUS_SYNC_MODE_TEXT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EWS_WERT",
+          "label": "EWS immobilizer status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Digital inputs",
+      "job": "STATUS_DIGITAL",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KLIANF_WERT",
+          "label": "A/C compressor request",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Zuome Ve",
+      "job": "STATUS_ZUOME_VE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZUOME_VE_WERT",
+          "label": "Injection quantity, pre-injection",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Zuomehe",
+      "job": "STATUS_ZUOMEHE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZUOMEHE_WERT",
+          "label": "Injection quantity, main",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Rail pressure",
+      "job": "STATUS_RAILDRUCK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAILDRUCK_WERT",
+          "label": "Rail pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Boost pressure",
+      "job": "STATUS_LADEDRUCK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADEDRUCK_WERT",
+          "label": "Boost pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Feed pressure",
+      "job": "STATUS_VORFOERDERDRUCK",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VORFOERDERDRUCK_WERT",
+          "label": "Feed pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Anmuc1",
+      "job": "STATUS_ANMUC1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANMUC1_WERT",
+          "label": "Monitoring module 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Anmuc2",
+      "job": "STATUS_ANMUC2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANMUC2_WERT",
+          "label": "Monitoring module 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Mromd Fahr",
+      "job": "STATUS_MROMD_FAHR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MROMD_FAHR_WERT",
+          "label": "Driver demand torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mromd Soll",
+      "job": "STATUS_MROMD_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MROMD_SOLL_WERT",
+          "label": "Setpoint torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mromd Reib",
+      "job": "STATUS_MROMD_REIB",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MROMD_REIB_WERT",
+          "label": "Friction torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Torque structure",
+      "job": "MW_SELECT_LESEN_NORM",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZUOME_VE_WERT",
+          "label": "Injection quantity, pre-injection",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUOMEHE_WERT",
+          "label": "Injection quantity, main",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_ANMUC1_WERT",
+          "label": "Monitoring module 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ANMUC2_WERT",
+          "label": "Monitoring module 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MROMD_FAHR_WERT",
+          "label": "Driver demand torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MROMD_SOLL_WERT",
+          "label": "Setpoint torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MROMD_REIB_WERT",
+          "label": "Friction torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_FGMFGAKT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_ZUMPQSOLL_WERT",
+          "label": "Metering unit setpoint quantity",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_MRMLLRIANT_WERT",
+          "label": "Idle controller I-component",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MRMLLRPANT_WERT",
+          "label": "Idle controller P-component",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MRMM_DXMSR_WERT",
+          "label": "MSR torque change",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EAKT_WERT",
+          "label": "Torque, current",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EBEGR_WERT",
+          "label": "Torque, limited",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EFGR_WERT",
+          "label": "Torque, cruise control",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_ELLR_WERT",
+          "label": "Torque, idle controller",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EMOT_WERT",
+          "label": "Torque, engine",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EPWG_WERT",
+          "label": "Torque, accelerator pedal",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_ESTAR_WERT",
+          "label": "Torque, start",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EWUN_WERT",
+          "label": "Torque, desired",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MRMM_EWUNF_WERT",
+          "label": "Torque, desired filtered",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Rail pressure, actual",
+      "job": "STATUS_RAILDRUCK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAILDRUCK_IST_WERT",
+          "label": "Rail pressure, actual",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Boost pressure, actual",
+      "job": "STATUS_LADEDRUCK_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADEDRUCK_IST_WERT",
+          "label": "Boost pressure, actual",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Engine speed",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    },
+    {
+      "group": "Fgmfgakt",
+      "job": "STATUS_FGMFGAKT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FGMFGAKT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Battery voltage",
+      "job": "STATUS_UBATT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_UBATT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Air mass, actual",
+      "job": "STATUS_ARMM_LIST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ARMM_LIST_WERT",
+          "label": "Air mass, actual",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Air mass, setpoint",
+      "job": "STATUS_ARMM_LSOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ARMM_LSOLL_WERT",
+          "label": "Air mass, setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Boost control setpoint",
+      "job": "STATUS_LDMP_LSOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LDMP_LSOLL_WERT",
+          "label": "Boost control, setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Boost control linearized",
+      "job": "STATUS_LDMP_LLIN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LDMP_LLIN_WERT",
+          "label": "Boost control, linearized",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Operating hours supply",
+      "job": "STATUS_FBMBSTZ_UB",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FBMBSTZ_UB_WERT",
+          "label": "Operating hours counter supply",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Intake air temperature",
+      "job": "STATUS_AN_LUFTTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AN_LUFTTEMPERATUR_WERT",
+          "label": "Intake air temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Accelerator pedal voltage",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_1_WERT",
+          "label": "Accelerator pedal voltage 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_WERT",
+          "label": "Accelerator pedal voltage 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Accelerator pedal",
+      "job": "STATUS_PWG_FAHRERWUNSCH",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_FAHRERWUNSCH_WERT",
+          "label": "Accelerator pedal position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Metering unit",
+      "job": "STATUS_ZUMP_RAIL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZUMP_RAIL_WERT",
+          "label": "Metering unit rail",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Zumpqsoll",
+      "job": "STATUS_ZUMPQSOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ZUMPQSOLL_WERT",
+          "label": "Metering unit setpoint quantity",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Air mass, actual",
+      "job": "STATUS_LUFTMASSE_IST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUFTMASSE_IST_WERT",
+          "label": "Air mass, actual",
+          "unit": "mg/stk",
+          "min": -700,
+          "max": 700
+        }
+      ]
+    },
+    {
+      "group": "Air mass, setpoint",
+      "job": "STATUS_LUFTMASSE_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LUFTMASSE_SOLL_WERT",
+          "label": "Air mass, setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Boost pressure, setpoint",
+      "job": "STATUS_LADEDRUCK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LADEDRUCK_SOLL_WERT",
+          "label": "Boost pressure, setpoint",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Operating hours",
+      "job": "STATUS_BETRIEBSSTUNDENZAEHLER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_BETRIEBSSTUNDENZAEHLER_WERT",
+          "label": "Operating hours counter",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Rail pressure, setpoint",
+      "job": "STATUS_RAILDRUCK_SOLL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_RAILDRUCK_SOLL_WERT",
+          "label": "Rail pressure, setpoint",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Mrmllriant",
+      "job": "STATUS_MRMLLRIANT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMLLRIANT_WERT",
+          "label": "Idle controller I-component",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Mrmllrpant",
+      "job": "STATUS_MRMLLRPANT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMLLRPANT_WERT",
+          "label": "Idle controller P-component",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Dxmsr",
+      "job": "STATUS_MRMM_DXMSR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_DXMSR_WERT",
+          "label": "MSR torque change",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Eakt",
+      "job": "STATUS_MRMM_EAKT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EAKT_WERT",
+          "label": "Torque, current",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Ebegr",
+      "job": "STATUS_MRMM_EBEGR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EBEGR_WERT",
+          "label": "Torque, limited",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Efgr",
+      "job": "STATUS_MRMM_EFGR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EFGR_WERT",
+          "label": "Torque, cruise control",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Ellr",
+      "job": "STATUS_MRMM_ELLR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_ELLR_WERT",
+          "label": "Torque, idle controller",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Emot",
+      "job": "STATUS_MRMM_EMOT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EMOT_WERT",
+          "label": "Torque, engine",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Epwg",
+      "job": "STATUS_MRMM_EPWG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EPWG_WERT",
+          "label": "Torque, accelerator pedal",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Estar",
+      "job": "STATUS_MRMM_ESTAR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_ESTAR_WERT",
+          "label": "Torque, start",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Ewun",
+      "job": "STATUS_MRMM_EWUN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EWUN_WERT",
+          "label": "Torque, desired",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Mrmm Ewunf",
+      "job": "STATUS_MRMM_EWUNF",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MRMM_EWUNF_WERT",
+          "label": "Torque, desired filtered",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Idle smoothing quantity per cylinder",
+      "job": "STATUS_LAUFUNRUHE_LLR_MENGE",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL1_WERT",
+          "label": "Idle smoothing quantity, cyl 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL2_WERT",
+          "label": "Idle smoothing quantity, cyl 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL3_WERT",
+          "label": "Idle smoothing quantity, cyl 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL4_WERT",
+          "label": "Idle smoothing quantity, cyl 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL5_WERT",
+          "label": "Idle smoothing quantity, cyl 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_LLR_MENGE_ZYL6_WERT",
+          "label": "Idle smoothing quantity, cyl 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Smooth-running RPM per cylinder",
+      "job": "STATUS_LAUFUNRUHE_DREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL1_WERT",
+          "label": "Smooth-running RPM, cyl 1",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL2_WERT",
+          "label": "Smooth-running RPM, cyl 2",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL3_WERT",
+          "label": "Smooth-running RPM, cyl 3",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL4_WERT",
+          "label": "Smooth-running RPM, cyl 4",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL5_WERT",
+          "label": "Smooth-running RPM, cyl 5",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_LAUFUNRUHE_DREHZAHL_ZYL6_WERT",
+          "label": "Smooth-running RPM, cyl 6",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -1,0 +1,105 @@
+{
+  "ecu": "MS450.IPO",
+  "screens": [
+    {
+      "group": "Mixture adaptation (multiplicative)",
+      "job": "STATUS_INT",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_INT_WERT", "label": "Injection time correction, bank 1", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STAT_INT_2_WERT", "label": "Injection time correction, bank 2", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage pre-cat",
+      "job": "STATUS_L_SONDE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_L_SONDE_WERT", "label": "O2 sensor voltage pre-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_L_SONDE_2_WERT", "label": "O2 sensor voltage pre-cat, bank 2", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage post-cat",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_L_SONDE_H_WERT", "label": "O2 sensor voltage post-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_L_SONDE_2_H_WERT", "label": "O2 sensor voltage post-cat, bank 2", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "O2 sensor heating time",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ZEIT_MAX_WERT", "label": "Maximum time", "unit": "ms", "min": null, "max": null },
+        { "key": "STAT_ZEIT_SUMMIERT_WERT", "label": "Summed time", "unit": "ms", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Clutch and overrun fuel cutoff",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KUPPLUNG_WERT", "label": "Clutch", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZEIT_SUMMIERT_WERT", "label": "Overrun fuel cutoff", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Torque and vehicle speed",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TQI_AV_WERT", "label": "Torque", "unit": "Nm", "min": 0, "max": 600 },
+        { "key": "STAT_VS_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Pedal value and gear ratio",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_PV_AV_WERT", "label": "Pedal value", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_GEAR_WERT", "label": "Gear ratio", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Ambient and engine temperature",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TAM_WERT", "label": "Ambient temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TCO_WERT", "label": "Engine coolant temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Clutch and warning threshold",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LV_CS_WERT", "label": "Clutch", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WARN_THD_WERT", "label": "Warning threshold", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

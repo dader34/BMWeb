@@ -14,7 +14,7 @@ const Settings = {
 const THEMES = [
   { id: 'instrument', name: 'Instrument' },
   { id: 'inpa',       name: 'INPA' },
-  { id: 'aero',       name: 'Frutiger Aero' },
+  { id: 'aero',       name: 'Frutiger' },
   { id: 'metal',      name: 'Brushed Metal' },
 ];
 function applyTheme(id) {
@@ -103,10 +103,40 @@ const CHASSIS_TAG = {
 
 let crumbs = []; // [{label, fn}]
 
+// escape server-sourced text (fault texts, labels, job names) for innerHTML
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+
 async function api(path, opts) {
   const res = await fetch(`${API}${path}`, opts);
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   return res.json();
+}
+
+// api call with shared failure rendering: on error, errorBlock into container
+// and mark the status line. returns null on failure.
+async function tryApi(path, opts, container, msg = 'failed') {
+  try { return await api(path, opts); }
+  catch (e) {
+    if (container) container.innerHTML = errorBlock(e.message);
+    sbLeft.textContent = msg;
+    return null;
+  }
+}
+
+// result sets minus the set-0 system summary (kept when it's the only set)
+function dataSets(sets) {
+  const list = sets || [];
+  return list.length > 1 ? list.slice(1) : list;
+}
+
+// flatten result sets into ordered [key, value] pairs, skipping internal keys
+function flatResults(sets) {
+  const out = [];
+  dataSets(sets).forEach(s => Object.entries(s).forEach(([k, v]) => {
+    if (!k.startsWith('_') && k !== 'JOB_STATUS') out.push([k, v]);
+  }));
+  return out;
 }
 
 // set while a flash read/backup holds the bus. the status poll skips its DME read
@@ -146,6 +176,10 @@ function explainError(raw) {
     return { title: 'The ECU timed out', detail: 'No response within the expected time.',
       fix: 'Check the cable and ignition, then retry. A weak battery or loose connector is the usual cause.' };
 
+  if (lower.includes('engine failed to start'))
+    return { title: 'Engine failed to start', detail: 'The diagnostic engine (the bundled sidecar) did not come up.',
+      fix: 'Press Retry. If it keeps failing, quit and reopen BMacW.' };
+
   // fallback: raw message
   return { title: 'Something went wrong', detail: m || 'Unknown error.',
     fix: 'Check the cable and ignition (engine off, key on), then try again.' };
@@ -155,7 +189,7 @@ function errorBlock(raw, accent = 'amber') {
   const e = explainError(raw);
   return `<div class="empty">
     <div class="empty-big" style="color:var(--${accent})">${e.title}</div>
-    <div>${e.detail}</div>
+    <div>${esc(e.detail)}</div>
     <div style="font-size:12px;color:var(--ink-faint);max-width:48ch">${e.fix}</div>
   </div>`;
 }
@@ -183,6 +217,7 @@ let currentActions = []; // [{ key:'1', label, fn, kind }]
 
 function setActions(actions) {
   stopLive(); stopLogging(); // leaving a screen halts polling + logging
+  if (typeof dismissAttention === 'function') dismissAttention(); // drop the fault badge on screen change
   if (activationEcu && activeTests.size) { stopAllActivations(activationEcu); } // kill active actuator tests
   currentActions = actions;
   fkeysEl.innerHTML = '';
@@ -190,7 +225,7 @@ function setActions(actions) {
     const el = document.createElement('div');
     el.className = 'fkey' + (a.kind ? ' ' + a.kind : '');
     el.innerHTML = `<span class="fkey-num">${a.keyLabel || a.key}</span>
-                    <span class="fkey-label">${a.label}</span>`;
+                    <span class="fkey-label">${esc(a.label)}</span>`;
     el.onclick = () => fireAction(a);
     a._el = el;
     fkeysEl.appendChild(el);
@@ -218,9 +253,9 @@ window.addEventListener('keydown', (e) => {
 
 function head(eyebrow, title, subtitle) {
   return `<div class="screen-head">
-    <div class="eyebrow">${eyebrow}</div>
-    <h1 class="title">${title}</h1>
-    ${subtitle ? `<p class="subtitle">${subtitle}</p>` : ''}
+    <div class="eyebrow">${esc(eyebrow)}</div>
+    <h1 class="title">${esc(title)}</h1>
+    ${subtitle ? `<p class="subtitle">${esc(subtitle)}</p>` : ''}
   </div>`;
 }
 
@@ -228,12 +263,36 @@ function stagger(container, step = 35) {
   [...container.children].forEach((c, i) => { c.style.animationDelay = `${i * step}ms`; });
 }
 
+// shared modal lifecycle: builds the overlay, animates it in, wires a capture
+// keydown handler + backdrop click, and tears both down on close (160ms fade).
+// onKey(e, close) replaces the default Esc-to-close handling. close(val)
+// forwards val to onClose (promise dialogs resolve with it); a backdrop click
+// closes with backdropValue.
+function openModal(html, { onKey, onClose, backdropValue } = {}) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('show'));
+  const close = (val) => {
+    overlay.classList.remove('show');
+    window.removeEventListener('keydown', handler, true);
+    setTimeout(() => overlay.remove(), 160);
+    if (onClose) onClose(val);
+  };
+  const handler = (e) => {
+    if (onKey) return onKey(e, close);
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+  };
+  window.addEventListener('keydown', handler, true);
+  overlay.onclick = (e) => { if (e.target === overlay) close(backdropValue); };
+  return { overlay, close };
+}
+
 // confirm modal -> Promise<boolean>. Enter confirms, Esc cancels.
 function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
+    const { overlay, close } = openModal(`
       <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
         <div class="modal-title">${title}</div>
         <div class="modal-body">${body}</div>
@@ -241,24 +300,16 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
           <button class="btn modal-cancel">${cancelLabel}<span class="modal-key">Esc</span></button>
           <button class="btn ${danger ? 'danger' : 'primary'} modal-confirm">${confirmLabel}<span class="modal-key">⏎</span></button>
         </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('show'));
-
-    const close = (val) => {
-      overlay.classList.remove('show');
-      window.removeEventListener('keydown', onKey, true);
-      setTimeout(() => overlay.remove(), 160);
-      resolve(val);
-    };
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(true); }
-    };
-    window.addEventListener('keydown', onKey, true);
+      </div>`, {
+      onClose: resolve,
+      backdropValue: false,
+      onKey: (e, close) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(true); }
+      },
+    });
     overlay.querySelector('.modal-cancel').onclick = () => close(false);
     overlay.querySelector('.modal-confirm').onclick = () => close(true);
-    overlay.onclick = (e) => { if (e.target === overlay) close(false); };
     overlay.querySelector('.modal-confirm').focus();
   });
 }
@@ -269,9 +320,7 @@ function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 
   return new Promise((resolve) => {
     const htmlType = kind === 'number' ? 'number' : 'text';
     const ph = example ? `e.g. ${example}` : '';
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
+    const { overlay, close } = openModal(`
       <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
         <div class="modal-title">${title}</div>
         <div class="modal-body">${body || ''}</div>
@@ -285,30 +334,22 @@ function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 
           <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
           <button class="btn ${danger ? 'danger' : 'primary'} modal-confirm">${confirmLabel}<span class="modal-key">⏎</span></button>
         </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('show'));
+      </div>`, {
+      onClose: resolve,
+      backdropValue: null,
+      onKey: (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); }
+      },
+    });
     const field = overlay.querySelector('.modal-input');
-
-    const close = (val) => {
-      overlay.classList.remove('show');
-      window.removeEventListener('keydown', onKey, true);
-      setTimeout(() => overlay.remove(), 160);
-      resolve(val);
-    };
     const submit = () => {
       const v = field.value.trim();
       if (v === '') { field.focus(); field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 350); return; }
       close(v);
     };
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); }
-    };
-    window.addEventListener('keydown', onKey, true);
     overlay.querySelector('.modal-cancel').onclick = () => close(null);
     overlay.querySelector('.modal-confirm').onclick = submit;
-    overlay.onclick = (e) => { if (e.target === overlay) close(null); };
     field.focus();
   });
 }
@@ -318,10 +359,10 @@ async function runInputFunction(ecu, input, container) {
   const danger = /steuern|command|throttle|setpoint|write|store|reset/i.test(
     (input.field || '') + ' ' + (input.job || ''));
   const val = await inputDialog({
-    title: input.field || input.job,
+    title: esc(input.field || input.job),
     body: input.args_template
-      ? `<span class="muted">${input.args_template}</span><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${input.job}</span>`
-      : `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${input.job}</span>`,
+      ? `<span class="muted">${esc(input.args_template)}</span><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`
+      : `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
     kind: input.kind || 'text',
     example: input.example || '',
     confirmLabel: danger ? 'Send' : 'Run',
@@ -330,7 +371,7 @@ async function runInputFunction(ecu, input, container) {
   if (val == null) { sbLeft.textContent = 'cancelled'; return; }
 
   container.className = 'results-panel';
-  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Running ${input.field || input.job}…</span></div>`;
+  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Running ${esc(input.field || input.job)}…</span></div>`;
   try {
     const data = await api(`/api/ecu/${ecu.sgbd}/run/${input.job}?arg=${encodeURIComponent(val)}`, { method: 'POST' });
     renderResultSets(data.sets, container, input.job);

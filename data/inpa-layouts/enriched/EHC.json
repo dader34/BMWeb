@@ -1,0 +1,249 @@
+{
+  "ecu": "EHC.IPO",
+  "screens": [
+    {
+      "group": "Analog values",
+      "job": "STATUS_ANALOG_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSOR_HL_WERT",
+          "label": "Ride-height sensor, rear left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_HR_WERT",
+          "label": "Ride-height sensor, rear right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_VERSORGUNG_VENTIL_HL_WERT",
+          "label": "Valve supply, rear left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_VERSORGUNG_VENTIL_HR_WERT",
+          "label": "Valve supply, rear right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_VERSORGUNG_VENTIL_ABLASS_WERT",
+          "label": "Discharge-valve supply",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_VERSORGUNG_KOMPRESSOR_WERT",
+          "label": "Compressor supply",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_VERSORGUNG_SENSOR_WERT",
+          "label": "Sensor supply",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_U_BATT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Online values",
+      "job": "STATUS_ONLINE_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SENSOR_HL_ROH_WERT",
+          "label": "Ride-height sensor raw, rear left",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSOR_HR_ROH_WERT",
+          "label": "Ride-height sensor raw, rear right",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_FAST_FILTER_HL_WERT",
+          "label": "Fast filter, rear left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAST_FILTER_HR_WERT",
+          "label": "Fast filter, rear right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLOW_FILTER_HL_WERT",
+          "label": "Slow filter, rear left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLOW_FILTER_HR_WERT",
+          "label": "Slow filter, rear right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAHRGESCHW_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_FEHLERSTATUS_0_WERT",
+          "label": "Fault status byte 0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLERSTATUS_1_WERT",
+          "label": "Fault status byte 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLERSTATUS_2_WERT",
+          "label": "Fault status byte 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Timers",
+      "job": "STATUS_TIMER_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TIMER_KOMPRESSOR_WERT",
+          "label": "Compressor timer [s]",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TIMER_KURVE_WERT",
+          "label": "Cornering timer [s]",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Setpoint deviations",
+      "job": "STATUS_VORGEBEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ABWEICHUNG_LINKS_WERT",
+          "label": "Deviation, left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ABWEICHUNG_RECHTS_WERT",
+          "label": "Deviation, right",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFLOESUNG_LINKS_WERT",
+          "label": "Resolution, left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFLOESUNG_RECHTS_WERT",
+          "label": "Resolution, right",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adjustment values",
+      "job": "ABGLEICHWERTE_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "OFFSET_HL_WERT",
+          "label": "Offset, rear left",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "OFFSET_HR_WERT",
+          "label": "Offset, rear right",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Identification",
+      "job": "STATUS_DIGITAL_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "Supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

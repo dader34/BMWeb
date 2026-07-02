@@ -1,0 +1,221 @@
+{
+  "ecu": "KOMBI.IPO",
+  "screens": [
+    {
+      "group": "Analog inputs",
+      "job": "STATUS_ANALOG_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_DREHZAHL_CAN_WERT", "label": "Engine RPM (CAN)", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_DREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_VERBRAUCH_CAN_WERT", "label": "Fuel consumption (CAN)", "unit": "l/h", "min": 0, "max": null },
+        { "key": "STAT_HEBELGEBER1_WERT", "label": "Fuel level sender 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KUEHLMITTELTEMP_CAN_WERT", "label": "Coolant temp (CAN)", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_KUEHLMITTELTEMP_WERT", "label": "Coolant temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_BREMSVERSCHLEISS_WERT", "label": "Brake pad wear", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FOTOTRANSISTOR_WERT", "label": "Light sensor (phototransistor)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_5V_WERT", "label": "5V reference", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KL58G_WERT", "label": "Terminal 58g (dimmer)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_TKVA1_WERT", "label": "Fuel sender 1 temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_TKVA2_WERT", "label": "Fuel sender 2 temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_HEBELGEBER2_WERT", "label": "Fuel level sender 2", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_AUSSENTEMP_WERT", "label": "Outside temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_OELTEMP_WERT", "label": "Oil temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_5V_PROZA_WERT", "label": "5V supply A", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_5V_PROZB_WERT", "label": "5V supply B", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_BREMSVERSCHLEISS1_WERT", "label": "Brake pad wear 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BORDNETZSPANNUNG_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Signal status",
+      "job": "STATUS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_U_BATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_GESCHWINDIGKEIT_SIGNAL_WERT", "label": "Speed signal", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_DREHZAHL_SIGNAL_WERT", "label": "RPM signal", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_TANKINHALT_WERT", "label": "Fuel level", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TEMPERATUR_WERT", "label": "Temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_KVA_SIGNAL_WERT", "label": "Fuel sender signal", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OELTEMPERATUR_WERT", "label": "Oil temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Fuel tank level",
+      "job": "STATUS_TANKINHALT_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TANKINHALT_WERT", "label": "Fuel level", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TANKINHALT_ANZEIGE_WERT", "label": "Displayed fuel level", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TANKINHALT_HEBEL1_WERT", "label": "Fuel level sender 1", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TANKINHALT_HEBEL2_WERT", "label": "Fuel level sender 2", "unit": "l", "min": 0, "max": null }
+      ]
+    },
+    {
+      "group": "Fuel tank data (AIF)",
+      "job": "STATUS_AIF_TANKDATEN_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TANKINHALT_GEF_WERT", "label": "Filtered fuel level", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TANKINHALT_UNGEF_WERT", "label": "Unfiltered fuel level", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TANKINHALT_HEBEL1_WERT", "label": "Fuel level sender 1", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_TANKINHALT_HEBEL2_WERT", "label": "Fuel level sender 2", "unit": "l", "min": 0, "max": null }
+      ]
+    },
+    {
+      "group": "Outside temperature sensor",
+      "job": "STATUS_AUSSENTEMP_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AUSSENTEMP_SENSOR_WERT", "label": "Outside temperature sensor", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Outside temperature (AIF)",
+      "job": "STATUS_AIF_AUSSENTEMP_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AUSSENTEMP_GEF_WERT", "label": "Filtered outside temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_AUSSENTEMP_UNGEF_WERT", "label": "Unfiltered outside temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Coolant temperature (CAN)",
+      "job": "STATUS_CAN_KUEHLMITTELTEMP_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KUEHLMITTELTEMP_WERT", "label": "Coolant temp", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Engine RPM (CAN)",
+      "job": "STATUS_CAN_MOTORDREHZAHL_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORDREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Injection quantity (CAN)",
+      "job": "STATUS_CAN_EINSPRITZMENGE_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EINSPRITZMENGE_WERT", "label": "Injection quantity", "unit": "mg/stk", "min": -700, "max": 700 }
+      ]
+    },
+    {
+      "group": "Speed / coolant / RPM / consumption (AIF)",
+      "job": "STATUS_AIF_V_KMT_DZ_CON_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORDREHZAHL_WERT", "label": "Engine RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_KUEHLMITTELTEMP_WERT", "label": "Coolant temp", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_MOMENTANVERBRAUCH_WERT", "label": "Instantaneous consumption", "unit": "l/h", "min": 0, "max": null },
+        { "key": "STAT_FAHRGESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "CAN signals",
+      "job": "STATUS_CAN_SIGNALE_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KILOMETERSTAND_WERT", "label": "Odometer", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_UMGEBUNGSTEMPERATUR_WERT", "label": "Ambient temperature", "unit": "°C", "min": -40, "max": 140 },
+        { "key": "STAT_DREHZAHLSTUFE_ELUEFTER_WERT", "label": "Electric fan speed stage", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Transmission info (CAN)",
+      "job": "STATUS_CAN_GETRIEBEINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GANG_INFO_TEXT", "label": "Gear info", "unit": null, "min": null, "max": null },
+        { "key": "STAT_PRG_INF_ANZ_TEXT", "label": "Program info display", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GANG_WHL_ANZ_TEXT", "label": "Selected gear display", "unit": null, "min": null, "max": null },
+        { "key": "STAT_L_GETR_STEUERUNG_WERT", "label": "Transmission control lamp", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Tachograph sensor (TOENS)",
+      "job": "STATUS_TOENS_SG",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DREHZAHL_MITTEL_WERT", "label": "Average RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_TOG_HIGH_WERT", "label": "Sensor high level", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_LOW_WERT", "label": "Sensor low level", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_HIGH_MITTEL_WERT", "label": "Sensor high level, average", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_NIVEAU_MITTEL_WERT", "label": "Average level", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_NIVEAU_MITTEL_1_WERT", "label": "Average level 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_NIVEAU_MITTEL_KORR_WERT", "label": "Average level, corrected", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_IMP_COUNTER_WERT", "label": "Pulse counter", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MITTEL_LANG_COUNT_WERT", "label": "Long-term average counter", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Tachograph sensor I/O (TOENS)",
+      "job": "STATUS_TOENS_IO",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DREHZAHL_WERT", "label": "RPM", "unit": "1/min", "min": 0, "max": 8000 },
+        { "key": "STAT_TOG_HIGH_WERT", "label": "Sensor high level", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOG_LOW_WERT", "label": "Sensor low level", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Fuel consumption calibration factor",
+      "job": "STATUS_KALIBRIERFAKTOR_VERBRAUCH_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KALIBRIERFAKTOR_WERT", "label": "Consumption calibration factor", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Service interval data (AIF SIA)",
+      "job": "STATUS_AIF_SIA_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORTYP_TEXT", "label": "Engine type", "unit": null, "min": null, "max": null },
+        { "key": "STAT_GETRIEBE_TEXT", "label": "Transmission", "unit": null, "min": null, "max": null },
+        { "key": "STAT_INSPEKTIONSGRENZE_WERT", "label": "Inspection limit", "unit": "km", "min": null, "max": null },
+        { "key": "STAT_KRAFTSTOFFMENGE_WERT", "label": "Fuel quantity since service", "unit": "l", "min": 0, "max": null },
+        { "key": "STAT_ZEITGRENZE_WERT", "label": "Time limit", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZEIT_INSP_ZAEHLER_WERT", "label": "Time inspection counter", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

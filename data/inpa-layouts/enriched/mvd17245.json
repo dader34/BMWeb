@@ -1,0 +1,177 @@
+{
+  "ecu": "mvd17245.IPO",
+  "screens": [
+    {
+      "group": "Bus / sensor availability (CAN)",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AGR_WERT", "label": "EGR present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_BN2000_WERT", "label": "BN2000 bus present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TMP_CAN_WERT", "label": "Temperature via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ANSK_WERT", "label": "Intake air flap present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Charging / exhaust concept",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TURBO_WERT", "label": "Turbo with wastegate", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TURBO_VTG_WERT", "label": "Turbo with VTG", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_MONO_WERT", "label": "Exhaust concept mono", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_Y_WERT", "label": "Exhaust concept Y", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Exhaust / air flaps",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SLP_WERT", "label": "Secondary air pump present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SLV_WERT", "label": "Secondary air valve present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AGK_WERT", "label": "Exhaust flap present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SOK_WERT", "label": "Sound flap present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Misc sensors / switches",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MFL_WERT", "label": "Multifunction steering wheel present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SPT_WERT", "label": "Sport mode present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TOZNIV_WERT", "label": "Oil level sensor present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_HS_WERT", "label": "Manual switch present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Control modules on CAN",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KOMBI_WERT", "label": "Instrument cluster via CAN", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LDM_WERT", "label": "Longitudinal dynamics management", "unit": null, "min": null, "max": null },
+        { "key": "STAT_LMM_WERT", "label": "Mass air flow sensor present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ICM_WERT", "label": "ICM present", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sensors on BSD / LIN bus",
+      "job": "STATUS_MESSWERTE_VVT",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EWAP_BSD_WERT", "label": "Electric water pump via BSD", "unit": null, "min": null, "max": null },
+        { "key": "STAT_OZS_BSD_WERT", "label": "Oil condition sensor via BSD", "unit": null, "min": null, "max": null },
+        { "key": "STAT_AFS_BN2020_WERT", "label": "Electric steering present", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IBS_LIN_WERT", "label": "Battery sensor on LIN", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "OBD monitoring counters",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_OBDCOND_WERT", "label": "OBD monitoring conditions encountered count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IGNCNTR_WERT", "label": "Number of engine starts", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Evap / O2 monitor completion counters",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EVAPCOMP_WERT", "label": "Evap monitor completion count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_EVAPCOND_WERT", "label": "Evap monitor condition count", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SO2COMP1_WERT", "label": "O2 sensor monitor completion count, bank 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SO2COND1_WERT", "label": "O2 sensor monitor condition count, bank 1", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adaptation, cyl. 1 / 6",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_1_WERT", "label": "Energy adaptation, injector 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_1_WERT", "label": "Flow adaptation, injector 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_6_WERT", "label": "Energy adaptation, injector 6", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_6_WERT", "label": "Flow adaptation, injector 6", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adaptation, cyl. 2",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_2_WERT", "label": "Energy adaptation, injector 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_2_WERT", "label": "Flow adaptation, injector 2", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adaptation, cyl. 3",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_3_WERT", "label": "Energy adaptation, injector 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_3_WERT", "label": "Flow adaptation, injector 3", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adaptation, cyl. 4",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_4_WERT", "label": "Energy adaptation, injector 4", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_4_WERT", "label": "Flow adaptation, injector 4", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injector adaptation, cyl. 5",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ENERGIEABGLEICH_ZYL_5_WERT", "label": "Energy adaptation, injector 5", "unit": null, "min": null, "max": null },
+        { "key": "STAT_DURCHFLUSSABGLEICH_ZYL_5_WERT", "label": "Flow adaptation, injector 5", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": [
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Throttle valve actuation 0-100%", "kind": "number", "example": "50", "args_template": "percentage value passed to STEUERN_DK control routine" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Intake camshaft actuation (-102.4 to 101.6)", "kind": "number", "example": "0", "args_template": "value passed to STEUERN_ANWS" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Exhaust camshaft actuation (-102.4 to 101.6)", "kind": "number", "example": "0", "args_template": "value passed to STEUERN_ENWS" },
+    { "job": "MESSWERTBLOCK_LESEN", "field": "Raw byte value (0-255)", "kind": "number", "example": "128", "args_template": "single byte argument" },
+    { "job": "STATUS_LESEN", "field": "Two values separated by semicolon", "kind": "text", "example": "5;15", "args_template": "two numeric params split on ';'" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "Current limit (0.0-1310.7 A)", "kind": "number", "example": "100.0", "args_template": "current value in amps" },
+    { "job": "STATUS_MSA2_DEAK_SAV", "field": "Time (0.0-2.55 s)", "kind": "number", "example": "1.0", "args_template": "time value in seconds" },
+    { "job": "STATUS_ENERGIESPARMODE", "field": "Injector coding data (injectors 1-6)", "kind": "text", "example": "per-injector coding string", "args_template": "coding data per injector" },
+    { "job": "STATUS_ENERGIESPARMODE", "field": "VVT actuation 0.0-99%", "kind": "number", "example": "50", "args_template": "percentage passed to STEUERN_VVT" },
+    { "job": "STATUS_SYSTEMCHECK_EVAUSBL", "field": "Lambda target (0-1.999997)", "kind": "number", "example": "1.0", "args_template": "lambda value" },
+    { "job": "STATUS_SYSTEMCHECK_EVAUSBL", "field": "RPM target (500-2000)", "kind": "number", "example": "800", "args_template": "RPM setpoint" }
+  ]
+}

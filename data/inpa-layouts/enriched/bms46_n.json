@@ -1,0 +1,279 @@
+{
+  "ecu": "bms46_n.IPO",
+  "screens": [
+    {
+      "group": "EWS sync status",
+      "job": "STATUS_SYNC_MODE_TEXT",
+      "args": "0x01",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STEUERN_SYNC_MODE_TEXT", "label": "EWS sync mode", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Engine RPM",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORDREHZAHL_WERT", "label": "RPM", "unit": "1/min", "min": 0, "max": 8000 }
+      ]
+    },
+    {
+      "group": "Battery voltage",
+      "job": "STATUS_UBATT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_UBATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Vehicle speed",
+      "job": "STATUS_GESCHWINDIGKEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Air mass (MAF)",
+      "job": "STATUS_LMM_MASSE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LMM_MASSE_WERT", "label": "Air mass (MAF)", "unit": "mg/stk", "min": -700, "max": 700 }
+      ]
+    },
+    {
+      "group": "Engine load",
+      "job": "STATUS_LAST",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LAST_WERT", "label": "Engine load", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Intake air temperature",
+      "job": "STATUS_AN_LUFTTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_AN_LUFTTEMPERATUR_WERT", "label": "Intake air temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Engine temperature",
+      "job": "STATUS_MOTORTEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MOTORTEMPERATUR_WERT", "label": "Engine temperature", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Coolant outlet temperature",
+      "job": "STATUS_KUEHLW_AUSL_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KUEHLW_AUSL_TEMPERATUR_WERT", "label": "Coolant outlet temp", "unit": "°C", "min": -40, "max": 140 }
+      ]
+    },
+    {
+      "group": "Ignition angle",
+      "job": "STATUS_ZUENDWINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ZUENDWINKEL_WERT", "label": "Ignition angle", "unit": "°", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Injection time",
+      "job": "STATUS_EINSPRITZZEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_EINSPRITZZEIT_WERT", "label": "Injection time", "unit": "ms", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Throttle position sensor voltage",
+      "job": "STATUS_DKP_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DKP_SPANNUNG_WERT", "label": "Throttle pot voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Throttle position angle",
+      "job": "STATUS_DKP_WINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DKP_WINKEL_WERT", "label": "Throttle angle", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Air mass meter voltage",
+      "job": "STATUS_LMM_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LMM_SPANNUNG_WERT", "label": "MAF voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Terminal 15 voltage",
+      "job": "STATUS_KL15_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_KL15_SPANNUNG_WERT", "label": "Terminal 15 (ignition) voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Idle actuator pulse ratio",
+      "job": "STATUS_LL_STELLER_TV",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LL_STELLER_TV_WERT", "label": "Idle actuator duty cycle", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Idle integrator",
+      "job": "STATUS_LL_INTEGRATOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LL_INTEGRATOR_WERT", "label": "Idle integrator", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "O2 sensor pre-cat heater, bank 1",
+      "job": "STATUS_LS_VKAT_HEIZUNG_TV_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LS_VKAT_HEIZUNG_TV_1_WERT", "label": "O2 heater pre-cat duty, bank 1", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "O2 sensor post-cat heater, bank 1",
+      "job": "STATUS_LS_NKAT_HEIZUNG_TV_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LS_NKAT_HEIZUNG_TV_1_WERT", "label": "O2 heater post-cat duty, bank 1", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "O2 sensor pre-cat signal, bank 1",
+      "job": "STATUS_LS_VKAT_SIGNAL_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LS_VKAT_SIGNAL_1_WERT", "label": "O2 sensor pre-cat, bank 1", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "O2 sensor post-cat signal, bank 1",
+      "job": "STATUS_LS_NKAT_SIGNAL_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LS_NKAT_SIGNAL_1_WERT", "label": "O2 sensor post-cat, bank 1", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Lambda integrator, bank 1",
+      "job": "STATUS_LAMBDA_INTEGRATOR_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LAMBDA_INTEGRATOR_1_WERT", "label": "Lambda integrator, bank 1", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "Lambda additive adaptation, bank 1",
+      "job": "STATUS_LAMBDA_ADD_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LAMBDA_ADD_1_WERT", "label": "Lambda additive adaptation, bank 1", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "Lambda multiplicative adaptation, bank 1",
+      "job": "STATUS_LAMBDA_MUL_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LAMBDA_MUL_1_WERT", "label": "Lambda multiplicative adaptation, bank 1", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "Roughness running (misfire) per cylinder",
+      "job": "STATUS_SYSTEMCHECK_LAUFUNRUHE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT", "label": "Roughness cylinder 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT", "label": "Roughness cylinder 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT", "label": "Roughness cylinder 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT", "label": "Roughness cylinder 4", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "ROM read",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ROM_LESEN_WERT", "label": "ROM value", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "RAM read",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "RAM_LESEN_WERT", "label": "RAM value", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

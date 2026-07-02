@@ -1,0 +1,159 @@
+{
+  "ecu": "ALC_DS2.IPO",
+  "screens": [
+    {
+      "group": "Control unit voltages",
+      "job": "STATUS_ALC_SG_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SPANNUNG_BELADUNGSSENSOR_VORN_WERT", "label": "Front load sensor voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_BELADUNGSSENSOR_HINTEN_WERT", "label": "Rear load sensor voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_KLEMME_30A_WERT", "label": "Terminal 30A voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_S_BL_WERT", "label": "Load supply voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_VERSORGUNG_SMC_WERT", "label": "SMC supply voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "CAN signals",
+      "job": "STATUS_CAN_SIGNALE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_LENKWINKEL_WERT", "label": "Steering angle", "unit": "°", "min": null, "max": null },
+        { "key": "STAT_GESCHWINDIGKEIT_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_GIERRATE_WERT", "label": "Yaw rate", "unit": "°/s", "min": null, "max": null },
+        { "key": "STAT_ABBLENDLICHT_WERT", "label": "Low beam", "unit": null, "min": null, "max": null },
+        { "key": "STAT_POSITIONSLICHT_WERT", "label": "Position light", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CONTROL_ALC_WERT", "label": "ALC control active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Step losses SMC (left and right)",
+      "job": "STATUS_SCHRITTVERLUSTE_SMC",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_1_SMC_L_WERT", "label": "Step loss limit 1 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_2_SMC_L_WERT", "label": "Step loss limit 2 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_3_SMC_L_WERT", "label": "Step loss limit 3 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_4_SMC_L_WERT", "label": "Step loss limit 4 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_5_SMC_L_WERT", "label": "Step loss limit 5 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_6_SMC_L_WERT", "label": "Step loss limit 6 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_1_SMC_R_WERT", "label": "Step loss limit 1 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_2_SMC_R_WERT", "label": "Step loss limit 2 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_3_SMC_R_WERT", "label": "Step loss limit 3 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_4_SMC_R_WERT", "label": "Step loss limit 4 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_5_SMC_R_WERT", "label": "Step loss limit 5 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_6_SMC_R_WERT", "label": "Step loss limit 6 (right)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Angle actuation distribution SMC (left and right)",
+      "job": "STATUS_VERTEILUNG_WINKEL_ANSTEUERUNG_SMC",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_WINKEL_0_2_SMC_L_WERT", "label": "Angle 0-2 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_2_4_SMC_L_WERT", "label": "Angle 2-4 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_4_6_SMC_L_WERT", "label": "Angle 4-6 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_6_8_SMC_L_WERT", "label": "Angle 6-8 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_8_10_SMC_L_WERT", "label": "Angle 8-10 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_10_12_SMC_L_WERT", "label": "Angle 10-12 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_12_14_SMC_L_WERT", "label": "Angle 12-14 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_14_16_SMC_L_WERT", "label": "Angle 14-16 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_0_2_SMC_L_WERT", "label": "Angle -0 to -2 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_2_4_SMC_L_WERT", "label": "Angle -2 to -4 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_4_6_SMC_L_WERT", "label": "Angle -4 to -6 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_6_8_SMC_L_WERT", "label": "Angle -6 to -8 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_8_10_SMC_L_WERT", "label": "Angle -8 to -10 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_10_12_SMC_L_WERT", "label": "Angle -10 to -12 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_12_14_SMC_L_WERT", "label": "Angle -12 to -14 (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_0_2_SMC_R_WERT", "label": "Angle 0-2 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_2_4_SMC_R_WERT", "label": "Angle 2-4 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_4_6_SMC_R_WERT", "label": "Angle 4-6 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_6_8_SMC_R_WERT", "label": "Angle 6-8 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_8_10_SMC_R_WERT", "label": "Angle 8-10 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_10_12_SMC_R_WERT", "label": "Angle 10-12 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_12_14_SMC_R_WERT", "label": "Angle 12-14 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_14_16_SMC_R_WERT", "label": "Angle 14-16 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_0_2_SMC_R_WERT", "label": "Angle -0 to -2 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_2_4_SMC_R_WERT", "label": "Angle -2 to -4 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_4_6_SMC_R_WERT", "label": "Angle -4 to -6 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_6_8_SMC_R_WERT", "label": "Angle -6 to -8 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_8_10_SMC_R_WERT", "label": "Angle -8 to -10 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_10_12_SMC_R_WERT", "label": "Angle -10 to -12 (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WINKEL_MINUS_12_14_SMC_R_WERT", "label": "Angle -12 to -14 (right)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Temperature shutdown distribution SMC (left and right)",
+      "job": "STATUS_TEMPERATURVERTEILUNG_SMC",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_10_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "10% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_20_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "20% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_30_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "30% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_40_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "40% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_50_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "50% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_60_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "60% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_70_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "70% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_80_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "80% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_90_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "90% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_100_PROZENT_ABSCHALTUNG_SMC_L_WERT", "label": "100% shutdown (left)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_10_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "10% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_20_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "20% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_30_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "30% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_40_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "40% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_50_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "50% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_60_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "60% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_70_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "70% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_80_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "80% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_90_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "90% shutdown (right)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_100_PROZENT_ABSCHALTUNG_SMC_R_WERT", "label": "100% shutdown (right)", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "SMC hardware inputs (left and right)",
+      "job": "STATUS_SMC_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_U_BATT_SMC_L_WERT", "label": "Battery voltage raw (left)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_BATT_SMC_L_WERT", "label": "Battery voltage (left)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_KOD_SMC_L_WERT", "label": "Coding voltage raw (left)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_SENSE_SMC_L_WERT", "label": "Coding voltage (left)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_SENSE_SMC_L_WERT", "label": "Sensor voltage (left)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KONTROLL_SMC_L_WERT", "label": "Sensor voltage on (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SENSOR_SMC_L_WERT", "label": "Sensor control value (left)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_U_BATT_SMC_R_WERT", "label": "Battery voltage raw (right)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_BATT_SMC_R_WERT", "label": "Battery voltage (right)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_KOD_SMC_R_WERT", "label": "Coding voltage raw (right)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_SENSE_SMC_R_WERT", "label": "Coding voltage (right)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_SENSE_SMC_R_WERT", "label": "Sensor voltage (right)", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KONTROLL_SMC_R_WERT", "label": "Sensor voltage on (right)", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SENSOR_SMC_R_WERT", "label": "Sensor control value (right)", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Operating hours",
+      "job": "STATUS_BETR_H_ALC",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_BETRIEBSZEIT_ALC_WERT", "label": "ALC operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_SCHWENKEN_WERT", "label": "Swivel operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_SMC_BESTROMT_WERT", "label": "SMC energized operating time", "unit": "h", "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

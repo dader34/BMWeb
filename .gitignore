@@ -23,7 +23,16 @@ app/dist-release/
 
 # Derived/proprietary data: INPA-mined layouts, RE anchors tied to a flash dump,
 # pasted reference lists. Generated locally from vendor data; not shipped.
-data/
+# Exclude data/ contents but keep the community fault-code translations, which
+# are meant to be PR'd. (Negating inside an ignored dir needs data/* not data/.)
+data/*
+!data/faults/
+data/faults/*
+!data/faults/*.json
+# enriched INPA screen layouts the app serves for the Status view (small, shipped)
+!data/inpa-layouts/
+data/inpa-layouts/*
+!data/inpa-layouts/enriched/
 
 # Filled workflow scripts (contain large embedded ECU lists)
 tools/*.filled.mjs

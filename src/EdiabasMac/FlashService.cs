@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
-using System.Text;
 using EdiabasLib;
 
 namespace EdiabasMac;
@@ -33,7 +32,7 @@ public sealed class FlashService : IDisposable
 
     public FlashService(string ecuPath, string sgbd, string comPort)
     {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        // code-page encodings are registered once in EncodingBootstrap
         _ediabas = new EdiabasNet
         {
             AbortJobFunc = () => false,

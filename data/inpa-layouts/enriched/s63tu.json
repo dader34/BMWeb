@@ -1,0 +1,704 @@
+{
+  "ecu": "s63tu.IPO",
+  "screens": [
+    {
+      "group": "Camshaft spread (actual)",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x5818",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NW_EINLASSSPREIZUNG_WERT",
+          "label": "Intake camshaft spread, actual",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        },
+        {
+          "key": "STAT_NW_AUSLASSSPREIZUNG_WERT",
+          "label": "Exhaust camshaft spread, actual",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        }
+      ]
+    },
+    {
+      "group": "Camshaft spread (BMW reference)",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4807,0x5818",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_NW_EINLASSSPREIZUNG_WERT",
+          "label": "Intake camshaft spread (BMW)",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        },
+        {
+          "key": "STAT_NW_AUSLASSSPREIZUNG_WERT",
+          "label": "Exhaust camshaft spread (BMW)",
+          "unit": "°CrA",
+          "min": -60,
+          "max": 60
+        }
+      ]
+    },
+    {
+      "group": "Manifold pressure & throttle",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x58E2,0x58E0",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SAUGROHRDRUCK_WERT",
+          "label": "Intake manifold absolute pressure",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        },
+        {
+          "key": "STAT_DROSSELKLAPPENWINKEL_WERT",
+          "label": "Throttle valve, current value",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "group": "Tank vent valve & boost pressure",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x4A2D,0x5858",
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TEV_PWM_WERT",
+          "label": "Tank vent valve (TEV) PWM",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_LADEDRUCK_WERT",
+          "label": "Intake/boost pressure 1",
+          "unit": "mbar",
+          "min": 0,
+          "max": 2500
+        }
+      ]
+    },
+    {
+      "group": "Vehicle equipment via CAN",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x581A,0x581C",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_AGR_WERT",
+          "label": "EGR present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BN2000_WERT",
+          "label": "BN2000 bus present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TMP_CAN_WERT",
+          "label": "Temperature via CAN",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ANSK_WERT",
+          "label": "Intake air flap present",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Charging concept configuration",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x581A,0x581C",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_TURBO_WERT",
+          "label": "Turbo with wastegate",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TURBO_VTG_WERT",
+          "label": "Turbo with VTG",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AGK_MONO_WERT",
+          "label": "Exhaust concept: mono",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AGK_Y_WERT",
+          "label": "Exhaust concept: Y",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Exhaust & sound flap configuration",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x581A,0x581C",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SLP_WERT",
+          "label": "Secondary air pump present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SLV_WERT",
+          "label": "Secondary air valve present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AGK_WERT",
+          "label": "Exhaust flap present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOK_WERT",
+          "label": "Sound flap present",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor & switch configuration",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x581A,0x581C",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_MFL_WERT",
+          "label": "Multifunction steering wheel present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SPT_WERT",
+          "label": "Sport button present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TOZNIV_WERT",
+          "label": "Oil level sensor present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HS_WERT",
+          "label": "Manual switch present",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Control units via CAN",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x581A,0x581C",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KOMBI_WERT",
+          "label": "Instrument cluster present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LDM_WERT",
+          "label": "Longitudinal dynamics management present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LMM_WERT",
+          "label": "Mass air flow meter present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ICM_WERT",
+          "label": "ICM present",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Bus sensors configuration",
+      "job": "MESSWERTBLOCK_LESEN",
+      "args": "0x581A,0x581C",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EWAP_BSD_WERT",
+          "label": "Oil condition sensor on BSD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_OZS_BSD_WERT",
+          "label": "Oil quality sensor on BSD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AFS_BN2020_WERT",
+          "label": "Electric steering on BN2020",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_LIN_WERT",
+          "label": "Battery sensor on LIN",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Injector calibration 1-2",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_1_WERT",
+          "label": "Injector 1 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_1_WERT",
+          "label": "Injector 1 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_2_WERT",
+          "label": "Injector 2 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_2_WERT",
+          "label": "Injector 2 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Injector calibration 3-4",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_3_WERT",
+          "label": "Injector 3 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_3_WERT",
+          "label": "Injector 3 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_4_WERT",
+          "label": "Injector 4 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_4_WERT",
+          "label": "Injector 4 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Injector calibration 5-6",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_5_WERT",
+          "label": "Injector 5 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_5_WERT",
+          "label": "Injector 5 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_6_WERT",
+          "label": "Injector 6 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_6_WERT",
+          "label": "Injector 6 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Injector calibration 7-8",
+      "job": "STATUS_IMAALLE",
+      "args": null,
+      "render": "value",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_7_WERT",
+          "label": "Injector 7 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_7_WERT",
+          "label": "Injector 7 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ENERGIEABGLEICH_ZYL_8_WERT",
+          "label": "Injector 8 energy calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DURCHFLUSSABGLEICH_ZYL_8_WERT",
+          "label": "Injector 8 flow calibration",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "OBD monitoring counts",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_OBDCOND_WERT",
+          "label": "OBD monitoring conditions encountered count",
+          "unit": null,
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_IGNCNTR_WERT",
+          "label": "Engine start count",
+          "unit": null,
+          "min": 0,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "EVAP & secondary O2 monitoring",
+      "job": "STATUS_RBMMODE9",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EVAPCOMP_WERT",
+          "label": "EVAP monitor completion count, bank 1",
+          "unit": null,
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_EVAPCOND_WERT",
+          "label": "EVAP monitor condition count, bank 1",
+          "unit": null,
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_SO2COMP1_WERT",
+          "label": "Secondary O2 monitor completion count, bank 1",
+          "unit": null,
+          "min": 0,
+          "max": null
+        },
+        {
+          "key": "STAT_SO2COND1_WERT",
+          "label": "Secondary O2 monitor condition count, bank 1",
+          "unit": null,
+          "min": 0,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Throttle valve target position (STEUERN_DK)",
+      "kind": "number",
+      "example": "50",
+      "args_template": "percent 0-100 written as actuator setpoint"
+    },
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Raw byte value (0-255)",
+      "kind": "number",
+      "example": "128",
+      "args_template": "single byte 0-255"
+    },
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store with sensor ident",
+      "kind": "text",
+      "example": "replaced 2026-06",
+      "args_template": "free-text stored in ECU log"
+    },
+    {
+      "job": "STATUS_LESEN",
+      "field": "Block list, semicolon-separated (e.g. 5;15)",
+      "kind": "text",
+      "example": "5;15",
+      "args_template": "semicolon-separated block IDs"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Quiescent-current measurement: current (0.0-1310.7 A)",
+      "kind": "number",
+      "example": "12.5",
+      "args_template": "amperes, 0.0-1310.7"
+    },
+    {
+      "job": "STATUS_MSAINFO_AEP",
+      "field": "Quiescent-current measurement: time (0.0-25.5 s)",
+      "kind": "number",
+      "example": "5.0",
+      "args_template": "seconds, 0.0-25.5"
+    },
+    {
+      "job": "STATUS_CALCVN",
+      "field": "Calc-VN format e.g. Oil;100;1",
+      "kind": "text",
+      "example": "Oel;100;1",
+      "args_template": "medium;value;flag"
+    },
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Idle governor time STEUERN_RRZ (0.0-15 s)",
+      "kind": "number",
+      "example": "7.5",
+      "args_template": "seconds, 0.0-15"
+    },
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Integral error limit STEUERN_IERRGRENZ (0.0-25 A)",
+      "kind": "number",
+      "example": "12.0",
+      "args_template": "amperes, 0.0-25"
+    },
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Intake camshaft setpoint STEUERN_ENWS (-102.4..101.6)",
+      "kind": "number",
+      "example": "10.0",
+      "args_template": "deg crank, -102.4..101.6"
+    },
+    {
+      "job": "MESSWERTBLOCK_LESEN",
+      "field": "Exhaust camshaft setpoint STEUERN_ANWS (-102.4..101.6)",
+      "kind": "number",
+      "example": "-10.0",
+      "args_template": "deg crank, -102.4..101.6"
+    },
+    {
+      "job": "STATUS_MESSWERTE_VVT",
+      "field": "Valvetronic actuation STEUERN_VVT (0.0-99 %)",
+      "kind": "number",
+      "example": "50",
+      "args_template": "percent, 0.0-99"
+    },
+    {
+      "job": "STATUS_ZWDIAG",
+      "field": "Ignition-angle diagnosis value (0-99.61)",
+      "kind": "number",
+      "example": "30",
+      "args_template": "deg, 0-99.61"
+    },
+    {
+      "job": "STATUS_LL_ABGLEICH",
+      "field": "Idle adaptation duty cycle (F1)",
+      "kind": "number",
+      "example": "50",
+      "args_template": "percent duty cycle"
+    },
+    {
+      "job": "STATUS_ADAPTION_DK",
+      "field": "Throttle adaptation cycles (1-50)",
+      "kind": "number",
+      "example": "10",
+      "args_template": "count, 1-50"
+    },
+    {
+      "job": "STATUS_ADAPTION_DK",
+      "field": "Throttle adaptation RPM window (500-2000)",
+      "kind": "number",
+      "example": "800",
+      "args_template": "rpm, 500-2000"
+    },
+    {
+      "job": "STATUS_ADAPTION_DK",
+      "field": "Throttle adaptation angle (-102.4..101.6)",
+      "kind": "number",
+      "example": "0",
+      "args_template": "deg, -102.4..101.6"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 1 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 2 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 3 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 4 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 5 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 6 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 7 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    },
+    {
+      "job": "STATUS_SYSTEMCHECK_GLF",
+      "field": "Injector 8 coding data",
+      "kind": "hex",
+      "example": "1A,2B,3C",
+      "args_template": "injector calibration coding bytes"
+    }
+  ]
+}

@@ -1,0 +1,307 @@
+{
+  "ecu": "MSS54M3.IPO",
+  "screens": [
+    {
+      "group": "EWS sync mode (fault shadow)",
+      "job": "FS_SHADOW_LESEN",
+      "args": "0x00",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STEUERN_SYNC_MODE_TEXT",
+          "label": "EWS synchronization mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "EWS sync mode (status)",
+      "job": "STATUS_SYNC_MODE_TEXT",
+      "args": "0x01",
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STEUERN_SYNC_MODE_TEXT",
+          "label": "EWS synchronization mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Vehicle speed",
+      "job": "STATUS_GESCHWINDIGKEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        }
+      ]
+    },
+    {
+      "group": "Coolant outlet temperature",
+      "job": "STATUS_KUEHLW_AUSL_TEMPERATUR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KUEHLW_AUSL_TEMPERATUR_WERT",
+          "label": "Coolant outlet temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Air mass",
+      "job": "STATUS_LMM_MASSE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_LMM_MASSE_WERT",
+          "label": "Air mass measurement",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Injection time",
+      "job": "STATUS_EINSPRITZZEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_EINSPRITZZEIT_WERT",
+          "label": "Injection time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Throttle position sensor voltage",
+      "job": "STATUS_DKP_WINKEL",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_DKP_WINKEL_WERT",
+          "label": "Throttle position sensor voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Pedal sensor potentiometer 1 voltage",
+      "job": "STATUS_PWG_POTI_SPANNUNG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PWG_POTI_SPANNUNG_1_WERT",
+          "label": "Pedal sensor potentiometer 1 voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake cam position, bank 1",
+      "job": "STATUS_VANOS_NW_LAGE_EINLASS_BANK_1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_LAGE_EINLASS_BANK_1_WERT",
+          "label": "VANOS intake camshaft position, bank 1",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "VANOS intake cam position, bank 2",
+      "job": "STATUS_VANOS_NW_LAGE_EINLASS_BANK_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_VANOS_NW_LAGE_EINLASS_BANK_2_WERT",
+          "label": "VANOS intake camshaft position, bank 2",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "System check - running roughness (per cylinder)",
+      "job": "STATUS_SYSTEMCHECK_LAUFUNRUHE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT",
+          "label": "Running roughness, cylinder 1",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT",
+          "label": "Running roughness, cylinder 2",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT",
+          "label": "Running roughness, cylinder 3",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT",
+          "label": "Running roughness, cylinder 4",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL5_WERT",
+          "label": "Running roughness, cylinder 5",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_LAUFUNRUHE_ZYL6_WERT",
+          "label": "Running roughness, cylinder 6",
+          "unit": "%",
+          "min": -50,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "group": "System check - roughness reading (per cylinder)",
+      "job": "STATUS_SYSTEMCHECK_LAUFUNRUHE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL1_WERT",
+          "label": "Roughness reading, cylinder 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL2_WERT",
+          "label": "Roughness reading, cylinder 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL3_WERT",
+          "label": "Roughness reading, cylinder 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL4_WERT",
+          "label": "Roughness reading, cylinder 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL5_WERT",
+          "label": "Roughness reading, cylinder 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_LAUFUNRUHE_ZYL6_WERT",
+          "label": "Roughness reading, cylinder 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "LESEN_SYSTEMCHECK_DMTL_TEXT",
+          "label": "DMTL leak diagnosis test status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "ROM read",
+      "job": "ROM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ROM_LESEN_WERT",
+          "label": "ROM value",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "RAM read",
+      "job": "RAM_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "RAM_LESEN_WERT",
+          "label": "RAM value",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

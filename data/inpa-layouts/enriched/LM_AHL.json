@@ -1,0 +1,171 @@
+{
+  "ecu": "LM_AHL.IPO",
+  "screens": [
+    {
+      "group": "Analog inputs",
+      "job": "STATUS_ANALOG_INPUTS",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SPANNUNG_LENKSTOCKSCHALTER_WERT", "label": "Steering column switch voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_TASTER_NSW_WERT", "label": "Front fog lamp switch voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_TASTER_NSL_WERT", "label": "Rear fog lamp switch voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_KLEMME_30A_WERT", "label": "Terminal 30A voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_KLEMME_30B_WERT", "label": "Terminal 30B voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_DIMMER_POTI_WERT", "label": "Dimmer potentiometer voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_XENON_DIAGNOSE_AL_L_WERT", "label": "Xenon diagnosis, cornering light left", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_XENON_DIAGNOSE_AL_R_WERT", "label": "Xenon diagnosis, cornering light right", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_BELADUNGSSENSOR_VORN_WERT", "label": "Front level sensor voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_BELADUNGSSENSOR_HINTEN_WERT", "label": "Rear level sensor voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_S_BL_WERT", "label": "Brake light switch voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SPANNUNG_VERSORGUNG_SMC_WERT", "label": "Stepper motor controller supply voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "Lamp output dimming values",
+      "job": "STATUS_DIMMWERT",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_AUSGANG_FL_RECHTS_WERT", "label": "Low beam, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FL_LINKS_WERT", "label": "Low beam, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_AL_RECHTS_WERT", "label": "Cornering light, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_AL_LINKS_WERT", "label": "Cornering light, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BEGRL_RECHTS_WERT", "label": "Parking light, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BEGRL_LINKS_WERT", "label": "Parking light, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_NSW_RECHTS_WERT", "label": "Front fog lamp, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_NSW_LINKS_WERT", "label": "Front fog lamp, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_RECHTS_VORN_1_WERT", "label": "Turn signal, front right 1", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_LINKS_VORN_1_WERT", "label": "Turn signal, front left 1", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_RECHTS_VORN_2_WERT", "label": "Turn signal, front right 2", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_LINKS_VORN_2_WERT", "label": "Turn signal, front left 2", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_SML_VORN_WERT", "label": "Side marker light, front", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_ZUSATZ_LINKS_WERT", "label": "Auxiliary turn signal, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_ZUSATZ_RECHTS_WERT", "label": "Auxiliary turn signal, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_SML_HINTEN_WERT", "label": "Side marker light, rear", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_LINKS_HINTEN_WERT", "label": "Turn signal, rear left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_FRA_RECHTS_HINTEN_WERT", "label": "Turn signal, rear right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BREMSLICHT_LINKS_WERT", "label": "Brake light, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BREMSLICHT_RECHTS_WERT", "label": "Brake light, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_NSL_LINKS_WERT", "label": "Rear fog lamp, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_NSL_RECHTS_WERT", "label": "Rear fog lamp, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BREMSLICHT_MITTE_WERT", "label": "Brake light, center (CHMSL)", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BERGL_LINKS_WERT", "label": "Tail light, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BERGL_RECHTS_WERT", "label": "Tail light, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_SL_BL_LINKS_2_WERT", "label": "Tail/brake light, left 2", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_SL_BL_RECHTS_2_WERT", "label": "Tail/brake light, right 2", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BEGRL_LINKS_AUSSEN_WERT", "label": "Parking light, left outer", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_BEGRL_RECHTS_INNEN_WERT", "label": "Parking light, right inner", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_RFL_LINKS_WERT", "label": "Reversing light, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_RFL_RECHTS_WERT", "label": "Reversing light, right", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_KZL_LINKS_WERT", "label": "License plate light, left", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_AUSGANG_KZL_RECHTS_WERT", "label": "License plate light, right", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Light module operating hours",
+      "job": "STATUS_BETR_H_LM",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_BETRIEBSZEIT_LM_WERT", "label": "Light module operating time", "unit": "h", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Lamp function operating hours",
+      "job": "STATUS_BETR_H_FUNKTIONEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_BETRIEBSZEIT_AL_WERT", "label": "Cornering light operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_FL_WERT", "label": "Low beam operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_SL_WERT", "label": "Tail light operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_NSW_WERT", "label": "Front fog lamp operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_FRA_LINKS_WERT", "label": "Turn signal left operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_FRA_RECHTS_WERT", "label": "Turn signal right operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_BREMSLICHT_STUFE_1_WERT", "label": "Brake light stage 1 operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_BREMSLICHT_STUFE_2_WERT", "label": "Brake light stage 2 operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_RFL_WERT", "label": "Reversing light operating time", "unit": "h", "min": null, "max": null },
+        { "key": "STAT_BETRIEBSZEIT_NSL_WERT", "label": "Rear fog lamp operating time", "unit": "h", "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Step loss limits (SMC)",
+      "job": "STATUS_SCHRITTVERLUSTE_SMC",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_1_WERT", "label": "Step loss limit 1", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_2_WERT", "label": "Step loss limit 2", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_3_WERT", "label": "Step loss limit 3", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_4_WERT", "label": "Step loss limit 4", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_5_WERT", "label": "Step loss limit 5", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SCHRITTVERLUSTGRENZE_6_WERT", "label": "Step loss limit 6", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Headlight aim angle distribution (SMC)",
+      "job": "STATUS_VERTEILUNG_WINKEL_ANSTEUERUNG_SMC",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_WINKEL_0_2_WERT", "label": "Angle 0 to 2 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_2_4_WERT", "label": "Angle 2 to 4 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_4_6_WERT", "label": "Angle 4 to 6 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_6_8_WERT", "label": "Angle 6 to 8 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_8_10_WERT", "label": "Angle 8 to 10 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_10_12_WERT", "label": "Angle 10 to 12 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_12_14_WERT", "label": "Angle 12 to 14 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_14_16_WERT", "label": "Angle 14 to 16 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_0_2_WERT", "label": "Angle -0 to -2 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_2_4_WERT", "label": "Angle -2 to -4 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_4_6_WERT", "label": "Angle -4 to -6 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_6_8_WERT", "label": "Angle -6 to -8 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_8_10_WERT", "label": "Angle -8 to -10 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_10_12_WERT", "label": "Angle -10 to -12 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_12_14_WERT", "label": "Angle -12 to -14 deg", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_WINKEL_MINUS_14_16_WERT", "label": "Angle -14 to -16 deg", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Temperature shutdown distribution (SMC)",
+      "job": "STATUS_TEMPERATURVERTEILUNG_SMC",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_10_PROZENT_ABSCHALTUNG_WERT", "label": "10% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_20_PROZENT_ABSCHALTUNG_WERT", "label": "20% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_30_PROZENT_ABSCHALTUNG_WERT", "label": "30% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_40_PROZENT_ABSCHALTUNG_WERT", "label": "40% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_50_PROZENT_ABSCHALTUNG_WERT", "label": "50% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_60_PROZENT_ABSCHALTUNG_WERT", "label": "60% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_70_PROZENT_ABSCHALTUNG_WERT", "label": "70% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_80_PROZENT_ABSCHALTUNG_WERT", "label": "80% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_90_PROZENT_ABSCHALTUNG_WERT", "label": "90% shutdown", "unit": "%", "min": 0, "max": 100 },
+        { "key": "STAT_100_PROZENT_ABSCHALTUNG_WERT", "label": "100% shutdown", "unit": "%", "min": 0, "max": 100 }
+      ]
+    },
+    {
+      "group": "Hardware inputs (SMC)",
+      "job": "STATUS_HW_EINGANGE_SMC",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_U_BATT_WERT", "label": "Battery voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_KOD_WERT", "label": "Coding voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_U_SENSE_WERT", "label": "Sense voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_KONTROLL_WERT", "label": "Control input", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SENSOR_WERT", "label": "Sensor input", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

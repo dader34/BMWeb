@@ -1,0 +1,13 @@
+{
+  "ecu": "TD-530_E.IPO",
+  "screens": [],
+  "inputs": [
+    {
+      "job": "STATUS_FILE_CLOSE",
+      "field": "Direct ID (re-query faulty ECU)",
+      "kind": "hex",
+      "example": "12",
+      "args_template": "diagnostic address byte appended to the request job"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "ecu": "DSC_56.IPO",
+  "screens": [
+    {
+      "group": "Fault memory",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "F_ORT_TEXT", "label": "Fault location", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE_TEXT", "label": "P-code", "unit": null, "min": null, "max": null },
+        { "key": "F_PCODE7_TEXT", "label": "P-code (7-digit)", "unit": null, "min": null, "max": null },
+        { "key": "F_SYMPTOM_TEXT", "label": "Fault symptom", "unit": null, "min": null, "max": null },
+        { "key": "F_READY_TEXT", "label": "Readiness", "unit": null, "min": null, "max": null },
+        { "key": "F_VORHANDEN_TEXT", "label": "Fault present", "unit": null, "min": null, "max": null },
+        { "key": "F_WARNUNG_TEXT", "label": "Warning", "unit": null, "min": null, "max": null },
+        { "key": "ID_LIEF_TEXT", "label": "Supplier", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Wheel speeds",
+      "job": "STATUS_RADGESCHWINDIGKEIT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_RAD_GESCHW_VL_WERT", "label": "Wheel speed front left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_VR_WERT", "label": "Wheel speed front right", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HL_WERT", "label": "Wheel speed rear left", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_HR_WERT", "label": "Wheel speed rear right", "unit": "km/h", "min": 0, "max": 260 },
+        { "key": "STAT_RAD_GESCHW_REF_WERT", "label": "Reference speed", "unit": "km/h", "min": 0, "max": 260 }
+      ]
+    },
+    {
+      "group": "Analog inputs",
+      "job": "STATUS_ANALOG",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DRUCKSENSOR_WERT", "label": "Brake pressure", "unit": "bar", "min": 0, "max": 5 },
+        { "key": "STAT_WAKE_VOLTAGE_WERT", "label": "Wake voltage", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_SYSTEM_VOLTAGE_WERT", "label": "System voltage", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "CAN sensors",
+      "job": "STATUS_CAN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_DREHRATE_WERT", "label": "Yaw rate", "unit": "°/s", "min": null, "max": null },
+        { "key": "STAT_LENKWINKEL_WERT", "label": "Steering angle", "unit": "°", "min": null, "max": null },
+        { "key": "STAT_QUERBESCHLEUNIGUNG_WERT", "label": "Lateral acceleration", "unit": "m/s²", "min": null, "max": null },
+        { "key": "STAT_LAENGSBESCHLEUNIGUNG_WERT", "label": "Longitudinal acceleration", "unit": "m/s²", "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

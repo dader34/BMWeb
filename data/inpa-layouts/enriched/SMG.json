@@ -1,0 +1,290 @@
+{
+  "ecu": "SMG.IPO",
+  "screens": [
+    {
+      "group": "Transmission I/O status",
+      "job": "STATUS_IO_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_GANG_TEXT",
+          "label": "Engaged gear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHL_WERT",
+          "label": "Transmission input RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_AUSGANGSDREHZAHL_WERT",
+          "label": "Transmission output RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADDREHZAHL_VL_WERT",
+          "label": "Wheel speed front left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADDREHZAHL_VR_WERT",
+          "label": "Wheel speed front right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADDREHZAHL_HL_WERT",
+          "label": "Wheel speed rear left",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADDREHZAHL_HR_WERT",
+          "label": "Wheel speed rear right",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_MOTORMOMENT_WERT",
+          "label": "Engine torque",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_GETRIEBETEMPERATUR_WERT",
+          "label": "Transmission temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_LUFTTEMPERATUR_WERT",
+          "label": "Air temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_UBAT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_USENS_WERT",
+          "label": "Sensor supply voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PWG_WERT",
+          "label": "Accelerator pedal position",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_WDK_WERT",
+          "label": "Throttle angle",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_PHYD_WERT",
+          "label": "Hydraulic pressure",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_AQUER_WERT",
+          "label": "Lateral acceleration",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_KUP_WERT",
+          "label": "Clutch position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_GASSE_WERT",
+          "label": "Selector lane position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_GANG_WERT",
+          "label": "Gear actuator position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_POS_WH_WERT",
+          "label": "Selector lever position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_KUP_WERT",
+          "label": "Clutch actuator current",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_STROM_GASSE_WERT",
+          "label": "Lane actuator current",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_STROM_GANG_V_WERT",
+          "label": "Gear actuator current (forward)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_STROM_GANG_R_WERT",
+          "label": "Gear actuator current (reverse)",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Coding and adaptation values",
+      "job": "COD_ADAPT_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "OSSWW_WERT",
+          "label": "Selector lever switch offset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWGR_WERT",
+          "label": "Engagement angle, reverse gear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG1_WERT",
+          "label": "Engagement angle, gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG2_WERT",
+          "label": "Engagement angle, gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG3_WERT",
+          "label": "Engagement angle, gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG4_WERT",
+          "label": "Engagement angle, gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG5_WERT",
+          "label": "Engagement angle, gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "WWG6_WERT",
+          "label": "Engagement angle, gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWN_WERT",
+          "label": "Neutral switch point",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWAGG_WERT",
+          "label": "Selector-lane switch point",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "SWAUG_WERT",
+          "label": "Gear-actuator switch point",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": []
+}

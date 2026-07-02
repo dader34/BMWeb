@@ -1,0 +1,57 @@
+{
+  "ecu": "ZKE2.IPO",
+  "screens": [
+    {
+      "group": "Vehicle identification",
+      "job": null,
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "FAHRZEUGTYP_TEXT", "label": "Vehicle type", "unit": null, "min": null, "max": null },
+        { "key": "LENKERTYP_TEXT", "label": "Steering type", "unit": null, "min": null, "max": null },
+        { "key": "LAENDERVARIANTE_TEXT", "label": "Country variant", "unit": null, "min": null, "max": null },
+        { "key": "HW_NR_TEXT", "label": "Hardware number", "unit": null, "min": null, "max": null },
+        { "key": "HERSTELLER_NR_TEXT", "label": "Manufacturer data byte", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window regulator / sunroof configuration",
+      "job": null,
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "EINKLEMMSCHUTZ_FH_WERT", "label": "Window anti-pinch protection", "unit": null, "min": null, "max": null },
+        { "key": "IMPULSZAHL_FH_WERT", "label": "Window regulator pulse count", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window regulator positions",
+      "job": null,
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FHPF_WERT", "label": "Window position, driver front", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHPB_WERT", "label": "Window position, passenger front", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHPFH_WERT", "label": "Window position, driver rear", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHPBH_WERT", "label": "Window position, passenger rear", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sunroof status",
+      "job": null,
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SHDP_WERT", "label": "Sunroof position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ADVP_WERT", "label": "Pop-up vent position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SSS_WERT", "label": "Pressure-control position", "unit": null, "min": null, "max": null },
+        { "key": "STAT_V_WERT", "label": "Measured current value, relay module 1", "unit": "A", "min": 0, "max": 30 }
+      ]
+    }
+  ],
+  "inputs": []
+}

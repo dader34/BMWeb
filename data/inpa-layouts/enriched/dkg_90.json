@@ -1,0 +1,2491 @@
+{
+  "ecu": "dkg_90.IPO",
+  "screens": [
+    {
+      "group": "Main fault memory",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Fault memory",
+      "job": "FS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE_TEXT",
+          "label": "Fault pcode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_PCODE7_TEXT",
+          "label": "Fault pcode7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SAE_CODE_TEXT",
+          "label": "Fault SAE CODE",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Readiness status",
+      "job": "IS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "F_SYMPTOM_TEXT",
+          "label": "Fault symptom",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_READY_TEXT",
+          "label": "Fault ready",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_VORHANDEN_TEXT",
+          "label": "Fault present",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_WARNUNG_TEXT",
+          "label": "Fault warning",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "F_ORT_TEXT",
+          "label": "Fault location",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Sensor identification",
+      "job": "SENSOREN_IDENT_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "SENSOR_HERSTELLER_TEXT",
+          "label": "Sensor manufacturer",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Energy saving mode",
+      "job": "STATUS_ENERGIESPARMODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ENERGIESPARMODE_WERT",
+          "label": "Energy saving mode",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "ID supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Manufacturer info",
+      "job": "HERSTELLINFO_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "ID supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "ECU identification",
+      "job": "SVK_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "PROZESSKLASSE_TEXT",
+          "label": "Process class",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Chassis number",
+      "job": "STATUS_FAHRGESTELLNUMMER",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "ID_LIEF_TEXT",
+          "label": "ID supplier",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Actual values",
+      "job": "STATUS_ISTWERTE_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_KILOMETERSTAND_WERT",
+          "label": "Odometer",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORTEMPERATUR_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_MOTOROELTEMPERATUR_WERT",
+          "label": "Engine oil temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_KUPPLUNGSOELTEMPERATUR_WERT",
+          "label": "Clutch oil temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_SG_TEMPERATUR_WERT",
+          "label": "Control unit temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_UMGEBUNGSTEMPERATUR_WERT",
+          "label": "Ambient temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_UBAT_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNGSVERSORGUNG_7V4_WERT",
+          "label": "Supply voltage 7v4",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNGSVERSORGUNG_VCC_WERT",
+          "label": "Sensor supply voltage VCC",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNGSVERSORGUNG_SV1_WERT",
+          "label": "Sensor supply voltage SV1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNGSVERSORGUNG_SV2_WERT",
+          "label": "Sensor supply voltage SV2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_WERT",
+          "label": "Speed",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine RPM",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHL1_WERT",
+          "label": "Input speed 1",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHL2_WERT",
+          "label": "Input speed 2",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_AUSGANGSDREHZAHL_WERT",
+          "label": "Output speed",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_FAHRPEDAL_WERT",
+          "label": "Fahrpedal",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_GESCHWINDIGKEIT_HINTERACHSE_WERT",
+          "label": "Speed hinterachse",
+          "unit": "%",
+          "min": 0,
+          "max": 100
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_VL_WERT",
+          "label": "Wheel speed VL",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_VR_WERT",
+          "label": "Wheel speed VR",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_HL_WERT",
+          "label": "Wheel speed HL",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_RADGESCHWINDIGKEIT_HR_WERT",
+          "label": "Wheel speed HR",
+          "unit": "km/h",
+          "min": 0,
+          "max": 260
+        },
+        {
+          "key": "STAT_AQUER_CAN_WERT",
+          "label": "Aquer CAN",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORISTMOMENT_WERT",
+          "label": "Engine torque (actual)",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ISTMOMENT_KUPPLUNG1_WERT",
+          "label": "Torque (actual) clutch 1",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SOLLMOMENT_KUPPLUNG1_WERT",
+          "label": "Torque (target) clutch 1",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ISTMOMENT_KUPPLUNG2_WERT",
+          "label": "Torque (actual) clutch 2",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SOLLMOMENT_KUPPLUNG2_WERT",
+          "label": "Torque (target) clutch 2",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ISTDRUCK_KUPPLUNG1_WERT",
+          "label": "Pressure (actual) clutch 1",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_SOLLDRUCK_KUPPLUNG1_WERT",
+          "label": "Pressure (target) clutch 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_ISTDRUCK_KUPPLUNG2_WERT",
+          "label": "Pressure (actual) clutch 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_SOLLDRUCK_KUPPLUNG2_WERT",
+          "label": "Pressure (target) clutch 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_ISTSTROM_MAGNETVENTIL_PV1_WERT",
+          "label": "Current (actual) solenoid valve PV1",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_MAGNETVENTIL_PV1_WERT",
+          "label": "Current (target) solenoid valve PV1",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTSTROM_MAGNETVENTIL_PV2_WERT",
+          "label": "Current (actual) solenoid valve PV2",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_MAGNETVENTIL_PV2_WERT",
+          "label": "Current (target) solenoid valve PV2",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTSTROM_MAGNETVENTIL_PV3_WERT",
+          "label": "Current (actual) solenoid valve PV3",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_MAGNETVENTIL_PV3_WERT",
+          "label": "Current (target) solenoid valve PV3",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTSTROM_MAGNETVENTIL_PV4_WERT",
+          "label": "Current (actual) solenoid valve PV4",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_MAGNETVENTIL_PV4_WERT",
+          "label": "Current (target) solenoid valve PV4",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTSTROM_MAGNETVENTIL_PV6_WERT",
+          "label": "Current (actual) solenoid valve PV6",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_MAGNETVENTIL_PV6_WERT",
+          "label": "Current (target) solenoid valve PV6",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTSTROM_MAGNETVENTIL_PV7_WERT",
+          "label": "Current (actual) solenoid valve PV7",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLSTROM_MAGNETVENTIL_PV7_WERT",
+          "label": "Current (target) solenoid valve PV7",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_HYDRAULIKDRUCK_WERT",
+          "label": "Hydraulic pressure",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MIL_TEXT",
+          "label": "MIL",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_OBD_STEUERFUNKTION_TEXT",
+          "label": "OBD control function",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_ISTGANG_TEXT",
+          "label": "Current gear",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTGANG_TEILGETRIEBE1_TEXT",
+          "label": "Current gear sub-transmission 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTGANG_TEILGETRIEBE2_TEXT",
+          "label": "Current gear sub-transmission 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GETRIEBEPOSITION_TEXT",
+          "label": "Transmission position",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPLUNG1_TEXT",
+          "label": "Clutch 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPLUNG2_TEXT",
+          "label": "Clutch 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TASTER_LENKRAD_SCHALTWIPPE_TEXT",
+          "label": "Button steering wheel shift paddle",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_PROGRAMMINFO_TEXT",
+          "label": "Programminfo",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTDIAGRAMM_AGS_TEXT",
+          "label": "Shift diagram (AGS)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_GANGANZEIGE_TEXT",
+          "label": "Gear display",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_WAEHLHEBELANZEIGE_TEXT",
+          "label": "Selector lever display",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTPOSITION_SCHALTSTANGE_6_4_WERT",
+          "label": "Position (actual) shift rod 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLPOSITION_SCHALTSTANGE_6_4_TEXT",
+          "label": "Position (target) shift rod 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTPOSITION_SCHALTSTANGE_5_7_WERT",
+          "label": "Position (actual) shift rod 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLPOSITION_SCHALTSTANGE_5_7_TEXT",
+          "label": "Position (target) shift rod 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTPOSITION_SCHALTSTANGE_2_R_WERT",
+          "label": "Position (actual) shift rod 2 R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLPOSITION_SCHALTSTANGE_2_R_TEXT",
+          "label": "Position (target) shift rod 2 R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISTPOSITION_SCHALTSTANGE_1_3_WERT",
+          "label": "Position (actual) shift rod 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOLLPOSITION_SCHALTSTANGE_1_3_TEXT",
+          "label": "Position (target) shift rod 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTSTANGE_6_4_TEXT",
+          "label": "Shift rod 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTSTANGE_5_7_TEXT",
+          "label": "Shift rod 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTSTANGE_2_R_TEXT",
+          "label": "Shift rod 2 R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SCHALTSTANGE_1_3_TEXT",
+          "label": "Shift rod 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value transmission code",
+      "job": "STATUS_ADAPTIONSWERT_GETRIEBECODE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_8_WERT",
+          "label": "Adaptation transmission code 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_9_WERT",
+          "label": "Adaptation transmission code 9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_10_WERT",
+          "label": "Adaptation transmission code 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_1_WERT",
+          "label": "Adaptation transmission code 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_2_WERT",
+          "label": "Adaptation transmission code 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_3_WERT",
+          "label": "Adaptation transmission code 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_4_WERT",
+          "label": "Adaptation transmission code 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_5_WERT",
+          "label": "Adaptation transmission code 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_6_WERT",
+          "label": "Adaptation transmission code 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_GETRIEBECODE_7_WERT",
+          "label": "Adaptation transmission code 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Statistics record 1",
+      "job": "STATISTIKDATENSATZ_1_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAHRZEUGTYP_TEXT",
+          "label": "Vehicle type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ANZ_LOESCHUNGEN_WERT",
+          "label": "Count clears",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KM_STAND_LETZTER_LOESCHUNG_WERT",
+          "label": "KM reading last loeschung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "ANZ_RENNSTARTS_WERT",
+          "label": "Count launch starts",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_KLEINER_MINUS_30_GRAD_WERT",
+          "label": "Dwell time oil sump less minus 30 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_MINUS_30_BIS_MINUS_20_GRAD_WERT",
+          "label": "Dwell time oil sump minus 30 to minus 20 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_MINUS_20_BIS_MINUS_10_GRAD_WERT",
+          "label": "Dwell time oil sump minus 20 to minus 10 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_MINUS_10_BIS_0_GRAD_WERT",
+          "label": "Dwell time oil sump minus 10 to 0 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_0_BIS_10_GRAD_WERT",
+          "label": "Dwell time oil sump 0 to 10 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_10_BIS_20_GRAD_WERT",
+          "label": "Dwell time oil sump 10 to 20 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_20_BIS_30_GRAD_WERT",
+          "label": "Dwell time oil sump 20 to 30 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_30_BIS_40_GRAD_WERT",
+          "label": "Dwell time oil sump 30 to 40 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_40_BIS_50_GRAD_WERT",
+          "label": "Dwell time oil sump 40 to 50 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_50_BIS_60_GRAD_WERT",
+          "label": "Dwell time oil sump 50 to 60 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_60_BIS_70_GRAD_WERT",
+          "label": "Dwell time oil sump 60 to 70 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_70_BIS_80_GRAD_WERT",
+          "label": "Dwell time oil sump 70 to 80 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_80_BIS_90_GRAD_WERT",
+          "label": "Dwell time oil sump 80 to 90 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_90_BIS_100_GRAD_WERT",
+          "label": "Dwell time oil sump 90 to 100 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_100_BIS_110_GRAD_WERT",
+          "label": "Dwell time oil sump 100 to 110 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_110_BIS_120_GRAD_WERT",
+          "label": "Dwell time oil sump 110 to 120 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_120_BIS_130_GRAD_WERT",
+          "label": "Dwell time oil sump 120 to 130 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_130_BIS_140_GRAD_WERT",
+          "label": "Dwell time oil sump 130 to 140 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_140_BIS_150_GRAD_WERT",
+          "label": "Dwell time oil sump 140 to 150 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_OELSUMPF_150_BIS_160_GRAD_WERT",
+          "label": "Dwell time oil sump 150 to 160 deg",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPLUNGSTEMPERATUR_K1_MAX_WERT",
+          "label": "Clutch temp K1 max",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_KUPPLUNGSTEMPERATUR_K2_MAX_WERT",
+          "label": "Clutch temp K2 max",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_ABSPRITZSSENSORTEMPERATUR_MAX_WERT",
+          "label": "Spray sensor temp max",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_FAHRZEUGTYP_WERT",
+          "label": "Vehicle type",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_3_WERT",
+          "label": "Dwell time drive mode 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_4_WERT",
+          "label": "Dwell time drive mode 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_5_WERT",
+          "label": "Dwell time drive mode 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_6_WERT",
+          "label": "Dwell time drive mode 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_1_WERT",
+          "label": "Dwell time drive mode 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_2_WERT",
+          "label": "Dwell time drive mode 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_7_WERT",
+          "label": "Dwell time drive mode 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_8_WERT",
+          "label": "Dwell time drive mode 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_9_WERT",
+          "label": "Dwell time drive mode 9",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_10_WERT",
+          "label": "Dwell time drive mode 10",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "AUFENTHALTSDAUER_FAHRMODUS_11_WERT",
+          "label": "Dwell time drive mode 11",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Statistics record 2",
+      "job": "STATISTIKDATENSATZ_2_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "KILOMETERSTAND_LETZTER_K1_ADAPTION_WERT",
+          "label": "Odometer last K1 adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KILOMETERSTAND_LETZTER_K2_ADAPTION_WERT",
+          "label": "Odometer last K2 adaptation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KISSPOINT_K1_MIN_WERT",
+          "label": "Kiss point K1 min",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "KISSPOINT_K2_MIN_WERT",
+          "label": "Kiss point K2 min",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "KILOMETERSTAND_K1_MIN_WERT",
+          "label": "Odometer K1 min",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "KILOMETERSTAND_K2_MIN_WERT",
+          "label": "Odometer K2 min",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KISSPOINT_K1_MAX_WERT",
+          "label": "Kiss point K1 max",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "KISSPOINT_K2_MAX_WERT",
+          "label": "Kiss point K2 max",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "KILOMETERSTAND_K1_MAX_WERT",
+          "label": "Odometer K1 max",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "KILOMETERSTAND_K2_MAX_WERT",
+          "label": "Odometer K2 max",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_MAX50_WERT",
+          "label": "Clutch adaptation curve K1 MAX50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_MIN50_WERT",
+          "label": "Clutch adaptation curve K1 MIN50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_MAX300_WERT",
+          "label": "Clutch adaptation curve K1 MAX300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_MIN300_WERT",
+          "label": "Clutch adaptation curve K1 MIN300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_MAX50_WERT",
+          "label": "Clutch adaptation curve K2 MAX50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_MIN50_WERT",
+          "label": "Clutch adaptation curve K2 MIN50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_MAX300_WERT",
+          "label": "Clutch adaptation curve K2 MAX300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_MIN300_WERT",
+          "label": "Clutch adaptation curve K2 MIN300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_300_BEI_MAX50_WERT",
+          "label": "Clutch adaptation curve K1 300 at MAX50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_300_BEI_MIN50_WERT",
+          "label": "Clutch adaptation curve K1 300 at MIN50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_50_BEI_MAX300_WERT",
+          "label": "Clutch adaptation curve K1 50 at MAX300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K1_50_BEI_MIN300_WERT",
+          "label": "Clutch adaptation curve K1 50 at MIN300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_300_BEI_MAX50_WERT",
+          "label": "Clutch adaptation curve K2 300 at MAX50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_300_BEI_MIN50_WERT",
+          "label": "Clutch adaptation curve K2 300 at MIN50",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_50_BEI_MAX300_WERT",
+          "label": "Clutch adaptation curve K2 50 at MAX300",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "KUPPLUNGSADAPTIONSKENNLINIE_K2_50_BEI_MIN300_WERT",
+          "label": "Clutch adaptation curve K2 50 at MIN300",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation clutch touch point K1",
+      "job": "STATUS_ADAPTION_KUPPLUNGSSCHLEIFPUNKT_K1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_K1_SCHLEIFPUNKT_FAKTOR_1_WERT",
+          "label": "K1 touch point factor 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K1_SCHLEIFPUNKT_FAKTOR_2_WERT",
+          "label": "K1 touch point factor 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K1_SCHLEIFPUNKT_FAKTOR_3_WERT",
+          "label": "K1 touch point factor 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K1_SCHLEIFPUNKT_FAKTOR_4_WERT",
+          "label": "K1 touch point factor 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K1_SCHLEIFPUNKT_FAKTOR_5_WERT",
+          "label": "K1 touch point factor 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K1_SCHLEIFPUNKT_FAKTOR_6_WERT",
+          "label": "K1 touch point factor 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Adaptation clutch touch point K2",
+      "job": "STATUS_ADAPTION_KUPPLUNGSSCHLEIFPUNKT_K2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_K2_SCHLEIFPUNKT_FAKTOR_1_WERT",
+          "label": "K2 touch point factor 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K2_SCHLEIFPUNKT_FAKTOR_2_WERT",
+          "label": "K2 touch point factor 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K2_SCHLEIFPUNKT_FAKTOR_3_WERT",
+          "label": "K2 touch point factor 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K2_SCHLEIFPUNKT_FAKTOR_4_WERT",
+          "label": "K2 touch point factor 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K2_SCHLEIFPUNKT_FAKTOR_5_WERT",
+          "label": "K2 touch point factor 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K2_SCHLEIFPUNKT_FAKTOR_6_WERT",
+          "label": "K2 touch point factor 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Adaptation torque curve K1",
+      "job": "STATUS_ADAPTION_MOMENTENKENNLINIE_K1",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_1_WERT",
+          "label": "K1 torque curve factor 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_2_WERT",
+          "label": "K1 torque curve factor 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_3_WERT",
+          "label": "K1 torque curve factor 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_4_WERT",
+          "label": "K1 torque curve factor 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_5_WERT",
+          "label": "K1 torque curve factor 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_6_WERT",
+          "label": "K1 torque curve factor 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_7_WERT",
+          "label": "K1 torque curve factor 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K1_MOMENTENKENNLINIE_FAKTOR_8_WERT",
+          "label": "K1 torque curve factor 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation torque curve K2",
+      "job": "STATUS_ADAPTION_MOMENTENKENNLINIE_K2",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_1_WERT",
+          "label": "K2 torque curve factor 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_2_WERT",
+          "label": "K2 torque curve factor 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_3_WERT",
+          "label": "K2 torque curve factor 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_4_WERT",
+          "label": "K2 torque curve factor 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_5_WERT",
+          "label": "K2 torque curve factor 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_6_WERT",
+          "label": "K2 torque curve factor 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_7_WERT",
+          "label": "K2 torque curve factor 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_K2_MOMENTENKENNLINIE_FAKTOR_8_WERT",
+          "label": "K2 torque curve factor 8",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Valve curve PV1",
+      "job": "STATUS_VENTILKENNLINIE_PV1",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_1_WERT",
+          "label": "PV1 valve curve factor 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_2_WERT",
+          "label": "PV1 valve curve factor 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_3_WERT",
+          "label": "PV1 valve curve factor 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_4_WERT",
+          "label": "PV1 valve curve factor 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_5_WERT",
+          "label": "PV1 valve curve factor 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_6_WERT",
+          "label": "PV1 valve curve factor 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_7_WERT",
+          "label": "PV1 valve curve factor 7",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_8_WERT",
+          "label": "PV1 valve curve factor 8",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_9_WERT",
+          "label": "PV1 valve curve factor 9",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_10_WERT",
+          "label": "PV1 valve curve factor 10",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_11_WERT",
+          "label": "PV1 valve curve factor 11",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_12_WERT",
+          "label": "PV1 valve curve factor 12",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_13_WERT",
+          "label": "PV1 valve curve factor 13",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_14_WERT",
+          "label": "PV1 valve curve factor 14",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_15_WERT",
+          "label": "PV1 valve curve factor 15",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV1_VENTILKENNLINIE_FAKTOR_16_WERT",
+          "label": "PV1 valve curve factor 16",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Valve curve PV2",
+      "job": "STATUS_VENTILKENNLINIE_PV2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_1_WERT",
+          "label": "PV2 valve curve factor 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_2_WERT",
+          "label": "PV2 valve curve factor 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_3_WERT",
+          "label": "PV2 valve curve factor 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_4_WERT",
+          "label": "PV2 valve curve factor 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_5_WERT",
+          "label": "PV2 valve curve factor 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_6_WERT",
+          "label": "PV2 valve curve factor 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_7_WERT",
+          "label": "PV2 valve curve factor 7",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_8_WERT",
+          "label": "PV2 valve curve factor 8",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_9_WERT",
+          "label": "PV2 valve curve factor 9",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_10_WERT",
+          "label": "PV2 valve curve factor 10",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_11_WERT",
+          "label": "PV2 valve curve factor 11",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_12_WERT",
+          "label": "PV2 valve curve factor 12",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_13_WERT",
+          "label": "PV2 valve curve factor 13",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_14_WERT",
+          "label": "PV2 valve curve factor 14",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_15_WERT",
+          "label": "PV2 valve curve factor 15",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV2_VENTILKENNLINIE_FAKTOR_16_WERT",
+          "label": "PV2 valve curve factor 16",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Valve curve PV6",
+      "job": "STATUS_VENTILKENNLINIE_PV6",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_1_WERT",
+          "label": "PV6 valve curve factor 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_2_WERT",
+          "label": "PV6 valve curve factor 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_3_WERT",
+          "label": "PV6 valve curve factor 3",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_4_WERT",
+          "label": "PV6 valve curve factor 4",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_5_WERT",
+          "label": "PV6 valve curve factor 5",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_6_WERT",
+          "label": "PV6 valve curve factor 6",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_7_WERT",
+          "label": "PV6 valve curve factor 7",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_8_WERT",
+          "label": "PV6 valve curve factor 8",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_9_WERT",
+          "label": "PV6 valve curve factor 9",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_10_WERT",
+          "label": "PV6 valve curve factor 10",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_11_WERT",
+          "label": "PV6 valve curve factor 11",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_12_WERT",
+          "label": "PV6 valve curve factor 12",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_13_WERT",
+          "label": "PV6 valve curve factor 13",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_14_WERT",
+          "label": "PV6 valve curve factor 14",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_15_WERT",
+          "label": "PV6 valve curve factor 15",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_PV6_VENTILKENNLINIE_FAKTOR_16_WERT",
+          "label": "PV6 valve curve factor 16",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value valve curve PV1 PV2",
+      "job": "STATUS_ADAPTIONSWERT_VENTILKENNLINIE_PV1_PV2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTION_VENTILKENNLINIE_PV1_WERT",
+          "label": "Adaptation valve curve PV1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ADAPTION_VENTILKENNLINIE_PV2_WERT",
+          "label": "Adaptation valve curve PV2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value PV6",
+      "job": "STATUS_ADAPTIONSWERT_PV6",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTIONSWERT_PV6_STUETZSTELLE_0_WERT",
+          "label": "Adaptation value PV6 support point 0",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_ADAPTIONSWERT_PV6_STUETZSTELLE_1_WERT",
+          "label": "Adaptation value PV6 support point 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_ADAPTIONSWERT_PV6_STUETZSTELLE_2_WERT",
+          "label": "Adaptation value PV6 support point 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Lock position PV7",
+      "job": "STATUS_SPERRSTELLUNG_PV7",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_PV7_SPERRVENTIL_WERT",
+          "label": "PV7 lock valve",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        }
+      ]
+    },
+    {
+      "group": "Transmission teach-in",
+      "job": "STATUS_GETRIEBE_TEACHEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_FAKTOR_AMPLITUDE_TIN_AMP_0_WERT",
+          "label": "Factor amplitude TIN AMP 0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAKTOR_AMPLITUDE_TIN_AMP_1_WERT",
+          "label": "Factor amplitude TIN AMP 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAKTOR_AMPLITUDE_TIN_AMP_2_WERT",
+          "label": "Factor amplitude TIN AMP 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FAKTOR_AMPLITUDE_TIN_AMP_3_WERT",
+          "label": "Factor amplitude TIN AMP 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSCHIEBUNG_KENNLINIE_TIN_P0_WERT",
+          "label": "Offset curve TIN P0",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSCHIEBUNG_KENNLINIE_TIN_P1_WERT",
+          "label": "Offset curve TIN P1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSCHIEBUNG_KENNLINIE_TIN_P2_WERT",
+          "label": "Offset curve TIN P2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VERSCHIEBUNG_KENNLINIE_TIN_P3_WERT",
+          "label": "Offset curve TIN P3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_1_WERT",
+          "label": "Re-adaptation gear 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_2_WERT",
+          "label": "Re-adaptation gear 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_3_WERT",
+          "label": "Re-adaptation gear 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_4_WERT",
+          "label": "Re-adaptation gear 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_5_WERT",
+          "label": "Re-adaptation gear 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_6_WERT",
+          "label": "Re-adaptation gear 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_7_WERT",
+          "label": "Re-adaptation gear 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_GANG_R_WERT",
+          "label": "Re-adaptation gear R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_NEUTRAL_SST_1_3_WERT",
+          "label": "Re-adaptation neutral SST 1 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_NEUTRAL_SST_2_R_WERT",
+          "label": "Re-adaptation neutral SST 2 R",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_NEUTRAL_SST_5_7_WERT",
+          "label": "Re-adaptation neutral SST 5 7",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_NACHADAPTION_NEUTRAL_SST_6_4_WERT",
+          "label": "Re-adaptation neutral SST 6 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation values clutch slip gears",
+      "job": "STATUS_ADAPTIONSWERTE_SEMISCHLUPF_GAENGE",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTIONSWERTE_SEMISCHLUPF_GANG_1_WERT",
+          "label": "Adaptation values clutch slip gear 1",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_SEMISCHLUPF_GANG_2_WERT",
+          "label": "Adaptation values clutch slip gear 2",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_SEMISCHLUPF_GANG_3_WERT",
+          "label": "Adaptation values clutch slip gear 3",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_SEMISCHLUPF_GANG_4_WERT",
+          "label": "Adaptation values clutch slip gear 4",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_SEMISCHLUPF_GANG_5_WERT",
+          "label": "Adaptation values clutch slip gear 5",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        },
+        {
+          "key": "STAT_ADAPTIONSWERTE_SEMISCHLUPF_GANG_6_WERT",
+          "label": "Adaptation values clutch slip gear 6",
+          "unit": "Nm",
+          "min": 0,
+          "max": 600
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value gear set variant",
+      "job": "STATUS_ADAPTIONSWERT_RADSATZVARIANTE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTION_RADSATZVARIANTE_WERT",
+          "label": "Adaptation gear set variant",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value hydraulic pump",
+      "job": "STATUS_ADAPTIONSWERT_HYDRAULIKPUMPE",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTION_HYDRAULIKPUMPE_WERT",
+          "label": "Adaptation hydraulic pump",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value temperature sensor",
+      "job": "STATUS_ADAPTIONSWERT_TEMPERATURSENSOR",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTION_TEMPERATURSENSOR_WERT",
+          "label": "Adaptation temperature sensor",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value temperature sensor resistance",
+      "job": "STATUS_ADAPTIONSWERT_TEMPERATURSENSOR_WIDERSTAND",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ADAPTION_TEMPERATURSENSOR_WIDERSTAND_WERT",
+          "label": "Adaptation temperature sensor resistance",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        }
+      ]
+    },
+    {
+      "group": "Adaptation value temperature sensor resistance",
+      "job": "STATUS_ADAPTIONSWERT_TEMPERATURSENSOR_WIDERSTAND",
+      "args": "0x30",
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_ANSTEUERUNG_TEXT",
+          "label": "Actuation",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESS_WERT",
+          "label": "MESS",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Raw values",
+      "job": "STATUS_ROHWERTE_LESEN",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_SG_TEMPERATUR_WERT",
+          "label": "Control unit temperature",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_VERSORGUNGSSPANNUNGSSENSOR_WERT",
+          "label": "Supply voltage sensor",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNGSVERSORGUNG_VCC_WERT",
+          "label": "Sensor supply voltage VCC",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNGSVERSORGUNG_SV1_WERT",
+          "label": "Sensor supply voltage SV1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNGSVERSORGUNG_SV2_WERT",
+          "label": "Sensor supply voltage SV2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SPANNUNGSVERSORGUNG_7SV4_WERT",
+          "label": "Supply voltage 7sv4",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_ANTRIEBSDREHZAHLSENSOR_WERT",
+          "label": "Drive speed sensor",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHLSENSOR_1_WERT",
+          "label": "Input speed sensor 1",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_EINGANGSDREHZAHLSENSOR_2_WERT",
+          "label": "Input speed sensor 2",
+          "unit": "1/min",
+          "min": 0,
+          "max": 8000
+        },
+        {
+          "key": "STAT_ABSPRITZTEMPERATURSENSOR_WERT",
+          "label": "Spray temperature sensor",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMPERATURSENSOR_1_WERT",
+          "label": "Temperature sensor, bank 1",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_TEMPERATURSENSOR_2_WERT",
+          "label": "Temperature sensor, bank 2",
+          "unit": "°C",
+          "min": -40,
+          "max": 140
+        },
+        {
+          "key": "STAT_DRUCKSENSOR_KUPPL_1_WERT",
+          "label": "Pressure sensor clutch 1",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_DRUCKSENSOR_KUPPL_2_WERT",
+          "label": "Pressure sensor clutch 2",
+          "unit": "bar",
+          "min": 0,
+          "max": 5
+        },
+        {
+          "key": "STAT_WEGSENSOR_SST_R_2_WERT",
+          "label": "Travel sensor SST R 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_WEGSENSOR_SST_1_3_WERT",
+          "label": "Travel sensor SST 1 3",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_WEGSENSOR_SST_6_4_WERT",
+          "label": "Travel sensor SST 6 4",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_WEGSENSOR_SST_5_7_WERT",
+          "label": "Travel sensor SST 5 7",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PARKSPERRENSENSOR_1_WERT",
+          "label": "Park lock sensor, bank 1",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_PARKSPERRENSENSOR_2_WERT",
+          "label": "Park lock sensor, bank 2",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        },
+        {
+          "key": "STAT_SENSORSPANNUNG_PADDEL_WERT",
+          "label": "Sensor voltage paddle",
+          "unit": "V",
+          "min": 0,
+          "max": 16
+        }
+      ]
+    },
+    {
+      "group": "Test program actual state",
+      "job": "STATUS_TESTPRG_ISTZUSTAND",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_STATUS_TESTPRG_TEXT",
+          "label": "Status test program",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_FEHLERMELDUNG_TEXT",
+          "label": "Fehlermeldung",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZUSTAND_TESTPRG_TEXT",
+          "label": "State test program",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "job": "SENSOREN_IDENT_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "free text stored in ECU"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "free text stored in ECU"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "free text stored in ECU"
+    },
+    {
+      "job": "HS_LESEN",
+      "field": "Comment to store",
+      "kind": "text",
+      "example": "Service note",
+      "args_template": "free text stored in ECU"
+    },
+    {
+      "job": "STATUS_ENERGIESPARMODE",
+      "field": "Bitte neues Passwort eingeben",
+      "kind": "text",
+      "example": "",
+      "args_template": "entered value -> job arg"
+    },
+    {
+      "job": "STATUS_ENERGIESPARMODE",
+      "field": "Geben Sie die Daten",
+      "kind": "text",
+      "example": "",
+      "args_template": "entered value -> job arg"
+    },
+    {
+      "job": "STATUS_ADAPTIONSWERT_TEMPERATURSENSOR_WIDERSTAND",
+      "field": "Bitte Passwort eingeben",
+      "kind": "text",
+      "example": "",
+      "args_template": "entered value -> job arg"
+    },
+    {
+      "job": "STATUS_ADAPTIONSWERT_TEMPERATURSENSOR_WIDERSTAND",
+      "field": "Bitte Passwort eingeben",
+      "kind": "text",
+      "example": "",
+      "args_template": "entered value -> job arg"
+    }
+  ]
+}

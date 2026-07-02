@@ -1,0 +1,160 @@
+{
+  "ecu": "ZKE1.IPO",
+  "screens": [
+    {
+      "group": "Central locking inputs",
+      "job": "STATUS_EINGAENGE_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_VR1_AKTIV", "label": "Lock request 1 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VR2_AKTIV", "label": "Lock request 2 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VR3_AKTIV", "label": "Lock request 3 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ER_AKTIV", "label": "Unlock request active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZS1_AKTIV", "label": "Central lock switch 1 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ZS2_AKTIV", "label": "Central lock switch 2 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_VR_AKTIV", "label": "Lock request active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Wiper and washer inputs",
+      "job": "STATUS_EINGAENGE_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_INT_AKTIV", "label": "Intermittent wipe active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WASCH_AKTIV", "label": "Washer active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WI1_AKTIV", "label": "Wiper stage 1 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SW_AKTIV", "label": "Headlight washer active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NSW_AKTIV", "label": "Rear fog washer active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KLR_AKTIV", "label": "Climate relay active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KL15_AKTIV", "label": "Terminal 15 (ignition) active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Door contacts and terminals",
+      "job": "STATUS_EINGAENGE_2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_TKFT_AKTIV", "label": "Door contact front driver active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TKBT_AKTIV", "label": "Door contact front passenger active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TKH_AKTIV", "label": "Door contact rear active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TGK_AKTIV", "label": "Tailgate contact active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_NS_AKTIV", "label": "Emergency switch active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ES_34_AKTIV", "label": "Input 34 active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ES_60_AKTIV", "label": "Input 60 active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Terminal inputs",
+      "job": "STATUS_EINGAENGE_3",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SIR_AKTIV", "label": "Locking ring contact active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_KL50_AKTIV", "label": "Terminal 50 (starter) active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window lifter inputs (open/up)",
+      "job": "STATUS_EINGAENGE_5",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FHFTA_AKTIV", "label": "Window front driver open active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBTA_AKTIV", "label": "Window front passenger open active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHFHA_AKTIV", "label": "Window rear driver open active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBHA_AKTIV", "label": "Window rear passenger open active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SSHDA_AKTIV", "label": "Sunroof open active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SSHDZ_AKTIV", "label": "Sunroof close active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SSHDH_AKTIV", "label": "Sunroof lift active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window lifter inputs (close/electronic)",
+      "job": "STATUS_EINGAENGE_6",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FHFTZ_AKTIV", "label": "Window front driver close active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBTZ_AKTIV", "label": "Window front passenger close active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHFHZ_AKTIV", "label": "Window rear driver close active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBHZ_AKTIV", "label": "Window rear passenger close active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHFTE_AKTIV", "label": "Window front driver one-touch active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBTE_AKTIV", "label": "Window front passenger one-touch active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHFHE_AKTIV", "label": "Window rear driver one-touch active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBHE_AKTIV", "label": "Window rear passenger one-touch active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Sunroof inputs",
+      "job": "STATUS_EINGAENGE_7",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_SHD_EV_AKTIV", "label": "Sunroof end position front active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SHD_EH_AKTIV", "label": "Sunroof end position rear active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_RSK_AKTIV", "label": "Roll bar contact active", "unit": null, "min": null, "max": null },
+        { "key": "STAT_CS_AKTIV", "label": "Crash signal active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Window and sunroof outputs",
+      "job": "STATUS_AUSGAENGE_0",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_FHFTA_AKTIV", "label": "Window front driver open output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBTA_AKTIV", "label": "Window front passenger open output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHFHA_AKTIV", "label": "Window rear driver open output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBHA_AKTIV", "label": "Window rear passenger open output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHFTZ_AKTIV", "label": "Window front driver close output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FHBTZ_AKTIV", "label": "Window front passenger close output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SHDMOTP_AKTIV", "label": "Sunroof motor output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_TSH_AKTIV", "label": "Sunroof control output", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Wiper and light outputs",
+      "job": "STATUS_AUSGAENGE_1",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_WI1_AKTIV", "label": "Wiper stage 1 output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WP_AKTIV", "label": "Washer pump output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SRA_SW_AKTIV", "label": "Headlight washer pump output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_SRA_NS_AKTIV", "label": "Headlight washer level output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ADVP_AKTIV", "label": "Mirror adjust plus output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ADVM_AKTIV", "label": "Mirror adjust minus output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_IL_AKTIV", "label": "Interior light output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_ES_AKTIV", "label": "Output stage active", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Central locking outputs",
+      "job": "STATUS_AUSGAENGE_2",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MZVP_AKTIV", "label": "Central locking motor plus output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MZVM_AKTIV", "label": "Central locking motor minus output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MZS_AKTIV", "label": "Central locking motor stop output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_QZV_AKTIV", "label": "Double-lock (deadlock) output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_WB_AKTIV", "label": "Selective unlock output", "unit": null, "min": null, "max": null },
+        { "key": "STAT_FST_AKTIV", "label": "Driver door release output", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

@@ -1,0 +1,16 @@
+{
+  "ecu": "A_EWS3.IPO",
+  "screens": [
+    {
+      "group": "Supplier identification",
+      "job": "C_ZCS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier ID", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

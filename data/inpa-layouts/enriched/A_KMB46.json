@@ -1,0 +1,26 @@
+{
+  "ecu": "A_KMB46.IPO",
+  "screens": [
+    {
+      "group": "Service interval (SIA)",
+      "job": "STATUS_AIF_SIA_DATEN_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_ZEIT_INSP_ZAEHLER_WERT", "label": "Time-based inspection counter", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Supplier identification",
+      "job": "C_ZCS_LESEN",
+      "args": null,
+      "render": "value",
+      "columns": 1,
+      "rows": [
+        { "key": "ID_LIEF_TEXT", "label": "Supplier ID", "unit": null, "min": null, "max": null }
+      ]
+    }
+  ],
+  "inputs": []
+}

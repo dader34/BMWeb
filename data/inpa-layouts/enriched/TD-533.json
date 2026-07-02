@@ -1,0 +1,13 @@
+{
+  "ecu": "TD-533.IPO",
+  "screens": [],
+  "inputs": [
+    {
+      "job": "STATUS_FILE_CLOSE",
+      "field": "Enter value and confirm with OK",
+      "kind": "text",
+      "example": "OK",
+      "args_template": "free-text entry confirmed before the status job runs"
+    }
+  ]
+}

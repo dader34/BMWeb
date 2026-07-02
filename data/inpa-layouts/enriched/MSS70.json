@@ -1,0 +1,78 @@
+{
+  "ecu": "MSS70.IPO",
+  "screens": [
+    {
+      "group": "Readiness - misfire and fuel system",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MONITOR_VA_WERT", "label": "Misfire monitoring", "unit": null, "min": null, "max": null },
+        { "key": "STAT_READINESS_VA_WERT", "label": "Misfire readiness", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MONITOR_KSS_WERT", "label": "Fuel system monitoring", "unit": null, "min": null, "max": null },
+        { "key": "STAT_READINESS_KSS_WERT", "label": "Fuel system readiness", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness - catalyst and catalyst heating",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MONITOR_KAT_WERT", "label": "Catalyst monitoring", "unit": null, "min": null, "max": null },
+        { "key": "STAT_READINESS_KAT_WERT", "label": "Catalyst readiness", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MONITOR_KH_WERT", "label": "Catalyst heating monitoring", "unit": null, "min": null, "max": null },
+        { "key": "STAT_READINESS_KH_WERT", "label": "Catalyst heating readiness", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Readiness - O2 sensor and O2 sensor heating",
+      "job": "HS_LESEN",
+      "args": null,
+      "render": "digital",
+      "columns": 1,
+      "rows": [
+        { "key": "STAT_MONITOR_LS_WERT", "label": "O2 sensor monitoring", "unit": null, "min": null, "max": null },
+        { "key": "STAT_READINESS_LS_WERT", "label": "O2 sensor readiness", "unit": null, "min": null, "max": null },
+        { "key": "STAT_MONITOR_LSH_WERT", "label": "O2 sensor heating monitoring", "unit": null, "min": null, "max": null },
+        { "key": "STAT_READINESS_LSH_WERT", "label": "O2 sensor heating readiness", "unit": null, "min": null, "max": null }
+      ]
+    },
+    {
+      "group": "Mixture adaptation (multiplicative)",
+      "job": "STATUS_INT",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_INT_WERT", "label": "Injection time correction, bank 1", "unit": "%", "min": -50, "max": 50 },
+        { "key": "STAT_INT_2_WERT", "label": "Injection time correction, bank 2", "unit": "%", "min": -50, "max": 50 }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage pre-cat",
+      "job": "STATUS_L_SONDE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_L_SONDE_WERT", "label": "O2 sensor voltage pre-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_L_SONDE_2_WERT", "label": "O2 sensor voltage pre-cat, bank 2", "unit": "V", "min": 0, "max": 16 }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage post-cat",
+      "job": "STATUS_L_SONDE_H",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        { "key": "STAT_L_SONDE_H_WERT", "label": "O2 sensor voltage post-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
+        { "key": "STAT_L_SONDE_2_H_WERT", "label": "O2 sensor voltage post-cat, bank 2", "unit": "V", "min": 0, "max": 16 }
+      ]
+    }
+  ],
+  "inputs": []
+}
