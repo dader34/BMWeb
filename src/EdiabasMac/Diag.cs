@@ -1,19 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using EdiabasLib;
 
 namespace EdiabasMac;
 
-// wraps the native EDIABAS engine: EcuPath + interface wiring
+// wraps the native EDIABAS engine: EcuPath + interface wiring.
+// (code-page encodings are registered once in EncodingBootstrap.)
 public sealed class Diag : IDisposable
 {
     private readonly EdiabasNet _ediabas;
 
     public Diag(string ecuPath)
     {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         _ediabas = new EdiabasNet();
         _ediabas.AbortJobFunc = () => false;
         _ediabas.NoInitForVJobs = true; // offline _JOBS/_RESULTS, no cable

@@ -64,10 +64,151 @@ function showSettings() {
     (v) => Settings.set('inpaScreens', v),
   ));
 
+  // auto-scan the DME (and trans) for stored faults when a chassis is opened,
+  // popping a corner badge if anything needs attention.
+  wrap.appendChild(settingRow(
+    'Auto-scan on open',
+    'Read the engine fault memory automatically when you select a vehicle, and flag stored faults.',
+    [
+      { val: 'on', label: 'On' },
+      { val: 'off', label: 'Off' },
+    ],
+    Settings.get('autoScan', 'off'),
+    (v) => Settings.set('autoScan', v),
+  ));
+
+  // startup chassis: load a chosen chassis straight to its modules on launch.
+  // searchable combo of all chassis the config knows, plus "Ask each time".
+  const startRow = settingCombo(
+    'Startup vehicle',
+    'Skip the chassis picker and open this vehicle when the app starts.',
+    [{ val: '', label: 'Ask each time' }], // filled from /api/chassis below
+    Settings.get('startChassis', ''),
+    (v) => { Settings.set('startChassis', v); loadStartEcus(v); },
+  );
+  wrap.appendChild(startRow.el);
+
+  // startup module: optionally open straight into one ECU of the startup vehicle,
+  // preloading its menu/layout. options depend on the chosen chassis.
+  const ecuRow = settingCombo(
+    'Startup module',
+    'Also open this module of the startup vehicle, preloading it. Needs a startup vehicle.',
+    [{ val: '', label: 'None' }],
+    Settings.get('startEcu', ''),
+    (v) => Settings.set('startEcu', v),
+  );
+  wrap.appendChild(ecuRow.el);
+
+  // repopulate the module combo for a chassis. value encodes sgbd|code|label so
+  // boot can open the ECU without re-fetching.
+  async function loadStartEcus(chassisId) {
+    if (!chassisId) { ecuRow.setOptions([{ val: '', label: 'None' }], ''); Settings.set('startEcu', ''); return; }
+    try {
+      const ch = await api(`/api/chassis/${chassisId}`);
+      const opts = [{ val: '', label: 'None' }];
+      (ch.sections || []).forEach(s => s.ecus.forEach(e =>
+        opts.push({ val: `${e.sgbd}|${e.code}|${e.label}`, label: `${e.label} (${s.name})` })));
+      const cur = Settings.get('startEcu', '');
+      const valid = opts.some(o => o.val === cur);
+      if (!valid && cur) Settings.set('startEcu', ''); // stale module from another chassis
+      ecuRow.setOptions(opts, valid ? cur : '');
+    } catch { ecuRow.setOptions([{ val: '', label: 'None' }], ''); }
+  }
+
+  api('/api/chassis').then(ids => {
+    startRow.setOptions([
+      { val: '', label: 'Ask each time' },
+      ...(ids || []).map(id => ({ val: id, label: dispChassis(id) })),
+    ], Settings.get('startChassis', ''));
+    loadStartEcus(Settings.get('startChassis', ''));
+  }).catch(() => {});
+
   view.appendChild(wrap);
+
+  // version footer
+  const ver = document.createElement('div');
+  ver.className = 'settings-version';
+  ver.textContent = `BMacW ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : ''}`.trim();
+  view.appendChild(ver);
+
   stagger(wrap, 40);
 
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => lastScreen() }]);
+}
+
+// searchable custom dropdown for long option lists (chassis picker). returns
+// { el, setOptions(options, current) }. options: [{val,label}].
+function settingCombo(title, desc, options, current, onChange) {
+  const row = document.createElement('div');
+  row.className = 'setting-row';
+  row.innerHTML = `
+    <div class="setting-text">
+      <div class="setting-title">${title}</div>
+      <div class="setting-desc">${desc}</div>
+    </div>
+    <div class="combo">
+      <button class="combo-btn" type="button"><span class="combo-val"></span><span class="combo-caret">▾</span></button>
+      <div class="combo-pop" hidden>
+        <input class="combo-search" type="text" placeholder="Search…" />
+        <div class="combo-list"></div>
+      </div>
+    </div>`;
+  const combo = row.querySelector('.combo');
+  const btn = row.querySelector('.combo-btn');
+  const valEl = row.querySelector('.combo-val');
+  const pop = row.querySelector('.combo-pop');
+  const search = row.querySelector('.combo-search');
+  const list = row.querySelector('.combo-list');
+  let opts = options.slice();
+  let sel = current;
+
+  const labelFor = (v) => (opts.find(o => o.val === v) || {}).label || v || '';
+  const renderVal = () => { valEl.textContent = labelFor(sel); };
+
+  const renderList = (filter = '') => {
+    const f = filter.trim().toLowerCase();
+    list.innerHTML = '';
+    opts.filter(o => !f || o.label.toLowerCase().includes(f) || String(o.val).toLowerCase().includes(f))
+      .forEach(o => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'combo-item' + (o.val === sel ? ' active' : '');
+        item.textContent = o.label;
+        item.onclick = () => { sel = o.val; renderVal(); onChange(sel); close(); };
+        list.appendChild(item);
+      });
+    if (!list.children.length) list.innerHTML = '<div class="combo-empty">No matches</div>';
+  };
+
+  const open = () => {
+    pop.hidden = false; combo.classList.add('open');
+    search.value = ''; renderList(); setTimeout(() => search.focus(), 10);
+    // flip upward if there isn't room below (bottom rows would be off-screen)
+    requestAnimationFrame(() => {
+      const btnRect = btn.getBoundingClientRect();
+      const need = pop.offsetHeight + 8;
+      const below = window.innerHeight - btnRect.bottom;
+      combo.classList.toggle('drop-up', below < need && btnRect.top > below);
+    });
+    document.addEventListener('mousedown', onDoc, true);
+    window.addEventListener('keydown', onEsc, true);
+  };
+  const close = () => {
+    pop.hidden = true; combo.classList.remove('open', 'drop-up');
+    document.removeEventListener('mousedown', onDoc, true);
+    window.removeEventListener('keydown', onEsc, true);
+  };
+  const onDoc = (e) => { if (!combo.contains(e.target)) close(); };
+  const onEsc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+
+  btn.onclick = () => (pop.hidden ? open() : close());
+  search.oninput = () => renderList(search.value);
+
+  renderVal();
+  return {
+    el: row,
+    setOptions(newOpts, cur) { opts = newOpts.slice(); if (cur !== undefined) sel = cur; renderVal(); },
+  };
 }
 
 function settingRow(title, desc, options, current, onChange) {
@@ -175,22 +316,30 @@ function splashStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-(async function boot() {
-  const splashStart = Date.now();
-  // wait for the sidecar, then show the start screen
-  for (let i = 0; i < 40; i++) {
+// status polling, paused while the window is hidden (no point hitting the
+// sidecar for LED updates nobody sees)
+let statusTimer = null;
+function startStatusPolling() {
+  if (statusTimer == null) statusTimer = setInterval(refreshStatus, 3000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { if (statusTimer != null) { clearInterval(statusTimer); statusTimer = null; } }
+  else { refreshStatus(); startStatusPolling(); }
+});
+
+// the main process opens the window immediately; the renderer waits here for
+// the sidecar health endpoint (300ms poll, up to 30s) behind the boot splash
+async function waitForEngine() {
+  for (let i = 0; i < 100; i++) {
     await pollEngine();
-    if (engineUp) break;
-    if (i === 6) splashStatus('warming up the engine');
-    await new Promise(r => setTimeout(r, 400));
+    if (engineUp) return true;
+    if (i === 8) splashStatus('warming up the engine');
+    await new Promise(r => setTimeout(r, 300));
   }
-  splashStatus(engineUp ? 'connecting to interface' : 'engine did not start');
-  await pollCable();
-  setInterval(refreshStatus, 3000);
-  // hold the splash briefly so it never just flickers
-  const minMs = 1100;
-  const wait = Math.max(0, minMs - (Date.now() - splashStart));
-  setTimeout(dismissSplash, wait);
+  return false;
+}
+
+(async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
   document.getElementById('flash-btn').onclick = showFlashing;
   // custom window controls (frameless window for Aero)
@@ -199,7 +348,56 @@ function splashStatus(msg) {
     document.getElementById('win-min').onclick = () => window.bmacw.winMinimize();
     document.getElementById('win-zoom').onclick = () => window.bmacw.winZoom();
   }
-  showChassis().catch(e => {
-    view.innerHTML = `<div class="empty"><div class="empty-big" style="color:var(--red)">Engine unreachable</div><div>${e.message}</div></div>`;
-  });
+
+  // jump straight to a preselected startup vehicle (and module), else the picker
+  const startChassis = Settings.get('startChassis', '');
+  const startEcu = Settings.get('startEcu', '');
+  const openStart = async () => {
+    if (startChassis) {
+      const ids = await api('/api/chassis').catch(() => []);
+      if (ids.includes(startChassis)) {
+        // preselected module: open straight into that ECU (preloads menu/layout)
+        if (startEcu) {
+          const [sgbd, code, label] = startEcu.split('|');
+          if (sgbd) { await showEcu(startChassis, dispChassis(startChassis), { sgbd, code, label }); return; }
+        }
+        if (inpaMode()) showScriptSelection(startChassis); else showSections(startChassis);
+        return;
+      }
+    }
+    await showChassis();
+  };
+
+  // splash stays up until the engine answers (or the wait gives up)
+  const start = async () => {
+    const splashStart = Date.now();
+    splashStatus('starting engine');
+    if (!(await waitForEngine())) {
+      splashStatus('engine did not start');
+      dismissSplash();
+      startStatusPolling(); // keeps the LED honest and notices a late engine
+      view.innerHTML = errorBlock('engine failed to start', 'red') +
+        `<div style="text-align:center"><button class="btn primary" id="boot-retry">Retry</button></div>`;
+      sbLeft.textContent = 'engine offline';
+      const retry = () => {
+        view.innerHTML = `<div class="empty"><span class="loader"></span><span>Waiting for the engine…</span></div>`;
+        start();
+      };
+      document.getElementById('boot-retry').onclick = retry;
+      setActions([{ key: '1', label: 'Retry', kind: 'primary', fn: retry }]);
+      return;
+    }
+    splashStatus('connecting to interface');
+    await pollCable();
+    startStatusPolling();
+    // hold the splash briefly so it never just flickers
+    const minMs = 1100;
+    const wait = Math.max(0, minMs - (Date.now() - splashStart));
+    setTimeout(dismissSplash, wait);
+    openStart().catch(e => {
+      view.innerHTML = errorBlock(e.message, 'red');
+      sbLeft.textContent = 'failed';
+    });
+  };
+  start();
 })();

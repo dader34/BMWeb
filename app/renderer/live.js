@@ -15,30 +15,26 @@ const JOB_ARGS = {
 // text-input modal -> Promise<string|null>
 function promptDialog({ title, body, placeholder = '', value = '' }) {
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
+    const { overlay, close } = openModal(`
       <div class="modal" role="dialog" aria-modal="true">
         <div class="modal-title">${title}</div>
         <div class="modal-body">${body}</div>
-        <input class="modal-input" type="text" placeholder="${placeholder}" value="${value}" />
+        <input class="modal-input" type="text" placeholder="${esc(placeholder)}" value="${esc(value)}" />
         <div class="modal-actions">
           <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
           <button class="btn primary modal-confirm">Run<span class="modal-key">⏎</span></button>
         </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('show'));
+      </div>`, {
+      onClose: resolve,
+      backdropValue: null,
+      onKey: (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(input.value.trim() || null); }
+      },
+    });
     const input = overlay.querySelector('.modal-input');
-    const close = (val) => { overlay.classList.remove('show'); window.removeEventListener('keydown', onKey, true); setTimeout(() => overlay.remove(), 160); resolve(val); };
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(input.value.trim() || null); }
-    };
-    window.addEventListener('keydown', onKey, true);
     overlay.querySelector('.modal-cancel').onclick = () => close(null);
     overlay.querySelector('.modal-confirm').onclick = () => close(input.value.trim() || null);
-    overlay.onclick = (e) => { if (e.target === overlay) close(null); };
     setTimeout(() => input.focus(), 50);
   });
 }
@@ -68,29 +64,32 @@ function argsDialog(job, argSpecs) {
       const isBinary = a.ARGTYPE === 'binary';
       // arg name comes from the SGBD in German (ZEIT, DAUER); humanize + translate
       const argName = tr(humanizeKey(a.ARG));
-      const label = `${argName} <span class="arg-type">(${a.ARGTYPE || 'string'})</span>`;
-      let note = !isEnum && hint ? `<div class="arg-hint">${hint}</div>` : '';
+      const label = `${esc(argName)} <span class="arg-type">(${esc(a.ARGTYPE || 'string')})</span>`;
+      let note = !isEnum && hint ? `<div class="arg-hint">${esc(hint)}</div>` : '';
       if (isBinary) note += `<div class="arg-warn">Binary argument: enter raw hex (e.g. <span class="mono">01 00 0A ...</span>). Must be a valid pre-built buffer for this job, or it may fail or harm the ECU.</div>`;
       const placeholder = isBinary ? 'hex bytes, e.g. 01 00 0A' : (a.ARGTYPE === 'int' ? '0' : '');
       const field = isEnum
-        ? `<select class="modal-input arg-field" data-i="${i}">${enumVals.map(v => `<option>${v}</option>`).join('')}</select>`
+        ? `<select class="modal-input arg-field" data-i="${i}">${enumVals.map(v => `<option>${esc(v)}</option>`).join('')}</select>`
         : `<input class="modal-input arg-field" data-i="${i}" data-binary="${isBinary ? 1 : 0}" type="text" placeholder="${placeholder}" />`;
       return `<div class="arg-row"><label class="arg-label">${label}</label>${field}${note}</div>`;
     }).join('');
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
+    const { overlay, close } = openModal(`
       <div class="modal" role="dialog" aria-modal="true">
-        <div class="modal-title">${jobLabel(job)}</div>
+        <div class="modal-title">${esc(jobLabel(job))}</div>
         <div class="modal-body">This job needs ${argSpecs.length} argument${argSpecs.length === 1 ? '' : 's'}.</div>
         <div class="arg-fields">${fieldHtml}</div>
         <div class="modal-actions">
           <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
           <button class="btn primary modal-confirm">Run<span class="modal-key">⏎</span></button>
         </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add('show'));
+      </div>`, {
+      onClose: resolve,
+      backdropValue: null,
+      onKey: (e) => {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(collect()); }
+      },
+    });
     const fields = [...overlay.querySelectorAll('.arg-field')];
     const collect = () => fields.map(f => {
       let v = f.value.trim();
@@ -101,15 +100,8 @@ function argsDialog(job, argSpecs) {
       }
       return v;
     }).join(';');
-    const close = (val) => { overlay.classList.remove('show'); window.removeEventListener('keydown', onKey, true); setTimeout(() => overlay.remove(), 160); resolve(val); };
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
-      else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(collect()); }
-    };
-    window.addEventListener('keydown', onKey, true);
     overlay.querySelector('.modal-cancel').onclick = () => close(null);
     overlay.querySelector('.modal-confirm').onclick = () => close(collect());
-    overlay.onclick = (e) => { if (e.target === overlay) close(null); };
     setTimeout(() => fields[0] && fields[0].focus(), 50);
   });
 }
@@ -117,6 +109,7 @@ function argsDialog(job, argSpecs) {
 // run a job and render its result sets. FS_LESEN gets the fault-card view, others
 // a generic key/value table.
 async function runJob(ecu, job, container, danger, presetArg) {
+  if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL') loadFaultDb(); // warm the name db
   // resolve a required argument first. hand-tuned JOB_ARGS overrides win (they
   // encode special encodings like CBS_RESET's tail); otherwise ask the SGBD what
   // the job declares and build a dialog from that.
@@ -125,7 +118,7 @@ async function runJob(ecu, job, container, danger, presetArg) {
   if (arg == null && spec) {
     if (spec.fixed != null) arg = spec.fixed;
     else if (spec.prompt) {
-      arg = await promptDialog({ title: jobLabel(job), body: spec.prompt, placeholder: spec.placeholder || '' });
+      arg = await promptDialog({ title: esc(jobLabel(job)), body: spec.prompt, placeholder: spec.placeholder || '' });
       if (arg == null) return; // cancelled
       if (spec.suffix) arg += spec.suffix; // e.g. CBS_RESET service code + tail
     }
@@ -139,16 +132,16 @@ async function runJob(ecu, job, container, danger, presetArg) {
   if (danger) {
     const isClear = job === 'FS_LOESCHEN';
     const ok = await confirmDialog({
-      title: isClear ? 'Clear fault codes?' : `Run ${jobLabel(job)}?`,
+      title: isClear ? 'Clear fault codes?' : `Run ${esc(jobLabel(job))}?`,
       body: isClear
-        ? `This permanently erases the fault memory on <b>${ecu.label}</b>. Stored and pending faults will be deleted. This cannot be undone.`
-        : `<b>${jobLabel(job)}</b> (<span class="mono">${job}</span>) writes to the ECU on <b>${ecu.label}</b>. Continue?`,
+        ? `This permanently erases the fault memory on <b>${esc(ecu.label)}</b>. Stored and pending faults will be deleted. This cannot be undone.`
+        : `<b>${esc(jobLabel(job))}</b> (<span class="mono">${esc(job)}</span>) writes to the ECU on <b>${esc(ecu.label)}</b>. Continue?`,
       confirmLabel: isClear ? 'Clear codes' : 'Run',
       danger: true,
     });
     if (!ok) return;
   }
-  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Running ${jobLabel(job)}…</span></div>`;
+  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Running ${esc(jobLabel(job))}…</span></div>`;
   container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   sbLeft.textContent = `${job}…`;
   try {
@@ -156,6 +149,7 @@ async function runJob(ecu, job, container, danger, presetArg) {
     const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, { method: 'POST' });
     if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL') {
       const codes = data.sets.slice(1); // set 0 = system summary
+      await loadFaultDb(); // names resolve synchronously in the render
       renderFaults(codes, container, ecu);
       sbLeft.textContent = `${codes.length} fault(s)`;
     } else if (job === 'FS_LOESCHEN') {
@@ -176,6 +170,7 @@ async function runJob(ecu, job, container, danger, presetArg) {
 // columns:2 (Bank 1 / Bank 2).
 async function showInpaScreen(ecu, screen, container) {
   stopLive();
+  const liveTok = _liveToken;
   const job = screen.job;
   const arg = screen.args || '';
   const rows = screen.rows || [];
@@ -186,7 +181,7 @@ async function showInpaScreen(ecu, screen, container) {
   container.innerHTML = `
     <div class="live-head">
       <span class="live-dot"></span>
-      <span class="live-title">${screen.group || jobLabel(job)}</span>
+      <span class="live-title">${esc(screen.group || jobLabel(job))}</span>
       <span class="live-meta" id="live-meta">connecting…</span>
       <button class="btn danger live-stop">Stop</button>
     </div>
@@ -212,10 +207,7 @@ async function showInpaScreen(ecu, screen, container) {
       container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return;
     }
     // flatten sets into key->value
-    const sets = data.sets || [];
-    const real = sets.length > 1 ? sets.slice(1) : sets;
-    const vals = new Map();
-    real.forEach(s => Object.entries(s).forEach(([k, v]) => { if (!k.startsWith('_') && k !== 'JOB_STATUS') vals.set(k, v); }));
+    const vals = new Map(flatResults(data.sets));
 
     // render in layout row order so Bank 1 / Bank 2 pair up in two columns
     for (const r of rows) {
@@ -234,7 +226,7 @@ async function showInpaScreen(ecu, screen, container) {
     sbLeft.textContent = `${job}${arg ? ' ' + arg : ''} · live`;
   }
   await tick();
-  if (liveTimer === null && container.querySelector('.inpa-grid')) liveTimer = setInterval(tick, 1000);
+  if (liveTok === _liveToken && container.querySelector('.inpa-grid')) scheduleLive(tick);
 }
 
 // update a gauge cell from the layout row's unit/min/max, falling back to the
@@ -268,13 +260,30 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
 
 // live Status view: poll a measurement job into a refreshing value table. stops
 // on leave or Stop.
-let liveTimer = null;
-function stopLive() { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } }
+// self-scheduling live loop: each tick runs to completion (a real K-line
+// transaction) before the next is queued ~1s later, so slow reads never pile up
+// the way setInterval ticks did. stopLive() bumps the token, which also stops
+// any in-flight tick from rescheduling.
+let liveTimer = null;   // pending setTimeout handle for the next tick
+let _liveToken = 0;
+function stopLive() { _liveToken++; if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; } }
+function scheduleLive(tick) {
+  const token = _liveToken;
+  const loop = async () => {
+    liveTimer = null;
+    try { await tick(); } // ticks render their own errors (and may call stopLive)
+    catch { /* an unexpected throw shouldn't kill the loop */ }
+    if (token !== _liveToken) return;
+    liveTimer = setTimeout(loop, 1000);
+  };
+  liveTimer = setTimeout(loop, 1000);
+}
 
 async function runJobLive(ecu, job, container) {
   stopLive();
+  const liveTok = _liveToken;
   container.className = 'results-panel';
-  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading ${jobLabel(job)}…</span></div>`;
+  container.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading ${esc(jobLabel(job))}…</span></div>`;
   container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   // build the panel once; ticks update gauge cells in place (no flicker)
@@ -287,7 +296,7 @@ async function runJobLive(ecu, job, container) {
     container.innerHTML = `
       <div class="live-head">
         <span class="live-dot"></span>
-        <span class="live-title">${jobLabel(job)}</span>
+        <span class="live-title">${esc(jobLabel(job))}</span>
         <span class="live-meta" id="live-meta">connecting…</span>
         <button class="btn danger live-stop">Stop</button>
       </div>
@@ -306,13 +315,8 @@ async function runJobLive(ecu, job, container) {
   async function tick() {
     try {
       const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' });
-      const sets = data.sets || [];
-      const real = sets.length > 1 ? sets.slice(1) : sets;
       // flatten named, non-internal results into ordered key/value pairs
-      const rows = [];
-      real.forEach(set => Object.entries(set).forEach(([k, v]) => {
-        if (!k.startsWith('_') && k !== 'JOB_STATUS') rows.push([k, v]);
-      }));
+      const rows = flatResults(data.sets);
       if (!built) build();
       if (rows.length === 0 && cellEls.size === 0) {
         grid.innerHTML = '<div class="empty"><div>No live values returned.</div></div>';
@@ -338,7 +342,7 @@ async function runJobLive(ecu, job, container) {
     }
   }
   await tick();
-  if (liveTimer === null && container.querySelector('.live-grid')) liveTimer = setInterval(tick, 1000);
+  if (liveTok === _liveToken && container.querySelector('.live-grid')) scheduleLive(tick);
 }
 
 // multi-watch: poll several Status jobs together into one live grid, optionally
@@ -439,6 +443,8 @@ const KEY_TOKENS = {
   GESCHWINDIGKEIT: 'speed', POSITION: 'position', SOLL: 'target', IST: 'actual',
   VL: 'front-left', VR: 'front-right', HL: 'rear-left', HR: 'rear-right',
   EIN: '', AUS: '', STATUS: 'status', WERT: '',
+  ABGL: 'calibration', LRW: 'steering wheel', LWS: 'LWS', ID: 'ID',
+  FGSTNR: 'chassis no. (VIN)',
 };
 // normalize an EDIABAS unit string to a compact symbol
 function normUnit(u) {
@@ -490,7 +496,7 @@ function pairWertEinh(merged) {
 
 function gaugeCellHTML(key) {
   return `
-    <div class="live-k">${key}</div>
+    <div class="live-k">${esc(key)}</div>
     <div class="gauge">
       <div class="gauge-track"><div class="gauge-fill"></div></div>
       <div class="gauge-foot">
@@ -542,6 +548,7 @@ function flash(el) {
 async function watchMulti(ecu, jobs, container, view) {
   stopLive();
   stopLogging();
+  const liveTok = _liveToken;
   highlightWatched(view, jobs);
 
   // build the panel once; ticks only update value cells (no flicker)
@@ -592,10 +599,7 @@ async function watchMulti(ecu, jobs, container, view) {
     await Promise.all(jobs.map(async (job) => {
       try {
         const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' });
-        const real = (data.sets || []).slice(1).length ? data.sets.slice(1) : (data.sets || []);
-        real.forEach(set => Object.entries(set).forEach(([k, v]) => {
-          if (!k.startsWith('_') && k !== 'JOB_STATUS') merged.set(k, v);
-        }));
+        flatResults(data.sets).forEach(([k, v]) => merged.set(k, v));
       } catch { /* one job failing shouldn't kill the whole watch */ }
     }));
     return merged;
@@ -632,25 +636,25 @@ async function watchMulti(ecu, jobs, container, view) {
   }
 
   await tick();
-  liveTimer = setInterval(tick, 1000);
+  if (liveTok === _liveToken) scheduleLive(tick);
 }
 
 // generic result renderer: one card per result set, key/value rows
 function renderResultSets(sets, container, job) {
   if (!sets || sets.length === 0) {
-    container.innerHTML = `<div class="empty"><div>No results from ${job}.</div></div>`;
+    container.innerHTML = `<div class="empty"><div>No results from ${esc(job)}.</div></div>`;
     return;
   }
   container.className = 'results-panel stagger';
   container.innerHTML = '';
   // skip set 0 (system summary) when real sets follow
-  const real = sets.length > 1 ? sets.slice(1) : sets;
+  const real = dataSets(sets);
   real.forEach((set, idx) => {
     const card = document.createElement('div');
     card.className = 'result-card';
     const rows = Object.entries(set)
       .filter(([k]) => !k.startsWith('_'))
-      .map(([k, v]) => `<div class="kv"><span class="kv-k">${k}</span><span class="kv-v">${v}</span></div>`)
+      .map(([k, v]) => `<div class="kv"><span class="kv-k">${esc(k)}</span><span class="kv-v">${esc(v)}</span></div>`)
       .join('');
     card.innerHTML = `${real.length > 1 ? `<div class="result-head">set ${idx + 1}</div>` : ''}${rows}`;
     container.appendChild(card);

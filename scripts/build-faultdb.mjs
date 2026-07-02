@@ -40,6 +40,8 @@ for (const k of keys) {
 const header = `// GENERATED FILE - do not edit by hand.
 // Source: data/faults/*.json. Regenerate with: node scripts/build-faultdb.mjs
 // hex DTC (first token of F_ORT_TEXT, e.g. "27DA") -> English. used by faults.js.
+// not in index.html's script list: injected lazily via loadFaultDb() in faults.js
+// so this literal isn't parsed before first paint.
 `;
 fs.writeFileSync(out, `${header}window.BMW_FAULT_DB = {\n${body}};\n`);
 console.log(`Wrote ${keys.length} codes to ${path.relative(root, out)} from ${files.length} file(s).`);

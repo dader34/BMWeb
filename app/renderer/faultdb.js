@@ -1,6 +1,8 @@
 // GENERATED FILE - do not edit by hand.
 // Source: data/faults/*.json. Regenerate with: node scripts/build-faultdb.mjs
 // hex DTC (first token of F_ORT_TEXT, e.g. "27DA") -> English. used by faults.js.
+// not in index.html's script list: injected lazily via loadFaultDb() in faults.js
+// so this literal isn't parsed before first paint.
 window.BMW_FAULT_DB = {
   // 02xx
   '0202': "Central locking: fuse",

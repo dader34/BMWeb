@@ -1,7 +1,11 @@
 // file-logging bridge for Status multi-watch stream-to-file
 const { contextBridge, ipcRenderer } = require('electron');
 
+const { version } = require('./package.json');
+
 contextBridge.exposeInMainWorld('bmacw', {
+  // app version, for the settings page
+  version,
   // save dialog + start CSV log. returns { ok, path } or { ok:false }
   startLog: (suggestedName, header) => ipcRenderer.invoke('log:start', suggestedName, header),
   // append one CSV row

@@ -208,16 +208,27 @@ public sealed class InpaConfig
         return null;
     }
 
+    // one enumeration of the Ecu dir, shared by FindPrgCaseInsensitive and
+    // SgbdVariants. name -> name with original casing, keyed case-insensitively.
+    private readonly object _prgLock = new();
     private readonly Dictionary<string, string> _prgCache = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> PrgCache()
+    {
+        lock (_prgLock)
+        {
+            if (_prgCache.Count == 0 && Directory.Exists(_ecuPath))
+            {
+                foreach (string f in Directory.EnumerateFiles(_ecuPath, "*.prg")
+                             .Concat(Directory.EnumerateFiles(_ecuPath, "*.PRG")))
+                    _prgCache[Path.GetFileNameWithoutExtension(f)] = Path.GetFileNameWithoutExtension(f);
+            }
+            return _prgCache;
+        }
+    }
+
     private string FindPrgCaseInsensitive(string baseName)
     {
-        if (_prgCache.Count == 0 && Directory.Exists(_ecuPath))
-        {
-            foreach (string f in Directory.EnumerateFiles(_ecuPath, "*.prg")
-                         .Concat(Directory.EnumerateFiles(_ecuPath, "*.PRG")))
-                _prgCache[Path.GetFileNameWithoutExtension(f)] = Path.GetFileNameWithoutExtension(f);
-        }
-        return _prgCache.TryGetValue(baseName, out string hit) ? hit : null;
+        return PrgCache().TryGetValue(baseName, out string hit) ? hit : null;
     }
 
     // SGBD variants of a module that share its fault tables, e.g. zke5 ->
@@ -228,12 +239,10 @@ public sealed class InpaConfig
     public IReadOnlyList<string> SgbdVariants(string primarySgbd)
     {
         var list = new List<string> { primarySgbd };
-        if (string.IsNullOrEmpty(primarySgbd) || !Directory.Exists(_ecuPath)) return list;
+        if (string.IsNullOrEmpty(primarySgbd)) return list;
         string prefix = primarySgbd.ToLowerInvariant() + "_";
-        foreach (string f in Directory.EnumerateFiles(_ecuPath, "*.prg")
-                     .Concat(Directory.EnumerateFiles(_ecuPath, "*.PRG")))
+        foreach (string name in PrgCache().Values)
         {
-            string name = Path.GetFileNameWithoutExtension(f);
             if (name.ToLowerInvariant().StartsWith(prefix) &&
                 !list.Contains(name, StringComparer.OrdinalIgnoreCase))
                 list.Add(name);
@@ -246,9 +255,8 @@ public sealed class InpaConfig
             ? char.ToUpperInvariant(s[0]) + s.Substring(1)
             : rootKey;
 
-    private static Encoding Latin1()
-    {
-        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        return Encoding.GetEncoding(1252);
-    }
+    // cached: GetEncoding does a lookup, and this is called inside parse loops.
+    // the CodePages provider itself is registered once in EncodingBootstrap.
+    private static readonly Encoding s_latin1 = Encoding.GetEncoding(1252);
+    private static Encoding Latin1() => s_latin1;
 }

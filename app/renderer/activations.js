@@ -35,6 +35,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   const jobs0 = sec.items.map(i => i.job);
   const isFaults = jobs0.includes('FS_LESEN') && !isStatus;
   if (isFaults) {
+    loadFaultDb(); // warm the name db before any read renders
     const backToEcu = () => showEcu(chassisId, sectionName, ecu);
     const hasJob = (j) => jobs0.includes(j);
     // only the jobs MS45 has
@@ -82,7 +83,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     row.className = 'job-row' + (it.danger ? ' danger' : '') + (isStatus ? ' selectable' : '');
     row.innerHTML = `
       ${isStatus ? '<span class="job-check" role="checkbox" aria-checked="false"></span>' : '<span class="job-bullet"></span>'}
-      <span class="job-label">${itemLabel(it)}</span>
+      <span class="job-label">${esc(itemLabel(it))}</span>
       ${it.danger ? '<span class="job-warn">write</span>' : ''}`;
     if (isStatus) {
       rowByJob.set(it.job, row);
@@ -130,7 +131,7 @@ async function showActivations(ecu, sec, container) {
   container.innerHTML = `<div class="empty"><span class="loader"></span><span>Loading actuator tests…</span></div>`;
   let acts;
   try { acts = await api(`/api/ecu/${ecu.sgbd}/activations`); }
-  catch (e) { container.innerHTML = `<div class="empty"><div>${e.message}</div></div>`; return; }
+  catch (e) { container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
 
   if (!acts.length) {
     container.innerHTML = `<div class="empty"><div>No actuator tests for this module.</div></div>`;
@@ -153,8 +154,8 @@ async function showActivations(ecu, sec, container) {
     const running = activeTests.has(a.start);
     card.innerHTML = `
       <div class="act-info">
-        <div class="act-label">${a.label.replace(/^Activate /, '')}</div>
-        <div class="act-jobs">${a.start}${a.stop ? ` · ${a.stop}` : ''}</div>
+        <div class="act-label">${esc(a.label.replace(/^Activate /, ''))}</div>
+        <div class="act-jobs">${esc(`${a.start}${a.stop ? ` · ${a.stop}` : ''}`)}</div>
       </div>
       <button class="btn act-btn ${a.momentary ? '' : (running ? 'danger on' : 'primary')}">${
         a.momentary ? 'Run' : (running ? 'Stop' : 'Activate')
@@ -257,7 +258,7 @@ async function toggleActivation(ecu, a, card, btn) {
   if (!running || a.momentary) {
     const ok = await confirmDialog({
       title: `Run actuator test?`,
-      body: `<b>${a.label.replace(/^Activate /, '')}</b> will drive a component on <b>${ecu.label}</b> (<span class="mono">${a.start}</span>).${a.momentary ? '' : ' It stays active (re-sent continuously) until you press Stop or leave this screen.'} Continue?`,
+      body: `<b>${esc(a.label.replace(/^Activate /, ''))}</b> will drive a component on <b>${esc(ecu.label)}</b> (<span class="mono">${esc(a.start)}</span>).${a.momentary ? '' : ' It stays active (re-sent continuously) until you press Stop or leave this screen.'} Continue?`,
       confirmLabel: a.momentary ? 'Run' : 'Activate',
       danger: true,
     });
@@ -304,7 +305,7 @@ async function toggleActivation(ecu, a, card, btn) {
     }
   } catch (e) {
     sbLeft.textContent = 'test failed';
-    confirmDialog({ title: 'Test failed', body: e.message, confirmLabel: 'OK', cancelLabel: 'Close' });
+    confirmDialog({ title: 'Test failed', body: esc(e.message), confirmLabel: 'OK', cancelLabel: 'Close' });
   }
 }
 
@@ -324,8 +325,8 @@ function showActivationResult(card, readback) {
 function showActivationError(a, status) {
   const e = explainError(status);
   confirmDialog({
-    title: `${a.label.replace(/^Activate /, '')}: ${e.title}`,
-    body: `${e.detail}<br><br>${e.fix}<br><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">${status}</span>`,
+    title: `${esc(a.label.replace(/^Activate /, ''))}: ${e.title}`,
+    body: `${esc(e.detail)}<br><br>${e.fix}<br><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">${esc(status)}</span>`,
     confirmLabel: 'OK', cancelLabel: 'Close',
   });
 }

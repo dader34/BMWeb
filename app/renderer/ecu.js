@@ -87,11 +87,11 @@ function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
   const row = (i, sec) => `
     <button class="inpa-fn" data-i="${i}">
       <span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>
-      <span class="inpa-fn-label">${sec.section}</span>
+      <span class="inpa-fn-label">${esc(sec.section)}</span>
       <span class="inpa-fn-count">${sec.items.length}</span>
     </button>`;
   grid.innerHTML = `
-    <div class="inpa-haupt-sub">SGBD = ${ecu.sgbd.toUpperCase()}</div>
+    <div class="inpa-haupt-sub">SGBD = ${esc(ecu.sgbd.toUpperCase())}</div>
     <div class="inpa-haupt-list">${secs.map((s, i) => row(i, s)).join('')}</div>`;
   grid.querySelectorAll('.inpa-fn').forEach(btn => {
     const i = +btn.dataset.i;
@@ -137,7 +137,7 @@ async function showEcu(chassisId, sectionName, ecu) {
   try {
     menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
   } catch (e) {
-    if (!layout) { grid.innerHTML = `<div class="empty"><div>${e.message}</div></div>`; return; }
+    if (!layout) { grid.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
     menu = { sgbd: ecu.sgbd, sections: [] };
   }
   if (layout && Array.isArray(layout.screens) && layout.screens.length) {
@@ -164,7 +164,7 @@ async function showEcu(chassisId, sectionName, ecu) {
     const tile = document.createElement('div');
     tile.className = 'group-tile';
     tile.innerHTML = `
-      <div class="group-name">${sec.section}</div>
+      <div class="group-name">${esc(sec.section)}</div>
       <div class="group-count">${sec.items.length} function${sec.items.length === 1 ? '' : 's'}</div>
       <div class="group-arrow">→</div>`;
     tile.onclick = () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section);

@@ -21,9 +21,9 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        string root = RepoRoot();
-        string ecuPath = Path.Combine(root, "vendor", "EDIABAS", "Ecu");
-        string inpaRoot = Path.Combine(root, "vendor", "EC-APPS", "INPA");
+        string root = Paths.FindRepoRoot();
+        string ecuPath = Paths.EcuPath(root);
+        string inpaRoot = Paths.InpaRoot(root);
         if (!Directory.Exists(ecuPath))
         {
             Console.Error.WriteLine($"ECU path not found: {ecuPath}");
@@ -147,7 +147,7 @@ internal static class Program
     // live: connect over K+DCAN, read or clear fault memory
     private static int LiveFaultCodes(Diag diag, string sgbd, string port, bool clear)
     {
-        port ??= AutoDetectPort();
+        port ??= Paths.AutoDetectPort();
         if (port == null)
         {
             Console.Error.WriteLine("No /dev/tty.usbserial* device found. Plug in the K+DCAN cable (FTDI VCP driver), or pass --port.");
@@ -157,26 +157,25 @@ internal static class Program
         Console.WriteLine($"Port : {port}");
         Console.WriteLine($"SGBD : {sgbd}");
         diag.AttachSerial(port);
-        diag.Load(sgbd);
 
         if (clear)
         {
+            diag.Load(sgbd);
             diag.Run("FS_LOESCHEN");                 // clear fault memory
             Console.WriteLine("Fault memory cleared (FS_LOESCHEN).");
             return 0;
         }
 
-        var sets = diag.Run("FS_LESEN");             // read fault memory
-        // set 0 is the summary set, rest are one per stored code
-        int codes = 0;
-        for (int i = 1; i < sets.Count; i++)
+        var codes = FaultReader.ReadFaults(diag, sgbd); // read + parse fault memory
+        int n = 0;
+        foreach (var row in codes)
         {
-            codes++;
-            Console.WriteLine($"--- Fault {codes} ---");
-            foreach (var kv in sets[i])
-                Console.WriteLine($"  {kv.Key,-22} = {Diag.Format(kv.Value)}");
+            n++;
+            Console.WriteLine($"--- Fault {n} ---");
+            foreach (var kv in row)
+                Console.WriteLine($"  {kv.Key,-22} = {kv.Value}");
         }
-        Console.WriteLine(codes == 0 ? "No stored fault codes." : $"{codes} fault code(s).");
+        Console.WriteLine(n == 0 ? "No stored fault codes." : $"{n} fault code(s).");
         return 0;
     }
 
@@ -191,27 +190,5 @@ internal static class Program
             rest.Add(args[i]);
         }
         return (cmd, rest, port);
-    }
-
-    private static string AutoDetectPort()
-    {
-        foreach (var dev in Directory.EnumerateFiles("/dev", "tty.usbserial*"))
-            return dev;
-        // some FTDI drivers expose cu.* instead of tty.*
-        foreach (var dev in Directory.EnumerateFiles("/dev", "cu.usbserial*"))
-            return dev;
-        return null;
-    }
-
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, "vendor", "EDIABAS")))
-                return dir.FullName;
-            dir = dir.Parent;
-        }
-        return Directory.GetCurrentDirectory();
     }
 }
