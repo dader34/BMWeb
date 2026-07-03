@@ -19,6 +19,11 @@ public sealed class ServerState : IDisposable
     public InpaConfig Config { get; }
     public DiagManager Engines { get; }
 
+    // serialized .prg-synthesized layouts, keyed by SGBD. the schema inside a
+    // .prg never changes at runtime, so entries live for the process lifetime.
+    public System.Collections.Concurrent.ConcurrentDictionary<string, string>
+        PrgLayoutCache { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     // FlashService of an in-progress flash session, so the shutdown handler can
     // run ResetSession (a mid-flash quit would otherwise leave the DME stuck in
     // programming mode at 115200).

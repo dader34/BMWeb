@@ -56,7 +56,30 @@ internal static class ConfigEndpoints
                         if (file != null) break;
                     }
             }
-            if (file == null) return Results.NotFound(new { error = $"no layout for {sgbd}" });
+            if (file == null)
+            {
+                // no mined layout: synthesize one from the SGBD itself (.prg
+                // _RESULTS descriptions) so every ECU renders out of the box.
+                // cached per SGBD — the schema never changes at runtime.
+                if (state.PrgLayoutCache.TryGetValue(sgbd, out var cached))
+                    return Results.Content(cached, "application/json");
+                try
+                {
+                    return state.Engines.RunOffline(sgbd, diag =>
+                    {
+                        var layout = PrgLayout.Build(diag, sgbd);
+                        var json = System.Text.Json.JsonSerializer.Serialize(layout,
+                            new System.Text.Json.JsonSerializerOptions
+                            { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+                        state.PrgLayoutCache[sgbd] = json;
+                        return Results.Content(json, "application/json");
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return Results.NotFound(new { error = $"no layout for {sgbd}", raw = ex.Message });
+                }
+            }
             try
             {
                 // serve verbatim, already in the renderer's shape

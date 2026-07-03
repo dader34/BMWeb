@@ -50,7 +50,8 @@ public sealed class Diag : IDisposable
         return jobs;
     }
 
-    // job result schema (offline) as "NAME : comment" lines
+    // job result schema (offline) as "NAME : comment" lines. the _RESULTS
+    // pseudo-job emits RESULT/RESULTTYPE/RESULTCOMMENT0..n per set.
     public List<string> ResultsOf(string job)
     {
         var lines = new List<string>();
@@ -58,7 +59,7 @@ public sealed class Diag : IDisposable
         {
             string name = set.TryGetValue("RESULT", out var r) && r.OpData is string s ? s : null;
             if (name == null) continue;
-            string info = set.TryGetValue("INFO", out var i) && i.OpData is string si ? si : "";
+            string info = set.TryGetValue("RESULTCOMMENT0", out var i) && i.OpData is string si ? si : "";
             lines.Add(info.Length > 0 ? $"{name} : {info}" : name);
         }
         return lines;
