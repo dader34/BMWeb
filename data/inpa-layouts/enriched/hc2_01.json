@@ -1,5 +1,7 @@
 {
- "ecu": "hc2_01.ips",
+ "source": "hc2_01.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_status_slave",
@@ -8,16 +10,17 @@
    "args": "ARG;HC2_BETRIEBSSPANNUNG_SLAVE",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_UBAT_WERT",
      "label": "STAT_UBAT_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEMP_SG_WERT",
      "label": "STAT_TEMP_SG_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -28,16 +31,17 @@
    "args": "ARG;HC2_WARNSTATUS",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_KRITIKALITAET_LINKS_WERT",
      "label": "STAT_KRITIKALITAET_LINKS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KRITIKALITAET_RECHTS_WERT",
      "label": "STAT_KRITIKALITAET_RECHTS_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -48,36 +52,37 @@
    "args": "ARG;HC2_KORREKTURWINKEL",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_KORREKTURWINKEL_LINKS_WERK_WERT",
      "label": "STAT_KORREKTURWINKEL_LINKS_WERK_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KORREKTURWINKEL_LINKS_KUNDENDIENST_WERT",
      "label": "STAT_KORREKTURWINKEL_LINKS_KUNDENDIENST_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KORREKTURWINKEL_LINKS_AKTUELL_WERT",
      "label": "STAT_KORREKTURWINKEL_LINKS_AKTUELL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KORREKTURWINKEL_RECHTS_WERK_WERT",
      "label": "STAT_KORREKTURWINKEL_RECHTS_WERK_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KORREKTURWINKEL_RECHTS_KUNDENDIENST_WERT",
      "label": "STAT_KORREKTURWINKEL_RECHTS_KUNDENDIENST_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KORREKTURWINKEL_RECHTS_AKTUELL_WERT",
      "label": "STAT_KORREKTURWINKEL_RECHTS_AKTUELL_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -88,26 +93,569 @@
    "args": "ARG;HC2_ZIELOBJEKT",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TARGET_WINKEL_LINKS_WERT",
      "label": "STAT_TARGET_WINKEL_LINKS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TARGET_LEISTUNG_LINKS_WERT",
      "label": "STAT_TARGET_LEISTUNG_LINKS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TARGET_WINKEL_RECHTS_WERT",
      "label": "STAT_TARGET_WINKEL_RECHTS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TARGET_LEISTUNG_RECHTS_WERT",
      "label": "STAT_TARGET_LEISTUNG_RECHTS_WERT",
-     "unit": ""
+     "unit": null
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_main",
+   "title": "Hauptmenü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Info",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ident",
+     "screen": "s_ident_ds2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Fehler",
+     "screen": "s_fehler",
+     "submenu": "m_fehler"
+    },
+    {
+     "key": 5,
+     "label": "Status",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 6,
+     "label": "Steuern",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 7,
+     "label": "Speicher",
+     "screen": "s_speicher",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 11,
+     "label": "KVP",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehler",
+   "title": "Fehlerspeicher",
+   "items": [
+    {
+     "key": 1,
+     "label": "FS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "IS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "IS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "HS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "HS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "HS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "IS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "FS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "HS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "IS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "FS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_speicher",
+   "title": "Speicher lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LAR",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FLASH",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "UIFM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ROMI",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "RAMIS",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "RAMIL",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "NVRAM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "ROMX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "RAMXX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status",
+   "title": "Status lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Master",
+     "screen": "s_status_master",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Slave",
+     "screen": "s_status_slave",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Warnstatus",
+     "screen": "s_status_warnstatus",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Korrektur",
+     "screen": "s_status_korrektur",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Zielobjekt",
+     "screen": "s_status_target",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern",
+   "title": "Steuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Normal",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Produktion",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Transport",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Reset",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Peripherie",
+     "screen": "s_steuern_peripherie",
+     "submenu": "m_steuern_peripherie"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_peripherie",
+   "title": "Peripherie",
+   "items": [
+    {
+     "key": 1,
+     "label": "Vibration ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Vibration aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Links ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "L. Blinken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Rechts ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "R. Blinken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "LEDs aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
     }
    ]
   }

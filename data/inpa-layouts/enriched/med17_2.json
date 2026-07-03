@@ -1,5 +1,7 @@
 {
- "ecu": "med17_2.ips",
+ "source": "med17_2.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_fetrawefla",
@@ -8,16 +10,17 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MODE",
      "label": "Aktuelles INPA:",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ENERGIESPARMODE_WERT",
      "label": "Werkstattmodus",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -28,60 +31,61 @@
    "args": "1;UB;ML;MSHFM;UPWG1;UPWG2;NMOT;TMOT;TANS",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_BATTERIESPANNUNG_WERT",
      "label": "Batteriespannung [V]",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     },
     {
      "key": "STAT_LUFTMASSE_WERT",
      "label": "Luftmasse ECE [kg/h]",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 25
     },
     {
      "key": "STAT_MSHFM_WERT",
      "label": "STAT_MSHFM_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 25
     },
     {
      "key": "STAT_SPANNUNG_PWG1_WERT",
      "label": "Pedalwertgeber-Potispannung 1 [V]",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_SPANNUNG_PWG2_WERT",
      "label": "Pedalwertgeber-Potispannung 2 [V]",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_DREHZAHL_WERT",
      "label": "Motordrehzahl [U/min]",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 6000
     },
     {
      "key": "STAT_MOTORTEMPERATUR_WERT",
      "label": "Motortemperatur [°C]",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 120
     },
     {
      "key": "STAT_ANSAUGLUFTTEMPERATUR_WERT",
      "label": "Ansauglufttemperatur [°C]",
-     "unit": "",
+     "unit": null,
      "min": -40,
      "max": 120
     }
@@ -94,11 +98,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MUL_WERT",
      "label": "Multiplikative Lambdaregelung",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 2
     }
@@ -111,18 +116,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_GEBERRAD_ADAPTION_VSE_WERT",
      "label": "Geberradadaption Einlass",
-     "unit": "",
+     "unit": null,
      "min": -20,
      "max": 20
     },
     {
      "key": "STAT_GEBERRAD_ADAPTION_VSA_WERT",
      "label": "Geberradadaption Auslass",
-     "unit": "",
+     "unit": null,
      "min": -20,
      "max": 20
     }
@@ -135,88 +141,89 @@
    "args": "1;LUTSKZYL1;LUTSKZYL3;LUTSKZYL4;LUTSKZYL2;MSNDKO;FKMSDK",
    "render": "analog",
    "columns": 2,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ZYL1_LAUFUNRUHE_WERT",
      "label": "STAT_ZYL1_LAUFUNRUHE_WERT",
-     "unit": "",
+     "unit": null,
      "min": -8,
      "max": 8
     },
     {
      "key": "STAT_ZYL3_LAUFUNRUHE_WERT",
      "label": "STAT_ZYL3_LAUFUNRUHE_WERT",
-     "unit": "",
+     "unit": null,
      "min": -8,
      "max": 8
     },
     {
      "key": "STAT_ZYL4_LAUFUNRUHE_WERT",
      "label": "Zylinder 3",
-     "unit": "",
+     "unit": null,
      "min": -8,
      "max": 8
     },
     {
      "key": "STAT_ZYL2_LAUFUNRUHE_WERT",
      "label": "Zylinder 4",
-     "unit": "",
+     "unit": null,
      "min": -8,
      "max": 8
     },
     {
      "key": "STAT_MSNDKO_WERT",
      "label": "STAT_MSNDKO_WERT",
-     "unit": "",
+     "unit": null,
      "min": -10,
      "max": 10
     },
     {
      "key": "STAT_FKMSDKS_WERT",
      "label": "Korr.fakt. schn. Massenstromabgleich",
-     "unit": "",
+     "unit": null,
      "min": -10,
      "max": 10
     },
     {
      "key": "STAT_FKMSDK_WERT",
      "label": "Korr.fakt. Massenstr. Neb.fü.sig.",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_ORA_WERT",
      "label": "STAT_ORA_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_FRAI_WERT",
      "label": "STAT_FRAI_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_PWM_VCV_BAS_AD_VAR_2_ADD_WERT",
      "label": "STAT_PWM_VCV_BAS_AD_VAR_2_ADD_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_FAC_PWM_VCV_BAS_AD_VAR_2_WERT",
      "label": "STAT_FAC_PWM_VCV_BAS_AD_VAR_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_I_ANTEIL_LRHK_WERT",
      "label": "STAT_I_ANTEIL_LRHK_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     }
@@ -229,11 +236,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_SYSTEMCHECK_TEV_FUNC_WERT",
      "label": "Status TEV-Check:",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -244,11 +252,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_FS_DMTL_WERT",
      "label": "STAT_FS_DMTL_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -259,16 +268,17 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ZUENDUNG",
      "label": "STAT_ZUENDUNG",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_STAT_RUHESTROM_WERT",
      "label": "STAT_STAT_RUHESTROM_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 0.3
     }
@@ -281,11 +291,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_FS_IGRD_WERT",
      "label": "STAT_FS_IGRD_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -296,11 +307,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_FS_LSVK_WERT",
      "label": "STAT_FS_LSVK_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -311,11 +323,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_FS_LSHK_WERT",
      "label": "STAT_FS_LSHK_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -326,18 +339,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_DMTLP_WERT",
      "label": "STAT_DMTLP_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     },
     {
      "key": "STAT_DMTLP_EINH",
      "label": "STAT_DMTLP_EINH",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     }
@@ -350,18 +364,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_DMTLH_WERT",
      "label": "STAT_DMTLH_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     },
     {
      "key": "STAT_DMTLH_EINH",
      "label": "STAT_DMTLH_EINH",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     }
@@ -374,18 +389,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_DMTLH_WERT",
      "label": "STAT_DMTLH_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     },
     {
      "key": "STAT_DMTLH_EINH",
      "label": "STAT_DMTLH_EINH",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     }
@@ -398,16 +414,2365 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_PHY_NG_POSITION_WERT",
      "label": "5) keine Person im Fahrzeug",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_PHY_NG_LERN_WERT",
      "label": "Aktuelle Position Nullgangsensor",
-     "unit": ""
+     "unit": null
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_main",
+   "title": "Hauptmenü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Info",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ident",
+     "screen": "s_ident_ds2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "INPA  <->",
+     "screen": "s_scriptwechsel",
+     "submenu": "m_scriptwechsel"
+    },
+    {
+     "key": 4,
+     "label": "Fehler",
+     "screen": "s_fehler",
+     "submenu": "m_fehler"
+    },
+    {
+     "key": 5,
+     "label": "Status",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 6,
+     "label": "Steuern",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 7,
+     "label": "Speicher",
+     "screen": "s_speicher",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Funktionen",
+     "screen": "s_funktionen",
+     "submenu": "m_funktionen"
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 11,
+     "label": "KVP",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "Sensoren",
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "Information",
+     "screen": "s_sg_information",
+     "submenu": "m_sg_information"
+    },
+    {
+     "key": 14,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": "Reset",
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "S. Speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehler",
+   "title": "Fehlerspeicher",
+   "items": [
+    {
+     "key": 1,
+     "label": "FS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "IS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "IS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "HS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "HS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "HS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "IS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "FS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "HS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "IS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "FS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_speicher",
+   "title": "Speicher lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LAR",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FLASH",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "UIFM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ROMI",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "RAMIS",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "RAMIL",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "NVRAM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "ROMX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "RAMXX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fetrawefla",
+   "title": "Steuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Normal",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Fertigung",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Transport",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_scriptwechsel",
+   "title": null,
+   "items": [
+    {
+     "key": 2,
+     "label": "CAS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "??????",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "???",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "???",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status",
+   "title": "Status lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Analog1",
+     "screen": "s_status_analog1",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Analog2",
+     "screen": "s_status_analog2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Analog3",
+     "screen": "s_status_analog3",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Digital1",
+     "screen": "s_status_digital1",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Digital2",
+     "screen": "s_status_digital2",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "PM - IBS",
+     "screen": "s_main_pm",
+     "submenu": "m_main_pm"
+    },
+    {
+     "key": 7,
+     "label": "Systemcheck",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 8,
+     "label": "Readiness",
+     "screen": "s_readiness",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck",
+   "title": "Systemcheck",
+   "items": [
+    {
+     "key": 1,
+     "label": "TEV",
+     "screen": "s_systemcheck_tev",
+     "submenu": "m_systemcheck_tev"
+    },
+    {
+     "key": 2,
+     "label": "LL",
+     "screen": "s_systemcheck_llerh",
+     "submenu": "m_systemcheck_llerh"
+    },
+    {
+     "key": 3,
+     "label": "DMTL",
+     "screen": "s_systemcheck_dmtl",
+     "submenu": "m_systemcheck_dmtl"
+    },
+    {
+     "key": 4,
+     "label": "GrundAdap",
+     "screen": "s_systemcheck_grund",
+     "submenu": "m_systemcheck_grund"
+    },
+    {
+     "key": 5,
+     "label": "IGR",
+     "screen": "s_systemcheck_igr",
+     "submenu": "m_systemcheck_igr"
+    },
+    {
+     "key": 6,
+     "label": "LSVK",
+     "screen": "s_systemcheck_lsvk",
+     "submenu": "m_systemcheck_lsvk"
+    },
+    {
+     "key": 7,
+     "label": "LSHK",
+     "screen": "s_systemcheck_lshk",
+     "submenu": "m_systemcheck_lshk"
+    },
+    {
+     "key": 8,
+     "label": "IBS",
+     "screen": "s_systemtest_ibs",
+     "submenu": "m_systemtest_ibs"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_tev",
+   "title": "TEV",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemcheck_tev",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemcheck_tev",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_llerh",
+   "title": "Leerlauferhöhung",
+   "items": [
+    {
+     "key": 1,
+     "label": "+10",
+     "screen": "s_systemcheck_llerh",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "-10",
+     "screen": "s_systemcheck_llerh",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "+100",
+     "screen": "s_systemcheck_llerh",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "-100",
+     "screen": "s_systemcheck_llerh",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Eingabe",
+     "screen": "s_systemcheck_llerh",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "STOP",
+     "screen": "s_systemcheck_llerh",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_dmtl",
+   "title": "DMTL",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemcheck_dmtl",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemcheck_dmtl",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_grund",
+   "title": "Grundadaption",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemcheck_grund",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemcheck_grund",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_ibs",
+   "title": "Systemdiagnose Ruhestrommessung",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_ibs",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_igr",
+   "title": "IGR",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemcheck_igr",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemcheck_igr",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_lsvk",
+   "title": "LSVK",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemcheck_lsvk",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemcheck_lsvk",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemcheck_lshk",
+   "title": "LSHK",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemcheck_lshk",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemcheck_lshk",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_systemcheck",
+     "submenu": "m_systemcheck"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern",
+   "title": "Steuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Adap lösch.",
+     "screen": "s_adap_loe",
+     "submenu": "m_adap_loe"
+    },
+    {
+     "key": 2,
+     "label": "Stell1",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 3,
+     "label": "Stell2",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 8,
+     "label": "MSA",
+     "screen": "s_msa",
+     "submenu": "m_msa"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": "FOrt",
+     "screen": "s_fort",
+     "submenu": "m_fort"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern1",
+   "title": "Steuern 1",
+   "items": [
+    {
+     "key": 1,
+     "label": "TEV",
+     "screen": "s_tev",
+     "submenu": "m_tev"
+    },
+    {
+     "key": 2,
+     "label": "E_Luef",
+     "screen": "s_e_luefter",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DMTL",
+     "screen": "s_dmtl",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "MIL",
+     "screen": "s_mil",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Drosselkl.",
+     "screen": "s_dk",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "EKP",
+     "screen": "s_ekp",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "EML",
+     "screen": "s_eml",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "MSV",
+     "screen": "s_msv",
+     "submenu": "m_msv"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern2",
+   "title": "Steuern 2",
+   "items": [
+    {
+     "key": 1,
+     "label": "LSHVK",
+     "screen": "s_lshvk",
+     "submenu": "m_lshvk"
+    },
+    {
+     "key": 11,
+     "label": "LSHHK",
+     "screen": "s_lshhk",
+     "submenu": "m_lshhk"
+    },
+    {
+     "key": 2,
+     "label": "WAPUT",
+     "screen": "s_waput",
+     "submenu": "m_waput"
+    },
+    {
+     "key": 3,
+     "label": "KFK",
+     "screen": "s_kfk",
+     "submenu": "m_kfk"
+    },
+    {
+     "key": 4,
+     "label": "VANOS ein",
+     "screen": "s_vanos_ein",
+     "submenu": "m_vanos_ein"
+    },
+    {
+     "key": 5,
+     "label": "ULV",
+     "screen": "s_ulv",
+     "submenu": "m_ulv"
+    },
+    {
+     "key": 6,
+     "label": "WGV",
+     "screen": "s_wgv",
+     "submenu": "m_wgv"
+    },
+    {
+     "key": 7,
+     "label": "KGEH",
+     "screen": "s_kgeh",
+     "submenu": "m_kgeh"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_adap_loe",
+   "title": "Adaptionen löschen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LL-Reg",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Klopf",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "L-Sonde v.KAT",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "L-Sonde n.KAT",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Massenstr.",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Höhenad",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Fuell",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "L-Sond.Alt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 11,
+     "label": "Dynamik",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "Benz i.Öl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "Batteriet",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "HiAchse",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "Vanos",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_e_luefter",
+   "title": "E-Luefter ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "E-Luef. St1",
+     "screen": "s_e_luefter",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "E-Luef. St2",
+     "screen": "s_e_luefter",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "E-Luef. aus",
+     "screen": "s_e_luefter",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_tev",
+   "title": "TEV ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "50%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "...%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_msv",
+   "title": "MSV ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "5 MPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "...MPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dmtl",
+   "title": "DMTL ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "DMTL Pumpe",
+     "screen": "s_dmtl_pump",
+     "submenu": "m_dmtl_pump"
+    },
+    {
+     "key": 2,
+     "label": "DMTL Heiz.",
+     "screen": "s_dmtl_heat",
+     "submenu": "m_dmtl_heat"
+    },
+    {
+     "key": 3,
+     "label": "DMTL Ventil",
+     "screen": "s_dmtl_valve",
+     "submenu": "m_dmtl_valve"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dmtl_pump",
+   "title": "DMTL Pumpe ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Pumpe ein",
+     "screen": "s_dmtl_pump",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Pumpe aus",
+     "screen": "s_dmtl_pump",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_dmtl",
+     "submenu": "m_dmtl"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dmtl_heat",
+   "title": "DMTL Heizung ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Heizung ein",
+     "screen": "s_dmtl_heat",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Heizung aus",
+     "screen": "s_dmtl_heat",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_dmtl",
+     "submenu": "m_dmtl"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dmtl_valve",
+   "title": "DMTL Ventil ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Ventil ein",
+     "screen": "s_dmtl_valve",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ventil aus",
+     "screen": "s_dmtl_heat",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_dmtl",
+     "submenu": "m_dmtl"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_mil",
+   "title": "MIL ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "MIL an",
+     "screen": "s_mil",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "MIL aus",
+     "screen": "s_mil",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dk",
+   "title": "Drosselklappe ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Ansteuerung DK an",
+     "screen": "s_dk",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ansteuerung DK aus",
+     "screen": "s_dk",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ekp",
+   "title": "EKP ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "EKP an",
+     "screen": "s_ekp",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "EKP aus",
+     "screen": "s_ekp",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_eml",
+   "title": "EML ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "EML an",
+     "screen": "s_eml",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "EML aus",
+     "screen": "s_eml",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern1",
+     "submenu": "m_steuern1"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_lshvk",
+   "title": "LSHVK ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_lshhk",
+   "title": "LSHHK ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_waput",
+   "title": "WAPUT ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_kfk",
+   "title": "KFK ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_vanos_ein",
+   "title": "VANOS  ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "50%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "...%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ulv",
+   "title": "ULV ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_wgv",
+   "title": "Wastegate Ventil  ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "50%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "...%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_kgeh",
+   "title": "KGEH ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Dauer",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern2",
+     "submenu": "m_steuern2"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_main_pm",
+   "title": "Powermanagement",
+   "items": [
+    {
+     "key": 1,
+     "label": "IDENT",
+     "screen": "s_ibs_ident",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "PM Feld 1",
+     "screen": "s_pm_feld1",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "PM Feld 2",
+     "screen": "s_pm_feld2",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "PM Feld 3",
+     "screen": "s_pm_feld3",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "B Tausch",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Reset",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Start",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Stop",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_msa",
+   "title": "Menü",
+   "items": [
+    {
+     "key": 1,
+     "label": "NG lernen",
+     "screen": "s_msa_lern",
+     "submenu": "m_msa_lern"
+    },
+    {
+     "key": 2,
+     "label": "MSA akt.",
+     "screen": "s_msa",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "MH Kontakt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "MSA Status",
+     "screen": "s_msa_stat",
+     "submenu": "m_msa_status"
+    },
+    {
+     "key": 5,
+     "label": "MSA AV",
+     "screen": "s_msa_av",
+     "submenu": "m_msa_status"
+    },
+    {
+     "key": 6,
+     "label": "MSA AA",
+     "screen": "s_msa_aa",
+     "submenu": "m_msa_status"
+    },
+    {
+     "key": 7,
+     "label": "MSA EV",
+     "screen": "s_msa_ev",
+     "submenu": "m_msa_status"
+    },
+    {
+     "key": 8,
+     "label": "MSA EA",
+     "screen": "s_msa_ea",
+     "submenu": "m_msa_status"
+    },
+    {
+     "key": 9,
+     "label": "MSA AV DEAK",
+     "screen": "s_msa_deak_av",
+     "submenu": "m_msa_deak_av"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_msa_status",
+   "title": "Menü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Stop refresh",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Refresh",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "MSA Status",
+     "screen": "s_msa_stat",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "MSA AV",
+     "screen": "s_msa_av",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "MSA AA",
+     "screen": "s_msa_aa",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "MSA EV",
+     "screen": "s_msa_ev",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "MSA EA",
+     "screen": "s_msa_ea",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "MSA AV DEAK",
+     "screen": "s_msa_deak_av",
+     "submenu": "m_msa_deak_av"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_msa",
+     "submenu": "m_msa"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_msa_deak_av",
+   "title": "Menü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Deak AV",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "alle",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "ENDE Deak",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_msa",
+     "submenu": "m_msa"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_msa_lern",
+   "title": "Menü",
+   "items": [
+    {
+     "key": 1,
+     "label": "NG lernen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_msa",
+     "submenu": "m_msa"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fort",
+   "title": "Fehlerort",
+   "items": [
+    {
+     "key": 1,
+     "label": "Eingabe",
+     "screen": "s_fort",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Turbo min",
+     "screen": "s_fort",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Turbo max",
+     "screen": "s_fort",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_funktionen",
+   "title": "Funktionen",
+   "items": [
+    {
+     "key": 1,
+     "label": null,
+     "screen": "s_",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": null,
+     "screen": "s_",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": null,
+     "screen": "s_",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": null,
+     "screen": "s_",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_sg_information",
+   "title": "Steuergeräte-Information",
+   "items": [
+    {
+     "key": 1,
+     "label": "Schnittstelle",
+     "screen": "s_sg_information_schnittstellen",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Bordnetz",
+     "screen": "s_sg_information_bordnetz",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Verbauort",
+     "screen": "s_sg_information_verbauort",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Allgemeines",
+     "screen": "s_sg_information_allgemeines",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Kundenfunkt.",
+     "screen": "s_sg_information_kundenfunktion",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": null,
+     "screen": "s_sg_information_",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": null,
+     "screen": "s_sg_information_",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
     }
    ]
   }

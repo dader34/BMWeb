@@ -1,5 +1,7 @@
 {
- "ecu": "msd85l6.ips",
+ "source": "msd85l6.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_digital1",
@@ -8,36 +10,37 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_KL15_EIN_WERT",
      "label": "Klemme 15",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTOR_AUS_WERT",
      "label": "Motor steht",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KUPPL_EIN_WERT",
      "label": "Kupplungschalter",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BLS_EIN_WERT",
      "label": "Bremslichtschalter-Kanal 1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BTS_EIN_WERT",
      "label": "Bremslichtschalter-Kanal 2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AC_EIN_WERT",
      "label": "Eingang KlimaAnforderung",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -48,11 +51,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MSW_CAN_WERT",
      "label": "STAT_MSW_CAN_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -63,196 +67,197 @@
    "args": null,
    "render": "text",
    "columns": 2,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_LL_WERT",
      "label": "STAT_LL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VL_WERT",
      "label": "STAT_VL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DK_ABGLEICH_WERT",
      "label": "STAT_DK_ABGLEICH_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KICKDOWN_WERT",
      "label": "STAT_KICKDOWN_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SCHUBAB_WERT",
      "label": "STAT_SCHUBAB_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FAHRSTUFE_WERT",
      "label": "STAT_FAHRSTUFE_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSVK1_WERT",
      "label": "STAT_LSVK1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSHK1_WERT",
      "label": "STAT_LSHK1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LS1_REGELUNG_WERT",
      "label": "STAT_LS1_REGELUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSVK2_WERT",
      "label": "STAT_LSVK2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSHK2_WERT",
      "label": "STAT_LSHK2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LS2_REGELUNG_WERT",
      "label": "STAT_LS2_REGELUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DYN_LIM_1_WERT",
      "label": "STAT_DYN_LIM_1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DYN_LIM_2_WERT",
      "label": "STAT_DYN_LIM_2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_EGAS_NOTLAUF_WERT",
      "label": "STAT_EGAS_NOTLAUF_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_NOTLAUF_LL_WERT",
      "label": "STAT_NOTLAUF_LL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FEHLER_MFL_WERT",
      "label": "STAT_FEHLER_MFL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FEHLER_BREMSE_WERT",
      "label": "STAT_FEHLER_BREMSE_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FEHLER_CLSW_WERT",
      "label": "STAT_FEHLER_CLSW_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_NOTLAUF_DK_WERT",
      "label": "STAT_NOTLAUF_DK_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MON_LEVEL2_WERT",
      "label": "STAT_MON_LEVEL2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_V_PLAUSIBEL_WERT",
      "label": "STAT_V_PLAUSIBEL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FEHLER_VS_WERT",
      "label": "STAT_FEHLER_VS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TIMEOUT_EGS1_WERT",
      "label": "STAT_TIMEOUT_EGS1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ASR_TIMEOUT_WERT",
      "label": "STAT_ASR_TIMEOUT_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VS_DIF_HOCH_WERT",
      "label": "STAT_VS_DIF_HOCH_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_UEBERN_LANG_WERT",
      "label": "STAT_UEBERN_LANG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VS_SP_MAX_WERT",
      "label": "STAT_VS_SP_MAX_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_EXT_MOMENT_WERT",
      "label": "STAT_EXT_MOMENT_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MFL_AUS_WERT",
      "label": "STAT_MFL_AUS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VS_CAN_LANG_WERT",
      "label": "STAT_VS_CAN_LANG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BESCHL_MON_WERT",
      "label": "STAT_BESCHL_MON_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_HOCHDREH_S_WERT",
      "label": "STAT_HOCHDREH_S_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TAKEOVER_VS_WERT",
      "label": "STAT_TAKEOVER_VS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VS_FIL_LOW_WERT",
      "label": "STAT_VS_FIL_LOW_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DREHZAHL_BEG_WERT",
      "label": "STAT_DREHZAHL_BEG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BREMSE_AKTIV_WERT",
      "label": "STAT_BREMSE_AKTIV_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MFL_HARD_OFF_WERT",
      "label": "STAT_MFL_HARD_OFF_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -263,61 +268,62 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MISSFIRE_MONITOR_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FUELSYSTEM_MONITOR_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_COMPREHENSIVE_MONITOR_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KATMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_HKATMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_HSMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AGRRDY_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SLSMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TESMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KLIMAMON_EIN_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -328,181 +334,182 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_AT",
      "label": "STAT_AT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AC",
      "label": "STAT_AC",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AMT",
      "label": "STAT_AMT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ARS",
      "label": "STAT_ARS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ASR",
      "label": "STAT_ASR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BN",
      "label": "STAT_BN",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BN_MSW",
      "label": "STAT_BN_MSW",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DCC",
      "label": "STAT_DCC",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_EBOX_CFA",
      "label": "STAT_EBOX_CFA",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ETCU",
      "label": "STAT_ETCU",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ICL",
      "label": "STAT_ICL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MSW",
      "label": "STAT_MSW",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_PSTE",
      "label": "STAT_PSTE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SOF",
      "label": "STAT_SOF",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SOF_SWI",
      "label": "STAT_SOF_SWI",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_GEAR",
      "label": "STAT_GEAR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VEH",
      "label": "STAT_VEH",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_EF",
      "label": "STAT_EF",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP",
      "label": "STAT_ECRAS_UP",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_RLY_ACCOUT",
      "label": "STAT_RLY_ACCOUT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_RLY_ST",
      "label": "STAT_RLY_ST",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ASR3",
      "label": "STAT_ASR3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BN_LDM",
      "label": "STAT_BN_LDM",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BN_LTG_HDLP_L",
      "label": "STAT_BN_LTG_HDLP_L",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSH_DOWN",
      "label": "STAT_LSH_DOWN",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LSH_UP",
      "label": "STAT_LSH_UP",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ASR_4",
      "label": "STAT_ASR_4",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MAF",
      "label": "STAT_MAF",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_PSTE_2",
      "label": "STAT_PSTE_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BN_EFP",
      "label": "STAT_BN_EFP",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SENS_BAT_SMT_DET",
      "label": "STAT_SENS_BAT_SMT_DET",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BN_TRL",
      "label": "STAT_BN_TRL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_DOWN",
      "label": "STAT_ECRAS_DOWN",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TCT",
      "label": "STAT_TCT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TCT",
      "label": "STAT_TCT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -513,6 +520,7 @@
    "args": "0x5A50,0x5A51",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_LAMBDA_BANK1_WERT",
@@ -524,7 +532,7 @@
     {
      "key": "STAT_LAMBDA_BANK2_WERT",
      "label": "STAT_LAMBDA_BANK2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     }
@@ -537,11 +545,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_VENTIL_NR",
      "label": "STAT_VENTIL_NR",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -552,32 +561,33 @@
    "args": "0x5A50,0x5A51,0x5A13,0x5A14",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_MESSWERT2_WERT",
      "label": "STAT_MESSWERT2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_MESSWERT3_WERT",
      "label": "STAT_MESSWERT3_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     }
@@ -590,67 +600,68 @@
    "args": null,
    "render": "analog",
    "columns": 2,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_LAMB_LS_UP_AFR_EOL_1_WERT",
      "label": "STAT_LAMB_LS_UP_AFR_EOL_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_LAMB_LS_UP_AFR_EOL_2_WERT",
      "label": "STAT_LAMB_LS_UP_AFR_EOL_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_LAMB_LS_UP_AFL_EOL_1_WERT",
      "label": "STAT_LAMB_LS_UP_AFL_EOL_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_LAMB_LS_UP_AFL_EOL_2_WERT",
      "label": "STAT_LAMB_LS_UP_AFL_EOL_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_VLS_DOWN_AFR_EOL_1_WERT",
      "label": "STAT_VLS_DOWN_AFR_EOL_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1
     },
     {
      "key": "STAT_VLS_DOWN_AFR_EOL_2_WERT",
      "label": "STAT_VLS_DOWN_AFR_EOL_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1
     },
     {
      "key": "STAT_VLS_DOWN_AFL_EOL_1_WERT",
      "label": "STAT_VLS_DOWN_AFL_EOL_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1
     },
     {
      "key": "STAT_VLS_DOWN_AFL_EOL_2_WERT",
      "label": "STAT_VLS_DOWN_AFL_EOL_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1
     },
     {
      "key": "STAT_MAF_INT_MIN_VLS_EOL_WERT",
      "label": "STAT_MAF_INT_MIN_VLS_EOL_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 300
     }
@@ -663,26 +674,27 @@
    "args": "0x4807",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTORDREHZAHL_WERT",
      "label": "STAT_MOTORDREHZAHL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SOLL_MOTORDREHZAHL_WERT",
      "label": "STAT_SOLL_MOTORDREHZAHL_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -693,26 +705,27 @@
    "args": null,
    "render": "analog",
    "columns": 2,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DIAGNOSE_1_WERT",
      "label": "STAT_DIAGNOSE_1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SYSTEMCHECK_TEV_FUNC_1_WERT",
      "label": "STAT_SYSTEMCHECK_TEV_FUNC_1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SYSTEMCHECK_TEV_FUNC_2_WERT",
      "label": "STAT_SYSTEMCHECK_TEV_FUNC_2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DIAGNOSE_2_WERT",
      "label": "STAT_DIAGNOSE_2_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -723,31 +736,32 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_OFS_ACC_DRI_WERT",
      "label": "STAT_OFS_ACC_DRI_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_OFS_DRI_WERT",
      "label": "STAT_OFS_DRI_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_OFS_WERT",
      "label": "STAT_OFS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_OFS_ACC_WERT",
      "label": "STAT_OFS_ACC_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_OFS_VB_WERT",
      "label": "STAT_OFS_VB_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -758,25 +772,26 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_STROM_REF_WERT",
      "label": "STAT_STROM_REF_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 60
     },
     {
      "key": "STAT_STROM_GROB_WERT",
      "label": "STAT_STROM_GROB_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 60
     },
     {
      "key": "STAT_STROM_WERT",
      "label": "STAT_STROM_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 60
     }
@@ -789,111 +804,112 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ECRAS_UP6",
      "label": "Systemtest aktiv",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP4",
      "label": "Anschlagtest 'zu'",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP5",
      "label": "Anschlagtest 'auf'",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP0",
      "label": "Variante AKKS-LIN (oben)",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_DOWN0",
      "label": "Variante PKKS (unten)",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP2",
      "label": "AKKS-LIN zu",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP1",
      "label": "LV_ECRAS_UP_CLOSE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_ERR0",
      "label": "Fehler im Luftklappengesamtsystem",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_ERR1",
      "label": "Diagnose LIN-Botschaften",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_ERR2",
      "label": "Diagnose PKKS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_DOWN1",
      "label": "Fehler bei der PKKS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END0",
      "label": "Diagnose Kommunikation",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END1",
      "label": "Diagnose Checksumme",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END2",
      "label": "Diagnose Spannungspegel im Steller",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END3",
      "label": "Diagnose Temperaturüberwachung im Steller",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END4",
      "label": "Diagnose Elektroniküberwachung im Steller",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END7",
      "label": "Diagnose Freigängigkeit",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END5",
      "label": "Diagnose Anschlagtest 'zu'",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_DIAG_END6",
      "label": "Diagnose Anschlagtest 'Auf'",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP7",
      "label": "Externe Ansteuerung AKKS-LIN",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ECRAS_UP_ERR1",
      "label": "Spannung am Steller",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -904,39 +920,40 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_TOEL_WERT",
      "label": "STAT_TOEL_WERT",
-     "unit": "",
+     "unit": null,
      "min": -40,
      "max": 160
     },
     {
      "key": "STAT_P_OEL_SOLL_WERT",
      "label": "STAT_P_OEL_SOLL_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 10000
     },
     {
      "key": "STAT_P_OEL_IST_WERT",
      "label": "STAT_P_OEL_IST_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 10000
     },
     {
      "key": "STAT_NKW_SOLL_WERT",
      "label": "STAT_NKW_SOLL_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 8200
     },
     {
      "key": "STAT_NKW_WERT",
      "label": "STAT_NKW_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 8200
     }
@@ -949,57 +966,58 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_FI_GENHTB_WERT",
      "label": "Generator aus Berechnung",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FI_GENHT_WERT",
      "label": "Hochtemperaturfehler Generator",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FI_GENMECH_WERT",
      "label": "mechanischer Fehler Generator",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FI_GENEL_WERT",
      "label": "elektrischer Fehler Generator",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DF_HIGH_WERT",
      "label": "Generatorauslastung zu hoch",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_GENITEST_TOL_WERT",
      "label": "vom Sollwert Strom",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_GENUTEST_TOL_WERT",
      "label": "vom Sollwert Spannung",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_I_GENTEST_WERT",
      "label": "STAT_I_GENTEST_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 255
     },
     {
      "key": "STAT_U_GENTEST_WERT",
      "label": "STAT_U_GENTEST_WERT",
-     "unit": "",
+     "unit": null,
      "min": 10,
      "max": 16
     }
@@ -1012,11 +1030,12 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_KL15_EIN_WERT",
      "label": "STAT_KL15_EIN_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -1027,11 +1046,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_STAT_RUHESTROM_WERT",
      "label": "STAT_STAT_RUHESTROM_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 0.3
     }
@@ -1044,79 +1064,80 @@
    "args": null,
    "render": "analog",
    "columns": 2,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_LV_CLU_SWI",
      "label": "STAT_LV_CLU_SWI",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TNT_MDL_L_WERT",
      "label": "STAT_TNT_MDL_L_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 500
     },
     {
      "key": "STAT_TNT_MDL_MV_WERT",
      "label": "STAT_TNT_MDL_MV_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 500
     },
     {
      "key": "STAT_T_NT_SO2P_EXT_ADJ_ACT_WERT",
      "label": "STAT_T_NT_SO2P_EXT_ADJ_ACT_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 255
     },
     {
      "key": "STAT_NT_SUL_WERT",
      "label": "STAT_NT_SUL_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 10000
     },
     {
      "key": "STAT_LAMB_SP_WERT",
      "label": "STAT_LAMB_SP_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0.5,
      "max": 1.5
     },
     {
      "key": "STAT_LAMB_SP_1_WERT",
      "label": "STAT_LAMB_SP_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0.5,
      "max": 1.5
     },
     {
      "key": "STAT_LAMB_SP_2_WERT",
      "label": "STAT_LAMB_SP_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0.5,
      "max": 1.5
     },
     {
      "key": "STAT_N_32_WERT",
      "label": "STAT_N_32_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 8600
     },
     {
      "key": "STAT_VS_WERT",
      "label": "STAT_VS_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 250
     },
     {
      "key": "STAT_PV_WERT",
      "label": "STAT_PV_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 16
     }
@@ -1129,116 +1150,117 @@
    "args": null,
    "render": "analog",
    "columns": 2,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_1_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_1_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_2_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_2_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_3_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_3_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_3_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_3_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_4_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_4_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_4_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_4_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_5_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_5_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_5_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_5_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_6_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_6_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_6_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_6_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_7_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_7_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_7_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_7_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     },
     {
      "key": "STAT_ENERGIEABGLEICH_ZYL_8_WERT",
      "label": "STAT_ENERGIEABGLEICH_ZYL_8_WERT",
-     "unit": "",
+     "unit": null,
      "min": 35,
      "max": 80
     },
     {
      "key": "STAT_DURCHFLUSSABGLEICH_ZYL_8_WERT",
      "label": "STAT_DURCHFLUSSABGLEICH_ZYL_8_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1.3,
      "max": 3
     }
@@ -1251,26 +1273,27 @@
    "args": "0x4508,0x4505,0x4509,0x4A94",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT2_WERT",
      "label": "STAT_MESSWERT2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT3_WERT",
      "label": "STAT_MESSWERT3_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -1281,66 +1304,67 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MIL_WERT",
      "label": "STAT_MIL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_VA_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_KSS_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_CC_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_KAT_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_KH_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_TEV_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_SLS_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_LS_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_LSH_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_KLIMA_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MONITOR_ARS_WERT",
      "label": "READINESS",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -1351,11 +1375,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_PCODE_M3_ANZAHL",
      "label": "STAT_PCODE_M3_ANZAHL",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -1366,11 +1391,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_PCODE_M7_ANZAHL",
      "label": "STAT_PCODE_M7_ANZAHL",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -1381,18 +1407,19 @@
    "args": "0x4609,0x5AB1",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 26
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 260
     }
@@ -1405,18 +1432,19 @@
    "args": "0x4807,0x4808",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 8200
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 2600
     }
@@ -1429,18 +1457,19 @@
    "args": "0x5AB7,0x5A21",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     }
@@ -1453,18 +1482,19 @@
    "args": "0x5AB6,0x4402",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 130
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -40,
      "max": 160
     }
@@ -1477,18 +1507,19 @@
    "args": "0x5ABC,0x4201",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 800
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 800,
      "max": 1200
     }
@@ -1501,18 +1532,19 @@
    "args": "0x5A24,0x5A29",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 130
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     }
@@ -1525,18 +1557,19 @@
    "args": "0x5A06,0x5A07",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     }
@@ -1549,76 +1582,77 @@
    "args": ",,,,,,,",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -1629,18 +1663,19 @@
    "args": "0x5811,0x5812",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 8200
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 800
     }
@@ -1653,18 +1688,19 @@
    "args": "0x5814,0x5816",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 2
     }
@@ -1677,18 +1713,19 @@
    "args": "0x5817,0x5815",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 50
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 20
     }
@@ -1701,18 +1738,19 @@
    "args": "0x5819,0x581E",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 2600
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     }
@@ -1725,18 +1763,19 @@
    "args": "0x581F,0x5820",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     }
@@ -1749,81 +1788,82 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 3
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 3
     },
     {
      "key": "STAT_MESSWERT2_WERT",
      "label": "STAT_MESSWERT2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_MESSWERT3_WERT",
      "label": "STAT_MESSWERT3_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1.5
     },
     {
      "key": "STAT_MESSWERT4_WERT",
      "label": "STAT_MESSWERT4_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT5_WERT",
      "label": "STAT_MESSWERT5_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT6_WERT",
      "label": "STAT_MESSWERT6_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT7_WERT",
      "label": "STAT_MESSWERT7_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT8_WERT",
      "label": "STAT_MESSWERT8_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 8
     },
     {
      "key": "STAT_MESSWERT9_WERT",
      "label": "STAT_MESSWERT9_WERT",
-     "unit": "",
+     "unit": null,
      "min": 4,
      "max": 6
     },
     {
      "key": "STAT_MESSWERT10_WERT",
      "label": "STAT_MESSWERT10_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 6500
     }
@@ -1836,116 +1876,117 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 4.5,
      "max": 5.5
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 4.5,
      "max": 5.5
     },
     {
      "key": "STAT_MESSWERT2_WERT",
      "label": "STAT_MESSWERT2_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT3_WERT",
      "label": "STAT_MESSWERT3_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT4_WERT",
      "label": "STAT_MESSWERT4_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT5_WERT",
      "label": "STAT_MESSWERT5_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT6_WERT",
      "label": "STAT_MESSWERT6_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT7_WERT",
      "label": "STAT_MESSWERT7_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT8_WERT",
      "label": "STAT_MESSWERT8_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT9_WERT",
      "label": "STAT_MESSWERT9_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERTA_WERT",
      "label": "STAT_MESSWERTA_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERTB_WERT",
      "label": "STAT_MESSWERTB_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERTC_WERT",
      "label": "STAT_MESSWERTC_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERTD_WERT",
      "label": "STAT_MESSWERTD_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERTE_WERT",
      "label": "STAT_MESSWERTE_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERTF_WERT",
      "label": "STAT_MESSWERTF_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     }
@@ -1958,18 +1999,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ADC_TANS1_WERT",
      "label": "STAT_ADC_TANS1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_AN_LUFTTEMPERATUR_WERT",
      "label": "STAT_AN_LUFTTEMPERATUR_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 145
     }
@@ -1982,18 +2024,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ADC_TMOT_WERT",
      "label": "STAT_ADC_TMOT_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MOTORTEMPERATUR_WERT",
      "label": "STAT_MOTORTEMPERATUR_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 145
     }
@@ -2006,18 +2049,19 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_DKP_VOLT_WERT",
      "label": "STAT_DKP_VOLT_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_STAT_DK_WERT",
      "label": "STAT_STAT_DK_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 90
     }
@@ -2030,18 +2074,19 @@
    "args": "0x4400,0x440F",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 75
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 75
     }
@@ -2054,18 +2099,19 @@
    "args": "0x4401,0x4403",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 125
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 4000
     }
@@ -2078,18 +2124,19 @@
    "args": "0x4404,0x4411",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 40000
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 35000
     }
@@ -2102,18 +2149,19 @@
    "args": "0x4408,0x440D",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 200
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1
     }
@@ -2126,18 +2174,19 @@
    "args": "0x4409,0x440E",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 75
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 1
     }
@@ -2150,11 +2199,12 @@
    "args": "0x440A",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 1,
      "max": 4
     }
@@ -2167,18 +2217,19 @@
    "args": "0x5ABC,0x5814",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 500
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 100
     }
@@ -2191,18 +2242,19 @@
    "args": "0x581E,0x581F",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     }
@@ -2215,18 +2267,19 @@
    "args": "0x5820,0x5821",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 150
     }
@@ -2239,18 +2292,19 @@
    "args": "0x5822,0x5833",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": -40,
      "max": 200
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": -50,
      "max": 85
     }
@@ -2263,18 +2317,19 @@
    "args": "0x5834,0x5A2E",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 800,
      "max": 1200
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 7650
     }
@@ -2287,18 +2342,19 @@
    "args": "0x5858,0x5A2F",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 90
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 250000
     }
@@ -2311,18 +2367,19 @@
    "args": "0x5860,0x585C",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 70000
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 70000
     }
@@ -2335,18 +2392,19 @@
    "args": "0x5861,0x585D",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 70000
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 70000
     }
@@ -2359,16 +2417,17 @@
    "args": "0x5804,0x580B,0x580D,0x580E,0x5813,0x5814,0x4808,0x5820",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_ANZAHL_WERTE",
      "label": "STAT_ANZAHL_WERTE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ANZAHL_WERTE",
      "label": "STAT_ANZAHL_WERTE",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2379,26 +2438,27 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DK_ADD_WERT",
      "label": "STAT_DK_ADD_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DK_FAC_WERT",
      "label": "STAT_DK_FAC_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_EV_ADD_WERT",
      "label": "STAT_EV_ADD_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_EV_FAC_WERT",
      "label": "STAT_EV_FAC_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2409,11 +2469,12 @@
    "args": "0x5A97",
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2424,18 +2485,19 @@
    "args": "0x5A50,0x5A51",
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "%",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 5
     }
@@ -2448,61 +2510,62 @@
    "args": ",,,,,",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2513,31 +2576,32 @@
    "args": "0x5AC6,0x5AC7,0x5AC8,0x5AC9,0x5ACA,0x5ACB",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT2_WERT",
      "label": "STAT_MESSWERT2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT3_WERT",
      "label": "STAT_MESSWERT3_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT4_WERT",
      "label": "STAT_MESSWERT4_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2548,41 +2612,42 @@
    "args": "0x5AB0,0x5AAD,0x5A2C,0x5AAE,0x5AAB,0x5AAF,0x5AAC,",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_MESSWERT0_WERT",
      "label": "STAT_MESSWERT0_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT1_WERT",
      "label": "STAT_MESSWERT1_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT2_WERT",
      "label": "STAT_MESSWERT2_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT3_WERT",
      "label": "STAT_MESSWERT3_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT4_WERT",
      "label": "STAT_MESSWERT4_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT5_WERT",
      "label": "STAT_MESSWERT5_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MESSWERT4_WERT",
      "label": "STAT_MESSWERT4_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2593,11 +2658,12 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_KUPPLUNG",
      "label": "-",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2608,11 +2674,12 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_LV_CS",
      "label": "-",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -2623,11 +2690,3566 @@
    "args": null,
    "render": "text",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_GEBERRAD_ADAPTION",
      "label": "STAT_GEBERRAD_ADAPTION",
-     "unit": ""
+     "unit": null
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_sgbd_auswahl",
+   "title": "Steuergeräteauswahl für",
+   "items": [
+    {
+     "key": 1,
+     "label": "DMER",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 2,
+     "label": "DMEL",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 10,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_main",
+   "title": "Hauptmenue",
+   "items": [
+    {
+     "key": 1,
+     "label": "Info",
+     "screen": "s_info",
+     "submenu": "m_main"
+    },
+    {
+     "key": 2,
+     "label": "Ident",
+     "screen": "s_ident",
+     "submenu": "m_ident"
+    },
+    {
+     "key": 3,
+     "label": "AIF",
+     "screen": "s_aif",
+     "submenu": "m_aif"
+    },
+    {
+     "key": 4,
+     "label": "Fehler",
+     "screen": "s_fehlersp_main",
+     "submenu": "m_fehlersp_main"
+    },
+    {
+     "key": 5,
+     "label": "Status",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 6,
+     "label": "Steuern",
+     "screen": "s_iostatus",
+     "submenu": "m_iostatus"
+    },
+    {
+     "key": 7,
+     "label": "Speicher",
+     "screen": "s_speicher",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Adaption",
+     "screen": "s_ada_loe",
+     "submenu": "m_ada_loe"
+    },
+    {
+     "key": 9,
+     "label": "System",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 10,
+     "label": "Ende",
+     "screen": "s_sgbd_auswahl",
+     "submenu": "m_sgbd_auswahl"
+    },
+    {
+     "key": 11,
+     "label": "OBD-Status",
+     "screen": "s_obd",
+     "submenu": "m_obd"
+    },
+    {
+     "key": 12,
+     "label": "UDS-Test",
+     "screen": "s_uds_test",
+     "submenu": "m_uds_test"
+    },
+    {
+     "key": 16,
+     "label": "EWS 4",
+     "screen": "s_ews",
+     "submenu": "m_ews"
+    },
+    {
+     "key": 17,
+     "label": "EWS 3",
+     "screen": "s_ews_alt",
+     "submenu": "m_ews_alt"
+    },
+    {
+     "key": 20,
+     "label": "SLEEP",
+     "screen": "s_sleep_funktional",
+     "submenu": "m_sleep"
+    }
+   ]
+  },
+  {
+   "name": "m_speicher",
+   "title": "Speicher lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LINEAR",
+     "screen": "s_speicher_lar",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Hex->Datei",
+     "screen": "s_speicher_lar",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Kommentar",
+     "screen": "s_speicher_lar",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_main_pm",
+   "title": "Powermanagement",
+   "items": [
+    {
+     "key": 1,
+     "label": "IDENT",
+     "screen": "s_ibs_ident",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "PM Feld 1",
+     "screen": "s_pm_feld1",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "PM Feld 2",
+     "screen": "s_pm_feld2",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "PM Feld 3",
+     "screen": "s_pm_feld3",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "B Tausch",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Reset",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Start",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Stop",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ews_alt",
+   "title": "EWS4-Startwertabgleich",
+   "items": [
+    {
+     "key": 1,
+     "label": "Status",
+     "screen": "s_ews_stell_alt",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Abgleich",
+     "screen": "s_ews_stell_alt",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    }
+   ]
+  },
+  {
+   "name": "m_ews",
+   "title": "EWS4-Startwertabgleich",
+   "items": [
+    {
+     "key": 1,
+     "label": "Status",
+     "screen": "s_status_ews_dme2",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Abgleich",
+     "screen": "s_secretkey_dme2",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    }
+   ]
+  },
+  {
+   "name": "m_sleep",
+   "title": "SLEEP_MODE / RESET",
+   "items": [
+    {
+     "key": 1,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "ALL",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "DME Reset",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    }
+   ]
+  },
+  {
+   "name": "m_ada_loe",
+   "title": "Adaptionswerte selektiv löschen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Adaption 1",
+     "screen": "s_ada_loe_1",
+     "submenu": "m_ada_loe_1"
+    },
+    {
+     "key": 2,
+     "label": "Adaption 2",
+     "screen": "s_ada_loe_2",
+     "submenu": "m_ada_loe_2"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ada_loe_1",
+   "title": "Adaptionswerte selektiv löschen 1",
+   "items": [
+    {
+     "key": 1,
+     "label": "LLABG",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Klopfen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "L-Sonden",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "TEV",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Saugrohr",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "DK",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "L-Regelung",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "AGR",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Last",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_ada_loe",
+     "submenu": "m_ada_loe"
+    },
+    {
+     "key": 11,
+     "label": "NOx",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "SA",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "MSV",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "Batterie",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "Oktan",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": "Varianten",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "VANOS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Segment",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "Verbrennung",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ada_loe_2",
+   "title": "Adaptionswerte selektiv löschen 2",
+   "items": [
+    {
+     "key": 1,
+     "label": "BAL-EOL-DC",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "BAL-ER-LAM",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Phase-1",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Phase-2",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Energie",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Alle",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_ada_loe",
+     "submenu": "m_ada_loe"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ident",
+   "title": "Identifikations-Menue",
+   "items": [
+    {
+     "key": 1,
+     "label": "Datei",
+     "screen": "s_ident",
+     "submenu": "m_ident"
+    },
+    {
+     "key": 8,
+     "label": "Kommentar",
+     "screen": "s_ident",
+     "submenu": "m_ident"
+    },
+    {
+     "key": 9,
+     "label": "Drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_aif",
+   "title": "AnwenderInfoFelder-Menue",
+   "items": [
+    {
+     "key": 1,
+     "label": "aktuell",
+     "screen": "s_aif",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Werk",
+     "screen": "s_aif",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehlersp_main",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "Fehlersp.",
+     "screen": "s_fehlersp",
+     "submenu": "m_fehlersp"
+    },
+    {
+     "key": 2,
+     "label": "Infosp.",
+     "screen": "s_infosp",
+     "submenu": "m_infosp"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehlersp",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "@",
+     "screen": "s_fs_kurz",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "@",
+     "screen": "s_fs_kurz",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Detail",
+     "screen": "s_fs_detail",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Freeze Frame",
+     "screen": "s_fs_lang",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Hex-Dump",
+     "screen": "s_fs_hex",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Löschen",
+     "screen": "s_fs_loesch",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "FS->Datei R",
+     "screen": "s_fehlersp",
+     "submenu": "m_fehlersp"
+    },
+    {
+     "key": 7,
+     "label": "FS->Datei L",
+     "screen": "s_fehlersp",
+     "submenu": "m_fehlersp"
+    },
+    {
+     "key": 8,
+     "label": "Kommentar",
+     "screen": "s_fehlersp_main",
+     "submenu": "m_fehlersp"
+    },
+    {
+     "key": 9,
+     "label": "Drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_fehlersp_main",
+     "submenu": "m_fehlersp_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_infosp",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "@",
+     "screen": "s_is_kurz",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "@",
+     "screen": "s_is_kurz",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Detail",
+     "screen": "s_is_detail",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Freeze Frame",
+     "screen": "s_is_lang",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Hex-Dump",
+     "screen": "s_is_hex",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Löschen M/S",
+     "screen": "s_is_loesch",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "FS->Datei",
+     "screen": "s_infosp",
+     "submenu": "m_infosp"
+    },
+    {
+     "key": 7,
+     "label": "Kommentar",
+     "screen": "s_infosp",
+     "submenu": "m_infosp"
+    },
+    {
+     "key": 9,
+     "label": "Drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_fehlersp_main",
+     "submenu": "m_fehlersp_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_obd",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "Mode 1",
+     "screen": "s_mode_1",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Mode 2",
+     "screen": "s_mode_2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Mode 3",
+     "screen": "s_mode_3",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Mode 4",
+     "screen": "s_mode_4",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Mode 5",
+     "screen": "s_mode_5",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Mode 6",
+     "screen": "s_mode_6",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Mode 7",
+     "screen": "s_mode_7",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Mode 9",
+     "screen": "s_mode_9",
+     "submenu": "m_mode_9"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_mode_9",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "RBMMODE9",
+     "screen": "s_rbmmode9",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "RBMMS1",
+     "screen": "s_rbmms1",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "RBMMS2",
+     "screen": "s_rbmms2",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "RBM->Datei",
+     "screen": "s_rbmmode9",
+     "submenu": "m_mode_9"
+    },
+    {
+     "key": 8,
+     "label": "Kommentar",
+     "screen": "s_rbmmode9",
+     "submenu": "m_mode_9"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_obd",
+     "submenu": "m_obd"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_uds_test",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "Test",
+     "screen": "s_uds_lesen",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "UDS->Datei",
+     "screen": "s_uds_lesen",
+     "submenu": "m_uds_test"
+    },
+    {
+     "key": 8,
+     "label": "Kommentar",
+     "screen": "s_uds_lesen",
+     "submenu": "m_uds_test"
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_system",
+   "title": "Systemdiagnose",
+   "items": [
+    {
+     "key": 1,
+     "label": "BA",
+     "screen": "s_system_ba",
+     "submenu": "m_system_ba"
+    },
+    {
+     "key": 2,
+     "label": "EV",
+     "screen": "s_systemtest_ev_ausbl",
+     "submenu": "m_systemtest_ev_ausbl"
+    },
+    {
+     "key": 4,
+     "label": "LL",
+     "screen": "s_system_llerh",
+     "submenu": "m_system_llerh"
+    },
+    {
+     "key": 5,
+     "label": "TEV",
+     "screen": "s_systemtest_tev",
+     "submenu": "m_systemtest_tev"
+    },
+    {
+     "key": 6,
+     "label": "LLABG",
+     "screen": "s_llabgl",
+     "submenu": "m_llabg"
+    },
+    {
+     "key": 7,
+     "label": "DMTL",
+     "screen": "s_systemtest_dmtl",
+     "submenu": "m_systemtest_dmtl"
+    },
+    {
+     "key": 8,
+     "label": "GLF",
+     "screen": "s_systemtest_glf",
+     "submenu": "m_systemtest_glf"
+    },
+    {
+     "key": 9,
+     "label": "ODR",
+     "screen": "s_systemtest_odr",
+     "submenu": "m_systemtest_odr"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": "GEN",
+     "screen": "s_systemtest_gen",
+     "submenu": "m_systemtest_gen"
+    },
+    {
+     "key": 12,
+     "label": "IBS",
+     "screen": "s_systemtest_ibs",
+     "submenu": "m_systemtest_ibs"
+    },
+    {
+     "key": 13,
+     "label": "DES",
+     "screen": "s_systemtest_des",
+     "submenu": "m_systemtest_des"
+    },
+    {
+     "key": 14,
+     "label": "IMA",
+     "screen": "s_systemtest_ima",
+     "submenu": "m_systemtest_ima"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_system_ba",
+   "title": "Systemdiagnose Betriebsartenumschaltung",
+   "items": [
+    {
+     "key": 1,
+     "label": "Homogen",
+     "screen": "s_system_ba",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Hom-Sch",
+     "screen": "s_system_ba",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Schicht",
+     "screen": "s_system_ba",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Hom-Lam",
+     "screen": "s_system_ba",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "STOP",
+     "screen": "s_system_ba",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_ev_ausbl",
+   "title": "EV-Ausblenden",
+   "items": [
+    {
+     "key": 1,
+     "label": "EV 1",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "EV 2",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "EV 3",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "EV 4",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "EV 5",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "EV 6",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "EV 7",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "EV 8",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_system_l_sonde",
+   "title": "Systemdiagnose L-Sonde",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_system_l_sonde",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": "s_system_l_sonde",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Messwerte",
+     "screen": "s_system_l_sonde",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_system_llerh",
+   "title": "EOL - LeerLauf",
+   "items": [
+    {
+     "key": 1,
+     "label": "+10",
+     "screen": "s_system_llerh",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "-10",
+     "screen": "s_system_llerh",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "+100",
+     "screen": "s_system_llerh",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "-100",
+     "screen": "s_system_llerh",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Auswahl",
+     "screen": "s_system_llerh",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "STOP",
+     "screen": "s_system_llerh_stop",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_tev",
+   "title": "Systemtest TEV",
+   "items": [
+    {
+     "key": 1,
+     "label": "Start",
+     "screen": "s_systemtest_tev",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stop",
+     "screen": "s_systemtest_tev",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_llabg",
+   "title": "LL-Abgleich",
+   "items": [
+    {
+     "key": 1,
+     "label": "Klima+Fahrst",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "LL-Fahrstufe",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "LL",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "LL-Klima",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "LL-Batterie",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Status",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Prog",
+     "screen": "s_llabgl",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_dmtl",
+   "title": "Systemdiagnose DMTL",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_dmtl",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_glf",
+   "title": "Systemdiagnose GLF",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_glf",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": "s_systemtest_glf",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_odr",
+   "title": "Systemdiagnose ODR",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_odr",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": "s_systemtest_odr",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_gen",
+   "title": "Systemdiagnose GEN",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_gen",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": "s_systemtest_gen",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_ibs",
+   "title": "Systemdiagnose Ruhestrommessung",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_ibs",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_des",
+   "title": "Systemdiagnose Desulfatisierung",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": "s_systemtest_des",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": "s_systemtest_des",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_systemtest_ima",
+   "title": "Injektor-Codierung IMA",
+   "items": [
+    {
+     "key": 1,
+     "label": "Injektor 1",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Injektor 2",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Injektor 3",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Injektor 4",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Injektor 5",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Injektor 6",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Injektor 7",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Injektor 8",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Reset",
+     "screen": "s_systemtest_ima",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_system",
+     "submenu": "m_system"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status",
+   "title": "Status lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Digital",
+     "screen": "s_digital",
+     "submenu": "m_digital"
+    },
+    {
+     "key": 2,
+     "label": "Analog",
+     "screen": "s_mwb",
+     "submenu": "m_mwb"
+    },
+    {
+     "key": 3,
+     "label": "DK",
+     "screen": "s_llst_mdk",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "VANOS",
+     "screen": "s_vanos_inex",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "PM - IBS",
+     "screen": "s_main_pm",
+     "submenu": "m_main_pm"
+    },
+    {
+     "key": 6,
+     "label": "Abgas",
+     "screen": "s_ad_gemisch",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Laufunruhe",
+     "screen": "s_laufunruhe",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": "Saugrohr",
+     "screen": "s_saugrohrmodell",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "NOx-Sensor",
+     "screen": "s_nox_sensor",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "AGR",
+     "screen": "s_agr_ad",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "LDR",
+     "screen": "s_ldr_ad",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "NN",
+     "screen": "s_nn_ad",
+     "submenu": "m_nn_ad"
+    },
+    {
+     "key": 17,
+     "label": "Überdrehzahl",
+     "screen": "s_ueberdreh",
+     "submenu": "m_status"
+    },
+    {
+     "key": 18,
+     "label": "Übertemp",
+     "screen": "s_uebertemp",
+     "submenu": "m_status"
+    },
+    {
+     "key": 19,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_mwb",
+   "title": "Messwertblock lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "MWB 1",
+     "screen": "s_f0",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "SAE J1979",
+     "screen": "s_f1",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "MWB 3",
+     "screen": "s_f2",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ADC",
+     "screen": "s_messwerte_adc",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Rohwerte",
+     "screen": "s_rohwerte",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "MWB 6",
+     "screen": "s_f7",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "DDLI Block",
+     "screen": "s_fdyn",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 11,
+     "label": "MWB Öl",
+     "screen": "s_f6",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "VS Block",
+     "screen": "s_fkd",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_digital",
+   "title": "Menü Digital",
+   "items": [
+    {
+     "key": 1,
+     "label": "Schalter",
+     "screen": "s_digital1",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FGR",
+     "screen": "s_digital2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Funktionen",
+     "screen": "s_funktions",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "OBD_Status",
+     "screen": "s_digital_obd",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Varianten",
+     "screen": "s_variants",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Löschen",
+     "screen": "s_funktions",
+     "submenu": "m_ecu_config_reset"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ecu_config_reset",
+   "title": "Varianten löschen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Getriebe",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Klima",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Lenkung",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "E-BOX/GLF",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "ACC/ASR",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Alle",
+     "screen": "s_variants",
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_nn_ad",
+   "title": "Neuronale Netze",
+   "items": [
+    {
+     "key": 1,
+     "label": "EISY-GD",
+     "screen": "s_eisy_gd",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "EIDY-DR",
+     "screen": "s_eisy_dr",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "KRANN",
+     "screen": "s_krann",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "KLANN",
+     "screen": "s_klann",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "EISY-AGR",
+     "screen": "s_eisy_agr",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Löschen",
+     "screen": "s_eisy_gd",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "NN->Datei",
+     "screen": "s_eisy_gd",
+     "submenu": "m_nn_ad"
+    },
+    {
+     "key": 8,
+     "label": "Kommentar",
+     "screen": "s_eisy_gd",
+     "submenu": "m_nn_ad"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_iostatus",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "Steuern 1",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 2,
+     "label": "Steuern 2",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_iostatus_1",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "E-Lüfter",
+     "screen": "s_elue",
+     "submenu": "m_elue"
+    },
+    {
+     "key": 2,
+     "label": "VANOS",
+     "screen": "s_st_vanos",
+     "submenu": "m_st_vanos"
+    },
+    {
+     "key": 3,
+     "label": "TEV",
+     "screen": "s_tev",
+     "submenu": "m_tev"
+    },
+    {
+     "key": 4,
+     "label": "KFK",
+     "screen": "s_kfk",
+     "submenu": "m_kfk"
+    },
+    {
+     "key": 5,
+     "label": "EKP",
+     "screen": "s_ekp",
+     "submenu": "m_ekp"
+    },
+    {
+     "key": 6,
+     "label": "Lambda",
+     "screen": "s_hls",
+     "submenu": "m_hls"
+    },
+    {
+     "key": 7,
+     "label": "GLF",
+     "screen": "s_glf",
+     "submenu": "m_glf"
+    },
+    {
+     "key": 8,
+     "label": "EWAP",
+     "screen": "s_ewap",
+     "submenu": "m_ewap"
+    },
+    {
+     "key": 9,
+     "label": "KOREL",
+     "screen": "s_korel",
+     "submenu": "m_korel"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus",
+     "submenu": "m_iostatus"
+    },
+    {
+     "key": 11,
+     "label": "EBL",
+     "screen": "s_ebl",
+     "submenu": "m_ebl"
+    },
+    {
+     "key": 12,
+     "label": "AGK",
+     "screen": "s_agk",
+     "submenu": "m_agk"
+    },
+    {
+     "key": 13,
+     "label": "DMTL",
+     "screen": "s_st_dmtl",
+     "submenu": "m_st_dmtl"
+    },
+    {
+     "key": 14,
+     "label": "VIMDISA",
+     "screen": "s_disa",
+     "submenu": "m_disa"
+    },
+    {
+     "key": 15,
+     "label": "MIL/EML",
+     "screen": "s_mil_eml",
+     "submenu": "m_mil_eml"
+    },
+    {
+     "key": 16,
+     "label": "Klemme 87",
+     "screen": "s_kl87",
+     "submenu": "m_kl87"
+    },
+    {
+     "key": 17,
+     "label": "SR",
+     "screen": "s_sr",
+     "submenu": "m_sr"
+    },
+    {
+     "key": 18,
+     "label": "KGEH",
+     "screen": "s_r_kgeh",
+     "submenu": "m_r_kgeh"
+    },
+    {
+     "key": 19,
+     "label": "DK",
+     "screen": "s_dk",
+     "submenu": "m_dk"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_iostatus_2",
+   "title": null,
+   "items": [
+    {
+     "key": 1,
+     "label": "Generator",
+     "screen": "s_gen",
+     "submenu": "m_gen"
+    },
+    {
+     "key": 2,
+     "label": "ODR",
+     "screen": "s_odr",
+     "submenu": "m_odr"
+    },
+    {
+     "key": 3,
+     "label": "ODV",
+     "screen": "s_odv",
+     "submenu": "m_odv"
+    },
+    {
+     "key": 4,
+     "label": "LDS",
+     "screen": "s_lds",
+     "submenu": "m_lds"
+    },
+    {
+     "key": 5,
+     "label": "Motorlager",
+     "screen": "s_mls",
+     "submenu": "m_mls"
+    },
+    {
+     "key": 6,
+     "label": "MSV",
+     "screen": "s_msv",
+     "submenu": "m_msv"
+    },
+    {
+     "key": 7,
+     "label": "AGR",
+     "screen": "s_agr",
+     "submenu": "m_agr"
+    },
+    {
+     "key": 8,
+     "label": "DKH",
+     "screen": "s_dkh",
+     "submenu": "m_dkh"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus",
+     "submenu": "m_iostatus"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_elue",
+   "title": "Ansteuerung E-Lüfter",
+   "items": [
+    {
+     "key": 1,
+     "label": "15%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "50%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_st_vanos",
+   "title": "Ansteuerung VANOS",
+   "items": [
+    {
+     "key": 1,
+     "label": "E +10°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "E -10°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "E +72°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "E -72°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "E/A DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "A +10°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "A -10°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "A +72°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "A -72°",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_tev",
+   "title": "Ansteuerung TEV",
+   "items": [
+    {
+     "key": 1,
+     "label": "0%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "20%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "50%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_kfk",
+   "title": "Ansteuerung KFK",
+   "items": [
+    {
+     "key": 1,
+     "label": "0%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "15%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "50%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ekp",
+   "title": "Ansteuerung EKP",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_hls",
+   "title": "Ansteuerung Lambdasondenheizungen",
+   "items": [
+    {
+     "key": 1,
+     "label": "5%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "15%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "90%",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "LSVK1",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "LSHK1",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "LSVK2",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "LSHK2",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_glf",
+   "title": "Ansteuerung gesteuerte Luftführung GLF",
+   "items": [
+    {
+     "key": 1,
+     "label": "Oben ZU",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Oben AUF",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Unten ZU",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Unten AUF",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "@",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "@",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "@",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ewap",
+   "title": "Ansteuerung Wasserpumpe",
+   "items": [
+    {
+     "key": 1,
+     "label": "5",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "50",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "95",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Entlüftung",
+     "screen": "s_ewap_kse",
+     "submenu": "m_ewap_kse"
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ewap_kse",
+   "title": "Kühlsystementlüftung",
+   "items": [
+    {
+     "key": 1,
+     "label": "START",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "STOP",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_ewap",
+     "submenu": "m_ewap"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_korel",
+   "title": "Ansteuerung Klimakompressor Endstufe",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_ebl",
+   "title": "Ansteuerung E-Box Lüfter",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_disa",
+   "title": "Ansteuerung variable Sauganlage",
+   "items": [
+    {
+     "key": 1,
+     "label": "DISA1 AUF",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "DISA1 ZU",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 11,
+     "label": "DISA2 AUF",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "DISA2 ZU",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_agk",
+   "title": "Ansteuerung Abgasklappe",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_st_dmtl",
+   "title": "Ansteuerung DMTL",
+   "items": [
+    {
+     "key": 1,
+     "label": "P EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "P AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "P DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "V EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "V AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "V DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "H EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "H AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "H DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_mil_eml",
+   "title": "Ansteuerung MIL/EML",
+   "items": [
+    {
+     "key": 1,
+     "label": "MIL EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "MIL AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "EML EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "EML AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_kl87",
+   "title": "Ansteuerung Klemme 87/Hauptrelais DME",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_sr",
+   "title": "Ansteuerung Startrelais",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_r_kgeh",
+   "title": "Ansteuerung Relais Kurbelgehäuseentlüftungsheizung",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dk",
+   "title": "Ansteuerung Drosselklappe",
+   "items": [
+    {
+     "key": 1,
+     "label": "0 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "50 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "99 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_1",
+     "submenu": "m_iostatus_1"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_gen",
+   "title": "Ansteuerung Generatorspannung",
+   "items": [
+    {
+     "key": 1,
+     "label": "10 V",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "11 V",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "12 V",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "13 V",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "14 V",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "15 V",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_odr",
+   "title": "Ansteuerung Öldruckregelung",
+   "items": [
+    {
+     "key": 1,
+     "label": "3000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "3500 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "4000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "4500 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "5000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "5500 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "6000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "6500 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "7000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 11,
+     "label": "7500 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "8000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_odv",
+   "title": "Ansteuerung Öldruckventil",
+   "items": [
+    {
+     "key": 1,
+     "label": "0 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "10 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "20 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "30 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "40 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "50 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "60 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "70 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "80 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 11,
+     "label": "90 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "99 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_lds",
+   "title": "Ansteuerung Ladedrucksteller",
+   "items": [
+    {
+     "key": 1,
+     "label": "0 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "25 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "50 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "75 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "99 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "LDS-1",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "LDS-2",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_mls",
+   "title": "Ansteuerung Motorlager",
+   "items": [
+    {
+     "key": 1,
+     "label": "Ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_msv",
+   "title": "Ansteuerung Mengensteuerventil",
+   "items": [
+    {
+     "key": 1,
+     "label": "75000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "100000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "125000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "150000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "175000 hPa",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Homogen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_agr",
+   "title": "Ansteuerung Abgasrückführungsventil",
+   "items": [
+    {
+     "key": 1,
+     "label": "0 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "25 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "50 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "75 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "99 %",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_dkh",
+   "title": "Ansteuerung Drosselklappenheizung",
+   "items": [
+    {
+     "key": 1,
+     "label": "EIN",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AUS",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "DME",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_iostatus_2",
+     "submenu": "m_iostatus_2"
+    },
+    {
+     "key": 20,
+     "label": "ENDE",
+     "screen": null,
+     "submenu": null
     }
    ]
   }

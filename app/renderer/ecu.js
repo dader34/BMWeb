@@ -78,6 +78,115 @@ function mergeLayoutIntoMenu(menu, layout) {
   return { sgbd: menu.sgbd, sections: [...layoutSections, ...kept], _hasLayout: true };
 }
 
+
+// section display label: translate + capitalize ("Fehler" -> "Fault")
+function sectionLabel(name) {
+  const t = deGerman(name) || name;
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+// ---- INPA menu-tree adapter -------------------------------------------------
+// newer layouts (inpa2json) carry INPA's real MENU/ITEM navigation tree. adapt
+// it on the fly into the app's sections model so every existing renderer
+// (Hauptmenue, showEcuSection, fault screen, gauges) works unchanged.
+
+// items that are UI chrome in INPA but native app features here (back button,
+// PDF export, CSV save) — dropped from the adapted menu.
+const MENU_SKIP = /^(zur(ü|ue)ck|exit|ende|druck(en)?|speichern|auswahl|abbruch)$/i;
+// label → app action mapping for non-screen items INPA handles in code
+const MENU_ACTIONS = [
+  [/l(ö|oe)schen/i, { job: 'FS_LOESCHEN', danger: true }], // FS/IS/HS löschen
+  [/^(fs|fehler(speicher)?)( |$)|lesen.*fehler|^fehler lesen$/i, { job: 'FS_LESEN' }],
+  [/^ident/i, { job: 'IDENT' }],
+  [/^info/i, { job: 'INFO' }],
+];
+
+// root of the (cyclic — "Zurück" back-links) menu graph: m_main/m_haupt* by
+// convention, else the first menu in file order
+function menuRoot(menus) {
+  return menus.find(m => /^m_(main|haupt)/i.test(m.name)) || menus[0];
+}
+
+// flatten one menu subtree into app function items. leaf screen items resolve
+// via screens[].proc (a proc may have split into several one-job screens);
+// non-screen items fall back to the action table; nested submenus recurse.
+function menuItemsOf(menuName, layout, byName, seen) {
+  if (seen.has(menuName)) return []; // cycle guard (Zurück links)
+  seen.add(menuName);
+  const menu = byName.get(menuName);
+  if (!menu) return [];
+  const out = [];
+  menu.items.forEach((it, idx) => {
+    const label = (it.label || '').trim();
+    if (!label || MENU_SKIP.test(label)) return;
+    if (it.submenu && byName.has(it.submenu)) {
+      out.push(...menuItemsOf(it.submenu, layout, byName, seen));
+      return;
+    }
+    if (it.screen) {
+      const parts = layout.screens.filter(s => s.proc === it.screen);
+      if (parts.length) {
+        parts.forEach((scr, pi) => out.push({
+          job: scr.job || `__screen_${menuName}_${idx}_${pi}`,
+          label: parts.length > 1 ? (scr.group || label) : label,
+          danger: false, _screen: scr,
+        }));
+        return;
+      }
+    }
+    // no resolvable screen: map known actions, otherwise drop (screens whose
+    // rows the miner can't extract yet — text/digital-only INPA screens)
+    const action = MENU_ACTIONS.find(([re]) => re.test(label));
+    if (action) out.push({ job: action[1].job, label, danger: !!action[1].danger });
+  });
+  // de-dupe: flattening + action mapping can repeat a job (FS lesen in two menus)
+  const seenSig = new Set();
+  return out.filter(i => {
+    const sig = i._screen ? `s:${i.job}:${i.label}` : `j:${i.job}`;
+    if (seenSig.has(sig)) return false;
+    seenSig.add(sig);
+    return true;
+  });
+}
+
+// adapt the INPA menu tree into the app's sections model. root items with
+// submenus become sections (their subtree flattened to items); loose root
+// leaves collect into a leading section named by the root title. keeps the
+// job-menu's Activations section (real actuator tests) when present.
+function menuTreeToSections(layout, baseMenu) {
+  const byName = new Map(layout.menus.map(m => [m.name, m]));
+  const root = menuRoot(layout.menus);
+  const sections = [];
+  const loose = [];
+  root.items.forEach((it, idx) => {
+    const label = (it.label || '').trim();
+    if (!label || MENU_SKIP.test(label)) return;
+    if (it.submenu && byName.has(it.submenu)) {
+      const items = menuItemsOf(it.submenu, layout, byName, new Set([root.name]));
+      if (items.length) sections.push({ section: label, items });
+      return;
+    }
+    // leaf on the root menu (Info, Ident, ...)
+    const parts = it.screen ? layout.screens.filter(s => s.proc === it.screen) : [];
+    if (parts.length) {
+      parts.forEach((scr, pi) => loose.push({
+        job: scr.job || `__screen_root_${idx}_${pi}`,
+        label: parts.length > 1 ? (scr.group || label) : label,
+        danger: false, _screen: scr,
+      }));
+    } else {
+      const action = MENU_ACTIONS.find(([re]) => re.test(label));
+      if (action) loose.push({ job: action[1].job, label, danger: !!action[1].danger });
+    }
+  });
+  if (loose.length) sections.unshift({ section: root.title || 'Functions', items: loose });
+
+  // real actuator tests come from the job menu, not the mined tree
+  const acts = (baseMenu.sections || []).find(s => /^activations$/i.test(s.section));
+  if (acts) sections.push(acts);
+  return { sgbd: baseMenu.sgbd, sections, _hasLayout: true, _menuTree: true };
+}
+
 // INPA ECU main menu ("Hauptmenue"): SGBD sub-line + function list with F-key bar.
 // each entry opens its section.
 function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
@@ -87,7 +196,7 @@ function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
   const row = (i, sec) => `
     <button class="inpa-fn" data-i="${i}">
       <span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>
-      <span class="inpa-fn-label">${esc(sec.section)}</span>
+      <span class="inpa-fn-label">${esc(sectionLabel(sec.section))}</span>
       <span class="inpa-fn-count">${sec.items.length}</span>
     </button>`;
   grid.innerHTML = `
@@ -140,7 +249,11 @@ async function showEcu(chassisId, sectionName, ecu) {
     if (!layout) { grid.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
     menu = { sgbd: ecu.sgbd, sections: [] };
   }
-  if (layout && Array.isArray(layout.screens) && layout.screens.length) {
+  if (layout && Array.isArray(layout.menus) && layout.menus.length) {
+    // INPA's own MENU tree (inpa2json layouts): adapt it on the fly
+    menu = menuTreeToSections(layout, menu);
+    ecu._layout = layout;
+  } else if (layout && Array.isArray(layout.screens) && layout.screens.length) {
     menu = mergeLayoutIntoMenu(menu, layout);
     ecu._layout = layout; // stash for the section/screen renderers
   }
@@ -151,7 +264,7 @@ async function showEcu(chassisId, sectionName, ecu) {
     renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar);
     // F-keys mirror the section list
     const acts = menu.sections.slice(0, 9).map((sec, i) => ({
-      key: String(i + 1), label: sec.section,
+      key: String(i + 1), label: sectionLabel(sec.section),
       fn: () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section),
     }));
     acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => backToModules(chassisId) });
@@ -164,7 +277,7 @@ async function showEcu(chassisId, sectionName, ecu) {
     const tile = document.createElement('div');
     tile.className = 'group-tile';
     tile.innerHTML = `
-      <div class="group-name">${esc(sec.section)}</div>
+      <div class="group-name">${esc(sectionLabel(sec.section))}</div>
       <div class="group-count">${sec.items.length} function${sec.items.length === 1 ? '' : 's'}</div>
       <div class="group-arrow">→</div>`;
     tile.onclick = () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section);
@@ -175,7 +288,7 @@ async function showEcu(chassisId, sectionName, ecu) {
 
   // F-keys = section categories, + back
   const acts = menu.sections.slice(0, 8).map((sec, i) => ({
-    key: String(i + 1), label: sec.section,
+    key: String(i + 1), label: sectionLabel(sec.section),
     fn: () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section),
   }));
   acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => backToModules(chassisId) });
@@ -192,10 +305,10 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
     { label: ecu.label, fn: () => showEcu(chassisId, sectionName, ecu) },
-    { label: sec.section },
+    { label: sectionLabel(sec.section) },
   ]);
   sbLeft.textContent = `${ecu.sgbd}.prg`;
-  view.innerHTML = head(`${ecu.label} · ${ecu.code}`, sec.section,
+  view.innerHTML = head(`${ecu.label} · ${ecu.code}`, sectionLabel(sec.section),
     `${sec.items.length} function${sec.items.length === 1 ? '' : 's'}`);
 
   const results = document.createElement('div');

@@ -1,5 +1,7 @@
 {
- "ecu": "rse_01.ips",
+ "source": "rse_01.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_status_analog_temperatur",
@@ -8,36 +10,37 @@
    "args": "ARG;STATUS_ANALOG_TEMPERATUR",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TEMP_FOT_WERT",
      "label": "STAT_TEMP_FOT_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEMP_ENDSTU_WERT",
      "label": "STAT_TEMP_ENDSTU_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEMP_GYRO_WERT",
      "label": "STAT_TEMP_GYRO_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEMP_MOD_WERT",
      "label": "STAT_TEMP_MOD_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEMP_HDD_WERT",
      "label": "STAT_TEMP_HDD_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEMP_DVD_WERT",
      "label": "STAT_TEMP_DVD_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -48,16 +51,17 @@
    "args": "ARG;STATUS_HW_VARIANTE",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_HW_VARIANTE",
      "label": "Hardwarevariante:",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_HW_EINHEIT",
      "label": "Hardwarevariante Beschreibung:",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -68,11 +72,12 @@
    "args": "ARG;TEST_VERBAU;RRR",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TEST_VERBAU",
      "label": "Ergebnis der Verbauprüfung:",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -83,11 +88,12 @@
    "args": "ARG;USB_TEST;RRR",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_USB_TEST",
      "label": "STAT_USB_TEST",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -98,16 +104,17 @@
    "args": "ARG;TEST_VERBAU;STR;0",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TEST_VERBAU",
      "label": "Ergebnis Verbauprüfung:",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEST_VERBAU",
      "label": "STAT_TEST_VERBAU",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -118,26 +125,27 @@
    "args": "ARG;TEST_MICOPHONE;STR;1;2",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TEST_MICROPHONE",
      "label": "STAT_TEST_MICROPHONE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEST_MICROPHONE",
      "label": "STAT_TEST_MICROPHONE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEST_MICROPHONE",
      "label": "STAT_TEST_MICROPHONE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TEST_MICROPHONE",
      "label": "STAT_TEST_MICROPHONE",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -148,11 +156,554 @@
    "args": "ARG;USB_TEST;STR",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_USB_TEST",
      "label": "STAT_USB_TEST",
-     "unit": ""
+     "unit": null
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_main",
+   "title": "Hauptmenü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Info",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ident",
+     "screen": "s_ident_ds2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Fehler",
+     "screen": "s_fehler",
+     "submenu": "m_fehler"
+    },
+    {
+     "key": 5,
+     "label": "Status",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 6,
+     "label": "Steuern",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 7,
+     "label": "Speicher",
+     "screen": "s_speicher",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 11,
+     "label": "KVP",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehler",
+   "title": "Fehlerspeicher",
+   "items": [
+    {
+     "key": 1,
+     "label": "FS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "IS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "IS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "HS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "HS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "HS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "IS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "FS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "HS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "IS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "FS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_speicher",
+   "title": "Speicher lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LAR",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FLASH",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "UIFM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ROMI",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "RAMIS",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "RAMIL",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "NVRAM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "ROMX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "RAMXX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status",
+   "title": "Status lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "HW-Variante",
+     "screen": "s_status_hw_variante",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Analog-Temp",
+     "screen": "s_status_analog_temperatur",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Verbau-Test",
+     "screen": "s_status_test_verbau",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Mikrofon",
+     "screen": "s_status_mikrofon",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "USB",
+     "screen": "s_status_usb",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Lautsprecher",
+     "screen": "s_status_lautsprecher",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern",
+   "title": "Steuern",
+   "items": [
+    {
+     "key": 2,
+     "label": "Videodiag",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Verbau-Test",
+     "screen": "s_steuern_test_verbau",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Aux",
+     "screen": "s_steuern_auxverbindungen",
+     "submenu": "m_steuern_auxverbindungen"
+    },
+    {
+     "key": 6,
+     "label": "Mikrofon",
+     "screen": "s_steuern_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 7,
+     "label": "USB",
+     "screen": "s_steuern_usb",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_mikrofon",
+   "title": "Steuern Mikrofontest",
+   "items": [
+    {
+     "key": 1,
+     "label": "Mikrofon 1",
+     "screen": "s_steuern_test_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 2,
+     "label": "Mikrofon 1",
+     "screen": "s_steuern_test_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 3,
+     "label": "Mikrofon 1+2",
+     "screen": "s_steuern_test_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 4,
+     "label": null,
+     "screen": "s_steuern_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 5,
+     "label": null,
+     "screen": "s_steuern_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 6,
+     "label": null,
+     "screen": "s_steuern_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 7,
+     "label": null,
+     "screen": "s_steuern_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_steuern_mikrofon",
+     "submenu": "m_steuern_mikrofon"
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
     }
    ]
   }

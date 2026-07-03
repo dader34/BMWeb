@@ -1,5 +1,7 @@
 {
- "ecu": "ms43_sp2.ips",
+ "source": "ms43_sp2.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_ueberdrehzahl",
@@ -8,6 +10,7 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MAX_UEBERDREHZAHL_WERT",
@@ -25,6 +28,7 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_BETRIEB_UEBERDREHZAHL_WERT",
@@ -42,11 +46,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ZAEHLER_UEBERDREHZAHL_WERT",
      "label": "Zähler Überdrehzahl",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 255
     }
@@ -59,11 +64,12 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_FUSSHEBELFEHLBETAETIGUNG_WERT",
      "label": "CTR_BLS_PVS",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 255
     },
@@ -83,6 +89,7 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MAX_EINGRIFF_WERT",
@@ -100,6 +107,7 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_MAX_ZEITEINGRIFF_WERT",
@@ -117,13 +125,70 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-declarative",
    "rows": [
     {
      "key": "STAT_ANZAHL_EINGRIFFE_WERT",
      "label": "Anzahl der Eingriffe",
-     "unit": "",
+     "unit": null,
      "min": 0,
      "max": 65535
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_main",
+   "title": "Hauptmenü",
+   "items": [
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 1,
+     "label": "Überdrehzahl",
+     "screen": "s_ueberdrehzahl",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Fusshebel",
+     "screen": "s_fusshebel",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "F2 löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Momente",
+     "screen": "s_moment",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "F4 löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
     }
    ]
   }

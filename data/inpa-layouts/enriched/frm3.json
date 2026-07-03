@@ -1,5 +1,7 @@
 {
- "ecu": "frm3.ips",
+ "source": "frm3.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_status_tastenblock",
@@ -8,26 +10,27 @@
    "args": "ARG;AUSSENSPIEGEL_TASTER",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_FH_TASTERFA_FA_NR",
      "label": "Taster Fensterheber Fahrer",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FH_TASTERFA_BF_NR",
      "label": "Taster Fensterheber Beifahrer",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FH_TASTERFA_FAH_NR",
      "label": "Taster Fensterheber Fahrer hinten",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_FH_TASTERFA_BFH_NR",
      "label": "Taster Fensterheber Beifahrer",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -38,11 +41,12 @@
    "args": "ARG;LICHTSCHALTEREINHEIT",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DIMMUNG_58G_PWM_WERT",
      "label": "Dimmungspoti (Einheit %):",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -53,36 +57,37 @@
    "args": "ARG;TUERKONTAKT_FA",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TUERKONTAKT_FA_NR",
      "label": "STAT_TUERKONTAKT_FA_NR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TUERKONTAKT_BF_NR",
      "label": "STAT_TUERKONTAKT_BF_NR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TUERKONTAKT_FAH_NR",
      "label": "STAT_TUERKONTAKT_FAH_NR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TUERKONTAKT_BFH_NR",
      "label": "STAT_TUERKONTAKT_BFH_NR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_HALL1_AKTIV",
      "label": "STAT_HALL1_AKTIV",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_HALL2_AKTIV",
      "label": "STAT_HALL2_AKTIV",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -93,16 +98,17 @@
    "args": "ARG;AUSSENSPIEGEL_TASTER",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_SPIEGEL_HEIZUNG_WERT",
      "label": "Spiegelheizung (Einheit %):",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AUSSENSPIEGEL_ABBLEND_WERT",
      "label": "Abblendwert (Einheit %):",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -113,11 +119,12 @@
    "args": "ARG;ELSV_INIT",
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_SPANNUNG_KLEMME_30_ELSV_WERT",
      "label": "Klemmenspannung in V",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -128,101 +135,102 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_REVERSIERUNGS_COUNTER",
      "label": "STAT_REVERSIERUNGS_COUNTER",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_POSITION_HZ_1",
      "label": "STAT_POSITION_HZ_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTOR_1",
      "label": "STAT_MOTOR_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_IN_VOLTAGE_WERT_1",
      "label": "STAT_IN_VOLTAGE_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VOLTAGE_WERT_1",
      "label": "STAT_VOLTAGE_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SPEED_WERT_1",
      "label": "STAT_SPEED_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AUSSENTEMP_WERT_1",
      "label": "STAT_AUSSENTEMP_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_POSITION_HZ_2",
      "label": "STAT_POSITION_HZ_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTOR_2",
      "label": "STAT_MOTOR_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_IN_VOLTAGE_WERT_2",
      "label": "STAT_IN_VOLTAGE_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VOLTAGE_WERT_2",
      "label": "STAT_VOLTAGE_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SPEED_WERT_2",
      "label": "STAT_SPEED_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AUSSENTEMP_WERT_2",
      "label": "STAT_AUSSENTEMP_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_POSITION_HZ_3",
      "label": "STAT_POSITION_HZ_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTOR_3",
      "label": "STAT_MOTOR_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_IN_VOLTAGE_WERT_3",
      "label": "STAT_IN_VOLTAGE_WERT_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VOLTAGE_WERT_3",
      "label": "STAT_VOLTAGE_WERT_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_SPEED_WERT_3",
      "label": "STAT_SPEED_WERT_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_AUSSENTEMP_WERT_3",
      "label": "STAT_AUSSENTEMP_WERT_3",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -233,41 +241,998 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DENORMIERUNGS_COUNTER",
      "label": "STAT_DENORMIERUNGS_COUNTER",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_POSITION_HZ_1",
      "label": "STAT_POSITION_HZ_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VOLTAGE_WERT_1",
      "label": "STAT_VOLTAGE_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_POSITION_HZ_2",
      "label": "STAT_POSITION_HZ_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VOLTAGE_WERT_2",
      "label": "STAT_VOLTAGE_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_POSITION_HZ_3",
      "label": "STAT_POSITION_HZ_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VOLTAGE_WERT_3",
      "label": "STAT_VOLTAGE_WERT_3",
-     "unit": ""
+     "unit": null
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_main",
+   "title": "Hauptmenü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Info",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ident",
+     "screen": "s_ident_ds2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Fehler",
+     "screen": "s_fehler",
+     "submenu": "m_fehler"
+    },
+    {
+     "key": 5,
+     "label": "Status",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 6,
+     "label": "Steuern",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 7,
+     "label": "Speicher",
+     "screen": "s_speicher",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 11,
+     "label": "KVP",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehler",
+   "title": "Fehlerspeicher",
+   "items": [
+    {
+     "key": 1,
+     "label": "FS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "IS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "IS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "HS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "HS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "HS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "IS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "FS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "HS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "IS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "FS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_speicher",
+   "title": "Speicher lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LAR",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FLASH",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "UIFM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ROMI",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "RAMIS",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "RAMIL",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "NVRAM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "ROMX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "RAMXX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status",
+   "title": "Status lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "FH",
+     "screen": "s_status_fh",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Taster FH",
+     "screen": "s_status_tastenblock",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Taster Licht",
+     "screen": "s_status_licht",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Taster FAS/Sitze",
+     "screen": "s_status_fas",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Kontakte",
+     "screen": "s_status_kontakte",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Licht",
+     "screen": "s_status_licht_fkt",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Spiegel",
+     "screen": "s_status_spiegel",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "ELSV",
+     "screen": "s_status_elsv",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "Lampen Digital",
+     "screen": "s_status_lampen",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": "Denor.-Log.",
+     "screen": "s_status_logger_denorm",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "Rev.-Log.",
+     "screen": "s_status_logger_rev",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "Klemmen",
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "Licht Dig.",
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern",
+   "title": "Steuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Init. Fenster.",
+     "screen": "s_steuern_init_fh",
+     "submenu": "m_steuern_init_fh"
+    },
+    {
+     "key": 2,
+     "label": "FH verfahren",
+     "screen": "s_steuern_fh_verfahren",
+     "submenu": "m_steuern_fh_verfahren"
+    },
+    {
+     "key": 3,
+     "label": "Spiegel",
+     "screen": "s_steuern_spiegel",
+     "submenu": "m_steuern_spiegel"
+    },
+    {
+     "key": 4,
+     "label": "ALC",
+     "screen": "s_steuern_ahl",
+     "submenu": "m_steuern_ahl"
+    },
+    {
+     "key": 5,
+     "label": "Lampen",
+     "screen": "s_steuern_lampen",
+     "submenu": "m_steuern_lampen"
+    },
+    {
+     "key": 6,
+     "label": "ELSV",
+     "screen": "s_steuern_elsv",
+     "submenu": "m_steuern_elsv"
+    },
+    {
+     "key": 7,
+     "label": "Lichtüberw.",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": "Logger löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_init_fh",
+   "title": "Einlernen / Denormieren Fenster",
+   "items": [
+    {
+     "key": 1,
+     "label": "Init alle",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Init vorne",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Init hinten",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Denor. alle",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Denor. vorne",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Denor. hinten",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_fh_verfahren",
+   "title": "Verfahren Fenster",
+   "items": [
+    {
+     "key": 1,
+     "label": "Schliess. alle",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Schliess. vorne",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Schliess. hinten",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Öffnen alle",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Öffnen vorne",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Öffnen hinten",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_spiegel",
+   "title": "Ansteuerung Spiegel",
+   "items": [
+    {
+     "key": 1,
+     "label": "Selbsttest",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Heizung ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Heizung aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Abblenden",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Aufhellen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Einklappen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "Ausklappen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_lampen",
+   "title": "Lampen ansteuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Abblendlicht ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Fernlicht ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Tagfahrl. ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "NSW/NSL ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "FRA ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "Bremslicht ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "BFD ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Innenl. ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "VFB ein",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 11,
+     "label": "Abblendlicht aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": "Fernlicht aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": "Tagfahrl. aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "NSW/NSL aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "FRA aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": "Bremslicht aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "BFD aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Innenl. aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "VFB aus",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_elsv",
+   "title": "Ansteuerung ELSV",
+   "items": [
+    {
+     "key": 1,
+     "label": "Normieren",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "unten",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "oben",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ausfahren",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "einfahren",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_ahl",
+   "title": "Ansteuerung AHL und LWR",
+   "items": [
+    {
+     "key": 1,
+     "label": "AHL + LWR",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "AHL",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "LWR",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
     }
    ]
   }

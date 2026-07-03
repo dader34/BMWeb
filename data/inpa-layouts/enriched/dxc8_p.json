@@ -1,5 +1,7 @@
 {
- "ecu": "dxc8_p.ips",
+ "source": "dxc8_p.ips",
+ "format": "ips",
+ "parser": "inpa2json/1.1",
  "screens": [
   {
    "proc": "s_status_radgeschwindigkeit",
@@ -8,31 +10,32 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_RAD_GESCHW_VL_WERT",
      "label": "STAT_RAD_GESCHW_VL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_RAD_GESCHW_VR_WERT",
      "label": "STAT_RAD_GESCHW_VR_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_RAD_GESCHW_HL_WERT",
      "label": "STAT_RAD_GESCHW_HL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_RAD_GESCHW_HR_WERT",
      "label": "STAT_RAD_GESCHW_HR_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_RAD_GESCHW_REF_WERT",
      "label": "STAT_RAD_GESCHW_REF_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -43,51 +46,52 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DREHRATE_WERT_1",
      "label": "STAT_DREHRATE_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
      "label": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DRUCK_WERT",
      "label": "STAT_DRUCK_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
      "label": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DRUCK_WERT_ACC_VA",
      "label": "STAT_DRUCK_WERT_ACC_VA",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DRUCK_WERT_ACC_HA",
      "label": "STAT_DRUCK_WERT_ACC_HA",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VENTILRELAIS_SPANNUNG_WERT",
      "label": "STAT_VENTILRELAIS_SPANNUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
      "label": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ZUENDUNG_WERT",
      "label": "STAT_ZUENDUNG_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -98,66 +102,67 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_SUMMEN_LENKWINKEL_WERT_AFS",
      "label": "STAT_SUMMEN_LENKWINKEL_WERT_AFS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DRUCK_WERT",
      "label": "STAT_DRUCK_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DRUCK_WERT_ACC_VA",
      "label": "STAT_DRUCK_WERT_ACC_VA",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DRUCK_WERT_ACC_HA",
      "label": "STAT_DRUCK_WERT_ACC_HA",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DREHRATE_WERT_1",
      "label": "STAT_DREHRATE_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DREHRATE_WERT_2",
      "label": "STAT_DREHRATE_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
      "label": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_QUERBESCHLEUNIGUNG_WERT_2",
      "label": "STAT_QUERBESCHLEUNIGUNG_WERT_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
      "label": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VENTILRELAIS_SPANNUNG_WERT",
      "label": "STAT_VENTILRELAIS_SPANNUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
      "label": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ZUENDUNG_WERT",
      "label": "STAT_ZUENDUNG_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -168,31 +173,32 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_LENKWINKEL_WERT",
      "label": "STAT_LENKWINKEL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTORDREHZAHL_WERT",
      "label": "STAT_MOTORDREHZAHL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DREHMOMENT_WERT",
      "label": "STAT_DREHMOMENT_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
      "label": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
      "label": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -203,36 +209,37 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_LENKWINKEL_WERT",
      "label": "STAT_LENKWINKEL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MOTORDREHZAHL_WERT",
      "label": "STAT_MOTORDREHZAHL_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DREHMOMENT_WERT",
      "label": "STAT_DREHMOMENT_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
      "label": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
      "label": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_KUPPLUNG_WERT",
      "label": "STAT_KUPPLUNG_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -243,56 +250,57 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "AVAI_BOS_WERT_BR_V",
      "label": "AVAI_BOS_WERT_BR_V",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "ZIEL_MM_WERT",
      "label": "ZIEL_MM_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "ZIEL_YY_WERT",
      "label": "ZIEL_YY_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "COU_RSTG_BOS_MESS_WERT",
      "label": "COU_RSTG_BOS_MESS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "RMMI_BOS_WERT",
      "label": "RMMI_BOS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "AVAI_BOS_WERT_BR_H",
      "label": "AVAI_BOS_WERT_BR_H",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "ZIEL_MM_WERT",
      "label": "ZIEL_MM_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "ZIEL_YY_WERT",
      "label": "ZIEL_YY_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "COU_RSTG_BOS_MESS_WERT",
      "label": "COU_RSTG_BOS_MESS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "RMMI_BOS_WERT",
      "label": "RMMI_BOS_WERT",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -303,46 +311,47 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "AVAI_CBS_WERT_BR_V",
      "label": "AVAI_CBS_WERT_BR_V",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "COU_RSTG_CBS_MESS_WERT",
      "label": "COU_RSTG_CBS_MESS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "RMMI_CBS_WERT",
      "label": "RMMI_CBS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "FRC_INTM_WAY_CBS_MESS",
      "label": "FRC_INTM_WAY_CBS_MESS",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "AVAI_CBS_WERT_BR_H",
      "label": "AVAI_CBS_WERT_BR_H",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "COU_RSTG_CBS_MESS_WERT",
      "label": "COU_RSTG_CBS_MESS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "RMMI_CBS_WERT",
      "label": "RMMI_CBS_WERT",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "FRC_INTM_WAY_CBS_MESS",
      "label": "FRC_INTM_WAY_CBS_MESS",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -353,61 +362,62 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DSC_SIGNAL_VL",
      "label": "STAT_DSC_SIGNAL_VL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_VR",
      "label": "STAT_DSC_SIGNAL_VR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_HL",
      "label": "STAT_DSC_SIGNAL_HL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_HR",
      "label": "STAT_DSC_SIGNAL_HR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_0",
      "label": "STAT_BEREICH_0",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_1",
      "label": "STAT_BEREICH_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_2",
      "label": "STAT_BEREICH_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_3",
      "label": "STAT_BEREICH_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_4",
      "label": "STAT_BEREICH_4",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_5",
      "label": "STAT_BEREICH_5",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_6",
      "label": "STAT_BEREICH_6",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -418,61 +428,62 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DSC_SIGNAL_VL",
      "label": "STAT_DSC_SIGNAL_VL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_VR",
      "label": "STAT_DSC_SIGNAL_VR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_HL",
      "label": "STAT_DSC_SIGNAL_HL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_HR",
      "label": "STAT_DSC_SIGNAL_HR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_0",
      "label": "STAT_BEREICH_0",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_1",
      "label": "STAT_BEREICH_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_2",
      "label": "STAT_BEREICH_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_3",
      "label": "STAT_BEREICH_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_4",
      "label": "STAT_BEREICH_4",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_5",
      "label": "STAT_BEREICH_5",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_6",
      "label": "STAT_BEREICH_6",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -483,41 +494,42 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_BEREICH_0",
      "label": "STAT_BEREICH_0",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_1",
      "label": "STAT_BEREICH_1",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_2",
      "label": "STAT_BEREICH_2",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_3",
      "label": "STAT_BEREICH_3",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_4",
      "label": "STAT_BEREICH_4",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_5",
      "label": "STAT_BEREICH_5",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_BEREICH_6",
      "label": "STAT_BEREICH_6",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -528,26 +540,27 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_DSC_SIGNAL_VL",
      "label": "STAT_DSC_SIGNAL_VL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_VR",
      "label": "STAT_DSC_SIGNAL_VR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_HL",
      "label": "STAT_DSC_SIGNAL_HL",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_DSC_SIGNAL_HR",
      "label": "STAT_DSC_SIGNAL_HR",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -558,41 +571,42 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TASTER_TELEFON",
      "label": "STAT_TASTER_TELEFON",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TASTER_AUDIO_LAUTSTAERKE",
      "label": "STAT_TASTER_AUDIO_LAUTSTAERKE",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TASTER_AUDIO_SUCHLAUF",
      "label": "STAT_TASTER_AUDIO_SUCHLAUF",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TASTER_HORN",
      "label": "STAT_TASTER_HORN",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TASTER_PUSH_TO_HEAR",
      "label": "STAT_TASTER_PUSH_TO_HEAR",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TASTER_SONDERFUNKTION",
      "label": "STAT_TASTER_SONDERFUNKTION",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_TASTER_PUSH_TO_TALK",
      "label": "STAT_TASTER_PUSH_TO_TALK",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -603,16 +617,17 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_WISCHERTASTER",
      "label": "STAT_WISCHERTASTER",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_WISCHERPOTI",
      "label": "STAT_WISCHERPOTI",
-     "unit": ""
+     "unit": null
     }
    ]
   },
@@ -623,21 +638,774 @@
    "args": null,
    "render": "analog",
    "columns": 1,
+   "method": "ips-imperative",
    "rows": [
     {
      "key": "STAT_TASTER_TEMPOMAT_ACC",
      "label": "STAT_TASTER_TEMPOMAT_ACC",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_ABSTANDSWAHL_ACC",
      "label": "STAT_ABSTANDSWAHL_ACC",
-     "unit": ""
+     "unit": null
     },
     {
      "key": "STAT_MODUS_WAHL_CC_CA",
      "label": "STAT_MODUS_WAHL_CC_CA",
-     "unit": ""
+     "unit": null
+    }
+   ]
+  }
+ ],
+ "menus": [
+  {
+   "name": "m_main",
+   "title": "Hauptmenü",
+   "items": [
+    {
+     "key": 1,
+     "label": "Info",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Ident",
+     "screen": "s_ident_ds2",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Fehler",
+     "screen": "s_fehler",
+     "submenu": "m_fehler"
+    },
+    {
+     "key": 5,
+     "label": "Status",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 6,
+     "label": "Steuern",
+     "screen": "s_steuern",
+     "submenu": "m_steuern"
+    },
+    {
+     "key": 7,
+     "label": "Speicher",
+     "screen": "s_speicher",
+     "submenu": "m_speicher"
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Ende",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 11,
+     "label": "KVP",
+     "screen": "s_info",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_main",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_fehler",
+   "title": "Fehlerspeicher",
+   "items": [
+    {
+     "key": 1,
+     "label": "FS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "IS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "IS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "HS lesen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "HS löschen",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "HS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "IS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "FS drucken",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": "HS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "IS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": "FS speichern",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_speicher",
+   "title": "Speicher lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "LAR",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "FLASH",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "UIFM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "ROMI",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "RAMIS",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "RAMIL",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": "NVRAM",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 11,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 12,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 13,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 14,
+     "label": "ROMX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 15,
+     "label": "RAMXX",
+     "screen": "s_speicher_ausgabe",
+     "submenu": null
+    },
+    {
+     "key": 16,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 17,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 19,
+     "label": null,
+     "screen": "s_speicher",
+     "submenu": null
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status",
+   "title": "Status lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Analog",
+     "screen": "s_status_analog",
+     "submenu": "m_status_analog"
+    },
+    {
+     "key": 2,
+     "label": "Digital",
+     "screen": "s_status_digital_allrad",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "RPA",
+     "screen": "s_status_rpa_dsc",
+     "submenu": "m_status_rpa"
+    },
+    {
+     "key": 4,
+     "label": "CBS",
+     "screen": "s_status_cbs4",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": "Id_Clust_SZL",
+     "screen": "s_status_szl_cluster",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": "SZL",
+     "screen": "s_status_szl",
+     "submenu": "m_status_szl"
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern",
+   "title": "Steuern",
+   "items": [
+    {
+     "key": 1,
+     "label": "Entl.Rout.",
+     "screen": "s_steuern_entl",
+     "submenu": "m_steuern_entl"
+    },
+    {
+     "key": 2,
+     "label": "Kuppl_Test",
+     "screen": "s_steuern",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Laengsb.",
+     "screen": "s_steuern",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "LWS",
+     "screen": "s_steuern",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status_analog",
+   "title": "Status analog lesen",
+   "items": [
+    {
+     "key": 1,
+     "label": "v_Rad",
+     "screen": "s_status_radgeschwindigkeit",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Sensor",
+     "screen": "s_status_analog_afs",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "CAN",
+     "screen": "s_status_can_allrad",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status_rpa",
+   "title": "Status RPA",
+   "items": [
+    {
+     "key": 1,
+     "label": "RPA Reset",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Stat_RPA",
+     "screen": "s_status_rpa",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "RPA_FASTA",
+     "screen": "s_status_rpa_fasta",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "RPA_LZ",
+     "screen": "s_status_rpa_lernzaehler",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_status_szl",
+   "title": "Status SZL",
+   "items": [
+    {
+     "key": 1,
+     "label": "Audio",
+     "screen": "s_status_audio_tel",
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Wischer",
+     "screen": "s_status_wischer",
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Tempomat",
+     "screen": "s_status_tempomat_acc",
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 5,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 6,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 7,
+     "label": null,
+     "screen": "s_status",
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": "Auswahl",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 18,
+     "label": "Gesamt",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_status",
+     "submenu": "m_status"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
+    }
+   ]
+  },
+  {
+   "name": "m_steuern_entl",
+   "title": "Ventilansteuerung/Entlueftungsroutinen",
+   "items": [
+    {
+     "key": 1,
+     "label": "Entl. HL",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 2,
+     "label": "Entl. VL",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 3,
+     "label": "Entl. VR",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 4,
+     "label": "Entl. HR",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 8,
+     "label": null,
+     "screen": "s_steuern",
+     "submenu": null
+    },
+    {
+     "key": 9,
+     "label": "Druck",
+     "screen": null,
+     "submenu": null
+    },
+    {
+     "key": 10,
+     "label": "Zurück",
+     "screen": "s_main",
+     "submenu": "m_main"
+    },
+    {
+     "key": 20,
+     "label": "Exit",
+     "screen": null,
+     "submenu": null
     }
    ]
   }
