@@ -78,7 +78,8 @@ applyTheme(Settings.get('theme', 'instrument'));
 
 // 'en' = translated English, 'orig' = raw EDIABAS job names
 const lang = () => Settings.get('lang', 'en');
-const itemLabel = (it) => lang() === 'orig' ? it.job : it.label;
+// translated label (deGerman is memoized; mined layout labels arrive in German)
+const itemLabel = (it) => lang() === 'orig' ? it.job : deGerman(it.label);
 
 const view = document.getElementById('view');
 const crumbsEl = document.getElementById('crumbs');
