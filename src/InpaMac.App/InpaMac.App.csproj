@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <RootNamespace>InpaMac.App</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- WKWebView print/pdf APIs used by the bridge need macOS 12+ -->
+    <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
+    <ApplicationTitle>BMacW</ApplicationTitle>
+    <ApplicationId>ink.danner.bmacw</ApplicationId>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
+    <!-- workload 26.5 wants Xcode 26.5; we only use macOS 12-era AppKit/WebKit
+         APIs, which Xcode 16.4's toolchain compiles and links fine -->
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- the whole JSON API + engine, hosted in-process (no sidecar) -->
+    <ProjectReference Include="..\InpaMac.Api\InpaMac.Api.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+</Project>

@@ -15,23 +15,12 @@ using InpaMac.Server;
 // route handlers live in {Config,Diagnostics,Flash}Endpoints.cs; all shared
 // state (bus lock, engine cache, config, active flash) is in ServerState.
 
-var builder = WebApplication.CreateBuilder(args);
-builder.Logging.ClearProviders(); // keep stdout clean for parent
+var (app, state) = ServerHost.Build(args);
 
-var state = new ServerState();
-var app = builder.Build();
-
-app.MapConfigEndpoints(state);
-app.MapDiagnosticsEndpoints(state);
-app.MapFlashEndpoints(state);
-
-// graceful shutdown: reset any in-progress flash (so a mid-flash quit doesn't
-// leave the DME stuck in programming mode at 115200) and release the FTDI port.
-// covers both the host's ApplicationStopping and a raw SIGTERM from Electron.
-app.Lifetime.ApplicationStopping.Register(state.Shutdown);
+// a raw SIGTERM from Electron (ServerHost wires ApplicationStopping and
+// ProcessExit).
 using var sigterm = System.Runtime.InteropServices.PosixSignalRegistration.Create(
     System.Runtime.InteropServices.PosixSignal.SIGTERM, _ => state.Shutdown());
-AppDomain.CurrentDomain.ProcessExit += (_, _) => state.Shutdown();
 
 // fixed loopback port the Electron app expects
 app.Run("http://127.0.0.1:8777");
