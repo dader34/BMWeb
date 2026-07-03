@@ -50,8 +50,11 @@ public sealed class AppDelegate : NSApplicationDelegate
     {
         // same shutdown discipline as the sidecar: reset any in-progress
         // flash and release the FTDI port before the process dies.
+        // NO graceful Kestrel stop here: blocking the AppKit main thread on
+        // StopAsync deadlocks (sync-over-async against the run-loop context)
+        // and the process exits right after this anyway — Shutdown() already
+        // released everything that matters.
         _state?.Shutdown();
-        _server?.StopAsync().GetAwaiter().GetResult();
         _bridge?.Dispose();
     }
 
