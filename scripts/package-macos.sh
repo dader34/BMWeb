@@ -45,13 +45,6 @@ cp -R "$ROOT/data/inpa-layouts/enriched"   "$DATA/data/inpa-layouts/enriched"
 #  - the UI itself
 cp -R "$ROOT/app/renderer"                 "$DATA/app/renderer"
 
-echo "==> app icon"
-cp "$ROOT/app/icon.icns" "$RES/BMacW.icns"
-/usr/libexec/PlistBuddy -c 'Delete :CFBundleIconFile' \
-    "$STAGE/BMacW.app/Contents/Info.plist" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c 'Add :CFBundleIconFile string BMacW.icns' \
-    "$STAGE/BMacW.app/Contents/Info.plist"
-
 echo "==> ad-hoc signing (after resources, so the seal matches final contents)"
 codesign --force --deep --sign - "$STAGE/BMacW.app"
 codesign --verify --deep "$STAGE/BMacW.app"

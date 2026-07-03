@@ -30,4 +30,9 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- bundle icon, referenced by Info.plist CFBundleIconFile -->
+    <BundleResource Include="..\..\app\icon.icns" Link="BMacW.icns" />
+  </ItemGroup>
+
 </Project>

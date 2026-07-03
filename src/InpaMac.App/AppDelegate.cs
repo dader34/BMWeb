@@ -31,7 +31,6 @@ public sealed class AppDelegate : NSApplicationDelegate
         string origin = _server.Urls.First();
 
         BuildMenu();
-        SetDockIcon(Path.Combine(root, "app", "icon.png"));
         _window = BuildWindow();
         _bridge = new BmacwBridge(_window);
         _webView = BuildWebView(_bridge);
@@ -113,13 +112,6 @@ public sealed class AppDelegate : NSApplicationDelegate
         webView.SetValueForKey(NSNumber.FromBoolean(false),
                                new NSString("drawsBackground"));
         return webView;
-    }
-
-    private static void SetDockIcon(string pngPath)
-    {
-        if (!File.Exists(pngPath)) return;
-        var img = new NSImage(pngPath);
-        NSApplication.SharedApplication.ApplicationIconImage = img;
     }
 
     // minimal main menu so Cmd+Q / Cmd+W / copy-paste work like a mac app
