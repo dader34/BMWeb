@@ -10,10 +10,18 @@
     <SupportedOSPlatformVersion>12.0</SupportedOSPlatformVersion>
     <ApplicationTitle>BMacW</ApplicationTitle>
     <ApplicationId>ink.danner.bmacw</ApplicationId>
+    <!-- CFBundleShortVersionString / CFBundleVersion -->
+    <ApplicationDisplayVersion>0.2.0</ApplicationDisplayVersion>
+    <ApplicationVersion>0.2.0</ApplicationVersion>
     <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <!-- workload 26.5 wants Xcode 26.5; we only use macOS 12-era AppKit/WebKit
-         APIs, which Xcode 16.4's toolchain compiles and links fine -->
+         APIs, which Xcode 16.4's toolchain compiles and links fine. the static
+         registrar + ILLink also want the 26.5 SDK headers, so use the dynamic
+         registrar and skip managed linking (the bundled BMW data dwarfs any
+         trimming savings anyway). -->
     <ValidateXcodeVersion>false</ValidateXcodeVersion>
+    <Registrar>dynamic</Registrar>
+    <LinkMode>None</LinkMode>
   </PropertyGroup>
 
   <ItemGroup>

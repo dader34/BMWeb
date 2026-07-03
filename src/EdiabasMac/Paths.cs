@@ -16,11 +16,19 @@ public static class Paths
 
     public static string FindRepoRoot()
     {
-        // explicit root (set by packaged app) wins
+        // explicit root wins
         string env = Environment.GetEnvironmentVariable("BMACW_ROOT");
         if (!string.IsNullOrEmpty(env) && Directory.Exists(Path.Combine(env, "vendor", "EDIABAS")))
             return env;
 
+        // packaged BMacW.app: the executable lives in Contents/MacOS and the
+        // release data mirrors the repo layout under Contents/Resources/data
+        string bundled = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "Resources", "data"));
+        if (Directory.Exists(Path.Combine(bundled, "vendor", "EDIABAS")))
+            return bundled;
+
+        // dev tree: walk up from bin/ to the repo root
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null)
         {

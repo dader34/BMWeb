@@ -90,8 +90,11 @@ public sealed class AppDelegate : NSApplicationDelegate
     {
         var controller = new WKUserContentController();
         controller.AddScriptMessageHandler(bridge, "bmacw");
+        // stamp the bundle version into the shim (settings page shows it)
+        string version = NSBundle.MainBundle
+            .ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString() ?? "dev";
         controller.AddUserScript(new WKUserScript(
-            new NSString(BmacwBridge.ShimSource),
+            new NSString(BmacwBridge.ShimSource.Replace("'native'", $"'{version}'")),
             WKUserScriptInjectionTime.AtDocumentStart, isForMainFrameOnly: true));
 
         var config = new WKWebViewConfiguration { UserContentController = controller };
