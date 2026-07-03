@@ -1,0 +1,416 @@
+{
+ "ecu": "med17_2.ips",
+ "screens": [
+  {
+   "proc": "s_fetrawefla",
+   "group": "FeTraWe",
+   "job": "STATUS_ENERGIESPARMODE",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MODE",
+     "label": "Aktuelles INPA:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ENERGIESPARMODE_WERT",
+     "label": "Werkstattmodus",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_analog1",
+   "group": "Status analog 1",
+   "job": "STATUS_MESSWERTBLOCK_LESEN",
+   "args": "1;UB;ML;MSHFM;UPWG1;UPWG2;NMOT;TMOT;TANS",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BATTERIESPANNUNG_WERT",
+     "label": "Batteriespannung [V]",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    },
+    {
+     "key": "STAT_LUFTMASSE_WERT",
+     "label": "Luftmasse ECE [kg/h]",
+     "unit": "",
+     "min": 0,
+     "max": 25
+    },
+    {
+     "key": "STAT_MSHFM_WERT",
+     "label": "STAT_MSHFM_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 25
+    },
+    {
+     "key": "STAT_SPANNUNG_PWG1_WERT",
+     "label": "Pedalwertgeber-Potispannung 1 [V]",
+     "unit": "",
+     "min": 0,
+     "max": 5
+    },
+    {
+     "key": "STAT_SPANNUNG_PWG2_WERT",
+     "label": "Pedalwertgeber-Potispannung 2 [V]",
+     "unit": "",
+     "min": 0,
+     "max": 5
+    },
+    {
+     "key": "STAT_DREHZAHL_WERT",
+     "label": "Motordrehzahl [U/min]",
+     "unit": "",
+     "min": 0,
+     "max": 6000
+    },
+    {
+     "key": "STAT_MOTORTEMPERATUR_WERT",
+     "label": "Motortemperatur [°C]",
+     "unit": "",
+     "min": 0,
+     "max": 120
+    },
+    {
+     "key": "STAT_ANSAUGLUFTTEMPERATUR_WERT",
+     "label": "Ansauglufttemperatur [°C]",
+     "unit": "",
+     "min": -40,
+     "max": 120
+    }
+   ]
+  },
+  {
+   "proc": "s_status_analog2",
+   "group": "Multiplikative Lambdaregelung",
+   "job": "STATUS_MUL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MUL_WERT",
+     "label": "Multiplikative Lambdaregelung",
+     "unit": "",
+     "min": 0,
+     "max": 2
+    }
+   ]
+  },
+  {
+   "proc": "s_status_analog2",
+   "group": "Status analog 2",
+   "job": "STATUS_GEBERRAD_ADAPTION",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_GEBERRAD_ADAPTION_VSE_WERT",
+     "label": "Geberradadaption Einlass",
+     "unit": "",
+     "min": -20,
+     "max": 20
+    },
+    {
+     "key": "STAT_GEBERRAD_ADAPTION_VSA_WERT",
+     "label": "Geberradadaption Auslass",
+     "unit": "",
+     "min": -20,
+     "max": 20
+    }
+   ]
+  },
+  {
+   "proc": "s_status_analog3",
+   "group": "Status analog 3",
+   "job": "STATUS_MESSWERTBLOCK_LESEN",
+   "args": "1;LUTSKZYL1;LUTSKZYL3;LUTSKZYL4;LUTSKZYL2;MSNDKO;FKMSDK",
+   "render": "analog",
+   "columns": 2,
+   "rows": [
+    {
+     "key": "STAT_ZYL1_LAUFUNRUHE_WERT",
+     "label": "STAT_ZYL1_LAUFUNRUHE_WERT",
+     "unit": "",
+     "min": -8,
+     "max": 8
+    },
+    {
+     "key": "STAT_ZYL3_LAUFUNRUHE_WERT",
+     "label": "STAT_ZYL3_LAUFUNRUHE_WERT",
+     "unit": "",
+     "min": -8,
+     "max": 8
+    },
+    {
+     "key": "STAT_ZYL4_LAUFUNRUHE_WERT",
+     "label": "Zylinder 3",
+     "unit": "",
+     "min": -8,
+     "max": 8
+    },
+    {
+     "key": "STAT_ZYL2_LAUFUNRUHE_WERT",
+     "label": "Zylinder 4",
+     "unit": "",
+     "min": -8,
+     "max": 8
+    },
+    {
+     "key": "STAT_MSNDKO_WERT",
+     "label": "STAT_MSNDKO_WERT",
+     "unit": "",
+     "min": -10,
+     "max": 10
+    },
+    {
+     "key": "STAT_FKMSDKS_WERT",
+     "label": "Korr.fakt. schn. Massenstromabgleich",
+     "unit": "",
+     "min": -10,
+     "max": 10
+    },
+    {
+     "key": "STAT_FKMSDK_WERT",
+     "label": "Korr.fakt. Massenstr. Neb.fü.sig.",
+     "unit": "",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_ORA_WERT",
+     "label": "STAT_ORA_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_FRAI_WERT",
+     "label": "STAT_FRAI_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_PWM_VCV_BAS_AD_VAR_2_ADD_WERT",
+     "label": "STAT_PWM_VCV_BAS_AD_VAR_2_ADD_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_FAC_PWM_VCV_BAS_AD_VAR_2_WERT",
+     "label": "STAT_FAC_PWM_VCV_BAS_AD_VAR_2_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 100
+    },
+    {
+     "key": "STAT_I_ANTEIL_LRHK_WERT",
+     "label": "STAT_I_ANTEIL_LRHK_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 100
+    }
+   ]
+  },
+  {
+   "proc": "s_systemcheck_tev",
+   "group": "Systemstest TankEntlüftungsVentil",
+   "job": "STATUS_SYSTEMCHECK_TEV_FUNC",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SYSTEMCHECK_TEV_FUNC_WERT",
+     "label": "Status TEV-Check:",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_systemcheck_dmtl",
+   "group": "Systemtest DMTL",
+   "job": "STATUS_SYSTEMCHECK_DMTL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_DMTL_WERT",
+     "label": "STAT_FS_DMTL_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_systemtest_ibs",
+   "group": "Systemtest ibs",
+   "job": "STATUS_RUHESTROMMESSUNG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ZUENDUNG",
+     "label": "STAT_ZUENDUNG",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STAT_RUHESTROM_WERT",
+     "label": "STAT_STAT_RUHESTROM_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 0.3
+    }
+   ]
+  },
+  {
+   "proc": "s_systemcheck_igr",
+   "group": "Systemtest IGR",
+   "job": "STATUS_SYSTEMCHECK_IGR",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_IGRD_WERT",
+     "label": "STAT_FS_IGRD_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_systemcheck_lsvk",
+   "group": "Systemtest LSVK",
+   "job": "STATUS_SYSTEMCHECK_LSVK",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_LSVK_WERT",
+     "label": "STAT_FS_LSVK_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_systemcheck_lshk",
+   "group": "Systemtest LSHK",
+   "job": "STATUS_SYSTEMCHECK_LSHK",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FS_LSHK_WERT",
+     "label": "STAT_FS_LSHK_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_dmtl_pump",
+   "group": "Dmtl pump",
+   "job": "STATUS_STEUERN_DMTLP",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DMTLP_WERT",
+     "label": "STAT_DMTLP_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    },
+    {
+     "key": "STAT_DMTLP_EINH",
+     "label": "STAT_DMTLP_EINH",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    }
+   ]
+  },
+  {
+   "proc": "s_dmtl_heat",
+   "group": "Dmtl heat",
+   "job": "STATUS_STEUERN_DMTLH",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DMTLH_WERT",
+     "label": "STAT_DMTLH_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    },
+    {
+     "key": "STAT_DMTLH_EINH",
+     "label": "STAT_DMTLH_EINH",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    }
+   ]
+  },
+  {
+   "proc": "s_dmtl_valve",
+   "group": "Dmtl valve",
+   "job": "STATUS_STEUERN_DMTLV",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DMTLH_WERT",
+     "label": "STAT_DMTLH_WERT",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    },
+    {
+     "key": "STAT_DMTLH_EINH",
+     "label": "STAT_DMTLH_EINH",
+     "unit": "",
+     "min": 0,
+     "max": 20
+    }
+   ]
+  },
+  {
+   "proc": "s_msa_lern",
+   "group": "MSA - Nullgang lernen",
+   "job": "STATUS_NULLGANG_ERKENNUNG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_PHY_NG_POSITION_WERT",
+     "label": "5) keine Person im Fahrzeug",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PHY_NG_LERN_WERT",
+     "label": "Aktuelle Position Nullgangsensor",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

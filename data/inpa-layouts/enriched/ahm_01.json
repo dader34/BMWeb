@@ -1,0 +1,51 @@
+{
+ "ecu": "ahm_01.ips",
+ "screens": [
+  {
+   "proc": "s_status_analog",
+   "group": "Status lesen analog",
+   "job": "STATUS_LESEN",
+   "args": "ARG;AHM_ANALOG_OUTPUT_ECE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_STROM_FRA_LI_WERT",
+     "label": "",
+     "unit": "Ampere"
+    },
+    {
+     "key": "STAT_STROM_SL_LI_WERT",
+     "label": "",
+     "unit": "Ampere"
+    },
+    {
+     "key": "STAT_STROM_NSL_WERT",
+     "label": "",
+     "unit": "Ampere"
+    },
+    {
+     "key": "STAT_STROM_BRL_WERT",
+     "label": "",
+     "unit": "Ampere"
+    },
+    {
+     "key": "STAT_STROM_FRA_RE_WERT",
+     "label": "",
+     "unit": "Ampere"
+    },
+    {
+     "key": "STAT_STROM_SL_RE_WERT",
+     "label": "",
+     "unit": "Ampere"
+    },
+    {
+     "key": "STAT_STROM_RFL_WERT",
+     "label": "",
+     "unit": "Ampere"
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

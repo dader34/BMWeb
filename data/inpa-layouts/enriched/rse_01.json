@@ -1,0 +1,161 @@
+{
+ "ecu": "rse_01.ips",
+ "screens": [
+  {
+   "proc": "s_status_analog_temperatur",
+   "group": "Temperaturwerte ausgeben",
+   "job": "STATUS_LESEN",
+   "args": "ARG;STATUS_ANALOG_TEMPERATUR",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TEMP_FOT_WERT",
+     "label": "STAT_TEMP_FOT_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEMP_ENDSTU_WERT",
+     "label": "STAT_TEMP_ENDSTU_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEMP_GYRO_WERT",
+     "label": "STAT_TEMP_GYRO_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEMP_MOD_WERT",
+     "label": "STAT_TEMP_MOD_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEMP_HDD_WERT",
+     "label": "STAT_TEMP_HDD_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEMP_DVD_WERT",
+     "label": "STAT_TEMP_DVD_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_hw_variante",
+   "group": "Hardware - Variante",
+   "job": "STATUS_LESEN",
+   "args": "ARG;STATUS_HW_VARIANTE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_HW_VARIANTE",
+     "label": "Hardwarevariante:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HW_EINHEIT",
+     "label": "Hardwarevariante Beschreibung:",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_test_verbau",
+   "group": "Status Verbauprüfung lesen",
+   "job": "STEUERN_ROUTINE",
+   "args": "ARG;TEST_VERBAU;RRR",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TEST_VERBAU",
+     "label": "Ergebnis der Verbauprüfung:",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_usb",
+   "group": "Status letzter USB Test lesen",
+   "job": "STEUERN_ROUTINE",
+   "args": "ARG;USB_TEST;RRR",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_USB_TEST",
+     "label": "STAT_USB_TEST",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_steuern_test_verbau",
+   "group": "Status Verbauprüfung lesen",
+   "job": "STEUERN_ROUTINE",
+   "args": "ARG;TEST_VERBAU;STR;0",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TEST_VERBAU",
+     "label": "Ergebnis Verbauprüfung:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEST_VERBAU",
+     "label": "STAT_TEST_VERBAU",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_steuern_test_mikrofon",
+   "group": "Mikrofontest! Alle Fenster und Fahrzeugtüren schliessen!",
+   "job": "STEUERN_ROUTINE",
+   "args": "ARG;TEST_MICOPHONE;STR;1;2",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TEST_MICROPHONE",
+     "label": "STAT_TEST_MICROPHONE",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEST_MICROPHONE",
+     "label": "STAT_TEST_MICROPHONE",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEST_MICROPHONE",
+     "label": "STAT_TEST_MICROPHONE",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEST_MICROPHONE",
+     "label": "STAT_TEST_MICROPHONE",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_steuern_usb",
+   "group": "Status USB lesen",
+   "job": "STEUERN_ROUTINE",
+   "args": "ARG;USB_TEST;STR",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_USB_TEST",
+     "label": "STAT_USB_TEST",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

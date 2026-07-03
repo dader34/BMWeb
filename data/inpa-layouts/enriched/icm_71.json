@@ -1,0 +1,61 @@
+{
+ "ecu": "icm_71.ips",
+ "screens": [
+  {
+   "proc": "s_status_beschleunigung",
+   "group": "Status Beschleunigungssensoren",
+   "job": "STATUS_ADAPTIVDATEN_RUECKSETZEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_YR_ABGLEICH_WERT",
+     "label": "STAT_YR_ABGLEICH_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AY_ABGLEICH_WERT",
+     "label": "STAT_AY_ABGLEICH_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AX_ABGLEICH_WERT",
+     "label": "STAT_AX_ABGLEICH_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_icm",
+   "group": "Status ICM",
+   "job": "STATUS_ROLLENPRUEFSTAND",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MODUS_ROLLENPRUEFSTAND_WERT",
+     "label": "STAT_MODUS_ROLLENPRUEFSTAND_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_rollenmode",
+   "group": "Status ICM",
+   "job": "STATUS_ROLLENPRUEFSTAND",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MODUS_ROLLENPRUEFSTAND_WERT",
+     "label": "STAT_MODUS_ROLLENPRUEFSTAND_WERT",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

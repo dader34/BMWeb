@@ -1,0 +1,41 @@
+{
+ "ecu": "dwa_63.ips",
+ "screens": [
+  {
+   "proc": "s_status_kl_30_muw",
+   "group": "Status Klemme 30 MUW",
+   "job": "STATUS_MUW_KLEMME_30",
+   "args": "ALLE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VR_MUW_KLEMME_30_WERT",
+     "label": "VR:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HR_MUW_KLEMME_30_WERT",
+     "label": "HR:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VL_MUW_KLEMME_30_WERT",
+     "label": "VL:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HL_MUW_KLEMME_30_WERT",
+     "label": "HL:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HI_MUW_KLEMME_30_WERT",
+     "label": "HI:",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

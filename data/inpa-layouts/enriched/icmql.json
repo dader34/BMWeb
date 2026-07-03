@@ -1,0 +1,261 @@
+{
+ "ecu": "icmql.ips",
+ "screens": [
+  {
+   "proc": "s_status_hoehenstand_SGF",
+   "group": "Status Höhenstandssensoren",
+   "job": "STATUS_LESEN",
+   "args": "ARG;STATUS_HOEHENSTAENDE_LESEN",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_HOEHENSTAND_VL_WERT",
+     "label": "STAT_HOEHENSTAND_VL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_VR_WERT",
+     "label": "STAT_HOEHENSTAND_VR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_HL_WERT",
+     "label": "STAT_HOEHENSTAND_HL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_HR_WERT",
+     "label": "STAT_HOEHENSTAND_HR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_ROHWERT_VL_WERT",
+     "label": "STAT_HOEHENSTAND_ROHWERT_VL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_ROHWERT_VR_WERT",
+     "label": "STAT_HOEHENSTAND_ROHWERT_VR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_ROHWERT_HL_WERT",
+     "label": "STAT_HOEHENSTAND_ROHWERT_HL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_ROHWERT_HR_WERT",
+     "label": "STAT_HOEHENSTAND_ROHWERT_HR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_VERSORGUNG_VL_WERT",
+     "label": "STAT_HOEHENSTAND_VERSORGUNG_VL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_VERSORGUNG_VR_WERT",
+     "label": "STAT_HOEHENSTAND_VERSORGUNG_VR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_VERSORGUNG_HL_WERT",
+     "label": "STAT_HOEHENSTAND_VERSORGUNG_HL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HOEHENSTAND_VERSORGUNG_HR_WERT",
+     "label": "STAT_HOEHENSTAND_VERSORGUNG_HR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C0_VL_WERT",
+     "label": "STAT_GRADIENT_C0_VL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C0_VR_WERT",
+     "label": "Gradient C0 VL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C0_HL_WERT",
+     "label": "Gradient C0 VR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C0_HR_WERT",
+     "label": "Gradient C0 HL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C1_VL_WERT",
+     "label": "Gradient C0 HR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C1_VR_WERT",
+     "label": "Gradient C1 VL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C1_HL_WERT",
+     "label": "Gradient C1 VR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GRADIENT_C1_HR_WERT",
+     "label": "Gradient C1 HL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S0_VL_WERT",
+     "label": "Gradient C1 HR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S0_VR_WERT",
+     "label": "Offset S0 VL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S0_HL_WERT",
+     "label": "Offset S0 VR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S0_HR_WERT",
+     "label": "Offset S0 HL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S1_VL_WERT",
+     "label": "Offset S0 HR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S1_VR_WERT",
+     "label": "Offset S1 VL :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S1_HL_WERT",
+     "label": "Offset S1 VR :",
+     "unit": ""
+    },
+    {
+     "key": "STAT_OFFSET_S1_HR_WERT",
+     "label": "Offset S1 HL :",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_afs_SGF",
+   "group": "Status Active Front Steering (AFS)",
+   "job": "STATUS_LESEN",
+   "args": "ARG;STATUS_AL_MLW_INIT",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_AL_GUELTIGKEIT_MLW_NR",
+     "label": "STAT_AL_GUELTIGKEIT_MLW_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AL_GUELTIGKEIT_MLW_INITMODE_NR",
+     "label": "STAT_AL_GUELTIGKEIT_MLW_INITMODE_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AL_INITMODE_NR",
+     "label": "STAT_AL_INITMODE_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GUELTIGKEIT_FAHRER_LENKWINKEL_NR",
+     "label": "STAT_GUELTIGKEIT_FAHRER_LENKWINKEL_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_GUELTIGKEIT_SUMMENWINKELROH_NR",
+     "label": "STAT_GUELTIGKEIT_SUMMENWINKELROH_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FAHRER_LENKWINKEL_GRAD_WERT",
+     "label": "STAT_FAHRER_LENKWINKEL_GRAD_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FAHRER_LENKWINKEL_RAD_WERT",
+     "label": "STAT_FAHRER_LENKWINKEL_RAD_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTORLAGEWINKEL_ABSOLUT_AL_GRAD_ISTWERT_WERT",
+     "label": "STAT_MOTORLAGEWINKEL_ABSOLUT_AL_GRAD_ISTWERT_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTORLAGEWINKEL_ABSOLUT_AL_RAD_ISTWERT",
+     "label": "STAT_MOTORLAGEWINKEL_ABSOLUT_AL_RAD_ISTWERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTORLAGEWINKEL_ABSOLUT_AL_GRAD_SOLLWERT_WERT",
+     "label": "STAT_MOTORLAGEWINKEL_ABSOLUT_AL_GRAD_SOLLWERT_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTORLAGEWINKEL_ABSOLUT_RAD_SOLLWERT",
+     "label": "STAT_MOTORLAGEWINKEL_ABSOLUT_RAD_SOLLWERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SUMMENLENKWINKELROH_GRAD_WERT",
+     "label": "STAT_SUMMENLENKWINKELROH_GRAD_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SUMMENLENKWINKELROH_RAD_WERT",
+     "label": "STAT_SUMMENLENKWINKELROH_RAD_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_icm_KWP2000",
+   "group": "Status Integrated Chassis Modul - Quer und Längsdynamik (ICMQL)",
+   "job": "STATUS_ROLLENPRUEFSTAND",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_MODUS_ROLLENPRUEFSTAND_WERT",
+     "label": "STAT_MODUS_ROLLENPRUEFSTAND_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_icm_SGF",
+   "group": "Status Integrated Chassis Modul - Quer und Längsdynamik (ICMQL)",
+   "job": "STATUS_LESEN",
+   "args": "ARG;STATUS_MODUS_ROLLENPRUEFSTAND",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ROLLENMODUS_NR",
+     "label": "STAT_ROLLENMODUS_NR",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

@@ -1,36 +1,57 @@
 {
-  "ecu": "Ms42_n.IPO",
-  "screens": [
+ "ecu": "ms42_n.ips",
+ "screens": [
+  {
+   "proc": "s_ueberdrehzahl",
+   "group": "max Überdrehzahl",
+   "job": "STATUS_MAX_UEBERDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
     {
-      "group": "Maximum overrev RPM",
-      "job": "STATUS_MAX_UEBERDREHZAHL",
-      "args": null,
-      "render": "analog",
-      "columns": 1,
-      "rows": [
-        { "key": "STAT_MAX_UEBERDREHZAHL_WERT", "label": "Maximum overrev RPM reached", "unit": "1/min", "min": 0, "max": 8000 }
-      ]
-    },
-    {
-      "group": "Overrev operating status",
-      "job": "STATUS_BETRIEB_UEBERDREHZAHL",
-      "args": null,
-      "render": "digital",
-      "columns": 1,
-      "rows": [
-        { "key": "STAT_BETRIEB_UEBERDREHZAHL_WERT", "label": "Overrev operating range", "unit": null, "min": null, "max": null }
-      ]
-    },
-    {
-      "group": "Overrev event counter",
-      "job": "STATUS_ZAEHLER_UEBERDREHZAHL",
-      "args": null,
-      "render": "value",
-      "columns": 1,
-      "rows": [
-        { "key": "STAT_ZAEHLER_UEBERDREHZAHL_WERT", "label": "Overrev event count", "unit": null, "min": null, "max": null }
-      ]
+     "key": "STAT_MAX_UEBERDREHZAHL_WERT",
+     "label": "max Überdrehzahl",
+     "unit": "1/min",
+     "min": 0,
+     "max": 10240
     }
-  ],
-  "inputs": []
+   ]
+  },
+  {
+   "proc": "s_ueberdrehzahl",
+   "group": "Betriebsstundenzähler",
+   "job": "STATUS_BETRIEB_UEBERDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BETRIEB_UEBERDREHZAHL_WERT",
+     "label": "Betriebsstundenzähler",
+     "unit": "min",
+     "min": 0,
+     "max": 393210
+    }
+   ]
+  },
+  {
+   "proc": "s_ueberdrehzahl",
+   "group": "Zähler Überdrehzahl",
+   "job": "STATUS_ZAEHLER_UEBERDREHZAHL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_ZAEHLER_UEBERDREHZAHL_WERT",
+     "label": "Zähler Überdrehzahl",
+     "unit": "",
+     "min": 0,
+     "max": 255
+    }
+   ]
+  }
+ ],
+ "inputs": []
 }

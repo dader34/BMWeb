@@ -1,0 +1,116 @@
+{
+ "ecu": "hc2_01.ips",
+ "screens": [
+  {
+   "proc": "s_status_slave",
+   "group": "Status Slave",
+   "job": "STATUS_LESEN",
+   "args": "ARG;HC2_BETRIEBSSPANNUNG_SLAVE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_UBAT_WERT",
+     "label": "STAT_UBAT_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TEMP_SG_WERT",
+     "label": "STAT_TEMP_SG_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_warnstatus",
+   "group": "Status Warnungen",
+   "job": "STATUS_LESEN",
+   "args": "ARG;HC2_WARNSTATUS",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KRITIKALITAET_LINKS_WERT",
+     "label": "STAT_KRITIKALITAET_LINKS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KRITIKALITAET_RECHTS_WERT",
+     "label": "STAT_KRITIKALITAET_RECHTS_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_korrektur",
+   "group": "Status Korrekturwinkel",
+   "job": "STATUS_LESEN",
+   "args": "ARG;HC2_KORREKTURWINKEL",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_KORREKTURWINKEL_LINKS_WERK_WERT",
+     "label": "STAT_KORREKTURWINKEL_LINKS_WERK_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KORREKTURWINKEL_LINKS_KUNDENDIENST_WERT",
+     "label": "STAT_KORREKTURWINKEL_LINKS_KUNDENDIENST_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KORREKTURWINKEL_LINKS_AKTUELL_WERT",
+     "label": "STAT_KORREKTURWINKEL_LINKS_AKTUELL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KORREKTURWINKEL_RECHTS_WERK_WERT",
+     "label": "STAT_KORREKTURWINKEL_RECHTS_WERK_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KORREKTURWINKEL_RECHTS_KUNDENDIENST_WERT",
+     "label": "STAT_KORREKTURWINKEL_RECHTS_KUNDENDIENST_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KORREKTURWINKEL_RECHTS_AKTUELL_WERT",
+     "label": "STAT_KORREKTURWINKEL_RECHTS_AKTUELL_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_target",
+   "group": "Status Zielobjekte",
+   "job": "STATUS_LESEN",
+   "args": "ARG;HC2_ZIELOBJEKT",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TARGET_WINKEL_LINKS_WERT",
+     "label": "STAT_TARGET_WINKEL_LINKS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TARGET_LEISTUNG_LINKS_WERT",
+     "label": "STAT_TARGET_LEISTUNG_LINKS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TARGET_WINKEL_RECHTS_WERT",
+     "label": "STAT_TARGET_WINKEL_RECHTS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TARGET_LEISTUNG_RECHTS_WERT",
+     "label": "STAT_TARGET_LEISTUNG_RECHTS_WERT",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

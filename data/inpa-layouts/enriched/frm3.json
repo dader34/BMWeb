@@ -1,0 +1,276 @@
+{
+ "ecu": "frm3.ips",
+ "screens": [
+  {
+   "proc": "s_status_tastenblock",
+   "group": "Status Tastenblock",
+   "job": "STATUS_LESEN",
+   "args": "ARG;AUSSENSPIEGEL_TASTER",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FH_TASTERFA_FA_NR",
+     "label": "Taster Fensterheber Fahrer",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FH_TASTERFA_BF_NR",
+     "label": "Taster Fensterheber Beifahrer",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FH_TASTERFA_FAH_NR",
+     "label": "Taster Fensterheber Fahrer hinten",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FH_TASTERFA_BFH_NR",
+     "label": "Taster Fensterheber Beifahrer",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_licht",
+   "group": "Status Taster",
+   "job": "STATUS_LESEN",
+   "args": "ARG;LICHTSCHALTEREINHEIT",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DIMMUNG_58G_PWM_WERT",
+     "label": "Dimmungspoti (Einheit %):",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_kontakte",
+   "group": "Status Kontakte",
+   "job": "STATUS_LESEN",
+   "args": "ARG;TUERKONTAKT_FA",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TUERKONTAKT_FA_NR",
+     "label": "STAT_TUERKONTAKT_FA_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TUERKONTAKT_BF_NR",
+     "label": "STAT_TUERKONTAKT_BF_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TUERKONTAKT_FAH_NR",
+     "label": "STAT_TUERKONTAKT_FAH_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TUERKONTAKT_BFH_NR",
+     "label": "STAT_TUERKONTAKT_BFH_NR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HALL1_AKTIV",
+     "label": "STAT_HALL1_AKTIV",
+     "unit": ""
+    },
+    {
+     "key": "STAT_HALL2_AKTIV",
+     "label": "STAT_HALL2_AKTIV",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_spiegel",
+   "group": "Status Spiegel",
+   "job": "STATUS_LESEN",
+   "args": "ARG;AUSSENSPIEGEL_TASTER",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SPIEGEL_HEIZUNG_WERT",
+     "label": "Spiegelheizung (Einheit %):",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENSPIEGEL_ABBLEND_WERT",
+     "label": "Abblendwert (Einheit %):",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_elsv",
+   "group": "Status ELSV",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ELSV_INIT",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SPANNUNG_KLEMME_30_ELSV_WERT",
+     "label": "Klemmenspannung in V",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_logger_rev",
+   "group": "Status logger rev",
+   "job": "STATUS_FH_LOGGER_REVERSIERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_REVERSIERUNGS_COUNTER",
+     "label": "STAT_REVERSIERUNGS_COUNTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_1",
+     "label": "STAT_POSITION_HZ_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_1",
+     "label": "STAT_MOTOR_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_1",
+     "label": "STAT_IN_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_1",
+     "label": "STAT_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_1",
+     "label": "STAT_SPEED_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_1",
+     "label": "STAT_AUSSENTEMP_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_2",
+     "label": "STAT_POSITION_HZ_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_2",
+     "label": "STAT_MOTOR_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_2",
+     "label": "STAT_IN_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_2",
+     "label": "STAT_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_2",
+     "label": "STAT_SPEED_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_2",
+     "label": "STAT_AUSSENTEMP_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_3",
+     "label": "STAT_POSITION_HZ_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_3",
+     "label": "STAT_MOTOR_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_3",
+     "label": "STAT_IN_VOLTAGE_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_3",
+     "label": "STAT_VOLTAGE_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_3",
+     "label": "STAT_SPEED_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_3",
+     "label": "STAT_AUSSENTEMP_WERT_3",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_logger_denorm",
+   "group": "Status logger denorm",
+   "job": "STATUS_FH_LOGGER_DENORMIERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DENORMIERUNGS_COUNTER",
+     "label": "STAT_DENORMIERUNGS_COUNTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_1",
+     "label": "STAT_POSITION_HZ_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_1",
+     "label": "STAT_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_2",
+     "label": "STAT_POSITION_HZ_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_2",
+     "label": "STAT_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_3",
+     "label": "STAT_POSITION_HZ_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_3",
+     "label": "STAT_VOLTAGE_WERT_3",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

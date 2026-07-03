@@ -1,0 +1,276 @@
+{
+ "ecu": "icmv.ips",
+ "screens": [
+  {
+   "proc": "s_sv_ventil",
+   "group": "Sicherheitsventil",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_SCHALTVENTILE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SICHERHEITSVENTIL_NR",
+     "label": "Status Sicherheitsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ISTSTROM_SICHERHEITSVENTIL_WERT",
+     "label": "Steuerstrom Sicherheitsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SOLLSTROM_SICHERHEITSVENTIL_WERT",
+     "label": "Soll Strom Sicherheitsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PWM_SICHERHEITSVENTIL_WERT",
+     "label": "Status PWM Sicherheitsventil",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_rv_ventil",
+   "group": "Richtungsventil",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_SCHALTVENTILE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_RICHTUNGSVENTIL_NR",
+     "label": "Status Richtungsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ISTSTROM_RICHTUNGSVENTIL_WERT",
+     "label": "Steuerstrom Richtungsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SOLLSTROM_RICHTUNGSVENTIL_WERT",
+     "label": "Soll Strom Richtungsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PWM_RICHTUNGSVENTIL_WERT",
+     "label": "Status PWM Richtungsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SCHALTPOSITION_SW_WERT",
+     "label": "Schaltstellung RV",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_va_ventil",
+   "group": "Proportionalventil VA",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_PROPORTIONALVENTILE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VENTIL_VA_NR",
+     "label": "Status Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STEUERSTROM_VA_WERT",
+     "label": "Steuerstrom Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SOLLSTROM_VA_WERT",
+     "label": "Soll Strom Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PWM_VA_WERT",
+     "label": "PWM Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCKSENSOR_VA_SW_WERT",
+     "label": "Ist Druck VA",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_ha_ventil",
+   "group": "Proportionalventil HA",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_PROPORTIONALVENTILE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_VENTIL_HA_NR",
+     "label": "Status Propventil HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STEUERSTROM_HA_WERT",
+     "label": "Steuerstrom Propventil HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SOLLSTROM_HA_WERT",
+     "label": "Soll Strom Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PWM_HA_WERT",
+     "label": "PWM Propventil HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCKSENSOR_HA_SW_WERT",
+     "label": "Ist Druck HA",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_sd_ventil",
+   "group": "Saugdrosselventil",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_SCHALTVENTILE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SAUGDROSSELVENTIL_NR",
+     "label": "Status Saugdrosselventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ISTSTROM_SAUGDROSSELVENTIL_WERT",
+     "label": "Steuerstrom Saugdrosselventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SOLLSTROM_SAUGDROSSELVENTIL_WERT",
+     "label": "Soll Strom Saugdrosselventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PWM_SAUGDROSSELVENTIL_WERT",
+     "label": "Status PWM Saugdrosselventil",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_stati_sensor",
+   "group": "Status Sensoren",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_DRUCKSENSOREN",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DRUCKSENSOR_VA_NR",
+     "label": "Status Drucksensor VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCKSENSOR_HA_NR",
+     "label": "Status Drucksensor HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SCHALTPOSITION_NR",
+     "label": "Status Schaltstellungssensor",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_rampen_steuern",
+   "group": "Rampenlogik für Ventilansteuerung",
+   "job": "STATUS_LESEN",
+   "args": "ARG;ARS_SCHALTVENTILE",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SICHERHEITSVENTIL_NR",
+     "label": "Status Sicherheitsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ISTSTROM_SICHERHEITSVENTIL_WERT",
+     "label": "Steuerstrom Sicherheitsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_RICHTUNGSVENTIL_NR",
+     "label": "Status Richtungsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ISTSTROM_RICHTUNGSVENTIL_WERT",
+     "label": "Steuerstrom Richtungsventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SAUGDROSSELVENTIL_NR",
+     "label": "Status Saugdrosselventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ISTSTROM_SAUGDROSSELVENTIL_WERT",
+     "label": "Steuerstrom Saugdrosselventil",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCKSENSOR_HA_SW_WERT",
+     "label": "Rampenansteuerung aktiv!",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCKSENSOR_VA_SW_WERT",
+     "label": "STAT_DRUCKSENSOR_VA_SW_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VENTIL_VA_NR",
+     "label": "Status Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STEUERSTROM_VA_WERT",
+     "label": "Ampere",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STEUERSTROM_VA_WERT",
+     "label": "Steuerstrom Propventil VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VENTIL_HA_NR",
+     "label": "Status Propventil HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STEUERSTROM_HA_WERT",
+     "label": "Ampere",
+     "unit": ""
+    },
+    {
+     "key": "STAT_STEUERSTROM_HA_WERT",
+     "label": "Steuerstrom Propventil HA",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

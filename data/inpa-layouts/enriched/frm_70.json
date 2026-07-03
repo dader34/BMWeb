@@ -1,0 +1,206 @@
+{
+ "ecu": "frm_70.ips",
+ "screens": [
+  {
+   "proc": "s_status_tastenblock",
+   "group": "Status Tastenblock",
+   "job": "STATUS_SCHALTERBLOCK_TUER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_FH_TASTERFA_FA_WERT",
+     "label": "Taster Fensterheber Fahrer",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FH_TASTERFA_BF_WERT",
+     "label": "Taster Fensterheber Beifahrer",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FH_TASTERFA_FAH_WERT",
+     "label": "Taster Fensterheber Fahrer hinten",
+     "unit": ""
+    },
+    {
+     "key": "STAT_FH_TASTERFA_BFH_WERT",
+     "label": "Taster Fensterheber Beifahrer",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_logger_rev",
+   "group": "Status logger rev",
+   "job": "STATUS_FH_LOGGER_REVERSIERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_REVERSIERUNGS_COUNTER",
+     "label": "STAT_REVERSIERUNGS_COUNTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_1",
+     "label": "STAT_POSITION_HZ_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_1",
+     "label": "STAT_MOTOR_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_1",
+     "label": "STAT_IN_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_1",
+     "label": "STAT_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_1",
+     "label": "STAT_SPEED_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_1",
+     "label": "STAT_AUSSENTEMP_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_2",
+     "label": "STAT_POSITION_HZ_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_2",
+     "label": "STAT_MOTOR_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_2",
+     "label": "STAT_IN_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_2",
+     "label": "STAT_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_2",
+     "label": "STAT_SPEED_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_2",
+     "label": "STAT_AUSSENTEMP_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_3",
+     "label": "STAT_POSITION_HZ_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_3",
+     "label": "STAT_MOTOR_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_3",
+     "label": "STAT_IN_VOLTAGE_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_3",
+     "label": "STAT_VOLTAGE_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_3",
+     "label": "STAT_SPEED_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_3",
+     "label": "STAT_AUSSENTEMP_WERT_3",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_logger_denorm",
+   "group": "Status logger denorm",
+   "job": "STATUS_FH_LOGGER_DENORMIERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DENORMIERUNGS_COUNTER",
+     "label": "STAT_DENORMIERUNGS_COUNTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_1",
+     "label": "STAT_POSITION_HZ_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_1",
+     "label": "STAT_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_2",
+     "label": "STAT_POSITION_HZ_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_2",
+     "label": "STAT_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_3",
+     "label": "STAT_POSITION_HZ_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_3",
+     "label": "STAT_VOLTAGE_WERT_3",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_gurt",
+   "group": "Status Gurtbringer",
+   "job": "STATUS_GURTBRINGER",
+   "args": "3",
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_POS_GURTBRINGER_FAHRER_WERT",
+     "label": "Position Gurtbringer Fahrer",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POS_GURTBRINGER_BEIFAHRER_WERT",
+     "label": "Position Gurtbringer Beifahrer",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

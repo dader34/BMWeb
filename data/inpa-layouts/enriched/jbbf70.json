@@ -1,0 +1,176 @@
+{
+ "ecu": "jbbf70.ips",
+ "screens": [
+  {
+   "proc": "s_status_rollo",
+   "group": "Status Sonnenrollo",
+   "job": "STATUS_DIGITAL_OUTPUTS",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SONNENROLLO_AUSGANG_EIN",
+     "label": "Sonnenrollo nach oben:",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SONNENROLLO_AUSGANG_EIN",
+     "label": "Sonnenrollo nach unten:",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_logger_rev",
+   "group": "Status logger rev",
+   "job": "STATUS_FH_LOGGER_REVERSIERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_REVERSIERUNGS_COUNTER",
+     "label": "STAT_REVERSIERUNGS_COUNTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_1",
+     "label": "STAT_POSITION_HZ_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_1",
+     "label": "STAT_MOTOR_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_1",
+     "label": "STAT_IN_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_1",
+     "label": "STAT_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_1",
+     "label": "STAT_SPEED_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_1",
+     "label": "STAT_AUSSENTEMP_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_2",
+     "label": "STAT_POSITION_HZ_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_2",
+     "label": "STAT_MOTOR_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_2",
+     "label": "STAT_IN_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_2",
+     "label": "STAT_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_2",
+     "label": "STAT_SPEED_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_2",
+     "label": "STAT_AUSSENTEMP_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_3",
+     "label": "STAT_POSITION_HZ_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTOR_3",
+     "label": "STAT_MOTOR_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_IN_VOLTAGE_WERT_3",
+     "label": "STAT_IN_VOLTAGE_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_3",
+     "label": "STAT_VOLTAGE_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_SPEED_WERT_3",
+     "label": "STAT_SPEED_WERT_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_AUSSENTEMP_WERT_3",
+     "label": "STAT_AUSSENTEMP_WERT_3",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_logger_denorm",
+   "group": "Status logger denorm",
+   "job": "STATUS_FH_LOGGER_DENORMIERER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DENORMIERUNGS_COUNTER",
+     "label": "STAT_DENORMIERUNGS_COUNTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_1",
+     "label": "STAT_POSITION_HZ_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_1",
+     "label": "STAT_VOLTAGE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_2",
+     "label": "STAT_POSITION_HZ_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_2",
+     "label": "STAT_VOLTAGE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_POSITION_HZ_3",
+     "label": "STAT_POSITION_HZ_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VOLTAGE_WERT_3",
+     "label": "STAT_VOLTAGE_WERT_3",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

@@ -1,0 +1,646 @@
+{
+ "ecu": "dxc8_p.ips",
+ "screens": [
+  {
+   "proc": "s_status_radgeschwindigkeit",
+   "group": "Status lesen",
+   "job": "STATUS_RADGESCHWINDIGKEIT",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_RAD_GESCHW_VL_WERT",
+     "label": "STAT_RAD_GESCHW_VL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_RAD_GESCHW_VR_WERT",
+     "label": "STAT_RAD_GESCHW_VR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_RAD_GESCHW_HL_WERT",
+     "label": "STAT_RAD_GESCHW_HL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_RAD_GESCHW_HR_WERT",
+     "label": "STAT_RAD_GESCHW_HR_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_RAD_GESCHW_REF_WERT",
+     "label": "STAT_RAD_GESCHW_REF_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_analog_dsc",
+   "group": "Status lesen",
+   "job": "STATUS_ANALOG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DREHRATE_WERT_1",
+     "label": "STAT_DREHRATE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
+     "label": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCK_WERT",
+     "label": "STAT_DRUCK_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
+     "label": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCK_WERT_ACC_VA",
+     "label": "STAT_DRUCK_WERT_ACC_VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCK_WERT_ACC_HA",
+     "label": "STAT_DRUCK_WERT_ACC_HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VENTILRELAIS_SPANNUNG_WERT",
+     "label": "STAT_VENTILRELAIS_SPANNUNG_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
+     "label": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ZUENDUNG_WERT",
+     "label": "STAT_ZUENDUNG_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_analog_afs",
+   "group": "Status lesen",
+   "job": "STATUS_ANALOG",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SUMMEN_LENKWINKEL_WERT_AFS",
+     "label": "STAT_SUMMEN_LENKWINKEL_WERT_AFS",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCK_WERT",
+     "label": "STAT_DRUCK_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCK_WERT_ACC_VA",
+     "label": "STAT_DRUCK_WERT_ACC_VA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DRUCK_WERT_ACC_HA",
+     "label": "STAT_DRUCK_WERT_ACC_HA",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DREHRATE_WERT_1",
+     "label": "STAT_DREHRATE_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DREHRATE_WERT_2",
+     "label": "STAT_DREHRATE_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
+     "label": "STAT_QUERBESCHLEUNIGUNG_WERT_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_QUERBESCHLEUNIGUNG_WERT_2",
+     "label": "STAT_QUERBESCHLEUNIGUNG_WERT_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
+     "label": "STAT_LAENGSBESCHLEUNIGUNG_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VENTILRELAIS_SPANNUNG_WERT",
+     "label": "STAT_VENTILRELAIS_SPANNUNG_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
+     "label": "STAT_PUMPENMOTOR_SPANNUNG_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ZUENDUNG_WERT",
+     "label": "STAT_ZUENDUNG_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_can",
+   "group": "PT-CAN",
+   "job": "STATUS_CAN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LENKWINKEL_WERT",
+     "label": "STAT_LENKWINKEL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTORDREHZAHL_WERT",
+     "label": "STAT_MOTORDREHZAHL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DREHMOMENT_WERT",
+     "label": "STAT_DREHMOMENT_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
+     "label": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
+     "label": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_can_allrad",
+   "group": "PT-CAN",
+   "job": "STATUS_CAN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_LENKWINKEL_WERT",
+     "label": "STAT_LENKWINKEL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MOTORDREHZAHL_WERT",
+     "label": "STAT_MOTORDREHZAHL_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DREHMOMENT_WERT",
+     "label": "STAT_DREHMOMENT_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
+     "label": "STAT_VERZOEGERUNGS_ANFORD_ACC_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
+     "label": "STAT_VERZOEGERUNGS_ANFORD_EMF_WERT",
+     "unit": ""
+    },
+    {
+     "key": "STAT_KUPPLUNG_WERT",
+     "label": "STAT_KUPPLUNG_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_cbs",
+   "group": "CBS",
+   "job": "CBS_DATEN_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "AVAI_BOS_WERT_BR_V",
+     "label": "AVAI_BOS_WERT_BR_V",
+     "unit": ""
+    },
+    {
+     "key": "ZIEL_MM_WERT",
+     "label": "ZIEL_MM_WERT",
+     "unit": ""
+    },
+    {
+     "key": "ZIEL_YY_WERT",
+     "label": "ZIEL_YY_WERT",
+     "unit": ""
+    },
+    {
+     "key": "COU_RSTG_BOS_MESS_WERT",
+     "label": "COU_RSTG_BOS_MESS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "RMMI_BOS_WERT",
+     "label": "RMMI_BOS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "AVAI_BOS_WERT_BR_H",
+     "label": "AVAI_BOS_WERT_BR_H",
+     "unit": ""
+    },
+    {
+     "key": "ZIEL_MM_WERT",
+     "label": "ZIEL_MM_WERT",
+     "unit": ""
+    },
+    {
+     "key": "ZIEL_YY_WERT",
+     "label": "ZIEL_YY_WERT",
+     "unit": ""
+    },
+    {
+     "key": "COU_RSTG_BOS_MESS_WERT",
+     "label": "COU_RSTG_BOS_MESS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "RMMI_BOS_WERT",
+     "label": "RMMI_BOS_WERT",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_cbs4",
+   "group": "CBS_4",
+   "job": "CBS_DATEN_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "AVAI_CBS_WERT_BR_V",
+     "label": "AVAI_CBS_WERT_BR_V",
+     "unit": ""
+    },
+    {
+     "key": "COU_RSTG_CBS_MESS_WERT",
+     "label": "COU_RSTG_CBS_MESS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "RMMI_CBS_WERT",
+     "label": "RMMI_CBS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "FRC_INTM_WAY_CBS_MESS",
+     "label": "FRC_INTM_WAY_CBS_MESS",
+     "unit": ""
+    },
+    {
+     "key": "AVAI_CBS_WERT_BR_H",
+     "label": "AVAI_CBS_WERT_BR_H",
+     "unit": ""
+    },
+    {
+     "key": "COU_RSTG_CBS_MESS_WERT",
+     "label": "COU_RSTG_CBS_MESS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "RMMI_CBS_WERT",
+     "label": "RMMI_CBS_WERT",
+     "unit": ""
+    },
+    {
+     "key": "FRC_INTM_WAY_CBS_MESS",
+     "label": "FRC_INTM_WAY_CBS_MESS",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_rpa_dsc_alt",
+   "group": "Status lesen RPA",
+   "job": "STATUS_RPA",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DSC_SIGNAL_VL",
+     "label": "STAT_DSC_SIGNAL_VL",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_VR",
+     "label": "STAT_DSC_SIGNAL_VR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_HL",
+     "label": "STAT_DSC_SIGNAL_HL",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_HR",
+     "label": "STAT_DSC_SIGNAL_HR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_0",
+     "label": "STAT_BEREICH_0",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_1",
+     "label": "STAT_BEREICH_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_2",
+     "label": "STAT_BEREICH_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_3",
+     "label": "STAT_BEREICH_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_4",
+     "label": "STAT_BEREICH_4",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_5",
+     "label": "STAT_BEREICH_5",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_6",
+     "label": "STAT_BEREICH_6",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_rpa_dsc_70_alt",
+   "group": "Status lesen RPA",
+   "job": "STATUS_RPA",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DSC_SIGNAL_VL",
+     "label": "STAT_DSC_SIGNAL_VL",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_VR",
+     "label": "STAT_DSC_SIGNAL_VR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_HL",
+     "label": "STAT_DSC_SIGNAL_HL",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_HR",
+     "label": "STAT_DSC_SIGNAL_HR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_0",
+     "label": "STAT_BEREICH_0",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_1",
+     "label": "STAT_BEREICH_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_2",
+     "label": "STAT_BEREICH_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_3",
+     "label": "STAT_BEREICH_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_4",
+     "label": "STAT_BEREICH_4",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_5",
+     "label": "STAT_BEREICH_5",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_6",
+     "label": "STAT_BEREICH_6",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_rpa_lernzaehler",
+   "group": "Status lesen RPA-Lernzaehler",
+   "job": "STATUS_RPA_STANDARDISIERUNG_3",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_BEREICH_0",
+     "label": "STAT_BEREICH_0",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_1",
+     "label": "STAT_BEREICH_1",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_2",
+     "label": "STAT_BEREICH_2",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_3",
+     "label": "STAT_BEREICH_3",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_4",
+     "label": "STAT_BEREICH_4",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_5",
+     "label": "STAT_BEREICH_5",
+     "unit": ""
+    },
+    {
+     "key": "STAT_BEREICH_6",
+     "label": "STAT_BEREICH_6",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_rpa",
+   "group": "Status lesen RPA",
+   "job": "STATUS_RPA",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_DSC_SIGNAL_VL",
+     "label": "STAT_DSC_SIGNAL_VL",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_VR",
+     "label": "STAT_DSC_SIGNAL_VR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_HL",
+     "label": "STAT_DSC_SIGNAL_HL",
+     "unit": ""
+    },
+    {
+     "key": "STAT_DSC_SIGNAL_HR",
+     "label": "STAT_DSC_SIGNAL_HR",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_audio_tel",
+   "group": "Taster Audio/Telefon",
+   "job": "STATUS_F_CAN_TASTER_AUDIO_TEL",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TASTER_TELEFON",
+     "label": "STAT_TASTER_TELEFON",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TASTER_AUDIO_LAUTSTAERKE",
+     "label": "STAT_TASTER_AUDIO_LAUTSTAERKE",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TASTER_AUDIO_SUCHLAUF",
+     "label": "STAT_TASTER_AUDIO_SUCHLAUF",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TASTER_HORN",
+     "label": "STAT_TASTER_HORN",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TASTER_PUSH_TO_HEAR",
+     "label": "STAT_TASTER_PUSH_TO_HEAR",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TASTER_SONDERFUNKTION",
+     "label": "STAT_TASTER_SONDERFUNKTION",
+     "unit": ""
+    },
+    {
+     "key": "STAT_TASTER_PUSH_TO_TALK",
+     "label": "STAT_TASTER_PUSH_TO_TALK",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_wischer",
+   "group": "Wischertaster",
+   "job": "STATUS_F_CAN_WISCHERTASTER",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_WISCHERTASTER",
+     "label": "STAT_WISCHERTASTER",
+     "unit": ""
+    },
+    {
+     "key": "STAT_WISCHERPOTI",
+     "label": "STAT_WISCHERPOTI",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_tempomat_acc",
+   "group": "Tempomat/ACC",
+   "job": "STATUS_F_CAN_TEMPOMAT_ACC",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_TASTER_TEMPOMAT_ACC",
+     "label": "STAT_TASTER_TEMPOMAT_ACC",
+     "unit": ""
+    },
+    {
+     "key": "STAT_ABSTANDSWAHL_ACC",
+     "label": "STAT_ABSTANDSWAHL_ACC",
+     "unit": ""
+    },
+    {
+     "key": "STAT_MODUS_WAHL_CC_CA",
+     "label": "STAT_MODUS_WAHL_CC_CA",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}

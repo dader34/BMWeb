@@ -1,0 +1,51 @@
+{
+ "ecu": "acsm.ips",
+ "screens": [
+  {
+   "proc": "s_status_sitzbelegung_oc3",
+   "group": "OC3-Matte Beifahrer",
+   "job": "STATUS_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SITZBELEGUNG_BEIFAHRER",
+     "label": "STAT_SITZBELEGUNG_BEIFAHRER",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_sitzbelegung_sbe",
+   "group": "Sitzbelegungserkennung Beifahrer",
+   "job": "STATUS_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "STAT_SITZBELEGUNG_BEIFAHRER",
+     "label": "STAT_SITZBELEGUNG_BEIFAHRER",
+     "unit": ""
+    }
+   ]
+  },
+  {
+   "proc": "s_status_sensoren",
+   "group": "Status sensoren",
+   "job": "VERRIEGELUNG_LESEN",
+   "args": null,
+   "render": "analog",
+   "columns": 1,
+   "rows": [
+    {
+     "key": "BYTE1",
+     "label": "BYTE1",
+     "unit": ""
+    }
+   ]
+  }
+ ],
+ "inputs": []
+}
