@@ -136,31 +136,10 @@ internal static class DiagnosticsEndpoints
         {
             var diag = state.Engines.AcquireLive(port);
             if (diag == null) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
-            var codes = FaultReader.ReadFaults(diag, sgbd);
-            // multi-variant merge: if the primary SGBD left any fault as "unknown
-            // location", a sibling variant (e.g. zke5 -> zke5_s12) may label it.
-            // read siblings only when needed, and only replace the unknown ones.
-            var variants = state.Config.SgbdVariants(sgbd);
-            if (variants.Count > 1 && codes.Any(FaultReader.IsUnknownLocation))
-            {
-                foreach (var v in variants.Skip(1))
-                {
-                    if (!codes.Any(FaultReader.IsUnknownLocation)) break;
-                    List<Dictionary<string, string>> alt;
-                    try { alt = FaultReader.ReadFaults(diag, v); } catch { continue; }
-                    foreach (var f in codes.Where(FaultReader.IsUnknownLocation).ToList())
-                    {
-                        if (!f.TryGetValue("F_ORT_NR", out var nr)) continue;
-                        var better = alt.FirstOrDefault(a =>
-                            a.TryGetValue("F_ORT_NR", out var anr) && anr == nr && !FaultReader.IsUnknownLocation(a));
-                        if (better != null)
-                        {
-                            int idx = codes.IndexOf(f);
-                            codes[idx] = better; // keep the labeled variant's entry
-                        }
-                    }
-                }
-            }
+            // multi-variant merge (in the library so the CLI labels faults the same):
+            // faults the primary SGBD leaves as "unknown location" get filled in from
+            // sibling variants (e.g. zke5 -> zke5_s12) when available.
+            var codes = FaultReader.ReadFaultsMerged(diag, sgbd, state.Config.SgbdVariants(sgbd));
             return Results.Json(new { port, count = codes.Count, codes });
         }));
 

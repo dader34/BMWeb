@@ -127,10 +127,10 @@ internal static class Program
                     return 0;
 
                 case "read":
-                    return LiveFaultCodes(diag, sgbd, port, clear: false);
+                    return LiveFaultCodes(diag, sgbd, port, clear: false, new InpaConfig(inpaRoot, ecuPath));
 
                 case "clear":
-                    return LiveFaultCodes(diag, sgbd, port, clear: true);
+                    return LiveFaultCodes(diag, sgbd, port, clear: true, new InpaConfig(inpaRoot, ecuPath));
 
                 default:
                     Console.WriteLine("commands: jobs | results <JOB> | read | clear   (options: --port DEV)");
@@ -144,8 +144,9 @@ internal static class Program
         }
     }
 
-    // live: connect over K+DCAN, read or clear fault memory
-    private static int LiveFaultCodes(Diag diag, string sgbd, string port, bool clear)
+    // live: connect over K+DCAN, read or clear fault memory. cfg resolves sibling
+    // SGBD variants for the multi-variant fault-label merge.
+    private static int LiveFaultCodes(Diag diag, string sgbd, string port, bool clear, InpaConfig cfg)
     {
         port ??= Paths.AutoDetectPort();
         if (port == null)
@@ -166,7 +167,9 @@ internal static class Program
             return 0;
         }
 
-        var codes = FaultReader.ReadFaults(diag, sgbd); // read + parse fault memory
+        // read + parse fault memory, filling "unknown location" faults from sibling
+        // SGBD variants (same merge the GUI/server does, so labels match)
+        var codes = FaultReader.ReadFaultsMerged(diag, sgbd, cfg.SgbdVariants(sgbd));
         int n = 0;
         foreach (var row in codes)
         {
