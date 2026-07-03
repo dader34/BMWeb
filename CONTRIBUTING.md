@@ -51,12 +51,11 @@ the raw text from the car (often German). To contribute the translation:
 
 ### Before you open the PR
 
-Run the checks from the `app/` folder:
+Run the checks from the repo root (plain node, no install needed):
 
 ```
-cd app
-npm run check:faults     # validates format, flags duplicates / leftover German
-npm run build:faultdb    # regenerates app/renderer/faultdb.js
+node scripts/check-faults.mjs     # validates format, flags duplicates / leftover German
+node scripts/build-faultdb.mjs    # regenerates app/renderer/faultdb.js
 ```
 
 Commit both your edited `data/faults/*.json` and the regenerated
@@ -66,6 +65,6 @@ module the codes came from. That's it — thank you.
 ### Notes
 
 - `app/renderer/faultdb.js` is generated. Never edit it by hand; edit the JSON
-  and run `npm run build:faultdb`.
+  and run `node scripts/build-faultdb.mjs`.
 - Descriptions are best-effort, community-sourced translations, not official BMW
   text. Accuracy improvements are welcome too, not just new codes.

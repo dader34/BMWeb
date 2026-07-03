@@ -38,27 +38,32 @@ package is also available [here](https://drive.google.com/drive/folders/1Odd9etz
 
    The data lives at `vendor/EDIABAS/Ecu` and `vendor/EC-APPS`.
 
-2. Install dependencies and start the app:
+2. Build and start the app (requires the .NET SDK with the `macos` workload:
+   `dotnet workload install macos`):
 
    ```
-   cd app
-   npm install
-   npm start
+   dotnet build src/InpaMac.App
+   open src/InpaMac.App/bin/Debug/net10.0-macos/osx-arm64/BMacW.app
    ```
 
-The .NET sidecar is built and launched automatically. Plug in the cable, turn the
-ignition on, and select your chassis.
+Everything runs in that one process — the UI, the diagnostic API, and the
+EDIABAS engine. Plug in the cable, turn the ignition on, and select your
+chassis.
 
 
 ## How it works
 
-- `app/` is an Electron shell. It talks to a local sidecar over HTTP.
-- `src/InpaMac.Server/` is the .NET sidecar. It exposes the diagnostic API on
-  `127.0.0.1:8777` and drives EDIABAS.
+- `src/InpaMac.App/` is the app: a native macOS window (WKWebView) showing
+  `app/renderer/`, with the EDIABAS engine and the JSON API hosted in-process.
+- `app/renderer/` is the UI — plain HTML/JS, no framework, no build step.
+- `src/InpaMac.Api/` is the diagnostic JSON API as a library.
+- `src/InpaMac.Server/` hosts that API standalone on `127.0.0.1:8777` — a
+  development harness for curl/scripts, not needed to run the app.
 - `src/EdiabasMac/` wraps the EDIABAS engine, the serial transport, and the MS45
   flash routines.
-- `tools/` holds the INPA layout extractors, a PowerPC disassembler, and the
-  fault-map builders.
+- `tools/` holds the INPA layout extractors (`inpa2json.py` converts any
+  .ips/.IPO to portable JSON), a PowerPC disassembler, and the fault-map
+  builders.
 
 
 ## Installing a release build
@@ -82,10 +87,10 @@ Then open BMacW normally.
 
 ## Packaging
 
-`app/electron-builder.yml` builds the `.dmg`. The BMW data is bundled into the
-app under `Resources/data` so the release runs standalone. A post-pack hook
-(`app/build/after-pack.js`) re-signs the bundle ad-hoc after that data is copied
-in, so the signature seal stays valid.
+`dotnet build src/InpaMac.App` produces the `BMacW.app` bundle. Release
+packaging (`dotnet publish` with the BMW data bundled under `Resources/data`,
+plus a `.dmg`) is being rebuilt for the native app; the 0.1.x `.dmg` releases
+were produced by the retired Electron shell.
 
 
 ## Contributing fault-code translations
