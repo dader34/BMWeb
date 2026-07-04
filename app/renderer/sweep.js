@@ -51,6 +51,31 @@ function buildGroupLookup(ch) {
 const _faultSig = (codes) =>
   (codes || []).map(c => c.F_HEX_CODE || `nr:${c.F_ORT_NR}`).join(',');
 
+// airbag is special: the E46 menu resolves "Airbag" to zae (the E36-era SGBD),
+// but the car may carry any MRS generation. the wrong-generation SGBDs still
+// ANSWER the K-line and decode a *false* 0 faults, so a first-responder-wins
+// group claim (as used for engine/dsc) picks zae and hides real MRS faults.
+// instead, read every airbag variant and keep the richest result: a lit airbag
+// lamp never truly reads 0, so max fault count identifies the right SGBD. one
+// extra read each for ~5 rarely-installed variants, only on the airbag row.
+const AIRBAG_VARIANTS = ['mrs4', 'mrs4rd', 'mrs3', 'zae2', 'mrs2', 'zae'];
+async function probeAirbag(resolvedSgbd, alive) {
+  const tried = new Set();
+  const order = [resolvedSgbd, ...AIRBAG_VARIANTS]
+    .filter(s => s && !tried.has(s) && tried.add(s));
+  let best = null;
+  for (const sgbd of order) {
+    if (!alive()) break;
+    try {
+      const data = await api(`/api/ecu/${sgbd}/read`, { method: 'POST' });
+      if (typeof data.count !== 'number') continue;
+      // richest valid read wins; ties keep the earliest (newest-gen) SGBD
+      if (!best || data.count > best.count) best = { sgbd, count: data.count, codes: data.codes || [] };
+    } catch { /* variant not present / no answer: skip */ }
+  }
+  return best;
+}
+
 // a sweep ties up the K-line for a while. each sweep takes a token; navigating
 // away (or starting another sweep) bumps it, and the running loop bails on its
 // next iteration so we stop hammering the bus after the user leaves.
@@ -113,7 +138,14 @@ async function quickErrorSweep(chassisId) {
       continue;
     }
     try {
-      const data = await api(`/api/ecu/${ecu.sgbd}/read`, { method: 'POST' });
+      // airbag: probe every MRS/ZAE generation and keep the richest read, since
+      // a wrong-generation SGBD answers with a false 0 (see probeAirbag). the
+      // winning SGBD replaces ecu.sgbd so the deep read and Clear target it.
+      const isAirbag = String(ecu.code || '').toLowerCase() === 'airbag';
+      const data = isAirbag
+        ? (await probeAirbag(ecu.sgbd, alive)) || { count: 0, codes: [] }
+        : await api(`/api/ecu/${ecu.sgbd}/read`, { method: 'POST' });
+      if (isAirbag && data.sgbd) ecu.sgbd = data.sgbd;
       const n = data.count || 0;
       // any answer (even 0 faults) claims the variant group
       if (grp && typeof data.count === 'number') groupDone.add(grp);
