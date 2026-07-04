@@ -239,7 +239,7 @@ CHECKSUMME	Checksum
 RECHTS	Right
 CONFIG	Config
 HERSTELLDATEN	Manufacturing Data
-ANZEIGE	Display
+ANZEIGE	Indicator
 SCHEINWERFERHERSTELLERDATEN	Headlight Manufacturer Data
 REGELUNG	Control
 INPUTS	Inputs
@@ -428,7 +428,7 @@ LS	Oxygen Sensor
 KTEST	Component Test
 ADAPT	Adaptation
 IS	Actual
-DIAGNOSE	Diagnosis
+DIAGNOSE	Diagnostic
 POTI	Potentiometer
 IST	Actual
 CODIERUNG	Coding
@@ -538,3 +538,9 @@ EV3	Injector Cyl. 3
 EV4	Injector Cyl. 4
 EV5	Injector Cyl. 5
 EV6	Injector Cyl. 6
+FGR	Cruise Control
+KENNZEICHENLEUCHTE	License Plate Light
+KENNZEICHEN	License Plate
+LEUCHTE	Lamp
+LEUCHTEN	Lamps
+VORGLUEHLAMPE	Glow Plug Indicator
