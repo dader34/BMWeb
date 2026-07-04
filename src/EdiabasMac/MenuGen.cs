@@ -96,7 +96,7 @@ public static class MenuGen
     }
 
     static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","Service","Special","Programming","Other" };
-    static readonly Regex Danger = new("FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN|STELLGLIED", RegexOptions.IgnoreCase);
+    static readonly Regex Danger = new(@"FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN(?!\w*LESEN)|STELLGLIED", RegexOptions.IgnoreCase);
     // suffix verbs moved to front of label
     static readonly Dictionary<string,string> FrontVerb = new(StringComparer.OrdinalIgnoreCase)
         { ["LESEN"]="Read", ["SCHREIBEN"]="Write", ["LOESCHEN"]="Clear", ["SETZEN"]="Set" };
@@ -108,6 +108,9 @@ public static class MenuGen
         if (j is "IDENT" or "INFO" or "SERIENNUMMER_LESEN" || j.StartsWith("IDENT")) return "Identity";
         if (j.Contains("VERSION") || j.Contains("HARDWARE") || j.Contains("REFERENZ") || j.Contains("_HW_")) return "Identity";
         if (j.StartsWith("STATUS") || j.StartsWith("MW_") || j.Contains("MESSWERT")) return "Status";
+        // STEUERN_WERT_LESEN and friends read the current activation value:
+        // read jobs, not actuator tests
+        if (j.StartsWith("STEUERN") && j.Contains("LESEN")) return "Status";
         if (j.StartsWith("STEUERN") || j.Contains("STELLGLIED") || j.Contains("AUSGAENGE_SCHALTEN")) return "Activations";
         if (j.Contains("FLASH") || j.Contains("PROGRAMMIER") || j.Contains("AUTHENTISIERUNG") || j.Contains("SIGNATUR")) return "Programming";
         // INPA has no generic "Other": every job lives in a named menu. split the
@@ -205,19 +208,32 @@ public static class MenuGen
     public static List<Activation> Activations(Diag diag)
     {
         var all = diag.Jobs()
-            .Where(j => j.StartsWith("STEUERN", StringComparison.OrdinalIgnoreCase)
-                        || j.Contains("STELLGLIED", StringComparison.OrdinalIgnoreCase)).ToList();
+            .Where(j => (j.StartsWith("STEUERN", StringComparison.OrdinalIgnoreCase)
+                         || j.Contains("STELLGLIED", StringComparison.OrdinalIgnoreCase))
+                        && !j.Contains("LESEN", StringComparison.OrdinalIgnoreCase)) // reads are status
+            .ToList();
         var set = new HashSet<string>(all, StringComparer.OrdinalIgnoreCase);
+        // a stop job names its start by suffix (X_ENDE / X_AUS / X_STOP) or by
+        // the DDE prefix convention (STEUERN_ENDE_X stops STEUERN_X)
+        static string? PrefixStart(string j) =>
+            j.StartsWith("STEUERN_ENDE_", StringComparison.OrdinalIgnoreCase)
+                ? "STEUERN_" + j["STEUERN_ENDE_".Length..] : null;
         var stops = new HashSet<string>(
             all.Where(j => StopSuffixes.Any(suf =>
-                j.EndsWith(suf, StringComparison.OrdinalIgnoreCase)
-                && set.Contains(j[..^suf.Length]))),   // only when the start exists
+                               j.EndsWith(suf, StringComparison.OrdinalIgnoreCase)
+                               && set.Contains(j[..^suf.Length]))
+                           || (PrefixStart(j) is string ps && set.Contains(ps))),
             StringComparer.OrdinalIgnoreCase);
         var result = new List<Activation>();
         foreach (var job in all)
         {
             if (stops.Contains(job)) continue;            // stop jobs folded into their start
             string stop = StopSuffixes.Select(suf => job + suf).FirstOrDefault(set.Contains);
+            if (stop == null && job.StartsWith("STEUERN_", StringComparison.OrdinalIgnoreCase))
+            {
+                string candidate = "STEUERN_ENDE_" + job["STEUERN_".Length..];
+                if (set.Contains(candidate)) stop = candidate;
+            }
             // no stop job: a numeric value argument makes it a toggle anyway
             // (start = send the value, stop = send 0); truly argless one-shots
             // stay momentary
