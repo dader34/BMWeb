@@ -33,7 +33,7 @@ internal static class DiagnosticsEndpoints
         app.MapGet("/api/ecu/{sgbd}/activations", (string sgbd) =>
             Offline(state, sgbd, diag =>
             {
-                var acts = MenuGen.Activations(diag.Jobs());
+                var acts = MenuGen.Activations(diag);
                 return Results.Json(acts.Select(a => new
                 {
                     label = a.Label, start = a.Start, stop = a.Stop, momentary = a.Momentary

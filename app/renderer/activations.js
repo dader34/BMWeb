@@ -103,9 +103,9 @@ async function resolveActivationArg(ecu, startJob) {
   let arg;
   if (specs.length === 0) {
     arg = null; // no argument
-  } else if (specs.length === 1 && /^(ON|PWM|MODE)$/.test(specs[0].ARG)) {
-    // single on/percent: default on, no prompt (Stop sends 0 separately)
-    arg = specs[0].ARG === 'PWM' ? String(actValue(startJob) || 99) : '1';
+  } else if (specs.length === 1 && /^(ON|PWM|MODE|TASTVERHAELTNIS)$/.test(specs[0].ARG)) {
+    // single on/percent/duty-cycle: default on, no prompt (Stop sends 0 separately)
+    arg = /^(PWM|TASTVERHAELTNIS)$/.test(specs[0].ARG) ? String(actValue(startJob) || 99) : '1';
   } else {
     // multiple or value params (injectors, idle offsets, CO%) -> ask
     arg = await argsDialog(startJob, specs);

@@ -195,22 +195,57 @@ public static class MenuGen
     // actuator test: start job plus optional paired stop (_ENDE) job
     public sealed record Activation(string Label, string Start, string Stop, bool Momentary);
 
-    // pair STEUERN_X with STEUERN_X_ENDE into toggleable actuator tests
-    public static List<Activation> Activations(IEnumerable<string> jobs)
+    // actuator start/stop conventions differ per DME generation: MS45 pairs
+    // STEUERN_X with STEUERN_X_ENDE, MS42/MS43/ME9 use STEUERN_X_AUS, and some
+    // outputs have no stop job at all but take a settable value argument
+    // (ON, PWM, duty cycle) where sending 0 de-energizes. all three shapes are
+    // derived here instead of hard-coding per ECU.
+    private static readonly string[] StopSuffixes = { "_ENDE", "_AUS", "_STOP" };
+
+    public static List<Activation> Activations(Diag diag)
     {
-        var all = jobs.Where(j => j.StartsWith("STEUERN", StringComparison.OrdinalIgnoreCase)
-                                  || j.Contains("STELLGLIED", StringComparison.OrdinalIgnoreCase)).ToList();
+        var all = diag.Jobs()
+            .Where(j => j.StartsWith("STEUERN", StringComparison.OrdinalIgnoreCase)
+                        || j.Contains("STELLGLIED", StringComparison.OrdinalIgnoreCase)).ToList();
         var set = new HashSet<string>(all, StringComparer.OrdinalIgnoreCase);
-        var stops = new HashSet<string>(all.Where(j => j.EndsWith("_ENDE", StringComparison.OrdinalIgnoreCase)), StringComparer.OrdinalIgnoreCase);
+        var stops = new HashSet<string>(
+            all.Where(j => StopSuffixes.Any(suf =>
+                j.EndsWith(suf, StringComparison.OrdinalIgnoreCase)
+                && set.Contains(j[..^suf.Length]))),   // only when the start exists
+            StringComparer.OrdinalIgnoreCase);
         var result = new List<Activation>();
         foreach (var job in all)
         {
             if (stops.Contains(job)) continue;            // stop jobs folded into their start
-            string stop = job + "_ENDE";
-            bool hasStop = set.Contains(stop);
-            result.Add(new Activation(Translate(job), job, hasStop ? stop : null, !hasStop));
+            string stop = StopSuffixes.Select(suf => job + suf).FirstOrDefault(set.Contains);
+            // no stop job: a numeric value argument makes it a toggle anyway
+            // (start = send the value, stop = send 0); truly argless one-shots
+            // stay momentary
+            bool toggleByArg = stop == null && HasNumericArg(diag, job);
+            result.Add(new Activation(Translate(job), job, stop,
+                                      Momentary: stop == null && !toggleByArg));
         }
         return result;
+    }
+
+    // does the job declare a numeric (int/real) argument? read offline from the
+    // SGBD's _ARGUMENTS schema.
+    private static bool HasNumericArg(Diag diag, string job)
+    {
+        try
+        {
+            foreach (var set in diag.Run("_ARGUMENTS", job))
+            {
+                if (!(set.TryGetValue("ARG", out var a) && a.OpData is string arg) || arg.Length == 0)
+                    continue;
+                string type = set.TryGetValue("ARGTYPE", out var t) && t.OpData is string ts ? ts : "";
+                if (type.Contains("int", StringComparison.OrdinalIgnoreCase)
+                    || type.Contains("real", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+        catch { /* no schema: treat as argless */ }
+        return false;
     }
 
     public static List<MenuSection> Build(IEnumerable<string> jobs)
