@@ -27,7 +27,11 @@ internal static class ConfigEndpoints
                         key = s.Key,
                         name = s.Name,
                         ecus = s.Ecus.Select(e => new { code = e.Code, label = e.Label, sgbd = e.Sgbd })
-                    })
+                    }),
+                    // entry codes sharing one diagnostic address (only one is
+                    // installed): lets the whole-vehicle scan skip a group's
+                    // siblings once any member answers
+                    variantGroups = state.Config.VariantGroups(ch),
                 });
             }
             catch (FileNotFoundException) { return Results.NotFound(new { error = $"unknown chassis {id}" }); }

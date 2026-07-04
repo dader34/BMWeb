@@ -259,4 +259,60 @@ public sealed class InpaConfig
     // the CodePages provider itself is registered once in EncodingBootstrap.
     private static readonly Encoding s_latin1 = Encoding.GetEncoding(1252);
     private static Encoding Latin1() => s_latin1;
+
+    // ---- variant groups, derived from the entries' .IPO address references ----
+    // ECUs sharing one diagnostic address are alternatives: only one is
+    // installed, so a whole-vehicle scan can skip a group's remaining members
+    // once any of them answers. The compiled .IPO frontends reference their
+    // address group file (D_0012 = the DME address, D_0032 = transmission,
+    // ...), which gives the grouping statically. Rules validated against the
+    // hand-curated E46/E36 tables:
+    //   - tokens are matched within one section only (cross-section token
+    //     reuse is utility references, not shared addresses)
+    //   - D_0080 is the functional broadcast address every frontend may
+    //     reference; grouping on it would merge unrelated modules
+    // Entries whose .IPO carries no usable token stay ungrouped here; the
+    // renderer merges its known hand-curated groups on top.
+    private static readonly Regex GroupToken = new(@"D_00[0-9A-Fa-f]{2}",
+                                                   RegexOptions.Compiled);
+    private readonly Dictionary<string, List<List<string>>> _groupCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public List<List<string>> VariantGroups(Chassis chassis)
+    {
+        if (_groupCache.TryGetValue(chassis.Id, out var cached)) return cached;
+        var groups = new List<List<string>>();
+        foreach (var section in chassis.Sections)
+        {
+            var byToken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var ecu in section.Ecus)
+            {
+                foreach (string token in IpoGroupTokens(ecu.Code))
+                {
+                    if (string.Equals(token, "D_0080", StringComparison.OrdinalIgnoreCase))
+                        continue; // functional broadcast, referenced by many
+                    if (!byToken.TryGetValue(token, out var list))
+                        byToken[token] = list = new List<string>();
+                    if (!list.Contains(ecu.Code)) list.Add(ecu.Code);
+                }
+            }
+            foreach (var list in byToken.Values)
+                if (list.Count >= 2) groups.Add(list);
+        }
+        _groupCache[chassis.Id] = groups;
+        return groups;
+    }
+
+    // distinct D_00xx address-group tokens in an entry's compiled .IPO
+    private IEnumerable<string> IpoGroupTokens(string code)
+    {
+        if (!Directory.Exists(_sgDat)) yield break;
+        string ipo = Directory.EnumerateFiles(_sgDat, "*.IPO")
+            .FirstOrDefault(f => string.Equals(
+                Path.GetFileNameWithoutExtension(f), code, StringComparison.OrdinalIgnoreCase));
+        if (ipo == null) yield break;
+        string text = System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(ipo));
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match m in GroupToken.Matches(text))
+            if (seen.Add(m.Value)) yield return m.Value;
+    }
 }

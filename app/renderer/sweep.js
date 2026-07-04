@@ -24,18 +24,28 @@ const VARIANT_GROUPS = {
     dsc:    ['absasc4', 'absasc4g', 'ascdsc46', 'absasc5', 'dscmk60'],
   },
 };
-// INPA entry code -> group key (case-insensitive), within a chassis. the groups
-// list ENTRY codes (MS450, gsds2), which the chassis API returns as ecu.code;
-// ecu.sgbd is the resolved .prg name (ms450ds0) and would never match. unknown
-// chassis -> no grouping (every ECU scanned), which is safe, just slower.
-const _groupOf = (code, chassisId) => {
-  const groups = VARIANT_GROUPS[(chassisId || '').toUpperCase()];
-  if (!groups) return null;
-  const s = (code || '').toLowerCase();
-  for (const [k, list] of Object.entries(groups))
-    if (list.some(x => x.toLowerCase() === s)) return k;
-  return null;
-};
+// build a code -> group lookup for one chassis: the server derives groups from
+// the entries' .IPO address references (works for every chassis), and the
+// hand-curated tables above fill the gaps where an .IPO carries no usable
+// token (MS450, dscmk60, ...). hand entries join a derived group when they
+// share a member, else they form their own. unknown codes -> null (scanned
+// normally), which is safe, just slower.
+function buildGroupLookup(ch) {
+  const groups = (ch.variantGroups || []).map(g => new Set(g.map(c => String(c).toLowerCase())));
+  const hand = VARIANT_GROUPS[(ch.id || '').toUpperCase()];
+  if (hand) {
+    for (const list of Object.values(hand)) {
+      const set = new Set(list.map(c => c.toLowerCase()));
+      const overlap = groups.find(g => [...set].some(c => g.has(c)));
+      if (overlap) set.forEach(c => overlap.add(c));
+      else groups.push(set);
+    }
+  }
+  const byCode = new Map();
+  // string keys: a numeric 0 would read falsy at the `grp &&` skip checks
+  groups.forEach((g, i) => g.forEach(c => byCode.set(c, `g${i}`)));
+  return (code) => byCode.get(String(code || '').toLowerCase()) || null;
+}
 // stable fault signature for echo dedup. F_HEX_CODE is globally unique (BMW DTC);
 // F_ORT_NR is only an ECU-local index, so fall back to it only if hex is absent.
 const _faultSig = (codes) =>
@@ -71,6 +81,7 @@ async function quickErrorSweep(chassisId) {
   const ch = await tryApi(`/api/chassis/${id}`, null, out);
   if (!ch) return;
   const ecus = dedupEcus(ch); sortByPriority(ecus, id);
+  const groupOf = buildGroupLookup(ch);
   out.innerHTML = `<div class="quick-sweep">
     <div class="quick-bar">
       <div class="quick-head">${ecus.length} modules · scanning…</div>
@@ -92,7 +103,7 @@ async function quickErrorSweep(chassisId) {
   const faulty = [];               // modules that reported faults, for the deep pass
   for (const ecu of ecus) {
     if (!alive()) return;          // user left the sweep; stop reading the bus
-    const grp = _groupOf(ecu.code, id);
+    const grp = groupOf(ecu.code);
     const row = addSweepRow(rows, ecu.label);
 
     if (grp && groupDone.has(grp)) {
@@ -237,6 +248,7 @@ async function quickIdentSweep(chassisId) {
   try { ch = await api(`/api/chassis/${id}`); }
   catch (e) { out.innerHTML = errorBlock(e.message); return; }
   const ecus = dedupEcus(ch); sortByPriority(ecus, id);
+  const groupOf = buildGroupLookup(ch);
   out.innerHTML = `<div class="quick-sweep"><div class="quick-head">${ecus.length} modules · identifying…</div><div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   const head_ = out.querySelector('.quick-head');
@@ -244,7 +256,7 @@ async function quickIdentSweep(chassisId) {
   const groupDone = new Set();
   for (const ecu of ecus) {
     if (!alive()) return;          // user left the sweep; stop reading the bus
-    const grp = _groupOf(ecu.code, id);
+    const grp = groupOf(ecu.code);
     const row = addSweepRow(rows, ecu.label);
     if (grp && groupDone.has(grp)) { row.classList.add('noresp'); row.querySelector('.quick-status').textContent = 'skipped (variant)'; continue; }
     try {
