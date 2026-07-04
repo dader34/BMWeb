@@ -1043,14 +1043,18 @@ select.modal-input { appearance: none; cursor: pointer; }
   transition: left .28s ease, top .28s ease, width .28s ease, height .28s ease;
 }
 .tour-tip {
-  position: fixed; width: 340px; padding: 16px 18px 14px;
+  position: fixed; width: min(380px, calc(100vw - 24px)); padding: 16px 18px 14px;
   background: var(--panel-2); border: 1px solid var(--line-bright);
   border-radius: 12px; box-shadow: var(--shadow);
 }
 .tour-title { font: 700 15px var(--display); color: var(--ink); margin-bottom: 6px; }
 .tour-body { font: 400 12.5px/1.55 var(--display); color: var(--ink-dim); }
-.tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
-.tour-dots { display: flex; gap: 5px; }
+/* footer stacks: dots row, then buttons; never wider than the card */
+.tour-foot { margin-top: 14px; }
+.tour-dots { display: flex; gap: 5px; justify-content: center; margin-bottom: 10px; }
+.tour-btns { justify-content: flex-end; }
+.tour-btns .tour-skip { margin-right: auto; }
+.tour-btns .btn { padding: 7px 14px; font-size: 12px; }
 .tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-bright); }
 .tour-dot.active { background: var(--amber); }
 .tour-btns { display: flex; gap: 8px; }

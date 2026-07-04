@@ -1,9 +1,27 @@
 // first-run tutorial: a one-time offer dialog, and a coach-mark tour that
-// spotlights the app's real controls (connection LED, KL indicators, main
-// view, F-key bar, Flashing, Settings). Re-runnable any time from Settings.
+// spotlights the app's real controls and walks into a real module along the
+// way. Re-runnable any time from Settings.
 //
 // the tour root carries the modal-overlay class so the global action-key
 // handler (core.js) stands down while it's up; the tour owns Esc/arrows.
+// steps may live on different screens: each declares `screen`, and the tour
+// navigates (home = vehicle picker, module = a real ECU opened offline)
+// whenever the step's screen differs from the current one.
+
+// open the tour's demo module: the E46 engine ECU, which renders fully
+// offline (menu, layouts, fault screen). falls back to the first module of
+// the first section when the expected one is missing.
+async function openTourModule() {
+  const ch = await api('/api/chassis/E46');
+  const sec = ch.sections.find(s => /engine|motor/i.test(s.name)) || ch.sections[0];
+  const ecu = sec.ecus.find(e => /ms45/i.test(e.sgbd)) || sec.ecus[0];
+  await showEcu('E46', sec.name, ecu);
+}
+
+const TOUR_SCREENS = {
+  home: () => showChassis(),
+  module: () => openTourModule(),
+};
 
 // steps are built at start time so they match the active layout mode (classic
 // F-key list vs modern cards) and only reference elements that exist.
@@ -11,6 +29,7 @@ function tourSteps() {
   const classic = typeof inpaMode === 'function' && inpaMode();
   const steps = [
     {
+      screen: 'home',
       sel: '#link-status',
       title: 'Cable & connection',
       body: 'BMacW talks to the car over a K+DCAN USB cable. This LED shows '
@@ -19,6 +38,7 @@ function tourSteps() {
           + 'offline, so feel free to explore before you plug in.',
     },
     {
+      screen: 'home',
       sel: '#kl-state',
       title: 'Battery & ignition',
       body: 'Live battery voltage and ignition state, read from the engine '
@@ -26,67 +46,62 @@ function tourSteps() {
           + 'ignition stays off, turn the key to position 2 before running '
           + 'diagnostics.',
     },
-  ];
-
-  if (classic) {
-    steps.push(
-      {
-        sel: '.inpa-vsel',
-        title: 'Select your vehicle',
-        body: 'Each row is a chassis. Press the function key shown, the '
-            + 'matching number key, or click the row. Common models are '
-            + 'listed here; everything else lives under "Other models".',
-      },
-      {
-        sel: '#vsel-special',
-        title: 'Special tests',
-        body: 'Whole-vehicle jobs that scan every module in one pass: a '
-            + 'quick error-memory sweep with per-module results, clear '
-            + 'buttons, and a PDF report, plus a quick identification scan.',
-      },
-    );
-  } else {
-    steps.push({
+    classic ? {
+      screen: 'home',
+      sel: '.inpa-vsel',
+      title: 'Select your vehicle',
+      body: 'Each row is a chassis. Press the function key shown, the '
+          + 'matching number key, or click the row. Common models are '
+          + 'listed here; everything else lives under "Other models".',
+    } : {
+      screen: 'home',
       sel: '.chassis-grid',
       title: 'Select your vehicle',
       body: 'Click a chassis card to load its control modules, grouped by '
           + 'system: engine, transmission, brakes, body. The number keys '
           + 'jump to common chassis directly.',
+    },
+  ];
+  if (classic) {
+    steps.push({
+      screen: 'home',
+      sel: '#vsel-special',
+      title: 'Special tests',
+      body: 'Whole-vehicle jobs that scan every module in one pass: a '
+          + 'quick error-memory sweep with per-module results, clear '
+          + 'buttons, and a PDF report, plus a quick identification scan.',
     });
   }
-
   steps.push(
     {
-      sel: '#crumbs',
+      screen: 'module',
+      sel: '.inpa-haupt, .group-grid',
+      title: 'Inside a module',
+      body: 'This is a real module: the E46 engine ECU. Its functions are '
+          + 'grouped the way the factory tool groups them. Fault memory '
+          + 'reads codes with plain English descriptions, detail, freeze '
+          + 'frames, and clear; Status screens show live values; '
+          + 'Activations run actuator tests.',
+    },
+    {
+      screen: 'module',
+      sel: '.breadcrumbs',
       title: 'Breadcrumbs',
       body: 'Always shows where you are: vehicle, module, screen. Click any '
           + 'part to jump straight back to it.',
     },
     {
-      sel: '#view',
-      title: 'Inside a module',
-      body: 'Every module offers its functions the same way: read the fault '
-          + 'memory (with detail, freeze frames, and clear), watch live '
-          + 'values as gauge screens generated from factory data, and run '
-          + 'actuator tests under Activations. Faults come with plain '
-          + 'English descriptions and can be exported as a PDF report.',
-    },
-    {
-      sel: '#view',
-      title: 'Live values',
-      body: 'Status screens poll the ECU continuously and draw each value '
-          + 'as a gauge with a sensible range. Select several values to '
-          + 'watch them together, and stream the readings to a CSV file '
-          + 'with timestamps for logging drives.',
-    },
-    {
+      screen: 'module',
       sel: '#fkeybar',
       title: 'Function keys',
       body: 'Every action on the current screen has a key: digits select, '
           + 'Esc or Delete goes back. The status line in the corner shows '
-          + 'what the app is doing at all times.',
+          + 'what the app is doing at all times. Live values poll '
+          + 'continuously as gauges, and several can be watched together '
+          + 'or streamed to a CSV file with timestamps.',
     },
     {
+      screen: 'module',
       sel: '#flash-btn',
       title: 'Flashing',
       body: 'Identify the DME, then read or back up its flash regions over '
@@ -94,6 +109,7 @@ function tourSteps() {
           + 'ever written to the ECU.',
     },
     {
+      screen: 'module',
       sel: '#settings-btn',
       title: 'Make it yours',
       body: 'Pick a theme, switch between classic and modern screen '
@@ -121,14 +137,13 @@ async function maybeOfferTutorial() {
 }
 
 // spotlight tour over the live UI. Esc/Skip ends it; ←/→ and the buttons
-// navigate; the ring and tip track their target on window resize.
+// navigate (crossing screens when the step calls for it); the ring and tip
+// track their target on window resize. Ends back on the vehicle screen.
 async function startTutorial() {
   if (document.querySelector('.tour-overlay')) return; // one tour at a time
-  // the tour narrates the home screen, so go there first (a re-run from
-  // Settings would otherwise spotlight the wrong screen)
-  try { await showChassis(); } catch { /* tour still works on any screen */ }
-  const steps = tourSteps().filter(s => document.querySelector(s.sel));
-  if (!steps.length) return;
+  const steps = tourSteps();
+  let currentScreen = null;
+  let navigating = false;
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay tour-overlay show';
@@ -138,7 +153,8 @@ async function startTutorial() {
       <div class="tour-title"></div>
       <div class="tour-body"></div>
       <div class="tour-foot">
-        <div class="tour-dots"></div>
+        <div class="tour-dots">${steps.map((_, n) =>
+          `<span class="tour-dot" data-n="${n}"></span>`).join('')}</div>
         <div class="tour-btns">
           <button class="btn tour-skip">Skip</button>
           <button class="btn tour-back">Back</button>
@@ -155,13 +171,28 @@ async function startTutorial() {
   const nextBtn = overlay.querySelector('.tour-next');
   let i = 0;
 
-  dots.innerHTML = steps.map((_, n) =>
-    `<span class="tour-dot" data-n="${n}"></span>`).join('');
+  // enter step n (dir = which way to keep moving when a target is missing),
+  // navigating between screens when the step lives elsewhere
+  async function show(n, dir = 1) {
+    if (navigating) return;
+    while (n >= 0 && n < steps.length) {
+      const step = steps[n];
+      if (step.screen && step.screen !== currentScreen) {
+        navigating = true;
+        try { await TOUR_SCREENS[step.screen](); currentScreen = step.screen; }
+        catch { /* screen unavailable: skip past this step */ }
+        navigating = false;
+      }
+      if (document.querySelector(step.sel)) { i = n; place(); return; }
+      n += dir; // target missing in this mode/screen: keep moving
+    }
+    end();
+  }
 
   function place() {
     const step = steps[i];
     const el = document.querySelector(step.sel);
-    if (!el) { next(); return; }
+    if (!el) { show(i + 1, 1); return; }
     const pad = 8;
     const r = el.getBoundingClientRect();
     ring.style.left = `${r.left - pad}px`;
@@ -193,12 +224,15 @@ async function startTutorial() {
 
   function end() {
     window.removeEventListener('keydown', onKey, true);
-    window.removeEventListener('resize', place);
+    window.removeEventListener('resize', onResize);
     overlay.classList.remove('show');
     setTimeout(() => overlay.remove(), 160);
+    // don't leave the user stranded mid-demo: finish on the vehicle screen
+    if (currentScreen !== 'home') { try { showChassis(); } catch { } }
   }
-  function next() { if (i >= steps.length - 1) { end(); return; } i++; place(); }
-  function back() { if (i > 0) { i--; place(); } }
+  const next = () => { if (i >= steps.length - 1) end(); else show(i + 1, 1); };
+  const back = () => { if (i > 0) show(i - 1, -1); };
+  const onResize = () => place();
 
   function onKey(e) {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); end(); }
@@ -211,6 +245,6 @@ async function startTutorial() {
   nextBtn.onclick = next;
   overlay.onclick = (e) => { if (e.target === overlay) end(); };
   window.addEventListener('keydown', onKey, true);
-  window.addEventListener('resize', place);
-  place();
+  window.addEventListener('resize', onResize);
+  await show(0, 1);
 }
