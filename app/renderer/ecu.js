@@ -85,6 +85,20 @@ function sectionLabel(name) {
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+// what kind of caution a flagged job actually is, so the badge tells the truth.
+// a flash READ (FLASH_..._LESEN, read programming status) is only dangerous in
+// context, not a write — call that "flash", not "write".
+function dangerBadge(job) {
+  const j = (job || '').toUpperCase();
+  if (/LOESCHEN/.test(j)) return 'clear';
+  if (/LESEN/.test(j)) return 'flash';                 // flash-session read
+  if (/SCHREIBEN|_SETZEN|PROGRAMMIER|WRITE/.test(j)) return 'write';
+  if (/FLASH|SIGNATUR|AUTHENTIS|CRC/.test(j)) return 'flash';
+  if (/RESET|BAUDRATE/.test(j)) return 'reset';
+  if (/STEUERN|STELLGLIED/.test(j)) return 'drives';   // actuator
+  return 'caution';
+}
+
 // ---- INPA menu-tree adapter -------------------------------------------------
 // newer layouts (inpa2json) carry INPA's real MENU/ITEM navigation tree. adapt
 // it on the fly into the app's sections model so every existing renderer
@@ -383,7 +397,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     row.innerHTML = `
       ${isStatus ? '<span class="job-check" role="checkbox" aria-checked="false"></span>' : '<span class="job-bullet"></span>'}
       <span class="job-label">${esc(itemLabel(it))}</span>
-      ${it.danger ? '<span class="job-warn">write</span>' : ''}`;
+      ${it.danger ? `<span class="job-warn">${dangerBadge(it.job)}</span>` : ''}`;
     if (isStatus) {
       rowByJob.set(it.job, row);
       // row click toggles selection
