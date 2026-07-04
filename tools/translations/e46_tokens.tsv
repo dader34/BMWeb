@@ -330,7 +330,7 @@ KD	Service
 ADD	Add
 DICHTHEIT	Leak Tightness
 MUL	Multiplexer
-SLP	Sleep
+SLP	Secondary Air Pump
 BANK1	Bank 1
 VERBRAUCH	Consumption
 AEI	AEI
@@ -442,7 +442,7 @@ SONDENHEIZUNG	Sensor Heating
 AGK	EGR Cooler
 EBL	Single Cylinder Ignition
 SOLL	Target
-SLV	SLV
+SLV	Secondary Air Valve
 BANK2	Bank 2
 ZIF	ZIF
 CODE	Code
