@@ -270,13 +270,63 @@ const DE_TOKENS = [
 ];
 // memoized: the token pass runs ~120 regexes per string and fault renders /
 // sweeps hit the same strings repeatedly. capped to bound memory.
+// Exact full-sentence overrides for job-argument comments. A word table can't
+// reorder German syntax, so the common whole sentences (the top few cover
+// thousands of arg occurrences across the fleet) are translated as units,
+// matched before the token pass. Keyed on the trimmed comment verbatim.
+const ARG_PHRASES = {
+  'Als Argument wird ein vorgefuellter Binaerbuffer uebergeben':
+    'Pass a pre-built binary buffer as the argument',
+  '"ja"   -> Funktionale Adresse 0xEF wird benutzt':
+    '"yes" -> use functional address 0xEF',
+  '0x????: Angabe eines einzelnen Fehlers': '0x????: a single fault',
+  'Zu übertragende Blocknummer (Zähler) bei langen Datenstreams':
+    'block number (counter) to transfer for long data streams',
+  "Wenn 'JA' wird der Messwertblock im SG gelöscht":
+    "'YES' clears the measurement block in the ECU",
+  'Abgleichdaten in folgendem Format': 'adjustment data in the following format',
+  'Auswahl eines Stellers (Pflicht)': 'select an actuator (required)',
+  'Auswahl eines Tests (Pflicht)': 'select a test (required)',
+  'Auswahl eines Tests': 'select a test',
+  'Nummer der auszulesenden Stützstellenkombination':
+    'number of the reference-point combination to read',
+  'Länge der folgenden Information wie die Antwort erhalten wird.':
+    'length of the following info on how the response is received.',
+  'ASCII-codiert Information wie die Antwort erhalten wird:':
+    'ASCII-coded info on how the response is received:',
+  'wird die Nummer des zu lesenden Fehlers im Fehlerspeicher uebergeben':
+    'pass the number of the fault to read from the fault memory',
+  'wird die Nummer des zu lesenden Fehlers uebergeben':
+    'pass the number of the fault to read',
+  'kleines x muss Charakter sein 0-9 oder A-Z':
+    'lowercase x must be a character 0-9 or A-Z',
+  'Dieser Job ist mit Passwort geschützt': 'This job is password protected',
+  'Wird nur bei Motoren mit 2 Bänken benötigt (M67TÜ)':
+    'only needed on engines with 2 banks (M67TU)',
+  'gibt einen absoluten Verstellwinkel an (0..180 Grd)':
+    'specifies an absolute adjustment angle (0..180 deg)',
+  'Dient nur zur Sicherheit, wird nicht': 'for safety only, is not',
+  'Länge des Individualisierungs Datenstream oder -streamstücks':
+    'length of the individualization data stream or stream piece',
+  'Individualdaten können via CAN oder MOST oder XY erreicht werden':
+    'individual data can be reached via CAN or MOST or XY',
+  'Individualdaten können via CAN oder MOST oder XY geschrieben werden':
+    'individual data can be written via CAN or MOST or XY',
+  'Übergabe im Format Messagenummern zB.: 00C0000D für N und V':
+    'pass as message numbers, e.g. 00C0000D for N and V',
+  'Einzelkerze rücksetzen: GLU1 ... GLU6 (... GLU8)':
+    'reset single glow plug: GLU1 ... GLU6 (... GLU8)',
+};
+
 const _deCache = new Map();
 function deGerman(text) {
   if (!text) return text;
   if (lang() === 'orig') return text; // keep German in EDIABAS mode
   if (_deCache.has(text)) return _deCache.get(text);
   let out = null;
-  for (const [de, en] of FAULT_PHRASES) if (text === de) { out = en; break; }
+  const trimmed = text.trim();
+  if (ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];         // exact sentence
+  if (out === null) for (const [de, en] of FAULT_PHRASES) if (text === de) { out = en; break; }
   if (out === null) {
     // token-level fallback for partial/unlisted phrases (P-code text, etc.)
     out = text;
