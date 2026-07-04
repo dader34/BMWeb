@@ -48,6 +48,38 @@ internal static class Program
             return 0;
         }
 
+        // dump every job argument label + comment across all vendored SGBDs
+        // (offline, for translation-coverage mining). one TSV line per arg:
+        //   <sgbd>\t<job>\t<ARG>\t<ARGCOMMENT0>
+        if (cmd == "dumpargs")
+        {
+            var prgs = Directory.EnumerateFiles(ecuPath, "*.prg")
+                .Concat(Directory.EnumerateFiles(ecuPath, "*.PRG"))
+                .Select(f => Path.GetFileNameWithoutExtension(f))
+                .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x);
+            var outw = Console.Out;
+            foreach (var prgName in prgs)
+            {
+                using var d = new Diag(ecuPath);
+                List<string> jobs;
+                try { d.Load(prgName); jobs = d.Jobs(); } catch { continue; }
+                foreach (var job in jobs)
+                {
+                    List<Dictionary<string, EdiabasNet.ResultData>> sets;
+                    try { sets = d.Run("_ARGUMENTS", job); } catch { continue; }
+                    foreach (var set in sets)
+                    {
+                        if (!(set.TryGetValue("ARG", out var a) && a.OpData is string arg) || arg.Length == 0)
+                            continue;
+                        string comment = set.TryGetValue("ARGCOMMENT0", out var c) && c.OpData is string cs
+                            ? cs.Replace("\t", " ").Replace("\n", " ").Trim() : "";
+                        outw.WriteLine($"{prgName}\t{job}\t{arg}\t{comment}");
+                    }
+                }
+            }
+            return 0;
+        }
+
         // INPA navigation tree (offline, no engine)
         if (cmd == "chassis")
         {
