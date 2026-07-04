@@ -9,43 +9,39 @@ const TOUR_STEPS = [
   {
     sel: '#link-status',
     title: 'Cable & connection',
-    body: 'BMacW talks to the car over a K+DCAN USB cable. This LED shows the '
-        + 'link state — with no cable connected you can still browse every '
-        + 'screen offline.',
+    body: 'BMacW talks to the car over a K+DCAN USB cable. This LED shows '
+        + 'the link state. With no cable connected you can still browse '
+        + 'every screen offline.',
   },
   {
     sel: '#kl-state',
     title: 'Battery & ignition',
-    body: 'Live battery voltage (KL30) and ignition state (KL15), read from '
-        + 'the engine ECU once a cable is connected — the same indicators '
-        + 'INPA shows top of screen.',
+    body: 'Live battery voltage and ignition state, read from the engine '
+        + 'ECU once a cable is connected.',
   },
   {
     sel: '#view',
     title: 'Vehicles, systems, modules',
     body: 'Pick a chassis, then a system, then a control module. Menus and '
-        + 'gauge screens are generated from BMW\'s own INPA definitions, so '
-        + 'they match what the factory tool shows.',
+        + 'gauge screens are generated from BMW\'s own factory definitions.',
   },
   {
     sel: '#fkeybar',
     title: 'Function keys',
     body: 'Every action down here has a key: digits select, Esc or Delete '
-        + 'goes back — exactly like INPA. The status line shows what the app '
-        + 'is doing.',
+        + 'goes back. The status line shows what the app is doing.',
   },
   {
     sel: '#flash-btn',
     title: 'Flashing',
     body: 'Identify the DME and read or back up its flash regions. The '
-        + 'current stages are read-only — nothing is written to the ECU.',
+        + 'current stages are read-only, so nothing is written to the ECU.',
   },
   {
     sel: '#settings-btn',
     title: 'Make it yours',
-    body: 'Themes (including the faithful INPA look), English or original '
-        + 'EDIABAS labels, auto-scan, a startup vehicle — and this tour, any '
-        + 'time, from Settings.',
+    body: 'Themes, English or original EDIABAS labels, auto-scan, a startup '
+        + 'vehicle, and this tour, any time, from Settings.',
   },
 ];
 
