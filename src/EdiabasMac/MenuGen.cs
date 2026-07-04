@@ -39,6 +39,10 @@ public static class MenuGen
         // rolling-code handshake. INPA labels it "EWS/CAS-Startwertabgleich".
         ["STEUERN_SYNC_MODE"] = "EWS/CAS sync (immobilizer)",
         ["STATUS_SYNC_MODE"] = "EWS/CAS sync status",
+        // CO idle-mixture adjustment: live trim, then permanent store
+        ["STEUERN_CO_ABGLEICH_VERSTELL"] = "CO idle mixture: adjust",
+        ["STEUERN_CO_ABGLEICH_PROGRAMMIEREN"] = "CO idle mixture: save (program)",
+        ["STEUERN_LLABG_PROG"] = "Idle adjustment: save (program)",
     };
 
     // jobs that do something far more consequential than a normal actuator

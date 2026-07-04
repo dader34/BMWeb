@@ -121,7 +121,7 @@ VERSTELLEN	Adjust
 HW	Hardware
 NUR	Only
 BETR	Operation
-GLF	GLF
+GLF	Radiator Shutter
 SIGNAL	Signal
 WERT	Value
 VERSTELLZEIT	Adjustment Time
@@ -337,7 +337,7 @@ AEI	AEI
 TEVSYS	Purge Valve System
 DOWN	Down
 CAN	CAN
-KOREL	Correlation
+KOREL	A/C Compressor Relay
 LSHK1H	O2 Sensor Bank1 Heater
 MOTORTEMPERATUR	Engine Temperature
 SYSTEM	System
@@ -439,8 +439,8 @@ IO	OK
 PROG	Program
 HERSTELLERDATEN	Manufacturer Data
 SONDENHEIZUNG	Sensor Heating
-AGK	EGR Cooler
-EBL	Single Cylinder Ignition
+AGK	Exhaust Flap
+EBL	E-Box Fan
 SOLL	Target
 SLV	Secondary Air Valve
 BANK2	Bank 2
@@ -532,3 +532,9 @@ SAUGSTRAHLPUMPE	Suction Jet Pump
 SSP	SSP
 STARTEN	Start
 WECHSELCODE	Rolling Code
+EV1	Injector Cyl. 1
+EV2	Injector Cyl. 2
+EV3	Injector Cyl. 3
+EV4	Injector Cyl. 4
+EV5	Injector Cyl. 5
+EV6	Injector Cyl. 6
