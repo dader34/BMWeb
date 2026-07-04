@@ -241,6 +241,13 @@ function fireAction(a) {
 
 window.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // an open modal owns the keyboard (openModal wires its own handler).
+  // without this, Backspace behind the INPA Script-selection popup fired the
+  // screen's "back" action again and stacked another popup per press.
+  if (document.querySelector('.modal-overlay')) return;
+  // typing in an input/select must never trigger screen actions
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
   let key = e.key;
   // Esc and Backspace both act as back (F10)
   if (key === 'Escape' || key === 'Backspace') {
@@ -255,7 +262,7 @@ window.addEventListener('keydown', (e) => {
 function head(eyebrow, title, subtitle) {
   return `<div class="screen-head">
     <div class="eyebrow">${esc(eyebrow)}</div>
-    <h1 class="title">${esc(title)}</h1>
+    ${title ? `<h1 class="title">${esc(title)}</h1>` : ''}
     ${subtitle ? `<p class="subtitle">${esc(subtitle)}</p>` : ''}
   </div>`;
 }

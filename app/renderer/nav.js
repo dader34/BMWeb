@@ -16,7 +16,7 @@ async function showChassis() {
     const main = COMMON.filter(id => ids.includes(id));
     const old = ids.filter(id => !main.includes(id)); // everything else
 
-    view.innerHTML = head('Vehicles', 'INPA', 'Select your vehicle.');
+    view.innerHTML = head('Vehicles', '', 'Select your vehicle.');
     const panel = document.createElement('div');
     panel.className = 'inpa-vsel';
     const fnRow = (i, id, label) => `
