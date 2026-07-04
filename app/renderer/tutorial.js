@@ -5,45 +5,105 @@
 // the tour root carries the modal-overlay class so the global action-key
 // handler (core.js) stands down while it's up; the tour owns Esc/arrows.
 
-const TOUR_STEPS = [
-  {
-    sel: '#link-status',
-    title: 'Cable & connection',
-    body: 'BMacW talks to the car over a K+DCAN USB cable. This LED shows '
-        + 'the link state. With no cable connected you can still browse '
-        + 'every screen offline.',
-  },
-  {
-    sel: '#kl-state',
-    title: 'Battery & ignition',
-    body: 'Live battery voltage and ignition state, read from the engine '
-        + 'ECU once a cable is connected.',
-  },
-  {
-    sel: '#view',
-    title: 'Vehicles, systems, modules',
-    body: 'Pick a chassis, then a system, then a control module. Menus and '
-        + 'gauge screens are generated from BMW\'s own factory definitions.',
-  },
-  {
-    sel: '#fkeybar',
-    title: 'Function keys',
-    body: 'Every action down here has a key: digits select, Esc or Delete '
-        + 'goes back. The status line shows what the app is doing.',
-  },
-  {
-    sel: '#flash-btn',
-    title: 'Flashing',
-    body: 'Identify the DME and read or back up its flash regions. The '
-        + 'current stages are read-only, so nothing is written to the ECU.',
-  },
-  {
-    sel: '#settings-btn',
-    title: 'Make it yours',
-    body: 'Themes, English or original EDIABAS labels, auto-scan, a startup '
-        + 'vehicle, and this tour, any time, from Settings.',
-  },
-];
+// steps are built at start time so they match the active layout mode (classic
+// F-key list vs modern cards) and only reference elements that exist.
+function tourSteps() {
+  const classic = typeof inpaMode === 'function' && inpaMode();
+  const steps = [
+    {
+      sel: '#link-status',
+      title: 'Cable & connection',
+      body: 'BMacW talks to the car over a K+DCAN USB cable. This LED shows '
+          + 'the link state: green when the cable answers, red when it does '
+          + 'not. With no cable connected you can still browse every screen '
+          + 'offline, so feel free to explore before you plug in.',
+    },
+    {
+      sel: '#kl-state',
+      title: 'Battery & ignition',
+      body: 'Live battery voltage and ignition state, read from the engine '
+          + 'ECU once a cable is connected. If the voltage shows but '
+          + 'ignition stays off, turn the key to position 2 before running '
+          + 'diagnostics.',
+    },
+  ];
+
+  if (classic) {
+    steps.push(
+      {
+        sel: '.inpa-vsel',
+        title: 'Select your vehicle',
+        body: 'Each row is a chassis. Press the function key shown, the '
+            + 'matching number key, or click the row. Common models are '
+            + 'listed here; everything else lives under "Other models".',
+      },
+      {
+        sel: '#vsel-special',
+        title: 'Special tests',
+        body: 'Whole-vehicle jobs that scan every module in one pass: a '
+            + 'quick error-memory sweep with per-module results, clear '
+            + 'buttons, and a PDF report, plus a quick identification scan.',
+      },
+    );
+  } else {
+    steps.push({
+      sel: '.chassis-grid',
+      title: 'Select your vehicle',
+      body: 'Click a chassis card to load its control modules, grouped by '
+          + 'system: engine, transmission, brakes, body. The number keys '
+          + 'jump to common chassis directly.',
+    });
+  }
+
+  steps.push(
+    {
+      sel: '#crumbs',
+      title: 'Breadcrumbs',
+      body: 'Always shows where you are: vehicle, module, screen. Click any '
+          + 'part to jump straight back to it.',
+    },
+    {
+      sel: '#view',
+      title: 'Inside a module',
+      body: 'Every module offers its functions the same way: read the fault '
+          + 'memory (with detail, freeze frames, and clear), watch live '
+          + 'values as gauge screens generated from factory data, and run '
+          + 'actuator tests under Activations. Faults come with plain '
+          + 'English descriptions and can be exported as a PDF report.',
+    },
+    {
+      sel: '#view',
+      title: 'Live values',
+      body: 'Status screens poll the ECU continuously and draw each value '
+          + 'as a gauge with a sensible range. Select several values to '
+          + 'watch them together, and stream the readings to a CSV file '
+          + 'with timestamps for logging drives.',
+    },
+    {
+      sel: '#fkeybar',
+      title: 'Function keys',
+      body: 'Every action on the current screen has a key: digits select, '
+          + 'Esc or Delete goes back. The status line in the corner shows '
+          + 'what the app is doing at all times.',
+    },
+    {
+      sel: '#flash-btn',
+      title: 'Flashing',
+      body: 'Identify the DME, then read or back up its flash regions over '
+          + 'the cable. The current stages are read-only, so nothing is '
+          + 'ever written to the ECU.',
+    },
+    {
+      sel: '#settings-btn',
+      title: 'Make it yours',
+      body: 'Pick a theme, switch between classic and modern screen '
+          + 'layouts, choose English or original EDIABAS labels, enable '
+          + 'auto-scan on open, set a startup vehicle, and replay this '
+          + 'tour, any time, from Settings.',
+    },
+  );
+  return steps;
+}
 
 // one-time offer on first boot. whatever the answer, never ask again
 // (re-runnable from Settings). easily dismissed: Esc / Not now / backdrop.
@@ -62,9 +122,12 @@ async function maybeOfferTutorial() {
 
 // spotlight tour over the live UI. Esc/Skip ends it; ←/→ and the buttons
 // navigate; the ring and tip track their target on window resize.
-function startTutorial() {
+async function startTutorial() {
   if (document.querySelector('.tour-overlay')) return; // one tour at a time
-  const steps = TOUR_STEPS.filter(s => document.querySelector(s.sel));
+  // the tour narrates the home screen, so go there first (a re-run from
+  // Settings would otherwise spotlight the wrong screen)
+  try { await showChassis(); } catch { /* tour still works on any screen */ }
+  const steps = tourSteps().filter(s => document.querySelector(s.sel));
   if (!steps.length) return;
 
   const overlay = document.createElement('div');
