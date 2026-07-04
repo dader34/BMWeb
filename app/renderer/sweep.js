@@ -53,8 +53,8 @@ async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
   const token = ++_sweepToken;            // claim this run
   const alive = () => token === _sweepToken;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Quick error sweep' }]);
-  view.innerHTML = head('Special tests', 'Quick error memory test', `Scanning every module on the ${dispChassis(id)} for stored faults…`);
+  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Full Module Error Scan' }]);
+  view.innerHTML = head('Whole vehicle', 'Full Module Error Scan', `Scanning every module on the ${dispChassis(id)} for stored faults…`);
   const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => { cancelSweep(); showSections(id); } }]);
   loadFaultDb(); // warm the name db before detail rows render
@@ -167,7 +167,7 @@ async function quickErrorSweep(chassisId) {
 
   headEl.textContent =
     `Done · ${scanned} read, ${skipped} skipped · ${withFaults} with stored faults${dupes ? ` · ${dupes} echoes hidden` : ''}`;
-  sbLeft.textContent = `quick sweep · ${withFaults} faulty`;
+  sbLeft.textContent = `full module error scan · ${withFaults} faulty`;
 }
 
 // status cell for a faulty module: fault count plus a Clear button.
@@ -220,7 +220,7 @@ async function quickIdentSweep(chassisId) {
   const token = ++_sweepToken;
   const alive = () => token === _sweepToken;
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Quick identification' }]);
-  view.innerHTML = head('Special tests', 'Quick identification', `Identifying every module on the ${dispChassis(id)}…`);
+  view.innerHTML = head('Whole vehicle', 'Quick identification', `Identifying every module on the ${dispChassis(id)}…`);
   const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => { cancelSweep(); showSections(id); } }]);
   let ch;

@@ -160,7 +160,7 @@ function showFunctionalJobs(chassisId) {
 
   const jobs = [
     { key: '2', name: 'Identification', desc: 'Identify every module on the car (SGBD, HW/SW)', fn: () => quickIdentSweep(id) },
-    { key: '4', name: 'Fault Memory', desc: 'Read fault memory across all modules, which have stored faults', fn: () => quickErrorSweep(id) },
+    { key: '4', name: 'Full Module Error Scan', desc: 'Read fault memory across every module and show which have stored faults', fn: () => quickErrorSweep(id) },
   ];
   jobs.forEach(j => {
     const tile = document.createElement('div');
@@ -173,7 +173,7 @@ function showFunctionalJobs(chassisId) {
   stagger(grid, 40);
   setActions([
     { key: '2', label: 'Identification', kind: 'primary', fn: () => quickIdentSweep(id) },
-    { key: '4', label: 'Fault Memory', fn: () => quickErrorSweep(id) },
+    { key: '4', label: 'Error Scan', fn: () => quickErrorSweep(id) },
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showChassis() },
   ]);
 }
@@ -273,7 +273,7 @@ async function showSections(id, selectIndex = 0) {
   const scan = document.createElement('button');
   scan.className = 'sys-item sys-scan';
   scan.innerHTML = `<span class="nav-key">9</span>
-                    <span class="nav-name">Fault scan</span>
+                    <span class="nav-name">Error scan</span>
                     <span class="nav-count">all</span>`;
   scan.onclick = () => quickErrorSweep(id);
   nav.appendChild(scan);
@@ -285,7 +285,7 @@ async function showSections(id, selectIndex = 0) {
   const actions = ch.sections.slice(0, 8).map((s, i) => ({
     key: String(i + 1), label: s.name, fn: () => selectSection(i),
   }));
-  actions.push({ key: '9', label: 'Fault scan', fn: () => quickErrorSweep(id) });
+  actions.push({ key: '9', label: 'Error scan', fn: () => quickErrorSweep(id) });
   actions.push({ key: 'Escape', keyLabel: 'Esc', label: 'Vehicles', kind: 'back', fn: showChassis });
   setActions(actions);
 }
