@@ -66,6 +66,13 @@ const DE_TOKENS = [
   [/Einschaltzeit/gi, 'on-time'], [/Periodendauer/gi, 'period'],
   [/Tastverhältnis|Tastverhaeltnis/gi, 'duty cycle'],
   [/Abgleichs?wert/gi, 'adjustment value'], [/rueckwaerts|rückwärts/gi, 'backwards'],
+  // ---- diesel injector-adjustment (IMA) + calibration/programming terms ----
+  [/Injektor-?Mengenabgleich/gi, 'injector quantity adjustment (IMA)'],
+  [/\bIma\b/gi, 'IMA'],  // Injektor-Mengenabgleich (injector quantity code)
+  [/Verstellen/gi, 'adjust'], [/Verstellwert/gi, 'adjustment value'],
+  [/\bAbgleich\b/gi, 'adjustment'], [/Programmieren/gi, 'programming'],
+  [/\bZyl(?:inder)?\s*(\d+)/gi, 'cylinder $1'], [/\bZyl(?:inder)?\b/gi, 'cylinder'],
+  [/Kennfeld/gi, 'map'], [/Ansteuerung/gi, 'control'],
   [/Sollwert/gi, 'target value'],
   [/ohne Argument/gi, 'without argument'], [/Wechsel/gi, 'toggle'],
   [/Klima und Fahrbedingung/gi, 'A/C and driving condition'],
