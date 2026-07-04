@@ -131,11 +131,26 @@ async function runJob(ecu, job, container, danger, presetArg) {
   }
   if (danger) {
     const isClear = job === 'FS_LOESCHEN';
+    // describe what the job actually does — not everything flagged is a write.
+    // flash-session reads are cautioned because they can disrupt a programming
+    // sequence, not because they change anything.
+    const j = job.toUpperCase();
+    let effect;
+    if (/LESEN/.test(j) && /FLASH|AUTHENTIS|SIGNATUR|CRC|PRUEF/.test(j))
+      effect = `is part of the flash-programming sequence on <b>${esc(ecu.label)}</b>. It reads from the ECU but can disrupt an in-progress flash if run out of order.`;
+    else if (/LOESCHEN/.test(j))
+      effect = `erases data on <b>${esc(ecu.label)}</b>. This cannot be undone.`;
+    else if (/SCHREIBEN|_SETZEN|PROGRAMMIER|FLASH/.test(j))
+      effect = `writes to the ECU on <b>${esc(ecu.label)}</b> and can change how it runs.`;
+    else if (/RESET/.test(j))
+      effect = `resets the ECU on <b>${esc(ecu.label)}</b>.`;
+    else
+      effect = `runs a protected function on <b>${esc(ecu.label)}</b>.`;
     const ok = await confirmDialog({
       title: isClear ? 'Clear fault codes?' : `Run ${esc(jobLabel(job))}?`,
       body: isClear
         ? `This permanently erases the fault memory on <b>${esc(ecu.label)}</b>. Stored and pending faults will be deleted. This cannot be undone.`
-        : `<b>${esc(jobLabel(job))}</b> (<span class="mono">${esc(job)}</span>) writes to the ECU on <b>${esc(ecu.label)}</b>. Continue?`,
+        : `<b>${esc(jobLabel(job))}</b> (<span class="mono">${esc(job)}</span>) ${effect} Continue?`,
       confirmLabel: isClear ? 'Clear codes' : 'Run',
       danger: true,
     });
