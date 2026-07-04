@@ -100,6 +100,19 @@ const DE_TOKENS = [
   [/Messung/gi, 'measurement'], [/Ergebnis/gi, 'result'], [/Beschreibung/gi, 'description'],
   [/einschl(ä|ae)ft/gi, 'sleeps'], [/m(ö|oe)gliche/gi, 'possible'],
   [/optional/gi, 'optional'], [/Zahl\b/gi, 'number'],
+  // compound with -index must precede the bare Aenderung rule (else it leaves
+  // "changesindex")
+  [/(Ä|Ae|ä|ae)nderungsindex/gi, 'change index'],
+  [/(\d+)-?stellig/gi, '$1-digit'], [/\bstellig/gi, 'digit'],
+  [/\bZiffern?\b/gi, 'digits'], [/\binkl\.?/gi, 'incl.'], [/\bexkl\.?/gi, 'excl.'],
+  [/\bAei\b/gi, 'AEI'], [/\bAe\b/gi, 'AE'],  // INPA arg-code fragments, keep as-is
+  // BMW field-code abbreviations in ID/write args (Fg=Fahrgestell, Zb=Zusammenbau,
+  // Sw=Software, Ds=Datensatz) + Datum
+  [/\bDatum\b/gi, 'date'], [/\bFg\s*Nr\b/gi, 'chassis no.'], [/\bZb\s*Nr\b/gi, 'assembly no.'],
+  [/\bSw\s*Nr\b/gi, 'software no.'], [/\bDs\s*Nr\b/gi, 'dataset no.'], [/\bHw\s*Nr\b/gi, 'hardware no.'],
+  [/\bNr\b/gi, 'no.'],
+  [/vorgefuellter|vorgefüllter/gi, 'pre-filled'], [/Binaer\s?buffer|Binärbuffer/gi, 'binary buffer'],
+  [/\bBinaer\b|\bBinär\b/gi, 'binary'], [/\bAls\b/gi, 'as'],
   // headlight beam-aim / xenon leveling (SPU): Dejustagewinkel = misalignment
   // angle; the ARG names abbreviate hor/ver + Wink(el)/Plaus(ibilitaet)
   [/Dejustagewinkels?/gi, 'misalignment angle'],
