@@ -67,6 +67,12 @@ const DE_TOKENS = [
   [/Tastverhältnis|Tastverhaeltnis/gi, 'duty cycle'],
   [/Abgleichs?wert/gi, 'adjustment value'], [/rueckwaerts|rückwärts/gi, 'backwards'],
   // ---- diesel injector-adjustment (IMA) + calibration/programming terms ----
+  [/Pruefstempel|Pr(ü|ue)fstempel|Pruefstemp\b/gi, 'inspection stamp'],
+  [/Pruefcode|Pr(ü|ue)fcode/gi, 'test code'], [/Pruefflag|Pr(ü|ue)fflag/gi, 'test flag'],
+  [/Auswahlbyte/gi, 'selection byte'],
+  // numbered value/byte suffixes: "Wert1" -> "value 1", "Byte 3" -> "byte 3"
+  [/\bWert\s*(\d+)/gi, 'value $1'], [/\bByte\s*(\d+)/gi, 'byte $1'],
+  [/\bWert\b/gi, 'value'], [/\bByte\b/gi, 'byte'],
   [/Injektor-?Mengenabgleich/gi, 'injector quantity adjustment (IMA)'],
   [/\bIma\b/gi, 'IMA'],  // Injektor-Mengenabgleich (injector quantity code)
   [/Verstellwert/gi, 'adjustment value'], [/Verstellung/gi, 'adjustment'], [/Verstellen/gi, 'adjust'],
