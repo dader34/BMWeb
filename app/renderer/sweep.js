@@ -51,6 +51,16 @@ const cancelSweep = () => { _sweepToken++; };
 // combined report of which modules have stored faults.
 async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
+  // scanning every module holds the bus for a while; make sure that's wanted
+  // before touching the screen or the K-line
+  const ok = await confirmDialog({
+    title: 'Scan all modules?',
+    body: `Reads the fault memory of every module on the ${esc(dispChassis(id))}. `
+        + 'Each module takes a few seconds to answer, so a full scan can take '
+        + 'several minutes. You can leave the scan at any time with Esc.',
+    confirmLabel: 'Start scan',
+  });
+  if (!ok) return;
   const token = ++_sweepToken;            // claim this run
   const alive = () => token === _sweepToken;
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Full Module Error Scan' }]);
