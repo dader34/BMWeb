@@ -376,10 +376,12 @@ async function runInputFunction(ecu, input, container) {
   const danger = /steuern|command|throttle|setpoint|write|store|reset/i.test(
     (input.field || '') + ' ' + (input.job || ''));
   const val = await inputDialog({
-    title: esc(input.field || input.job),
-    body: input.args_template
-      ? `<span class="muted">${esc(input.args_template)}</span><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`
-      : `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
+    title: esc(typeof jobLabel === 'function' ? jobLabel(input.job) : input.job),
+    // the field text is the entry instruction ("Enter as LABEL;VALUE1"); show it
+    // as the prompt, with the raw job name underneath for reference
+    body: `${input.field ? `<div>${esc(input.field)}</div>` : ''}`
+      + `${input.args_template ? `<span class="muted">${esc(input.args_template)}</span><br>` : ''}`
+      + `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
     kind: input.kind || 'text',
     example: input.example || '',
     confirmLabel: danger ? 'Send' : 'Run',

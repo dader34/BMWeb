@@ -52,17 +52,19 @@ function mergeLayoutIntoMenu(menu, layout) {
   // clicking opens a value dialog.
   const inputs = Array.isArray(layout.inputs) ? layout.inputs : [];
   if (inputs.length) {
-    // de-dupe by (job + field), stable pseudo-job id for keys
+    // these are real jobs that take a typed argument. the tile must show the
+    // JOB (translated), not the arg-entry hint (inp.field) — that hint belongs
+    // in the input dialog. de-dupe by job so one job isn't listed twice.
     const seen = new Set();
     const items = [];
     inputs.forEach((inp, i) => {
-      const sig = (inp.job || '') + '|' + (inp.field || '');
-      if (seen.has(sig)) return;
-      seen.add(sig);
+      const job = inp.job || '';
+      if (!job || seen.has(job.toUpperCase())) return;
+      seen.add(job.toUpperCase());
       items.push({
         job: `__input_${i}`,
-        label: inp.field || inp.job,
-        danger: /steuern|command|throttle|write|store|reset/i.test((inp.field || '') + ' ' + (inp.job || '')),
+        label: jobLabel(job),
+        danger: /steuern|schreiben|_setzen|programmier|reset|command|throttle|write|store/i.test(job),
         _input: inp,
       });
     });
