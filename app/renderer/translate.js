@@ -67,6 +67,13 @@ const DE_TOKENS = [
   [/Tastverhältnis|Tastverhaeltnis/gi, 'duty cycle'],
   [/Abgleichs?wert/gi, 'adjustment value'], [/rueckwaerts|rückwärts/gi, 'backwards'],
   // ---- diesel injector-adjustment (IMA) + calibration/programming terms ----
+  // headlight beam-aim / xenon leveling (SPU): Dejustagewinkel = misalignment
+  // angle; the ARG names abbreviate hor/ver + Wink(el)/Plaus(ibilitaet)
+  [/Dejustagewinkels?/gi, 'misalignment angle'],
+  [/Dejuhor\b/gi, 'horizontal misalignment'], [/Dejuver\b/gi, 'vertical misalignment'],
+  [/Plausibilit(ä|ae)t/gi, 'plausibility'], [/\bPlaus\b/gi, 'plausibility'],
+  [/\bWink\b/gi, 'angle'], [/normierter?/gi, 'normalized'],
+  [/horizontaler?/gi, 'horizontal'], [/vertikaler?/gi, 'vertical'],
   [/Pruefstempel|Pr(ü|ue)fstempel|Pruefstemp\b/gi, 'inspection stamp'],
   [/Pruefcode|Pr(ü|ue)fcode/gi, 'test code'], [/Pruefflag|Pr(ü|ue)fflag/gi, 'test flag'],
   [/Auswahlbyte/gi, 'selection byte'],
