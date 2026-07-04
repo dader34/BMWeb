@@ -43,6 +43,8 @@ public static class MenuGen
         ["STEUERN_CO_ABGLEICH_VERSTELL"] = "CO idle mixture: adjust",
         ["STEUERN_CO_ABGLEICH_PROGRAMMIEREN"] = "CO idle mixture: save (program)",
         ["STEUERN_LLABG_PROG"] = "Idle adjustment: save (program)",
+        // electric radiator fan (Elektrolüfter) vs STEUERN_EBL "E-Box Fan"
+        ["STEUERN_E_LUEFTER"] = "Radiator Fan",
     };
 
     // jobs that do something far more consequential than a normal actuator
