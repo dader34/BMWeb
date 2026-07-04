@@ -1032,3 +1032,26 @@ select.modal-input { appearance: none; cursor: pointer; }
   font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
   white-space: nowrap; gap: 2px;
 }
+
+/* first-run tutorial: spotlight ring + coach-mark tip (tour-overlay rides the
+   modal-overlay class so the global action keys stand down while it's up) */
+.tour-overlay { background: transparent !important; backdrop-filter: none !important; }
+.tour-ring {
+  position: fixed; border-radius: 12px; pointer-events: none;
+  border: 1px solid var(--amber);
+  box-shadow: 0 0 0 9999px rgba(4, 7, 10, .74), 0 0 22px -4px var(--amber);
+  transition: left .28s ease, top .28s ease, width .28s ease, height .28s ease;
+}
+.tour-tip {
+  position: fixed; width: 340px; padding: 16px 18px 14px;
+  background: var(--panel-2); border: 1px solid var(--line-bright);
+  border-radius: 12px; box-shadow: var(--shadow);
+}
+.tour-title { font: 700 15px var(--display); color: var(--ink); margin-bottom: 6px; }
+.tour-body { font: 400 12.5px/1.55 var(--display); color: var(--ink-dim); }
+.tour-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
+.tour-dots { display: flex; gap: 5px; }
+.tour-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-bright); }
+.tour-dot.active { background: var(--amber); }
+.tour-btns { display: flex; gap: 8px; }
+.tour-setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; }

@@ -123,6 +123,21 @@ function showSettings() {
     loadStartEcus(Settings.get('startChassis', ''));
   }).catch(() => {});
 
+  // re-run the first-launch tour
+  const tourRow = document.createElement('div');
+  tourRow.className = 'setting-row tour-setting';
+  tourRow.innerHTML = `
+    <div class="setting-text">
+      <div class="setting-title">Tutorial</div>
+      <div class="setting-desc">Walk through the app's main controls again.</div>
+    </div>`;
+  const tourBtn = document.createElement('button');
+  tourBtn.className = 'btn';
+  tourBtn.textContent = 'Show the tour';
+  tourBtn.onclick = () => startTutorial();
+  tourRow.appendChild(tourBtn);
+  wrap.appendChild(tourRow);
+
   view.appendChild(wrap);
 
   // version footer
@@ -393,7 +408,10 @@ async function waitForEngine() {
     // hold the splash briefly so it never just flickers
     const minMs = 1100;
     const wait = Math.max(0, minMs - (Date.now() - splashStart));
-    setTimeout(dismissSplash, wait);
+    setTimeout(() => {
+      dismissSplash();
+      maybeOfferTutorial(); // one-time, first boot only
+    }, wait);
     openStart().catch(e => {
       view.innerHTML = errorBlock(e.message, 'red');
       sbLeft.textContent = 'failed';

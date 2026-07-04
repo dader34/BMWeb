@@ -35,6 +35,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
       });
       window.bmacw = {
         version: 'native',
+        saveSettings: (j) => call('saveSettings', j),
         startLog: (n, h) => call('startLog', n, h),
         appendLog: (i, c) => call('appendLog', i, c),
         stopLog: (i) => call('stopLog', i),
@@ -62,6 +63,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
 
             switch (fn)
             {
+                case "saveSettings": Settle(webView, id, SaveSettings(args)); return;
                 case "startLog": StartLog(webView, id, args); return;
                 case "appendLog": Settle(webView, id, AppendLog(args)); return;
                 case "stopLog": Settle(webView, id, StopLog(args)); return;
@@ -78,6 +80,38 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         {
             Settle(webView, id, null, ex.Message);
         }
+    }
+
+    // ---- durable settings ----------------------------------------------------
+    // localStorage is origin-scoped and the app's port is ephemeral, so the
+    // renderer's settings would silently reset every launch. The shell owns the
+    // durable copy: saved here on every change, injected at document start by
+    // AppDelegate as window.__bmacwSettings.
+
+    public static string SettingsPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "BMacW", "settings.json");
+
+    // durable settings as a JS expression ("null" when absent/corrupt)
+    public static string LoadSettingsJs()
+    {
+        try
+        {
+            string json = File.ReadAllText(SettingsPath);
+            using var _ = JsonDocument.Parse(json); // must be valid JSON
+            return json;
+        }
+        catch { return "null"; }
+    }
+
+    private static object SaveSettings(JsonElement args)
+    {
+        string? json = ArgString(args, 0);
+        if (json == null) return new { ok = false };
+        using var _ = JsonDocument.Parse(json); // reject junk before writing
+        Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
+        File.WriteAllText(SettingsPath, json);
+        return Ok();
     }
 
     // ---- CSV log streams (Status multi-watch stream-to-file) ----------------

@@ -92,6 +92,12 @@ public sealed class AppDelegate : NSApplicationDelegate
     {
         var controller = new WKUserContentController();
         controller.AddScriptMessageHandler(bridge, "bmacw");
+        // durable settings, injected before any page script runs (core.js
+        // reads them synchronously; localStorage alone resets every launch
+        // because the app's origin port is ephemeral)
+        controller.AddUserScript(new WKUserScript(
+            new NSString($"window.__bmacwSettings = {BmacwBridge.LoadSettingsJs()};"),
+            WKUserScriptInjectionTime.AtDocumentStart, isForMainFrameOnly: true));
         // stamp the bundle version into the shim (settings page shows it)
         string version = NSBundle.MainBundle
             .ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString() ?? "dev";

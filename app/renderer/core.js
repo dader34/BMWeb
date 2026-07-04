@@ -6,9 +6,18 @@ const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1
 
 // persisted settings
 const Settings = {
-  data: JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
+  // the native shell injects the durable copy (window.__bmacwSettings) at
+  // document start: localStorage is origin-scoped and the app's port is
+  // ephemeral, so localStorage alone would reset every launch.
+  data: (typeof window !== 'undefined' && window.__bmacwSettings) ||
+        JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
   get(key, def) { return key in this.data ? this.data[key] : def; },
-  set(key, val) { this.data[key] = val; localStorage.setItem('bmacw.settings', JSON.stringify(this.data)); },
+  set(key, val) {
+    this.data[key] = val;
+    const json = JSON.stringify(this.data);
+    localStorage.setItem('bmacw.settings', json);
+    if (window.bmacw && window.bmacw.saveSettings) window.bmacw.saveSettings(json);
+  },
 };
 // skins / themes
 const THEMES = [
