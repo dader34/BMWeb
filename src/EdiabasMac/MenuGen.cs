@@ -103,11 +103,17 @@ public static class MenuGen
 
     static string FindTranslationsDir()
     {
+        // resolve against the same root as the rest of the data (repo tree in
+        // dev, Contents/Resources/data in the packaged app) — the data lives
+        // beside MacOS/, not above it, so a plain parent-walk misses it.
+        string cand = Path.Combine(Paths.FindRepoRoot(), "tools", "translations");
+        if (Directory.Exists(cand)) return cand;
+        // fallback: parent-walk (covers odd layouts)
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir != null)
         {
-            string cand = Path.Combine(dir.FullName, "tools", "translations");
-            if (Directory.Exists(cand)) return cand;
+            string c = Path.Combine(dir.FullName, "tools", "translations");
+            if (Directory.Exists(c)) return c;
             dir = dir.Parent;
         }
         return null;
