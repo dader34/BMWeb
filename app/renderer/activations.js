@@ -135,7 +135,22 @@ async function activationReadback(ecu, startJob) {
 
 async function toggleActivation(ecu, a, card, btn) {
   const running = activeTests.has(a.start);
-  if (!running || a.momentary) {
+  // critical jobs (immobilizer sync, security) aren't actuator tests — they can
+  // leave the car unable to start. warn far harder, and don't call it a "test".
+  if (a.critical) {
+    if (running) return; // no re-send path for a critical one-shot
+    const ok = await confirmDialog({
+      title: 'Immobilizer / security operation',
+      body: `<b>${esc(a.label)}</b> (<span class="mono">${esc(a.start)}</span>) is `
+          + `<b>not an actuator test</b>. It drives the DME↔EWS/CAS immobilizer `
+          + `handshake and can leave <b>${esc(ecu.label)}</b> unable to start if `
+          + `run out of sequence. Only run this as part of a deliberate DME/EWS `
+          + `marriage procedure. Continue?`,
+      confirmLabel: 'I understand, run it',
+      danger: true,
+    });
+    if (!ok) return;
+  } else if (!running || a.momentary) {
     const ok = await confirmDialog({
       title: `Run actuator test?`,
       body: `<b>${esc(a.label.replace(/^Activate /, ''))}</b> will drive a component on <b>${esc(ecu.label)}</b> (<span class="mono">${esc(a.start)}</span>).${a.momentary ? '' : ' It stays active (re-sent continuously) until you press Stop or leave this screen.'} Continue?`,

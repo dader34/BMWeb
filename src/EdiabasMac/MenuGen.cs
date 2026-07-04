@@ -35,7 +35,19 @@ public static class MenuGen
         ["CBS_RESET"] = "Reset CBS service",
         ["STEUERGERAETE_RESET"] = "Reset ECU",
         ["STATUS_OBD"] = "OBD status",
+        // immobilizer sync: NOT an actuator test — drives the DME<->EWS/CAS
+        // rolling-code handshake. INPA labels it "EWS/CAS-Startwertabgleich".
+        ["STEUERN_SYNC_MODE"] = "EWS/CAS sync (immobilizer)",
+        ["STATUS_SYNC_MODE"] = "EWS/CAS sync status",
     };
+
+    // jobs that do something far more consequential than a normal actuator
+    // test (immobilizer re-sync, security seed) — the UI must warn harder than
+    // the generic "drives a component" confirm.
+    static readonly HashSet<string> Critical =
+        new(StringComparer.OrdinalIgnoreCase) { "STEUERN_SYNC_MODE" };
+
+    public static bool IsCritical(string job) => Critical.Contains(job);
 
     // German token -> English. core verbs/nouns here; extended at startup from
     // tools/translations/*_tokens.tsv so labels change without a rebuild.
@@ -196,7 +208,7 @@ public static class MenuGen
     }
 
     // actuator test: start job plus optional paired stop (_ENDE) job
-    public sealed record Activation(string Label, string Start, string Stop, bool Momentary);
+    public sealed record Activation(string Label, string Start, string Stop, bool Momentary, bool Critical);
 
     // actuator start/stop conventions differ per DME generation: MS45 pairs
     // STEUERN_X with STEUERN_X_ENDE, MS42/MS43/ME9 use STEUERN_X_AUS, and some
@@ -239,7 +251,8 @@ public static class MenuGen
             // stay momentary
             bool toggleByArg = stop == null && HasNumericArg(diag, job);
             result.Add(new Activation(Translate(job), job, stop,
-                                      Momentary: stop == null && !toggleByArg));
+                                      Momentary: stop == null && !toggleByArg,
+                                      Critical: IsCritical(job)));
         }
         return result;
     }

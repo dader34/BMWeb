@@ -39,3 +39,20 @@ running). Our app stops via `arg=0`, `_ENDE` only as fallback.
 Jobs not found in any `.ips` (SYNC_MODE, LL_ABGLEICH, CO_ABGLEICH*, VANOS_IN/EX,
 VIMDISA, FGRL, KVA, LL_STELLER) default to **binary on=1**, safer than sending
 a percent to a relay. Refine individually if a specific test misbehaves.
+
+## STEUERN_SYNC_MODE — immobilizer sync, NOT an actuator test
+
+Confirmed from the MS45 INPA frontend (`MS450.IPO` strings): the sync menu is
+`EWS-Startwertabgleich` (Shift+F6, E46) / `CAS-Startwertabgleich` (Shift+F7,
+E6x/E65), with `F1 Startwert zurücksetzen` (reset DME+EWS/CAS to start value)
+and `F2 Startwert programmieren`. The command string is *"Anforderung an SG zum
+Startwertabgleich"*. The `MODE` int argument selects the operation.
+
+So `STEUERN_SYNC_MODE` drives the **DME↔EWS/CAS rolling-code handshake** (the
+`Startwertinitialisierung` the `_RESULTS` comment refers to) — the immobilizer
+marriage step done after a virginized/swapped DME. Running the wrong `MODE`
+can desync the DME from the immobilizer and leave the car unable to start.
+
+App handling: labeled "EWS/CAS sync (immobilizer)", marked `critical`, and
+shown a security-specific confirmation (not the generic actuator-test dialog).
+`EWS_STARTWERT` / `DME_STARTWERT_ABGLEICH` are the related standalone jobs.

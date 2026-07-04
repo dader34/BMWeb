@@ -36,7 +36,7 @@ internal static class DiagnosticsEndpoints
                 var acts = MenuGen.Activations(diag);
                 return Results.Json(acts.Select(a => new
                 {
-                    label = a.Label, start = a.Start, stop = a.Stop, momentary = a.Momentary
+                    label = a.Label, start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical
                 }).ToList());
             }));
 
