@@ -62,16 +62,6 @@ function tourSteps() {
           + 'jump to common chassis directly.',
     },
   ];
-  if (classic) {
-    steps.push({
-      screen: 'home',
-      sel: '#vsel-special',
-      title: 'Special tests',
-      body: 'Whole-vehicle jobs that scan every module in one pass: a '
-          + 'quick error-memory sweep with per-module results, clear '
-          + 'buttons, and a PDF report, plus a quick identification scan.',
-    });
-  }
   steps.push(
     {
       screen: 'module',

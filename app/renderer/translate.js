@@ -43,6 +43,18 @@ const DE_TOKENS = [
   [/\bBlocklaenge\b|\bBlocklänge\b/gi, 'Block length'], [/\bZeiten\b/gi, 'Times'],
   // ---- job-argument dialog terms (from the SGBD _ARGUMENTS schema) ----
   [/Datum der SG-Programmierung/gi, 'date of ECU programming'],
+  // ---- flash/programming argument terms (Flash Parameter Set, AIF dialogs) ----
+  [/Steuerger(ä|ae)te?-?adresse/gi, 'ECU address'],
+  [/Steuerger(ä|ae)te?/gi, 'ECU'],
+  [/Anzahl der Anwender-?Infofelder/gi, 'number of user info fields'],
+  [/Gr(ö|oe)(ß|ss)e des Anwender-?Infofeldes/gi, 'size of the user info field'],
+  [/Offset f(ü|ue)r letztes Anwender-?Infofeld/gi, 'offset of the last user info field'],
+  [/Anwender-?Infofelder/gi, 'user info fields'],
+  [/Anwender-?Infofeld/gi, 'user info field'],
+  [/Endekennung/gi, 'end marker'], [/Maxanzahl/gi, 'max count'],
+  [/\bAnzahl\b/gi, 'count'], [/\bAdresse\b/gi, 'address'],
+  [/Gr(ö|oe)(ß|ss)e/gi, 'size'], [/\bletztes?\b/gi, 'last'],
+  [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/gi, 'info field'],
   [/Zusammenbaunummer/gi, 'assembly number'],
   [/Datensatznummer/gi, 'dataset number'], [/Softwarenummer/gi, 'software number'],
   [/Behoerdennummer|Behördennummer/gi, 'authority number'],

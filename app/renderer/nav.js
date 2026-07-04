@@ -33,7 +33,6 @@ async function showChassis() {
         <div class="inpa-vlist">${main.map((id, i) => fnRow(i + 1, id, `${dispChassis(id)}${CHASSIS_TAG[id] ? ` · ${CHASSIS_TAG[id]}` : ''}`)).join('')}</div>
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt;Shift+F9&gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
-          <button class="inpa-fn inpa-fn-more" id="vsel-special"><span class="inpa-fn-key">&lt;Shift+F8&gt;</span><span class="inpa-fn-label">Special tests …</span></button>
         </div>
       </div>`;
     view.appendChild(panel);
@@ -41,7 +40,6 @@ async function showChassis() {
     panel.querySelectorAll('.inpa-fn[data-id]').forEach(b => b.onclick = () => showScriptSelection(b.dataset.id));
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
-    panel.querySelector('#vsel-special').onclick = () => showSpecialTests();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({ key: String(i + 1), label: dispChassis(id), fn: () => showScriptSelection(id) }));
@@ -196,35 +194,6 @@ function showOtherModels(ids) {
   overlay.querySelectorAll('.inpa-pop-row').forEach(b => b.onclick = () => { close(); showScriptSelection(b.dataset.id); });
 }
 
-// "Special tests" popup (INPA Shift+F8). quick sweeps scan every ECU on the
-// chassis; chassis-specific routines not yet safe to run are disabled. the sweep
-// runners (quickErrorSweep/quickIdentSweep) live in sweep.js.
-const SPECIAL_TESTS = [
-  { id: 'quick-error',  label: 'Quick error memory test', run: (id) => quickErrorSweep(id) },
-  { id: 'quick-ident',  label: 'Quick identification test', run: (id) => quickIdentSweep(id) },
-  { id: 'abs-bleed',    label: 'ABS/ASC bleeding', disabled: true },
-  { id: 'lws-adjust',   label: 'Steering angle adjustment', disabled: true },
-  { id: 'rdc-telegram', label: 'RDC telegram recording', disabled: true },
-  { id: 'rdc-antenna',  label: 'RDC antenna check', disabled: true },
-];
-
-function showSpecialTests(chassisId) {
-  const { overlay, close } = openModal(`
-    <div class="modal inpa-script" role="dialog" aria-modal="true">
-      <div class="inpa-script-bar">Script selection <span class="inpa-script-hint">(&lt;Esc&gt; to abort)</span></div>
-      <div class="inpa-script-panes">
-        <div class="inpa-script-cats"><div class="inpa-script-cat active">Special tests</div></div>
-        <div class="inpa-script-list">${SPECIAL_TESTS.map((t, i) => `
-          <button class="inpa-script-row${t.disabled ? ' disabled' : ''}" data-i="${i}"${t.disabled ? ' disabled' : ''}>${t.label}</button>`).join('')}</div>
-      </div>
-      <div class="modal-actions"><button class="btn modal-cancel">Close<span class="modal-key">Esc</span></button></div>
-    </div>`);
-  overlay.querySelector('.modal-cancel').onclick = () => close();
-  overlay.querySelectorAll('.inpa-script-row:not(.disabled)').forEach(b => {
-    b.onclick = () => { const t = SPECIAL_TESTS[+b.dataset.i]; close(); if (t.run) t.run(chassisId); };
-  });
-}
-
 // mirror topbar Battery/Ignition state into the INPA vehicle-select indicators
 function syncVselState() {
   const bs = document.getElementById('vsel-bat'), bv = document.getElementById('vsel-bat-s');
@@ -269,16 +238,18 @@ async function showSections(id, selectIndex = 0) {
     [...nav.children].forEach((n, i) => n.classList.toggle('active', i === idx));
     content.innerHTML = '';
     const listWrap = document.createElement('div');
-    listWrap.className = 'ecu-list stagger';
+    listWrap.className = 'ecu-grid stagger';
     sec.ecus.forEach(ecu => {
-      const row = document.createElement('div');
-      row.className = 'ecu-row';
-      row.innerHTML = `
-        <span class="ecu-bullet"></span>
-        <span class="ecu-label">${esc(ecu.label)}</span>
-        <span class="ecu-sgbd">${esc(ecu.sgbd)}</span>`;
-      row.onclick = () => showEcu(id, sec.name, ecu);
-      listWrap.appendChild(row);
+      // module card, read like the ECU's housing label: designation stamp,
+      // application name, part number
+      const card = document.createElement('div');
+      card.className = 'ecu-card';
+      card.innerHTML = `
+        <span class="ecu-code">${esc(ecu.code)}</span>
+        <span class="ecu-name">${esc(ecu.label)}</span>
+        <span class="ecu-prg">${esc(ecu.sgbd)}.prg</span>`;
+      card.onclick = () => showEcu(id, sec.name, ecu);
+      listWrap.appendChild(card);
     });
     content.appendChild(listWrap);
     stagger(listWrap, 14);
@@ -287,13 +258,25 @@ async function showSections(id, selectIndex = 0) {
 
   ch.sections.forEach((sec, idx) => {
     const item = document.createElement('button');
-    item.className = 'split-nav-item';
-    // badge = shortcut key (1..N), matching the footer F-key bar
+    item.className = 'sys-item';
+    // badge = shortcut key (1..N), matching the footer F-key bar;
+    // count = how many module variants the system carries
     item.innerHTML = `<span class="nav-key">${idx + 1}</span>
-                      <span class="nav-name">${esc(sec.name)}</span>`;
+                      <span class="nav-name">${esc(sec.name)}</span>
+                      <span class="nav-count">${sec.ecus.length}</span>`;
     item.onclick = () => selectSection(idx);
     nav.appendChild(item);
   });
+
+  // whole-vehicle fault scan (the classic Functional Jobs F4), reachable from
+  // the modern layout too: scans every module's fault memory in one pass
+  const scan = document.createElement('button');
+  scan.className = 'sys-item sys-scan';
+  scan.innerHTML = `<span class="nav-key">9</span>
+                    <span class="nav-name">Fault scan</span>
+                    <span class="nav-count">all</span>`;
+  scan.onclick = () => quickErrorSweep(id);
+  nav.appendChild(scan);
 
   sbLeft.textContent = ch.description;
   selectSection(Math.min(selectIndex, ch.sections.length - 1));
@@ -302,6 +285,7 @@ async function showSections(id, selectIndex = 0) {
   const actions = ch.sections.slice(0, 8).map((s, i) => ({
     key: String(i + 1), label: s.name, fn: () => selectSection(i),
   }));
+  actions.push({ key: '9', label: 'Fault scan', fn: () => quickErrorSweep(id) });
   actions.push({ key: 'Escape', keyLabel: 'Esc', label: 'Vehicles', kind: 'back', fn: showChassis });
   setActions(actions);
 }

@@ -371,17 +371,25 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 }
 .section-name { font-weight: 700; font-size: 16px; letter-spacing: .01em; }
 .section-count { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-left: auto; }
-.ecu-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
-.ecu-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 13px 20px; cursor: pointer; border-top: 1px solid transparent;
-  border-right: 1px solid var(--line); transition: background .15s;
+/* module cards, read like the ECU's housing label: designation stamp on top,
+   application name, part number footer. the left edge carries a connector
+   pin-header (three ticks) that lights amber on hover. */
+.ecu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.ecu-card {
+  position: relative; cursor: pointer; -webkit-app-region: no-drag;
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 13px 16px 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  transition: transform .14s ease, border-color .14s ease, background .14s ease;
 }
-.ecu-row:hover { background: var(--raised); }
-.ecu-bullet { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); flex: none; }
-.ecu-row:hover .ecu-bullet { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
-.ecu-label { font-size: 13.5px; }
-.ecu-sgbd { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-left: auto; }
+.ecu-card:hover { transform: translateY(-2px); border-color: var(--line-bright); background: var(--panel-2); }
+.ecu-code {
+  font: 700 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--amber-soft); transition: color .14s ease;
+}
+.ecu-card:hover .ecu-code { color: var(--amber); }
+.ecu-name { font: 700 14px/1.35 var(--display); color: var(--ink); }
+.ecu-prg { font: 400 10px var(--mono); color: var(--ink-faint); margin-top: 1px; }
 
 /* ECU / fault dashboard */
 .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -687,32 +695,30 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 
 /* master/detail split: sections sidebar + ECU list */
 .split { display: grid; grid-template-columns: 230px 1fr; gap: 18px; margin-top: 8px; }
-.split-nav { display: flex; flex-direction: column; gap: 4px; }
-.split-nav-item {
+/* system rail: flat rows, an amber edge marks the active system. the key
+   number mirrors the F-key bar; the count is how many module variants the
+   system carries. token-driven, so every skin inherits it. */
+.split-nav { display: flex; flex-direction: column; gap: 2px; }
+.sys-item {
   -webkit-app-region: no-drag; cursor: pointer; text-align: left;
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; border: 1px solid var(--line); border-radius: 4px;
-  background: var(--panel); color: var(--ink-dim); transition: all .12s;
+  display: flex; align-items: center; gap: 10px; font: inherit;
+  padding: 10px 12px 10px 13px;
+  background: none; border: none; border-left: 3px solid transparent;
+  border-radius: 0 6px 6px 0;
+  color: var(--ink-dim); transition: background .12s, border-color .12s, color .12s;
 }
-.split-nav-item:hover { color: var(--ink); border-color: var(--line-bright); }
-.split-nav-item.active {
-  color: var(--ink); border-color: var(--amber);
-  background: linear-gradient(90deg, rgba(255,158,44,.10), var(--panel) 60%);
+.sys-item:hover { background: var(--panel); color: var(--ink); }
+.sys-item.active { border-left-color: var(--amber); background: var(--panel); color: var(--ink); }
+.sys-item .nav-name { font-weight: 700; font-size: 13.5px; }
+.sys-item .nav-key {
+  font-family: var(--mono); font-weight: 700; font-size: 11px;
+  color: var(--ink-faint); min-width: 14px; text-align: center;
+  transition: color .12s;
 }
-.split-nav-item.active .nav-name { color: #fff; }
-.nav-name { font-weight: 700; font-size: 14px; }
-.nav-key {
-  font-family: var(--mono); font-weight: 700; font-size: 11px; color: var(--amber);
-  background: var(--key-bg, #0c1218); border: 1px solid var(--line-bright); border-radius: 3px;
-  padding: 3px 7px; min-width: 22px; text-align: center;
-}
-.split-nav-item.active .nav-key { color: #1a1206; background: var(--amber); border-color: transparent; }
+.sys-item.active .nav-key { color: var(--amber); }
 .split-content { min-width: 0; }
-.split-content .ecu-list {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
-}
-.split-content .ecu-row { border-top: 1px solid var(--line); }
+.nav-count { margin-left: auto; font: 600 10.5px var(--mono); color: var(--ink-faint); }
+.split-nav-item.active .nav-count { color: var(--ink-dim); }
 
 /* flashing */
 .flash-tile { border-color: rgba(255,66,66,.35); }
@@ -1059,3 +1065,8 @@ select.modal-input { appearance: none; cursor: pointer; }
 .tour-dot.active { background: var(--amber); }
 .tour-btns { display: flex; gap: 8px; }
 .tour-setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+
+/* whole-vehicle fault scan entry at the foot of the system rail */
+.sys-scan { margin-top: 10px; border-top: 1px solid var(--line); border-radius: 0 0 6px 0; padding-top: 12px; }
+.sys-scan .nav-name { color: var(--amber-soft); }
+.sys-scan:hover .nav-name, .sys-scan.active .nav-name { color: var(--amber); }
