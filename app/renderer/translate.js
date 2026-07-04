@@ -111,7 +111,7 @@ const DE_TOKENS = [
   [/\bDatum\b/gi, 'date'], [/\bFg\s*Nr\b/gi, 'chassis no.'], [/\bZb\s*Nr\b/gi, 'assembly no.'],
   [/\bSw\s*Nr\b/gi, 'software no.'], [/\bDs\s*Nr\b/gi, 'dataset no.'], [/\bHw\s*Nr\b/gi, 'hardware no.'],
   [/\bNr\b/gi, 'no.'],
-  [/Signaturtestzeit/gi, 'signature test time'], [/Signatur/gi, 'signature'],
+  [/Signaturtestzeit/gi, 'signature test time'], [/\bSignatur\b/gi, 'signature'],
   [/\bBereich\b/gi, 'area'], [/\bProgramm\b/gi, 'Program'],
   [/vorgefuellter|vorgefüllter/gi, 'pre-filled'], [/Binaer\s?buffer|Binärbuffer/gi, 'binary buffer'],
   [/\bBinaer\b|\bBinär\b/gi, 'binary'], [/\bAls\b/gi, 'as'],
