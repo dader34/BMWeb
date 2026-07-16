@@ -156,6 +156,9 @@ const DE_TOKENS = [
   [/Abgleichspannung/gi, 'adjustment voltage'],
   [/Lambdasondenheizung/gi, 'lambda sensor heater'],
   [/Drehzahlanhebung/gi, 'idle speed increase'], [/Solldrehzahl/gi, 'target RPM'],
+  // fuel pump (EKP) delivery rate; Soll- compound before the bare noun
+  [/Soll-?F(ö|oe)rdermenge/gi, 'target delivery quantity'],
+  [/F(ö|oe)rdermenge/gi, 'delivery quantity'], [/F(ö|oe)rderbeginn/gi, 'delivery start'],
   [/Enddrehzahl/gi, 'end RPM'], [/Drehrichtung/gi, 'rotation direction'],
   [/Bewegungsrichtung/gi, 'movement direction'],
   [/Prozentschritten/gi, 'percent steps'], [/Schrittanzahl/gi, 'number of steps'],
@@ -169,7 +172,8 @@ const DE_TOKENS = [
   // verbs (infinitive + inflected forms seen in comments)
   [/einschalten/gi, 'switch on'], [/ausschalten/gi, 'switch off'],
   [/aktivieren/gi, 'activate'], [/deaktivieren/gi, 'deactivate'],
-  [/eingeben/gi, 'enter'], [/vorgeben/gi, 'specify'], [/uebergeben|übergeben/gi, 'pass'],
+  [/eingeben/gi, 'enter'], [/vorgeben/gi, 'specify'], [/vorzugebenden?/gi, 'to be specified'],
+  [/uebergeben|übergeben/gi, 'pass'],
   [/uebernehmen|übernehmen/gi, 'apply'], [/auszulesenden?/gi, 'to be read'],
   [/lesenden?/gi, 'read'], [/gelesen/gi, 'read'], [/ausgelesen/gi, 'read out'],
   [/geschrieben/gi, 'written'], [/codiert/gi, 'coded'], [/angesteuert/gi, 'activated'],
@@ -338,6 +342,8 @@ const ARG_PHRASES = {
     'pass as message numbers, e.g. 00C0000D for N and V',
   'Einzelkerze rücksetzen: GLU1 ... GLU6 (... GLU8)':
     'reset single glow plug: GLU1 ... GLU6 (... GLU8)',
+  'Wert der vorzugebenden Soll-Foerdermenge':
+    'value of the target delivery quantity to set',
 };
 
 const _deCache = new Map();
