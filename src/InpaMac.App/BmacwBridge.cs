@@ -45,7 +45,18 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         winClose: () => call('winClose'),
         winMinimize: () => call('winMinimize'),
         winZoom: () => call('winZoom'),
+        winDrag: () => call('winDrag'),
       };
+      // WKWebView ignores -webkit-app-region, so the Electron-era drag CSS on
+      // .topbar/.splash does nothing here: reimplement it by handing the
+      // mousedown to the native window (performWindowDragWithEvent).
+      window.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        if (!e.target.closest('.topbar, .splash')) return;
+        if (e.target.closest('button, a, input, select, textarea, [contenteditable]')) return;
+        e.preventDefault(); // the window takes the drag: no text selection
+        window.bmacw.winDrag();
+      });
     })();";
 
     public void DidReceiveScriptMessage(WKUserContentController controller,
@@ -73,6 +84,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "winClose": _window.PerformClose(this); Settle(webView, id, Ok()); return;
                 case "winMinimize": _window.Miniaturize(this); Settle(webView, id, Ok()); return;
                 case "winZoom": _window.Zoom(this); Settle(webView, id, Ok()); return;
+                case "winDrag": WinDrag(); Settle(webView, id, Ok()); return;
                 default: Settle(webView, id, null, $"unknown bridge fn '{fn}'"); return;
             }
         }
@@ -228,6 +240,15 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         public override void DidFinishNavigation(WKWebView webView,
                                                  WKNavigation navigation)
             => _onLoaded();
+    }
+
+    // start a native window drag from the renderer's topbar mousedown. the
+    // script message arrives while the mouse-down is still the current event,
+    // so it can seed performWindowDragWithEvent directly.
+    private void WinDrag()
+    {
+        var ev = NSApplication.SharedApplication.CurrentEvent;
+        if (ev != null) _window.PerformWindowDrag(ev);
     }
 
     // ---- window / app appearance ----------------------------------------------
