@@ -232,6 +232,10 @@ html, body {
 }
 /* open upward when there isn't room below */
 .combo.drop-up .combo-pop { top: auto; bottom: calc(100% + 4px); }
+/* the stagger entrance (fill: forwards) leaves every row a permanent stacking
+   context, so the pop's z-index only counts inside its own row and later
+   sibling rows paint over it — lift the row that owns the open combo */
+.setting-row:has(.combo.open) { position: relative; z-index: 60; }
 .combo-search {
   width: 100%; box-sizing: border-box; border: none; border-bottom: 1px solid var(--line);
   background: var(--bg); color: var(--ink); font-family: var(--mono); font-size: 13px;
