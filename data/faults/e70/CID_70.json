@@ -1,0 +1,26 @@
+{
+  "chassis": "E70",
+  "module": "Display / Central Information Display",
+  "sgbd": "CID_70",
+  "scheme": "code",
+  "faults": {
+    "A468": "No LVDS signal",
+    "A469": "EEPROM checksum error",
+    "A46A": "LCD overtemperature",
+    "A46B": "Power supply",
+    "A46C": "Energy saving mode active",
+    "A46D": "Head unit reset (no defect)",
+    "A46E": "Light sensor fault",
+    "A46F": "LCD temperature sensor circuit failure",
+    "A470": "PCB temperature sensor fault",
+    "A471": "Power supply +10V",
+    "A472": "Power supply -10V",
+    "A473": "Power supply 3V3",
+    "A474": "Power supply 5Vs",
+    "A475": "CCFL ignition fault",
+    "A476": "EEPROM not present",
+    "E5C4": "K-CAN wiring fault",
+    "E5C7": "K-CAN fault, bus off",
+    "FFFF": "Unknown fault location"
+  }
+}
