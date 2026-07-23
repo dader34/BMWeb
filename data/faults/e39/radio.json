@@ -1,0 +1,14 @@
+{
+  "chassis": "E39",
+  "module": "Radio (RAD)",
+  "sgbd": "radio",
+  "scheme": "text",
+  "faults": {
+    "Energiesparmode aktiviert": "Power-save mode active",
+    "Fehler an der CD-Wechsler-Schnittstelle": "Fault at CD changer interface",
+    "Fehler an der Antennenstromversorgung": "Fault in antenna power supply",
+    "Internes CD-Laufwerk: Übertemperatur": "Internal CD drive: overtemperature",
+    "Internes CD-Laufwerk: Hardware-Fehler": "Internal CD drive: hardware fault",
+    "Internes CD-Laufwerk: Lesefehler": "Internal CD drive: read error"
+  }
+}

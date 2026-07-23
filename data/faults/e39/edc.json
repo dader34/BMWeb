@@ -1,0 +1,33 @@
+{
+  "chassis": "E39",
+  "module": "Electronic damper control (EDC)",
+  "sgbd": "edc3p",
+  "scheme": "text",
+  "faults": {
+    "Lenkwinkelfehler: Differenz der Sensorwinkel zu gross": "Steering angle fault: sensor angle difference too large",
+    "Lenkwinkelfehler: Ableitung Analogsignal zu gross": "Steering angle fault: analog signal derivative too large",
+    "Lenkwinkelfehler: Aktivitaet zu gering": "Steering angle fault: activity too low",
+    "Lenkwinkelfehler: 5 Vref extern Masse-Schluss": "Steering angle fault: 5V external reference short to ground",
+    "Fehler im VF-Signal": "Fault in VF (road speed) signal",
+    "B-Sensor vorne: ausgefallen": "Acceleration sensor front: failed",
+    "B-Sensor vorne: Pegelfehler": "Acceleration sensor front: level fault",
+    "B-Sensor hinten: ausgefallen": "Acceleration sensor rear: failed",
+    "B-Sensor hinten: Pegelfehler": "Acceleration sensor rear: level fault",
+    "B-Sensor laengs: ausgefallen": "Acceleration sensor longitudinal: failed",
+    "B-Sensor laengs: Pegelfehler": "Acceleration sensor longitudinal: level fault",
+    "Ucoil: Schluss nach Masse": "Ucoil: short to ground",
+    "Ucoil: Schluss nach Klemme 15": "Ucoil: short to terminal 15",
+    "Ucoil: Ventilleitung an Klemme 15": "Ucoil: valve line to terminal 15",
+    "Ucoil: Ucoil ungleich PWM -> Steuergeraet defekt": "Ucoil: Ucoil not equal to PWM -> control unit defective",
+    "Ventilfehler vorne: Unterbrechung Ucoil an Ventile": "Valve fault front: open circuit Ucoil to valves",
+    "Ventilfehler vorne: Unterbrechung beider Ventilleitungen Mittel": "Valve fault front: open circuit both valve lines, medium",
+    "Ventilfehler vorne: Unterbrechung einer Ventilleitung Mittel": "Valve fault front: open circuit one valve line, medium",
+    "Ventilfehler vorne: Unterbrechung beider Ventilleitungen Weich": "Valve fault front: open circuit both valve lines, soft",
+    "Ventilfehler vorne: Unterbrechung einer Ventilleitung Weich": "Valve fault front: open circuit one valve line, soft",
+    "Ventilfehler hinten: Unterbrechung Ucoil an Ventile": "Valve fault rear: open circuit Ucoil to valves",
+    "Ventilfehler hinten: Unterbrechung beider Ventilleitungen Mittel": "Valve fault rear: open circuit both valve lines, medium",
+    "Ventilfehler hinten: Unterbrechung einer Ventilleitung Mittel": "Valve fault rear: open circuit one valve line, medium",
+    "Ventilfehler hinten: Unterbrechung beider Ventilleitungen Weich": "Valve fault rear: open circuit both valve lines, soft",
+    "Ventilfehler hinten: Unterbrechung einer Ventilleitung Weich": "Valve fault rear: open circuit one valve line, soft"
+  }
+}

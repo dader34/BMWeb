@@ -1,0 +1,21 @@
+{
+  "chassis": "E39",
+  "module": "Onboard monitor / control panel (BMBT)",
+  "sgbd": "bordmoni",
+  "scheme": "text",
+  "faults": {
+    "Watchdog Reset": "Watchdog reset",
+    "PL-Leitung Kurzschluss gegen U-Batt": "PL line short circuit to B+",
+    "PL-Leitung Kurzschluss gegen Masse": "PL line short circuit to ground",
+    "PL-Leitung Leitungsunterbrechung": "PL line open circuit",
+    "LC-Monitor Uebertemperatur": "LC monitor overtemperature",
+    "Radio Status Telegramm Timeout": "Radio status telegram timeout",
+    "Kurzschluss NF Leitung 1": "Short circuit audio line 1",
+    "Kurzschluss NF Leitung 2": "Short circuit audio line 2",
+    "Kurzschluss NF Leitung 3": "Short circuit audio line 3",
+    "Kurzschluss NF Leitung 4": "Short circuit audio line 4",
+    "I-Bus Fehler beim Senden": "I-bus fault while transmitting",
+    "25 Stunden Notabschaltung": "25-hour emergency shutdown",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

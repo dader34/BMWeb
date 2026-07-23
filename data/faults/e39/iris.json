@@ -1,0 +1,10 @@
+{
+  "chassis": "E39",
+  "module": "Integrated Radio Information System (IRIS)",
+  "sgbd": "iris",
+  "scheme": "text",
+  "faults": {
+    "Keine gueltige Statusrueckmeldung IKE": "No valid status feedback from IKE (instrument cluster)",
+    "Keine gueltige Statusrueckmeldung AUDIO": "No valid status feedback from AUDIO unit"
+  }
+}

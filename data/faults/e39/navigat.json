@@ -1,0 +1,16 @@
+{
+  "chassis": "E39",
+  "module": "Navigation system (GAT NAV)",
+  "sgbd": "navigat",
+  "scheme": "text",
+  "faults": {
+    "Hardwarefehler im Navigationsrechner": "Hardware fault in navigation computer",
+    "Hardwarefehler im Kompass-System": "Hardware fault in compass system",
+    "Hardwarefehler im Radsensor-System": "Hardware fault in wheel sensor system",
+    "Temperatur im Navigationsrechner zu hoch": "Navigation computer temperature too high",
+    "CD-Fehler": "CD fault",
+    "Fehler in der Navigations-Software": "Navigation software fault",
+    "Kalibrierfehler": "Calibration fault",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

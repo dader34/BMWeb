@@ -1,0 +1,14 @@
+{
+  "chassis": "E39",
+  "module": "Headlight vertical aim control (LWR)",
+  "sgbd": "lwr2a",
+  "scheme": "text",
+  "faults": {
+    "Signalfehler": "Signal fault",
+    "Sensorfehler vorn": "Sensor fault, front",
+    "Sensorfehler hinten": "Sensor fault, rear",
+    "Antrieb Scheinwerfer links": "Left headlight actuator drive",
+    "Antrieb Scheinwerfer rechts": "Right headlight actuator drive",
+    "unbekannter Fehlercode": "Unknown fault code"
+  }
+}

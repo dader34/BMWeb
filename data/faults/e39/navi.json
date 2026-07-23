@@ -1,0 +1,18 @@
+{
+  "chassis": "E39",
+  "module": "Navigation computer (NAV)",
+  "sgbd": "navmk4",
+  "scheme": "text",
+  "faults": {
+    "Navigationsrechner": "Navigation computer",
+    "Radsensor": "Wheel sensor",
+    "Eingaenge Peripherie": "Peripheral inputs",
+    "GPS Receiver reagiert nicht auf Initialisierung von NavMk3": "GPS receiver not responding to initialization from NavMk3",
+    "Temperatur zu hoch": "Temperature too high",
+    "Anwendungs Software": "Application software",
+    "Display": "Display",
+    "Audio": "Audio",
+    "CD-Fehler": "CD fault",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

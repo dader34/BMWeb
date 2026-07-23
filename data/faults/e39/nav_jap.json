@@ -1,0 +1,19 @@
+{
+  "chassis": "E39",
+  "module": "Navigation computer Japan (JNAV)",
+  "sgbd": "nav_jap",
+  "scheme": "text",
+  "faults": {
+    "CD-Wechsler": "CD changer",
+    "VICS Fehler": "VICS fault",
+    "Fehler I-Bus": "I-bus fault",
+    "Fehler S-RAM": "S-RAM fault",
+    "Fehler V-RAM": "V-RAM fault",
+    "GPS Empfaenger Fehler": "GPS receiver fault",
+    "DVD Lese-Fehler": "DVD read fault",
+    "gyro Fehler": "gyro fault",
+    "Produktionsmode ein": "Production mode on",
+    "Transportmode ein": "Transport mode on",
+    "Werkstattmode ein": "Workshop mode on"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "chassis": "E39",
+  "module": "Video module (VID)",
+  "sgbd": "video_gt",
+  "scheme": "text",
+  "faults": {
+    "Hardwarefehler im Videomodul": "Hardware fault in video module",
+    "Hardwarefehler im Graphikteil oder TV-Teil": "Hardware fault in graphics section or TV section",
+    "ARCNET-Fehler, keine Kommunikation mit NAV moeglich": "ARCNET fault, no communication with NAV possible",
+    "Fehler Navigationsrechner": "Navigation computer fault",
+    "Fehler beim Beschreiben des EEPROMS": "Fault writing to EEPROM",
+    "I2 C-Bus Fehler": "I2C bus fault",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}
