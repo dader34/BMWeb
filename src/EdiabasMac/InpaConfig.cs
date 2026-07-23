@@ -16,7 +16,11 @@ namespace EdiabasMac;
 //   [ROOT_MOTOR]
 //   DESCRIPTION=Engine
 //   ENTRY=MS450,MS45.1 for M54,
-public sealed record EcuEntry(string Code, string Label, string Sgbd);
+// Sgbd is our best-guess concrete variant (used offline for layouts/menus).
+// Group is the diagnostic-address group SGBD (D_00xx.grp) when one exists: loading
+// it live lets EDIABAS identify the exact variant itself, instead of trusting the
+// filename heuristic (which e.g. mis-picks ihka38 for the E46 IHKA).
+public sealed record EcuEntry(string Code, string Label, string Sgbd, string Group = null);
 public sealed record Section(string Key, string Name, List<EcuEntry> Ecus);
 public sealed record Chassis(string Id, string Description, List<Section> Sections);
 
@@ -100,7 +104,7 @@ public sealed class InpaConfig
 
                 string sgbd = ResolveSgbd(code, chassisId);
                 if (sgbd != null) // SGBD must exist on disk
-                    current.Ecus.Add(new EcuEntry(code, label, sgbd));
+                    current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
             }
         }
 
@@ -111,6 +115,39 @@ public sealed class InpaConfig
             .ToList();
 
         return new Chassis(chassisId, description, sections);
+    }
+
+    // the diagnostic-address group SGBD (D_00xx.grp) for a module, or null if none.
+    // 1) a D_00xx token referenced by the module's compiled .IPO (the reliable source)
+    // 2) an address encoded as the code's "_xx" suffix (e.g. klima_5B -> D_005B); the
+    //    underscore guards against chassis digits (kombi46/ihka46 do NOT match).
+    private string GroupFileFor(string code)
+    {
+        foreach (string token in IpoGroupTokens(code))
+        {
+            if (string.Equals(token, "D_0080", StringComparison.OrdinalIgnoreCase))
+                continue; // functional broadcast, not a real ECU group
+            string hit = FindGrpCaseInsensitive(token);
+            if (hit != null) return hit;
+        }
+        var m = Regex.Match(code ?? "", @"_([0-9A-Fa-f]{2})$");
+        if (m.Success)
+        {
+            string hit = FindGrpCaseInsensitive("D_00" + m.Groups[1].Value.ToUpperInvariant());
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    // a group SGBD file (.grp) by name, case-insensitively; null if absent.
+    private string FindGrpCaseInsensitive(string name)
+    {
+        if (name == null || !Directory.Exists(_ecuPath)) return null;
+        if (File.Exists(Path.Combine(_ecuPath, name + ".grp"))) return name;
+        foreach (var f in Directory.EnumerateFiles(_ecuPath, "*.grp"))
+            if (string.Equals(Path.GetFileNameWithoutExtension(f), name, StringComparison.OrdinalIgnoreCase))
+                return Path.GetFileNameWithoutExtension(f);
+        return null;
     }
 
     // resolve an ENTRY code to a real SGBD .prg name (no extension).

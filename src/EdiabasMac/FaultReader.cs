@@ -22,6 +22,24 @@ public static class FaultReader
         return codes;
     }
 
+    // live read that prefers the ECU's diagnostic-address group SGBD (D_00xx.grp):
+    // loading the group makes EDIABAS run IDENTIFIKATION and select the exact variant,
+    // so fault text is correct even when the offline SGBD guess was wrong (e.g. the
+    // E46 IHKA guesses ihka38 but the group identifies ihka46_3). Because the group
+    // already picks the right variant, no sibling-variant merge is needed. Falls back
+    // to the concrete SGBD + merge when there's no group or it can't identify (no
+    // cable, ECU didn't answer, group unsupported) so it never regresses.
+    public static List<Dictionary<string, string>> ReadFaultsAuto(
+        Diag diag, string sgbd, string group, IReadOnlyList<string> variants)
+    {
+        if (!string.IsNullOrEmpty(group))
+        {
+            try { return ReadFaults(diag, group); }
+            catch { /* fall through to the concrete-variant path */ }
+        }
+        return ReadFaultsMerged(diag, sgbd, variants);
+    }
+
     // read fault memory, then fill in any "unknown location" faults from sibling
     // SGBD variants. if the primary SGBD left a fault unlabeled (e.g. zke5), a
     // variant (zke5_s12) may name it, so read the siblings only when needed and

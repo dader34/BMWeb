@@ -142,9 +142,13 @@ async function quickErrorSweep(chassisId) {
       // a wrong-generation SGBD answers with a false 0 (see probeAirbag). the
       // winning SGBD replaces ecu.sgbd so the deep read and Clear target it.
       const isAirbag = String(ecu.code || '').toLowerCase() === 'airbag';
+      // prefer the diagnostic-address group so EDIABAS identifies the exact variant
+      // (correct fault text, and no wasted sibling-variant reads); server falls back
+      // to the concrete SGBD if the group can't identify.
+      const gq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
       const data = isAirbag
         ? (await probeAirbag(ecu.sgbd, alive)) || { count: 0, codes: [] }
-        : await api(`/api/ecu/${ecu.sgbd}/read`, { method: 'POST' });
+        : await api(`/api/ecu/${ecu.sgbd}/read${gq}`, { method: 'POST' });
       if (isAirbag && data.sgbd) ecu.sgbd = data.sgbd;
       const n = data.count || 0;
       // any answer (even 0 faults) claims the variant group

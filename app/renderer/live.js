@@ -160,7 +160,10 @@ async function runJob(ecu, job, container, danger, presetArg) {
   container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   sbLeft.textContent = `${job}…`;
   try {
-    const q = arg != null && arg !== '' ? `?arg=${encodeURIComponent(arg)}` : '';
+    let q = arg != null && arg !== '' ? `?arg=${encodeURIComponent(arg)}` : '';
+    // fault jobs load via the diagnostic-address group so EDIABAS picks the exact
+    // variant (see server LoadForJob); other jobs stay on the concrete SGBD.
+    if (ecu.group && /^FS_/.test(job)) q += `${q ? '&' : '?'}group=${encodeURIComponent(ecu.group)}`;
     const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, { method: 'POST' });
     if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL') {
       const codes = data.sets.slice(1); // set 0 = system summary
