@@ -1,0 +1,9 @@
+{
+  "chassis": "E36",
+  "module": "CVM — Convertible soft-top module",
+  "sgbd": "cvm",
+  "variants": ["cvm"],
+  "scheme": "text",
+  "note": "FORTTEXTE dump returned only ORT hex codes (0x01–0xFF) with no descriptive German ORTTEXT; no text-keyed fault locations available for this SGBD.",
+  "faults": {}
+}

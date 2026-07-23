@@ -1,0 +1,33 @@
+{
+  "chassis": "E36",
+  "module": "DDE 2.1 — Digital diesel electronics (M51)",
+  "sgbd": "dde21k20",
+  "variants": ["dde21k20"],
+  "scheme": "text",
+  "note": "Older DDE returns descriptive German fault-location text; keyed variant-agnostically on the exact ORTTEXT string.",
+  "faults": {
+    "Kuehlmitteltemperatursensor": "Coolant temperature sensor",
+    "Fahrgeschwindigkeitsgeber": "Vehicle-speed sensor",
+    "Tempomat -  Bedienteil": "Cruise control control unit",
+    "Rechnerkopplung zwischen Rechner 1 und Rechner 2": "Processor link between processor 1 and processor 2",
+    "Ladelufttemperatursensor": "Charge-air temperature sensor",
+    "Versorgungsspannung ueber Hauptrelais": "Supply voltage via main relay",
+    "Gluehzeitsteuerung": "Glow-time control",
+    "Diebstahlwarnanlage / Elektronische Wegfahrsicherung": "Anti-theft alarm / electronic immobilizer",
+    "Rechnerkopplung zwischen Rechner 1 und Rechner 3": "Processor link between processor 1 and processor 3",
+    "Fehler EEPROM im Rechner 1": "EEPROM fault in processor 1",
+    "Fehler EEPROM im Rechner 2": "EEPROM fault in processor 2",
+    "Drehzahlgeber": "Engine-speed sensor",
+    "Kraftstofftemperatursensor": "Fuel temperature sensor",
+    "Pedalwertgeber": "Accelerator-pedal position sensor",
+    "Ladedruckfuehler": "Boost-pressure sensor",
+    "Stellwerksensor": "Actuator position sensor",
+    "Ladedruckabweichung": "Boost-pressure deviation",
+    "Mengenstellwerk in der Einspritzpumpe": "Quantity actuator in the injection pump",
+    "Nadelbewegungsfuehler": "Needle-motion sensor",
+    "Spritzbeginnregelung": "Start-of-injection control",
+    "Bremslichtschalter / Bremstestschalter": "Brake-light switch / brake-test switch",
+    "Elektrisches Abschaltventil ELAB": "Electric shut-off valve ELAB",
+    "Endstufen (Summenfehler)": "Output stages (combined fault)"
+  }
+}

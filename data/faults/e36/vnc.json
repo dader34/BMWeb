@@ -1,0 +1,17 @@
+{
+  "chassis": "E36",
+  "module": "VNC — Vehicle/engine intervention control (S50 M3)",
+  "sgbd": "vnc",
+  "variants": ["vnc"],
+  "scheme": "text",
+  "note": "Older ECU returns descriptive German fault-location text; keyed variant-agnostically on the exact ORTTEXT string.",
+  "faults": {
+    "Ventil 1 defekt": "Valve 1 faulty",
+    "Fehler auf dem CAN-Bus": "Fault on CAN bus",
+    "Geber 1 defekt": "Sensor 1 faulty",
+    "Pruefsummenfehler festgestellt": "Checksum error detected",
+    "Ventil 2 defekt": "Valve 2 faulty",
+    "Geber 2 defekt": "Sensor 2 faulty",
+    "unbekannte Fehlerart": "Unknown fault type"
+  }
+}

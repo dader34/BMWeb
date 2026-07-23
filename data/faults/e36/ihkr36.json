@@ -1,0 +1,32 @@
+{
+  "chassis": "E36",
+  "module": "IHKR — Manual heating / air conditioning",
+  "sgbd": "ihkr36",
+  "variants": ["ihkr36"],
+  "scheme": "text",
+  "note": "Older ECU returns descriptive German fault-location text; keyed variant-agnostically on the exact SGBD text.",
+  "faults": {
+    "Geblaesepotentiometer": "Blower potentiometer",
+    "Schichtungspotentiometer": "Air-stratification potentiometer",
+    "Waermetauscherfuehler rechts": "Heat-exchanger temperature sensor, right",
+    "Waermetauscherfuehler links": "Heat-exchanger temperature sensor, left",
+    "Verdampferfuehler": "Evaporator temperature sensor",
+    "Innenraumtemperaturfuehler": "Interior temperature sensor",
+    "Aussentemperaturfuehler": "Outside temperature sensor",
+    "Sollwertsteller rechts": "Setpoint adjuster, right",
+    "Sollwertsteller links": "Setpoint adjuster, left",
+    "Standheizung / Standlueftung": "Auxiliary heating / auxiliary ventilation",
+    "Anlasser ( Klemme 50 )": "Starter (terminal 50)",
+    "AUC": "AUC",
+    "Schichtungsklappenmotor": "Air-stratification flap motor",
+    "Umluftklappenmotor": "Recirculation flap motor",
+    "Frischluftklappenmotor": "Fresh-air flap motor",
+    "Wasserventil rechts": "Water valve, right",
+    "Wasserventil links": "Water valve, left",
+    "Innenfuehlergeblaese": "Interior-sensor aspirator blower",
+    "DME / EPC": "DME / EPC",
+    "Heckscheibenheizung": "Rear-window heating",
+    "Magnetkupplung": "Magnetic clutch",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

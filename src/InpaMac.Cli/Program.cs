@@ -80,6 +80,46 @@ internal static class Program
             return 0;
         }
 
+        // dump a fault-text table (offline) for the named SGBDs. FORTTEXTE maps a
+        // fault-location code (ORT) to its German text (ORTTEXT); this is the source
+        // the E46/E36 data/faults/**.json translations are mined from - no cable
+        // needed, the table ships inside the .prg. one TSV line per row:
+        //   <sgbd>\t<ORT>\t<ORTTEXT>
+        // usage: dumptable [TABLE] <sgbd...>   (TABLE defaults to FORTTEXTE; reads
+        // SGBD names from args, else stdin). unknown tables / SGBDs are skipped.
+        if (cmd == "dumptable")
+        {
+            // first arg is the table name only if it looks like one (all-caps, no
+            // .prg); otherwise it's an SGBD and the table defaults to FORTTEXTE.
+            string table = "FORTTEXTE";
+            var names = new List<string>(rest);
+            if (names.Count > 0 && names[0].All(c => char.IsUpper(c) || char.IsDigit(c) || c == '_'))
+            { table = names[0]; names.RemoveAt(0); }
+            if (names.Count == 0)
+                names = Console.In.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+            var outw = Console.Out;
+            foreach (var name in names)
+            {
+                using var d = new Diag(ecuPath);
+                List<Dictionary<string, EdiabasNet.ResultData>> sets;
+                try { d.Load(name); sets = d.Run("_TABLE", table); }
+                catch (Exception ex) { Console.Error.WriteLine($"# {name}: {ex.Message}"); continue; }
+                foreach (var set in sets)
+                {
+                    // rows carry COLUMN0/COLUMN1; the first data row is the header
+                    // (ORT/ORTTEXT), skip it. the trailing summary set has no COLUMN0.
+                    if (!(set.TryGetValue("COLUMN0", out var c0) && c0.OpData is string ort) || ort.Length == 0)
+                        continue;
+                    if (ort == "ORT") continue; // header row
+                    string text = set.TryGetValue("COLUMN1", out var c1) && c1.OpData is string ot
+                        ? ot.Replace("\t", " ").Replace("\n", " ").Trim() : "";
+                    outw.WriteLine($"{name}\t{ort}\t{text}");
+                }
+            }
+            return 0;
+        }
+
         // INPA navigation tree (offline, no engine)
         if (cmd == "chassis")
         {

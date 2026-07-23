@@ -1,0 +1,33 @@
+{
+  "chassis": "E36",
+  "module": "Jatco — Automatic transmission control (M50 Japan / South Africa)",
+  "sgbd": "jatco",
+  "variants": ["jatco"],
+  "scheme": "text",
+  "note": "ECU returns descriptive German fault-location text; keyed variant-agnostically on the exact SGBD string.",
+  "faults": {
+    "Ueberwachung Magnetventile": "Solenoid-valve monitoring",
+    "Magnetventil Hauptdruck": "Line-pressure solenoid valve",
+    "UBATT-Versorgung": "Battery voltage supply",
+    "Magnetventil A": "Solenoid valve A",
+    "Magnetventil B": "Solenoid valve B",
+    "Motoreingriff": "Engine intervention",
+    "Programmtaster": "Program mode switch",
+    "Speicherfehler": "Memory fault",
+    "Drehzahlsignal n-mot": "Engine-speed signal (n-mot)",
+    "Leitung Drehzahlfuehler": "Speed-sensor wiring",
+    "Tacho A-Signal": "Speedometer A signal",
+    "MV Wandlerueberbrueckung": "Torque-converter lockup solenoid valve",
+    "Getriebeoel-Temperaturgeber": "Transmission-fluid temperature sensor",
+    "Drosselklappensensor": "Throttle-position sensor",
+    "Kick-Down-Schalter": "Kick-down switch",
+    "Magnetventil Freilauf": "Freewheel solenoid valve",
+    "MV Rueckschaltsicherung": "Downshift-protection solenoid valve",
+    "Magnetventil C": "Solenoid valve C",
+    "Magnetventil Shift-Lock": "Shift-lock solenoid valve",
+    "Drehzahlschlupf": "Speed slip",
+    "Getriebesteuergeraet": "Transmission control unit",
+    "Ueberdrehzahl Motor": "Engine overspeed",
+    "AD-Wandler": "Analog-to-digital converter"
+  }
+}

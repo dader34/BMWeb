@@ -1,0 +1,15 @@
+{
+  "chassis": "E36",
+  "module": "TOENS — Thermal oil-level sensor",
+  "sgbd": "toens",
+  "variants": ["toens"],
+  "scheme": "text",
+  "note": "Keyed on exact German ORTTEXT string from the TOENS FORTTEXTE table; variant-agnostic.",
+  "faults": {
+    "TOENS-Signal": "TOENS signal",
+    "Drehzahlsignal": "Speed signal",
+    "Warnlampe": "Warning lamp",
+    "Klemme 30": "Terminal 30",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

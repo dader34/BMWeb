@@ -1,0 +1,32 @@
+{
+  "chassis": "E36",
+  "module": "Instrument cluster — KOMBI instrument cluster",
+  "sgbd": "kombi36",
+  "variants": ["kombi36"],
+  "scheme": "text",
+  "note": "Older ECU returns descriptive German fault-location text; keyed variant-agnostically on the exact SGBD German string.",
+  "faults": {
+    "Interner Fehler (RAM)": "Internal fault (RAM)",
+    "EEPROM Lesefehler": "EEPROM read error",
+    "K-Zahl fehlerhaft": "Coding value (K) faulty",
+    "A/D-Wandler, Wandlerzeit ueberschritten": "A/D converter, conversion time exceeded",
+    "Bordnetzfehler, Kl.15 high / Kl.R low": "Vehicle electrical system fault, terminal 15 high / terminal R low",
+    "Klemme 15 Ueberspannung": "Terminal 15 overvoltage",
+    "Ueberstrom Messinstrumente": "Overcurrent, gauges",
+    "PCVA thermisch ueberlastet": "PCVA thermally overloaded",
+    "SIA-Eingang defekt": "SIA (service-interval) input faulty",
+    "Tankgeber defekt": "Fuel-level sender faulty",
+    "Kuehlmitteltemperaturgeber defekt": "Coolant-temperature sender faulty",
+    "Oeltemperaturgeber defekt": "Oil-temperature sender faulty",
+    "5-Volt-Spannung gestoert": "5-volt supply disturbed",
+    "KOMBI-Taste defekt": "Instrument-cluster button faulty",
+    "Geschwindigkeits-Signal gestoert": "Vehicle-speed signal disturbed",
+    "Drehzahlsignal gestoert": "Engine-speed signal disturbed",
+    "Einspritzsignal gestoert": "Injection signal disturbed",
+    "Bremsbelagverschleiss": "Brake-pad wear",
+    "Tankreservekontakt": "Fuel-reserve contact",
+    "Fahrertuerkontakt": "Driver's-door contact",
+    "Zuendschluesselkontakt": "Ignition-key contact",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

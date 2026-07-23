@@ -1,0 +1,31 @@
+{
+  "chassis": "E36",
+  "module": "BC — On-board computer",
+  "sgbd": "bc_v",
+  "variants": ["bc_v"],
+  "scheme": "text",
+  "note": "Keys on the exact German ORTTEXT string from the SGBD FORTTEXTE table; variant-agnostic.",
+  "faults": {
+    "BC ZHL - Check-Control-Lampe im Kombi": "OBC ZHL - Check Control lamp in instrument cluster",
+    "Gong T2 Ausgang": "Gong T2 output",
+    "Gong T1 Ausgang": "Gong T1 output",
+    "Code Ausgang - Wegfahrsicherung zur Motronic": "Code output - immobilizer to Motronic",
+    "Horn ausgang - Alarmhorn (Relaisbox/DWA)": "Horn output - alarm horn (relay box/anti-theft alarm)",
+    "Timer Ausgang": "Timer output",
+    "Temperatur Eingang - Aussentemperaturfuehler": "Temperature input - outside temperature sensor",
+    "BC CLC - Clock-Leitung zum Check-Modul": "OBC CLC - clock line to Check module",
+    "BC LAC - Latch-Signal zum Check-Modul": "OBC LAC - latch signal to Check module",
+    "BC DATA - serielle Datenltg. zum Check.Modul": "OBC DATA - serial data line to Check module",
+    "Klemme 15 ohne Klemme R": "Terminal 15 without terminal R",
+    "Klemme 50 ohne Klemme 15": "Terminal 50 without terminal 15",
+    "Haube/Radio - Ueberwachung Hauben-/Radio-Kontakt": "Hood/radio - monitoring of hood/radio contact",
+    "Tacho A - Wegsignal vom Kombi": "Speedometer A - road-speed signal from instrument cluster",
+    "T KVA - Einspritzsignal von Motronic": "T KVA - injection signal from Motronic",
+    "kein Tanksignal vom Kombi": "No fuel-level signal from instrument cluster",
+    "RxD - Diagnoseempfangsleitung Fehler": "RxD - diagnosis receive line fault",
+    "Kurzschluss TxD-Leitung nach UBatt": "Short circuit of TxD line to battery voltage",
+    "Lenkstockschalter": "Steering-column switch",
+    "kein LCD-Dimmsignal vom Kombi": "No LCD dimming signal from instrument cluster",
+    "BLTS - Bremslichttestschalter": "BLTS - brake-light test switch"
+  }
+}

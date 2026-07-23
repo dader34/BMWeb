@@ -1,0 +1,15 @@
+{
+  "chassis": "E36",
+  "module": "IRS — Remote-control receiver",
+  "sgbd": "irs_komp",
+  "variants": ["irs_komp"],
+  "scheme": "text",
+  "note": "Older ECU returns descriptive German fault-location text; keyed variant-agnostically on the exact SGBD string.",
+  "faults": {
+    "Signal ZS2": "Central-locking signal ZS2",
+    "Signal VR": "Locking signal VR",
+    "Signal ZS22": "Central-locking signal ZS22",
+    "Tuergriffkontakt TGK": "Door-handle contact TGK",
+    "EEPROM": "EEPROM"
+  }
+}

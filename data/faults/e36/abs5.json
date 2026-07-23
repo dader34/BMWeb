@@ -1,0 +1,30 @@
+{
+  "chassis": "E36",
+  "module": "ABS 5 / ASC 5 — Anti-lock braking / stability control",
+  "sgbd": "abs5",
+  "variants": ["abs5"],
+  "scheme": "text",
+  "note": "Keyed on exact German ORTTEXT from the abs5 SGBD FORTTEXTE table, variant-agnostic.",
+  "faults": {
+    "Drehzahlfuehler hinten links": "Wheel-speed sensor, rear left",
+    "Drehzahlfuehler hinten rechts": "Wheel-speed sensor, rear right",
+    "Drehzahlfuehler vorne rechts": "Wheel-speed sensor, front right",
+    "Drehzahlfuehler vorne links": "Wheel-speed sensor, front left",
+    "ABS Ventil Auslass hinten links oder Hinterachse": "ABS valve, outlet rear left or rear axle",
+    "ABS Ventil Auslass hinten rechts": "ABS valve, outlet rear right",
+    "ABS Ventil Auslass vorne rechts": "ABS valve, outlet front right",
+    "ABS Ventil Auslass vorne links": "ABS valve, outlet front left",
+    "ABS Ventil Einlass hinten links oder Hinterachse": "ABS valve, inlet rear left or rear axle",
+    "ABS Ventil Einlass hinten rechts": "ABS valve, inlet rear right",
+    "ABS Ventil Einlass vorne rechts": "ABS valve, inlet front right",
+    "ABS Ventil Einlass vorne links": "ABS valve, inlet front left",
+    "Ventilrelais Fehler": "Valve relay fault",
+    "Rueckfoerderpumpen Fehler": "Return-feed pump fault",
+    "Steuergeraete Fehler": "Control unit fault",
+    "Falsches Zahnrad an einem der 4 Raeder": "Incorrect pulse-wheel gear on one of the 4 wheels",
+    "Bremslichtschalter Leitungsunterbrechung": "Brake-light switch, open circuit",
+    "V-Vergleich": "Speed comparison",
+    "Dauerregelung / Einsteuerung": "Continuous control / control intervention",
+    "Versorgungssp. Drehzahlf. (aktive DF), SG-Fehler (passive DF)": "Supply voltage, wheel-speed sensor (active sensor); control unit fault (passive sensor)"
+  }
+}

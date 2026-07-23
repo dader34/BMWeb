@@ -1,0 +1,9 @@
+{
+  "chassis": "E36",
+  "module": "DWA 4 — Anti-theft alarm system",
+  "sgbd": "dwa4",
+  "variants": ["dwa4"],
+  "scheme": "text",
+  "note": "FORTTEXTE dump returned only placeholder rows (bare hex codes 0x01-0x27, 0xFF with no descriptive ORTTEXT); no translatable fault-location text available for this SGBD.",
+  "faults": {}
+}
