@@ -1,0 +1,20 @@
+{
+  "chassis": "E46",
+  "module": "Rollover sensor",
+  "sgbd": "ueb2",
+  "scheme": "text",
+  "faults": {
+    "interner Fehler": "Internal fault",
+    "Fehlerlampe": "Fault lamp",
+    "Versorgungsspannung": "Supply voltage",
+    "Magnet 1 und 2": "Solenoid 1 and 2",
+    "Magnet 1": "Solenoid 1",
+    "Magnet 2": "Solenoid 2",
+    "Zaehler fuer Ausloesungen": "Deployment counter",
+    "Libelle 1": "Level sensor 1",
+    "Libelle 1 Ausloeseschwelle": "Level sensor 1 trigger threshold",
+    "Libelle 2": "Level sensor 2",
+    "Libelle 2 Ausloeseschwelle": "Level sensor 2 trigger threshold",
+    "g-Sensor": "G-sensor"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "chassis": "E46",
+  "module": "Center console switch center (SZM)",
+  "sgbd": "szm46",
+  "scheme": "text",
+  "faults": {
+    "Klemme 30 nicht vorhanden": "Terminal 30 missing",
+    "Sitzheizung links Kurzschluss oder Leitungsunterbrechung": "Seat heater, left: short or open circuit",
+    "Sitzheizung rechts Kurzschluss oder Leitungsunterbrechung": "Seat heater, right: short or open circuit",
+    "Temperatursensor Sitzheizung links Leitungsunterbrechung": "Seat heater temp sensor, left: open circuit",
+    "Temperatursensor Sitzheizung links Kurzschluss gegen Masse": "Seat heater temp sensor, left: short to ground",
+    "Temperatursensor Sitzheizung rechts Leitungsunterbrechung": "Seat heater temp sensor, right: open circuit",
+    "Temperatursensor Sitzheizung rechts Kurzschluss gegen Masse": "Seat heater temp sensor, right: short to ground",
+    "Heizflaeche Sitzheizung links Leitungsunterbrechung": "Seat heater element, left: open circuit",
+    "Heizflaeche Sitzheizung rechts Leitungsunterbrechung": "Seat heater element, right: open circuit",
+    "Sonnenrollo Motor, Leitungsunterbrechung": "Sunblind motor: open circuit",
+    "Sonnenrollo Motor, Kurzschluss": "Sunblind motor: short circuit"
+  }
+}

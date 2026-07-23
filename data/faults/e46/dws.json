@@ -1,0 +1,21 @@
+{
+  "chassis": "E46",
+  "module": "Deflation warning system (DWS)",
+  "sgbd": "dws",
+  "scheme": "text",
+  "faults": {
+    "ROM-Fehler": "ROM error",
+    "RAM-Fehler": "RAM error",
+    "EEPROM-Fehler (W/R,CHKSUM)": "EEPROM error (write/read, checksum)",
+    "System-Fehler (main loop)": "System error (main loop)",
+    "System-Fehler (stack)": "System error (stack)",
+    "DWS-Taster Masseschluss (Plausibilitaet": "DWS button short to ground (plausibility)",
+    "Geschwindigkeitsimpulse VL": "Speed pulses, front left",
+    "Geschwindigkeitsimpulse VR": "Speed pulses, front right",
+    "Geschwindigkeitsimpulse HL": "Speed pulses, rear left",
+    "Geschwindigkeitsimpulse HR": "Speed pulses, rear right",
+    "Kbus (60s kein Empfang bei KL15)": "K-bus (no reception 60s at terminal 15)",
+    "EEPROM: write check (standard)": "EEPROM: write check",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}
