@@ -1,0 +1,12 @@
+{
+  "chassis": "E53",
+  "module": "Instrument cluster KOMBI / IKE",
+  "sgbd": "kombi31",
+  "scheme": "text",
+  "faults": {
+    "unbekannter Fehler": "unknown fault",
+    "Datenleitung zum EKM": "data line to EKM",
+    "interner Fehlerspeicher": "internal fault memory",
+    "interner Hardware-Fehler": "internal hardware fault"
+  }
+}

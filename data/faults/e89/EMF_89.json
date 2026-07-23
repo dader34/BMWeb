@@ -76,7 +76,7 @@
     "6572": "Shutdown 1E1 - electromech mode - DSC reports dynamic braking, no EMF request",
     "6573": "Shutdown 1E0 - limited hydraulic mode - DSC sends invalid DFA_EMF frequency",
     "6574": "Shutdown 1E0 - limited hydraulic mode - DSC sends disallowed DFA_EMF freq",
-    "6575": "Shutdown 1E0 - limited hydraulic mode - speed (CAN) and DFA_EMF freq implausible",
+    "6575": "Shutdown 1E0 - ltd hydraulic mode - speed (CAN) and DFA_EMF freq implausible",
     "6576": "Shutdown stage 1E2 - total shutdown - vehicle speed invalid",
     "6577": "Internal control unit fault - control unit calibration data invalid",
     "6578": "Internal control unit fault - relay enable line not set",
