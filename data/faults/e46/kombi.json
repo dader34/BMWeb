@@ -1,0 +1,30 @@
+{
+  "chassis": "E46",
+  "module": "kombi",
+  "sgbd": "kombi46",
+  "scheme": "text",
+  "faults": {
+    "K-Bus": "K-bus",
+    "Ueberspannung (U>16V)": "Overvoltage (U>16V)",
+    "Tank-Hebelgeber_links": "Fuel level sender left",
+    "Tank-Hebelgeber_rechts": "Fuel level sender right",
+    "Aussentemperatur": "Outside temperature",
+    "Klemme R": "Terminal R",
+    "SIA-Reset": "Service interval (SIA) reset",
+    "Lichtmodul-EEPROM-Fehler": "Light module EEPROM fault",
+    "KOMBI46-EEPROM, Codierung fehlerhaft/unvollstaendig": "KOMBI46 EEPROM, coding faulty/incomplete",
+    "Signal TWEG+ (Tacho)": "Signal TWEG+ (speedometer)",
+    "TOG": "TOG signal",
+    "Tacho A": "Speedometer A",
+    "CAN BUS OFF": "CAN bus off",
+    "keine CAN ID": "No CAN ID",
+    "keine CAN ID ASC1": "No CAN ID ASC1",
+    "keine CAN ID DME1": "No CAN ID DME1",
+    "keine CAN ID DME2": "No CAN ID DME2",
+    "keine CAN ID DME4": "No CAN ID DME4",
+    "keine CAN ID ASC3": "No CAN ID ASC3",
+    "keine CAN ID EGS1": "No CAN ID EGS1",
+    "keine CAN ID SMG1": "No CAN ID SMG1",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "chassis": "E46",
+  "module": "Auxiliary/parking heater (diesel)",
+  "sgbd": "zuheiz_b",
+  "scheme": "text",
+  "faults": {
+    "Steuergeraet defekt": "Control unit defective",
+    "Steuergeraet falsch codiert": "Control unit incorrectly coded",
+    "keine Flammbildung": "No flame formation",
+    "Flammabbruch": "Flame cut-out",
+    "Versorgungsspannung Signal zu gross": "Supply voltage signal too high",
+    "Unterspannungsabschaltung": "Undervoltage shutdown",
+    "wiederholter Flammabbruch im Heizzyklus": "Repeated flame cut-out in heating cycle",
+    "Heizgeraet ueberhitzt": "Heater overheated",
+    "Temperaturfuehler defekt": "Temperature sensor defective",
+    "Gluehstift Flammwaechter": "Glow pin / flame monitor",
+    "Dosierpumpe": "Metering pump",
+    "Verbrennungsluftgeblaese": "Combustion air blower",
+    "Umwaelzpumpe": "Circulation pump",
+    "Ansteuerung Fahrzeuggeblaese": "Vehicle blower control",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}
