@@ -1,0 +1,20 @@
+{
+  "chassis": "R56",
+  "module": "Amplifier / HIFI",
+  "sgbd": "AMPH56",
+  "scheme": "code",
+  "faults": {
+    "D6C4": "Bus wiring invalid",
+    "D6C7": "Bus communication invalid",
+    "D6D4": "Message (mileage 330h)",
+    "A1C0": "Message (mileage 330h)",
+    "A1A8": "ECU overtemperature",
+    "A1A9": "Communication coprocessor",
+    "A1AA": "Error temperature sensor",
+    "A1AB": "Fault memory check coding",
+    "A1AC": "Communication power ICs",
+    "A1AD": "Power save mode active",
+    "A1AE": "Device has overvoltage",
+    "FFFF": "Unknown fault location"
+  }
+}

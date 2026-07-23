@@ -1,0 +1,13 @@
+{
+  "chassis": "R56",
+  "module": "Central Control Unit  ZBE",
+  "sgbd": "ZBE_56",
+  "scheme": "code",
+  "faults": {
+    "A2CB": "Hat switch slide error",
+    "A2CC": "Power save mode active",
+    "E2C4": "Bus low line error",
+    "E2C7": "Bus communication error",
+    "FFFF": "Unknown fault location"
+  }
+}

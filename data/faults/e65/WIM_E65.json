@@ -1,0 +1,20 @@
+{
+  "chassis": "E65",
+  "module": "Wiper Module",
+  "sgbd": "WIM_E65",
+  "scheme": "code",
+  "faults": {
+    "9E08": "Microcontroller fault",
+    "9E09": "Missing coding",
+    "9E0B": "Washer pump/wiring: short, open, or reservoir empty",
+    "9E0C": "Headlight washer pump/wiring: open or short to ground",
+    "9E0D": "Wet-arm heater/wiring: open or short to ground",
+    "9E0F": "Wiper stiff/sluggish",
+    "9E10": "Hall sensor armature fault",
+    "9E11": "Coding fault 'assembly mode'",
+    "9E12": "Hall sensor reference fault (RSK)",
+    "DA84": "K-CAN SYS low/high wiring fault (short circuit)",
+    "DA87": "K-CAN SYS communication fault (bus-off)",
+    "FFFF": "Unknown fault location"
+  }
+}

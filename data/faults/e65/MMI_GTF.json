@@ -1,0 +1,10 @@
+{
+  "chassis": "E65",
+  "module": "Man Machine Interface Graphic Module Rear",
+  "sgbd": "MMI_GTF",
+  "scheme": "code",
+  "faults": {
+    "A5E8": "MMI computer memory test fault",
+    "FFFF": "Unknown fault location"
+  }
+}

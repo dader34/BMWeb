@@ -1,0 +1,17 @@
+{
+  "chassis": "R56",
+  "module": "Electronic Power Steering",
+  "sgbd": "EPS_56",
+  "scheme": "code",
+  "faults": {
+    "610C": "[TS]: Torque sensor",
+    "610D": "[MCU]: Motor control unit",
+    "610E": "[BATT]: Battery voltage",
+    "D507": "[NM]: Bus communication error",
+    "D514": "[CAN]: Speed, Id 1A0h",
+    "D515": "[CAN]: Engine status, Id 1D0h",
+    "D516": "[CAN]: Steer angle, Id C4h",
+    "D517": "[CAN]: Terminal status, Id 130h",
+    "FFFF": "Unknown fault location"
+  }
+}

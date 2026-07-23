@@ -1,0 +1,24 @@
+{
+  "chassis": "R56",
+  "module": "Steering Column  SZL",
+  "sgbd": "SZL_56",
+  "scheme": "code",
+  "faults": {
+    "9E28": "Control unit internal fault",
+    "9E29": "Steering wheel angle",
+    "9E2A": "Steering wheel angular velocity",
+    "9E2C": "Multifunction steering wheel (MFL) - timeout telegram",
+    "9E2D": "Multifunction steering wheel (MFL) - toggle bit fault",
+    "9E2E": "Multifunction steering wheel (MFL) - timeout device status",
+    "9E2F": "PT-CAN wake line - plausibility fault",
+    "9E30": "Overvoltage",
+    "9E31": "Undervoltage",
+    "9E32": "Flash download for MC-2 required",
+    "9E33": "Zero-point calibration for steering angle sensor required",
+    "C987": "Bus communication fault (PT-CAN)",
+    "C98B": "Bus communication fault (F-CAN)",
+    "C994": "Message (terminal status, 130h)",
+    "C995": "Signal (ST_KL_15)",
+    "FFFF": "Unknown fault location"
+  }
+}

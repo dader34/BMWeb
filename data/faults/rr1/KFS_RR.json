@@ -1,0 +1,24 @@
+{
+  "chassis": "RR1",
+  "module": "Retractable Spirit Of Ecstacy",
+  "sgbd": "KFS_RR",
+  "scheme": "code",
+  "faults": {
+    "A4C8": "Reset by watchdog",
+    "A4C9": "Reset by opcode error",
+    "A4CA": "Reset by clock monitor",
+    "A4CB": "EEPROM fault",
+    "A4CD": "Relay does not switch on in UP direction",
+    "A4CE": "Relay does not switch off in UP direction",
+    "A4CF": "Relay does not switch on in DOWN direction",
+    "A4D0": "Relay does not switch off in DOWN direction",
+    "A4D1": "Motor driver fault",
+    "A4D5": "TFK short circuit to ground",
+    "A4D3": "SFKA short circuit to ground",
+    "E404": "Controller, bus off",
+    "E405": "CAN Low, physical bus fault",
+    "A4D4": "Fault at 2nd button input",
+    "A4D2": "Reserve driver fault",
+    "FFFF": "unknown fault location"
+  }
+}
