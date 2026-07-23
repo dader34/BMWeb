@@ -1,0 +1,11 @@
+{
+  "chassis": "E89",
+  "module": "TELEVISION (TV)",
+  "sgbd": "vm5ibus",
+  "scheme": "text",
+  "faults": {
+    "IBus Dauerhigh Abschaltung": "IBus permanent-high shutdown",
+    "Watchdog ausgeloest": "Watchdog triggered",
+    "FeTraWe aktiviert": "FeTraWe (remote transmission path) activated"
+  }
+}

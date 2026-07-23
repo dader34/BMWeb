@@ -1,0 +1,27 @@
+{
+  "chassis": "E87",
+  "module": "Radio 1/2",
+  "sgbd": "RAD1",
+  "scheme": "code",
+  "faults": {
+    "ABC9": "Drive communication error",
+    "ABC8": "Drive operation error",
+    "ABCC": "RAD ON short circuit error",
+    "ABCE": "Error FLASHROM",
+    "ABCF": "Error EEPROM",
+    "ABD0": "I2C bus error",
+    "ABD1": "Error no antenna",
+    "ABD2": "Error wrong antenna",
+    "ABD3": "Error diversity module",
+    "ABD4": "RAD ON open circuit error",
+    "A16D": "Energy saving mode active",
+    "E1C4": "CAN physical bus error",
+    "E1C7": "CAN bus communication error",
+    "E1CE": "CAS sender failure",
+    "E1CF": "KOMBI sender failure",
+    "E1D0": "SZL_LWS sender failure",
+    "E1D1": "DSC sender failure",
+    "E1D2": "DME sender failure",
+    "FFFF": "Unknown fault location"
+  }
+}
