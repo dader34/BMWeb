@@ -1,0 +1,24 @@
+{
+  "chassis": "E46",
+  "module": "lws5",
+  "sgbd": "lws5",
+  "scheme": "text",
+  "faults": {
+    "Klemme 30 fehlerhaft": "Terminal 30 faulty",
+    "Sensorstrom ausserhalb Toleranz": "Sensor current out of tolerance",
+    "90 Grad-Differenz der Schleifer zu gross (Normalbetrieb)": "90-degree wiper difference too large (normal operation)",
+    "90 Grad-Differenz der Schleifer zu gross (Abgleichbetrieb)": "90-degree wiper difference too large (calibration mode)",
+    "EEPROM defekt": "EEPROM defective",
+    "AD-Wandler defekt": "A/D converter defective",
+    "ROM-Checkfehler": "ROM check fault",
+    "RAM-Checkfehler": "RAM check fault",
+    "keine ASC2-Botschaft": "No ASC2 message",
+    "CAN-Stand falsch": "CAN status wrong",
+    "LWS-ID falsch": "Steering angle sensor ID wrong",
+    "CAN-Bus off": "CAN bus off",
+    "Lrw-Gradient zu gross": "Steering angle gradient too large",
+    "Lrw-Maximum ueberschritten": "Steering angle maximum exceeded",
+    "Stack-Fehler / Case-Fehler": "Stack fault / case fault",
+    "Watchdog": "Watchdog"
+  }
+}

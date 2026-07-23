@@ -132,36 +132,52 @@ internal static class DiagnosticsEndpoints
             });
         });
 
-        app.MapPost("/api/ecu/{sgbd}/read", (HttpContext ctx, string sgbd, string? port) => state.OnBus(ctx, () =>
+        app.MapPost("/api/ecu/{sgbd}/read", (HttpContext ctx, string sgbd, string? port, string? group) => state.OnBus(ctx, () =>
         {
             var diag = state.Engines.AcquireLive(port);
             if (diag == null) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
-            // multi-variant merge (in the library so the CLI labels faults the same):
-            // faults the primary SGBD leaves as "unknown location" get filled in from
-            // sibling variants (e.g. zke5 -> zke5_s12) when available.
-            var codes = FaultReader.ReadFaultsMerged(diag, sgbd, state.Config.SgbdVariants(sgbd));
+            // prefer the diagnostic-address group (D_00xx.grp) so EDIABAS identifies the
+            // exact variant itself; falls back to the concrete SGBD + sibling-variant
+            // merge (which fills "unknown location" faults from siblings like
+            // zke5 -> zke5_s12) when there's no group or it can't identify.
+            var codes = FaultReader.ReadFaultsAuto(diag, sgbd, group, state.Config.SgbdVariants(sgbd));
             return Results.Json(new { port, count = codes.Count, codes });
         }));
 
-        app.MapPost("/api/ecu/{sgbd}/clear", (HttpContext ctx, string sgbd, string? port) => state.OnBus(ctx, () =>
+        app.MapPost("/api/ecu/{sgbd}/clear", (HttpContext ctx, string sgbd, string? port, string? group) => state.OnBus(ctx, () =>
         {
             var diag = state.Engines.AcquireLive(port);
             if (diag == null) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
-            diag.Load(sgbd);
+            LoadForJob(diag, sgbd, group, "FS_LOESCHEN");
             diag.Run("FS_LOESCHEN");
             return Results.Json(new { ok = true });
         }));
 
         // run any job live, return every result set as key/value strings
-        app.MapPost("/api/ecu/{sgbd}/run/{job}", (HttpContext ctx, string sgbd, string job, string? port, string? arg) => state.OnBus(ctx, () =>
+        app.MapPost("/api/ecu/{sgbd}/run/{job}", (HttpContext ctx, string sgbd, string job, string? port, string? arg, string? group) => state.OnBus(ctx, () =>
         {
             var diag = state.Engines.AcquireLive(port);
             if (diag == null) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
-            diag.Load(sgbd);
+            LoadForJob(diag, sgbd, group, job);
             var sets = diag.Run(job, string.IsNullOrEmpty(arg) ? null : arg);
             var rows = sets.Select(s => s.ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value))).ToList();
             return Results.Json(new { port, job, sets = rows });
         }));
+    }
+
+    // load the ECU for a job, preferring the diagnostic-address group (D_00xx.grp)
+    // for fault jobs (FS_*) so EDIABAS identifies the exact variant. Non-fault jobs
+    // (status/live views bound to the concrete SGBD's layout) keep the SGBD. Falls
+    // back to the SGBD if the group can't identify, so it never regresses.
+    private static void LoadForJob(Diag diag, string sgbd, string group, string job)
+    {
+        if (!string.IsNullOrEmpty(group) && job != null &&
+            job.StartsWith("FS_", StringComparison.OrdinalIgnoreCase))
+        {
+            try { diag.Load(group); return; }
+            catch { /* no cable / no identify / unsupported: fall back */ }
+        }
+        diag.Load(sgbd);
     }
 
     // run offline work with friendly errors: missing/unloadable SGBD -> 404,

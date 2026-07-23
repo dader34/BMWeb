@@ -1,0 +1,21 @@
+{
+  "chassis": "E46",
+  "module": "Park distance control (PDC)",
+  "sgbd": "pdce38",
+  "scheme": "text",
+  "faults": {
+    "Wandler vorne Mitte rechts": "Sensor, front center right",
+    "Wandler vorne Mitte links": "Sensor, front center left",
+    "Wandler vorne rechts": "Sensor, front right",
+    "Weggeber": "Distance/travel sensor",
+    "Wandler vorne links": "Sensor, front left",
+    "Wandler hinten Mitte rechts": "Sensor, rear center right",
+    "Tongeber vorne": "Buzzer, front",
+    "Wandler hinten Mitte links": "Sensor, rear center left",
+    "Wandler hinten rechts": "Sensor, rear right",
+    "Wandler hinten links": "Sensor, rear left",
+    "Taste": "Button",
+    "Tongeber hinten": "Buzzer, rear",
+    "Kontrollsignal": "Control signal"
+  }
+}

@@ -172,8 +172,10 @@ async function readFaultsDetailed(ecu, container) {
   container.className = 'results-panel';
   container.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading fault memory…</span></div>`;
   try {
-    // 1) normal read -> fault numbers
-    const base = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN`, { method: 'POST' });
+    // 1) normal read -> fault numbers (via the address group so EDIABAS picks the
+    // exact variant; see server LoadForJob)
+    const gq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
+    const base = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${gq}`, { method: 'POST' });
     const faults = dataSets(base.sets).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
     if (!faults.length) { renderFaults([], container, ecu); sbLeft.textContent = '0 faults'; return; }
     // 2) per-fault detail, merged onto the base entry

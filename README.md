@@ -93,11 +93,11 @@ plus a `.dmg`) is being rebuilt for the native app; the 0.1.x `.dmg` releases
 were produced by the retired Electron shell.
 
 
-## Contributing fault-code translations
+## Fault-code translations
 
-BMacW shows an English description for each fault code it reads. Those live in
-plain JSON files under `data/faults/`, so adding a translation is a small pull
-request, no code required. See [CONTRIBUTING.md](CONTRIBUTING.md).
+BMacW shows an English description for each fault code it reads. These are
+generated from the authoritative BMW SGBD `FORTTEXTE` tables (per ECU), not
+hand-maintained. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 
 ## License

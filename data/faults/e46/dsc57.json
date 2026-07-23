@@ -1,0 +1,28 @@
+{
+  "chassis": "E46",
+  "module": "dsc57",
+  "sgbd": "abs5",
+  "scheme": "text",
+  "faults": {
+    "Drehzahlfuehler hinten links": "Wheel speed sensor rear left",
+    "Drehzahlfuehler hinten rechts": "Wheel speed sensor rear right",
+    "Drehzahlfuehler vorne rechts": "Wheel speed sensor front right",
+    "Drehzahlfuehler vorne links": "Wheel speed sensor front left",
+    "ABS Ventil Auslass hinten links oder Hinterachse": "ABS outlet valve rear left or rear axle",
+    "ABS Ventil Auslass hinten rechts": "ABS outlet valve rear right",
+    "ABS Ventil Auslass vorne rechts": "ABS outlet valve front right",
+    "ABS Ventil Auslass vorne links": "ABS outlet valve front left",
+    "ABS Ventil Einlass hinten links oder Hinterachse": "ABS inlet valve rear left or rear axle",
+    "ABS Ventil Einlass hinten rechts": "ABS inlet valve rear right",
+    "ABS Ventil Einlass vorne rechts": "ABS inlet valve front right",
+    "ABS Ventil Einlass vorne links": "ABS inlet valve front left",
+    "Ventilrelais Fehler": "Valve relay fault",
+    "Rueckfoerderpumpen Fehler": "Return pump fault",
+    "Steuergeraete Fehler": "Control unit fault",
+    "Falsches Zahnrad an einem der 4 Raeder": "Wrong tone ring on one of the 4 wheels",
+    "Bremslichtschalter Leitungsunterbrechung": "Brake light switch open circuit",
+    "V-Vergleich": "Wheel speed comparison",
+    "Dauerregelung / Einsteuerung": "Continuous control / actuation",
+    "Versorgungssp. Drehzahlf. (aktive DF), SG-Fehler (passive DF)": "Sensor supply voltage (active WSS), control unit fault (passive WSS)"
+  }
+}

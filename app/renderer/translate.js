@@ -354,14 +354,22 @@ function deGerman(text) {
   let out = null;
   const trimmed = text.trim();
   if (ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];         // exact sentence
-  if (out === null) for (const [de, en] of FAULT_PHRASES) if (text === de) { out = en; break; }
+  // per-ECU fault-location text -> English, generated from the SGBD FORTTEXTE tables
+  // (faultdb.js). keyed on the trimmed German text, so it is variant-agnostic.
+  if (out === null && typeof window !== 'undefined' && window.BMW_FAULT_PHRASES)
+    out = window.BMW_FAULT_PHRASES[trimmed] || null;
+  if (out === null) for (const [de, en] of FAULT_PHRASES) if (trimmed === de) { out = en; break; }
   if (out === null) {
     // token-level fallback for partial/unlisted phrases (P-code text, etc.)
     out = text;
     for (const [re, en] of DE_TOKENS) out = out.replace(re, en);
   }
-  if (_deCache.size > 5000) _deCache.clear();
-  _deCache.set(text, out);
+  // don't cache token-fallback results taken before the phrase map has loaded,
+  // or they'd shadow the better BMW_FAULT_PHRASES translation once it arrives.
+  if (typeof window === 'undefined' || window.BMW_FAULT_PHRASES) {
+    if (_deCache.size > 5000) _deCache.clear();
+    _deCache.set(text, out);
+  }
   return out;
 }
 

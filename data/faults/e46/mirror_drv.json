@@ -1,0 +1,21 @@
+{
+  "chassis": "E46",
+  "module": "Mirror memory, driver",
+  "sgbd": "spm46ft",
+  "scheme": "text",
+  "faults": {
+    "Timer Watchdog": "Timer watchdog",
+    "EEPROM": "EEPROM",
+    "Spiegelverstellschalter, Unterbrechung": "Mirror adjust switch: open circuit",
+    "Spiegelheizung Unterbrechung": "Mirror heater: open circuit",
+    "Spiegelheizung Kurzschluss": "Mirror heater: short circuit",
+    "Spiegelmotor, Potentiometer Vertikal": "Mirror motor: vertical potentiometer",
+    "Spiegelmotor, Potentiometer Horizontal": "Mirror motor: horizontal potentiometer",
+    "Spiegelmotor Vertikal Unterbrechung": "Mirror motor vertical: open circuit",
+    "Spiegelmotor Vertikal Kurzschluss": "Mirror motor vertical: short circuit",
+    "Spiegelmotor Horizontal Unterbrechung": "Mirror motor horizontal: open circuit",
+    "Spiegelmotor Horizontal Kurzschluss": "Mirror motor horizontal: short circuit",
+    "Spiegelmotor Einklappen Unterbrechung": "Mirror fold motor: open circuit",
+    "Spiegelmotor Einklappen Kurzschluss": "Mirror fold motor: short circuit"
+  }
+}

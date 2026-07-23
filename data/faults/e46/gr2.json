@@ -1,0 +1,21 @@
+{
+  "chassis": "E46",
+  "module": "Cruise control (GR2)",
+  "sgbd": "gr2",
+  "scheme": "text",
+  "faults": {
+    "Watchdog-Error, Fehlerhaftes WD-System": "Watchdog error: faulty WD system",
+    "Fehler im RAM bei Initialisierung": "RAM error at initialization",
+    "Fehlerhafte Checksumme der Codierdaten": "Coding data checksum error",
+    "Unplausible Eingangssignalerkennung ( Main- Switch)": "Implausible input signal (main switch)",
+    "Vmin- Fehler, Unplausibilitaet zwischen Hard-/Software- Vmin": "Vmin fault: hardware/software mismatch",
+    "Unplaus. zwischen Hard- und Software Abschaltspeicher": "Hardware/software shutoff memory mismatch",
+    "Fehler Kupplungszustand zu ku_plus Plausibilitaet": "Clutch state vs. ku_plus: plausibility",
+    "Stellglied hat max. Abschaltzeit ueberschritten": "Actuator exceeded max shutoff time",
+    "Fehler bei Reglerueberwachung": "Controller monitoring fault",
+    "P+ - Spannung im ungueltigen Spannungsbereich": "P+ voltage out of valid range",
+    "Fehler Togglebit": "Toggle bit fault",
+    "Bereichsueberschreitung des Kodierdatenpointers": "Coding data pointer out of range",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "chassis": "E46",
+  "module": "rls",
+  "sgbd": "rls_ds2",
+  "scheme": "text",
+  "faults": {
+    "kein Fehler": "No fault",
+    "Licht Hardwarefehler": "Light hardware fault",
+    "Sensor ist noch nicht codiert!": "Sensor not yet coded!",
+    "Fehler Lichtsensor": "Light sensor fault",
+    "Keine optische Initialisierung möglich": "No optical initialization possible",
+    "Fehler optische Initialisierung und LichtHW": "Optical initialization and light hardware fault",
+    "Fehler optische Initialisierung und nicht codiert!": "Optical initialization fault and not coded!",
+    "Fehler optische Initialisierung und Lichtfehler": "Optical initialization fault and light fault",
+    "Hardwarefehler": "Hardware fault",
+    "Hardwarefehler und Lichthardwarefehler": "Hardware fault and light hardware fault",
+    "Hardwarefehler und nicht codiert!": "Hardware fault and not coded!",
+    "Hardwarefehler und Lichtplausibilitäts/hardwarefehler": "Hardware fault and light plausibility/hardware fault",
+    "keine optische Init und Hardwarefehler": "No optical init and hardware fault",
+    "Hardwarefehler Initialisierungsfehler Lichthardwarefehler": "Hardware fault, initialization fault, light hardware fault",
+    "Hardwarefehler Initialisierungsfehler Codierfehler": "Hardware fault, initialization fault, coding fault",
+    "Hardwarefehler Initialisierungsfehler Lichtfehler": "Hardware fault, initialization fault, light fault"
+  }
+}

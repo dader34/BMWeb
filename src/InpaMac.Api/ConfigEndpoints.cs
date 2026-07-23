@@ -26,7 +26,7 @@ internal static class ConfigEndpoints
                     {
                         key = s.Key,
                         name = s.Name,
-                        ecus = s.Ecus.Select(e => new { code = e.Code, label = e.Label, sgbd = e.Sgbd })
+                        ecus = s.Ecus.Select(e => new { code = e.Code, label = e.Label, sgbd = e.Sgbd, group = e.Group })
                     }),
                     // entry codes sharing one diagnostic address (only one is
                     // installed): lets the whole-vehicle scan skip a group's

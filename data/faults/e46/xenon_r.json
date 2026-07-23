@@ -1,0 +1,22 @@
+{
+  "chassis": "E46",
+  "module": "Xenon light, right",
+  "sgbd": "xenon_r",
+  "scheme": "text",
+  "faults": {
+    "Ul <65 Volt, Brennspannung ausserhalb des zulaessigen Bereichs": "Arc voltage below 65 V (out of range)",
+    "Ul >115 Volt, Brennspannung ausserhalb des zulaessigen Bereichs": "Arc voltage above 115 V (out of range)",
+    "D2S/R-Lampe ist erloschen": "D2S/R bulb went out",
+    "D2S/R-Lampe mehrmals erloschen": "D2S/R bulb went out repeatedly",
+    "Zuendung erfolglos": "Ignition (strike) unsuccessful",
+    "Zuendgeraet nicht angeschlossen oder defekt": "Igniter not connected or faulty",
+    "µC-interner Fehler": "Microcontroller internal fault",
+    "Hardwarefehler im Steuergeraet": "Control unit hardware fault",
+    "Kurzschluss am Ausgang des Steuergeraetes (ZG-Pins)": "Short at control unit output (igniter pins)",
+    "Zuendhilfsspannung fehlerhaft": "Ignition-aid voltage faulty",
+    "Ueberspannungsabschaltung, Klemme 56b > 19 Volt": "Over-voltage shutoff, terminal 56b > 19 V",
+    "SW-Kabelbaum oder Zuleitung zum SW zu hochohmig": "Ballast harness/feed resistance too high",
+    "Klemme 15 < 7,5 Volt": "Terminal 15 below 7.5 V",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

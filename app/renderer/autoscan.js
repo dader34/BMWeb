@@ -20,11 +20,13 @@ async function autoScanE46(force) {
   stateSgbd = 'ms450ds0'; // E46 engine: drive the battery/ignition poll off MS45
   try {
     // engine = MS45; transmission = all E46 variants (only one is installed)
+    // group = diagnostic-address group SGBD; the server loads it so EDIABAS picks
+    // the exact variant (engine D_0012, transmission D_0032), with fallback to sgbd.
     const targets = [
-      { sgbd: 'ms450ds0', label: 'MS45.1 DME (engine)', trans: false },
-      { sgbd: 'gsds2',    label: 'GS20/GS8 auto trans', trans: true },
-      { sgbd: 'gs30',     label: 'SSG sequential gearbox', trans: true },
-      { sgbd: 'smg2',     label: 'SMG2 transmission', trans: true },
+      { sgbd: 'ms450ds0', group: 'D_0012', label: 'DME (engine)', trans: false },
+      { sgbd: 'gsds2',    group: 'D_0032', label: 'GS20/GS8 auto trans', trans: true },
+      { sgbd: 'gs30',     group: 'D_0032', label: 'SSG sequential gearbox', trans: true },
+      { sgbd: 'smg2',     group: 'D_0032', label: 'SMG2 transmission', trans: true },
     ];
     const findings = [];     // { label, faults:[ detailed codes ] }
     let transFound = false, anyResponse = false;
@@ -32,7 +34,8 @@ async function autoScanE46(force) {
       // trans variants share an address: once one actually answers, skip the rest
       if (t.trans && transFound) continue;
       let data;
-      try { data = await api(`/api/ecu/${t.sgbd}/read`, { method: 'POST' }); }
+      const gq = t.group ? `?group=${encodeURIComponent(t.group)}` : '';
+      try { data = await api(`/api/ecu/${t.sgbd}/read${gq}`, { method: 'POST' }); }
       catch { continue; } // no response = not installed
       anyResponse = true;
       if (t.trans) transFound = true; // a non-throwing read means this variant is on the bus

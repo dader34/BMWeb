@@ -1,0 +1,15 @@
+{
+  "chassis": "E46",
+  "module": "Rain sensor (AIC)",
+  "sgbd": "aic",
+  "scheme": "text",
+  "faults": {
+    "kein Fehler": "No fault",
+    "interner Hardwarefehler": "Internal hardware fault",
+    "keine Adaption an Scheibe moeglich": "Cannot adapt to windscreen",
+    "Spannung oder Temperatur ausserhalb Toleranz": "Voltage or temperature out of tolerance",
+    "Kommunikationsprobleme ASIC - Kontroller": "Communication problem, ASIC - controller",
+    "Ueberwischen nicht erkannt": "Over-wipe not detected",
+    "Wischermotor Rueckstellkontakt fehlerhaft": "Wiper motor park contact faulty"
+  }
+}

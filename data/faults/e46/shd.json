@@ -1,0 +1,13 @@
+{
+  "chassis": "E46",
+  "module": "Sunroof module (SHD)",
+  "sgbd": "shd46",
+  "scheme": "text",
+  "faults": {
+    "Relais": "Relay",
+    "Inkrementgeber": "Incremental (position) sensor",
+    "Bedienschalter": "Operating switch",
+    "EEPROM-Fehler": "EEPROM error",
+    "reserviert": "Reserved"
+  }
+}

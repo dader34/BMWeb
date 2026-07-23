@@ -1,0 +1,21 @@
+{
+  "chassis": "E46",
+  "module": "Electric fuel pump (EKP)",
+  "sgbd": "ekp_ds2",
+  "scheme": "text",
+  "faults": {
+    "MOTORSPANNUNG_ZU_HOCH    0x01": "Motor voltage too high",
+    "MOTORSPANNUNG_ZU_NIEDRIG 0x02": "Motor voltage too low",
+    "MOTORSTROM_ZU_HOCH       0x03": "Motor current too high",
+    "MOTORSTROM_ZU_NIEDRIG    0x04": "Motor current too low",
+    "MOTORSTROM_FEHLT         0x05": "Motor current missing",
+    "DREHZAHL_FEHLT           0x06": "Speed signal missing",
+    "DREHZAHL_ZU_HOCH         0x07": "Speed too high",
+    "DREHZAHL_ZU_NIEDRIG      0x08": "Speed too low",
+    "UEBERTEMP_HIGH_SIDE      0x09": "Over-temperature, high side",
+    "UEBERTEMP_LOW_SIDE       0x0A": "Over-temperature, low side",
+    "CAN_ANST_TIMEOUT         0x0B": "CAN control timeout",
+    "EEPROM_CRC_FEHLER        0x0C": "EEPROM CRC error",
+    "unbekannter Fehlecode": "Unknown fault code"
+  }
+}
