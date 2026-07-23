@@ -1,0 +1,19 @@
+{
+  "chassis": "E60",
+  "module": "Digital Satellite Radio USA",
+  "sgbd": "SAT_60",
+  "scheme": "code",
+  "faults": {
+    "A530": "Error_Power_Supply_Fault",
+    "A531": "Error_Micro_Fault",
+    "A532": "Error_IC_Fault",
+    "A536": "Error_SatAntenna_Open_Circuit",
+    "A537": "Error_SatAntenna_Short_Circuit",
+    "A538": "Error_TerAntenna_OpenOrShort_Circuit",
+    "DE0E": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "DE10": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "DE11": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "DE12": "Device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "FFFF": "unknown fault location"
+  }
+}

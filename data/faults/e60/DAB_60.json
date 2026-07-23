@@ -1,0 +1,20 @@
+{
+  "chassis": "E60",
+  "module": "Digital Radio Terrestrial DAB",
+  "sgbd": "DAB_60",
+  "scheme": "code",
+  "faults": {
+    "A528": "Error_Micro/Memory_Failure",
+    "A529": "Error_Band_L_Antenna_Open_Circuit",
+    "A52A": "Error_Band_L_Antenna_Short_Circuit",
+    "A52B": "Error_Band_III_Antenna_Open_Circuit",
+    "A52C": "Error_Band_III_Antenna_Short_Circuit",
+    "A52D": "Error_TI_Chip_Set_Failure",
+    "A52E": "Error_Oasis_Chip_Interrupt_Malfunction",
+    "DFCE": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "DFD0": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "DFD1": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "DFD2": "Device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "FFFF": "unknown fault location"
+  }
+}

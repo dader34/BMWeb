@@ -1,0 +1,20 @@
+{
+  "chassis": "E60",
+  "module": "Telephone ECE / US",
+  "sgbd": "TEL_ECE",
+  "scheme": "code",
+  "faults": {
+    "D68C": "Device did not accept/acknowledge monitoring msg (Error_Monitoring)",
+    "D68D": "Device failed 3 attempts to wake network (Error_WakeUp_Failed)",
+    "D68E": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "D68F": "Central registry does not match target config (Error_Registry_New)",
+    "D690": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "D691": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "D692": "Device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "D6A4": "Emergency call button no feedback (NOT_TASTE_NOK)",
+    "D6A5": "K-Bus no feedback (K_BUS_NOK)",
+    "D6A6": "CAN-Bus no feedback (CAN_BUS_NOK)",
+    "D6A7": "TELCOMANDER sends invalid key code (TELCOMANDER_INV_KEY)",
+    "FFFF": "unknown fault location"
+  }
+}

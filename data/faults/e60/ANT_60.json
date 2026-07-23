@@ -1,0 +1,22 @@
+{
+  "chassis": "E60",
+  "module": "Aerial Tuner",
+  "sgbd": "ANT_60",
+  "scheme": "code",
+  "faults": {
+    "A508": "Antenna power supply fault",
+    "DAC4": "External RAM failed self-test",
+    "DAC5": "Audio tuner failed self-test",
+    "DAC6": "CDSP chip failed self-test",
+    "DAC7": "Data tuner failed self-test",
+    "DAC8": "EEPROM failed self-test",
+    "DAC9": "Internal 8.5V supply failed self-test",
+    "DACA": "Watchdog reset occurred (HW or SW fault)",
+    "DACE": "Error_Light_Not_Off",
+    "DAD0": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "DAD1": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "DAD2": "Diversity antenna not connected",
+    "DAD3": "Diversity self-diagnosis reports a fault",
+    "FFFF": "unknown fault location"
+  }
+}

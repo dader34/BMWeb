@@ -1,0 +1,18 @@
+{
+  "chassis": "E60",
+  "module": "Multimedia Changer",
+  "sgbd": "MMC_E65",
+  "scheme": "code",
+  "faults": {
+    "9D28": "Changer mechanism fault loading CD",
+    "9D29": "Changer mechanism fault unloading CD",
+    "9D2A": "Changer mechanism fault elevator",
+    "9D2B": "Magazine ejection fault",
+    "9D2C": "Security access fault",
+    "D54E": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "D550": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "D551": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "D552": "Shut down due to high device temperature (Error_TempShutDown)",
+    "FFFF": "unknown fault location"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "chassis": "E60",
+  "module": "Audio CD Changer",
+  "sgbd": "CDC_E65",
+  "scheme": "code",
+  "faults": {
+    "9D28": "Changer mechanism fault loading CD",
+    "9D29": "Changer mechanism fault unloading CD",
+    "9D2A": "Changer mechanism fault elevator",
+    "9D2B": "Magazine ejection fault",
+    "D80E": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "D810": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "D811": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "D812": "Device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "FFFF": "unknown fault location"
+  }
+}

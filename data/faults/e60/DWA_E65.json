@@ -1,0 +1,21 @@
+{
+  "chassis": "E60",
+  "module": "Alarm System",
+  "sgbd": "DWA_E65",
+  "scheme": "code",
+  "faults": {
+    "9CE8": "RAM fault",
+    "9CE9": "Flash checksum fault",
+    "9CEA": "EEPROM fault",
+    "9CEB": "A/D converter fault",
+    "9CEC": "Ultrasonic sensor defective",
+    "9CF9": "Alarm LED defective",
+    "9D00": "Communication fault with siren",
+    "9D0C": "Alarm bus fault",
+    "9D20": "Power save mode active",
+    "D944": "K-CAN physical fault",
+    "D947": "K-CAN bus-off",
+    "D97E": "K-CAN request not answered",
+    "FFFF": "unknown fault location"
+  }
+}

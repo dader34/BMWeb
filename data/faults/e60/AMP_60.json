@@ -1,0 +1,21 @@
+{
+  "chassis": "E60",
+  "module": "Top HiFi Amplifier",
+  "sgbd": "AMP_60",
+  "scheme": "code",
+  "faults": {
+    "D6CE": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "D6D0": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "D6D1": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "D6D2": "Device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "A1A8": "No communication with coprocessor (Error_Coprozessor)",
+    "A1A9": "Short circuit at center speaker (Error_LP_C)",
+    "A1AA": "Short circuit at front speaker (Error_LP_F)",
+    "A1AB": "Short circuit at rear speaker (Error_LP_R)",
+    "A1AC": "Short circuit at surround speaker (Error_LP_S)",
+    "A1AD": "Short circuit at left subwoofer (Error_Sub_L)",
+    "A1AE": "Short circuit at right subwoofer (Error_Sub_R)",
+    "A1AF": "Device incorrectly coded (Error_Wrong_Coded)",
+    "FFFF": "unknown fault location"
+  }
+}
