@@ -1,0 +1,32 @@
+{
+  "chassis": "E60",
+  "module": "Park Distance Control",
+  "sgbd": "PDC_E65",
+  "scheme": "code",
+  "faults": {
+    "9E28": "Fault location: SG internal",
+    "9E29": "Fault location: Funktionsanzeige",
+    "9E2A": "Fault location: Taster",
+    "9E2B": "Fault location: converter fault HL",
+    "9E2C": "Fault location: converter fault HR",
+    "9E2D": "Fault location: converter fault HML",
+    "9E2E": "Fault location: converter fault HMR",
+    "9E2F": "Fault location: converter fault VL",
+    "9E30": "Fault location: converter fault VR",
+    "9E31": "Fault location: converter fault VML",
+    "9E32": "Fault location: converter fault VMR",
+    "9E33": "Fault location: converter lines HL",
+    "9E34": "Fault location: converter lines HR",
+    "9E35": "Fault location: converter lines HML",
+    "9E36": "Fault location: converter lines HMR",
+    "9E37": "Fault location: converter lines VL",
+    "9E38": "Fault location: converter lines VR",
+    "9E39": "Fault location: converter lines VML",
+    "9E3A": "Fault location: converter lines VMR",
+    "9E3B": "Fault location: converter supply",
+    "E204": "Fault location: CAN-Low, physical bus fault",
+    "E205": "Fault location: CAN-High, physical bus fault",
+    "E206": "Fault location: CAN-Groundshift, physical bus fault",
+    "E207": "Fault location: CAN-Controller, Bus off"
+  }
+}

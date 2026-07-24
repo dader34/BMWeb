@@ -1,0 +1,27 @@
+{
+  "chassis": "E60",
+  "module": "Fuel Pump EKP From 03/04",
+  "sgbd": "EKPM60_2",
+  "scheme": "code",
+  "faults": {
+    "6291": "EKP-motor: voltage too high",
+    "6292": "EKP-motor: voltage too low",
+    "6293": "EKP-motor: current too high",
+    "6294": "EKP-motor: current too low",
+    "6295": "EKP-motor: current missing",
+    "6296": "EKP-motor: speed missing",
+    "6297": "EKP-motor: speed too high",
+    "6298": "EKP-motor: speed too low",
+    "6299": "Output stage (high-side): over-temperature, stage 2",
+    "629A": "Output stage (high-side): over-temperature, stage 1",
+    "629B": "Coding data: limp mode-Datensatz",
+    "629C": "EEPROM: CRC-fault",
+    "629D": "Coding data: not coded",
+    "629E": "External fault: CRASH/+battery-shutoff",
+    "629F": "ASIC: shutoff",
+    "62A0": "Coding data: EKPM or DDE/DME wrong",
+    "CED4": "External fault: CAN-ID 0xAA (TORQUE 3) missing(e)",
+    "CEC7": "External fault: CAN-Bus-Off",
+    "FFFF": "Unknown fault location"
+  }
+}

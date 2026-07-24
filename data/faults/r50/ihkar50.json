@@ -1,0 +1,20 @@
+{
+  "chassis": "R50",
+  "module": "Automatic Temp. Control",
+  "sgbd": "IHKAR50",
+  "scheme": "text",
+  "faults": {
+    "Solarsensor Fehler": "Solar sensor fault",
+    "Innenraumtemperaturfuehler Fehler": "Interior temp sensor fault",
+    "Heizluft aus Fehler": "Heating air off fault",
+    "Verteilung Fehler": "Distribution fault",
+    "Mischklappe Fehler": "Mixing flap fault",
+    "Geblaese (-) Fehler": "Blower (-) fault",
+    "Geblaese (+) Fehler": "Blower (+) fault",
+    "Absauggeraet Fehler": "Extraction unit fault",
+    "Luftverteilungsmotor Fehler": "Air distribution motor fault",
+    "Mischklappenmotor Fehler": "Mixing flap motor fault",
+    "Energiesparmode aktiviert": "Power saving mode active",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

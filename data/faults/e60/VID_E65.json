@@ -1,0 +1,29 @@
+{
+  "chassis": "E60",
+  "module": "Video Module",
+  "sgbd": "VID_E65",
+  "scheme": "code",
+  "faults": {
+    "DBCC": "Although Shutdown(Execute) sent was went the light not off. (Error Light Not Off).",
+    "DBCE": "Although Shutdown(Execute) sent was went the light not off. (Error Light Not Off).",
+    "DBD0": "Ring break diagnosis was performed (Error Ring diagnosis).",
+    "DBD1": "Long and/or frequent Unlocks (Error Unlock Long).",
+    "DBD2": "On Device has itself due to overtemperature shut off (Error temperature Shutdown).",
+    "A388": "Red-signal from RGB input out of tolerance",
+    "A389": "Green-signal from RGB input out of tolerance or RGB-connection faulty",
+    "A38A": "Blue-signal from RGB input out of tolerance",
+    "A38B": "Sync-signal from RGB input out of tolerance",
+    "A38C": "FBAS-input signal out of tolerance",
+    "A38D": "remote supply voltage out of tolerance",
+    "A38E": "Fernspeisestrom out of tolerance",
+    "A390": "FBAS Ausgangssignal 1 out of tolerance",
+    "A391": "FBAS Ausgangssignal 2 out of tolerance",
+    "A392": "Red-signal from RGB Ausgang1 out of tolerance",
+    "A393": "Green-signal from RGB Ausgang1 out of tolerance or RGB-connection faulty",
+    "A394": "Blue-signal from RGB Ausgang1 out of tolerance",
+    "A395": "Red-signal from RGB Ausgang2 out of tolerance",
+    "A396": "Green-signal from RGB Ausgang2 out of tolerance or RGB-connection faulty",
+    "A397": "Blue-signal from RGB Ausgang2 out of tolerance",
+    "FFFF": "Unknown fault location"
+  }
+}

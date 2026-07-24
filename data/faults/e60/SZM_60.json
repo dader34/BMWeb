@@ -1,0 +1,27 @@
+{
+  "chassis": "E60",
+  "module": "Middle Console Center Switch",
+  "sgbd": "SZM_60",
+  "scheme": "code",
+  "faults": {
+    "9FE0": "Steering column module: hall Sensor faulty/Umschaltmotor faulty",
+    "9FE1": "Steering column module: motor faulty",
+    "9FE2": "Steering column module: Positionsdaten checksum invalid",
+    "9FE3": "Steering column module: parameter checksum invalid",
+    "9FE4": "E60/Sonnenrollo: motor faulty",
+    "9FE5": "E60/Sonnenrollo: parameter checksum invalid",
+    "9FE6": "E63/seat heating: MOS Fahrerseite faulty",
+    "9FE7": "E63/seat heating: CTN Fahrerseite faulty",
+    "9FE8": "E63/seat heating: parameter checksum invalid",
+    "9FE9": "Power save mode active",
+    "9FEA": "lighting control: dimming parameter checksum invalid",
+    "9FEB": "E60/MFS: Taste haengt",
+    "9FEC": "Steering column module: Umschaltmotor faulty",
+    "9FED": "Steering column module: Positionsdaten initialized",
+    "9FEE": "E63/seat heating: MOS Beifahrerseite faulty",
+    "9FEF": "E63/seat heating: CTN Beifahrerseite faulty",
+    "E244": "CAN-Low, physical bus fault",
+    "E247": "Controller, Bus off",
+    "FFFF": "Unknown fault location"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "chassis": "E60",
+  "module": "Fuel Pump EKP",
+  "sgbd": "EKP_60",
+  "scheme": "code",
+  "faults": {
+    "6291": "motor voltage too high",
+    "6292": "motor voltage too low",
+    "6293": "Motor current too high",
+    "6294": "Motor current too low",
+    "6295": "Motor current missing",
+    "6296": "Speed missing",
+    "6297": "Speed too high",
+    "6298": "Speed too low",
+    "6299": "Over-temperature, high-side driver",
+    "629A": "Over-temperature, low-side driver",
+    "CED4": "Timeout CAN-Message 0xAA (TORQUE 3)",
+    "629C": "CRC-fault in EEPROM",
+    "FFFF": "Unknown fault location",
+    "629D": "Default coding data",
+    "CEC7": "CAN Bus-Off",
+    "629E": "CRASH/+battery-shutoff"
+  }
+}
