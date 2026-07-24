@@ -2,7 +2,10 @@
   "chassis": "E36",
   "module": "TOENS — Thermal oil-level sensor",
   "sgbd": "toens",
-  "variants": ["toens"],
+  "variants": [
+    "toens",
+    "TOENS_2"
+  ],
   "scheme": "text",
   "note": "Keyed on exact German ORTTEXT string from the TOENS FORTTEXTE table; variant-agnostic.",
   "faults": {

@@ -2,7 +2,11 @@
   "chassis": "E46",
   "module": "IHKA — Automatic heating / air conditioning",
   "sgbd": "ihka46",
-  "variants": ["ihka46", "ihka46_2", "ihka46_3"],
+  "variants": [
+    "ihka46",
+    "ihka46_2",
+    "ihka46_3"
+  ],
   "scheme": "text",
   "note": "Fault-location text is variant-specific in the ECU; keyed on the SGBD German text so the correct variant (resolved via the D_005B group) always maps.",
   "faults": {

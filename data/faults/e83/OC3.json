@@ -39,5 +39,10 @@
     "Crash-Daten-Speicher voll": "Crash data memory full",
     "FRAM Fehler": "FRAM fault",
     "Unbekannter Fehler": "Unknown fault"
-  }
+  },
+  "variants": [
+    "OC3",
+    "OC3_UPD",
+    "oc3_flsh"
+  ]
 }

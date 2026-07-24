@@ -20,5 +20,10 @@
     "Lrw-Maximum ueberschritten": "Steering angle maximum exceeded",
     "Stack-Fehler / Case-Fehler": "Stack fault / case fault",
     "Watchdog": "Watchdog"
-  }
+  },
+  "variants": [
+    "lws5",
+    "lws5_1b",
+    "lws5_2"
+  ]
 }

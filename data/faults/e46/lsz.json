@@ -54,6 +54,36 @@
     "Reserve Block 7": "Reserve block 7",
     "sporadischer Fehler bei Ansteuerung LWR-Treiber": "Sporadic fault in control of LWR driver",
     "Reserve Block 8": "Reserve block 8",
-    "unbekannter Fehlerort": "Unknown fault location"
-  }
+    "unbekannter Fehlerort": "Unknown fault location",
+    "Abblendlichtschalter- Eingaenge widerspruechlich": "Low-beam switch, inputs contradictory",
+    "Bremslicht (E46/5 > 09/01: Schlusslicht) links defekt": "Brake light (E46/5 > 09/01: tail light) left, faulty",
+    "Bremslicht (E46/5 > 09/01: Schlusslicht) rechts defekt": "Brake light (E46/5 > 09/01: tail light) right, faulty",
+    "Bremslicht Mitte defekt": "Center brake light, faulty",
+    "Diagnose-Leitung U10 defekt": "Diagnostic line U10, faulty",
+    "Diagnose-Leitung U11/1 defekt": "Diagnostic line U11/1, faulty",
+    "Diagnose-Leitung U11/2 defekt": "Diagnostic line U11/2, faulty",
+    "Diagnose-Leitung U12/1 defekt": "Diagnostic line U12/1, faulty",
+    "Diagnose-Leitung U12/2 defekt": "Diagnostic line U12/2, faulty",
+    "Dimmer-Poti defekt": "Dimmer potentiometer, faulty",
+    "FWT-Mode": "FWT mode",
+    "Fernlicht  (E85 > 01/06: Positionslicht vorn) links defekt": "High beam (E85 > 01/06: front position light) left, faulty",
+    "Fernlicht  (E85 > 01/06: Positionslicht vorn) rechts defekt": "High beam (E85 > 01/06: front position light) right, faulty",
+    "Kl. 30 A fehlerhaft": "Terminal 30 A, faulty",
+    "Kl. 30 B fehlerhaft": "Terminal 30 B, faulty",
+    "LWR-Poti defekt": "Headlight-range-control potentiometer, faulty",
+    "Nebelschlusslicht (E46/4 > 09/01: Schlusslicht 2 links,  E85US > 01/06: zweistufiges Bremslicht links) defekt": "Rear fog light (E46/4 > 09/01: tail light 2 left, E85US > 01/06: two-stage brake light left), faulty",
+    "Positionslicht links vorn defekt": "Front left position light, faulty",
+    "Positionslicht rechts vorn defekt": "Front right position light, faulty",
+    "Schlusslicht (E46/5 > 09/01: Bremslicht) links defekt": "Tail light (E46/5 > 09/01: brake light) left, faulty",
+    "Schlusslicht (E46/5 > 09/01: Bremslicht) rechts defekt": "Tail light (E46/5 > 09/01: brake light) right, faulty",
+    "Schlusslicht 2 (E85: Blinker vorn) rechts defekt": "Tail light 2 (E85: front turn signal) right, faulty",
+    "Schlusslicht 3 (E85 > 01/06: zweistufiges Bremslicht) rechts defekt": "Tail light 3 (E85 > 01/06: two-stage brake light) right, faulty",
+    "Schlusslicht 3 (E85: Blinker vorn) links defekt": "Tail light 3 (E85: front turn signal) left, faulty",
+    "Spulen Schrittmotoren defekt": "Stepper-motor coils, faulty",
+    "ein Scheinwerfer nicht aktiviert wegen Blendgefahr durch Kurvenlicht": "One headlight not activated due to glare risk from cornering light"
+  },
+  "variants": [
+    "lsz",
+    "lsz_2"
+  ]
 }

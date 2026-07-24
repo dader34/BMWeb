@@ -14,5 +14,9 @@
     "Audio": "Audio",
     "CD-Fehler": "CD fault",
     "unbekannter Fehlerort": "Unknown fault location"
-  }
+  },
+  "variants": [
+    "navmk4",
+    "navmk4_2"
+  ]
 }

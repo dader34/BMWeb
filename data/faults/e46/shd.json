@@ -9,5 +9,9 @@
     "Bedienschalter": "Operating switch",
     "EEPROM-Fehler": "EEPROM error",
     "reserviert": "Reserved"
-  }
+  },
+  "variants": [
+    "shd46",
+    "shd46_2"
+  ]
 }

@@ -2,7 +2,11 @@
   "chassis": "E36",
   "module": "IHKA — Automatic heating / air conditioning",
   "sgbd": "ihka38",
-  "variants": ["ihka38"],
+  "variants": [
+    "ihka38",
+    "ihka38_2",
+    "ihka38_3"
+  ],
   "scheme": "text",
   "note": "Fault-location text is descriptive German from the ECU; keyed variant-agnostically on the SGBD ORTTEXT string.",
   "faults": {
@@ -65,6 +69,12 @@
     "Standheizung ein/aus": "Auxiliary heater on/off",
     "Eichschalter IHKR": "Calibration switch (IHKR)",
     "Geblaesesteuerspannung": "Blower control voltage",
-    "unbekannter Fehlerort": "Unknown fault location"
+    "unbekannter Fehlerort": "Unknown fault location",
+    "Drucksensor": "Pressure sensor",
+    "Solarsensor links": "Solar sensor, left",
+    "Solarsensor rechts": "Solar sensor, right",
+    "Standheizung Stoerung": "Parking heater, fault",
+    "Standheizung Unterspannung": "Parking heater, undervoltage",
+    "Zuheizer": "Auxiliary heater"
   }
 }

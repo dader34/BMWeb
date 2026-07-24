@@ -89,6 +89,15 @@
     "Fensterheberschalter HL Signal ungültig": "Window regulator switch rear-left signal invalid",
     "Fensterheberschalter HR Signal ungültig": "Window regulator switch rear-right signal invalid",
     "Spiegelverstellschalter (Horizontal) Signal ungültig": "Mirror adjust switch (horizontal) signal invalid",
-    "Spiegelverstellschalter (Vertikal) Signal ungültig": "Mirror adjust switch (vertical) signal invalid"
-  }
+    "Spiegelverstellschalter (Vertikal) Signal ungültig": "Mirror adjust switch (vertical) signal invalid",
+    "Linke Spritzdüsenheizung Kurzschluss gegen Masse": "Left washer-jet heater, short to ground",
+    "Linke Spritzdüsenheizung Leitungsunterbrechung": "Left washer-jet heater, open circuit",
+    "Rechte Spritzdüsenheizung Kurzschluss gegen Masse": "Right washer-jet heater, short to ground",
+    "Rechte Spritzdüsenheizung Leitungsunterbrechung": "Right washer-jet heater, open circuit",
+    "Vorfeldleuchte Kurzschluss gegen Masse oder Unterbrechung oder Kurzschluss gegen U-Batt": "Approach/puddle light, short to ground or open circuit or short to battery positive"
+  },
+  "variants": [
+    "zke5",
+    "zke5_s12"
+  ]
 }
