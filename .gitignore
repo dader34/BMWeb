@@ -31,6 +31,9 @@ data/faults/*
 !data/faults/*.json
 !data/faults/*/
 !data/faults/*/*.json
+# ORT fault-code map (build input for faultindex.js: text-scheme German -> ORT
+# hex per SGBD variant, dumped offline via `inpamac dumptable`). Small, shipped.
+!data/ort-codes.json
 # enriched INPA screen layouts the app serves for the Status view (small, shipped)
 !data/inpa-layouts/
 data/inpa-layouts/*
