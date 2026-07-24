@@ -35,15 +35,20 @@ function faultName(loc, hex) {
 // home for the "momentan vorhanden && !nicht vorhanden" logic.
 function faultFields(c) {
   const hex = c.F_HEX_CODE || '';
-  const code = bmwCode(c.F_ORT_TEXT, hex);
+  // a real 4-hex DTC only when the fault TEXT leads with one (code-scheme DMEs, e.g.
+  // "27DA BSD-Generator"). NOT bmwCode's hex fallback - that would surface the full
+  // F_HEX_CODE and defeat the location-byte preference below.
+  const textCode = bmwCode(c.F_ORT_TEXT, '');
   const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || pCode(c.F_ORT_TEXT, hex) || '';
   const vt = (c.F_VORHANDEN_TEXT || '').toLowerCase();
   const present = vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden');
-  // fall back to the fault-location index (F_ORT_NR) for text-scheme ECUs that
-  // carry no DTC/P-code/hex - it's the location byte (0x1F etc.) the FORTTEXTE
-  // table is keyed on, so the CODE column shows "1F" instead of a bare dash.
+  // the fault-location byte (F_ORT_NR high byte, e.g. 0x1F/0x0B) - what a plain code
+  // reader shows and the SGBD FORTTEXTE table is keyed on. Preferred over the raw
+  // F_HEX_CODE so text-scheme ECUs show a uniform 2-byte location code (LWS "0B", IHKA
+  // "1F") instead of the full DTC (0B3F). Priority: text-embedded DTC, then P-code,
+  // then the location byte, then the raw hex, then nothing.
   const ortNr = ortNrCode(c.F_ORT_NR);
-  return { code: code || pstr || hex || ortNr || '—', name: faultName(c.F_ORT_TEXT, hex), present };
+  return { code: textCode || pstr || ortNr || hex || '—', name: faultName(c.F_ORT_TEXT, hex), present };
 }
 
 const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on';
@@ -224,7 +229,7 @@ function renderFaults(codes, container, ecu) {
     el.className = 'fault';
     el.innerHTML = `
       <div class="fault-code">
-        <div class="fault-hex">${esc(hex || ortNrCode(c.F_ORT_NR) || '-')}</div>
+        <div class="fault-hex">${esc(faultFields(c).code)}</div>
         ${pstr ? `<div class="fault-pcode">${esc(pstr)}</div>` : ''}
       </div>
       <div class="fault-main">

@@ -458,27 +458,25 @@ function bmwCode(loc, hex) {
   return null;
 }
 
-// F_ORT_NR is the ECU-local fault-location number (BMW "Fehlerort"). It's the code
-// INPA prints in the CODE column: INPA's FS_LESEN.SRC does inttohexstring(F_ORT_NR, 4)
-// - i.e. the full 16-bit value as FOUR hex digits (e.g. the E46 LWS "LWS-ID falsch"
-// fault is F_ORT_NR 0x0B3F -> "0B3F", NOT "0B"). The FORTTEXTE text table is keyed by
-// only the high byte (0x0B) so the *description* comes from there, but the printed
-// *code* is the full number - so match INPA and render all four digits.
-// EDIABAS returns it as a decimal string (e.g. "2879" for 0x0B3F); accept an already-
-// hex value ("0x0B3F"/"0B3F") too, and pass through anything non-numeric unchanged.
+// F_ORT_NR is the ECU-local fault-location number (BMW "Fehlerort"). We show the
+// LOCATION BYTE - the value a plain code reader displays and the key the SGBD
+// FORTTEXTE table uses (IHKA 0x1F -> Drucksensor, LWS 0x0B -> LWS-ID). For a 16-bit
+// F_ORT_NR (e.g. LWS 0x0B3F) the location is the HIGH byte (0x0B); the low byte is a
+// symptom/status detail we don't surface here. Single-byte values pass through as-is.
+// Returned as two hex digits ("1F", "0B"). EDIABAS gives F_ORT_NR as a decimal string
+// ("2879" for 0x0B3F); an already-hex value ("0x0B3F"/"1F") is accepted too.
 function ortNrCode(nr) {
   if (nr == null) return null;
   const s = String(nr).trim();
   if (!s) return null;
-  // already hex ("0x0B3F" / "0B3F"): normalise casing, drop 0x, pad to 4 like INPA
+  let val = null;
   let m = s.match(/^0x([0-9A-Fa-f]+)$/) || s.match(/^([0-9A-Fa-f]*[A-Fa-f][0-9A-Fa-f]*)$/);
-  if (m) return m[1].toUpperCase().padStart(4, '0');
-  // pure decimal ("2879"): convert to hex, 4-digit like INPA's inttohexstring(x,4)
-  if (/^\d+$/.test(s)) {
-    const n = parseInt(s, 10);
-    if (!Number.isNaN(n)) return n.toString(16).toUpperCase().padStart(4, '0');
-  }
-  return s; // unknown format: show as-is rather than lose the value
+  if (m) val = parseInt(m[1], 16);
+  else if (/^\d+$/.test(s)) val = parseInt(s, 10);
+  if (val == null || Number.isNaN(val)) return s; // unknown format: show as-is
+  // location byte: high byte for a 16-bit value, the value itself for a single byte
+  const loc = val > 0xFF ? (val >> 8) & 0xFF : val;
+  return loc.toString(16).toUpperCase().padStart(2, '0');
 }
 function pCode(loc, hex) {
   const code = bmwCode(loc, hex);

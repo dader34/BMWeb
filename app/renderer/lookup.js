@@ -427,12 +427,12 @@ async function showLookup() {
     const terms = parseTerms(lookupState.q);
     clearBtn.hidden = !lookupState.q;
 
-    // widen a full-DTC search to its high byte ("0B3F" -> location "0B") only when
-    // (a) the exact code isn't found anywhere, AND (b) a MODULE filter is active. The
-    // high byte is just an ECU-local location index (every module has a "0B"), so it's
-    // only meaningful once narrowed to the specific ECU the code came from. When a full
-    // code finds nothing and no module is picked, we hint the user to pick one.
-    const useHiByte = !!lookupState.module && !hasExactCodeHit(terms);
+    // widen a full-DTC search to its high byte ("0B3F"/"7411" -> location "0B"/"74")
+    // whenever the exact code isn't found anywhere. A read-out code's low byte is
+    // runtime-only and not in the offline tables, so its high byte is all we can match
+    // - across every module (each may have a "74"), so several rows can come back; the
+    // module chip on each identifies which one is yours.
+    const useHiByte = !hasExactCodeHit(terms);
 
     const groups = [];
     let total = 0;
@@ -444,19 +444,15 @@ async function showLookup() {
     }
 
     if (!total) {
-      // a full 4-hex DTC that found nothing may be a live-read code whose low byte
-      // isn't in the offline tables (e.g. 0B3F). Its location byte (0B) IS, but only
-      // within one module - hint the user to pick the module so the fallback kicks in.
-      const hexTermNoModule = !lookupState.module && terms.some(t => t.hi);
-      countLine.textContent = !terms.length
-        ? 'No faults in scope.'
-        : hexTermNoModule
-          ? `No exact match for “${lookupState.q}”. Full read-out codes (e.g. 0B3F) may only match by location — pick a module to search by its location byte.`
-          : `No faults match “${lookupState.q}”.`;
+      countLine.textContent = terms.length ? `No faults match “${lookupState.q}”.` : 'No faults in scope.';
     } else {
       const scope = lookupState.chassis || 'all chassis';
       const capped = total > LOOKUP_MAX;
+      // note when results came from the high-byte fallback (a full read-out code
+      // matched by its location byte across modules), so the extra rows make sense.
+      const byLoc = useHiByte && terms.some(t => t.hi);
       countLine.textContent = `${total.toLocaleString()} fault${total === 1 ? '' : 's'} across ${groups.length} module${groups.length === 1 ? '' : 's'} · ${scope}`
+        + (byLoc ? ' · matched by location byte' : '')
         + (capped ? ` · showing first ${LOOKUP_MAX}` : '');
     }
     sbRight.textContent = total ? `${total.toLocaleString()} match${total === 1 ? '' : 'es'}` : '0 matches';
