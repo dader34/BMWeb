@@ -265,7 +265,12 @@ async function showEcu(chassisId, sectionName, ecu) {
     if (!layout) { grid.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
     menu = { sgbd: ecu.sgbd, sections: [] };
   }
-  if (layout && Array.isArray(layout.menus) && layout.menus.length) {
+  // two menu dialects exist: inpa2json trees carry {screen, submenu} refs and
+  // route through the adapter; .IPO-decoded F-key menus ({fkey, target}) only
+  // augment the screen layout (Status F-key pages) and keep the classic merge.
+  const isMenuTree = layout && Array.isArray(layout.menus) &&
+    layout.menus.some(m => (m.items || []).some(i => i.screen || i.submenu));
+  if (isMenuTree) {
     // INPA's own MENU tree (inpa2json layouts): adapt it on the fly
     menu = menuTreeToSections(layout, menu);
     ecu._layout = layout;
@@ -311,6 +316,37 @@ async function showEcu(chassisId, sectionName, ecu) {
   setActions(acts);
 }
 
+// INPA softkey captions, kept verbatim in both UI modes — except the
+// German-only ones, which read in English
+const FKEY_LABEL = {
+  'Abgas': 'Exhaust', 'Laufunruhe': 'Rough running',
+  'Überdrehzahl': 'Overrev', 'Übertemp': 'Overtemp',
+};
+const fkeyLabel = (l) => FKEY_LABEL[l] || l;
+
+// INPA-faithful Status view: the decoded m_status F-key bar (F1 Digital,
+// F2 Analog, F3 DK/LL, F4 VANOS, ...) drives one live category readout at a
+// time, rendered as paged 2-column gauges (live.js showInpaCategory).
+function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatus, view, results) {
+  const cats = mStatus.items.filter(i => Array.isArray(i.screens) && i.screens.length);
+
+  const open = (item) => {
+    const screens = item.screens.map(i => layout.screens[i]).filter(Boolean);
+    showInpaCategory(ecu, screens, results, fkeyLabel(item.label));
+    sbLeft.textContent = `${ecu.sgbd}.prg · ${item.label}`;
+  };
+
+  // the footer F-key bar IS the category selector, exactly like INPA
+  const acts = cats.slice(0, 9).map((item) => ({
+    key: String(item.fkey), keyLabel: `F${item.fkey}`,
+    label: fkeyLabel(item.label),
+    fn: () => open(item),
+  }));
+  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showEcu(chassisId, sectionName, ecu) });
+  setActions(acts);
+  open(cats[0]);
+}
+
 // ECU section view: the top-level router for a module's function categories.
 // dispatches to the fault-memory F-key screen, the status multi-watch list, the
 // mined gauge/input screens (live.js), or the actuator-test panel (activations.js).
@@ -335,6 +371,20 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   // checkbox multi-watch list
   const isLayoutScreens = sec.items.some(i => i._screen);
   const isStatus = sec.section === 'Status' && !isLayoutScreens;
+
+  // INPA F-key status pages: when the .IPO menu tree was decoded (m_status
+  // with resolved screens), the Status section renders as INPA does - an
+  // F-key bar of categories (Digital, Analog, VANOS, ...) each opening its
+  // paged gauge readout. Applies to both UI modes.
+  const layout = ecu._layout;
+  const mStatus = sec.section === 'Status' && layout && Array.isArray(layout.menus)
+    ? layout.menus.find(m => m.name === 'm_status' &&
+        m.items.some(i => Array.isArray(i.screens) && i.screens.length))
+    : null;
+  if (mStatus) {
+    renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatus, view, results);
+    return;
+  }
   const isActivations = sec.section === 'Activations';
   const selected = new Set();
 

@@ -26,6 +26,20 @@ INPUT_RE = re.compile(r'(parameter input|input Coding|input clima|Eingabe|'
                       r'eingeben|geben sie|request telegram|standby current)', re.I)
 PROC_RE = re.compile(r'^s_[a-z0-9_]+$')
 
+# Triplet dialect (MS45.x etc.): value/label/unit result keys on their own
+# lines. A "real" result-producing job is STATUS_* / MESSWERTBLOCK_LESEN;
+# JOB_STATUS is INPA's screen-flow sentinel and is treated as transparent.
+REALJOB_RE = re.compile(r'^(STATUS_[A-Z0-9_]+|MESSWERTBLOCK_LESEN|'
+                        r'MESSWERTE_LESEN)$')
+WERT_RE = re.compile(r'^([A-Z0-9_]+)_WERT$')
+TEXTKEY_RE = re.compile(r'^[A-Z0-9_]+_TEXT$')
+EINHKEY_RE = re.compile(r'^[A-Z0-9_]+_EINH$')
+ANYKEY_RE = re.compile(r'^[A-Z0-9_]+_(WERT|TEXT|EINH|SOLL)$')
+UNITBRACKET_RE = re.compile(r'^\[([^\]]+)\]$')
+UNITTOKEN_RE = re.compile(r'^\s*-?\d*\s*(%|mg/stk|mg/hub|V|A|°C|°KW|°|1/min|rpm|'
+                          r'U/min|km/h|mbar|hPa|bar|Nm|ms|l/h|ohm|g/s|kPa)\s*$',
+                          re.I)
+
 
 def ipo_strings(path):
     out = subprocess.run(["strings", "-n", "3", path], capture_output=True,
@@ -45,6 +59,83 @@ def looks_like_labels(s):
     if re.fullmatch(r"[a-z_0-9]+", s):
         return False
     return True
+
+
+def _is_human_label(s):
+    if not s:
+        return False
+    if ANYKEY_RE.match(s) or JOB_RE.match(s):
+        return False
+    if s in ("OKAY", "JOB_STATUS") or s.startswith("0x"):
+        return False
+    if ";" in s:
+        return False
+    if not re.search(r"[A-Za-zÄÖÜäöü]{2,}", s):
+        return False
+    if re.fullmatch(r"[a-z_0-9]+", s):
+        return False
+    return True
+
+
+def _unit_near(lines, i):
+    for j in range(max(0, i - 4), min(len(lines), i + 4)):
+        s = lines[j].strip()
+        m = UNITBRACKET_RE.match(s)
+        if m:
+            return m.group(1).strip()
+        if UNITTOKEN_RE.match(s):
+            return s.strip()
+    return None
+
+
+def extract_triplets(lines):
+    """Single-value screens in the TEXT/EINH/WERT triplet dialect, grouped by
+    the nearest preceding result-producing job. Returns [] unless the dialect is
+    present (so comma/semicolon-list ECUs are left to the main pass)."""
+    if not any(TEXTKEY_RE.match(l) or EINHKEY_RE.match(l) for l in lines):
+        return []
+    cur_job = cur_proc = None
+    order, rows_by_job, proc_by_job, seen_by_job = [], {}, {}, {}
+    for i, ln in enumerate(lines):
+        if PROC_RE.match(ln):
+            cur_proc = ln
+            continue
+        if REALJOB_RE.match(ln):
+            cur_job = ln
+            continue
+        m = WERT_RE.match(ln)
+        if not (m and cur_job):
+            continue
+        seen = seen_by_job.setdefault(cur_job, set())
+        if ln in seen:
+            continue
+        seen.add(ln)
+        label = None
+        after = lines[i + 1] if i + 1 < len(lines) else ""
+        if _is_human_label(after):
+            label = after
+        else:
+            for j in range(i - 1, max(-1, i - 5), -1):
+                if _is_human_label(lines[j]):
+                    label = lines[j]
+                    break
+        unit = _unit_near(lines, i)
+        if cur_job not in rows_by_job:
+            order.append(cur_job)
+            rows_by_job[cur_job] = []
+            proc_by_job[cur_job] = cur_proc
+        rows_by_job[cur_job].append((ln, norm(label) if label else None, unit))
+    screens = []
+    for job in order:
+        rows = rows_by_job[job]
+        units = sorted({r[2] for r in rows if r[2]})
+        screens.append({
+            "proc": proc_by_job[job], "job": job, "args": None,
+            "result_keys": [r[0] for r in rows],
+            "labels": [r[1] for r in rows],
+            "render": "analog", "units": units,
+        })
+    return screens
 
 
 def extract(path):
@@ -92,6 +183,15 @@ def extract(path):
         if sig not in seen:
             seen.add(sig)
             uniq.append(s)
+
+    # Triplet dialect (MS45.x): grouped single-value screens supersede the
+    # fragmentary single-key rows for any job they cover. Fires only when
+    # TEXT/EINH keys exist, so list-dialect ECUs are unaffected.
+    triplets = extract_triplets(lines)
+    if triplets:
+        tjobs = {t["job"] for t in triplets}
+        uniq = [s for s in uniq if s["job"] not in tjobs] + triplets
+
     return {"ecu": os.path.basename(path), "screens": uniq, "inputs": inputs,
             "jobs": sorted(job_set)}
 

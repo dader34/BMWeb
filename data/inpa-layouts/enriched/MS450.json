@@ -2,104 +2,4209 @@
   "ecu": "MS450.IPO",
   "screens": [
     {
-      "group": "Mixture adaptation (multiplicative)",
+      "group": "Injection-time correction (mixture trim)",
       "job": "STATUS_INT",
       "args": null,
       "render": "analog",
       "columns": 2,
       "rows": [
-        { "key": "STAT_INT_WERT", "label": "Injection time correction, bank 1", "unit": "%", "min": -50, "max": 50 },
-        { "key": "STAT_INT_2_WERT", "label": "Injection time correction, bank 2", "unit": "%", "min": -50, "max": 50 }
+        {
+          "key": "STAT_INT_WERT",
+          "label": "Injection-time correction, bank 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        }
       ]
     },
     {
-      "group": "O2 sensor voltage pre-cat",
+      "group": "Injection-time correction bank 2",
+      "job": "STATUS_INT_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_INT_2_WERT",
+          "label": "Injection-time correction, bank 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage, pre-cat",
       "job": "STATUS_L_SONDE",
       "args": null,
       "render": "analog",
-      "columns": 2,
+      "columns": 1,
       "rows": [
-        { "key": "STAT_L_SONDE_WERT", "label": "O2 sensor voltage pre-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
-        { "key": "STAT_L_SONDE_2_WERT", "label": "O2 sensor voltage pre-cat, bank 2", "unit": "V", "min": 0, "max": 16 }
+        {
+          "key": "STAT_L_SONDE_WERT",
+          "label": "Lambda voltage pre-cat, bank 1",
+          "unit": "V",
+          "min": null,
+          "max": null
+        }
       ]
     },
     {
-      "group": "O2 sensor voltage post-cat",
+      "group": "O2 sensor voltage, pre-cat bank 2",
+      "job": "STATUS_L_SONDE_2",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_WERT",
+          "label": "Lambda voltage pre-cat, bank 2",
+          "unit": "V",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage, post-cat",
       "job": "STATUS_L_SONDE_H",
       "args": null,
       "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_H_WERT",
+          "label": "Lambda voltage post-cat, bank 1",
+          "unit": "V",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "O2 sensor voltage, post-cat bank 2",
+      "job": "STATUS_L_SONDE_2_H",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_L_SONDE_2_H_WERT",
+          "label": "Lambda voltage post-cat, bank 2",
+          "unit": "V",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Throttle & idle-actuator adaptation",
+      "job": "STATUS_ADAPTION_DK_LLSTELLER",
+      "args": null,
+      "render": "analog",
       "columns": 2,
       "rows": [
-        { "key": "STAT_L_SONDE_H_WERT", "label": "O2 sensor voltage post-cat, bank 1", "unit": "V", "min": 0, "max": 16 },
-        { "key": "STAT_L_SONDE_2_H_WERT", "label": "O2 sensor voltage post-cat, bank 2", "unit": "V", "min": 0, "max": 16 }
+        {
+          "key": "STAT_DK_ADD_WERT",
+          "label": "Throttle adaptation, additive",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DK_FAC_WERT",
+          "label": "Throttle adaptation, multiplicative",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISA_ADD_WERT",
+          "label": "Idle-actuator adaptation, additive",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ISA_FAC_WERT",
+          "label": "Idle-actuator adaptation, multiplicative",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
       ]
     },
     {
-      "group": "O2 sensor heating time",
-      "job": "STATUS_L_SONDE_2_H",
+      "group": "VANOS position (intake/exhaust)",
+      "job": "STATUS_MESSWERTE_VANOS",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_EINLASS_WERT",
+          "label": "Intake VANOS, actual",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUSLASS_WERT",
+          "label": "Exhaust VANOS, actual",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_EINLASS_SOLL_WERT",
+          "label": "Intake VANOS, setpoint",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_AUSLASS_SOLL_WERT",
+          "label": "Exhaust VANOS, setpoint",
+          "unit": "°KW",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Engine speed (idle-speed control)",
+      "job": "STATUS_MOTORDREHZAHL",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MOTORDREHZAHL_WERT",
+          "label": "Engine speed, actual",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTORDREHZAHL_SOLL_WERT",
+          "label": "Idle-speed setpoint",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Rough-running per cylinder",
+      "job": "STATUS_MOTORLAUFUNRUHE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_ZYL1_WERT",
+          "label": "Rough-running, cylinder 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZYL2_WERT",
+          "label": "Rough-running, cylinder 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZYL3_WERT",
+          "label": "Rough-running, cylinder 3",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZYL4_WERT",
+          "label": "Rough-running, cylinder 4",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZYL5_WERT",
+          "label": "Rough-running, cylinder 5",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZYL6_WERT",
+          "label": "Rough-running, cylinder 6",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SEG_AD_WERT",
+          "label": "Segment-adaptation status",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 0 (basics)",
+      "job": "STATUS_MESSWERTBLOCK_0",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Terminal 87 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Engine speed",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Idle-speed setpoint",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Intake-air temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT8_WERT",
+          "label": "Air mass",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT9_WERT",
+          "label": "Air pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTA_WERT",
+          "label": "Throttle setpoint",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTB_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTC_WERT",
+          "label": "Throttle potentiometer 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTD_WERT",
+          "label": "Throttle potentiometer 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 1 (load & lambda)",
+      "job": "STATUS_MESSWERTBLOCK_1",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Calculated load",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Lambda control, bank 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Lambda adaptation, bank 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Lambda control, bank 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Lambda adaptation, bank 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT8_WERT",
+          "label": "Fuel pressure",
+          "unit": "bar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT9_WERT",
+          "label": "Intake-manifold pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTA_WERT",
+          "label": "Engine speed",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTB_WERT",
+          "label": "Vehicle speed",
+          "unit": "km/h",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTC_WERT",
+          "label": "Injection time",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTD_WERT",
+          "label": "Intake-air temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTE_WERT",
+          "label": "Air throughput",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 2 (controllers & injection)",
+      "job": "STATUS_MESSWERTBLOCK_2",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Engine speed",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "Air mass",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Lambda controller, bank 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Lambda controller, bank 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Injection time, cylinder 1",
+          "unit": "ms",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Idle-speed setpoint",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Intake-air temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT8_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT9_WERT",
+          "label": "Coolant temperature, model",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 3 (temperatures & pressure)",
+      "job": "STATUS_MESSWERTBLOCK_3",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "Ambient temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Ambient pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Secondary-air mass",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Torque loss",
+          "unit": "Nm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Terminal 87 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Throttle setpoint",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Pedal-sensor supply voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 4 (lambda & pedal)",
+      "job": "STATUS_MESSWERTBLOCK_4",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Lambda pre-cat, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "Lambda pre-cat, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Lambda post-cat, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Lambda post-cat, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Pedal value 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Pedal value 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Throttle potentiometer 1",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Throttle potentiometer 2",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT8_WERT",
+          "label": "Purge-valve flow",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT9_WERT",
+          "label": "Throttle-2 supply voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTA_WERT",
+          "label": "Time since start end",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 5 (sensor voltages)",
+      "job": "STATUS_MESSWERTBLOCK_5",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Pedal-sensor 1 supply",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "Pedal-sensor 2 supply",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Pedal-sensor 1 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Throttle-sensor 1 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Pedal-sensor 2 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Throttle-sensor 2 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Coolant temperature, model",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT8_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT9_WERT",
+          "label": "Intake-air temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTA_WERT",
+          "label": "Battery voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTB_WERT",
+          "label": "Terminal 15 voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTC_WERT",
+          "label": "Manifold abs. pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTD_WERT",
+          "label": "Ambient pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTE_WERT",
+          "label": "Secondary-air-flow signal",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTF_WERT",
+          "label": "Air-mass-sensor supply",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT10_WERT",
+          "label": "ECU temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT11_WERT",
+          "label": "Air mass",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT12_WERT",
+          "label": "Exhaust-gas temperature 1",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT13_WERT",
+          "label": "Exhaust-gas temperature 2",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 6 (misc actuators)",
+      "job": "STATUS_MESSWERTBLOCK_6",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Pressure (DME)",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "DMTL current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Secondary air",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Exhaust-gas temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Fan",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "Transmission",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Measurement block 7 (lambda resistances)",
+      "job": "STATUS_MESSWERTBLOCK_7",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_MESSWERT0_WERT",
+          "label": "Air mass",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT1_WERT",
+          "label": "Pedal value",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT2_WERT",
+          "label": "Intake-air temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT3_WERT",
+          "label": "Engine temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT4_WERT",
+          "label": "Coolant temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT5_WERT",
+          "label": "ECU temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT6_WERT",
+          "label": "Oil temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT7_WERT",
+          "label": "Intake pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT8_WERT",
+          "label": "Air pressure",
+          "unit": "mbar",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERT9_WERT",
+          "label": "Air mass",
+          "unit": "mg/hub",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTA_WERT",
+          "label": "ECU supply voltage",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTB_WERT",
+          "label": "Air-mass-sensor supply",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTC_WERT",
+          "label": "Lambda-heater resistance pre-cat, bank 1",
+          "unit": "ohm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTD_WERT",
+          "label": "Lambda-heater resistance post-cat, bank 1",
+          "unit": "ohm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTE_WERT",
+          "label": "Lambda-heater resistance pre-cat, bank 2",
+          "unit": "ohm",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MESSWERTF_WERT",
+          "label": "Lambda-heater resistance post-cat, bank 2",
+          "unit": "ohm",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "CO adjustment",
+      "job": "STATUS_CO_ABGLEICH",
       "args": null,
       "render": "analog",
       "columns": 1,
       "rows": [
-        { "key": "STAT_ZEIT_MAX_WERT", "label": "Maximum time", "unit": "ms", "min": null, "max": null },
-        { "key": "STAT_ZEIT_SUMMIERT_WERT", "label": "Summed time", "unit": "ms", "min": null, "max": null }
+        {
+          "key": "STAT_CO_ABGLEICH_WERT",
+          "label": "CO adjustment",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
       ]
     },
     {
-      "group": "Clutch and overrun fuel cutoff",
-      "job": "STATUS_L_SONDE_2_H",
+      "group": "O2 sensor system check",
+      "job": "STATUS_SYSTEMCHECK_L_SONDE_WERTE",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_VLS_UP_AFR_1_WERT",
+          "label": "Lambda upstream AFR, bank 1",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_UP_AFR_2_WERT",
+          "label": "Lambda upstream AFR, bank 2",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_UP_AFL_1_WERT",
+          "label": "Lambda upstream AFL, bank 1",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_UP_AFL_2_WERT",
+          "label": "Lambda upstream AFL, bank 2",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_DOWN_AFR_1_WERT",
+          "label": "Lambda downstream AFR, bank 1",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_DOWN_AFR_2_WERT",
+          "label": "Lambda downstream AFR, bank 2",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_DOWN_AFL_1_WERT",
+          "label": "Lambda downstream AFL, bank 1",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_VLS_DOWN_AFL_2_WERT",
+          "label": "Lambda downstream AFL, bank 2",
+          "unit": "V",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MAF_INT_MIN_VLS_WERT",
+          "label": "Air-mass integral, min",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MAF_INT_CHK_LS_UP_DOWN_1_WERT",
+          "label": "Air-mass integral check, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MAF_INT_CHK_LS_UP_DOWN_2_WERT",
+          "label": "Air-mass integral check, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMB_SP_BEG_LS_ACT_TEST_1_WERT",
+          "label": "Lambda setpoint at test start, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LAMB_SP_BEG_LS_ACT_TEST_2_WERT",
+          "label": "Lambda setpoint at test start, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_CHK_UP_DOWN_AFL_1_WERT",
+          "label": "Check time up/down AFL, bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_T_CHK_UP_DOWN_AFL_2_WERT",
+          "label": "Check time up/down AFL, bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "DMTL leak-diagnosis measurements",
+      "job": "STATUS_SYSTEMCHECK_DMTL_WERT",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_STROM_REF_WERT",
+          "label": "Reference current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_GROB_WERT",
+          "label": "Coarse-leak current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STROM_WERT",
+          "label": "Leak current",
+          "unit": "A",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Purge-valve (TEV) system check",
+      "job": "STATUS_SYSTEMCHECK_TEV_WERT",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMCHECK_TEV_FUNC_1_WERT",
+          "label": "TEV function, cycle 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SYSTEMCHECK_TEV_FUNC_2_WERT",
+          "label": "TEV function, cycle 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_DIAGNOSE_WERT",
+          "label": "Diagnosis time",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Idle-speed adjustment check",
+      "job": "STATUS_SYSTEMCHECK_LLERH_WERT",
+      "args": null,
+      "render": "analog",
+      "columns": 1,
+      "rows": [
+        {
+          "key": "STAT_SYSTEMCHECK_LLERH_WERT",
+          "label": "Idle-speed adjustment",
+          "unit": "1/min",
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power-management history (mileage & rest-current)",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_KM_STAND_AKTUELL_WERT",
+          "label": "Odometer, current",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_1_TAG_WERT",
+          "label": "Odometer, 1 day ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_2_TAG_WERT",
+          "label": "Odometer, 2 days ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_3_TAG_WERT",
+          "label": "Odometer, 3 days ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_4_TAG_WERT",
+          "label": "Odometer, 4 days ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KM_STAND_VOR_5_TAG_WERT",
+          "label": "Odometer, 5 days ago",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_LETZTER_WERT",
+          "label": "Last battery change at",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+          "label": "2nd-last battery change at",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+          "label": "3rd-last battery change at",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+          "label": "4th-last battery change at",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+          "label": "5th-last battery change at",
+          "unit": "km",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_0_80_GESAMT_WERT",
+          "label": "Rest-current minutes, 0-80 mA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_80_200_GESAMT_WERT",
+          "label": "Rest-current minutes, 80-200 mA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_200_1000_GESAMT_WERT",
+          "label": "Rest-current minutes, 200-1000 mA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_AB_1000_GESAMT_WERT",
+          "label": "Rest-current minutes, over 1000 mA",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_0_80_GESAMT_OHNE_SV_WERT",
+          "label": "Rest-current minutes 0-80 mA (excl. control units)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_80_200_GESAMT_OHNE_SV_WERT",
+          "label": "Rest-current minutes 80-200 mA (excl. control units)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_200_1000_GESAMT_OHNE_SV_WERT",
+          "label": "Rest-current minutes 200-1000 mA (excl. control units)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_RUHESTROM_AB_1000_GESAMT_OHNE_SV_WERT",
+          "label": "Rest-current minutes over 1000 mA (excl. control units)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+          "label": "Hours in charge range 0-20 %",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+          "label": "Hours in charge range 20-40 %",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+          "label": "Hours in charge range 40-60 %",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+          "label": "Hours in charge range 60-80 %",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+          "label": "Hours in charge range 80-100 %",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+          "label": "Minutes at temperature below 0 °C",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+          "label": "Minutes at temperature 0-20 °C",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+          "label": "Minutes at temperature 20-40 °C",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+          "label": "Minutes at temperature 40-60 °C",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+          "label": "Minutes at temperature over 60 °C",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_GESAMT_WERT",
+          "label": "Total battery charge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+          "label": "Total battery discharge",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIELADUNG_BILANZ_WERT",
+          "label": "Battery charge balance",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+          "label": "IBS error: BSD parity",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+          "label": "IBS error: watchdog reset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+          "label": "IBS error: power-on reset",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+          "label": "KTBS error: BSD extended",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+          "label": "KTIBS error: BSD",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT",
+          "label": "KTIBS error: EBSD checksum",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Power-management history (battery state)",
+      "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+      "args": null,
+      "render": "analog",
+      "columns": 2,
+      "rows": [
+        {
+          "key": "STAT_Q_SOC_AKTUELL_WERT",
+          "label": "State-of-charge Q, current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_1_TAG_WERT",
+          "label": "State-of-charge Q, 1 day ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_2_TAG_WERT",
+          "label": "State-of-charge Q, 2 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_3_TAG_WERT",
+          "label": "State-of-charge Q, 3 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_4_TAG_WERT",
+          "label": "State-of-charge Q, 4 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_Q_SOC_VOR_5_TAG_WERT",
+          "label": "State-of-charge Q, 5 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+          "label": "Start-capability limit, current",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+          "label": "Start-capability limit, 1 day ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+          "label": "Start-capability limit, 2 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+          "label": "Start-capability limit, 3 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+          "label": "Start-capability limit, 4 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+          "label": "Start-capability limit, 5 days ago",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+          "label": "Charge state, current",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+          "label": "Charge state, 1 day ago",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+          "label": "Charge state, 2 days ago",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+          "label": "Charge state, 3 days ago",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+          "label": "Charge state, 4 days ago",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+          "label": "Charge state, 5 days ago",
+          "unit": "%",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BATTERIE_KAPAZITAET_WERT",
+          "label": "Battery capacity",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOH_WERT",
+          "label": "State of health (SOH)",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SOC_FIT_WERT",
+          "label": "SOC fit",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_TEMP_SAISON_WERT",
+          "label": "Seasonal temperature",
+          "unit": "°C",
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KALIBRIER_EVENT_CNT_WERT",
+          "label": "Calibration-event count",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+          "label": "IBS error: download checksum",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+          "label": "IBS error: EEPROM diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+          "label": "IBS error: RAM diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+          "label": "IBS error: PROM diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+          "label": "IBS error: I2C NAC diagnosis",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT",
+          "label": "IBS error: I2C bus collision",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
+      ]
+    },
+    {
+      "group": "Digital switch states",
+      "job": "STATUS_DIGITAL_1",
       "args": null,
       "render": "digital",
-      "columns": 1,
+      "columns": 2,
       "rows": [
-        { "key": "STAT_KUPPLUNG_WERT", "label": "Clutch", "unit": null, "min": null, "max": null },
-        { "key": "STAT_ZEIT_SUMMIERT_WERT", "label": "Overrun fuel cutoff", "unit": null, "min": null, "max": null }
+        {
+          "key": "STAT_AC_EIN",
+          "label": "A/C on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BLS_EIN",
+          "label": "Brake-light switch on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_BTS_EIN",
+          "label": "Brake-test switch on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KL15_EIN",
+          "label": "Terminal 15 (ignition) on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KO_EIN",
+          "label": "A/C compressor request",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_KUPPL_EIN",
+          "label": "Clutch switch on",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_MOTOR_AUS",
+          "label": "Engine off",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
       ]
     },
     {
-      "group": "Torque and vehicle speed",
-      "job": "STATUS_L_SONDE_2_H",
+      "group": "Secondary-air system check",
+      "job": "STATUS_SYSTEMCHECK_SEK_LUFT_WERT",
       "args": null,
       "render": "analog",
-      "columns": 1,
+      "columns": 2,
       "rows": [
-        { "key": "STAT_TQI_AV_WERT", "label": "Torque", "unit": "Nm", "min": 0, "max": 600 },
-        { "key": "STAT_VS_WERT", "label": "Vehicle speed", "unit": "km/h", "min": 0, "max": 260 }
-      ]
-    },
-    {
-      "group": "Pedal value and gear ratio",
-      "job": "STATUS_L_SONDE_2_H",
-      "args": null,
-      "render": "analog",
-      "columns": 1,
-      "rows": [
-        { "key": "STAT_PV_AV_WERT", "label": "Pedal value", "unit": "%", "min": 0, "max": 100 },
-        { "key": "STAT_GEAR_WERT", "label": "Gear ratio", "unit": null, "min": null, "max": null }
-      ]
-    },
-    {
-      "group": "Ambient and engine temperature",
-      "job": "STATUS_L_SONDE_2_H",
-      "args": null,
-      "render": "analog",
-      "columns": 1,
-      "rows": [
-        { "key": "STAT_TAM_WERT", "label": "Ambient temperature", "unit": "°C", "min": -40, "max": 140 },
-        { "key": "STAT_TCO_WERT", "label": "Engine coolant temperature", "unit": "°C", "min": -40, "max": 140 }
-      ]
-    },
-    {
-      "group": "Clutch and warning threshold",
-      "job": "STATUS_L_SONDE_2_H",
-      "args": null,
-      "render": "value",
-      "columns": 1,
-      "rows": [
-        { "key": "STAT_LV_CS_WERT", "label": "Clutch", "unit": null, "min": null, "max": null },
-        { "key": "STAT_WARN_THD_WERT", "label": "Warning threshold", "unit": null, "min": null, "max": null }
+        {
+          "key": "STAT_SUM_AFL_VLS_DIAG_SA_1_WERT",
+          "label": "Air-mass sum, secondary air bank 1",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SUM_AFL_VLS_DIAG_SA_2_WERT",
+          "label": "Air-mass sum, secondary air bank 2",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SAF_DIAG_MAX_WERT",
+          "label": "Secondary-air diagnosis, max",
+          "unit": null,
+          "min": null,
+          "max": null
+        },
+        {
+          "key": "STAT_SAF_DIAG_MIN_WERT",
+          "label": "Secondary-air diagnosis, min",
+          "unit": null,
+          "min": null,
+          "max": null
+        }
       ]
     }
   ],
-  "inputs": []
+  "inputs": [],
+  "menus": [
+    {
+      "name": "m_main",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Info",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Ident",
+          "nav": false,
+          "target": "s_ident",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 3,
+          "label": "AIF",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "Fehler",
+          "nav": false,
+          "target": "s_fehlersp",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 5,
+          "label": "Status",
+          "nav": false,
+          "target": "s_status",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 6,
+          "label": "Steuern",
+          "nav": false,
+          "target": "s_iostatus",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 7,
+          "label": "Speicher",
+          "nav": false,
+          "target": "s_speicher",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 8,
+          "label": "Adaption",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "System",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 16,
+          "label": "EWS",
+          "nav": false,
+          "target": "s_ews",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 17,
+          "label": "CAS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "Ende",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_speicher",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "LINEAR",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "SRAM",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "UIF",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "EXT-FLASH",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "+ 10h",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "- 10h",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "+ 100h",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "- 100h",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Druck",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "Ende",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_main_pm",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "IDENT",
+          "nav": false,
+          "target": "s_ibs_ident",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 2,
+          "label": "PM Feld 1",
+          "nav": false,
+          "target": "s_pm_feld1",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 3,
+          "label": "PM Feld 2",
+          "nav": false,
+          "target": "s_pm_feld2",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 5,
+          "label": "B Tausch",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "Reset",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "Start",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "Stop",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_cas",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "StartW",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Prog",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ews",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "StartW",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Prog",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ada_loe",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "LL",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Klopf",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "Lambda",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "Vanos",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "DK",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "Saugrohr",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "Oktan",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "Varianten",
+          "nav": false,
+          "target": "s_speicher_xrom",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 9,
+          "label": "Alle",
+          "nav": false,
+          "target": "m_llco",
+          "target_kind": "menu"
+        },
+        {
+          "fkey": 11,
+          "label": "Segment",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 12,
+          "label": "Sek Luft",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 13,
+          "label": "Benzin im Öl",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ident",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Datei",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Drucken",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_aif",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "aktuell",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AIF 1",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "AIF 2",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "AIF 3",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "AIF 4",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "AIF 5",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "AIF 6",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "AIF 7",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 12,
+          "label": "AIF 8",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 13,
+          "label": "AIF 9",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 14,
+          "label": "AIF10",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 15,
+          "label": "AIF11",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 16,
+          "label": "AIF12",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 17,
+          "label": "AIF13",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 18,
+          "label": "AIF14",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Drucken",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_fehlersp",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Kurz",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Detail",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "Freeze Frame",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "Hex-Dump",
+          "nav": false,
+          "target": "m_ecu_config_reset",
+          "target_kind": "menu"
+        },
+        {
+          "fkey": 5,
+          "label": "Löschen",
+          "nav": false,
+          "target": "m_ev_auswahl",
+          "target_kind": "menu"
+        },
+        {
+          "fkey": 6,
+          "label": "FS->Datei",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "Kommentar",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "NadelDrucker",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Drucken",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_system",
+      "items": [
+        {
+          "fkey": 2,
+          "label": "EV",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "LL-CO",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "L-SONDEN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "LL",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "SLS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "TEV",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "LLABG",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "DMTL",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_systemtest_ev_ausbl",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EV 1",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "EV 2",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "EV 3",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "EV 4",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "EV 5",
+          "nav": false,
+          "target": "m_system_l_sonde",
+          "target_kind": "menu"
+        },
+        {
+          "fkey": 6,
+          "label": "EV 6",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_llabg",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Klima+Fahrst",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "LL-Fahrstufe",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "LL",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "LL-Klima",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "LL-Batterie",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "Status",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Prog",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_system_llerh",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "+10",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "-10",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "+100",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "-100",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "Ausw",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "STOP",
+          "nav": false,
+          "target": "s_system_llerh_stop",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_system_l_sonde",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "START",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "STOP",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "Messwerte",
+          "nav": false,
+          "target": "s_system_l_sonde",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_systemtest_dmtl",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "START",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "STOP",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_systemtest_sls",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Start",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Stop",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_systemtest_tev",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Start",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Stop",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": "s_ibs_ident",
+          "target_kind": "screen"
+        }
+      ]
+    },
+    {
+      "name": "m_llco",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "+",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "--",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "+ +",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "-- --",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "Progr",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_vanos",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Start",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Stop",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_status",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Digital",
+          "nav": false,
+          "target": "s_digital",
+          "target_kind": "screen",
+          "screens": [
+            25
+          ]
+        },
+        {
+          "fkey": 2,
+          "label": "Analog",
+          "nav": false,
+          "target": "s_mwb",
+          "target_kind": "screen",
+          "screens": [
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17
+          ]
+        },
+        {
+          "fkey": 3,
+          "label": "DK/LL",
+          "nav": false,
+          "target": "s_llst_mdk",
+          "target_kind": "screen",
+          "screens": [
+            6
+          ]
+        },
+        {
+          "fkey": 4,
+          "label": "VANOS",
+          "nav": false,
+          "target": "s_vanos_inex",
+          "target_kind": "screen",
+          "screens": [
+            7
+          ]
+        },
+        {
+          "fkey": 5,
+          "label": "PM - IBS",
+          "nav": false,
+          "target": "s_main_pm",
+          "target_kind": "screen",
+          "screens": [
+            23,
+            24
+          ]
+        },
+        {
+          "fkey": 6,
+          "label": "Abgas",
+          "nav": false,
+          "target": "s_ad_gemisch",
+          "target_kind": "screen",
+          "screens": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "fkey": 7,
+          "label": "Laufunruhe",
+          "nav": false,
+          "target": "s_laufunruhe",
+          "target_kind": "screen",
+          "screens": [
+            9
+          ]
+        },
+        {
+          "fkey": 8,
+          "label": "Auswahl",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 18,
+          "label": "Gesamt",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Drucken",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 11,
+          "label": "Überdrehzahl",
+          "nav": false,
+          "target": "s_ueberdreh",
+          "target_kind": "screen",
+          "unavailable": "job removed from ms450ds0.prg"
+        },
+        {
+          "fkey": 12,
+          "label": "Übertemp",
+          "nav": false,
+          "target": "s_uebertemp",
+          "target_kind": "screen",
+          "unavailable": "job removed from ms450ds0.prg"
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_mwb",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "MWB 1",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            10
+          ]
+        },
+        {
+          "fkey": 2,
+          "label": "SAE J1979",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            11
+          ]
+        },
+        {
+          "fkey": 3,
+          "label": "MWB 3",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            12
+          ]
+        },
+        {
+          "fkey": 4,
+          "label": "MWB 4",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            13
+          ]
+        },
+        {
+          "fkey": 5,
+          "label": "MWB 5",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            14
+          ]
+        },
+        {
+          "fkey": 6,
+          "label": "ADC",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            15
+          ]
+        },
+        {
+          "fkey": 7,
+          "label": "DDLI Block",
+          "nav": false,
+          "target": "s_fdyn",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 8,
+          "label": "Auswahl",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Drucken",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 11,
+          "label": "MWB 11",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            16
+          ]
+        },
+        {
+          "fkey": 12,
+          "label": "MWB 6",
+          "nav": false,
+          "target": null,
+          "target_kind": null,
+          "screens": [
+            17
+          ]
+        },
+        {
+          "fkey": 18,
+          "label": "Gesamt",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_digital",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Schalter",
+          "nav": false,
+          "target": "s_digital1",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 2,
+          "label": "FGR",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "Regelung",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "OBD_Status",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "Varianten",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "Löschen",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ecu_config_reset",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "Getriebe",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "Klima",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "SL-System",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "Lenkrad",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "E-BOX / ECRAS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "ACC/ASR",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "Alle",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_iostatus",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EV",
+          "nav": false,
+          "target": "s_ev_auswahl",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 2,
+          "label": "E-Lüfter",
+          "nav": false,
+          "target": "s_elue",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 3,
+          "label": "SLS",
+          "nav": false,
+          "target": "s_st_sls",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 4,
+          "label": "VANOS",
+          "nav": false,
+          "target": "s_st_vanos",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 5,
+          "label": "TEV",
+          "nav": false,
+          "target": "s_tev",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 6,
+          "label": "KFK",
+          "nav": false,
+          "target": "s_kfk",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 7,
+          "label": "EKP",
+          "nav": false,
+          "target": "s_ekp",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 8,
+          "label": "Lambda",
+          "nav": false,
+          "target": "s_hls",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 9,
+          "label": "GLF",
+          "nav": false,
+          "target": "s_glf",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 11,
+          "label": "STA",
+          "nav": false,
+          "target": "s_sta",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 12,
+          "label": "KOREL",
+          "nav": false,
+          "target": "s_korel",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 13,
+          "label": "EBL",
+          "nav": false,
+          "target": "s_ebl",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 14,
+          "label": "AGK",
+          "nav": false,
+          "target": "s_agk",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 15,
+          "label": "DMTL",
+          "nav": false,
+          "target": "s_st_dmtl",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 16,
+          "label": "VIMDISA",
+          "nav": false,
+          "target": "s_vimdisa",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 17,
+          "label": "LL_Steller",
+          "nav": false,
+          "target": "s_ll_steller",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 18,
+          "label": "MIL",
+          "nav": false,
+          "target": "s_mil",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 19,
+          "label": "FGR",
+          "nav": false,
+          "target": "s_fgr_lampe",
+          "target_kind": "screen"
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ev_auswahl",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EV1",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "EV2",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "EV3",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "EV4",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "EV5",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "EV6",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 11,
+          "label": "300",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 12,
+          "label": "600",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 13,
+          "label": "2400",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 14,
+          "label": "6000",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 15,
+          "label": "0,5",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 16,
+          "label": "1",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 17,
+          "label": "2",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 18,
+          "label": "4",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_elue",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "50%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_st_vanos",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "E 15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "E 50%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "E 90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "E DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "A 15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "A 50%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "A 90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "A DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_st_sls",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "P EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "P AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "P FREI",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "V EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "V AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "Wechsel",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "V FREI",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_tev",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "0%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "50%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": "m_digital",
+          "target_kind": "menu"
+        }
+      ]
+    },
+    {
+      "name": "m_kfk",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "0%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "50%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ekp",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_hls",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "5%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "LSVK1",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "LSVK2",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "LSHK1",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "LSHK2",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_glf",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "Wechsel",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_sta",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_korel",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_ebl",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_vimdisa",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "Wechsel",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_agk",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "Wechsel",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_st_dmtl",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "P EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "P AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "P DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "V EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "V AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 6,
+          "label": "V DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 7,
+          "label": "H EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 8,
+          "label": "H AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 9,
+          "label": "H DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": "m_mwb",
+          "target_kind": "menu"
+        }
+      ]
+    },
+    {
+      "name": "m_ll_steller",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "0%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "15%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 3,
+          "label": "50%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "90%",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 5,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_mil",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    },
+    {
+      "name": "m_fgr_lampe",
+      "items": [
+        {
+          "fkey": 1,
+          "label": "EIN",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 2,
+          "label": "AUS",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 4,
+          "label": "DME",
+          "nav": false,
+          "target": null,
+          "target_kind": null
+        },
+        {
+          "fkey": 20,
+          "label": "ENDE",
+          "nav": true,
+          "target": null,
+          "target_kind": null
+        }
+      ]
+    }
+  ]
 }

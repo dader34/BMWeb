@@ -186,6 +186,159 @@ async function runJob(ecu, job, container, danger, presetArg) {
 // render one mined layout screen as a refreshing gauge-bar panel using the screen's
 // own labels/units/ranges, polling its job/args. two-column when the layout marks
 // columns:2 (Bank 1 / Bank 2).
+// INPA displays a fixed window of 10 values per screen page (2 columns x 5
+// rows). When a screen holds more, INPA shows a single green scroll arrow in the
+// bottom-right: it points DOWN while more rows lie below, and flips to UP once
+// you reach the last page (then pages back up). This mirrors that exactly.
+const INPA_PAGE_ROWS = 10;
+
+// attach an INPA page-arrow to a live gauge grid. `orderedKeys()` returns the
+// current full key order (cells arrive incrementally), `cellFor(k)` the cell.
+// Returns { relayout } to call whenever the cell set changes.
+function attachInpaPager(panel, grid, orderedKeys, cellFor) {
+  const arrow = document.createElement('button');
+  arrow.className = 'inpa-pager-arrow';
+  arrow.type = 'button';
+  panel.appendChild(arrow);
+  let page = 0;
+
+  function pages() {
+    return Math.max(1, Math.ceil(orderedKeys().length / INPA_PAGE_ROWS));
+  }
+  function relayout() {
+    const keys = orderedKeys();
+    const n = Math.max(1, Math.ceil(keys.length / INPA_PAGE_ROWS));
+    if (page > n - 1) page = n - 1;
+    const start = page * INPA_PAGE_ROWS, end = start + INPA_PAGE_ROWS;
+    keys.forEach((k, i) => {
+      const c = cellFor(k);
+      if (c) c.classList.toggle('inpa-hidden', i < start || i >= end);
+    });
+    if (keys.length <= INPA_PAGE_ROWS) { arrow.style.display = 'none'; return; }
+    arrow.style.display = '';
+    const atBottom = page >= n - 1;
+    arrow.classList.toggle('up', atBottom);
+    arrow.textContent = atBottom ? '▲' : '▼';
+    arrow.setAttribute('aria-label',
+      atBottom ? 'Previous page' : 'Next page');
+    arrow.title = `Page ${page + 1} / ${n}`;
+  }
+  arrow.onclick = () => {
+    const n = pages();
+    page = (page >= n - 1) ? Math.max(0, page - 1) : page + 1;
+    relayout();
+    grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+  return { relayout };
+}
+
+// INPA F-key status category: one or more layout screens behind a single
+// F-key (m_status decoding of the .IPO). Small categories (Abgas = six
+// one-row screens) merge into one paged gauge grid, exactly like INPA's
+// combined lambda screen; large ones (the MWB blocks) get a sub-tab per
+// block, since INPA shows one block at a time.
+function showInpaCategory(ecu, screens, container, title) {
+  const totalRows = screens.reduce((n, s) => n + (s.rows || []).length, 0);
+  if (screens.length > 1 && totalRows > 12) {
+    container.className = 'inpa-cat-split';
+    container.innerHTML = `
+      <div class="inpa-subtabs" id="inpa-subtabs"></div>
+      <div id="inpa-cat-body"></div>`;
+    const tabs = container.querySelector('#inpa-subtabs');
+    const body = container.querySelector('#inpa-cat-body');
+    screens.forEach((scr, i) => {
+      const b = document.createElement('button');
+      b.className = 'inpa-subtab';
+      b.textContent = deGerman(scr.group) || jobLabel(scr.job);
+      b.onclick = () => {
+        tabs.querySelectorAll('.inpa-subtab').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        showInpaScreens(ecu, [scr], body);
+      };
+      tabs.appendChild(b);
+      if (i === 0) { b.classList.add('active'); showInpaScreens(ecu, [scr], body); }
+    });
+    return;
+  }
+  showInpaScreens(ecu, screens, container, title);
+}
+
+// poll one or more layout screens into a single paged gauge grid. With one
+// screen this is the classic mined-screen view; with several (a merged
+// category) each tick reads every screen's job and lays rows out in screen
+// order, so Bank 1 / Bank 2 pairs stay side by side.
+async function showInpaScreens(ecu, screens, container, title) {
+  stopLive();
+  const liveTok = _liveToken;
+  title = title || (screens.length === 1
+    ? (deGerman(screens[0].group) || jobLabel(screens[0].job))
+    : `${screens.length} readouts`);
+
+  container.className = 'live-panel inpa-screen';
+  container.innerHTML = `
+    <div class="live-head">
+      <span class="live-dot"></span>
+      <span class="live-title">${esc(title)}</span>
+      <span class="live-meta" id="live-meta">connecting…</span>
+      <button class="btn danger live-stop">Stop</button>
+    </div>
+    <div class="live-grid inpa-grid two-col" id="live-grid"></div>`;
+
+  const grid = container.querySelector('#live-grid');
+  const meta = container.querySelector('#live-meta');
+  const dot = container.querySelector('.live-dot');
+  container.querySelector('.live-stop').onclick = () => {
+    stopLive(); dot.classList.add('stopped'); meta.textContent = 'stopped'; sbLeft.textContent = 'stopped';
+  };
+
+  const cellEls = new Map();  // "job:key" -> cell
+  const keyOrder = [];
+  const pager = attachInpaPager(container, grid,
+    () => keyOrder, (k) => cellEls.get(k));
+
+  async function tick() {
+    let added = false, alive = 0;
+    for (const scr of screens) {
+      const arg = scr.args || '';
+      let data;
+      try {
+        const url = `/api/ecu/${ecu.sgbd}/run/${scr.job}` + (arg ? `?arg=${encodeURIComponent(arg)}` : '');
+        data = await api(url, { method: 'POST' });
+      } catch (e) {
+        if (screens.length === 1) {
+          stopLive(); container.className = 'results-panel';
+          container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed';
+        }
+        continue; // one failing job shouldn't blank a merged category
+      }
+      alive++;
+      const vals = new Map(flatResults(data.sets));
+      for (const r of scr.rows || []) {
+        if (!vals.has(r.key)) continue;
+        const ck = `${scr.job}:${r.key}`;
+        let cell = cellEls.get(ck);
+        if (!cell) {
+          cell = document.createElement('div');
+          cell.className = 'live-cell gauge-cell';
+          cell.innerHTML = gaugeCellHTML(deGerman(r.label) || r.key);
+          grid.appendChild(cell);
+          cellEls.set(ck, cell);
+          keyOrder.push(ck);
+          added = true;
+        }
+        updateGaugeSpec(cell, r, vals.get(r.key));
+      }
+    }
+    if (added) pager.relayout();
+    if (alive) {
+      meta.textContent = `live · ${cellEls.size} values`;
+      sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
+    }
+  }
+  await tick();
+  if (liveTok === _liveToken && container.querySelector('.inpa-grid')) scheduleLive(tick);
+}
+
 async function showInpaScreen(ecu, screen, container) {
   stopLive();
   const liveTok = _liveToken;
@@ -195,7 +348,7 @@ async function showInpaScreen(ecu, screen, container) {
   // result-key -> layout row spec, for labels/scaling
   const spec = new Map(rows.map(r => [r.key, r]));
 
-  container.className = 'live-panel';
+  container.className = 'live-panel inpa-screen';
   container.innerHTML = `
     <div class="live-head">
       <span class="live-dot"></span>
@@ -214,6 +367,9 @@ async function showInpaScreen(ecu, screen, container) {
   };
 
   const cellEls = new Map(); // key -> gauge cell
+  const keyOrder = [];       // stable insertion order for paging
+  const pager = attachInpaPager(container, grid,
+    () => keyOrder, (k) => cellEls.get(k));
 
   async function tick() {
     let data;
@@ -228,6 +384,7 @@ async function showInpaScreen(ecu, screen, container) {
     const vals = new Map(flatResults(data.sets));
 
     // render in layout row order so Bank 1 / Bank 2 pair up in two columns
+    let added = false;
     for (const r of rows) {
       if (!vals.has(r.key)) continue;
       let cell = cellEls.get(r.key);
@@ -237,9 +394,12 @@ async function showInpaScreen(ecu, screen, container) {
         cell.innerHTML = gaugeCellHTML(deGerman(r.label) || r.key);
         grid.appendChild(cell);
         cellEls.set(r.key, cell);
+        keyOrder.push(r.key);
+        added = true;
       }
       updateGaugeSpec(cell, r, vals.get(r.key));
     }
+    if (added) pager.relayout();
     meta.textContent = `live · ${cellEls.size} values`;
     sbLeft.textContent = `${job}${arg ? ' ' + arg : ''} · live`;
   }
@@ -441,8 +601,11 @@ async function watchMulti(ecu, jobs, container, view) {
   const liveTok = _liveToken;
   highlightWatched(view, jobs);
 
+  // INPA mode pages the watch grid 10-at-a-time like a real INPA screen
+  const paged = typeof inpaMode === 'function' && inpaMode();
+
   // build the panel once; ticks only update value cells (no flicker)
-  container.className = 'live-panel';
+  container.className = 'live-panel' + (paged ? ' inpa-screen' : '');
   container.innerHTML = `
     <div class="live-head">
       <span class="live-dot"></span>
@@ -451,7 +614,7 @@ async function watchMulti(ecu, jobs, container, view) {
       <button class="btn live-log" id="live-log">Stream to file…</button>
       <button class="btn danger live-stop" id="live-stop">Stop</button>
     </div>
-    <div class="live-grid" id="live-grid"></div>`;
+    <div class="live-grid${paged ? ' inpa-grid two-col' : ''}" id="live-grid"></div>`;
   container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const grid = container.querySelector('#live-grid');
@@ -459,6 +622,10 @@ async function watchMulti(ecu, jobs, container, view) {
   const dot = container.querySelector('.live-dot');
   const logBtn = container.querySelector('#live-log');
   const cellEls = new Map(); // key -> value <div> (updated in place)
+  const keyOrder = [];
+  const pager = paged
+    ? attachInpaPager(container, grid, () => keyOrder, (k) => cellEls.get(k))
+    : null;
 
   const stop = () => {
     stopLive(); stopLogging();
@@ -506,6 +673,7 @@ async function watchMulti(ecu, jobs, container, view) {
     // pair value+unit (STAT_x_WERT + STAT_x_EINH -> one reading), humanize key to
     // English, update each gauge cell in place
     const entries = pairWertEinh(merged);
+    let added = false;
     for (const e of entries) {
       let cell = cellEls.get(e.key);
       if (!cell) {
@@ -514,10 +682,13 @@ async function watchMulti(ecu, jobs, container, view) {
         cell.innerHTML = gaugeCellHTML(e.label);
         grid.appendChild(cell);
         cellEls.set(e.key, cell);
+        keyOrder.push(e.key);
+        added = true;
       }
       // feed value + merged unit so the gauge shows "13 °C" and scales by unit
       updateGauge(cell, e.label, e.unit ? `${e.value} ${e.unit}` : e.value);
     }
+    if (added && pager) pager.relayout();
     meta.textContent = `live · ${cellEls.size} values`;
     if (logId && logColumns) {
       window.bmacw.appendLog(logId, [new Date().toISOString(), String(Date.now() - logStart),

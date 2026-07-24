@@ -925,6 +925,66 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .inpa-grid.two-col .gauge-cell:nth-child(odd) { border-right: 1px solid var(--line); }
 .inpa-grid { grid-template-columns: 1fr; }
 
+/* INPA 10-per-page paging: a cell outside the current page is removed from flow
+   so the grid always shows exactly one page (2 cols x 5 rows). */
+.live-panel.inpa-screen { position: relative; padding-bottom: 30px; }
+.inpa-grid .gauge-cell.inpa-hidden { display: none; }
+
+/* single green scroll arrow, bottom-right, exactly like INPA's page indicator */
+.inpa-pager-arrow {
+  position: absolute; right: 10px; bottom: 8px; z-index: 3;
+  width: 26px; height: 22px; padding: 0; line-height: 20px;
+  -webkit-app-region: no-drag; cursor: pointer;
+  font-size: 13px; text-align: center;
+  color: #04140b; background: var(--green);
+  border: 1px solid rgba(0,0,0,.35); border-radius: 3px;
+  box-shadow: 0 0 8px rgba(56,224,138,.5);
+}
+.inpa-pager-arrow:hover { filter: brightness(1.12); }
+.inpa-pager-arrow:active { transform: translateY(1px); }
+/* the INPA theme uses the classic bright-green softkey look on white */
+html[data-theme="inpa"] .inpa-pager-arrow {
+  color: #003300; background: #00d000; border-color: #007000;
+  box-shadow: none; border-radius: 0;
+}
+
+/* INPA status F-key category bar (Digital / Analog / VANOS / ...) */
+.inpa-cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.inpa-cat-btn {
+  -webkit-app-region: no-drag; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; font-size: 12.5px;
+  color: var(--ink-dim); background: transparent;
+  border: 1px solid var(--line); border-radius: 4px;
+}
+.inpa-cat-btn:hover { color: var(--ink); border-color: var(--ink-faint); }
+.inpa-cat-btn.active { color: var(--ink); border-color: var(--amber);
+  background: rgba(255,176,32,.08); }
+.inpa-cat-btn.disabled { opacity: .38; cursor: not-allowed; }
+.inpa-cat-key { font-family: var(--mono); font-size: 10.5px; color: var(--amber); }
+.inpa-cat-btn.disabled .inpa-cat-key { color: var(--ink-faint); }
+html[data-theme="inpa"] .inpa-cat-btn { border-radius: 0; }
+html[data-theme="inpa"] .inpa-cat-btn.active { background: #000080; color: #fff;
+  border-color: #000080; }
+html[data-theme="inpa"] .inpa-cat-btn.active .inpa-cat-key { color: #9fc3ff; }
+html[data-theme="inpa"] .inpa-cat-key { color: #000080; }
+
+/* sub-tabs inside a category (one per measurement block) */
+.inpa-cat-split { margin-bottom: 20px; }
+.inpa-cat-split .live-panel { margin-bottom: 0; }
+.inpa-subtabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
+.inpa-subtab {
+  -webkit-app-region: no-drag; cursor: pointer;
+  padding: 5px 10px; font-size: 12px; color: var(--ink-dim);
+  background: transparent; border: 1px solid var(--line); border-radius: 3px;
+}
+.inpa-subtab:hover { color: var(--ink); }
+.inpa-subtab.active { color: var(--ink); border-color: var(--cyan);
+  background: rgba(79,210,255,.08); }
+html[data-theme="inpa"] .inpa-subtab { border-radius: 0; }
+html[data-theme="inpa"] .inpa-subtab.active { background: #000080; color: #fff;
+  border-color: #000080; }
+
 /* non-numeric: hide bar, center text */
 .gauge-cell.text-only .gauge-track { display: none; }
 .gauge-cell.text-only .gauge-foot { justify-content: center; }
@@ -1104,7 +1164,7 @@ select.modal-input { appearance: none; cursor: pointer; }
   background: var(--raised);
 }
 .lookup-entry-text { display: flex; flex-direction: column; gap: 3px; flex: 1; }
-.lookup-entry-title { font-size: 16px; font-weight: 800; letter-spacing: .01em; }
+.lookup-entry-title { font-size: 16px; font-weight: 800; letter-spacing: .01em; color: var(--ink); }
 .lookup-entry-desc { font-size: 12px; color: var(--ink-faint); }
 .lookup-entry-arrow { color: var(--amber); font-size: 18px; opacity: 0; transform: translateX(-6px); transition: all .2s; }
 .lookup-entry:hover .lookup-entry-arrow { opacity: 1; transform: none; }
