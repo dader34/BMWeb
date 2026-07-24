@@ -1,0 +1,31 @@
+{
+  "chassis": "E90",
+  "module": "Convertible Soft Top Module",
+  "sgbd": "CTM_93",
+  "scheme": "code",
+  "faults": {
+    "A688": "Memory fault",
+    "A689": "Hall sensor VSW1.1",
+    "A68A": "Hall sensor VSW1.2",
+    "A68B": "Hall sensor VSW2.1",
+    "A68C": "Hall sensor VSW2.2",
+    "A68D": "Hall sensor VSW3",
+    "A68E": "Hall sensor VSW4.1",
+    "A68F": "Hall sensor VSW4.2",
+    "A690": "Hall sensor VSW5.1",
+    "A691": "Hall sensor VSW5.2",
+    "A692": "Hall sensor VSW6.1",
+    "A693": "Hall sensor VSW6.2",
+    "A694": "Hall sensor VSW6.3",
+    "A695": "Hall sensor VSW7",
+    "A696": "Hall sensor VSW8",
+    "A697": "Hall sensor VSW9",
+    "A698": "Hall sensor VSW10",
+    "A699": "Hall sensor VSW11",
+    "A69A": "Linear sensor LINS1",
+    "A69B": "Linear sensor LINS2",
+    "A69C": "Linear sensor LINS5",
+    "A6A7": "Energy saving mode active",
+    "FFFF": "Unknown fault location"
+  }
+}

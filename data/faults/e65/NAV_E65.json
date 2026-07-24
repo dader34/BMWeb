@@ -1,0 +1,14 @@
+{
+  "chassis": "E65",
+  "module": "Navigation System",
+  "sgbd": "NAV_E65",
+  "scheme": "code",
+  "faults": {
+    "D7CE": "Light did not turn off despite shutdown (Error_Light_Not_Off)",
+    "D7D0": "Ring-break diagnosis performed (Error_Ring_Diagnose)",
+    "D7D1": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "D7D2": "A device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "D7E4": "Navigation was disconnected from power",
+    "FFFF": "Unknown fault location"
+  }
+}

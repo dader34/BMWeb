@@ -1,0 +1,33 @@
+{
+  "chassis": "E65",
+  "module": "Light Switch Module",
+  "sgbd": "LM_E65_2",
+  "scheme": "code",
+  "faults": {
+    "9CA8": "Internal fault light module",
+    "9CA9": "Terminal 30A connection faulty",
+    "9CAA": "Terminal 30B connection faulty",
+    "9CAB": "A terminal 15 missing",
+    "9CAC": "Brake-light switch defective",
+    "9CAD": "AHM communication disturbed",
+    "9CAE": "Control panel fault",
+    "9CAF": "Light switch position 1 defective",
+    "9CB0": "Light switch position 2 defective",
+    "9CB1": "Dimmer pot defective",
+    "9CB2": "Headlight-range pot defective",
+    "9CB3": "Ride-height sensor front defective",
+    "9CB4": "Ride-height sensor rear defective",
+    "9CB5": "Energy saving mode on",
+    "9CB6": "Headlight-range coil open circuit",
+    "9CB7": "Headlight-range driver fault",
+    "9CB8": "New fault 1",
+    "9CB9": "New fault 2",
+    "9CBA": "New fault 3",
+    "E504": "CAN-Low, physical fault",
+    "E505": "CAN-High, short circuit to B+",
+    "E506": "Ground shift, too high",
+    "E507": "Controller, bus off",
+    "E53E": "Telegram timeout on receive",
+    "FFFF": "Unknown fault location"
+  }
+}

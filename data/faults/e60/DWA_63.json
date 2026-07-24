@@ -1,0 +1,30 @@
+{
+  "chassis": "E60",
+  "module": "Alarm System E63/E64",
+  "sgbd": "DWA_63",
+  "scheme": "code",
+  "faults": {
+    "9CE8": "Fault in RAM Memory",
+    "9CE9": "Fault in flash Memory",
+    "9CEA": "Fault in EEPROM",
+    "9CEB": "'power save mode' active",
+    "9CF9": "Fault in LED",
+    "9D00": "Fault in DWABUS",
+    "9D12": "Fault in Internal Battery",
+    "9D14": "Fault in Protection Circuit",
+    "9D15": "Fault in Wakeup Circuit",
+    "9D16": "Fault in Sound Circuit",
+    "9D1F": "Fault in Tilt Sensor Circuit",
+    "D944": "CAN physical error: single wire",
+    "D947": "CAN physical error: bus off",
+    "9D17": "Max Operating temperature Exceeded",
+    "9D01": "MUW implausible",
+    "9D18": "General default data use",
+    "9D19": "Application default data use",
+    "9D1A": "SIREN default data use",
+    "9D1B": "TILTSENSOR default data use",
+    "9D1C": "Min Operating temperature Exceeded",
+    "9D1D": "MUW default data use",
+    "FFFF": "Unknown fault location"
+  }
+}

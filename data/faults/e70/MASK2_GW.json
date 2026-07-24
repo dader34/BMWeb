@@ -1,0 +1,14 @@
+{
+  "chassis": "E70",
+  "module": "Gateway / MOST/CAN MASK (in MASK2)",
+  "sgbd": "MASK2",
+  "scheme": "code",
+  "faults": {
+    "ABC8": "MASK memory test fault",
+    "ABC9": "Drive defective",
+    "ABCA": "Antenna open or short circuit",
+    "ABCB": "Antenna power supply fault",
+    "ABCC": "Communication error TopHiFi",
+    "FFFF": "Unknown fault location"
+  }
+}

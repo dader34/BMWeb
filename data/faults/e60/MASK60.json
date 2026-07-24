@@ -1,0 +1,13 @@
+{
+  "chassis": "E60",
+  "module": "Audio System Controller MASK",
+  "sgbd": "MASK60",
+  "scheme": "code",
+  "faults": {
+    "ABC8": "Memory test fault MASK (0xABC8)",
+    "ABC9": "Drive defective (0xABC9)",
+    "ABCA": "Antenna power supply fault (0xABCA)",
+    "ABCB": "TopHifi connection fault (0xABCB)",
+    "FFFF": "unknown fault location"
+  }
+}

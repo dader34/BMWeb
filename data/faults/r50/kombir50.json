@@ -1,0 +1,30 @@
+{
+  "chassis": "R50",
+  "module": "Instrument Pack",
+  "sgbd": "KOMBIR50",
+  "scheme": "text",
+  "faults": {
+    "Kein Fehler": "No fault",
+    "K-Bus Kurzschluss gegen Masse oder Batteriespannung": "K-bus short circuit to ground or battery voltage",
+    "Batteriespannung > 16V - Fehler in Lichtmaschine": "Battery voltage > 16V - alternator fault",
+    "Ölsender Eingang input Kurzschluss gegen Masse oder Batteriespannung": "Oil sender input short to ground or battery voltage",
+    "Aussentmperatur Sensor Kurzschluss zu Masse oder Batteriespannung": "Ambient temp sensor short to ground or battery voltage",
+    "KL.R unplausible Bedingung": "Terminal R implausible condition",
+    "SIA Reset Fehler - DS2 PIN Kurschluss gegen Masse länger als 1 Minute": "SIA reset fault - DS2 pin short to ground over 1 minute",
+    "LM-EEPROM-Fehler": "Alternator EEPROM fault",
+    "EEPROM Checksum Fehler": "EEPROM checksum fault",
+    "TWEG + (Tacho) - Motordrehzahl oberhalb 3000 Umdrehungen für 10 Minuten ohne zurückgelegtem Weg": "Speedo - engine over 3000 rpm 10 min with no distance",
+    "TD - Fuel used but engine speed is 0 for longer than 1 second": "TD - fuel used but engine speed is 0 over 1 second",
+    "Notprogramm - Getriebe SG hat Getriebe falsches Flag gesendet": "Limp home - transmission ECU sent wrong gear flag",
+    "CAN: Bus Off - CAN HI Kurschluss gegen Masse, CAN Low gegen Batteriespannung oder CAN HI gegen CAN LO": "CAN bus off - CAN HI/LO short to ground, battery or each other",
+    "CAN: Keine ID - Kein CAN- Signal für 1500ms und bus ist nicht ausgeschaltet": "CAN: no ID - no CAN signal for 1500ms and bus not off",
+    "CAN: Kein ASC1 - Keine ABS- Meldung für 1500ms": "CAN: no ASC1 - no ABS message for 1500ms",
+    "CAN: Keine DME1 - Kein Telegramm erhalten 1 von EMS for 1500ms": "CAN: no DME1 - no telegram 1 from EMS for 1500ms",
+    "CAN: Keine DME2 - Kein Telegramm erhalten 2 von EMS for 1500ms": "CAN: no DME2 - no telegram 2 from EMS for 1500ms",
+    "CAN: Keine DME4 - Kein Telegramm erhalten 4 von EMS for 1500ms": "CAN: no DME4 - no telegram 4 from EMS for 1500ms",
+    "CAN: Keine DME5 - Kein Telegramm erhalten 5 von EMS for 1500ms": "CAN: no DME5 - no telegram 5 from EMS for 1500ms",
+    "CAN: Kein EGS1 - Kein Telegramm erhalten von ATCU für 1500ms": "CAN: no EGS1 - no telegram from ATCU for 1500ms",
+    "CAN: Kein RIP1 - Kein Telegramm erhalten von 'Remote Instrument Pack (RIP)": "CAN: no RIP1 - no telegram from Remote Instrument Pack (RIP)",
+    "Unbekannter Fehler": "Unknown fault"
+  }
+}

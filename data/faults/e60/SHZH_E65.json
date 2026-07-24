@@ -1,0 +1,28 @@
+{
+  "chassis": "E60",
+  "module": "Additional heater diesel / Park heating",
+  "sgbd": "SHZH_E65",
+  "scheme": "code",
+  "faults": {
+    "9B28": "control unit faulty",
+    "9B29": "No Start",
+    "9B2A": "Flammabbruch",
+    "9B2B": "Ueber-/undervoltage",
+    "9B2C": "Fremdlicht",
+    "9B2D": "Ueberhitzung",
+    "9B2E": "heater interlock",
+    "9B2F": "metering pump circuit faulty",
+    "9B30": "combustion air blower circuit faulty",
+    "9B31": "Gluehelement/Brennraumsensor faulty",
+    "9B32": "water pump circuit faulty",
+    "9B33": "shutoff valve circuit faulty",
+    "9B34": "fuel coding faulty/heater interlock",
+    "9B35": "K-CAN: invalid SHZH control",
+    "9B36": "K-CAN: coded aux heater receives parking heater request",
+    "9B37": "Heating time exceeded",
+    "9B38": "KCAN: failure IHKA-message CTR KLIMA ZWP",
+    "E784": "CAN Low line fault",
+    "E787": "CAN Bus-Off fault",
+    "FFFF": "Unknown fault location"
+  }
+}

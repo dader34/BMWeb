@@ -1,0 +1,19 @@
+{
+  "chassis": "E89",
+  "module": "CENTRAL INFORMATION DISPLAY (CID)",
+  "sgbd": "cid_89",
+  "scheme": "code",
+  "faults": {
+    "A468": "Fault in video signal",
+    "A469": "Internal electronics failure",
+    "A46A": "Overtemperature shutdown (no defect)",
+    "A46B": "Overvoltage detected",
+    "A46C": "Energy-saving mode active",
+    "A46D": "CID malfunction due to head unit reset",
+    "A47E": "Flap fault: blockage",
+    "A47F": "Flap fault: timeout",
+    "E5C4": "K-CAN fault",
+    "E5C7": "K-CAN fault, bus missing",
+    "FFFF": "Unknown fault location"
+  }
+}

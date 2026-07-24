@@ -1,0 +1,15 @@
+{
+  "chassis": "E70",
+  "module": "Amplifier / Hifi",
+  "sgbd": "AMPH70",
+  "scheme": "code",
+  "faults": {
+    "D6C4": "Physical CAN bus fault",
+    "D6C7": "CAN bus off",
+    "A1A8": "Internal control unit fault",
+    "A1AF": "Invalid coding",
+    "A1B0": "Overtemperature shutdown",
+    "A1B1": "Energy saving mode active",
+    "FFFF": "Unknown fault location"
+  }
+}

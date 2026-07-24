@@ -1,0 +1,22 @@
+{
+  "chassis": "E53",
+  "module": "Sunroof module",
+  "sgbd": "SD_KWP",
+  "scheme": "code",
+  "faults": {
+    "A088": "operating switch fault",
+    "A08A": "dimming fault",
+    "A08D": "coding fault",
+    "A090": "roof unit fault SHD",
+    "A091": "drive fault SHD",
+    "A092": "normalization fault SHD",
+    "A0A0": "roof unit fault SoS",
+    "A0A1": "drive fault SoS",
+    "A0A2": "normalization fault SoS",
+    "A40D": "EEPROM write fault",
+    "A40E": "power save mode active",
+    "DA04": "K-CAN low fault",
+    "DA07": "CAN controller fault",
+    "FFFF": "unknown fault location"
+  }
+}

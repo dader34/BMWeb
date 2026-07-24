@@ -1,0 +1,12 @@
+{
+  "chassis": "E39",
+  "module": "Dynamic sound processor (DSP)",
+  "sgbd": "dsp",
+  "scheme": "text",
+  "faults": {
+    "I-BUS-Kollision": "I-BUS collision",
+    "kein polling des DSP": "DSP not polled",
+    "kein I-BUS Echo am DSP": "No I-BUS echo at DSP",
+    "unbekannten Diagnosebefehl erhalten": "Unknown diagnostic command received"
+  }
+}

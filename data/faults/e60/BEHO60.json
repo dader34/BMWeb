@@ -1,0 +1,22 @@
+{
+  "chassis": "E60",
+  "module": "Agency Module (Police",
+  "sgbd": "BEHO60",
+  "scheme": "code",
+  "faults": {
+    "E004": "K-CAN low",
+    "E005": "K-CAN high",
+    "E006": "Ground shift",
+    "E007": "CAN controller",
+    "E03C": "Fault value received",
+    "E03D": "Implausible signal",
+    "E03E": "Telegram timeout on reception",
+    "E03F": "Error receiving NM message",
+    "E040": "Fault value sent",
+    "E041": "Implausible signal",
+    "E042": "Telegram timeout on sending",
+    "E043": "Error sending NM message",
+    "9DE8": "BEHO control unit fault",
+    "FFFF": "unknown fault location"
+  }
+}

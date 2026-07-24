@@ -1,0 +1,26 @@
+{
+  "chassis": "E65",
+  "module": "Tire pressure Monitoring",
+  "sgbd": "RDC_E65",
+  "scheme": "code",
+  "faults": {
+    "604C": "Terminal fault",
+    "604D": "Control unit fault",
+    "604E": "Tire pressure control system fault",
+    "604F": "Transmission channel FL fault",
+    "6050": "Transmission channel FR fault",
+    "6051": "Transmission channel RL fault",
+    "6052": "Transmission channel RR fault",
+    "6053": "Transmission channel spare wheel fault",
+    "6054": "Wheel sensor FL fault",
+    "6055": "Wheel sensor FR fault",
+    "6056": "Wheel sensor RL fault",
+    "6057": "Wheel sensor RR fault",
+    "6058": "Wheel sensor spare wheel fault",
+    "6059": "Wheel sensor undefined fault",
+    "D104": "CAN-Low fault",
+    "D107": "Controller fault",
+    "D13E": "Telegram timeout on receive fault",
+    "FFFF": "Unknown fault location"
+  }
+}

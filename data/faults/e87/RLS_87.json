@@ -1,0 +1,15 @@
+{
+  "chassis": "E87",
+  "module": "Rain and light sensor",
+  "sgbd": "RLS_87",
+  "scheme": "code",
+  "faults": {
+    "A128": "Hardware fault rain sensor",
+    "A129": "No optical initialization possible",
+    "A12A": "Overtemperature",
+    "A12B": "Overvoltage",
+    "A12D": "Hardware fault light sensor",
+    "A12E": "Calibration fault light sensor",
+    "FFFF": "Unknown fault location"
+  }
+}

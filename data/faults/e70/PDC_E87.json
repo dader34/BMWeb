@@ -1,0 +1,31 @@
+{
+  "chassis": "E70",
+  "module": "Park Distance Control",
+  "sgbd": "PDC_87",
+  "scheme": "code",
+  "faults": {
+    "9E28": "Fault location: control unit internal",
+    "9E2B": "Fault location: transducer fault rear left",
+    "9E2C": "Fault location: transducer fault rear right",
+    "9E2D": "Fault location: transducer fault rear middle left",
+    "9E2E": "Fault location: transducer fault rear middle right",
+    "9E2F": "Fault location: transducer fault front left",
+    "9E30": "Fault location: transducer fault front right",
+    "9E31": "Fault location: transducer fault front middle left",
+    "9E32": "Fault location: transducer fault front middle right",
+    "9E33": "Fault location: transducer wiring rear left",
+    "9E34": "Fault location: transducer wiring rear right",
+    "9E35": "Fault location: transducer wiring rear middle left",
+    "9E36": "Fault location: transducer wiring rear middle right",
+    "9E37": "Fault location: transducer wiring front left",
+    "9E38": "Fault location: transducer wiring front right",
+    "9E39": "Fault location: transducer wiring front middle left",
+    "9E3A": "Fault location: transducer wiring front middle right",
+    "9E3B": "Fault location: transducer supply",
+    "9E3C": "Fault location: speaker rear",
+    "9E3D": "Fault location: speaker front",
+    "9E40": "Fault location: EEPROM parameter fault",
+    "E204": "Fault location: CAN-low, physical bus fault",
+    "E207": "Fault location: CAN controller, bus off"
+  }
+}

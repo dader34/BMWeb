@@ -1,0 +1,15 @@
+{
+  "chassis": "R50",
+  "module": "Display and Controls",
+  "sgbd": "BMBTR50",
+  "scheme": "text",
+  "faults": {
+    "Energiesparmode aktiv": "Power saving mode active",
+    "Reset": "Reset",
+    "LC MONITOR übertemperatur": "LCD monitor overtemperature",
+    "K-BUS Sendefehler": "K-bus transmit fault",
+    "K-BUS Empfangsfehler": "K-bus receive fault",
+    "EEPROM Checksumfehler": "EEPROM checksum fault",
+    "Unbekannter Fehlerort": "Unknown fault location"
+  }
+}

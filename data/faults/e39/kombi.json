@@ -1,0 +1,31 @@
+{
+  "chassis": "E39",
+  "module": "Instrument cluster (KOMBI/IKE)",
+  "sgbd": "kombi39",
+  "scheme": "text",
+  "faults": {
+    "Signal KVA1": "Signal KVA1",
+    "Signal TWEG+ (Tacho)": "Signal TWEG+ (speedometer)",
+    "Signal TD (Drehzahl)": "Signal TD (engine speed)",
+    "Kuehlmitteltemperatur": "Coolant temperature",
+    "Aussentemperatur": "Outside temperature",
+    "Tank-Hebelgeber_1": "Fuel level sender 1",
+    "Tank-Hebelgeber_2": "Fuel level sender 2",
+    "Ueberspannung (U>16V)": "Overvoltage (U>16V)",
+    "Signal AGS : Telegrammfehler oder kein Telegramm": "Signal AGS: telegram error or no telegram",
+    "Klemme 15": "Terminal 15",
+    "Klemme R": "Terminal R",
+    "SIA-Reset": "SIA service interval reset",
+    "Oeldruck": "Oil pressure",
+    "Gong_3": "Chime 3",
+    "Messwerktreiber": "Gauge/instrument driver",
+    "Lichtmodul-EEPROM-Fehler": "Light module EEPROM fault",
+    "IKE-EEPROM-Fehler, Codierung fehlerhaft/unvollstaendig": "IKE EEPROM fault, coding faulty/incomplete",
+    "Tacho A": "Speedometer A",
+    "I-Bus": "I-bus",
+    "K-Bus": "K-bus",
+    "CAN-Bus Fehler 244": "CAN-bus fault 244",
+    "CAN-Bus Fehler 251": "CAN-bus fault 251",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}

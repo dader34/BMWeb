@@ -1,0 +1,11 @@
+{
+  "chassis": "E39",
+  "module": "Video module (VID)",
+  "sgbd": "videomod",
+  "scheme": "text",
+  "faults": {
+    "IBus Dauerhigh Abschaltung": "I-bus permanent high shutoff",
+    "Watchdog ausgeloest": "Watchdog triggered",
+    "FeTraWe aktiviert": "FeTraWe activated"
+  }
+}

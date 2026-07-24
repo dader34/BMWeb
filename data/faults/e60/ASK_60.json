@@ -1,0 +1,33 @@
+{
+  "chassis": "E60",
+  "module": "Audio System Controller CCC",
+  "sgbd": "ASK_60",
+  "scheme": "code",
+  "faults": {
+    "A18B": "DSP flash CRC-test fault",
+    "A18C": "Minidisc overcurrent detected",
+    "A18D": "Minidisc overtemperature detected",
+    "A18E": "Minidisc back-up powerdown detected",
+    "A18F": "Minidisc: Mechanische malfunction during load detected",
+    "A190": "Minidisc loading completion-switch malfunction detected",
+    "A191": "I2C-driver fault",
+    "A192": "DSP internal SRAM test failed",
+    "A193": "Minidisc: TABII-Interface responds not",
+    "A194": "DSP flash type check failed",
+    "A195": "Flash CRC check DAF failed",
+    "A196": "Flash CRC check PAF failed",
+    "A197": "DSP SW-Version could not read are",
+    "A198": "Minidisc gen. status Record could not read are",
+    "A199": "ST10 watchdog timeout",
+    "A19A": "DSP has Audio Synchronation lost (obsolete)",
+    "A19B": "DSP watchdog timeout",
+    "A19C": "Mikrophon not connected or short circuit",
+    "A19D": "AUX not connected or short circuit",
+    "A1A1": "Invalid ACK from DSP received",
+    "A1A2": "After 3 repetitions no ACK received",
+    "A1A3": "DSP ACK timeout",
+    "A1A4": "DSP boot timeout",
+    "A1A5": "DSP or CODEC could not initialized are",
+    "FFFF": "Unknown fault location"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "chassis": "R50",
+  "module": "Power Steering",
+  "sgbd": "EHPSR50",
+  "scheme": "code",
+  "faults": {
+    "5523": "Battery voltage fault",
+    "5517": "Overtemperature or poor temperature signal",
+    "5531": "Lock protection",
+    "5550": "Motor short circuit or open circuit",
+    "5529": "FET short circuit or open circuit",
+    "5508": "Invalid motor operation",
+    "5507": "Invalid motor voltage",
+    "FFFF": "Invalid fault"
+  }
+}

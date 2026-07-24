@@ -1,0 +1,21 @@
+{
+  "chassis": "E53",
+  "module": "Adaptive Light Control",
+  "sgbd": "alc_ds2",
+  "scheme": "text",
+  "faults": {
+    "interner Fehler ALC-SG": "internal fault ALC control unit",
+    "Kommunikation mit StepperMotorBox 1 gestoert": "communication with StepperMotorBox 1 disturbed",
+    "Kommunikation mit StepperMotorBox 2 gestoert": "communication with StepperMotorBox 2 disturbed",
+    "Sensor Hoehenstand vorne defekt": "front ride height sensor defective",
+    "Sensor Hoehenstand hinten defekt": "rear ride height sensor defective",
+    "Bremslichtschalter defekt": "brake light switch defective",
+    "Energiesparmode aktiv": "power save mode active",
+    "Fehler WAKE-Leitung": "WAKE line fault",
+    "Achtung: Elektronik am linken Scheinwerfer (SMC) meldet Fehler": "warning: left headlight electronics (SMC) reports fault",
+    "Achtung: Elektronik am rechten Scheinwerfer (SMC) meldet Fehler": "warning: right headlight electronics (SMC) reports fault",
+    "Vergleich Fahrgestellnummer ALC mit SMC links unterschiedlich": "VIN mismatch ALC vs left SMC",
+    "Vergleich Fahrgestellnummer ALC mit SMC rechts unterschiedlich": "VIN mismatch ALC vs right SMC",
+    "unbekannter Fehlerort": "unknown fault location"
+  }
+}

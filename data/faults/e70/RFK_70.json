@@ -1,0 +1,21 @@
+{
+  "chassis": "E70",
+  "module": "Rear Driving Camera System",
+  "sgbd": "RFK_70",
+  "scheme": "code",
+  "faults": {
+    "A808": "Control unit fault",
+    "A809": "EOL checksum error",
+    "A80A": "Optics heating output faulty",
+    "A80B": "Video line RGB faulty",
+    "A80C": "Video line FBAS (composite) faulty",
+    "A80D": "Operating voltage faulty",
+    "A80E": "Ambient temperature too high",
+    "A80F": "Minor CAN plausibility fault",
+    "A810": "Major CAN plausibility fault",
+    "A811": "Energy saving mode active",
+    "E6C4": "CAN bus wiring fault",
+    "E6C7": "CAN bus communication fault",
+    "FFFF": "Unknown fault location"
+  }
+}

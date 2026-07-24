@@ -1,0 +1,22 @@
+{
+  "chassis": "E60",
+  "module": "DWA Sirens And Tilt Sensor",
+  "sgbd": "SINE_65",
+  "scheme": "code",
+  "faults": {
+    "9D11": "Bus line fault",
+    "9D12": "Battery circuit fault",
+    "9D13": "EEPROM fault",
+    "9D14": "Safety circuit fault",
+    "9D15": "Timing circuit fault",
+    "9D16": "Alarm signal circuit fault",
+    "9D1F": "Tilt sensor circuit fault",
+    "9D44": "Alarm: power supply malfunction",
+    "9D45": "Alarm: bus to B+ or overvoltage",
+    "9D46": "Alarm: bus to ground",
+    "9D47": "Alarm: cycle missing",
+    "9338": "Info: backup battery discharged",
+    "9339": "Info: reverse polarity detected",
+    "FFFF": "unknown fault location"
+  }
+}

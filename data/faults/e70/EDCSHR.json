@@ -1,0 +1,23 @@
+{
+  "chassis": "E70",
+  "module": "Damper Control / Electronic front right",
+  "sgbd": "EDCSHR",
+  "scheme": "code",
+  "faults": {
+    "F304": "FlexRay bus error (transceiver)",
+    "F307": "FlexRay synchronization (controller)",
+    "F314": "FlexRay message (damper current setpoint VDM)",
+    "F315": "FlexRay message (damping force setpoint VDM)",
+    "F316": "FlexRay message (ride height)",
+    "F317": "FlexRay message (dome acceleration)",
+    "F318": "FlexRay message (outside temp/relative time)",
+    "F319": "FlexRay message (speed FlexRay)",
+    "F31A": "FlexRay message (engine data FlexRay)",
+    "F31B": "FlexRay message (network management)",
+    "639C": "Internal control unit fault",
+    "639D": "Damper fault",
+    "639E": "Control unit not coded or implausible data",
+    "639F": "Damper installed on wrong side",
+    "FFFF": "Unknown fault location"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "chassis": "E60",
+  "module": "Rain And Light Sensor",
+  "sgbd": "RLS_E65",
+  "scheme": "code",
+  "faults": {
+    "A128": "Rain sensor hardware fault A128",
+    "A129": "Optical initialization not possible A129",
+    "A12A": "Overtemperature A12A",
+    "A12B": "Overvoltage A12B",
+    "A12C": "reserved A12C",
+    "A12D": "Light sensor hardware fault A12D",
+    "A12E": "Light sensor calibration fault A12E",
+    "DA44": "CAN-Low physical bus fault DA44",
+    "FFFF": "unknown fault location"
+  }
+}

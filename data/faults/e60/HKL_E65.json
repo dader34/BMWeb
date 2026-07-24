@@ -1,0 +1,24 @@
+{
+  "chassis": "E60",
+  "module": "Tailgate Lift",
+  "sgbd": "HKL_E65",
+  "scheme": "code",
+  "faults": {
+    "A2A8": "Reset by watchdog",
+    "A2A9": "Reset by opcode fault",
+    "A2AA": "Reset by clock-Monitor",
+    "A2AB": "Fault in EEPROM",
+    "A2AD": "Relay stuck on activate",
+    "A2AE": "Relay stuck on deactivate",
+    "A2AF": "Relay stuck too activate",
+    "A2B0": "Relay stuck too deactivate",
+    "A2B1": "Fault at Pumpen-MOSFET",
+    "A2B2": "Fault at valve-driver",
+    "A2B3": "Fault at Drehwinkelsensor",
+    "A2B4": "TOEHKK short circuit to ground",
+    "A2B5": "TOEHK short circuit to ground",
+    "E3C4": "Controller, Bus Off",
+    "E3C5": "CAN Low, physical bus fault",
+    "FFFF": "Unknown fault location"
+  }
+}

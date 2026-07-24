@@ -1,0 +1,20 @@
+{
+  "chassis": "E60",
+  "module": "Flexible Bus Interface",
+  "sgbd": "FBI_E65",
+  "scheme": "code",
+  "faults": {
+    "A268": "JBIT2 I-Bus line fault A268",
+    "A269": "SOS key line fault A269",
+    "A26A": "Crash line fault A26A",
+    "A26B": "TelCommander line fault A26B (entry disabled from FBI SW 6.B.0)",
+    "A26C": "JNAV I-Bus line fault A26C",
+    "A26E": "EEPROM fault A26E",
+    "A26F": "TelCommander button stuck A26F",
+    "E14E": "Light did not turn off after shutdown (Error_Light_Not_Off)",
+    "E150": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "E151": "Long and/or frequent unlocks (Error_Unlock_Long)",
+    "E152": "Device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "FFFF": "unknown fault location"
+  }
+}

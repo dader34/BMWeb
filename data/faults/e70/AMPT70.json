@@ -1,0 +1,16 @@
+{
+  "chassis": "E70",
+  "module": "Amplifier / TopHifi",
+  "sgbd": "AMPT70",
+  "scheme": "code",
+  "faults": {
+    "D6CE": "Light did not turn off despite shutdown (Error_Light_Not_Off)",
+    "D6D0": "Ring break diagnosis performed (Error_Ring_Diagnose)",
+    "D6D2": "A device shut down due to overtemperature (Error_Temp_Shutdown)",
+    "A1A8": "No communication with coprocessor (Error_Coprozessor)",
+    "A1A9": "Device coded incorrectly (Error_Wrong_Coded)",
+    "A1AB": "DTCP authentication fault",
+    "A1AA": "Energy saving mode active",
+    "FFFF": "Unknown fault location"
+  }
+}

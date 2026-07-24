@@ -1,0 +1,22 @@
+{
+  "chassis": "E70",
+  "module": "Infotainment Fond",
+  "sgbd": "RSE_70",
+  "scheme": "code",
+  "faults": {
+    "A7E8": "RSE control unit defective",
+    "A7E9": "Energy saving mode active",
+    "A7EA": "Audio headphones 1",
+    "A7EB": "Audio headphones 2",
+    "A7EC": "Audio headphones IR",
+    "A7ED": "Audio AUX out",
+    "A7EE": "AUX in 1 (front)",
+    "A7EF": "AUX in 2 (wiring harness)",
+    "A7F0": "Overtemperature",
+    "A7F1": "Over-/undervoltage",
+    "A7F3": "Software reset",
+    "D284": "Bus low wiring fault",
+    "D287": "Bus communication fault",
+    "FFFF": "Unknown fault location"
+  }
+}

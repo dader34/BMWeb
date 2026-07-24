@@ -1,0 +1,28 @@
+{
+  "chassis": "E90",
+  "module": "Adaptive Cruise Control",
+  "sgbd": "ACC2",
+  "scheme": "code",
+  "faults": {
+    "5D0C": "Control unit fault",
+    "5D0E": "Operating voltage",
+    "5D0F": "Lens heater fault",
+    "5D10": "Coding data faulty",
+    "5D14": "Sensor misaligned",
+    "5D25": "SCU temperature shutdown",
+    "D147": "CAN controller fault",
+    "D17C": "Fault value received",
+    "D17D": "Implausible signal received",
+    "D17E": "CAN timeout on reception",
+    "D181": "Implausible signal sent",
+    "CD35": "ACC safety shutdown, brake overheating",
+    "CD36": "ACC setpoint not met by engine and transmission",
+    "CD37": "Acceleration setpoint not met during braking",
+    "CD38": "ACC not recognized by partner control unit",
+    "CD39": "ACC temporarily unavailable: DSC init or undervoltage",
+    "CD3A": "Navigation module timeout in ACC",
+    "CD40": "Note: fault in LDM",
+    "CD41": "No LDM detected",
+    "CD42": "Note: electrical system voltage < 11 V"
+  }
+}

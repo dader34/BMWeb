@@ -1,0 +1,23 @@
+{
+  "chassis": "E70",
+  "module": "Display / Fondmonitor",
+  "sgbd": "FOMO70",
+  "scheme": "code",
+  "faults": {
+    "A488": "No LVDS signal",
+    "A489": "EEPROM checksum error",
+    "A48B": "Power supply",
+    "A48C": "Energy saving mode active",
+    "A48D": "Head unit reset (no defect)",
+    "A48E": "Light sensor fault",
+    "A490": "PCB temperature sensor fault",
+    "A491": "Power supply 3V3sw",
+    "A493": "Power supply 3V3",
+    "A494": "Power supply 5Vs",
+    "A495": "CCFL ignition fault",
+    "A496": "EEPROM not present",
+    "E604": "K-CAN wiring fault",
+    "E607": "K-CAN fault, bus off",
+    "FFFF": "Unknown fault location"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "chassis": "E70",
+  "module": "Damper Control / Electronic rear left",
+  "sgbd": "EDCSVL",
+  "scheme": "code",
+  "faults": {
+    "F244": "FlexRay bus error (transceiver)",
+    "F247": "FlexRay synchronization (controller)",
+    "F254": "FlexRay message (damper current setpoint VDM)",
+    "F255": "FlexRay message (damping force setpoint VDM)",
+    "F256": "FlexRay message (ride height)",
+    "F257": "FlexRay message (dome acceleration)",
+    "F258": "FlexRay message (outside temp/relative time)",
+    "F259": "FlexRay message (speed FlexRay)",
+    "F25A": "FlexRay message (engine data FlexRay)",
+    "F25B": "FlexRay message (network management)",
+    "633C": "Internal control unit fault",
+    "633D": "Damper fault",
+    "633E": "Control unit not coded or implausible data",
+    "633F": "Damper installed on wrong side",
+    "F25C": "FlexRay message (terminal status)",
+    "FFFF": "Unknown fault location"
+  }
+}

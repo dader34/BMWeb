@@ -1,0 +1,26 @@
+{
+  "chassis": "E85",
+  "module": "Fuel pump EKP",
+  "sgbd": "ekp2ds2",
+  "scheme": "text",
+  "faults": {
+    "EKP-Motor: Spannung zu hoch": "EKP motor: voltage too high",
+    "EKP-Motor: Spannung zu niedrig": "EKP motor: voltage too low",
+    "EKP-Motor: Strom zu hoch": "EKP motor: current too high",
+    "EKP-Motor: Strom zu niedrig": "EKP motor: current too low",
+    "EKP-Motor: Strom fehlt": "EKP motor: current missing",
+    "EKP-Motor: Drehzahl fehlt": "EKP motor: speed missing",
+    "EKP-Motor: Drehzahl zu hoch": "EKP motor: speed too high",
+    "EKP-Motor: Drehzahl zu niedrig": "EKP motor: speed too low",
+    "Endstufe (high-side): Übertemperatur Stufe 2": "Output stage (high-side): overtemperature stage 2",
+    "Endstufe (high-side): Übertemperatur Stufe 1": "Output stage (high-side): overtemperature stage 1",
+    "Kodierdaten: Notlauf-Datensatz": "Coding data: limp-home data set",
+    "EEPROM: CRC-Fehler": "EEPROM: CRC fault",
+    "Kodierdaten: Nicht kodiert": "Coding data: not coded",
+    "Externer Fehler: CRASH/+Batterie-Abschaltung": "External fault: CRASH/B+ shutoff",
+    "ASIC: Abschaltung": "ASIC: shutoff",
+    "Externer Fehler: CAN-ID 0xAA (TORQUE_3) fehlt(e)": "External fault: CAN-ID 0xAA (TORQUE_3) missing",
+    "Externer Fehler: CAN-Bus-Off": "External fault: CAN bus-off",
+    "unbekannter Fehlecode": "Unknown fault code"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "chassis": "E52",
+  "module": "Instrument cluster",
+  "sgbd": "KOMBI52",
+  "scheme": "text",
+  "faults": {
+    "Messwerktreiberfehler": "Gauge driver fault",
+    "Messwerktreiber (latch up)": "Gauge driver (latch up)",
+    "Tacho A": "Speedometer A",
+    "K-Bus": "K-bus",
+    "Gong_3": "Gong 3",
+    "Klemme R": "Terminal R",
+    "Ueberspannung (U>16V)": "Overvoltage (U>16V)",
+    "Klemme 15": "Terminal 15",
+    "Bremsfluessigkeitsstand": "Brake fluid level",
+    "EBV": "EBV (electronic brake force distribution)",
+    "Lichtmodul-EEPROM-Fehler": "Light module EEPROM fault",
+    "KOMBI-EEPROM-Fehler, Codierung fehlerhaft/unvollstaendig": "Cluster EEPROM fault, coding faulty/incomplete",
+    "Signal TWEG+ (Tacho)": "Signal TWEG+ (speedometer)",
+    "Tank-Hebelgeber_1": "Fuel tank lever sensor 1",
+    "Aussentemperatur": "Outside temperature",
+    "SIA-Reset": "Service interval (SIA) reset",
+    "Kuehlmitteltemperatur": "Coolant temperature",
+    "CAN BUS OFF": "CAN bus off",
+    "keine CAN ID": "no CAN ID",
+    "keine CAN ID ASC1": "no CAN ID ASC1",
+    "keine CAN ID DME1": "no CAN ID DME1",
+    "keine CAN ID DME2": "no CAN ID DME2",
+    "keine CAN ID DME4": "no CAN ID DME4",
+    "unbekannter Fehlerort": "unknown fault location"
+  }
+}

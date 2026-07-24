@@ -1,0 +1,10 @@
+{
+  "chassis": "E65",
+  "module": "Man Machine Interface Graphic Module",
+  "sgbd": "MMI_GT",
+  "scheme": "code",
+  "faults": {
+    "A048": "MMI computer memory test fault",
+    "FFFF": "Unknown fault location"
+  }
+}

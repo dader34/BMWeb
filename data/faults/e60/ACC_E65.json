@@ -1,0 +1,25 @@
+{
+  "chassis": "E60",
+  "module": "Adaptive Cruise Control",
+  "sgbd": "ACC_E65",
+  "scheme": "code",
+  "faults": {
+    "5D0C": "control unit fault",
+    "5D0E": "operating voltage",
+    "5D0F": "Fault Linsenheizung",
+    "5D10": "Plausibility Applikationsparameter",
+    "5D14": "Sensor dejustiert",
+    "5D25": "temperature shutoff SCU",
+    "D147": "Fault CAN-Controller",
+    "D17C": "fault value received",
+    "D17D": "Implausible signal received",
+    "D17E": "CAN-timeout during reception",
+    "D181": "Implausible signal sent",
+    "D182": "CAN-timeout during Senden",
+    "CD35": "ACC safety shutoff Bremsueberhitzung",
+    "CD36": "Fault Umsetzung ACC-Sollwert by motor and gearbox",
+    "CD37": "Fault Umsetzung Beschleunigungssollwert in Bremsfall",
+    "CD38": "ACC from Partnercontrol unit not detected",
+    "CD39": "ACC temporarily unavailable due to DSC initialization or undervoltage"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "chassis": "E60",
+  "module": "Full Beam Assistent",
+  "sgbd": "FLA_65",
+  "scheme": "code",
+  "faults": {
+    "A7C8": "Internal fault",
+    "E0C4": "Bus low line error K-CAN",
+    "E0C5": "Bus high line error K-CAN",
+    "E0C7": "Bus communication error K-CAN",
+    "E0D4": "Message outside temperature K-CAN, 2CAh",
+    "E0D5": "Message steering column switch K-CAN, 1EEh",
+    "E0D6": "Message speed K-CAN, 1A0h",
+    "E0D7": "Message odometer/range K-CAN, 330h",
+    "E0D8": "Message lamp status K-CAN, 21Ah",
+    "E0D9": "Message steering angle K-CAN, 0C4h",
+    "E0DA": "Message rain sensor/wiper speed K-CAN, 226h",
+    "E0DB": "Message gear status K-CAN 304h or reverse gear K-CAN 3B0h",
+    "FFFF": "unknown fault location"
+  }
+}
