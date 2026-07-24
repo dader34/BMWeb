@@ -167,7 +167,7 @@
     "2C71": "post-cat O2 sensor",
     "2C45": "pre-cat O2 sensor",
     "2C24": "pre-cat O2 sensors swapped",
-    "29CC": "Verbrennungsaussetzer mehrere cylinder",
+    "29CC": "misfire multiple cylinders",
     "29CD": "misfire cylinder 1",
     "29D3": "misfire cylinder 7",
     "29D1": "misfire cylinder 5",
