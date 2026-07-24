@@ -11,8 +11,9 @@ async function showChassis() {
 
   if (inpaMode()) {
     // INPA vehicle select: Battery/Ignition row + chassis F-key list. main list shows
-    // common chassis; rest sit under "Old models" (Shift+F9), plus "Special tests".
-    const COMMON = ['E46', 'E39', 'E60', 'E65', 'E83', 'E85', 'E90', 'E70', 'F30'];
+    // common chassis (F1-F8); the rest sit under "Other models" (F9). keep COMMON at
+    // 8 so F9 stays free for the "Other models" entry.
+    const COMMON = ['E46', 'E39', 'E60', 'E65', 'E83', 'E85', 'E90', 'E70'];
     const main = COMMON.filter(id => ids.includes(id));
     const old = ids.filter(id => !main.includes(id)); // everything else
 
@@ -32,7 +33,8 @@ async function showChassis() {
       <div class="inpa-vsplit">
         <div class="inpa-vlist">${main.map((id, i) => fnRow(i + 1, id, `${dispChassis(id)}${CHASSIS_TAG[id] ? ` · ${CHASSIS_TAG[id]}` : ''}`)).join('')}</div>
         <div class="inpa-vlist inpa-vlist-right">
-          ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt;Shift+F9&gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
+          ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
+          <button class="inpa-fn inpa-fn-lookup" id="vsel-lookup"><span class="inpa-fn-key">⌕</span><span class="inpa-fn-label">Fault Lookup …</span></button>
         </div>
       </div>`;
     view.appendChild(panel);
@@ -40,6 +42,7 @@ async function showChassis() {
     panel.querySelectorAll('.inpa-fn[data-id]').forEach(b => b.onclick = () => showScriptSelection(b.dataset.id));
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
+    panel.querySelector('#vsel-lookup').onclick = () => showLookup();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({ key: String(i + 1), label: dispChassis(id), fn: () => showScriptSelection(id) }));
@@ -67,11 +70,25 @@ async function showChassis() {
   stagger(grid, 22);
   sbRight.textContent = `${ids.length} chassis`;
 
-  // Root screen: quick-pick common chassis, no back.
+  // Fault Lookup: reference search across the whole fault database, no cable
+  // needed. Sits below the chassis grid as a full-width entry.
+  const lookupCard = document.createElement('button');
+  lookupCard.className = 'lookup-entry';
+  lookupCard.innerHTML = `
+    <span class="lookup-entry-icon">⌕</span>
+    <span class="lookup-entry-text">
+      <span class="lookup-entry-title">Fault Lookup</span>
+      <span class="lookup-entry-desc">Search fault codes and descriptions across every chassis, offline</span>
+    </span>
+    <span class="lookup-entry-arrow">→</span>`;
+  lookupCard.onclick = () => showLookup();
+  view.appendChild(lookupCard);
+
+  // Root screen: quick-pick common chassis + Fault Lookup, no back.
   const quick = ['E46', 'E60', 'E90'].filter(id => ids.includes(id));
-  setActions(quick.map((id, i) => ({
-    key: String(i + 1), label: id, fn: () => showSections(id),
-  })));
+  const acts = quick.map((id, i) => ({ key: String(i + 1), label: id, fn: () => showSections(id) }));
+  acts.push({ key: String(quick.length + 1), label: 'Fault Lookup', fn: () => showLookup() });
+  setActions(acts);
 }
 
 // INPA script-selection popup, opened on chassis pick. two panes: left lists
