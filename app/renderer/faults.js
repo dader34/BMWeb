@@ -39,7 +39,11 @@ function faultFields(c) {
   const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || pCode(c.F_ORT_TEXT, hex) || '';
   const vt = (c.F_VORHANDEN_TEXT || '').toLowerCase();
   const present = vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden');
-  return { code: code || pstr || hex || '—', name: faultName(c.F_ORT_TEXT, hex), present };
+  // fall back to the fault-location index (F_ORT_NR) for text-scheme ECUs that
+  // carry no DTC/P-code/hex - it's the location byte (0x1F etc.) the FORTTEXTE
+  // table is keyed on, so the CODE column shows "1F" instead of a bare dash.
+  const ortNr = ortNrCode(c.F_ORT_NR);
+  return { code: code || pstr || hex || ortNr || '—', name: faultName(c.F_ORT_TEXT, hex), present };
 }
 
 const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on';
@@ -220,7 +224,7 @@ function renderFaults(codes, container, ecu) {
     el.className = 'fault';
     el.innerHTML = `
       <div class="fault-code">
-        <div class="fault-hex">${esc(hex || c.F_ORT_NR || '-')}</div>
+        <div class="fault-hex">${esc(hex || ortNrCode(c.F_ORT_NR) || '-')}</div>
         ${pstr ? `<div class="fault-pcode">${esc(pstr)}</div>` : ''}
       </div>
       <div class="fault-main">
