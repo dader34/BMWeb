@@ -1,0 +1,20 @@
+{
+  "chassis": "F10",
+  "module": "Electronic ride-height control / air suspension (EHC)",
+  "sgbd": "ehc",
+  "scheme": "text",
+  "note": "Shared rear air-suspension module across F10/F25/F07 (and related). Text-keyed on the SGBD German fault text.",
+  "faults": {
+    "Sensor hinten links": "Ride-height sensor, rear left",
+    "Sensor hinten rechts": "Ride-height sensor, rear right",
+    "Kompressor-Relais": "Compressor relay",
+    "Magnetventil hinten links": "Solenoid valve, rear left",
+    "Magnetventil hinten rechts": "Solenoid valve, rear right",
+    "Ablassventil": "Discharge (vent) valve",
+    "Steuergeraet, EEPROM, A-/D-Wandler": "Control unit, EEPROM, A/D converter",
+    "Regelzeit, heben": "Control time, raising",
+    "Regelzeit, senken": "Control time, lowering",
+    "Regelzeit, einseitig": "Control time, one-sided",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
+}
