@@ -1,23 +1,23 @@
-// background E46 auto-scan + the fault-detail read helpers and the corner
-// attention popup. autoScanE46 runs once per session on first E46 open (opt-in via
-// settings), reads engine + transmission fault memory, and raises a badge if
-// anything is stored. fillFaultDetail/matchDetail are shared with faults.js and
-// sweep.js.
+// background E46 auto-scan + the corner attention popup.
+// fillFaultDetail/matchDetail are shared with faults.js and sweep.js.
 
-// engine SGBD used for the battery/ignition read. set when a chassis loads so the
-// poll targets the right DME (the server default only works for MS45/E46).
+// engine SGBD used for the battery/ignition read, set on every chassis open so a
+// later chassis can't inherit the previous one's DME. null = let the server pick.
 let stateSgbd = null;
+// only E46/MS45 has a known-good SGBD for the state read today
+function setStateSgbd(chassisId) {
+  stateSgbd = chassisId.toUpperCase() === 'E46' ? 'ms450ds0' : null;
+}
 
 // background scan of E46 engine + transmission, once per session on first open.
 // stored faults get a detail read and an attention popup.
 let _autoScanRan = false;
 let _autoScanning = false;
-async function autoScanE46(force) {
+async function autoScanE46() {
   if (Settings.get('autoScan', 'off') !== 'on') return; // opt-in via settings
-  if ((_autoScanRan && !force) || _autoScanning) return; // re-entrancy + once-per-session
+  if (_autoScanRan || _autoScanning) return; // re-entrancy + once-per-session
   _autoScanning = true;
   loadFaultDb(); // warm the name db for the attention popup
-  stateSgbd = 'ms450ds0'; // E46 engine: drive the battery/ignition poll off MS45
   try {
     // engine = MS45; transmission = all E46 variants (only one is installed)
     // group = diagnostic-address group SGBD; the server loads it so EDIABAS picks
@@ -34,7 +34,7 @@ async function autoScanE46(force) {
       // trans variants share an address: once one actually answers, skip the rest
       if (t.trans && transFound) continue;
       let data;
-      const gq = t.group ? `?group=${encodeURIComponent(t.group)}` : '';
+      const gq = groupQuery(t);
       try { data = await api(`/api/ecu/${t.sgbd}/read${gq}`, { method: 'POST' }); }
       catch { continue; } // no response = not installed
       anyResponse = true;

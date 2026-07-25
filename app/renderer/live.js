@@ -267,12 +267,15 @@ function showInpaCategory(ecu, screens, container, title) {
 // screen this is the classic mined-screen view; with several (a merged
 // category) each tick reads every screen's job and lays rows out in screen
 // order, so Bank 1 / Bank 2 pairs stay side by side.
-async function showInpaScreens(ecu, screens, container, title) {
+async function showInpaScreens(ecu, screens, container, title, { scroll = false } = {}) {
   stopLive();
   const liveTok = _liveToken;
   title = title || (screens.length === 1
     ? (deGerman(screens[0].group) || jobLabel(screens[0].job))
     : `${screens.length} readouts`);
+  // a merged category always pairs off into two columns; a lone screen honours
+  // its own layout (columns:2 = Bank 1 / Bank 2)
+  const twoCol = screens.length > 1 || (screens[0] && screens[0].columns === 2);
 
   container.className = 'live-panel inpa-screen';
   container.innerHTML = `
@@ -282,7 +285,8 @@ async function showInpaScreens(ecu, screens, container, title) {
       <span class="live-meta" id="live-meta">connecting…</span>
       <button class="btn danger live-stop">Stop</button>
     </div>
-    <div class="live-grid inpa-grid two-col" id="live-grid"></div>`;
+    <div class="live-grid inpa-grid${twoCol ? ' two-col' : ''}" id="live-grid"></div>`;
+  if (scroll) container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const grid = container.querySelector('#live-grid');
   const meta = container.querySelector('#live-meta');
@@ -330,80 +334,18 @@ async function showInpaScreens(ecu, screens, container, title) {
     if (alive) {
       meta.textContent = `live · ${cellEls.size} values`;
       sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
-    } else if (lastErr && cellEls.size === 0) {
-      // every screen failed and we have nothing to show (e.g. no cable): surface
-      // the error and stop, instead of spinning on "connecting…" forever.
+    } else if (cellEls.size === 0) {
+      // nothing ever rendered (e.g. no cable): show the error instead of
+      // spinning on "connecting…" forever
       stopLive(); container.className = 'results-panel';
-      container.innerHTML = errorBlock(lastErr.message); sbLeft.textContent = 'failed';
+      container.innerHTML = errorBlock(lastErr && lastErr.message); sbLeft.textContent = 'failed';
+    } else {
+      // had values, now every screen fails: keep the last reading on screen but
+      // stop claiming it's live
+      dot.classList.add('stopped');
+      meta.textContent = 'no response';
+      sbLeft.textContent = 'no response';
     }
-  }
-  await tick();
-  if (liveTok === _liveToken && container.querySelector('.inpa-grid')) scheduleLive(tick);
-}
-
-async function showInpaScreen(ecu, screen, container) {
-  stopLive();
-  const liveTok = _liveToken;
-  const job = screen.job;
-  const arg = screen.args || '';
-  const rows = screen.rows || [];
-  // result-key -> layout row spec, for labels/scaling
-  const spec = new Map(rows.map(r => [r.key, r]));
-
-  container.className = 'live-panel inpa-screen';
-  container.innerHTML = `
-    <div class="live-head">
-      <span class="live-dot"></span>
-      <span class="live-title">${esc(deGerman(screen.group) || jobLabel(job))}</span>
-      <span class="live-meta" id="live-meta">connecting…</span>
-      <button class="btn danger live-stop">Stop</button>
-    </div>
-    <div class="live-grid inpa-grid${screen.columns === 2 ? ' two-col' : ''}" id="live-grid"></div>`;
-  container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-  const grid = container.querySelector('#live-grid');
-  const meta = container.querySelector('#live-meta');
-  const dot = container.querySelector('.live-dot');
-  container.querySelector('.live-stop').onclick = () => {
-    stopLive(); dot.classList.add('stopped'); meta.textContent = 'stopped'; sbLeft.textContent = 'stopped';
-  };
-
-  const cellEls = new Map(); // key -> gauge cell
-  const keyOrder = [];       // stable insertion order for paging
-  const pager = attachInpaPager(container, grid,
-    () => keyOrder, (k) => cellEls.get(k));
-
-  async function tick() {
-    let data;
-    try {
-      const url = `/api/ecu/${ecu.sgbd}/run/${job}` + (arg ? `?arg=${encodeURIComponent(arg)}` : '');
-      data = await api(url, { method: 'POST' });
-    } catch (e) {
-      stopLive(); container.className = 'results-panel';
-      container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return;
-    }
-    // flatten sets into key->value
-    const vals = new Map(flatResults(data.sets));
-
-    // render in layout row order so Bank 1 / Bank 2 pair up in two columns
-    let added = false;
-    for (const r of rows) {
-      if (!vals.has(r.key)) continue;
-      let cell = cellEls.get(r.key);
-      if (!cell) {
-        cell = document.createElement('div');
-        cell.className = 'live-cell gauge-cell';
-        cell.innerHTML = gaugeCellHTML(deGerman(r.label) || r.key);
-        grid.appendChild(cell);
-        cellEls.set(r.key, cell);
-        keyOrder.push(r.key);
-        added = true;
-      }
-      updateGaugeSpec(cell, r, vals.get(r.key));
-    }
-    if (added) pager.relayout();
-    meta.textContent = `live · ${cellEls.size} values`;
-    sbLeft.textContent = `${job}${arg ? ' ' + arg : ''} · live`;
   }
   await tick();
   if (liveTok === _liveToken && container.querySelector('.inpa-grid')) scheduleLive(tick);

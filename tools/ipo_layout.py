@@ -86,8 +86,11 @@ def fix_de(s):
 # pointer in surrounding bytecode); the label carries the meaning and the app
 # resolves it to a mined screen by matching group/label at render time.
 _RE_MENU_HDR = re.compile(rb'(m_[a-z0-9_]+)\x0a')
+# the fkey byte is matched as an explicit class, not `.` — F10 (Back) encodes as
+# \x0a, which `.` won't match without DOTALL, silently dropping every F10 item
 _RE_ITEM = re.compile(
-    rb'\x24\x0a\x00\x00(.)\x00([\x20-\x7e\xc0-\xff][\x20-\x7e\xc0-\xff /.\-+]*?)\x0a')
+    rb'\x24\x0a\x00\x00([\x00-\xff])\x00([\x20-\x7e\xc0-\xff][\x20-\x7e\xc0-\xff /.\-+]*?)\x0a',
+    re.DOTALL)
 # proc/menu declaration: 0c 81 <len> 00 <type=01 screen|02 menu> <name>\n <id> 00 00 00 0a
 _RE_DECL = re.compile(
     rb'\x0c\x81.\x00([\x01\x02])([a-z][a-z0-9_]+)\x0a(.)\x00\x00\x00\x0a')
