@@ -1140,6 +1140,31 @@ select.modal-input { appearance: none; cursor: pointer; }
 .tour-btns { display: flex; gap: 8px; }
 .tour-setting { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 
+/* "How it works" guided explainer (centered card, stepped slides) */
+.hiw-card {
+  position: relative; width: min(560px, 92vw);
+  background: var(--panel); border: 1px solid var(--line-bright); border-radius: 12px;
+  padding: 30px 30px 20px; box-shadow: var(--shadow); text-align: center;
+}
+.hiw-close {
+  position: absolute; top: 14px; right: 14px; -webkit-app-region: no-drag; cursor: pointer;
+  width: 28px; height: 28px; border-radius: 6px; border: 1px solid var(--line);
+  background: transparent; color: var(--ink-dim); font-size: 12px;
+}
+.hiw-close:hover { color: var(--ink); border-color: var(--ink-faint); }
+.hiw-icon { font-size: 40px; line-height: 1; margin-bottom: 14px; }
+.hiw-title { font-size: 20px; font-weight: 800; color: var(--ink); margin-bottom: 12px; }
+.hiw-body { font-size: 14px; line-height: 1.6; color: var(--ink-dim);
+  max-width: 460px; margin: 0 auto 22px; text-align: left; }
+.hiw-foot { display: flex; flex-direction: column; gap: 14px; }
+.hiw-dots { display: flex; gap: 6px; justify-content: center; }
+.hiw-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-bright);
+  -webkit-app-region: no-drag; cursor: pointer; }
+.hiw-dot.active { background: var(--amber); }
+.hiw-btns { display: flex; gap: 8px; justify-content: center; }
+.hiw-btns .btn { padding: 8px 20px; font-size: 13px; }
+.hiw-btns .hiw-back:disabled { opacity: .4; cursor: default; }
+
 /* whole-vehicle fault scan entry at the foot of the system rail */
 .sys-scan { margin-top: 10px; border-top: 1px solid var(--line); border-radius: 0 0 6px 0; padding-top: 12px; }
 .sys-scan .nav-name { color: var(--amber-soft); }
@@ -1309,12 +1334,65 @@ html[data-theme="inpa"] .lookup-chip { color: #fff; background: #000080; }
 }
 .lookup-row:last-child { border-bottom: none; }
 .lookup-row:hover { background: var(--raised); }
+/* expandable rows (ISTA detail available) open a modal */
+.lookup-row.lookup-expandable { cursor: pointer; }
+.lookup-more { margin-left: auto; color: var(--ink-faint); font-size: 15px; line-height: 1;
+  flex: none; transition: color .12s, transform .12s; }
+.lookup-row.lookup-expandable:hover .lookup-more { color: var(--amber); transform: translateX(2px); }
+
+/* --- fault detail modal (large) --- */
+.fault-modal {
+  width: min(920px, 92vw); max-height: 86vh; display: flex; flex-direction: column;
+  padding: 0; overflow: hidden;
+}
+.fm-head {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 22px 14px; border-bottom: 1px solid var(--line);
+}
+.fm-code { font-family: var(--mono); font-size: 22px; font-weight: 800; color: var(--amber);
+  letter-spacing: .02em; flex: none; }
+.fm-title { font-size: 15px; color: var(--ink); flex: 1; line-height: 1.35; }
+.fm-close { -webkit-app-region: no-drag; cursor: pointer; flex: none;
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line);
+  background: transparent; color: var(--ink-dim); font-size: 13px; }
+.fm-close:hover { color: var(--ink); border-color: var(--ink-faint); }
+.fm-pcodes { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 22px 0; }
+.fm-pcode { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: #04140b;
+  background: var(--green); border-radius: 4px; padding: 3px 9px; }
+.fm-sub { padding: 12px 22px 4px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-faint);
+  font-family: var(--mono); }
+.fm-showall { -webkit-app-region: no-drag; cursor: pointer; background: none; border: none;
+  font: inherit; text-transform: none; letter-spacing: 0; color: var(--cyan); padding: 0; }
+.fm-showall:hover { text-decoration: underline; }
+html[data-theme="inpa"] .fm-showall { color: #000080; }
+.fm-body { overflow-y: auto; padding: 6px 22px 22px; }
+.fm-loading { color: var(--ink-dim); padding: 24px 0; text-align: center; }
+
+.fm-variant { border: 1px solid var(--line); border-radius: 8px; margin-top: 12px;
+  padding: 14px 16px; }
+.fm-vhead { display: flex; gap: 12px; align-items: baseline; margin-bottom: 4px; }
+.fm-vsgbd { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--cyan);
+  flex: none; min-width: 96px; }
+.fm-vname { font-size: 14px; color: var(--ink); }
+.fm-noinfo { font-size: 12px; color: var(--ink-faint); font-style: italic; margin-top: 6px; }
+.fi-grid { display: grid; grid-template-columns: 132px 1fr; gap: 8px 16px; margin-top: 10px;
+  padding-top: 10px; border-top: 1px dashed var(--line); }
+.fi-k { font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--ink-faint); text-align: right; padding-top: 1px; }
+.fi-v { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+html[data-theme="inpa"] .fm-vsgbd { color: #000080; }
+html[data-theme="inpa"] .fm-pcode { background: #00a000; color: #fff; }
 /* code column: hex/P-code, monospace, amber, fixed-width for alignment */
 .lookup-code {
   font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--amber);
   flex: none; min-width: 66px; letter-spacing: .02em;
 }
 .lookup-code-none { color: var(--ink-faint); font-weight: 400; opacity: .5; }
+/* known SAE P-code stacked above the BMW hex */
+.lookup-code-stack { display: flex; flex-direction: column; line-height: 1.25; }
+.lookup-pcode { font-weight: 700; }
+.lookup-hex { font-size: 10.5px; font-weight: 600; color: var(--ink-dim); }
 /* original German phrase (text-scheme only), dimmed for cross-reference */
 .lookup-key {
   font-family: var(--mono); font-size: 12px; flex: none;

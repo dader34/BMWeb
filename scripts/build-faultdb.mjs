@@ -33,6 +33,11 @@ try {
 
 const codes = {};    // HEXCODE -> English
 const phrases = {};   // German fault text -> English
+// per-SGBD code map: sgbd (lowercase, incl. variants) -> { HEXCODE -> English }.
+// The flat `codes` map collides across ECU families (27C3 is oil-level on the
+// E46 MS45 but something else on an S65) - the scoped map keeps each ECU's own
+// codespace so live reads resolve names/codes against the reading ECU first.
+const scoped = {};
 const errors = [];
 let codeFiles = 0, ecuFiles = 0;
 
@@ -43,7 +48,7 @@ const index = []; // [{ chassis, module, sgbd, scheme, faults: [[key, en], ...] 
 
 function addCode(key, val, where) {
   key = String(key).toUpperCase();
-  if (!/^[0-9A-F]{2,5}$/.test(key)) { errors.push(`${where}: bad code "${key}"`); return; }
+  if (!/^[0-9A-F]{2,6}$/.test(key)) { errors.push(`${where}: bad code "${key}"`); return; }
   if (typeof val !== 'string' || !val.trim()) { errors.push(`${where}: empty desc for "${key}"`); return; }
   if (/[ÄÖÜäöüß]/.test(val)) errors.push(`${where}: German chars in "${key}": ${val}`);
   codes[key] = val;
@@ -55,11 +60,18 @@ function addPhrase(de, en, where) {
   phrases[de.trim()] = en;
 }
 
-// 1) flat cross-ECU DTC files (data/faults/*.json)
-for (const file of fs.readdirSync(faultsDir).filter(f => f.endsWith('.json')).sort()) {
-  const obj = JSON.parse(fs.readFileSync(path.join(faultsDir, file), 'utf8'));
-  for (const [code, desc] of Object.entries(obj)) addCode(code, desc, file);
-  codeFiles++;
+// 1) flat cross-ECU DTC files (data/faults/*.json). ista-dtc.json is the broad
+// fleet-wide base layer (BMW ISTA), loaded FIRST so the hand-curated per-family
+// files (dme/dsc/eseries-dtc) override the generic ISTA text where they overlap.
+{
+  const flat = fs.readdirSync(faultsDir).filter(f => f.endsWith('.json'));
+  const ordered = [...flat.filter(f => f === 'ista-dtc.json'),
+                   ...flat.filter(f => f !== 'ista-dtc.json').sort()];
+  for (const file of ordered) {
+    const obj = JSON.parse(fs.readFileSync(path.join(faultsDir, file), 'utf8'));
+    for (const [code, desc] of Object.entries(obj)) addCode(code, desc, file);
+    codeFiles++;
+  }
 }
 
 // 2) per-ECU chassis files (data/faults/<chassis>/*.json)
@@ -87,6 +99,17 @@ for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(
     if (scheme === 'code') {
       pushEntry(baseModule, baseSgbd,
         Object.entries(obj.faults).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, v, k]));
+      // scoped codespace under the base sgbd and every declared variant
+      const vars = new Set([baseSgbd, ...(Array.isArray(obj.variants) ? obj.variants : [])]
+        .filter(Boolean).map(s => String(s).toLowerCase()));
+      for (const v of vars) {
+        scoped[v] = scoped[v] || {};
+        for (const [k, val] of Object.entries(obj.faults)) {
+          const key = String(k).toUpperCase();
+          if (/^[0-9A-F]{2,6}$/.test(key) && typeof val === 'string' && val.trim())
+            scoped[v][key] = val;
+        }
+      }
     } else {
       // text scheme: the ORT map is { variant -> { German: code } }. A location can
       // have a DIFFERENT code per SGBD variant (ihka46 Drucksensor 0x1D vs ihka46_3
@@ -155,8 +178,12 @@ const header = `// GENERATED FILE - do not edit by hand. Regenerate: node script
 // BMW_FAULT_DB: hex DTC -> English. BMW_FAULT_PHRASES: German fault text -> English.
 `;
 const out = path.join(root, 'app', 'renderer', 'faultdb.js');
-fs.writeFileSync(out, `${header}window.BMW_FAULT_DB = {\n${cbody}};\nwindow.BMW_FAULT_PHRASES = {\n${pbody}};\n`);
-console.log(`Wrote ${ck.length} codes + ${Object.keys(phrases).length} phrases to ${path.relative(root, out)} (${codeFiles} flat + ${ecuFiles} per-ECU files).`);
+const scopedSorted = {};
+for (const s of Object.keys(scoped).sort()) scopedSorted[s] = scoped[s];
+fs.writeFileSync(out, `${header}window.BMW_FAULT_DB = {\n${cbody}};\nwindow.BMW_FAULT_PHRASES = {\n${pbody}};\n`
+  + `// per-SGBD codespaces (collision-free): sgbd -> { code -> English }\n`
+  + `window.BMW_FAULT_DB_SCOPED = ${JSON.stringify(scopedSorted)};\n`);
+console.log(`Wrote ${ck.length} codes + ${Object.keys(phrases).length} phrases + ${Object.keys(scoped).length} scoped sgbds to ${path.relative(root, out)} (${codeFiles} flat + ${ecuFiles} per-ECU files).`);
 
 // emit the structured index for the Lookup screen. sorted by chassis then module
 // for stable diffs; each entry's faults keep their source order.

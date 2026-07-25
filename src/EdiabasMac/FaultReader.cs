@@ -19,7 +19,33 @@ public static class FaultReader
             if (row.ContainsKey("F_ORT_NR") || row.ContainsKey("F_HEX_CODE"))
                 codes.Add(row);
         }
+        FillDetailCounts(diag, codes);
         return codes;
+    }
+
+    // KWP2000 ECUs (MS45, DSC MK60, ...) don't carry frequency/type in FS_LESEN -
+    // only FS_LESEN_DETAIL has them (F_HFK/F_LZ). DS2-era modules already return
+    // F_HFK, so this runs only when faults exist and none carry it, costing one
+    // extra transaction exactly where the data would otherwise be missing. Faults
+    // are matched by F_ORT_NR; only the count/type keys are copied so the FS_LESEN
+    // row (location text, present-flag) stays authoritative.
+    private static void FillDetailCounts(Diag diag, List<Dictionary<string, string>> codes)
+    {
+        if (codes.Count == 0 || codes.Any(c => c.ContainsKey("F_HFK"))) return;
+        List<Dictionary<string, EdiabasLib.EdiabasNet.ResultData>> det;
+        try { det = diag.Run("FS_LESEN_DETAIL"); }
+        catch { return; } // SGBD has no detail job - fine
+        for (int i = 1; i < det.Count; i++)
+        {
+            var row = det[i].ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value));
+            if (!row.TryGetValue("F_ORT_NR", out var nr)) continue;
+            var target = codes.FirstOrDefault(c =>
+                c.TryGetValue("F_ORT_NR", out var cnr) && cnr == nr && !c.ContainsKey("F_HFK"));
+            if (target == null) continue;
+            foreach (var k in new[] { "F_HFK", "F_LZ", "F_ART1_NR", "F_ART1_TEXT" })
+                if (row.TryGetValue(k, out var v) && !string.IsNullOrEmpty(v))
+                    target[k] = v;
+        }
     }
 
     // live read that prefers the ECU's diagnostic-address group SGBD (D_00xx.grp):

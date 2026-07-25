@@ -23,25 +23,35 @@ const FAULT_REPORT_CSS = `
          border-bottom: 1px solid #ccc; padding: 4px 6px; }
     td { padding: 5px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
     .c-code { font: 700 12px "SF Mono", Menlo, monospace; white-space: nowrap; width: 72px; }
+    .c-p { font: 700 12px "SF Mono", Menlo, monospace; }
+    .c-hex { font: 600 10.5px "SF Mono", Menlo, monospace; color: #999; }
+    .c-type { font-size: 11px; color: #555; white-space: nowrap; width: 84px; }
+    .c-count { font: 600 11px "SF Mono", Menlo, monospace; color: #555; white-space: nowrap; width: 44px; text-align: right; }
     .c-state { font: 600 10.5px "SF Mono", Menlo, monospace; color: #777; white-space: nowrap; width: 64px; text-align: right; }
     tr.present .c-code, tr.present .c-state { color: #c0392b; }
     .clean-note { padding: 24px; text-align: center; color: #2e7d32; font-size: 15px; font-weight: 600;
                   border: 1px solid #cde6cd; border-radius: 6px; background: #f3faf3; }
     footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }`;
 
-// one module -> a <section> block of its faults
+// one module -> a <section> block of its faults. Type/Count columns (fault
+// type + occurrence counter from the fault entry's detail byte) appear only
+// when this module's read carries them, so DS2 modules without the fields
+// keep the compact three-column table.
 function faultModuleBlock(label, sgbd, codes) {
-  const rows = codes.map(c => {
-    const { code, name, present } = faultFields(c);
-    return `<tr class="${present ? 'present' : ''}">
-      <td class="c-code">${esc(code)}</td>
-      <td class="c-name">${esc(name)}</td>
-      <td class="c-state">${present ? 'PRESENT' : 'stored'}</td></tr>`;
-  }).join('');
+  const fields = codes.map(c => faultFields(c, sgbd));
+  const hasDetail = fields.some(f => f.ftype || f.count);
+  const rows = fields.map(f => `<tr class="${f.present ? 'present' : ''}">
+      <td class="c-code">${f.pcode
+        ? `<div class="c-p">${esc(f.pcode)}</div><div class="c-hex">${esc(f.code)}</div>`
+        : esc(f.code)}</td>
+      <td class="c-name">${esc(f.name)}</td>
+      ${hasDetail ? `<td class="c-type">${esc(f.ftype || '—')}</td>
+      <td class="c-count">${esc(f.count || '—')}</td>` : ''}
+      <td class="c-state">${f.present ? 'PRESENT' : 'stored'}</td></tr>`).join('');
   return `<section class="mod">
     <h2>${esc(label)} <span class="sgbd">${esc(sgbd)}</span>
       <span class="modcount">${codes.length} fault${codes.length === 1 ? '' : 's'}</span></h2>
-    <table><thead><tr><th>Code</th><th>Description</th><th>State</th></tr></thead>
+    <table><thead><tr><th>Code</th><th>Description</th>${hasDetail ? '<th>Type</th><th>Count</th>' : ''}<th>State</th></tr></thead>
     <tbody>${rows}</tbody></table>
   </section>`;
 }
@@ -63,6 +73,9 @@ function faultReportHtml(sub, metaPairs, bodyHtml) {
 // whole-car quick-sweep export: one module block per faulty ECU (or a clean-bill
 // note), saved as a PDF. driven from the sweep screen's Export PDF button.
 async function exportFaultPdf(chassisId, faulty, stats) {
+  // ensure ISTA P-code / name data is loaded so the printed report shows P-codes
+  if (typeof loadFaultMeta === 'function') await loadFaultMeta();
+  if (typeof loadPcodes === 'function') await loadPcodes();
   const now = new Date();
   const totalFaults = faulty.reduce((n, f) => n + f.codes.length, 0);
   const body = faulty.length

@@ -238,3 +238,113 @@ async function startTutorial() {
   window.addEventListener('resize', onResize);
   await show(0, 1);
 }
+
+// "How it works": a stepped, centered info walkthrough (not a UI spotlight)
+// that explains what BMacW is, how it talks to the car, and which BMW software
+// and data it draws from. Esc closes; ←/→ or the buttons page; backdrop closes.
+function howItWorksSlides() {
+  const ver = (window.bmacw && window.bmacw.version) ? `v${window.bmacw.version}` : '';
+  return [
+    {
+      icon: '🔌',
+      title: 'What BMacW is',
+      body: `A native macOS diagnostics app for BMW ${ver ? '· ' + ver : ''}. It reads `
+        + 'fault codes, live values, and control-module data straight from the '
+        + 'car, with no Windows, no VM, and no dealer tool. Everything you see here also '
+        + 'works fully offline, so you can explore before ever plugging in.',
+    },
+    {
+      icon: '🧰',
+      title: 'The cable & the engine',
+      body: 'BMacW speaks to the car over a K+DCAN USB cable. Under the hood it '
+        + 'runs a native port of BMW’s EDIABAS diagnostic engine, the same '
+        + 'protocol layer the factory tools use, so it talks to each ECU in its '
+        + 'own language over K-line and D-CAN.',
+    },
+    {
+      icon: '📂',
+      title: 'SGBD description files',
+      body: 'Each control module is described by an SGBD (.prg) file that defines '
+        + 'its jobs, results, and fault tables. BMacW ships BMW’s own SGBDs and '
+        + 'runs their jobs directly: FS_LESEN to read faults, STATUS_* for live '
+        + 'values, etc...',
+    },
+    {
+      icon: '🖥️',
+      title: 'INPA screens, decoded',
+      body: 'The status pages mirror INPA, BMW’s classic diagnostic frontend. '
+        + 'BMacW decodes INPA’s compiled .IPO screen programs to reproduce the '
+        + 'exact user interface.',
+    },
+    {
+      icon: '🗂️',
+      title: 'Fault database from ISTA',
+      body: 'The Fault Lookup screen is built from BMW ISTA’s diagnostic database: '
+        + '50,000+ fault codes across the whole fleet, with English descriptions, '
+        + 'per-ECU-variant text, and (where BMW defines them) the matching SAE '
+        + 'P-codes and full service documents (conditions, service measures, notes).',
+    },
+  ];
+}
+
+function showHowItWorks() {
+  if (document.querySelector('.hiw-overlay')) return;
+  const slides = howItWorksSlides();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay hiw-overlay show';
+  overlay.innerHTML = `
+    <div class="hiw-card" role="dialog" aria-modal="true">
+      <button class="hiw-close" aria-label="Close">✕</button>
+      <div class="hiw-icon"></div>
+      <div class="hiw-title"></div>
+      <div class="hiw-body"></div>
+      <div class="hiw-foot">
+        <div class="hiw-dots">${slides.map((_, n) =>
+          `<span class="hiw-dot" data-n="${n}"></span>`).join('')}</div>
+        <div class="hiw-btns">
+          <button class="btn hiw-back">Back</button>
+          <button class="btn primary hiw-next">Next</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const iconEl = overlay.querySelector('.hiw-icon');
+  const titleEl = overlay.querySelector('.hiw-title');
+  const bodyEl = overlay.querySelector('.hiw-body');
+  const dots = overlay.querySelectorAll('.hiw-dot');
+  const backBtn = overlay.querySelector('.hiw-back');
+  const nextBtn = overlay.querySelector('.hiw-next');
+  let i = 0;
+
+  const render = () => {
+    const s = slides[i];
+    iconEl.textContent = s.icon;
+    titleEl.textContent = s.title;
+    bodyEl.textContent = s.body;
+    dots.forEach((d, n) => d.classList.toggle('active', n === i));
+    backBtn.disabled = i === 0;
+    nextBtn.textContent = i === slides.length - 1 ? 'Done' : 'Next';
+  };
+  const go = (d) => {
+    if (i + d < 0) return;
+    if (i + d >= slides.length) return end();
+    i += d; render();
+  };
+  const end = () => {
+    overlay.classList.remove('show');
+    window.removeEventListener('keydown', onKey, true);
+    setTimeout(() => overlay.remove(), 160);
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); end(); }
+    else if (e.key === 'ArrowRight' || e.key === 'Enter') { e.preventDefault(); go(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+  };
+  backBtn.onclick = () => go(-1);
+  nextBtn.onclick = () => go(1);
+  overlay.querySelector('.hiw-close').onclick = end;
+  overlay.onclick = (e) => { if (e.target === overlay) end(); };
+  dots.forEach((d) => d.onclick = () => { i = +d.dataset.n; render(); });
+  window.addEventListener('keydown', onKey, true);
+  render();
+}

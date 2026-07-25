@@ -138,6 +138,22 @@ function showSettings() {
   tourRow.appendChild(tourBtn);
   wrap.appendChild(tourRow);
 
+  // "How it works" — explainer of what the app does and which BMW software/data
+  // it draws from (EDIABAS, SGBDs, INPA screens, the ISTA fault database).
+  const hiwRow = document.createElement('div');
+  hiwRow.className = 'setting-row tour-setting';
+  hiwRow.innerHTML = `
+    <div class="setting-text">
+      <div class="setting-title">How it works</div>
+      <div class="setting-desc">A quick guided demo of what BMacW does and the BMW software it uses.</div>
+    </div>`;
+  const hiwBtn = document.createElement('button');
+  hiwBtn.className = 'btn';
+  hiwBtn.textContent = 'How it works';
+  hiwBtn.onclick = () => showHowItWorks();
+  hiwRow.appendChild(hiwBtn);
+  wrap.appendChild(hiwRow);
+
   view.appendChild(wrap);
 
   // version footer

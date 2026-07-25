@@ -188,7 +188,7 @@ async function quickErrorSweep(chassisId) {
       try { await fillFaultDetail(f.ecu.sgbd, f.codes); } catch { /* keep base codes */ }
       f.row.classList.remove('scanning-detail');
       setRowFaultStatus(f);
-      appendFaultDetailRows(f.row, f.codes);
+      appendFaultDetailRows(f.row, f.codes, f.ecu.sgbd);
       done++;
       headEl.textContent =
         `${scanned} read, ${skipped} skipped · ${withFaults} with faults · details ${done}/${faulty.length}`;
@@ -257,11 +257,11 @@ async function clearModule(f) {
 // render the specific DTCs for one faulty module beneath its sweep row, using
 // the shared faultFields projection (translate.js) so the rows and the PDF report
 // read the same.
-function appendFaultDetailRows(row, codes) {
+function appendFaultDetailRows(row, codes, sgbd) {
   const wrap = document.createElement('div');
   wrap.className = 'quick-detail';
   wrap.innerHTML = codes.map(c => {
-    const { code, name, present } = faultFields(c);
+    const { code, name, present } = faultFields(c, sgbd);
     return `<div class="quick-detail-row${present ? ' present' : ''}">
       <span class="quick-detail-code">${esc(code)}</span>
       <span class="quick-detail-name">${esc(name)}</span>
