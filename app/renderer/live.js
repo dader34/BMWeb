@@ -297,7 +297,7 @@ async function showInpaScreens(ecu, screens, container, title) {
     () => keyOrder, (k) => cellEls.get(k));
 
   async function tick() {
-    let added = false, alive = 0;
+    let added = false, alive = 0, lastErr = null;
     for (const scr of screens) {
       const arg = scr.args || '';
       let data;
@@ -305,10 +305,7 @@ async function showInpaScreens(ecu, screens, container, title) {
         const url = `/api/ecu/${ecu.sgbd}/run/${scr.job}` + (arg ? `?arg=${encodeURIComponent(arg)}` : '');
         data = await api(url, { method: 'POST' });
       } catch (e) {
-        if (screens.length === 1) {
-          stopLive(); container.className = 'results-panel';
-          container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed';
-        }
+        lastErr = e;
         continue; // one failing job shouldn't blank a merged category
       }
       alive++;
@@ -333,6 +330,11 @@ async function showInpaScreens(ecu, screens, container, title) {
     if (alive) {
       meta.textContent = `live · ${cellEls.size} values`;
       sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
+    } else if (lastErr && cellEls.size === 0) {
+      // every screen failed and we have nothing to show (e.g. no cable): surface
+      // the error and stop, instead of spinning on "connecting…" forever.
+      stopLive(); container.className = 'results-panel';
+      container.innerHTML = errorBlock(lastErr.message); sbLeft.textContent = 'failed';
     }
   }
   await tick();
