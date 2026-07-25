@@ -222,7 +222,7 @@ async function readFaultsDetailed(ecu, container) {
   try {
     // 1) normal read -> fault numbers (via the address group so EDIABAS picks the
     // exact variant; see server LoadForJob)
-    const gq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
+    const gq = groupQuery(ecu);
     const base = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${gq}`, { method: 'POST' });
     const faults = dataSets(base.sets).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
     if (!faults.length) { renderFaults([], container, ecu); sbLeft.textContent = '0 faults'; return; }
@@ -254,11 +254,10 @@ function renderFaults(codes, container, ecu) {
   container.innerHTML = '';
   container.className = 'faults stagger';
   faults.forEach(c => {
-    const { present } = faultFields(c, ecu && ecu.sgbd);
-    const hex = c.F_HEX_CODE || '';
+    const ff = faultFields(c, ecu && ecu.sgbd);
+    const present = ff.present;
     // prefer the detailed P-code (from FS_LESEN_DETAIL) over our static map
-    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
-      || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(code, ecu && ecu.sgbd) : null) || '';
+    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || ff.pcode || '';
     const ptext = deGerman(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
     const warn = deGerman(c.F_WARNUNG_TEXT);
     const freq = c.F_HFK || c.F_LZ;
@@ -269,11 +268,11 @@ function renderFaults(codes, container, ecu) {
     el.className = 'fault';
     el.innerHTML = `
       <div class="fault-code">
-        <div class="fault-hex">${esc(faultFields(c, ecu && ecu.sgbd).code)}</div>
+        <div class="fault-hex">${esc(ff.code)}</div>
         ${pstr ? `<div class="fault-pcode">${esc(pstr)}</div>` : ''}
       </div>
       <div class="fault-main">
-        <div class="fault-loc">${esc(faultName(c.F_ORT_TEXT, c.F_HEX_CODE) || 'Unknown location')}</div>
+        <div class="fault-loc">${esc(ff.name || 'Unknown location')}</div>
         <div class="fault-symptom">${esc(deGerman(c.F_SYMPTOM_TEXT) || '')}</div>
         ${detailed ? `
           <div class="fault-detail">

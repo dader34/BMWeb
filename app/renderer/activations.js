@@ -221,7 +221,7 @@ function showActivationError(a, status) {
   const e = explainError(status);
   confirmDialog({
     title: `${esc(a.label.replace(/^Activate /, ''))}: ${e.title}`,
-    body: `${esc(e.detail)}<br><br>${e.fix}<br><br><span class="mono" style="font-size:11px;color:var(--ink-faint)">${esc(status)}</span>`,
+    body: `${esc(e.detail)}<br><br>${e.fix ? `${e.fix}<br><br>` : ''}<span class="mono" style="font-size:11px;color:var(--ink-faint)">${esc(status)}</span>`,
     confirmLabel: 'OK', cancelLabel: 'Close',
   });
 }

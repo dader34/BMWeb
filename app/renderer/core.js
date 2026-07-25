@@ -134,6 +134,10 @@ async function tryApi(path, opts, container, msg = 'failed') {
   }
 }
 
+// ?group= for a fault read: the diagnostic-address group SGBD, so the server
+// lets EDIABAS pick the exact installed variant (see server LoadForJob)
+const groupQuery = (o) => (o && o.group) ? `?group=${encodeURIComponent(o.group)}` : '';
+
 // result sets minus the set-0 system summary (kept when it's the only set)
 function dataSets(sets) {
   const list = sets || [];
@@ -160,7 +164,7 @@ function explainError(raw) {
 
   if (lower.includes('no interface') || lower.includes('no serial') || lower.includes('no cable'))
     return { title: 'No adapter connected', detail: 'BMacW could not find the K+DCAN cable.',
-      fix: '' };
+      fix: 'Plug the cable into the Mac (directly, not through a hub) and into the car OBD-II port. The status light turns green when detected.' };
 
   if (lower.includes('security access') || lower.includes('denied'))
     return { title: 'Security access denied', detail: 'The DME rejected the seed/key authentication needed to read protected memory.',

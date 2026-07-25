@@ -95,10 +95,14 @@ internal static class ConfigEndpoints
     }
 
     // find an enriched layout file for an SGBD, base name matched case-insensitively
-    // (.IPO files use mixed casing: MSD80, msd80n43, Ms43_sp2).
+    // (.IPO files use mixed casing: MSD80, msd80n43, Ms43_sp2). `sgbd` reaches here
+    // from the route and the ?code= query, so it must stay a bare file name — a
+    // separator or ".." would let Path.Combine escape the layout directory.
     private static string? FindLayoutFile(string dir, string sgbd)
     {
         if (!Directory.Exists(dir)) return null;
+        if (string.IsNullOrEmpty(sgbd) || sgbd.Contains("..") ||
+            sgbd.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return null;
         string exact = Path.Combine(dir, sgbd + ".json");
         if (File.Exists(exact)) return exact;
         foreach (var f in Directory.EnumerateFiles(dir, "*.json"))

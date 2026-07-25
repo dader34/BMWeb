@@ -62,14 +62,10 @@ public static class PrgLayout
             if (job.StartsWith("_") || DangerJob.IsMatch(job))
                 continue;
             bool namedMeasurement = MeasurementJob.IsMatch(job);
-            // jobs with declared arguments can't be polled blind (the right args
-            // live in .ips/.IPO layouts, not in the .prg schema) - EXCEPT a
-            // STATUS_*/MESSWERT-named measurement job, which INPA polls with no
-            // args and which still returns its full value schema (the declared
-            // arg just selects/echoes a subset). This recovers ECUs like eps_e85
-            // (STATUS_SIGNALE) and kombi36 (STATUS_LESEN) whose only value job
-            // declares an optional arg. Non-measurement-named jobs keep the guard
-            // so IDENT/serial jobs that take an address don't become gauges.
+            // jobs with declared args can't be polled blind (the right args live in
+            // .ips/.IPO layouts, not the .prg schema) — except STATUS_*/MESSWERT
+            // measurement jobs, whose arg is optional (the schema has no
+            // mandatory/optional flag) and which return their full value set argless.
             if (!namedMeasurement && RequiresArguments(diag, job))
                 continue;
             var rows = RowsOf(diag, job);

@@ -324,10 +324,11 @@ const FKEY_LABEL = {
 };
 const fkeyLabel = (l) => FKEY_LABEL[l] || l;
 
-// build an m_status-equivalent page list from mined screen items when no .IPO
-// menu was decoded. Each screen becomes one F-key page (F1..Fn), labelled by
-// its group (or job), pointing at that screen's index in layout.screens. This
-// gives every ECU with live values the same paged F-key gauge display MS45 has.
+// number keys 1..9 bind to footer F-keys; anything past that needs another selector
+const FKEY_SLOTS = 9;
+
+// stand-in for a decoded m_status menu: one F-key page per mined screen, so
+// ECUs without an .IPO menu still get MS45's paged gauge display
 function synthStatusMenu(screenItems, layout) {
   const idxOf = new Map(layout.screens.map((s, i) => [s, i]));
   const items = [];
@@ -353,10 +354,9 @@ function synthStatusMenu(screenItems, layout) {
 function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatus, view, results) {
   const cats = mStatus.items.filter(i => Array.isArray(i.screens) && i.screens.length);
 
-  // <=9 pages: footer F-keys alone select them (like the decoded MS45 bar, no
-  // on-screen chrome). >9 pages: add a scrollable on-screen category bar as the
-  // primary selector, since 9 footer keys can't reach them all.
-  const needsBar = cats.length > 9;
+  // the 9 footer F-keys can't reach more than 9 pages, so beyond that add a
+  // scrollable on-screen bar as the selector
+  const needsBar = cats.length > FKEY_SLOTS;
   let bar = null;
 
   const open = (item, btn) => {
@@ -384,7 +384,7 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   }
 
   // footer F-keys select the first 9 pages
-  const acts = cats.slice(0, 9).map((item, n) => ({
+  const acts = cats.slice(0, FKEY_SLOTS).map((item, n) => ({
     key: String(n + 1), keyLabel: `F${item.fkey}`,
     label: fkeyLabel(item.label),
     fn: () => open(item, bar && bar.children[n]),
@@ -419,11 +419,8 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   const isLayoutScreens = sec.items.some(i => i._screen);
   const isStatus = sec.section === 'Status' && !isLayoutScreens;
 
-  // INPA F-key status pages. When the .IPO menu tree was decoded (m_status with
-  // resolved screens, e.g. MS45.1), use it directly. Otherwise, for ANY section
-  // whose items are mined gauge screens, synthesize an equivalent page list -
-  // one F-key page per screen - so every ECU with live values gets the same
-  // paged 2-column gauge bar display instead of a click-one-at-a-time list.
+  // INPA F-key status pages, from the decoded .IPO menu when there is one
+  // (m_status with resolved screens, e.g. MS45.1)
   const layout = ecu._layout;
   const mStatus = sec.section === 'Status' && layout && Array.isArray(layout.menus)
     ? layout.menus.find(m => m.name === 'm_status' &&
@@ -519,7 +516,7 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
       };
     } else if (it._screen) {
       // mined gauge screen
-      row.onclick = () => showInpaScreen(ecu, it._screen, results);
+      row.onclick = () => showInpaScreens(ecu, [it._screen], results, null, { scroll: true });
     } else if (it._input) {
       // mined input function
       row.onclick = () => runInputFunction(ecu, it._input, results);
