@@ -96,7 +96,18 @@ function lookupDropdown(placeholder, options, current, onChange) {
       const r = btn.getBoundingClientRect();
       const need = pop.offsetHeight + 8;
       const below = window.innerHeight - r.bottom;
-      root.classList.toggle('drop-up', below < need && r.top > below);
+      const up = below < need && r.top > below;
+      root.classList.toggle('drop-up', up);
+      // cap the scrolling list to the real space available on the chosen side. The
+      // downward limit is the footer F-key bar's actual top (not a guess); the
+      // upward limit is the top of the viewport. Reserve the pinned search box + a
+      // small margin so the popup always fits and the page never scrolls to hold it.
+      const bar = document.getElementById('fkeybar');
+      const floor = bar ? bar.getBoundingClientRect().top : window.innerHeight;
+      const MARGIN = 12;
+      const avail = up ? (r.top - MARGIN) : (floor - r.bottom - MARGIN);
+      const searchH = search.offsetHeight || 42;
+      list.style.maxHeight = Math.max(120, avail - searchH) + 'px';
     });
     document.addEventListener('mousedown', onDoc, true);
     window.addEventListener('keydown', onEsc, true);
@@ -137,6 +148,12 @@ async function showLookup() {
   loading.innerHTML = '<span class="loader"></span><span>Loading fault database…</span>';
   view.appendChild(loading);
 
+  if (typeof loadPcodes === 'function') loadPcodes();     // warm P-code map for search + stacked display
+  // warm ISTA metadata (per-variant names, P-codes, and the full fleet incl. 6-digit
+  // codes searched via matchIsta). Re-render when it lands so a pending query updates.
+  if (typeof loadFaultMeta === 'function') loadFaultMeta().then(() => {
+    if (typeof render === 'function' && (lookupState.q || lookupState.chassis || lookupState.module)) render();
+  });
   try { await loadFaultIndex(); }
   catch (e) { loading.innerHTML = errorBlock(e.message, 'red'); return; }
   loading.remove();
@@ -390,8 +407,11 @@ async function showLookup() {
   // fallback (see render) so it doesn't flood results with every ECU's location 0B.
   function parseTerms(q) {
     return q.trim().toLowerCase().split(/\s+/).filter(Boolean).map(t => {
-      const m = t.match(/^(?:0x)?([0-9a-f]{4})$/i); // a full 4-hex code
-      return { text: t, hi: m ? m[1].slice(0, 2).toLowerCase() : null };
+      // a P-code term resolves to its BMW hex ("p2563" -> also match "27c3")
+      const alt = /^p[0-9a-u][0-9a-f]{3}$/i.test(t) && typeof hexForPcode === 'function'
+        ? (hexForPcode(t) || '').toLowerCase() || null : null;
+      const m = (alt || t).match(/^(?:0x)?([0-9a-f]{4})$/i); // a full 4-hex code
+      return { text: t, alt, hi: m ? m[1].slice(0, 2).toLowerCase() : null };
     });
   }
 
@@ -408,8 +428,39 @@ async function showLookup() {
       const loc = codeLocByte(code); // this row's location byte, or null
       return terms.every(t =>
         hay.includes(t.text) ||
+        (t.alt && hay.includes(t.alt)) ||            // P-code term -> its BMW hex
         (useHiByte && t.hi && loc && loc === t.hi)); // fallback: full DTC -> location-byte entry
     });
+  }
+
+  // search BMW_FAULT_META (the full ISTA fleet: hex -> {pcodes, variants}) for
+  // codes matching all terms, returning lookup groups (one per ISTA sgbd). Codes
+  // already in `seenCodes` (shown by the curated index) are skipped. Terms match
+  // the hex code, the variant English name, or a P-code (via t.alt / term text).
+  const ISTA_META_MAX = 400; // cap synthesized rows so a broad term can't flood
+  function matchIsta(meta, terms, seenCodes) {
+    const bySgbd = new Map(); // sgbd -> rows[[hex, name, hex]]
+    let n = 0;
+    for (const hex in meta) {
+      if (n >= ISTA_META_MAX) break;
+      if (hex.length !== 6) continue;       // 6-digit F/G-series codes only
+      if (seenCodes.has(hex)) continue;
+      const e = meta[hex];
+      const pcodes = (e.pcodes || []).join(' ').toLowerCase();
+      const hl = hex.toLowerCase();
+      for (const v of (e.variants || [])) {
+        const hay = hl + ' ' + (v.name || '').toLowerCase() + ' ' + pcodes;
+        const ok = terms.every(t => hay.includes(t.text) || (t.alt && hl.includes(t.alt)));
+        if (!ok) continue;
+        if (!bySgbd.has(v.sgbd)) bySgbd.set(v.sgbd, []);
+        bySgbd.get(v.sgbd).push([hex, v.name, hex]);
+        n++;
+        if (n >= ISTA_META_MAX) break;
+      }
+    }
+    return [...bySgbd.entries()].map(([sgbd, rows]) => ({
+      chassis: 'ISTA', module: sgbd, sgbd, scheme: 'code', rows,
+    }));
   }
 
   // does any entry contain a literal match for every full-hex term? (i.e. the exact
@@ -419,13 +470,22 @@ async function showLookup() {
     if (!hexTerms.length) return true; // no code terms -> nothing to fall back for
     return index.some(e => e.faults.some(([k, en, code]) => {
       const hay = (k + ' ' + en + ' ' + (code || '')).toLowerCase();
-      return terms.every(t => hay.includes(t.text));
+      return terms.every(t => hay.includes(t.text) || (t.alt && hay.includes(t.alt)));
     }));
   }
 
   function render() {
     const terms = parseTerms(lookupState.q);
     clearBtn.hidden = !lookupState.q;
+
+    // nothing to search yet: no query and no chassis/module filter -> prompt the
+    // user rather than dumping the entire fault database.
+    if (!terms.length && !lookupState.chassis && !lookupState.module) {
+      results.innerHTML = '';
+      countLine.textContent = 'Search a fault code or description, or select a chassis / module to get started.';
+      sbRight.textContent = '';
+      return;
+    }
 
     // widen a full-DTC search to its high byte ("0B3F"/"7411" -> location "0B"/"74")
     // whenever the exact code isn't found anywhere. A read-out code's low byte is
@@ -436,11 +496,24 @@ async function showLookup() {
 
     const groups = [];
     let total = 0;
+    const seenCodes = new Set(); // hex codes the curated index already covered
     for (const entry of index) {
       const rows = matches(entry, terms, useHiByte);
       if (!rows || !rows.length) continue;
       total += rows.length;
+      rows.forEach(r => { if (r[2]) seenCodes.add(String(r[2]).toUpperCase()); });
       groups.push({ chassis: entry.chassis, module: entry.module, sgbd: entry.sgbd, scheme: entry.scheme, rows });
+    }
+
+    // ISTA fleet fallback, ONLY for 6-digit F/G-series codes (the ones the curated
+    // E-series index doesn't carry). A 6-hex-digit search term triggers it; 4-digit
+    // searches stay on the curated data. Skipped when a chassis/module filter is
+    // active (meta has no chassis attribution) or no query is typed.
+    const meta = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
+    const wants6 = terms.some(t => /^[0-9a-f]{6}$/i.test(t.text));
+    if (meta && wants6 && !lookupState.chassis && !lookupState.module) {
+      const istaGroups = matchIsta(meta, terms, seenCodes);
+      for (const g of istaGroups) { total += g.rows.length; groups.push(g); }
     }
 
     if (!total) {
@@ -480,13 +553,26 @@ async function showLookup() {
         row.className = 'lookup-row';
         // code column: the hex/P-code (code === key for code-scheme, ORT for
         // text-scheme). "text" scheme also shows its German source phrase.
+        // where the BMW hex has a known SAE P-code, stack P-code over hex.
+        const pc = code && typeof pcodeForHex === 'function' ? pcodeForHex(code) : null;
         const codeCell = code
-          ? `<span class="lookup-code">${esc(code)}</span>`
+          ? (pc
+            ? `<span class="lookup-code lookup-code-stack"><span class="lookup-pcode">${esc(pc)}</span><span class="lookup-hex">${esc(code)}</span></span>`
+            : `<span class="lookup-code">${esc(code)}</span>`)
           : `<span class="lookup-code lookup-code-none">—</span>`;
         const keyCell = g.scheme === 'text'
           ? `<span class="lookup-key lookup-key-text">${esc(k)}</span>`
           : '';
-        row.innerHTML = `${codeCell}${keyCell}<span class="lookup-en">${esc(en)}</span>`;
+        // when ISTA has richer data for this hex (per-variant descriptions or a
+        // service document), mark the row expandable and open a detail panel on click.
+        const hasDetail = code && typeof variantsForHex === 'function'
+          && variantsForHex(code).length > 0;
+        row.innerHTML = `${codeCell}${keyCell}<span class="lookup-en">${esc(en)}</span>`
+          + (hasDetail ? '<span class="lookup-more" aria-hidden="true">›</span>' : '');
+        if (hasDetail) {
+          row.classList.add('lookup-expandable');
+          row.onclick = () => openFaultModal(code, en, g.sgbd);
+        }
         body.appendChild(row);
       }
       card.appendChild(body);
@@ -494,6 +580,80 @@ async function showLookup() {
       shown += rowsToShow.length;
     }
     results.appendChild(frag);
+  }
+
+  // ---- fault detail modal (ISTA variants + service document) ----
+  // opens a large modal for a hex code showing every ECU variant that reports it
+  // (each with its own English text + info doc) and, per variant, the ISTA
+  // service document (conditions, monitoring, service measure, notes). The big
+  // info file is loaded on demand the first time a modal is opened.
+  const _infoFields = [
+    ['description', 'Description'], ['setCondition', 'Set condition'],
+    ['monitoring', 'Monitoring'], ['timeCondition', 'Time condition'],
+    ['terminal', 'Terminal'], ['impact', 'Fault impact'],
+    ['warningLamp', 'Warning lamp'], ['ccMessage', 'CC message'],
+    ['serviceMeasure', 'Service measure'], ['serviceNote', 'Service note'],
+    ['breakdownNote', 'Breakdown note'], ['driverInfo', 'Driver info'],
+  ];
+  function infoTable(info) {
+    if (!info) return '';
+    const rows = _infoFields
+      .filter(([k]) => info[k] && String(info[k]).trim())
+      .map(([k, label]) => `<div class="fi-k">${esc(label)}</div>`
+        + `<div class="fi-v">${esc(info[k]).replace(/\n/g, '<br>')}</div>`)
+      .join('');
+    return rows ? `<div class="fi-grid">${rows}</div>` : '';
+  }
+
+  // Show ISTA detail for the ONE clicked entry. The search page already lists every
+  // ECU variant as its own row, so the modal is just that row's code, name, P-codes,
+  // and (if present) its service document. `clickedName` is the exact English text
+  // the row displayed - we use it to pick the matching ISTA variant record.
+  async function openFaultModal(code, clickedName, sgbd) {
+    const hex = String(code).toUpperCase();
+    const meta = (window.BMW_FAULT_META && window.BMW_FAULT_META[hex]) || {};
+    const pcodes = meta.pcodes || [];
+    const variants = (typeof variantsForHex === 'function' ? variantsForHex(code) : []) || [];
+    const wantName = (clickedName || '').trim().toLowerCase();
+    const wantSgbd = (sgbd || '').toLowerCase();
+    // pick the ISTA variant record for the clicked module. BMacW's row text/sgbd
+    // don't always equal ISTA's, so try in order: exact sgbd, sgbd-family prefix
+    // (ms_s65 -> ms_s65_2), exact name, else the first variant. We only ever show
+    // ONE - the module the user clicked - never a fan-out (the search list already
+    // shows every variant as its own row).
+    const famKey = wantSgbd.replace(/[^a-z0-9]/g, '');
+    const picked =
+      variants.find(v => (v.sgbd || '').toLowerCase() === wantSgbd) ||
+      variants.find(v => { const s = (v.sgbd || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                           return famKey && (s.startsWith(famKey) || famKey.startsWith(s)); }) ||
+      variants.find(v => (v.name || '').trim().toLowerCase() === wantName) ||
+      variants[0] || null;
+    // the row's own text is authoritative for the title (it's what the user clicked)
+    const title = clickedName || picked?.name || '';
+
+    const pcodeBar = pcodes.length
+      ? `<div class="fm-pcodes">${pcodes.map(p => `<span class="fm-pcode">${esc(p)}</span>`).join('')}</div>`
+      : '';
+    const { overlay, close } = openModal(`
+      <div class="modal fault-modal" role="dialog" aria-modal="true">
+        <div class="fm-head">
+          <div class="fm-code">${esc(hex)}</div>
+          <div class="fm-title">${esc(title)}</div>
+          <button class="fm-close" aria-label="Close">✕</button>
+        </div>
+        ${pcodeBar}
+        <div class="fm-body" id="fm-body"><div class="fm-loading">Loading service data…</div></div>
+      </div>`, { backdropValue: null });
+    overlay.querySelector('.fm-close').onclick = () => close();
+
+    if (typeof loadFaultInfo === 'function') await loadFaultInfo();
+    if (!document.body.contains(overlay)) return; // closed while loading
+
+    const info = (picked && picked.info != null && typeof faultInfoFor === 'function')
+      ? faultInfoFor(code, picked.info) : null;
+    const body = overlay.querySelector('#fm-body');
+    body.innerHTML = infoTable(info)
+      || '<div class="fm-noinfo">No service document for this fault.</div>';
   }
 
   // ---- wiring ----

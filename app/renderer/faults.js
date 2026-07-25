@@ -7,6 +7,9 @@
 // off before rendering so faultName lookups stay synchronous.
 let _faultDbPromise = null;
 function loadFaultDb() {
+  // P-codes + ISTA variant metadata are needed wherever fault names render.
+  if (typeof loadPcodes === 'function') loadPcodes();
+  if (typeof loadFaultMeta === 'function') loadFaultMeta();
   if (window.BMW_FAULT_DB) return Promise.resolve();
   if (_faultDbPromise) return _faultDbPromise;
   _faultDbPromise = new Promise((resolve) => {
@@ -19,12 +22,23 @@ function loadFaultDb() {
   return _faultDbPromise;
 }
 
+// the reading ECU's own codespace ({ code -> English }), or null. The flat
+// BMW_FAULT_DB collides across ECU families (27C3 = oil-level on the E46 MS45,
+// something else on an S65) - the scoped map generated per SGBD variant wins.
+function scopedFaultDb(sgbd) {
+  const s = (typeof window !== 'undefined' && window.BMW_FAULT_DB_SCOPED) || null;
+  return (s && sgbd && s[String(sgbd).toLowerCase()]) || null;
+}
+
 // fault name: look up the BMW code in the fault DB for the English component name
-// (27DA -> "Alternator BSD fault"). falls back to translating F_ORT_TEXT. Original
+// (27DA -> "Alternator BSD fault"). The reading ECU's scoped codespace wins over
+// the flat cross-ECU DB. falls back to translating F_ORT_TEXT. Original
 // (EDIABAS) mode keeps the raw German. keeps the "27DA " code prefix.
-function faultName(loc, hex) {
+function faultName(loc, hex, sgbd) {
   if (lang() === 'orig') return loc || '';
   const code = bmwCode(loc, hex);
+  const own = scopedFaultDb(sgbd);
+  if (code && own && own[code]) return `${code} ${own[code]}`;
   const db = (typeof window !== 'undefined' && window.BMW_FAULT_DB) || {};
   if (code && db[code]) return `${code} ${db[code]}`;
   // not in DB: translate the German location text token-wise
@@ -33,22 +47,42 @@ function faultName(loc, hex) {
 
 // shared fault projection: code, English name, present/stored. one canonical
 // home for the "momentan vorhanden && !nicht vorhanden" logic.
-function faultFields(c) {
+function faultFields(c, sgbd) {
   const hex = c.F_HEX_CODE || '';
   // a real 4-hex DTC only when the fault TEXT leads with one (code-scheme DMEs, e.g.
   // "27DA BSD-Generator"). NOT bmwCode's hex fallback - that would surface the full
   // F_HEX_CODE and defeat the location-byte preference below.
   const textCode = bmwCode(c.F_ORT_TEXT, '');
-  const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || pCode(c.F_ORT_TEXT, hex) || '';
+  const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
+    || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(bmwCode(c.F_ORT_TEXT, hex), sgbd) : null) || '';
   const vt = (c.F_VORHANDEN_TEXT || '').toLowerCase();
   const present = vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden');
-  // the fault-location byte (F_ORT_NR high byte, e.g. 0x1F/0x0B) - what a plain code
-  // reader shows and the SGBD FORTTEXTE table is keyed on. Preferred over the raw
-  // F_HEX_CODE so text-scheme ECUs show a uniform 2-byte location code (LWS "0B", IHKA
-  // "1F") instead of the full DTC (0B3F). Priority: text-embedded DTC, then P-code,
-  // then the location byte, then the raw hex, then nothing.
-  const ortNr = ortNrCode(c.F_ORT_NR);
-  return { code: textCode || pstr || ortNr || hex || '—', name: faultName(c.F_ORT_TEXT, hex), present };
+  // F_ORT_NR: a 16-bit value is either a real 2-byte DTC (DSC 0x5DC2 - the fault
+  // DB knows it, show the whole code) or a text-scheme location+detail word
+  // (LWS 0x0B3F - unknown as a code, show the location byte the FORTTEXTE table
+  // keys on). The reading ECU's scoped codespace decides; flat DB as fallback.
+  const ortFull = ortNrFull(c.F_ORT_NR);
+  const own = scopedFaultDb(sgbd);
+  const flat = (typeof window !== 'undefined' && window.BMW_FAULT_DB) || {};
+  const knownFull = ortFull && ((own && own[ortFull]) || (!own && flat[ortFull]));
+  const ortNr = knownFull ? ortFull : ortNrCode(c.F_ORT_NR);
+  // fault type (Fehlerart: static vs sporadic) + occurrence counter (F_HFK,
+  // falling back to the logistic counter) — the decoded form of the detail
+  // byte that trails the location in the raw fault entry (e.g. 0B3F -> 3F)
+  const art = c.F_ART1_TEXT || '';
+  const ftype = /statisch/i.test(art) ? 'static'
+    : /sporadisch/i.test(art) ? 'intermittent'
+    : (deGerman(art) || art || '');
+  const count = c.F_HFK || c.F_LZ || '';
+  // SAE P-code, stacked above the hex where known: the ECU's own F_PCODE_STRING
+  // (a live detail read) is authoritative; otherwise the ISTA BMW-hex -> P-code
+  // table, scoped to the reading SGBD. No more hand-coded map.
+  const code = textCode || pstr || ortNr || hex || '—';
+  const lookupHex = textCode || (knownFull ? ortFull : (ortNr && ortNr.length > 2 ? ortNr : null));
+  const pcode = c.F_PCODE_STRING || c.F_PCODE7_STRING ||
+    (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(lookupHex, sgbd) : null) || '';
+  return { code, pcode: pcode !== code ? pcode : '',
+           name: faultName(c.F_ORT_TEXT, hex, sgbd), present, ftype, count };
 }
 
 const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on';
@@ -83,8 +117,12 @@ async function exportFaults(ecu, view) {
   if (!faults.length) { sbLeft.textContent = 'read codes first'; return; }
   if (!(window.bmacw && window.bmacw.savePdf)) { sbLeft.textContent = 'export unavailable'; return; }
 
+  // ensure the ISTA P-code / name data is loaded so the printed report shows P-codes
+  if (typeof loadFaultMeta === 'function') await loadFaultMeta();
+  if (typeof loadPcodes === 'function') await loadPcodes();
+
   const now = new Date();
-  const present = faults.filter(c => faultFields(c).present).length;
+  const present = faults.filter(c => faultFields(c, ecu.sgbd).present).length;
   const body = faultModuleBlock(ecu.label, ecu.sgbd, faults);
   const html = faultReportHtml(
     `${ecu.label} · ${ecu.sgbd}.prg · fault memory`,
@@ -139,7 +177,8 @@ function renderFaultsInpa(codes, container, ecu) {
     const hex = c.F_HEX_CODE || '';
     const code = bmwCode(c.F_ORT_TEXT, hex);
     // prefer the real P-code from the detailed read (F_PCODE_STRING), else our map
-    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || pCode(c.F_ORT_TEXT, hex) || '';
+    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
+      || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(code, ecu && ecu.sgbd) : null) || '';
     const ptext = deGerman(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
     const sym = deGerman(c.F_SYMPTOM_TEXT);
     const ready = deGerman(c.F_READY_TEXT);
@@ -147,7 +186,7 @@ function renderFaultsInpa(codes, container, ecu) {
     const warn = deGerman(c.F_WARNUNG_TEXT);
     const freq = c.F_HFK || c.F_LZ;           // frequency (how many times seen)
     const km = c.F_UW_KM;                       // mileage at first/last entry
-    const { present } = faultFields(c);
+    const { present } = faultFields(c, ecu && ecu.sgbd);
     return `
       <div class="inpa-fault">
         <div class="inpa-fault-head">
@@ -215,10 +254,11 @@ function renderFaults(codes, container, ecu) {
   container.innerHTML = '';
   container.className = 'faults stagger';
   faults.forEach(c => {
-    const { present } = faultFields(c);
+    const { present } = faultFields(c, ecu && ecu.sgbd);
     const hex = c.F_HEX_CODE || '';
     // prefer the detailed P-code (from FS_LESEN_DETAIL) over our static map
-    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || pCode(c.F_ORT_TEXT, hex) || '';
+    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
+      || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(code, ecu && ecu.sgbd) : null) || '';
     const ptext = deGerman(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
     const warn = deGerman(c.F_WARNUNG_TEXT);
     const freq = c.F_HFK || c.F_LZ;
@@ -229,7 +269,7 @@ function renderFaults(codes, container, ecu) {
     el.className = 'fault';
     el.innerHTML = `
       <div class="fault-code">
-        <div class="fault-hex">${esc(faultFields(c).code)}</div>
+        <div class="fault-hex">${esc(faultFields(c, ecu && ecu.sgbd).code)}</div>
         ${pstr ? `<div class="fault-pcode">${esc(pstr)}</div>` : ''}
       </div>
       <div class="fault-main">

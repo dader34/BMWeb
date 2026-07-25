@@ -482,3 +482,128 @@ function pCode(loc, hex) {
   const code = bmwCode(loc, hex);
   return code && PCODE_MAP[code] ? PCODE_MAP[code] : null;
 }
+
+// full 16-bit F_ORT_NR as a 4-hex code ("24002" -> "5DC2"), or null for
+// single-byte values. Used with the fault DB to tell a real 2-byte DTC
+// (DSC 5DC2, known in the DB -> show whole code) from a text-scheme ECU's
+// location+detail word (LWS 0B3F, unknown -> show the location byte).
+function ortNrFull(nr) {
+  if (nr == null) return null;
+  const s = String(nr).trim();
+  if (!s) return null;
+  let val = null;
+  let m = s.match(/^0x([0-9A-Fa-f]+)$/) || s.match(/^([0-9A-Fa-f]*[A-Fa-f][0-9A-Fa-f]*)$/);
+  if (m) val = parseInt(m[1], 16);
+  else if (/^\d+$/.test(s)) val = parseInt(s, 10);
+  if (val == null || Number.isNaN(val) || val <= 0xFF) return null;
+  return val.toString(16).toUpperCase().padStart(4, '0');
+}
+
+// P-code lookup, backed by window.BMW_PCODES (generated from BMW ISTA's
+// XEP_PCODERULES: BMW hex fault code -> [SAE P-codes], primary first). The tiny
+// PCODE_MAP stays as a fallback. Injected lazily like the fault DB so the big
+// literal isn't parsed before first paint; fault screens warm it via loadPcodes().
+let _pcodesPromise = null;
+function loadPcodes() {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (window.BMW_PCODES) return Promise.resolve();
+  if (_pcodesPromise) return _pcodesPromise;
+  _pcodesPromise = new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'pcodes.js';
+    s.onload = () => resolve();
+    s.onerror = () => { _pcodesPromise = null; resolve(); };
+    document.head.appendChild(s);
+  });
+  return _pcodesPromise;
+}
+
+// --- rich ISTA fault metadata (per-ECU-variant names + P-codes) and the
+// service-info documents, both generated from the decrypted BMW ISTA DiagDocDb.
+// Lazy-loaded like the fault DB: meta (14MB) warms with the fault screens; info
+// (60MB) only loads when a fault detail panel is opened. ---
+function _lazyScript(src, ready, holder) {
+  return function () {
+    if (typeof window === 'undefined') return Promise.resolve();
+    if (window[ready]) return Promise.resolve();
+    if (holder.p) return holder.p;
+    holder.p = new Promise((resolve) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => resolve();
+      s.onerror = () => { holder.p = null; resolve(); };
+      document.head.appendChild(s);
+    });
+    return holder.p;
+  };
+}
+const _metaHolder = {}, _infoHolder = {};
+const loadFaultMeta = _lazyScript('faultmeta.js', 'BMW_FAULT_META', _metaHolder);
+const loadFaultInfo = _lazyScript('faultinfo.js', 'BMW_FAULT_INFO', _infoHolder);
+
+// per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. The
+// `info` field indexes into BMW_FAULT_INFO[hex] (the service document).
+function variantsForHex(code) {
+  if (!code) return [];
+  const c = String(code).replace(/^0x/i, '').toUpperCase();
+  const m = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
+  return (m && m[c] && m[c].variants) || [];
+}
+
+// the service-info document for a hex code + variant info-index, or null.
+function faultInfoFor(code, infoIdx) {
+  if (code == null || infoIdx == null) return null;
+  const c = String(code).replace(/^0x/i, '').toUpperCase();
+  const db = (typeof window !== 'undefined' && window.BMW_FAULT_INFO) || null;
+  const bucket = db && db[c];
+  return (bucket && bucket[String(infoIdx)]) || null;
+}
+
+// all SAE P-codes for a BMW hex code ("27C3" -> ["P0456"], primary first), or [].
+// Prefers the rich ISTA meta, then the standalone pcodes map, then the tiny fallback.
+function pcodesForHex(code) {
+  if (!code) return [];
+  const c = String(code).replace(/^0x/i, '').toUpperCase();
+  const m = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
+  if (m && m[c] && m[c].pcodes) return m[c].pcodes;
+  const db = (typeof window !== 'undefined' && window.BMW_PCODES) || null;
+  if (db && db[c]) return db[c];
+  if (PCODE_MAP[c]) return [PCODE_MAP[c]];
+  return [];
+}
+
+// UNAMBIGUOUS offline P-code for a hex code, or null. Many BMW codes map to
+// SEVERAL SAE P-codes gated by ECU variant (the ISTA RULE blob we don't evaluate),
+// e.g. 2761 -> {P0021,P0346,P0411,...}. Guessing the first would be misleading, so
+// offline we ONLY return a P-code when the code has exactly ONE (e.g. 27C3->P0456).
+// A live read's own F_PCODE_STRING is always preferred over this and is exact.
+// `sgbd` is accepted for API symmetry / future per-variant rules.
+function pcodeForHexSgbd(code, sgbd) {
+  if (!code) return null;
+  const list = pcodesForHex(code);
+  return list.length === 1 ? list[0] : null;
+}
+
+// primary P-code for a bare BMW hex code ("27C3" -> "P0456"), or null.
+function pcodeForHex(code) {
+  const list = pcodesForHex(code);
+  return list.length ? list[0] : null;
+}
+
+// reverse lookup for search: "P0456" -> "27C3" (case-insensitive), null if
+// unknown. Built once from the richest source available: BMW_FAULT_META (has
+// pcodes per hex), then BMW_PCODES, then the tiny fallback map.
+let _PCODE_REV = null, _PCODE_REV_SRC = null;
+function hexForPcode(p) {
+  const meta = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
+  const db = (typeof window !== 'undefined' && window.BMW_PCODES) || null;
+  const src = meta || db || PCODE_MAP;
+  if (_PCODE_REV_SRC !== src) {
+    _PCODE_REV = {}; _PCODE_REV_SRC = src;
+    for (const [h, v] of Object.entries(src)) {
+      const list = meta ? (v.pcodes || []) : (Array.isArray(v) ? v : [v]);
+      for (const pc of list) { const k = String(pc).toUpperCase(); if (!(k in _PCODE_REV)) _PCODE_REV[k] = h; }
+    }
+  }
+  return _PCODE_REV[String(p).toUpperCase()] || null;
+}

@@ -96,8 +96,9 @@ function showAttentionPopup(findings) {
       <div class="att-ecu">${esc(g.label)} · ${g.faults.length} fault${g.faults.length === 1 ? '' : 's'}</div>
       ${g.faults.map(c => {
         const hex = c.F_HEX_CODE || '';
-        const pstr = c.F_PCODE_STRING || pCode(c.F_ORT_TEXT, hex) || '';
-        const { name, present } = faultFields(c);
+        const pstr = c.F_PCODE_STRING
+          || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(bmwCode(c.F_ORT_TEXT, hex), g.sgbd) : null) || '';
+        const { name, present } = faultFields(c, g.sgbd);
         return `<div class="att-fault${present ? ' present' : ''}">
           <div class="att-name">${esc(name)}${present ? '<span class="att-badge">PRESENT</span>' : ''}</div>
           <div class="att-meta">${esc(`${deGerman(c.F_SYMPTOM_TEXT) || ''}${pstr ? ` · ${pstr}` : ''}${(c.F_HFK || c.F_LZ) ? ` · seen ${c.F_HFK || c.F_LZ}×` : ''}`)}</div>
