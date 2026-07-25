@@ -93,11 +93,43 @@ plus a `.dmg`) is being rebuilt for the native app; the 0.1.x `.dmg` releases
 were produced by the retired Electron shell.
 
 
-## Fault-code translations
+## Fault Lookup
 
-BMacW shows an English description for each fault code it reads. These are
-generated from the authoritative BMW SGBD `FORTTEXTE` tables (per ECU), not
-hand-maintained. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Fault Lookup is an offline reference for the entire BMW fault-code space — no
+cable, no car needed. Search by fault text, by BMW hex code, or by SAE `Pxxxx`
+code across every chassis and module, or narrow with the chassis / module
+filters. Each result shows the code (with its P-code stacked over the hex where
+one exists) and the English description; clicking a code opens a detail panel
+with that ECU's service document: set condition, monitoring conditions
+(voltage / terminal / time), fault impact, warning-lamp behaviour, and the
+service measures and notes.
+
+The data is generated, never hand-edited. Two sources feed it:
+
+- **BMW SGBD `FORTTEXTE` tables** — the fault-location text each ECU ships in its
+  `.prg`, the same data EDIABAS reads over the cable. These drive the codes
+  BMacW reads live and the per-ECU translations under
+  [`data/faults/`](data/faults/):
+  - flat cross-ECU DTC maps: [`data/faults/*.json`](data/faults) — `{ "<HEX>": "English" }`
+  - per-ECU files: `data/faults/<chassis>/*.json` — `{ sgbd, scheme, faults }`
+- **BMW ISTA diagnostic database** — the dealer tool's fault reference, giving
+  fleet-wide descriptions, per-ECU-variant wording, the authoritative BMW-hex →
+  SAE P-code mapping, and the service documents. These are baked into:
+  - [`data/faults/ista-dtc.json`](data/faults/ista-dtc.json) — fleet English names
+  - [`app/renderer/pcodes.js`](app/renderer/pcodes.js) — `hex → [P-codes]`
+  - [`app/renderer/faultmeta.js`](app/renderer/faultmeta.js) — `hex → { pcodes, variants }`
+  - [`app/renderer/faultinfo.js`](app/renderer/faultinfo.js) — parsed service documents
+
+The build merges everything into the runtime lookup files, with the
+hand-curated per-ECU translations taking precedence over the broad ISTA text
+where they overlap:
+
+```
+node scripts/build-faultdb.mjs   # writes app/renderer/faultdb.js + faultindex.js
+```
+
+`app/renderer/faultdb.js`, `faultindex.js`, `faultmeta.js`, `faultinfo.js`, and
+`pcodes.js` are all generated — never edit them by hand.
 
 
 ## License
