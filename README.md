@@ -46,7 +46,7 @@ package is also available [here](https://drive.google.com/drive/folders/1Odd9etz
    open src/InpaMac.App/bin/Debug/net10.0-macos/osx-arm64/BMacW.app
    ```
 
-Everything runs in that one process — the UI, the diagnostic API, and the
+Everything runs in that one process: the UI, the diagnostic API, and the
 EDIABAS engine. Plug in the cable, turn the ignition on, and select your
 chassis.
 
@@ -55,9 +55,9 @@ chassis.
 
 - `src/InpaMac.App/` is the app: a native macOS window (WKWebView) showing
   `app/renderer/`, with the EDIABAS engine and the JSON API hosted in-process.
-- `app/renderer/` is the UI — plain HTML/JS, no framework, no build step.
+- `app/renderer/` is the UI: plain HTML/JS, no framework, no build step.
 - `src/InpaMac.Api/` is the diagnostic JSON API as a library.
-- `src/InpaMac.Server/` hosts that API standalone on `127.0.0.1:8777` — a
+- `src/InpaMac.Server/` hosts that API standalone on `127.0.0.1:8777`, a
   development harness for curl/scripts, not needed to run the app.
 - `src/EdiabasMac/` wraps the EDIABAS engine, the serial transport, and the MS45
   flash routines.
@@ -95,7 +95,7 @@ were produced by the retired Electron shell.
 
 ## Fault Lookup
 
-Fault Lookup is an offline reference for the entire BMW fault-code space — no
+Fault Lookup is an offline reference for the entire BMW fault-code space, with no
 cable, no car needed. Search by fault text, by BMW hex code, or by SAE `Pxxxx`
 code across every chassis and module, or narrow with the chassis / module
 filters. Each result shows the code (with its P-code stacked over the hex where
@@ -106,19 +106,19 @@ service measures and notes.
 
 The data is generated, never hand-edited. Two sources feed it:
 
-- **BMW SGBD `FORTTEXTE` tables** — the fault-location text each ECU ships in its
+- **BMW SGBD `FORTTEXTE` tables**: the fault-location text each ECU ships in its
   `.prg`, the same data EDIABAS reads over the cable. These drive the codes
   BMacW reads live and the per-ECU translations under
   [`data/faults/`](data/faults/):
-  - flat cross-ECU DTC maps: [`data/faults/*.json`](data/faults) — `{ "<HEX>": "English" }`
-  - per-ECU files: `data/faults/<chassis>/*.json` — `{ sgbd, scheme, faults }`
-- **BMW ISTA diagnostic database** — the dealer tool's fault reference, giving
+  - flat cross-ECU DTC maps: [`data/faults/*.json`](data/faults), `{ "<HEX>": "English" }`
+  - per-ECU files: `data/faults/<chassis>/*.json`, `{ sgbd, scheme, faults }`
+- **BMW ISTA diagnostic database**: the dealer tool's fault reference, giving
   fleet-wide descriptions, per-ECU-variant wording, the authoritative BMW-hex →
   SAE P-code mapping, and the service documents. These are baked into:
-  - [`data/faults/ista-dtc.json`](data/faults/ista-dtc.json) — fleet English names
-  - [`app/renderer/pcodes.js`](app/renderer/pcodes.js) — `hex → [P-codes]`
-  - [`app/renderer/faultmeta.js`](app/renderer/faultmeta.js) — `hex → { pcodes, variants }`
-  - [`app/renderer/faultinfo.js`](app/renderer/faultinfo.js) — parsed service documents
+  - [`data/faults/ista-dtc.json`](data/faults/ista-dtc.json): fleet English names
+  - [`app/renderer/pcodes.js`](app/renderer/pcodes.js): `hex → [P-codes]`
+  - [`app/renderer/faultmeta.js`](app/renderer/faultmeta.js): `hex → { pcodes, variants }`
+  - [`app/renderer/faultinfo.js`](app/renderer/faultinfo.js): parsed service documents
 
 The build merges everything into the runtime lookup files, with the
 hand-curated per-ECU translations taking precedence over the broad ISTA text
@@ -129,7 +129,7 @@ node scripts/build-faultdb.mjs   # writes app/renderer/faultdb.js + faultindex.j
 ```
 
 `app/renderer/faultdb.js`, `faultindex.js`, `faultmeta.js`, `faultinfo.js`, and
-`pcodes.js` are all generated — never edit them by hand.
+`pcodes.js` are all generated; never edit them by hand.
 
 
 ## License
