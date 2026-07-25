@@ -160,7 +160,7 @@ function explainError(raw) {
 
   if (lower.includes('no interface') || lower.includes('no serial') || lower.includes('no cable'))
     return { title: 'No adapter connected', detail: 'BMacW could not find the K+DCAN cable.',
-      fix: 'Plug the cable into the Mac (directly, not through a flaky USB hub) and into the car OBD-II port. The status light turns green when detected.' };
+      fix: '' };
 
   if (lower.includes('security access') || lower.includes('denied'))
     return { title: 'Security access denied', detail: 'The DME rejected the seed/key authentication needed to read protected memory.',
@@ -200,7 +200,7 @@ function errorBlock(raw, accent = 'amber') {
   return `<div class="empty">
     <div class="empty-big" style="color:var(--${accent})">${e.title}</div>
     <div>${esc(e.detail)}</div>
-    <div style="font-size:12px;color:var(--ink-faint);max-width:48ch">${e.fix}</div>
+    ${e.fix ? `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">${e.fix}</div>` : ''}
   </div>`;
 }
 

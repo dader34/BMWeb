@@ -949,7 +949,8 @@ html[data-theme="inpa"] .inpa-pager-arrow {
 }
 
 /* INPA status F-key category bar (Digital / Analog / VANOS / ...) */
-.inpa-cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.inpa-cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px;
+  max-height: 132px; overflow-y: auto; align-content: flex-start; }
 .inpa-cat-btn {
   -webkit-app-region: no-drag; cursor: pointer;
   display: flex; align-items: center; gap: 8px;
