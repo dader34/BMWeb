@@ -236,6 +236,10 @@ def main():
             # for the ECUs whose .IPO actually declares them
             if ecu in actmenus:
                 out["activateMenus"] = actmenus[ecu]["menus"]
+                # INPA's post-drive state readout ("Signal : EIN"), which is
+                # why it needs no stop job
+                if actmenus[ecu].get("stateDisplays"):
+                    out["activateState"] = actmenus[ecu]["stateDisplays"]
             if "identity" in screens:
                 out["identity"] = as_identity(screens["identity"])
             if "aif" in screens:

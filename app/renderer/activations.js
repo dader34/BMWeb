@@ -49,6 +49,9 @@ const ACT_GROUP_LABEL = {
   'WiWa': 'Wipe / wash', 'A-Theft': 'Anti-theft', 'Mirror': 'Mirrors',
   'Others': 'Other', 'Inputs': 'Inputs', 'Outputs': 'Outputs',
 };
+// the ECU's decoded Activate menus, for hopping to a group's opposite
+const menus_of = (ecu) => (ecu._layout && ecu._layout.activateMenus) || [];
+
 const actGroupLabel = (s) => (lang() === 'orig' ? s
   : (ACT_GROUP_LABEL[s] || (typeof deGerman === 'function' && deGerman(s)) || s));
 
@@ -150,15 +153,43 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
   const filtered = inGroup.length > 0;
   const opts = filtered ? inGroup : all;
 
+  // the group says which way this list drives: an EIN_ group switches on, an
+  // AUS_ group switches off. The component picks WHAT, the group picks WHICH WAY.
+  const on = (group.direction || 'ein').toLowerCase() !== 'aus';
+
+  // INPA's own state caption for this job, mined from the .IPO ("Signal :")
+  const stateSpec = ((ecu._layout && ecu._layout.activateState) || [])
+    .find(x => x.job === act.start);
+
+  // this group switches ON, so its opposite group switches the same components
+  // OFF. That is INPA's stop -- there is no _ENDE job for STEUERN_DIGITAL.
+  const opp = group.opposite;
+
   container.className = 'results-panel';
   container.innerHTML = `
     <div class="act-menu">
       <div class="act-menu-title">${esc(actGroupLabel(menu.title))} · ${esc(actGroupLabel(group.label))}</div>
       <div class="act-menu-sub">${esc(act.start)}${group.filter ? ` · ${esc(group.filter)}` : ''}`
       + `${filtered ? '' : ' · group filter unknown, showing all components'}</div>
+      <div class="act-drive-note">
+        Sends <b>${on ? 'on' : 'off'}</b>. There is no stop job: `
+      + `${opp ? `switch back with <b>${esc(actGroupLabel(opp.menu))} · ${esc(actGroupLabel(opp.label))}</b>`
+              : 'this ECU declares no opposite group, so the output may stay set until ignition off'}.
+      </div>
+      <div class="act-state" id="ac-state"></div>
       <div class="${inpa ? 'act-key-list' : 'group-grid stagger'}" id="ac-list"></div>
     </div>`;
   const list = container.querySelector('#ac-list');
+  const stateEl = container.querySelector('#ac-state');
+
+  // INPA's post-drive readout: which component, and the signal it now holds
+  const showDriveState = (opt, isOn) => {
+    const label = deGerman(opt.label) || opt.label;
+    stateEl.innerHTML = `<span class="act-state-title">${esc(stateSpec ? stateSpec.title : 'ACTIVATED VALUE')}</span>`
+      + `<span class="act-state-row">${esc(stateSpec ? stateSpec.caption : 'Signal :')} `
+      + `<b>${esc(label)}</b> = <span class="${isOn ? 'on' : 'off'}">${isOn ? 'EIN' : 'AUS'}</span></span>`;
+    flash(stateEl);
+  };
 
   if (!opts.length) {
     list.innerHTML = `<div class="empty"><div>This ECU declares no component list for `
@@ -168,9 +199,6 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
 
   // driving a component is a write: confirm naming the component, then send
   // "<component>;<on|off>" exactly as the SGBD's argument order declares.
-  // the group says which way this list drives: an EIN_ group switches on, an
-  // AUS_ group switches off. The component picks WHAT, the group picks WHICH WAY.
-  const on = (group.direction || 'ein').toLowerCase() !== 'aus';
   const drive = async (opt) => {
     const label = `${deGerman(opt.label) || opt.label}`;
     const ok = await confirmDialog({
@@ -186,6 +214,9 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
     try {
       await api(`/api/ecu/${ecu.sgbd}/run/${act.start}?arg=${encodeURIComponent(arg)}`,
                 { method: 'POST' });
+      // INPA shows the resulting signal state rather than treating the send as
+      // fire-and-forget; the caption is its own ("Signal :"), mined from the .IPO
+      showDriveState(opt, on);
       sbLeft.textContent = `${act.start} ${arg} · sent`;
     } catch (e) {
       sbLeft.textContent = 'failed';
@@ -220,14 +251,26 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
     list.appendChild(tile);
   });
 
-  // footer F-keys fire the first nine, like INPA's softkey bar
-  setActions([
-    ...opts.slice(0, 9).map((o, i) => ({
-      key: String(i + 1), keyLabel: `F${i + 1}`,
-      label: deGerman(o.label) || o.label, fn: () => drive(o),
-    })),
-    back,
-  ]);
+  // footer F-keys fire the first nine, like INPA's softkey bar. The opposite
+  // group rides along as the stop, since that is how INPA switches back.
+  const keys = opts.slice(0, 8).map((o, i) => ({
+    key: String(i + 1), keyLabel: `F${i + 1}`,
+    label: deGerman(o.label) || o.label, fn: () => drive(o),
+  }));
+  if (opp) {
+    keys.push({
+      key: '9', keyLabel: 'F9',
+      label: `${on ? 'Switch off' : 'Switch on'}: ${actGroupLabel(opp.label)}`,
+      kind: 'danger',
+      fn: () => {
+        const m = menus_of(ecu).find(x => x.title === opp.menu);
+        const g = m && m.groups.find(x => x.label === opp.label);
+        if (m && g) showActivateGroup(ecu, act, m, g, container, onBack);
+      },
+    });
+  }
+  keys.push(back);
+  setActions(keys);
   if (!inpa) stagger(list, 20);
   sbLeft.textContent = `${opts.length} component${opts.length === 1 ? '' : 's'}`;
 }
