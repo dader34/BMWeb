@@ -41,6 +41,88 @@ function setActBtn(btn, on, momentary, act) {
   btn.className = 'btn act-btn ' + (on ? 'danger on' : 'primary');
 }
 
+// INPA's Activate screen: Inputs / Outputs, each a list of component groups
+// (PW, C.Lock, WiWa, A-Theft, Mirror, Others). Picking a group opens the
+// component picker filtered to it. This is INPA's structure, decoded from the
+// .IPO — not our job list, which is what it replaces.
+function renderActivateGroups(ecu, menus, acts, container, reopen, exit) {
+  const inpa = inpaMode();
+  // the job that actually drives components (the one taking a table-backed
+  // component argument); the groups are only a way to narrow its picker
+  const driver = acts.find(a => (a.args || []).some(g => (g.options || []).length))
+              || acts[0];
+
+  const open = (menu, group) => {
+    if (!driver) return;
+    // carry the group through so the picker can show just its components
+    showActivateGroup(ecu, driver, menu, group, container, reopen);
+  };
+
+  container.className = 'results-panel';
+  container.innerHTML = inpa
+    ? `<div class="act-menu">
+         <div class="act-menu-title">Ansteuern</div>
+         <div class="act-menu-sub">SGBD = ${esc(ecu.sgbd.toUpperCase())} · pick a group</div>
+         <div class="act-key-list" id="ag-list"></div>
+       </div>`
+    : `<div class="act-menu">
+         <div class="act-warning">⚠ Actuator tests drive real components. Engine off / ignition on unless you know the test.</div>
+         <div class="group-grid stagger" id="ag-list"></div>
+       </div>`;
+  const list = container.querySelector('#ag-list');
+
+  const rows = [];
+  menus.forEach(menu => menu.groups.forEach(g => rows.push({ menu, g })));
+
+  rows.forEach(({ menu, g }, i) => {
+    const label = `${menu.title} · ${g.label}`;
+    if (inpa) {
+      const row = document.createElement('button');
+      row.className = 'inpa-fn act-key-row';
+      row.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
+        + `<span class="inpa-fn-label">${esc(label)}</span>`
+        + `<span class="act-key-val">${esc(g.filter || '')}</span>`;
+      row.onclick = () => open(menu, g);
+      list.appendChild(row);
+      return;
+    }
+    const tile = document.createElement('div');
+    tile.className = 'group-tile';
+    tile.innerHTML = `
+      <div class="group-name">${esc(g.label)}</div>
+      <div class="group-count">${esc(menu.title)}</div>
+      <div class="group-arrow">→</div>`;
+    tile.onclick = () => open(menu, g);
+    list.appendChild(tile);
+  });
+  if (!inpa) stagger(list, 30);
+
+  const keys = rows.slice(0, 9).map(({ menu, g }, i) => ({
+    key: String(i + 1), keyLabel: `F${i + 1}`,
+    label: `${menu.title} · ${g.label}`, fn: () => open(menu, g),
+  }));
+  if (exit) keys.push(exit);
+  setActions(keys);
+  sbLeft.textContent = `${rows.length} groups`;
+}
+
+// one group's components, driven through the job that takes the component
+// argument. The picker itself is argsDialog, so the values are always the ones
+// the SGBD declared.
+async function showActivateGroup(ecu, act, menu, group, container, onBack) {
+  const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: onBack };
+  setActions([back]);
+  container.className = 'results-panel';
+  container.innerHTML = `
+    <div class="act-menu">
+      <div class="act-menu-title">${esc(menu.title)} · ${esc(group.label)}</div>
+      <div class="act-menu-sub">${esc(act.start)}${group.filter ? ` · ${esc(group.filter)}` : ''}</div>
+      <div class="empty"><div>Choose a component to drive.</div></div>
+    </div>`;
+  // the confirm + send path is the shared one, so the safety rules apply
+  toggleActivation(ecu, act, container, container.querySelector('.act-menu'));
+}
+
 async function showActivations(ecu, sec, container, exitAction) {
   activationEcu = ecu;
   container.className = 'results-panel';
@@ -65,6 +147,16 @@ async function showActivations(ecu, sec, container, exitAction) {
   if (!acts.length) {
     container.innerHTML = `<div class="empty"><div>No actuator tests for this module.</div></div>`;
     return;
+  }
+
+  // INPA's own Activate grouping, where its .IPO declares one: Inputs/Outputs,
+  // each listing components (PW, C.Lock, WiWa...) rather than our job names.
+  // Only a handful of ECUs ship this; the rest fall through to the job list.
+  const actMenus = (ecu._layout && ecu._layout.activateMenus) || [];
+  if (actMenus.length) {
+    const exit = exitAction || currentActions.find(x => x.kind === 'back');
+    return renderActivateGroups(ecu, actMenus, acts, container,
+                                () => showActivations(ecu, sec, container, exit), exit);
   }
 
   if (inpaMode()) return renderActivationsInpa(ecu, acts, container);
