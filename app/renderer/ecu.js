@@ -561,6 +561,15 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     return;
   }
 
+  // AIF: INPA's user-information field — the DME's programming history
+  if (sec.section === 'AIF' && layout && layout.aif) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderAif(ecu, layout.aif, results, back);
+    return;
+  }
+
   // Coding: the ECU's vehicle-option flags (ECU_CONFIG), drawn as lamps
   if (sec.section === 'Coding' && layout && layout.coding) {
     const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
