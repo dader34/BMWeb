@@ -119,7 +119,7 @@ public static class MenuGen
         return null;
     }
 
-    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","Service","Special","Programming","Other" };
+    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","AIF","Service","Special","Programming","Other" };
     static readonly Regex Danger = new(@"FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN(?!\w*LESEN)|STELLGLIED", RegexOptions.IgnoreCase);
     // suffix verbs moved to front of label
     static readonly Dictionary<string,string> FrontVerb = new(StringComparer.OrdinalIgnoreCase)
@@ -143,7 +143,10 @@ public static class MenuGen
         if (j.Contains("SYSTEMCHECK")) return "System Check";
         if (j.Contains("CODIER") || j.Contains("ECU_CONFIG") || j.Contains("SET_PARAMETER")
             || j.Contains("BAUDRATE") || j.Contains("INTERFACETYPE") || j.Contains("ACCESS_TIMING")) return "Coding";
-        if (j.Contains("AIF") || j.Contains("ZIF") || j.Contains("PRUEFCODE")
+        // INPA gives the user-information field its own root key (F3 "AIF"),
+        // separate from Ident (F2): it is a programming LOG, not ECU identity.
+        if (j.Contains("AIF")) return "AIF";
+        if (j.Contains("ZIF") || j.Contains("PRUEFCODE")
             || j.Contains("C_CI") || j.Contains("C_FG") || j.Contains("C_C_")) return "Identity";
         if (j.Contains("EWS") || j.Contains("DISTANCE_MIL") || j.StartsWith("SPEICHER")) return "Special";
         if (j.Contains("CBS") || j.Contains("PRUEFSTEMPEL") || j.Contains("PRUEFFLAG")

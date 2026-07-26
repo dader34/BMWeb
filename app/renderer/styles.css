@@ -1242,6 +1242,9 @@ select.modal-input { appearance: none; cursor: pointer; }
 .fkeys:has(.fkey:nth-child(7)) .fkey-num { min-width: 18px; padding: 3px 4px; }
 .fkeys:has(.fkey:nth-child(7)) .fkey-label { font-size: 11px; }
 .fkey.back .fkey-num { color: var(--cyan); }
+/* the page you are already on, for softkeys that select rather than act */
+.fkey.active { border-color: var(--green); }
+.fkey.active .fkey-num { color: var(--green); }
 .fkey.danger:hover { border-color: var(--red); }
 .fkey.primary { background: linear-gradient(180deg, rgba(255,158,44,.16), transparent); border-color: var(--amber-soft); }
 .fkey.flash { animation: fkflash .35s ease; }

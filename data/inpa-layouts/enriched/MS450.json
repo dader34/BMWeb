@@ -7987,5 +7987,61 @@
     "job": "PRUEFCODE_LESEN"
    }
   ]
+ },
+ "aif": {
+  "title": "User information",
+  "subtitle": "AIF · programming history",
+  "job": "AIF_LESEN",
+  "records": 15,
+  "fields": [
+   {
+    "key": "AIF_FG_NR",
+    "label": "Vehicle identification nr."
+   },
+   {
+    "key": "AIF_ZB_NR",
+    "label": "Assembly no."
+   },
+   {
+    "key": "AIF_DATUM",
+    "label": "Programming date"
+   },
+   {
+    "key": "AIF_SW_NR",
+    "label": "Calibration dataset no."
+   },
+   {
+    "key": "AIF_BEHOERDEN_NR",
+    "label": "Office no."
+   },
+   {
+    "key": "AIF_HAENDLER_NR",
+    "label": "Dealer no."
+   },
+   {
+    "key": "AIF_SERIEN_NR",
+    "label": "Tester no."
+   },
+   {
+    "key": "AIF_KM",
+    "label": "Mileage"
+   },
+   {
+    "key": "AIF_PROG_NR",
+    "label": "Program reference"
+   },
+   {
+    "key": "AIF_ADRESSE_LOW",
+    "label": "Address of UIF"
+   },
+   {
+    "key": "AIF_ANZ_FREI",
+    "label": "Number of free UIF"
+   },
+   {
+    "key": "AIF_ANZ_DATEN",
+    "label": "Number of data UIF"
+   }
+  ]
  }
 }
