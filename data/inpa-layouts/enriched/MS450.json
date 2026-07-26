@@ -6937,7 +6937,7 @@
     {
      "fkey": 2,
      "label": "--",
-     "value": 1
+     "value": -1
     },
     {
      "fkey": 3,
@@ -6947,7 +6947,7 @@
     {
      "fkey": 4,
      "label": "-- --",
-     "value": 10
+     "value": -10
     },
     {
      "fkey": 5,
