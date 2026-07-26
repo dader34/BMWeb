@@ -561,6 +561,15 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     return;
   }
 
+  // Service: CBS data and ECU commands (no INPA original — see service.js)
+  if (sec.section === 'Service' && layout && layout.service) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderService(ecu, layout.service, results, back);
+    return;
+  }
+
   // Adaption: INPA's selective adaptation clearing (root F8)
   if (sec.section === 'Adaption' && layout && layout.adaption) {
     const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',

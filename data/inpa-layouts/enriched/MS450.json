@@ -8134,5 +8134,170 @@
     "ipo": "segment-time, misfire adaption"
    }
   ]
+ },
+ "service": {
+  "title": "Service",
+  "subtitle": "service data and ECU commands",
+  "reads": [
+   {
+    "job": "CBS_DATEN_LESEN",
+    "title": "Condition Based Service",
+    "caption": "remaining distance and service availability",
+    "fields": [
+     [
+      "RMMI_BOS_WERT",
+      "Remaining distance",
+      "RMMI_BOS_EINH"
+     ],
+     [
+      "COU_RSTG_BOS_MESS_WERT",
+      "Service counter",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT",
+      "Availability",
+      "AVAI_BOS_EINH"
+     ],
+     [
+      "AVAI_BOS_WERT_OEL",
+      "Engine oil",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_FILT",
+      "Micro filter",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_BR_V",
+      "Front brake pads",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_BR_H",
+      "Rear brake pads",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_BRFL",
+      "Brake fluid",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_ZKRZ",
+      "Spark plugs",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_SIC",
+      "Vehicle inspection",
+      null
+     ],
+     [
+      "AVAI_BOS_WERT_KFL",
+      "Coolant",
+      null
+     ],
+     [
+      "ZIEL_MM_WERT",
+      "Inspection due (month)",
+      null
+     ],
+     [
+      "ZIEL_YY_WERT",
+      "Inspection due (year)",
+      null
+     ],
+     [
+      "ID_FN_BOS_MESS_TEXT",
+      "CBS identifier",
+      null
+     ]
+    ]
+   },
+   {
+    "job": "INNENTEMP_LESEN",
+    "title": "ECU temperature",
+    "caption": "the DME's own internal temperature",
+    "fields": [
+     [
+      "SG_INNENTEMP",
+      "Internal temperature",
+      "SG_INNENTEMP_EINH"
+     ]
+    ]
+   },
+   {
+    "job": "PRUEFSTEMPEL_LESEN",
+    "title": "Inspection stamp",
+    "caption": "the three stamp bytes as stored",
+    "fields": [
+     [
+      "BYTE1",
+      "Byte 1",
+      null
+     ],
+     [
+      "BYTE2",
+      "Byte 2",
+      null
+     ],
+     [
+      "BYTE3",
+      "Byte 3",
+      null
+     ]
+    ]
+   },
+   {
+    "job": "DIAGNOSEPROTOKOLL_LESEN",
+    "title": "Diagnostic protocol",
+    "caption": "which protocol the ECU is speaking",
+    "fields": [
+     [
+      "DIAG_PROT_IST",
+      "Active protocol",
+      null
+     ],
+     [
+      "DIAG_PROT_ANZAHL",
+      "Protocols supported",
+      null
+     ],
+     [
+      "DIAG_PROT_NR1",
+      "Available protocols",
+      null
+     ]
+    ]
+   }
+  ],
+  "commands": [
+   {
+    "job": "STEUERGERAETE_RESET",
+    "title": "Reset ECU",
+    "caption": "restarts the DME",
+    "warn": "The DME reboots. The engine will cut out if it is running, and the diagnostic session drops until the ECU comes back."
+   },
+   {
+    "job": "SLEEP_MODE",
+    "title": "Sleep mode",
+    "caption": "sends the ECU to sleep",
+    "warn": "The DME stops responding to diagnostics until it is woken by the next terminal change."
+   },
+   {
+    "job": "RESET_CRU_OFF",
+    "title": "Reset CRU off",
+    "caption": "clears the CRU-off state",
+    "warn": "Resets the ECU's CRU-off condition."
+   },
+   {
+    "job": "DME_STARTWERT_ABGLEICH",
+    "title": "DME start value alignment",
+    "caption": "EWS/CAS rolling-code sync",
+    "warn": "Re-runs the immobilizer start-value alignment between the DME and EWS/CAS. If it does not complete, the engine may not start."
+   }
+  ]
  }
 }
