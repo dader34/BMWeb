@@ -386,6 +386,14 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   const needsBar = cats.length > FKEY_SLOTS;
   let bar = null;
 
+  // the readout selector keys, shared by the list and each open readout so the
+  // softkeys keep switching pages once you are inside one
+  const catKeys = () => cats.slice(0, FKEY_SLOTS).map((item, n) => ({
+    key: String(n + 1), keyLabel: `F${item.fkey}`,
+    label: fkeyLabel(item.label),
+    fn: () => open(item, bar && bar.children[n]),
+  }));
+
   const open = (item, btn) => {
     const screens = item.screens.map(i => layout.screens[i]).filter(Boolean);
     showInpaCategory(ecu, screens, results, fkeyLabel(item.label));
@@ -394,6 +402,13 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
       bar.querySelectorAll('.inpa-cat-btn').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
     }
+    // Esc unwinds one level: back to the readout list, not out to the ECU menu.
+    // Without this the page keeps the list's own Back and skips a level.
+    setActions([...catKeys(), {
+      key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+      fn: () => renderStatusFkeyPages(chassisId, sectionName, ecu, menu,
+                                      layout, mStatus, view, results),
+    }]);
   };
 
   if (needsBar) {
@@ -450,14 +465,11 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
     stagger(results, 30);
   }
 
-  // footer F-keys select the first 9 pages
-  const acts = cats.slice(0, FKEY_SLOTS).map((item, n) => ({
-    key: String(n + 1), keyLabel: `F${item.fkey}`,
-    label: fkeyLabel(item.label),
-    fn: () => open(item, bar && bar.children[n]),
-  }));
-  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showEcu(chassisId, sectionName, ecu) });
-  setActions(acts);
+  // footer F-keys select the first 9 pages. From the list, Esc leaves Status.
+  setActions([...catKeys(), {
+    key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+    fn: () => showEcu(chassisId, sectionName, ecu),
+  }]);
 }
 
 // INPA's nested status hierarchy. Each level is an F-key page: entries with
