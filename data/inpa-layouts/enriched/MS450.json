@@ -7595,5 +7595,397 @@
    "job": "STEUERN_LL_STELLER",
    "status": "STATUS_LL_STELLER"
   }
- ]
+ ],
+ "systemChecks": [
+  {
+   "check": "DMTL",
+   "title": "DMTL leak diagnosis",
+   "caption": "DMTL",
+   "start": "START_SYSTEMCHECK_DMTL",
+   "keys": [
+    {
+     "fkey": 1,
+     "label": "Start",
+     "action": "start"
+    },
+    {
+     "fkey": 2,
+     "label": "Stop",
+     "action": "stop"
+    }
+   ],
+   "stop": "STOP_SYSTEMCHECK_DMTL",
+   "status": "STATUS_SYSTEMCHECK_DMTL",
+   "values": "STATUS_SYSTEMCHECK_DMTL_WERT"
+  },
+  {
+   "check": "EVAUSBL",
+   "title": "Injector cut-out",
+   "caption": "EV",
+   "start": "START_SYSTEMCHECK_EVAUSBL",
+   "keys": [
+    {
+     "fkey": 1,
+     "label": "Start",
+     "action": "start"
+    },
+    {
+     "fkey": 2,
+     "label": "Stop",
+     "action": "stop"
+    }
+   ],
+   "stop": "STOP_SYSTEMCHECK_EVAUSBL",
+   "status": "STATUS_SYSTEMCHECK_EVAUSBL"
+  },
+  {
+   "check": "LLERH",
+   "title": "Idle-speed raise",
+   "caption": "LL",
+   "start": "START_SYSTEMCHECK_LLERH",
+   "keys": [
+    {
+     "fkey": 1,
+     "label": "Start",
+     "action": "start"
+    },
+    {
+     "fkey": 2,
+     "label": "Stop",
+     "action": "stop"
+    }
+   ],
+   "stop": "STOP_SYSTEMCHECK_LLERH",
+   "status": "STATUS_SYSTEMCHECK_LLERH",
+   "values": "STATUS_SYSTEMCHECK_LLERH_WERT"
+  },
+  {
+   "check": "L_SONDE",
+   "title": "O2 sensor test",
+   "caption": "L-SONDEN",
+   "start": "START_SYSTEMCHECK_L_SONDE",
+   "keys": [
+    {
+     "fkey": 1,
+     "label": "Start",
+     "action": "start"
+    },
+    {
+     "fkey": 2,
+     "label": "Stop",
+     "action": "stop"
+    }
+   ],
+   "stop": "STOP_SYSTEMCHECK_L_SONDE",
+   "status": "STATUS_SYSTEMCHECK_L_SONDE",
+   "values": "STATUS_SYSTEMCHECK_L_SONDE_WERTE"
+  },
+  {
+   "check": "SEK_LUFT",
+   "title": "Secondary-air system",
+   "caption": "SLS",
+   "start": "START_SYSTEMCHECK_SEK_LUFT",
+   "keys": [
+    {
+     "fkey": 1,
+     "label": "Start",
+     "action": "start"
+    },
+    {
+     "fkey": 2,
+     "label": "Stop",
+     "action": "stop"
+    }
+   ],
+   "stop": "STOP_SYSTEMCHECK_SEK_LUFT",
+   "status": "STATUS_SYSTEMCHECK_SEK_LUFT",
+   "values": "STATUS_SYSTEMCHECK_SEK_LUFT_WERT"
+  },
+  {
+   "check": "TEV_FUNC",
+   "title": "Purge valve function",
+   "caption": "TEV",
+   "start": "START_SYSTEMCHECK_TEV_FUNC",
+   "keys": [
+    {
+     "fkey": 1,
+     "label": "Start",
+     "action": "start"
+    },
+    {
+     "fkey": 2,
+     "label": "Stop",
+     "action": "stop"
+    }
+   ],
+   "stop": "STOP_SYSTEMCHECK_TEV_FUNC",
+   "status": "STATUS_SYSTEMCHECK_TEV_FUNC"
+  }
+ ],
+ "coding": {
+  "job": "ECU_CONFIG",
+  "title": "ECU configuration",
+  "subtitle": "Options this ECU is coded for · filled = fitted",
+  "options": [
+   {
+    "key": "STAT_AT",
+    "label": "Automatic transmission",
+    "raw": "Automatik Getriebe"
+   },
+   {
+    "key": "STAT_AC",
+    "label": "Air conditioning",
+    "raw": "KlimaAnlage"
+   },
+   {
+    "key": "STAT_AMT",
+    "label": "SMG sequential gearbox",
+    "raw": "SMG Sequentielles Manuelles Getriebe"
+   },
+   {
+    "key": "STAT_ARS",
+    "label": "Roll stabilisation",
+    "raw": "Roll Stabilisierung"
+   },
+   {
+    "key": "STAT_ASR",
+    "label": "ASR traction control",
+    "raw": "ASR Anti Schlupf Regelung"
+   },
+   {
+    "key": "STAT_BN2000",
+    "label": "BN2000 electrical system",
+    "raw": "BordNetz 2000 vorhanden"
+   },
+   {
+    "key": "STAT_BN_MSW",
+    "label": "Multifunction wheel via CAN",
+    "raw": "Multifunktions Lenkrad über CAN vorhanden"
+   },
+   {
+    "key": "STAT_DCC",
+    "label": "Distance monitoring",
+    "raw": "Entfernungs-Überwachung vorhanden"
+   },
+   {
+    "key": "STAT_EBOX_CFA",
+    "label": "E-box fan",
+    "raw": "E-Box Lüfter vorhanden"
+   },
+   {
+    "key": "STAT_ETCU",
+    "label": "SMG/EGS control unit",
+    "raw": "SMG/EGS Steuergerät vorhanden"
+   },
+   {
+    "key": "STAT_ICL",
+    "label": "Instrument cluster via CAN",
+    "raw": "Kombi über CAN vorhanden"
+   },
+   {
+    "key": "STAT_MSW",
+    "label": "Multifunction steering wheel",
+    "raw": "MultiFunktionsLenkrad vorhanden"
+   },
+   {
+    "key": "STAT_PSTE",
+    "label": "Electric steering",
+    "raw": "elektrische Lenkung vorhanden"
+   },
+   {
+    "key": "STAT_SOF",
+    "label": "Sound flap",
+    "raw": "Soundklappe vorhanden"
+   },
+   {
+    "key": "STAT_SOF_SWI",
+    "label": "Sport button",
+    "raw": "Sport-Taster vorhanden"
+   },
+   {
+    "key": "STAT_ST",
+    "label": "Comfort start",
+    "raw": "Komfort-Start vorhanden"
+   },
+   {
+    "key": "STAT_TXU",
+    "label": "TXU all-wheel drive",
+    "raw": "TXU Allrad vorhanden"
+   },
+   {
+    "key": "STAT_VEH",
+    "label": "E65/E60 vehicle",
+    "raw": "E65/E60 Fahrzeug vorhanden"
+   },
+   {
+    "key": "SLP_VORHANDEN",
+    "label": "Secondary-air pump",
+    "raw": "Sekundär Luft Pumpe vorhanden"
+   },
+   {
+    "key": "STAT_EF",
+    "label": "Exhaust flap",
+    "raw": "Abgas-Klappe vorhanden"
+   },
+   {
+    "key": "STAT_ECRAS",
+    "label": "Radiator shutter",
+    "raw": "Kühler Jalousie vorhanden"
+   },
+   {
+    "key": "STAT_RLY_ACCOUT",
+    "label": "A/C relay",
+    "raw": "KlimaRelais vorhanden"
+   },
+   {
+    "key": "STAT_SAV",
+    "label": "Secondary-air valve",
+    "raw": "SecundaryAir Ventil vorhanden"
+   },
+   {
+    "key": "STAT_RLY_ST",
+    "label": "Starter relay",
+    "raw": "Starter Relais vorhanden"
+   },
+   {
+    "key": "STAT_ASR3",
+    "label": "ASR3 component",
+    "raw": "ASR3 Bauteil vorhanden"
+   }
+  ],
+  "reset": {
+   "job": "ECU_CONFIG_RESET",
+   "title": "Reset ECU configuration",
+   "write": true,
+   "targets": [
+    {
+     "label": "Transmission",
+     "code": "AT"
+    },
+    {
+     "label": "Air conditioning",
+     "code": "AC"
+    },
+    {
+     "label": "SL system",
+     "code": "SLP"
+    },
+    {
+     "label": "Steering wheel",
+     "code": "MSW"
+    },
+    {
+     "label": "E-BOX / ECRAS",
+     "code": "ECRAS"
+    },
+    {
+     "label": "ACC/ASR",
+     "code": "ASR"
+    }
+   ]
+  }
+ },
+ "identity": {
+  "title": "ID-data",
+  "subtitle": "ECU identity · read-only",
+  "jobs": [
+   "IDENT",
+   "SERIENNUMMER_LESEN",
+   "HARDWARE_REFERENZ_LESEN",
+   "DATEN_REFERENZ_LESEN",
+   "PRUEFCODE_LESEN"
+  ],
+  "fields": [
+   {
+    "key": "ID_BMW_NR",
+    "label": "BMW part number",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_HW_NR",
+    "label": "Hardware version",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_COD_INDEX",
+    "label": "Coding index",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_DIAG_INDEX",
+    "label": "Diagnosis index",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_VAR_INDEX",
+    "label": "Variant index",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_DATUM",
+    "label": "Manufacture date",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_LIEF_NR",
+    "label": "Supplier",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_LIEF_TEXT",
+    "label": "Supplier name",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_SW_NR_MCV",
+    "label": "Software (MCV)",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_SW_NR_FSV",
+    "label": "Software (FSV)",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_SW_NR_OSV",
+    "label": "Software (OSV)",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_SW_NR_RES",
+    "label": "Software (reserved)",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_SG_ADR",
+    "label": "ECU address",
+    "job": "IDENT"
+   },
+   {
+    "key": "ID_EWS_SS",
+    "label": "EWS interface",
+    "job": "IDENT"
+   },
+   {
+    "key": "SERIENNUMMER",
+    "label": "Serial number",
+    "job": "SERIENNUMMER_LESEN"
+   },
+   {
+    "key": "HARDWARE_REFERENZ",
+    "label": "Hardware reference",
+    "job": "HARDWARE_REFERENZ_LESEN"
+   },
+   {
+    "key": "DATEN_REFERENZ",
+    "label": "Data reference",
+    "job": "DATEN_REFERENZ_LESEN"
+   },
+   {
+    "key": "PRUEFCODE",
+    "label": "Test code",
+    "job": "PRUEFCODE_LESEN"
+   }
+  ]
+ }
 }

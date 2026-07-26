@@ -868,6 +868,31 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 /* INPA's own subtitle: these pages are I/O STATUS screens you can also drive
    from, so the readouts run live whether or not a key is pressed */
 .act-menu-sub { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 12px; }
+/* Identity: INPA's colon-aligned ID-data card */
+.ident-card { display: grid; gap: 1px; max-width: 620px; margin-top: 4px; }
+.ident-row {
+  display: grid; grid-template-columns: 210px 1fr; gap: 14px;
+  padding: 5px 0; align-items: baseline;
+}
+.ident-k { font-size: 12.5px; color: var(--ink-faint); }
+.ident-v { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+
+/* Coding: the ECU's option flags as lamps, filled when the option is fitted */
+.coding-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2px 24px; margin-top: 4px;
+}
+.coding-opt { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; }
+.coding-lamp { font-size: 13px; color: var(--ink-faint); width: 14px; flex: none; }
+.coding-opt.fitted .coding-lamp { color: var(--green); }
+.coding-name { font-size: 13px; color: var(--ink-dim); }
+.coding-opt.fitted .coding-name { color: var(--ink); }
+
+/* a system check's diagnosis line — INPA prints the routine's state here */
+.sc-state {
+  font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--cyan);
+  padding: 8px 0 10px; border-top: 1px solid var(--line); margin-top: 6px;
+}
 /* INPA prints its softkeys as a plain list, same shape as the Hauptmenue —
    the footer bar is what actually fires them, so these are just readable rows */
 /* Compact rows: INPA fits nine keys plus every readout on one screen, so these

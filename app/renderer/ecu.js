@@ -541,6 +541,35 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   const isActivations = sec.section === 'Activations';
   const selected = new Set();
 
+  // System check (INPA F9 "System"): the ECU's own START_/STOP_ diagnostic
+  // routines, which are a different shape from the actuator toggles above
+  const sysChecks = (layout && layout.systemChecks) || [];
+  if (sec.section === 'System Check' && sysChecks.length) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderSystemChecks(ecu, sysChecks, results, back);
+    return;
+  }
+
+  // Identity: INPA's ID-data card — part number, versions, build date
+  if (sec.section === 'Identity' && layout && layout.identity) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderIdentity(ecu, layout.identity, results, back);
+    return;
+  }
+
+  // Coding: the ECU's vehicle-option flags (ECU_CONFIG), drawn as lamps
+  if (sec.section === 'Coding' && layout && layout.coding) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderCoding(ecu, layout.coding, results, back);
+    return;
+  }
+
   // activations get a dedicated actuator-test panel (activations.js)
   if (isActivations) {
     // set the Back action first: showActivations is async and the INPA renderer
