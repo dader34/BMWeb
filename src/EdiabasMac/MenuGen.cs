@@ -240,8 +240,10 @@ public static class MenuGen
     // STEUERN_DIGITAL takes ORT ("gewuenschte Komponente", from a BITS table)
     // and EIN (1/0): firing it with no ORT tells the ECU nothing about what to
     // drive. The UI must not offer a button that looks like it works.
+    public sealed record ArgOption(string Value, string Label);
+    public sealed record ArgSpec(string Name, string Type, List<ArgOption> Options);
     public sealed record Activation(string Label, string Start, string Stop, bool Momentary,
-                                    bool Critical, List<string> Args, bool Runnable);
+                                    bool Critical, List<ArgSpec> Args, bool Runnable);
 
     // actuator start/stop conventions differ per DME generation: MS45 pairs
     // STEUERN_X with STEUERN_X_ENDE, MS42/MS43/ME9 use STEUERN_X_AUS, and some
@@ -287,7 +289,7 @@ public static class MenuGen
             result.Add(new Activation(Translate(job), job, stop,
                                       Momentary: stop == null && !toggleByArg,
                                       Critical: IsCritical(job),
-                                      Args: specs.Select(s => s.Name).ToList(),
+                                      Args: specs,
                                       Runnable: CanSupply(specs)));
         }
         return result;
@@ -295,21 +297,43 @@ public static class MenuGen
 
     // does the job declare a numeric (int/real) argument? read offline from the
     // SGBD's _ARGUMENTS schema.
+    // An argument documented "table BITS NAME TEXT": the legal values are the
+    // NAME column of the BITS table and TEXT is the human label. This is the
+    // SGBD's own convention, so it resolves for any ECU without per-ECU code.
+    private static readonly Regex TableRef =
+        new(@"\btable\s+(\w+)\s+(\w+)\s+(\w+)", RegexOptions.IgnoreCase);
+
     // Every argument the SGBD declares for a job, in declaration order, paired
-    // with its type so the caller can tell a drive value from a selector.
-    private static List<(string Name, string Type)> ArgSpecs(Diag diag, string job)
+    // with its type so the caller can tell a drive value from a selector, and
+    // with the option list when the argument names a lookup table.
+    private static List<ArgSpec> ArgSpecs(Diag diag, string job)
     {
-        var specs = new List<(string, string)>();
+        var specs = new List<ArgSpec>();
         try
         {
             foreach (var set in diag.Run("_ARGUMENTS", job))
             {
                 if (!(set.TryGetValue("ARG", out var a) && a.OpData is string arg)
                     || arg.Length == 0
-                    || specs.Any(s => string.Equals(s.Item1, arg, StringComparison.OrdinalIgnoreCase)))
+                    || specs.Any(s => string.Equals(s.Name, arg, StringComparison.OrdinalIgnoreCase)))
                     continue;
                 string type = set.TryGetValue("ARGTYPE", out var t) && t.OpData is string ts ? ts : "";
-                specs.Add((arg, type));
+
+                // the option list, when a comment names a table
+                var options = new List<ArgOption>();
+                for (int i = 0; i < 4; i++)
+                {
+                    if (!(set.TryGetValue("ARGCOMMENT" + i, out var c) && c.OpData is string comment))
+                        continue;
+                    var m = TableRef.Match(comment);
+                    if (!m.Success) continue;
+                    foreach (var row in diag.TableRows(m.Groups[1].Value))
+                        if (row.TryGetValue(m.Groups[2].Value, out var val) && val.Length > 0)
+                            options.Add(new ArgOption(val,
+                                row.TryGetValue(m.Groups[3].Value, out var lbl) ? lbl : val));
+                    break;
+                }
+                specs.Add(new ArgSpec(arg, type, options));
             }
         }
         catch { /* no schema: treat as argless */ }
@@ -323,11 +347,30 @@ public static class MenuGen
     // is a mode we do not know either. Those are listed but not runnable until
     // their arguments are mapped, rather than shown as a button that silently
     // sends an incomplete request to a real car.
-    private static bool CanSupply(List<(string Name, string Type)> args) =>
+    // What we can honestly put in front of the user:
+    //   nothing            a one-shot
+    //   one numeric value  the drive value (send it to start, 0 to stop)
+    //   a table-backed     the SGBD spells out the legal values, so the picker
+    //   selector           offers the real list — this is what makes
+    //                      STEUERN_DIGITAL (ORT from BITS + EIN) runnable
+    //
+    // A set of bare numeric parameters is NOT enough, even though each one is
+    // technically fillable: STEUERN_IO's IO_LOCAL_IDENTIFIER /
+    // IO_CONTROL_PARAMETER / IO_CONTROL_STATE are raw protocol values with no
+    // documented meaning, and prompting for three numbers invites a blind write
+    // to a real car. At least one argument must come from a table for a
+    // multi-argument job to qualify.
+    private static bool CanSupply(List<ArgSpec> args) =>
         args.Count == 0
-        || (args.Count == 1
-            && (args[0].Type.Contains("int", StringComparison.OrdinalIgnoreCase)
-                || args[0].Type.Contains("real", StringComparison.OrdinalIgnoreCase)));
+        || (args.Count == 1 && Fillable(args[0]))
+        || (args.All(Fillable) && args.Any(a => a.Options.Count > 0));
+
+    // an argument we can put a real value in front of the user for: a numeric
+    // drive value, or one whose legal values the SGBD spells out in a table
+    private static bool Fillable(ArgSpec a) =>
+        a.Options.Count > 0
+        || a.Type.Contains("int", StringComparison.OrdinalIgnoreCase)
+        || a.Type.Contains("real", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasNumericArg(Diag diag, string job)
     {

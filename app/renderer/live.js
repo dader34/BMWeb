@@ -44,7 +44,24 @@ function promptDialog({ title, body, placeholder = '', value = '' }) {
 async function fetchJobArgs(ecu, job) {
   try {
     const d = await api(`/api/ecu/${ecu.sgbd}/arguments/${encodeURIComponent(job)}`);
-    return (d.arguments || []).filter(a => a.ARG); // header row has no ARG
+    const specs = (d.arguments || []).filter(a => a.ARG); // header row has no ARG
+    // An argument documented "table BITS NAME TEXT" takes its legal values from
+    // that SGBD table: NAME is what to send, TEXT is the human label. This is
+    // the SGBD's own convention, so it resolves for any ECU — the caller gets a
+    // real component list instead of a free-text box it cannot fill correctly.
+    await Promise.all(specs.map(async (a) => {
+      const ref = Object.keys(a).filter(k => /^ARGCOMMENT\d+$/.test(k))
+        .map(k => /\btable\s+(\w+)\s+(\w+)\s+(\w+)/i.exec(a[k] || ''))
+        .find(Boolean);
+      if (!ref) return;
+      try {
+        const rows = await api(`/api/ecu/${ecu.sgbd}/table/${encodeURIComponent(ref[1])}`);
+        a._options = rows
+          .map(r => ({ value: r[ref[2]], label: r[ref[3]] || r[ref[2]] }))
+          .filter(o => o.value);
+      } catch { /* table unreadable: fall back to a free-text field */ }
+    }));
+    return specs;
   } catch { return []; }
 }
 
@@ -60,7 +77,9 @@ function argsDialog(job, argSpecs) {
       // enumerated values: ARGCOMMENT0/1/2 each a quoted token
       const enumVals = Object.keys(a).filter(k => /^ARGCOMMENT\d+$/.test(k))
         .map(k => a[k]).filter(v => /^'.*'$/.test(v)).map(v => v.replace(/^'|'$/g, ''));
-      const isEnum = enumVals.length >= 2 && (a.ARGTYPE === 'string');
+      // values the SGBD spelled out in a table beat guessing from comments
+      const tableOpts = a._options || [];
+      const isEnum = tableOpts.length > 0 || (enumVals.length >= 2 && a.ARGTYPE === 'string');
       const isBinary = a.ARGTYPE === 'binary';
       // arg name comes from the SGBD in German (ZEIT, DAUER); humanize + translate
       const argName = tr(humanizeKey(a.ARG));
@@ -68,8 +87,11 @@ function argsDialog(job, argSpecs) {
       let note = !isEnum && hint ? `<div class="arg-hint">${esc(hint)}</div>` : '';
       if (isBinary) note += `<div class="arg-warn">Binary argument: enter raw hex (e.g. <span class="mono">01 00 0A ...</span>). Must be a valid pre-built buffer for this job, or it may fail or harm the ECU.</div>`;
       const placeholder = isBinary ? 'hex bytes, e.g. 01 00 0A' : (a.ARGTYPE === 'int' ? '0' : '');
+      const optHtml = tableOpts.length
+        ? tableOpts.map(o => `<option value="${esc(o.value)}">${esc(tr(o.label))} (${esc(o.value)})</option>`).join('')
+        : enumVals.map(v => `<option>${esc(v)}</option>`).join('');
       const field = isEnum
-        ? `<select class="modal-input arg-field" data-i="${i}">${enumVals.map(v => `<option>${esc(v)}</option>`).join('')}</select>`
+        ? `<select class="modal-input arg-field" data-i="${i}">${optHtml}</select>`
         : `<input class="modal-input arg-field" data-i="${i}" data-binary="${isBinary ? 1 : 0}" type="text" placeholder="${placeholder}" />`;
       return `<div class="arg-row"><label class="arg-label">${label}</label>${field}${note}</div>`;
     }).join('');
