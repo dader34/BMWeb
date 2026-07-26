@@ -37,6 +37,30 @@ _TRIPLE = re.compile(rb"\x03(.)\x00\x06([\x20-\x7e\xa0-\xff]{1,28})\x0a\x03(.)\x
 RELEASE = 0xFF
 MIN_RUN = 3          # a real menu numbers at least three keys in order
 
+# The value table stores a step's MAGNITUDE only: "+10" and "-10" both read 10,
+# "+" and "--" both read 1. The sign is an opcode emitted after the label — the
+# minus keys negate the pushed value, the plus keys do not. Without this a CO or
+# idle adjustment would step the wrong way.
+_NEGATE = b"\x09\x6d"
+# far enough to clear the handler reference, which varies in length, but not so
+# far that the NEXT key's opcodes leak in — an ITEM is ~24 bytes apart
+_NEG_SCAN = 22
+
+
+def key_is_negative(data, item_end):
+    """True when this softkey subtracts rather than adds.
+
+    The negate opcode sits after the key's handler reference, whose length
+    varies, so this scans a short window rather than checking a fixed offset.
+    The window stops short of the next ITEM so a neighbouring minus key cannot
+    be mistaken for this one's sign.
+    """
+    window = data[item_end:item_end + _NEG_SCAN]
+    nxt = window.find(b"\x24\x0a\x00\x00")     # the next ITEM opcode
+    if nxt >= 0:
+        window = window[:nxt]
+    return _NEGATE in window
+
 
 def action_tables(data):
     """[{offset, items:[{fkey, label, value}]}] for every softkey value table."""
@@ -61,10 +85,29 @@ def action_tables(data):
     if len(run) >= MIN_RUN:
         tables.append(run)
 
-    return [{"offset": t[0]["start"],
-             "items": [{"fkey": r["fkey"], "label": r["label"], "value": r["value"],
-                        "release": r["value"] == RELEASE} for r in t]}
-            for t in tables]
+    # A key's sign lives on its ITEM opcode, not in the value table, so look it
+    # up by label. A label like "-10" appears once per menu, and the sign is a
+    # property of the caption itself ("-" always subtracts), so matching on the
+    # label is safe even when two menus share one.
+    import ipo_layout as _L
+    negative = {}
+    for m in _L._RE_ITEM.finditer(data):
+        lab = _L.fix_de(m.group(2).decode("latin-1")).strip()
+        if lab and key_is_negative(data, m.end()):
+            negative[lab] = True
+
+    out = []
+    for t in tables:
+        items = []
+        for r in t:
+            it = {"fkey": r["fkey"], "label": r["label"], "value": r["value"],
+                  "release": r["value"] == RELEASE}
+            if negative.get(r["label"]):
+                it["negative"] = True
+                it["value"] = -r["value"]     # the step really subtracts
+            items.append(it)
+        out.append({"offset": t[0]["start"], "items": items})
+    return out
 
 
 def main():
