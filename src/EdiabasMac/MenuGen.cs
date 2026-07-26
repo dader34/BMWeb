@@ -119,7 +119,7 @@ public static class MenuGen
         return null;
     }
 
-    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","AIF","Adaption","Service","Special","Programming","Other" };
+    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","AIF","Adaption","Service","Special","Other" };
     static readonly Regex Danger = new(@"FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN(?!\w*LESEN)|STELLGLIED", RegexOptions.IgnoreCase);
     // suffix verbs moved to front of label
     static readonly Dictionary<string,string> FrontVerb = new(StringComparer.OrdinalIgnoreCase)
@@ -136,7 +136,12 @@ public static class MenuGen
         // read jobs, not actuator tests
         if (j.StartsWith("STEUERN") && j.Contains("LESEN")) return "Status";
         if (j.StartsWith("STEUERN") || j.Contains("STELLGLIED") || j.Contains("AUSGAENGE_SCHALTEN")) return "Activations";
-        if (j.Contains("FLASH") || j.Contains("PROGRAMMIER") || j.Contains("AUTHENTISIERUNG") || j.Contains("SIGNATUR")) return "Programming";
+        // Flash/authentication jobs are deliberately NOT a menu section: INPA
+        // has no flash screen (MS450.IPO's only "FLASH" string is the EXT-FLASH
+        // memory REGION on the Speicher screen), and these are raw primitives
+        // that are only safe inside the seed/key sequence the Flashing tool
+        // drives. Listing them as buttons would offer erase/write out of order.
+        if (j.Contains("FLASH") || j.Contains("PROGRAMMIER") || j.Contains("AUTHENTISIERUNG") || j.Contains("SIGNATUR")) return null;
         // INPA has no generic "Other": every job lives in a named menu. split the
         // former catch-all into INPA's submenus (System-Check, Codierung, Ident,
         // Service-Funktionen, Sonderfunktionen).
@@ -301,7 +306,9 @@ public static class MenuGen
         foreach (var job in jobs)
         {
             if (System.Contains(job)) continue;
-            buckets[SectionFor(job)].Add(new MenuItem(job, Translate(job), Danger.IsMatch(job)));
+            string section = SectionFor(job);
+            if (section == null) continue;   // no INPA menu holds this job
+            buckets[section].Add(new MenuItem(job, Translate(job), Danger.IsMatch(job)));
         }
         return Order.Where(s => buckets[s].Count > 0)
                     .Select(s => new MenuSection(s, buckets[s])).ToList();
