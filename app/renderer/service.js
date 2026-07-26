@@ -116,6 +116,8 @@ async function showServiceRead(ecu, spec, container, onBack) {
     return;
   }
 
+  // same INPA/modern split every field card uses, plus the CBS bar
+  const inpa = inpaMode();
   const rows = spec.fields
     .filter(([key]) => vals.has(key))
     .map(([key, label, unitKey]) => {
@@ -126,10 +128,12 @@ async function showServiceRead(ecu, spec, container, onBack) {
       const bar = pct != null && /AVAI/.test(key)
         ? `<span class="svc-bar"><span class="svc-bar-fill" style="width:${pct}%"></span></span>`
         : '';
-      return `<div class="ident-row">
-                <span class="ident-k">${esc(label)}</span>
-                <span class="ident-v">${esc(deGerman(raw) || raw)}${esc(unit)}${bar}</span>
-              </div>`;
+      const val = `${esc(deGerman(raw) || raw)}${esc(unit)}${bar}`;
+      return inpa
+        ? `<div class="ident-line"><span class="ident-lk">${esc(label)}</span>`
+          + `<span class="ident-lc">:</span><span class="ident-lv">${val}</span></div>`
+        : `<div class="ident-row"><span class="ident-k">${esc(label)}</span>`
+          + `<span class="ident-v">${val}</span></div>`;
     })
     .join('');
   card.innerHTML = rows || `<div class="empty"><div>The ECU returned no data for this read.</div></div>`;

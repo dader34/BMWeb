@@ -901,10 +901,25 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 }
 .svc-bar-fill { display: block; height: 100%; background: var(--green); }
 
-/* Identity: INPA's colon-aligned ID-data card. Long cards (18 ID fields, the
-   CBS read) run past the F-key bar; the .view scrolls them, so the card itself
-   stays a plain grid rather than nesting a second scrollbar. */
+/* Identity: the ID-data card. Long cards (18 ID fields, the CBS read) run past
+   the F-key bar; the .view scrolls them, so the card itself stays a plain grid
+   rather than nesting a second scrollbar. */
 .ident-card { display: grid; gap: 1px; max-width: 620px; margin-top: 4px; }
+
+/* INPA mode draws the card as its own screen does: one monospace line per
+   field with the colons in a column ('BMWTeilenummer          :  0000000').
+   Not a restyle of the modern grid — the label column is fixed-width so the
+   colons align, which is the whole look. */
+.ident-line {
+  display: grid; grid-template-columns: 25ch 1ch 1fr; gap: 6px;
+  font-family: var(--mono); font-size: 12.5px; padding: 2px 0;
+}
+.ident-lk { color: var(--ink-faint); white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; }
+.ident-lc { color: var(--ink-faint); }
+.ident-lv { color: var(--ink); }
+/* a field the SGBD supplied that INPA's own screen does not show */
+.ident-extra .ident-lk, .ident-extra .ident-k { opacity: .72; }
 .ident-row {
   display: grid; grid-template-columns: 210px 1fr; gap: 14px;
   padding: 5px 0; align-items: baseline;

@@ -46,14 +46,8 @@ async function renderAif(ecu, aif, container, exit) {
 
   const draw = () => {
     const vals = new Map(Object.entries(recs[cur]).filter(([k]) => !k.startsWith('_')));
-    const rows = aif.fields
-      .filter(f => vals.has(f.key))
-      .map(f => `<div class="ident-row">
-                   <span class="ident-k">${esc(f.label)}</span>
-                   <span class="ident-v">${esc(vals.get(f.key))}</span>
-                 </div>`)
-      .join('');
-    card.innerHTML = rows
+    // identRows() carries the INPA/modern split for every field card
+    card.innerHTML = identRows(aif.fields.filter(f => vals.has(f.key)), vals)
       || `<div class="empty"><div>This record is empty.</div></div>`;
 
     // record selector on the softkeys, INPA's own captions. with a single
