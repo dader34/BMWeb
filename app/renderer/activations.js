@@ -41,6 +41,17 @@ function setActBtn(btn, on, momentary, act) {
   btn.className = 'btn act-btn ' + (on ? 'danger on' : 'primary');
 }
 
+// INPA's group captions are its own abbreviations (PW = Fensterheber/power
+// windows, WiWa = Wisch-Wasch). Spell them out rather than leaving codes on
+// screen; EDIABAS mode keeps INPA's own wording.
+const ACT_GROUP_LABEL = {
+  'PW': 'Windows', 'C.Lock': 'Central locking', 'Contact': 'Contacts',
+  'WiWa': 'Wipe / wash', 'A-Theft': 'Anti-theft', 'Mirror': 'Mirrors',
+  'Others': 'Other', 'Inputs': 'Inputs', 'Outputs': 'Outputs',
+};
+const actGroupLabel = (s) => (lang() === 'orig' ? s
+  : (ACT_GROUP_LABEL[s] || (typeof deGerman === 'function' && deGerman(s)) || s));
+
 // INPA's Activate screen: Inputs / Outputs, each a list of component groups
 // (PW, C.Lock, WiWa, A-Theft, Mirror, Others). Picking a group opens the
 // component picker filtered to it. This is INPA's structure, decoded from the
@@ -75,7 +86,7 @@ function renderActivateGroups(ecu, menus, acts, container, reopen, exit) {
   menus.forEach(menu => menu.groups.forEach(g => rows.push({ menu, g })));
 
   rows.forEach(({ menu, g }, i) => {
-    const label = `${menu.title} · ${g.label}`;
+    const label = `${actGroupLabel(menu.title)} · ${actGroupLabel(g.label)}`;
     if (inpa) {
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
@@ -99,7 +110,8 @@ function renderActivateGroups(ecu, menus, acts, container, reopen, exit) {
 
   const keys = rows.slice(0, 9).map(({ menu, g }, i) => ({
     key: String(i + 1), keyLabel: `F${i + 1}`,
-    label: `${menu.title} · ${g.label}`, fn: () => open(menu, g),
+    label: `${actGroupLabel(menu.title)} · ${actGroupLabel(g.label)}`,
+    fn: () => open(menu, g),
   }));
   if (exit) keys.push(exit);
   setActions(keys);
@@ -141,7 +153,7 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
   container.className = 'results-panel';
   container.innerHTML = `
     <div class="act-menu">
-      <div class="act-menu-title">${esc(menu.title)} · ${esc(group.label)}</div>
+      <div class="act-menu-title">${esc(actGroupLabel(menu.title))} · ${esc(actGroupLabel(group.label))}</div>
       <div class="act-menu-sub">${esc(act.start)}${group.filter ? ` · ${esc(group.filter)}` : ''}`
       + `${filtered ? '' : ' · group filter unknown, showing all components'}</div>
       <div class="${inpa ? 'act-key-list' : 'group-grid stagger'}" id="ac-list"></div>
@@ -156,7 +168,10 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
 
   // driving a component is a write: confirm naming the component, then send
   // "<component>;<on|off>" exactly as the SGBD's argument order declares.
-  const drive = async (opt, on) => {
+  // the group says which way this list drives: an EIN_ group switches on, an
+  // AUS_ group switches off. The component picks WHAT, the group picks WHICH WAY.
+  const on = (group.direction || 'ein').toLowerCase() !== 'aus';
+  const drive = async (opt) => {
     const label = `${deGerman(opt.label) || opt.label}`;
     const ok = await confirmDialog({
       title: `${on ? 'Switch on' : 'Switch off'} ${esc(label).toLowerCase()}?`,
@@ -179,58 +194,40 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
     }
   };
 
+  // Each component IS its own action: SFFA is the driver window switch UP,
+  // SFFZ the same switch DOWN, so the direction is already in the entry. An
+  // On/Off pair on top of that asks a question the component has answered —
+  // INPA just lists them. The row is the control.
   opts.forEach((o, i) => {
     const label = deGerman(o.label) || o.label;
     if (inpa) {
-      const row = document.createElement('div');
+      const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
       row.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
         + `<span class="inpa-fn-label">${esc(label)}</span>`
-        + `<span class="act-row-job">${esc(o.value)}</span>`
-        + `<span class="act-key-val"></span>`;
-      const cell = row.querySelector('.act-key-val');
-      if (state) {
-        const on = document.createElement('button');
-        on.className = 'btn act-btn primary'; on.textContent = 'On';
-        on.onclick = (e) => { e.stopPropagation(); drive(o, true); };
-        const off = document.createElement('button');
-        off.className = 'btn act-btn'; off.textContent = 'Off';
-        off.onclick = (e) => { e.stopPropagation(); drive(o, false); };
-        cell.append(on, off);
-      } else {
-        const run = document.createElement('button');
-        run.className = 'btn act-btn'; run.textContent = 'Run';
-        run.onclick = (e) => { e.stopPropagation(); drive(o, true); };
-        cell.appendChild(run);
-      }
+        + `<span class="act-key-val">${esc(o.value)}</span>`;
+      row.onclick = () => drive(o);
       list.appendChild(row);
       return;
     }
     const tile = document.createElement('div');
-    tile.className = 'act-card';
+    tile.className = 'group-tile';
     tile.innerHTML = `
-      <div class="act-info">
-        <div class="act-label">${esc(label)}</div>
-        <div class="act-jobs">${esc(o.value)}</div>
-      </div>`;
-    const btns = document.createElement('div');
-    if (state) {
-      const on = document.createElement('button');
-      on.className = 'btn act-btn primary'; on.textContent = 'On';
-      on.onclick = () => drive(o, true);
-      const off = document.createElement('button');
-      off.className = 'btn act-btn'; off.textContent = 'Off';
-      off.onclick = () => drive(o, false);
-      btns.append(on, off);
-    } else {
-      const run = document.createElement('button');
-      run.className = 'btn act-btn'; run.textContent = 'Run';
-      run.onclick = () => drive(o, true);
-      btns.appendChild(run);
-    }
-    tile.appendChild(btns);
+      <div class="group-name">${esc(label)}</div>
+      <div class="group-count">${esc(o.value)}</div>
+      <div class="group-arrow">→</div>`;
+    tile.onclick = () => drive(o);
     list.appendChild(tile);
   });
+
+  // footer F-keys fire the first nine, like INPA's softkey bar
+  setActions([
+    ...opts.slice(0, 9).map((o, i) => ({
+      key: String(i + 1), keyLabel: `F${i + 1}`,
+      label: deGerman(o.label) || o.label, fn: () => drive(o),
+    })),
+    back,
+  ]);
   if (!inpa) stagger(list, 20);
   sbLeft.textContent = `${opts.length} component${opts.length === 1 ? '' : 's'}`;
 }
