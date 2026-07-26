@@ -36,6 +36,17 @@ const FAULT_PHRASES = [
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
 const DE_TOKENS = [
+  // ---- INPA root-menu captions (tools/ipo_rootmenu.py) ----
+  // Whole captions, ahead of every word-level rule: "Fehlerspeicher" must not
+  // become "faultspeicher" and "Status lesen" must not become "Status Read".
+  [/^Fehlerspeicher$/i, 'Error memory'],
+  [/^Status lesen$/i, 'Read status'],
+  [/^Speicher lesen$/i, 'Read memory'],
+  [/^Identifikation$/i, 'Identification'],
+  [/^Codierung$/i, 'Coding'],
+  [/^Ansteuern$/i, 'Activate'],
+  [/^Informationen?$/i, 'Information'],
+
   // ---- job-name verbs/nouns (humanized SGBD job names, e.g. "Flash Crc Pruefen") ----
   [/\bPruefen\b|\bPrüfen\b/gi, 'Check'], [/\bLesen\b/gi, 'Read'],
   [/\bSchreiben\b/gi, 'Write'], [/\bSetzen\b/gi, 'Set'], [/\bLoeschen\b|\bLöschen\b/gi, 'Clear'],
@@ -43,6 +54,41 @@ const DE_TOKENS = [
   [/\bBlocklaenge\b|\bBlocklänge\b/gi, 'Block length'], [/\bZeiten\b/gi, 'Times'],
   // ---- job-argument dialog terms (from the SGBD _ARGUMENTS schema) ----
   [/Datum der SG-Programmierung/gi, 'date of ECU programming'],
+  // ---- SGBD result descriptions on the generated Service/Special/Other cards ----
+  // Full sentences first: these are whole ARGCOMMENT strings, and letting the
+  // single-word rules reach them first produces half-German hybrids.
+  [/Gibt das aktuelle gew(ä|ae)hlte Protokoll aus/gi, 'currently selected protocol'],
+  [/Anzahl der Diagnoseprotokolle/gi, 'number of diagnostic protocols'],
+  [/f(ü|ue)r Pr(ü|ue)fablauf Bandende/gi, 'for end-of-line test'],
+  [/Pr(ü|ue)fablauf Bandende/gi, 'end-of-line test'],
+  [/die letzten vier Stellen der/gi, 'last four digits of the'],
+  [/die letzten (\w+) Stellen/gi, 'last $1 digits'],
+  [/Index f(ü|ue)r Fehler(ort|art)/gi, 'fault location index'],
+  [/im Klartext/gi, 'in plain text'],
+  [/Alle m(ö|oe)glichen Diagnose-?Protokolle/gi, 'all available diagnostic protocols'],
+  [/(Ä|Ae)nderungsindex max\.? 2-?stellig ASCII inkl\.? Ziffern/gi,
+   'change index (max 2 chars, ASCII incl. digits)'],
+  [/aus dem Steuerger(ä|ae)t ausgelesene Daten im Format/gi, 'data read from the ECU, formatted'],
+  [/Fehlerdaten pro Fehler als Hexcode/gi, 'fault data per fault (hex)'],
+  [/Infodaten pro Fehler als Hexcode/gi, 'info data per entry (hex)'],
+  [/Index f(ü|ue)r Fehlerort/gi, 'fault location index'],
+  [/Index f(ü|ue)r Infoort/gi, 'info location index'],
+  [/Fehlerort als Text/gi, 'fault location'],
+  [/Infoort als Text/gi, 'info location'],
+  [/Fehlersymptom \(Standard-?Fehlerart\) als (Zahl|Text)/gi, 'fault symptom'],
+  [/Readyness Flag \(Standard-?Fehlerart\) als (Zahl|Text)/gi, 'readiness flag'],
+  [/Fehler vorhanden \(Standard-?Fehlerart\) als (Zahl|Text)/gi, 'fault present'],
+  [/Typ des Fehlerspeichers/gi, 'fault memory type'],
+  [/Anzahl der (Fehler|Infoarten|Umweltbedingungen)/gi, 'count'],
+  [/CBS-?Kennung als (Zahl|Hex-?String|Text)/gi, 'CBS identifier'],
+  [/Steuerger(ä|ae)teadresse als Hex-?String/gi, 'ECU address (hex)'],
+  [/Steuerger(ä|ae)teadresse im Klartext/gi, 'ECU address'],
+  [/Anzahl der CBS ?-? ?Umfaenge im Steuerger(ä|ae)t/gi, 'number of CBS items in the ECU'],
+  [/ISN als\s+WERT/gi, 'ISN value'],
+  [/ausgelesene Daten als ASCII Format/gi, 'data read (ASCII)'],
+  [/ausgelesene Daten/gi, 'data read'],
+  [/OKAY,? wenn fehlerfrei/gi, 'OKAY when no error'],
+
   // ---- flash/programming argument terms (Flash Parameter Set, AIF dialogs) ----
   [/Steuerger(ä|ae)te?-?adresse/gi, 'ECU address'],
   [/Steuerger(ä|ae)te?/gi, 'ECU'],

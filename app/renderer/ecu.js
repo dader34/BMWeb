@@ -231,23 +231,56 @@ function menuTreeToSections(layout, baseMenu) {
 
 // INPA ECU main menu ("Hauptmenue"): SGBD sub-line + function list with F-key bar.
 // each entry opens its section.
+// INPA root-menu caption -> the app section that serves it. The captions are
+// INPA's own (mined from the .IPO); the sections are ours.
+const ROOT_SECTION = [
+  [/^Information$/i, 'Identity'],
+  [/^Identification$|^Identifikation$/i, 'Identity'],
+  [/^Coding$|^Codierung$/i, 'Coding'],
+  [/^Error memory$|^Fehlerspeicher$/i, 'Faults'],
+  [/^Read status$|^Status lesen$/i, 'Status'],
+  [/^Activate$|^Ansteuern$/i, 'Activations'],
+  [/^Read memory$|^Speicher lesen$/i, 'Special'],
+];
+
 function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
   if (bar) bar.remove(); // INPA shows SGBD/addr inline, not as pills
   grid.className = 'inpa-haupt';
   const secs = menu.sections;
-  const row = (i, sec) => `
+  const has = (name) => secs.find(s => s.section === name);
+
+  // INPA's own root menu for this ECU, when the .IPO gave us one: its entries,
+  // with ITS F-key numbers. 343 of 458 ECUs leave gaps — an ECU without Coding
+  // keeps Error memory on F4 — so numbering a filtered list 1..n is wrong.
+  const root = (ecu._layout && ecu._layout.rootMenu) || [];
+  const entries = [];
+  root.forEach(it => {
+    const hit = ROOT_SECTION.find(([re]) => re.test(it.label));
+    const sec = hit && has(hit[1]);
+    if (!sec) return;                       // INPA lists it, we have nothing
+    if (entries.some(e => e.sec === sec)) return;   // Info+Ident both map to Identity
+    entries.push({ fkey: it.fkey, label: deGerman(it.label) || it.label, sec });
+  });
+
+  // no mined root menu: fall back to our own sections, numbered in order
+  const list = entries.length
+    ? entries
+    : secs.map((sec, i) => ({ fkey: i + 1, label: sectionLabel(sec.section), sec }));
+
+  const row = (i, e) => `
     <button class="inpa-fn" data-i="${i}">
-      <span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>
-      <span class="inpa-fn-label">${esc(sectionLabel(sec.section))}</span>
-      <span class="inpa-fn-count">${sec.items.length}</span>
+      <span class="inpa-fn-key">&lt; F${e.fkey} &gt;</span>
+      <span class="inpa-fn-label">${esc(e.label)}</span>
+      <span class="inpa-fn-count">${e.sec.items.length}</span>
     </button>`;
   grid.innerHTML = `
     <div class="inpa-haupt-sub">SGBD = ${esc(ecu.sgbd.toUpperCase())}</div>
-    <div class="inpa-haupt-list">${secs.map((s, i) => row(i, s)).join('')}</div>`;
+    <div class="inpa-haupt-list">${list.map((e, i) => row(i, e)).join('')}</div>`;
   grid.querySelectorAll('.inpa-fn').forEach(btn => {
-    const i = +btn.dataset.i;
-    btn.onclick = () => showEcuSection(chassisId, sectionName, ecu, menu, secs[i].section);
+    const e = list[+btn.dataset.i];
+    btn.onclick = () => showEcuSection(chassisId, sectionName, ecu, menu, e.sec.section);
   });
+  return list;
 }
 
 // ECU main menu: section categories on the F-key bar, each opens a sub-screen
@@ -309,11 +342,12 @@ async function showEcu(chassisId, sectionName, ecu) {
   document.getElementById('job-count').textContent = `${total} functions`;
 
   if (inpaMode()) {
-    renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar);
-    // F-keys mirror the section list
-    const acts = menu.sections.slice(0, 9).map((sec, i) => ({
-      key: String(i + 1), label: sectionLabel(sec.section),
-      fn: () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section),
+    const rootList = renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar);
+    // the softkey bar mirrors the list exactly, INPA's F-key numbers included:
+    // renumbering here would disagree with the screen it is labelling
+    const acts = rootList.slice(0, 9).map(e => ({
+      key: String(e.fkey), keyLabel: `F${e.fkey}`, label: e.label,
+      fn: () => showEcuSection(chassisId, sectionName, ecu, menu, e.sec.section),
     }));
     acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => backToModules(chassisId) });
     setActions(acts);
