@@ -38,6 +38,8 @@ OUT = L1.OUT
 SGBD_CACHE = os.path.join(OUT, "_sgbd.json")
 # INPA's own Activate grouping, where the .IPO declares one (tools/ipo_actmenus.py)
 ACTMENUS = os.path.join(OUT, "_actmenus.json")
+# each ECU's real INPA root menu, with ITS OWN F-key numbers (tools/ipo_rootmenu.py)
+ROOTMENUS = os.path.join(OUT, "_rootmenus.json")
 ECU_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "vendor", "EDIABAS", "Ecu")
 
@@ -224,6 +226,10 @@ def main():
         if os.path.exists(ACTMENUS):
             with open(ACTMENUS, encoding="utf-8") as f:
                 actmenus = json.load(f)
+        rootmenus = {}
+        if os.path.exists(ROOTMENUS):
+            with open(ROOTMENUS, encoding="utf-8") as f:
+                rootmenus = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -234,6 +240,12 @@ def main():
             out = {"ecu": ecu, "sgbd": r.get("sgbd"), "generated": True}
             # INPA's Activate groups (Inputs/Outputs -> PW, C.Lock, WiWa ...),
             # for the ECUs whose .IPO actually declares them
+            # INPA's own root menu for this ECU: which entries it has and the
+            # F-key each sits on. 343 of 458 ECUs leave gaps (no Coding means
+            # F3 is empty and Error memory stays on F4), so renumbering a
+            # filtered list gets the keys wrong.
+            if ecu in rootmenus:
+                out["rootMenu"] = rootmenus[ecu]["items"]
             if ecu in actmenus:
                 out["activateMenus"] = actmenus[ecu]["menus"]
                 # INPA's post-drive state readout ("Signal : EIN"), which is

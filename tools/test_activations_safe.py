@@ -42,7 +42,7 @@ GENERATED = os.path.join(HERE, "..", "data", "inpa-layouts", "generated")
 # decoded from the .IPO. It carries labels and filter tokens only -- no job, no
 # argument, nothing runnable. Picking a group still routes through the shared
 # confirm-and-send path, where the argument rules below apply.
-READ_ONLY_SCREENS = {"identity", "aif", "activateMenus", "activateState"}
+READ_ONLY_SCREENS = {"identity", "aif", "activateMenus", "activateState", "rootMenu"}
 
 # how many ECUs to check against the live engine (the whole corpus is slow and
 # the failure mode is systemic, not per-ECU)
