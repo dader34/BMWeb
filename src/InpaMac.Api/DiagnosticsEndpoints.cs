@@ -46,9 +46,26 @@ internal static class DiagnosticsEndpoints
                     // them. A test needing a component selector (STEUERN_DIGITAL
                     // takes ORT + EIN) is listed so the ECU's capability is
                     // visible, but must not be offered as a runnable button.
-                    args = a.Args, runnable = a.Runnable
+                    // each argument with its type and, when the SGBD names a
+                    // lookup table for it, the real list of legal values
+                    args = a.Args.Select(g => new
+                    {
+                        name = g.Name, type = g.Type,
+                        options = g.Options.Select(o => new { value = o.Value, label = o.Label }).ToList()
+                    }).ToList(),
+                    runnable = a.Runnable
                 }).ToList());
             }));
+
+        // SGBD lookup tables (offline). An actuator argument documented
+        // "table BITS NAME TEXT" takes its legal values from a table like
+        // this, so the UI can offer the real component list instead of a
+        // free-text box.
+        app.MapGet("/api/ecu/{sgbd}/tables", (string sgbd) =>
+            Offline(state, sgbd, diag => Results.Json(diag.Tables())));
+
+        app.MapGet("/api/ecu/{sgbd}/table/{table}", (string sgbd, string table) =>
+            Offline(state, sgbd, diag => Results.Json(diag.TableRows(table))));
 
         // English INPA-style grouped functional menu for an ECU (offline)
         app.MapGet("/api/ecu/{sgbd}/menu", (string sgbd) =>

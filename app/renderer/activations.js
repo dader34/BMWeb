@@ -21,6 +21,10 @@ function actLabel(a) {
 // real car, so the row stays visible (the capability is real) but is not
 // offered as a button.
 const actRunnable = (a) => a.runnable !== false;
+// argument names for a message, from the {name,type,options} specs
+const argNames = (a) => (a.args || []).map(g => (g && g.name) || g).join(' + ');
+// arguments the caller has to choose from a list the SGBD supplied
+const argChoices = (a) => (a.args || []).filter(g => g && (g.options || []).length);
 
 // activate/stop button caption + styling, shared by both layouts
 function setActBtn(btn, on, momentary, act) {
@@ -28,7 +32,7 @@ function setActBtn(btn, on, momentary, act) {
     btn.textContent = 'Needs input';
     btn.className = 'btn act-btn act-blocked';
     btn.disabled = true;
-    btn.title = `${act.start} needs ${(act.args || []).join(' + ')}; `
+    btn.title = `${act.start} needs ${argNames(act)}; `
               + 'not mapped yet, so it is not runnable here.';
     return;
   }
@@ -119,7 +123,7 @@ function renderActivationsInpa(ecu, acts, container) {
     if (activeTests.has(a.start)) row.classList.add('running');
     const run = actRunnable(a)
       ? () => toggleActivation(ecu, a, row, btn)
-      : () => { sbLeft.textContent = `${a.start} needs ${(a.args || []).join(' + ')}`; };
+      : () => { sbLeft.textContent = `${a.start} needs ${argNames(a)}`; };
     if (!actRunnable(a)) row.classList.add('act-blocked-card');
     row.onclick = run;
     fire.push(run);
@@ -494,7 +498,7 @@ async function toggleActivation(ecu, a, card, btn) {
   // supply, whatever called us. The UI blocks the button too, but this is the
   // one place every run path funnels through.
   if (!actRunnable(a)) {
-    sbLeft.textContent = `${a.start} needs ${(a.args || []).join(' + ')}`;
+    sbLeft.textContent = `${a.start} needs ${argNames(a)}`;
     return;
   }
   const running = activeTests.has(a.start);

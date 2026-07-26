@@ -122,11 +122,17 @@ def check_activation_args(base, failures):
                 continue
             runnable += 1
             args = a.get("args") or []
-            # a runnable test must need nothing, or one value we supply
-            if len(args) > 1:
+            # A runnable test needs nothing, one value we supply, or a set in
+            # which the SGBD spells out at least one argument's legal values
+            # (the ORT-from-BITS case). A pile of bare numbers does NOT qualify:
+            # STEUERN_IO's three raw protocol identifiers are fillable in the
+            # narrow sense and meaningless in practice, and prompting for them
+            # invites a blind write.
+            if len(args) > 1 and not any(g.get("options") for g in args):
                 offenders += 1
+                names = [g.get("name") for g in args]
                 failures.append(f"{sgbd}/{a['start']}: runnable with "
-                                f"{len(args)} args {args}")
+                                f"{len(args)} unguided args {names}")
     print(f"  activations {checked} checked across {min(len(names), SAMPLE)} "
           f"SGBDs, {runnable} runnable, {offenders} wrongly runnable")
 
