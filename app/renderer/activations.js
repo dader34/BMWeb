@@ -110,17 +110,129 @@ function renderActivateGroups(ecu, menus, acts, container, reopen, exit) {
 // argument. The picker itself is argsDialog, so the values are always the ones
 // the SGBD declared.
 async function showActivateGroup(ecu, act, menu, group, container, onBack) {
+  const inpa = inpaMode();
   const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: onBack };
   setActions([back]);
+
+  // the argument that names a component, and the one that says on/off
+  const comp = (act.args || []).find(g => (g.options || []).length);
+  const state = (act.args || []).find(g => g !== comp);
+
+  // INPA's group token narrows the list where the components carry it:
+  // EIN_zv/AUS_zv is central locking, and those parts are named TZV, KL30ZV,
+  // FZVSIG. Matching the stem keeps this generic — nothing here knows what
+  // "zv" means.
+  //
+  // It does NOT always work. Measured on ZKE5: the stem matches for 4 of 12
+  // groups (fh 23, zv 6, kontakt 9, dwa 3) and finds nothing for WiWa, Others
+  // or Mirror, whose parts are named WI1/SWA/WP with no shared token. The
+  // BYTE/ZELLE columns do not cluster by function either (wipe/wash spans
+  // bytes 1, 5, 9, 12), so the group->component mapping lives in INPA code we
+  // have not decoded. When the stem finds nothing we show the full list and
+  // SAY so, rather than silently presenting it as if it were the group.
+  const stem = (group.key || '').toLowerCase();
+  const all = comp ? comp.options : [];
+  const inGroup = stem
+    ? all.filter(o => `${o.value} ${o.label}`.toLowerCase().includes(stem))
+    : [];
+  const filtered = inGroup.length > 0;
+  const opts = filtered ? inGroup : all;
+
   container.className = 'results-panel';
   container.innerHTML = `
     <div class="act-menu">
       <div class="act-menu-title">${esc(menu.title)} · ${esc(group.label)}</div>
-      <div class="act-menu-sub">${esc(act.start)}${group.filter ? ` · ${esc(group.filter)}` : ''}</div>
-      <div class="empty"><div>Choose a component to drive.</div></div>
+      <div class="act-menu-sub">${esc(act.start)}${group.filter ? ` · ${esc(group.filter)}` : ''}`
+      + `${filtered ? '' : ' · group filter unknown, showing all components'}</div>
+      <div class="${inpa ? 'act-key-list' : 'group-grid stagger'}" id="ac-list"></div>
     </div>`;
-  // the confirm + send path is the shared one, so the safety rules apply
-  toggleActivation(ecu, act, container, container.querySelector('.act-menu'));
+  const list = container.querySelector('#ac-list');
+
+  if (!opts.length) {
+    list.innerHTML = `<div class="empty"><div>This ECU declares no component list for `
+      + `<span class="mono">${esc(act.start)}</span>.</div></div>`;
+    return;
+  }
+
+  // driving a component is a write: confirm naming the component, then send
+  // "<component>;<on|off>" exactly as the SGBD's argument order declares.
+  const drive = async (opt, on) => {
+    const label = `${deGerman(opt.label) || opt.label}`;
+    const ok = await confirmDialog({
+      title: `${on ? 'Switch on' : 'Switch off'} ${esc(label).toLowerCase()}?`,
+      body: `Drives <b>${esc(label)}</b> (<span class="mono">${esc(opt.value)}</span>) `
+          + `on <b>${esc(ecu.label)}</b> via <span class="mono">${esc(act.start)}</span>.`
+          + `<br><br>This moves a real component. It stays as set until you change `
+          + `it back or leave this screen.`,
+      confirmLabel: on ? 'Switch on' : 'Switch off', danger: true,
+    });
+    if (!ok) { sbLeft.textContent = 'cancelled'; return; }
+    const arg = state ? `${opt.value};${on ? 1 : 0}` : opt.value;
+    try {
+      await api(`/api/ecu/${ecu.sgbd}/run/${act.start}?arg=${encodeURIComponent(arg)}`,
+                { method: 'POST' });
+      sbLeft.textContent = `${act.start} ${arg} · sent`;
+    } catch (e) {
+      sbLeft.textContent = 'failed';
+      confirmDialog({ title: 'Activation failed', body: esc(e.message),
+                      confirmLabel: 'OK', cancelLabel: 'Close' });
+    }
+  };
+
+  opts.forEach((o, i) => {
+    const label = deGerman(o.label) || o.label;
+    if (inpa) {
+      const row = document.createElement('div');
+      row.className = 'inpa-fn act-key-row';
+      row.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
+        + `<span class="inpa-fn-label">${esc(label)}</span>`
+        + `<span class="act-row-job">${esc(o.value)}</span>`
+        + `<span class="act-key-val"></span>`;
+      const cell = row.querySelector('.act-key-val');
+      if (state) {
+        const on = document.createElement('button');
+        on.className = 'btn act-btn primary'; on.textContent = 'On';
+        on.onclick = (e) => { e.stopPropagation(); drive(o, true); };
+        const off = document.createElement('button');
+        off.className = 'btn act-btn'; off.textContent = 'Off';
+        off.onclick = (e) => { e.stopPropagation(); drive(o, false); };
+        cell.append(on, off);
+      } else {
+        const run = document.createElement('button');
+        run.className = 'btn act-btn'; run.textContent = 'Run';
+        run.onclick = (e) => { e.stopPropagation(); drive(o, true); };
+        cell.appendChild(run);
+      }
+      list.appendChild(row);
+      return;
+    }
+    const tile = document.createElement('div');
+    tile.className = 'act-card';
+    tile.innerHTML = `
+      <div class="act-info">
+        <div class="act-label">${esc(label)}</div>
+        <div class="act-jobs">${esc(o.value)}</div>
+      </div>`;
+    const btns = document.createElement('div');
+    if (state) {
+      const on = document.createElement('button');
+      on.className = 'btn act-btn primary'; on.textContent = 'On';
+      on.onclick = () => drive(o, true);
+      const off = document.createElement('button');
+      off.className = 'btn act-btn'; off.textContent = 'Off';
+      off.onclick = () => drive(o, false);
+      btns.append(on, off);
+    } else {
+      const run = document.createElement('button');
+      run.className = 'btn act-btn'; run.textContent = 'Run';
+      run.onclick = () => drive(o, true);
+      btns.appendChild(run);
+    }
+    tile.appendChild(btns);
+    list.appendChild(tile);
+  });
+  if (!inpa) stagger(list, 20);
+  sbLeft.textContent = `${opts.length} component${opts.length === 1 ? '' : 's'}`;
 }
 
 async function showActivations(ecu, sec, container, exitAction) {
