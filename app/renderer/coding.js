@@ -5,6 +5,42 @@
 // lamps, filled when fitted, which is what this reproduces. Reading is safe;
 // ECU_CONFIG_RESET clears a subsystem's configuration and is confirmed.
 
+// INPA's Coding screen mined from an .IPO is a labelled READ -- one job, a
+// caption per row (ZKE5: COD_LESEN -> "Coding", "Block 0") -- not the ECU_CONFIG
+// option lamps below. Same shape as the Ident card, so it renders as one.
+async function renderCodingRead(ecu, coding, container, exit) {
+  container.className = 'results-panel';
+  container.innerHTML = `
+    <div class="act-menu">
+      <div class="act-menu-title">${esc(coding.title)}</div>
+      <div class="act-menu-sub mono">${esc(coding.job)}</div>
+      <div class="ident-card" id="cod-card">
+        <div class="empty"><span class="loader"></span><span>Reading coding data…</span></div>
+      </div>
+    </div>`;
+  const card = container.querySelector('#cod-card');
+
+  const acts = [{ key: '1', keyLabel: 'F1', label: 'Re-read',
+                  fn: () => renderCodingRead(ecu, coding, container, exit) }];
+  if (exit) acts.push(exit);
+  setActions(acts);
+
+  let vals;
+  try {
+    const d = await api(`/api/ecu/${ecu.sgbd}/run/${coding.job}`, { method: 'POST' });
+    vals = new Map(flatResults(d.sets));
+  } catch (e) {
+    card.innerHTML = errorBlock(e.message);
+    sbLeft.textContent = 'failed';
+    return;
+  }
+
+  const shown = coding.fields.filter(f => vals.has(f.key));
+  card.innerHTML = identRows(shown, vals)
+    || `<div class="empty"><div>The ECU returned no coding data.</div></div>`;
+  sbLeft.textContent = `${coding.job} · ${shown.length} field${shown.length === 1 ? '' : 's'}`;
+}
+
 function renderCoding(ecu, coding, container, exit) {
   const inpa = inpaMode();
   container.className = 'results-panel';
