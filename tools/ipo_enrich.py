@@ -136,6 +136,35 @@ def enrich(rec, harvested):
     return r
 
 
+# ---------------------------------------------------------------------------
+# adapters: emit exactly the shape identity.js / aif.js already consume, so a
+# generated ECU needs no renderer changes at all.
+# ---------------------------------------------------------------------------
+
+def as_identity(screen):
+    """{title, subtitle, jobs[], fields[{key,label,extra}]} — identity.js."""
+    fields = [{"key": f["key"], "label": f["label"], "source": f["source"],
+               **({"extra": True} if f.get("extra") else {})}
+              for f in screen["fields"]]
+    jobs, seen = [], set()
+    for f in screen["fields"]:
+        j = f.get("job")
+        if j and j not in seen:
+            seen.add(j)
+            jobs.append(j)
+    return {"title": "ID-data", "subtitle": "ECU identity · read-only",
+            "jobs": jobs or ["IDENT"], "fields": fields}
+
+
+def as_aif(screen):
+    """{title, subtitle, job, records, fields[]} — aif.js."""
+    fields = [{"key": f["key"], "label": f["label"], "source": f["source"],
+               **({"extra": True} if f.get("extra") else {})}
+              for f in screen["fields"]]
+    return {"title": "User information", "subtitle": "AIF · programming history",
+            "job": "AIF_LESEN", "records": 15, "fields": fields}
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     write = "--write" in sys.argv
@@ -185,6 +214,27 @@ def main():
         with open(dest, "w", encoding="utf-8") as f:
             json.dump(results, f, ensure_ascii=False)
         print(f"\nwrote {len(results)} ECUs -> {os.path.relpath(dest)}")
+
+        # ...and one file per ECU, in the shape the app's layout endpoint
+        # serves. The combined file is for analysis; the app must not load
+        # 30 MB to render one screen.
+        gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
+        os.makedirs(gen, exist_ok=True)
+        n = 0
+        for ecu, r in results.items():
+            screens = {s["screen"]: s for s in r["screens"]}
+            if not screens:
+                continue
+            out = {"ecu": ecu, "sgbd": r.get("sgbd"), "generated": True}
+            if "identity" in screens:
+                out["identity"] = as_identity(screens["identity"])
+            if "aif" in screens:
+                out["aif"] = as_aif(screens["aif"])
+            with open(os.path.join(gen, ecu + ".json"), "w",
+                      encoding="utf-8") as f:
+                json.dump(out, f, ensure_ascii=False, indent=1)
+            n += 1
+        print(f"wrote {n} per-ECU layouts -> {os.path.relpath(gen)}")
     return 0
 
 

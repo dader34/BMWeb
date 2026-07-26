@@ -60,6 +60,25 @@ internal static class ConfigEndpoints
                         if (file != null) break;
                     }
             }
+            // then the auto-generated screens (tools/ipo_enrich.py): INPA's own
+            // captions decoded from the .IPO, joined with the SGBD's job
+            // schemas. Hand-enriched layouts above always win — this only fills
+            // in ECUs nobody has gone through by hand yet.
+            if (file == null)
+            {
+                file = (code != null
+                            ? FindLayoutFile(state.GeneratedLayoutDir, code)
+                            : null)
+                       ?? FindLayoutFile(state.GeneratedLayoutDir, sgbd);
+                if (file == null)
+                    foreach (var suf in new[] { "ds0", "ds2", "ds1", "_n", "ds" })
+                        if (sgbd.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
+                        {
+                            file = FindLayoutFile(state.GeneratedLayoutDir,
+                                                  sgbd[..^suf.Length]);
+                            if (file != null) break;
+                        }
+            }
             if (file == null)
             {
                 // no mined layout: synthesize one from the SGBD itself (.prg
@@ -86,12 +105,69 @@ internal static class ConfigEndpoints
             }
             try
             {
-                // serve verbatim, already in the renderer's shape
+                // already in the renderer's shape. If this is a hand-built
+                // layout, fold in any generated section it does not define:
+                // most hand files were mined for gauges and carry no identity
+                // block, and serving them verbatim would drop a screen we can
+                // otherwise show. Hand-built sections are never overwritten.
                 var json = File.ReadAllText(file);
+                if (!file.StartsWith(state.GeneratedLayoutDir, StringComparison.Ordinal))
+                    json = MergeGeneratedSections(state, json, sgbd, code);
                 return Results.Content(json, "application/json");
             }
             catch (Exception ex) { return Results.NotFound(new { error = ex.Message }); }
         });
+    }
+
+    // sections the generator produces; each is filled in only when the
+    // hand-built layout has nothing for it.
+    private static readonly string[] GeneratedSections = { "identity", "aif" };
+
+    // Fold generated sections into a hand-built layout without touching what
+    // the hand-built file already defines.
+    private static string MergeGeneratedSections(ServerState state, string handJson,
+                                                 string sgbd, string? code)
+    {
+        string? gen = (code != null ? FindLayoutFile(state.GeneratedLayoutDir, code) : null)
+                      ?? FindLayoutFile(state.GeneratedLayoutDir, sgbd);
+        if (gen == null)
+            foreach (var suf in new[] { "ds0", "ds2", "ds1", "_n", "ds" })
+                if (sgbd.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
+                {
+                    gen = FindLayoutFile(state.GeneratedLayoutDir, sgbd[..^suf.Length]);
+                    if (gen != null) break;
+                }
+        if (gen == null) return handJson;
+
+        try
+        {
+            using var handDoc = System.Text.Json.JsonDocument.Parse(handJson);
+            using var genDoc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(gen));
+            if (handDoc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                return handJson;
+
+            var missing = GeneratedSections
+                .Where(s => !handDoc.RootElement.TryGetProperty(s, out _)
+                            && genDoc.RootElement.TryGetProperty(s, out _))
+                .ToList();
+            if (missing.Count == 0) return handJson;
+
+            using var buf = new MemoryStream();
+            using (var w = new System.Text.Json.Utf8JsonWriter(buf))
+            {
+                w.WriteStartObject();
+                foreach (var p in handDoc.RootElement.EnumerateObject())
+                    p.WriteTo(w);
+                foreach (var s in missing)
+                {
+                    w.WritePropertyName(s);
+                    genDoc.RootElement.GetProperty(s).WriteTo(w);
+                }
+                w.WriteEndObject();
+            }
+            return System.Text.Encoding.UTF8.GetString(buf.ToArray());
+        }
+        catch { return handJson; }   // malformed either side: serve the hand file
     }
 
     // find an enriched layout file for an SGBD, base name matched case-insensitively
