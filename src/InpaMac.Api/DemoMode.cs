@@ -62,6 +62,16 @@ internal static class DemoMode
     public static List<Dictionary<string, string>> Sets(ServerState state, string sgbd, string job,
                                                        string arg = null)
     {
+        // A fabricated FAULT is worse than a fabricated gauge reading: it names a
+        // component, a mileage and a frequency, and reads exactly like a real DTC
+        // the car is reporting. Demo answers fault jobs with a CLEAN memory
+        // instead — the honest thing to show when there is no car attached.
+        if (job.StartsWith("FS_", StringComparison.OrdinalIgnoreCase))
+            return new List<Dictionary<string, string>>
+            {
+                new() { ["JOB_STATUS"] = "OKAY", ["F_ANZAHL"] = "0" },
+            };
+
         var row = new Dictionary<string, string> { ["JOB_STATUS"] = "OKAY" };
         try
         {

@@ -227,9 +227,16 @@ function indexLabelText(spec) {
   if (lang() === 'orig') return raw;
   return INDEX_LABELS[raw] || spec.title || raw;
 }
-function keyLabelText(label) {
+// A step key's caption only shows how MANY signs ("+ +", "-- --"), never the
+// amount. The size is in the decoded value, so say it: "+10" rather than "+ +".
+// INPA writes repeated steps with spaces ("+ +", "-- --"), so allow them
+const STEP_KEY = /^[+\-][\s+\-]*$/;
+function keyLabelText(label, value) {
   if (lang() === 'orig') return label;
   const s = String(label || '').trim();
+  if (STEP_KEY.test(s) && typeof value === 'number' && value !== 0) {
+    return `${value > 0 ? '+' : '−'}${Math.abs(value)}`;
+  }
   if (KEY_WHOLE[s]) return KEY_WHOLE[s];
   if (KEY_STATE[s]) return KEY_STATE[s];
   // "<prefix> <state>", e.g. "P EIN" / "E 15%" / "V FREI"
@@ -325,10 +332,10 @@ async function showActionMenu(ecu, spec, container, onBack) {
     // a permanent write always asks first; a commit key spells out what it does
     if (write || k.commit) {
       const ok = await confirmDialog({
-        title: k.commit ? `Program ${esc(spec.title)}?` : `${esc(spec.title)}: ${esc(keyLabelText(k.label))}`,
+        title: k.commit ? `Program ${esc(spec.title)}?` : `${esc(spec.title)}: ${esc(keyLabelText(k.label, k.value))}`,
         body: k.commit
           ? `This writes the adjusted value into <b>${esc(ecu.label)}</b> permanently. It changes how the engine runs and cannot be undone from here.`
-          : `Sends <b>${esc(keyLabelText(k.label))}</b> (value ${k.value}) to <b>${esc(ecu.label)}</b> via <span class="mono">${esc(job)}</span>. This changes stored ECU data.`,
+          : `Sends <b>${esc(keyLabelText(k.label, k.value))}</b> (value ${k.value}) to <b>${esc(ecu.label)}</b> via <span class="mono">${esc(job)}</span>. This changes stored ECU data.`,
         confirmLabel: k.commit ? 'Program' : 'Send',
         danger: true,
       });
@@ -359,15 +366,18 @@ async function showActionMenu(ecu, spec, container, onBack) {
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row' + (k.commit ? ' danger' : '');
       row.innerHTML = `<span class="inpa-fn-key">&lt; F${k.fkey} &gt;</span>`
-        + `<span class="inpa-fn-label">${esc(keyLabelText(k.label))}</span>`
-        + `<span class="act-key-val">${k.release ? 'to DME' : k.value}</span>`;
+        + `<span class="inpa-fn-label">${esc(keyLabelText(k.label, k.value))}</span>`
+        // a step key's label already reads "+10", so show INPA's own caption
+        // here instead of repeating the number
+        + `<span class="act-key-val">${esc(k.release ? 'to DME'
+            : (STEP_KEY.test(String(k.label).trim()) ? k.label : String(k.value)))}</span>`;
       row.onclick = () => send(k);
       keysEl.appendChild(row);
     });
   }
 
   const acts = spec.keys.slice(0, 9).map((k, i) => ({
-    key: String(i + 1), keyLabel: `F${k.fkey}`, label: keyLabelText(k.label),
+    key: String(i + 1), keyLabel: `F${k.fkey}`, label: keyLabelText(k.label, k.value),
     kind: k.commit ? 'danger' : undefined, fn: () => send(k),
   }));
   acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: onBack });
