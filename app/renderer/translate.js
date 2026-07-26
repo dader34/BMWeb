@@ -57,6 +57,33 @@ const DE_TOKENS = [
   // "Aif" mid-prose expands; the uppercase acronym is INPA's own name for the
   // screen (root key F3) and stays as written, like any other proper name
   [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/g, 'info field'],
+  // ---- identity-card labels from SGBD result descriptions ----
+  // These come from the generated screens (tools/ipo_enrich.py), where a field
+  // INPA does not caption falls back to the SGBD's own German description.
+  // Compound nouns first: "Lieferanten-Nummer" must not become the hybrid
+  // "Lieferanten-number" by matching the bare Nummer rule below.
+  [/Herstelldatum\s*KW/gi, 'manufacture date (week)'],
+  [/Herstelldatum\s*Jahr/gi, 'manufacture date (year)'],
+  [/Herstelldatum\s*Monat/gi, 'manufacture date (month)'],
+  [/Herstelldatum\s*Tag/gi, 'manufacture date (day)'],
+  [/Herstelldatum/gi, 'manufacture date'],
+  [/Lieferanten-?\s*Nummer/gi, 'supplier number'],
+  [/Lieferanten-?\s*Text/gi, 'supplier'],
+  [/Identifikation\s+EWS-?Schnittstelle/gi, 'EWS interface identification'],
+  [/Schnittstelle/gi, 'interface'],
+  [/Diagnose-?index/gi, 'diagnostic index'],
+  [/Codier-?index/gi, 'coding index'],
+  [/Bus-?index/gi, 'bus index'],
+  [/BMW-?Hardwarenummer/gi, 'BMW hardware number'],
+  [/BMW-?Teilenummer/gi, 'BMW part number'],
+  [/BMW-?Einkaufsnummer/gi, 'BMW purchasing number'],
+  [/Urspr(ü|ue)nglich/gi, 'originally'],
+  [/Pruefplannummer|Pr(ü|ue)fplannummer/gi, 'test plan number'],
+  [/Programmstandsnummer/gi, 'program version number'],
+  [/Kilometerstand|km-?Stand/gi, 'mileage'],
+  [/Varianten-?Index/gi, 'variant index'],
+  [/Variante des Grundmoduls/gi, 'base module variant'],
+  [/Datensatz/gi, 'dataset'],
   [/Zusammenbaunummer/gi, 'assembly number'],
   [/Datensatznummer/gi, 'dataset number'], [/Softwarenummer/gi, 'software number'],
   [/Behoerdennummer|Behördennummer/gi, 'authority number'],

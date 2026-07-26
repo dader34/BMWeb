@@ -15,15 +15,18 @@ function identRows(fields, vals) {
   return fields.map(f => {
     const raw = vals.get(f.key);
     const val = esc(deGerman(raw) || raw);
+    // generated screens fall back to the SGBD's own German result description
+    // when INPA has no caption for a field, so labels get translated too
+    const label = esc(deGerman(f.label) || f.label);
     // a field the SGBD contributed but INPA's own screen does not show
     const extra = f.extra ? ' ident-extra' : '';
     return inpa
       ? `<div class="ident-line${extra}">`
-        + `<span class="ident-lk">${esc(f.label)}</span>`
+        + `<span class="ident-lk">${label}</span>`
         + `<span class="ident-lc">:</span>`
         + `<span class="ident-lv">${val}</span></div>`
       : `<div class="ident-row${extra}">`
-        + `<span class="ident-k">${esc(f.label)}</span>`
+        + `<span class="ident-k">${label}</span>`
         + `<span class="ident-v">${val}</span></div>`;
   }).join('');
 }
