@@ -65,6 +65,34 @@ async function fetchJobArgs(ecu, job) {
   } catch { return []; }
 }
 
+// group table-backed options by the first word of their label, the way INPA
+// groups its Activate screen. Groups of one collapse into an "Other" bucket so
+// the list does not become a run of single-item headings.
+function optGroupHtml(options, tr) {
+  const groups = new Map();
+  options.forEach(o => {
+    const label = tr(o.label) || o.value;
+    const key = String(label).split(/[\s\-,/]+/)[0] || 'Other';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({ ...o, label });
+  });
+  const big = [...groups.entries()].filter(([, v]) => v.length > 1);
+  const small = [...groups.entries()].filter(([, v]) => v.length === 1)
+    .flatMap(([, v]) => v);
+  const opt = (o) => `<option value="${esc(o.value)}">`
+    + `${esc(o.label)} (${esc(o.value)})</option>`;
+  const parts = big
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([name, items]) =>
+      `<optgroup label="${esc(name)}">${items.map(opt).join('')}</optgroup>`);
+  if (small.length) {
+    parts.push(`<optgroup label="Other">`
+      + small.sort((a, b) => a.label.localeCompare(b.label)).map(opt).join('')
+      + `</optgroup>`);
+  }
+  return parts.join('');
+}
+
 // multi-field argument dialog built from the _ARGUMENTS schema. one input per arg,
 // the German ARGCOMMENT as a hint, and a <select> when comments enumerate values
 // (ARGCOMMENT0/1 like 'Programm'/'Daten'). resolves to the ';'-joined arg string
@@ -87,8 +115,13 @@ function argsDialog(job, argSpecs) {
       let note = !isEnum && hint ? `<div class="arg-hint">${esc(hint)}</div>` : '';
       if (isBinary) note += `<div class="arg-warn">Binary argument: enter raw hex (e.g. <span class="mono">01 00 0A ...</span>). Must be a valid pre-built buffer for this job, or it may fail or harm the ECU.</div>`;
       const placeholder = isBinary ? 'hex bytes, e.g. 01 00 0A' : (a.ARGTYPE === 'int' ? '0' : '');
+      // INPA groups this list rather than showing one flat run of components
+      // (its Activate screen splits into PW / C.Lock / WiWa / A-Theft /
+      // Others). The label's leading noun is the same grouping the ECU's own
+      // wording implies — Schalter, Motor, Tuerkontakt — so <optgroup> on that
+      // reproduces the shape without inventing a taxonomy.
       const optHtml = tableOpts.length
-        ? tableOpts.map(o => `<option value="${esc(o.value)}">${esc(tr(o.label))} (${esc(o.value)})</option>`).join('')
+        ? optGroupHtml(tableOpts, tr)
         : enumVals.map(v => `<option>${esc(v)}</option>`).join('');
       const field = isEnum
         ? `<select class="modal-input arg-field" data-i="${i}">${optHtml}</select>`
