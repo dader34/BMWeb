@@ -118,6 +118,10 @@ function renderActivateGroups(ecu, menus, acts, container, reopen, exit) {
   }));
   if (exit) keys.push(exit);
   setActions(keys);
+  // the header counted STEUERN_* jobs; this screen shows INPA's groups
+  if (typeof setSectionCount === 'function') {
+    setSectionCount(`${rows.length} group${rows.length === 1 ? '' : 's'}`);
+  }
   sbLeft.textContent = `${rows.length} groups`;
 }
 
@@ -272,6 +276,9 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
   keys.push(back);
   setActions(keys);
   if (!inpa) stagger(list, 20);
+  if (typeof setSectionCount === 'function') {
+    setSectionCount(`${opts.length} component${opts.length === 1 ? '' : 's'}`);
+  }
   sbLeft.textContent = `${opts.length} component${opts.length === 1 ? '' : 's'}`;
 }
 

@@ -40,6 +40,8 @@ SGBD_CACHE = os.path.join(OUT, "_sgbd.json")
 ACTMENUS = os.path.join(OUT, "_actmenus.json")
 # each ECU's real INPA root menu, with ITS OWN F-key numbers (tools/ipo_rootmenu.py)
 ROOTMENUS = os.path.join(OUT, "_rootmenus.json")
+# INPA's Coding screen (root F3), where the .IPO describes one
+CODING = os.path.join(OUT, "_coding.json")
 ECU_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "vendor", "EDIABAS", "Ecu")
 
@@ -230,6 +232,10 @@ def main():
         if os.path.exists(ROOTMENUS):
             with open(ROOTMENUS, encoding="utf-8") as f:
                 rootmenus = json.load(f)
+        codings = {}
+        if os.path.exists(CODING):
+            with open(CODING, encoding="utf-8") as f:
+                codings = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -246,6 +252,9 @@ def main():
             # filtered list gets the keys wrong.
             if ecu in rootmenus:
                 out["rootMenu"] = rootmenus[ecu]["items"]
+            # INPA's Coding screen: a labelled read, its own job per ECU
+            if ecu in codings:
+                out["coding"] = codings[ecu]
             if ecu in actmenus:
                 out["activateMenus"] = actmenus[ecu]["menus"]
                 # INPA's post-drive state readout ("Signal : EIN"), which is

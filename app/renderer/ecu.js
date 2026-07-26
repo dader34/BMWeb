@@ -107,6 +107,27 @@ function mergeLayoutIntoMenu(menu, layout) {
 }
 
 
+// How many entries a section will actually put on screen. Usually that is the
+// job count, but a section whose screen reorganises those jobs must say what
+// the screen shows: Activations renders INPA's component groups (12 on ZKE5),
+// not the two STEUERN_* jobs that drive them, and "2" over a list of twelve is
+// simply wrong wherever it appears.
+function sectionCount(ecu, sec) {
+  if (sec.section === 'Activations') {
+    const menus = (ecu._layout && ecu._layout.activateMenus) || [];
+    const groups = menus.reduce((n, m) => n + (m.groups || []).length, 0);
+    if (groups) return groups;
+  }
+  return sec.items.length;
+}
+
+// correct the section header's subtitle once a screen knows what it is really
+// showing. `head()` writes it from the job count before any renderer has run.
+function setSectionCount(text) {
+  const el = document.querySelector('.view .screen-head .subtitle');
+  if (el) el.textContent = text;
+}
+
 // section display label: translate + capitalize ("Fehler" -> "Fault")
 function sectionLabel(name) {
   const t = deGerman(name) || name;
@@ -271,7 +292,7 @@ function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
     <button class="inpa-fn" data-i="${i}">
       <span class="inpa-fn-key">&lt; F${e.fkey} &gt;</span>
       <span class="inpa-fn-label">${esc(e.label)}</span>
-      <span class="inpa-fn-count">${e.sec.items.length}</span>
+      <span class="inpa-fn-count">${sectionCount(ecu, e.sec)}</span>
     </button>`;
   grid.innerHTML = `
     <div class="inpa-haupt-sub">SGBD = ${esc(ecu.sgbd.toUpperCase())}</div>
@@ -360,7 +381,7 @@ async function showEcu(chassisId, sectionName, ecu) {
     tile.className = 'group-tile';
     tile.innerHTML = `
       <div class="group-name">${esc(sectionLabel(sec.section))}</div>
-      <div class="group-count">${sec.items.length} function${sec.items.length === 1 ? '' : 's'}</div>
+      <div class="group-count">${sectionCount(ecu, sec)} function${sectionCount(ecu, sec) === 1 ? '' : 's'}</div>
       <div class="group-arrow">→</div>`;
     tile.onclick = () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section);
     grid.appendChild(tile);
@@ -592,8 +613,13 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     { label: sectionLabel(sec.section) },
   ]);
   sbLeft.textContent = `${ecu.sgbd}.prg`;
+  // the subtitle starts as the raw job count, but a screen that reorganises
+  // those jobs into something else (Activations shows INPA's component groups,
+  // not STEUERN_* job names) corrects it via setSectionCount — otherwise the
+  // header says "2 functions" over a list of twelve.
+  const shown = sectionCount(ecu, sec);
   view.innerHTML = head(`${ecu.label} · ${ecu.code}`, sectionLabel(sec.section),
-    `${sec.items.length} function${sec.items.length === 1 ? '' : 's'}`);
+    `${shown} function${shown === 1 ? '' : 's'}`);
 
   const results = document.createElement('div');
   results.className = 'results-panel';
@@ -695,6 +721,17 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   }
 
   // Coding: the ECU's vehicle-option flags (ECU_CONFIG), drawn as lamps
+  // INPA's mined Coding screen is a labelled read (it has `fields`); the
+  // hand-built one is the ECU_CONFIG option lamps (it has `options`).
+  if (sec.section === 'Coding' && layout && layout.coding
+      && Array.isArray(layout.coding.fields)) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderCodingRead(ecu, layout.coding, results, back);
+    return;
+  }
+
   if (sec.section === 'Coding' && layout && layout.coding) {
     const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
                    fn: () => showEcu(chassisId, sectionName, ecu) };
