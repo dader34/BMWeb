@@ -322,8 +322,15 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     ? (deGerman(screens[0].group) || jobLabel(screens[0].job))
     : `${screens.length} readouts`);
   // a merged category always pairs off into two columns; a lone screen honours
-  // its own layout (columns:2 = Bank 1 / Bank 2)
-  const twoCol = screens.length > 1 || (screens[0] && screens[0].columns === 2);
+  // its own layout (columns:2 = Bank 1 / Bank 2). Also go two-wide when a
+  // single screen has more rows than fit a page: the window is wide enough for
+  // a second column, and one tall column would page values away while half the
+  // screen sits empty. INPA's own two-column screens keep their pairing because
+  // `columns: 2` still forces it.
+  const rowCount = screens.reduce((n, s) => n + ((s.rows || []).length), 0);
+  const twoCol = screens.length > 1
+    || (screens[0] && screens[0].columns === 2)
+    || rowCount > INPA_PAGE_ROWS / 2;
 
   // no live dot, no Stop button in either mode — leaving the screen stops the
   // polling (setActions -> stopLive), like INPA

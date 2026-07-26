@@ -410,6 +410,31 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
     view.insertBefore(bar, results);
   }
 
+  // land on the list of readouts, don't auto-open one. INPA's F5 "Read status"
+  // opens a submenu (Analog values / Inputs / Outputs / K-bus / ...) and waits
+  // for a pick; jumping straight into the first page hides that there are
+  // others. renderStatusTree already behaves this way — this matches it.
+  if (inpaMode()) {
+    results.className = 'results-panel';
+    results.innerHTML = `<div class="empty"><div>Choose a readout below.</div></div>`;
+  } else {
+    results.className = 'group-grid stagger';
+    results.innerHTML = '';
+    cats.forEach((item, n) => {
+      const tile = document.createElement('div');
+      tile.className = 'group-tile';
+      const rows = item.screens
+        .map(i => (layout.screens[i] || {}).rows || []).flat().length;
+      tile.innerHTML = `
+        <div class="group-name">${esc(fkeyLabel(item.label))}</div>
+        <div class="group-count">${rows} value${rows === 1 ? '' : 's'}</div>
+        <div class="group-arrow">→</div>`;
+      tile.onclick = () => open(item, bar && bar.children[n]);
+      results.appendChild(tile);
+    });
+    stagger(results, 30);
+  }
+
   // footer F-keys select the first 9 pages
   const acts = cats.slice(0, FKEY_SLOTS).map((item, n) => ({
     key: String(n + 1), keyLabel: `F${item.fkey}`,
@@ -418,7 +443,6 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   }));
   acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showEcu(chassisId, sectionName, ecu) });
   setActions(acts);
-  open(cats[0], bar && bar.children[0]);
 }
 
 // INPA's nested status hierarchy. Each level is an F-key page: entries with
