@@ -49,6 +49,14 @@ _HEADING = re.compile(rb"\x06(Ansteuern|Activate)\s*/\s*"
 _STR = re.compile(rb"\x06([\x20-\x7e\xa0-\xff]{1,40})\x0a")
 # the token that selects a group's components; the prefix is the direction
 _FILTER = re.compile(r"^(EIN|AUS|ON|OFF)_(\w+)$", re.I)
+# INPA's state display after a drive: it runs the job, then prints the current
+# signal state rather than treating the send as fire-and-forget.
+#   STEUERN_DIGITAL · OKAY · 'ACTIVATED DIGITAL VALUE' · 'Signal : ' · EIN / AUS
+# That readout is why INPA needs no separate stop job: the EIN_ group switches
+# on, its AUS_ counterpart switches off, and the display says which you are in.
+_STATE = re.compile(rb"\x06([A-Z][A-Z0-9_]{5,})\x0a\x06\x0a\x06OKAY\x0a"
+                    rb"[^\x06]{0,8}\x06(ACTIVATED[\x20-\x7e]{0,24})\x0a"
+                    rb"\x06([\x20-\x7e]{2,20}:\s*)\x0a", re.DOTALL)
 # chrome that is never a component group, whether or not it ends the list
 _CHROME = re.compile(r"^(Select|Deselect|Print(\s*screen)?|Back|Exit|End|Ende|"
                      r"Drucken|Auswahl|Abbruch|Zur(ü|ue)ck|Change\b.*)$", re.I)
@@ -97,6 +105,21 @@ def _groups_after(data, pos, limit=400):
     return out
 
 
+def state_displays(data):
+    """The job -> state-readout captions INPA prints after driving."""
+    out = {}
+    for m in _STATE.finditer(data):
+        job = m.group(1).decode("latin-1")
+        if not job.startswith(("STEUERN", "ANSTEUERN")):
+            continue
+        out.setdefault(job, {
+            "job": job,
+            "title": m.group(2).decode("latin-1").strip(),
+            "caption": m.group(3).decode("latin-1").strip(),
+        })
+    return out
+
+
 def extract(path):
     """The Activate menus one .IPO declares, keyed by heading."""
     with open(path, "rb") as f:
@@ -110,7 +133,26 @@ def extract(path):
         # keep the richest sighting: INPA emits the screen more than once
         if title not in menus or len(groups) > len(menus[title]["groups"]):
             menus[title] = {"title": title, "groups": groups}
-    return {"ecu": os.path.basename(path)[:-4], "menus": list(menus.values())}
+    # pair each EIN_ group with the AUS_ group that undoes it, and vice versa.
+    # This is INPA's stop: there is no _ENDE job, the opposite group IS the off
+    # switch, so the UI can offer it without inventing a mechanism.
+    by_key = {}
+    for menu in menus.values():
+        for g in menu["groups"]:
+            if g.get("key"):
+                by_key.setdefault(g["key"], {})[g.get("direction")] = {
+                    "menu": menu["title"], "label": g["label"],
+                    "filter": g["filter"],
+                }
+    for menu in menus.values():
+        for g in menu["groups"]:
+            pair = by_key.get(g.get("key") or "", {})
+            other = "aus" if g.get("direction") == "ein" else "ein"
+            if pair.get(other):
+                g["opposite"] = pair[other]
+
+    return {"ecu": os.path.basename(path)[:-4], "menus": list(menus.values()),
+            "stateDisplays": list(state_displays(data).values())}
 
 
 def main():
