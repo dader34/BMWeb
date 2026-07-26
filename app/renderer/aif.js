@@ -56,15 +56,21 @@ async function renderAif(ecu, aif, container, exit) {
     card.innerHTML = rows
       || `<div class="empty"><div>This record is empty.</div></div>`;
 
-    // record selector on the softkeys, INPA's own captions
-    const acts = recs.slice(0, 9).map((_, i) => ({
-      key: String(i + 1), keyLabel: `F${i + 1}`, label: aifRecordLabel(i),
-      kind: i === cur ? 'active' : undefined,
-      fn: () => { cur = i; draw(); },
-    }));
+    // record selector on the softkeys, INPA's own captions. with a single
+    // record there is nothing to select, so the key is left off rather than
+    // sitting there redrawing the screen you are already on.
+    const acts = recs.length > 1
+      ? recs.slice(0, 9).map((_, i) => ({
+          key: String(i + 1), keyLabel: `F${i + 1}`, label: aifRecordLabel(i),
+          kind: i === cur ? 'active' : undefined,
+          fn: () => { cur = i; draw(); },
+        }))
+      : [];
     if (exit) acts.push(exit);
     setActions(acts);
-    sbLeft.textContent = `${aifRecordLabel(cur)} · ${recs.length} record${recs.length === 1 ? '' : 's'}`;
+    sbLeft.textContent = recs.length > 1
+      ? `${aifRecordLabel(cur)} · ${recs.length} records`
+      : '1 record';
   };
   draw();
 }

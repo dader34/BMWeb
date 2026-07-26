@@ -54,7 +54,9 @@ const DE_TOKENS = [
   [/Endekennung/gi, 'end marker'], [/Maxanzahl/gi, 'max count'],
   [/\bAnzahl\b/gi, 'count'], [/\bAdresse\b/gi, 'address'],
   [/Gr(ö|oe)(ß|ss)e/gi, 'size'], [/\bletztes?\b/gi, 'last'],
-  [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/gi, 'info field'],
+  // "Aif" mid-prose expands; the uppercase acronym is INPA's own name for the
+  // screen (root key F3) and stays as written, like any other proper name
+  [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/g, 'info field'],
   [/Zusammenbaunummer/gi, 'assembly number'],
   [/Datensatznummer/gi, 'dataset number'], [/Softwarenummer/gi, 'software number'],
   [/Behoerdennummer|Behördennummer/gi, 'authority number'],
