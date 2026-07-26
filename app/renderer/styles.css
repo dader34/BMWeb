@@ -868,6 +868,14 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 /* INPA's own subtitle: these pages are I/O STATUS screens you can also drive
    from, so the readouts run live whether or not a key is pressed */
 .act-menu-sub { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 12px; }
+/* Service: CBS availability drawn as a bar — full is fresh, empty is due */
+.svc-bar {
+  display: inline-block; width: 84px; height: 6px; margin-left: 10px;
+  background: var(--rule); border-radius: 3px; overflow: hidden;
+  vertical-align: middle;
+}
+.svc-bar-fill { display: block; height: 100%; background: var(--green); }
+
 /* Identity: INPA's colon-aligned ID-data card */
 .ident-card { display: grid; gap: 1px; max-width: 620px; margin-top: 4px; }
 .ident-row {
