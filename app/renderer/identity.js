@@ -5,6 +5,29 @@
 // The field order is INPA's own (decoded from the .IPO captions), which differs
 // from the order the SGBD returns them in.
 
+// The card's two layouts, shared by every read-only field screen (ID-data, AIF,
+// the Service reads). Kept here rather than in CSS because the modes are not a
+// restyling of one layout: INPA draws a colon-aligned monospace list, the way
+// its own screen does ('BMWTeilenummer          :  '), while modern mode uses a
+// labelled two-column grid. Auto-generated screens get both for free.
+function identRows(fields, vals) {
+  const inpa = inpaMode();
+  return fields.map(f => {
+    const raw = vals.get(f.key);
+    const val = esc(deGerman(raw) || raw);
+    // a field the SGBD contributed but INPA's own screen does not show
+    const extra = f.extra ? ' ident-extra' : '';
+    return inpa
+      ? `<div class="ident-line${extra}">`
+        + `<span class="ident-lk">${esc(f.label)}</span>`
+        + `<span class="ident-lc">:</span>`
+        + `<span class="ident-lv">${val}</span></div>`
+      : `<div class="ident-row${extra}">`
+        + `<span class="ident-k">${esc(f.label)}</span>`
+        + `<span class="ident-v">${val}</span></div>`;
+  }).join('');
+}
+
 async function renderIdentity(ecu, ident, container, exit) {
   container.className = 'results-panel';
   container.innerHTML = `
@@ -39,13 +62,8 @@ async function renderIdentity(ecu, ident, container, exit) {
     return;
   }
 
-  const rows = ident.fields
-    .filter(f => vals.has(f.key))
-    .map(f => `<div class="ident-row">
-                 <span class="ident-k">${esc(f.label)}</span>
-                 <span class="ident-v">${esc(deGerman(vals.get(f.key)) || vals.get(f.key))}</span>
-               </div>`)
-    .join('');
-  card.innerHTML = rows || `<div class="empty"><div>The ECU returned no identity data.</div></div>`;
-  sbLeft.textContent = `${ident.fields.filter(f => vals.has(f.key)).length} fields`;
+  const shown = ident.fields.filter(f => vals.has(f.key));
+  card.innerHTML = identRows(shown, vals)
+    || `<div class="empty"><div>The ECU returned no identity data.</div></div>`;
+  sbLeft.textContent = `${shown.length} fields`;
 }

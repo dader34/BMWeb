@@ -23,20 +23,25 @@ import json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ipo_screens as L1                                        # noqa: E402
 import ipo_recognize as R                                       # noqa: E402
+import ipo_enrich as E                                          # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HAND = os.path.join(HERE, "..", "data", "inpa-layouts", "enriched", "MS450.json")
 IPO = os.path.join(L1.SGDAT, "MS450.IPO")
 
 # Fields the hand-built layout carries that are NOT in MS450.IPO at all — they
-# come from the SGBD's job schemas (layer 3). Verified by searching the raw
-# bytes: ID_EWS_SS and ID_SG_ADR never appear; PRUEFCODE/HARDWARE_REFERENZ/
+# come from the SGBD's job schemas. Verified by searching the raw bytes:
+# ID_EWS_SS and ID_SG_ADR never appear; PRUEFCODE/HARDWARE_REFERENZ/
 # DATEN_REFERENZ appear only as job names, never as a captioned screen field.
+# Layer 2 alone cannot reach these; layer 3 must.
 SGBD_ONLY = {"ID_EWS_SS", "ID_SG_ADR", "PRUEFCODE",
              "HARDWARE_REFERENZ", "DATEN_REFERENZ"}
 
-# what layer 2 must still reach on its own
+# what layer 2 must reach from bytecode alone
 MIN_RECALL = {"identity": 13, "aif": 12}
+# what layer 2 + layer 3 together must reach: everything, no exceptions
+FULL_RECALL = {"identity": 18, "aif": 12}
+SGBD_CACHE = os.path.join(L1.OUT, "_sgbd.json")
 
 
 def main():
@@ -79,6 +84,57 @@ def main():
         failures.append("a write table was emitted as a runnable screen")
     print(f"  writes    {len(auto['writes_unverified'])} table(s) held for "
           f"review, 0 emitted as screens")
+
+    # ---- layer 3: the SGBD join must close the gap completely --------------
+    if not os.path.exists(SGBD_CACHE):
+        print("\n  layer 3   SKIPPED (no SGBD cache; run tools/sgbd_harvest.py --write)")
+    else:
+        with open(SGBD_CACHE, encoding="utf-8") as f:
+            cache = json.load(f)
+        names = {n.lower(): n for n in cache}
+        rec = L1.extract(IPO)
+        sgbd = E.pair(rec["ecu"], names)
+        if sgbd is None:
+            failures.append("layer 3: MS450 did not pair with any SGBD")
+        else:
+            rich = E.enrich(rec, cache[sgbd]["harvested"])
+            print()
+            for name, key in (("identity", "identity"), ("aif", "aif")):
+                scr = next((s for s in rich["screens"]
+                            if s["screen"] == name), None)
+                if scr is None:
+                    failures.append(f"layer 3: {name} vanished after enrich")
+                    continue
+                want = {f["key"] for f in hand[key]["fields"]}
+                got = {f["key"] for f in scr["fields"]}
+                miss = want - got
+                if len(want & got) < FULL_RECALL[name]:
+                    failures.append(
+                        f"layer 3 {name}: {len(want & got)}/{len(want)} recalled, "
+                        f"expected {FULL_RECALL[name]} — missing {sorted(miss)}")
+                # INPA's own fields must keep INPA's label, never the SGBD's
+                # German result description
+                faithful = [f for f in scr["fields"] if not f.get("extra")]
+                by_key = {f["key"]: f for f in hand[key]["fields"]}
+                relabelled = [f["key"] for f in faithful
+                              if f["key"] in by_key
+                              and f["source"] != "sgbd"
+                              and f["label"] != by_key[f["key"]]["label"]
+                              and f["label"] == f.get("desc")]
+                if relabelled:
+                    failures.append(f"layer 3 {name}: SGBD text overwrote "
+                                    f"INPA's caption on {relabelled}")
+                print(f"  layer 3   {name:9} {len(want & got)}/{len(want)} recalled, "
+                      f"{len(faithful)} INPA-faithful + "
+                      f"{len(scr['fields']) - len(faithful)} extras")
+
+            # the SGBD file's own metadata is not ECU data
+            leaked = sorted({f["key"] for s in rich["screens"]
+                             for f in s["fields"] if f["key"] in E.FILE_META})
+            if leaked:
+                failures.append(f"layer 3: SGBD file metadata on a card: {leaked}")
+            print(f"  layer 3   file metadata excluded: "
+                  f"{rich['stats'].get('dropped file metadata', 0)} field(s)")
 
     if failures:
         print("\nFAIL")
