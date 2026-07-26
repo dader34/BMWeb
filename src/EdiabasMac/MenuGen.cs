@@ -76,6 +76,10 @@ public static class MenuGen
         ["VARIANTE"]="Variant",["PRUEFSTEMPEL"]="Inspection stamp",["PRUEFCODE"]="Test code",
         ["BACKUP"]="Backup",["READINESS"]="Readiness",["SYSTEMCHECK"]="System check",
         ["SEK"]="Secondary",["TEV"]="Purge valve",["FGR"]="Cruise control",["SPERREN"]="Lock",
+        // body-module abbreviations: "IB" is Innenbeleuchtung, and "Ib Off" is
+        // not a phrase anyone recognises
+        ["IB"]="Interior lighting",["AUS"]="off",["EIN"]="on",["ZV"]="Central locking",
+        ["FH"]="Window",["WIWA"]="Wipe/wash",["DWA"]="Anti-theft",["SHD"]="Sunroof",
         ["EINGRIFF"]="Intervention",["EINGRIFFE"]="Interventions",["ANZAHL"]="Count",
         ["ZAEHLER"]="Counter",["MAX"]="Max",["BETRIEB"]="Operation",
     });
@@ -231,7 +235,13 @@ public static class MenuGen
     }
 
     // actuator test: start job plus optional paired stop (_ENDE) job
-    public sealed record Activation(string Label, string Start, string Stop, bool Momentary, bool Critical);
+    // `Args` are the argument names the SGBD declares for the start job, and
+    // `Runnable` is false when we cannot supply them. A job like
+    // STEUERN_DIGITAL takes ORT ("gewuenschte Komponente", from a BITS table)
+    // and EIN (1/0): firing it with no ORT tells the ECU nothing about what to
+    // drive. The UI must not offer a button that looks like it works.
+    public sealed record Activation(string Label, string Start, string Stop, bool Momentary,
+                                    bool Critical, List<string> Args, bool Runnable);
 
     // actuator start/stop conventions differ per DME generation: MS45 pairs
     // STEUERN_X with STEUERN_X_ENDE, MS42/MS43/ME9 use STEUERN_X_AUS, and some
@@ -273,15 +283,52 @@ public static class MenuGen
             // (start = send the value, stop = send 0); truly argless one-shots
             // stay momentary
             bool toggleByArg = stop == null && HasNumericArg(diag, job);
+            var specs = ArgSpecs(diag, job);
             result.Add(new Activation(Translate(job), job, stop,
                                       Momentary: stop == null && !toggleByArg,
-                                      Critical: IsCritical(job)));
+                                      Critical: IsCritical(job),
+                                      Args: specs.Select(s => s.Name).ToList(),
+                                      Runnable: CanSupply(specs)));
         }
         return result;
     }
 
     // does the job declare a numeric (int/real) argument? read offline from the
     // SGBD's _ARGUMENTS schema.
+    // Every argument the SGBD declares for a job, in declaration order, paired
+    // with its type so the caller can tell a drive value from a selector.
+    private static List<(string Name, string Type)> ArgSpecs(Diag diag, string job)
+    {
+        var specs = new List<(string, string)>();
+        try
+        {
+            foreach (var set in diag.Run("_ARGUMENTS", job))
+            {
+                if (!(set.TryGetValue("ARG", out var a) && a.OpData is string arg)
+                    || arg.Length == 0
+                    || specs.Any(s => string.Equals(s.Item1, arg, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                string type = set.TryGetValue("ARGTYPE", out var t) && t.OpData is string ts ? ts : "";
+                specs.Add((arg, type));
+            }
+        }
+        catch { /* no schema: treat as argless */ }
+        return specs;
+    }
+
+    // What the UI can actually fill in on its own: nothing (a one-shot), or a
+    // single NUMERIC drive value (send the value to start, 0 to stop). A string
+    // argument names a component the caller has to choose — STEUERN_DIGITAL's
+    // ORT is "gewuenschte Komponente" from a BITS table — and a second argument
+    // is a mode we do not know either. Those are listed but not runnable until
+    // their arguments are mapped, rather than shown as a button that silently
+    // sends an incomplete request to a real car.
+    private static bool CanSupply(List<(string Name, string Type)> args) =>
+        args.Count == 0
+        || (args.Count == 1
+            && (args[0].Type.Contains("int", StringComparison.OrdinalIgnoreCase)
+                || args[0].Type.Contains("real", StringComparison.OrdinalIgnoreCase)));
+
     private static bool HasNumericArg(Diag diag, string job)
     {
         try

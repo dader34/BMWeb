@@ -41,7 +41,12 @@ internal static class DiagnosticsEndpoints
                     // (null when the mine found none). The renderer shows it
                     // verbatim in INPA mode; it is never translated.
                     inpaLabel = SteuernLabels.For(state.Root, sgbd, a.Start),
-                    start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical
+                    start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical,
+                    // arguments the SGBD declares, and whether we can supply
+                    // them. A test needing a component selector (STEUERN_DIGITAL
+                    // takes ORT + EIN) is listed so the ECU's capability is
+                    // visible, but must not be offered as a runnable button.
+                    args = a.Args, runnable = a.Runnable
                 }).ToList());
             }));
 

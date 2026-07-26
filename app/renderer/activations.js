@@ -15,8 +15,23 @@ function actLabel(a) {
   return (a.label || a.start).replace(/^Activate /, '');
 }
 
+// A test the ECU declares but we cannot drive: its job takes arguments we do
+// not know how to fill in (STEUERN_DIGITAL wants ORT — "gewuenschte
+// Komponente" — plus EIN). Firing it would send an incomplete request to a
+// real car, so the row stays visible (the capability is real) but is not
+// offered as a button.
+const actRunnable = (a) => a.runnable !== false;
+
 // activate/stop button caption + styling, shared by both layouts
-function setActBtn(btn, on, momentary) {
+function setActBtn(btn, on, momentary, act) {
+  if (act && !actRunnable(act)) {
+    btn.textContent = 'Needs input';
+    btn.className = 'btn act-btn act-blocked';
+    btn.disabled = true;
+    btn.title = `${act.start} needs ${(act.args || []).join(' + ')}; `
+              + 'not mapped yet, so it is not runnable here.';
+    return;
+  }
   if (momentary) { btn.textContent = 'Run'; btn.className = 'btn act-btn'; return; }
   btn.textContent = on ? 'Stop' : 'Activate';
   btn.className = 'btn act-btn ' + (on ? 'danger on' : 'primary');
@@ -71,8 +86,9 @@ async function showActivations(ecu, sec, container, exitAction) {
       </div>
       <button class="btn act-btn"></button>`;
     const btn = card.querySelector('.act-btn');
-    setActBtn(btn, running, a.momentary);
-    btn.onclick = () => toggleActivation(ecu, a, card, btn);
+    setActBtn(btn, running, a.momentary, a);
+    if (actRunnable(a)) btn.onclick = () => toggleActivation(ecu, a, card, btn);
+    else card.classList.add('act-blocked-card');
     grid.appendChild(card);
   });
   stagger(grid, 20);
@@ -99,9 +115,12 @@ function renderActivationsInpa(ecu, acts, container) {
       <span class="act-row-job">${esc(a.start)}</span>
       <span class="act-row-btn"><span class="btn act-btn"></span></span>`;
     const btn = row.querySelector('.act-btn');
-    setActBtn(btn, activeTests.has(a.start), a.momentary);
+    setActBtn(btn, activeTests.has(a.start), a.momentary, a);
     if (activeTests.has(a.start)) row.classList.add('running');
-    const run = () => toggleActivation(ecu, a, row, btn);
+    const run = actRunnable(a)
+      ? () => toggleActivation(ecu, a, row, btn)
+      : () => { sbLeft.textContent = `${a.start} needs ${(a.args || []).join(' + ')}`; };
+    if (!actRunnable(a)) row.classList.add('act-blocked-card');
     row.onclick = run;
     fire.push(run);
     list.appendChild(row);
@@ -471,6 +490,13 @@ async function activationReadback(ecu, startJob) {
 }
 
 async function toggleActivation(ecu, a, card, btn) {
+  // last line of defence: never send a job whose declared arguments we cannot
+  // supply, whatever called us. The UI blocks the button too, but this is the
+  // one place every run path funnels through.
+  if (!actRunnable(a)) {
+    sbLeft.textContent = `${a.start} needs ${(a.args || []).join(' + ')}`;
+    return;
+  }
   const running = activeTests.has(a.start);
   // critical jobs (immobilizer sync, security) aren't actuator tests — they can
   // leave the car unable to start. warn far harder, and don't call it a "test".

@@ -893,6 +893,15 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .sync-step.failed .sync-state { color: var(--red); }
 .sync-step.idle .sync-state { color: var(--ink-faint); }
 
+/* An actuator test the ECU declares but whose arguments we cannot supply:
+   shown so the capability is visible, but plainly not offered as runnable. */
+.act-btn.act-blocked {
+  background: transparent; border: 1px dashed var(--line-bright);
+  color: var(--ink-faint); cursor: not-allowed; font-size: 11px;
+}
+.act-blocked-card { opacity: .62; }
+.act-blocked-card:hover { border-color: var(--line); }
+
 /* Service: CBS availability drawn as a bar — full is fresh, empty is due */
 .svc-bar {
   display: inline-block; width: 84px; height: 6px; margin-left: 10px;
