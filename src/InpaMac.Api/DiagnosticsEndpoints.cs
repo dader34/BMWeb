@@ -36,7 +36,12 @@ internal static class DiagnosticsEndpoints
                 var acts = MenuGen.Activations(diag);
                 return Results.Json(acts.Select(a => new
                 {
-                    label = a.Label, start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical
+                    label = a.Label,
+                    // INPA's own caption for this actuator, mined from the .IPO
+                    // (null when the mine found none). The renderer shows it
+                    // verbatim in INPA mode; it is never translated.
+                    inpaLabel = SteuernLabels.For(state.Root, sgbd, a.Start),
+                    start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical
                 }).ToList());
             }));
 
@@ -157,7 +162,14 @@ internal static class DiagnosticsEndpoints
         app.MapPost("/api/ecu/{sgbd}/run/{job}", (HttpContext ctx, string sgbd, string job, string? port, string? arg, string? group) => state.OnBus(ctx, () =>
         {
             var diag = state.Engines.AcquireLive(port);
-            if (diag == null) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
+            if (diag == null)
+            {
+                // demo mode (?demo=1 or BMACW_DEMO=1): synthesize the job's declared
+                // results so the screens can be walked with no car attached
+                if (DemoMode.Requested(ctx))
+                    return Results.Json(new { port, job, demo = true, sets = DemoMode.Sets(state, sgbd, job, arg) });
+                return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
+            }
             LoadForJob(diag, sgbd, group, job);
             var sets = diag.Run(job, string.IsNullOrEmpty(arg) ? null : arg);
             var rows = sets.Select(s => s.ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value))).ToList();

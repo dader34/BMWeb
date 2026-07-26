@@ -215,6 +215,12 @@ const DE_TOKENS = [
   [/mit Klimaanlage/gi, 'with A/C'], [/mit Fahrstufe/gi, 'with gear engaged'],
   [/niedriger UBatt/gi, 'low battery voltage'],
   [/Ein=1 Aus=0|1=Ein 0=Aus|1=Ein, 0=Aus/gi, '1=on 0=off'],
+  // ECU state words: these arrive as VALUES, not just labels (a digital status
+  // screen reads "nicht aktiv"), so the negated forms must win over the plain ones
+  [/\bnicht aktiv\b/gi, 'not active'], [/\bnicht bereit\b/gi, 'not ready'],
+  [/\bnicht vorhanden\b/gi, 'not present'], [/\bnicht erkannt\b/gi, 'not detected'],
+  [/\baktiv\b/gi, 'active'], [/\bbereit\b/gi, 'ready'], [/\bgesperrt\b/gi, 'locked'],
+  [/\bja\b/gi, 'yes'], [/\bnein\b/gi, 'no'], [/\bfehlerfrei\b/gi, 'no fault'],
   [/\bEin\b/gi, 'on'], [/\bAus\b/gi, 'off'], [/\bZeit\b/gi, 'time'],
   [/\bDauer\b/gi, 'duration'], [/\bFaktor\b/gi, 'factor'], [/\bbis\b/gi, 'to'],
   // ---- multi-word phrases (must precede their component words) ----

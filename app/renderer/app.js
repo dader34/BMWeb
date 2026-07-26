@@ -77,6 +77,19 @@ function showSettings() {
     (v) => Settings.set('autoScan', v),
   ));
 
+  // demo mode: walk the screens with no car attached. values are synthesized
+  // from each job's declared results and badged, never presented as real.
+  wrap.appendChild(settingRow(
+    'Demo mode (no cable)',
+    'Fill live screens with sample values when no cable is connected, so the layouts can be explored. Readings are simulated, not from a car.',
+    [
+      { val: 'on', label: 'On' },
+      { val: 'off', label: 'Off' },
+    ],
+    Settings.get('demo', 'off'),
+    (v) => Settings.set('demo', v),
+  ));
+
   // startup chassis: load a chosen chassis straight to its modules on launch.
   // searchable combo of all chassis the config knows, plus "Ask each time".
   const startRow = settingCombo(

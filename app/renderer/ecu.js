@@ -26,6 +26,32 @@ const jobLabel = (j) => {
   return s;
 };
 
+// some screens ship twice, once per UI mode: `mode:"inpa"` reproduces the .IPO
+// page (every result row, one column) and `mode:"modern"` the gauge version
+// (numeric values only, two columns). Keep only the active mode's copy so the
+// other doesn't show up as a duplicate function. Screens with no mode tag
+// predate the split and are used in both.
+function pickLayoutMode(layout) {
+  if (!layout || !Array.isArray(layout.screens)) return layout;
+  const want = inpaMode() ? 'inpa' : 'modern';
+  if (!layout.screens.some(s => s.mode)) return layout; // nothing to choose
+  // menus address screens by index, so remap them onto the filtered array
+  const remap = new Map();
+  const screens = [];
+  layout.screens.forEach((s, i) => {
+    if (s.mode && s.mode !== want) return;
+    remap.set(i, screens.length);
+    screens.push(s);
+  });
+  const menus = (layout.menus || []).map(m => ({
+    ...m,
+    items: (m.items || []).map(it => (Array.isArray(it.screens)
+      ? { ...it, screens: it.screens.map(i => remap.get(i)).filter(i => i != null) }
+      : it)),
+  }));
+  return { ...layout, screens, menus };
+}
+
 // fold the mined .IPO screen layout into the menu. each layout screen becomes a
 // function item (definition under `_screen`), bucketed into INPA sections by
 // group-title keyword.
@@ -258,6 +284,7 @@ async function showEcu(chassisId, sectionName, ecu) {
   try {
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     layout = await api(`/api/ecu/${ecu.sgbd}/layout${codeHint}`);
+    layout = pickLayoutMode(layout);
   } catch { /* no layout, fall back below */ }
   try {
     menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
@@ -394,6 +421,67 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   open(cats[0], bar && bar.children[0]);
 }
 
+// INPA's nested status hierarchy. Each level is an F-key page: entries with
+// `items` open a submenu (Digital/, Analog/, System/), entries with `job` open
+// that screen's gauges. Esc walks back up one level, exactly like INPA's F10.
+function renderStatusTree(chassisId, sectionName, ecu, layout, view, results) {
+  const byJob = new Map(layout.screens.map(s => [s.job, s]));
+  const backToEcu = () => showEcu(chassisId, sectionName, ecu);
+
+  // `up` reopens the parent level, so Esc unwinds one step at a time
+  const openLevel = (items, trail, up) => {
+    sbLeft.textContent = [`${ecu.sgbd}.prg`, ...trail].join(' · ');
+    const back = up || backToEcu;
+    const enter = (it) => {
+      const here = [...trail, it.label];
+      const reopen = () => openLevel(items, trail, up);
+      if (it.items) openLevel(it.items, here, reopen);
+      else openScreen(it, here, reopen);
+    };
+
+    // INPA drives this from the softkey bar alone; modern mode shows the same
+    // grouping as clickable tiles (and keeps the keys as a shortcut)
+    if (inpaMode()) {
+      results.className = 'results-panel';
+      results.innerHTML = `<div class="empty"><div>Choose a readout below.</div></div>`;
+    } else {
+      results.className = 'group-grid stagger';
+      results.innerHTML = '';
+      items.forEach(it => {
+        const tile = document.createElement('div');
+        tile.className = 'group-tile';
+        tile.innerHTML = `
+          <div class="group-name">${esc(fkeyLabel(it.label))}</div>
+          <div class="group-count">${it.items ? `${it.items.length} readouts` : 'live values'}</div>
+          <div class="group-arrow">${it.items ? '▸' : '→'}</div>`;
+        tile.onclick = () => enter(it);
+        results.appendChild(tile);
+      });
+      stagger(results, 30);
+    }
+
+    const acts = items.slice(0, FKEY_SLOTS).map((it, n) => ({
+      key: String(n + 1),
+      keyLabel: `F${it.fkey}`,
+      label: fkeyLabel(it.label) + (it.items ? ' ▸' : ''),
+      fn: () => enter(it),
+    }));
+    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back });
+    setActions(acts);
+  };
+
+  // a leaf: gauges, with Esc returning to the menu it was opened from
+  const openScreen = (it, trail, up) => {
+    const scr = byJob.get(it.job);
+    if (!scr) { results.innerHTML = errorBlock(`no screen for ${it.job}`); return; }
+    setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: up }]);
+    showInpaScreens(ecu, [scr], results, fkeyLabel(it.label));
+    sbLeft.textContent = [`${ecu.sgbd}.prg`, ...trail].join(' · ');
+  };
+
+  openLevel(layout.statusTree, [], null);
+}
+
 // ECU section view: the top-level router for a module's function categories.
 // dispatches to the fault-memory F-key screen, the status multi-watch list, the
 // mined gauge/input screens (live.js), or the actuator-test panel (activations.js).
@@ -419,10 +507,20 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   const isLayoutScreens = sec.items.some(i => i._screen);
   const isStatus = sec.section === 'Status' && !isLayoutScreens;
 
-  // INPA F-key status pages, from the decoded .IPO menu when there is one
-  // (m_status with resolved screens, e.g. MS45.1)
+  // INPA's own nested status hierarchy (statusTree, decoded from the .IPO):
+  // Digital/ and Analog/ open submenus, everything else is a page. Both UI
+  // modes use it — the grouping is how the ECU's screens are actually
+  // organised, so it beats a flat list of 38 either way. Only the readout
+  // itself differs (INPA bars/lamps vs the modern gauge panel).
   const layout = ecu._layout;
-  const mStatus = sec.section === 'Status' && layout && Array.isArray(layout.menus)
+  if (sec.section === 'Status' && layout
+      && Array.isArray(layout.statusTree) && layout.statusTree.length) {
+    renderStatusTree(chassisId, sectionName, ecu, layout, view, results);
+    return;
+  }
+  // the remaining F-key page layouts are INPA's, so they too only apply when
+  // INPA screens are switched on — modern mode falls through to the tile list
+  const mStatus = inpaMode() && sec.section === 'Status' && layout && Array.isArray(layout.menus)
     ? layout.menus.find(m => m.name === 'm_status' &&
         m.items.some(i => Array.isArray(i.screens) && i.screens.length))
     : null;
@@ -431,7 +529,8 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     return;
   }
   // synthesize F-key pages from mined screen items (non-MS45 ECUs)
-  const screenItems = sec.items.filter(i => i._screen && (i._screen.rows || []).length);
+  const screenItems = inpaMode()
+    ? sec.items.filter(i => i._screen && (i._screen.rows || []).length) : [];
   if (screenItems.length && layout && Array.isArray(layout.screens)) {
     const synth = synthStatusMenu(screenItems, layout);
     if (synth.items.some(i => i.screens.length)) {
@@ -444,8 +543,10 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
 
   // activations get a dedicated actuator-test panel (activations.js)
   if (isActivations) {
-    showActivations(ecu, sec, results);
+    // set the Back action first: showActivations is async and the INPA renderer
+    // re-issues setActions with its own F-keys, which must not be overwritten
     setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showEcu(chassisId, sectionName, ecu) }]);
+    showActivations(ecu, sec, results);
     return;
   }
 
