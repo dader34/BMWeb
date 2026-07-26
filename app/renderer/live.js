@@ -202,19 +202,50 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
   panel.appendChild(arrow);
   let page = 0;
 
+  // how many cells fit the visible area. INPA's 10 is the ceiling, but a short
+// window (or tall rows) must page sooner rather than scroll.
+  function perPage() {
+    const cells = orderedKeys().map(cellFor).filter(Boolean);
+    if (!cells.length) return INPA_PAGE_ROWS;
+    // measure the TALLEST cell, not the first: a row carrying a [unit] line and
+    // a bar is taller than a text-only one, and sizing off a short cell
+    // overfills the page
+    const h = Math.max(...cells.map(c => c.offsetHeight || 0));
+    if (!h) return INPA_PAGE_ROWS;
+    const cols = grid.classList.contains('two-col') ? 2 : 1;
+    // measure the real footer rather than assuming its height: the F-key bar is
+    // 52px and the pager arrow needs ~34 more, so a fixed 70 clips the last row
+    // on pages that cannot scroll
+    const bar = document.querySelector('.fkeybar');
+    const footer = (bar ? bar.getBoundingClientRect().height : 52) + 40;
+    const avail = grid.getBoundingClientRect
+      ? window.innerHeight - grid.getBoundingClientRect().top - footer : 0;
+    if (avail <= 0) return INPA_PAGE_ROWS;
+    const rows = Math.max(1, Math.floor(avail / h));
+    let per = Math.max(cols, Math.min(INPA_PAGE_ROWS, rows * cols));
+    // avoid a last page holding one or two stragglers: spread the values evenly
+    // across the pages they need instead (17 over 3 pages -> 6+6+5, not 8+8+1)
+    const total = cells.length;
+    if (total > per) {
+      const pageCount = Math.ceil(total / per);
+      per = Math.ceil(total / pageCount / cols) * cols;
+    }
+    return per;
+  }
   function pages() {
-    return Math.max(1, Math.ceil(orderedKeys().length / INPA_PAGE_ROWS));
+    return Math.max(1, Math.ceil(orderedKeys().length / perPage()));
   }
   function relayout() {
     const keys = orderedKeys();
-    const n = Math.max(1, Math.ceil(keys.length / INPA_PAGE_ROWS));
+    const per = perPage();
+    const n = Math.max(1, Math.ceil(keys.length / per));
     if (page > n - 1) page = n - 1;
-    const start = page * INPA_PAGE_ROWS, end = start + INPA_PAGE_ROWS;
+    const start = page * per, end = start + per;
     keys.forEach((k, i) => {
       const c = cellFor(k);
       if (c) c.classList.toggle('inpa-hidden', i < start || i >= end);
     });
-    if (keys.length <= INPA_PAGE_ROWS) { arrow.style.display = 'none'; return; }
+    if (keys.length <= per) { arrow.style.display = 'none'; return; }
     arrow.style.display = '';
     const atBottom = page >= n - 1;
     arrow.classList.toggle('up', atBottom);
@@ -223,43 +254,60 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
       atBottom ? 'Previous page' : 'Next page');
     arrow.title = `Page ${page + 1} / ${n}`;
   }
+  // the arrow flips direction at the last page, so a click always advances then
+  // walks back up — matching INPA's single-arrow pager
   arrow.onclick = () => {
     const n = pages();
     page = (page >= n - 1) ? Math.max(0, page - 1) : page + 1;
     relayout();
     grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
-  return { relayout };
+
+  // arrow keys page too. Up/Down move absolutely (not the arrow's flip
+  // behaviour), which is what a keyboard user expects.
+  const onKey = (e) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    if (!panel.isConnected) { window.removeEventListener('keydown', onKey); return; }
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    if (document.querySelector('.modal-overlay')) return;  // a dialog owns the keys
+    const n = pages();
+    if (n <= 1) return;
+    const next = e.key === 'ArrowDown' ? Math.min(n - 1, page + 1) : Math.max(0, page - 1);
+    if (next === page) return;
+    e.preventDefault();
+    page = next;
+    relayout();
+    arrow.classList.remove('flash'); void arrow.offsetWidth; arrow.classList.add('flash');
+  };
+  window.addEventListener('keydown', onKey);
+  // perPage() measures rendered cell height, which is 0 until the browser has
+  // laid the cells out — and cells keep arriving, since each job answers on its
+  // own tick. Re-measure on the next frame so the page size (and whether the
+  // arrow is needed at all) reflects what is actually on screen.
+  const remeasure = () => requestAnimationFrame(() => {
+    if (panel.isConnected) relayout();
+  });
+  // a resize changes how many rows fit, so re-page rather than start scrolling
+  const onResize = () => {
+    if (!panel.isConnected) { window.removeEventListener('resize', onResize); return; }
+    relayout();
+  };
+  window.addEventListener('resize', onResize);
+  return {
+    relayout: () => { relayout(); remeasure(); },
+    dispose: () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', onResize);
+    },
+  };
 }
 
-// INPA F-key status category: one or more layout screens behind a single
-// F-key (m_status decoding of the .IPO). Small categories (Abgas = six
-// one-row screens) merge into one paged gauge grid, exactly like INPA's
-// combined lambda screen; large ones (the MWB blocks) get a sub-tab per
-// block, since INPA shows one block at a time.
+// INPA F-key status category: the screens behind one F-key, merged into a
+// single paged grid. The statusTree gives every block its own F-key, so there
+// is no second on-screen tab strip — the footer keys are the only selector,
+// exactly like INPA.
 function showInpaCategory(ecu, screens, container, title) {
-  const totalRows = screens.reduce((n, s) => n + (s.rows || []).length, 0);
-  if (screens.length > 1 && totalRows > 12) {
-    container.className = 'inpa-cat-split';
-    container.innerHTML = `
-      <div class="inpa-subtabs" id="inpa-subtabs"></div>
-      <div id="inpa-cat-body"></div>`;
-    const tabs = container.querySelector('#inpa-subtabs');
-    const body = container.querySelector('#inpa-cat-body');
-    screens.forEach((scr, i) => {
-      const b = document.createElement('button');
-      b.className = 'inpa-subtab';
-      b.textContent = deGerman(scr.group) || jobLabel(scr.job);
-      b.onclick = () => {
-        tabs.querySelectorAll('.inpa-subtab').forEach(x => x.classList.remove('active'));
-        b.classList.add('active');
-        showInpaScreens(ecu, [scr], body);
-      };
-      tabs.appendChild(b);
-      if (i === 0) { b.classList.add('active'); showInpaScreens(ecu, [scr], body); }
-    });
-    return;
-  }
   showInpaScreens(ecu, screens, container, title);
 }
 
@@ -277,23 +325,20 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
   // its own layout (columns:2 = Bank 1 / Bank 2)
   const twoCol = screens.length > 1 || (screens[0] && screens[0].columns === 2);
 
-  container.className = 'live-panel inpa-screen';
+  // no live dot, no Stop button in either mode — leaving the screen stops the
+  // polling (setActions -> stopLive), like INPA
+  // INPA draws values straight on the window; modern mode keeps the panel
+  container.className = 'live-panel inpa-screen' + (inpaMode() ? ' bare' : '');
   container.innerHTML = `
     <div class="live-head">
-      <span class="live-dot"></span>
       <span class="live-title">${esc(title)}</span>
       <span class="live-meta" id="live-meta">connecting…</span>
-      <button class="btn danger live-stop">Stop</button>
     </div>
     <div class="live-grid inpa-grid${twoCol ? ' two-col' : ''}" id="live-grid"></div>`;
   if (scroll) container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   const grid = container.querySelector('#live-grid');
   const meta = container.querySelector('#live-meta');
-  const dot = container.querySelector('.live-dot');
-  container.querySelector('.live-stop').onclick = () => {
-    stopLive(); dot.classList.add('stopped'); meta.textContent = 'stopped'; sbLeft.textContent = 'stopped';
-  };
 
   const cellEls = new Map();  // "job:key" -> cell
   const keyOrder = [];
@@ -314,14 +359,14 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
       }
       alive++;
       const vals = new Map(flatResults(data.sets));
-      for (const r of scr.rows || []) {
+      for (const r of gridOrder(scr)) {
         if (!vals.has(r.key)) continue;
         const ck = `${scr.job}:${r.key}`;
         let cell = cellEls.get(ck);
         if (!cell) {
           cell = document.createElement('div');
           cell.className = 'live-cell gauge-cell';
-          cell.innerHTML = gaugeCellHTML(deGerman(r.label) || r.key);
+          cell.innerHTML = gaugeCellHTML(deGerman(r.label) || r.key, r.unit);
           grid.appendChild(cell);
           cellEls.set(ck, cell);
           keyOrder.push(ck);
@@ -332,7 +377,8 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
     if (added) pager.relayout();
     if (alive) {
-      meta.textContent = `live · ${cellEls.size} values`;
+      meta.textContent = (demoMode() ? 'DEMO · ' : 'live · ') + `${cellEls.size} values`;
+      meta.classList.toggle('demo', demoMode());
       sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
     } else if (cellEls.size === 0) {
       // nothing ever rendered (e.g. no cable): show the error instead of
@@ -342,7 +388,6 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     } else {
       // had values, now every screen fails: keep the last reading on screen but
       // stop claiming it's live
-      dot.classList.add('stopped');
       meta.textContent = 'no response';
       sbLeft.textContent = 'no response';
     }
@@ -351,14 +396,60 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
   if (liveTok === _liveToken && container.querySelector('.inpa-grid')) scheduleLive(tick);
 }
 
+// Screen rows in the order INPA actually draws them. When the .IPO decode gave
+// us a grid (tools/ipo_grid.py), it carries the true row/column of every value,
+// so reading-order becomes row-major — which is what makes bank 1 / bank 2 line
+// up as pairs. Without a grid, or outside INPA mode, the layout order stands.
+function gridOrder(scr) {
+  const rows = scr.rows || [];
+  if (!inpaMode() || !scr.grid || !Array.isArray(scr.grid.cells)) return rows;
+  const at = new Map(scr.grid.cells.map(c => [c.key, c]));
+  const placed = rows.filter(r => at.has(r.key));
+  const rest = rows.filter(r => !at.has(r.key));
+  placed.sort((a, b) => {
+    const x = at.get(a.key), y = at.get(b.key);
+    return x.row - y.row || x.col - y.col;
+  });
+  return [...placed, ...rest];
+}
+
+// INPA draws a boolean as a lamp: filled circle on, hollow off. Returns the
+// glyph + word, or null when the value isn't a boolean.
+const BOOL_ON = /^(ein|on|aktiv|active|ja|yes|1|betaetigt|gedrueckt|vorhanden)$/i;
+const BOOL_OFF = /^(aus|off|nicht aktiv|not active|inaktiv|nein|no|0|nicht betaetigt|nicht vorhanden|not present)$/i;
+function boolGlyph(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (BOOL_ON.test(s)) return { on: true, text: deGerman(s) || s };
+  if (BOOL_OFF.test(s)) return { on: false, text: deGerman(s) || s };
+  return null;
+}
+
+// render a boolean as INPA's lamp. Only in INPA mode — the modern layout keeps
+// the word, which reads better next to numeric gauges. Returns false if the
+// value isn't a boolean, so the caller falls back to plain text.
+function setBoolCell(cellEl, valEl, raw) {
+  if (!inpaMode()) return false;
+  const b = boolGlyph(raw);
+  if (!b) { cellEl.classList.remove('bool'); return false; }
+  cellEl.classList.add('bool');
+  cellEl.classList.remove('text-only');
+  const shown = `${b.on ? '●' : '○'} ${b.text}`;
+  if (valEl.textContent !== shown) { valEl.textContent = shown; flash(valEl); }
+  return true;
+}
+
 // update a gauge cell from the layout row's unit/min/max, falling back to the
 // heuristic range only where the layout left them null
 function updateGaugeSpec(cellEl, rowSpec, raw) {
   const p = parseMeasurement(raw);
   const valEl = cellEl.querySelector('.gauge-val');
   if (p.num === null) {
+    // a state word, not a number: the ECU says "ein"/"nicht aktiv", so it needs
+    // the same translation the labels get (deGerman is a no-op in EDIABAS mode)
+    if (setBoolCell(cellEl, valEl, p.raw)) return;
+    const text = deGerman(p.raw) || p.raw;
     cellEl.classList.add('text-only');
-    if (valEl.textContent !== p.raw) { valEl.textContent = p.raw; flash(valEl); }
+    if (valEl.textContent !== text) { valEl.textContent = text; flash(valEl); }
     return;
   }
   cellEl.classList.remove('text-only');
@@ -375,8 +466,9 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   cellEl.querySelector('.gauge-fill').style.width = pct.toFixed(1) + '%';
   cellEl.querySelector('.gauge-min').textContent = fmtRange(min);
   cellEl.querySelector('.gauge-max').textContent = fmtRange(max);
-  const unit = rowSpec.unit ? ` ${rowSpec.unit}` : (p.unit ? ` ${p.unit}` : '');
-  const shown = `${p.num}${unit}`;
+  // the unit already has its own "[V]" line, so the value stays a bare number
+  // (INPA prints "0.73", not "0.73 V"); only an unmapped runtime unit is appended
+  const shown = rowSpec.unit ? String(p.num) : `${p.num}${p.unit ? ' ' + p.unit : ''}`;
   if (valEl.textContent !== shown) { valEl.textContent = shown; flash(valEl); }
 }
 
@@ -488,16 +580,21 @@ function highlightWatched(view, jobs) {
 // range and value/unit parsing come from measurements.js. non-numeric values
 // render as plain text.
 
-function gaugeCellHTML(key) {
+// INPA's measurement row: the label, the unit in brackets on its own line, then
+// the bar with the value to its RIGHT and the scale ends tucked beneath it.
+function gaugeCellHTML(key, unit) {
   return `
     <div class="live-k">${esc(key)}</div>
+    <div class="gauge-unit">${unit ? `[${esc(unit)}]` : ''}</div>
     <div class="gauge">
-      <div class="gauge-track"><div class="gauge-fill"></div></div>
-      <div class="gauge-foot">
-        <span class="gauge-min"></span>
-        <span class="gauge-val live-v"></span>
-        <span class="gauge-max"></span>
+      <div class="gauge-bar">
+        <div class="gauge-track"><div class="gauge-fill"></div></div>
+        <div class="gauge-foot">
+          <span class="gauge-min"></span>
+          <span class="gauge-max"></span>
+        </div>
       </div>
+      <span class="gauge-val live-v"></span>
     </div>`;
 }
 
@@ -505,11 +602,14 @@ function gaugeCellHTML(key) {
 function updateGauge(cellEl, key, raw) {
   const p = parseMeasurement(raw);
   const valEl = cellEl.querySelector('.gauge-val');
-  // non-numeric: plain text, hide the bar
+  // non-numeric: a state word ("ein", "nicht aktiv") — translate it like a
+  // label, hide the bar
   if (p.num === null) {
+    if (setBoolCell(cellEl, valEl, p.raw)) return;
+    const text = deGerman(p.raw) || p.raw;
     cellEl.classList.add('text-only');
-    if (valEl.textContent !== p.raw) {
-      valEl.textContent = p.raw;
+    if (valEl.textContent !== text) {
+      valEl.textContent = text;
       flash(valEl);
     }
     return;

@@ -117,8 +117,17 @@ let crumbs = []; // [{label, fn}]
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
+// Demo mode: with no cable, job runs return synthesized values so the screens
+// can be walked. Opt-in via Settings or ?demo=1 in the window URL, and every
+// such response is badged (see the live panel) so it can't pass for real data.
+const demoMode = () => Settings.get('demo', 'off') === 'on'
+  || new URLSearchParams(location.search).get('demo') === '1';
+
 async function api(path, opts) {
-  const res = await fetch(`${API}${path}`, opts);
+  let url = `${API}${path}`;
+  if (demoMode() && path.includes('/run/'))
+    url += (url.includes('?') ? '&' : '?') + 'demo=1';
+  const res = await fetch(url, opts);
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   return res.json();
 }

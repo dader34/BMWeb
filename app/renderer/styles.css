@@ -859,6 +859,50 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .act-btn.on { animation: actpulse 1.4s ease-in-out infinite; }
 @keyframes actpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,66,66,.5); } 50% { box-shadow: 0 0 0 4px rgba(255,66,66,0); } }
 
+/* demo mode: simulated values, never a real reading — say so loudly */
+.live-meta.demo { color: var(--amber); font-weight: 700; letter-spacing: .04em; }
+
+/* INPA action menus: an actuator's softkey row, each key sending the exact
+   value decoded from the .IPO */
+.act-menu-title { font-size: 17px; font-weight: 700; margin: 4px 0 2px; }
+/* INPA's own subtitle: these pages are I/O STATUS screens you can also drive
+   from, so the readouts run live whether or not a key is pressed */
+.act-menu-sub { font-size: 11.5px; color: var(--ink-faint); margin: 0 0 12px; }
+/* INPA prints its softkeys as a plain list, same shape as the Hauptmenue —
+   the footer bar is what actually fires them, so these are just readable rows */
+/* Compact rows: INPA fits nine keys plus every readout on one screen, so these
+   are tighter than the Hauptmenue list they borrow from — no scrolling. */
+.act-key-list { display: grid; gap: 0; max-width: 620px; margin-bottom: 10px; }
+.act-key-row {
+  grid-template-columns: 76px 1fr auto; padding: 2px 6px; gap: 12px;
+}
+.act-key-row .inpa-fn-label { font-size: 13px; }
+.act-key-val { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+.act-key-row.danger .inpa-fn-label { color: var(--red); }
+/* the live output readout INPA prints under the keys, one row per driven output
+   ("Status Vanoseinlassventil  33 %") */
+/* the driven outputs, drawn as bars like INPA's "Status Vanoseinlassventil".
+   No padding override here: the cells must match the Status screens' gauges. */
+/* the driven-output cells live inside the measurement grid so they page with
+   everything else — no separate block, no rule, no stray border */
+.act-menu-readback {
+  font-family: var(--mono); font-size: 13px; color: var(--green); min-height: 18px;
+}
+.group-tile.danger { border-color: rgba(255,66,66,.45); }
+.group-tile.danger .group-name { color: var(--red); }
+
+/* INPA mode: the flat Steuern list, laid out like the Hauptmenue F-key list
+   rather than the card grid. Columns: F-key, name, job, button. */
+.act-inpa .inpa-haupt-list { max-width: 760px; }
+.act-inpa-warn { font-size: 12px; color: var(--amber); margin: 0 0 12px; max-width: 760px; }
+.act-row { grid-template-columns: 64px 1fr auto auto; gap: 4px 12px; align-items: center; }
+.act-row .inpa-fn-label { text-align: left; }
+.act-row-job { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+.act-row .act-btn { min-width: 78px; padding: 3px 10px; font-size: 11.5px; pointer-events: none; }
+.act-row.running .inpa-fn-label { color: var(--red); }
+.act-row .act-readback { grid-column: 2 / -1; margin-top: 2px; }
+html[data-theme="inpa"] .act-row.running .inpa-fn-label { color: #a00000; }
+
 /* Status multi-watch toolbar + checkboxes */
 .watch-toolbar {
   display: flex; align-items: center; gap: 12px; margin: 4px 0 14px;
@@ -910,25 +954,88 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
   background: var(--gauge-fill, #000);
   transition: width .25s ease;
 }
+/* the unit sits under the label on its own line, INPA-style: "[V]" */
+.gauge-unit { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  min-height: 12px; line-height: 12px; }
+/* bar and value share a row; the scale ends sit under the bar. The bar takes a
+   share of the column rather than all of it, so the value stays beside its bar
+   instead of drifting to the far edge on a wide screen (INPA does the same). */
+.gauge { display: flex; align-items: flex-start; gap: 12px; }
+.gauge-bar { flex: 0 1 320px; min-width: 0; }
 .gauge-foot {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-  margin-top: 4px; font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  margin-top: 2px; font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
 }
 .gauge-min, .gauge-max { flex: none; min-width: 18px; }
 .gauge-max { text-align: right; }
 .gauge-val {
-  flex: 1; text-align: center; font-size: 15px; font-weight: 700;
-  color: var(--cyan); white-space: nowrap;
+  flex: none; text-align: left; font-size: 15px; font-weight: 700;
+  color: var(--cyan); white-space: nowrap; line-height: 14px;
+}
+/* a boolean reads as INPA's filled/hollow dot, not a word or a bar */
+.gauge-cell.bool .gauge-bar { display: none; }
+.gauge-cell.bool .gauge-val {
+  min-width: 0; font-size: 15px; color: var(--ink);
+  display: flex; align-items: center; gap: 8px;
 }
 /* INPA two-column screens (Bank 1 / Bank 2 side by side) */
 .inpa-grid.two-col { grid-template-columns: 1fr 1fr; }
-.inpa-grid.two-col .gauge-cell:nth-child(odd) { border-right: 1px solid var(--line); }
+/* the column divider belongs to the left cell only, and must not hang below the
+   last row when an odd value count leaves the right cell empty */
+.inpa-grid.two-col .gauge-cell { border-right: none; }
+.inpa-grid.two-col .gauge-cell:nth-child(odd):not(:last-child) {
+  border-right: 1px solid var(--line);
+}
+/* an odd value count leaves the right column empty on the last row, so the row
+   separator would stop halfway across. Extend it over the empty slot with a
+   pseudo-element the exact width of one column. */
+.inpa-grid.two-col .gauge-cell { position: relative; }
+.inpa-grid.two-col .gauge-cell:last-child:nth-child(odd)::after {
+  content: ''; position: absolute; top: -1px; left: 100%; width: 100%;
+  border-top: 1px solid var(--line); pointer-events: none;
+}
 .inpa-grid { grid-template-columns: 1fr; }
 
 /* INPA 10-per-page paging: a cell outside the current page is removed from flow
    so the grid always shows exactly one page (2 cols x 5 rows). */
 .live-panel.inpa-screen { position: relative; padding-bottom: 30px; }
 .inpa-grid .gauge-cell.inpa-hidden { display: none; }
+
+/* Bare readout: INPA draws measurements straight onto the window — no card, no
+   cell dividers, no title bar, rows separated by whitespace alone. Declared
+   after the panel/grid rules above so these overrides win the cascade. */
+.live-panel.bare {
+  border: none; border-radius: 0; background: none;
+  margin-bottom: 0; overflow: visible;
+  /* keep the room the pager arrow is absolutely positioned into */
+  position: relative; padding-bottom: 34px;
+}
+.live-panel.bare .live-head {
+  border-bottom: none; padding: 0 0 14px; background: none;
+}
+.live-panel.bare .live-title { font-size: 20px; font-weight: 400; }
+.live-panel.bare .live-meta { margin-left: auto; }
+.live-panel.bare .live-grid { border-top: none; row-gap: 20px; column-gap: 52px; }
+/* INPA never scrolls a status screen — it pages. Keep the readout inside the
+   viewport so the pager arrow, not a scrollbar, moves you through the values. */
+.view:has(> .live-panel.bare) { overflow-y: hidden; }
+/* The action-menu page nests its readout inside .act-menu, so the direct-child
+   rule above misses it — it pages with the arrow, it must not scroll either.
+   Bound the readout's height too: suppressing the scrollbar alone just clips
+   the last row, since cells keep arriving after the pager has measured. */
+.view:has(.act-menu) { overflow-y: hidden; }
+/* bound by the viewport, not the parent: .results-panel is an auto-height grid,
+   so a percentage max-height there resolves against nothing */
+.act-menu { display: flex; flex-direction: column; min-height: 0; }
+.act-menu #act-gauges { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+/* every divider off, including the two-column separator */
+.live-panel.bare .live-cell,
+.live-panel.bare .gauge-cell,
+.live-panel.bare .inpa-grid.two-col .gauge-cell:nth-child(odd) {
+  border: none; padding: 0;
+}
+/* no row separators at all in the bare layout, so no filler either */
+.live-panel.bare .inpa-grid.two-col .gauge-cell::after { display: none; }
 
 /* single green scroll arrow, bottom-right, exactly like INPA's page indicator */
 .inpa-pager-arrow {
@@ -947,6 +1054,9 @@ html[data-theme="inpa"] .inpa-pager-arrow {
   color: #003300; background: #00d000; border-color: #007000;
   box-shadow: none; border-radius: 0;
 }
+/* arrow-key paging pulses the arrow so the keyboard action is visible */
+.inpa-pager-arrow.flash { animation: pagerflash .25s ease-out; }
+@keyframes pagerflash { from { transform: scale(1.35); } to { transform: scale(1); } }
 
 /* INPA status F-key category bar (Digital / Analog / VANOS / ...) */
 .inpa-cat-bar { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px;
@@ -987,11 +1097,15 @@ html[data-theme="inpa"] .inpa-subtab.active { background: #000080; color: #fff;
   border-color: #000080; }
 
 /* non-numeric: hide bar, center text */
+/* no bar: the value sits left under its label, not adrift in the value column */
+.gauge-cell.text-only .gauge-bar { display: none; }
 .gauge-cell.text-only .gauge-track { display: none; }
-.gauge-cell.text-only .gauge-foot { justify-content: center; }
 .gauge-cell.text-only .gauge-min,
 .gauge-cell.text-only .gauge-max { display: none; }
-.gauge-cell.text-only .gauge-val { font-size: 16px; color: var(--ink); }
+.gauge-cell.text-only .gauge-val {
+  font-size: 16px; color: var(--ink);
+  flex: none; min-width: 0; text-align: left;
+}
 .live-dot.stopped { background: var(--ink-faint); box-shadow: none; animation: none; }
 .live-meta.rec { color: var(--red); }
 .live-meta.rec::before { content: '● '; }
@@ -1108,10 +1222,17 @@ select.modal-input { appearance: none; cursor: pointer; }
 .fkey.flash { animation: fkflash .35s ease; }
 @keyframes fkflash { 0% { background: var(--amber); } 100% {} }
 
+/* Fixed width, not content width: this column sits beside the flex:1 F-key row,
+   so letting it grow with its text ("sent" -> "released") squeezed every key on
+   each status change. Reserve the space once and ellipsize inside it. */
 .fkeybar-status {
   display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
   font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
-  white-space: nowrap; gap: 2px;
+  gap: 2px;
+  flex: 0 0 168px; width: 168px; min-width: 0; overflow: hidden;
+}
+.fkeybar-status > * {
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* first-run tutorial: spotlight ring + coach-mark tip (tour-overlay rides the
