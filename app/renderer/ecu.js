@@ -414,17 +414,32 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   // opens a submenu (Analog values / Inputs / Outputs / K-bus / ...) and waits
   // for a pick; jumping straight into the first page hides that there are
   // others. renderStatusTree already behaves this way — this matches it.
+  const rowsOf = (item) => item.screens
+    .map(i => (layout.screens[i] || {}).rows || []).flat().length;
+
   if (inpaMode()) {
+    // the same "< Fn > label" list the ECU home page and the System/Service
+    // screens use, rather than an empty panel telling you to press a softkey
     results.className = 'results-panel';
-    results.innerHTML = `<div class="empty"><div>Choose a readout below.</div></div>`;
+    results.innerHTML = `<div class="act-key-list" id="stat-list"></div>`;
+    const list = results.querySelector('#stat-list');
+    cats.forEach((item, n) => {
+      const rows = rowsOf(item);
+      const row = document.createElement('button');
+      row.className = 'inpa-fn act-key-row';
+      row.innerHTML = `<span class="inpa-fn-key">&lt; F${item.fkey} &gt;</span>`
+        + `<span class="inpa-fn-label">${esc(fkeyLabel(item.label))}</span>`
+        + `<span class="act-key-val">${rows} value${rows === 1 ? '' : 's'}</span>`;
+      row.onclick = () => open(item, bar && bar.children[n]);
+      list.appendChild(row);
+    });
   } else {
     results.className = 'group-grid stagger';
     results.innerHTML = '';
     cats.forEach((item, n) => {
       const tile = document.createElement('div');
       tile.className = 'group-tile';
-      const rows = item.screens
-        .map(i => (layout.screens[i] || {}).rows || []).flat().length;
+      const rows = rowsOf(item);
       tile.innerHTML = `
         <div class="group-name">${esc(fkeyLabel(item.label))}</div>
         <div class="group-count">${rows} value${rows === 1 ? '' : 's'}</div>
@@ -466,8 +481,20 @@ function renderStatusTree(chassisId, sectionName, ecu, layout, view, results) {
     // INPA drives this from the softkey bar alone; modern mode shows the same
     // grouping as clickable tiles (and keeps the keys as a shortcut)
     if (inpaMode()) {
+      // same "< Fn > label" list as the ECU home page — a submenu level is a
+      // list of choices, not an empty panel pointing at the softkey bar
       results.className = 'results-panel';
-      results.innerHTML = `<div class="empty"><div>Choose a readout below.</div></div>`;
+      results.innerHTML = `<div class="act-key-list" id="tree-list"></div>`;
+      const list = results.querySelector('#tree-list');
+      items.forEach(it => {
+        const row = document.createElement('button');
+        row.className = 'inpa-fn act-key-row';
+        row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.fkey} &gt;</span>`
+          + `<span class="inpa-fn-label">${esc(fkeyLabel(it.label))}</span>`
+          + `<span class="act-key-val">${it.items ? `${it.items.length} readouts ▸` : 'live values'}</span>`;
+        row.onclick = () => enter(it);
+        list.appendChild(row);
+      });
     } else {
       results.className = 'group-grid stagger';
       results.innerHTML = '';
