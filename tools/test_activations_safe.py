@@ -37,7 +37,12 @@ GENERATED = os.path.join(HERE, "..", "data", "inpa-layouts", "generated")
 
 # screens the generator is allowed to emit. Everything here is read-only; a new
 # screen kind that writes must be added deliberately, not by accident.
-READ_ONLY_SCREENS = {"identity", "aif"}
+#
+# activateMenus is INPA's Activate GROUPING (Inputs/Outputs -> PW, C.Lock, ...)
+# decoded from the .IPO. It carries labels and filter tokens only -- no job, no
+# argument, nothing runnable. Picking a group still routes through the shared
+# confirm-and-send path, where the argument rules below apply.
+READ_ONLY_SCREENS = {"identity", "aif", "activateMenus"}
 
 # how many ECUs to check against the live engine (the whole corpus is slow and
 # the failure mode is systemic, not per-ECU)

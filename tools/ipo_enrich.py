@@ -36,6 +36,8 @@ import ipo_recognize as L2                                      # noqa: E402
 
 OUT = L1.OUT
 SGBD_CACHE = os.path.join(OUT, "_sgbd.json")
+# INPA's own Activate grouping, where the .IPO declares one (tools/ipo_actmenus.py)
+ACTMENUS = os.path.join(OUT, "_actmenus.json")
 ECU_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "vendor", "EDIABAS", "Ecu")
 
@@ -218,6 +220,10 @@ def main():
         # ...and one file per ECU, in the shape the app's layout endpoint
         # serves. The combined file is for analysis; the app must not load
         # 30 MB to render one screen.
+        actmenus = {}
+        if os.path.exists(ACTMENUS):
+            with open(ACTMENUS, encoding="utf-8") as f:
+                actmenus = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -226,6 +232,10 @@ def main():
             if not screens:
                 continue
             out = {"ecu": ecu, "sgbd": r.get("sgbd"), "generated": True}
+            # INPA's Activate groups (Inputs/Outputs -> PW, C.Lock, WiWa ...),
+            # for the ECUs whose .IPO actually declares them
+            if ecu in actmenus:
+                out["activateMenus"] = actmenus[ecu]["menus"]
             if "identity" in screens:
                 out["identity"] = as_identity(screens["identity"])
             if "aif" in screens:
