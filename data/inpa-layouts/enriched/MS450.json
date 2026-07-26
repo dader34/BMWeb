@@ -8299,5 +8299,130 @@
     "warn": "Re-runs the immobilizer start-value alignment between the DME and EWS/CAS. If it does not complete, the engine may not start."
    }
   ]
+ },
+ "special": {
+  "title": "Special",
+  "subtitle": "memory dump and immobilizer sync",
+  "memory": {
+   "title": "MS45 Read memory",
+   "caption": "hex dump — pick a region, then step the address",
+   "job": "SPEICHER_LESEN_ASCII",
+   "maxBytes": 254,
+   "regions": [
+    {
+     "token": "LAR",
+     "fkey": "Memory lin. reading",
+     "label": "Linear memory",
+     "key": "Linear",
+     "start": "0x000000",
+     "low": "0x000000",
+     "high": "0x06FFFF",
+     "count": 16,
+     "verified": true
+    },
+    {
+     "token": "SRAM",
+     "fkey": "SRAM lin. reading",
+     "label": "SRAM",
+     "key": "SRAM",
+     "start": "0x3F9800",
+     "low": "0x3F9800",
+     "high": "0x3FFFFF",
+     "count": 16,
+     "verified": true
+    },
+    {
+     "token": "UIF",
+     "fkey": "User info field",
+     "label": "User info field",
+     "key": "UIF",
+     "start": "0x000000",
+     "low": "0x000000",
+     "high": "0x00000D",
+     "count": 16,
+     "note": "14 AIF positions with 64 byte, area 0-13",
+     "verified": true
+    },
+    {
+     "token": "ROMX",
+     "fkey": "ext. Read memory",
+     "label": "External flash",
+     "key": "EXT-FLASH",
+     "start": "0x040000",
+     "low": "0x040000",
+     "high": "0x06FFFF",
+     "count": 16,
+     "verified": true
+    }
+   ],
+   "steps": [
+    {
+     "label": "Address+10h",
+     "key": "+10h",
+     "delta": 16,
+     "verified": true
+    },
+    {
+     "label": "Address-10h",
+     "key": "−10h",
+     "delta": -16,
+     "verified": true
+    },
+    {
+     "label": "Address+100h",
+     "key": "+100h",
+     "delta": 256,
+     "verified": true
+    },
+    {
+     "label": "Address-100h",
+     "key": "−100h",
+     "delta": -256,
+     "verified": true
+    }
+   ]
+  },
+  "sync": [
+   {
+    "key": "cas",
+    "title": "CAS start-value alignment",
+    "caption": "E6x/E65 — DME and CAS to a common start value",
+    "steps": [
+     {
+      "job": "DME_STARTWERT_ABGLEICH",
+      "label": "Request alignment from the DME"
+     },
+     {
+      "job": "EWS_STARTWERT",
+      "label": "Reset DME and CAS to start value"
+     },
+     {
+      "job": "EWS_EMPFANG",
+      "label": "Read reception status",
+      "wait": 2.0
+     }
+    ]
+   },
+   {
+    "key": "ews3",
+    "title": "EWS start-value alignment",
+    "caption": "EWS3 — DME and EWS to a common start value",
+    "steps": [
+     {
+      "job": "WECHSELCODE_SYNC_DME",
+      "label": "Sync the DME rolling code"
+     },
+     {
+      "job": "EWS_STARTWERT",
+      "label": "Reset DME and EWS to start value"
+     },
+     {
+      "job": "EWS_EMPFANG",
+      "label": "Read reception status",
+      "wait": 2.0
+     }
+    ]
+   }
+  ]
  }
 }
