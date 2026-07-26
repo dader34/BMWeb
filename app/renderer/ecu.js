@@ -561,6 +561,15 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     return;
   }
 
+  // Adaption: INPA's selective adaptation clearing (root F8)
+  if (sec.section === 'Adaption' && layout && layout.adaption) {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    renderAdaption(ecu, layout.adaption, results, back);
+    return;
+  }
+
   // AIF: INPA's user-information field — the DME's programming history
   if (sec.section === 'AIF' && layout && layout.aif) {
     const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
