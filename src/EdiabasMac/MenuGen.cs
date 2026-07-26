@@ -119,7 +119,7 @@ public static class MenuGen
         return null;
     }
 
-    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","AIF","Service","Special","Programming","Other" };
+    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","AIF","Adaption","Service","Special","Programming","Other" };
     static readonly Regex Danger = new(@"FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN(?!\w*LESEN)|STELLGLIED", RegexOptions.IgnoreCase);
     // suffix verbs moved to front of label
     static readonly Dictionary<string,string> FrontVerb = new(StringComparer.OrdinalIgnoreCase)
@@ -149,10 +149,13 @@ public static class MenuGen
         if (j.Contains("ZIF") || j.Contains("PRUEFCODE")
             || j.Contains("C_CI") || j.Contains("C_FG") || j.Contains("C_C_")) return "Identity";
         if (j.Contains("EWS") || j.Contains("DISTANCE_MIL") || j.StartsWith("SPEICHER")) return "Special";
+        // INPA gives adaptation clearing its own root key (F8 "Adaption"):
+        // it erases what the DME has learned, which is not a service read.
+        if (j.Contains("ADAP")) return "Adaption";
         if (j.Contains("CBS") || j.Contains("PRUEFSTEMPEL") || j.Contains("PRUEFFLAG")
             || j.Contains("DIAGNOSEPROTOKOLL")
             || j.Contains("RESET") || j.Contains("STARTWERT") || j.Contains("SLEEP")
-            || j.Contains("ADAP_SELEKTIV") || j.Contains("INNENTEMP")) return "Service";
+            || j.Contains("INNENTEMP")) return "Service";
 
         // E36/early-E46 engine and body ECUs expose many DS1/DS2-era jobs the rules
         // above miss. route them into INPA's named submenus (verified against the
