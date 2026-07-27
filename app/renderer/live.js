@@ -446,9 +446,14 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
       }
       alive++;
       const vals = new Map(flatResults(data.sets));
+      let ri = -1;
       for (const r of gridOrder(scr)) {
+        ri++;
         if (!vals.has(r.key)) continue;
-        const ck = `${scr.job}:${r.key}`;
+        // INPA draws the same result under several captions on one screen
+        // (KOMBI prints STAT_U_BATT_WERT as clamp 30, 58g HIGH and 58g LOW).
+        // Keying a cell by job:key alone collapsed those into one.
+        const ck = `${scr.job}:${r.key}:${ri}`;
         let cell = cellEls.get(ck);
         if (!cell) {
           cell = document.createElement('div');
@@ -464,7 +469,12 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
     if (added) pager.relayout();
     if (alive) {
-      meta.textContent = (demoMode() ? 'DEMO · ' : 'live · ') + `${cellEls.size} values`;
+      // declared vs answered: a screen row the ECU's job does not return
+      // cannot be drawn, so say so rather than silently showing fewer
+      const want = screens.reduce((n, s) => n + gridOrder(s).length, 0);
+      meta.textContent = (demoMode() ? 'DEMO · ' : 'live · ')
+        + (want > cellEls.size ? `${cellEls.size} of ${want} values`
+                               : `${cellEls.size} values`);
       meta.classList.toggle('demo', demoMode());
       sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
     } else if (cellEls.size === 0) {

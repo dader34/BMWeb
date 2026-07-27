@@ -201,7 +201,18 @@ def _screen_ir(toks):
             name = t.get("name", "")
             strs = [a["v"] for a in args if a["op"] == "const" and a["t"] == "s"]
             ints = [a["v"] for a in args if a["op"] == "const" and a["t"] == "i"]
-            slot = next((a["n"] for a in args if a["op"] == "var"), None)
+            # A slot is (scope, index). INPA reads a result into a slot with
+            # ResultAnalog/Digital, then draws that slot with analogout/
+            # digitalout -- often several LINEs later. Scope 2 is the screen's
+            # global frame, filled once in the job-dispatch LINE at the top;
+            # scope 0 is scratch, bound and drawn back-to-back. Keying on the
+            # index alone made global 0 and scratch 0 the same slot.
+            # analogout takes the value var plus a scale var, in either
+            # order, so pick whichever slot a Result* call actually bound
+            # rather than the first one pushed.
+            vslots = [(a.get("sc", 0), a["n"]) for a in args if a["op"] == "var"]
+            slot = next((s for s in vslots if s in bind),
+                        vslots[0] if vslots else None)
             el = None
             if name in ("ftextout", "text", "textout"):
                 s = strs[0] if strs else ""
@@ -242,11 +253,13 @@ def _screen_ir(toks):
                                      **({"arg": arg} if arg else {})})
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
                           "INPAapiResultDigital"):
+                # destination slot: kind 0 writes scratch, kind 2 writes the
+                # screen's global frame (drawn by a later LINE's analogout)
                 ref = next((a for a in args if a["op"] == "procref"
-                            and a["kind"] == 0), None)
+                            and a["kind"] in (0, 2)), None)
                 key = next((s for s in strs if D._KEYISH.match(s)), None)
                 if ref is not None and key:
-                    bind[ref["n"]] = key
+                    bind[(2 if ref["kind"] == 2 else 0, ref["n"])] = key
             elif name == "analogout":
                 key = bind.get(slot)
                 el = {"t": "gauge", "key": key}
@@ -734,6 +747,19 @@ def main():
               if i.get("label") == "Analog2"]
         if not st or "screen" not in st[0]:
             fails.append("GSDS2 m_status Analog2 lost its screen target")
+
+        # A result read into the screen's GLOBAL frame (procref kind 2) and
+        # drawn many LINEs later must still reach its gauge. KOMBI's tank line
+        # dispatches three jobs at the top of the screen, then draws the values
+        # further down -- binding by index alone (ignoring scope) left the
+        # whole line captioned but valueless.
+        k = build("KOMBI")["screens"]["s_status_analog_46"]
+        tank = next((ln for ln in k["lines"]
+                     if (ln["caption"] or "").startswith("tank")), None)
+        tk = [e["key"] for e in (tank or {}).get("elements", [])
+              if e["t"] == "gauge"]
+        if len(tk) != 3 or "STAT_TANKINHALT_WERT" not in tk:
+            fails.append(f"KOMBI global-slot gauges lost: {tk}")
         r = build("RDC")
         wj = [j for s in r["screens"].values() for j in s["jobs"] if j["write"]]
         rj = [j for s in r["screens"].values() for j in s["jobs"]]

@@ -269,8 +269,18 @@ function irSameBar(ir, menu, from) {
 function irMenuItems(ir, menuName, variant) {
   const menu = (ir.menus || {})[menuName];
   if (!menu) return [];
-  // an item can name several screens, one per chassis variant
-  const pick = (it) => irPickScreen(ir, it, variant || ir._variant);
+  // an item can name several screens, one per chassis variant. Inside a menu
+  // INPA already chose for this variant (m_status_38_39C_52 serves KOMBI39C),
+  // that menu's own tags widen what counts as ours: its pages are the _38
+  // screens, and pruning them by tag alone emptied the key.
+  const via = irScreenTags(ir, menuName);
+  const pick = (it) => irPickScreen(ir, it, variant || ir._variant, via);
+  // ...and likewise several menus
+  const pickMenu = (it) => {
+    const m = irPickTagged(ir, [it.menu, ...(it.menuAlts || [])],
+                           variant || ir._variant);
+    return m === undefined ? (it.menu || null) : m;
+  };
   const seen = new Set();
   return (menu.items || [])
     .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
@@ -321,15 +331,25 @@ function irMenuItems(ir, menuName, variant) {
       // is the right one. Where the menu is all there is -- Activate's
       // m_steuern_36C_38_39_39C_52, the only actuator menu this root has --
       // dropping it would leave the key dead.
-      menu: (it.menu && it.screen
-             && !irMenuFitsVariant(it.menu, variant || ir._variant)
-             && irRows(((ir.screens || {})[pick(it)]) || {}).rows.length)
-        ? null : (it.menu || null),
+      menu: (() => {
+        // INPA ships one Status/Activate menu PER VARIANT and lists the rest
+        // as alternatives (m_status_38_39 + m_status_46, m_status_85, ...).
+        // Taking it.menu blind gave KOMBI46 the _38 pages and hid its own
+        // TÖNS I/O and CAN keys.
+        const m = pickMenu(it);
+        return (m && it.screen
+                && !irMenuFitsVariant(m, variant || ir._variant)
+                && irRows(((ir.screens || {})[pick(it)]) || {}).rows.length)
+          ? null : (m || null);
+      })(),
       // no target and no action: INPA runs this in place (actuator toggles)
       inPlace: !it.screen && !it.menu,
       readable: it.screen
         ? irReadable((ir.screens || {})[pick(it)] || {}) : false,
-    }));
+    }))
+    // every screen this key names belongs to another variant, and it opens no
+    // menu: INPA does not offer this key on this ECU, so neither do we
+    .filter(it => it.screen || it.menu || it.job || it.inPlace);
 }
 
 // Actuator keys always run -- INPA sends on the keypress. The setting only
@@ -574,21 +594,99 @@ function irAsCard(scr, descs) {
 // KOMBI46 -> s_code_46, which has 37 rows where the default first target has
 // 13. A screen with no rows never wins: s_status_36_38_39_46_52_85 lists the
 // chassis but holds nothing, and taking it left Status empty.
-function irPickScreen(ir, it, variant) {
+// Which variants a name is tagged for. INPA suffixes a screen with the chassis
+// numbers it serves (s_status_36, s_status_digital_36c,
+// m_main_36_38_39_46_52_85); the variant names themselves are in rootVariants,
+// so a tag matches a variant when the variant's name ENDS with it. That handles
+// KOMBI361 matching "361" over "36", and leaves IKE/IKI -- which carry no
+// number -- untagged rather than falsely matching every numbered screen.
+// Does this name end in one or more variant suffixes (_36, _38_39, _36c)?
+const irHasVariantSuffix = (n) => /_\d+[a-zA-Z]?(_\d+[a-zA-Z]?)*$/.test(String(n));
+
+// Is this variant one the screen suffixes can address at all? KOMBI31..KOMBI85
+// carry their number in the name; IKE and IKI do not, and INPA reaches them by
+// name -- so no numeric suffix can ever select for or against them.
+function irVariantIsNumbered(ir, variant) {
+  const roots = Object.entries(ir.rootVariants || {});
+  const V = String(variant).toUpperCase();
+  const root = roots.find(([, vs]) => vs.some(v => v.toUpperCase() === V));
+  if (!root) return true;
+  return (root[0].match(/\d+/g) || []).some(t => V.includes(t));
+}
+
+const _irTagCache = new WeakMap();
+function irScreenTags(ir, name) {
+  let per = _irTagCache.get(ir);
+  if (!per) { per = new Map(); _irTagCache.set(ir, per); }
+  if (per.has(name)) return per.get(name);
+  const names = Object.values(ir.rootVariants || {}).flat()
+    .map(v => String(v).toUpperCase());
+  const tags = [];
+  for (const t of String(name).match(/\d+[a-zA-Z]?(?=_|$)/g) || []) {
+    const T = t.toUpperCase();
+    // A variant matches a tag when its name ends with the tag, or continues
+    // with digits (so "36" covers KOMBI36 and KOMBI361, which share
+    // s_status_36 and both answer STATUS_LESEN). It must NOT swallow a
+    // lettered sibling: "36" is not KOMBI36C, whose screens are _36c and
+    // whose jobs differ. A more specific name still wins -- irPickTagged
+    // prefers the shortest tag list.
+    // A lettered tag (39C, 46R, 36c) names ONE variant and must match it
+    // exactly. A bare number may be a prefix of a longer variant -- "36"
+    // covers KOMBI36 and KOMBI361, which share s_status_36 -- but must not
+    // swallow a lettered sibling: KOMBI39C is not "39".
+    const re = /[a-zA-Z]$/.test(T) ? new RegExp(`${T}$`)
+                                   : new RegExp(`${T}\\d*$`);
+    for (const v of names) if (re.test(v) && !tags.includes(v)) tags.push(v);
+  }
+  per.set(name, tags);
+  return tags;
+}
+
+// Choose the name in `pool` that serves `variant`. Returns undefined when the
+// tags say nothing (caller keeps its own default) and null when every
+// candidate is tagged for OTHER variants -- INPA has no such key here.
+function irPickTagged(ir, pool, variant, via) {
+  pool = (pool || []).filter(Boolean);
+  if (!pool.length || !variant) return undefined;
+  const V = String(variant).toUpperCase();
+  // reached through a menu INPA chose for this variant: that menu's pages are
+  // ours whatever they are suffixed with
+  const ok = (n) => {
+    const t = irScreenTags(ir, n);
+    return t.includes(V) || (via || []).some(v => t.includes(v));
+  };
+  // A name carrying a variant suffix is variant-specific even when the suffix
+  // names no variant in this root (KOMBI has _36c screens but no KOMBI36C):
+  // it belongs to a sibling, so it must not pass as family-wide.
+  const tagged = pool.filter(n => irHasVariantSuffix(n));
+  // A variant whose name matches NO suffix anywhere in this pool is one INPA
+  // identifies by name rather than by number -- IKE and IKI are the E38/E39
+  // clusters, so KOMBI's _38 screens are theirs. Numeric tags cannot speak
+  // for it, so the tagged names stay eligible instead of pruning the key away.
+  if (!pool.some(ok) && !irVariantIsNumbered(ir, V)) return undefined;
+  // A name tagged for this variant outright beats one merely reachable
+  // through the menu; among equals, the fewest variants sharing it wins.
+  const rank = (n) => (irScreenTags(ir, n).includes(V) ? 0 : 1);
+  const hit = tagged.filter(ok)
+    .sort((a, b) => rank(a) - rank(b)
+                 || irScreenTags(ir, a).length - irScreenTags(ir, b).length)[0];
+  if (hit) return hit;
+  // an untagged name is family-wide and always allowed
+  const generic = pool.find(n => !irHasVariantSuffix(n));
+  if (generic) return generic;
+  return tagged.length === pool.length ? null : undefined;
+}
+
+function irPickScreen(ir, it, variant, via) {
   const all = [it.screen, ...(it.screenAlts || [])].filter(Boolean);
   const withRows = all.filter(n => {
     const s = (ir.screens || {})[n];
     return s && irRows(s).rows.length;
   });
   const pool = withRows.length ? withRows : all;
-  const num = String(variant || '').match(/\d+/);
-  if (num) {
-    // prefer the most specific name carrying this chassis number
-    const hit = pool
-      .filter(n => (n.match(/\d+/g) || []).includes(num[0]))
-      .sort((a, b) => (a.match(/\d+/g) || []).length
-                    - (b.match(/\d+/g) || []).length)[0];
-    if (hit) return hit;
+  if (variant) {
+    const hit = irPickTagged(ir, pool, variant, via);
+    if (hit !== undefined) return hit;
   }
   return pool[0] || it.screen;
 }
