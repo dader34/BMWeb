@@ -11,8 +11,11 @@ let activationEcu = null;       // ecu whose tests are active, for cleanup
 // itemLabel; otherwise the English token-built label.
 function actLabel(a) {
   if (lang() === 'orig') return a.start;
-  if (inpaMode() && a.inpaLabel) return a.inpaLabel;
-  return (a.label || a.start).replace(/^Activate /, '');
+  // MenuGen builds these from the job name, so German nouns survive into the
+  // label ("Relay Frontscheibe", "Heizspannung ..."); translate before showing.
+  const tr = (s) => (typeof deGerman === 'function' ? (deGerman(s) || s) : s);
+  if (inpaMode() && a.inpaLabel) return tr(a.inpaLabel);
+  return tr((a.label || a.start).replace(/^Activate /, ''));
 }
 
 // A test the ECU declares but we cannot drive: its job takes arguments we do
@@ -26,8 +29,15 @@ const argNames = (a) => (a.args || []).map(g => (g && g.name) || g).join(' + ');
 // arguments the caller has to choose from a list the SGBD supplied
 const argChoices = (a) => (a.args || []).filter(g => g && (g.options || []).length);
 
-// activate/stop button caption + styling, shared by both layouts
+// activate/stop caption + styling. The modern card passes a real <button>;
+// INPA's list passes its plain state cell, which carries a word rather than a
+// control (the row itself is the control). Detect which and write the right
+// thing, so a running test shows as running in both layouts.
 function setActBtn(btn, on, momentary, act) {
+  if (btn && btn.classList && btn.classList.contains('act-key-val')) {
+    btn.textContent = (act && !actRunnable(act)) ? 'needs input' : (on ? 'active' : '');
+    return;
+  }
   if (act && !actRunnable(act)) {
     btn.textContent = 'Needs input';
     btn.className = 'btn act-btn act-blocked';
@@ -364,13 +374,17 @@ function renderActivationsInpa(ecu, acts, container) {
   acts.forEach((a, i) => {
     const row = document.createElement('button');
     row.className = 'inpa-fn act-row';
+    // INPA lists these as plain < Fn > rows: the row IS the control, so a
+    // per-row Run button just repeats what clicking the row already does. The
+    // right-hand cell carries state instead — running, or why it cannot run.
+    const state = !actRunnable(a) ? 'needs input'
+                : activeTests.has(a.start) ? 'active' : '';
     row.innerHTML = `
       <span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>
       <span class="inpa-fn-label">${esc(actLabel(a))}</span>
       <span class="act-row-job">${esc(a.start)}</span>
-      <span class="act-row-btn"><span class="btn act-btn"></span></span>`;
-    const btn = row.querySelector('.act-btn');
-    setActBtn(btn, activeTests.has(a.start), a.momentary, a);
+      <span class="act-key-val">${esc(state)}</span>`;
+    const btn = row.querySelector('.act-key-val');
     if (activeTests.has(a.start)) row.classList.add('running');
     const run = actRunnable(a)
       ? () => toggleActivation(ecu, a, row, btn)
