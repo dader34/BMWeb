@@ -238,9 +238,39 @@ const irFaultJob = (label) =>
 const IR_FILE_ACTION =
   /^(store|save|speichern)\b|^(FS|IS|HS|EM|IM|HM) (speichern|drucken)$|^(Save|Print) (EM|IM|HM)$/i;
 
-function irMenuItems(ir, menuName) {
+// A menu whose name carries chassis numbers only serves those chassis.
+// Names with no digits (m_status, m_steuern) serve everything.
+function irMenuFitsVariant(name, variant) {
+  const nums = String(name).match(/\d+/g);
+  const v = String(variant || '').match(/\d+/);
+  if (!nums || !v) return true;
+  return nums.includes(v[0]);
+}
+
+// Is `menu` just the softkey bar `from` already shows, rather than a submenu?
+// INPA keeps the bar and swaps the SCREEN: KOMBI's Ident, Code and Memory all
+// install m_info_ident_code_36_38_39_46_52_85, which lists the same keys as
+// the root -- opening it re-lists Info/Ident/Code one level deeper and never
+// shows the screen the key actually selects. Compared by CONTENT: Activate's
+// menu happens to have the same number of items but entirely different ones
+// (km reset, SII oil, test), and is a real submenu.
+function irSameBar(ir, menu, from) {
+  if (!menu || !from || menu === from) return true;
+  const labels = (m) => (((ir.menus || {})[m] || {}).items || [])
+    .map(i => (i.label || '').trim()).filter(Boolean).sort().join('|');
+  const a = labels(menu), b = labels(from);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const A = new Set(a.split('|')), B = new Set(b.split('|'));
+  const shared = [...A].filter(x => B.has(x)).length;
+  return shared / Math.max(A.size, B.size) > 0.8;
+}
+
+function irMenuItems(ir, menuName, variant) {
   const menu = (ir.menus || {})[menuName];
   if (!menu) return [];
+  // an item can name several screens, one per chassis variant
+  const pick = (it) => irPickScreen(ir, it, variant || ir._variant);
   const seen = new Set();
   return (menu.items || [])
     .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
@@ -274,8 +304,7 @@ function irMenuItems(ir, menuName) {
     .map(it => ({
       nr: it.nr,
       label: irLabel(it.label.trim()) || it.label.trim(),
-      screen: it.screen || null,
-      menu: it.menu || null,
+      screen: it.screen ? pick(it) : null,
       // the job this item calls itself, if any (Clear -> FS_LOESCHEN,
       // Sleep -> SLEEP_MODE). Dropping it here made every such key inert:
       // open() tests it.job, so without this Clear could never run.
@@ -286,10 +315,20 @@ function irMenuItems(ir, menuName) {
       // INPA asks the user for a value and builds the job argument from it
       // (KLIMA_5B's flap positions: "Fresh air flap", "Position (0-100 %)")
       prompt: it.prompt || null,
+      // A menu named for other chassis is dropped ONLY when the item also
+      // names a screen that does serve this one: KOMBI's Status key installs
+      // m_status_38_39, whose pages are all _38 screens, and its own screen
+      // is the right one. Where the menu is all there is -- Activate's
+      // m_steuern_36C_38_39_39C_52, the only actuator menu this root has --
+      // dropping it would leave the key dead.
+      menu: (it.menu && it.screen
+             && !irMenuFitsVariant(it.menu, variant || ir._variant)
+             && irRows(((ir.screens || {})[pick(it)]) || {}).rows.length)
+        ? null : (it.menu || null),
       // no target and no action: INPA runs this in place (actuator toggles)
       inPlace: !it.screen && !it.menu,
-      readable: it.screen ? irReadable((ir.screens || {})[it.screen] || {})
-        : false,
+      readable: it.screen
+        ? irReadable((ir.screens || {})[pick(it)] || {}) : false,
     }));
 }
 
@@ -529,12 +568,45 @@ function irAsCard(scr, descs) {
   };
 }
 
+// Which of an item's variant screens to use. INPA names them for the chassis
+// they serve (s_code_46, s_status_36) and picks by the ECU's own VARIANTE, so
+// the digits in the name are matched against the digits in the variant --
+// KOMBI46 -> s_code_46, which has 37 rows where the default first target has
+// 13. A screen with no rows never wins: s_status_36_38_39_46_52_85 lists the
+// chassis but holds nothing, and taking it left Status empty.
+function irPickScreen(ir, it, variant) {
+  const all = [it.screen, ...(it.screenAlts || [])].filter(Boolean);
+  const withRows = all.filter(n => {
+    const s = (ir.screens || {})[n];
+    return s && irRows(s).rows.length;
+  });
+  const pool = withRows.length ? withRows : all;
+  const num = String(variant || '').match(/\d+/);
+  if (num) {
+    // prefer the most specific name carrying this chassis number
+    const hit = pool
+      .filter(n => (n.match(/\d+/g) || []).includes(num[0]))
+      .sort((a, b) => (a.match(/\d+/g) || []).length
+                    - (b.match(/\d+/g) || []).length)[0];
+    if (hit) return hit;
+  }
+  return pool[0] || it.screen;
+}
+
 // Open ONE root item directly, for a section that maps to a single INPA key
 // (Special -> Memory). Renders the menu it opens, or the screen itself when
 // the key opens a screen. Returns false when there is nothing to show, so the
 // caller can fall back.
 function irOpenItem(ecu, ir, menuName, it, container, back) {
-  if (it.menu) return renderIrMenu(ecu, ir, it.menu, container, back);
+  // A key can install a menu AND a screen. Often the menu is just the bar it
+  // keeps: KOMBI's Ident, Code and Memory all install
+  // m_info_ident_code_36_38_39_46_52_85, which IS the root menu -- opening it
+  // re-lists Info/Ident/Code/... one level deeper while the screen the key
+  // actually selects never renders. The screen wins whenever the menu is not
+  // a narrower list than the one we came from.
+  if (it.menu && !irSameBar(ir, it.menu, menuName)) {
+    return renderIrMenu(ecu, ir, it.menu, container, back);
+  }
   const scr = (ir.screens || {})[it.screen];
   if (!scr) return false;
   if (irIsMemory(scr)) {
@@ -591,7 +663,9 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // is drawn in -- it has no rows of its own. Checking the screen first
     // sent Status and Activate to the "no readout" message instead of their
     // submenus.
-    if (it.menu) {
+    // a menu no narrower than this one is the same softkey bar being kept,
+    // not a submenu: opening it just re-lists these keys a level deeper
+    if (it.menu && !irSameBar(ir, it.menu, menuName)) {
       renderIrMenu(ecu, ir, it.menu, container,
                    () => renderIrMenu(ecu, ir, menuName, container, back, trail),
                    [...trail, it.label]);
@@ -778,10 +852,9 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     }
     if (!it.menu && !it.screen) return '';
     const scr = (ir.screens || {})[it.screen];
-    // a menu item counts its entries. open() opens the menu whatever screen
-    // it also names, so counting that screen's rows described the wrong
-    // thing -- and gave 0 for the screens that only host a menu.
-    if (it.menu) {
+    // a real submenu counts its entries; a key that merely keeps this bar
+    // counts the rows of the screen it selects, which is what opening it shows
+    if (it.menu && !irSameBar(ir, it.menu, menuName)) {
       const k = irMenuItems(ir, it.menu).length;
       return k ? `${k} function${k === 1 ? '' : 's'}` : '';
     }

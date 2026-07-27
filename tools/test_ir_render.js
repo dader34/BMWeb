@@ -22,7 +22,8 @@ const api = async () => { throw new Error('offline'); };   // descs unavailable
 // here instead would test a copy, not the code -- which is exactly how the
 // last mislabelling survived a passing run.
 let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8');
-_irSrc = _irSrc.replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
+_irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVariant = irMenuFitsVariant; function irMenuFitsVariant')
+               .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
                .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =');
 eval(_irSrc);
 
@@ -333,6 +334,38 @@ ok(irMenuItems(kb, irRootMenu(kb)).some(i => /^Status$/i.test(i.label)),
 for (const list of Object.values(kb.rootVariants || {})) {
   ok(!list.some(v => /^STAT_|_EIN$/.test(v)),
      `a result key leaked into KOMBI's variant list: ${list}`);
+}
+
+// ---- variant SCREENS, not just variant roots -----------------------------
+// An item can name several screens, one per chassis: KOMBI's Code key lists
+// s_code_36_38_39_52 first but also s_code_46, which has 37 rows against the
+// first's 13. Its Status key installs m_status_38_39, an E38/E39 menu whose
+// pages are all _38 screens -- an E46 got an empty Analog page and a Digital
+// page with nothing behind it.
+{
+  const kbv = load('KOMBI');
+  kbv._variant = 'KOMBI46';
+  const root = irRootMenu(kbv, 'KOMBI46');
+  const items = irMenuItems(kbv, root, 'KOMBI46');
+  const code = items.find(i => /^Code$/i.test(i.label));
+  ok(code && code.screen === 's_code_46',
+     `KOMBI46 Code should open s_code_46, got ${code && code.screen}`);
+  ok(irRows(kbv.screens[code.screen]).rows.length > 30,
+     'KOMBI46 coding screen lost its rows');
+  const stat = items.find(i => /^Status$/i.test(i.label));
+  ok(stat && !stat.menu,
+     'KOMBI46 Status must not open the E38/E39 menu');
+  ok(stat && irRows(kbv.screens[stat.screen]).rows.length > 10,
+     `KOMBI46 Status screen has too few rows: ${stat && stat.screen}`);
+  // a different variant gets its own screens
+  const i36 = irMenuItems(kbv, root, 'KOMBI36');
+  ok(i36.find(i => /^Code$/i.test(i.label)).screen !== 's_code_46',
+     'KOMBI36 wrongly given the E46 coding screen');
+  // a menu with no digits serves every variant
+  ok(irMenuFitsVariant('m_steuern', 'KOMBI46')
+     && !irMenuFitsVariant('m_status_38_39', 'KOMBI46')
+     && irMenuFitsVariant('m_status_38_39', 'KOMBI38'),
+     'menu-name chassis matching is wrong');
 }
 
 // ---- corpus: the interpreter must not throw on any ECU --------------------
