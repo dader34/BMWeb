@@ -24,3 +24,7 @@ python3 tools/test_activations_safe.py
 echo
 echo "== .IPO decompiler vs ground truth =="
 python3 tools/test_disasm.py
+
+echo
+echo "== IR emitter invariants =="
+python3 tools/ipo_ir.py --check
