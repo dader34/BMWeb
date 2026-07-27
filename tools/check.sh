@@ -20,3 +20,7 @@ python3 tools/test_ipo_recognize.py
 echo
 echo "== generated screens stay reads-only =="
 python3 tools/test_activations_safe.py
+
+echo
+echo "== .IPO decompiler vs ground truth =="
+python3 tools/test_disasm.py
