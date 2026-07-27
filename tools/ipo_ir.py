@@ -572,7 +572,10 @@ def _menu_ir(toks, id2name):
             # truncate it). INPA writes these logs on the diagnostic PC.
             # Recorded from what the item DOES, since the captions vary -- but
             # only meaningful once the whole item is known, because a real
-            # fault key ALSO writes the log after reading the ECU.
+            # fault key ALSO writes the log after reading the ECU, and a file
+            # PICKER (which prompts, then shows what you chose) is the first
+            # half of a real function: LWS5's "Write Coding Data" picks a .COD
+            # file and its next key sends it to the sensor.
             if entry is None:
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
@@ -645,8 +648,10 @@ def _menu_ir(toks, id2name):
     # truncates it. A real fault key writes that same log AFTER reading the
     # ECU, so the flag only means "file action" once nothing else is on the
     # item -- no job, no screen, no menu.
+    # A key that PROMPTS is a picker, not a log dump: it asks for a path and
+    # shows what you chose, and the menu's next key sends it to the ECU.
     for it in items:
-        if it.pop("_file", None) and not any(
+        if it.pop("_file", None) and not it.get("prompt") and not any(
                 it.get(k) for k in ("job", "screen", "menu", "action")):
             it["fileAction"] = True
     # INPA lays its softkeys out by number, so the menu reads in F-key order
@@ -754,6 +759,26 @@ def build(ecu):
             calls = {t["n"] for t in body if t["op"] == "call"}
             if (calls & {0x5c, 0x79}) and 0x62 not in calls:
                 it["fileAction"] = True     # writes a file, never asks the ECU
+                continue
+            # ...but a state machine that CALLS A JOB is a real ECU function,
+            # and the job is the only evidence of what the key does: LWS5's
+            # "Write Data into ECU" runs CODIERUNG_SCHREIBEN_DATEI, and its
+            # Ident equivalent runs IDENT_SCHREIBEN. Surfaced so the key is not
+            # mistaken for a dead one -- and flagged write, because every one
+            # of these is a permanent EEPROM change behind INPA's own
+            # "Only for the developer" title.
+            for i, t in enumerate(body):
+                if t["op"] != "call" or t["n"] != 0x62:
+                    continue
+                nm = next((x["v"] for x in body[max(0, i - 8):i]
+                           if x["op"] == "const" and x.get("t") == "s"
+                           and _KEYISH.match(x["v"])), None)
+                if nm:
+                    it.setdefault("job", nm)
+                    it["stateJob"] = True
+                    if _PERSISTENT_WRITE.search(nm):
+                        it["writeJob"] = True
+                    break
     # Which screen a menu is drawn in: the key that installs the menu sets the
     # screen in the same breath (KOMBI F6 Activate -> m_steuern_46 + s_steuern),
     # so the pairing is the item's own, not a guess from the name. Without it
