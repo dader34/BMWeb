@@ -311,6 +311,30 @@ ok(flaps.length >= 5,
 ok(flaps.every(i => i.prompt.some(p => /%/.test(p))),
    'a flap prompt lost its range');
 
+// ---- variant roots: INPA asks the ECU, and so do we ----------------------
+// KOMBI ships two root menus and inpainit picks between them by running
+// INITIALISIERUNG and matching its VARIANTE result. Taking the first declared
+// gave an E46 the E31/E32/E34 root, which has no Status or Memory key.
+const kb = load('KOMBI');
+ok(kb.variantJob === 'INITIALISIERUNG' && kb.variantKey === 'VARIANTE',
+   `KOMBI variant probe wrong: ${kb.variantJob}/${kb.variantKey}`);
+ok(Object.keys(kb.rootVariants || {}).length === 2,
+   'KOMBI should declare two root menus');
+ok((kb.rootVariants['m_main_36_38_39_46_52_85'] || []).includes('KOMBI46'),
+   'KOMBI46 not listed against the E36..E85 root');
+ok(irRootMenu(kb, 'KOMBI46') === 'm_main_36_38_39_46_52_85',
+   'an E46 cluster must get the root that has Status and Memory');
+ok(irRootMenu(kb, 'KOMBI31') === 'm_main_31_32_34',
+   'an E31 cluster must get its own root');
+// with no answer, prefer the widest root rather than the first declared
+ok(irMenuItems(kb, irRootMenu(kb)).some(i => /^Status$/i.test(i.label)),
+   'the default root must not be the one missing Status');
+// variant names are names, not result keys picked up from a nearby compare
+for (const list of Object.values(kb.rootVariants || {})) {
+  ok(!list.some(v => /^STAT_|_EIN$/.test(v)),
+     `a result key leaked into KOMBI's variant list: ${list}`);
+}
+
 // ---- corpus: the interpreter must not throw on any ECU --------------------
 let files = fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'));
 let screens = 0, rows = 0, broke = 0;

@@ -430,6 +430,22 @@ async function showEcu(chassisId, sectionName, ecu) {
   try {
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
+    // several root menus: ask the ECU which variant it is, the way INPA does
+    if (ecu._ir && ecu._ir.rootVariants && ecu._ir.variantJob) {
+      const names = Object.values(ecu._ir.rootVariants).flat();
+      if (demoMode()) {
+        // no car to ask: pick one of the variants INPA itself lists, so the
+        // screens are a real variant's rather than an invented mixture
+        ecu._variant = names[Math.floor(Math.random() * names.length)];
+      } else {
+        try {
+          const d = await api(`/api/ecu/${ecu.sgbd}/run/${ecu._ir.variantJob}`,
+                              { method: 'POST' });
+          const key = ecu._ir.variantKey || 'VARIANTE';
+          ecu._variant = (flatResults(d.sets).find(([k]) => k === key) || [])[1];
+        } catch { /* no cable: irRootMenu falls back to the widest root */ }
+      }
+    }
   } catch { ecu._ir = null; }
   try {
     menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
@@ -471,7 +487,7 @@ async function showEcu(chassisId, sectionName, ecu) {
   // for want of a rule, and no two keys collapsing onto one section. The
   // hand-built and generated layouts stay the fallback for ECUs with no IR.
   const irRoot = ecu._ir && typeof irRootMenu === 'function'
-    ? irRootMenu(ecu._ir) : null;
+    ? irRootMenu(ecu._ir, ecu._variant) : null;
   if (irRoot && !layoutIsHandBuilt(layout)) {
     if (bar) bar.remove();
     grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
@@ -1030,7 +1046,7 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     } catch { ecu._ir = null; }
   }
   if (irKey && ecu._ir && typeof renderIrMenu === 'function') {
-    const root = irRootMenu(ecu._ir);
+    const root = irRootMenu(ecu._ir, ecu._variant);
     const hit = root && irMenuItems(ecu._ir, root)
       .find(i => irKey.test(i.label));
     if (hit && irOpenItem(ecu, ecu._ir, root, hit, results,
