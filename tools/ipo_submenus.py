@@ -53,6 +53,7 @@ import collections
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ipo_screens as L1                                        # noqa: E402
+import ipo_layout as L2                                         # noqa: E402
 
 OUT = L1.OUT
 
@@ -164,11 +165,60 @@ def _norm(s):
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
 
 
-def resolve_jobs(data, items, sites, submenu_titles=(), _depth=0):
+def dispatch_targets(data):
+    """Which captions open a SCREEN, from INPA's own dispatch bytecode.
+
+    Every ITEM carries a setscreen/setmenu call (02 <op> <id> 00) naming what
+    it opens; ipo_layout already decodes those, so this asks it rather than
+    inferring structure from where captions sit. An entry with a target is a
+    menu; one with none runs a job inline.
+
+    This is what settles "Digital output": its ITEM (INPA's short form
+    "Dig.out") targets the screen s_steuern_digital, while "W-valve" and
+    "Blower" target nothing at all.
+    """
+    screens, menus = L2._decl_tables(data)
+    opens = {}
+    for m in L2._RE_ITEM.finditer(data):
+        label = m.group(2).decode("latin-1").strip()
+        if not label:
+            continue
+        target, kind = L2._item_target(data, m.end(), screens, menus)
+        if target:
+            opens.setdefault(_norm(label), (target, kind))
+    return opens
+
+
+def _opens_screen(label, opens):
+    """True when this caption's ITEM opens a screen of its own.
+
+    INPA abbreviates the ITEM label, and it abbreviates each WORD: the softkey
+    "Digital output" is the item "Dig.out", "W-valve" is "Water valve". So
+    compare word by word, each item word being a prefix of the softkey's.
+    """
+    want = _norm(label).split()
+    if not want:
+        return False
+    for item_label in opens:
+        cand = _norm(item_label).split()
+        if not cand or len(cand) > len(want):
+            continue
+        # every item word must open the corresponding softkey word
+        if all(w.startswith(c) or c.startswith(w)
+               for c, w in zip(cand, want)) and len(cand[0]) >= 3:
+            return True
+    return False
+
+
+def resolve_jobs(data, items, sites, submenu_titles=(), opens=None, _depth=0):
     """Attach each leaf's job: the call site its caption sits closest to."""
     for e in items:
         if e.get("items"):
-            resolve_jobs(data, e["items"], sites, submenu_titles, _depth + 1)
+            resolve_jobs(data, e["items"], sites, submenu_titles, opens, _depth + 1)
+            continue
+        # INPA's dispatch says outright whether this entry opens a screen
+        if opens and _opens_screen(e["label"], opens):
+            e["submenu"] = True
             continue
         # A caption that heads another screen is a SUBMENU, even where this
         # tree could not link its children. Giving it the first job in its
@@ -267,7 +317,8 @@ def extract(path, roots=("Activate", "Ansteuern")):
             # (Displaytest, Water valve, Blower), so the narrow version stands
             # and the renderer treats a linked `items` list as authoritative.
             titles = {t for t in levels if t not in ("__order__", root)}
-            t = resolve_jobs(data, tree(levels, root), sites, titles)
+            t = resolve_jobs(data, tree(levels, root), sites, titles,
+                             dispatch_targets(data))
             # only worth recording when something actually nests
             if any("items" in e for e in t):
                 out[root] = t
