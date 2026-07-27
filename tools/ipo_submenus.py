@@ -165,6 +165,41 @@ def _norm(s):
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
 
 
+def item_labels(data):
+    """INPA's short ITEM label for each softkey caption, e.g. Valves/Dig.out.
+
+    The ITEM label and the softkey caption are two names for one entry
+    ("Valves" / "Solenoid Valves"), and a child SCREEN is often titled after
+    the short one. Pairing them lets a level titled "Valves" be found from the
+    caption "Solenoid Valves" without inventing a similarity rule -- the pair
+    comes from the file, matched word-prefix-wise since INPA abbreviates per
+    word.
+    """
+    return [m.group(2).decode("latin-1").strip()
+            for m in L2._RE_ITEM.finditer(data)
+            if m.group(2).decode("latin-1").strip()]
+
+
+def _short_for(label, shorts):
+    """The ITEM label that abbreviates this softkey caption, if any."""
+    want = _norm(label).split()
+    if not want:
+        return None
+    for cand in shorts:
+        parts = _norm(cand).split()
+        if not parts or len(parts) > len(want):
+            continue
+        # INPA drops leading words as often as it truncates them: the caption
+        # "Solenoid Valves" is the ITEM "Valves", "Digital output" is
+        # "Dig.out". So align the short form against the END of the caption,
+        # word by word, each short word opening the caption word it faces.
+        tail = want[len(want) - len(parts):]
+        if all(w.startswith(c) or c.startswith(w)
+               for c, w in zip(parts, tail)) and len(parts[0]) >= 3:
+            return cand
+    return None
+
+
 def dispatch_targets(data):
     """Which captions open a SCREEN, from INPA's own dispatch bytecode.
 
@@ -276,7 +311,7 @@ def _following_block(order, after, labels):
     return None
 
 
-def tree(levels, root, seen=None):
+def tree(levels, root, seen=None, shorts=()):
     """Link levels by caption: an entry opens the level of the same name."""
     seen = seen or set()
     if root in seen:                        # INPA's menus are cyclic (Back)
@@ -285,9 +320,16 @@ def tree(levels, root, seen=None):
     node = []
     for it in levels.get(root, []):
         entry = {"fkey": it["fkey"], "label": it["label"]}
-        # A child level normally carries the entry's own caption.
-        if it["label"] in levels and it["label"] not in seen:
-            kids = tree(levels, it["label"], set(seen))
+        # A child level carries either the entry's own caption, or INPA's
+        # SHORT form of it: GSDS2's "Solenoid Valves" opens a level titled
+        # "Valves", which is the ITEM label for the same entry.
+        key = it["label"] if it["label"] in levels else None
+        if key is None and shorts:
+            cand = _short_for(it["label"], shorts)
+            if cand in levels:
+                key = cand
+        if key and key not in seen:
+            kids = tree(levels, key, set(seen), shorts)
             if kids:
                 entry["items"] = kids
         # An entry whose child screen INPA leaves titled after the PARENT
@@ -317,8 +359,9 @@ def extract(path, roots=("Activate", "Ansteuern")):
             # (Displaytest, Water valve, Blower), so the narrow version stands
             # and the renderer treats a linked `items` list as authoritative.
             titles = {t for t in levels if t not in ("__order__", root)}
-            t = resolve_jobs(data, tree(levels, root), sites, titles,
-                             dispatch_targets(data))
+            shorts = item_labels(data)
+            t = resolve_jobs(data, tree(levels, root, shorts=shorts), sites,
+                             titles, dispatch_targets(data))
             # only worth recording when something actually nests
             if any("items" in e for e in t):
                 out[root] = t
