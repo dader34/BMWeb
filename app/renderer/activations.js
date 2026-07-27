@@ -422,7 +422,21 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
   // SGBD's job name describe the same thing in different words, so compare on
   // the significant words rather than requiring an exact match
   const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const jobFor = (label) => {
+  // an entry the miner resolved from the bytecode names its job outright;
+  // that beats matching captions, which is only a fallback
+  const jobFor = (label, entry) => {
+    // an entry with children is a menu; a job on it is the miner reaching for
+    // the first test in the section it introduces, not the entry's own
+    if (entry && entry.items && entry.items.length) return null;
+    if (entry && entry.job) {
+      const exact = acts.find(a => a.start === entry.job);
+      if (exact) return exact;
+    }
+    // A caption the miner marked a heading is never a test. An entry it
+    // simply could not resolve still falls through to caption matching below:
+    // the miner declines when its two signals disagree, which is not the same
+    // as knowing there is no job.
+    if (entry && entry.submenu) return null;
     const want = norm(deGerman(label) || label);
     if (!want) return null;
     let best = null, bestScore = 0;
@@ -453,7 +467,7 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       const here = [...trail, deGerman(it.label) || it.label];
       const reopen = () => openLevel(items, trail, up);
       if (it.items && it.items.length) { openLevel(it.items, here, reopen); return; }
-      const a = jobFor(it.label);
+      const a = jobFor(it.label, it);
       if (!a) { sbLeft.textContent = `${it.label}: no job mapped`; return; }
       toggleActivation(ecu, a, container, container);
     };
@@ -475,7 +489,7 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
     items.forEach((it, i) => {
       const label = deGerman(it.label) || it.label;
       const sub = it.items && it.items.length;
-      const a = sub ? null : jobFor(it.label);
+      const a = sub ? null : jobFor(it.label, it);
       const note = sub ? `${it.items.length} tests`
                  : a ? (actRunnable(a) ? a.start : 'needs input')
                  : 'no job mapped';
