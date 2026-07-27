@@ -339,13 +339,29 @@ def _composite(toks):
     if not items:
         return None
 
+    # Items that call the job but own no field: the COMMIT. RDC's F8 "write
+    # data into ECU" sends the same assembled word as everything else -- arm
+    # F1..F7, press F8 -- so it is fully decoded and must not be reported as
+    # unknown just because it sets no flag of its own.
+    send = []
+    cur = None
+    for i, t in enumerate(toks):
+        if t["op"] == "ITEM":
+            cur = t.get("nr")
+        elif t["op"] == "call" and t.get("name") == "INPAapiJob" \
+                and cur is not None and cur not in items:
+            seg = toks[max(0, i - 8):i]
+            if any(x["op"] == "var" and x.get("n") == acc for x in seg):
+                if cur not in send:
+                    send.append(cur)
+
     # Every constant an ITEM writes into a field, and the value the program
     # initialises it to. INPA's own startup zeroes all of RDC's fourteen
     # slots, so the string it sends on the first keypress is the all-zero
     # word with exactly one pair flipped -- the neutral baseline is in the
     # bytecode, not a guess. Recorded per field so a consumer can see it
     # rather than assume it.
-    return {"job": job, "order": order, "items": items}
+    return {"job": job, "order": order, "items": items, "send": send}
 
 
 def _field_values(all_toks, order):
@@ -376,7 +392,7 @@ def _menu_ir(toks, id2name):
             ref = id2name.get(("screen", t["n"]))
         elif t["op"] == "call" and t["n"] == 0x04 and ref and screen is None:
             screen = ref
-    for t in toks:
+    for ti, t in enumerate(toks):
         if t["op"] == "ITEM":
             # keep an item even when its body neither navigates nor calls a
             # named action: INPA's actuator items only flip state flags and
@@ -396,6 +412,19 @@ def _menu_ir(toks, id2name):
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
             entry["screen" if t["kind"] == 0x40 else "menu"] = tgt
+        elif t["op"] == "call" and t.get("name") == "INPAapiJob" \
+                and cur_label is not None:
+            # an item that calls its OWN job (RDC F18 Sleep -> SLEEP_MODE):
+            # an ordinary one-key-one-job action, nothing to do with any
+            # composite word
+            seg = toks[max(0, ti - 8):ti]
+            nm = next((x["v"] for x in seg if x["op"] == "const"
+                       and x.get("t") == "s" and _KEYISH.match(x["v"])), None)
+            if nm:
+                if entry is None:
+                    entry = {"nr": cur_nr, "label": cur_label}
+                    items.append(entry)
+                entry.setdefault("job", nm)
         elif t["op"] == "call" and t["n"] in _ACTIONS \
                 and cur_label is not None:
             if entry is None:
@@ -456,6 +485,9 @@ def build(ecu):
                     # positionally and never assumed parallel.
                     "items": {str(k): sorted(pos[s] for s in v)
                               for k, v in comp["items"].items()},
+                    # F-keys that send the assembled word without owning a
+                    # field (RDC F8 "write data into ECU"): the commit
+                    "send": [str(x) for x in comp.get("send") or []],
                 }
                 m["_comp_order"] = comp["order"]
             ir["menus"][name] = m
@@ -564,6 +596,18 @@ def main():
             if len(vals) != 14 or vals[11] != [0]:
                 fails.append(f"RDC CAL_VAL should be [0], got "
                              f"{vals[11] if len(vals) > 11 else None}")
+            # F8 "write data into ECU" sends the assembled word without
+            # owning a field -- it is the COMMIT, not an undecoded key.
+            # It was reported as "not decoded" purely because the decoder
+            # only recorded items that WRITE fields.
+            if "8" not in (comp.get("send") or []):
+                fails.append("RDC F8 (commit) lost from composite.send")
+        # F18 Sleep calls its own job: an ordinary one-key-one-job action,
+        # also once mislabelled "not decoded"
+        sleep = next((i for i in (r["menus"].get("m_steuern") or {})["items"]
+                      if i.get("nr") == 18), None)
+        if not sleep or sleep.get("job") != "SLEEP_MODE":
+            fails.append(f"RDC F18 should call SLEEP_MODE, got {sleep}")
         print(f"  ir         GSDS2 {len(g['screens'])} screens "
               f"({len(gk)}/7 ana gauges), RDC {len(r['screens'])} screens, "
               f"{len(wj)} write-flagged of {len(rj)} jobs")

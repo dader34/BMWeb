@@ -239,18 +239,23 @@ function compWord(ir, menuName) {
 async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   const comp = (ir.menus[menuName] || {}).composite;
   const pair = comp && comp.items && comp.items[String(it.nr)];
-  const word = compWord(ir, menuName);
-  if (!comp || !pair || !word) return;
+  const word = comp && compWord(ir, menuName);
+  if (!comp || !word) return;
 
-  // toggle this key's request flag; the value field follows it, except where
-  // INPA only ever sends 0 for that field (RDC's CAL_VAL: F3 requests
-  // calibration and leaves the value unused)
-  const [reqI, valI] = pair;
-  const on = word[reqI] === '1' ? '0' : '1';
-  word[reqI] = on;
-  const valOnly = (comp.values || [])[valI];
-  word[valI] = (valOnly && valOnly.length === 1)
-    ? String(valOnly[0]) : on;
+  let on = null;
+  if (pair) {
+    // toggle this key's request flag; the value field follows it, except
+    // where INPA only ever sends 0 for that field (RDC's CAL_VAL: F3
+    // requests calibration and leaves the value unused)
+    const [reqI, valI] = pair;
+    on = word[reqI] === '1' ? '0' : '1';
+    word[reqI] = on;
+    const valOnly = (comp.values || [])[valI];
+    word[valI] = (valOnly && valOnly.length === 1)
+      ? String(valOnly[0]) : on;
+  }
+  // no pair: this key is the COMMIT -- it sends the word as it stands
+  // (RDC F8 "write data into ECU"), which is why it owns no field
   const arg = word.join(';');
 
   // INPA stays on its menu -- the keys keep their state and you toggle the
@@ -268,7 +273,8 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
     : (flatResults(out.sets).map(([k, v]) => `${k}=${v}`).slice(0, 3)
         .join(' ') || 'sent');
   sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} `
-    + `${on === '1' ? 'ON' : 'OFF'} · ${comp.job} ${arg} · ${status}`;
+    + `${on === null ? 'sent' : (on === '1' ? 'ON' : 'OFF')} `
+    + `· ${comp.job} ${arg} · ${status}`;
   // redraw the menu so every row shows its current on/off state
   reopen();
 }
@@ -280,6 +286,28 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    // an item with its own job (RDC F18 Sleep -> SLEEP_MODE) is an ordinary
+    // one-key-one-job action, unrelated to any composite word
+    if (it.inPlace && it.job
+        && !((ir.menus[menuName] || {}).composite || {}).items?.[String(it.nr)]) {
+      const reopen = () =>
+        renderIrMenu(ecu, ir, menuName, container, back, trail);
+      if (confirmActuators()
+          && !confirm(`${it.label}\n\nSends ${it.job}. This drives a real `
+                      + `component.\n\nSend it?`)) return;
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.job} · sending`;
+      try {
+        const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}`,
+                              { method: 'POST' });
+        const r = flatResults(out.sets).map(([k, v]) => `${k}=${v}`)
+          .slice(0, 3).join(' ') || 'sent';
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · ${it.job} · ${r}`;
+      } catch (e) {
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · failed: ${e.message}`;
+      }
+      reopen();
+      return;
+    }
     if (it.inPlace && (ir.menus[menuName] || {}).composite) {
       // INPA sends on the keypress -- no sub-screen -- so this does the same.
       // The argument is INPA's own neutral word with this key's REQ/VAL pair
@@ -360,6 +388,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       const word = pair && compWord(ir, menuName);
       // the row shows its own armed state, the way INPA's menu does
       if (word) return word[pair[0]] === '1' ? 'ON' : 'off';
+      // sends the assembled word without owning a field (RDC F8 "write data
+      // into ECU"), or calls its own job (F18 Sleep -> SLEEP_MODE)
+      if (comp && (comp.send || []).includes(String(it.nr))) return 'send';
+      if (it.job) return 'run';
       return 'not decoded';
     }
     if (!it.screen) return '';
