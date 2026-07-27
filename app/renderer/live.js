@@ -370,8 +370,33 @@ function showInpaCategory(ecu, screens, container, title) {
 // screen this is the classic mined-screen view; with several (a merged
 // category) each tick reads every screen's job and lays rows out in screen
 // order, so Bank 1 / Bank 2 pairs stay side by side.
+// Fill a row's missing unit/range from INPA's own gauge declaration. Rows that
+// already carry one keep it: a hand-verified layout outranks a decode, and the
+// specs deliberately omit gauges whose sign the bytecode does not record.
+function applyGaugeSpecs(ecu, screens) {
+  const specs = (ecu._layout && ecu._layout.gaugeSpecs) || [];
+  if (!specs.length) return screens;
+  const byKey = new Map(specs.map(g => [g.key, g]));
+  return screens.map(scr => ({
+    ...scr,
+    rows: (scr.rows || []).map(r => {
+      const g = byKey.get(r.key);
+      if (!g) return r;
+      const out = { ...r };
+      if (!out.unit && g.unit) out.unit = g.unit;
+      if (out.min == null && out.max == null
+          && g.min != null && g.max != null) {
+        out.min = g.min;
+        out.max = g.max;
+      }
+      return out;
+    }),
+  }));
+}
+
 async function showInpaScreens(ecu, screens, container, title, { scroll = false } = {}) {
   stopLive();
+  screens = applyGaugeSpecs(ecu, screens);
   const liveTok = _liveToken;
   title = title || (screens.length === 1
     ? (deGerman(screens[0].group) || jobLabel(screens[0].job))

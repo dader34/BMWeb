@@ -121,7 +121,7 @@ internal static class ConfigEndpoints
 
     // sections the generator produces; each is filled in only when the
     // hand-built layout has nothing for it.
-    private static readonly string[] GeneratedSections = { "identity", "aif", "activateMenus", "activateState", "rootMenu", "coding" };
+    private static readonly string[] GeneratedSections = { "identity", "aif", "activateMenus", "activateState", "rootMenu", "coding", "gaugeSpecs" };
 
     // Fold generated sections into a hand-built layout without touching what
     // the hand-built file already defines.
