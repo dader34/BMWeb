@@ -892,7 +892,7 @@ function renderStatusTree(chassisId, sectionName, ecu, layout, view, results) {
 // ECU section view: the top-level router for a module's function categories.
 // dispatches to the fault-memory F-key screen, the status multi-watch list, the
 // mined gauge/input screens (live.js), or the actuator-test panel (activations.js).
-function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
+async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   const sec = menu.sections.find(s => s.section === sectionKey);
   lastScreen = () => showEcuSection(chassisId, sectionName, ecu, menu, sectionKey);
   setCrumbs([
@@ -940,6 +940,20 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     if (irMenu && renderIrMenu(ecu, ecu._ir, irMenu, results,
                                () => showEcu(chassisId, sectionName, ecu))) {
       return;
+    }
+    // a root key that opens a screen directly (RDC's Code -> s_code) has no
+    // menu to list; render the screen itself
+    const irScreen = irSectionScreen(ecu._ir, sec.section);
+    if (irScreen) {
+      const screens = irRowsTranslated(irScreen, await irDescs(ecu, irScreen));
+      if (screens.length) {
+        showInpaCategory(ecu, screens, results,
+                         irLabel(irScreen.title) || sectionLabel(sec.section));
+        setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                      kind: 'back',
+                      fn: () => showEcu(chassisId, sectionName, ecu) }]);
+        return;
+      }
     }
   }
   // INPA's mined Read status menu. After statusTree (hand-built layouts win)

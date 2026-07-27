@@ -90,6 +90,24 @@ function showSettings() {
     (v) => Settings.set('demo', v),
   ));
 
+  // actuator tests decoded from the .IPO. Off by default: these drive real
+  // components, and unlike a read there is no safe way to try one and see.
+  // INPA itself asks for no confirmation -- pressing the key sends the job --
+  // so when this is on the app behaves the same way.
+  wrap.appendChild(settingRow(
+    'Confirm actuator tests',
+    'Ask before an activation key sends its job. INPA does not ask — it '
+    + 'sends on the keypress — so turn this off to match it exactly. These '
+    + 'drive real components (valves, relays, calibration): engine off / '
+    + 'ignition on unless you know the test.',
+    [
+      { val: 'on', label: 'Ask first' },
+      { val: 'off', label: 'Send immediately (like INPA)' },
+    ],
+    Settings.get('confirmActuators', 'on'),
+    (v) => Settings.set('confirmActuators', v),
+  ));
+
   // startup chassis: load a chosen chassis straight to its modules on launch.
   // searchable combo of all chassis the config knows, plus "Ask each time".
   const startRow = settingCombo(
