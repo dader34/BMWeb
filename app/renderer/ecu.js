@@ -358,6 +358,13 @@ async function showEcu(chassisId, sectionName, ecu) {
   } else if (layout && Array.isArray(layout.screens) && layout.screens.length) {
     menu = mergeLayoutIntoMenu(menu, layout);
     ecu._layout = layout; // stash for the section/screen renderers
+  } else if (layout) {
+    // a generated layout carries no `screens` array -- its content is the
+    // mined sections (rootMenu, identity, aif, coding, activateTree,
+    // gaugeSpecs). Both branches above miss it, and without this the whole
+    // ECU silently falls back to the raw job list even though every screen
+    // was mined.
+    ecu._layout = layout;
   }
   const total = menu.sections.reduce((n, s) => n + s.items.length, 0);
   document.getElementById('job-count').textContent = `${total} functions`;
