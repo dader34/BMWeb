@@ -32,6 +32,7 @@ import collections
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ipo_screens as L1                                        # noqa: E402
+import ipo_layout                                               # noqa: E402
 
 OUT = L1.OUT
 
@@ -49,6 +50,35 @@ _ROOT_ANCHOR = re.compile(rb"\x06<\s*F1\s*>\s+(Information|Info)\x0a", re.I)
 
 # how far past the anchor one menu's softkey help runs
 _SPAN = 900
+
+# A root key can be listed and still open nothing. GSDS2 prints "< F3 > Coding",
+# but the file declares no s_code screen: its main-menu dispatch sends F3 to
+# m_status, and INPA ships a SECOND root menu for the same ECU called
+# m_main_nocode -- "main, no coding" -- which omits F3 entirely. The key is dead
+# in INPA, so it must not become a screen here.
+#
+# Measured over the 89 ECUs that list a Coding key: 50 declare a real coding
+# screen, 39 do not, and the 39 are almost all engine/transmission ECUs (DME*,
+# DDE*, MS4xx, MSS5x, SMG2) -- coded by the factory tool, not by INPA. That
+# split is the reason this checks the DECLARATION rather than whether
+# tools/ipo_coding.py managed to read the screen: only 17 of the 50 are
+# currently readable, and the other 33 are a miner gap, not a dead key.
+_SECTION_DECL = {
+    "coding": re.compile(r"^[sm]_(code|codier|kod)", re.I),
+}
+
+
+def _dead_keys(data, items):
+    """Root keys INPA lists but declares no screen for."""
+    screens, menus = ipo_layout._decl_tables(data)
+    names = [n for n in list(screens.values()) + list(menus.values())]
+    dead = []
+    for it in items:
+        if not re.match(r"^(Coding|Codierung)$", it["label"], re.I):
+            continue
+        if not any(_SECTION_DECL["coding"].match(n) for n in names):
+            dead.append(it["fkey"])
+    return dead
 
 
 def root_menu(data):
@@ -71,7 +101,14 @@ def root_menu(data):
 def extract(path):
     with open(path, "rb") as f:
         data = f.read()
-    return {"ecu": os.path.basename(path)[:-4], "items": root_menu(data)}
+    items = root_menu(data)
+    rec = {"ecu": os.path.basename(path)[:-4], "items": items}
+    # keep the key in `items` so the F-key NUMBERING stays INPA's own, and mark
+    # it dead separately -- dropping it here would renumber everything below it
+    dead = _dead_keys(data, items) if items else []
+    if dead:
+        rec["deadKeys"] = dead
+    return rec
 
 
 def main():

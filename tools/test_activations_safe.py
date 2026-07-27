@@ -80,7 +80,10 @@ def check_generated_are_reads(failures):
         except Exception:                   # noqa: BLE001
             continue
         for key in lay:
-            if key in ("ecu", "sgbd", "generated"):
+            # deadRootKeys is a list of F-key NUMBERS, not a screen: it marks
+            # keys INPA lists but declares no screen for, so the UI can hide
+            # them. It can only ever remove a screen, never add one.
+            if key in ("ecu", "sgbd", "generated", "deadRootKeys"):
                 continue
             if key not in READ_ONLY_SCREENS:
                 bad.add(key)
@@ -88,6 +91,31 @@ def check_generated_are_reads(failures):
         failures.append(f"generated layouts contain non-read screens: {sorted(bad)}")
     print(f"  generated  {len(files)} layouts, screen kinds "
           f"{sorted(READ_ONLY_SCREENS)}, none writable")
+
+    # A key marked dead must not also have a mined screen: that would mean the
+    # declaration scan and the screen miner disagree, and the UI would hide a
+    # screen we can actually draw. Negative control on the dead-key rule.
+    dead_n, conflict = 0, []
+    for path in files:
+        try:
+            with open(path, encoding="utf-8") as f:
+                lay = json.load(f)
+        except Exception:                   # noqa: BLE001
+            continue
+        dead = lay.get("deadRootKeys") or []
+        if not dead:
+            continue
+        dead_n += 1
+        labels = {it["fkey"]: it["label"] for it in lay.get("rootMenu", [])}
+        for k in dead:
+            if re.match(r"^(Coding|Codierung)$", labels.get(k, ""), re.I) \
+                    and lay.get("coding"):
+                conflict.append(os.path.basename(path)[:-5])
+    if conflict:
+        failures.append("dead root key on an ECU that HAS a mined screen: "
+                        f"{sorted(set(conflict))}")
+    print(f"  deadkeys   {dead_n} layouts hide a listed-but-undeclared key, "
+          f"{len(set(conflict))} conflicting with a mined screen (must be 0)")
 
 
 def check_tables_not_promoted(failures):
