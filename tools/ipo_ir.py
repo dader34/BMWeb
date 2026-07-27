@@ -552,7 +552,14 @@ def _menu_ir(toks, id2name):
             # an item that calls its OWN job (RDC F18 Sleep -> SLEEP_MODE):
             # an ordinary one-key-one-job action, nothing to do with any
             # composite word
-            seg = toks[max(0, ti - 8):ti]
+            # only THIS call's arguments: a frame opens the list, so anything
+            # before it belongs to an earlier call. Scanning a fixed window ran
+            # past the frame and picked up the "OKAY" of the CheckJobStatus
+            # that follows, making every RADIO actuator call a job named OKAY.
+            lo = ti
+            while lo > 0 and toks[lo - 1]["op"] != "frame":
+                lo -= 1
+            seg = toks[lo:ti]
             nm = next((x["v"] for x in seg if x["op"] == "const"
                        and x.get("t") == "s" and _KEYISH.match(x["v"])), None)
             if nm:
@@ -560,6 +567,17 @@ def _menu_ir(toks, id2name):
                     entry = {"nr": cur_nr, "label": cur_label}
                     items.append(entry)
                 entry.setdefault("job", nm)
+                # ...and the ARGUMENT it sends, which is often the only thing
+                # separating two keys: CDC's "Trpmode ON" and "OFF" both call
+                # ENERGIESPARMODE and differ solely in "0;1;0" vs "0;0;0".
+                # Without it the two keys would send the same command.
+                after = [x["v"] for x in seg
+                         if x["op"] == "const" and x.get("t") == "s"]
+                if nm in after:
+                    rest = after[after.index(nm) + 1:]
+                    arg = next((s for s in rest if s.strip()), None)
+                    if arg:
+                        entry.setdefault("jobArg", arg)
                 # a menu item's job needs the same write flag a screen's
                 # does. KLIMA_5B's "Comp.act" calls EEPROM_SCHREIBEN, which
                 # would have fired on a keypress like any read.

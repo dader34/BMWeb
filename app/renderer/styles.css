@@ -984,6 +984,16 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .act-key-val { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
 /* return arrow marking a row that opens a submenu */
 .ir-enter { font-size: 12px; color: var(--ink-faint); text-align: right; }
+
+/* INPA prints identity values on the menu screen itself, above the softkeys */
+.ir-menu-head { display: flex; flex-wrap: wrap; gap: 6px 28px;
+  max-width: 620px; margin: 0 0 14px; }
+.ir-menu-head:empty { display: none; }
+.ir-head-cell { display: flex; gap: 8px; align-items: baseline;
+  font-size: 12px; }
+.ir-head-label { color: var(--ink-faint); text-transform: uppercase;
+  letter-spacing: .04em; }
+.ir-head-value { font-family: var(--mono); color: var(--ink); }
 .act-key-row.danger .inpa-fn-label { color: var(--red); }
 /* the live output readout INPA prints under the keys, one row per driven output
    ("Status Vanoseinlassventil  33 %") */

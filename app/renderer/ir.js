@@ -59,7 +59,10 @@ function irRows(scr) {
         // ":" separator at a fixed column, then the value. The separator is
         // punctuation, not a label -- taking "nearest preceding text"
         // literally turned every coding row's caption into ":".
-        if (/^[:=|-]+$/.test(s)) continue;
+        // "/" joins two halves of ONE reading (date of manufacture prints as
+        // week "/" year), so it is punctuation too and the caption before it
+        // still belongs to both.
+        if (/^[:=|/-]+$/.test(s)) continue;
         if (s) pending = s;
         continue;
       }
@@ -291,6 +294,38 @@ function irSameBar(ir, menu, from) {
   return shared / Math.max(A.size, B.size) > 0.8;
 }
 
+// INPA's menu IS a screen, and most of them print live values above the
+// softkey list: 444 of 542 ECUs show part number, VIN or date of manufacture
+// there. Reads them once (not polled -- INPA doesn't either; they are identity
+// facts, not gauges) and renders a compact strip above the keys.
+async function irMenuHeader(ecu, ir, menuName, el) {
+  if (!el) return;
+  const name = ((ir.menus || {})[menuName] || {}).screen
+    || (menuName === (ir.entry || {}).menu ? (ir.entry || {}).screen : null);
+  const scr = name && (ir.screens || {})[name];
+  if (!scr) return;
+  const rows = irRows(scr).rows.filter(r => r.kind === 'value');
+  const jobs = (scr.jobs || []).filter(j => !j.write);
+  if (!rows.length || !jobs.length) return;
+  const vals = new Map();
+  for (const j of jobs) {
+    try {
+      const q = j.arg ? `?arg=${encodeURIComponent(j.arg)}` : '';
+      const d = await api(`/api/ecu/${ecu.sgbd}/run/${j.name}${q}`,
+                          { method: 'POST' });
+      flatResults(d.sets).forEach(([k, v]) => vals.set(k, v));
+    } catch { /* the menu still stands without its header */ }
+  }
+  const descs = await irDescs(ecu, scr);
+  const shown = rows.filter(r => vals.has(r.key));
+  if (!shown.length || !el.isConnected) return;
+  el.innerHTML = shown.map(r => `<span class="ir-head-cell">`
+    + `<span class="ir-head-label">`
+    + `${esc(irLabel(r.label || descs.get(r.key) || r.key))}</span>`
+    + `<span class="ir-head-value">${esc(String(vals.get(r.key)))}</span>`
+    + `</span>`).join('');
+}
+
 // Does pressing this key open a MENU, or the screen it also names? A key can
 // install both. The menu loses when it is merely the softkey bar this level
 // already shows, and when it holds nothing runnable -- LWS5's Coding key
@@ -330,6 +365,13 @@ function irMenuItems(ir, menuName, variant) {
   const seen = new Set();
   return (menu.items || [])
     .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
+    // The key back to the root IS Back, whatever it is called: 1437 ECUs label
+    // it "Back" and IR_CHROME catches those, but a handful say "Main menu" or
+    // "to the main menu" and were listed as a function. Detected structurally
+    // -- from a submenu, a key whose target is the root menu -- so no wording
+    // needs to be enumerated. The app has Esc for this.
+    .filter(it => !(menuName !== (ir.entry || {}).menu
+                    && it.menu === (ir.entry || {}).menu && !it.job))
     // drives INPA rather than the car: loads another script, opens the KVP
     // editor. Flagged by the emitter from what the item does, not its name.
     .filter(it => !it.appTool)
@@ -354,7 +396,10 @@ function irMenuItems(ir, menuName, variant) {
     // screen's softkey help by F-number) but never runnable here -- firing an
     // actuator is gated on car verification, and the arming semantics are
     // not decoded.
-    .filter(it => it.screen || it.menu || !it.action)
+    // ...but an item that also names a JOB is a real function: CDC's "Trpmode
+    // ON"/"OFF" carry action "start" beside ENERGIESPARMODE, and dropping them
+    // hid the only two activations that ECU has.
+    .filter(it => it.screen || it.menu || it.job || !it.action)
     // a write entry that opens the same SCREEN as a read entry (RDC's
     // "MV write" reuses s_abgleichwert_lesen): INPA's difference is an input
     // dialog and a write job in the ITEM body, neither of which we run until
@@ -376,6 +421,9 @@ function irMenuItems(ir, menuName, variant) {
       // changes the ECU permanently (EEPROM write, service reset) rather
       // than driving an actuator for the duration of a test
       writeJob: !!it.writeJob,
+      // the argument this key sends, which may be all that distinguishes it
+      // from its neighbour (RADIO's sources, CDC's transport mode)
+      jobArg: it.jobArg || null,
       // the job came from a state machine, whose argument assembly is not
       // decoded -- listed, never sent
       stateJob: !!it.stateJob,
@@ -901,8 +949,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         const ok = await confirmDialog({
           title: `${permanent ? 'Write to' : 'Activate on'} `
             + `${esc(ecu.label)}?`,
-          body: `Runs <span class="mono">${esc(it.job)}</span> for `
-            + `<b>${esc(it.label)}</b>.<br><br>`
+          body: `Runs <span class="mono">${esc(it.job)}</span>`
+            + (it.jobArg
+              ? ` with <span class="mono">${esc(it.jobArg)}</span>` : '')
+            + ` for <b>${esc(it.label)}</b>.<br><br>`
             + (permanent
               ? 'This changes the ECU <b>permanently</b> — it is not an '
                 + 'actuator test and does not undo itself when you leave.'
@@ -933,7 +983,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       }
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.job} · sending`;
       try {
-        const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}`,
+        // the ARGUMENT is often the only thing separating two keys: RADIO's
+        // entertainment sources all call STEUERN_NEXT_ENTSOURCE and differ
+        // only in "FM"/"CDC"/"AM", and CDC's transport mode in "0;1;0" vs
+        // "0;0;0". Sending the job bare would fire the wrong command.
+        const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
+        const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
         const r = flatResults(out.sets).map(([k, v]) => `${k}=${v}`)
           .slice(0, 3).join(' ') || 'sent';
@@ -1078,7 +1133,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
 
   if (inpaMode()) {
     container.className = 'results-panel';
-    container.innerHTML = `<div class="act-key-list" id="ir-list"></div>`;
+    container.innerHTML = `<div class="ir-menu-head" id="ir-head"></div>`
+      + `<div class="act-key-list" id="ir-list"></div>`;
+    // INPA's menu screen is a screen: 444 of 542 ECUs print live values on it
+    // -- part number, VIN, date of manufacture -- above the softkey list. The
+    // menu is drawn from the same screen the keys are drawn on, so read it.
+    irMenuHeader(ecu, ir, menuName, container.querySelector('#ir-head'));
     const list = container.querySelector('#ir-list');
     items.forEach((it) => {
       const row = document.createElement('button');

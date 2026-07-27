@@ -254,6 +254,10 @@ BUILTINS = {
     0x66: "INPAapiResultDigital",   # (ref, key, set)
     0x67: "INPAapiResultAnalog",    # (ref, key, set)
     0x69: "INPAapiCheckJobStatus",  # (status)
+    # same (sgbd, job, arg, filter) shape as 0x62 -- 734 sites in 334 files,
+    # always three string arguments. RADIO's entertainment-source keys call
+    # their jobs this way, so they read as dead without it.
+    0x6f: "INPAapiJob",
     # (key, set) with NO destination ref -- reads into an implicit slot that
     # 0x78 then copies out. 975 sites in 399 files, never once preceded by a
     # procref, which is what distinguishes it from 63/64/66/67.
