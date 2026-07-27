@@ -266,6 +266,41 @@ ok(!irIsCard(g.screens['s_analog_1']),
      'LWS5 ident screen lost its fields');
 }
 
+// ---- a labelled per-pass read is still a card ----------------------------
+// LWS5's coding page calls CODIERUNG_LESEN once per block and labels each
+// "Data Block 0..6". Those rows carry a job ARGUMENT, which the per-position
+// guard (written for RDC's wheels, where the same key repeats with no
+// distinguishing caption) rejected -- so a list of eight labelled reads
+// rendered as a gauge grid instead of the ident-style card. Distinct captions
+// make it a card again, and each field must then be read in its own pass or
+// all seven blocks show whatever the last one returned.
+{
+  const lw4 = load('LWS5');
+  const cod2 = lw4.screens.s_code;
+  ok(irIsCard(cod2), 'LWS5 coding should render as a card');
+  const card = irAsCard(cod2, new Map());
+  ok(card.fields.length === 8, `coding card should have 8 fields, got ${card.fields.length}`);
+  const blocks = card.fields.filter(f => f.arg != null);
+  ok(blocks.length === 7, `expected 7 per-pass blocks, got ${blocks.length}`);
+  ok(blocks.every(f => f.job === 'CODIERUNG_LESEN'),
+     'a per-pass field must name the job that reads it');
+  ok(new Set(blocks.map(f => f.arg)).size === 7,
+     'the seven blocks must read seven distinct arguments');
+  // the argument-carrying job must NOT also be read argument-less, or each
+  // block would be read twice and only the last kept
+  ok(!card.jobs.includes('CODIERUNG_LESEN'),
+     'a per-pass job must not also be in the card-level job list');
+  ok(card.jobs.includes('CODIERUNG_CHECK'),
+     'the checksum job reads normally and must stay');
+  // RDC reads the same 8 keys once per wheel -- 40 rows, 8 distinct keys, the
+  // caption repeating each pass. Those must stay on the poller, which reads
+  // each argument separately, or a card would show the last wheel five times.
+  const rdcW = load('RDC').screens.s_abgleichwert_lesen;
+  ok(!irIsCard(rdcW), 'a per-wheel screen must stay on the poller');
+  ok(irRows(rdcW).rows.length === 40,
+     `RDC per-wheel screen changed shape: ${irRows(rdcW).rows.length} rows`);
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
