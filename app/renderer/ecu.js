@@ -132,6 +132,12 @@ function sectionCount(ecu, sec) {
     return layout.aif.fields.length;
   if (sec.section === 'Coding' && layout.coding && layout.coding.fields)
     return layout.coding.fields.length;
+  // Status counts INPA's pages, not the jobs behind them: the section opens
+  // the page list, so "38 functions" over a 6-entry menu misdescribes it
+  if (sec.section === 'Status' && layout.statusMenu) {
+    const pages = (layout.statusMenu.items || []).filter(i => i.resolved).length;
+    if (pages) return pages;
+  }
   return sec.items.length;
 }
 
@@ -581,6 +587,80 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   }]);
 }
 
+// INPA's Read status MENU, mined from the .IPO (tools/ipo_status.py).
+//
+// INPA does not put every STATUS_* job on one screen: F5 opens a list of pages
+// (GSDS2: Switches / Valves / Internal / Gear / System / Analog) and waits for
+// a pick. Our Status section was that flat job list, which is the "fallback"
+// look -- 135 ECUs now carry the real menu.
+//
+// What is NOT mined is which readouts sit on each page: a screen's declaration
+// body holds only its dispatch, and the captions live in a separate section of
+// the file. So a page shows the ECU's gauges (gaugeSpecs, which do carry INPA's
+// own unit and range) rather than a per-page split we cannot justify. The menu
+// gives INPA's grouping and order; the values come from the jobs as before.
+//
+// An entry can name several targets: GSDS2's "Analog" resolves to seven
+// screens, one per gearbox variant (s_ana2_834, s_ana2_860, ...), because INPA
+// picks at runtime from the gearbox type. We cannot know the variant offline,
+// so the entry opens once and the count reflects the whole section.
+function renderStatusMenu(chassisId, sectionName, ecu, menu, sec, layout, view, results) {
+  const items = (layout.statusMenu.items || []).filter(i => i.resolved);
+  const backToEcu = () => showEcu(chassisId, sectionName, ecu);
+
+  // the readout jobs this section already offers; a page opens them as before
+  const open = (item, n) => {
+    showInpaCategory(ecu, [], results, fkeyLabel(item.label));
+    sbLeft.textContent = `${ecu.sgbd}.prg · ${item.label}`;
+    setActions([...keys(), {
+      key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+      fn: () => renderStatusMenu(chassisId, sectionName, ecu, menu, sec,
+                                 layout, view, results),
+    }]);
+  };
+  const keys = () => items.slice(0, FKEY_SLOTS).map((item, n) => ({
+    key: String(n + 1), keyLabel: `F${n + 1}`, label: fkeyLabel(item.label),
+    fn: () => open(item, n),
+  }));
+
+  // a page whose target list has >1 entry is variant-selected at runtime
+  const note = (item) => item.targets.length > 1
+    ? `${item.targets.length} variants` : '';
+
+  if (inpaMode()) {
+    results.className = 'results-panel';
+    results.innerHTML = `<div class="act-key-list" id="stat-list"></div>`;
+    const list = results.querySelector('#stat-list');
+    items.forEach((item, n) => {
+      const row = document.createElement('button');
+      row.className = 'inpa-fn act-key-row';
+      row.innerHTML = `<span class="inpa-fn-key">&lt; F${n + 1} &gt;</span>`
+        + `<span class="inpa-fn-label">${esc(fkeyLabel(item.label))}</span>`
+        + `<span class="act-key-val">${esc(note(item))}</span>`;
+      row.onclick = () => open(item, n);
+      list.appendChild(row);
+    });
+  } else {
+    results.className = 'group-grid stagger';
+    results.innerHTML = '';
+    items.forEach((item, n) => {
+      const tile = document.createElement('div');
+      tile.className = 'group-tile';
+      tile.innerHTML = `
+        <div class="group-name">${esc(fkeyLabel(item.label))}</div>
+        <div class="group-count">${esc(note(item))}</div>
+        <div class="group-arrow">→</div>`;
+      tile.onclick = () => open(item, n);
+      results.appendChild(tile);
+    });
+    stagger(results, 30);
+  }
+
+  setActions([...keys(), {
+    key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: backToEcu,
+  }]);
+}
+
 // INPA's nested status hierarchy. Each level is an F-key page: entries with
 // `items` open a submenu (Digital/, Analog/, System/), entries with `job` open
 // that screen's gauges. Esc walks back up one level, exactly like INPA's F10.
@@ -693,6 +773,15 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   if (sec.section === 'Status' && layout
       && Array.isArray(layout.statusTree) && layout.statusTree.length) {
     renderStatusTree(chassisId, sectionName, ecu, layout, view, results);
+    return;
+  }
+  // INPA's mined Read status menu. After statusTree (hand-built layouts win)
+  // and before the flat job list, which is what this replaces. Both UI modes:
+  // the grouping is the ECU's own, so it beats an undifferentiated list either
+  // way — only the readout presentation differs.
+  if (sec.section === 'Status' && layout && layout.statusMenu
+      && (layout.statusMenu.items || []).some(i => i.resolved)) {
+    renderStatusMenu(chassisId, sectionName, ecu, menu, sec, layout, view, results);
     return;
   }
   // the remaining F-key page layouts are INPA's, so they too only apply when
