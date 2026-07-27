@@ -390,10 +390,78 @@ function irIsMemory(scr) {
 
 // Only where INPA itself names regions (tools/ipo_memory.py -- GSDS2: RAM,
 // ROM). An ECU like IHKA prints just "Start address" and "Number": no
-// regions, no bounds. Synthesising one would invent an address range the ECU
-// never declared, so those return null and are reported rather than guessed.
+// regions, no bounds.
 function irMemoryScreen(scr, mined) {
   return (mined && (mined.regions || []).length) ? mined : null;
+}
+
+// INPA's plain memory screen, reproduced as it draws it: three labelled rows,
+// the first two prompting for a value and the third showing what came back.
+// The captions and their order are the screen's own; nothing is invented,
+// and no address range is implied because the ECU declares none.
+async function renderIrMemory(ecu, scr, container, back, keys) {
+  const job = ((scr.jobs || [])[0] || {}).name || 'SPEICHER_LESEN';
+  const caps = irCaptions(scr).filter(c => !/^[:=|-]+$/.test(c));
+  const [addrCap = 'Start address', numCap = 'Number', dataCap = 'Data'] = caps;
+  const state = { addr: '', num: '', data: null, err: null };
+
+  const draw = () => {
+    const row = (k, v, act) =>
+      `<div class="ident-line"><span class="ident-lk">${esc(k)}</span>`
+      + `<span class="ident-lc">:</span>`
+      + `<span class="ident-lv">${v ? esc(v) : '<span class="ink-faint">—</span>'}`
+      + `</span></div>`;
+    container.className = 'results-panel';
+    container.innerHTML = `
+      <div class="act-menu">
+        <div class="act-menu-title">${esc(irLabel(scr.title) || 'Read memory')}</div>
+        <div class="act-menu-sub mono">${esc(job)}</div>
+        <div class="ident-card">
+          ${row(irLabel(addrCap), state.addr)}
+          ${row(irLabel(numCap), state.num)}
+          ${row(irLabel(dataCap), state.err || state.data)}
+        </div>
+      </div>`;
+    setActions([
+      { key: '1', keyLabel: 'F1', label: irLabel(addrCap),
+        fn: async () => {
+          const v = await inputDialog({
+            title: esc(irLabel(addrCap)),
+            body: `Address to read from <b>${esc(ecu.label)}</b>.`,
+            kind: 'hex', confirmLabel: 'Set' });
+          if (v != null) { state.addr = v; draw(); }
+        } },
+      { key: '2', keyLabel: 'F2', label: irLabel(numCap),
+        fn: async () => {
+          const v = await inputDialog({
+            title: esc(irLabel(numCap)), body: 'Number of bytes to read.',
+            kind: 'number', confirmLabel: 'Set' });
+          if (v != null) { state.num = v; draw(); }
+        } },
+      { key: '3', keyLabel: 'F3', label: 'Read', kind: 'primary',
+        fn: async () => {
+          if (!state.addr || !state.num) {
+            sbLeft.textContent = 'address and count needed'; return;
+          }
+          state.err = null;
+          sbLeft.textContent = `${job} ${state.addr};${state.num} · reading`;
+          try {
+            const out = await api(`/api/ecu/${ecu.sgbd}/run/${job}`
+              + `?arg=${encodeURIComponent(state.addr + ';' + state.num)}`,
+              { method: 'POST' });
+            state.data = flatResults(out.sets)
+              .map(([k, v]) => v).filter(Boolean).join(' ') || '(no data)';
+            sbLeft.textContent = `${job} · read`;
+          } catch (e) {
+            state.err = e.message;
+            sbLeft.textContent = 'failed';
+          }
+          draw();
+        } },
+      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
+    ]);
+  };
+  draw();
 }
 
 // INPA's "Information" screen describes the SCRIPT, not the car: rework
@@ -459,6 +527,37 @@ function irAsCard(scr, descs) {
       label: irLabel(r.label || (descs && descs.get(r.key)) || r.key),
     })),
   };
+}
+
+// Open ONE root item directly, for a section that maps to a single INPA key
+// (Special -> Memory). Renders the menu it opens, or the screen itself when
+// the key opens a screen. Returns false when there is nothing to show, so the
+// caller can fall back.
+function irOpenItem(ecu, ir, menuName, it, container, back) {
+  if (it.menu) return renderIrMenu(ecu, ir, it.menu, container, back);
+  const scr = (ir.screens || {})[it.screen];
+  if (!scr) return false;
+  if (irIsMemory(scr)) {
+    const mined = (ecu._layout || {}).special;
+    const mem = irMemoryScreen(scr, mined && mined.memory);
+    if (mem && typeof showMemory === 'function') showMemory(ecu, mem, container, back);
+    else renderIrMemory(ecu, scr, container, back, () => []);
+    return true;
+  }
+  if (!irReadable(scr)) return false;
+  irDescs(ecu, scr).then((d) => {
+    const screens = irRowsTranslated(scr, d);
+    if (irIsCard(scr)) {
+      renderIdentity(ecu, irAsCard(scr, d), container,
+                     { key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                       kind: 'back', fn: back });
+    } else if (screens.length) {
+      showInpaCategory(ecu, screens, container, irLabel(scr.title) || it.label);
+      setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                    kind: 'back', fn: back }]);
+    }
+  });
+  return true;
 }
 
 // Walk the IR from a menu: list its entries, open a screen, descend into a
@@ -614,19 +713,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       if (mem && typeof showMemory === 'function') {
         showMemory(ecu, mem, container, reopen);
       } else {
-        // INPA prints "Start address" and "Number" and reads what you type.
-        // We have the job but no bounds, and inventing a range would be
-        // presenting a guess as the ECU's own limit.
-        container.className = 'results-panel';
-        container.innerHTML = `<div class="empty"><div>`
-          + `<strong>${esc(irLabel(scr.title) || it.label)}</strong></div>`
-          + `<div>INPA reads a start address and a byte count, then prints `
-          + `the bytes. The job is <code>`
-          + `${esc((scr.jobs[0] || {}).name || 'SPEICHER_LESEN')}</code>, but `
-          + `this ECU declares no address range, so there is nothing to `
-          + `bound the read against.</div></div>`;
-        setActions([...keys(), { key: 'Escape', keyLabel: 'Esc',
-          label: 'Back', kind: 'back', fn: reopen }]);
+        await renderIrMemory(ecu, scr, container, reopen, keys);
       }
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
