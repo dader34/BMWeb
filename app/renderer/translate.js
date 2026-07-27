@@ -51,6 +51,12 @@ const DE_TOKENS = [
   [/\bzugeordnet\+bestaetigt\b/gi, 'assigned + confirmed'],
   [/\btemporaerer Inaktiv-?Zustaende\b/gi, 'temporary inactive states'],
   [/\bEigenraderkennung\b/gi, 'own-wheel detection'],
+  [/\bRadbatterie Restleben\b/gi, 'wheel battery remaining life'],
+  [/\bRadtemperatur\b/gi, 'wheel temperature'],
+  [/\bRaddruck\b/gi, 'wheel pressure'],
+  [/\bRadposition\b/gi, 'wheel position'],
+  [/\bin Monaten\b/gi, 'in months'],
+  [/\bGrad Celsius\b/gi, '°C'],
   [/\baktueller?\b/gi, 'current'],
   // wheel positions, German -> English. Case-sensitive on purpose: VL/HL as
   // two-letter fragments appear inside ordinary words under /i.
