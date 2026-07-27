@@ -42,6 +42,7 @@ ACTMENUS = os.path.join(OUT, "_actmenus.json")
 ROOTMENUS = os.path.join(OUT, "_rootmenus.json")
 # INPA's Coding screen (root F3), where the .IPO describes one
 CODING = os.path.join(OUT, "_coding.json")
+STATUS = os.path.join(OUT, "_status.json")
 # per-gauge unit and min/max from INPA's gauge dialect (tools/ipo_gauges.py)
 GAUGES = os.path.join(OUT, "_gauges.json")
 # INPA's nested Activate menu, where the .IPO declares one (tools/ipo_submenus.py)
@@ -254,6 +255,10 @@ def main():
         if os.path.exists(MEMORY):
             with open(MEMORY, encoding="utf-8") as f:
                 memory = json.load(f)
+        statuses = {}
+        if os.path.exists(STATUS):
+            with open(STATUS, encoding="utf-8") as f:
+                statuses = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -279,6 +284,13 @@ def main():
             # INPA's Coding screen: a labelled read, its own job per ECU
             if ecu in codings:
                 out["coding"] = codings[ecu]
+            # INPA's Read status structure: the page MENU, not a flat job list.
+            # Only the menu is emitted -- which readouts sit on each page is
+            # not decoded (declaration bodies hold dispatch, and the captions
+            # live in a separate section), so the UI keeps sourcing values from
+            # gaugeSpecs and uses this for INPA's own grouping and order.
+            if ecu in statuses:
+                out["statusMenu"] = statuses[ecu]["menu"]
             # INPA's own unit and range per readout, for layouts whose rows
             # have neither. A `descending` range is NOT emitted: the sign is
             # absent from the bytes, so -45..40 and 45..40 are indistinguishable

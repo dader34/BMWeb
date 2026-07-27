@@ -42,7 +42,7 @@ GENERATED = os.path.join(HERE, "..", "data", "inpa-layouts", "generated")
 # decoded from the .IPO. It carries labels and filter tokens only -- no job, no
 # argument, nothing runnable. Picking a group still routes through the shared
 # confirm-and-send path, where the argument rules below apply.
-READ_ONLY_SCREENS = {"identity", "aif", "activateMenus", "activateState", "rootMenu", "coding", "gaugeSpecs", "activateTree", "special"}
+READ_ONLY_SCREENS = {"identity", "aif", "activateMenus", "activateState", "rootMenu", "coding", "gaugeSpecs", "activateTree", "special", "statusMenu"}
 
 # how many ECUs to check against the live engine (the whole corpus is slow and
 # the failure mode is systemic, not per-ECU)
@@ -116,6 +116,38 @@ def check_generated_are_reads(failures):
                         f"{sorted(set(conflict))}")
     print(f"  deadkeys   {dead_n} layouts hide a listed-but-undeclared key, "
           f"{len(set(conflict))} conflicting with a mined screen (must be 0)")
+
+    # The status menu's multi-target entries must be real variants, not the
+    # same page reached twice. INPA declares s_foo and m_foo for one page so it
+    # can be opened from a key or a list, and an early decode reported those as
+    # two targets -- 88 entries corpus-wide. It also over-read past an item's
+    # own dispatch into the menu's exit path, collecting s_main/s_info as if
+    # they were pages. Both must stay fixed.
+    st_n, dupes, roots = 0, [], []
+    for path in files:
+        try:
+            with open(path, encoding="utf-8") as f:
+                lay = json.load(f)
+        except Exception:                   # noqa: BLE001
+            continue
+        sm = lay.get("statusMenu")
+        if not sm:
+            continue
+        st_n += 1
+        ecu = os.path.basename(path)[:-5]
+        for it in sm.get("items", []):
+            tg = it.get("targets") or []
+            bases = {re.sub(r"^[sm]_", "", t) for t in tg}
+            if len(tg) > 1 and len(bases) < len(tg):
+                dupes.append(f"{ecu}:{it['label']}")
+            if any(re.match(r"^[sm]_(main|info)", t) for t in tg):
+                roots.append(f"{ecu}:{it['label']}")
+    if dupes:
+        failures.append(f"status entries listing s_X and m_X as variants: {dupes[:5]}")
+    if roots:
+        failures.append(f"status entries pointing at the ECU root: {roots[:5]}")
+    print(f"  statusmenu {st_n} layouts, {len(dupes)} same-page duplicates, "
+          f"{len(roots)} root over-reads (both must be 0)")
 
 
 def check_tables_not_promoted(failures):
