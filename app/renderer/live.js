@@ -472,16 +472,11 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
     if (added) pager.relayout();
     if (alive) {
-      // Declared vs answered: a screen row the ECU's job does not return
-      // cannot be drawn, so say so rather than silently showing fewer.
-      // One IR screen becomes one entry PER JOB, each carrying the whole row
-      // list (each job answers its own subset), so count distinct rows --
-      // summing per entry reported a 7-job 18-row CAN page as "126 values".
-      const want = new Set(screens.flatMap(
-        s => gridOrder(s).map(r => `${r.key}:${r.arg || ''}`))).size;
+      // Only what is actually on screen. The "of N" half was a prediction --
+      // rows the ECU never answers, or one page counted once per job -- and
+      // reporting a number the screen then contradicts is worse than none.
       meta.textContent = (demoMode() ? 'DEMO · ' : 'live · ')
-        + (want > cellEls.size ? `${cellEls.size} of ${want} values`
-                               : `${cellEls.size} values`);
+        + `${cellEls.size} value${cellEls.size === 1 ? '' : 's'}`;
       meta.classList.toggle('demo', demoMode());
       sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
     } else if (cellEls.size === 0) {

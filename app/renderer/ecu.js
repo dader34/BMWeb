@@ -107,47 +107,6 @@ function mergeLayoutIntoMenu(menu, layout) {
 }
 
 
-// How many entries a section will actually put on screen. Usually that is the
-// job count, but a section whose screen reorganises those jobs must say what
-// the screen shows: Activations renders INPA's component groups (12 on ZKE5),
-// not the two STEUERN_* jobs that drive them, and "2" over a list of twelve is
-// simply wrong wherever it appears.
-function sectionCount(ecu, sec) {
-  const layout = ecu._layout || {};
-  if (sec.section === 'Activations') {
-    // INPA's nested Activate menu: the top level is what the screen lists
-    const tree = layout.activateTree;
-    if (tree) {
-      const top = Object.values(tree).reduce((n, items) => n + items.length, 0);
-      if (top) return top;
-    }
-    const groups = (layout.activateMenus || [])
-      .reduce((n, m) => n + (m.groups || []).length, 0);
-    if (groups) return groups;
-  }
-  // the read-only cards list fields, not jobs
-  if (sec.section === 'Identity' && layout.identity)
-    return layout.identity.fields.length;
-  if (sec.section === 'AIF' && layout.aif)
-    return layout.aif.fields.length;
-  if (sec.section === 'Coding' && layout.coding && layout.coding.fields)
-    return layout.coding.fields.length;
-  // Status counts INPA's pages, not the jobs behind them: the section opens
-  // the page list, so "38 functions" over a 6-entry menu misdescribes it
-  if (sec.section === 'Status' && layout.statusMenu) {
-    const pages = (layout.statusMenu.items || []).filter(i => i.resolved).length;
-    if (pages) return pages;
-  }
-  return sec.items.length;
-}
-
-// correct the section header's subtitle once a screen knows what it is really
-// showing. `head()` writes it from the job count before any renderer has run.
-function setSectionCount(text) {
-  const el = document.querySelector('.view .screen-head .subtitle');
-  if (el) el.textContent = text;
-}
-
 // section display label: translate + capitalize ("Fehler" -> "Fault")
 function sectionLabel(name) {
   const t = deGerman(name) || name;
@@ -376,7 +335,6 @@ function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
     <button class="inpa-fn" data-i="${i}">
       <span class="inpa-fn-key">&lt; F${e.fkey} &gt;</span>
       <span class="inpa-fn-label">${esc(e.label)}</span>
-      <span class="inpa-fn-count">${sectionCount(ecu, e.sec)}</span>
     </button>`;
   grid.innerHTML = `
     <div class="inpa-haupt-sub">SGBD = ${esc(ecu.sgbd.toUpperCase())}</div>
@@ -539,7 +497,6 @@ async function showEcu(chassisId, sectionName, ecu) {
     tile.className = 'group-tile';
     tile.innerHTML = `
       <div class="group-name">${esc(sectionLabel(sec.section))}</div>
-      <div class="group-count">${sectionCount(ecu, sec)} function${sectionCount(ecu, sec) === 1 ? '' : 's'}</div>
       <div class="group-arrow">→</div>`;
     tile.onclick = () => showEcuSection(chassisId, sectionName, ecu, menu, sec.section);
     grid.appendChild(tile);
@@ -642,9 +599,6 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
   // opens a submenu (Analog values / Inputs / Outputs / K-bus / ...) and waits
   // for a pick; jumping straight into the first page hides that there are
   // others. renderStatusTree already behaves this way — this matches it.
-  const rowsOf = (item) => item.screens
-    .map(i => (layout.screens[i] || {}).rows || []).flat().length;
-
   if (inpaMode()) {
     // the same "< Fn > label" list the ECU home page and the System/Service
     // screens use, rather than an empty panel telling you to press a softkey
@@ -652,12 +606,10 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
     results.innerHTML = `<div class="act-key-list" id="stat-list"></div>`;
     const list = results.querySelector('#stat-list');
     cats.forEach((item, n) => {
-      const rows = rowsOf(item);
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
       row.innerHTML = `<span class="inpa-fn-key">&lt; F${item.fkey} &gt;</span>`
-        + `<span class="inpa-fn-label">${esc(fkeyLabel(item.label))}</span>`
-        + `<span class="act-key-val">${rows} value${rows === 1 ? '' : 's'}</span>`;
+        + `<span class="inpa-fn-label">${esc(fkeyLabel(item.label))}</span>`;
       row.onclick = () => open(item, bar && bar.children[n]);
       list.appendChild(row);
     });
@@ -667,10 +619,8 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
     cats.forEach((item, n) => {
       const tile = document.createElement('div');
       tile.className = 'group-tile';
-      const rows = rowsOf(item);
       tile.innerHTML = `
         <div class="group-name">${esc(fkeyLabel(item.label))}</div>
-        <div class="group-count">${rows} value${rows === 1 ? '' : 's'}</div>
         <div class="group-arrow">→</div>`;
       tile.onclick = () => open(item, bar && bar.children[n]);
       results.appendChild(tile);
@@ -938,7 +888,7 @@ function renderStatusTree(chassisId, sectionName, ecu, layout, view, results) {
         row.className = 'inpa-fn act-key-row';
         row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.fkey} &gt;</span>`
           + `<span class="inpa-fn-label">${esc(fkeyLabel(it.label))}</span>`
-          + `<span class="act-key-val">${it.items ? `${it.items.length} readouts ▸` : 'live values'}</span>`;
+          + `<span class="act-key-val">${it.items ? '▸' : ''}</span>`;
         row.onclick = () => enter(it);
         list.appendChild(row);
       });
@@ -950,7 +900,6 @@ function renderStatusTree(chassisId, sectionName, ecu, layout, view, results) {
         tile.className = 'group-tile';
         tile.innerHTML = `
           <div class="group-name">${esc(fkeyLabel(it.label))}</div>
-          <div class="group-count">${it.items ? `${it.items.length} readouts` : 'live values'}</div>
           <div class="group-arrow">${it.items ? '▸' : '→'}</div>`;
         tile.onclick = () => enter(it);
         results.appendChild(tile);
@@ -993,13 +942,11 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     { label: sectionLabel(sec.section) },
   ]);
   sbLeft.textContent = `${ecu.sgbd}.prg`;
-  // the subtitle starts as the raw job count, but a screen that reorganises
-  // those jobs into something else (Activations shows INPA's component groups,
-  // not STEUERN_* job names) corrects it via setSectionCount — otherwise the
-  // header says "2 functions" over a list of twelve.
-  const shown = sectionCount(ecu, sec);
-  view.innerHTML = head(`${ecu.label} · ${ecu.code}`, sectionLabel(sec.section),
-    `${shown} function${shown === 1 ? '' : 's'}`);
+  // No count in the header: it is written before any renderer has run, so it
+  // counts what the section MIGHT show rather than what it does -- a screen
+  // whose rows the ECU does not answer, or one page counted once per job.
+  // The screen itself is the honest answer.
+  view.innerHTML = head(`${ecu.label} · ${ecu.code}`, sectionLabel(sec.section));
 
   const results = document.createElement('div');
   results.className = 'results-panel';
