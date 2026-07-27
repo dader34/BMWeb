@@ -184,6 +184,12 @@ function irMenuItems(ir, menuName) {
   const seen = new Set();
   return (menu.items || [])
     .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
+    // drives INPA rather than the car: loads another script, opens the KVP
+    // editor. Flagged by the emitter from what the item does, not its name.
+    .filter(it => !it.appTool)
+    // a key whose only effect is to redraw the menu's own screen does
+    // nothing here -- INPA needs it because the screen IS the window
+    .filter(it => !(it.screen === (ir.entry || {}).screen && !it.menu))
     // an item with no navigation target is an ACTION INPA performs in place:
     // its actuator items only flip state flags and let the screen send the
     // job. Those are listed (the caption is INPA's own, joined from the
@@ -295,6 +301,49 @@ function irIsCard(scr) {
   return rows.length > 0 && rows.every(r => r.kind === 'value');
 }
 
+// INPA's "Information" screen describes the SCRIPT, not the car: rework
+// program, version, responsibility, then the SGBD's own file header. It reads
+// no ECU results at all -- the captions are printed and the values come from
+// script variables -- so it has no keys and would otherwise render blank.
+// The SGBD answers the same facts through its INFO pseudo-job (offline, no
+// cable), so the captions are paired with it positionally.
+const IR_INFO_KEYS = ['TITLE', 'VERSION', 'ORIGIN', 'PACKAGE', 'ECU',
+                      'REVISION', 'AUTHOR', 'SPRACHE', 'COMMENT'];
+
+function irIsInfo(scr) {
+  if (irRows(scr).rows.length) return false;
+  const caps = irCaptions(scr);
+  return caps.length >= 3;
+}
+
+// the printed captions of a screen that has no result rows, in draw order
+function irCaptions(scr) {
+  const out = [];
+  for (const ln of scr.lines || [])
+    for (const e of ln.elements || [])
+      if (e.t === 'text') {
+        const s = String(e.s || '').trim();
+        if (s && !/^[:=|-]+$/.test(s)) out.push(s);
+      }
+  return out;
+}
+
+// Info as a card: INPA's captions, paired in order with the SGBD's INFO
+// results. Extra captions with no counterpart are kept and left blank rather
+// than dropped -- INPA prints them.
+function irInfoCard(scr) {
+  const caps = irCaptions(scr);
+  return {
+    title: irLabel(scr.title) || 'Information',
+    subtitle: 'script and SGBD information · read-only',
+    jobs: ['INFO'],
+    fields: caps.map((c, i) => ({
+      key: IR_INFO_KEYS[i] || `_cap${i}`,
+      label: irLabel(c) || c,
+    })),
+  };
+}
+
 // One IR screen as the shape renderIdentity consumes.
 function irAsCard(scr, descs) {
   const { rows } = irRows(scr);
@@ -387,6 +436,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
       fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
     };
+    // INPA's Information screen: script/SGBD facts, no ECU results
+    if (scr && irIsInfo(scr)) {
+      renderIdentity(ecu, irInfoCard(scr), container, backAct);
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
+      return;
+    }
     // labelled reads render as the ID-data card, the way the Info tab does
     if (scr && irIsCard(scr)) {
       renderIdentity(ecu, irAsCard(scr, await irDescs(ecu, scr)),
