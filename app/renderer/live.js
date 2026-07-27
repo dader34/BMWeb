@@ -539,6 +539,17 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     if (valEl.textContent !== text) { valEl.textContent = text; flash(valEl); }
     return;
   }
+  // a row INPA prints as text stays text even when the value parses as a
+  // number: coding counts, gear positions and part numbers are not
+  // measurements, and a bar with an invented 0..50 range implies a scale the
+  // ECU never declared. `kind` comes from the decoded screen -- INPA drew it
+  // with textout, not analogout.
+  if (rowSpec.kind === 'value' || rowSpec.kind === 'text') {
+    cellEl.classList.add('text-only');
+    const t = String(p.raw).trim();
+    if (valEl.textContent !== t) { valEl.textContent = t; flash(valEl); }
+    return;
+  }
   cellEl.classList.remove('text-only');
   let min = rowSpec.min, max = rowSpec.max;
   if (min == null || max == null) {
