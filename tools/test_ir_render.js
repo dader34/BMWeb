@@ -270,6 +270,42 @@ for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir'))) {
 }
 ok(punct === 0, `${punct} rows labelled with a separator instead of a caption`);
 
+// ---- KLIMA_5B: the second digitalout opcode, writes, and prompts ---------
+// 0x4b is digitalout(var,row,col,on,off) -- 990 sites, the COMMON form --
+// but only 0x4d was mapped, so IHKA's I/O status decoded twelve captions and
+// zero values. This is the assertion that would have caught it.
+const kl = load('KLIMA_5B');
+const io = kl.screens['s_eingaenge_ihka38_ihka38_2_ihka38_3'];
+const ioRows = irRows(io).rows;
+ok(ioRows.length === 12, `IHKA I/O status should have 12 rows, got ${ioRows.length}`);
+ok(ioRows.every(x => x.kind === 'lamp' && x.on && x.off),
+   'IHKA I/O status rows should all be lamps with on/off text');
+
+// a job that changes the ECU permanently must be flagged, but STEUERN_* --
+// the actuator mechanism itself -- must NOT be, or every activation dies
+let permanent = 0, actuators = 0;
+for (const m of Object.values(kl.menus || {})) {
+  for (const i of m.items || []) {
+    if (!i.job) continue;
+    if (i.writeJob) permanent++;
+    if (/^STEUERN_/.test(i.job) && !/EEPROM|SCHREIBEN/i.test(i.job)) {
+      actuators++;
+      ok(!i.writeJob, `actuator ${i.job} wrongly flagged as a write`);
+    }
+  }
+}
+ok(permanent > 0, 'IHKA EEPROM_SCHREIBEN not flagged as a persistent write');
+ok(actuators > 10, `IHKA should keep its actuators runnable, got ${actuators}`);
+
+// nine flap positions call ONE job but each prompts for its own value
+const flaps = Object.values(kl.menus || {})
+  .flatMap(m => (m.items || []))
+  .filter(i => i.job === 'STEUERN_MOTOR_KLAPPENPOSITION' && i.prompt);
+ok(flaps.length >= 5,
+   `IHKA flap positions should carry their prompts, got ${flaps.length}`);
+ok(flaps.every(i => i.prompt.some(p => /%/.test(p))),
+   'a flap prompt lost its range');
+
 // ---- corpus: the interpreter must not throw on any ECU --------------------
 let files = fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'));
 let screens = 0, rows = 0, broke = 0;

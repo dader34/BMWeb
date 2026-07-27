@@ -280,6 +280,12 @@ function irMenuItems(ir, menuName) {
       // Sleep -> SLEEP_MODE). Dropping it here made every such key inert:
       // open() tests it.job, so without this Clear could never run.
       job: it.job || null,
+      // changes the ECU permanently (EEPROM write, service reset) rather
+      // than driving an actuator for the duration of a test
+      writeJob: !!it.writeJob,
+      // INPA asks the user for a value and builds the job argument from it
+      // (KLIMA_5B's flap positions: "Fresh air flap", "Position (0-100 %)")
+      prompt: it.prompt || null,
       // no target and no action: INPA runs this in place (actuator toggles)
       inPlace: !it.screen && !it.menu,
       readable: it.screen ? irReadable((ir.screens || {})[it.screen] || {})
@@ -481,9 +487,37 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         && !((ir.menus[menuName] || {}).composite || {}).items?.[String(it.nr)]) {
       const reopen = () =>
         renderIrMenu(ecu, ir, menuName, container, back, trail);
-      if (confirmActuators()
-          && !confirm(`${it.label}\n\nSends ${it.job}. This drives a real `
-                      + `component.\n\nSend it?`)) return;
+      // a persistent write always asks, whatever the setting says: the
+      // confirm toggle exists to match INPA on actuator TESTS, which stop
+      // when you leave the screen. An EEPROM write or a service reset does
+      // not undo itself.
+      const permanent = it.writeJob;
+      if ((confirmActuators() || permanent)
+          && !confirm(`${it.label}\n\nSends ${it.job}.\n\n`
+              + (permanent
+                ? 'This changes the ECU PERMANENTLY — it is not an actuator '
+                  + 'test and does not undo itself when you leave.'
+                : 'This drives a real component.')
+              + '\n\nSend it?')) return;
+      // INPA asks for a value first and builds the argument from it. We know
+      // the prompts but not how the script assembles them into the argument
+      // -- it concatenates several variables -- so sending the job without
+      // that would command a position nobody chose.
+      if (it.prompt) {
+        container.className = 'results-panel';
+        container.innerHTML = `<div class="empty"><div>`
+          + `<strong>${esc(it.label)}</strong></div>`
+          + `<div>INPA prompts for ${esc(it.prompt.join(' — '))} and builds `
+          + `<code>${esc(it.job)}</code>'s argument from the answer. How it `
+          + `assembles that argument is not decoded, so this is listed but `
+          + `not sent.</div></div>`;
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · needs input`;
+        setActions([...keys(), {
+          key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+          fn: reopen,
+        }]);
+        return;
+      }
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.job} · sending`;
       try {
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}`,

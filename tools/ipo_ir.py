@@ -88,6 +88,14 @@ _KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
 
 _WRITE_JOB = re.compile(r"SCHREIBEN|STEUERN|RESET|LOESCHEN|CLEAR|WRITE", re.I)
 
+# A menu item's job that changes the ECU PERMANENTLY, as opposed to driving an
+# actuator for as long as the test runs. STEUERN_* is deliberately excluded:
+# that IS the actuator mechanism, and flagging it would disable every
+# activation. What must not fire on a keypress is a job that writes storage or
+# clears memory -- KLIMA_5B's "Comp.act" calls EEPROM_SCHREIBEN.
+_PERSISTENT_WRITE = re.compile(
+    r"EEPROM|SCHREIBEN|_WRITE|PROGRAMMIER|CODIER\w*_SCHREIB|RESET", re.I)
+
 # menu-item builtin calls that are actions, not navigation
 _ACTIONS = {0x0c: "exit", 0x10: "select", 0x11: "deselect", 0x13: "start",
             0x17: "printscreen"}
@@ -483,6 +491,26 @@ def _menu_ir(toks, id2name):
                     entry = {"nr": cur_nr, "label": cur_label}
                     items.append(entry)
                 entry.setdefault("job", nm)
+                # a menu item's job needs the same write flag a screen's
+                # does. KLIMA_5B's "Comp.act" calls EEPROM_SCHREIBEN, which
+                # would have fired on a keypress like any read.
+                if _PERSISTENT_WRITE.search(nm):
+                    entry["writeJob"] = True
+        elif t["op"] == "call" and t["n"] in (0x3f, 0x46) \
+                and cur_label is not None:
+            # an input dialog: INPA asks the user for a value and builds the
+            # job argument from it. KLIMA_5B's nine flap positions all call
+            # STEUERN_MOTOR_KLAPPENPOSITION but each prompts for its own
+            # ("Fresh air flap", "Position (0-100 %)"), so they are not
+            # interchangeable and none can be sent without the input.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            prompts = [x["v"] for x in toks[max(0, ti - 6):ti]
+                       if x["op"] == "const" and x.get("t") == "s"
+                       and str(x["v"]).strip()]
+            if prompts:
+                entry["prompt"] = prompts[-2:]
         elif t["op"] == "call" and t["n"] == 0x0f and cur_label is not None:
             # scriptchange: loads a different .IPO entirely. Its argument is a
             # script or SGBD name ("_DWS", "GS30", "\inpa\sgdat\airbag.ipo"),

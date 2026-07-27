@@ -236,8 +236,14 @@ BUILTINS = {
     0x48: "text",            # text(row, col, str)
     0x49: "textout",         # textout(str, row, col)
     0x4a: "ftextout",        # ftextout(str, row, col, flagA, flagB)
+    # digitalout(val, row, col, onText, offText). Two opcodes carry it and
+    # the argument SHAPES tell them apart: 0x4b is (var,int,int,str,str) --
+    # 990 sites, the common form -- while 0x4d takes all-variable arguments
+    # (the caption strings held in variables). Only 0x4d was mapped, so
+    # KLIMA_5B's I/O status decoded twelve captions and zero values.
+    0x4b: "digitalout",
     0x4c: "analogout",       # analogout(val, row, col, min, max, wlo, whi, fmt)
-    0x4d: "digitalout",      # digitalout(val, row, col, onText, offText)
+    0x4d: "digitalout",
     # EDIABAS bridge
     0x62: "INPAapiJob",             # (sgbd, job, arg, resultfilter)
     0x63: "INPAapiResultText",      # (ref, key, set, fmt)
