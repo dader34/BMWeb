@@ -744,8 +744,13 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   if (isActivations) {
     // set the Back action first: showActivations is async and the INPA renderer
     // re-issues setActions with its own F-keys, which must not be overwritten
-    setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showEcu(chassisId, sectionName, ecu) }]);
-    showActivations(ecu, sec, results);
+    // pass the section's Back explicitly: showActivations is async and every
+    // renderer under it re-issues setActions, so by the time one needs the exit
+    // it can no longer read it back out of currentActions
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: () => showEcu(chassisId, sectionName, ecu) };
+    setActions([back]);
+    showActivations(ecu, sec, results, back);
     return;
   }
 

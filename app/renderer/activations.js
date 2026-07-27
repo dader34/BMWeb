@@ -461,8 +461,12 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
   };
 
   const openLevel = (items, trail, up) => {
+    // `up` at a nested level, the section's own Back at the root. The exit is
+    // threaded in from showEcuSection rather than read back out of
+    // currentActions, which by now holds this screen's own keys. Not falling
+    // back to lastScreen: that points at this very section and would loop.
     const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                   fn: up || exit || (() => {}) };
+                   fn: up || (exit && exit.fn) || (() => {}) };
     const enter = (it) => {
       const here = [...trail, deGerman(it.label) || it.label];
       const reopen = () => openLevel(items, trail, up);
