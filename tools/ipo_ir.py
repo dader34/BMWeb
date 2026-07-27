@@ -170,6 +170,7 @@ def _screen_ir(toks):
     bind = {}
     lastconst = {}
     args = []
+    pending_result = None
 
     def cur():
         return lines[-1]
@@ -267,6 +268,24 @@ def _screen_ir(toks):
                 key = next((s for s in strs if D._KEYISH.match(s)), None)
                 if ref is not None and key:
                     bind[(2 if ref["kind"] == 2 else 0, ref["n"])] = key
+            elif name == "INPAapiResultInto":
+                # reads into an IMPLICIT slot -- it names no destination, and
+                # copyslot moves the value out afterwards. LWS5's coding page
+                # reads COD_DATEN this way for each of its seven blocks.
+                pending_result = next(
+                    (s for s in strs if D._KEYISH.match(s)), None)
+            elif name == "copyslot":
+                # (dst, src): carry the binding, or the result the preceding
+                # ResultInto left pending, into the destination slot
+                refs = [a for a in args if a["op"] == "procref"
+                        and a["kind"] in (0, 2)]
+                if len(refs) >= 2:
+                    dst = (2 if refs[0]["kind"] == 2 else 0, refs[0]["n"])
+                    src = (2 if refs[1]["kind"] == 2 else 0, refs[1]["n"])
+                    val = bind.get(src) or pending_result
+                    if val:
+                        bind[dst] = val
+                        pending_result = None
             elif name == "analogout":
                 key = bind.get(slot)
                 el = {"t": "gauge", "key": key}
@@ -308,6 +327,12 @@ def _screen_ir(toks):
                     if len(on_off) >= 2:
                         el["on"] = on_off[0].strip()
                         el["off"] = on_off[1].strip()
+                elif src and len(ints) >= 2 and not dst:
+                    # a helper that PRINTS a bound slot rather than formatting
+                    # it into another: LWS5's coding page renders each data
+                    # block this way, so the row's value is the bound result
+                    el = {"t": "value", "key": bind[src],
+                          "row": ints[0], "col": ints[1]}
             if el is not None:
                 cur()["elements"].append(el)
             if name in ("analogout", "digitalout") or op == "calluser":
@@ -487,6 +512,19 @@ def _menu_ir(toks, id2name):
                 items.append({"nr": cur_nr, "label": cur_label})
             entry = None
             cur_nr, cur_label = t.get("nr"), (t.get("label") or "").strip()
+        elif t["op"] == "procref" and t.get("kind") == 0x42 \
+                and cur_label is not None:
+            # a STATE machine, INPA's third proc kind after screen and menu:
+            # a scripted sequence (write coding, dump to file, ROM test).
+            # Recorded so the emitter can see what the sequence does -- LWS5's
+            # only Coding key launches sm_Codier_Datei, which writes the
+            # coding data to a .COD file on the PC and reads nothing back.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            st = id2name.get(("state", t["n"]))
+            if st:
+                entry["_state"] = st
         elif t["op"] == "procref" and t.get("kind") in (0x40, 0x41) \
                 and cur_label is not None:
             tgt = id2name.get(("screen" if t["kind"] == 0x40 else "menu",
@@ -702,6 +740,20 @@ def build(ecu):
     # softkey help ("< F2 >  DWA output"); the ITEM number IS the F-key, so
     # the two sides join exactly. Only fills gaps -- a menu item that already
     # says more than the softkey keeps its own wording.
+    # A key that launches a STATE machine which only writes a file is still a
+    # PC action: LWS5's single Coding key runs sm_Codier_Datei, whose whole
+    # body is "prompt for a path, open it 'w', write the coding data" -- INPA
+    # offers no coding readout for this ECU at all. Resolved here because the
+    # evidence is in the state proc, not in the menu item.
+    for menu in ir["menus"].values():
+        for it in menu["items"]:
+            st = it.pop("_state", None)
+            if not st or st not in all_toks:
+                continue
+            body = all_toks[st]
+            calls = {t["n"] for t in body if t["op"] == "call"}
+            if (calls & {0x5c, 0x79}) and 0x62 not in calls:
+                it["fileAction"] = True     # writes a file, never asks the ECU
     # Which screen a menu is drawn in: the key that installs the menu sets the
     # screen in the same breath (KOMBI F6 Activate -> m_steuern_46 + s_steuern),
     # so the pairing is the item's own, not a guess from the name. Without it
