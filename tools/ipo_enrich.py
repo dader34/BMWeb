@@ -42,6 +42,8 @@ ACTMENUS = os.path.join(OUT, "_actmenus.json")
 ROOTMENUS = os.path.join(OUT, "_rootmenus.json")
 # INPA's Coding screen (root F3), where the .IPO describes one
 CODING = os.path.join(OUT, "_coding.json")
+# per-gauge unit and min/max from INPA's gauge dialect (tools/ipo_gauges.py)
+GAUGES = os.path.join(OUT, "_gauges.json")
 ECU_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "vendor", "EDIABAS", "Ecu")
 
@@ -236,6 +238,10 @@ def main():
         if os.path.exists(CODING):
             with open(CODING, encoding="utf-8") as f:
                 codings = json.load(f)
+        gauges = {}
+        if os.path.exists(GAUGES):
+            with open(GAUGES, encoding="utf-8") as f:
+                gauges = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -255,6 +261,15 @@ def main():
             # INPA's Coding screen: a labelled read, its own job per ECU
             if ecu in codings:
                 out["coding"] = codings[ecu]
+            # INPA's own unit and range per readout, for layouts whose rows
+            # have neither. A `descending` range is NOT emitted: the sign is
+            # absent from the bytes, so -45..40 and 45..40 are indistinguishable
+            # and a backwards bar is worse than none.
+            if ecu in gauges:
+                out["gaugeSpecs"] = [
+                    {k: v for k, v in g.items() if k != "descending"}
+                    for g in gauges[ecu] if not g.get("descending")
+                ]
             if ecu in actmenus:
                 out["activateMenus"] = actmenus[ecu]["menus"]
                 # INPA's post-drive state readout ("Signal : EIN"), which is
