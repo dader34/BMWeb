@@ -35,7 +35,54 @@ const FAULT_PHRASES = [
 // compounds first so they win before their fragments.
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
+// INPA's softkey captions are cut to fit a narrow F-key bar. Expanded here
+// as whole labels (anchored), so only an exact caption is rewritten -- a
+// substring rule would corrupt longer text that happens to contain one.
+const INPA_CAPTIONS = new Map(Object.entries({
+  // fault memories: EM/IM/HM are Fehler-/Info-/Historienspeicher
+  'Read EM': 'Read fault memory', 'Clear EM': 'Clear fault memory',
+  'Read IM': 'Read info memory', 'Clear IM': 'Clear info memory',
+  'Read HM': 'Read history memory', 'Clear HM': 'Clear history memory',
+  'FS Read': 'Read fault memory', 'FS Clear': 'Clear fault memory',
+  'IS Read': 'Read info memory', 'IS Clear': 'Clear info memory',
+  'HS Read': 'Read history memory', 'HS Clear': 'Clear history memory',
+  'Shadow': 'Info memory', 'Quick': 'Quick read',
+  // climate / actuator abbreviations
+  'W-valve': 'Water valve', 'Dig.out': 'Digital outputs',
+  'Rep.pos': 'Repair position', 'Freshair': 'Fresh air flap',
+  'Air circ.': 'Air circulation flap', 'Defrost': 'Defroster flap',
+  'Rear c.': 'Rear compartment flap', 'Ventil.': 'Ventilation flap',
+  'Stratif.': 'Stratification flap', 'Footwell': 'Footwell flap',
+  'Comp.act': 'Cancel compressor deactivation', 'Compr.': 'Compressor',
+  'Rear w.': 'Rear window defogger', 'Windsh.': 'Windshield defogger',
+  'Aux. fan': 'Auxiliary fan', 'Lock v.': 'Lock valve',
+  'Cali. run': 'Calibration run', 'Init': 'Initialise',
+  'Displaytest': 'Display test', 'Testbild': 'Test pattern',
+  // common softkeys
+  'I/O state': 'I/O status', 'Seat pos.': 'Seat position',
+  'km reset': 'Reset kilometres', 'Commtest': 'Communication test',
+  // Only genuine abbreviations belong here. Plain English words that happen
+  // to be short -- Display, Unit, Flap, Sensors, Actuators, Prog, Valves --
+  // are real captions on other ECUs' status menus (BMBT46RN's "Display" is a
+  // monitor readout, not a display test), and expanding them would invent
+  // meaning rather than translate it.
+}));
+
 const DE_TOKENS = [
+  // ---- captions INPA leaves in German ----
+  [/^Zurück\/control beenden$/i, 'Back / end control'],
+  [/^Sitzhzg\.?$/i, 'Seat heating'],
+  [/^Eingänge$/i, 'Inputs'],
+  [/^Ausgänge$/i, 'Outputs'],
+  [/^Speichern$/i, 'Save'],
+  [/^Speicher$/i, 'Memory'],
+  [/^Abbruch$/i, 'Cancel'],
+  [/^Beenden$/i, 'End'],
+  [/^Weiter$/i, 'Continue'],
+  [/^weiter$/i, 'continue'],
+  [/^Alle$/i, 'All'],
+  [/^Ausw\.?$/i, 'Select'],
+  [/^Variante$/i, 'Variant'],
   // ---- RDC (tire pressure) result descriptions ----
   // SGBD descs like "Anzahl 'Sensor-defekt'-Ereignisse"; compounds first,
   // same ordering rule as everywhere else in this table.
@@ -543,7 +590,8 @@ function deGerman(text) {
   if (_deCache.has(text)) return _deCache.get(text);
   let out = null;
   const trimmed = text.trim();
-  if (ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];         // exact sentence
+  if (INPA_CAPTIONS.has(trimmed)) out = INPA_CAPTIONS.get(trimmed);
+  if (out === null && ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];
   // per-ECU fault-location text -> English, generated from the SGBD FORTTEXTE tables
   // (faultdb.js). keyed on the trimmed German text, so it is variant-agnostic.
   if (out === null && typeof window !== 'undefined' && window.BMW_FAULT_PHRASES)
