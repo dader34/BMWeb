@@ -498,10 +498,18 @@ function irIsCard(scr) {
   if (irIsMemory(scr)) return false;
   const rows = irRows(scr).rows;
   if (!rows.length || !rows.every(r => r.kind === 'value')) return false;
-  // a per-position screen reads the same keys once per wheel/bank, so a
-  // single card keyed by result name would show the last pass five times.
-  // Those go to the poller, which reads each argument separately.
-  return !rows.some(r => r.arg);
+  // A per-position screen reads the same keys once per wheel/bank, so a single
+  // card keyed by result name would show the last pass five times. Those go to
+  // the poller, which reads each argument separately.
+  //
+  // Distinct captions make it a card again: LWS5's coding page calls
+  // CODIERUNG_LESEN once per block and labels each "Data Block 0..6", which is
+  // a list of labelled reads like any ident page -- the argument distinguishes
+  // the passes, and the caption already says which is which.
+  const args = rows.filter(r => r.arg != null);
+  if (!args.length) return true;
+  const caps = new Set(args.map(r => (r.label || '').trim()).filter(Boolean));
+  return caps.size === args.length;
 }
 
 // INPA's memory dump: SPEICHER_LESEN with a start address and a byte count,
@@ -645,10 +653,18 @@ function irAsCard(scr, descs) {
   return {
     title: irLabel(scr.title) || 'Read',
     subtitle: (scr.jobs || []).map(j => j.name).join(' · ') + ' · read-only',
-    jobs: (scr.jobs || []).filter(j => !j.write).map(j => j.name),
+    // argument-carrying jobs are read per FIELD below, so listing them here
+    // too would read each block twice and keep only the last
+    jobs: (scr.jobs || []).filter(j => !j.write && j.arg == null)
+      .map(j => j.name),
     fields: rows.map(r => ({
       key: r.key,
       label: irLabel(r.label || (descs && descs.get(r.key)) || r.key),
+      // INPA reads this row in its own pass ("Data Block 3" is
+      // CODIERUNG_LESEN "3"), so the card must read it separately
+      ...(r.arg != null
+        ? { arg: r.arg, job: (scr.jobs || []).find(j => !j.write)?.name }
+        : {}),
     })),
   };
 }
