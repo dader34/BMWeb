@@ -208,6 +208,71 @@ function irMenuItems(ir, menuName) {
     }));
 }
 
+// Actuator keys always run -- INPA sends on the keypress. The setting only
+// decides whether we ask first; defaulting to asking, since unlike INPA this
+// app can be pointed at a car by someone who did not choose the test.
+const confirmActuators = () => Settings.get('confirmActuators', 'on') !== 'off';
+
+// Live actuator state per menu, mirroring INPA's own: the menu holds the
+// argument word between presses, each key toggles its own pair, and the whole
+// word is sent every time. Starting from composite.baseline -- the value
+// INPA's startup initialises the fields to -- means our first send is
+// byte-identical to INPA's.
+const _compState = new Map();
+
+function compWord(ir, menuName) {
+  const comp = (ir.menus[menuName] || {}).composite;
+  if (!comp) return null;
+  const ck = `${ir.ecu}:${menuName}`;
+  if (!_compState.has(ck)) {
+    const base = comp.baseline
+      ? comp.baseline.split(';')
+      : new Array(comp.fields).fill('0');
+    _compState.set(ck, base);
+  }
+  return _compState.get(ck);
+}
+
+// Send one actuator key: set its REQ/VAL pair in the shared word, post the
+// job, show what went out and what came back. No confirmation and no
+// sub-screen -- INPA sends on the keypress, so this does too.
+async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
+  const comp = (ir.menus[menuName] || {}).composite;
+  const pair = comp && comp.items && comp.items[String(it.nr)];
+  const word = compWord(ir, menuName);
+  if (!comp || !pair || !word) return;
+
+  // toggle this key's request flag; the value field follows it, except where
+  // INPA only ever sends 0 for that field (RDC's CAL_VAL: F3 requests
+  // calibration and leaves the value unused)
+  const [reqI, valI] = pair;
+  const on = word[reqI] === '1' ? '0' : '1';
+  word[reqI] = on;
+  const valOnly = (comp.values || [])[valI];
+  word[valI] = (valOnly && valOnly.length === 1)
+    ? String(valOnly[0]) : on;
+  const arg = word.join(';');
+
+  // INPA stays on its menu -- the keys keep their state and you toggle the
+  // next one -- so the result goes to the status bar and the row's own
+  // marker, never to a separate page.
+  sbLeft.textContent = `${ecu.sgbd}.prg · ${comp.job} ${arg} · sending`;
+  let out = null, err = null;
+  try {
+    out = await api(`/api/ecu/${ecu.sgbd}/run/${comp.job}`
+      + `?arg=${encodeURIComponent(arg)}`, { method: 'POST' });
+  } catch (e) { err = e; }
+
+  const status = err
+    ? `failed: ${err.message}`
+    : (flatResults(out.sets).map(([k, v]) => `${k}=${v}`).slice(0, 3)
+        .join(' ') || 'sent');
+  sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} `
+    + `${on === '1' ? 'ON' : 'OFF'} · ${comp.job} ${arg} · ${status}`;
+  // redraw the menu so every row shows its current on/off state
+  reopen();
+}
+
 // Walk the IR from a menu: list its entries, open a screen, descend into a
 // submenu, Esc back up one level -- INPA's own navigation, and ours.
 function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
@@ -215,6 +280,23 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    if (it.inPlace && (ir.menus[menuName] || {}).composite) {
+      // INPA sends on the keypress -- no sub-screen -- so this does the same.
+      // The argument is INPA's own neutral word with this key's REQ/VAL pair
+      // set; every other field keeps the value it already has, exactly as
+      // INPA's menu state works.
+      const reopen = () =>
+        renderIrMenu(ecu, ir, menuName, container, back, trail);
+      if (confirmActuators()) {
+        const comp = ir.menus[menuName].composite;
+        const n = Object.keys(comp.items || {}).length;
+        if (!confirm(`${it.label}\n\nSends ${comp.job} — one job carrying `
+            + `all ${comp.fields} fields, re-commanding all ${n} actuators `
+            + `at once. This drives real components.\n\nSend it?`)) return;
+      }
+      await runComposite(ecu, ir, menuName, it, container, reopen);
+      return;
+    }
     if (it.inPlace) {
       // INPA runs this from the menu: each key sets its own REQ/VAL pair in
       // ONE argument string, and a single job re-commands every actuator on
@@ -222,29 +304,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // established is the neutral word: whether all-REQ-zero is a true
       // no-op. Until that is confirmed on a car, pressing one key would be
       // asserting a value for six actuators nobody chose.
-      const comp = (ir.menus[menuName] || {}).composite;
-      const pair = comp && comp.items && comp.items[String(it.nr)];
+      // reached only when this menu has NO decoded composite: INPA runs the
+      // key in place but we cannot tell what it sends, so there is nothing
+      // to fire and saying so beats guessing.
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
         + `<strong>${esc(it.label)}</strong></div>`
-        + (pair
-          ? `<div>INPA sends this as part of <code>${esc(comp.job)}</code> — `
-            + `one job carrying all ${comp.fields} fields, of which this key `
-            + `owns arguments ${pair[0]} and ${pair[1]} (its enable and its `
-            + `value). Every press re-commands all `
-            + `${Object.keys(comp.items).length} actuators at once.</div>`
-            + (comp.baseline
-              ? `<div>INPA's own neutral word is `
-                + `<code>${esc(comp.baseline)}</code>, so a press sends that `
-                + `with this pair set. Decoded, but not yet confirmed against `
-                + `a car — so it stays inert.</div>`
-              : `<div>The neutral word for the other fields is not decoded, `
-                + `so it stays inert.</div>`)
-          : `<div>INPA runs this from the menu itself. The command sequence `
-            + `is not decoded, so this is listed but not runnable here.`
-            + `</div>`)
-        + `</div>`;
-      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · not runnable`;
+        + `<div>INPA runs this from the menu itself. What it sends is not `
+        + `decoded for this ECU, so it cannot be reproduced here.</div></div>`;
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · not decoded`;
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
         fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
@@ -283,7 +351,17 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   }));
 
   const count = (it) => {
-    if (it.inPlace) return 'not runnable';
+    // reflects the setting, not a property of the item: with actuator tests
+    // enabled these DO run, so a fixed "not runnable" would be a lie. Once
+    // running, the row shows its own armed state the way INPA's menu does.
+    if (it.inPlace) {
+      const comp = (ir.menus[menuName] || {}).composite;
+      const pair = comp && comp.items && comp.items[String(it.nr)];
+      const word = pair && compWord(ir, menuName);
+      // the row shows its own armed state, the way INPA's menu does
+      if (word) return word[pair[0]] === '1' ? 'ON' : 'off';
+      return 'not decoded';
+    }
     if (!it.screen) return '';
     const scr = (ir.screens || {})[it.screen];
     if (!scr) return '';
@@ -333,15 +411,32 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
 const IR_SECTION = [
   [/^Status$|^Read status$|^Status lesen$/i, 'Status'],
   [/^Activate$|^Ansteuern$|^Steuern$/i, 'Activations'],
+  [/^Cod(e|ing)$|^Codierung$/i, 'Coding'],
 ];
 
-function irSectionMenu(ir, section) {
+function irSectionEntry(ir, section) {
   const root = (ir.menus || {})[(ir.entry || {}).menu];
   if (!root) return null;
   for (const it of root.items || []) {
     const hit = IR_SECTION.find(([re, name]) =>
       name === section && re.test((it.label || '').trim()));
-    if (hit && it.menu) return it.menu;
+    if (hit) return it;
   }
   return null;
+}
+
+function irSectionMenu(ir, section) {
+  const it = irSectionEntry(ir, section);
+  return (it && it.menu) || null;
+}
+
+// A root key can open a SCREEN directly rather than a menu -- RDC's "Code"
+// goes straight to s_code (title "RDC coding", CODIERUNG_LESEN, five coded
+// values). Those sections have no menu to list, so they render the screen
+// itself; without this they fell through to the job-bucket tile.
+function irSectionScreen(ir, section) {
+  const it = irSectionEntry(ir, section);
+  if (!it || it.menu || !it.screen) return null;
+  const scr = (ir.screens || {})[it.screen];
+  return scr && irReadable(scr) ? scr : null;
 }
