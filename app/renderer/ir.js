@@ -492,13 +492,21 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // when you leave the screen. An EEPROM write or a service reset does
       // not undo itself.
       const permanent = it.writeJob;
-      if ((confirmActuators() || permanent)
-          && !confirm(`${it.label}\n\nSends ${it.job}.\n\n`
-              + (permanent
-                ? 'This changes the ECU PERMANENTLY — it is not an actuator '
-                  + 'test and does not undo itself when you leave.'
-                : 'This drives a real component.')
-              + '\n\nSend it?')) return;
+      if (confirmActuators() || permanent) {
+        const ok = await confirmDialog({
+          title: `${permanent ? 'Write to' : 'Activate on'} `
+            + `${esc(ecu.label)}?`,
+          body: `Runs <span class="mono">${esc(it.job)}</span> for `
+            + `<b>${esc(it.label)}</b>.<br><br>`
+            + (permanent
+              ? 'This changes the ECU <b>permanently</b> — it is not an '
+                + 'actuator test and does not undo itself when you leave.'
+              : 'This drives a real component and stays as set until you '
+                + 'change it back or leave this screen.'),
+          confirmLabel: permanent ? 'Write' : 'Activate', danger: true,
+        });
+        if (!ok) { sbLeft.textContent = 'cancelled'; return; }
+      }
       // INPA asks for a value first and builds the argument from it. We know
       // the prompts but not how the script assembles them into the argument
       // -- it concatenates several variables -- so sending the job without
@@ -541,9 +549,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       if (confirmActuators()) {
         const comp = ir.menus[menuName].composite;
         const n = Object.keys(comp.items || {}).length;
-        if (!confirm(`${it.label}\n\nSends ${comp.job} — one job carrying `
-            + `all ${comp.fields} fields, re-commanding all ${n} actuators `
-            + `at once. This drives real components.\n\nSend it?`)) return;
+        const ok = await confirmDialog({
+          title: `Activate ${esc(it.label).toLowerCase()}?`,
+          body: `Runs <span class="mono">${esc(comp.job)}</span> on `
+            + `<b>${esc(ecu.label)}</b> — one job carrying all `
+            + `${comp.fields} fields, so it re-commands all ${n} actuators `
+            + `at once.<br><br>This drives real components.`,
+          confirmLabel: 'Activate', danger: true,
+        });
+        if (!ok) { sbLeft.textContent = 'cancelled'; return; }
       }
       await runComposite(ecu, ir, menuName, it, container, reopen);
       return;
