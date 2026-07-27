@@ -1013,9 +1013,15 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
       return;
     }
   }
-  // a readout layout that describes no actuators must not suppress the
-  // decompiled Activate menu
-  if (sec.section === 'Activations' && ecu._ir && !layoutHasActuators(layout)
+  // the decompiled Activate menu beats the mined activateTree, which lists
+  // submenus it has no items for and jobs it never resolved
+  if (sec.section === 'Activations' && ecu._ir === undefined) {
+    try {
+      const hint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
+      ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${hint}`);
+    } catch { ecu._ir = null; }
+  }
+  if (sec.section === 'Activations' && ecu._ir
       && typeof renderIrMenu === 'function') {
     const root = irRootMenu(ecu._ir);
     const act = root && irMenuItems(ecu._ir, root)

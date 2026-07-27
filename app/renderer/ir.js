@@ -635,8 +635,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     }
     if (!it.menu && !it.screen) return '';
     const scr = (ir.screens || {})[it.screen];
-    // a submenu's size is its own entry count, not a screen's rows
-    if (it.menu && !scr) {
+    // a menu item counts its entries. open() opens the menu whatever screen
+    // it also names, so counting that screen's rows described the wrong
+    // thing -- and gave 0 for the screens that only host a menu.
+    if (it.menu) {
       const k = irMenuItems(ir, it.menu).length;
       return k ? `${k} function${k === 1 ? '' : 's'}` : '';
     }
@@ -660,7 +662,8 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       row.className = 'inpa-fn act-key-row';
       row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.nr} &gt;</span>`
         + `<span class="inpa-fn-label">${esc(it.label)}</span>`
-        + `<span class="act-key-val">${esc(count(it))}</span>`;
+        + `<span class="act-key-val">${esc(count(it))}</span>`
+        + `<span class="ir-enter">${it.menu ? '&#8629;' : ''}</span>`;
       row.onclick = () => open(it);
       list.appendChild(row);
     });

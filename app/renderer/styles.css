@@ -978,10 +978,12 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
    are tighter than the Hauptmenue list they borrow from — no scrolling. */
 .act-key-list { display: grid; gap: 0; max-width: 620px; margin-bottom: 10px; }
 .act-key-row {
-  grid-template-columns: 76px 1fr auto; padding: 2px 6px; gap: 12px;
+  grid-template-columns: 76px 1fr auto 14px; padding: 2px 6px; gap: 12px;
 }
 .act-key-row .inpa-fn-label { font-size: 13px; }
 .act-key-val { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
+/* return arrow marking a row that opens a submenu */
+.ir-enter { font-size: 12px; color: var(--ink-faint); text-align: right; }
 .act-key-row.danger .inpa-fn-label { color: var(--red); }
 /* the live output readout INPA prints under the keys, one row per driven output
    ("Status Vanoseinlassventil  33 %") */

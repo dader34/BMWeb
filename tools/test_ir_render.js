@@ -181,9 +181,14 @@ ok(szlErr && szlErr.menu, 'SZL Error key lost its menu');
 const szlItems = irMenuItems(szl, szlErr.menu);
 ok(szlItems.every(i => i.label && i.label.trim()),
    'SZL fault menu still has blank captions');
-for (const [cap, job] of [['Read EM', null], ['Clear EM', 'FS_LOESCHEN'],
-                          ['Read IM', null], ['Clear IM', 'IS_LOESCHEN'],
-                          ['Read HM', null], ['Clear HM', 'HS_LOESCHEN']]) {
+// captions are expanded for display (INPA_CAPTIONS), so assert on what the
+// user sees, not on the abbreviation
+for (const [cap, job] of [['Read fault memory', null],
+                          ['Clear fault memory', 'FS_LOESCHEN'],
+                          ['Read info memory', null],
+                          ['Clear info memory', 'IS_LOESCHEN'],
+                          ['Read history memory', null],
+                          ['Clear history memory', 'HS_LOESCHEN']]) {
   const e = szlItems.find(i => i.label === cap);
   ok(e, `SZL fault menu missing "${cap}"`);
   if (e && job) ok(e.job === job, `SZL "${cap}" job: ${e.job}`);
