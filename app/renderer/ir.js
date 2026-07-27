@@ -179,7 +179,13 @@ function irMenuItems(ir, menuName) {
   const seen = new Set();
   return (menu.items || [])
     .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
-    .filter(it => it.screen || it.menu)
+    // an item with no navigation target is an ACTION INPA performs in place:
+    // its actuator items only flip state flags and let the screen send the
+    // job. Those are listed (the caption is INPA's own, joined from the
+    // screen's softkey help by F-number) but never runnable here -- firing an
+    // actuator is gated on car verification, and the arming semantics are
+    // not decoded.
+    .filter(it => it.screen || it.menu || !it.action)
     // a write entry that opens the same SCREEN as a read entry (RDC's
     // "MV write" reuses s_abgleichwert_lesen): INPA's difference is an input
     // dialog and a write job in the ITEM body, neither of which we run until
@@ -195,6 +201,8 @@ function irMenuItems(ir, menuName) {
       label: irLabel(it.label.trim()) || it.label.trim(),
       screen: it.screen || null,
       menu: it.menu || null,
+      // no target and no action: INPA runs this in place (actuator toggles)
+      inPlace: !it.screen && !it.menu,
       readable: it.screen ? irReadable((ir.screens || {})[it.screen] || {})
         : false,
     }));
@@ -207,6 +215,23 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    if (it.inPlace) {
+      // INPA arms this on the menu and the screen sends the job; neither the
+      // arming nor the job is decoded, and an actuator must not fire on a
+      // guess. Show what INPA offers and say plainly why it is inert.
+      container.className = 'results-panel';
+      container.innerHTML = `<div class="empty"><div>`
+        + `<strong>${esc(it.label)}</strong></div>`
+        + `<div>INPA runs this from the menu itself — the screen sends the `
+        + `command once armed. That sequence is not decoded, so this is `
+        + `listed but not runnable here.</div></div>`;
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · not runnable`;
+      setActions([...keys(), {
+        key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+        fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
+      }]);
+      return;
+    }
     if (it.menu && !it.screen) {
       renderIrMenu(ecu, ir, it.menu, container, () =>
         renderIrMenu(ecu, ir, menuName, container, back, trail), [...trail, it.label]);
@@ -239,6 +264,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   }));
 
   const count = (it) => {
+    if (it.inPlace) return 'not runnable';
     if (!it.screen) return '';
     const scr = (ir.screens || {})[it.screen];
     if (!scr) return '';

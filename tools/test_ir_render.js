@@ -77,6 +77,24 @@ for (const [name, scr] of Object.entries(r.screens)) {
   }
 }
 
+// ---- actuator menus: captions joined from the screen's softkey help -------
+// INPA's actuator ITEMs carry only fragments ("DWA", "button") and flip state
+// flags; the real caption is printed on the screen as "< F2 >  DWA output"
+// and joins back by F-number. Without that join the section showed one
+// unlabeled row.
+const ract = irSectionMenu(r, 'Activations');
+ok(ract === 'm_steuern', `RDC activations menu resolved to ${ract}`);
+const rActs = irMenuItems(r, ract);
+ok(rActs.length >= 8,
+   `RDC should list >=8 actuator functions, got ${rActs.length}`);
+ok(rActs.some(i => /DWA output/i.test(i.label)),
+   'RDC actuator captions did not join from the screen softkeys');
+ok(rActs.every(i => !/^(DWA|button|plant)$/i.test(i.label)),
+   'an actuator item kept its fragment label instead of the softkey caption');
+// nothing in-place may ever be runnable
+ok(rActs.filter(i => i.inPlace).every(i => !i.screen && !i.menu),
+   'an in-place actuator item claims a target');
+
 // ---- corpus: the interpreter must not throw on any ECU --------------------
 let files = fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'));
 let screens = 0, rows = 0, broke = 0;
