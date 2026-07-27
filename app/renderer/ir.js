@@ -313,7 +313,15 @@ function irMenuItems(ir, menuName, variant) {
     // editor. Flagged by the emitter from what the item does, not its name.
     .filter(it => !it.appTool)
     // writes the fault list to a file, like Print -- an INPA function, not an
-    // ECU one, and it names no job because there is nothing to send
+    // ECU one, and it names no job because there is nothing to send.
+    // fileAction is the same thing read from the bytecode rather than the
+    // caption: the item only shows or truncates a file on the diagnostic PC
+    // (LWS5's "Read protocol file" / "Delete Protocol file" on na_fs_pr.tmp),
+    // which no wording pattern would have caught.
+    // ...but a FAULT read is INPA's own library doing exactly this: it writes
+    // na_fs.tmp and displays it, so it looks like pure file I/O while being
+    // the realest function on the menu. The app's fault view handles those.
+    .filter(it => !(it.fileAction && !IR_FAULT_READ.test(it.label.trim())))
     .filter(it => !(IR_FILE_ACTION.test(it.label.trim()) && !it.job
                     && !it.screen && !it.menu))
     // a key whose only effect is to redraw the menu's own screen does
