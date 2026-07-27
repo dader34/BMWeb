@@ -36,6 +36,30 @@ const FAULT_PHRASES = [
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
 const DE_TOKENS = [
+  // ---- climate/body jargon INPA prints in its own English ----
+  // These are not German, so nothing above touches them, but they are terms
+  // only a BMW manual explains. Stratification is the flap that layers airflow
+  // between face-level and footwell outlets ("Schichtung" = layering); AUC is
+  // the Automatische Umluft-Control air-quality sensor; Clamp 30 is BMW's
+  // terminal-30 permanent battery feed.
+  [/Stratification potentiometer/gi, 'Air layering flap position'],
+  [/Stratification flap/gi, 'Air layering flap'],
+  [/\bStratification\b/gi, 'Air layering'],
+  // the compounds first: a bare-token rule turns "AUC sensor" into
+  // "AUC (air-quality sensor) sensor"
+  // The replacements must not contain "AUC" themselves: the bare-token rule
+  // below runs afterwards and would rewrite it again, nesting the parenthetical.
+  [/\bAUC\s+sensor\b/gi, 'Air-quality sensor'],
+  [/\bAUC\s+heating\b/gi, 'Air-quality sensor heating'],
+  [/\bAUC\s+supply\b/gi, 'Air-quality sensor supply'],
+  [/\bAUC\b(?!\w)/g, 'Air quality'],
+  [/\bClamp\s*30\b/gi, 'Terminal 30 (battery feed)'],
+  [/\bClamp\s*15\b/gi, 'Terminal 15 (ignition)'],
+  [/\bClamp\s*R\b/gi, 'Terminal R (accessory)'],
+  [/\bVia K-?Bus\b/gi, 'via K-bus'],
+  [/\bPhototransistor\b/gi, 'Sun sensor (phototransistor)'],
+  [/degrees C\b/gi, '°C'],
+
   // ---- INPA root-menu captions (tools/ipo_rootmenu.py) ----
   // Whole captions, ahead of every word-level rule: "Fehlerspeicher" must not
   // become "faultspeicher" and "Status lesen" must not become "Status Read".
