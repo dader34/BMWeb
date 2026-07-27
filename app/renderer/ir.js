@@ -371,12 +371,29 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
 // presentation as the Info tab, in both UI modes, read once with F1 to
 // re-read.
 function irIsCard(scr) {
+  if (irIsMemory(scr)) return false;
   const rows = irRows(scr).rows;
   if (!rows.length || !rows.every(r => r.kind === 'value')) return false;
   // a per-position screen reads the same keys once per wheel/bank, so a
   // single card keyed by result name would show the last pass five times.
   // Those go to the poller, which reads each argument separately.
   return !rows.some(r => r.arg);
+}
+
+// INPA's memory dump: SPEICHER_LESEN with a start address and a byte count,
+// printed as a hex dump rather than named results. Decoding it as rows gives
+// one useless JOB_STATUS field, so it routes to showMemory instead.
+function irIsMemory(scr) {
+  return (scr.jobs || []).some(j => /^SPEICHER_LESEN/i.test(j.name))
+    && irCaptions(scr).some(c => /address|adresse/i.test(c));
+}
+
+// Only where INPA itself names regions (tools/ipo_memory.py -- GSDS2: RAM,
+// ROM). An ECU like IHKA prints just "Start address" and "Number": no
+// regions, no bounds. Synthesising one would invent an address range the ECU
+// never declared, so those return null and are reported rather than guessed.
+function irMemoryScreen(scr, mined) {
+  return (mined && (mined.regions || []).length) ? mined : null;
 }
 
 // INPA's "Information" screen describes the SCRIPT, not the car: rework
@@ -589,6 +606,31 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
       fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
     };
+    if (scr && irIsMemory(scr)) {
+      const mined = (ecu._layout || {}).special;
+      const mem = irMemoryScreen(scr, mined && mined.memory);
+      const reopen = () =>
+        renderIrMenu(ecu, ir, menuName, container, back, trail);
+      if (mem && typeof showMemory === 'function') {
+        showMemory(ecu, mem, container, reopen);
+      } else {
+        // INPA prints "Start address" and "Number" and reads what you type.
+        // We have the job but no bounds, and inventing a range would be
+        // presenting a guess as the ECU's own limit.
+        container.className = 'results-panel';
+        container.innerHTML = `<div class="empty"><div>`
+          + `<strong>${esc(irLabel(scr.title) || it.label)}</strong></div>`
+          + `<div>INPA reads a start address and a byte count, then prints `
+          + `the bytes. The job is <code>`
+          + `${esc((scr.jobs[0] || {}).name || 'SPEICHER_LESEN')}</code>, but `
+          + `this ECU declares no address range, so there is nothing to `
+          + `bound the read against.</div></div>`;
+        setActions([...keys(), { key: 'Escape', keyLabel: 'Esc',
+          label: 'Back', kind: 'back', fn: reopen }]);
+      }
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
+      return;
+    }
     // INPA's Information screen: script/SGBD facts, no ECU results
     if (scr && irIsInfo(scr, it.screen)) {
       renderIdentity(ecu, irInfoCard(scr), container, backAct);
