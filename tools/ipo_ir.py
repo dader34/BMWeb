@@ -108,6 +108,35 @@ def _language(pool):
     return "de" if seen and votes / seen > 0.06 else "en"
 
 
+# INPA prints its own softkey help as screen text: "< F1 >  DWA output".
+# On actuator screens this IS the function list -- the MENU's ITEMs carry only
+# fragments ("DWA") and flip state flags, so the caption lives here and joins
+# back by F-number.
+_SOFTKEY = re.compile(r"^<\s*(?:(Shift)\s*>\s*\+\s*<\s*)?F(\d+)\s*>\s+(.{2,44})$")
+
+# INPA's own chrome, which the app provides natively
+_SK_CHROME = re.compile(r"^(Print(\s*screen)?|Back|Exit|End|Ende|Zur(ü|ue)ck|"
+                        r"Select|Deselect|Auswahl|Abwahl|Druck(en)?|"
+                        r"Bildschirmdruck|Change\s+Editor|Gesamt)$", re.I)
+
+
+def _softkeys(lines):
+    """{fkey: caption} from a screen's own printed softkey help."""
+    out = {}
+    for ln in lines:
+        for e in ln.get("elements", []):
+            if e.get("t") != "text":
+                continue
+            m = _SOFTKEY.match(str(e.get("s", "")).strip())
+            if not m or m.group(1):         # shifted row is INPA chrome
+                continue
+            cap = m.group(3).strip()
+            if _SK_CHROME.match(cap):
+                continue
+            out.setdefault(int(m.group(2)), cap)
+    return out
+
+
 def _screen_ir(toks):
     """Ordered lines/elements for one screen proc."""
     title = None
@@ -225,14 +254,36 @@ def _screen_ir(toks):
             args = []
 
     lines = [ln for ln in lines if ln["elements"] or ln["caption"]]
-    return {"title": title, "jobs": jobs, "lines": lines}
+    out = {"title": title, "jobs": jobs, "lines": lines}
+    sk = _softkeys(lines)
+    if sk:
+        out["softkeys"] = {str(k): v for k, v in sorted(sk.items())}
+    return out
 
 
 def _menu_ir(toks, id2name):
     items, cur_nr, cur_label = [], None, None
     entry = None
+    # the screen this menu is displayed with: the setscreen in its INIT
+    # block, i.e. before the first ITEM. That screen prints the softkey
+    # captions for this menu's own F-keys.
+    screen = None
+    ref = None
     for t in toks:
         if t["op"] == "ITEM":
+            break
+        if t["op"] == "procref" and t.get("kind") == 0x40:
+            ref = id2name.get(("screen", t["n"]))
+        elif t["op"] == "call" and t["n"] == 0x04 and ref and screen is None:
+            screen = ref
+    for t in toks:
+        if t["op"] == "ITEM":
+            # keep an item even when its body neither navigates nor calls a
+            # named action: INPA's actuator items only flip state flags and
+            # let the SCREEN send the job, so the item is real and its
+            # caption comes from the screen's softkey help by F-number
+            if entry is None and cur_label:
+                items.append({"nr": cur_nr, "label": cur_label})
             entry = None
             cur_nr, cur_label = t.get("nr"), (t.get("label") or "").strip()
         elif t["op"] == "procref" and t.get("kind") in (0x40, 0x41) \
@@ -255,7 +306,12 @@ def _menu_ir(toks, id2name):
             if entry.get("action") in (None, "start") \
                     or _ACTIONS[t["n"]] != "start":
                 entry["action"] = _ACTIONS[t["n"]]
-    return {"items": items}
+    if entry is None and cur_label:
+        items.append({"nr": cur_nr, "label": cur_label})
+    out = {"items": items}
+    if screen:
+        out["screen"] = screen
+    return out
 
 
 def build(ecu):
@@ -280,6 +336,21 @@ def build(ecu):
             ir["screens"][name] = scr
         elif typ == "menu":
             ir["menus"][name] = _menu_ir(toks, id2name)
+    # A menu's items take their caption from the screen that menu drives,
+    # joined by F-number. INPA's actuator menus carry only fragments
+    # ("DWA", "button", "plant") because the screen prints the real list as
+    # softkey help ("< F2 >  DWA output"); the ITEM number IS the F-key, so
+    # the two sides join exactly. Only fills gaps -- a menu item that already
+    # says more than the softkey keeps its own wording.
+    for mname, menu in ir["menus"].items():
+        target = menu.get("screen")
+        if not target or target not in ir["screens"]:
+            continue
+        sk = ir["screens"][target].get("softkeys") or {}
+        for it in menu["items"]:
+            cap = sk.get(str(it.get("nr")))
+            if cap and len(cap) > len(it.get("label") or ""):
+                it["label"] = cap
     ir["coverage"] = round(100 * (1 - cov_unk / cov_len), 1) if cov_len else 0
     ir["entry"] = {
         "screen": "s_main" if "s_main" in ir["screens"]
