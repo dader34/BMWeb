@@ -146,6 +146,23 @@ const dRoot = irMenuItems(load('DWS'), irRootMenu(load('DWS')));
 ok(!dRoot.some(i => /^Extra$/i.test(i.label)),
    'DWS "Extra" (bare-name scriptchange) still listed');
 
+// ---- fault menu: real entries, jobs preserved, file actions dropped -------
+// "store" is BMW_STD.SRC's "FS speichern" -- it writes the fault list to a
+// file, like Print, and names no job. "Clear" DOES name FS_LOESCHEN, and
+// irMenuItems was dropping `job`, which made every self-running key inert.
+const errIt = rootKey(r, /^(Error|Fehler)/i);
+ok(errIt && errIt.menu, 'RDC Error key lost its menu');
+const errItems = irMenuItems(r, errIt.menu);
+ok(!errItems.some(i => /^store$/i.test(i.label)),
+   'fault menu still lists the file-save action');
+const clear = errItems.find(i => /^Clear$/i.test(i.label));
+ok(clear && clear.job === 'FS_LOESCHEN',
+   `Clear must carry FS_LOESCHEN, got ${clear && clear.job}`);
+// reading faults is INPA library code (INPAapiFsLesen_neu), so the item names
+// no job and the app's own fault view handles it
+const read = errItems.find(i => /^(Read|FS lesen|Lesen)$/i.test(i.label));
+ok(read && !read.job, 'fault Read should have no job of its own');
+
 // ---- per-position screens read once per argument --------------------------
 // RDC's "matching values" calls ABGLEICHWERT_LESEN with "1".."5", once per
 // wheel, so the SAME eight result keys appear five times. Without the job

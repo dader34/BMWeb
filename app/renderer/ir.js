@@ -207,6 +207,17 @@ async function irDescs(ecu, scr) {
 // those natively, and Back is the Esc key.
 const IR_CHROME = /^(Back|Exit|Print|Zur(ü|ue)ck|Ende|End|Select|Deselect|Auswahl|Abwahl|Druck|Drucken|Gesamt)$/i;
 
+// "Read"/"FS lesen" in a fault menu: INPA runs this through its own library
+// (INPAapiFsLesen_neu, which writes na_fs.tmp), so the decoded item names no
+// job. Handed to the app's fault reader instead.
+const IR_FAULT_READ = /^(Read|FS lesen|Fehlerspeicher lesen|Lesen)$/i;
+
+// Items INPA implements against the FILE SYSTEM rather than the car: saving
+// the fault list to disk ("FS speichern", which RDC labels "store"). BMW's
+// own BMW_STD.SRC defines these next to Print, and like Print they cannot be
+// reproduced against an ECU.
+const IR_FILE_ACTION = /^(store|speichern|save|FS speichern|IS speichern|HS speichern)$/i;
+
 function irMenuItems(ir, menuName) {
   const menu = (ir.menus || {})[menuName];
   if (!menu) return [];
@@ -216,6 +227,10 @@ function irMenuItems(ir, menuName) {
     // drives INPA rather than the car: loads another script, opens the KVP
     // editor. Flagged by the emitter from what the item does, not its name.
     .filter(it => !it.appTool)
+    // writes the fault list to a file, like Print -- an INPA function, not an
+    // ECU one, and it names no job because there is nothing to send
+    .filter(it => !(IR_FILE_ACTION.test(it.label.trim()) && !it.job
+                    && !it.screen && !it.menu))
     // a key whose only effect is to redraw the menu's own screen does
     // nothing here -- INPA needs it because the screen IS the window
     .filter(it => !(it.screen === (ir.entry || {}).screen && !it.menu))
@@ -241,6 +256,10 @@ function irMenuItems(ir, menuName) {
       label: irLabel(it.label.trim()) || it.label.trim(),
       screen: it.screen || null,
       menu: it.menu || null,
+      // the job this item calls itself, if any (Clear -> FS_LOESCHEN,
+      // Sleep -> SLEEP_MODE). Dropping it here made every such key inert:
+      // open() tests it.job, so without this Clear could never run.
+      job: it.job || null,
       // no target and no action: INPA runs this in place (actuator toggles)
       inPlace: !it.screen && !it.menu,
       readable: it.screen ? irReadable((ir.screens || {})[it.screen] || {})
@@ -406,6 +425,21 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    // Fault memory is read through INPA's own library helper, not a job the
+    // screen names: F1 calls INPAapiFsLesen_neu and writes na_fs.tmp, so the
+    // decode has a caption and nothing to run. The app's fault view already
+    // does this properly -- FS_LESEN plus code lookup and freeze frames --
+    // so the menu is INPA's but this one entry hands off to it.
+    if (it.inPlace && !it.job && IR_FAULT_READ.test(it.label)
+        && typeof runJob === 'function') {
+      runJob(ecu, 'FS_LESEN', container, false);
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label}`;
+      setActions([...keys(), {
+        key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+        fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
+      }]);
+      return;
+    }
     // A key that installs a MENU opens that menu, whatever else it does.
     // INPA's root keys set the screen AND the softkey menu together (Status
     // -> s_status + m_rdc_status), and s_status is only the window the menu
