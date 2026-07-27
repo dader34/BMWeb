@@ -46,6 +46,8 @@ CODING = os.path.join(OUT, "_coding.json")
 GAUGES = os.path.join(OUT, "_gauges.json")
 # INPA's nested Activate menu, where the .IPO declares one (tools/ipo_submenus.py)
 SUBMENUS = os.path.join(OUT, "_submenus.json")
+# INPA's Read memory screen with its own region bounds (tools/ipo_memory.py)
+MEMORY = os.path.join(OUT, "_memory.json")
 ECU_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "vendor", "EDIABAS", "Ecu")
 
@@ -248,6 +250,10 @@ def main():
         if os.path.exists(SUBMENUS):
             with open(SUBMENUS, encoding="utf-8") as f:
                 submenus = json.load(f)
+        memory = {}
+        if os.path.exists(MEMORY):
+            with open(MEMORY, encoding="utf-8") as f:
+                memory = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -273,6 +279,15 @@ def main():
             # and a backwards bar is worse than none.
             # INPA's nested Activate menu: the jobs sit under submenus rather
             # than in one flat list
+            # INPA's Read memory screen, in the shape special.js consumes
+            if ecu in memory:
+                out["special"] = {
+                    "title": "Special", "subtitle": "memory dump",
+                    "memory": {**memory[ecu], "maxBytes":
+                               max((r.get("maxBytes") or 250)
+                                   for r in memory[ecu]["regions"])},
+                    "sync": [],
+                }
             if ecu in submenus:
                 out["activateTree"] = submenus[ecu]
             if ecu in gauges:
