@@ -163,6 +163,35 @@ ok(clear && clear.job === 'FS_LOESCHEN',
 const read = errItems.find(i => /^(Read|FS lesen|Lesen)$/i.test(i.label));
 ok(read && !read.job, 'fault Read should have no job of its own');
 
+// ---- setitem captions: INPA names its keys at runtime --------------------
+// SZL's fault menu declares all twelve entries with setitem() in the INIT
+// block ("Read EM", "Clear IM", "Read HM" ...) while every ITEM's inline
+// label is empty. Without decoding setitem the menu showed blank rows, and
+// the info and history memories were invisible.
+const szl = load('SZL');
+const szlErr = rootKey(szl, /^(Error|Fehler)/i);
+ok(szlErr && szlErr.menu, 'SZL Error key lost its menu');
+const szlItems = irMenuItems(szl, szlErr.menu);
+ok(szlItems.every(i => i.label && i.label.trim()),
+   'SZL fault menu still has blank captions');
+for (const [cap, job] of [['Read EM', null], ['Clear EM', 'FS_LOESCHEN'],
+                          ['Read IM', null], ['Clear IM', 'IS_LOESCHEN'],
+                          ['Read HM', null], ['Clear HM', 'HS_LOESCHEN']]) {
+  const e = szlItems.find(i => i.label === cap);
+  ok(e, `SZL fault menu missing "${cap}"`);
+  if (e && job) ok(e.job === job, `SZL "${cap}" job: ${e.job}`);
+}
+// the caption picks the memory: "Read IM" must read IS_LESEN, not FS_LESEN
+const FJ = [[/\b(IM|IS)\b/i, 'IS_LESEN'], [/\b(HM|HS)\b/i, 'HS_LESEN'],
+            [/\b(EM|FS)\b/i, 'FS_LESEN']];
+const fj = (l) => (FJ.find(([re]) => re.test(l)) || [null, 'FS_LESEN'])[1];
+ok(fj('Read IM') === 'IS_LESEN' && fj('Read HM') === 'HS_LESEN'
+   && fj('Read EM') === 'FS_LESEN' && fj('Read') === 'FS_LESEN',
+   'fault-memory caption -> job mapping wrong');
+// print/save are file actions, like store
+ok(!szlItems.some(i => /^(Print|Save) (EM|IM|HM)$/i.test(i.label)),
+   'SZL fault menu still lists print/save file actions');
+
 // ---- per-position screens read once per argument --------------------------
 // RDC's "matching values" calls ABGLEICHWERT_LESEN with "1".."5", once per
 // wheel, so the SAME eight result keys appear five times. Without the job

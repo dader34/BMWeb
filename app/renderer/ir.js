@@ -210,13 +210,28 @@ const IR_CHROME = /^(Back|Exit|Print|Zur(ü|ue)ck|Ende|End|Select|Deselect|Auswa
 // "Read"/"FS lesen" in a fault menu: INPA runs this through its own library
 // (INPAapiFsLesen_neu, which writes na_fs.tmp), so the decoded item names no
 // job. Handed to the app's fault reader instead.
-const IR_FAULT_READ = /^(Read|FS lesen|Fehlerspeicher lesen|Lesen)$/i;
+// A fault-memory read. INPA runs these through its own library
+// (INPAapiFsLesen_neu), so the decoded item names no job -- the memory it
+// reads is in the caption. BMW ships three: Fehlerspeicher (EM/FS),
+// Infospeicher (IM/IS) and Historienspeicher (HM/HS), each with its own
+// read, clear, print and save.
+const IR_FAULT_READ = /^(Read|Lesen)( |$)|^(FS|IS|HS|EM|IM|HM) lesen$|^Read (EM|IM|HM)$/i;
+
+// which memory a fault-menu caption names -> the SGBD job that reads it
+const IR_FAULT_JOB = [
+  [/\b(IM|IS|Infospeicher)\b/i, 'IS_LESEN'],
+  [/\b(HM|HS|Historienspeicher)\b/i, 'HS_LESEN'],
+  [/\b(EM|FS|Fehlerspeicher)\b/i, 'FS_LESEN'],
+];
+const irFaultJob = (label) =>
+  (IR_FAULT_JOB.find(([re]) => re.test(label)) || [null, 'FS_LESEN'])[1];
 
 // Items INPA implements against the FILE SYSTEM rather than the car: saving
 // the fault list to disk ("FS speichern", which RDC labels "store"). BMW's
 // own BMW_STD.SRC defines these next to Print, and like Print they cannot be
 // reproduced against an ECU.
-const IR_FILE_ACTION = /^(store|speichern|save|FS speichern|IS speichern|HS speichern)$/i;
+const IR_FILE_ACTION =
+  /^(store|save|speichern)\b|^(FS|IS|HS|EM|IM|HM) (speichern|drucken)$|^(Save|Print) (EM|IM|HM)$/i;
 
 function irMenuItems(ir, menuName) {
   const menu = (ir.menus || {})[menuName];
@@ -432,7 +447,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // so the menu is INPA's but this one entry hands off to it.
     if (it.inPlace && !it.job && IR_FAULT_READ.test(it.label)
         && typeof runJob === 'function') {
-      runJob(ecu, 'FS_LESEN', container, false);
+      // the caption says WHICH memory: "Read IM" -> IS_LESEN. 239 ECUs keep
+      // an info memory and 20 a history memory that a hardcoded FS_LESEN
+      // would never have read.
+      runJob(ecu, irFaultJob(it.label), container, false);
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label}`;
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',

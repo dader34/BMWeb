@@ -404,13 +404,40 @@ def _menu_ir(toks, id2name):
     # captions for this menu's own F-keys.
     screen = None
     ref = None
+    # setitem(nr, caption, enabled) in the INIT block: INPA captions its keys
+    # at runtime, conditionally, so an ITEM's inline label is often empty and
+    # the real wording lives here. SZL's fault menu declares all twelve this
+    # way ("Read EM", "Clear IM", "Read HM", ...) while every ITEM label is
+    # "". Enabled=false means INPA greys the key until something is read.
+    setitems = {}
+    args = []
     for t in toks:
         if t["op"] == "ITEM":
             break
-        if t["op"] == "procref" and t.get("kind") == 0x40:
-            ref = id2name.get(("screen", t["n"]))
-        elif t["op"] == "call" and t["n"] == 0x04 and ref and screen is None:
-            screen = ref
+        if t["op"] == "frame":
+            args = []
+        elif t["op"] in ("const", "var", "procref"):
+            # a screen reference here is the menu's own setscreen target;
+            # it must be recorded before this branch swallows the token
+            if t["op"] == "procref" and t.get("kind") == 0x40:
+                ref = id2name.get(("screen", t["n"]))
+            args.append(t)
+        elif t["op"] == "call" and t["n"] == 0x02:
+            nums = [a["v"] for a in args
+                    if a["op"] == "const" and a.get("t") == "i"]
+            caps = [a["v"] for a in args
+                    if a["op"] == "const" and a.get("t") == "s"]
+            flags = [a["v"] for a in args
+                     if a["op"] == "const" and a.get("t") == "b"]
+            if nums and caps and caps[0].strip():
+                setitems[nums[0]] = {"label": caps[0].strip(),
+                                     "enabled": bool(flags[0]) if flags
+                                     else True}
+            args = []
+        elif t["op"] == "call":
+            if t["n"] == 0x04 and ref and screen is None:
+                screen = ref
+            args = []
     for ti, t in enumerate(toks):
         if t["op"] == "ITEM":
             # keep an item even when its body neither navigates nor calls a
@@ -486,6 +513,27 @@ def _menu_ir(toks, id2name):
                 entry["action"] = _ACTIONS[t["n"]]
     if entry is None and cur_label:
         items.append({"nr": cur_nr, "label": cur_label})
+    # a key captioned by setitem takes that wording; the ITEM's own inline
+    # label wins when it has one, since it is what INPA draws unconditionally
+    for it in items:
+        si = setitems.get(it.get("nr"))
+        if not si:
+            continue
+        if not it.get("label"):
+            it["label"] = si["label"]
+        if not si["enabled"]:
+            it["startsDisabled"] = True
+    # keys declared by setitem that emit no ITEM body of their own still
+    # appear in INPA's menu
+    have = {it.get("nr") for it in items}
+    for nr, si in sorted(setitems.items()):
+        if nr not in have:
+            items.append({"nr": nr, "label": si["label"],
+                          **({"startsDisabled": True} if not si["enabled"]
+                             else {})})
+    # INPA lays its softkeys out by number, so the menu reads in F-key order
+    # rather than in the order the bytecode happens to declare them
+    items.sort(key=lambda x: (x.get("nr") is None, x.get("nr") or 0))
     out = {"items": items}
     if screen:
         out["screen"] = screen
