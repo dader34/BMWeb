@@ -140,7 +140,11 @@ async function showMemory(ecu, mem, container, onBack) {
   const rebuild = () => {
     // INPA's own key order: the four regions, then the address steps
     const acts = mem.regions.map((r, i) => ({
-      key: String(i + 1), keyLabel: `F${i + 1}`, label: r.key || r.fkey,
+      // hand-built layouts carry a short softkey caption (`key`) and INPA's
+      // own long one (`fkey`); mined ones carry the region token and its
+      // caption. Take whichever this layout has.
+      key: String(i + 1), keyLabel: `F${i + 1}`,
+      label: r.key || r.fkey || r.token || r.label,
       kind: r.token === region.token ? 'active' : undefined,
       fn: () => { region = r; addr = parseAddr(r.start) || 0; read(); rebuild(); },
     }));
