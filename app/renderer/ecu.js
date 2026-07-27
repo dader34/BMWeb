@@ -311,6 +311,15 @@ function screenIsReal(ecu, sec) {
     ROOT_SECTION.some(([re, name]) => name === sec.section && re.test(it.label)));
 }
 
+// A hand-verified layout outranks a fresh decode: someone checked those
+// screens against a real car. Generated layouts carry `generated: true`, so
+// the distinction is a property of the data, not a list of ECU names.
+function layoutIsHandBuilt(layout) {
+  return !!layout && !layout.generated
+    && (Array.isArray(layout.screens) ? layout.screens.length > 0
+        : Object.keys(layout).length > 3);
+}
+
 function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
   if (bar) bar.remove(); // INPA shows SGBD/addr inline, not as pills
   grid.className = 'inpa-haupt';
@@ -428,6 +437,20 @@ async function showEcu(chassisId, sectionName, ecu) {
 
   const total = menu.sections.reduce((n, s) => n + s.items.length, 0);
   document.getElementById('job-count').textContent = `${total} functions`;
+
+  // The decompiled root menu, when this ECU has one: INPA's own keys, in
+  // INPA's own order, each opening whatever it opens. This replaces the
+  // label->section mapping entirely -- no table of regexes, nothing dropped
+  // for want of a rule, and no two keys collapsing onto one section. The
+  // hand-built and generated layouts stay the fallback for ECUs with no IR.
+  const irRoot = ecu._ir && typeof irRootMenu === 'function'
+    ? irRootMenu(ecu._ir) : null;
+  if (irRoot && !layoutIsHandBuilt(layout)) {
+    if (bar) bar.remove();
+    grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
+    renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
+    return;
+  }
 
   if (inpaMode()) {
     const rootList = renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar);
@@ -930,40 +953,10 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     renderStatusTree(chassisId, sectionName, ecu, layout, view, results);
     return;
   }
-  // The decompiled UI, interpreted (ir.js). Tried first for the sections it
-  // can serve: it carries INPA's real menu, its F-key numbers, and each
-  // screen's own positioned rows, so it needs no per-ECU wiring at all. Falls
-  // through to the mined sections below when this ECU has no IR or the IR's
-  // menu has nothing readable -- the layouts stay the safety net.
-  if (ecu._ir && typeof renderIrMenu === 'function') {
-    const irMenu = irSectionMenu(ecu._ir, sec.section);
-    if (irMenu && renderIrMenu(ecu, ecu._ir, irMenu, results,
-                               () => showEcu(chassisId, sectionName, ecu))) {
-      return;
-    }
-    // a root key that opens a screen directly (RDC's Code -> s_code) has no
-    // menu to list; render the screen itself
-    const irScreen = irSectionScreen(ecu._ir, sec.section);
-    if (irScreen) {
-      const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                     kind: 'back',
-                     fn: () => showEcu(chassisId, sectionName, ecu) };
-      // a screen of labelled reads is a card, like the Info tab -- INPA draws
-      // those colon-aligned, not as gauges
-      if (irIsCard(irScreen)) {
-        renderIdentity(ecu, irAsCard(irScreen, await irDescs(ecu, irScreen)),
-                       results, back);
-        return;
-      }
-      const screens = irRowsTranslated(irScreen, await irDescs(ecu, irScreen));
-      if (screens.length) {
-        showInpaCategory(ecu, screens, results,
-                         irLabel(irScreen.title) || sectionLabel(sec.section));
-        setActions([back]);
-        return;
-      }
-    }
-  }
+  // No IR branch here on purpose. An ECU with a decompiled root menu never
+  // reaches this function -- showEcu renders INPA's own menu and every key
+  // navigates through renderIrMenu. This path serves ECUs whose .IPO did not
+  // decompile, and hand-verified layouts, which keep their sections.
   // INPA's mined Read status menu. After statusTree (hand-built layouts win)
   // and before the flat job list, which is what this replaces. Both UI modes:
   // the grouping is the ECU's own, so it beats an undifferentiated list either
