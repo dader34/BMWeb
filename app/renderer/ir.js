@@ -261,14 +261,22 @@ function irMenuFitsVariant(name, variant) {
 // shows the screen the key actually selects. Compared by CONTENT: Activate's
 // menu happens to have the same number of items but entirely different ones
 // (km reset, SII oil, test), and is a real submenu.
+// Compared by what the keys DO, not what they are called: an item takes the
+// screen's softkey help when that says more, so the root may read
+// "Information/Identification/Coding" where the bar it installs still reads
+// "Info/Ident/Code". Same keys, different words -- comparing captions stopped
+// recognising the bar and Coding opened a copy of the root one level down.
 function irSameBar(ir, menu, from) {
   if (!menu || !from || menu === from) return true;
-  const labels = (m) => (((ir.menus || {})[m] || {}).items || [])
-    .map(i => (i.label || '').trim()).filter(Boolean).sort().join('|');
-  const a = labels(menu), b = labels(from);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  const A = new Set(a.split('|')), B = new Set(b.split('|'));
+  // The SCREEN each key selects, not the menu it also installs: the bar and
+  // the root select the same screens key for key (F1 -> s_info, F3 ->
+  // s_code_...); they differ only in that the root's first keys re-install
+  // the bar, which is how INPA stays on it.
+  const sig = (m) => new Set((((ir.menus || {})[m] || {}).items || [])
+    .map(i => `${i.nr}:${i.screen || i.action || ''}`)
+    .filter(x => !/^\d+:$/.test(x)));
+  const A = sig(menu), B = sig(from);
+  if (!A.size || !B.size) return false;
   const shared = [...A].filter(x => B.has(x)).length;
   return shared / Math.max(A.size, B.size) > 0.8;
 }

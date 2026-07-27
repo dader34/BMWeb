@@ -24,7 +24,8 @@ const api = async () => { throw new Error('offline'); };   // descs unavailable
 let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8');
 _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVariant = irMenuFitsVariant; function irMenuFitsVariant')
                .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
-               .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =');
+               .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')
+               .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar');
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -140,6 +141,37 @@ ok(codCard && codCard.fields.every(f => f.label && f.label !== f.key),
 // a gauge screen must NOT be treated as a card
 ok(!irIsCard(g.screens['s_analog_1']),
    'GSDS2 s_analog_1 is gauges and must not render as a card');
+
+// ---- the bar a key keeps is not a submenu ---------------------------------
+// INPA keeps the softkey bar and swaps the SCREEN: KOMBI's Info, Ident and
+// Coding all install m_info_ident_code_..., which selects the SAME screen per
+// key as the root. Opening it re-lists the root one level down and never shows
+// the screen the key selects. Compared by TARGET, not caption -- an item takes
+// the screen's softkey help when that says more, so the root can read
+// "Coding" where the bar it installs still reads "Code", and comparing
+// captions stopped recognising the bar the moment those captions expanded.
+{
+  const kbb = load('KOMBI');
+  kbb._variant = 'KOMBI46';
+  const rootB = irRootMenu(kbb, 'KOMBI46');
+  const bar = 'm_info_ident_code_36_38_39_46_52_85';
+  ok(irSameBar(kbb, bar, rootB),
+     'KOMBI Coding/Ident install the root bar, not a submenu');
+  for (const [re, want] of [[/^Cod(e|ing)$/i, 's_code_46'],
+                            [/^Ident/i, 's_ident_36_38_39_46_52_85']]) {
+    const it = irMenuItems(kbb, rootB, 'KOMBI46').find(i => re.test(i.label));
+    ok(it && (!it.menu || irSameBar(kbb, it.menu, rootB)),
+       `KOMBI46 ${it && it.label} should open its screen, not the bar again`);
+    ok(it && it.screen === want,
+       `KOMBI46 ${it && it.label} screen: ${it && it.screen}`);
+  }
+  // a REAL submenu still opens: Activate/Status/Memory list their own keys
+  for (const re of [/^Activate\b/i, /^(Read )?Status$/i, /^Read memory$/i]) {
+    const it = irMenuItems(kbb, rootB, 'KOMBI46').find(i => re.test(i.label));
+    ok(it && it.menu && !irSameBar(kbb, it.menu, rootB),
+       `KOMBI46 ${it && it.label} lost its real submenu`);
+  }
+}
 
 // ---- root menu lists ECU functions, not INPA's own tools -----------------
 // RDC F11 "Change" runs kvp_edit and F15 "Extra" loads another .IPO; neither
