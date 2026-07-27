@@ -133,6 +133,31 @@ ok(codCard && codCard.fields.every(f => f.label && f.label !== f.key),
 ok(!irIsCard(g.screens['s_analog_1']),
    'GSDS2 s_analog_1 is gauges and must not render as a card');
 
+// ---- root menu lists ECU functions, not INPA's own tools -----------------
+// RDC F11 "Change" runs kvp_edit and F15 "Extra" loads another .IPO; neither
+// touches the car. Detected from what the item does (a scriptchange call or a
+// script path), never from its label.
+const rRoot = irMenuItems(r, irRootMenu(r));
+ok(!rRoot.some(i => /^(Change|Extra)$/i.test(i.label)),
+   'RDC root menu still lists INPA app tools');
+ok(rRoot.length === 7,
+   `RDC root should list INPA's 7 ECU keys, got ${rRoot.length}`);
+const dRoot = irMenuItems(load('DWS'), irRootMenu(load('DWS')));
+ok(!dRoot.some(i => /^Extra$/i.test(i.label)),
+   'DWS "Extra" (bare-name scriptchange) still listed');
+
+// ---- Information: script facts, not an empty screen ----------------------
+// s_info reads no ECU results -- INPA prints captions and fills them from
+// script variables -- so it rendered blank. Paired with the SGBD's INFO job.
+const info = r.screens['s_info'];
+ok(irIsInfo(info), 'RDC s_info should be recognised as the Information screen');
+ok(!irIsCard(info), 's_info has no result rows and must not be a value card');
+const infoCard = irInfoCard(info);
+ok(infoCard.fields.length >= 5 && infoCard.jobs[0] === 'INFO',
+   `RDC info card wrong: ${infoCard.fields.length} fields, ${infoCard.jobs}`);
+ok(infoCard.fields[0].label === 'Rework program',
+   `info card first caption: ${infoCard.fields[0].label}`);
+
 // no row anywhere may be labelled with punctuation
 let punct = 0;
 for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir'))) {

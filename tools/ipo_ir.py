@@ -92,6 +92,13 @@ _WRITE_JOB = re.compile(r"SCHREIBEN|STEUERN|RESET|LOESCHEN|CLEAR|WRITE", re.I)
 _ACTIONS = {0x0c: "exit", 0x10: "select", 0x11: "deselect", 0x13: "start",
             0x17: "printscreen"}
 
+# Items that drive INPA itself rather than the ECU: loading another script,
+# opening the KVP editor, switching the displayed screen and nothing more.
+# Detected by what the item DOES -- a script path, a tool command line, or a
+# bare setscreen back to the root -- because a list of labels would need an
+# entry per ECU per language, which is the trap this whole IR exists to avoid.
+_APP_TOOL = re.compile(r"\.ipo$|^kvp_edit|^\\\\?inpa\\\\|\\\\sgdat\\\\", re.I)
+
 # crude but effective: words that only occur in German-built pools
 _DE_MARKERS = re.compile(r"\b(lesen|Fehler|Drehzahl|Speicher|Spannung|"
                          r"Zurueck|Zurück|Ansteuern|Kennung|Werte?)\b")
@@ -437,6 +444,24 @@ def _menu_ir(toks, id2name):
                     entry = {"nr": cur_nr, "label": cur_label}
                     items.append(entry)
                 entry.setdefault("job", nm)
+        elif t["op"] == "call" and t["n"] == 0x0f and cur_label is not None:
+            # scriptchange: loads a different .IPO entirely. Its argument is a
+            # script or SGBD name ("_DWS", "GS30", "\inpa\sgdat\airbag.ipo"),
+            # so the CALL is the reliable signal -- matching the string shape
+            # missed the bare-name form.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["appTool"] = True
+        elif t["op"] == "const" and t.get("t") == "s" \
+                and cur_label is not None and _APP_TOOL.search(str(t["v"])):
+            # this item drives INPA, not the car: it names a script to load or
+            # a tool to launch (RDC F11 "Change" runs kvp_edit, F15 "Extra"
+            # loads \inpa\sgdat\_rdc.ipo)
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["appTool"] = True
         elif t["op"] == "call" and t["n"] in _ACTIONS \
                 and cur_label is not None:
             if entry is None:
