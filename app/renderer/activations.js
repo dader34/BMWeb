@@ -321,6 +321,14 @@ async function showActivations(ecu, sec, container, exitAction) {
   // INPA's own Activate grouping, where its .IPO declares one: Inputs/Outputs,
   // each listing components (PW, C.Lock, WiWa...) rather than our job names.
   // Only a handful of ECUs ship this; the rest fall through to the job list.
+  // INPA's nested Activate menu wins when the .IPO declares one: it is the
+  // real structure, and the flat job list below is the fallback
+  const actTree = (ecu._layout && ecu._layout.activateTree) || null;
+  if (actTree && Object.keys(actTree).length) {
+    const exit = exitAction || currentActions.find(x => x.kind === 'back');
+    return renderActivateTree(ecu, actTree, acts, container, exit);
+  }
+
   const actMenus = (ecu._layout && ecu._layout.activateMenus) || [];
   if (actMenus.length) {
     const exit = exitAction || currentActions.find(x => x.kind === 'back');
@@ -403,6 +411,109 @@ function renderActivationsInpa(ecu, acts, container) {
   }));
   if (back) keys.push(back);
   setActions(keys);
+}
+
+// INPA's nested Activate menu, decoded from the .IPO: the actuators sit under
+// submenus (Displaytest / Stepping motor / Digital output ...) rather than in
+// one flat list. Each level is a plain < Fn > list; Esc walks back up one.
+function renderActivateTree(ecu, roots, acts, container, exit) {
+  const inpa = inpaMode();
+  // match a menu caption to the job that performs it: INPA's wording and the
+  // SGBD's job name describe the same thing in different words, so compare on
+  // the significant words rather than requiring an exact match
+  const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const jobFor = (label) => {
+    const want = norm(deGerman(label) || label);
+    if (!want) return null;
+    let best = null, bestScore = 0;
+    for (const a of acts) {
+      const cand = norm(actLabel(a));
+      if (!cand) continue;
+      if (cand === want) return a;
+      // overlap of significant words, scored against BOTH sides so a short
+      // job name cannot win by accident
+      const w = new Set(want.split(' ').filter(x => x.length > 3));
+      const c = new Set(cand.split(' ').filter(x => x.length > 3));
+      if (!w.size || !c.size) continue;
+      const hit = [...w].filter(x => c.has(x)).length;
+      const score = hit / Math.max(w.size, c.size);
+      if (score > bestScore) { bestScore = score; best = a; }
+    }
+    // a partial word-overlap is a guess. Mapping "Cancel compressor
+    // deactivation" onto STEUERN_DME_KO because both mention a compressor
+    // would put the wrong actuator behind a button, so demand most of the
+    // words before claiming a match and show "no job mapped" otherwise.
+    return bestScore >= 0.6 ? best : null;
+  };
+
+  const openLevel = (items, trail, up) => {
+    const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                   fn: up || exit || (() => {}) };
+    const enter = (it) => {
+      const here = [...trail, deGerman(it.label) || it.label];
+      const reopen = () => openLevel(items, trail, up);
+      if (it.items && it.items.length) { openLevel(it.items, here, reopen); return; }
+      const a = jobFor(it.label);
+      if (!a) { sbLeft.textContent = `${it.label}: no job mapped`; return; }
+      toggleActivation(ecu, a, container, container);
+    };
+
+    container.className = 'results-panel';
+    container.innerHTML = inpa
+      ? `<div class="act-menu">
+           <div class="act-menu-title">${esc(trail.length ? trail[trail.length - 1] : 'Ansteuern')}</div>
+           <div class="act-menu-sub">${esc(['SGBD = ' + ecu.sgbd.toUpperCase(), ...trail].join(' · '))}</div>
+           <div class="act-inpa-warn">Actuator tests drive real components. Engine off / ignition on unless you know the test.</div>
+           <div class="act-key-list" id="at-list"></div>
+         </div>`
+      : `<div class="act-menu">
+           <div class="act-warning">⚠ Actuator tests drive real components. Engine off / ignition on unless you know the test.</div>
+           <div class="group-grid stagger" id="at-list"></div>
+         </div>`;
+    const list = container.querySelector('#at-list');
+
+    items.forEach((it, i) => {
+      const label = deGerman(it.label) || it.label;
+      const sub = it.items && it.items.length;
+      const a = sub ? null : jobFor(it.label);
+      const note = sub ? `${it.items.length} tests`
+                 : a ? (actRunnable(a) ? a.start : 'needs input')
+                 : 'no job mapped';
+      if (inpa) {
+        const row = document.createElement('button');
+        row.className = 'inpa-fn act-key-row' + (!sub && !a ? ' act-blocked-card' : '');
+        row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.fkey} &gt;</span>`
+          + `<span class="inpa-fn-label">${esc(label)}${sub ? ' ▸' : ''}</span>`
+          + `<span class="act-key-val">${esc(note)}</span>`;
+        row.onclick = () => enter(it);
+        list.appendChild(row);
+        return;
+      }
+      const tile = document.createElement('div');
+      tile.className = 'group-tile' + (!sub && !a ? ' act-blocked-card' : '');
+      tile.innerHTML = `
+        <div class="group-name">${esc(label)}</div>
+        <div class="group-count">${esc(note)}</div>
+        <div class="group-arrow">${sub ? '▸' : '→'}</div>`;
+      tile.onclick = () => enter(it);
+      list.appendChild(tile);
+    });
+    if (!inpa) stagger(list, 30);
+
+    const keys = items.slice(0, 9).map(it => ({
+      key: String(it.fkey), keyLabel: `F${it.fkey}`,
+      label: deGerman(it.label) || it.label, fn: () => enter(it),
+    }));
+    keys.push(back);
+    setActions(keys);
+    if (typeof setSectionCount === 'function') {
+      setSectionCount(`${items.length} function${items.length === 1 ? '' : 's'}`);
+    }
+    sbLeft.textContent = [`${ecu.sgbd}.prg`, ...trail].join(' · ');
+  };
+
+  const first = Object.values(roots)[0] || [];
+  openLevel(first, [], null);
 }
 
 // the Activations landing screen when the .IPO gave us real action menus:
