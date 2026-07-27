@@ -173,6 +173,34 @@ ok(!irIsCard(g.screens['s_analog_1']),
   }
 }
 
+// ---- the NARROWED bar a page installs is not a submenu either -------------
+// While a status page is up INPA installs a shorter bar (m_status_sub_38_39:
+// just Analog and Digital) whose keys select the SAME screens as the menu
+// above it. Its parent keeps five keys parked on the family placeholder --
+// pages this variant does not have -- and counting those made two bars with
+// identical real keys look 50% alike, so Analog and Digital each re-listed
+// the menu and only opened the page on a second press.
+{
+  const kbs = load('KOMBI');
+  kbs._variant = 'KOMBI46';
+  ok(irSameBar(kbs, 'm_status_sub_38_39', 'm_status_38_39'),
+     'a narrowed page bar must not count as a submenu');
+  ok(irSameBar(kbs, 'm_status_sub_46', 'm_status_46'),
+     'KOMBI46 narrowed status bar must not count as a submenu');
+  // real submenus still are ones
+  const rootS = irRootMenu(kbs, 'KOMBI46');
+  for (const m of ['m_status_46', 'm_steuern_46', 'm_fehler']) {
+    ok(!irSameBar(kbs, m, rootS), `${m} is a real submenu of the root`);
+  }
+  // every status page opens a screen, not the menu again
+  const st = irMenuItems(kbs, rootS, 'KOMBI46')
+    .find(i => /^(Read )?Status$/i.test(i.label));
+  const pages = irMenuItems(kbs, st.menu, 'KOMBI46');
+  ok(pages.length >= 5, `KOMBI46 status should list its pages, got ${pages.length}`);
+  ok(pages.every(p => !p.menu || irSameBar(kbs, p.menu, st.menu)),
+     'a status page still opens a menu instead of its screen');
+}
+
 // ---- root menu lists ECU functions, not INPA's own tools -----------------
 // RDC F11 "Change" runs kvp_edit and F15 "Extra" loads another .IPO; neither
 // touches the car. Detected from what the item does (a scriptchange call or a

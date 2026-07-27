@@ -272,7 +272,17 @@ function irSameBar(ir, menu, from) {
   // the root select the same screens key for key (F1 -> s_info, F3 ->
   // s_code_...); they differ only in that the root's first keys re-install
   // the bar, which is how INPA stays on it.
+  //
+  // Keys parked on the family placeholder are ignored. INPA narrows the bar
+  // while a page is up -- m_status_38_39 keeps five such keys where its
+  // m_status_sub_38_39 drops them -- and counting those made two bars with
+  // identical real keys look only 50% alike, so Analog and Digital each
+  // re-listed the menu instead of opening the page.
+  const dead = new Set(Object.entries(ir.screens || {})
+    .filter(([n, s]) => irHasVariantSuffix(n) && !irRows(s).rows.length)
+    .map(([n]) => n));
   const sig = (m) => new Set((((ir.menus || {})[m] || {}).items || [])
+    .filter(i => !(i.screen && dead.has(i.screen) && !i.menu))
     .map(i => `${i.nr}:${i.screen || i.action || ''}`)
     .filter(x => !/^\d+:$/.test(x)));
   const A = sig(menu), B = sig(from);
@@ -977,19 +987,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     const scr = (ir.screens || {})[it.screen];
     // a real submenu counts its entries; a key that merely keeps this bar
     // counts the rows of the screen it selects, which is what opening it shows
-    if (it.menu && !irSameBar(ir, it.menu, menuName)) {
-      const k = irMenuItems(ir, it.menu).length;
-      return k ? `${k} function${k === 1 ? '' : 's'}` : '';
-    }
-    if (!scr) return '';
-    // Information reads no ECU results -- its rows are printed captions
-    // paired with the SGBD's INFO job, so count those
-    if (irIsInfo(scr, it.screen)) {
-      const n = irInfoCard(scr).fields.length;
-      return n ? `${n} field${n === 1 ? '' : 's'}` : '';
-    }
-    const n = irRows(scr).rows.length;
-    return n ? `${n} value${n === 1 ? '' : 's'}` : '';
+    // No count for a screen or submenu. It would be a prediction made before
+    // the job runs -- rows the ECU never answers still counted, one page
+    // counted once per job -- and it was wrong often enough to be worth less
+    // than the space. Opening it shows the truth.
+    return '';
   };
 
   if (inpaMode()) {
