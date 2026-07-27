@@ -44,16 +44,18 @@ internal static class ConfigEndpoints
         // each runs. Served verbatim -- the renderer interprets it, so no
         // per-ECU knowledge lives on this side. 404 when the .IPO could not
         // be decompiled, which is the signal to fall back to a layout.
-        app.MapGet("/api/ecu/{sgbd}/ir", (ServerState st, string sgbd,
-                                          string? code) =>
+        // `state` is captured, not injected: nothing registers ServerState in
+        // the DI container, so a ServerState parameter makes ASP.NET try to
+        // resolve it and fail EVERY request in the app, not just this one.
+        app.MapGet("/api/ecu/{sgbd}/ir", (string sgbd, string? code) =>
         {
-            var file = FindLayoutFile(st.IrDir, code ?? sgbd)
-                       ?? FindLayoutFile(st.IrDir, sgbd);
+            var file = FindLayoutFile(state.IrDir, code ?? sgbd)
+                       ?? FindLayoutFile(state.IrDir, sgbd);
             if (file == null)
                 foreach (var suf in new[] { "ds0", "ds2", "ds1", "_n", "ds" })
                     if (sgbd.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
                     {
-                        file = FindLayoutFile(st.IrDir, sgbd[..^suf.Length]);
+                        file = FindLayoutFile(state.IrDir, sgbd[..^suf.Length]);
                         if (file != null) break;
                     }
             if (file == null)
