@@ -638,11 +638,14 @@ function irScreenTags(ir, name) {
     // whose jobs differ. A more specific name still wins -- irPickTagged
     // prefers the shortest tag list.
     // A lettered tag (39C, 46R, 36c) names ONE variant and must match it
-    // exactly. A bare number may be a prefix of a longer variant -- "36"
-    // covers KOMBI36 and KOMBI361, which share s_status_36 -- but must not
-    // swallow a lettered sibling: KOMBI39C is not "39".
+    // exactly. A bare number matches the variants whose name continues with
+    // digits or a body letter -- "36" covers KOMBI36 and KOMBI361, "46" covers
+    // KOMBI46 and KOMBI46R, which share m_steuern_46 because INPA ships no
+    // _46r actuator menu. That deliberately makes "39" match KOMBI39C too;
+    // where a _39C name also exists it is the more specific tag and
+    // irPickTagged prefers it, so the loose match only applies as a fallback.
     const re = /[a-zA-Z]$/.test(T) ? new RegExp(`${T}$`)
-                                   : new RegExp(`${T}\\d*$`);
+                                   : new RegExp(`${T}\\d*[a-zA-Z]?$`);
     for (const v of names) if (re.test(v) && !tags.includes(v)) tags.push(v);
   }
   per.set(name, tags);
@@ -690,12 +693,19 @@ function irPickScreen(ir, it, variant, via) {
     const s = (ir.screens || {})[n];
     return s && irRows(s).rows.length;
   });
-  const pool = withRows.length ? withRows : all;
-  if (variant) {
-    const hit = irPickTagged(ir, pool, variant, via);
+  if (variant && withRows.length) {
+    const hit = irPickTagged(ir, withRows, variant, via);
     if (hit !== undefined) return hit;
   }
-  return pool[0] || it.screen;
+  // Every candidate is empty. INPA parks a key it has no page for on the
+  // family placeholder -- s_status_36_38_39_46_52_85 merely lists the variant
+  // names -- so a shared menu offers TOENS and CAN to variants without them.
+  // Drop only that: a screen INPA draws from its own text (s_info) is empty of
+  // ECU results by nature and stays, as does any key that opens a menu.
+  if (!withRows.length && all.length
+      && all.every(n => irHasVariantSuffix(n))
+      && !irIsInfo((ir.screens || {})[all[0]] || {}, all[0])) return null;
+  return all[0] || it.screen;
 }
 
 // Open ONE root item directly, for a section that maps to a single INPA key
