@@ -338,7 +338,27 @@ def _composite(toks):
     items = {k: v for k, v in items.items() if v}
     if not items:
         return None
+
+    # Every constant an ITEM writes into a field, and the value the program
+    # initialises it to. INPA's own startup zeroes all of RDC's fourteen
+    # slots, so the string it sends on the first keypress is the all-zero
+    # word with exactly one pair flipped -- the neutral baseline is in the
+    # bytecode, not a guess. Recorded per field so a consumer can see it
+    # rather than assume it.
     return {"job": job, "order": order, "items": items}
+
+
+def _field_values(all_toks, order):
+    """{slot: {"init": v, "values": [...]}} across the whole file."""
+    out = {s: {"init": None, "values": set()} for s in order}
+    for toks in all_toks:
+        for i, t in enumerate(toks):
+            if t["op"] != "store" or t["n"] not in out:
+                continue
+            prev = toks[i - 1] if i else None
+            if prev and prev["op"] == "const" and prev.get("t") in ("i", "b"):
+                out[t["n"]]["values"].add(prev["v"])
+    return out
 
 
 def _menu_ir(toks, id2name):
@@ -404,10 +424,14 @@ def build(ecu):
     ir = {"ir": IR_VERSION, "ecu": ecu, "language": _language(pool),
           "menus": {}, "screens": {}}
     cov_unk = cov_len = 0
+    # every proc's tokens, kept so a composite menu can look up what the
+    # program initialises its argument fields to
+    all_toks = {}
     for k, (off, typ, name, pid) in enumerate(decls):
         lo = off + 1 + len(name) + 1 + 4 + 1
         hi = decls[k + 1][0] if k + 1 < len(decls) else ps
         toks, unk, ln = D.walk(data, lo, hi, pool)
+        all_toks[name] = toks
         cov_unk += unk
         cov_len += ln
         if typ == "screen":
@@ -433,7 +457,36 @@ def build(ecu):
                     "items": {str(k): sorted(pos[s] for s in v)
                               for k, v in comp["items"].items()},
                 }
+                m["_comp_order"] = comp["order"]
             ir["menus"][name] = m
+    # The baseline word a composite job is sent with. INPA's own startup
+    # initialises every argument field, so the string it sends on the FIRST
+    # keypress is that initial word with exactly one pair flipped. RDC's
+    # __inpa_startup__ zeroes all fourteen slots, which makes
+    # "0;0;0;0;0;0;0;0;0;0;0;0;0;0" the neutral command -- decoded, not
+    # assumed. `values` records every constant each field is ever assigned,
+    # so a field INPA only ever writes 0 to (RDC's CAL_VAL: F3 requests
+    # calibration and leaves the value unused) is visible as such.
+    for mname, menu in ir["menus"].items():
+        order = menu.pop("_comp_order", None)
+        if not order or "composite" not in menu:
+            continue
+        init = {}
+        for pname, toks in all_toks.items():
+            if not pname.startswith("__inpa"):
+                continue
+            for i, t in enumerate(toks):
+                if t["op"] == "store" and t["n"] in order:
+                    prev = toks[i - 1] if i else None
+                    if prev and prev["op"] == "const" \
+                            and prev.get("t") in ("i", "b"):
+                        init.setdefault(t["n"], prev["v"])
+        seen = _field_values(list(all_toks.values()), order)
+        if len(init) == len(order):
+            menu["composite"]["baseline"] = \
+                ";".join(str(init[s]) for s in order)
+        menu["composite"]["values"] = [
+            sorted(seen[s]["values"]) for s in order]
     # A menu's items take their caption from the screen that menu drives,
     # joined by F-number. INPA's actuator menus carry only fragments
     # ("DWA", "button", "plant") because the screen prints the real list as
@@ -498,6 +551,19 @@ def main():
             for k, v in comp["items"].items():
                 if len(v) != 2 or v[1] != v[0] + 1:
                     fails.append(f"RDC F{k} is not a REQ/VAL pair: {v}")
+            # INPA's startup zeroes every field, so its neutral word is
+            # all-zero and a keypress is that word with one pair flipped.
+            # This is read from __inpa_startup__, not assumed.
+            if comp.get("baseline") != ";".join(["0"] * 14):
+                fails.append(f"RDC baseline drifted: {comp.get('baseline')!r}")
+            vals = comp.get("values") or []
+            if not all(set(v) <= {0, 1} for v in vals):
+                fails.append(f"RDC composite fields are not binary: {vals}")
+            # CAL_VAL (index 11) is only ever 0: F3 requests calibration and
+            # leaves the value unused. A change here means the decode shifted.
+            if len(vals) != 14 or vals[11] != [0]:
+                fails.append(f"RDC CAL_VAL should be [0], got "
+                             f"{vals[11] if len(vals) > 11 else None}")
         print(f"  ir         GSDS2 {len(g['screens'])} screens "
               f"({len(gk)}/7 ana gauges), RDC {len(r['screens'])} screens, "
               f"{len(wj)} write-flagged of {len(rj)} jobs")
@@ -505,6 +571,8 @@ def main():
             print(f"  ir         RDC composite {comp['job']}: "
                   f"{comp['fields']} fields = {len(comp['items'])} REQ/VAL "
                   f"pairs, argument order != F-key order (checked)")
+            print(f"  ir         RDC baseline {comp.get('baseline')!r} "
+                  f"(from INPA's own startup init)")
         if fails:
             for f in fails:
                 print("   -", f)
