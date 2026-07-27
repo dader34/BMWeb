@@ -26,7 +26,8 @@ _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVari
                .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
                .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')
                .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar')
-               .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable');
+               .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable')
+               .replace('function irOpensMenu', 'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu');
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -226,6 +227,43 @@ ok(!irIsCard(g.screens['s_analog_1']),
   // real submenus must still open
   ok(_irHasRunnable(lw2, 'm_status') && _irHasRunnable(lw2, 'm_fehler'),
      'a real LWS5 submenu was judged empty');
+}
+
+// ---- a file PICKER is half a real function, not a log dump ---------------
+// LWS5's "Write Coding Data" is a real menu: F1 prompts for a .COD file and
+// shows what you chose, F2 sends it with CODIERUNG_SCHREIBEN_DATEI. Flagging
+// F1 as a file action (it does call the show-file builtin) emptied the menu,
+// so the key fell through to a screen with nothing on it. A key that PROMPTS
+// is a picker. And F2's job lives inside a state machine, which is the only
+// evidence of what the key does -- surfaced, flagged write, and never sent,
+// because how INPA assembles the argument from the picked file is not decoded.
+{
+  const lw3 = load('LWS5');
+  const cs = lw3.menus.m_cod_schreiben.items;
+  const pick = cs.find(i => i.nr === 1);
+  ok(pick && !pick.fileAction && pick.prompt,
+     'the .COD file picker must not be flagged a file action');
+  const send = cs.find(i => i.nr === 2);
+  ok(send && send.job === 'CODIERUNG_SCHREIBEN_DATEI',
+     `coding write should carry its state job, got ${send && send.job}`);
+  ok(send && send.writeJob && send.stateJob,
+     'a state-machine EEPROM write must be flagged write AND state-sourced');
+  // the ident write is the same shape
+  const idw = lw3.menus.m_id_schreiben.items.find(i => i.nr === 8);
+  ok(idw && idw.job === 'IDENT_SCHREIBEN' && idw.stateJob && idw.writeJob,
+     `ident write not surfaced: ${idw && idw.job}`);
+  // so the key opens its MENU again, rather than an empty screen
+  const ex = irMenuItems(lw3, 'm_entwickler_5_0');
+  const wc = ex.find(i => /^Write Coding Data$/i.test(i.label));
+  ok(wc && irOpensMenu(lw3, wc, 'm_entwickler_5_0'),
+     'Write Coding Data should open its menu');
+  // ...while a key whose menu really is chrome-only opens its screen
+  const ird = ex.find(i => /^Ident reading$/i.test(i.label));
+  ok(ird && !irOpensMenu(lw3, ird, 'm_entwickler_5_0')
+     && ird.screen === 's_ident_e',
+     'Ident reading should open s_ident_e, not its chrome-only menu');
+  ok(irRows(lw3.screens.s_ident_e).rows.length === 9,
+     'LWS5 ident screen lost its fields');
 }
 
 // ---- a PC file operation is not an ECU function --------------------------

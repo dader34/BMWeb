@@ -376,6 +376,9 @@ function irMenuItems(ir, menuName, variant) {
       // changes the ECU permanently (EEPROM write, service reset) rather
       // than driving an actuator for the duration of a test
       writeJob: !!it.writeJob,
+      // the job came from a state machine, whose argument assembly is not
+      // decoded -- listed, never sent
+      stateJob: !!it.stateJob,
       // INPA asks the user for a value and builds the job argument from it
       // (KLIMA_5B's flap positions: "Fresh air flap", "Position (0-100 %)")
       prompt: it.prompt || null,
@@ -858,6 +861,26 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // when you leave the screen. An EEPROM write or a service reset does
       // not undo itself.
       const permanent = it.writeJob;
+      // A write whose job came from a STATE machine is never sent. INPA's
+      // sequence gathers what to write first -- the .COD file its previous key
+      // picked, the ident fields its Change keys edited -- and that assembly
+      // is not decoded, so firing the job alone would write whatever the ECU
+      // makes of an empty argument. These are EEPROM writes behind INPA's own
+      // "Only for the developer" title; listed, never run.
+      if (it.stateJob) {
+        container.className = 'results-panel';
+        container.innerHTML = `<div class="empty"><div>`
+          + `<strong>${esc(it.label)}</strong></div>`
+          + `<div>INPA runs this as a sequence that first gathers what to `
+          + `write, then sends <code>${esc(it.job)}</code>. That assembly is `
+          + `not decoded, so this is listed but never sent.</div></div>`;
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · not sent`;
+        setActions([...keys(), {
+          key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+          fn: reopen,
+        }]);
+        return;
+      }
       if (confirmActuators() || permanent) {
         const ok = await confirmDialog({
           title: `${permanent ? 'Write to' : 'Activate on'} `
@@ -1047,8 +1070,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.nr} &gt;</span>`
         + `<span class="inpa-fn-label">${esc(it.label)}</span>`
         + `<span class="act-key-val">${esc(count(it))}</span>`
+        // the arrow marks a key that GOES somewhere -- a submenu or a screen.
+        // A key that acts in place (runs a job, fires an actuator) does not
+        // navigate, so it keeps none.
         + `<span class="ir-enter">`
-        + `${irOpensMenu(ir, it, menuName) ? '&#8629;' : ''}</span>`;
+        + `${irOpensMenu(ir, it, menuName) || it.screen ? '&#8629;' : ''}`
+        + `</span>`;
       row.onclick = () => open(it);
       list.appendChild(row);
     });
