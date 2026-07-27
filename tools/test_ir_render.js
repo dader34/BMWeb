@@ -95,6 +95,41 @@ ok(rActs.every(i => !/^(DWA|button|plant)$/i.test(i.label)),
 ok(rActs.filter(i => i.inPlace).every(i => !i.screen && !i.menu),
    'an in-place actuator item claims a target');
 
+// ---- labelled rows: caption, not the ":" separator ------------------------
+// INPA lays a labelled row out as three prints -- caption at col 0, a bare
+// ":" at a fixed column, then the value. "Nearest preceding text" took the
+// separator, so every RDC coding row was labelled ":".
+const cod = irSectionScreen(r, 'Coding');
+ok(cod && cod.title === 'RDC coding',
+   `RDC Coding screen not found: ${cod && cod.title}`);
+const codRows = cod ? irRows(cod).rows : [];
+ok(codRows.length === 5, `RDC coding should have 5 rows, got ${codRows.length}`);
+ok(codRows.some(x => x.label === 'Number antennas'),
+   'RDC coding lost its real captions');
+ok(codRows.every(x => x.kind === 'value'),
+   'RDC coding rows must stay text values, not gauges');
+// a screen of labelled reads renders as the ID-data card, like the Info tab
+ok(cod && irIsCard(cod), 'RDC coding should render as a card, not a gauge grid');
+const codCard = cod && irAsCard(cod, new Map());
+ok(codCard && codCard.jobs.length === 1
+   && codCard.jobs[0] === 'CODIERUNG_LESEN',
+   `RDC coding card job wrong: ${codCard && codCard.jobs}`);
+ok(codCard && codCard.fields.every(f => f.label && f.label !== f.key),
+   'RDC coding card has unlabelled fields');
+// a gauge screen must NOT be treated as a card
+ok(!irIsCard(g.screens['s_analog_1']),
+   'GSDS2 s_analog_1 is gauges and must not render as a card');
+
+// no row anywhere may be labelled with punctuation
+let punct = 0;
+for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir'))) {
+  const ir2 = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+  for (const s of Object.values(ir2.screens || {}))
+    for (const x of irRows(s).rows)
+      if (/^[:=|-]+$/.test(String(x.label || '').trim())) punct++;
+}
+ok(punct === 0, `${punct} rows labelled with a separator instead of a caption`);
+
 // ---- corpus: the interpreter must not throw on any ECU --------------------
 let files = fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'));
 let screens = 0, rows = 0, broke = 0;

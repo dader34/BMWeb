@@ -48,8 +48,13 @@ function irRows(scr) {
         const s = String(e.s || '').trim();
         // "[rpm]" printed above a gauge is its UNIT, not its caption
         const m = /^\[(.+)\]$/.exec(s);
-        if (m) unitAhead = m[1].trim();
-        else if (s) pending = s;
+        if (m) { unitAhead = m[1].trim(); continue; }
+        // INPA lays a labelled row out as three prints: the caption, a bare
+        // ":" separator at a fixed column, then the value. The separator is
+        // punctuation, not a label -- taking "nearest preceding text"
+        // literally turned every coding row's caption into ":".
+        if (/^[:=|-]+$/.test(s)) continue;
+        if (s) pending = s;
         continue;
       }
       if (!e.key) continue;
@@ -279,6 +284,31 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   reopen();
 }
 
+// A screen with no gauges and no lamps is a labelled READ -- coding data,
+// identification, references. INPA draws those as a colon-aligned list, not
+// as bars, and they do not change while the car sits there, so they get the
+// ID-data card (identity.js) rather than the polling gauge grid: same
+// presentation as the Info tab, in both UI modes, read once with F1 to
+// re-read.
+function irIsCard(scr) {
+  const rows = irRows(scr).rows;
+  return rows.length > 0 && rows.every(r => r.kind === 'value');
+}
+
+// One IR screen as the shape renderIdentity consumes.
+function irAsCard(scr, descs) {
+  const { rows } = irRows(scr);
+  return {
+    title: irLabel(scr.title) || 'Read',
+    subtitle: (scr.jobs || []).map(j => j.name).join(' · ') + ' · read-only',
+    jobs: (scr.jobs || []).filter(j => !j.write).map(j => j.name),
+    fields: rows.map(r => ({
+      key: r.key,
+      label: irLabel(r.label || (descs && descs.get(r.key)) || r.key),
+    })),
+  };
+}
+
 // Walk the IR from a menu: list its entries, open a screen, descend into a
 // submenu, Esc back up one level -- INPA's own navigation, and ours.
 function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
@@ -353,6 +383,17 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return;
     }
     const scr = (ir.screens || {})[it.screen];
+    const backAct = {
+      key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+      fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
+    };
+    // labelled reads render as the ID-data card, the way the Info tab does
+    if (scr && irIsCard(scr)) {
+      renderIdentity(ecu, irAsCard(scr, await irDescs(ecu, scr)),
+                     container, backAct);
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
+      return;
+    }
     const screens = scr
       ? irRowsTranslated(scr, await irDescs(ecu, scr)) : [];
     if (screens.length) {

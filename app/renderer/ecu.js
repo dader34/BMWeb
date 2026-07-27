@@ -945,13 +945,21 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
     // menu to list; render the screen itself
     const irScreen = irSectionScreen(ecu._ir, sec.section);
     if (irScreen) {
+      const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                     kind: 'back',
+                     fn: () => showEcu(chassisId, sectionName, ecu) };
+      // a screen of labelled reads is a card, like the Info tab -- INPA draws
+      // those colon-aligned, not as gauges
+      if (irIsCard(irScreen)) {
+        renderIdentity(ecu, irAsCard(irScreen, await irDescs(ecu, irScreen)),
+                       results, back);
+        return;
+      }
       const screens = irRowsTranslated(irScreen, await irDescs(ecu, irScreen));
       if (screens.length) {
         showInpaCategory(ecu, screens, results,
                          irLabel(irScreen.title) || sectionLabel(sec.section));
-        setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                      kind: 'back',
-                      fn: () => showEcu(chassisId, sectionName, ecu) }]);
+        setActions([back]);
         return;
       }
     }
