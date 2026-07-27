@@ -31,6 +31,12 @@ function irReadable(scr) {
 function irRows(scr) {
   const rows = [];
   const cells = [];
+  // a screen that reads the same job once per position (wheel, bank,
+  // cylinder) repeats its result keys per LINE, distinguished only by the
+  // job's argument. Rows carry that argument so the poller reads each pass
+  // separately and one wheel's value cannot overwrite another's.
+  const multiArg = new Set((scr.lines || []).map(l => l.jobArg)
+    .filter(Boolean)).size > 1;
   for (const ln of scr.lines || []) {
     const els = ln.elements || [];
     const caps = String(ln.caption || '').split(',').map(s => s.trim());
@@ -69,6 +75,16 @@ function irRows(scr) {
         unit: e.unit || unitAhead || null,
         kind: e.t,
       };
+      // on a per-position screen the LINE caption ("Rad 1") is the position,
+      // and the argument is what distinguishes otherwise identical keys. The
+      // position is kept separately so the row's own caption can still be
+      // resolved (or fall back to the SGBD description) before they are
+      // joined -- prefixing here would freeze in a placeholder like "(1)".
+      if (multiArg && ln.jobArg) {
+        row.arg = ln.jobArg;
+        const pos = (ln.caption || '').trim();
+        if (pos) row.pos = pos;
+      }
       if (typeof e.min === 'number' && typeof e.max === 'number'
           && e.max > e.min) { row.min = e.min; row.max = e.max; }
       if (e.on) row.on = e.on;
@@ -91,10 +107,23 @@ function irScreens(scr) {
   const { rows, cells } = irRows(scr);
   if (!rows.length) return [];
   // write-shaped jobs are represented in the IR but never auto-run
-  const jobs = (scr.jobs || []).filter(j => !j.write).map(j => j.name);
+  const jobs = (scr.jobs || []).filter(j => !j.write);
   if (!jobs.length) return [];
-  return jobs.map(job => ({
-    job,
+  // a per-position screen becomes one poll per argument, each carrying only
+  // the rows read in that pass -- otherwise all five wheels share one read
+  // and show identical values
+  if (rows.some(r => r.arg)) {
+    return jobs.map(j => ({
+      job: j.name,
+      args: j.arg || '',
+      group: scr.title || null,
+      rows: rows.filter(r => r.arg === j.arg),
+      grid: null,
+    })).filter(s => s.rows.length);
+  }
+  return jobs.map(j => ({
+    job: j.name,
+    args: j.arg || '',
     group: scr.title || null,
     rows,
     grid: cells.length ? { cells } : null,
@@ -136,7 +165,7 @@ function irRowsTranslated(scr, descs) {
       // A caption INPA itself computes per iteration ("Position RR", "(1)",
       // "??") is left over from the last pass of a loop and describes no
       // particular row, so the SGBD description wins over it.
-      label: irLabel(
+      label: (r.pos ? `${irLabel(r.pos)} · ` : '') + irLabel(
         (IR_LOOP_CAPTION.test(r.label || '') ? null : r.label)
         || (descs && descs.get(r.key)) || r.label || r.key),
       unit: r.unit ? irLabel(r.unit) : r.unit,
@@ -298,7 +327,11 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
 // re-read.
 function irIsCard(scr) {
   const rows = irRows(scr).rows;
-  return rows.length > 0 && rows.every(r => r.kind === 'value');
+  if (!rows.length || !rows.every(r => r.kind === 'value')) return false;
+  // a per-position screen reads the same keys once per wheel/bank, so a
+  // single card keyed by result name would show the last pass five times.
+  // Those go to the poller, which reads each argument separately.
+  return !rows.some(r => r.arg);
 }
 
 // INPA's "Information" screen describes the SCRIPT, not the car: rework
@@ -310,10 +343,18 @@ function irIsCard(scr) {
 const IR_INFO_KEYS = ['TITLE', 'VERSION', 'ORIGIN', 'PACKAGE', 'ECU',
                       'REVISION', 'AUTHOR', 'SPRACHE', 'COMMENT'];
 
-function irIsInfo(scr) {
+// Deliberately narrow. "No result rows plus some captions" also describes a
+// screen whose values this decoder failed to extract -- ACC's s_id_aktuell
+// prints BMW part number and serial number that way -- and pairing those with
+// the INFO job would invent data. The information screen is identified by the
+// name INPA gives it (`s_info`, the script-info page in BMW's own template,
+// on 452 ECUs' Info key) plus the absence of softkey help, which is what
+// distinguishes it from a screen that merely hosts a menu.
+function irIsInfo(scr, name) {
+  if (name !== 's_info') return false;
   if (irRows(scr).rows.length) return false;
-  const caps = irCaptions(scr);
-  return caps.length >= 3;
+  if (scr.softkeys && Object.keys(scr.softkeys).length) return false;
+  return irCaptions(scr).length >= 3;
 }
 
 // the printed captions of a screen that has no result rows, in draw order
@@ -365,6 +406,18 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    // A key that installs a MENU opens that menu, whatever else it does.
+    // INPA's root keys set the screen AND the softkey menu together (Status
+    // -> s_status + m_rdc_status), and s_status is only the window the menu
+    // is drawn in -- it has no rows of its own. Checking the screen first
+    // sent Status and Activate to the "no readout" message instead of their
+    // submenus.
+    if (it.menu) {
+      renderIrMenu(ecu, ir, it.menu, container,
+                   () => renderIrMenu(ecu, ir, menuName, container, back, trail),
+                   [...trail, it.label]);
+      return;
+    }
     // an item with its own job (RDC F18 Sleep -> SLEEP_MODE) is an ordinary
     // one-key-one-job action, unrelated to any composite word
     if (it.inPlace && it.job
@@ -426,18 +479,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       }]);
       return;
     }
-    if (it.menu && !it.screen) {
-      renderIrMenu(ecu, ir, it.menu, container, () =>
-        renderIrMenu(ecu, ir, menuName, container, back, trail), [...trail, it.label]);
-      return;
-    }
     const scr = (ir.screens || {})[it.screen];
     const backAct = {
       key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
       fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
     };
     // INPA's Information screen: script/SGBD facts, no ECU results
-    if (scr && irIsInfo(scr)) {
+    if (scr && irIsInfo(scr, it.screen)) {
       renderIdentity(ecu, irInfoCard(scr), container, backAct);
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
@@ -490,9 +538,20 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       if (it.job) return 'run';
       return 'not decoded';
     }
-    if (!it.screen) return '';
+    if (!it.menu && !it.screen) return '';
     const scr = (ir.screens || {})[it.screen];
+    // a submenu's size is its own entry count, not a screen's rows
+    if (it.menu && !scr) {
+      const k = irMenuItems(ir, it.menu).length;
+      return k ? `${k} function${k === 1 ? '' : 's'}` : '';
+    }
     if (!scr) return '';
+    // Information reads no ECU results -- its rows are printed captions
+    // paired with the SGBD's INFO job, so count those
+    if (irIsInfo(scr, it.screen)) {
+      const n = irInfoCard(scr).fields.length;
+      return n ? `${n} field${n === 1 ? '' : 's'}` : '';
+    }
     const n = irRows(scr).rows.length;
     return n ? `${n} value${n === 1 ? '' : 's'}` : '';
   };

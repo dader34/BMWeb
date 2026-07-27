@@ -217,9 +217,21 @@ def _screen_ir(toks):
                         el["col"] = col
             elif name == "INPAapiJob":
                 jname = next((s for s in strs if D._KEYISH.match(s)), None)
-                if jname and all(j["name"] != jname for j in jobs):
-                    jobs.append({"name": jname,
-                                 "write": bool(_WRITE_JOB.search(jname))})
+                if jname:
+                    # the argument INPA passes. A per-position screen calls
+                    # the same job once per wheel/bank/cylinder with the index
+                    # as its argument (RDC: ABGLEICHWERT_LESEN "1", then "2"
+                    # ...), so the SAME result keys mean a different thing in
+                    # each LINE. Without the argument the screen showed 40
+                    # rows of the same 8 values.
+                    after = strs[strs.index(jname) + 1:] if jname in strs else []
+                    arg = next((s for s in after if s.strip()), None)
+                    cur()["jobArg"] = arg
+                    if all(j["name"] != jname or j.get("arg") != arg
+                           for j in jobs):
+                        jobs.append({"name": jname,
+                                     "write": bool(_WRITE_JOB.search(jname)),
+                                     **({"arg": arg} if arg else {})})
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
                           "INPAapiResultDigital"):
                 ref = next((a for a in args if a["op"] == "procref"

@@ -146,11 +146,48 @@ const dRoot = irMenuItems(load('DWS'), irRootMenu(load('DWS')));
 ok(!dRoot.some(i => /^Extra$/i.test(i.label)),
    'DWS "Extra" (bare-name scriptchange) still listed');
 
+// ---- per-position screens read once per argument --------------------------
+// RDC's "matching values" calls ABGLEICHWERT_LESEN with "1".."5", once per
+// wheel, so the SAME eight result keys appear five times. Without the job
+// argument the screen showed 40 rows all sharing one read -- five identical
+// blocks. Each pass must poll separately and carry its position.
+const mv = r.screens['s_abgleichwert_lesen'];
+const mvJobs = (mv.jobs || []).filter(j => !j.write);
+ok(mvJobs.length === 5 && mvJobs.every(j => j.arg),
+   `RDC matching values should read 5 arguments, got ${mvJobs.length}`);
+const mvScreens = irScreens(mv);
+ok(mvScreens.length === 5,
+   `per-wheel screen should poll 5 times, got ${mvScreens.length}`);
+ok(mvScreens.every(s => s.rows.length === 8),
+   `each wheel should carry its own 8 rows: ${mvScreens.map(s => s.rows.length)}`);
+ok(new Set(mvScreens.map(s => s.args)).size === 5,
+   'per-wheel polls must use distinct job arguments');
+ok(!irIsCard(mv),
+   'a per-position screen must not collapse onto one card keyed by result name');
+
+// ---- a key with BOTH a menu and a screen opens the menu -------------------
+// INPA's root keys set the screen and the softkey menu together (Status ->
+// s_status + m_rdc_status). s_status is only the window the menu is drawn in
+// and has no rows, so checking the screen first sent Status and Activate to
+// the "performs an action, not a readout" message instead of their submenus.
+for (const label of [/^Status$/i, /^Activate$/i]) {
+  const it = rootKey(r, label);
+  ok(it && it.menu, `RDC ${label} lost its menu`);
+  ok(it && irMenuItems(r, it.menu).length > 0,
+     `RDC ${label} menu is empty`);
+  // the screen it also names must be a menu holder, not a readout
+  const holder = it && it.screen ? r.screens[it.screen] : null;
+  ok(!holder || irRows(holder).rows.length === 0,
+     `RDC ${label} screen unexpectedly has rows`);
+}
+
 // ---- Information: script facts, not an empty screen ----------------------
 // s_info reads no ECU results -- INPA prints captions and fills them from
 // script variables -- so it rendered blank. Paired with the SGBD's INFO job.
 const info = r.screens['s_info'];
-ok(irIsInfo(info), 'RDC s_info should be recognised as the Information screen');
+ok(irIsInfo(info, 's_info'), 'RDC s_info should be recognised as the Information screen');
+ok(!irIsInfo(r.screens['s_status'], 's_status'),
+   'a screen that only hosts a menu must not be read as Information');
 ok(!irIsCard(info), 's_info has no result rows and must not be a value card');
 const infoCard = irInfoCard(info);
 ok(infoCard.fields.length >= 5 && infoCard.jobs[0] === 'INFO',
