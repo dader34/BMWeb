@@ -215,10 +215,15 @@ const IR_CHROME = /^(Back|Exit|Print|Zur(ü|ue)ck|Ende|End|Select|Deselect|Auswa
 // reads is in the caption. BMW ships three: Fehlerspeicher (EM/FS),
 // Infospeicher (IM/IS) and Historienspeicher (HM/HS), each with its own
 // read, clear, print and save.
-const IR_FAULT_READ = /^(Read|Lesen)( |$)|^(FS|IS|HS|EM|IM|HM) lesen$|^Read (EM|IM|HM)$/i;
+// Word order varies by build: "Read EM", "EM Read", "FS lesen", plain "Read".
+const IR_FAULT_READ =
+  /^(Read|Lesen)$|^(Read|Lesen)\s+(EM|IM|HM|FS|IS|HS)\b|^(EM|IM|HM|FS|IS|HS)\s+(Read|lesen)\b|^(Shadow|Schatten)/i;
 
 // which memory a fault-menu caption names -> the SGBD job that reads it
 const IR_FAULT_JOB = [
+  // "Shadow"/"Schattenspeicher" is the info memory under another name --
+  // TOENS labels its F3 that way and answers IS_LESEN
+  [/^(Shadow|Schatten)/i, 'IS_LESEN'],
   [/\b(IM|IS|Infospeicher)\b/i, 'IS_LESEN'],
   [/\b(HM|HS|Historienspeicher)\b/i, 'HS_LESEN'],
   [/\b(EM|FS|Fehlerspeicher)\b/i, 'FS_LESEN'],
@@ -588,6 +593,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // into ECU"), or calls its own job (F18 Sleep -> SLEEP_MODE)
       if (comp && (comp.send || []).includes(String(it.nr))) return 'send';
       if (it.job) return 'run';
+      // a fault-memory read names no job -- INPA reads through its own
+      // library -- but open() hands it to the app's fault view, so it does
+      // work and must not be labelled undecoded
+      if (IR_FAULT_READ.test(it.label)) return 'read';
       return 'not decoded';
     }
     if (!it.menu && !it.screen) return '';

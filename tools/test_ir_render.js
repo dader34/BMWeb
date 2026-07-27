@@ -17,7 +17,14 @@ const lang = () => 'en';
 eval(fs.readFileSync(path.join(R, 'app/renderer/translate.js'), 'utf8'));
 const inpaMode = () => true, esc = (s) => s, stagger = () => {}, FKEY_SLOTS = 9;
 const api = async () => { throw new Error('offline'); };   // descs unavailable
-eval(fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8'));
+// `const` declarations inside eval() are not visible to this scope, so the
+// few the guard asserts on are exposed deliberately. Copying their patterns
+// here instead would test a copy, not the code -- which is exactly how the
+// last mislabelling survived a passing run.
+let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8');
+_irSrc = _irSrc.replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
+               .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =');
+eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
 // label INPA prints. No section table -- these look up a key the same way a
@@ -181,6 +188,18 @@ for (const [cap, job] of [['Read EM', null], ['Clear EM', 'FS_LOESCHEN'],
   ok(e, `SZL fault menu missing "${cap}"`);
   if (e && job) ok(e.job === job, `SZL "${cap}" job: ${e.job}`);
 }
+// Word order varies by build and so does the wording: "Read EM", "EM Read",
+// "FS lesen", "Shadow" (the info memory under another name -- TOENS labels
+// F3 that way and answers IS_LESEN). All are fault reads and none may be
+// labelled "not decoded", since open() hands them to the fault view.
+for (const cap of ['Read', 'Read EM', 'EM Read', 'FS Read', 'IS Read',
+                   'HS Read', 'FS lesen', 'Lesen', 'Shadow']) {
+  ok(IR_FAULT_READ.test(cap), `"${cap}" not recognised as a fault read`);
+}
+for (const cap of ['Clear', 'Print', 'on', 'off', 'Stop', 'EV 1', 'Activate']) {
+  ok(!IR_FAULT_READ.test(cap), `"${cap}" wrongly treated as a fault read`);
+}
+
 // the caption picks the memory: "Read IM" must read IS_LESEN, not FS_LESEN
 const FJ = [[/\b(IM|IS)\b/i, 'IS_LESEN'], [/\b(HM|HS)\b/i, 'HS_LESEN'],
             [/\b(EM|FS)\b/i, 'FS_LESEN']];
