@@ -83,6 +83,17 @@ def main():
     dec = json.load(open(dec_path)) if os.path.exists(dec_path) else {}
     fields = sum(len(s["fields"]) for r2 in dec.values()
                  for s in r2["screens"].values())
+    # long proc names: a 30-char cap once hid every longer declaration.
+    # AFS_60 declares two that INPA's own .ini lists, and the fix recovered
+    # 59 screens corpus-wide.
+    a = D.decompile("AFS_60")
+    for want in ("s_afs_fahrgestellnummern_vergleich",
+                 "s_afs_motorlagewinkeloffset_lesen"):
+        if want not in a["screens"]:
+            failures.append(f"long proc name lost: {want}")
+    print(f"  longnames  AFS_60 {len(a['screens'])} screens, "
+          f"34-char declarations decoded")
+
     if len(dec) < 500:
         failures.append(f"decompiled corpus shrank: {len(dec)} ECUs (< 500)")
     if fields < 15000:
