@@ -845,10 +845,22 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
 // The only judgement left is presentation, and that is decided by the decoded
 // screen (irIsCard: all-value rows are a labelled read, anything with a gauge
 // or lamp is a live panel), not by what the key is called.
-function irRootMenu(ir) {
+function irRootMenu(ir, variant) {
+  // several roots, one per ECU variant: INPA runs the variant job and matches
+  // its result against each root's name list. With no answer yet, prefer the
+  // root that serves the most variants rather than the first declared --
+  // KOMBI's first is the E31/E32/E34 menu, which has no Status or Memory.
+  const rv = ir.rootVariants;
+  if (rv) {
+    const names = Object.keys(rv);
+    const hit = variant && names.find(n =>
+      (rv[n] || []).some(v => v.toUpperCase() === String(variant).toUpperCase()));
+    const pick = hit
+      || names.sort((a, b) => (rv[b] || []).length - (rv[a] || []).length)[0];
+    if (pick && irMenuItems(ir, pick).length) return pick;
+  }
   const name = (ir.entry || {}).menu;
   const root = (ir.menus || {})[name];
   if (!root) return null;
-  const items = irMenuItems(ir, name);
-  return items.length ? name : null;
+  return irMenuItems(ir, name).length ? name : null;
 }

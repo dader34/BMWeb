@@ -660,6 +660,56 @@ def build(ecu):
             if cap and len(cap) > len(it.get("label") or ""):
                 it["label"] = cap
     ir["coverage"] = round(100 * (1 - cov_unk / cov_len), 1) if cov_len else 0
+    # An .IPO can ship several root menus, one per ECU variant. INPA does not
+    # guess from the SGBD filename: inpainit runs INITIALISIERUNG, reads its
+    # VARIANTE result, and compares that against a chain of names --
+    #   VARIANTE == "KOMBI31" -> setmenu(m_main_31_32_34)
+    #   VARIANTE == "KOMBI46" -> setmenu(m_main_36_38_39_46_52_85)
+    # Taking the first declared root gave an E46 the E31/E32/E34 menu, which
+    # has no Status or Memory key at all. Recorded so the app can ask the ECU
+    # the same question; `variantJob`/`variantKey` say how.
+    variants, vjob, vkey = {}, None, None
+    for pname, toks in all_toks.items():
+        if not pname.startswith(("inpainit", "__inpa")):
+            continue
+        for i, t in enumerate(toks):
+            if t["op"] == "call" and t.get("name") == "INPAapiJob":
+                nm = next((x["v"] for x in toks[max(0, i - 6):i]
+                           if x["op"] == "const" and x.get("t") == "s"
+                           and _KEYISH.match(str(x["v"]))), None)
+                if nm and vjob is None:
+                    vjob = nm
+            if t["op"] == "call" and t["n"] == 0x71 and vkey is None:
+                vkey = next((x["v"] for x in toks[max(0, i - 6):i]
+                             if x["op"] == "const" and x.get("t") == "s"
+                             and _KEYISH.match(str(x["v"]))), None)
+            if t["op"] != "procref" or t.get("kind") != 0x41:
+                continue
+            mname = id2name.get(("menu", t["n"]))
+            if not mname or not mname.startswith("m_main"):
+                continue
+            # the name compared immediately before the branch. A result key
+            # (STAT_*, _EIN) is a different comparison that happens to sit
+            # nearby, not a variant name.
+            for x in reversed(toks[max(0, i - 14):i]):
+                v = str(x.get("v", ""))
+                if x["op"] != "const" or x.get("t") != "s":
+                    continue
+                if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", v):
+                    continue
+                if re.match(r"^(STAT|ID|AIF|F)_", v) or v.endswith("_EIN"):
+                    break
+                variants.setdefault(mname, [])
+                if v not in variants[mname]:
+                    variants[mname].append(v)
+                break
+    if len(variants) > 1:
+        ir["rootVariants"] = variants
+        if vjob:
+            ir["variantJob"] = vjob
+        if vkey:
+            ir["variantKey"] = vkey
+
     ir["entry"] = {
         "screen": "s_main" if "s_main" in ir["screens"]
         else next(iter(ir["screens"]), None),
