@@ -388,6 +388,29 @@ for (const list of Object.values(kb.rootVariants || {})) {
   ok(pages.some(i => /CAN/i.test(i.label)),
      'KOMBI46 Status lost the CAN page its own menu declares');
 
+  // A lettered variant falls back to its numeric sibling's menu where INPA
+  // ships no lettered one: there is no m_steuern_46r, so the E46 roadster
+  // takes m_steuern_46. Requiring an exact tag match left its Activate key
+  // with no menu, which dropped the whole section to the legacy renderer.
+  {
+    const ir46r = load('KOMBI');
+    ir46r._variant = 'KOMBI46R';
+    const act = irMenuItems(ir46r, irRootMenu(ir46r, 'KOMBI46R'), 'KOMBI46R')
+      .find(i => /^Activate\b/i.test(i.label));
+    ok(act && act.menu === 'm_steuern_46',
+       `KOMBI46R Activate should open m_steuern_46, got ${act && act.menu}`);
+    // ...but a key whose only screen is the family placeholder (which lists
+    // the variant names and holds nothing) is one this variant does not have
+    const st = irMenuItems(ir46r, irRootMenu(ir46r, 'KOMBI46R'), 'KOMBI46R')
+      .find(i => /^(Read )?Status$/i.test(i.label));
+    const p46r = irMenuItems(ir46r, st.menu, 'KOMBI46R');
+    ok(!p46r.some(i => /TOENS|Thermal oil/i.test(i.label)),
+       'KOMBI46R has no TOENS page and must not be offered one');
+    ok(p46r.every(i => !i.screen
+                    || irRows(ir46r.screens[i.screen] || {}).rows.length),
+       'a Status page resolved to the empty family placeholder');
+  }
+
   // A screen suffixed with variants serves THOSE variants only. s_status_36
   // reads STATUS_LESEN, a job only KOMBI36/361 have, so handing it to any
   // other variant asked the ECU for results it never returns ("0 of 16").
