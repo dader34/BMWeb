@@ -232,9 +232,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
             + `one job carrying all ${comp.fields} fields, of which this key `
             + `owns arguments ${pair[0]} and ${pair[1]} (its enable and its `
             + `value). Every press re-commands all `
-            + `${Object.keys(comp.items).length} actuators at once, so it `
-            + `stays inert until the all-off baseline is verified on a car.`
-            + `</div>`
+            + `${Object.keys(comp.items).length} actuators at once.</div>`
+            + (comp.baseline
+              ? `<div>INPA's own neutral word is `
+                + `<code>${esc(comp.baseline)}</code>, so a press sends that `
+                + `with this pair set. Decoded, but not yet confirmed against `
+                + `a car — so it stays inert.</div>`
+              : `<div>The neutral word for the other fields is not decoded, `
+                + `so it stays inert.</div>`)
           : `<div>INPA runs this from the menu itself. The command sequence `
             + `is not decoded, so this is listed but not runnable here.`
             + `</div>`)
