@@ -315,9 +315,17 @@ function screenIsReal(ecu, sec) {
 // screens against a real car. Generated layouts carry `generated: true`, so
 // the distinction is a property of the data, not a list of ECU names.
 function layoutIsHandBuilt(layout) {
-  return !!layout && !layout.generated
-    && (Array.isArray(layout.screens) ? layout.screens.length > 0
-        : Object.keys(layout).length > 3);
+  if (!layout) return false;
+  // tools/ipo_enrich.py marks its output
+  if (layout.generated) return false;
+  // ...but an older generator (parser: prg-layout/1.0, built from the .prg
+  // rather than the .IPO) did not, and its layouts were being treated as
+  // hand-verified. That is what put IHKA's Activations back on the legacy
+  // renderer -- "Ansteuern", "no job mapped" -- while the decompiled menu
+  // sat unused. Anything carrying a machine parser tag is generated.
+  if (layout.parser || layout.format) return false;
+  return Array.isArray(layout.screens) ? layout.screens.length > 0
+    : Object.keys(layout).length > 3;
 }
 
 function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
