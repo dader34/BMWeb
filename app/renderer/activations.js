@@ -534,7 +534,17 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
          </div>`;
     const list = container.querySelector('#at-list');
 
-    items.forEach((it, i) => {
+    // The .IPO ships one menu per ECU FAMILY, so it lists actuators other
+    // variants have: GSDS2 offers EDS 1-5 while ags732 declares only EDS_1.
+    // Drop what this ECU cannot do rather than showing rows that refuse to
+    // run -- INPA itself only draws the entries the connected ECU supports.
+    const available = (it) =>
+      !(it.argValue && !argValueOffered(acts, it.argValue));
+    const shown = items.filter(it => available(it)
+      // a submenu whose every child is another variant's is empty here too
+      && !(it.items && it.items.length && !it.items.some(available)));
+
+    shown.forEach((it, i) => {
       const label = deGerman(it.label) || it.label;
       // three states, and they are different things: a submenu (INPA's own
       // dispatch says this entry opens a screen), a test we can run, and an
@@ -545,17 +555,12 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       // some ECUs drive everything through ONE job and name the component in
       // an argument (GSDS2: STEUERN_STELLGLIED with STELLGL=MAGNETVENTIL_2),
       // so the entry is an argument value, not a job of its own
-      // ...but only when THIS ECU declares it. The .IPO ships one Activate
-      // menu covering every transmission variant, so GSDS2 lists EDS 1-5
-      // while ags732's SGBD declares only EDS_1: the rest belong to other
-      // gearboxes and must read as unavailable rather than as dead rows.
-      const av = !sub && it.argValue && argValueOffered(acts, it.argValue)
-        ? it.argValue : null;
-      const missing = !sub && it.argValue && !av;
-      const note = it.items && it.items.length ? `${it.items.length} tests`
+      // values this ECU does not declare were filtered out above
+      const av = !sub && it.argValue ? it.argValue : null;
+      const kids = (it.items || []).filter(available).length;
+      const note = it.items && it.items.length ? `${kids} tests`
                  : it.submenu ? 'submenu'
                  : av ? av
-                 : missing ? 'not on this ECU'
                  : a ? (actRunnable(a) ? a.start : 'needs input')
                  : 'no job mapped';
       if (inpa) {
@@ -580,14 +585,14 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
     });
     if (!inpa) stagger(list, 30);
 
-    const keys = items.slice(0, 9).map(it => ({
+    const keys = shown.slice(0, 9).map(it => ({
       key: String(it.fkey), keyLabel: `F${it.fkey}`,
       label: deGerman(it.label) || it.label, fn: () => enter(it),
     }));
     keys.push(back);
     setActions(keys);
     if (typeof setSectionCount === 'function') {
-      setSectionCount(`${items.length} function${items.length === 1 ? '' : 's'}`);
+      setSectionCount(`${shown.length} function${shown.length === 1 ? '' : 's'}`);
     }
     sbLeft.textContent = [`${ecu.sgbd}.prg`, ...trail].join(' · ');
   };

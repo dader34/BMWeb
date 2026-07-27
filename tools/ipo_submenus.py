@@ -252,6 +252,10 @@ def _opens_screen(label, opens):
 # the value is an identifier, but a SHORT one is legitimate: INPA emits
 # 'L5' 'L5' 'L5' where short, caption and value are the same two-character
 # name, so requiring three characters silently drops those entries.
+# tokens that appear in the value slot but name a state, not a component
+_NOT_A_VALUE = {"OKAY", "ON", "OFF", "EIN", "AUS", "JA", "NEIN", "YES", "NO",
+                "ERROR", "BUSY", "START", "STOP", "END", "EXIT"}
+
 _ARGVAL = re.compile(rb"\x06([\x20-\x7e\xa0-\xff]{1,40})\x0a"
                      rb"\x06([\x20-\x7e\xa0-\xff]{1,40})\x0a"
                      rb"\x06([A-Z][A-Z0-9_]{1,30})\x0a")
@@ -267,7 +271,10 @@ def arg_values(data):
         # the caption must read like one, and the value like an identifier
         if not caption or caption.startswith(";") or "_" in caption:
             continue
-        if value.startswith("STEUERN_") or value in ("OKAY",):
+        # state words and status tokens are not components: "Blower" sits
+        # beside an OFF in its own screen, and treating that as the value it
+        # sends makes a real actuator look like another variant's entry
+        if value.startswith("STEUERN_") or value in _NOT_A_VALUE:
             continue
         out.setdefault(_norm(caption), (value, short))
         # INPA also captions the same entry short ("EDS 4" for the menu's
@@ -295,7 +302,9 @@ def resolve_jobs(data, items, sites, submenu_titles=(), opens=None,
         # an entry that is an argument VALUE rather than a job of its own:
         # GSDS2 drives every solenoid through STEUERN_STELLGLIED, choosing the
         # component with STELLGL=MAGNETVENTIL_2 and so on
-        if argvals:
+        # a job the dispatch resolved outranks the value table: the value is
+        # only how a single-job ECU picks its component
+        if argvals and not e.get("job"):
             key = _norm(e["label"])
             hit = argvals.get(key)
             if not hit:
