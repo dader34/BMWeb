@@ -301,6 +301,38 @@ ok(!irIsCard(g.screens['s_analog_1']),
      `RDC per-wheel screen changed shape: ${irRows(rdcW).rows.length} rows`);
 }
 
+// ---- a menu key's JOB ARGUMENT is often all that distinguishes it ---------
+// RADIO's entertainment sources all call STEUERN_NEXT_ENTSOURCE and differ
+// only in "FM"/"CDC"/"AM"; CDC's transport mode calls ENERGIESPARMODE with
+// "0;1;0" for ON and "0;0;0" for OFF. Without the argument every one of those
+// keys would send the same command. The job name must come from THIS call's
+// frame too -- scanning a fixed window picked up the "OKAY" of the
+// CheckJobStatus that follows, so every RADIO actuator read as job OKAY.
+{
+  const rad = load('RADIO');
+  const eq = irMenuItems(rad, 'm_steuern_eq');
+  const fm = eq.find(i => /source FM$/i.test(i.label));
+  const am = eq.find(i => /^AM$/i.test(i.label));
+  ok(fm && fm.job === 'STEUERN_NEXT_ENTSOURCE' && fm.jobArg === 'FM',
+     `RADIO FM: job=${fm && fm.job} arg=${fm && fm.jobArg}`);
+  ok(am && am.jobArg === 'AM', `RADIO AM arg=${am && am.jobArg}`);
+  ok(new Set(eq.filter(i => i.jobArg).map(i => i.jobArg)).size
+     === eq.filter(i => i.jobArg).length,
+     'two entertainment-source keys share an argument');
+  // no key may take the CheckJobStatus token as its job name
+  const act = irMenuItems(rad, 'm_steuern');
+  ok(!act.some(i => i.job === 'OKAY'),
+     `an actuator key took OKAY as its job: ${act.filter(i => i.job === 'OKAY').map(i => i.label)}`);
+  ok(act.some(i => i.job === 'STEUERN_FADER_LH'),
+     'RADIO fader key lost its real job');
+  // CDC's two transport-mode keys differ only in the argument
+  const cdc = irMenuItems(load('CDC'), 'm_fetrawe');
+  const on = cdc.find(i => /ON$/i.test(i.label));
+  const off = cdc.find(i => /OFF$/i.test(i.label));
+  ok(on && off && on.job === off.job && on.jobArg !== off.jobArg,
+     `CDC transport mode must differ by argument: ${on && on.jobArg} vs ${off && off.jobArg}`);
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
