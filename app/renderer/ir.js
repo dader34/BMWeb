@@ -291,6 +291,18 @@ function irSameBar(ir, menu, from) {
   return shared / Math.max(A.size, B.size) > 0.8;
 }
 
+// Does pressing this key open a MENU, or the screen it also names? A key can
+// install both. The menu loses when it is merely the softkey bar this level
+// already shows, and when it holds nothing runnable -- LWS5's Coding key
+// installs m_code, whose single entry dumps the coding data to a .COD file on
+// the PC, while the screen it also names holds the seven data blocks and the
+// checksum. Shared by both open paths: renderIrMenu's own click handler and
+// irOpenItem, which fixing one and not the other left disagreeing.
+function irOpensMenu(ir, it, from) {
+  return !!it.menu && !irSameBar(ir, it.menu, from)
+    && (_irHasRunnable(ir, it.menu) || !it.screen);
+}
+
 // Does this menu hold anything the app can act on? Non-recursive on purpose:
 // INPA's menus link back to their parents, so following submenus would loop.
 function _irHasRunnable(ir, menuName) {
@@ -762,12 +774,7 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
   // re-lists Info/Ident/Code/... one level deeper while the screen the key
   // actually selects never renders. The screen wins whenever the menu is not
   // a narrower list than the one we came from.
-  // ...and a menu with nothing runnable in it is not worth opening either:
-  // LWS5's Coding key installs m_code, whose single entry dumps the coding
-  // data to a .COD file on the PC, while the screen it also names holds the
-  // seven data blocks and the checksum. The screen is what INPA shows.
-  if (it.menu && !irSameBar(ir, it.menu, menuName)
-      && (_irHasRunnable(ir, it.menu) || !it.screen)) {
+  if (irOpensMenu(ir, it, menuName)) {
     return renderIrMenu(ecu, ir, it.menu, container, back);
   }
   const scr = (ir.screens || {})[it.screen];
@@ -834,7 +841,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // submenus.
     // a menu no narrower than this one is the same softkey bar being kept,
     // not a submenu: opening it just re-lists these keys a level deeper
-    if (it.menu && !irSameBar(ir, it.menu, menuName)) {
+    if (irOpensMenu(ir, it, menuName)) {
       renderIrMenu(ecu, ir, it.menu, container,
                    () => renderIrMenu(ecu, ir, menuName, container, back, trail),
                    [...trail, it.label]);
@@ -1040,7 +1047,8 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.nr} &gt;</span>`
         + `<span class="inpa-fn-label">${esc(it.label)}</span>`
         + `<span class="act-key-val">${esc(count(it))}</span>`
-        + `<span class="ir-enter">${it.menu ? '&#8629;' : ''}</span>`;
+        + `<span class="ir-enter">`
+        + `${irOpensMenu(ir, it, menuName) ? '&#8629;' : ''}</span>`;
       row.onclick = () => open(it);
       list.appendChild(row);
     });
