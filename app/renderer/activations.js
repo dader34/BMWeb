@@ -488,9 +488,14 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
 
     items.forEach((it, i) => {
       const label = deGerman(it.label) || it.label;
-      const sub = it.items && it.items.length;
+      // three states, and they are different things: a submenu (INPA's own
+      // dispatch says this entry opens a screen), a test we can run, and an
+      // entry whose job we could not resolve. Calling a menu "no job mapped"
+      // reads as a defect when it is simply not a test.
+      const sub = (it.items && it.items.length) || it.submenu;
       const a = sub ? null : jobFor(it.label, it);
-      const note = sub ? `${it.items.length} tests`
+      const note = it.items && it.items.length ? `${it.items.length} tests`
+                 : it.submenu ? 'submenu'
                  : a ? (actRunnable(a) ? a.start : 'needs input')
                  : 'no job mapped';
       if (inpa) {
