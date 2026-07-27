@@ -608,9 +608,47 @@ function renderStatusMenu(chassisId, sectionName, ecu, menu, sec, layout, view, 
   const items = (layout.statusMenu.items || []).filter(i => i.resolved);
   const backToEcu = () => showEcu(chassisId, sectionName, ecu);
 
-  // the readout jobs this section already offers; a page opens them as before
+  // The page's rows. INPA's own per-page split is not decoded (see above), so
+  // a page shows the ECU's gauges -- INPA's captions, units and ranges -- read
+  // from the section's own status jobs.
+  //
+  // Passing an empty screens array here is what produced "Something went
+  // wrong": showInpaScreens had no job to poll and fell through to the error
+  // panel, so every page in the mined menu was a dead end.
+  //
+  // The job comes from the section's job list, not from the gauge specs: the
+  // .IPO names a readout but not the job that reads it, and pairing an ECU to
+  // its SGBD offline to recover that was tried and reverted -- matching on
+  // shared result keys put GSDS2 on GS832 rather than ags732, and collapsed
+  // unrelated modules (ACSM3 airbag onto a DME) because generic STAT_* names
+  // recur across the whole ECU family. The app already resolves the right
+  // SGBD at runtime, so take the job from what the section actually offers.
+  const specs = layout.gaugeSpecs || [];
+  const jobs = [...new Set(sec.items.map(i => i.job).filter(Boolean))]
+    .filter(j => /STATUS|MESSWERT|STAT_/i.test(j));
+
+  const pageScreens = () => {
+    if (!specs.length || !jobs.length) return [];
+    const rows = specs.map(g => ({
+      key: g.key, label: g.label, unit: g.unit, min: g.min, max: g.max,
+    }));
+    // one screen per status job; showInpaScreens reads them all each tick and
+    // keeps only the keys the ECU answers, so a gauge on another page simply
+    // does not appear rather than showing blank
+    return jobs.map(job => ({ job, group: 'Status', rows }));
+  };
+
   const open = (item, n) => {
-    showInpaCategory(ecu, [], results, fkeyLabel(item.label));
+    const screens = pageScreens();
+    if (screens.length) {
+      showInpaCategory(ecu, screens, results, fkeyLabel(item.label));
+    } else {
+      // nothing decodable for this ECU: say so rather than show a failed read
+      results.className = 'results-panel';
+      results.innerHTML = `<div class="empty"><div>`
+        + `INPA lists this page, but its readouts are not decoded for this ECU.`
+        + `</div></div>`;
+    }
     sbLeft.textContent = `${ecu.sgbd}.prg · ${item.label}`;
     setActions([...keys(), {
       key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
