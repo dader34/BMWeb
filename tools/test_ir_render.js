@@ -352,9 +352,38 @@ for (const list of Object.values(kb.rootVariants || {})) {
      `KOMBI46 Code should open s_code_46, got ${code && code.screen}`);
   ok(irRows(kbv.screens[code.screen]).rows.length > 30,
      'KOMBI46 coding screen lost its rows');
+  // INPA ships one Status menu per variant and lists the rest as alternatives.
+  // Taking item.menu blind gave an E46 the E38/E39 pages; it must get its own
+  // m_status_46, whose keys (TOENS I/O, TOENS ECU, CAN) exist on no other.
   const stat = items.find(i => /^Status$/i.test(i.label));
-  ok(stat && !stat.menu,
-     'KOMBI46 Status must not open the E38/E39 menu');
+  ok(stat && stat.menu === 'm_status_46',
+     `KOMBI46 Status should open m_status_46, got ${stat && stat.menu}`);
+  const pages = irMenuItems(kbv, stat.menu, 'KOMBI46');
+  const ana = pages.find(i => /^Analog$/i.test(i.label));
+  ok(ana && ana.screen === 's_status_analog_46',
+     `KOMBI46 Analog should be s_status_analog_46, got ${ana && ana.screen}`);
+  ok(pages.some(i => /CAN/i.test(i.label)),
+     'KOMBI46 Status lost the CAN page its own menu declares');
+
+  // A screen suffixed with variants serves THOSE variants only. s_status_36
+  // reads STATUS_LESEN, a job only KOMBI36/361 have, so handing it to any
+  // other variant asked the ECU for results it never returns ("0 of 16").
+  // What the key actually opens: a menu wins over the screen it also names.
+  const st36 = (v) => {
+    const ir2 = load('KOMBI');
+    ir2._variant = v;
+    const it = irMenuItems(ir2, irRootMenu(ir2, v), v)
+      .find(i => /^Status$/i.test(i.label));
+    if (!it) return null;
+    return it.menu ? `menu:${it.menu}` : it.screen;
+  };
+  for (const v of ['KOMBI36', 'KOMBI361']) {
+    ok(st36(v) === 's_status_36', `${v} Status should be s_status_36`);
+  }
+  for (const v of ['KOMBI46', 'KOMBI52', 'KOMBI85', 'IKE']) {
+    ok(st36(v) !== 's_status_36',
+       `${v} must not land on s_status_36 -- its SGBD has no STATUS_LESEN`);
+  }
   ok(stat && irRows(kbv.screens[stat.screen]).rows.length > 10,
      `KOMBI46 Status screen has too few rows: ${stat && stat.screen}`);
   // a different variant gets its own screens

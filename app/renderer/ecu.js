@@ -408,6 +408,24 @@ async function irResolveVariant(ecu) {
     } catch { /* no cable: irRootMenu falls back to the widest root */ }
   }
   if (ecu._variant) ir._variant = ecu._variant;
+  await irUseVariantSgbd(ecu);
+}
+
+// INPA's .IPO is one frontend for a family of ECUs (KOMBI.IPO drives KOMBI31
+// .. KOMBI85), and the variant name IS the SGBD it then talks to -- there is
+// no KOMBI.prg. Jobs aimed at the family name reach no schema, so every row
+// came back unanswered ("0 of 16 values"). Point the ECU at the variant's own
+// SGBD once, and every job/results/table call follows.
+async function irUseVariantSgbd(ecu) {
+  const v = ecu._variant;
+  if (!v || v.toUpperCase() === String(ecu.sgbd).toUpperCase()) return;
+  if (ecu._sgbdBase) return;
+  try {
+    const jobs = await api(`/api/ecu/${v}/jobs`);
+    if (!Array.isArray(jobs) || !jobs.length) return;
+  } catch { return; }        // not a real SGBD (a misread variant key)
+  ecu._sgbdBase = ecu.sgbd;
+  ecu.sgbd = v;
 }
 
 // ECU main menu: section categories on the F-key bar, each opens a sub-screen
@@ -998,10 +1016,13 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   if (irKey && ecu._ir === undefined) {
     try {
       const hint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
-      ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${hint}`);
-      await irResolveVariant(ecu);
+      // the IR is keyed by the .IPO family name, not the variant SGBD
+      ecu._ir = await api(`/api/ecu/${ecu._sgbdBase || ecu.sgbd}/ir${hint}`);
     } catch { ecu._ir = null; }
   }
+  // outside the fetch: _ir is cached on the ecu, so a section reached after
+  // showEcu skips the block above and would never resolve the variant
+  if (irKey && ecu._ir) await irResolveVariant(ecu);
   if (irKey && ecu._ir && typeof renderIrMenu === 'function') {
     const root = irRootMenu(ecu._ir, ecu._variant);
     const hit = root && irMenuItems(ecu._ir, root, ecu._variant)
