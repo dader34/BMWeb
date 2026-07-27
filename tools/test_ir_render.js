@@ -19,6 +19,19 @@ const inpaMode = () => true, esc = (s) => s, stagger = () => {}, FKEY_SLOTS = 9;
 const api = async () => { throw new Error('offline'); };   // descs unavailable
 eval(fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8'));
 
+// Navigate the way the app now does: from the ECU's own root menu, by the
+// label INPA prints. No section table -- these look up a key the same way a
+// user would read it off the screen.
+function rootKey(ir, re) {
+  const root = irRootMenu(ir);
+  return root ? irMenuItems(ir, root).find(i => re.test(i.label)) : null;
+}
+function keyMenu(ir, re) { const i = rootKey(ir, re); return i && i.menu; }
+function keyScreen(ir, re) {
+  const i = rootKey(ir, re);
+  return i && !i.menu && i.screen ? (ir.screens || {})[i.screen] : null;
+}
+
 const load = (e) => JSON.parse(
   fs.readFileSync(path.join(R, 'data/inpa-ir', e + '.json'), 'utf8'));
 const fails = [];
@@ -26,7 +39,7 @@ const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 
 // ---- GSDS2: eight distinct pages, right kinds, units not captions ---------
 const g = load('GSDS2');
-const gm = irSectionMenu(g, 'Status');
+const gm = keyMenu(g, /^(Status|Read status)$/i);
 ok(gm === 'm_status', `GSDS2 status menu resolved to ${gm}`);
 const gItems = irMenuItems(g, gm);
 ok(gItems.length >= 8, `GSDS2 expected >=8 status pages, got ${gItems.length}`);
@@ -57,7 +70,7 @@ ok(sw.length && sw.every(r => r.kind === 'lamp' && r.on && r.off),
 
 // ---- RDC: loop captions suppressed, writes handled ------------------------
 const r = load('RDC');
-const rm = irSectionMenu(r, 'Status');
+const rm = keyMenu(r, /^(Status|Read status)$/i);
 ok(rm === 'm_rdc_status', `RDC status menu resolved to ${rm}`);
 const rItems = irMenuItems(r, rm);
 ok(!rItems.some(i => /write/i.test(i.label)),
@@ -82,7 +95,7 @@ for (const [name, scr] of Object.entries(r.screens)) {
 // flags; the real caption is printed on the screen as "< F2 >  DWA output"
 // and joins back by F-number. Without that join the section showed one
 // unlabeled row.
-const ract = irSectionMenu(r, 'Activations');
+const ract = keyMenu(r, /^(Activate|Ansteuern)$/i);
 ok(ract === 'm_steuern', `RDC activations menu resolved to ${ract}`);
 const rActs = irMenuItems(r, ract);
 ok(rActs.length >= 8,
@@ -99,7 +112,7 @@ ok(rActs.filter(i => i.inPlace).every(i => !i.screen && !i.menu),
 // INPA lays a labelled row out as three prints -- caption at col 0, a bare
 // ":" at a fixed column, then the value. "Nearest preceding text" took the
 // separator, so every RDC coding row was labelled ":".
-const cod = irSectionScreen(r, 'Coding');
+const cod = keyScreen(r, /^Cod(e|ing)$/i);
 ok(cod && cod.title === 'RDC coding',
    `RDC Coding screen not found: ${cod && cod.title}`);
 const codRows = cod ? irRows(cod).rows : [];
@@ -145,6 +158,19 @@ for (const f of files) {
 }
 ok(broke === 0, `interpreter threw on ${broke} ECUs`);
 ok(rows > 20000, `corpus rows regressed: ${rows}`);
+
+// Coverage: how many ECUs the app can drive straight from their own root
+// menu. This is the number the label->section table used to cap -- it served
+// 161 ECUs because only three labels were mapped, and every unmapped key
+// ("Info", "Ident", "Memory", "KVP", anything German) was invisible.
+let rooted = 0;
+for (const f of files) {
+  const ir = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+  if (irRootMenu(ir)) rooted++;
+}
+ok(rooted > 450, `ECUs drivable from their own root menu regressed: ${rooted}`);
+console.log(`  ir-render  ${rooted}/${files.length} ECUs drive from their own `
+  + `root menu (no label mapping)`);
 
 console.log(`  ir-render  GSDS2 ${gItems.length} pages / ${sigs.size} distinct, `
   + `RDC ${rItems.length} pages`);

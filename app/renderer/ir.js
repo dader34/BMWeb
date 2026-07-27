@@ -477,39 +477,23 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   return true;
 }
 
-// Which IR menu serves an app section. The root menu's item labels are
-// INPA's own, so the section is found by matching them -- the same mapping
-// ROOT_SECTION uses, but resolved through the IR's navigation rather than
-// through mined section files.
-const IR_SECTION = [
-  [/^Status$|^Read status$|^Status lesen$/i, 'Status'],
-  [/^Activate$|^Ansteuern$|^Steuern$/i, 'Activations'],
-  [/^Cod(e|ing)$|^Codierung$/i, 'Coding'],
-];
-
-function irSectionEntry(ir, section) {
-  const root = (ir.menus || {})[(ir.entry || {}).menu];
+// The ECU's own root menu, rendered as INPA draws it.
+//
+// There is deliberately NO table mapping INPA's labels to app sections. That
+// approach needs a regex per label per language, silently drops every key
+// nobody anticipated, and made "Information" and "Read status" collide when
+// two keys happened to map to one section. The IR already holds INPA's root
+// menu with its real F-key numbers and targets, so the general answer is to
+// render that and let each key open whatever it opens -- exactly what
+// renderIrMenu already does for every nested menu.
+//
+// The only judgement left is presentation, and that is decided by the decoded
+// screen (irIsCard: all-value rows are a labelled read, anything with a gauge
+// or lamp is a live panel), not by what the key is called.
+function irRootMenu(ir) {
+  const name = (ir.entry || {}).menu;
+  const root = (ir.menus || {})[name];
   if (!root) return null;
-  for (const it of root.items || []) {
-    const hit = IR_SECTION.find(([re, name]) =>
-      name === section && re.test((it.label || '').trim()));
-    if (hit) return it;
-  }
-  return null;
-}
-
-function irSectionMenu(ir, section) {
-  const it = irSectionEntry(ir, section);
-  return (it && it.menu) || null;
-}
-
-// A root key can open a SCREEN directly rather than a menu -- RDC's "Code"
-// goes straight to s_code (title "RDC coding", CODIERUNG_LESEN, five coded
-// values). Those sections have no menu to list, so they render the screen
-// itself; without this they fell through to the job-bucket tile.
-function irSectionScreen(ir, section) {
-  const it = irSectionEntry(ir, section);
-  if (!it || it.menu || !it.screen) return null;
-  const scr = (ir.screens || {})[it.screen];
-  return scr && irReadable(scr) ? scr : null;
+  const items = irMenuItems(ir, name);
+  return items.length ? name : null;
 }
