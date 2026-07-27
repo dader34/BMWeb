@@ -227,7 +227,10 @@ def find_decls(data, pool_start):
 # ---------------------------------------------------------------- walker ----
 
 BUILTINS = {
-    0x00: "setmenutitle", 0x01: "setmenu", 0x04: "setscreen", 0x0c: "exit",
+    0x00: "setmenutitle", 0x01: "setmenu",
+    0x02: "setitem",         # setitem(nr, caption, enabled)
+    0x04: "setscreen", 0x0c: "exit",
+    0x0f: "scriptchange",    # loads another .IPO entirely
     0x10: "select", 0x11: "deselect", 0x13: "start", 0x17: "printscreen",
     # display statements (named from MUST_EXX + GSDS2 correlation)
     0x48: "text",            # text(row, col, str)
