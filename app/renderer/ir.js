@@ -777,7 +777,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // decode has a caption and nothing to run. The app's fault view already
     // does this properly -- FS_LESEN plus code lookup and freeze frames --
     // so the menu is INPA's but this one entry hands off to it.
-    if (it.inPlace && !it.job && IR_FAULT_READ.test(it.label)
+    // A fault read may still name a job: LWS5's "Read" calls ABGLEICH_LESEN
+    // first (its adjustment VIN) and then reads the memory through INPA's own
+    // library. Running only the named job showed adjustment data under a
+    // "Read error memory" caption, so route on what the key IS -- unless the
+    // job it names is itself the fault read.
+    if (it.inPlace && IR_FAULT_READ.test(it.label)
+        && !/^(FS|IS|HS)_LESEN$/i.test(it.job || '')
         && typeof runJob === 'function') {
       // the caption says WHICH memory: "Read IM" -> IS_LESEN. 239 ECUs keep
       // an info memory and 20 a history memory that a hardcoded FS_LESEN

@@ -94,6 +94,18 @@ def main():
     print(f"  longnames  AFS_60 {len(a['screens'])} screens, "
           f"34-char declarations decoded")
 
+    # -- inline STATE labels and the numeric result reader -------------------
+    # builtin 06 names a state INLINE ("%Z_TOGGLE\n" after the call, then a
+    # 5-byte tail). Not consuming it desynchronised the rest of the proc, which
+    # was the whole of LWS5's missing coverage: its state machines read 87%
+    # unknown and the file sat at 72.7% where every other ECU was above 90%.
+    lw = D.decompile("LWS5")
+    if lw.get("coverage", 0) < 95:
+        failures.append(f"LWS5 coverage regressed: {lw.get('coverage')}%")
+    print(f"  states     LWS5 {lw.get('coverage')}% coverage "
+          f"(inline %STATE labels consumed)")
+
+
     if len(dec) < 500:
         failures.append(f"decompiled corpus shrank: {len(dec)} ECUs (< 500)")
     if fields < 15000:
