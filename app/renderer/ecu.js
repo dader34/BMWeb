@@ -1015,18 +1015,25 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   }
   // the decompiled Activate menu beats the mined activateTree, which lists
   // submenus it has no items for and jobs it never resolved
-  if (sec.section === 'Activations' && ecu._ir === undefined) {
+  // Sections the decompiled UI serves better than the job buckets. Each maps
+  // to the INPA root key that opens it, and the interpreter takes it from
+  // there -- menu, card, memory dump, whatever that key really is.
+  const IR_SECTION_KEY = {
+    Activations: /^(Activate|Ansteuern|Steuern)$/i,
+    Special: /^(Memory|Speicher|Read memory|Speicher lesen)$/i,
+  };
+  const irKey = IR_SECTION_KEY[sec.section];
+  if (irKey && ecu._ir === undefined) {
     try {
       const hint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
       ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${hint}`);
     } catch { ecu._ir = null; }
   }
-  if (sec.section === 'Activations' && ecu._ir
-      && typeof renderIrMenu === 'function') {
+  if (irKey && ecu._ir && typeof renderIrMenu === 'function') {
     const root = irRootMenu(ecu._ir);
-    const act = root && irMenuItems(ecu._ir, root)
-      .find(i => /^(Activate|Ansteuern|Steuern)$/i.test(i.label));
-    if (act && act.menu && renderIrMenu(ecu, ecu._ir, act.menu, results,
+    const hit = root && irMenuItems(ecu._ir, root)
+      .find(i => irKey.test(i.label));
+    if (hit && irOpenItem(ecu, ecu._ir, root, hit, results,
         () => showEcu(chassisId, sectionName, ecu))) return;
   }
 
