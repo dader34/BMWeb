@@ -314,18 +314,37 @@ function screenIsReal(ecu, sec) {
 // A hand-verified layout outranks a fresh decode: someone checked those
 // screens against a real car. Generated layouts carry `generated: true`, so
 // the distinction is a property of the data, not a list of ECU names.
+// Should this layout outrank the decompiled UI?
+//
+// Not a question about provenance -- markers proved useless. Three different
+// producers write these files and they agree on nothing: ipo_enrich sets
+// `generated`, PrgLayout.cs sets `parser: prg-layout/1.0`, and older
+// artifacts set neither. IHKA's stayed on the legacy renderer through two
+// attempts at reading markers, because enriched/KLIMA_5B.json carries no
+// marker at all and yet holds four screens with no proc names and zero
+// result keys.
+//
+// So ask what the file actually CONTAINS. A layout earns priority only by
+// having screens with real rows -- which is exactly what a hand-verified
+// layout has and what these machine artifacts lack.
 function layoutIsHandBuilt(layout) {
+  if (!layout || layout.generated || layout.parser || layout.format) {
+    return false;
+  }
+  const screens = Array.isArray(layout.screens) ? layout.screens : [];
+  return screens.some(s => (s.rows || s.result_keys || []).length > 0);
+}
+
+// Does this layout describe ACTUATORS? A layout can be a good readout layout
+// and have nothing for Activate -- IHKA's enriched file is exactly that: 53
+// analog inputs, 15 flap positions, and no actuator description at all. Such
+// a layout must keep serving its readouts while the decompiled Activate menu
+// serves the actuators, rather than suppressing it and leaving that screen on
+// the legacy renderer with "no job mapped".
+function layoutHasActuators(layout) {
   if (!layout) return false;
-  // tools/ipo_enrich.py marks its output
-  if (layout.generated) return false;
-  // ...but an older generator (parser: prg-layout/1.0, built from the .prg
-  // rather than the .IPO) did not, and its layouts were being treated as
-  // hand-verified. That is what put IHKA's Activations back on the legacy
-  // renderer -- "Ansteuern", "no job mapped" -- while the decompiled menu
-  // sat unused. Anything carrying a machine parser tag is generated.
-  if (layout.parser || layout.format) return false;
-  return Array.isArray(layout.screens) ? layout.screens.length > 0
-    : Object.keys(layout).length > 3;
+  return !!(layout.activateTree || layout.activateMenus
+    || (layout.menus || []).some(m => /steuern|activate/i.test(m.name || '')));
 }
 
 function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
@@ -994,6 +1013,17 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
       return;
     }
   }
+  // a readout layout that describes no actuators must not suppress the
+  // decompiled Activate menu
+  if (sec.section === 'Activations' && ecu._ir && !layoutHasActuators(layout)
+      && typeof renderIrMenu === 'function') {
+    const root = irRootMenu(ecu._ir);
+    const act = root && irMenuItems(ecu._ir, root)
+      .find(i => /^(Activate|Ansteuern|Steuern)$/i.test(i.label));
+    if (act && act.menu && renderIrMenu(ecu, ecu._ir, act.menu, results,
+        () => showEcu(chassisId, sectionName, ecu))) return;
+  }
+
   const isActivations = sec.section === 'Activations';
   const selected = new Set();
 
