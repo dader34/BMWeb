@@ -527,6 +527,18 @@ def _menu_ir(toks, id2name):
                 # would have fired on a keypress like any read.
                 if _PERSISTENT_WRITE.search(nm):
                     entry["writeJob"] = True
+        elif t["op"] == "call" and t["n"] in (0x5c, 0x79) \
+                and cur_label is not None:
+            # A PC file operation: 5c shows a named file, 79 opens one (LWS5's
+            # "Read Pr." displays na_fs_pr.tmp; "Delete Pr." reopens it "w" to
+            # truncate it). INPA writes these logs on the diagnostic PC.
+            # Recorded from what the item DOES, since the captions vary -- but
+            # only meaningful once the whole item is known, because a real
+            # fault key ALSO writes the log after reading the ECU.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["_file"] = True
         elif t["op"] == "call" and t["n"] in (0x3f, 0x46) \
                 and cur_label is not None:
             # an input dialog: INPA asks the user for a value and builds the
@@ -590,6 +602,15 @@ def _menu_ir(toks, id2name):
             items.append({"nr": nr, "label": si["label"],
                           **({"startsDisabled": True} if not si["enabled"]
                              else {})})
+    # An item that ONLY touches a file is a PC action, not an ECU one: LWS5's
+    # "Read protocol file" displays na_fs_pr.tmp and "Delete Protocol file"
+    # truncates it. A real fault key writes that same log AFTER reading the
+    # ECU, so the flag only means "file action" once nothing else is on the
+    # item -- no job, no screen, no menu.
+    for it in items:
+        if it.pop("_file", None) and not any(
+                it.get(k) for k in ("job", "screen", "menu", "action")):
+            it["fileAction"] = True
     # INPA lays its softkeys out by number, so the menu reads in F-key order
     # rather than in the order the bytecode happens to declare them
     items.sort(key=lambda x: (x.get("nr") is None, x.get("nr") or 0))

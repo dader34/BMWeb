@@ -201,6 +201,42 @@ ok(!irIsCard(g.screens['s_analog_1']),
      'a status page still opens a menu instead of its screen');
 }
 
+// ---- a PC file operation is not an ECU function --------------------------
+// LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
+// the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
+// Neither touches the car, and no caption pattern would catch them -- the
+// emitter flags them from the bytecode (builtins 5c/79) instead. It must not
+// swallow a key that ALSO reads the ECU: LWS5's own "Read"/"Clear" write that
+// same log after their job, and a fault read is INPA's library doing exactly
+// this (it writes na_fs.tmp and shows it) while being a real function.
+{
+  const lw = load('LWS5');
+  const fm = lw.menus.m_fehler.items;
+  const byNr = (n) => fm.find(i => i.nr === n) || {};
+  ok(byNr(1).job === 'ABGLEICH_LESEN' && !byNr(1).fileAction,
+     'LWS5 F1 reads the ECU and must not be flagged a file action');
+  ok(byNr(2).job === 'FS_LOESCHEN' && !byNr(2).fileAction,
+     'LWS5 F2 clears the ECU and must not be flagged a file action');
+  for (const n of [3, 4]) {
+    ok(byNr(n).fileAction, `LWS5 F${n} is a protocol-file action`);
+  }
+  const shown = irMenuItems(lw, 'm_fehler').map(i => i.label);
+  ok(!shown.some(l => /protocol file/i.test(l)),
+     `a protocol-file action is still listed: ${shown}`);
+  ok(shown.some(l => /^Read error memory$/i.test(l))
+     && shown.some(l => /^Clear error memory$/i.test(l)),
+     `LWS5 lost a real fault key: ${shown}`);
+  // fault reads route through INPA's own library and look like file I/O; RDC
+  // and SZL must keep theirs
+  for (const e of ['RDC', 'SZL']) {
+    const ir2 = load(e);
+    const err = rootKey(ir2, /^(Error|Fehler)/i);
+    const items = irMenuItems(ir2, err.menu).map(i => i.label);
+    ok(items.some(l => IR_FAULT_READ.test(l)),
+       `${e} lost its fault read to the file-action filter: ${items}`);
+  }
+}
+
 // ---- root menu lists ECU functions, not INPA's own tools -----------------
 // RDC F11 "Change" runs kvp_edit and F15 "Extra" loads another .IPO; neither
 // touches the car. Detected from what the item does (a scriptchange call or a
