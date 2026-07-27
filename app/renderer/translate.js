@@ -36,6 +36,27 @@ const FAULT_PHRASES = [
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
 const DE_TOKENS = [
+  // ---- climate actuator names (IHKA STEUERN_* job labels) ----
+  // Compounds ahead of the single-word rules: "Heizspannung" must not become
+  // the hybrid "Heizvoltage", nor "Standheizung" become "Standheater".
+  [/\bHeizspannung\b/gi, 'Heater voltage'],
+  [/\bStandheizung\b/gi, 'Auxiliary heater'],
+  [/\bZusatzheizung\b/gi, 'Supplementary heater'],
+  [/\bKlimakompressor\b/gi, 'A/C compressor'],
+  [/\bSperrventil\b/gi, 'Shut-off valve'],
+  [/\bWasserventil\b/gi, 'Water valve'],
+  [/\bZusatzwasserpumpe\b/gi, 'Auxiliary water pump'],
+  [/\bZusatzluefter\b|\bZusatzlüfter\b/gi, 'Auxiliary fan'],
+  [/\bUmluftklappe\b/gi, 'Recirculation flap'],
+  [/\bFrischluftklappe\b/gi, 'Fresh air flap'],
+  [/\bKlappenposition\b/gi, 'Flap position'],
+  [/\bHeckscheibe\b/gi, 'Rear window'],
+  [/\bFrontscheibe\b/gi, 'Windscreen'],
+  // INPA captions this one "Compr." beside STEUERN_KLIMAKOMPRESSOR: KO is
+  // Kompressor, the A/C compressor request to the DME
+  [/\bDME[\s_]KO\b/gi, 'A/C compressor request (DME)'],
+  [/\bDME[\s_]AC\b/gi, 'A/C enable (DME)'],
+
   // ---- climate/body jargon INPA prints in its own English ----
   // These are not German, so nothing above touches them, but they are terms
   // only a BMW manual explains. Stratification is the flap that layers airflow

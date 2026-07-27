@@ -893,6 +893,11 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .sync-step.failed .sync-state { color: var(--red); }
 .sync-step.idle .sync-state { color: var(--ink-faint); }
 
+/* the state word on an INPA actuator row (running / needs input): text, not a
+   control — the row itself is what you click */
+.act-row .act-key-val { font-size: 11px; letter-spacing: .04em; color: var(--ink-faint); }
+.act-row.running .act-key-val { color: var(--green); }
+
 /* INPA's post-drive readout: it shows the signal state rather than treating
    the send as fire-and-forget, which is how it works without a stop job. */
 .act-drive-note {
