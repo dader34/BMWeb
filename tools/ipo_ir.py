@@ -411,7 +411,19 @@ def _menu_ir(toks, id2name):
             if entry is None:
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
-            entry["screen" if t["kind"] == 0x40 else "menu"] = tgt
+            # An item can name SEVERAL targets: INPA picks by variant at
+            # runtime. DWS's F5 "Status" calls setscreen three times
+            # (s_status_io2, s_status_io3, s_ident) and last-wins landed on
+            # s_ident -- the same screen as F2 Ident, which is why Read status
+            # and Information looked identical. Keep the FIRST, which is the
+            # variant-specific screen, and record the rest.
+            slot = "screen" if t["kind"] == 0x40 else "menu"
+            if slot not in entry:
+                entry[slot] = tgt
+            elif entry[slot] != tgt:
+                alts = entry.setdefault(slot + "Alts", [])
+                if tgt not in alts:
+                    alts.append(tgt)
         elif t["op"] == "call" and t.get("name") == "INPAapiJob" \
                 and cur_label is not None:
             # an item that calls its OWN job (RDC F18 Sleep -> SLEEP_MODE):
@@ -608,6 +620,21 @@ def main():
                       if i.get("nr") == 18), None)
         if not sleep or sleep.get("job") != "SLEEP_MODE":
             fails.append(f"RDC F18 should call SLEEP_MODE, got {sleep}")
+
+        # A root item may name several screens (INPA picks by variant).
+        # Last-wins put DWS's F5 "Status" on s_ident -- the same screen as F2
+        # Ident -- so Read status and Information rendered identically.
+        d = build("DWS")
+        droot = d["menus"][d["entry"]["menu"]]["items"]
+        f5 = next((i for i in droot if i.get("nr") == 5), None)
+        if not f5 or f5.get("screen") != "s_status_io2":
+            fails.append(f"DWS F5 Status should open s_status_io2, got "
+                         f"{f5 and f5.get('screen')}")
+        if not f5 or "s_ident" not in (f5.get("screenAlts") or []):
+            fails.append("DWS F5 lost its variant alternatives")
+        print(f"  ir         DWS F5 Status -> {f5 and f5.get('screen')} "
+              f"(+{len((f5 or {}).get('screenAlts') or [])} variants), "
+              f"distinct from F2 Ident")
         print(f"  ir         GSDS2 {len(g['screens'])} screens "
               f"({len(gk)}/7 ana gauges), RDC {len(r['screens'])} screens, "
               f"{len(wj)} write-flagged of {len(rj)} jobs")
