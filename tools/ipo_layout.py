@@ -103,8 +103,29 @@ _MENU_NAV_LABELS = {"Drucken", "Zurück", "Zurueck", "ENDE", "Ende", "Exit",
 
 
 def _decl_tables(data):
-    """id -> proc/menu name, split by namespace (screens vs menus)."""
+    """id -> proc/menu name, split by namespace (screens vs menus).
+
+    Two passes. The old pattern anchored on `0c 81 <u16>` before the
+    declaration -- that is really the PREVIOUS proc's last builtin call
+    (ipo_disasm cracked the format), so it silently missed every proc whose
+    predecessor ended some other way. GSDS2's s_code, s_analog_1 and
+    s_leitungen were all invisible to it, which is how F3 Coding was
+    mis-diagnosed as a dead key. The disassembler's declaration grammar
+    (<type> <name> 0a <u32 id>, bounded by the constant pool) finds them all;
+    the old pass is kept as a fallback for files the pool finder cannot bound.
+    """
     screens, menus = {}, {}
+    try:
+        import ipo_disasm
+        ps, _pool = ipo_disasm.find_pool(data)
+        if ps:
+            for off, typ, name, pid in ipo_disasm.find_decls(data, ps):
+                if typ == "screen":
+                    screens.setdefault(pid, name)
+                elif typ == "menu":
+                    menus.setdefault(pid, name)
+    except Exception:                       # noqa: BLE001
+        pass
     for m in _RE_DECL.finditer(data):
         typ, name, pid = m.group(1)[0], m.group(2).decode("latin-1"), m.group(3)[0]
         (menus if typ == 2 else screens).setdefault(pid, name)

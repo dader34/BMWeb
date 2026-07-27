@@ -259,6 +259,12 @@ def main():
         if os.path.exists(STATUS):
             with open(STATUS, encoding="utf-8") as f:
                 statuses = json.load(f)
+        # full per-screen decode (tools/ipo_disasm.py): fields per screen
+        decompiled = {}
+        dec_path = os.path.join(OUT, "_decompiled.json")
+        if os.path.exists(dec_path):
+            with open(dec_path, encoding="utf-8") as f:
+                decompiled = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -289,8 +295,105 @@ def main():
             # not decoded (declaration bodies hold dispatch, and the captions
             # live in a separate section), so the UI keeps sourcing values from
             # gaugeSpecs and uses this for INPA's own grouping and order.
+            # an ECU whose status menu is not named m_status (RDC uses
+            # m_rdc_status) is invisible to tools/ipo_status.py's name match;
+            # derive it structurally instead: the root menu's Status item
+            # names its softkey menu via setmenu, and that menu's items are
+            # the pages
+            if ecu not in statuses and ecu in decompiled:
+                dmen = decompiled[ecu].get("menus") or {}
+                root = dmen.get("m_main") or next(iter(dmen.values()), [])
+                stat = next((i for i in root
+                             if re.match(r"^(Status|Read status|Status lesen)",
+                                         i.get("label", ""), re.I)
+                             and i.get("menu")), None)
+                if stat and stat["menu"] in dmen:
+                    items = []
+                    seen_tgt = {}
+                    for it in dmen[stat["menu"]]:
+                        lbl = it.get("label", "").strip()
+                        tgt = it.get("target")
+                        if not lbl or not tgt \
+                                or re.match(r"^(Back|Exit|Print|Zur|End|Activ)",
+                                            lbl, re.I):
+                            continue
+                        # a write item whose SCREEN duplicates a read item
+                        # (RDC "MV write" opens the same s_abgleichwert_lesen
+                        # as "MV read"): INPA's difference is an input dialog
+                        # and a write job in the ITEM body, both refused until
+                        # verified on a car. What remains is an exact
+                        # duplicate of the read page, so drop it rather than
+                        # list two identical entries.
+                        if tgt in seen_tgt \
+                                and re.search(r"write|schreiben|reset|clear|"
+                                              r"loeschen|lösch", lbl, re.I):
+                            continue
+                        seen_tgt[tgt] = lbl
+                        items.append({"label": lbl, "targets": [tgt],
+                                      "resolved": True})
+                    if items:
+                        statuses = dict(statuses)
+                        statuses[ecu] = {"menu": {"name": stat["menu"],
+                                                  "items": items}}
             if ecu in statuses:
-                out["statusMenu"] = statuses[ecu]["menu"]
+                menu_out = json.loads(json.dumps(statuses[ecu]["menu"]))
+                # each page's REAL rows, from the decompiler: resolve the
+                # item's target screens and take their fields (key, INPA's
+                # caption, unit, range). Multi-target items are gearbox/
+                # hardware variants of one page -- union them, dedup by key,
+                # since the variant is only knowable with the car attached.
+                dec = decompiled.get(ecu)
+                # SGBD result descriptions, for fields the screen displays
+                # without a caption (RDC's loop screens print results at
+                # computed positions, so no static label exists). German descs
+                # are fine here: the renderer routes labels through deGerman.
+                sg = r.get("sgbd")
+                desc_of = {}
+                if sg and sg in cache:
+                    for _j, _fl in cache[sg]["harvested"].items():
+                        for _f in _fl:
+                            if _f.get("desc"):
+                                desc_of.setdefault(_f["key"], _f["desc"])
+                if dec:
+                    for it in menu_out.get("items", []):
+                        fields, jobs, seen = [], [], set()
+                        for tgt in it.get("targets", []):
+                            scr = dec["screens"].get(tgt)
+                            if not scr:
+                                continue
+                            for j in scr.get("jobs", []):
+                                # the UI polls these automatically; a write
+                                # job (RDC "MV write" -> ABGLEICHWERT_
+                                # SCHREIBEN) must never ride along
+                                if re.search(r"SCHREIBEN|STEUERN|RESET|"
+                                             r"LOESCHEN|CLEAR|WRITE", j, re.I):
+                                    continue
+                                if j not in jobs:
+                                    jobs.append(j)
+                            for f in scr.get("fields", []):
+                                k = f.get("key")
+                                if not k or k in seen:
+                                    continue
+                                seen.add(k)
+                                g = {x: f[x] for x in
+                                     ("key", "label", "kind", "unit", "min",
+                                      "max", "on", "off", "line")
+                                     if f.get(x) is not None}
+                                # "Voltage Clamp 30E [Volt]" carries its unit
+                                # in the caption; split it out
+                                lb = g.get("label") or ""
+                                if "unit" not in g and lb.endswith("]") \
+                                        and "[" in lb:
+                                    g["unit"] = lb[lb.rindex("[") + 1:-1]
+                                    g["label"] = lb[:lb.rindex("[")].strip()
+                                if not g.get("label") and k in desc_of:
+                                    g["label"] = desc_of[k]
+                                fields.append(g)
+                        if fields:
+                            it["fields"] = fields
+                        if jobs:
+                            it["jobs"] = jobs
+                out["statusMenu"] = menu_out
             # INPA's own unit and range per readout, for layouts whose rows
             # have neither. A `descending` range is NOT emitted: the sign is
             # absent from the bytes, so -45..40 and 45..40 are indistinguishable

@@ -464,7 +464,7 @@ const FKEY_LABEL = {
   'Abgas': 'Exhaust', 'Laufunruhe': 'Rough running',
   'Überdrehzahl': 'Overrev', 'Übertemp': 'Overtemp',
 };
-const fkeyLabel = (l) => FKEY_LABEL[l] || l;
+const fkeyLabel = (l) => FKEY_LABEL[l] || deGerman(l) || l;
 
 // number keys 1..9 bind to footer F-keys; anything past that needs another selector
 const FKEY_SLOTS = 9;
@@ -604,6 +604,43 @@ function renderStatusFkeyPages(chassisId, sectionName, ecu, menu, layout, mStatu
 // screens, one per gearbox variant (s_ana2_834, s_ana2_860, ...), because INPA
 // picks at runtime from the gearbox type. We cannot know the variant offline,
 // so the entry opens once and the count reflects the whole section.
+// Which readouts belong on one of INPA's status pages.
+//
+// INPA's own per-page field list is not decoded (a screen's declaration body
+// holds its dispatch; the captions live in another section of the file). But
+// the page's NAME says what kind of page it is -- s_schalter is switches,
+// s_ventile_834 is valves, s_ana2_860 is analog -- and the ECU's result keys
+// carry the same distinction:
+//
+//     Valves   STAT_MV1_EIN .. STAT_MV6_EIN, STAT_MVSL_EIN, STAT_L1..L4_EIN
+//     Analog   STAT_*_WERT  (the seven gauges with a unit and a range)
+//     Switches STAT_BREMSSIGNAL_EIN, STAT_KICK_DOWN_EIN, STAT_TIP_UP_EIN ...
+//     Gear     STAT_GANG, STAT_WAEHLHEBEL_POSITION, STAT_SCHALTUNGSART_*
+//
+// so a page can be filtered by kind even without INPA's exact list. This is
+// deliberately a KIND match, not a claim to reproduce INPA's page exactly:
+// where the name says nothing recognisable the filter is null and the page
+// shows every readout, which is what all six keys did before.
+// Order matters and each kind EXCLUDES the ones above it: the solenoid keys
+// end in _EIN just like the switches do, so an unordered match put MV1..MV6 on
+// the Switches page as well as on Valves. A page therefore takes what it owns
+// minus what a more specific page already claimed.
+const STATUS_PAGE_KINDS = [
+  ['valves',   /ventil|valve/i,            /_MV[0-9A-Z]*_|^STAT_L[0-9]+_/i],
+  ['analog',   /ana|analog|mwb|messwert/i, /_WERT$/i],
+  ['gear',     /gang|gear|getriebe/i,      /GANG|WAEHLHEBEL|SCHALTUNGSART|PROG_MODUS/i],
+  ['switches', /schalter|switch|digital/i, /_EIN$|_TASTER|_SIGNAL/i],
+];
+
+function pageFilter(item) {
+  const names = [item.label, ...(item.targets || [])].join(' ');
+  const i = STATUS_PAGE_KINDS.findIndex(([, name]) => name.test(names));
+  if (i < 0) return null;
+  const mine = STATUS_PAGE_KINDS[i][2];
+  const claimedAbove = STATUS_PAGE_KINDS.slice(0, i).map(k => k[2]);
+  return { test: (k) => mine.test(k) && !claimedAbove.some(re => re.test(k)) };
+}
+
 function renderStatusMenu(chassisId, sectionName, ecu, menu, sec, layout, view, results) {
   const items = (layout.statusMenu.items || []).filter(i => i.resolved);
   const backToEcu = () => showEcu(chassisId, sectionName, ecu);
@@ -627,26 +664,95 @@ function renderStatusMenu(chassisId, sectionName, ecu, menu, sec, layout, view, 
   const jobs = [...new Set(sec.items.map(i => i.job).filter(Boolean))]
     .filter(j => /STATUS|MESSWERT|STAT_/i.test(j));
 
-  const pageScreens = () => {
-    if (!specs.length || !jobs.length) return [];
-    const rows = specs.map(g => ({
-      key: g.key, label: g.label, unit: g.unit, min: g.min, max: g.max,
-    }));
-    // one screen per status job; showInpaScreens reads them all each tick and
-    // keeps only the keys the ECU answers, so a gauge on another page simply
-    // does not appear rather than showing blank
-    return jobs.map(job => ({ job, group: 'Status', rows }));
+  // gaugeSpecs only covers readouts INPA gives a [unit] -- on GSDS2 that is 19
+  // analog values and none of the switches, solenoids or gear positions. So
+  // the rows come from the JOB's own result list (offline, via _RESULTS) and
+  // gaugeSpecs supplies INPA's label/unit/range for the keys it knows.
+  const byKey = new Map(specs.map(g => [g.key, g]));
+  const resultCache = new Map();
+
+  const jobResults = async (job) => {
+    if (resultCache.has(job)) return resultCache.get(job);
+    let keys = [];
+    try {
+      // ResultsOf returns plain strings, formatted "NAME : comment"
+      const d = await api(`/api/ecu/${ecu.sgbd}/results/${job}`);
+      keys = (Array.isArray(d) ? d : [])
+        .map(s => String(s).split(':')[0].trim())
+        .filter(Boolean);
+    } catch { keys = []; }
+    resultCache.set(job, keys);
+    return keys;
   };
 
-  const open = (item, n) => {
-    const screens = pageScreens();
+  const pageScreens = async (item) => {
+    // the decompiled page (tools/ipo_disasm.py): INPA's own rows for THIS
+    // page -- key, caption, unit, range -- plus the job that reads them.
+    // This is the real per-page split; the kind-filter below only remains
+    // for ECUs the decompiler cannot bound.
+    if (Array.isArray(item.fields) && item.fields.length) {
+      const pageJobs = (item.jobs && item.jobs.length) ? item.jobs : jobs;
+      // pool strings carry whatever language the .IPO was compiled in --
+      // BMW resolved @...@ at build time and shipped no dictionary -- so
+      // German-built files reach us German and go through deGerman like
+      // every other mined label in the app
+      const state = (s) => {
+        if (s == null) return s;
+        const t = s.trim();
+        if (/^EIN$/i.test(t)) return 'ON';
+        if (/^AUS$/i.test(t)) return 'OFF';
+        if (/^JA$/i.test(t)) return 'YES';
+        if (/^NEIN$/i.test(t)) return 'NO';
+        return deGerman(t) || t;
+      };
+      const rows = item.fields.map(f => ({
+        key: f.key,
+        label: f.label ? (deGerman(f.label) || f.label) : jobLabel(f.key),
+        unit: f.unit && (deGerman(f.unit) || f.unit),
+        min: f.min, max: f.max,
+        on: state(f.on), off: state(f.off), kind: f.kind,
+      }));
+      return pageJobs.slice(0, 1).map(job => ({ job, group: 'Status', rows }));
+    }
+    if (!jobs.length) return [];
+    const want = pageFilter(item);
+    const out = [];
+    for (const job of jobs) {
+      const keys = await jobResults(job);
+      const rows = keys
+        // the _EINH companion carries a key's unit, not a reading of its own
+        .filter(k => !/_EINH$/.test(k))
+        .filter(k => !want || want.test(k))
+        .map(k => {
+          const g = byKey.get(k);
+          return g ? { key: k, label: g.label, unit: g.unit,
+                       min: g.min, max: g.max }
+                   : { key: k, label: jobLabel(k) };
+        });
+      if (rows.length) out.push({ job, group: 'Status', rows });
+    }
+    return out;
+  };
+
+  // if any page carries decompiled fields, this ECU's menu is fully decoded;
+  // a field-less sibling is then an ACTION (RDC's "WE reset"), and dumping
+  // every result key from the section's job buckets onto it — 100 raw
+  // STAT_* names — is exactly the un-INPA fallback this menu replaces
+  const decoded = items.some(i => Array.isArray(i.fields) && i.fields.length);
+
+  const open = async (item, n) => {
+    const screens = (decoded && !(item.fields || []).length)
+      ? [] : await pageScreens(item);
     if (screens.length) {
       showInpaCategory(ecu, screens, results, fkeyLabel(item.label));
     } else {
-      // nothing decodable for this ECU: say so rather than show a failed read
+      // an action page, or nothing decodable: say so, don't dump keys
       results.className = 'results-panel';
       results.innerHTML = `<div class="empty"><div>`
-        + `INPA lists this page, but its readouts are not decoded for this ECU.`
+        + (decoded
+          ? `In INPA this entry performs an action, not a readout — it is `
+            + `not offered here until verified on a car.`
+          : `INPA lists this page, but its readouts are not decoded for this ECU.`)
         + `</div></div>`;
     }
     sbLeft.textContent = `${ecu.sgbd}.prg · ${item.label}`;
@@ -661,9 +767,13 @@ function renderStatusMenu(chassisId, sectionName, ecu, menu, sec, layout, view, 
     fn: () => open(item, n),
   }));
 
-  // a page whose target list has >1 entry is variant-selected at runtime
-  const note = (item) => item.targets.length > 1
-    ? `${item.targets.length} variants` : '';
+  // decompiled pages show their real row count; multi-target pages are
+  // variant-selected at runtime and show as such
+  const note = (item) => {
+    if (Array.isArray(item.fields) && item.fields.length)
+      return `${item.fields.length} value${item.fields.length === 1 ? '' : 's'}`;
+    return item.targets.length > 1 ? `${item.targets.length} variants` : '';
+  };
 
   if (inpaMode()) {
     results.className = 'results-panel';

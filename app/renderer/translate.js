@@ -36,6 +36,29 @@ const FAULT_PHRASES = [
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
 const DE_TOKENS = [
+  // ---- RDC (tire pressure) result descriptions ----
+  // SGBD descs like "Anzahl 'Sensor-defekt'-Ereignisse"; compounds first,
+  // same ordering rule as everywhere else in this table.
+  [/Anzahl '([^']+)'-Ereignisse/gi, "'$1' event count"],
+  [/Anzahl '([^']+)'-Meldungen/gi, "'$1' messages"],
+  [/\bReifenpannen?\b/gi, 'flat tire'],
+  [/\bReifendruck-?pruefen\b/gi, 'check tire pressure'],
+  [/\bReifendruck\b/gi, 'tire pressure'],
+  [/\bSensor-?defekt\b/gi, 'sensor defective'],
+  [/\bRE-?sendet-?nicht\b/gi, 'wheel unit not transmitting'],
+  [/\bRE-?ueberhitzt\b/gi, 'wheel unit overheated'],
+  [/\bDruck-?pruefen\b/gi, 'check pressure'],
+  [/\bzugeordnet\+bestaetigt\b/gi, 'assigned + confirmed'],
+  [/\btemporaerer Inaktiv-?Zustaende\b/gi, 'temporary inactive states'],
+  [/\bEigenraderkennung\b/gi, 'own-wheel detection'],
+  [/\baktueller?\b/gi, 'current'],
+  // wheel positions, German -> English. Case-sensitive on purpose: VL/HL as
+  // two-letter fragments appear inside ordinary words under /i.
+  [/\bVL\b/g, 'FL'], [/\bVR\b/g, 'FR'],
+  [/\bHL\b/g, 'RL'], [/\bHR\b/g, 'RR'],
+  [/\bKalibrierung\b/gi, 'calibration'],
+  [/\babgebrochen\b/gi, 'aborted'],
+  [/\bbestaetigt\b/gi, 'confirmed'],
   // ---- climate actuator names (IHKA STEUERN_* job labels) ----
   // Compounds ahead of the single-word rules: "Heizspannung" must not become
   // the hybrid "Heizvoltage", nor "Standheizung" become "Standheater".
