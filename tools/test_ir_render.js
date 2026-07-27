@@ -236,6 +236,25 @@ ok(new Set(mvScreens.map(s => s.args)).size === 5,
 ok(!irIsCard(mv),
    'a per-position screen must not collapse onto one card keyed by result name');
 
+// A screen with several jobs becomes one poll PER JOB, each carrying the whole
+// row list (every job answers its own subset). The value count is therefore
+// the DISTINCT rows -- summing per poll reported KOMBI's 7-job, 18-row CAN
+// page as "126 values" and its 3-job Analog page as 30.
+{
+  const kbc = load('KOMBI');
+  for (const [name, jobs, rows] of [['s_status_can_36C_38_39C_46', 7, 18],
+                                    ['s_status_analog_46', 3, 10],
+                                    ['s_status_toens_io_46', 2, 5]]) {
+    const polls = irScreens(kbc.screens[name]);
+    ok(polls.length === jobs,
+       `${name} should poll ${jobs} jobs, got ${polls.length}`);
+    const distinct = new Set(polls.flatMap(
+      p => p.rows.map(r => `${r.key}:${r.arg || ''}`))).size;
+    ok(distinct === rows,
+       `${name} should show ${rows} values, got ${distinct}`);
+  }
+}
+
 // ---- a key with BOTH a menu and a screen opens the menu -------------------
 // INPA's root keys set the screen and the softkey menu together (Status ->
 // s_status + m_rdc_status). s_status is only the window the menu is drawn in
