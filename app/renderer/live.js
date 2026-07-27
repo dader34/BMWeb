@@ -450,10 +450,13 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
       for (const r of gridOrder(scr)) {
         ri++;
         if (!vals.has(r.key)) continue;
-        // INPA draws the same result under several captions on one screen
-        // (KOMBI prints STAT_U_BATT_WERT as clamp 30, 58g HIGH and 58g LOW).
-        // Keying a cell by job:key alone collapsed those into one.
-        const ck = `${scr.job}:${r.key}:${ri}`;
+        // A cell is one drawn ROW, not one job's answer. INPA draws the same
+        // result under several captions on one screen (KOMBI prints
+        // STAT_U_BATT_WERT as clamp 30, 58g HIGH and 58g LOW), so the caption
+        // is part of the identity -- but the screen's jobs are NOT: every job
+        // carries the whole row list and answers its own subset, so keying by
+        // job would draw one cell per job that happens to return the key.
+        const ck = `${r.key}:${r.arg || ''}:${r.label || ''}:${ri}`;
         let cell = cellEls.get(ck);
         if (!cell) {
           cell = document.createElement('div');
@@ -469,9 +472,13 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
     if (added) pager.relayout();
     if (alive) {
-      // declared vs answered: a screen row the ECU's job does not return
-      // cannot be drawn, so say so rather than silently showing fewer
-      const want = screens.reduce((n, s) => n + gridOrder(s).length, 0);
+      // Declared vs answered: a screen row the ECU's job does not return
+      // cannot be drawn, so say so rather than silently showing fewer.
+      // One IR screen becomes one entry PER JOB, each carrying the whole row
+      // list (each job answers its own subset), so count distinct rows --
+      // summing per entry reported a 7-job 18-row CAN page as "126 values".
+      const want = new Set(screens.flatMap(
+        s => gridOrder(s).map(r => `${r.key}:${r.arg || ''}`))).size;
       meta.textContent = (demoMode() ? 'DEMO · ' : 'live · ')
         + (want > cellEls.size ? `${cellEls.size} of ${want} values`
                                : `${cellEls.size} values`);
