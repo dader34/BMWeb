@@ -27,6 +27,10 @@ const actRunnable = (a) => a.runnable !== false;
 // argument names for a message, from the {name,type,options} specs
 const argNames = (a) => (a.args || []).map(g => (g && g.name) || g).join(' + ');
 // arguments the caller has to choose from a list the SGBD supplied
+// does any actuator job on THIS ECU accept this argument value?
+const argValueOffered = (acts, value) => (acts || []).some(a =>
+  (a.args || []).some(g => (g.options || []).some(o => o.value === value)));
+
 const argChoices = (a) => (a.args || []).filter(g => g && (g.options || []).length);
 
 // activate/stop caption + styling. The modern card passes a real <button>;
@@ -507,6 +511,9 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
         const driver = acts.find(x => (x.args || [])
           .some(g => (g.options || []).some(o => o.value === it.argValue)));
         if (driver) { driveArgValue(ecu, driver, it, container); return; }
+        // the .IPO lists it, this ECU's SGBD does not declare it
+        sbLeft.textContent = `${it.label}: not available on this ECU`;
+        return;
       }
       const a = jobFor(it.label, it);
       if (!a) { sbLeft.textContent = `${it.label}: no job mapped`; return; }
@@ -538,15 +545,23 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       // some ECUs drive everything through ONE job and name the component in
       // an argument (GSDS2: STEUERN_STELLGLIED with STELLGL=MAGNETVENTIL_2),
       // so the entry is an argument value, not a job of its own
-      const av = !sub && it.argValue ? it.argValue : null;
+      // ...but only when THIS ECU declares it. The .IPO ships one Activate
+      // menu covering every transmission variant, so GSDS2 lists EDS 1-5
+      // while ags732's SGBD declares only EDS_1: the rest belong to other
+      // gearboxes and must read as unavailable rather than as dead rows.
+      const av = !sub && it.argValue && argValueOffered(acts, it.argValue)
+        ? it.argValue : null;
+      const missing = !sub && it.argValue && !av;
       const note = it.items && it.items.length ? `${it.items.length} tests`
                  : it.submenu ? 'submenu'
                  : av ? av
+                 : missing ? 'not on this ECU'
                  : a ? (actRunnable(a) ? a.start : 'needs input')
                  : 'no job mapped';
       if (inpa) {
         const row = document.createElement('button');
-        row.className = 'inpa-fn act-key-row' + (!sub && !a ? ' act-blocked-card' : '');
+        row.className = 'inpa-fn act-key-row'
+          + (!sub && !a && !av ? ' act-blocked-card' : '');
         row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.fkey} &gt;</span>`
           + `<span class="inpa-fn-label">${esc(label)}${sub ? ' ▸' : ''}</span>`
           + `<span class="act-key-val">${esc(note)}</span>`;
@@ -555,7 +570,7 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
         return;
       }
       const tile = document.createElement('div');
-      tile.className = 'group-tile' + (!sub && !a ? ' act-blocked-card' : '');
+      tile.className = 'group-tile' + (!sub && !a && !av ? ' act-blocked-card' : '');
       tile.innerHTML = `
         <div class="group-name">${esc(label)}</div>
         <div class="group-count">${esc(note)}</div>
