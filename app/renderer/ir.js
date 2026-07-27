@@ -216,15 +216,29 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
 
   const open = async (it) => {
     if (it.inPlace) {
-      // INPA arms this on the menu and the screen sends the job; neither the
-      // arming nor the job is decoded, and an actuator must not fire on a
-      // guess. Show what INPA offers and say plainly why it is inert.
+      // INPA runs this from the menu: each key sets its own REQ/VAL pair in
+      // ONE argument string, and a single job re-commands every actuator on
+      // the ECU at once. The pairing is decoded (comp.items) -- what is not
+      // established is the neutral word: whether all-REQ-zero is a true
+      // no-op. Until that is confirmed on a car, pressing one key would be
+      // asserting a value for six actuators nobody chose.
+      const comp = (ir.menus[menuName] || {}).composite;
+      const pair = comp && comp.items && comp.items[String(it.nr)];
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
         + `<strong>${esc(it.label)}</strong></div>`
-        + `<div>INPA runs this from the menu itself — the screen sends the `
-        + `command once armed. That sequence is not decoded, so this is `
-        + `listed but not runnable here.</div></div>`;
+        + (pair
+          ? `<div>INPA sends this as part of <code>${esc(comp.job)}</code> — `
+            + `one job carrying all ${comp.fields} fields, of which this key `
+            + `owns arguments ${pair[0]} and ${pair[1]} (its enable and its `
+            + `value). Every press re-commands all `
+            + `${Object.keys(comp.items).length} actuators at once, so it `
+            + `stays inert until the all-off baseline is verified on a car.`
+            + `</div>`
+          : `<div>INPA runs this from the menu itself. The command sequence `
+            + `is not decoded, so this is listed but not runnable here.`
+            + `</div>`)
+        + `</div>`;
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · not runnable`;
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',

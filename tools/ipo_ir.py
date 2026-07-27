@@ -75,6 +75,7 @@ import re
 import sys
 import json
 import glob
+import collections
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ipo_screens as L1                                        # noqa: E402
@@ -82,6 +83,8 @@ import ipo_disasm as D                                          # noqa: E402
 
 IR_VERSION = 1
 OUT_DIR = os.path.join(os.path.dirname(L1.OUT), "inpa-ir")
+
+_KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
 
 _WRITE_JOB = re.compile(r"SCHREIBEN|STEUERN|RESET|LOESCHEN|CLEAR|WRITE", re.I)
 
@@ -261,6 +264,83 @@ def _screen_ir(toks):
     return out
 
 
+def _composite(toks):
+    """An actuator menu that builds ONE ';'-joined argument for ONE job.
+
+    INPA's actuator keys are not separate commands. Each ITEM flips variable
+    slots, the menu concatenates every slot into a single argument string, and
+    one job sends the lot:
+
+        ITEM "DWA"   -> slot 67 = 0|1, slot 68 = 0|1
+        arg = s65 ';' s66 ';' s67 ... ';' s78
+        INPAapiJob(sgbd, "STEUERN_DIGITAL", arg, "")
+
+    So pressing one key re-commands EVERY actuator on the ECU. The SGBD names
+    the fields (RDC: 7 REQ/VAL pairs -- TST_REQ/TST_VAL, DWA_REQ/DWA_VAL ...),
+    and their order is the order slots are appended here -- which is NOT the
+    F-key order (RDC appends CAL sixth while it sits on F3), so the two must
+    be joined by position, never assumed parallel.
+
+    Returns {job, order:[slot], items:{slot: [slots this ITEM sets]}} or None.
+    37 ECUs corpus-wide build an argument this way.
+    """
+    # the slot the argument string accumulates into: stored repeatedly, each
+    # time from itself plus ';' plus another slot
+    joins = collections.Counter()
+    for i, t in enumerate(toks):
+        if t["op"] != "store":
+            continue
+        seg = toks[max(0, i - 10):i]
+        if not any(x["op"] == "const" and x.get("v") == ";" for x in seg):
+            continue
+        if any(x["op"] == "var" and x["n"] == t["n"] for x in seg):
+            joins[t["n"]] += 1
+    if not joins:
+        return None
+    acc, n = joins.most_common(1)[0]
+    if n < 2:
+        return None
+
+    # the job it feeds, and the append order
+    job = None
+    for i, t in enumerate(toks):
+        if t["op"] == "call" and t.get("name") == "INPAapiJob":
+            seg = toks[max(0, i - 8):i]
+            if any(x["op"] == "var" and x["n"] == acc for x in seg):
+                nm = next((x["v"] for x in seg if x["op"] == "const"
+                           and x.get("t") == "s" and _KEYISH.match(x["v"])),
+                          None)
+                if nm:
+                    job = nm
+                    break
+    if not job:
+        return None
+
+    order = []
+    for i, t in enumerate(toks):
+        if t["op"] == "store" and t["n"] == acc:
+            seg = toks[max(0, i - 10):i]
+            vs = [x["n"] for x in seg if x["op"] == "var" and x["n"] != acc]
+            for v in vs:
+                if v not in order:
+                    order.append(v)
+                    break
+
+    # which slots each ITEM writes
+    items, cur = {}, None
+    for t in toks:
+        if t["op"] == "ITEM":
+            cur = t.get("nr")
+            items.setdefault(cur, [])
+        elif t["op"] == "store" and cur is not None and t["n"] in order:
+            if t["n"] not in items[cur]:
+                items[cur].append(t["n"])
+    items = {k: v for k, v in items.items() if v}
+    if not items:
+        return None
+    return {"job": job, "order": order, "items": items}
+
+
 def _menu_ir(toks, id2name):
     items, cur_nr, cur_label = [], None, None
     entry = None
@@ -335,7 +415,25 @@ def build(ecu):
             scr["id"] = pid
             ir["screens"][name] = scr
         elif typ == "menu":
-            ir["menus"][name] = _menu_ir(toks, id2name)
+            m = _menu_ir(toks, id2name)
+            comp = _composite(toks)
+            if comp:
+                # slot -> its index in the argument string. The SGBD's
+                # _ARGUMENTS list is positional, so index i is argument i --
+                # names get attached by the app, which can read the SGBD.
+                pos = {s: i for i, s in enumerate(comp["order"])}
+                m["composite"] = {
+                    "job": comp["job"],
+                    "fields": len(comp["order"]),
+                    # each F-key's argument INDEXES, in argument order.
+                    # RDC: F1 -> [0,1] (TST_REQ/TST_VAL), F3 -> [10,11]
+                    # (CAL_REQ/CAL_VAL) even though it sits third on screen --
+                    # append order is NOT F-key order, so this must be joined
+                    # positionally and never assumed parallel.
+                    "items": {str(k): sorted(pos[s] for s in v)
+                              for k, v in comp["items"].items()},
+                }
+            ir["menus"][name] = m
     # A menu's items take their caption from the screen that menu drives,
     # joined by F-number. INPA's actuator menus carry only fragments
     # ("DWA", "button", "plant") because the screen prints the real list as
@@ -379,9 +477,34 @@ def main():
         r = build("RDC")
         wj = [j for s in r["screens"].values() for j in s["jobs"] if j["write"]]
         rj = [j for s in r["screens"].values() for j in s["jobs"]]
+
+        # RDC's actuator menu: one job, 14 fields = 7 REQ/VAL pairs. The
+        # append order is NOT the F-key order -- "calibrate" sits on F3 but
+        # its pair is appended sixth -- so a parallel assumption would send
+        # every actuator command to the wrong actuator. Verified against the
+        # SGBD's own _ARGUMENTS: F1->TST, F2->DWA, F3->CAL, F4->BM, F5->AER,
+        # F6->ERK, F7->ANT.
+        comp = (r["menus"].get("m_steuern") or {}).get("composite")
+        if not comp:
+            fails.append("RDC m_steuern lost its composite argument decode")
+        else:
+            if comp["job"] != "STEUERN_DIGITAL" or comp["fields"] != 14:
+                fails.append(f"RDC composite drifted: {comp['job']} "
+                             f"{comp['fields']} fields")
+            want = {"1": [0, 1], "2": [2, 3], "3": [10, 11], "4": [4, 5],
+                    "5": [6, 7], "6": [8, 9], "7": [12, 13]}
+            if comp["items"] != want:
+                fails.append(f"RDC composite pairing wrong: {comp['items']}")
+            for k, v in comp["items"].items():
+                if len(v) != 2 or v[1] != v[0] + 1:
+                    fails.append(f"RDC F{k} is not a REQ/VAL pair: {v}")
         print(f"  ir         GSDS2 {len(g['screens'])} screens "
               f"({len(gk)}/7 ana gauges), RDC {len(r['screens'])} screens, "
               f"{len(wj)} write-flagged of {len(rj)} jobs")
+        if comp:
+            print(f"  ir         RDC composite {comp['job']}: "
+                  f"{comp['fields']} fields = {len(comp['items'])} REQ/VAL "
+                  f"pairs, argument order != F-key order (checked)")
         if fails:
             for f in fails:
                 print("   -", f)
