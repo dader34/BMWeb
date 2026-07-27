@@ -44,6 +44,8 @@ ROOTMENUS = os.path.join(OUT, "_rootmenus.json")
 CODING = os.path.join(OUT, "_coding.json")
 # per-gauge unit and min/max from INPA's gauge dialect (tools/ipo_gauges.py)
 GAUGES = os.path.join(OUT, "_gauges.json")
+# INPA's nested Activate menu, where the .IPO declares one (tools/ipo_submenus.py)
+SUBMENUS = os.path.join(OUT, "_submenus.json")
 ECU_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "..", "vendor", "EDIABAS", "Ecu")
 
@@ -242,6 +244,10 @@ def main():
         if os.path.exists(GAUGES):
             with open(GAUGES, encoding="utf-8") as f:
                 gauges = json.load(f)
+        submenus = {}
+        if os.path.exists(SUBMENUS):
+            with open(SUBMENUS, encoding="utf-8") as f:
+                submenus = json.load(f)
         gen = os.path.join(os.path.dirname(OUT), "inpa-layouts", "generated")
         os.makedirs(gen, exist_ok=True)
         n = 0
@@ -265,6 +271,10 @@ def main():
             # have neither. A `descending` range is NOT emitted: the sign is
             # absent from the bytes, so -45..40 and 45..40 are indistinguishable
             # and a backwards bar is worse than none.
+            # INPA's nested Activate menu: the jobs sit under submenus rather
+            # than in one flat list
+            if ecu in submenus:
+                out["activateTree"] = submenus[ecu]
             if ecu in gauges:
                 out["gaugeSpecs"] = [
                     {k: v for k, v in g.items() if k != "descending"}
