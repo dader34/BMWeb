@@ -135,6 +135,33 @@ function renderActivateGroups(ecu, menus, acts, container, reopen, exit) {
   sbLeft.textContent = `${rows.length} groups`;
 }
 
+// Drive one component on an ECU whose actuators are argument values of a
+// single job. Confirms first and names the component, like every other write.
+async function driveArgValue(ecu, act, entry, container) {
+  const label = deGerman(entry.label) || entry.label;
+  const spec = (act.args || []).find(g => (g.options || [])
+    .some(o => o.value === entry.argValue));
+  const ok = await confirmDialog({
+    title: `Activate ${esc(label).toLowerCase()}?`,
+    body: `Drives <b>${esc(label)}</b> on <b>${esc(ecu.label)}</b> via `
+        + `<span class="mono">${esc(act.start)} ${esc(spec ? spec.name : '')}`
+        + `=${esc(entry.argValue)}</span>.`
+        + `<br><br>This moves a real component and stays as set until you `
+        + `change it back or leave this screen.`,
+    confirmLabel: 'Activate', danger: true,
+  });
+  if (!ok) { sbLeft.textContent = 'cancelled'; return; }
+  try {
+    await api(`/api/ecu/${ecu.sgbd}/run/${act.start}`
+              + `?arg=${encodeURIComponent(entry.argValue)}`, { method: 'POST' });
+    sbLeft.textContent = `${act.start} ${entry.argValue} · sent`;
+  } catch (e) {
+    sbLeft.textContent = 'failed';
+    confirmDialog({ title: 'Activation failed', body: esc(e.message),
+                    confirmLabel: 'OK', cancelLabel: 'Close' });
+  }
+}
+
 // one group's components, driven through the job that takes the component
 // argument. The picker itself is argsDialog, so the values are always the ones
 // the SGBD declared.
@@ -471,6 +498,16 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       const here = [...trail, deGerman(it.label) || it.label];
       const reopen = () => openLevel(items, trail, up);
       if (it.items && it.items.length) { openLevel(it.items, here, reopen); return; }
+      if (it.submenu) {
+        sbLeft.textContent = `${it.label}: submenu not decoded`;
+        return;
+      }
+      // an argument value: run the ECU's single actuator job with it
+      if (it.argValue) {
+        const driver = acts.find(x => (x.args || [])
+          .some(g => (g.options || []).some(o => o.value === it.argValue)));
+        if (driver) { driveArgValue(ecu, driver, it, container); return; }
+      }
       const a = jobFor(it.label, it);
       if (!a) { sbLeft.textContent = `${it.label}: no job mapped`; return; }
       toggleActivation(ecu, a, container, container);
@@ -498,8 +535,13 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       // reads as a defect when it is simply not a test.
       const sub = (it.items && it.items.length) || it.submenu;
       const a = sub ? null : jobFor(it.label, it);
+      // some ECUs drive everything through ONE job and name the component in
+      // an argument (GSDS2: STEUERN_STELLGLIED with STELLGL=MAGNETVENTIL_2),
+      // so the entry is an argument value, not a job of its own
+      const av = !sub && it.argValue ? it.argValue : null;
       const note = it.items && it.items.length ? `${it.items.length} tests`
                  : it.submenu ? 'submenu'
+                 : av ? av
                  : a ? (actRunnable(a) ? a.start : 'needs input')
                  : 'no job mapped';
       if (inpa) {

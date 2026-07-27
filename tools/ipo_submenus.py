@@ -245,16 +245,71 @@ def _opens_screen(label, opens):
     return False
 
 
-def resolve_jobs(data, items, sites, submenu_titles=(), opens=None, _depth=0):
+# short tag, full caption, then the argument VALUE the entry sends:
+#     'SV 2'  'Solenoid Valve 2'  MAGNETVENTIL_2
+# Some ECUs expose one actuator job whose argument names the component, so a
+# menu entry is an argument value rather than a job of its own.
+# the value is an identifier, but a SHORT one is legitimate: INPA emits
+# 'L5' 'L5' 'L5' where short, caption and value are the same two-character
+# name, so requiring three characters silently drops those entries.
+_ARGVAL = re.compile(rb"\x06([\x20-\x7e\xa0-\xff]{1,40})\x0a"
+                     rb"\x06([\x20-\x7e\xa0-\xff]{1,40})\x0a"
+                     rb"\x06([A-Z][A-Z0-9_]{1,30})\x0a")
+
+
+def arg_values(data):
+    """caption -> the argument value INPA sends for it."""
+    out = {}
+    for m in _ARGVAL.finditer(data):
+        short = m.group(1).decode("latin-1").strip()
+        caption = m.group(2).decode("latin-1").strip()
+        value = m.group(3).decode("latin-1").strip()
+        # the caption must read like one, and the value like an identifier
+        if not caption or caption.startswith(";") or "_" in caption:
+            continue
+        if value.startswith("STEUERN_") or value in ("OKAY",):
+            continue
+        out.setdefault(_norm(caption), (value, short))
+        # INPA also captions the same entry short ("EDS 4" for the menu's
+        # "Electric pressure controller EDS 4"), so index the short form too
+        if short and not short.startswith(";"):
+            out.setdefault(_norm(short), (value, short))
+    return out
+
+
+def resolve_jobs(data, items, sites, submenu_titles=(), opens=None,
+                 argvals=None, _depth=0):
     """Attach each leaf's job: the call site its caption sits closest to."""
     for e in items:
         if e.get("items"):
-            resolve_jobs(data, e["items"], sites, submenu_titles, opens, _depth + 1)
+            resolve_jobs(data, e["items"], sites, submenu_titles, opens,
+                         argvals, _depth + 1)
             continue
-        # INPA's dispatch says outright whether this entry opens a screen
+        # A caption that opens a screen is a submenu, checked BEFORE the
+        # argument table: "Displaytest" opens s_steuern_display and also
+        # happens to appear beside a DISPLAY_TEST value, and treating it as a
+        # value would turn a menu into a one-shot test.
         if opens and _opens_screen(e["label"], opens):
             e["submenu"] = True
             continue
+        # an entry that is an argument VALUE rather than a job of its own:
+        # GSDS2 drives every solenoid through STEUERN_STELLGLIED, choosing the
+        # component with STELLGL=MAGNETVENTIL_2 and so on
+        if argvals:
+            key = _norm(e["label"])
+            hit = argvals.get(key)
+            if not hit:
+                # the menu spells it out ("Electric pressure controller EDS 4")
+                # where the value table abbreviates ("EDS 4"): match on the
+                # TAIL of the caption, the same way INPA shortens elsewhere
+                words = key.split()
+                for n in range(2, min(len(words), 4) + 1):
+                    hit = argvals.get(" ".join(words[-n:]))
+                    if hit:
+                        break
+            if hit:
+                e["argValue"] = hit[0]
+                continue
         # A caption that heads another screen is a SUBMENU, even where this
         # tree could not link its children. Giving it the first job in its
         # section would put an actuator behind a menu: "Digital output" would
@@ -361,7 +416,7 @@ def extract(path, roots=("Activate", "Ansteuern")):
             titles = {t for t in levels if t not in ("__order__", root)}
             shorts = item_labels(data)
             t = resolve_jobs(data, tree(levels, root, shorts=shorts), sites,
-                             titles, dispatch_targets(data))
+                             titles, dispatch_targets(data), arg_values(data))
             # only worth recording when something actually nests
             if any("items" in e for e in t):
                 out[root] = t
@@ -374,7 +429,8 @@ def _count(items):
 
 def _show(items, depth=1):
     for e in items:
-        job = f"   -> {e['job']}" if e.get("job") else ""
+        job = (f"   -> {e['job']}" if e.get("job")
+               else f"   = {e['argValue']}" if e.get("argValue") else "")
         print("   " + "  " * depth + f"F{e['fkey']:<3} {e['label']}{job}")
         if "items" in e:
             _show(e["items"], depth + 1)

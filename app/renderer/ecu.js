@@ -113,11 +113,25 @@ function mergeLayoutIntoMenu(menu, layout) {
 // not the two STEUERN_* jobs that drive them, and "2" over a list of twelve is
 // simply wrong wherever it appears.
 function sectionCount(ecu, sec) {
+  const layout = ecu._layout || {};
   if (sec.section === 'Activations') {
-    const menus = (ecu._layout && ecu._layout.activateMenus) || [];
-    const groups = menus.reduce((n, m) => n + (m.groups || []).length, 0);
+    // INPA's nested Activate menu: the top level is what the screen lists
+    const tree = layout.activateTree;
+    if (tree) {
+      const top = Object.values(tree).reduce((n, items) => n + items.length, 0);
+      if (top) return top;
+    }
+    const groups = (layout.activateMenus || [])
+      .reduce((n, m) => n + (m.groups || []).length, 0);
     if (groups) return groups;
   }
+  // the read-only cards list fields, not jobs
+  if (sec.section === 'Identity' && layout.identity)
+    return layout.identity.fields.length;
+  if (sec.section === 'AIF' && layout.aif)
+    return layout.aif.fields.length;
+  if (sec.section === 'Coding' && layout.coding && layout.coding.fields)
+    return layout.coding.fields.length;
   return sec.items.length;
 }
 
