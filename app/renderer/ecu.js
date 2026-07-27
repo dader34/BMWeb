@@ -278,6 +278,33 @@ const ROOT_SECTION = [
   [/^Read memory$|^Speicher lesen$/i, 'Special'],
 ];
 
+// Does INPA really open this screen, or is the key dead?
+//
+// A root key can be listed and still lead nowhere. GSDS2 prints
+// "< F3 >  Coding", but its file declares no s_code screen: the main menu's
+// dispatch sends F3 to m_status, and INPA ships a second root menu for the
+// same ECU named m_main_nocode -- "main, no coding" -- omitting F3 entirely.
+//
+// We showed the key anyway because MenuGen sorts SGBD jobs into sections by
+// name substring, so an ECU that merely OWNS a job called
+// CODIER_CHECKSUM_PRUEFEN gets a "Coding" section. That satisfied a plain
+// has('Coding') test, which is how GSDS2 came to show a Coding key opening a
+// single "Coding Checksum Check" tile.
+//
+// `deadRootKeys` is mined per ECU (tools/ipo_rootmenu.py) from the screen
+// DECLARATIONS, not from whether our miner could read the screen's contents:
+// of the 89 ECUs listing a Coding key, 50 declare a real screen and 39 do not,
+// but only 17 of the 50 are currently readable. Gating on readability would
+// have hidden 33 live screens.
+function screenIsReal(ecu, sec) {
+  const layout = ecu._layout;
+  const dead = layout && layout.deadRootKeys;
+  if (!dead || !dead.length || !layout.rootMenu) return true;
+  return !layout.rootMenu.some(it =>
+    dead.includes(it.fkey) &&
+    ROOT_SECTION.some(([re, name]) => name === sec.section && re.test(it.label)));
+}
+
 function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
   if (bar) bar.remove(); // INPA shows SGBD/addr inline, not as pills
   grid.className = 'inpa-haupt';
@@ -293,6 +320,7 @@ function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
     const hit = ROOT_SECTION.find(([re]) => re.test(it.label));
     const sec = hit && has(hit[1]);
     if (!sec) return;                       // INPA lists it, we have nothing
+    if (!screenIsReal(ecu, sec)) return;            // key exists, screen doesn't
     if (entries.some(e => e.sec === sec)) return;   // Info+Ident both map to Identity
     entries.push({ fkey: it.fkey, label: deGerman(it.label) || it.label, sec });
   });
@@ -380,6 +408,11 @@ async function showEcu(chassisId, sectionName, ecu) {
     // was mined.
     ecu._layout = layout;
   }
+  // drop mined sections INPA has no screen for, so both UIs agree and the
+  // function count doesn't include a screen you cannot open
+  if (ecu._layout)
+    menu = { ...menu, sections: menu.sections.filter(s => screenIsReal(ecu, s)) };
+
   const total = menu.sections.reduce((n, s) => n + s.items.length, 0);
   document.getElementById('job-count').textContent = `${total} functions`;
 

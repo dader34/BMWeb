@@ -270,6 +270,12 @@ def main():
             # filtered list gets the keys wrong.
             if ecu in rootmenus:
                 out["rootMenu"] = rootmenus[ecu]["items"]
+                # keys INPA lists but declares no screen for (GSDS2's F3
+                # Coding dispatches to m_status and the file ships a
+                # m_main_nocode variant without it). Carried as F-key numbers
+                # so the surviving keys keep INPA's own numbering.
+                if rootmenus[ecu].get("deadKeys"):
+                    out["deadRootKeys"] = rootmenus[ecu]["deadKeys"]
             # INPA's Coding screen: a labelled read, its own job per ECU
             if ecu in codings:
                 out["coding"] = codings[ecu]
