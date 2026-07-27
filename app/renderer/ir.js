@@ -216,17 +216,23 @@ const IR_CHROME = /^(Back|Exit|Print|Zur(ü|ue)ck|Ende|End|Select|Deselect|Auswa
 // Infospeicher (IM/IS) and Historienspeicher (HM/HS), each with its own
 // read, clear, print and save.
 // Word order varies by build: "Read EM", "EM Read", "FS lesen", plain "Read".
-const IR_FAULT_READ =
-  /^(Read|Lesen)$|^(Read|Lesen)\s+(EM|IM|HM|FS|IS|HS)\b|^(EM|IM|HM|FS|IS|HS)\s+(Read|lesen)\b|^(Shadow|Schatten)/i;
+// A menu item may also carry the screen's own softkey help, which spells the
+// memory out ("Read error memory", "Fehlerspeicher loeschen").
+const IR_MEM_WORD =
+  '(EM|IM|HM|FS|IS|HS|(error|fault|info(rmation)?|history)\\s+memory'
+  + '|(Fehler|Info|Historien)speicher)';
+const IR_FAULT_READ = new RegExp(
+  `^(Read|Lesen)$|^(Read|Lesen)\\s+${IR_MEM_WORD}\\b`
+  + `|^${IR_MEM_WORD}\\s+(Read|lesen)\\b|^(Shadow|Schatten)`, 'i');
 
 // which memory a fault-menu caption names -> the SGBD job that reads it
 const IR_FAULT_JOB = [
   // "Shadow"/"Schattenspeicher" is the info memory under another name --
   // TOENS labels its F3 that way and answers IS_LESEN
   [/^(Shadow|Schatten)/i, 'IS_LESEN'],
-  [/\b(IM|IS|Infospeicher)\b/i, 'IS_LESEN'],
-  [/\b(HM|HS|Historienspeicher)\b/i, 'HS_LESEN'],
-  [/\b(EM|FS|Fehlerspeicher)\b/i, 'FS_LESEN'],
+  [/\b(IM|IS|Infospeicher|info(rmation)?\s+memory)\b/i, 'IS_LESEN'],
+  [/\b(HM|HS|Historienspeicher|history\s+memory)\b/i, 'HS_LESEN'],
+  [/\b(EM|FS|Fehlerspeicher|(error|fault)\s+memory)\b/i, 'FS_LESEN'],
 ];
 const irFaultJob = (label) =>
   (IR_FAULT_JOB.find(([re]) => re.test(label)) || [null, 'FS_LESEN'])[1];
@@ -235,8 +241,9 @@ const irFaultJob = (label) =>
 // the fault list to disk ("FS speichern", which RDC labels "store"). BMW's
 // own BMW_STD.SRC defines these next to Print, and like Print they cannot be
 // reproduced against an ECU.
-const IR_FILE_ACTION =
-  /^(store|save|speichern)\b|^(FS|IS|HS|EM|IM|HM) (speichern|drucken)$|^(Save|Print) (EM|IM|HM)$/i;
+const IR_FILE_ACTION = new RegExp(
+  `^(store|save|speichern)\\b|^${IR_MEM_WORD} (speichern|drucken)$`
+  + `|^(Save|Print)\\s+${IR_MEM_WORD}$`, 'i');
 
 // A menu whose name carries chassis numbers only serves those chassis.
 // Names with no digits (m_status, m_steuern) serve everything.
