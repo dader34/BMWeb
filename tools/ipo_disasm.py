@@ -202,7 +202,12 @@ def find_pool(data):
 
 # ---------------------------------------------------------------- decls -----
 
-_DECL = re.compile(rb"([\x01-\x05])([A-Za-z_][A-Za-z0-9_]{2,30})\x0a(....)",
+# Name length is bounded only by INPA's own limit, not by a guess. A 30-char
+# cap silently hid every longer proc: AFS_60 declares
+# s_afs_fahrgestellnummern_vergleich (34) and s_afs_motorlagewinkeloffset_lesen
+# (33), which the ECU's own .ini lists and the decoder did not. Cross-checking
+# the corpus against those .ini screen inventories is what surfaced it.
+_DECL = re.compile(rb"([\x01-\x05])([A-Za-z_][A-Za-z0-9_]{2,60})\x0a(....)",
                    re.DOTALL)
 _TYPES = {1: "screen", 2: "menu", 3: "state", 4: "statemachine", 5: "func"}
 
