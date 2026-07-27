@@ -388,6 +388,28 @@ function renderInpaHauptmenue(chassisId, sectionName, ecu, menu, grid, bar) {
   return list;
 }
 
+// Several root menus, one per ECU variant: INPA runs the variant job and
+// matches its VARIANTE result. Both showEcu and showEcuSection need this --
+// a section reached straight from the F-key bar never runs showEcu.
+async function irResolveVariant(ecu) {
+  const ir = ecu._ir;
+  if (!ir || !ir.rootVariants || !ir.variantJob || ecu._variant) return;
+  const names = Object.values(ir.rootVariants).flat();
+  if (demoMode()) {
+    // no car to ask: pick a variant INPA itself lists, so the screens belong
+    // to a real variant rather than an invented mixture
+    ecu._variant = names[Math.floor(Math.random() * names.length)];
+  } else {
+    try {
+      const d = await api(`/api/ecu/${ecu.sgbd}/run/${ir.variantJob}`,
+                          { method: 'POST' });
+      const key = ir.variantKey || 'VARIANTE';
+      ecu._variant = (flatResults(d.sets).find(([k]) => k === key) || [])[1];
+    } catch { /* no cable: irRootMenu falls back to the widest root */ }
+  }
+  if (ecu._variant) ir._variant = ecu._variant;
+}
+
 // ECU main menu: section categories on the F-key bar, each opens a sub-screen
 async function showEcu(chassisId, sectionName, ecu) {
   lastScreen = () => showEcu(chassisId, sectionName, ecu);
@@ -430,22 +452,7 @@ async function showEcu(chassisId, sectionName, ecu) {
   try {
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
-    // several root menus: ask the ECU which variant it is, the way INPA does
-    if (ecu._ir && ecu._ir.rootVariants && ecu._ir.variantJob) {
-      const names = Object.values(ecu._ir.rootVariants).flat();
-      if (demoMode()) {
-        // no car to ask: pick one of the variants INPA itself lists, so the
-        // screens are a real variant's rather than an invented mixture
-        ecu._variant = names[Math.floor(Math.random() * names.length)];
-      } else {
-        try {
-          const d = await api(`/api/ecu/${ecu.sgbd}/run/${ecu._ir.variantJob}`,
-                              { method: 'POST' });
-          const key = ecu._ir.variantKey || 'VARIANTE';
-          ecu._variant = (flatResults(d.sets).find(([k]) => k === key) || [])[1];
-        } catch { /* no cable: irRootMenu falls back to the widest root */ }
-      }
-    }
+    await irResolveVariant(ecu);
   } catch { ecu._ir = null; }
   try {
     menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
@@ -980,6 +987,29 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   results.className = 'results-panel';
   view.appendChild(results);
 
+  const IR_SECTION_KEY = {
+    Activations: /^(Activate|Ansteuern|Steuern)$/i,
+    Special: /^(Memory|Speicher|Read memory|Speicher lesen)$/i,
+    Coding: /^(Cod(e|ing)|Codierung)$/i,
+    Status: /^(Status|Read status|Status lesen)$/i,
+    Identity: /^(Ident|Identification|Identifikation)$/i,
+  };
+  const irKey = IR_SECTION_KEY[sec.section];
+  if (irKey && ecu._ir === undefined) {
+    try {
+      const hint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
+      ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${hint}`);
+      await irResolveVariant(ecu);
+    } catch { ecu._ir = null; }
+  }
+  if (irKey && ecu._ir && typeof renderIrMenu === 'function') {
+    const root = irRootMenu(ecu._ir, ecu._variant);
+    const hit = root && irMenuItems(ecu._ir, root, ecu._variant)
+      .find(i => irKey.test(i.label));
+    if (hit && irOpenItem(ecu, ecu._ir, root, hit, results,
+        () => showEcu(chassisId, sectionName, ecu))) return;
+  }
+
   // layout-mined sections (have _screen) render as gauge panels, not the
   // checkbox multi-watch list
   const isLayoutScreens = sec.items.some(i => i._screen);
@@ -1034,25 +1064,6 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   // Sections the decompiled UI serves better than the job buckets. Each maps
   // to the INPA root key that opens it, and the interpreter takes it from
   // there -- menu, card, memory dump, whatever that key really is.
-  const IR_SECTION_KEY = {
-    Activations: /^(Activate|Ansteuern|Steuern)$/i,
-    Special: /^(Memory|Speicher|Read memory|Speicher lesen)$/i,
-  };
-  const irKey = IR_SECTION_KEY[sec.section];
-  if (irKey && ecu._ir === undefined) {
-    try {
-      const hint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
-      ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${hint}`);
-    } catch { ecu._ir = null; }
-  }
-  if (irKey && ecu._ir && typeof renderIrMenu === 'function') {
-    const root = irRootMenu(ecu._ir, ecu._variant);
-    const hit = root && irMenuItems(ecu._ir, root)
-      .find(i => irKey.test(i.label));
-    if (hit && irOpenItem(ecu, ecu._ir, root, hit, results,
-        () => showEcu(chassisId, sectionName, ecu))) return;
-  }
-
   const isActivations = sec.section === 'Activations';
   const selected = new Set();
 
