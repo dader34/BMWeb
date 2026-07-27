@@ -388,6 +388,13 @@ async function showEcu(chassisId, sectionName, ecu) {
     layout = await api(`/api/ecu/${ecu.sgbd}/layout${codeHint}`);
     layout = pickLayoutMode(layout);
   } catch { /* no layout, fall back below */ }
+  // the decompiled INPA UI, when this ECU has one. Interpreted directly by
+  // ir.js; a hand-built or generated layout still wins where it has content,
+  // so this only takes over screens nothing else serves.
+  try {
+    const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
+    ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
+  } catch { ecu._ir = null; }
   try {
     menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
   } catch (e) {
@@ -922,6 +929,18 @@ function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
       && Array.isArray(layout.statusTree) && layout.statusTree.length) {
     renderStatusTree(chassisId, sectionName, ecu, layout, view, results);
     return;
+  }
+  // The decompiled UI, interpreted (ir.js). Tried first for the sections it
+  // can serve: it carries INPA's real menu, its F-key numbers, and each
+  // screen's own positioned rows, so it needs no per-ECU wiring at all. Falls
+  // through to the mined sections below when this ECU has no IR or the IR's
+  // menu has nothing readable -- the layouts stay the safety net.
+  if (ecu._ir && typeof renderIrMenu === 'function') {
+    const irMenu = irSectionMenu(ecu._ir, sec.section);
+    if (irMenu && renderIrMenu(ecu, ecu._ir, irMenu, results,
+                               () => showEcu(chassisId, sectionName, ecu))) {
+      return;
+    }
   }
   // INPA's mined Read status menu. After statusTree (hand-built layouts win)
   // and before the flat job list, which is what this replaces. Both UI modes:

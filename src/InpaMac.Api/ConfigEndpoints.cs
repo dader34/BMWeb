@@ -39,6 +39,28 @@ internal static class ConfigEndpoints
 
         app.MapGet("/api/port", () => Results.Json(new { port = Paths.AutoDetectPort() }));
 
+        // the decompiled INPA UI for an ECU (tools/ipo_ir.py): menus with
+        // INPA's own F-key numbers, screens as positioned elements, the jobs
+        // each runs. Served verbatim -- the renderer interprets it, so no
+        // per-ECU knowledge lives on this side. 404 when the .IPO could not
+        // be decompiled, which is the signal to fall back to a layout.
+        app.MapGet("/api/ecu/{sgbd}/ir", (ServerState st, string sgbd,
+                                          string? code) =>
+        {
+            var file = FindLayoutFile(st.IrDir, code ?? sgbd)
+                       ?? FindLayoutFile(st.IrDir, sgbd);
+            if (file == null)
+                foreach (var suf in new[] { "ds0", "ds2", "ds1", "_n", "ds" })
+                    if (sgbd.EndsWith(suf, StringComparison.OrdinalIgnoreCase))
+                    {
+                        file = FindLayoutFile(st.IrDir, sgbd[..^suf.Length]);
+                        if (file != null) break;
+                    }
+            if (file == null)
+                return Results.NotFound(new { error = $"no IR for {sgbd}" });
+            return Results.Content(File.ReadAllText(file), "application/json");
+        });
+
         // INPA-faithful screen layout for an ECU, mined from the original .IPO frontend
         // (data/inpa-layouts/enriched/<sgbd>.json). grouped screens: each has driving
         // job/args, render type (analog gauge / digital / value), per-row
