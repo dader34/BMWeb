@@ -303,6 +303,13 @@ public static class MenuGen
     private static readonly Regex TableRef =
         new(@"\btable\s+(\w+)\s+(\w+)\s+(\w+)", RegexOptions.IgnoreCase);
 
+    // The other way an SGBD spells out an argument's legal values: inline in
+    // the comment, quoted -- IHKA's relay tests declare ARGCOMMENT0 as
+    // "'EIN','AUS'". Same information as a table reference, so it makes the
+    // job just as runnable; missing it blocked 13 of IHKA's 14 actuators.
+    private static readonly Regex QuotedVals =
+        new(@"'([^']{1,24})'", RegexOptions.IgnoreCase);
+
     // Every argument the SGBD declares for a job, in declaration order, paired
     // with its type so the caller can tell a drive value from a selector, and
     // with the option list when the argument names a lookup table.
@@ -319,19 +326,32 @@ public static class MenuGen
                     continue;
                 string type = set.TryGetValue("ARGTYPE", out var t) && t.OpData is string ts ? ts : "";
 
-                // the option list, when a comment names a table
+                // the option list: a table reference, or values quoted inline
                 var options = new List<ArgOption>();
                 for (int i = 0; i < 4; i++)
                 {
                     if (!(set.TryGetValue("ARGCOMMENT" + i, out var c) && c.OpData is string comment))
                         continue;
                     var m = TableRef.Match(comment);
-                    if (!m.Success) continue;
-                    foreach (var row in diag.TableRows(m.Groups[1].Value))
-                        if (row.TryGetValue(m.Groups[2].Value, out var val) && val.Length > 0)
-                            options.Add(new ArgOption(val,
-                                row.TryGetValue(m.Groups[3].Value, out var lbl) ? lbl : val));
-                    break;
+                    if (m.Success)
+                    {
+                        foreach (var row in diag.TableRows(m.Groups[1].Value))
+                            if (row.TryGetValue(m.Groups[2].Value, out var val) && val.Length > 0)
+                                options.Add(new ArgOption(val,
+                                    row.TryGetValue(m.Groups[3].Value, out var lbl) ? lbl : val));
+                        break;
+                    }
+                    // "'EIN','AUS'": two or more quoted tokens ARE the value list.
+                    // One quoted token is prose ("'1', wenn einschalten"), not a list.
+                    var quoted = QuotedVals.Matches(comment)
+                        .Select(q => q.Groups[1].Value.Trim())
+                        .Where(v => v.Length > 0 && !v.Contains(' '))
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                    if (quoted.Count >= 2)
+                    {
+                        foreach (var v in quoted) options.Add(new ArgOption(v, v));
+                        break;
+                    }
                 }
                 specs.Add(new ArgSpec(arg, type, options));
             }
