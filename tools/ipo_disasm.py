@@ -247,6 +247,10 @@ BUILTINS = {
     # EDIABAS bridge
     0x62: "INPAapiJob",             # (sgbd, job, arg, resultfilter)
     0x63: "INPAapiResultText",      # (ref, key, set, fmt)
+    # (ref, key, set) like its neighbours -- a plain numeric read, the value
+    # then formatted by a helper (hex bytes, temperatures, counters). 5026
+    # sites in 411 files; unmapped, it left captioned rows with no value.
+    0x64: "INPAapiResultNumber",
     0x66: "INPAapiResultDigital",   # (ref, key, set)
     0x67: "INPAapiResultAnalog",    # (ref, key, set)
     0x69: "INPAapiCheckJobStatus",  # (status)
@@ -318,6 +322,18 @@ def walk(data, lo, hi, pool):
         elif b0 == 0x0c and b1 == 0x81:
             toks.append({"op": "call", "n": u16,
                          "name": BUILTINS.get(u16, f"builtin_{u16:02x}")})
+            # Builtin 06 names a STATE inline rather than through the pool:
+            # "%Z_TOGGLE\n" follows the call, then a 5-byte tail, then the
+            # next token. Not consuming it desynchronised everything after,
+            # which is why LWS5's state machines read 87% unknown -- the whole
+            # of its missing coverage. 121 files use this form.
+            if u16 == 0x06:
+                j = data.find(b"\n", i + 4, min(hi, i + 4 + 64))
+                s = data[i + 4:j] if j >= 0 else b""
+                if j >= 0 and s and all(0x20 <= c < 0x7f for c in s):
+                    toks.append({"op": "state", "name": s.decode("latin-1")})
+                    i = j + 6
+                    continue
         elif b0 == 0x0f:
             toks.append({"op": "frame"})
         else:

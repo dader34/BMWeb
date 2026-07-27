@@ -259,7 +259,7 @@ def _screen_ir(toks):
                                      "write": bool(_WRITE_JOB.search(jname)),
                                      **({"arg": arg} if arg else {})})
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
-                          "INPAapiResultDigital"):
+                          "INPAapiResultDigital", "INPAapiResultNumber"):
                 # destination slot: kind 0 writes scratch, kind 2 writes the
                 # screen's global frame (drawn by a later LINE's analogout)
                 ref = next((a for a in args if a["op"] == "procref"
@@ -289,6 +289,17 @@ def _screen_ir(toks):
                 if not key:
                     el = None
             elif op == "calluser":
+                # A helper that FORMATS a result: INPA reads the value into a
+                # slot, hands it to a user proc together with a destination
+                # slot (LWS5 prints its test stamp as hex that way), then
+                # prints the destination. The formatting is INPA's own, but
+                # the row still shows that result -- carry the binding across
+                # so the caption does not end up with no value.
+                src = next((s for s in vslots if s in bind), None)
+                dst = next((a for a in args if a["op"] == "procref"
+                            and a["kind"] in (0, 2)), None)
+                if src and dst:
+                    bind[(2 if dst["kind"] == 2 else 0, dst["n"])] = bind[src]
                 key = next((s for s in strs if D._KEYISH.match(s)), None)
                 if key and len(ints) >= 2:
                     el = {"t": "lamp" if len(strs) >= 3 else "value",
@@ -775,6 +786,18 @@ def main():
               if i.get("label") == "Analog2"]
         if not st or "screen" not in st[0]:
             fails.append("GSDS2 m_status Analog2 lost its screen target")
+
+        # builtin 64 is a result read like its 63/66/67 neighbours (5026 sites
+        # in 411 files), and INPA may pass the value through a FORMATTING
+        # helper before printing it -- LWS5 prints its test stamp as hex that
+        # way. Unmapped, or with the binding dropped at the helper, those rows
+        # kept their captions and showed no value at all.
+        lw = build("LWS5")
+        for name, want in (("s_ps_lesen", 3), ("s_hd_lesen", 4)):
+            ks = [e["key"] for ln in lw["screens"][name]["lines"]
+                  for e in ln["elements"] if e.get("key")]
+            if len(ks) != want:
+                fails.append(f"LWS5 {name}: {len(ks)} values, want {want}")
 
         # A result read into the screen's GLOBAL frame (procref kind 2) and
         # drawn many LINEs later must still reach its gauge. KOMBI's tank line
