@@ -291,6 +291,15 @@ function irSameBar(ir, menu, from) {
   return shared / Math.max(A.size, B.size) > 0.8;
 }
 
+// Does this menu hold anything the app can act on? Non-recursive on purpose:
+// INPA's menus link back to their parents, so following submenus would loop.
+function _irHasRunnable(ir, menuName) {
+  return (((ir.menus || {})[menuName] || {}).items || []).some(
+    it => (it.label || '').trim() && !it.fileAction && !it.appTool
+          && !IR_CHROME.test(it.label.trim())
+          && (it.job || it.screen || it.menu || it.action));
+}
+
 function irMenuItems(ir, menuName, variant) {
   const menu = (ir.menus || {})[menuName];
   if (!menu) return [];
@@ -382,7 +391,15 @@ function irMenuItems(ir, menuName, variant) {
     }))
     // every screen this key names belongs to another variant, and it opens no
     // menu: INPA does not offer this key on this ECU, so neither do we
-    .filter(it => it.screen || it.menu || it.job || it.inPlace);
+    .filter(it => it.screen || it.menu || it.job || it.inPlace)
+    // ...and a key whose menu turns out to hold nothing we can run is the same
+    // thing one level down. LWS5's only Coding key dumps the coding data to a
+    // .COD file on the PC -- INPA ships no coding readout for that ECU -- so
+    // the key led to an empty list. INPA's menus reference each other freely
+    // (every bar links Back to its parent), so the check is depth-limited
+    // rather than recursive: look at the target's own items only.
+    .filter(it => !it.menu || it.screen || it.menu === menuName
+                  || _irHasRunnable(ir, it.menu));
 }
 
 // Actuator keys always run -- INPA sends on the keypress. The setting only
@@ -745,7 +762,12 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
   // re-lists Info/Ident/Code/... one level deeper while the screen the key
   // actually selects never renders. The screen wins whenever the menu is not
   // a narrower list than the one we came from.
-  if (it.menu && !irSameBar(ir, it.menu, menuName)) {
+  // ...and a menu with nothing runnable in it is not worth opening either:
+  // LWS5's Coding key installs m_code, whose single entry dumps the coding
+  // data to a .COD file on the PC, while the screen it also names holds the
+  // seven data blocks and the checksum. The screen is what INPA shows.
+  if (it.menu && !irSameBar(ir, it.menu, menuName)
+      && (_irHasRunnable(ir, it.menu) || !it.screen)) {
     return renderIrMenu(ecu, ir, it.menu, container, back);
   }
   const scr = (ir.screens || {})[it.screen];

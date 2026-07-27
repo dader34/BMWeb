@@ -254,6 +254,11 @@ BUILTINS = {
     0x66: "INPAapiResultDigital",   # (ref, key, set)
     0x67: "INPAapiResultAnalog",    # (ref, key, set)
     0x69: "INPAapiCheckJobStatus",  # (status)
+    # (key, set) with NO destination ref -- reads into an implicit slot that
+    # 0x78 then copies out. 975 sites in 399 files, never once preceded by a
+    # procref, which is what distinguishes it from 63/64/66/67.
+    0x68: "INPAapiResultInto",
+    0x78: "copyslot",               # (dst, src) -- always exactly two refs
 }
 
 _INLINE_OPS = {0x21, 0x22, 0x24}      # LINE/ITEM: label inline until \n

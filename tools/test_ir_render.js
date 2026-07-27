@@ -25,7 +25,8 @@ let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8');
 _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVariant = irMenuFitsVariant; function irMenuFitsVariant')
                .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
                .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')
-               .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar');
+               .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar')
+               .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable');
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -199,6 +200,32 @@ ok(!irIsCard(g.screens['s_analog_1']),
   ok(pages.length >= 5, `KOMBI46 status should list its pages, got ${pages.length}`);
   ok(pages.every(p => !p.menu || irSameBar(kbs, p.menu, st.menu)),
      'a status page still opens a menu instead of its screen');
+}
+
+// ---- a menu with nothing runnable loses to the screen ---------------------
+// LWS5's Coding key installs m_code AND names s_code. m_code's only entry
+// launches sm_Codier_Datei, a state machine whose whole body is "prompt for a
+// path, open it 'w', write the coding data" -- INPA ships no coding readout
+// for that ECU, so the key opened a one-item menu that could not run. The
+// screen it also names holds the seven data blocks and the checksum.
+{
+  const lw2 = load('LWS5');
+  const cod = lw2.menus.m_code.items.find(i => i.nr === 1);
+  ok(cod && cod.fileAction,
+     'LWS5 Coding key writes a .COD file and must be flagged');
+  ok(!_irHasRunnable(lw2, 'm_code'),
+     'm_code holds nothing runnable once the file action is flagged');
+  const rootC = irRootMenu(lw2);
+  const key = irMenuItems(lw2, rootC).find(i => /^Cod(e|ing)$/i.test(i.label));
+  ok(key && key.screen === 's_code',
+     `LWS5 Coding should name s_code, got ${key && key.screen}`);
+  const rows = irRows(lw2.screens.s_code).rows;
+  ok(rows.length === 8, `LWS5 coding should show 8 rows, got ${rows.length}`);
+  ok(rows.filter(r => r.key === 'COD_DATEN').length === 7,
+     'LWS5 coding lost its seven data blocks');
+  // real submenus must still open
+  ok(_irHasRunnable(lw2, 'm_status') && _irHasRunnable(lw2, 'm_fehler'),
+     'a real LWS5 submenu was judged empty');
 }
 
 // ---- a PC file operation is not an ECU function --------------------------
