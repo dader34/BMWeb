@@ -145,13 +145,20 @@ def _softkeys(lines):
         for e in ln.get("elements", []):
             if e.get("t") != "text":
                 continue
-            m = _SOFTKEY.match(str(e.get("s", "")).strip())
-            if not m or m.group(1):         # shifted row is INPA chrome
+            s = str(e.get("s", "")).strip()
+            if not _SOFTKEY.match(s):
                 continue
-            cap = m.group(3).strip()
-            if _SK_CHROME.match(cap):
-                continue
-            out.setdefault(int(m.group(2)), cap)
+            # INPA may print two keys on ONE line ("< F3 > -1°KW  < F4 > +1°KW").
+            # Split on every marker so each key takes only its own text --
+            # taking the whole tail captioned F3 with F4's wording as well.
+            parts = re.split(r"<\s*((?:Shift\s*>\s*\+\s*<\s*)?)F(\d+)\s*>", s)
+            for i in range(1, len(parts) - 2, 3):
+                if parts[i]:                # shifted row is INPA chrome
+                    continue
+                cap = parts[i + 2].strip()
+                if len(cap) < 2 or _SK_CHROME.match(cap):
+                    continue
+                out.setdefault(int(parts[i + 1]), cap)
     return out
 
 
@@ -663,8 +670,29 @@ def build(ecu):
     # softkey help ("< F2 >  DWA output"); the ITEM number IS the F-key, so
     # the two sides join exactly. Only fills gaps -- a menu item that already
     # says more than the softkey keeps its own wording.
+    # Which screen a menu is drawn in: the key that installs the menu sets the
+    # screen in the same breath (KOMBI F6 Activate -> m_steuern_46 + s_steuern),
+    # so the pairing is the item's own, not a guess from the name. Without it
+    # the join below never ran for KOMBI and its actuator keys kept INPA's
+    # fragments ("SII oil", "hi.beam") instead of the screen's own help text.
+    drawn_in = {}
+    for m in ir["menus"].values():
+        for it in m["items"]:
+            for mt in [it.get("menu")] + (it.get("menuAlts") or []):
+                if mt and it.get("screen"):
+                    drawn_in.setdefault(mt, []).append(it["screen"])
     for mname, menu in ir["menus"].items():
         target = menu.get("screen")
+        if not target:
+            # prefer a screen whose softkeys actually cover this menu's keys
+            nrs = {str(i.get("nr")) for i in menu["items"]}
+            best, score = None, 0
+            for cand in drawn_in.get(mname, []):
+                sk = (ir["screens"].get(cand) or {}).get("softkeys") or {}
+                n = len(nrs & set(sk))
+                if n > score:
+                    best, score = cand, n
+            target = best
         if not target or target not in ir["screens"]:
             continue
         sk = ir["screens"][target].get("softkeys") or {}

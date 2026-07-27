@@ -163,12 +163,14 @@ ok(errIt && errIt.menu, 'RDC Error key lost its menu');
 const errItems = irMenuItems(r, errIt.menu);
 ok(!errItems.some(i => /^store$/i.test(i.label)),
    'fault menu still lists the file-save action');
-const clear = errItems.find(i => /^Clear$/i.test(i.label));
+// A menu item takes the screen's own softkey help when that says more, so
+// match on meaning rather than INPA's shortest wording.
+const clear = errItems.find(i => /^(Clear|Delete)\b/i.test(i.label));
 ok(clear && clear.job === 'FS_LOESCHEN',
    `Clear must carry FS_LOESCHEN, got ${clear && clear.job}`);
 // reading faults is INPA library code (INPAapiFsLesen_neu), so the item names
 // no job and the app's own fault view handles it
-const read = errItems.find(i => /^(Read|FS lesen|Lesen)$/i.test(i.label));
+const read = errItems.find(i => /^(Read|FS lesen|Lesen)\b/i.test(i.label));
 ok(read && !read.job, 'fault Read should have no job of its own');
 
 // ---- setitem captions: INPA names its keys at runtime --------------------
@@ -182,17 +184,19 @@ ok(szlErr && szlErr.menu, 'SZL Error key lost its menu');
 const szlItems = irMenuItems(szl, szlErr.menu);
 ok(szlItems.every(i => i.label && i.label.trim()),
    'SZL fault menu still has blank captions');
-// captions are expanded for display (INPA_CAPTIONS), so assert on what the
-// user sees, not on the abbreviation
-for (const [cap, job] of [['Read fault memory', null],
-                          ['Clear fault memory', 'FS_LOESCHEN'],
-                          ['Read info memory', null],
-                          ['Clear info memory', 'IS_LOESCHEN'],
-                          ['Read history memory', null],
-                          ['Clear history memory', 'HS_LOESCHEN']]) {
-  const e = szlItems.find(i => i.label === cap);
-  ok(e, `SZL fault menu missing "${cap}"`);
-  if (e && job) ok(e.job === job, `SZL "${cap}" job: ${e.job}`);
+// Wording depends on whether the screen printed longer softkey help ("Read
+// error memory") or only the setitem abbreviation ("Read EM"), so match the
+// memory and the verb, and assert the JOB -- which is what actually runs.
+for (const [what, verb, mem, job] of [
+    ['fault read', /^(Read|Lesen)/i, /\b(EM|FS|error|fault)\b/i, null],
+    ['fault clear', /^(Clear|Delete)/i, /\b(EM|FS|error|fault)\b/i, 'FS_LOESCHEN'],
+    ['info read', /^(Read|Lesen)/i, /\b(IM|IS|info)/i, null],
+    ['info clear', /^(Clear|Delete)/i, /\b(IM|IS|info)/i, 'IS_LOESCHEN'],
+    ['history read', /^(Read|Lesen)/i, /\b(HM|HS|history)/i, null],
+    ['history clear', /^(Clear|Delete)/i, /\b(HM|HS|history)/i, 'HS_LOESCHEN']]) {
+  const e = szlItems.find(i => verb.test(i.label) && mem.test(i.label));
+  ok(e, `SZL fault menu missing ${what}`);
+  if (e && job) ok(e.job === job, `SZL ${what} job: ${e.job}`);
 }
 // Word order varies by build and so does the wording: "Read EM", "EM Read",
 // "FS lesen", "Shadow" (the info memory under another name -- TOENS labels
@@ -260,7 +264,7 @@ ok(!irIsCard(mv),
 // s_status + m_rdc_status). s_status is only the window the menu is drawn in
 // and has no rows, so checking the screen first sent Status and Activate to
 // the "performs an action, not a readout" message instead of their submenus.
-for (const label of [/^Status$/i, /^Activate$/i]) {
+for (const label of [/^(Read )?Status$/i, /^Activate\b/i]) {
   const it = rootKey(r, label);
   ok(it && it.menu, `RDC ${label} lost its menu`);
   ok(it && irMenuItems(r, it.menu).length > 0,
@@ -347,7 +351,7 @@ ok(irRootMenu(kb, 'KOMBI46') === 'm_main_36_38_39_46_52_85',
 ok(irRootMenu(kb, 'KOMBI31') === 'm_main_31_32_34',
    'an E31 cluster must get its own root');
 // with no answer, prefer the widest root rather than the first declared
-ok(irMenuItems(kb, irRootMenu(kb)).some(i => /^Status$/i.test(i.label)),
+ok(irMenuItems(kb, irRootMenu(kb)).some(i => /^(Read )?Status$/i.test(i.label)),
    'the default root must not be the one missing Status');
 // variant names are names, not result keys picked up from a nearby compare
 for (const list of Object.values(kb.rootVariants || {})) {
@@ -366,7 +370,7 @@ for (const list of Object.values(kb.rootVariants || {})) {
   kbv._variant = 'KOMBI46';
   const root = irRootMenu(kbv, 'KOMBI46');
   const items = irMenuItems(kbv, root, 'KOMBI46');
-  const code = items.find(i => /^Code$/i.test(i.label));
+  const code = items.find(i => /^Cod(e|ing)$/i.test(i.label));
   ok(code && code.screen === 's_code_46',
      `KOMBI46 Code should open s_code_46, got ${code && code.screen}`);
   ok(irRows(kbv.screens[code.screen]).rows.length > 30,
@@ -374,11 +378,11 @@ for (const list of Object.values(kb.rootVariants || {})) {
   // INPA ships one Status menu per variant and lists the rest as alternatives.
   // Taking item.menu blind gave an E46 the E38/E39 pages; it must get its own
   // m_status_46, whose keys (TOENS I/O, TOENS ECU, CAN) exist on no other.
-  const stat = items.find(i => /^Status$/i.test(i.label));
+  const stat = items.find(i => /^(Read )?Status$/i.test(i.label));
   ok(stat && stat.menu === 'm_status_46',
      `KOMBI46 Status should open m_status_46, got ${stat && stat.menu}`);
   const pages = irMenuItems(kbv, stat.menu, 'KOMBI46');
-  const ana = pages.find(i => /^Analog$/i.test(i.label));
+  const ana = pages.find(i => /\bAnalog\b/i.test(i.label));
   ok(ana && ana.screen === 's_status_analog_46',
      `KOMBI46 Analog should be s_status_analog_46, got ${ana && ana.screen}`);
   ok(pages.some(i => /CAN/i.test(i.label)),
@@ -392,7 +396,7 @@ for (const list of Object.values(kb.rootVariants || {})) {
     const ir2 = load('KOMBI');
     ir2._variant = v;
     const it = irMenuItems(ir2, irRootMenu(ir2, v), v)
-      .find(i => /^Status$/i.test(i.label));
+      .find(i => /^(Read )?Status$/i.test(i.label));
     if (!it) return null;
     return it.menu ? `menu:${it.menu}` : it.screen;
   };
@@ -407,7 +411,7 @@ for (const list of Object.values(kb.rootVariants || {})) {
      `KOMBI46 Status screen has too few rows: ${stat && stat.screen}`);
   // a different variant gets its own screens
   const i36 = irMenuItems(kbv, root, 'KOMBI36');
-  ok(i36.find(i => /^Code$/i.test(i.label)).screen !== 's_code_46',
+  ok(i36.find(i => /^Cod(e|ing)$/i.test(i.label)).screen !== 's_code_46',
      'KOMBI36 wrongly given the E46 coding screen');
   // a menu with no digits serves every variant
   ok(irMenuFitsVariant('m_steuern', 'KOMBI46')
