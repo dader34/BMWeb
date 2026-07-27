@@ -41,6 +41,15 @@ _P = rb"\x03(.)\x00"
 # the coding read job, whichever spelling this ECU uses
 _JOB = re.compile(rb"\x06(COD_LESEN|CODIER[A-Z_]*_LESEN|C_[A-Z]{2,4}_LESEN)\x0a")
 
+# Not every ECU has a coding-named job. GSDS2 draws its Coding screen from
+# IDENT and titles the block "Coding Data", so anchoring on the job name alone
+# finds nothing. This anchors on INPA's own heading and takes whatever job the
+# screen actually runs.
+_HEADING = re.compile(rb"\x06(Coding Data|Codierdaten|Coding|Codierung)\x0a")
+_ANY_JOB = re.compile(rb"\x06([A-Z][A-Z0-9_]{3,30})\x0a")
+# how far back from the heading its job and rows may sit
+_BACK = 900
+
 # caption + 4 ints, ':' + 4 ints, result key — one labelled row
 _FIELD = re.compile(rb"\x06([\x20-\x7e\xa0-\xff]{2,40})\x0a" + _P * 4
                     + rb"\x06:\x0a" + _P * 4
@@ -54,12 +63,27 @@ def extract(path):
     with open(path, "rb") as f:
         data = f.read()
     m = _JOB.search(data)
-    if not m:
+    start, end, job = None, None, None
+    if m:
+        job, start, end = m.group(1).decode("latin-1"), m.end(), m.end() + _SPAN
+    else:
+        # heading-anchored: the rows sit BEFORE the "Coding Data" caption, so
+        # the window runs back from it, and the job is the last one declared
+        # ahead of those rows
+        h = _HEADING.search(data)
+        if h:
+            lo = max(0, h.start() - _BACK)
+            jobs = [(x.start(), x.group(1).decode("latin-1"))
+                    for x in _ANY_JOB.finditer(data, lo, h.start())]
+            jobs = [(p, j) for p, j in jobs if not j.startswith(("STAT_", "ID_"))
+                    and j not in ("OKAY",)]
+            if jobs:
+                job, start, end = jobs[-1][1], jobs[-1][0], h.start()
+    if job is None:
         return {"ecu": os.path.basename(path)[:-4], "coding": None}
 
-    job = m.group(1).decode("latin-1")
     fields, seen = [], set()
-    for f in _FIELD.finditer(data, m.end(), m.end() + _SPAN):
+    for f in _FIELD.finditer(data, start, end):
         key = f.group(10).decode("latin-1")
         label = f.group(1).decode("latin-1").strip()
         if key in seen or not L1._clean(label):
