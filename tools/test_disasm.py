@@ -38,7 +38,11 @@ def main():
           f"pool[0x0c3d]={a and a[1]!r}")
 
     # -- MS450 ground truth --------------------------------------------------
-    hand = json.load(open(os.path.join(ROOT, "data/inpa-layouts/MS450.json")))
+    # The hand-wired layout no longer drives the app -- the interpreter does --
+    # but it stays as the decompiler's ground truth: it was verified against
+    # INPA screen by screen, so every result key in it must still be recalled.
+    hand = json.load(open(os.path.join(
+        ROOT, "reference/ms45-handwired/MS450.layout.json")))
     r = D.decompile("MS450")
     hit = miss = 0
     missed = []

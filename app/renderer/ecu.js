@@ -270,30 +270,6 @@ function screenIsReal(ecu, sec) {
     ROOT_SECTION.some(([re, name]) => name === sec.section && re.test(it.label)));
 }
 
-// A hand-verified layout outranks a fresh decode: someone checked those
-// screens against a real car. Generated layouts carry `generated: true`, so
-// the distinction is a property of the data, not a list of ECU names.
-// Should this layout outrank the decompiled UI?
-//
-// Not a question about provenance -- markers proved useless. Three different
-// producers write these files and they agree on nothing: ipo_enrich sets
-// `generated`, PrgLayout.cs sets `parser: prg-layout/1.0`, and older
-// artifacts set neither. IHKA's stayed on the legacy renderer through two
-// attempts at reading markers, because enriched/KLIMA_5B.json carries no
-// marker at all and yet holds four screens with no proc names and zero
-// result keys.
-//
-// So ask what the file actually CONTAINS. A layout earns priority only by
-// having screens with real rows -- which is exactly what a hand-verified
-// layout has and what these machine artifacts lack.
-function layoutIsHandBuilt(layout) {
-  if (!layout || layout.generated || layout.parser || layout.format) {
-    return false;
-  }
-  const screens = Array.isArray(layout.screens) ? layout.screens : [];
-  return screens.some(s => (s.rows || s.result_keys || []).length > 0);
-}
-
 // Does this layout describe ACTUATORS? A layout can be a good readout layout
 // and have nothing for Activate -- IHKA's enriched file is exactly that: 53
 // analog inputs, 15 flap positions, and no actuator description at all. Such
@@ -423,8 +399,8 @@ async function showEcu(chassisId, sectionName, ecu) {
     layout = pickLayoutMode(layout);
   } catch { /* no layout, fall back below */ }
   // the decompiled INPA UI, when this ECU has one. Interpreted directly by
-  // ir.js; a hand-built or generated layout still wins where it has content,
-  // so this only takes over screens nothing else serves.
+  // ir.js, and it drives the ECU whenever it yields a root menu; the layout
+  // below is the fallback for ECUs with no IR.
   try {
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
@@ -471,12 +447,12 @@ async function showEcu(chassisId, sectionName, ecu) {
   // hand-built and generated layouts stay the fallback for ECUs with no IR.
   const irRoot = ecu._ir && typeof irRootMenu === 'function'
     ? irRootMenu(ecu._ir, ecu._variant) : null;
-  // "Interpreter everywhere" (Settings) ignores the hand-built layout and
-  // drives every screen from the decompiled .IPO, so the two can be compared
-  // on the same ECU. Default stays layout-first: those were verified by hand.
-  const irFirst = typeof Settings !== 'undefined'
-    && Settings.get('screenSource', 'layout') === 'ir';
-  if (irRoot && (irFirst || !layoutIsHandBuilt(layout))) {
+  // The interpreter drives every ECU that has an IR. It used to yield to a
+  // hand-built layout, which meant MS450 -- the one ECU wired by hand -- was
+  // the only one NOT exercising the generic path, so its bugs stayed hidden
+  // behind the curated file. The hand-wired layout is kept as the
+  // decompiler's ground truth (reference/ms45-handwired/), not as UI.
+  if (irRoot) {
     if (bar) bar.remove();
     grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
     renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
