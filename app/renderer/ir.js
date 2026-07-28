@@ -521,6 +521,9 @@ function irMenuItems(ir, menuName, variant) {
       // the argument this key sends, which may be all that distinguishes it
       // from its neighbour (RADIO's sources, CDC's transport mode)
       jobArg: it.jobArg || null,
+      // the index this key selects before opening its screen, when several
+      // keys share one screen and differ only by record (MS450's 15 AIF keys)
+      sel: Array.isArray(it._sel) ? it._sel[1] : null,
       // the job came from a state machine, whose argument assembly is not
       // decoded -- listed, never sent
       stateJob: !!it.stateJob,
@@ -1198,8 +1201,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
     }
-    const screens = scr
+    let screens = scr
       ? irRowsTranslated(scr, await irDescs(ecu, scr)) : [];
+    // A screen several keys share, parameterised by the index the key set:
+    // MS450's fifteen AIF keys all open s_aif and differ only in which record
+    // AIF_LESEN reads, so without passing it every key showed the same page.
+    if (scr && it.sel != null
+        && (scr.jobs || []).some(j => j.argFromMenu)) {
+      screens = screens.map(x => ({ ...x, args: String(it.sel) }));
+    }
     if (screens.length) {
       showInpaCategory(ecu, screens, container, irLabel(scr.title) || it.label);
     } else {
