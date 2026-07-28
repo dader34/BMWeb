@@ -362,6 +362,7 @@
  "Kennung, ob GPS angeschlossen ist und Welches": "Identifier: whether GPS is connected and which",
  "Kennung, ob RDS benutzt wird oder nicht,\"0\" oder\"R\"": "Identifier: whether RDS is used, \"0\" or \"R\"",
  "KlimaSystem Readiness gesetzt 0=Nein / 1=Ja": "A/C system readiness set 0=no / 1=yes",
+ "Kuehlmitteltemperatur": "Coolant temperature",
  "Kurbelwelle Segmentadaption beendet 0=nein / 1=ja": "Crankshaft segment adaptation finished 0=no / 1=yes",
  "Kühlmitteltemperatur (Sensorwert) nach Tiefpassfilterung": "Coolant temperature (sensor value) after low-pass filtering",
  "Kühlmitteltemperatur Rohwert": "Coolant temperature raw value",
