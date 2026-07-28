@@ -481,6 +481,43 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
   }
 }
 
+// ---- captions printed as a BLOCK, values beneath -------------------------
+// INPA may print a whole row of captions and then the whole row of values:
+// DWA4 draws "Clamp R / Clamp 15 / Clamp 61" on row 4 and their three lamps on
+// row 6. Reading order then hands every lamp the LAST caption, so the first
+// read "Clamp 61" and the other two showed a bare result name. Paired by
+// position instead -- nearest by column, at most two rows up, never a caption
+// printed to the value's right.
+{
+  const dw = load('DWA4');
+  const st = irRows(dw.screens.s_status).rows;
+  ok(st.length === 25, `DWA4 status should have 25 rows, got ${st.length}`);
+  ok(st.every(r => r.label), `DWA4 status has unlabelled rows: `
+     + st.filter(r => !r.label).map(r => r.key));
+  for (const [key, want] of [['STAT_KL_R_EIN', 'Clamp R'],
+                             ['STAT_KL_15_EIN', 'Clamp 15'],
+                             ['STAT_KL_61_EIN', 'Clamp 61'],
+                             ['STAT_ZS1_EIN', 'ZS1'],
+                             ['STAT_FAHRERTUER_OFFEN', 'Driver door'],
+                             ['STAT_BEIFAHRERTUER_OFFEN', 'Passenger door']]) {
+    const r = st.find(x => x.key === key);
+    ok(r && r.label === want,
+       `DWA4 ${key} should read ${JSON.stringify(want)}, got ${JSON.stringify(r && r.label)}`);
+  }
+  // the group heading ("clamps", "lock signals") is a title, not a label
+  ok(!st.some(r => /^(clamps|lock signals|checked switches)$/i.test(r.label)),
+     'a group heading leaked onto a row as its caption');
+}
+// A printed softkey row is the screen's own key help, never a caption: taking
+// it labelled IHKA's flap position "< F3 >  Fresh air flap".
+for (const [e, scr] of [['KLIMA_5B', null], ['IHKA39', null]]) {
+  const ir3 = load(e);
+  for (const s3 of Object.values(ir3.screens || {})) {
+    ok(!irRows(s3).rows.some(r => /^<\s*(Shift\s*>\s*\+\s*<\s*)?F\s*\d+\s*>/.test(r.label || '')),
+       `${e}: a softkey row was taken as a caption`);
+  }
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
