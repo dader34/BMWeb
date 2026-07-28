@@ -417,14 +417,14 @@ ok(!irIsCard(g.screens['s_analog_1']),
 // /Geschwindigkeit/ and /Signal/ rules, or "Radgeschwindigkeit" becomes
 // "Radspeed" and "Rohsignal" survives untouched.
 for (const [de, en] of [
-    ['Rohsignal vom DSC/ABS RL (Impulse/sec)', 'raw signal from DSC/ABS RL (pulses/sec)'],
+    ['Rohsignal vom DSC/ABS RL (Impulse/sec)', 'Raw signal from DSC/ABS RL (pulses/sec)'],
     ['Speedsabh. Standardisierungsfortschritt 1 for EXX',
-     'speed-dep. standardisation progress 1 for EXX'],
-    ['Radgeschwindigkeit vorne links', 'wheel speed front left'],
+     'Speed-dep. standardisation progress 1 for EXX'],
+    ['Radgeschwindigkeit vorne links', 'Wheel speed front left'],
     ['geschwindigkeitsabhängige Standardisierung',
      'speed-dependent standardisation'],
     ['ABS-Rohsignale [Hz]', 'ABS-raw signals [Hz]'],
-    ['Bandmode', 'plant mode']]) {
+    ['Bandmode', 'Plant mode']]) {
   ok(deGerman(de) === en, `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);
 }
 // ...and must not touch strings BMW already shipped in English. "Impulse" is
@@ -590,8 +590,8 @@ for (const [de, en] of [
     ['Fehlerspeicher l\u00f6schen', 'Clear error memory'],
     ['Anpassungswerte selektiv l\u00f6schen', 'Clear selected adaptation values'],
     ['SG-Identifikation', 'ECU identification'],
-    ['Stellgliedansteuerungen', 'actuator activation'],
-    ['Systemdiagnosen', 'system diagnostics'],
+    ['Stellgliedansteuerungen', 'Actuator activation'],
+    ['Systemdiagnosen', 'System diagnostics'],
     ['Bildschirm drucken', 'Print screen']]) {
   ok(deGerman(de) === en,
      `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);

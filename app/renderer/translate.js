@@ -665,6 +665,14 @@ function deGerman(text) {
     // token-level fallback for partial/unlisted phrases (P-code text, etc.)
     out = text;
     for (const [re, en] of DE_TOKENS) out = out.replace(re, en);
+    // German capitalises every noun, so a token rule has to be lowercase to
+    // read right mid-sentence ("Ende Systemdiagnose SLS" -> "End system
+    // diagnostics"). That left the 74 captions where the noun comes FIRST
+    // starting lowercase next to Title-Case siblings -- MS45's root menu
+    // showed "actuator activation" under "Read error memory". Restore the
+    // case the source had, and only where the source had it.
+    if (/^[A-ZÄÖÜ]/.test(text) && /^[a-z]/.test(out))
+      out = out.charAt(0).toUpperCase() + out.slice(1);
   }
   // don't cache token-fallback results taken before the phrase map has loaded,
   // or they'd shadow the better BMW_FAULT_PHRASES translation once it arrives.
