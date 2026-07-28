@@ -66,8 +66,20 @@ KNOWN LIMITS, carried in the data rather than papered over:
     - the fault-memory formatter builds keys at runtime; its screen emits
       whatever is static and no more
 
+TRANSLATION is a second pass, not a render-time concern. This emitter gathers
+every caption an ECU displays into `strings`; tools/ipo_i18n.js resolves them
+once -- data/inpa-i18n/<ECU>.json first, then the shared vocabulary in
+app/renderer/translate.js -- and writes the result back as `i18n`, consuming
+`strings`. The interpreter looks up that map instead of translating.
+
+That per-ECU layer is the point: BMW's compounds are not shared vocabulary.
+"Gesteuerte LuftFuehrung GLF" is MS450's own phrase for its air-guidance
+actuator, and a word rule general enough to translate it turns other ECUs'
+captions into "Gecontrolse".
+
     python3 tools/ipo_ir.py RDC                 # one ECU to stdout
     python3 tools/ipo_ir.py --write             # corpus -> data/inpa-ir/
+    node   tools/ipo_i18n.js                    # resolve captions into them
     python3 tools/ipo_ir.py --check             # invariants (check.sh)
 """
 import os
@@ -928,6 +940,27 @@ def build(ecu):
                 continue
             if 11 <= n <= 19 and (n - 10) in nrs:
                 it["shift"] = True
+    # Every caption this ECU displays, gathered once. The renderer used to
+    # translate at draw time -- 24 call sites, the same string re-resolved on
+    # every repaint -- which also meant a per-ECU correction had nowhere to
+    # live. tools/ipo_i18n.js fills this in from the shared vocabulary plus
+    # data/inpa-i18n/<ECU>.json, and the interpreter then just looks up.
+    strings = set()
+    for menu in ir["menus"].values():
+        for it in menu["items"]:
+            if it.get("label"):
+                strings.add(it["label"])
+    for scr in ir["screens"].values():
+        if scr.get("title"):
+            strings.add(scr["title"])
+        for ln in scr.get("lines", []):
+            if ln.get("caption"):
+                strings.add(ln["caption"])
+            for e in ln.get("elements", []):
+                for k in ("s", "unit", "on", "off"):
+                    if e.get(k):
+                        strings.add(e[k])
+    ir["strings"] = sorted(strings)
     ir["coverage"] = round(100 * (1 - cov_unk / cov_len), 1) if cov_len else 0
     # An .IPO can ship several root menus, one per ECU variant. INPA does not
     # guess from the SGBD filename: inpainit runs INITIALISIERUNG, reads its

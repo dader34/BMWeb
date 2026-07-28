@@ -27,7 +27,8 @@ _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVari
                .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')
                .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar')
                .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable')
-               .replace('function irOpensMenu', 'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu');
+               .replace('function irOpensMenu', 'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu')
+               .replace('function irUseTranslations', 'globalThis.irUseTranslations = irUseTranslations; function irUseTranslations');
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -640,6 +641,42 @@ for (const [de, en] of [
   ok(clr && ms4.screens[clr.screen].jobs[0].name === 'FS_LOESCHEN'
      && ms4.screens[clr.screen].jobs[0].write,
      'MS450 clear should carry FS_LOESCHEN as a write');
+}
+
+// ---- translations are resolved per ECU, into the IR ----------------------
+// The renderer used to call deGerman at draw time from 24 places, so a caption
+// BMW worded oddly for ONE ECU had nowhere to be corrected: the vocabulary is
+// shared, and a rule general enough to translate MS450's "Gesteuerte
+// LuftFuehrung GLF" mangles other ECUs into "Gecontrolse". Each ECU now
+// carries its own resolved map, from data/inpa-i18n/<ECU>.json first and the
+// shared vocabulary second.
+{
+  const ms5 = load('MS450');
+  ok(ms5.i18n && Object.keys(ms5.i18n).length > 100,
+     'MS450 should carry a resolved translation map');
+  ok(!ms5.strings,
+     'the emitter hand-off list should be consumed, not shipped to the app');
+  // the shared vocabulary alone still mangles this -- which is why the
+  // per-ECU layer exists
+  ok(deGerman('Gesteuerte LuftF\u00fchrung GLF') !== 'Controlled air guidance (GLF)',
+     'this phrase is deliberately NOT in the shared vocabulary');
+  irUseTranslations(ms5);
+  const acts = irMenuItems(ms5, 'm_iostatus');
+  for (const want of ['Injectors', 'Electric fan', 'Lambda sensor heaters',
+                      'Controlled air guidance (GLF)', 'Idle actuator']) {
+    ok(acts.some(i => i.label === want),
+       `MS450 actuator group ${JSON.stringify(want)} not translated: `
+       + acts.map(i => i.label));
+  }
+  // no caption may keep the tells of a half-translation
+  ok(!acts.some(i => /[\u00e4\u00f6\u00fc\u00df]|Gecontrolse|heateren/.test(i.label)),
+     `a mangled caption survived: ${acts.map(i => i.label)}`);
+  // an ECU with no overrides file still gets the shared vocabulary
+  const dws2 = load('DWS');
+  irUseTranslations(dws2);
+  ok(irMenuItems(dws2, irRootMenu(dws2)).length > 0,
+     'an ECU without overrides must still render');
+  irUseTranslations(null);
 }
 
 // ---- a PC file operation is not an ECU function --------------------------
