@@ -562,6 +562,17 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     if (valEl.textContent !== t) { valEl.textContent = t; flash(valEl); }
     return;
   }
+  // A LAMP is an indicator, never a measurement: INPA drew it with digitalout,
+  // which has no scale at all. Falling through here invented a 0..100 range
+  // and drew DWA4's "with tilt alarm sensor" -- a yes/no coding flag -- as a
+  // bar sitting at 34.
+  if (rowSpec.kind === 'lamp') {
+    if (setBoolCell(cellEl, valEl, p.raw)) return;
+    cellEl.classList.add('text-only');
+    const t = String(p.raw).trim();
+    if (valEl.textContent !== t) { valEl.textContent = t; flash(valEl); }
+    return;
+  }
   cellEl.classList.remove('text-only');
   let min = rowSpec.min, max = rowSpec.max;
   if (min == null || max == null) {
