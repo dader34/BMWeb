@@ -1,0 +1,21 @@
+{
+ "Authentisieren des Schlüssels": "Authenticate the key",
+ "Druck": "Pressure",
+ "Eingabe der Fahrgestellnummer": "Enter the chassis number",
+ "Eingabe der SA": "Enter the option code",
+ "Einlesen der Auftragsdaten": "Read in the order data",
+ "Erstellen eines Ersatz-Schlüssels": "Create a replacement key",
+ "Fehler": "Fault",
+ "Fehler bzw. noch nicht erfolgt": "Fault, or not yet performed",
+ "Motor": "Engine",
+ "Motor Starts": "Engine starts",
+ "Schluessel mit STARC Transponder": "Key with STARC transponder",
+ "Schlüssel eingesteckt": "Key inserted",
+ "Schlüssel gueltig": "Key valid",
+ "Schlüssel verrastet": "Key latched",
+ "Schlüsselinitialisierung": "Key initialisation",
+ "Schlüsselnummer": "Key number",
+ "Ungültig authentisierter Schlüssel": "Invalidly authenticated key",
+ "Wollen Sie die Schlüssel automatisch initialisieren?": "Do you want to initialise the keys automatically?",
+ "mit Passive Access": "With passive access"
+}
