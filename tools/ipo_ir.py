@@ -478,6 +478,14 @@ def _screen_ir(toks):
                 rng = num_args_after_coords(args)
                 if len(rng) >= 2:
                     el["min"], el["max"] = rng[0], rng[1]
+                # analogout carries FOUR bounds: the scale the bar spans, then
+                # the band INPA draws green. MS450's rough running is
+                # (0, 8, 0, 5) -- green to 5, red on to 8 -- so the threshold
+                # the gauge exists to show lives in the second pair. When the
+                # two pairs match (0, 2, 0, 2) the whole bar is green, which is
+                # why the lambda bars beside it carry no red at all.
+                if len(rng) >= 4 and (rng[2], rng[3]) != (rng[0], rng[1]):
+                    el["okMin"], el["okMax"] = rng[2], rng[3]
                 if strs and strs[-1]:
                     el["fmt"] = strs[-1]
                 if not key:

@@ -25,6 +25,9 @@
   --sb-thumb: #2c3742; --sb-thumb-hover: var(--amber);
   /* gauge: amber fill on dark track */
   --gauge-track: #0c1218; --gauge-fill: var(--amber);
+  /* the two zones analogout declares: the good band, and the rest of the
+     scale. INPA paints these green and red on every bar that carries them. */
+  --gauge-ok: #1f7a4d; --gauge-warn: #7a2020;
   /* logo */
   --logo-bg: #11161c;
   --logo-border: #9aa6b2;
@@ -1075,6 +1078,13 @@ html[data-theme="inpa"] .act-row.running .inpa-fn-label { color: #a00000; }
   position: relative; height: 14px; border-radius: 2px; overflow: hidden;
   background: var(--gauge-track, var(--green));
   border: 1px solid var(--line);
+}
+/* INPA draws its zones in flat saturated green and red on white */
+html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000; }
+/* ...and on a zoned bar the zones ARE the bar, so the value marker is a rule
+   rather than a solid fill that would hide them */
+.gauge-track.zoned .gauge-fill {
+  background: none; border-right: 2px solid var(--ink);
 }
 .gauge-fill {
   position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
