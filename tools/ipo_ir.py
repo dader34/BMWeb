@@ -1083,6 +1083,15 @@ def build(ecu):
             # making the softkey win outright there changed 237 captions and
             # exposed an off-by-one join on GSDS2, which is its own bug.
             if shifted or len(cap) > len(it.get("label") or ""):
+                # INPA uses BOTH captions: the long one in the screen body,
+                # the ITEM's own short one on the F-key bar ("Ansteuerung
+                # Einlass mit 15 %" over a button reading "E 15%"). Keep the
+                # short form so the bar can say something a 9-key row fits --
+                # truncating the long caption gave nine buttons all reading
+                # "Activat...".
+                short = (it.get("label") or "").strip()
+                if short and short != cap and len(short) < len(cap):
+                    it["short"] = short
                 it["label"] = cap
             # how the key is actually pressed, so the app can say so
             if shifted:
