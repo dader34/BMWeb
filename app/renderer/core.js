@@ -237,22 +237,52 @@ function setCrumbs(items) {
 // INPA function-key bar. screens declare actions; bind number keys 1..9,0.
 // Esc fires the `back` action.
 let currentActions = []; // [{ key:'1', label, fn, kind }]
+// INPA's bar has two rows and Shift swaps between them: F3 is "inclination +"
+// and Shift+F3 its opposite. `shiftActions` is the second row when a screen
+// has one; the bar shows one row at a time, exactly as INPA does.
+let shiftActions = null;
+let baseActions = [];
+let shiftHeld = false;
 
-function setActions(actions) {
-  stopLive(); stopLogging(); // leaving a screen halts polling + logging
-  if (typeof dismissAttention === 'function') dismissAttention(); // drop the fault badge on screen change
-  if (activationEcu && activeTests.size) { stopAllActivations(activationEcu); } // kill active actuator tests
-  currentActions = actions;
+function paintActions(actions) {
   fkeysEl.innerHTML = '';
   actions.forEach(a => {
     const el = document.createElement('div');
     el.className = 'fkey' + (a.kind ? ' ' + a.kind : '');
-    el.innerHTML = `<span class="fkey-num">${a.keyLabel || a.key}</span>
+    el.innerHTML = `<span class="fkey-num">${esc(a.keyLabel || a.key)}</span>
                     <span class="fkey-label">${esc(a.label)}</span>`;
     el.onclick = () => fireAction(a);
     a._el = el;
     fkeysEl.appendChild(el);
   });
+  fkeysEl.classList.toggle('shifted', actions === shiftActions);
+}
+
+// a screen may also want its BODY repainted when the row swaps, so the list
+// and the bar always show the same half
+let shiftRepaint = null;
+function onShiftRepaint(fn, enabled) { shiftRepaint = enabled ? fn : null; }
+const shiftHeldNow = () => shiftHeld;
+
+// swap the bar to the row Shift selects, keeping the keys bound to it
+function applyShift(on) {
+  if (!shiftActions || on === shiftHeld) return;
+  shiftHeld = on;
+  currentActions = on ? shiftActions : baseActions;
+  paintActions(currentActions);
+  if (shiftRepaint) shiftRepaint();
+}
+
+function setActions(actions, shifted) {
+  stopLive(); stopLogging(); // leaving a screen halts polling + logging
+  if (typeof dismissAttention === 'function') dismissAttention(); // drop the fault badge on screen change
+  if (activationEcu && activeTests.size) { stopAllActivations(activationEcu); } // kill active actuator tests
+  baseActions = actions;
+  shiftActions = (shifted && shifted.length) ? shifted : null;
+  shiftHeld = false;
+  shiftRepaint = null;          // the previous screen's list is gone
+  currentActions = actions;
+  paintActions(actions);
 }
 
 function fireAction(a) {
@@ -260,6 +290,18 @@ function fireAction(a) {
   if (a._el) { a._el.classList.remove('flash'); void a._el.offsetWidth; a._el.classList.add('flash'); }
   a.fn();
 }
+
+// Shift swaps the bar to its second row for as long as it is held, the way
+// INPA's own keyboard works. Released -- or the window losing focus mid-hold
+// -- puts the first row back, so the bar can never be left showing keys the
+// next keypress will not fire.
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Shift') applyShift(true);
+});
+window.addEventListener('keyup', (e) => {
+  if (e.key === 'Shift') applyShift(false);
+});
+window.addEventListener('blur', () => applyShift(false));
 
 window.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -277,7 +319,12 @@ window.addEventListener('keydown', (e) => {
     if (back) { e.preventDefault(); fireAction(back); }
     return;
   }
-  const match = currentActions.find(a => a.key === key);
+  // With Shift held the browser reports "!" for the 1 key, so match on the
+  // physical digit (e.code) as well -- the shifted row is reached by holding
+  // Shift and pressing the same number.
+  const digit = /^Digit(\d)$/.exec(e.code || '');
+  const match = currentActions.find(a => a.key === key)
+    || (digit && currentActions.find(a => a.key === digit[1]));
   if (match) { e.preventDefault(); fireAction(match); }
 });
 

@@ -899,7 +899,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
         fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
-      }]);
+      }], shiftKeys());
       return;
     }
     // A key that installs a MENU opens that menu, whatever else it does.
@@ -944,7 +944,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         setActions([...keys(), {
           key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
           fn: reopen,
-        }]);
+        }], shiftKeys());
         return;
       }
       if (confirmActuators() || permanent) {
@@ -980,7 +980,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         setActions([...keys(), {
           key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
           fn: reopen,
-        }]);
+        }], shiftKeys());
         return;
       }
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.job} · sending`;
@@ -1043,7 +1043,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
         fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
-      }]);
+      }], shiftKeys());
       return;
     }
     const scr = (ir.screens || {})[it.screen];
@@ -1094,7 +1094,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     setActions([...keys(), {
       key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
       fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
-    }]);
+    }], shiftKeys());
   };
 
   // INPA's softkey bar has two rows: F1..F10 and their shifted partners,
@@ -1103,10 +1103,22 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   // "F13" would name a key the car's INPA does not have.
   const fkey = (it) => (it.shift ? `\u21e7F${it.nr - 10}` : `F${it.nr}`);
 
-  const keys = () => items.slice(0, FKEY_SLOTS).map((it, n) => ({
-    key: String(n + 1), keyLabel: fkey(it), label: it.label,
-    fn: () => open(it),
-  }));
+  // INPA binds a key to its F-NUMBER, and the shifted row reuses the same
+  // numbers: F3 and Shift+F3 are both the "3" key. Binding by list position
+  // would put ⇧F3 on whatever slot it happened to occupy.
+  const asAction = (it) => {
+    const n = it.shift ? it.nr - 10 : it.nr;
+    return {
+      // F10 is the "0" key; F20 is INPA's Exit, which the app reaches with
+      // Esc, so it takes no digit rather than stealing 0 from Back.
+      key: n === 20 ? null : String(n % 10),
+      keyLabel: fkey(it), label: it.label, fn: () => open(it),
+    };
+  };
+  const plain = items.filter(it => !it.shift);
+  const shifted = items.filter(it => it.shift);
+  const keys = () => plain.slice(0, FKEY_SLOTS).map(asAction);
+  const shiftKeys = () => shifted.slice(0, FKEY_SLOTS).map(asAction);
 
   const count = (it) => {
     // reflects the setting, not a property of the item: with actuator tests
@@ -1139,6 +1151,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     return '';
   };
 
+  let repaintRows = null;
   if (inpaMode()) {
     container.className = 'results-panel';
     container.innerHTML = `<div class="ir-menu-head" id="ir-head"></div>`
@@ -1148,7 +1161,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // menu is drawn from the same screen the keys are drawn on, so read it.
     irMenuHeader(ecu, ir, menuName, container.querySelector('#ir-head'));
     const list = container.querySelector('#ir-list');
-    items.forEach((it) => {
+    // the body list shows the row the bar shows: INPA swaps both together, so
+    // holding Shift reveals the shifted half rather than listing 16 keys at
+    // once. Registered so applyShift can repaint it with the bar.
+    const paintRows = (shownItems) => {
+      list.innerHTML = '';
+      rowsOf(shownItems);
+    };
+    const rowsOf = (shownItems) => shownItems.forEach((it) => {
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
       row.innerHTML = `<span class="inpa-fn-key">`
@@ -1164,6 +1184,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       row.onclick = () => open(it);
       list.appendChild(row);
     });
+    paintRows(plain);
+    repaintRows = paintRows;
+    if (shifted.length) {
+      const hint = document.createElement('div');
+      hint.className = 'ir-shift-hint';
+      hint.textContent = `hold \u21e7 Shift for ${shifted.length} more`;
+      container.appendChild(hint);
+    }
   } else {
     container.className = 'group-grid stagger';
     container.innerHTML = '';
@@ -1182,7 +1210,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
 
   setActions([...keys(), {
     key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back,
-  }]);
+  }], shiftKeys());
+  // after setActions, which clears the previous screen's hook: keep the body
+  // list on the same half as the bar while Shift is held
+  if (repaintRows && shifted.length) {
+    onShiftRepaint(() => repaintRows(shiftHeldNow() ? shifted : plain), true);
+  }
   return true;
 }
 

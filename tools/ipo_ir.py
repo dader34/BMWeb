@@ -853,6 +853,20 @@ def build(ecu):
             # how the key is actually pressed, so the app can say so
             if shifted:
                 it["shift"] = True
+    # A shifted key whose caption INPA never printed: the pairing is still
+    # ITEM n+10, so an item numbered 11..19 sitting beside its partner at n is
+    # the shifted half whether or not any help text said so. AFS_70's "AIF 9"
+    # is ITEM 11 against "AIF 1" at 1; ABSASC5 has "cut off v 2" at 16 against
+    # "cut off v 1" at 6. Without this both land on the same key in the same
+    # row -- 141 menus collided that way.
+    for menu in ir["menus"].values():
+        nrs = {it.get("nr") for it in menu["items"]}
+        for it in menu["items"]:
+            n = it.get("nr")
+            if it.get("shift") or not isinstance(n, int):
+                continue
+            if 11 <= n <= 19 and (n - 10) in nrs:
+                it["shift"] = True
     ir["coverage"] = round(100 * (1 - cov_unk / cov_len), 1) if cov_len else 0
     # An .IPO can ship several root menus, one per ECU variant. INPA does not
     # guess from the SGBD filename: inpainit runs INITIALISIERUNG, reads its
