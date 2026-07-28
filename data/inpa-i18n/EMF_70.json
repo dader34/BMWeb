@@ -32,6 +32,7 @@
  "Innenbeleuuchtung auf Klemme 58 und Klemme R": "Interior light on terminal 58 and terminal R",
  "Innenlicht bei Tuergriffkontakt": "Interior light on door handle contact",
  "Ist ein AIF vorhanden (0 (nein)/ 1 (ja))": "Is an AIF present (0 = no / 1 = yes)",
+ "KW der Fehlerspeicherloeschung fuer Kundendienst": "Week of fault memory clearing for service",
  "Kennung, ob GPS angeschlossen ist und Welches": "Identifier: whether GPS is connected and which",
  "Kennung, ob RDS benutzt wird oder nicht,\"0\" oder\"R\"": "Identifier: whether RDS is used, \"0\" or \"R\"",
  "Lieferant im Klartext": "Supplier in plain text",
@@ -43,11 +44,13 @@
  "Softwarenummer (Reserve) Zur Zeit nicht benutzt": "Software number (spare), not currently used",
  "Text Status Software laden": "Software load status text",
  "Zentralverriegelung verbaut": "Central locking fitted",
+ "Ziffern der FG-Nummer, die in den Pruefstempel": "Digits of the VIN that go into the test stamp",
  "angeforderter Datenblock (bis zu 24 Bytes!)": "Requested data block (up to 24 bytes)",
  "auslesen des VF-Status moeglich": "Vehicle-function status can be read",
  "auslesen ob Radio ein aus moeglich": "Radio on/off state can be read",
  "die letzten vier Stellen der Fahrgestellnummer": "The last four digits of the VIN",
  "km-Stand bei der Programmierung": "Odometer at programming",
  "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number",
+ "nach Codierung soll hier ein Teil der Fahrgestell-Nr. stehen": "After coding this should hold part of the VIN",
  "range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM": "Range = 0x90 to 0xCF for RAM and 0x01 to 0xFF for ROM"
 }
