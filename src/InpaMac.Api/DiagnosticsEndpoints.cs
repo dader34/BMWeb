@@ -36,9 +36,36 @@ internal static class DiagnosticsEndpoints
                 var acts = MenuGen.Activations(diag);
                 return Results.Json(acts.Select(a => new
                 {
-                    label = a.Label, start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical
+                    label = a.Label,
+                    // INPA's own caption for this actuator, mined from the .IPO
+                    // (null when the mine found none). The renderer shows it
+                    // verbatim in INPA mode; it is never translated.
+                    inpaLabel = SteuernLabels.For(state.Root, sgbd, a.Start),
+                    start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical,
+                    // arguments the SGBD declares, and whether we can supply
+                    // them. A test needing a component selector (STEUERN_DIGITAL
+                    // takes ORT + EIN) is listed so the ECU's capability is
+                    // visible, but must not be offered as a runnable button.
+                    // each argument with its type and, when the SGBD names a
+                    // lookup table for it, the real list of legal values
+                    args = a.Args.Select(g => new
+                    {
+                        name = g.Name, type = g.Type,
+                        options = g.Options.Select(o => new { value = o.Value, label = o.Label }).ToList()
+                    }).ToList(),
+                    runnable = a.Runnable
                 }).ToList());
             }));
+
+        // SGBD lookup tables (offline). An actuator argument documented
+        // "table BITS NAME TEXT" takes its legal values from a table like
+        // this, so the UI can offer the real component list instead of a
+        // free-text box.
+        app.MapGet("/api/ecu/{sgbd}/tables", (string sgbd) =>
+            Offline(state, sgbd, diag => Results.Json(diag.Tables())));
+
+        app.MapGet("/api/ecu/{sgbd}/table/{table}", (string sgbd, string table) =>
+            Offline(state, sgbd, diag => Results.Json(diag.TableRows(table))));
 
         // English INPA-style grouped functional menu for an ECU (offline)
         app.MapGet("/api/ecu/{sgbd}/menu", (string sgbd) =>
@@ -157,7 +184,14 @@ internal static class DiagnosticsEndpoints
         app.MapPost("/api/ecu/{sgbd}/run/{job}", (HttpContext ctx, string sgbd, string job, string? port, string? arg, string? group) => state.OnBus(ctx, () =>
         {
             var diag = state.Engines.AcquireLive(port);
-            if (diag == null) return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
+            if (diag == null)
+            {
+                // demo mode (?demo=1 or BMACW_DEMO=1): synthesize the job's declared
+                // results so the screens can be walked with no car attached
+                if (DemoMode.Requested(ctx))
+                    return Results.Json(new { port, job, demo = true, sets = DemoMode.Sets(state, sgbd, job, arg) });
+                return Results.BadRequest(new { error = "no interface: plug in the K+DCAN cable" });
+            }
             LoadForJob(diag, sgbd, group, job);
             var sets = diag.Run(job, string.IsNullOrEmpty(arg) ? null : arg);
             var rows = sets.Select(s => s.ToDictionary(kv => kv.Key, kv => Diag.Format(kv.Value))).ToList();

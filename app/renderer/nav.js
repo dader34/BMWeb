@@ -94,7 +94,8 @@ async function showChassis() {
 // INPA script-selection popup, opened on chassis pick. two panes: left lists
 // section categories, right shows the section's ECUs. Esc aborts.
 async function showScriptSelection(chassisId) {
-  if (chassisId.toUpperCase() === 'E46') autoScanE46(); // background scan on E46 open (autoscan.js)
+  setStateSgbd(chassisId);       // retarget the battery/ignition poll (autoscan.js)
+  if (chassisId.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
   let ch;
   try { ch = await api(`/api/chassis/${chassisId}`); }
   catch (e) { showSections(chassisId); return; } // fall back to the full screen
@@ -233,7 +234,8 @@ function backToModules(chassisId) {
 async function showSections(id, selectIndex = 0) {
   cancelSweep();                 // entering the section list stops any sweep (sweep.js)
   lastScreen = () => showSections(id, selectIndex);
-  if (id.toUpperCase() === 'E46') autoScanE46(); // background scan on E46 open (autoscan.js)
+  setStateSgbd(id);              // retarget the battery/ignition poll (autoscan.js)
+  if (id.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }]);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
   view.innerHTML = head('Control modules', dispChassis(id), 'Pick a system on the left, then a module.');

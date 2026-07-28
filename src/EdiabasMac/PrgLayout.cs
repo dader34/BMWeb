@@ -62,9 +62,11 @@ public static class PrgLayout
             if (job.StartsWith("_") || DangerJob.IsMatch(job))
                 continue;
             bool namedMeasurement = MeasurementJob.IsMatch(job);
-            // jobs with declared arguments can't be polled blind (the right
-            // args live in .ips/.IPO layouts, not in the .prg schema)
-            if (RequiresArguments(diag, job))
+            // jobs with declared args can't be polled blind (the right args live in
+            // .ips/.IPO layouts, not the .prg schema) — except STATUS_*/MESSWERT
+            // measurement jobs, whose arg is optional (the schema has no
+            // mandatory/optional flag) and which return their full value set argless.
+            if (!namedMeasurement && RequiresArguments(diag, job))
                 continue;
             var rows = RowsOf(diag, job);
             if (rows.Count == 0)

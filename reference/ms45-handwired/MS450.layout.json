@@ -1,0 +1,2123 @@
+{
+ "ecu": "MS450.IPO",
+ "screens": [
+  {
+   "proc": "s_ad_gemisch",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_INT_WERT",
+    "STAT_INT_2_WERT"
+   ],
+   "labels": [
+    "Korrektur TI Bank1",
+    "Korrektur TI Bank2"
+   ],
+   "render": "value",
+   "units": [
+    "A"
+   ]
+  },
+  {
+   "proc": "s_ad_gemisch",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_L_SONDE_WERT",
+    "STAT_L_SONDE_2_WERT"
+   ],
+   "labels": [
+    "Lambda Spannung VK1",
+    "Lambda Spannung VK2"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_ad_gemisch",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_L_SONDE_H_WERT",
+    "STAT_L_SONDE_2_H_WERT"
+   ],
+   "labels": [
+    "Lambda Spannung HK1",
+    "Lambda Spannung HK2"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_ueberdreh",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_ZEIT_MAX_WERT",
+    "STAT_ZEIT_SUMMIERT_WERT"
+   ],
+   "labels": [
+    "Zeit",
+    "Summe Zeiten"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_ueberdreh",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_KUPPLUNG_WERT",
+    "STAT_ZEIT_SUMMIERT_WERT"
+   ],
+   "labels": [
+    "Kupplung",
+    "Schubabschaltung"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_uebertemp",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_TQI_AV_WERT",
+    "STAT_VS_WERT"
+   ],
+   "labels": [
+    "Drehmoment",
+    "Geschwindigkeit"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_uebertemp",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_PV_AV_WERT",
+    "STAT_GEAR_WERT"
+   ],
+   "labels": [
+    "PedalWert",
+    "Untersetzung"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_uebertemp",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_TAM_WERT",
+    "STAT_TCO_WERT"
+   ],
+   "labels": [
+    "Umgebungstemperatur",
+    "Motortemperatur"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_uebertemp",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_LV_CS_WERT",
+    "STAT_WARN_THD_WERT"
+   ],
+   "labels": [
+    "Kupplung",
+    "Warnschwelle"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_laufunruhe",
+   "job": null,
+   "args": null,
+   "result_keys": [
+    "STAT_SEG_AD_WERT"
+   ],
+   "labels": [
+    "Status Segmentadaption"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_E_LUEFTER",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_E_LUEFTER"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_VANOS_IN",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_VANOS_IN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_VANOS_EX",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_VANOS_EX"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_TEV",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STEUERN_TEV_ENDE"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_KFK",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_KFK"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_LSVK1H",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_LSVK1H"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_LSVK2H",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_LSVK2H"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_LSHK1H",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_LSHK1H"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_LSHK2H",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_LSHK2H"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_LL_STELLER",
+   "args": null,
+   "result_keys": [
+    "STAT_AUSGANG_TEXT"
+   ],
+   "labels": [
+    "STATUS_LL_STELLER"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_ORT_TEXT"
+   ],
+   "labels": [
+    "FS_LESEN_HEX"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_SYMPTOM_TEXT"
+   ],
+   "labels": [
+    "F_SYMPTOM_NR"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF0_TEXT"
+   ],
+   "labels": [
+    "Freeze Fr:"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF0_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF1_TEXT"
+   ],
+   "labels": [
+    "Freeze Fr.:"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF1_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF2_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF2_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF3_TEXT"
+   ],
+   "labels": [
+    "F_FF2_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF3_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF4_TEXT"
+   ],
+   "labels": [
+    "F_FF3_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF4_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF5_TEXT"
+   ],
+   "labels": [
+    "F_FF4_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF5_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF6_TEXT"
+   ],
+   "labels": [
+    "F_FF5_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF6_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF7_TEXT"
+   ],
+   "labels": [
+    "F_FF6_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF7_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF8_TEXT"
+   ],
+   "labels": [
+    "F_FF7_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF8_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF9_TEXT"
+   ],
+   "labels": [
+    "F_FF8_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF9_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF10_TEXT"
+   ],
+   "labels": [
+    "F_FF9_EINH"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "F_FF10_WERT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "FS_LESEN",
+   "args": null,
+   "result_keys": [
+    "ID_LIEF_TEXT"
+   ],
+   "labels": [
+    "ID_LIEF_NR"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_7_SCHREIBEN",
+   "args": null,
+   "result_keys": [
+    "STAT_RESET_TEXT"
+   ],
+   "labels": [
+    "JOB_STATUS"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "SLP_VORHANDEN_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_EBOX_CFA_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_ECRAS_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_ASR3_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_EF_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_SOF_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_SOF_SWI_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_SAV_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_AC_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_RLY_ACCOUT_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_ARS_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_ASR_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_PSTE_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_ETCU_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_AT_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_AMT_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_BN2000_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_ICL_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_MSW_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_BN_MSW_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_VEH_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_TXU_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_DCC_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FUNKTIONS",
+   "args": null,
+   "result_keys": [
+    "STAT_RLY_ST_TEXT"
+   ],
+   "labels": [
+    "NEIN"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_L_SONDE",
+   "args": null,
+   "result_keys": [
+    "STAT_DIAGNOSE_TEXT"
+   ],
+   "labels": [
+    "JOB_STATUS"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "DATEN_REFERENZ_LESEN",
+   "args": null,
+   "result_keys": [
+    "ID_LIEF_TEXT"
+   ],
+   "labels": [
+    "Supplier"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_TEXT"
+   ],
+   "labels": [
+    "Wert0"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT1_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERT0_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT2_TEXT"
+   ],
+   "labels": [
+    "Wert2"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT3_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERT2_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT4_TEXT"
+   ],
+   "labels": [
+    "Wert4"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT5_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERT4_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT6_TEXT"
+   ],
+   "labels": [
+    "Wert6"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT7_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERT6_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT8_TEXT"
+   ],
+   "labels": [
+    "Wert8"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT9_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERT8_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERTA_TEXT"
+   ],
+   "labels": [
+    "Wert10"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERTB_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERTA_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERTC_TEXT"
+   ],
+   "labels": [
+    "Wert12"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERTD_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERTC_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERTE_TEXT"
+   ],
+   "labels": [
+    "Wert14"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "MESSWERTBLOCK_LESEN",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERTF_TEXT"
+   ],
+   "labels": [
+    "STAT_MESSWERTE_STRING"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_NOCKENWELLE_ADAPTION",
+   "args": null,
+   "result_keys": [
+    "STAT_CAM_REF_IN_1_TEXT"
+   ],
+   "labels": [
+    "REF_IN_1"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_NOCKENWELLE_ADAPTION",
+   "args": null,
+   "result_keys": [
+    "STAT_CAM_REF_EX_1_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_NOCKENWELLE_ADAPTION",
+   "args": null,
+   "result_keys": [
+    "STAT_CAM_AD_IN_10_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_NOCKENWELLE_ADAPTION",
+   "args": null,
+   "result_keys": [
+    "STAT_CAM_AD_EX_10_TEXT"
+   ],
+   "labels": [],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_ADAPTION_GEMISCH",
+   "args": null,
+   "result_keys": [
+    "STAT_INT_WERT",
+    "STAT_INT_2_WERT"
+   ],
+   "labels": [
+    "Korrektur TI Bank1",
+    "Korrektur TI Bank2"
+   ],
+   "render": "value",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_FGRL",
+   "args": null,
+   "result_keys": [
+    "F_UW1_WERT",
+    "F_UW2_WERT",
+    "F_UW3_WERT",
+    "F_UW4_WERT",
+    "F_FF0_WERT",
+    "F_FF1_WERT",
+    "F_FF2_WERT",
+    "F_FF3_WERT",
+    "F_FF4_WERT",
+    "F_FF5_WERT",
+    "F_FF6_WERT",
+    "F_FF7_WERT",
+    "F_FF8_WERT",
+    "F_FF9_WERT",
+    "F_FF10_WERT"
+   ],
+   "labels": [
+    null,
+    null,
+    null,
+    null,
+    "Freeze Fr.:",
+    "Freeze Fr.:",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_EVAUSBL",
+   "args": null,
+   "result_keys": [
+    "STAT_DIAGNOSE_WERT"
+   ],
+   "labels": [
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_SEK_LUFT",
+   "args": null,
+   "result_keys": [
+    "STAT_DIAGNOSE_WERT",
+    "STAT_SUM_AFL_VLS_DIAG_SA_1_WERT",
+    "STAT_SUM_AFL_VLS_DIAG_SA_2_WERT",
+    "STAT_SAF_DIAG_MAX_WERT",
+    "STAT_SAF_DIAG_MIN_WERT"
+   ],
+   "labels": [
+    null,
+    null,
+    null,
+    "Zeit :",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_L_SONDE_WERTE",
+   "args": null,
+   "result_keys": [
+    "STAT_VLS_UP_AFR_1_WERT",
+    "STAT_VLS_UP_AFR_2_WERT",
+    "STAT_VLS_UP_AFL_1_WERT",
+    "STAT_VLS_UP_AFL_2_WERT",
+    "STAT_VLS_DOWN_AFR_1_WERT",
+    "STAT_VLS_DOWN_AFR_2_WERT",
+    "STAT_VLS_DOWN_AFL_1_WERT",
+    "STAT_VLS_DOWN_AFL_2_WERT",
+    "STAT_MAF_INT_MIN_VLS_WERT",
+    "STAT_MAF_INT_CHK_LS_UP_DOWN_1_WERT",
+    "STAT_MAF_INT_CHK_LS_UP_DOWN_2_WERT",
+    "STAT_LAMB_SP_BEG_LS_ACT_TEST_1_WERT",
+    "STAT_LAMB_SP_BEG_LS_ACT_TEST_2_WERT",
+    "STAT_T_CHK_UP_DOWN_AFL_1_WERT",
+    "STAT_T_CHK_UP_DOWN_AFL_2_WERT"
+   ],
+   "labels": [
+    "Diagnoseschritt:",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_DMTL",
+   "args": null,
+   "result_keys": [
+    "STAT_DIAGNOSE_WERT"
+   ],
+   "labels": [
+    "Diagnosezeit :"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_DMTL_WERT",
+   "args": null,
+   "result_keys": [
+    "STAT_STROM_REF_WERT",
+    "STAT_STROM_GROB_WERT",
+    "STAT_STROM_WERT"
+   ],
+   "labels": [
+    "=== Messergebnisse ===",
+    null,
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_TEV",
+   "args": null,
+   "result_keys": [
+    "STAT_DIAGNOSE_WERT"
+   ],
+   "labels": [
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_TEV_WERT",
+   "args": null,
+   "result_keys": [
+    "STAT_SYSTEMCHECK_TEV_FUNC_1_WERT",
+    "STAT_SYSTEMCHECK_TEV_FUNC_2_WERT",
+    "STAT_DIAGNOSE_WERT"
+   ],
+   "labels": [
+    "Zyklus 1 :",
+    "Zyklus 2 :",
+    "Diagnosezeit :"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MOTORDREHZAHL",
+   "args": null,
+   "result_keys": [
+    "STAT_MOTORDREHZAHL_WERT",
+    "STAT_MOTORDREHZAHL_SOLL_WERT"
+   ],
+   "labels": [
+    "LL - Sollwert",
+    "LL - Sollwert"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_LLERH_WERT",
+   "args": null,
+   "result_keys": [
+    "STAT_SYSTEMCHECK_LLERH_WERT"
+   ],
+   "labels": [
+    "Leerlauf Drehzahlabgleich"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_CO_ABGLEICH",
+   "args": null,
+   "result_keys": [
+    "STAT_CO_ABGLEICH_WERT"
+   ],
+   "labels": [
+    "Abgleich :"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTE_VANOS",
+   "args": null,
+   "result_keys": [
+    "STAT_EINLASS_WERT",
+    "STAT_AUSLASS_WERT",
+    "STAT_EINLASS_SOLL_WERT",
+    "STAT_AUSLASS_SOLL_WERT"
+   ],
+   "labels": [
+    null,
+    null,
+    null,
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_0",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT",
+    "STAT_MESSWERT8_WERT",
+    "STAT_MESSWERT9_WERT",
+    "STAT_MESSWERTA_WERT",
+    "STAT_MESSWERTB_WERT",
+    "STAT_MESSWERTC_WERT",
+    "STAT_MESSWERTD_WERT"
+   ],
+   "labels": [
+    "Kl_87, Geschwindigkeit",
+    null,
+    "Drehzahl,LL_Soll",
+    null,
+    "hlmittelTemp",
+    null,
+    "lTemp",
+    null,
+    "Luftmasse, LuftDruck",
+    null,
+    "SollWert_DK, Fahrpedal",
+    null,
+    "DK_Poti1, DK_Poti2",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_1",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT",
+    "STAT_MESSWERT8_WERT",
+    "STAT_MESSWERT9_WERT",
+    "STAT_MESSWERTA_WERT",
+    "STAT_MESSWERTB_WERT",
+    "STAT_MESSWERTC_WERT",
+    "STAT_MESSWERTD_WERT",
+    "STAT_MESSWERTE_WERT"
+   ],
+   "labels": [
+    "Calculated load, Motor Temperatur",
+    null,
+    "Lambda Control 1, Lambda Adaption 1",
+    null,
+    "Lambda Control 2, Lambda Adaption 2",
+    null,
+    "KraftstoffDruck, SaugrohrDruck",
+    null,
+    "Drehzahl, Geschwindigkeit",
+    null,
+    "ndzeit, AnsaugluftTemp",
+    null,
+    "Luftdurchsatz,"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_2",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT",
+    "STAT_MESSWERT8_WERT",
+    "STAT_MESSWERT9_WERT"
+   ],
+   "labels": [
+    "Drehzahl, Luftmasse",
+    null,
+    "Fahrpedal,Regler Bank1",
+    null,
+    "Regler Bank2, Einspritzzeit Zyl 1",
+    null,
+    "LL-Soll, TempAnsaug",
+    null,
+    "TCO, TCO_EX",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_3",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT"
+   ],
+   "labels": [
+    "lTemp, UmgebungTemp",
+    null,
+    "UmgebungDruck,sekLuftmasse",
+    null,
+    "MomentVerlust, Kl_87",
+    null,
+    "SollWertDK, VersorgungFWG",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_4",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT",
+    "STAT_MESSWERT8_WERT",
+    "STAT_MESSWERT9_WERT",
+    "STAT_MESSWERTA_WERT"
+   ],
+   "labels": [
+    "LambdaVK1, LambdaVK2",
+    null,
+    "LambdaHK1, LambdaHK2",
+    null,
+    "Pedalwert1, Pedalwert2",
+    null,
+    "DK_Poti1, DK_Poti2",
+    null,
+    "Durchfluss_TEV, Versorgung_DK2",
+    null,
+    "ZeitAbStartende,"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_5",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT",
+    "STAT_MESSWERT8_WERT",
+    "STAT_MESSWERT9_WERT",
+    "STAT_MESSWERTA_WERT",
+    "STAT_MESSWERTB_WERT",
+    "STAT_MESSWERTC_WERT",
+    "STAT_MESSWERTD_WERT",
+    "STAT_MESSWERTE_WERT",
+    "STAT_MESSWERTF_WERT",
+    "STAT_MESSWERT10_WERT",
+    "STAT_MESSWERT11_WERT",
+    "STAT_MESSWERT12_WERT",
+    "STAT_MESSWERT13_WERT"
+   ],
+   "labels": [
+    "VCC_PV1, VCC_PV2",
+    null,
+    "PVS1, TPS1",
+    null,
+    "PVS2, TPS2",
+    null,
+    "TCO, TCO_EX",
+    null,
+    "TOIL, TIA",
+    null,
+    "UB, IGK",
+    null,
+    "MAP, AMP",
+    null,
+    "SAF, VCC_MAF",
+    null,
+    "TECU, MAF",
+    null,
+    "TEG_1, TEG_2",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_6",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT"
+   ],
+   "labels": [
+    "DruckDME, StromDMTL",
+    null,
+    "SecLuft, AbgasTemp",
+    null,
+    "fter, Getriebe",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MESSWERTBLOCK_7",
+   "args": null,
+   "result_keys": [
+    "STAT_MESSWERT0_WERT",
+    "STAT_MESSWERT1_WERT",
+    "STAT_MESSWERT2_WERT",
+    "STAT_MESSWERT3_WERT",
+    "STAT_MESSWERT4_WERT",
+    "STAT_MESSWERT5_WERT",
+    "STAT_MESSWERT6_WERT",
+    "STAT_MESSWERT7_WERT",
+    "STAT_MESSWERT8_WERT",
+    "STAT_MESSWERT9_WERT",
+    "STAT_MESSWERTA_WERT",
+    "STAT_MESSWERTB_WERT",
+    "STAT_MESSWERTC_WERT",
+    "STAT_MESSWERTD_WERT",
+    "STAT_MESSWERTE_WERT",
+    "STAT_MESSWERTF_WERT"
+   ],
+   "labels": [
+    "MAF, PedalWert",
+    null,
+    "TLuft,TMot",
+    null,
+    "hlmittelTemp, TECU",
+    null,
+    "lTemp, Ansaugdruck",
+    null,
+    "LuftDruck, Luftmasse",
+    null,
+    "V_TECU, V_SAF",
+    null,
+    "R-Lambda-VK1, R-Lambda-NK1",
+    null,
+    "R-Lambda-VK2, R-Lambda-NK2",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_ADAPTION_DK_LLSTELLER",
+   "args": null,
+   "result_keys": [
+    "STAT_DK_ADD_WERT",
+    "STAT_DK_FAC_WERT",
+    "STAT_ISA_ADD_WERT",
+    "STAT_ISA_FAC_WERT"
+   ],
+   "labels": [
+    "AD_ADD,AD_FAC",
+    null,
+    "ISA_AD_ADD,ISA_AD_FAC",
+    null
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_INT",
+   "args": null,
+   "result_keys": [
+    "STAT_INT_WERT"
+   ],
+   "labels": [
+    "correction injection time Bank1"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_INT_2",
+   "args": null,
+   "result_keys": [
+    "STAT_INT_2_WERT"
+   ],
+   "labels": [
+    "correction injection time Bank2"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_L_SONDE",
+   "args": null,
+   "result_keys": [
+    "STAT_L_SONDE_WERT"
+   ],
+   "labels": [
+    "Lambda voltage before catalyst Bank1"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_L_SONDE_2",
+   "args": null,
+   "result_keys": [
+    "STAT_L_SONDE_2_WERT"
+   ],
+   "labels": [
+    "Lambda voltage before catalyst Bank2"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_L_SONDE_H",
+   "args": null,
+   "result_keys": [
+    "STAT_L_SONDE_H_WERT"
+   ],
+   "labels": [
+    "Lambda voltage after catalyst Bank1"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_L_SONDE_2_H",
+   "args": null,
+   "result_keys": [
+    "STAT_L_SONDE_2_H_WERT",
+    "STAT_N_MAX_WERT",
+    "STAT_ZEIT_WERT",
+    "STAT_ANZAHL_WERT",
+    "STAT_KM_STAND_WERT",
+    "STAT_GRADIENT_N_WERT",
+    "STAT_GESCHWINDIGKEIT_WERT",
+    "STAT_PEDALWERT_MITTELWERT_WERT",
+    "STAT_UNTERSETZUNG_WERT",
+    "STAT_ZEIT_MAX_WERT",
+    "STAT_ZEIT_SUMMIERT_WERT",
+    "STAT_KUPPLUNG_WERT",
+    "STAT_SCHUB_ABSCHALTUNG_WERT",
+    "STAT_TOIL_MAX_WERT",
+    "STAT_N_WERT",
+    "STAT_CTR_WERT",
+    "STAT_CTR_KM_WERT",
+    "STAT_TQI_AV_WERT",
+    "STAT_VS_WERT",
+    "STAT_PV_AV_WERT",
+    "STAT_GEAR_WERT",
+    "STAT_TAM_WERT",
+    "STAT_TCO_WERT",
+    "STAT_LV_CS_WERT",
+    "STAT_WARN_THD_WERT"
+   ],
+   "labels": [
+    "Lambda voltage after catalyst Bank2",
+    "STAT_N_MAX_WERT, STAT_ZEIT_WERT",
+    "BetriebsStunden Z",
+    "Anzahl",
+    "km Stand",
+    "Drehzahl Gradient",
+    "Geschwindigkeit",
+    "Pedalwert Mittelwert",
+    "ltnis Drehzahl / Geschwindigkeit",
+    "Zeit bei maximaler",
+    "Summe aller",
+    "KupplungsSchalter",
+    "Muster SchubAbschaltung",
+    "STAT_TOIL_MAX_WERT, STAT_N_WERT",
+    "Drehzahl",
+    "STAT_CTR_WERT, STAT_CTR_KM_WERT",
+    "km Stand",
+    "Drehmoment",
+    "Geschwindigkeit",
+    "Pedalwert",
+    "Gang",
+    "Umgebungstemperatur",
+    "Motortemperatur",
+    "KupplungsSchalter",
+    "Schwelle"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_MOTORLAUFUNRUHE",
+   "args": null,
+   "result_keys": [
+    "STAT_ZYL1_WERT",
+    "STAT_ZYL2_WERT",
+    "STAT_ZYL3_WERT",
+    "STAT_ZYL4_WERT",
+    "STAT_ZYL5_WERT",
+    "STAT_ZYL6_WERT",
+    "STAT_SEG_AD_WERT"
+   ],
+   "labels": [
+    "STAT_ER_IS_1",
+    "STAT_ER_IS_2",
+    "STAT_ER_IS_3",
+    "STAT_ERR_IS_4",
+    "STAT_ER_IS_5",
+    "STAT_ER_IS_6",
+    "Status Seqment adaption"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_PM_INFO_1",
+   "args": null,
+   "result_keys": [
+    "STAT_KM_STAND_AKTUELL_WERT",
+    "STAT_KM_STAND_VOR_1_TAG_WERT",
+    "STAT_KM_STAND_VOR_2_TAG_WERT",
+    "STAT_KM_STAND_VOR_3_TAG_WERT",
+    "STAT_KM_STAND_VOR_4_TAG_WERT",
+    "STAT_KM_STAND_VOR_5_TAG_WERT",
+    "STAT_BATTERIETAUSCH_LETZTER_WERT",
+    "STAT_BATTERIETAUSCH_ZWEITLETZTER_WERT",
+    "STAT_BATTERIETAUSCH_DRITTLETZTER_WERT",
+    "STAT_BATTERIETAUSCH_VIERTLETZTER_WERT",
+    "STAT_BATTERIETAUSCH_FUENFTLETZTER_WERT",
+    "STAT_RUHESTROM_0_80_GESAMT_WERT",
+    "STAT_RUHESTROM_80_200_GESAMT_WERT",
+    "STAT_RUHESTROM_200_1000_GESAMT_WERT",
+    "STAT_RUHESTROM_AB_1000_GESAMT_WERT",
+    "STAT_RUHESTROM_0_80_GESAMT_OHNE_SV_WERT",
+    "STAT_RUHESTROM_80_200_GESAMT_OHNE_SV_WERT",
+    "STAT_RUHESTROM_200_1000_GESAMT_OHNE_SV_WERT",
+    "STAT_RUHESTROM_AB_1000_GESAMT_OHNE_SV_WERT",
+    "STAT_ZEIT_IM_LADUNGSBEREICH_0_20_WERT",
+    "STAT_ZEIT_IM_LADUNGSBEREICH_20_40_WERT",
+    "STAT_ZEIT_IM_LADUNGSBEREICH_40_60_WERT",
+    "STAT_ZEIT_IM_LADUNGSBEREICH_60_80_WERT",
+    "STAT_ZEIT_IM_LADUNGSBEREICH_80_100_WERT",
+    "STAT_ZEIT_IM_TEMPERATURBEREICH_BIS_0_WERT",
+    "STAT_ZEIT_IM_TEMPERATURBEREICH_0_20_WERT",
+    "STAT_ZEIT_IM_TEMPERATURBEREICH_20_40_WERT",
+    "STAT_ZEIT_IM_TEMPERATURBEREICH_40_60_WERT",
+    "STAT_ZEIT_IM_TEMPERATURBEREICH_AB_60_WERT",
+    "STAT_BATTERIELADUNG_GESAMT_WERT",
+    "STAT_BATTERIEENTLADUNG_GESAMT_WERT",
+    "STAT_BATTERIELADUNG_BILANZ_WERT",
+    "STAT_IBS_FEHLERZAEHLER_BSD_PARITY_WERT",
+    "STAT_IBS_FEHLERZAEHLER_WATCHDOG_RESET_WERT",
+    "STAT_IBS_FEHLERZAEHLER_POWER_ON_RESET_WERT",
+    "STAT_KTBS_FEHLERZAEHLER_BSD_ERWEITERT_WERT",
+    "STAT_KTIBS_FEHLERZAEHLER_BSD_WERT",
+    "STAT_KTIBS_FEHLERZAEHLER_EBSD_CHECKSUMME_WERT"
+   ],
+   "labels": [
+    "km Stand aktuell",
+    "km Stand vor 1 Tag",
+    "km Stand vor 2 Tagen",
+    "km Stand vor 3 Tagen",
+    "km Stand vor 4 Tagen",
+    "km Stand vor 5 Tagen",
+    "letzter Batterietausch bei km",
+    "2letzter Batterietausch bei km",
+    "3letzter Batterietausch bei km",
+    "4letzter Batterietausch bei km",
+    "5letzter Batterietausch bei km",
+    "Minuten Ruhestrom ges 0 - 80",
+    "Minuten Ruhestrom ges 80 - 200",
+    "Minuten Ruhestrom ges 200 - 1000",
+    "ber 1000",
+    "Minuten Ruhestrom oSV 0 - 80",
+    "Minuten Ruhestrom oSV 80 - 200",
+    "Minuten Ruhestrom oSV 200 - 1000",
+    "ber 1000",
+    "Stunden im Ladungsbereich 0 - 20",
+    "Stunden im Ladungsbereich 20 - 40",
+    "Stunden im Ladungsbereich 40 - 60",
+    "Stunden im Ladungsbereich 60 - 80",
+    "Stunden im Ladungsbereich 80 -100",
+    "Minuten bei Temperatur bis 0",
+    "Minuten bei Temperatur 0 - 20",
+    "Minuten bei Temperatur 20 - 40",
+    "Minuten bei Temperatur 40 - 60",
+    "ber 60",
+    "Batterieladung gesamte Ah",
+    "Batterieentladung gesamte Ah",
+    "Batterieladung Bilanz Ah",
+    "IBS Fehler BSD Parity",
+    "IBS Fehler Watchdog Reset",
+    "IBS Fehler Power on Reset",
+    "KTBS Fehler BSD erweitert",
+    "KTIBS Fehler BSD",
+    "KTIBS Fehler EBSD Checksumme"
+   ],
+   "render": "analog",
+   "units": []
+  },
+  {
+   "proc": "s_fehlerbehandlung",
+   "job": "STATUS_SYSTEMCHECK_PM_INFO_2",
+   "args": null,
+   "result_keys": [
+    "STAT_Q_SOC_AKTUELL_WERT",
+    "STAT_Q_SOC_VOR_1_TAG_WERT",
+    "STAT_Q_SOC_VOR_2_TAG_WERT",
+    "STAT_Q_SOC_VOR_3_TAG_WERT",
+    "STAT_Q_SOC_VOR_4_TAG_WERT",
+    "STAT_Q_SOC_VOR_5_TAG_WERT",
+    "STAT_STARTFAEHIGKEITSGRENZE_AKTUELL_WERT",
+    "STAT_STARTFAEHIGKEITSGRENZE_VOR_1_TAG_WERT",
+    "STAT_STARTFAEHIGKEITSGRENZE_VOR_2_TAG_WERT",
+    "STAT_STARTFAEHIGKEITSGRENZE_VOR_3_TAG_WERT",
+    "STAT_STARTFAEHIGKEITSGRENZE_VOR_4_TAG_WERT",
+    "STAT_STARTFAEHIGKEITSGRENZE_VOR_5_TAG_WERT",
+    "STAT_LADUNGSZUSTAND_AKTUELL_WERT",
+    "STAT_LADUNGSZUSTAND_VOR_1_TAG_WERT",
+    "STAT_LADUNGSZUSTAND_VOR_2_TAG_WERT",
+    "STAT_LADUNGSZUSTAND_VOR_3_TAG_WERT",
+    "STAT_LADUNGSZUSTAND_VOR_4_TAG_WERT",
+    "STAT_LADUNGSZUSTAND_VOR_5_TAG_WERT",
+    "STAT_BATTERIE_KAPAZITAET_WERT",
+    "STAT_SOH_WERT",
+    "STAT_SOC_FIT_WERT",
+    "STAT_TEMP_SAISON_WERT",
+    "STAT_KALIBRIER_EVENT_CNT_WERT",
+    "STAT_IBS_FEHLERZAEHLER_DOWNLOAD_CHECKSUMME_WERT",
+    "STAT_IBS_FEHLERZAEHLER_EEPROM_DIAGNOSE_WERT",
+    "STAT_IBS_FEHLERZAEHLER_RAM_DIAGNOSE_WERT",
+    "STAT_IBS_FEHLERZAEHLER_PROM_DIAGNOSE_WERT",
+    "STAT_IBS_FEHLERZAEHLER_I2C_NAC_DIAGNOSE_WERT",
+    "STAT_IBS_FEHLERZAEHLER_I2C_BUS_COLLISION_WERT"
+   ],
+   "labels": [
+    "Ah Q SOC aktuell",
+    "Ah Q SOC vor 1 Tag",
+    "Ah Q SOC vor 2 Tagen",
+    "Ah Q SOC vor 3 Tagen",
+    "Ah Q SOC vor 4 Tagen",
+    "Ah Q SOC vor 5 Tagen",
+    "higkeit aktuell",
+    "higkeit vor 1 Tag",
+    "higkeit vor 2 Tagen",
+    "higkeit vor 3 Tagen",
+    "higkeit vor 4 Tagen",
+    "higkeit vor 5 Tagen",
+    "% Ladungszustand aktuell",
+    "% Ladungszustand vor 1 Tag",
+    "% Ladungszustand vor 2 Tagen",
+    "% Ladungszustand vor 3 Tagen",
+    "% Ladungszustand vor 4 Tagen",
+    "% Ladungszustand vor 5 Tagen",
+    "t in Ah",
+    "SOH",
+    "SOC-Fit",
+    "Saison Temperatur in C",
+    "Kalibrier Ereignisse",
+    "IBS Fehler Download Checksumme",
+    "IBS Fehler EEPROM Diagnose",
+    "IBS Fehler RAM Diagnose",
+    "IBS Fehler PROM Diagnose",
+    "IBS Fehler I2C NAC Diagnose",
+    "IBS Fehler I2C Bus Collision"
+   ],
+   "render": "analog",
+   "units": []
+  }
+ ],
+ "inputs": [],
+ "jobs": [
+  "AIF_LESEN",
+  "DATEN_REFERENZ_LESEN",
+  "FS_LESEN",
+  "HS_LESEN",
+  "MESSWERTBLOCK_0_SCHREIBEN",
+  "MESSWERTBLOCK_1_SCHREIBEN",
+  "MESSWERTBLOCK_2_SCHREIBEN",
+  "MESSWERTBLOCK_3_SCHREIBEN",
+  "MESSWERTBLOCK_4_SCHREIBEN",
+  "MESSWERTBLOCK_5_SCHREIBEN",
+  "MESSWERTBLOCK_6_SCHREIBEN",
+  "MESSWERTBLOCK_7_SCHREIBEN",
+  "MESSWERTBLOCK_LESEN",
+  "MESSWERTBLOCK_LOESCHEN",
+  "MESSWERT_FRUEH_1",
+  "MESSWERT_FRUEH_2",
+  "MESSWERT_SPAET_1",
+  "MESSWERT_SPAET_2",
+  "STATUS_ADAPTION_DK_LLSTELLER",
+  "STATUS_ADAPTION_GEMISCH",
+  "STATUS_AGK",
+  "STATUS_CO_ABGLEICH",
+  "STATUS_DIGITAL_1",
+  "STATUS_DMTL_H",
+  "STATUS_DMTL_P",
+  "STATUS_DMTL_V",
+  "STATUS_EBL",
+  "STATUS_EKP",
+  "STATUS_E_LUEFTER",
+  "STATUS_FGR",
+  "STATUS_FGRL",
+  "STATUS_FUNKTIONS",
+  "STATUS_GLF",
+  "STATUS_INT",
+  "STATUS_INT_2",
+  "STATUS_KFK",
+  "STATUS_KOREL",
+  "STATUS_LL_ABGLEICH",
+  "STATUS_LL_STELLER",
+  "STATUS_LSHK1H",
+  "STATUS_LSHK2H",
+  "STATUS_LSVK1H",
+  "STATUS_LSVK2H",
+  "STATUS_L_SONDE",
+  "STATUS_L_SONDE_2",
+  "STATUS_L_SONDE_2_H",
+  "STATUS_L_SONDE_H",
+  "STATUS_MESSWERTBLOCK_0",
+  "STATUS_MESSWERTBLOCK_1",
+  "STATUS_MESSWERTBLOCK_2",
+  "STATUS_MESSWERTBLOCK_3",
+  "STATUS_MESSWERTBLOCK_4",
+  "STATUS_MESSWERTBLOCK_5",
+  "STATUS_MESSWERTBLOCK_6",
+  "STATUS_MESSWERTBLOCK_7",
+  "STATUS_MESSWERTE_VANOS",
+  "STATUS_MIL",
+  "STATUS_MOTORDREHZAHL",
+  "STATUS_MOTORLAUFUNRUHE",
+  "STATUS_NOCKENWELLE_ADAPTION",
+  "STATUS_OBD",
+  "STATUS_SLP",
+  "STATUS_SLV",
+  "STATUS_STA",
+  "STATUS_SYSTEMCHECK_DMTL",
+  "STATUS_SYSTEMCHECK_DMTL_WERT",
+  "STATUS_SYSTEMCHECK_EVAUSBL",
+  "STATUS_SYSTEMCHECK_LLERH",
+  "STATUS_SYSTEMCHECK_LLERH_WERT",
+  "STATUS_SYSTEMCHECK_L_SONDE",
+  "STATUS_SYSTEMCHECK_L_SONDE_WERTE",
+  "STATUS_SYSTEMCHECK_PM_INFO_1",
+  "STATUS_SYSTEMCHECK_PM_INFO_2",
+  "STATUS_SYSTEMCHECK_SEK_LUFT",
+  "STATUS_SYSTEMCHECK_SEK_LUFT_WERT",
+  "STATUS_SYSTEMCHECK_TEV",
+  "STATUS_SYSTEMCHECK_TEV_WERT",
+  "STATUS_TEV",
+  "STATUS_VANOS_EX",
+  "STATUS_VANOS_IN",
+  "STATUS_VIMDISA",
+  "ZIF_LESEN"
+ ]
+}
