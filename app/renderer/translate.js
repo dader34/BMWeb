@@ -427,6 +427,25 @@ const DE_TOKENS = [
   [/Kennlinien?/gi, 'characteristic curve'], [/Serien\b/gi, 'series'],
   [/Grenz\b/gi, 'limit'], [/Steigung/gi, 'slope'], [/Spreizung/gi, 'spread'],
   [/Abweichung/gi, 'deviation'], [/Aenderung|Änderung/gi, 'change'],
+  // DWS/RDC wheel-speed vocabulary. These reach the screen as SGBD result
+  // DESCRIPTIONS, not .IPO captions: INPA prints one heading over ten keys
+  // ("ABS primary signals [pulses/sec]"), so each row falls back to the SGBD's
+  // own German. Placed AHEAD of the generic /Geschwindigkeit/ and /Signal/
+  // rules -- the token pass is ordered, and either would shred these compounds
+  // ("Radgeschwindigkeit" -> "Radspeed", "Rohsignal" -> "Rohsignal").
+  [/Standardisierungsfortschritt/gi, 'standardisation progress'],
+  [/\bStandardisierung\b/gi, 'standardisation'],
+  [/\bRohsignal\s+vom\b/gi, 'raw signal from'],
+  [/\bRohsignale\b/gi, 'raw signals'], [/\bRohsignal\b/gi, 'raw signal'],
+  [/geschwindigkeitsabh(ä|ae)ngige?r?/gi, 'speed-dependent'],
+  [/Speeds?abh\./gi, 'speed-dep.'],
+  [/\bRadgeschwindigkeit(en)?\b/gi, 'wheel speed'],
+  // Only the unit form. Bare "Impulse" is spelled the same in English and
+  // already reads correctly ("Closing impulses left"), so translating it just
+  // mangles strings BMW already shipped in English.
+  [/\bImpulse\s*\/\s*sec\b/g, 'pulses/sec'],
+  [/Pannenmeldung/gi, 'deflation warning'],
+  [/Bandmode/gi, 'plant mode'],
   [/Geschwindigkeit/gi, 'speed'], [/Beladung/gi, 'load'], [/Mengen/gi, 'quantity'],
   [/Tasten/gi, 'buttons'], [/Lampen/gi, 'lamps'], [/Antennen/gi, 'antennas'],
   [/Sekunden/gi, 'seconds'], [/Schichtung/gi, 'stratification'],
