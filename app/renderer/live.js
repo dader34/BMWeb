@@ -518,6 +518,9 @@ const BOOL_ON = /^(ein|on|aktiv|active|ja|yes|1|betaetigt|gedrueckt|vorhanden)$/
 const BOOL_OFF = /^(aus|off|nicht aktiv|not active|inaktiv|nein|no|0|nicht betaetigt|nicht vorhanden|not present)$/i;
 function boolGlyph(raw) {
   const s = String(raw == null ? '' : raw).trim();
+  // a bare 0/1 IS the state, not a word for it: printing the digit beside the
+  // glyph gave "○ 0" where every neighbouring row read "○ off"
+  if (/^[01]$/.test(s)) return { on: s === '1', text: s === '1' ? 'on' : 'off' };
   if (BOOL_ON.test(s)) return { on: true, text: deGerman(s) || s };
   if (BOOL_OFF.test(s)) return { on: false, text: deGerman(s) || s };
   return null;
