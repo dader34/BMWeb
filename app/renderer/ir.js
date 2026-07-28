@@ -319,7 +319,19 @@ const IR_STATE_WORD =
 const IR_LOOP_CAPTION = /^(\(\d+\)|\?+|Index \d+|Rad \d+|Position (FL|FR|RL|RR|VL|VR|HL|HR))$/i;
 
 function irRowsTranslated(scr, descs) {
-  return irScreens(scr).map(s => ({
+  return irScreens(scr).map(s => {
+    // A LINE caption that lands on more than one row of a page does not
+    // identify any of them. MS450's VANOS prints "Einlass, Auslass" over two
+    // columns of two gauges, actual above setpoint, so both intake rows read
+    // "Intake" and both exhaust rows "Exhaust"; the SGBD calls them Istwert
+    // and Sollwert and says which is which. Where the caption repeats and the
+    // description does not, the description identifies the row.
+    const seen = new Map();
+    for (const r of s.rows) if (r.label) seen.set(r.label, (seen.get(r.label) || 0) + 1);
+    const ambiguous = (r) => r.label && seen.get(r.label) > 1
+      && descs && descs.get(r.key)
+      && s.rows.filter(o => descs.get(o.key) === descs.get(r.key)).length === 1;
+    return ({
     ...s,
     group: irLabel(s.group),
     rows: s.rows.map(r => ({
@@ -331,13 +343,14 @@ function irRowsTranslated(scr, descs) {
       // "??") is left over from the last pass of a loop and describes no
       // particular row, so the SGBD description wins over it.
       label: (r.pos ? `${irLabel(r.pos)} · ` : '') + irLabel(
-        (IR_LOOP_CAPTION.test(r.label || '') ? null : r.label)
+        (IR_LOOP_CAPTION.test(r.label || '') || ambiguous(r) ? null : r.label)
         || (descs && descs.get(r.key)) || r.label || r.key),
       unit: r.unit ? irLabel(r.unit) : r.unit,
       on: irState(r.on),
       off: irState(r.off),
     })),
-  }));
+  });
+  });
 }
 
 // result-name -> description, straight from the SGBD (offline, no cable).
