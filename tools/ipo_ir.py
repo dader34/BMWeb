@@ -416,8 +416,8 @@ def _screen_ir(toks):
                     # opening this screen. MS450's fifteen AIF keys share
                     # s_aif and differ only in the record index they store, so
                     # the screen is parameterised rather than fixed.
-                    if arg is None and any(a["op"] == "var" for a in args):
-                        var_arg = True
+                    var_arg = arg is None and any(a["op"] == "var"
+                                                  for a in args)
                     if all(j["name"] != jname or j.get("arg") != arg
                            for j in jobs):
                         jobs.append({"name": jname,
@@ -1469,11 +1469,17 @@ def main():
     if "--write" in sys.argv:
         os.makedirs(OUT_DIR, exist_ok=True)
         n = scr = el = 0
+        failed = []
         for p in sorted(glob.glob(os.path.join(L1.SGDAT, "*.IPO"))):
             ecu = os.path.basename(p)[:-4]
             try:
                 ir = build(ecu)
-            except Exception:               # noqa: BLE001
+            except Exception as e:          # noqa: BLE001
+                # A crash here is a DECODER bug, not a quirk of the file, and
+                # swallowing it silently hid an UnboundLocalError that cost 11
+                # ECUs their whole UI. Keep going -- one bad file must not stop
+                # the corpus -- but say so.
+                failed.append(f"{ecu}: {type(e).__name__}: {e}")
                 continue
             if not ir or not ir["screens"]:
                 continue
@@ -1486,6 +1492,10 @@ def main():
                       for ln in s["lines"])
         print(f"wrote {n} IR files -> {os.path.relpath(OUT_DIR)} "
               f"({scr} screens, {el} elements)")
+        if failed:
+            print(f"  FAILED  {len(failed)} ECUs did not build:")
+            for f in failed[:8]:
+                print(f"    {f}")
         return 0
 
     print(__doc__)
