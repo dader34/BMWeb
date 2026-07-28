@@ -604,14 +604,24 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     return;
   }
   cellEl.classList.remove('text-only');
+  // A range INPA DECLARED is the instrument's scale, not a hint: analogout
+  // carries it, and INPA keeps the scale fixed and lets the bar sit full when
+  // a reading runs past it. Widening to fit turned MS450's rough-running bars
+  // (0..8, warning at 5) into 0..24 and 0..27 -- every bar pinned, and the
+  // number that matters, how far past 8 the cylinder is, invisible.
+  const declared = rowSpec.min != null && rowSpec.max != null;
   let min = rowSpec.min, max = rowSpec.max;
   if (min == null || max == null) {
     const r = rangeFor(rowSpec.unit || p.unit, p.num, rowSpec.label);
     if (min == null) min = r[0];
     if (max == null) max = r[1];
   }
-  if (p.num < min) min = p.num;
-  if (p.num > max) max = p.num;
+  // ...but a GUESSED range is only a guess, so it still grows to fit rather
+  // than clipping a reading it never anticipated.
+  if (!declared) {
+    if (p.num < min) min = p.num;
+    if (p.num > max) max = p.num;
+  }
   const span = (max - min) || 1;
   const pct = Math.max(0, Math.min(100, ((p.num - min) / span) * 100));
   cellEl.querySelector('.gauge-fill').style.width = pct.toFixed(1) + '%';
