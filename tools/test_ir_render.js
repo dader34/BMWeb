@@ -525,6 +525,34 @@ for (const [e, scr] of [['KLIMA_5B', null], ['IHKA39', null]]) {
   }
 }
 
+// ---- the Activate key is not always called "Activate" --------------------
+// INPA names it per ECU and per build language, and deGerman may have
+// half-translated it: MS450's root reads "Stellgliedcontrolen" (Stellglied =
+// actuator) over an 18-group actuator tree that was simply unreachable,
+// because the section map matched only Activate|Ansteuern|Steuern.
+{
+  const ACT = /^(Activate|Ansteuern|Steuern|Stellglied|Aktor|Actuator)|(activat|ansteuer)\w*$/i;
+  for (const l of ['Activate', 'Ansteuern', 'Stellgliedcontrolen',
+                   'Stellgliedansteuerungen', 'Actuator activations 1',
+                   'Activate seat-drives', 'Steuern 1']) {
+    ok(ACT.test(l), `Activate pattern misses ${JSON.stringify(l)}`);
+  }
+  for (const l of ['Read status', 'Coding', 'Read memory', 'Information',
+                   'Error memory', 'Identification']) {
+    ok(!ACT.test(l), `Activate pattern wrongly claims ${JSON.stringify(l)}`);
+  }
+  // MS450's actuator tree must be reachable and intact
+  const ms = load('MS450');
+  const act = irMenuItems(ms, irRootMenu(ms)).find(i => ACT.test(i.label));
+  ok(act && act.menu === 'm_iostatus',
+     `MS450 Activate should open m_iostatus, got ${act && act.menu}`);
+  const groups = irMenuItems(ms, 'm_iostatus');
+  ok(groups.length >= 18,
+     `MS450 should list >=18 actuator groups, got ${groups.length}`);
+  ok(groups.every(g => g.menu || g.screen),
+     'an MS450 actuator group leads nowhere');
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
