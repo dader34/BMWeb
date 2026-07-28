@@ -618,6 +618,30 @@ for (const [de, en] of [
      'AIF_LESEN should be marked as taking its argument from the menu');
 }
 
+// ---- a fault key whose screen has nothing to poll ------------------------
+// MS450's fault menu is five keys that each name a SCREEN, and every one of
+// those screens has zero rows: INPA formats the fault list in code, so there
+// is nothing to poll and they rendered as blank pages. The three reads belong
+// to the app's own fault view; the clear belongs to the confirm-and-run path.
+{
+  const ms4 = load('MS450');
+  for (const n of ['s_fs_kurz', 's_fs_detail', 's_fs_lang']) {
+    const sc = ms4.screens[n];
+    ok(irRows(sc).rows.length === 0 && !irReadable(sc),
+       `${n} should have nothing to poll`);
+    ok((sc.jobs || []).some(j => /^FS_/i.test(j.name)),
+       `${n} should name a fault job`);
+  }
+  const fm3 = irMenuItems(ms4, 'm_fehlersp');
+  const reads = fm3.filter(i => IR_FAULT_READ.test(i.label));
+  ok(reads.length === 3, `expected 3 fault reads, got ${reads.length}`);
+  // the clear carries its screen's job so it can run, and stays flagged write
+  const clr = fm3.find(i => /^Clear/i.test(i.label));
+  ok(clr && ms4.screens[clr.screen].jobs[0].name === 'FS_LOESCHEN'
+     && ms4.screens[clr.screen].jobs[0].write,
+     'MS450 clear should carry FS_LOESCHEN as a write');
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
