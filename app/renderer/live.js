@@ -568,6 +568,17 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   // bar sitting at 34.
   if (rowSpec.kind === 'lamp') {
     if (setBoolCell(cellEl, valEl, p.raw)) return;
+    // INPA drew this with digitalout, so it IS a boolean whatever word the
+    // ECU chose. A number here means an unmapped state, and showing it bare
+    // ("HOOD / RADIO  94") reads as a measurement -- the one thing a lamp
+    // never is. Anything non-zero is on, which is what digitalout tests.
+    if (p.num !== null && inpaMode()) {
+      cellEl.classList.add('bool');
+      cellEl.classList.remove('text-only');
+      const shown = p.num ? '\u25cf on' : '\u25cb off';
+      if (valEl.textContent !== shown) { valEl.textContent = shown; flash(valEl); }
+      return;
+    }
     cellEl.classList.add('text-only');
     const t = String(p.raw).trim();
     if (valEl.textContent !== t) { valEl.textContent = t; flash(valEl); }

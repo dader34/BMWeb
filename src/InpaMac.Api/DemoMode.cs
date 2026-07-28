@@ -121,7 +121,9 @@ internal static class DemoMode
         // ...and so does one the NAME declares boolean. A coding flag answers
         // yes/no: DWA4's NEIGUNGSGEBER_VERBAUT ("with tilt alarm sensor") came
         // back as 34 and drew a bar, because its description says nothing.
-        if (Regex.IsMatch(name, @"(_VERBAUT|_EIN|_AKTIV|_MOEGLICH|_VORHANDEN)\d*$",
+        if (Regex.IsMatch(name, @"(_VERBAUT|_EIN|_AUS|_AKTIV|_INAKTIV|_MOEGLICH"
+                              + @"|_VORHANDEN|_OFFEN|_GESCHLOSSEN|_GEDRUECKT"
+                              + @"|_BETAETIGT|_GELOEST|_ERKANNT|_OK)\d*$",
                           RegexOptions.IgnoreCase))
             return (i % 2) == 0 ? "ja" : "nein";
         // the description often states the valid span ("Werte -48 bis 48"):
