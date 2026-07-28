@@ -35,7 +35,189 @@ const FAULT_PHRASES = [
 // compounds first so they win before their fragments.
 // token-level German -> English, applied in order. multi-word phrases first so
 // they win before the single-word tokens below them rewrite a piece.
+// INPA's softkey captions are cut to fit a narrow F-key bar. Expanded here
+// as whole labels (anchored), so only an exact caption is rewritten -- a
+// substring rule would corrupt longer text that happens to contain one.
+const INPA_CAPTIONS = new Map(Object.entries({
+  // fault memories: EM/IM/HM are Fehler-/Info-/Historienspeicher
+  'Read EM': 'Read fault memory', 'Clear EM': 'Clear fault memory',
+  'Read IM': 'Read info memory', 'Clear IM': 'Clear info memory',
+  'Read HM': 'Read history memory', 'Clear HM': 'Clear history memory',
+  'FS Read': 'Read fault memory', 'FS Clear': 'Clear fault memory',
+  'IS Read': 'Read info memory', 'IS Clear': 'Clear info memory',
+  'HS Read': 'Read history memory', 'HS Clear': 'Clear history memory',
+  'Shadow': 'Info memory', 'Quick': 'Quick read',
+  // climate / actuator abbreviations
+  'W-valve': 'Water valve', 'Dig.out': 'Digital outputs',
+  'Rep.pos': 'Repair position', 'Freshair': 'Fresh air flap',
+  'Air circ.': 'Air circulation flap', 'Defrost': 'Defroster flap',
+  'Rear c.': 'Rear compartment flap', 'Ventil.': 'Ventilation flap',
+  'Stratif.': 'Stratification flap', 'Footwell': 'Footwell flap',
+  'Comp.act': 'Cancel compressor deactivation', 'Compr.': 'Compressor',
+  'Rear w.': 'Rear window defogger', 'Windsh.': 'Windshield defogger',
+  'Aux. fan': 'Auxiliary fan', 'Lock v.': 'Lock valve',
+  'Cali. run': 'Calibration run', 'Init': 'Initialise',
+  'Displaytest': 'Display test', 'Testbild': 'Test pattern',
+  // common softkeys
+  'I/O state': 'I/O status', 'Seat pos.': 'Seat position',
+  'km reset': 'Reset kilometres', 'Commtest': 'Communication test',
+  // Only genuine abbreviations belong here. Plain English words that happen
+  // to be short -- Display, Unit, Flap, Sensors, Actuators, Prog, Valves --
+  // are real captions on other ECUs' status menus (BMBT46RN's "Display" is a
+  // monitor readout, not a display test), and expanding them would invent
+  // meaning rather than translate it.
+}));
+
 const DE_TOKENS = [
+  // ---- captions INPA leaves in German ----
+  [/^Zurück\/control beenden$/i, 'Back / end control'],
+  [/^Sitzhzg\.?$/i, 'Seat heating'],
+  [/^Eingänge$/i, 'Inputs'],
+  [/^Ausgänge$/i, 'Outputs'],
+  [/^Speichern$/i, 'Save'],
+  [/^Speicher$/i, 'Memory'],
+  [/^Abbruch$/i, 'Cancel'],
+  [/^Beenden$/i, 'End'],
+  [/^Weiter$/i, 'Continue'],
+  [/^weiter$/i, 'continue'],
+  [/^Alle$/i, 'All'],
+  [/^Ausw\.?$/i, 'Select'],
+  [/^Variante$/i, 'Variant'],
+  // ---- RDC (tire pressure) result descriptions ----
+  // SGBD descs like "Anzahl 'Sensor-defekt'-Ereignisse"; compounds first,
+  // same ordering rule as everywhere else in this table.
+  [/Anzahl '([^']+)'-Ereignisse/gi, "'$1' event count"],
+  [/Anzahl '([^']+)'-Meldungen/gi, "'$1' messages"],
+  [/\bReifenpannen?\b/gi, 'flat tire'],
+  [/\bReifendruck-?pruefen\b/gi, 'check tire pressure'],
+  [/\bReifendruck\b/gi, 'tire pressure'],
+  [/\bSensor-?defekt\b/gi, 'sensor defective'],
+  [/\bRE-?sendet-?nicht\b/gi, 'wheel unit not transmitting'],
+  [/\bRE-?ueberhitzt\b/gi, 'wheel unit overheated'],
+  [/\bDruck-?pruefen\b/gi, 'check pressure'],
+  [/\bzugeordnet\+bestaetigt\b/gi, 'assigned + confirmed'],
+  [/\btemporaerer Inaktiv-?Zustaende\b/gi, 'temporary inactive states'],
+  [/\bEigenraderkennung\b/gi, 'own-wheel detection'],
+  [/\bRadbatterie Restleben\b/gi, 'wheel battery remaining life'],
+  [/\bRadsolldruck\b/gi, 'wheel target pressure'],
+  [/\banaloger RSSI Summenpegel\b/gi, 'analogue RSSI total level'],
+  [/\bempfangener RE-Telegramme\b/gi, 'received wheel-unit telegrams'],
+  [/\bGuete der Empfaenge in Prozent\b/gi, 'reception quality in percent'],
+  [/\bRad (\d+)\b/g, 'Wheel $1'],
+  [/\bRadtemperatur\b/gi, 'wheel temperature'],
+  [/\bRaddruck\b/gi, 'wheel pressure'],
+  [/\bRadposition\b/gi, 'wheel position'],
+  [/\bin Monaten\b/gi, 'in months'],
+  [/\bGrad Celsius\b/gi, '°C'],
+  [/\baktueller?\b/gi, 'current'],
+  // wheel positions, German -> English. Case-sensitive on purpose: VL/HL as
+  // two-letter fragments appear inside ordinary words under /i.
+  [/\bVL\b/g, 'FL'], [/\bVR\b/g, 'FR'],
+  [/\bHL\b/g, 'RL'], [/\bHR\b/g, 'RR'],
+  [/\bKalibrierung\b/gi, 'calibration'],
+  [/\babgebrochen\b/gi, 'aborted'],
+  [/\bbestaetigt\b/gi, 'confirmed'],
+  // ---- climate actuator names (IHKA STEUERN_* job labels) ----
+  // Compounds ahead of the single-word rules: "Heizspannung" must not become
+  // the hybrid "Heizvoltage", nor "Standheizung" become "Standheater".
+  [/\bHeizspannung\b/gi, 'Heater voltage'],
+  [/\bStandheizung\b/gi, 'Auxiliary heater'],
+  [/\bZusatzheizung\b/gi, 'Supplementary heater'],
+  [/\bKlimakompressor\b/gi, 'A/C compressor'],
+  [/\bSperrventil\b/gi, 'Shut-off valve'],
+  [/\bWasserventil\b/gi, 'Water valve'],
+  [/\bZusatzwasserpumpe\b/gi, 'Auxiliary water pump'],
+  [/\bZusatzluefter\b|\bZusatzlüfter\b/gi, 'Auxiliary fan'],
+  [/\bUmluftklappe\b/gi, 'Recirculation flap'],
+  [/\bFrischluftklappe\b/gi, 'Fresh air flap'],
+  [/\bKlappenposition\b/gi, 'Flap position'],
+  [/\bHeckscheibe\b/gi, 'Rear window'],
+  [/\bFrontscheibe\b/gi, 'Windscreen'],
+  // INPA captions this one "Compr." beside STEUERN_KLIMAKOMPRESSOR: KO is
+  // Kompressor, the A/C compressor request to the DME
+  [/\bDME[\s_]KO\b/gi, 'A/C compressor request (DME)'],
+  [/\bDME[\s_]AC\b/gi, 'A/C enable (DME)'],
+
+  // ---- climate/body jargon INPA prints in its own English ----
+  // These are not German, so nothing above touches them, but they are terms
+  // only a BMW manual explains. Stratification is the flap that layers airflow
+  // between face-level and footwell outlets ("Schichtung" = layering); AUC is
+  // the Automatische Umluft-Control air-quality sensor; Clamp 30 is BMW's
+  // terminal-30 permanent battery feed.
+  [/Stratification potentiometer/gi, 'Air layering flap position'],
+  [/Stratification flap/gi, 'Air layering flap'],
+  [/\bStratification\b/gi, 'Air layering'],
+  // the compounds first: a bare-token rule turns "AUC sensor" into
+  // "AUC (air-quality sensor) sensor"
+  // The replacements must not contain "AUC" themselves: the bare-token rule
+  // below runs afterwards and would rewrite it again, nesting the parenthetical.
+  [/\bAUC\s+sensor\b/gi, 'Air-quality sensor'],
+  [/\bAUC\s+heating\b/gi, 'Air-quality sensor heating'],
+  [/\bAUC\s+supply\b/gi, 'Air-quality sensor supply'],
+  [/\bAUC\b(?!\w)/g, 'Air quality'],
+  [/\bClamp\s*30\b/gi, 'Terminal 30 (battery feed)'],
+  [/\bClamp\s*15\b/gi, 'Terminal 15 (ignition)'],
+  [/\bClamp\s*R\b/gi, 'Terminal R (accessory)'],
+  [/\bVia K-?Bus\b/gi, 'via K-bus'],
+  [/\bPhototransistor\b/gi, 'Sun sensor (phototransistor)'],
+  [/degrees C\b/gi, '°C'],
+
+  // ---- INPA root-menu captions (tools/ipo_rootmenu.py) ----
+  // Whole captions, ahead of every word-level rule: "Fehlerspeicher" must not
+  // become "faultspeicher" and "Status lesen" must not become "Status Read".
+  [/^Fehlerspeicher$/i, 'Error memory'],
+  // Whole phrases first: a word table cannot reorder German ("Fehlerspeicher
+  // lesen" is verb-last), so the common menu captions are translated as units.
+  [/^Fehlerspeicher lesen$/i, 'Read error memory'],
+  [/^Fehlerspeicher lesen Detail$/i, 'Read error memory (detail)'],
+  [/^Fehlerspeicher l(ö|oe)schen$/i, 'Clear error memory'],
+  [/^Fehlerspeicher mit [Ff]reeze [Ff]rame Daten$/i,
+   'Read error memory with freeze frame'],
+  [/^Fehlerspeicher HEX-Dump \(Detail\)$/i, 'Error memory hex dump (detail)'],
+  [/^Infospeicher lesen$/i, 'Read info memory'],
+  [/^Infospeicher l(ö|oe)schen$/i, 'Clear info memory'],
+  [/^Historienspeicher l(ö|oe)schen$/i, 'Clear history memory'],
+  [/^Digitalwerte?$/i, 'Digital values'],
+  [/^analoge Messwertbl(ö|oe)cke$/i, 'Analogue measurement blocks'],
+  [/\bMesswertbl(ö|oe)cke?\b/gi, 'measurement blocks'],
+  [/\bMesswerte?\b/gi, 'measured value'],
+  [/\bGebersignale?\b/gi, 'sensor signals'],
+  [/\bStartwertabgleich\b/gi, 'start value matching'],
+  [/\bAbgasregelung\b/gi, 'emission control'],
+  [/\bLambda[- ]?Sonden?\b/gi, 'lambda sensor'],
+  [/\bAdaption\b/gi, 'adaptation'],
+  [/^Bildschirm drucken$/i, 'Print screen'],
+  [/^INPA beenden$/i, 'Exit INPA'],
+  // the two verbs the word table still leaves German -- after the phrases
+  // above, which would otherwise be half-translated ("Bildschirm print")
+  [/\bdrucken\b/gi, 'print'], [/\bspeichern\b/gi, 'save'],
+  [/^Historienspeicher lesen$/i, 'Read history memory'],
+  [/^Anpassungswerte selektiv l(ö|oe)schen$/i,
+   'Clear selected adaptation values'],
+  [/^Speicher lesen erweitert$/i, 'Read memory (extended)'],
+  // ...and the compounds INPA builds from it. Without these the bare /Fehler/
+  // rule fires and leaves "faultspeicher lesen" -- German grammar with an
+  // English stem, which is worse than either language alone.
+  [/\bFehlerspeicher(s|n)?\b/gi, 'error memory'],
+  [/\bInfospeicher(s|n)?\b/gi, 'info memory'],
+  [/\bHistorienspeicher(s|n)?\b/gi, 'history memory'],
+  [/\bAnpassungswerte?\b/gi, 'adaptation values'],
+  [/\bStellgliedansteuerung(en)?\b/gi, 'actuator activation'],
+  [/\bStellglied(er)?\b/gi, 'actuator'],
+  [/\bSystemdiagnose(n)?\b/gi, 'system diagnostics'],
+  [/\bSG-Identifikation\b/gi, 'ECU identification'],
+  [/\bAnwenderInfoFeld\b/gi, 'user info field'],
+  [/\bKommentar einf(ü|ue)gen\b/gi, 'insert comment'],
+  [/\bAbspeicherung\b/gi, 'saving'],
+  [/\bselektiv\b/gi, 'selective'],
+
+  [/^Status lesen$/i, 'Read status'],
+  [/^Speicher lesen$/i, 'Read memory'],
+  [/^Identifikation$/i, 'Identification'],
+  [/^Codierung$/i, 'Coding'],
+  [/^Ansteuern$/i, 'Activate'],
+  [/^Informationen?$/i, 'Information'],
+
   // ---- job-name verbs/nouns (humanized SGBD job names, e.g. "Flash Crc Pruefen") ----
   [/\bPruefen\b|\bPrüfen\b/gi, 'Check'], [/\bLesen\b/gi, 'Read'],
   [/\bSchreiben\b/gi, 'Write'], [/\bSetzen\b/gi, 'Set'], [/\bLoeschen\b|\bLöschen\b/gi, 'Clear'],
@@ -43,6 +225,41 @@ const DE_TOKENS = [
   [/\bBlocklaenge\b|\bBlocklänge\b/gi, 'Block length'], [/\bZeiten\b/gi, 'Times'],
   // ---- job-argument dialog terms (from the SGBD _ARGUMENTS schema) ----
   [/Datum der SG-Programmierung/gi, 'date of ECU programming'],
+  // ---- SGBD result descriptions on the generated Service/Special/Other cards ----
+  // Full sentences first: these are whole ARGCOMMENT strings, and letting the
+  // single-word rules reach them first produces half-German hybrids.
+  [/Gibt das aktuelle gew(ä|ae)hlte Protokoll aus/gi, 'currently selected protocol'],
+  [/Anzahl der Diagnoseprotokolle/gi, 'number of diagnostic protocols'],
+  [/f(ü|ue)r Pr(ü|ue)fablauf Bandende/gi, 'for end-of-line test'],
+  [/Pr(ü|ue)fablauf Bandende/gi, 'end-of-line test'],
+  [/die letzten vier Stellen der/gi, 'last four digits of the'],
+  [/die letzten (\w+) Stellen/gi, 'last $1 digits'],
+  [/Index f(ü|ue)r Fehler(ort|art)/gi, 'fault location index'],
+  [/im Klartext/gi, 'in plain text'],
+  [/Alle m(ö|oe)glichen Diagnose-?Protokolle/gi, 'all available diagnostic protocols'],
+  [/(Ä|Ae)nderungsindex max\.? 2-?stellig ASCII inkl\.? Ziffern/gi,
+   'change index (max 2 chars, ASCII incl. digits)'],
+  [/aus dem Steuerger(ä|ae)t ausgelesene Daten im Format/gi, 'data read from the ECU, formatted'],
+  [/Fehlerdaten pro Fehler als Hexcode/gi, 'fault data per fault (hex)'],
+  [/Infodaten pro Fehler als Hexcode/gi, 'info data per entry (hex)'],
+  [/Index f(ü|ue)r Fehlerort/gi, 'fault location index'],
+  [/Index f(ü|ue)r Infoort/gi, 'info location index'],
+  [/Fehlerort als Text/gi, 'fault location'],
+  [/Infoort als Text/gi, 'info location'],
+  [/Fehlersymptom \(Standard-?Fehlerart\) als (Zahl|Text)/gi, 'fault symptom'],
+  [/Readyness Flag \(Standard-?Fehlerart\) als (Zahl|Text)/gi, 'readiness flag'],
+  [/Fehler vorhanden \(Standard-?Fehlerart\) als (Zahl|Text)/gi, 'fault present'],
+  [/Typ des Fehlerspeichers/gi, 'fault memory type'],
+  [/Anzahl der (Fehler|Infoarten|Umweltbedingungen)/gi, 'count'],
+  [/CBS-?Kennung als (Zahl|Hex-?String|Text)/gi, 'CBS identifier'],
+  [/Steuerger(ä|ae)teadresse als Hex-?String/gi, 'ECU address (hex)'],
+  [/Steuerger(ä|ae)teadresse im Klartext/gi, 'ECU address'],
+  [/Anzahl der CBS ?-? ?Umfaenge im Steuerger(ä|ae)t/gi, 'number of CBS items in the ECU'],
+  [/ISN als\s+WERT/gi, 'ISN value'],
+  [/ausgelesene Daten als ASCII Format/gi, 'data read (ASCII)'],
+  [/ausgelesene Daten/gi, 'data read'],
+  [/OKAY,? wenn fehlerfrei/gi, 'OKAY when no error'],
+
   // ---- flash/programming argument terms (Flash Parameter Set, AIF dialogs) ----
   [/Steuerger(ä|ae)te?-?adresse/gi, 'ECU address'],
   [/Steuerger(ä|ae)te?/gi, 'ECU'],
@@ -54,7 +271,66 @@ const DE_TOKENS = [
   [/Endekennung/gi, 'end marker'], [/Maxanzahl/gi, 'max count'],
   [/\bAnzahl\b/gi, 'count'], [/\bAdresse\b/gi, 'address'],
   [/Gr(ö|oe)(ß|ss)e/gi, 'size'], [/\bletztes?\b/gi, 'last'],
-  [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/gi, 'info field'],
+  // "Aif" mid-prose expands; the uppercase acronym is INPA's own name for the
+  // screen (root key F3) and stays as written, like any other proper name
+  [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/g, 'info field'],
+  // ---- identity-card labels from SGBD result descriptions ----
+  // These come from the generated screens (tools/ipo_enrich.py), where a field
+  // INPA does not caption falls back to the SGBD's own German description.
+  // Compound nouns first: "Lieferanten-Nummer" must not become the hybrid
+  // "Lieferanten-number" by matching the bare Nummer rule below.
+  [/Herstelldatum\s*KW/gi, 'manufacture date (week)'],
+  [/Herstelldatum\s*Jahr/gi, 'manufacture date (year)'],
+  [/Herstelldatum\s*Monat/gi, 'manufacture date (month)'],
+  [/Herstelldatum\s*Tag/gi, 'manufacture date (day)'],
+  [/Herstelldatum/gi, 'manufacture date'],
+  [/Lieferanten-?\s*Nummer/gi, 'supplier number'],
+  [/Lieferanten-?\s*Text/gi, 'supplier'],
+  [/Identifikation\s+EWS-?Schnittstelle/gi, 'EWS interface identification'],
+  [/Schnittstelle/gi, 'interface'],
+  [/Diagnose-?index/gi, 'diagnostic index'],
+  [/Codier-?index/gi, 'coding index'],
+  [/Bus-?index/gi, 'bus index'],
+  // ---- body-module component names (BITS tables: switches, motors, relays) ----
+  // Compound and multi-word forms first, so "Schalter FH Fahrer auf" does not
+  // get chewed into "switch FH driver auf" by the single-word rules below.
+  [/Schalter\s+FH\s+Fahrer\s+auf/gi, 'window switch, driver — up'],
+  [/Schalter\s+FH\s+Fahrer\s+zu/gi, 'window switch, driver — down'],
+  [/Schalter\s+FH\s+Beifahrer\s+auf/gi, 'window switch, passenger — up'],
+  [/Schalter\s+FH\s+Beifahrer\s+zu/gi, 'window switch, passenger — down'],
+  [/Motor-?\s*Hauben-?\s*Kontakt/gi, 'bonnet contact'],
+  [/Wischerrelais/gi, 'wiper relay'],
+  [/Wischerschalter/gi, 'wiper switch'],
+  [/Waschpumpe/gi, 'washer pump'],
+  [/Rueckstellkontakt|Rückstellkontakt/gi, 'park contact'],
+  [/Innenbeleuchtung/gi, 'interior lighting'],
+  [/Innenraumschutz/gi, 'interior motion sensor'],
+  [/Heckklappe/gi, 'boot lid'], [/Heckscheibe/gi, 'rear window'],
+  [/Tuerkontakt|Türkontakt/gi, 'door contact'],
+  [/Kindersicherung/gi, 'child lock'],
+  [/Verbraucherabschaltung/gi, 'load shedding'],
+  [/Neigungsgeber/gi, 'tilt sensor'],
+  [/Fernbedienung/gi, 'remote control'],
+  [/Zentral-?Verriegelung/gi, 'central locking'],
+  [/Entriegeln/gi, 'unlock'], [/Verriegeln/gi, 'lock'],
+  [/\bTaster\b/gi, 'button'], [/\bSchalter\b/gi, 'switch'],
+  [/\bKontakt\b/gi, 'contact'], [/\bRelais\b/gi, 'relay'],
+  [/\bVersorgung\b/gi, 'supply'], [/\bStufe\b/gi, 'stage'],
+  [/\bSender\b/gi, 'transmitter'], [/\bSchluessel\b|\bSchlüssel\b/gi, 'key'],
+  [/\bReserve\b/gi, 'spare'], [/\bEingang\b/gi, 'input'],
+  // direction words: only as standalone tokens, never inside another word
+  [/\bauf\b/g, 'up'], [/\bzu\b/g, 'down'],
+  [/\bAnsteuern\b/gi, 'Activate'],
+  [/BMW-?Hardwarenummer/gi, 'BMW hardware number'],
+  [/BMW-?Teilenummer/gi, 'BMW part number'],
+  [/BMW-?Einkaufsnummer/gi, 'BMW purchasing number'],
+  [/Urspr(ü|ue)nglich/gi, 'originally'],
+  [/Pruefplannummer|Pr(ü|ue)fplannummer/gi, 'test plan number'],
+  [/Programmstandsnummer/gi, 'program version number'],
+  [/Kilometerstand|km-?Stand/gi, 'mileage'],
+  [/Varianten-?Index/gi, 'variant index'],
+  [/Variante des Grundmoduls/gi, 'base module variant'],
+  [/Datensatz/gi, 'dataset'],
   [/Zusammenbaunummer/gi, 'assembly number'],
   [/Datensatznummer/gi, 'dataset number'], [/Softwarenummer/gi, 'software number'],
   [/Behoerdennummer|Behördennummer/gi, 'authority number'],
@@ -196,6 +472,25 @@ const DE_TOKENS = [
   [/Kennlinien?/gi, 'characteristic curve'], [/Serien\b/gi, 'series'],
   [/Grenz\b/gi, 'limit'], [/Steigung/gi, 'slope'], [/Spreizung/gi, 'spread'],
   [/Abweichung/gi, 'deviation'], [/Aenderung|Änderung/gi, 'change'],
+  // DWS/RDC wheel-speed vocabulary. These reach the screen as SGBD result
+  // DESCRIPTIONS, not .IPO captions: INPA prints one heading over ten keys
+  // ("ABS primary signals [pulses/sec]"), so each row falls back to the SGBD's
+  // own German. Placed AHEAD of the generic /Geschwindigkeit/ and /Signal/
+  // rules -- the token pass is ordered, and either would shred these compounds
+  // ("Radgeschwindigkeit" -> "Radspeed", "Rohsignal" -> "Rohsignal").
+  [/Standardisierungsfortschritt/gi, 'standardisation progress'],
+  [/\bStandardisierung\b/gi, 'standardisation'],
+  [/\bRohsignal\s+vom\b/gi, 'raw signal from'],
+  [/\bRohsignale\b/gi, 'raw signals'], [/\bRohsignal\b/gi, 'raw signal'],
+  [/geschwindigkeitsabh(ä|ae)ngige?r?/gi, 'speed-dependent'],
+  [/Speeds?abh\./gi, 'speed-dep.'],
+  [/\bRadgeschwindigkeit(en)?\b/gi, 'wheel speed'],
+  // Only the unit form. Bare "Impulse" is spelled the same in English and
+  // already reads correctly ("Closing impulses left"), so translating it just
+  // mangles strings BMW already shipped in English.
+  [/\bImpulse\s*\/\s*sec\b/g, 'pulses/sec'],
+  [/Pannenmeldung/gi, 'deflation warning'],
+  [/Bandmode/gi, 'plant mode'],
   [/Geschwindigkeit/gi, 'speed'], [/Beladung/gi, 'load'], [/Mengen/gi, 'quantity'],
   [/Tasten/gi, 'buttons'], [/Lampen/gi, 'lamps'], [/Antennen/gi, 'antennas'],
   [/Sekunden/gi, 'seconds'], [/Schichtung/gi, 'stratification'],
@@ -215,6 +510,12 @@ const DE_TOKENS = [
   [/mit Klimaanlage/gi, 'with A/C'], [/mit Fahrstufe/gi, 'with gear engaged'],
   [/niedriger UBatt/gi, 'low battery voltage'],
   [/Ein=1 Aus=0|1=Ein 0=Aus|1=Ein, 0=Aus/gi, '1=on 0=off'],
+  // ECU state words: these arrive as VALUES, not just labels (a digital status
+  // screen reads "nicht aktiv"), so the negated forms must win over the plain ones
+  [/\bnicht aktiv\b/gi, 'not active'], [/\bnicht bereit\b/gi, 'not ready'],
+  [/\bnicht vorhanden\b/gi, 'not present'], [/\bnicht erkannt\b/gi, 'not detected'],
+  [/\baktiv\b/gi, 'active'], [/\bbereit\b/gi, 'ready'], [/\bgesperrt\b/gi, 'locked'],
+  [/\bja\b/gi, 'yes'], [/\bnein\b/gi, 'no'], [/\bfehlerfrei\b/gi, 'no fault'],
   [/\bEin\b/gi, 'on'], [/\bAus\b/gi, 'off'], [/\bZeit\b/gi, 'time'],
   [/\bDauer\b/gi, 'duration'], [/\bFaktor\b/gi, 'factor'], [/\bbis\b/gi, 'to'],
   // ---- multi-word phrases (must precede their component words) ----
@@ -353,7 +654,8 @@ function deGerman(text) {
   if (_deCache.has(text)) return _deCache.get(text);
   let out = null;
   const trimmed = text.trim();
-  if (ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];         // exact sentence
+  if (INPA_CAPTIONS.has(trimmed)) out = INPA_CAPTIONS.get(trimmed);
+  if (out === null && ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];
   // per-ECU fault-location text -> English, generated from the SGBD FORTTEXTE tables
   // (faultdb.js). keyed on the trimmed German text, so it is variant-agnostic.
   if (out === null && typeof window !== 'undefined' && window.BMW_FAULT_PHRASES)
@@ -363,6 +665,14 @@ function deGerman(text) {
     // token-level fallback for partial/unlisted phrases (P-code text, etc.)
     out = text;
     for (const [re, en] of DE_TOKENS) out = out.replace(re, en);
+    // German capitalises every noun, so a token rule has to be lowercase to
+    // read right mid-sentence ("Ende Systemdiagnose SLS" -> "End system
+    // diagnostics"). That left the 74 captions where the noun comes FIRST
+    // starting lowercase next to Title-Case siblings -- MS45's root menu
+    // showed "actuator activation" under "Read error memory". Restore the
+    // case the source had, and only where the source had it.
+    if (/^[A-ZÄÖÜ]/.test(text) && /^[a-z]/.test(out))
+      out = out.charAt(0).toUpperCase() + out.slice(1);
   }
   // don't cache token-fallback results taken before the phrase map has loaded,
   // or they'd shadow the better BMW_FAULT_PHRASES translation once it arrives.

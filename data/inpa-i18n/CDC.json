@@ -1,0 +1,19 @@
+{
+ "Anzahl Busse": "Number of buses",
+ "BMW-Einkaufsnummer, Lieferant und Zielort enthalten": "Contains BMW purchase number, supplier and destination",
+ "Diagnose-Index": "diagnosis-Index",
+ "Entwicklungsbezeichnung des Radios mit Unterstrich": "Radio development designation with underscore",
+ "Fehlercode bei NEG_RESPONSE": "Fault code on NEG_RESPONSE",
+ "Hex-Antwort von SG": "Hex response from control unit",
+ "Index zur Erkennung der SG-Variante": "Index identifying the control unit variant",
+ "Innenbeleuchtung mit Verzoegerung": "Interior light with delay",
+ "Innenbeleuuchtung auf Klemme 58 und Klemme R": "Interior light on terminal 58 and terminal R",
+ "Innenlicht bei Tuergriffkontakt": "Interior light on door handle contact",
+ "Ist ein AIF vorhanden (0 (nein)/ 1 (ja))": "Is an AIF present (0 = no / 1 = yes)",
+ "Lieferant im Klartext": "Supplier in plain text",
+ "Seriennummer Gerät 14-stellig": "Device serial number, 14 digits",
+ "Softwarenummer (Reserve) Zur Zeit nicht benutzt": "Software number (spare), not currently used",
+ "auslesen des VF-Status moeglich": "Vehicle-function status can be read",
+ "auslesen ob Radio ein aus moeglich": "Radio on/off state can be read",
+ "letzte 2 Stellen der BMW-Teilenummer": "Last 2 digits of the BMW part number"
+}

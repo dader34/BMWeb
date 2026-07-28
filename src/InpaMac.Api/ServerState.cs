@@ -16,6 +16,12 @@ public sealed class ServerState : IDisposable
     public string EcuPath { get; }
     public string InpaRoot { get; }
     public string LayoutDir { get; }
+    // auto-generated screens (tools/ipo_enrich.py). Hand-enriched layouts in
+    // LayoutDir always win; this is the fallback before synthesising from the
+    // .prg, so a mapped ECU gets INPA's real captions instead of raw results.
+    public string GeneratedLayoutDir { get; }
+    // the decompiled INPA UI, one file per ECU (tools/ipo_ir.py)
+    public string IrDir { get; }
     public InpaConfig Config { get; }
     public DiagManager Engines { get; }
 
@@ -37,6 +43,8 @@ public sealed class ServerState : IDisposable
         EcuPath = Paths.EcuPath(Root);
         InpaRoot = Paths.InpaRoot(Root);
         LayoutDir = Path.Combine(Root, "data", "inpa-layouts", "enriched");
+        GeneratedLayoutDir = Path.Combine(Root, "data", "inpa-layouts", "generated");
+        IrDir = Path.Combine(Root, "data", "inpa-ir");
         Config = new InpaConfig(InpaRoot, EcuPath);
         Engines = new DiagManager(EcuPath);
     }

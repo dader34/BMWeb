@@ -312,7 +312,9 @@ public sealed class InpaConfig
     // renderer merges its known hand-curated groups on top.
     private static readonly Regex GroupToken = new(@"D_00[0-9A-Fa-f]{2}",
                                                    RegexOptions.Compiled);
-    private readonly Dictionary<string, List<List<string>>> _groupCache = new(StringComparer.OrdinalIgnoreCase);
+    // concurrent: /api/chassis/{id} takes no bus lock, so two requests can race here
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<List<string>>> _groupCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public List<List<string>> VariantGroups(Chassis chassis)
     {

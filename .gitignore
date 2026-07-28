@@ -31,6 +31,12 @@ data/faults/*
 !data/faults/*.json
 !data/faults/*/
 !data/faults/*/*.json
+# Per-ECU caption translations. These are hand-written SOURCE, not generated:
+# BMW's compounds are per-ECU ("Gesteuerte LuftFuehrung GLF" is MS450's own
+# wording) and a shared rule broad enough to cover them mangles other ECUs.
+# tools/ipo_i18n.js resolves them into the IR.
+!data/inpa-i18n/
+!data/inpa-i18n/*.json
 # ORT fault-code map (build input for faultindex.js: text-scheme German -> ORT
 # hex per SGBD variant, dumped offline via `inpamac dumptable`). Small, shipped.
 !data/ort-codes.json

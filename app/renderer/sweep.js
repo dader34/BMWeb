@@ -145,7 +145,7 @@ async function quickErrorSweep(chassisId) {
       // prefer the diagnostic-address group so EDIABAS identifies the exact variant
       // (correct fault text, and no wasted sibling-variant reads); server falls back
       // to the concrete SGBD if the group can't identify.
-      const gq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
+      const gq = groupQuery(ecu);
       const data = isAirbag
         ? (await probeAirbag(ecu.sgbd, alive)) || { count: 0, codes: [] }
         : await api(`/api/ecu/${ecu.sgbd}/read${gq}`, { method: 'POST' });

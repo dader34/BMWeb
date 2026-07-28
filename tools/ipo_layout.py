@@ -86,43 +86,74 @@ def fix_de(s):
 # pointer in surrounding bytecode); the label carries the meaning and the app
 # resolves it to a mined screen by matching group/label at render time.
 _RE_MENU_HDR = re.compile(rb'(m_[a-z0-9_]+)\x0a')
+# the fkey byte is matched as an explicit class, not `.` — F10 (Back) encodes as
+# \x0a, which `.` won't match without DOTALL, silently dropping every F10 item
 _RE_ITEM = re.compile(
-    rb'\x24\x0a\x00\x00(.)\x00([\x20-\x7e\xc0-\xff][\x20-\x7e\xc0-\xff /.\-+]*?)\x0a')
+    rb'\x24\x0a\x00\x00([\x00-\xff])\x00([\x20-\x7e\xc0-\xff][\x20-\x7e\xc0-\xff /.\-+]*?)\x0a',
+    re.DOTALL)
 # proc/menu declaration: 0c 81 <len> 00 <type=01 screen|02 menu> <name>\n <id> 00 00 00 0a
+# id and len are explicit classes for the same reason as the fkey byte above:
+# id 10 (\x0a) is a real declaration id (s_cas / m_cas) that `.` would drop.
 _RE_DECL = re.compile(
-    rb'\x0c\x81.\x00([\x01\x02])([a-z][a-z0-9_]+)\x0a(.)\x00\x00\x00\x0a')
-# after an ITEM's label, a setscreen/setmenu call: opcode (0x40/0x3e screen,
-# 0x41/0x3f menu) followed by the target's 1-byte declaration id
-_ITEM_CALL_OPS = (0x40, 0x3e, 0x41, 0x3f)
+    rb'\x0c\x81[\x00-\xff]\x00([\x01\x02])([a-z][a-z0-9_]+)\x0a([\x00-\xff])\x00\x00\x00\x0a',
+    re.DOTALL)
 # standard INPA softkeys that are navigation, not category pages
 _MENU_NAV_LABELS = {"Drucken", "Zurück", "Zurueck", "ENDE", "Ende", "Exit",
                     "Gesamt", "Auswahl"}
 
 
 def _decl_tables(data):
-    """id -> proc/menu name, split by namespace (screens vs menus)."""
+    """id -> proc/menu name, split by namespace (screens vs menus).
+
+    Two passes. The old pattern anchored on `0c 81 <u16>` before the
+    declaration -- that is really the PREVIOUS proc's last builtin call
+    (ipo_disasm cracked the format), so it silently missed every proc whose
+    predecessor ended some other way. GSDS2's s_code, s_analog_1 and
+    s_leitungen were all invisible to it, which is how F3 Coding was
+    mis-diagnosed as a dead key. The disassembler's declaration grammar
+    (<type> <name> 0a <u32 id>, bounded by the constant pool) finds them all;
+    the old pass is kept as a fallback for files the pool finder cannot bound.
+    """
     screens, menus = {}, {}
+    try:
+        import ipo_disasm
+        ps, _pool = ipo_disasm.find_pool(data)
+        if ps:
+            for off, typ, name, pid in ipo_disasm.find_decls(data, ps):
+                if typ == "screen":
+                    screens.setdefault(pid, name)
+                elif typ == "menu":
+                    menus.setdefault(pid, name)
+    except Exception:                       # noqa: BLE001
+        pass
     for m in _RE_DECL.finditer(data):
         typ, name, pid = m.group(1)[0], m.group(2).decode("latin-1"), m.group(3)[0]
         (menus if typ == 2 else screens).setdefault(pid, name)
     return screens, menus
 
 
+# the call is emitted as a fixed quad: 02 <op> <id> 00. Anchoring on the leading
+# 02 and the trailing 00 avoids matching operand bytes that merely happen to
+# equal an opcode ('>' '?' '@' 'A' are all common inside label text).
+_RE_ITEM_CALL = re.compile(rb"\x02([\x3e-\x41])(.)\x00", re.DOTALL)
+
+
 def _item_target(data, item_end, screens, menus):
     """Resolve the screen/menu an ITEM opens by decoding the setscreen/setmenu
-    call in the bytes right after its label. Returns (target_name, kind) or
-    (None, None) for inline-job items (e.g. MWB blocks that just set an arg)."""
-    tail = data[item_end:item_end + 16]
-    for k in range(len(tail) - 1):
-        if tail[k] in _ITEM_CALL_OPS:
-            op, tid = tail[k], tail[k + 1]
-            if op in (0x41, 0x3f) and tid in menus:
-                return menus[tid], "menu"
-            if tid in screens:
-                return screens[tid], "screen"
-            if tid in menus:
-                return menus[tid], "menu"
-            return None, None
+    call in the bytes right after its label. Returns (target_name, kind), or
+    (None, None) for items that open nothing -- INPA implements these inline
+    (MWB blocks and OBD-status just set an argument and redraw the current
+    screen), so they reference an id with no proc declaration."""
+    tail = data[item_end:item_end + 24]
+    for m in _RE_ITEM_CALL.finditer(tail):
+        op, tid = m.group(1)[0], m.group(2)[0]
+        table = menus if op in (0x41, 0x3f) else screens
+        if tid in table:
+            return table[tid], ("menu" if table is menus else "screen")
+        # an id the other namespace knows (mis-typed opcode in the wild)
+        other = screens if table is menus else menus
+        if tid in other:
+            return other[tid], ("screen" if other is screens else "menu")
     return None, None
 
 
