@@ -64,7 +64,15 @@ function resolve(ecu, strings) {
   const ovr = overridesFor(ecu);
   const out = {};
   let fromOvr = 0, fromVocab = 0;
-  for (const s of strings) {
+  // Every override ships, whether or not the .IPO contains that string. Some
+  // captions reach the screen at RUNTIME from the SGBD's result descriptions
+  // rather than from the bytecode -- MS450 labels its monitor rows that way
+  // ("Fehlzuendung", "Zaehler Ueberdrehzahl") -- and those are exactly the
+  // ones a word table mangles ("counter UeberRPM"). irLabel consults this map
+  // for them too, so an override written for one has to be here to be found.
+  const all = new Set(strings);
+  if (ovr) for (const k of Object.keys(ovr)) all.add(k);
+  for (const s of all) {
     // a per-ECU override wins: it was written for this ECU's own wording
     if (ovr && Object.prototype.hasOwnProperty.call(ovr, s)) {
       if (ovr[s] && ovr[s] !== s) { out[s] = ovr[s]; fromOvr++; }

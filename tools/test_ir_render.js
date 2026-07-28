@@ -28,7 +28,8 @@ _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVari
                .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar')
                .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable')
                .replace('function irOpensMenu', 'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu')
-               .replace('function irUseTranslations', 'globalThis.irUseTranslations = irUseTranslations; function irUseTranslations');
+               .replace('function irUseTranslations', 'globalThis.irUseTranslations = irUseTranslations; function irUseTranslations')
+               .replace('function irLabel', 'globalThis.irLabel = irLabel; function irLabel');
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -671,6 +672,31 @@ for (const [de, en] of [
   // no caption may keep the tells of a half-translation
   ok(!acts.some(i => /[\u00e4\u00f6\u00fc\u00df]|Gecontrolse|heateren/.test(i.label)),
      `a mangled caption survived: ${acts.map(i => i.label)}`);
+  // Submenus and monitor rows too. The monitor labels arrive at RUNTIME from
+  // the SGBD's result descriptions rather than from the .IPO, and they are
+  // exactly what a word table mangles ("Zaehler Ueberdrehzahl" -> "counter
+  // UeberRPM"), so an override must ship whether or not the bytecode holds
+  // that string.
+  for (const [de, en] of [
+      ['Ansteuerung Einlass mit 50 %', 'Activate intake at 50%'],
+      ['Ansteuerung zur\u00fcck an DME', 'Return control to DME'],
+      ['DMTL Heizung ein', 'DMTL heater on'],
+      ['Einspritzventil Zylinder 3', 'Injector cylinder 3'],
+      ['Sekund\u00e4rluft Adaption', 'Secondary air adaptation'],
+      ['Fehlz\u00fcndung', 'Misfire'],
+      ['Z\u00e4hler \u00dcberdrehzahl', 'Overspeed counter'],
+      ['KAT\u00dcberwachung', 'Catalyst monitoring']]) {
+    ok(irLabel(de) === en,
+       `MS450 irLabel(${JSON.stringify(de)}) = ${JSON.stringify(irLabel(de))}`);
+  }
+  // every MS450 menu caption should be English by now
+  for (const m of Object.keys(ms5.menus)) {
+    for (const it of irMenuItems(ms5, m)) {
+      ok(!/[\u00e4\u00f6\u00fc\u00df\u00c4\u00d6\u00dc]/.test(it.label),
+         `MS450 ${m}: German caption survived -- ${JSON.stringify(it.label)}`);
+    }
+  }
+
   // an ECU with no overrides file still gets the shared vocabulary
   const dws2 = load('DWS');
   irUseTranslations(dws2);
