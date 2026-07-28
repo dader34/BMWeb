@@ -408,9 +408,22 @@ function irOpensMenu(ir, it, from) {
 // Does this menu hold anything the app can act on? Non-recursive on purpose:
 // INPA's menus link back to their parents, so following submenus would loop.
 function _irHasRunnable(ir, menuName) {
+  const root = (ir.entry || {}).menu;
   return (((ir.menus || {})[menuName] || {}).items || []).some(
     it => (it.label || '').trim() && !it.fileAction && !it.appTool
           && !IR_CHROME.test(it.label.trim())
+          // a key back to the ROOT is Back whatever it is called. MS450's
+          // ident menu is Back/Print/End and nothing else, but deGerman had
+          // rendered two of them "Folder" and "Printing", which no chrome
+          // word list matches -- so the menu looked runnable and won over
+          // s_ident, the screen holding the 23 identification fields.
+          && !(it.menu === root && !it.job && menuName !== root)
+          // INPA's own chrome ACTIONS, whatever they end up called: MS450's
+          // ident menu is Back/Print/End but deGerman rendered them "Folder"/
+          // "Printing"/"END", so no caption list would catch them. The action
+          // is what the item does and does not translate.
+          && !['printscreen', 'exit', 'select', 'deselect'].includes(it.action)
+          && (it.job || it.screen || it.menu || it.action)
           && (it.job || it.screen || it.menu || it.action));
 }
 
@@ -422,6 +435,10 @@ function irMenuItems(ir, menuName, variant) {
   // that menu's own tags widen what counts as ours: its pages are the _38
   // screens, and pruning them by tag alone emptied the key.
   const via = irScreenTags(ir, menuName);
+  // the screen this menu is drawn on, so a key that merely redraws it can be
+  // told apart from one that opens a different page
+  const menuScreen = (menu.screen)
+    || (menuName === (ir.entry || {}).menu ? (ir.entry || {}).screen : null);
   const pick = (it) => irPickScreen(ir, it, variant || ir._variant, via);
   // ...and likewise several menus
   const pickMenu = (it) => {
@@ -457,6 +474,17 @@ function irMenuItems(ir, menuName, variant) {
     // a key whose only effect is to redraw the menu's own screen does
     // nothing here -- INPA needs it because the screen IS the window
     .filter(it => !(it.screen === (ir.entry || {}).screen && !it.menu))
+    // ...and neither does one that re-installs THIS menu and the screen it is
+    // already drawn on. That is how INPA returns from an action it performed
+    // on the PC: MS450's fault menu ends with "save all faults to a file" and
+    // "insert comment", which name no job, go nowhere, and were listed beside
+    // the five real fault reads as though they were ECU functions.
+    .filter(it => !(it.menu === menuName && !it.job && !it.action
+                    && (!it.screen || it.screen === menuScreen
+                        // INPA names the menu's screen after the menu itself
+                        // (m_fehlersp -> s_fehlersp); a key pointing at both
+                        // is redrawing where it already is
+                        || it.screen === 's' + menuName.slice(1))))
     // an item with no navigation target is an ACTION INPA performs in place:
     // its actuator items only flip state flags and let the screen send the
     // job. Those are listed (the caption is INPA's own, joined from the

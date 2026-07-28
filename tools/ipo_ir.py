@@ -493,7 +493,7 @@ def _field_values(all_toks, order):
     return out
 
 
-def _menu_ir(toks, id2name):
+def _menu_ir(toks, id2name, name=None):
     items, cur_nr, cur_label = [], None, None
     entry = None
     # the screen this menu is displayed with: the setscreen in its INIT
@@ -701,9 +701,26 @@ def _menu_ir(toks, id2name):
     # item -- no job, no screen, no menu.
     # A key that PROMPTS is a picker, not a log dump: it asks for a path and
     # shows what you chose, and the menu's next key sends it to the ECU.
+    #
+    # A key that re-installs THIS menu is staying put, which is how INPA
+    # returns from an action -- it is not navigation. MS450's fault menu ends
+    # with "save all faults to a file", "insert comment" and a needle-printer
+    # export; all three write on the PC, name no job, and set their own menu
+    # back, so requiring no screen/menu at all left them looking like ECU
+    # functions.
     for it in items:
-        if it.pop("_file", None) and not it.get("prompt") and not any(
-                it.get(k) for k in ("job", "screen", "menu", "action")):
+        if not it.pop("_file", None) or it.get("prompt"):
+            continue
+        # "stays put" covers both shapes INPA uses to return from a PC
+        # action: re-installing THIS menu, or jumping back to the root. MS450's
+        # ident menu writes the ident data to a file and returns to m_main.
+        stays = (it.get("menu") == name
+                 and (it.get("screen") is None or screen is None
+                      or it.get("screen") == screen)) \
+            or (it.get("menu") == "m_main" and name != "m_main")
+        if not it.get("job") and not it.get("action") \
+                and (stays or not any(it.get(k)
+                                      for k in ("screen", "menu"))):
             it["fileAction"] = True
     # INPA lays its softkeys out by number, so the menu reads in F-key order
     # rather than in the order the bytecode happens to declare them
@@ -739,7 +756,7 @@ def build(ecu):
             scr["id"] = pid
             ir["screens"][name] = scr
         elif typ == "menu":
-            m = _menu_ir(toks, id2name)
+            m = _menu_ir(toks, id2name, name)
             comp = _composite(toks)
             if comp:
                 # slot -> its index in the argument string. The SGBD's

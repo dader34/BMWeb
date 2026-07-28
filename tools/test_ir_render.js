@@ -553,6 +553,47 @@ for (const [e, scr] of [['KLIMA_5B', null], ['IHKA39', null]]) {
      'an MS450 actuator group leads nowhere');
 }
 
+// ---- a German-built ECU: chrome by ACTION, not by caption ----------------
+// MS450's .IPO is German, and deGerman half-translates its chrome: its ident
+// menu is Back/Print/End but reads "Folder"/"Printing"/"END", which no caption
+// list matches. So the menu looked runnable and won over s_ident -- the screen
+// holding the 23 identification fields -- and the key appeared to do nothing.
+{
+  const ms2 = load('MS450');
+  ok(!_irHasRunnable(ms2, 'm_ident'),
+     'MS450 ident menu is chrome only and must not count as runnable');
+  const rootM = irRootMenu(ms2);
+  const id = irMenuItems(ms2, rootM).find(i => /identification/i.test(i.label));
+  ok(id && !irOpensMenu(ms2, id, rootM) && id.screen === 's_ident',
+     `MS450 identification should open s_ident, got ${id && id.screen}`);
+  ok(irRows(ms2.screens.s_ident).rows.length === 23,
+     `MS450 s_ident should have 23 rows, got ${irRows(ms2.screens.s_ident).rows.length}`);
+
+  // its fault menu ends with three PC actions -- save-to-file, insert comment,
+  // needle-printer export -- which name no job and go nowhere. Listing them
+  // beside the five real fault reads made INPA's own chrome look like ECU
+  // functions.
+  const fm2 = irMenuItems(ms2, 'm_fehlersp');
+  ok(fm2.length === 5, `MS450 fault menu should list 5 reads, got ${fm2.length}: `
+     + fm2.map(i => i.label));
+  ok(!fm2.some(i => /Datei|Kommentar|Nadeldrucker|file|comment|printer/i.test(i.label)),
+     `a PC action survived in the fault menu: ${fm2.map(i => i.label)}`);
+}
+// German menu captions translate as whole phrases: a word table cannot reorder
+// "Fehlerspeicher lesen" (verb-last), and the bare /Fehler/ rule alone left
+// "faultspeicher Read" -- German grammar with an English stem.
+for (const [de, en] of [
+    ['Fehlerspeicher lesen', 'Read error memory'],
+    ['Fehlerspeicher l\u00f6schen', 'Clear error memory'],
+    ['Anpassungswerte selektiv l\u00f6schen', 'Clear selected adaptation values'],
+    ['SG-Identifikation', 'ECU identification'],
+    ['Stellgliedansteuerungen', 'actuator activation'],
+    ['Systemdiagnosen', 'system diagnostics'],
+    ['Bildschirm drucken', 'Print screen']]) {
+  ok(deGerman(de) === en,
+     `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
