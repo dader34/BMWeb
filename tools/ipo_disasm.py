@@ -258,6 +258,10 @@ BUILTINS = {
     # always three string arguments. RADIO's entertainment-source keys call
     # their jobs this way, so they read as dead without it.
     0x6f: "INPAapiJob",
+    # (dst, src, start, len) -- a substring, INPA's MID$. 9434 sites in 553
+    # files, the most-used call in the corpus. Its first argument is a
+    # destination slot: of 359 sampled, 338 are read again afterwards.
+    0x25: "substr",
     # (key, set) with NO destination ref -- reads into an implicit slot that
     # 0x78 then copies out. 975 sites in 399 files, never once preceded by a
     # procref, which is what distinguishes it from 63/64/66/67.

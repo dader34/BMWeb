@@ -291,6 +291,20 @@ def _screen_ir(toks):
                 # reads COD_DATEN this way for each of its seven blocks.
                 pending_result = next(
                     (s for s in strs if _RESULTISH.match(s)), None)
+            elif name == "substr":
+                # A substring assembles a DISPLAY string out of a result that
+                # was read into a slot: CVM_II's coding page reads DATENBLOCK
+                # and prints it eight characters at a time. The row still
+                # shows that result, so the binding follows the slice --
+                # without it the whole page decoded and emitted nothing.
+                refs = [a for a in args if a["op"] == "procref"
+                        and a["kind"] in (0, 2)]
+                srcs = [(a.get("sc", 0), a["n"]) for a in args
+                        if a["op"] == "var"]
+                key = next((bind[s2] for s2 in srcs if s2 in bind), None)
+                if refs and key:
+                    dst = (2 if refs[0]["kind"] == 2 else 0, refs[0]["n"])
+                    bind[dst] = key
             elif name == "copyslot":
                 # (dst, src): carry the binding, or the result the preceding
                 # ResultInto left pending, into the destination slot
@@ -964,6 +978,22 @@ def main():
                   for e in ln["elements"] if e.get("key")]
             if len(ks) != want:
                 fails.append(f"LWS5 {name}: {len(ks)} values, want {want}")
+
+        # A SUBSTRING assembles a display string from a result read into a
+        # slot: CVM_II's coding page reads DATENBLOCK and prints it eight
+        # characters at a time, AFS_60 slices a qualifier byte into Bit 0..7.
+        # builtin 25 is the most-used call in the corpus (9434 sites, 553
+        # files) and was unmapped, so those screens decoded to nothing.
+        c2 = build("CVM_II")["screens"]["s_code"]
+        ck = [e["key"] for ln in c2["lines"] for e in ln["elements"]
+              if e.get("key")]
+        if "DATENBLOCK" not in ck:
+            fails.append(f"CVM_II coding lost its data block: {ck}")
+        q = build("AFS_60")["screens"]["s_qualifier_1"]
+        qk = [e["key"] for ln in q["lines"] for e in ln["elements"]
+              if e.get("key")]
+        if len(qk) != 8:
+            fails.append(f"AFS_60 qualifier should slice 8 bits, got {len(qk)}")
 
         # BMW ships mixed-case and two-letter RESULT names -- BMBT46TN reads
         # "Dimmerstellung", others "ECU"/"TYP"/"EINSCHALTZAEHLER_FKT2a" -- and
