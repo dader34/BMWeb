@@ -35,6 +35,7 @@
  "Bedienteildaten 2 (High-Byte) und 1 (Low-Byte)": "Control panel data 2 (high byte) and 1 (low byte)",
  "Belueftungstemperatur rechts (Nur bei HIGH-Ausfuehrung)": "Ventilation temperature right (HIGH version only)",
  "Beschleunigungsabschaltung ein": "Acceleration cut-off on",
+ "Betriebszustandswert": "Operating state value",
  "DWA-Ausgang interner Zustand": "Alarm system output, internal state",
  "Datum der SG-Programmierung in der Form JJJJ.MM.TT": "Control unit programming date, YYYY.MM.DD",
  "Datum der SG-Programmierung in der Form TT.MM.JJJJ": "Control unit programming date, DD.MM.YYYY",
