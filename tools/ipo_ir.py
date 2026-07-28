@@ -79,7 +79,8 @@ captions into "Gecontrolse".
 
     python3 tools/ipo_ir.py RDC                 # one ECU to stdout
     python3 tools/ipo_ir.py --write             # corpus -> data/inpa-ir/
-    node   tools/ipo_i18n.js                    # resolve captions into them
+    node   tools/ipo_i18n.js                    # ALWAYS after --write: the
+                                                # rewrite drops the i18n map
     python3 tools/ipo_ir.py --check             # invariants (check.sh)
 """
 import os
@@ -189,6 +190,19 @@ def _softkeys(lines):
                 nr = int(parts[i + 1]) + (10 if shifted else 0)
                 out.setdefault(nr, (cap, shifted))
     return out
+
+
+# A FUNC that is really a screen: it runs a job and draws what comes back.
+# Both halves are required. A helper that only formats (ausgabe_formatiert), or
+# only calls a job without displaying it (inpainit), is not a screen -- mining
+# those would fill the IR with procs no key opens.
+_DISPLAY_CALLS = {"textout", "ftextout", "text", "analogout", "digitalout"}
+
+
+def _is_display_func(toks):
+    names = {t.get("name") for t in toks if t["op"] == "call"}
+    return bool(names & _DISPLAY_CALLS) and "INPAapiJob" in names \
+        and any(n and n.startswith("INPAapiResult") for n in names)
 
 
 def _screen_ir(toks):
@@ -325,6 +339,16 @@ def _screen_ir(toks):
                 if refs and key:
                     dst = (2 if refs[0]["kind"] == 2 else 0, refs[0]["n"])
                     bind[dst] = key
+            elif name == "formatnum":
+                # (src, dst): a number formatted for display. The row still
+                # shows that result -- MS450 reads STAT_AUSGANG, formats it,
+                # and prints the formatted copy, so without carrying the
+                # binding the actuator readout has a caption and no value.
+                src = next((s2 for s2 in vslots if s2 in bind), None)
+                dst = next((a for a in args if a["op"] == "procref"
+                            and a["kind"] in (0, 2)), None)
+                if src and dst:
+                    bind[(2 if dst["kind"] == 2 else 0, dst["n"])] = bind[src]
             elif name == "copyslot":
                 # (dst, src): carry the binding, or the result the preceding
                 # ResultInto left pending, into the destination slot
@@ -652,6 +676,16 @@ def _menu_ir(toks, id2name, name=None):
                 # would have fired on a keypress like any read.
                 if _PERSISTENT_WRITE.search(nm):
                     entry["writeJob"] = True
+        elif t["op"] == "calluser" and cur_label is not None:
+            # A key that runs a display FUNC: INPA builds some screens inside
+            # functions (MS450 drives VANOS, TEV and the lambda heaters that
+            # way) and reaches them with calluser rather than setscreen. The
+            # name is resolved after the whole file is read, since the func may
+            # be declared later.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry.setdefault("_callf", t["n"])
         elif t["op"] == "call" and t["n"] in (0x5c, 0x79) \
                 and cur_label is not None:
             # A PC file operation: 5c shows a named file, 79 opens one (LWS5's
@@ -787,9 +821,18 @@ def build(ecu):
         all_toks[name] = toks
         cov_unk += unk
         cov_len += ln
-        if typ == "screen":
+        if typ == "screen" or (typ == "func" and _is_display_func(toks)):
+            # INPA also builds screens inside FUNCTIONS. MS450 drives its VANOS,
+            # E-fan, TEV and lambda-heater actuators from procs like
+            # vanos_in_ansteuer, which run the job and draw its results with
+            # exactly the vocabulary a screen uses -- but declared `func`, so
+            # nothing mined them and their readouts were invisible. The
+            # hand-built layout captured them; this is the last thing it had
+            # that the decompiler did not.
             scr = _screen_ir(toks)
             scr["id"] = pid
+            if typ == "func":
+                scr["fromFunc"] = True
             ir["screens"][name] = scr
         elif typ == "menu":
             m = _menu_ir(toks, id2name, name)
@@ -849,6 +892,28 @@ def build(ecu):
     # softkey help ("< F2 >  DWA output"); the ITEM number IS the F-key, so
     # the two sides join exactly. Only fills gaps -- a menu item that already
     # says more than the softkey keeps its own wording.
+    # Resolve the display FUNCs menu keys invoke. A func-screen is only worth
+    # keeping if some key opens it: INPA has plenty of helpers that draw
+    # nothing a user reaches. Anything left unreferenced is dropped, so this
+    # cannot fill the IR with procs no menu points at.
+    funcid = {}
+    for off, typ, name, pid in decls:
+        if typ == "func" and name in ir["screens"]:
+            funcid[pid] = name
+    used = set()
+    for menu in ir["menus"].values():
+        for it in menu["items"]:
+            fid = it.pop("_callf", None)
+            if fid is None or it.get("screen"):
+                continue
+            nm = funcid.get(fid)
+            if nm:
+                it["screen"] = nm
+                used.add(nm)
+    for nm, scr in list(ir["screens"].items()):
+        if scr.get("fromFunc") and nm not in used:
+            del ir["screens"][nm]
+
     # A key that launches a STATE machine which only writes a file is still a
     # PC action: LWS5's single Coding key runs sm_Codier_Datei, whose whole
     # body is "prompt for a path, open it 'w', write the coding data" -- INPA
@@ -1052,6 +1117,29 @@ def main():
                   for e in ln["elements"] if e.get("key")]
             if len(ks) != want:
                 fails.append(f"LWS5 {name}: {len(ks)} values, want {want}")
+
+        # INPA builds some screens inside FUNCTIONS. MS450 drives its VANOS,
+        # E-fan, TEV and lambda heaters from procs like vanos_in_ansteuer,
+        # which run the job and draw the result with a screen's own vocabulary
+        # but are declared `func` -- so nothing mined them and their actuator
+        # readouts were invisible. The hand-built layout had them; this was the
+        # last thing it had that the decompiler did not.
+        v = build("MS450")
+        vs = v["screens"].get("vanos_in_ansteuer") or {}
+        vk = [e["key"] for ln in vs.get("lines", []) for e in ln["elements"]
+              if e.get("key")]
+        if "STAT_AUSGANG" not in vk:
+            fails.append(f"MS450 VANOS readout lost its value: {vk}")
+        if not vs.get("fromFunc"):
+            fails.append("MS450 VANOS screen should be flagged fromFunc")
+        # every func-screen kept must be opened by some key: unreferenced
+        # helpers are dropped rather than left as procs nothing reaches
+        named = {i.get("screen") for m in v["menus"].values()
+                 for i in m["items"] if i.get("screen")}
+        orphan = [n for n, sc in v["screens"].items()
+                  if sc.get("fromFunc") and n not in named]
+        if orphan:
+            fails.append(f"MS450 func screens nothing opens: {orphan}")
 
         # A SUBSTRING assembles a display string from a result read into a
         # slot: CVM_II's coding page reads DATENBLOCK and prints it eight
