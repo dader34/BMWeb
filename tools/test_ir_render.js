@@ -368,6 +368,43 @@ ok(!irIsCard(g.screens['s_analog_1']),
   // a shifted key must never keep the cramped ITEM label
   ok(!act.some(i => /^(ankle|b-rest|seat bw|pos\.) /.test(i.label)),
      `a shifted key kept its ITEM label: ${act.map(i => i.label)}`);
+
+  // The bar shows ONE row at a time, as INPA does, and both rows bind to the
+  // same digits -- F3 and Shift+F3 are both the "3" key. A digit appearing
+  // twice within one row would make a key unreachable. F20 (Exit) takes no
+  // digit: it is the app's Esc, and binding it to 0 would shadow Back.
+  const bindOf = (it) => {
+    const n = it.shift ? it.nr - 10 : it.nr;
+    return n === 20 ? null : String(n % 10);
+  };
+  let collisions = 0, shiftedMenus = 0;
+  for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir'))) {
+    const ir2 = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+    for (const mn of Object.keys(ir2.menus || {})) {
+      const its = irMenuItems(ir2, mn);
+      if (!its.length) continue;
+      const rows = [its.filter(i => !i.shift), its.filter(i => i.shift)];
+      if (rows[1].length) shiftedMenus++;
+      for (const row of rows) {
+        const seen = new Set();
+        for (const i of row.slice(0, 9)) {
+          const k = bindOf(i);
+          if (k === null) continue;
+          if (seen.has(k)) { collisions++; break; }
+          seen.add(k);
+        }
+      }
+    }
+  }
+  ok(collisions === 0, `${collisions} menus bind two keys to one digit`);
+  ok(shiftedMenus > 600,
+     `menus with a shifted row regressed: ${shiftedMenus}`);
+  // a shifted ITEM is still recognised when INPA printed no shifted caption:
+  // the n+10 pairing holds regardless (AFS_70 "AIF 9" at 11 against "AIF 1")
+  const afs = irMenuItems(load('AFS_70'), 'm_afs_AifTabelle');
+  const a9 = afs.find(i => /AIF 9/.test(i.label));
+  ok(a9 && a9.shift && a9.nr === 11,
+     `AFS_70 "AIF 9" should be shifted ITEM 11, got nr=${a9 && a9.nr} shift=${a9 && a9.shift}`);
 }
 
 // ---- a PC file operation is not an ECU function --------------------------

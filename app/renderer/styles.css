@@ -989,6 +989,14 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .ir-menu-head { display: flex; flex-wrap: wrap; gap: 6px 28px;
   max-width: 620px; margin: 0 0 14px; }
 .ir-menu-head:empty { display: none; }
+
+/* INPA's bar has two rows and Shift swaps between them; mark the shifted one
+   so it is obvious which half is showing */
+.fkeys.shifted .fkey { border-color: var(--amber-soft); }
+.fkeys.shifted .fkey-num { color: var(--amber); }
+/* a menu that HAS a second row says so, so Shift is discoverable */
+.ir-shift-hint { font-size: 11px; color: var(--ink-faint);
+  font-family: var(--mono); margin: 10px 0 0; }
 .ir-head-cell { display: flex; gap: 8px; align-items: baseline;
   font-size: 12px; }
 .ir-head-label { color: var(--ink-faint); text-transform: uppercase;
