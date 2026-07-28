@@ -138,8 +138,10 @@ function irRows(scr) {
         continue;
       }
       if (!e.key) continue;
-      // positional caption from the LINE header when it lists one per key
-      let label = pending;
+      // The element may carry its OWN caption: INPA hands some helpers the
+      // label and the result name together ("Steuergerät:", "ECU"), which is
+      // more specific than anything reading order or geometry can infer.
+      let label = e.s || pending;
       if (!label && caps.length > 1 && valued.length === caps.length)
         label = caps[nth];
       // ...and when the line draws a whole GROUP per caption. INPA pairs a
