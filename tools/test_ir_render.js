@@ -507,6 +507,13 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
   // the group heading ("clamps", "lock signals") is a title, not a label
   ok(!st.some(r => /^(clamps|lock signals|checked switches)$/i.test(r.label)),
      'a group heading leaked onto a row as its caption');
+  // ...and every one of them is a LAMP. INPA drew the whole page with
+  // digitalout, so not one of these rows is a measurement -- the renderer
+  // must never give any of them a bar, whatever value arrives.
+  ok(st.every(r => r.kind === 'lamp'),
+     `DWA4 status should be all lamps: ${[...new Set(st.map(r => r.kind))]}`);
+  ok(st.every(r => r.min === undefined && r.max === undefined),
+     'a DWA4 status row carries a gauge range');
 }
 // A printed softkey row is the screen's own key help, never a caption: taking
 // it labelled IHKA's flap position "< F3 >  Fresh air flap".
