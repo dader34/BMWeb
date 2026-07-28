@@ -22,6 +22,54 @@ function irReadable(scr) {
     (ln.elements || []).some(e => e.key && e.t !== 'text'));
 }
 
+// Pair captions to values by WHERE INPA drew them, for the lines where reading
+// order alone cannot: it may print a whole row of captions and then the whole
+// row of values beneath ("Clamp R / Clamp 15 / Clamp 61" on row 4, their three
+// lamps on row 6), so "nearest preceding text" hands all three the last
+// caption and leaves two showing a bare result name.
+//
+// Returns a Map(element -> caption) only when the pairing is unambiguous, and
+// null otherwise. Every condition here was added because dropping it damaged
+// rows the reading-order rule already had right -- measured across the corpus,
+// not assumed:
+//
+//   - one caption per value, each used once. A shared heading ("clamps" over
+//     three lamps) is a group title, not a label.
+//   - a caption labels what is drawn to its RIGHT or BELOW, never its left.
+//     DWA4 prints "Driver door" at column 5 and "Passenger door" at 45; by
+//     raw distance the column-30 lamp takes the passenger caption.
+//   - at most two rows above, or a group title two groups up wins.
+function irCaptionsByPosition(els, valued) {
+  const placed = (e) => typeof e.row === 'number' && typeof e.col === 'number';
+  const vals = valued.filter(placed);
+  if (vals.length < 2) return null;
+  const texts = els.filter(e => e.t === 'text' && placed(e)
+    && String(e.s || '').trim()
+    && !/^\[.+\]$/.test(String(e.s).trim())
+    && !/^[:=|/-]+$/.test(String(e.s).trim())
+    // a printed softkey row is the screen's own key help, not a caption:
+    // taking it labelled IHKA's flap position "< F3 >  Fresh air flap"
+    && !/^<\s*(Shift\s*>\s*\+\s*<\s*)?F\s*\d+\s*>/.test(String(e.s).trim()));
+  if (texts.length < vals.length) return null;
+  const out = new Map();
+  for (const v of vals) {
+    let best = null, bestD = Infinity;
+    for (const t of texts) {
+      if (t.row > v.row || (t.row === v.row && t.col > v.col)) continue;
+      if (v.row - t.row > 2) continue;
+      // Nearest by COLUMN first, then by row. A caption printed above its
+      // value is centred near it ("Clamp 15" at column 45, its lamp at 50),
+      // so ranking by leftward distance alone made the rightmost caption win
+      // for every lamp in the row.
+      const d = Math.abs(t.col - v.col) * 100 + (v.row - t.row);
+      if (d < bestD) { bestD = d; best = t; }
+    }
+    if (best) out.set(v, String(best.s).trim().replace(/\s*[:=]\s*$/, ''));
+  }
+  if (out.size !== vals.length) return null;
+  return new Set(out.values()).size === vals.length ? out : null;
+}
+
 // A screen's rows, in INPA's own drawing order.
 //
 // Captions: INPA prints a label as its own `text` element beside the value,
@@ -46,6 +94,16 @@ function irRows(scr) {
     // "Position FL..RR" round a wheel loop). Applying it to every key labels
     // three different readouts identically, so take no label instead.
     const capForAll = caps.length === 1 && caps[0] && valued.length === 1;
+    const byPos = irCaptionsByPosition(els, valued);
+    // did INPA emit ALL the captions and then all the values? Only then is
+    // reading order structurally wrong rather than merely incomplete.
+    const capsFirst = (() => {
+      if (!byPos) return false;
+      const texts = els.filter(x => x.t === 'text' && String(x.s || '').trim());
+      const vs = els.filter(x => x.key && x.t !== 'text');
+      return texts.length > 0 && vs.length > 1
+        && els.lastIndexOf(texts[texts.length - 1]) < els.indexOf(vs[0]);
+    })();
     let pending = null;
     let unitAhead = null;
     let nth = 0;
@@ -74,6 +132,13 @@ function irRows(scr) {
       if (!label && caps.length > 1 && valued.length === caps.length)
         label = caps[nth];
       if (!label && capForAll) label = caps[0];
+      // The geometric pairing. It fills a row the reading-order rules left
+      // bare, and it also CORRECTS one they got wrong -- but only on a line
+      // whose captions were all printed before its values, where reading
+      // order is guaranteed to hand every value the last caption. DWA4 draws
+      // "Clamp R / Clamp 15 / Clamp 61" then three lamps: without this the
+      // first lamp reads "Clamp 61" and the other two read nothing.
+      if (byPos && (!label || capsFirst)) label = byPos.get(e) || label;
       const row = {
         key: e.key,
         label: label || null,
