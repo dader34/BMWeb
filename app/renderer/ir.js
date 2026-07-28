@@ -1290,7 +1290,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // F10 is the "0" key; F20 is INPA's Exit, which the app reaches with
       // Esc, so it takes no digit rather than stealing 0 from Back.
       key: n === 20 ? null : String(n % 10),
-      keyLabel: fkey(it), label: it.label, fn: () => open(it),
+      // INPA's bar carries the ITEM's own short caption ("E 15%"), not the
+      // long one it prints in the body -- nine truncated long captions all
+      // read "Activat...". irLabel translates it like any other.
+      keyLabel: fkey(it), label: irLabel(it.short) || it.label,
+      fn: () => open(it),
     };
   };
   const plain = items.filter(it => !it.shift);
