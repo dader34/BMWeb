@@ -104,6 +104,10 @@ _KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
 # ("ECU", "TYP"). Used only where a Result* call names what it reads -- job
 # names keep the strict form, or a bare argument like "FM" would pass for one.
 _RESULTISH = re.compile(r"^[A-Z][A-Za-z0-9_]+$")
+# A human caption rather than a result name: it ends in a colon, or contains a
+# space or a lowercase letter where a key would not ("Steuergerät:", "SGBD
+# RevisionsNr.:"). Trailing padding is INPA's own column alignment.
+_CAPTIONISH = re.compile(r"^(?=.*[ :a-zäöüß])[^\x00-\x1f]{2,40}\s*$")
 
 _WRITE_JOB = re.compile(r"SCHREIBEN|STEUERN|RESET|LOESCHEN|CLEAR|WRITE", re.I)
 
@@ -521,14 +525,28 @@ def _screen_ir(toks):
                             and a["kind"] in (0, 2)), None)
                 if src and dst:
                     bind[(2 if dst["kind"] == 2 else 0, dst["n"])] = bind[src]
-                key = next((s for s in strs if D._KEYISH.match(s)), None)
+                # A LABELLED field: INPA hands the helper the caption and the
+                # result name together, then the position. MS450's SGBD-Info
+                # is seven of these -- ("Steuergerät:", "ECU", 6, 5) -- and
+                # taking only the key lost every caption, while _KEYISH's
+                # four-character floor dropped the "ECU" row outright.
+                lab = None
+                if len(strs) >= 2 and len(ints) >= 2 \
+                        and _CAPTIONISH.match(strs[0]) \
+                        and _RESULTISH.match(strs[1]):
+                    lab, key = strs[0].strip().rstrip(":").strip(), strs[1]
+                else:
+                    key = next((s for s in strs if D._KEYISH.match(s)), None)
                 if key and len(ints) >= 2:
-                    el = {"t": "lamp" if len(strs) >= 3 else "value",
+                    el = {"t": "value" if lab or len(strs) < 3 else "lamp",
                           "key": key, "row": ints[0], "col": ints[1]}
-                    on_off = [s for s in strs if s != key]
-                    if len(on_off) >= 2:
-                        el["on"] = on_off[0].strip()
-                        el["off"] = on_off[1].strip()
+                    if lab:
+                        el["s"] = lab
+                    else:
+                        on_off = [s for s in strs if s != key]
+                        if len(on_off) >= 2:
+                            el["on"] = on_off[0].strip()
+                            el["off"] = on_off[1].strip()
                 elif src and len(ints) >= 2 and not dst:
                     # a helper that PRINTS a bound slot rather than formatting
                     # it into another: LWS5's coding page renders each data
