@@ -460,8 +460,13 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
         // INPA lets the ECU word some captions itself, reading a _TEXT result
         // and printing it above the bar. Prefer that over our own label --
         // it is what INPA shows -- and fall back when the read comes up empty.
+        // ...but only when the ECU actually answered with a caption. The same
+        // _TEXT result carries a STATE word on some screens ("aktiv", "aus"),
+        // and letting that win put "AKTIV" where INPA prints "Muster
+        // SchubAbschaltung". A state word is not a caption, so keep ours.
         const live = r.captionKey ? String(vals.get(r.captionKey) ?? '').trim() : '';
-        const caption = live || deGerman(r.label) || r.key;
+        const caption = (live && !IR_STATE_WORD.test(live) ? deGerman(live) : '')
+          || deGerman(r.label) || r.key;
         let cell = cellEls.get(ck);
         if (!cell) {
           cell = document.createElement('div');

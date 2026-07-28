@@ -288,6 +288,14 @@ function irState(s) {
   return irLabel(t);
 }
 
+// A _TEXT result can carry either the row's caption or a STATE word, and only
+// the caption should replace the label. These are the states, in the German
+// the ECU answers with and the English they resolve to.
+// "Beschreibungstext" is the SGBD's own placeholder for these results, not a
+// caption -- it is what put DESCRIPTIONSTEXT on MS450's rough-running rows.
+const IR_STATE_WORD =
+  /^(ein|aus|an|aktiv|inaktiv|nicht aktiv|bereit|ja|nein|on|off|active|not active|inactive|ready|yes|no|n\/?a|-+|beschreibungstext|descriptionstext)$/i;
+
 // captions INPA recomputes each pass of a loop, so whichever one the decode
 // captured belongs to no single row: a bare index "(1)", a wheel position
 // heading, or its own placeholder "??"
