@@ -175,6 +175,9 @@ function irRows(scr) {
       if (captionKey) { row.captionKey = captionKey; captionKey = null; }
       if (typeof e.min === 'number' && typeof e.max === 'number'
           && e.max > e.min) { row.min = e.min; row.max = e.max; }
+      // the band INPA paints green, when analogout declared one
+      if (typeof e.okMin === 'number' && typeof e.okMax === 'number'
+          && e.okMax > e.okMin) { row.okMin = e.okMin; row.okMax = e.okMax; }
       if (e.on) row.on = e.on;
       if (e.off) row.off = e.off;
       rows.push(row);
