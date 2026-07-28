@@ -96,10 +96,7 @@ function showSettings() {
   // so when this is on the app behaves the same way.
   wrap.appendChild(settingRow(
     'Confirm actuator tests',
-    'Ask before an activation key sends its job. INPA does not ask — it '
-    + 'sends on the keypress — so turn this off to match it exactly. These '
-    + 'drive real components (valves, relays, calibration): engine off / '
-    + 'ignition on unless you know the test.',
+    'Ask before firing activations',
     [
       { val: 'on', label: 'Ask first' },
       { val: 'off', label: 'Send immediately (like INPA)' },
