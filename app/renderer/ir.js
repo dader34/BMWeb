@@ -1329,7 +1329,6 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     return '';
   };
 
-  let repaintRows = null;
   if (inpaMode()) {
     container.className = 'results-panel';
     container.innerHTML = `<div class="ir-menu-head" id="ir-head"></div>`
@@ -1339,18 +1338,19 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // menu is drawn from the same screen the keys are drawn on, so read it.
     irMenuHeader(ecu, ir, menuName, container.querySelector('#ir-head'));
     const list = container.querySelector('#ir-list');
-    // the body list shows the row the bar shows: INPA swaps both together, so
-    // holding Shift reveals the shifted half rather than listing 16 keys at
-    // once. Registered so applyShift can repaint it with the bar.
-    const paintRows = (shownItems) => {
-      list.innerHTML = '';
-      rowsOf(shownItems);
-    };
-    const rowsOf = (shownItems) => shownItems.forEach((it) => {
+    // Only the BAR swaps. INPA prints the shifted keys permanently in a
+    // second column on the right of the screen body -- MS45's root shows
+    // "< Shift > + < F6 >  EWS - Startwertabgleich" beside the plain list at
+    // all times -- and swaps only the F-key row along the bottom. So the body
+    // lists both halves and never repaints.
+    const rowsOf = (shownItems, into) => shownItems.forEach((it) => {
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
+      // spelled out as INPA prints it in the body; the narrow footer button
+      // keeps the compact glyph form
       row.innerHTML = `<span class="inpa-fn-key">`
-        + `&lt; ${esc(fkey(it))} &gt;</span>`
+        + (it.shift ? `&lt; Shift &gt; + &lt; F${it.nr - 10} &gt;`
+          : `&lt; F${it.nr} &gt;`) + `</span>`
         + `<span class="inpa-fn-label">${esc(it.label)}</span>`
         + `<span class="act-key-val">${esc(count(it))}</span>`
         // the arrow marks a key that GOES somewhere -- a submenu or a screen.
@@ -1360,15 +1360,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         + `${irOpensMenu(ir, it, menuName) || it.screen ? '&#8629;' : ''}`
         + `</span>`;
       row.onclick = () => open(it);
-      list.appendChild(row);
+      into.appendChild(row);
     });
-    paintRows(plain);
-    repaintRows = paintRows;
+    rowsOf(plain, list);
     if (shifted.length) {
-      const hint = document.createElement('div');
-      hint.className = 'ir-shift-hint';
-      hint.textContent = `hold \u21e7 Shift for ${shifted.length} more`;
-      container.appendChild(hint);
+      const col = document.createElement('div');
+      col.className = 'act-key-list ir-shift-col';
+      rowsOf(shifted, col);
+      list.parentNode.insertBefore(col, list.nextSibling);
+      container.classList.add('ir-has-shift');
     }
   } else {
     container.className = 'group-grid stagger';
@@ -1389,11 +1389,6 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   setActions([...keys(), {
     key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back,
   }], shiftKeys());
-  // after setActions, which clears the previous screen's hook: keep the body
-  // list on the same half as the bar while Shift is held
-  if (repaintRows && shifted.length) {
-    onShiftRepaint(() => repaintRows(shiftHeldNow() ? shifted : plain), true);
-  }
   return true;
 }
 

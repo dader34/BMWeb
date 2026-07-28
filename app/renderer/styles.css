@@ -994,9 +994,12 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
    so it is obvious which half is showing */
 .fkeys.shifted .fkey { border-color: var(--amber-soft); }
 .fkeys.shifted .fkey-num { color: var(--amber); }
-/* a menu that HAS a second row says so, so Shift is discoverable */
-.ir-shift-hint { font-size: 11px; color: var(--ink-faint);
-  font-family: var(--mono); margin: 10px 0 0; }
+/* The shifted keys live in a second column, always visible, the way INPA
+   prints them beside the plain list. Only the footer bar swaps on Shift. */
+.results-panel.ir-has-shift { display: grid; gap: 0 48px;
+  grid-template-columns: auto auto; justify-content: start; align-items: start; }
+.results-panel.ir-has-shift .ir-menu-head { grid-column: 1 / -1; }
+.ir-shift-col .act-key-row { grid-template-columns: 150px 1fr auto 14px; }
 .ir-head-cell { display: flex; gap: 8px; align-items: baseline;
   font-size: 12px; }
 .ir-head-label { color: var(--ink-faint); text-transform: uppercase;
