@@ -445,6 +445,24 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
      `expected "Monitor pot.", got ${rows.map(r => r.label)}`);
 }
 
+// ---- a coding flag is a yes/no answer, not a measurement -----------------
+// DWA4's coding page is four values beside four lamps ("with tilt alarm
+// sensor", "with panic mode"). Those are digitalout -- INPA gives them no
+// scale at all -- so drawing one as a 0..100 bar states a precision the ECU
+// never reported. The kinds must survive the decode for the renderer to tell
+// them apart.
+{
+  const dwa = load('DWA4');
+  const cod = irRows(dwa.screens.s_code).rows;
+  ok(cod.length === 8, `DWA4 coding should have 8 rows, got ${cod.length}`);
+  const lamps = cod.filter(r => r.kind === 'lamp');
+  ok(lamps.length === 4, `DWA4 coding should have 4 flags, got ${lamps.length}`);
+  ok(lamps.every(r => r.min === undefined && r.max === undefined),
+     'a coding flag must carry no gauge range');
+  ok(lamps.some(r => /tilt alarm sensor/i.test(r.label || '')),
+     `DWA4 flags lost their captions: ${lamps.map(r => r.label)}`);
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.

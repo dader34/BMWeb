@@ -118,6 +118,12 @@ internal static class DemoMode
         // a described on/off bit reads as a state word
         if (Regex.IsMatch(desc, @"\b0=|1=|Statusbit|aktiv|bereit\b", RegexOptions.IgnoreCase))
             return States[i % States.Length];
+        // ...and so does one the NAME declares boolean. A coding flag answers
+        // yes/no: DWA4's NEIGUNGSGEBER_VERBAUT ("with tilt alarm sensor") came
+        // back as 34 and drew a bar, because its description says nothing.
+        if (Regex.IsMatch(name, @"(_VERBAUT|_EIN|_AKTIV|_MOEGLICH|_VORHANDEN)\d*$",
+                          RegexOptions.IgnoreCase))
+            return (i % 2) == 0 ? "ja" : "nein";
         // the description often states the valid span ("Werte -48 bis 48"):
         // sit inside it so the gauge lands mid-scale instead of pinned at 0
         var span = Regex.Match(desc, @"(-?\d+)\s*bis\s*(-?\d+)");
