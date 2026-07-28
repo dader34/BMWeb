@@ -457,11 +457,16 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
         // carries the whole row list and answers its own subset, so keying by
         // job would draw one cell per job that happens to return the key.
         const ck = `${r.key}:${r.arg || ''}:${r.label || ''}:${ri}`;
+        // INPA lets the ECU word some captions itself, reading a _TEXT result
+        // and printing it above the bar. Prefer that over our own label --
+        // it is what INPA shows -- and fall back when the read comes up empty.
+        const live = r.captionKey ? String(vals.get(r.captionKey) ?? '').trim() : '';
+        const caption = live || deGerman(r.label) || r.key;
         let cell = cellEls.get(ck);
         if (!cell) {
           cell = document.createElement('div');
           cell.className = 'live-cell gauge-cell';
-          cell.innerHTML = gaugeCellHTML(deGerman(r.label) || r.key, r.unit);
+          cell.innerHTML = gaugeCellHTML(caption, r.unit);
           grid.appendChild(cell);
           cellEls.set(ck, cell);
           keyOrder.push(ck);
