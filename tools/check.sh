@@ -28,6 +28,7 @@ python3 tools/test_disasm.py
 echo
 echo "== IR emitter invariants =="
 python3 tools/ipo_ir.py --check
+node tools/ipo_i18n.js --check
 
 echo
 echo "== IR interpreter renders known screens =="

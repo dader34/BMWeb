@@ -200,10 +200,27 @@ function irScreens(scr) {
   }));
 }
 
-// Translate a caption the way the rest of the app does. German-built .IPOs
-// reach us German; English-built ones pass through unchanged.
+// The IR carries its own translations, resolved once by tools/ipo_i18n.js
+// from the shared vocabulary plus data/inpa-i18n/<ECU>.json. Looking them up
+// here rather than translating at draw time means a caption BMW worded oddly
+// for one ECU can be corrected for that ECU alone: "Gesteuerte LuftFuehrung
+// GLF" is MS450's phrase, and a word rule general enough to translate it
+// mangles others.
+//
+// The map is set per render by irUseTranslations, because irLabel is called
+// from 24 places that have no ECU in scope. deGerman remains the fallback for
+// an IR emitted before this step ran, and for strings that arrive at runtime
+// from the SGBD rather than the .IPO.
+let _irI18n = null;
+function irUseTranslations(ir) {
+  _irI18n = (ir && ir.i18n) || null;
+}
+
 function irLabel(s) {
   if (!s) return s;
+  if (_irI18n && Object.prototype.hasOwnProperty.call(_irI18n, s)) {
+    return _irI18n[s];
+  }
   return (typeof deGerman === 'function' && deGerman(s)) || s;
 }
 
@@ -961,6 +978,7 @@ function irPickScreen(ir, it, variant, via) {
 // the key opens a screen. Returns false when there is nothing to show, so the
 // caller can fall back.
 function irOpenItem(ecu, ir, menuName, it, container, back) {
+  irUseTranslations(ir);
   // A key can install a menu AND a screen. Often the menu is just the bar it
   // keeps: KOMBI's Ident, Code and Memory all install
   // m_info_ident_code_36_38_39_46_52_85, which IS the root menu -- opening it
@@ -998,6 +1016,7 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
 // Walk the IR from a menu: list its entries, open a screen, descend into a
 // submenu, Esc back up one level -- INPA's own navigation, and ours.
 function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
+  irUseTranslations(ir);
   const items = irMenuItems(ir, menuName);
   if (!items.length) return false;
 
