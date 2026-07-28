@@ -90,7 +90,11 @@ function irRows(scr) {
     lineNo++;
     const els = ln.elements || [];
     const caps = String(ln.caption || '').split(',').map(s => s.trim());
-    const valued = els.filter(e => e.key && e.t !== 'text');
+    // a caption element carries a key but is not a row: counting it made a
+    // two-gauge line look like four values, so a two-part LINE caption
+    // ("AdaptionEinlass, AdaptionAuslass") no longer split one half per
+    // gauge and every row took the first half.
+    const valued = els.filter(e => e.key && e.t !== 'text' && e.t !== 'caption');
     // one caption for several unrelated keys is a LOOP screen: INPA draws the
     // heading once at a computed position and reuses it (RDC prints
     // "Position FL..RR" round a wheel loop). Applying it to every key labels
@@ -144,8 +148,18 @@ function irRows(scr) {
       // banks across four elements. Requiring an exact count left all eight
       // of MS450's mixture-adaptation rows falling back to their raw keys.
       if (!label && caps.length > 1 && valued.length > caps.length
-          && valued.length % caps.length === 0)
-        label = caps[Math.floor(nth / (valued.length / caps.length))];
+          && valued.length % caps.length === 0) {
+        // ...and the grouping may be by COLUMN rather than in sequence. MS450's
+        // VANOS page prints "Einlass, Auslass" over two columns of two gauges
+        // each -- actual above setpoint -- so chunking sequentially gave both
+        // intake rows "Einlass" and both exhaust rows "Auslass" one row too
+        // late. Where the values sit in as many distinct columns as there are
+        // caption parts, the column decides.
+        const cols = [...new Set(valued.map(v => v.col))].sort((a, b) => a - b);
+        label = (cols.length === caps.length && typeof e.col === 'number')
+          ? caps[cols.indexOf(e.col)]
+          : caps[Math.floor(nth / (valued.length / caps.length))];
+      }
       if (!label && capForAll) label = caps[0];
       // The geometric pairing. It fills a row the reading-order rules left
       // bare, and it also CORRECTS one they got wrong -- but only on a line
