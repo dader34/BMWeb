@@ -108,6 +108,23 @@ function showSettings() {
     (v) => Settings.set('confirmActuators', v),
   ));
 
+  // Which source draws a screen. The IR is decompiled from the .IPO itself and
+  // covers 542 ECUs; the hand-built layouts predate it, cover fewer, and win
+  // today wherever both exist (492 ECUs). Switching lets the two be compared
+  // directly on the same car.
+  wrap.appendChild(settingRow(
+    'Screen source',
+    'Hand-built layouts were mined per ECU and verified by hand. The '
+    + 'interpreter reads the decompiled .IPO and covers every ECU INPA ships. '
+    + 'Where both exist the layout wins unless this says otherwise.',
+    [
+      { val: 'layout', label: 'Hand-built layout first' },
+      { val: 'ir', label: 'Interpreter everywhere' },
+    ],
+    Settings.get('screenSource', 'layout'),
+    (v) => Settings.set('screenSource', v),
+  ));
+
   // startup chassis: load a chosen chassis straight to its modules on launch.
   // searchable combo of all chassis the config knows, plus "Ask each time".
   const startRow = settingCombo(

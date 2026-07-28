@@ -471,7 +471,12 @@ async function showEcu(chassisId, sectionName, ecu) {
   // hand-built and generated layouts stay the fallback for ECUs with no IR.
   const irRoot = ecu._ir && typeof irRootMenu === 'function'
     ? irRootMenu(ecu._ir, ecu._variant) : null;
-  if (irRoot && !layoutIsHandBuilt(layout)) {
+  // "Interpreter everywhere" (Settings) ignores the hand-built layout and
+  // drives every screen from the decompiled .IPO, so the two can be compared
+  // on the same ECU. Default stays layout-first: those were verified by hand.
+  const irFirst = typeof Settings !== 'undefined'
+    && Settings.get('screenSource', 'layout') === 'ir';
+  if (irRoot && (irFirst || !layoutIsHandBuilt(layout))) {
     if (bar) bar.remove();
     grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
     renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
@@ -953,7 +958,13 @@ async function showEcuSection(chassisId, sectionName, ecu, menu, sectionKey) {
   view.appendChild(results);
 
   const IR_SECTION_KEY = {
-    Activations: /^(Activate|Ansteuern|Steuern)$/i,
+    // INPA names this key differently per ECU and per build language, and
+    // deGerman may have half-translated it: MS450's reads "Stellgliedcontrolen"
+    // (Stellglied = actuator), others "Actuator activations 1",
+    // "Stellgliedansteuerungen", "Activate seat-drives". Matched on the stem
+    // rather than a fixed list, or the interpreter's actuator tree stays
+    // unreachable on every ECU that does not say exactly "Activate".
+    Activations: /^(Activate|Ansteuern|Steuern|Stellglied|Aktor|Actuator)|(activat|ansteuer)\w*$/i,
     Special: /^(Memory|Speicher|Read memory|Speicher lesen)$/i,
     Coding: /^(Cod(e|ing)|Codierung)$/i,
     Status: /^(Status|Read status|Status lesen)$/i,
