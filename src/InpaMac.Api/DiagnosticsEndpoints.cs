@@ -67,22 +67,6 @@ internal static class DiagnosticsEndpoints
         app.MapGet("/api/ecu/{sgbd}/table/{table}", (string sgbd, string table) =>
             Offline(state, sgbd, diag => Results.Json(diag.TableRows(table))));
 
-        // English INPA-style grouped functional menu for an ECU (offline)
-        app.MapGet("/api/ecu/{sgbd}/menu", (string sgbd) =>
-            Offline(state, sgbd, diag =>
-            {
-                var sections = MenuGen.Build(diag.Jobs());
-                return Results.Json(new
-                {
-                    sgbd,
-                    sections = sections.Select(s => new
-                    {
-                        section = s.Section,
-                        items = s.Items.Select(i => new { job = i.Job, label = i.Label, danger = i.Danger }).ToList()
-                    }).ToList()
-                });
-            }));
-
         // ---- live (bus) ----
 
         // battery + ignition (KL15) state, INPA's top "Battery / Ignition" lights.

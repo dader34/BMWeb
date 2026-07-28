@@ -407,7 +407,10 @@ async function showEcu(chassisId, sectionName, ecu) {
     await irResolveVariant(ecu);
   } catch { ecu._ir = null; }
   try {
-    menu = await api(`/api/ecu/${ecu.sgbd}/menu`);
+    // menu built locally from the raw job list (menugen.js); the server no
+    // longer has a /menu endpoint.
+    const jobs = await api(`/api/ecu/${ecu.sgbd}/jobs`);
+    menu = { sgbd: ecu.sgbd, sections: menugenBuild(jobs) };
   } catch (e) {
     if (!layout) { grid.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
     menu = { sgbd: ecu.sgbd, sections: [] };
