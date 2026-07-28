@@ -549,7 +549,30 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
 function irIsCard(scr) {
   if (irIsMemory(scr)) return false;
   const rows = irRows(scr).rows;
-  if (!rows.length || !rows.every(r => r.kind === 'value')) return false;
+  // A CODING page is a list of labelled answers, some of them yes/no flags:
+  // DWA4 reads four values ("alarm variant") beside four digitalout flags
+  // ("with tilt alarm sensor"), and INPA prints all eight as "label : value".
+  // The card renders exactly that and translates ja/nein, so a screen that is
+  // ALL labelled readings qualifies whether or not some are flags.
+  //
+  // A lamp only counts when INPA gave it no on/off caption AND the screen is
+  // not predominantly lamps: BC_V's 18 clamp indicators and BZMF_E65's button
+  // panels are digitalout too, and their at-a-glance state is the point of
+  // them -- turning those into a text list would lose it.
+  const lamps = rows.filter(r => r.kind === 'lamp');
+  const captioned = lamps.some(r => r.on || r.off);
+  // A screen whose lamps outnumber its NON-IDENT values is an indicator
+  // panel, not a list of answers. SBSR reads eight live occupancy flags and
+  // then nine identification fields (part number, supplier, date) -- the ident
+  // block says nothing about the flags, and their glyphs are the point. DWA4's
+  // coding page is the other way round: four flags beside four values that
+  // answer the same kind of question ("alarm variant", "lock signals").
+  const identish = (r) => /^ID_|_NR$|^SN_/.test(r.key || '');
+  const answers = rows.filter(r => r.kind !== 'lamp' && !identish(r)).length;
+  const mostlyLamps = lamps.length > answers;
+  const textish = (r) => r.kind === 'value'
+    || (r.kind === 'lamp' && !captioned && !mostlyLamps);
+  if (!rows.length || !rows.every(textish)) return false;
   // A per-position screen reads the same keys once per wheel/bank, so a single
   // card keyed by result name would show the last pass five times. Those go to
   // the poller, which reads each argument separately.
@@ -558,6 +581,9 @@ function irIsCard(scr) {
   // CODIERUNG_LESEN once per block and labels each "Data Block 0..6", which is
   // a list of labelled reads like any ident page -- the argument distinguishes
   // the passes, and the caption already says which is which.
+  // ...and it must actually be LABELLED. CAS's DME ringbuffer has three rows
+  // and no captions at all, so a card would list bare result names.
+  if (lamps.length && !rows.every(r => (r.label || '').trim())) return false;
   const args = rows.filter(r => r.arg != null);
   if (!args.length) return true;
   const caps = new Set(args.map(r => (r.label || '').trim()).filter(Boolean));
