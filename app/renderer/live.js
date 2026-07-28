@@ -797,10 +797,16 @@ function gaugeCellHTML(key, unit) {
 function setEdge(cellEl, sel, v, min, max, at) {
   const el = cellEl.querySelector(sel);
   if (!el) return;
-  const show = v != null && v > min && v < max;
+  // An edge close enough to a scale end collides with the number already
+  // printed there: MS450's VANOS reference band starts at 111 on a 110..140
+  // scale, 3% along, and the two labels drew on top of each other. INPA has
+  // the same collision and shows "11 111"; the band is still visible as the
+  // colour change, so the legible thing is to leave the edge unlabelled.
+  const p = v == null ? null : at(v);
+  const show = v != null && v > min && v < max && p > 8 && p < 92;
   const t = show ? fmtRange(v) : '';
   if (el.textContent !== t) el.textContent = t;
-  if (show) el.style.left = at(v).toFixed(1) + '%';
+  if (show) el.style.left = p.toFixed(1) + '%';
 }
 
 function clearEdges(cellEl) {
