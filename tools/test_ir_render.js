@@ -29,7 +29,8 @@ _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVari
                .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable')
                .replace('function irOpensMenu', 'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu')
                .replace('function irUseTranslations', 'globalThis.irUseTranslations = irUseTranslations; function irUseTranslations')
-               .replace('function irLabel', 'globalThis.irLabel = irLabel; function irLabel');
+               .replace('function irLabel', 'globalThis.irLabel = irLabel; function irLabel')
+               .replace('function irState', 'globalThis.irState = irState; function irState');
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -703,6 +704,27 @@ for (const [de, en] of [
   ok(irMenuItems(dws2, irRootMenu(dws2)).length > 0,
      'an ECU without overrides must still render');
   irUseTranslations(null);
+}
+
+// ---- a lamp shows the words INPA declared for it --------------------------
+// MS450's cruise-control buttons are four lamps declaring EIN/AUS, but the
+// renderer showed whatever word the ECU returned, so one screen read "ready",
+// "off", "active" and "not active" for four rows INPA renders identically.
+// 7596 of 11411 lamps corpus-wide declare their own pair, and many carry real
+// meaning -- ok/not ok, coded/uncoded, learned/not learned yet.
+{
+  const ms6 = load('MS450');
+  const fgr = irRows(ms6.screens.s_digital2).rows;
+  const lamps = fgr.filter(r => r.kind === 'lamp');
+  ok(lamps.length === 4, `MS450 FGR should have 4 lamps, got ${lamps.length}`);
+  // the decode keeps INPA's own words; irState translates them at render
+  ok(lamps.every(r => r.on === 'EIN' && r.off === 'AUS'),
+     `MS450 FGR lamps should declare EIN/AUS: ${lamps.map(r => r.on + '/' + r.off)}`);
+  ok(irState('EIN') === 'ON' && irState('AUS') === 'OFF',
+     'EIN/AUS should render as ON/OFF');
+  // the value row beside them is a real reading, not a lamp
+  ok(fgr.some(r => r.kind === 'value' && r.key === 'STAT_MSW_CAN'),
+     'MS450 FGR lost its MSW_CAN reading');
 }
 
 // ---- a PC file operation is not an ECU function --------------------------

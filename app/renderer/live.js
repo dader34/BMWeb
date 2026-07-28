@@ -529,13 +529,19 @@ function boolGlyph(raw) {
 // render a boolean as INPA's lamp. Only in INPA mode — the modern layout keeps
 // the word, which reads better next to numeric gauges. Returns false if the
 // value isn't a boolean, so the caller falls back to plain text.
-function setBoolCell(cellEl, valEl, raw) {
+function setBoolCell(cellEl, valEl, raw, rowSpec) {
   if (!inpaMode()) return false;
   const b = boolGlyph(raw);
   if (!b) { cellEl.classList.remove('bool'); return false; }
   cellEl.classList.add('bool');
   cellEl.classList.remove('text-only');
-  const shown = `${b.on ? '●' : '○'} ${b.text}`;
+  // INPA prints its OWN words for a lamp, declared beside it in the .IPO:
+  // MS450's cruise-control buttons say EIN/AUS. Showing whatever word the ECU
+  // returned instead left one screen reading "ready", "active" and "not
+  // active" for four rows that INPA renders identically.
+  const own = rowSpec && (b.on ? rowSpec.on : rowSpec.off);
+  const text = own ? (deGerman(own) || own) : b.text;
+  const shown = `${b.on ? '●' : '○'} ${text}`;
   if (valEl.textContent !== shown) { valEl.textContent = shown; flash(valEl); }
   return true;
 }
@@ -548,7 +554,7 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   if (p.num === null) {
     // a state word, not a number: the ECU says "ein"/"nicht aktiv", so it needs
     // the same translation the labels get (deGerman is a no-op in EDIABAS mode)
-    if (setBoolCell(cellEl, valEl, p.raw)) return;
+    if (setBoolCell(cellEl, valEl, p.raw, rowSpec)) return;
     const text = deGerman(p.raw) || p.raw;
     cellEl.classList.add('text-only');
     if (valEl.textContent !== text) { valEl.textContent = text; flash(valEl); }
@@ -570,7 +576,7 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   // and drew DWA4's "with tilt alarm sensor" -- a yes/no coding flag -- as a
   // bar sitting at 34.
   if (rowSpec.kind === 'lamp') {
-    if (setBoolCell(cellEl, valEl, p.raw)) return;
+    if (setBoolCell(cellEl, valEl, p.raw, rowSpec)) return;
     // INPA drew this with digitalout, so it IS a boolean whatever word the
     // ECU chose. A number here means an unmapped state, and showing it bare
     // ("HOOD / RADIO  94") reads as a measurement -- the one thing a lamp
