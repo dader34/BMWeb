@@ -60,6 +60,17 @@ function overridesFor(ecu) {
   }
 }
 
+// The row label irLabel is handed is not always the raw .IPO caption: irRows
+// trims it and drops a trailing ":". A key written as it appears in the
+// bytecode ("Haeufigkeitszaehler1:    ") would then never match the label
+// actually looked up ("Haeufigkeitszaehler1"), so both spellings ship. A
+// COMMA-split caption is deliberately not aliased -- its halves label
+// different rows and each needs its own translation.
+function keyForms(s) {
+  const t = String(s).trim().replace(/\s*[:=]\s*$/, '');
+  return t && t !== s ? [s, t] : [s];
+}
+
 function resolve(ecu, strings) {
   const ovr = overridesFor(ecu);
   const out = {};
@@ -75,7 +86,17 @@ function resolve(ecu, strings) {
   for (const s of all) {
     // a per-ECU override wins: it was written for this ECU's own wording
     if (ovr && Object.prototype.hasOwnProperty.call(ovr, s)) {
-      if (ovr[s] && ovr[s] !== s) { out[s] = ovr[s]; fromOvr++; }
+      if (ovr[s] && ovr[s] !== s) {
+        // an override on the whole caption also answers for the label form
+        // irRows derives from it, unless a form has its own override
+        for (const k of keyForms(s)) {
+          if (out[k] === undefined
+              && !(k !== s && Object.prototype.hasOwnProperty.call(ovr, k))) {
+            out[k] = ovr[s];
+          }
+        }
+        fromOvr++;
+      }
       continue;
     }
     const en = deGerman(s);
