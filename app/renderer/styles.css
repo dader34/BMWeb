@@ -1089,9 +1089,12 @@ html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000;
 }
 /* INPA fills a zoned bar from the left up to the reading, in black over the
    coloured zones -- its VANOS page shows a -5..5 gauge black to the midpoint
-   at 0.0. So the fill stays; it just must not be the ONLY thing drawn, which
-   is what the zones behind it are for. */
-.gauge-track.zoned .gauge-fill { background: var(--gauge-mark); }
+   at 0.0. The fill is SHORTER than the track, so the zone it covers still
+   reads as a stripe above and below it: you can see which side of the
+   threshold the reading sits on without looking at the number. */
+.gauge-track.zoned .gauge-fill {
+  background: var(--gauge-mark); top: 12.5%; bottom: 12.5%;
+}
 /* the unit sits under the label on its own line, INPA-style: "[V]" */
 .gauge-unit { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
   min-height: 12px; line-height: 12px; }
