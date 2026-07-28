@@ -262,6 +262,10 @@ BUILTINS = {
     # files, the most-used call in the corpus. Its first argument is a
     # destination slot: of 359 sampled, 338 are read again afterwards.
     0x25: "substr",
+    # (src, dst) -- formats a number into a display string. 520 sites in 66
+    # files, always exactly one var and one procref, and the destination is
+    # what gets printed. Same shape as copyslot, opposite argument order.
+    0x27: "formatnum",
     # (key, set) with NO destination ref -- reads into an implicit slot that
     # 0x78 then copies out. 975 sites in 399 files, never once preceded by a
     # procref, which is what distinguishes it from 63/64/66/67.
