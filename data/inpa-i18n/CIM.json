@@ -1,6 +1,7 @@
 {
  "\"0\" wenn kein Checksum Fehler vorhanden": "\"0\" if no checksum fault present",
  "\"1\" wenn Servotronic funktionsfähig": "\"1\" if Servotronic operational",
+ "\"1\" wenn Servotronic verbaut": "\"1\" if Servotronic is fitted",
  "\"Checksum-Fehler vorhanden\" oder \"kein Checksum-Fehler vorhanden\"": "\"Checksum fault present\" or \"no checksum fault present\"",
  "\"Fehler\" oder \"funktionsfähig\"": "\"Fault\" or \"operational\"",
  "\"verbaut\" oder \"nicht verbaut\"": "\"Fitted\" or \"not fitted\"",
@@ -9,6 +10,7 @@
  "1: SVT-Eigendiagnose aktiv ist high": "1: SVT self-diagnosis active is high",
  "2.Sprache der Sprachmodifizierung": "2nd language of the language modification",
  "3.Sprache der Sprachmodifizierung": "3rd language of the language modification",
+ "Aggregat Heckklappe verbaut": "Tailgate drive unit fitted",
  "Anzahl Busse": "Number of buses",
  "Anzahl Programmiervorgaenge": "Count programming operations",
  "Anzahl Programmiervorgaenge noch frei": "Programming operations still available",
@@ -80,6 +82,7 @@
  "Status der Standardisierung im Bereich von 160 - 190 km/h (15 = abgeschlossen)": "Standardisation status 160 - 190 km/h (15 = complete)",
  "Status des Laengs-Motor": "Longitudinal motor status",
  "Text Status Software laden": "Software load status text",
+ "Zentralverriegelung verbaut": "Central locking fitted",
  "Zustand Ausgeschaltet": "State: switched off",
  "[Anzahl]": "[Count]",
  "angeforderter Datenblock (bis zu 24 Bytes!)": "Requested data block (up to 24 bytes)",
