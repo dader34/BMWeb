@@ -639,9 +639,29 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
       + `${r} 0 ${a.toFixed(1)}%, ${g} ${a.toFixed(1)}% ${b.toFixed(1)}%,`
       + `${r} ${b.toFixed(1)}% 100%)`;
     track.classList.add('zoned');
+    // INPA prints the threshold under the bar where the colours meet, between
+    // the two scale ends: "0 ... 5 ... 8". It is the number the gauge is read
+    // against, so it belongs on the axis, not just in the colouring.
+    const mark = cellEl.querySelector('.gauge-ok');
+    const edge = rowSpec.okMax < max ? rowSpec.okMax : rowSpec.okMin;
+    if (mark) {
+      const t = fmtRange(edge);
+      if (mark.textContent !== t) mark.textContent = t;
+      mark.style.left = at(edge).toFixed(1) + '%';
+    }
+  } else if (declared) {
+    // A declared scale with no band is a plain INPA bar: all green, no
+    // threshold. It still must not draw the solid fill, which read as a
+    // black bar sitting over half the gauge.
+    track.style.background = 'var(--gauge-ok)';
+    track.classList.add('zoned');
+    const mark = cellEl.querySelector('.gauge-ok');
+    if (mark) mark.textContent = '';
   } else if (track.classList.contains('zoned')) {
     track.style.background = '';
     track.classList.remove('zoned');
+    const mark = cellEl.querySelector('.gauge-ok');
+    if (mark) mark.textContent = '';
   }
   cellEl.querySelector('.gauge-min').textContent = fmtRange(min);
   cellEl.querySelector('.gauge-max').textContent = fmtRange(max);
@@ -770,6 +790,7 @@ function gaugeCellHTML(key, unit) {
         <div class="gauge-track"><div class="gauge-fill"></div></div>
         <div class="gauge-foot">
           <span class="gauge-min"></span>
+          <span class="gauge-ok"></span>
           <span class="gauge-max"></span>
         </div>
       </div>

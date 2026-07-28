@@ -1105,6 +1105,14 @@ html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000; }
 }
 .gauge-min, .gauge-max { flex: none; min-width: 18px; }
 .gauge-max { text-align: right; }
+/* the threshold sits under the point where the colours meet, so the foot has
+   to position it proportionally rather than space it evenly */
+.gauge-foot { position: relative; }
+.gauge-ok {
+  position: absolute; transform: translateX(-50%);
+  pointer-events: none; white-space: nowrap;
+}
+.gauge-ok:empty { display: none; }
 .gauge-val {
   flex: none; text-align: left; font-size: 15px; font-weight: 700;
   color: var(--cyan); white-space: nowrap; line-height: 14px;
