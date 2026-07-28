@@ -1,4 +1,5 @@
 {
+ "'Betriebszustand: ' table ZustandTexte": "'Operating state:' table ZustandTexte",
  "'Fehler momentan nicht vorhanden' oder 'Fehler momentan vorhanden'": "'Fault not currently present' or 'fault currently present'",
  "'Fehler momentan vorhanden' oder '--'": "'Fault currently present' or '--'",
  "'sporadischer Fehler' oder '--'": "'Intermittent fault' or '--'",

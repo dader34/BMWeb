@@ -28,6 +28,7 @@
  "Beschleunigungsabschaltung ein": "Acceleration cut-off on",
  "Betriebsdauer Minuten": "Operating time, minutes",
  "Betriebsdauer Stunden": "Operating time, hours",
+ "Betriebszustandswert": "Operating state value",
  "DWA-Ausgang interner Zustand": "Alarm system output, internal state",
  "Datum der SG-Programmierung in der Form JJJJ.MM.TT": "Control unit programming date, YYYY.MM.DD",
  "Datum der SG-Programmierung in der Form TT.MM.JJJJ": "Control unit programming date, DD.MM.YYYY",
