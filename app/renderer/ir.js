@@ -516,8 +516,15 @@ function irMenuItems(ir, menuName, variant) {
     // "MV write" reuses s_abgleichwert_lesen): INPA's difference is an input
     // dialog and a write job in the ITEM body, neither of which we run until
     // verified on a car, so what remains is a duplicate of the read page
+    // ...but only when the write cannot RUN. RDC's "MV write" needs a typed
+    // value we do not collect, so with the input dialog gone it is nothing but
+    // the read page again. MS450's "reset status" sends RESET_CRU_OFF on the
+    // keypress exactly as INPA does and merely redraws the same screen after
+    // -- dropping that hid a function the ECU really offers. The difference is
+    // the prompt, not the caption.
     .filter(it => {
       const dup = it.screen && seen.has(it.screen)
+        && (!it.job || it.prompt)
         && /write|schreiben|reset|clear|loesch/i.test(it.label);
       if (it.screen) seen.add(it.screen);
       return !dup;
