@@ -624,7 +624,25 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   }
   const span = (max - min) || 1;
   const pct = Math.max(0, Math.min(100, ((p.num - min) / span) * 100));
+  const track = cellEl.querySelector('.gauge-track');
   cellEl.querySelector('.gauge-fill').style.width = pct.toFixed(1) + '%';
+  // INPA's bar is two-toned: the band analogout declares good is green, the
+  // rest of the scale red. That boundary IS the reading -- MS450's rough
+  // running is green to 5 and red on to 8, so a cylinder's misfire count
+  // means nothing without knowing where 5 falls. Painted on the track, so
+  // the fill drawn over it is unaffected.
+  if (rowSpec.okMin != null && rowSpec.okMax != null) {
+    const at = (v) => Math.max(0, Math.min(100, ((v - min) / span) * 100));
+    const a = at(rowSpec.okMin), b = at(rowSpec.okMax);
+    const g = 'var(--gauge-ok)', r = 'var(--gauge-warn)';
+    track.style.background = `linear-gradient(to right,`
+      + `${r} 0 ${a.toFixed(1)}%, ${g} ${a.toFixed(1)}% ${b.toFixed(1)}%,`
+      + `${r} ${b.toFixed(1)}% 100%)`;
+    track.classList.add('zoned');
+  } else if (track.classList.contains('zoned')) {
+    track.style.background = '';
+    track.classList.remove('zoned');
+  }
   cellEl.querySelector('.gauge-min').textContent = fmtRange(min);
   cellEl.querySelector('.gauge-max').textContent = fmtRange(max);
   // the unit already has its own "[V]" line, so the value stays a bare number
