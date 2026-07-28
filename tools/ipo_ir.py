@@ -541,7 +541,20 @@ def _screen_ir(toks):
                 lastconst.clear()
             args = []
 
-    lines = [ln for ln in lines if ln["elements"] or ln["caption"]]
+    # Dropping the empty lines renumbers the rest, and each job carries the
+    # index of the line it was read on -- so remap those too or a job points
+    # at a line that no longer exists and its rows are never drawn. MS450's
+    # VANOS adaptation read STATUS_MESSWERTE_VANOS on line 4 of 5; after the
+    # filter the screen had three lines and four of its eight gauges vanished.
+    keep = [i for i, ln in enumerate(lines) if ln["elements"] or ln["caption"]]
+    renum = {old: new for new, old in enumerate(keep)}
+    lines = [lines[i] for i in keep]
+    for j in jobs:
+        if "line" in j:
+            # a job read on a line that carried nothing falls to the next
+            # surviving line, which is where INPA draws what it answers
+            j["line"] = renum.get(j["line"], next(
+                (renum[o] for o in keep if o >= j["line"]), 0))
     out = {"title": title, "jobs": jobs, "lines": lines}
     disp = _dispatch(toks)
     if disp:
