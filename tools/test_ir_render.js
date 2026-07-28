@@ -407,6 +407,32 @@ ok(!irIsCard(g.screens['s_analog_1']),
      `AFS_70 "AIF 9" should be shifted ITEM 11, got nr=${a9 && a9.nr} shift=${a9 && a9.shift}`);
 }
 
+// ---- SGBD result descriptions carry German the screen has to read --------
+// INPA prints ONE heading over ten keys ("ABS primary signals [pulses/sec]"),
+// so each DWS row falls back to the SGBD's own description -- which is German.
+// The vocabulary is ordered: these compounds must beat the generic
+// /Geschwindigkeit/ and /Signal/ rules, or "Radgeschwindigkeit" becomes
+// "Radspeed" and "Rohsignal" survives untouched.
+for (const [de, en] of [
+    ['Rohsignal vom DSC/ABS RL (Impulse/sec)', 'raw signal from DSC/ABS RL (pulses/sec)'],
+    ['Speedsabh. Standardisierungsfortschritt 1 for EXX',
+     'speed-dep. standardisation progress 1 for EXX'],
+    ['Radgeschwindigkeit vorne links', 'wheel speed front left'],
+    ['geschwindigkeitsabhängige Standardisierung',
+     'speed-dependent standardisation'],
+    ['ABS-Rohsignale [Hz]', 'ABS-raw signals [Hz]'],
+    ['Bandmode', 'plant mode']]) {
+  ok(deGerman(de) === en, `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);
+}
+// ...and must not touch strings BMW already shipped in English. "Impulse" is
+// spelled the same in both languages, so translating the bare word turned
+// "Closing impulses left" into "Closing pulsess left".
+for (const eng of ['Closing impulses left', 'Encoder impulse count',
+                   'wheel speed impulse :  ', 'impulse open']) {
+  ok(deGerman(eng) === eng,
+     `deGerman mangled English: ${JSON.stringify(eng)} -> ${JSON.stringify(deGerman(eng))}`);
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
