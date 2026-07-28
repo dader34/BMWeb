@@ -461,6 +461,24 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
      'a coding flag must carry no gauge range');
   ok(lamps.some(r => /tilt alarm sensor/i.test(r.label || '')),
      `DWA4 flags lost their captions: ${lamps.map(r => r.label)}`);
+
+  // ...and the page reads as a CARD, like Identification: eight labelled
+  // answers, four of them yes/no. renderIdentity prints "label : value" and
+  // translates ja/nein, which is exactly what INPA draws.
+  ok(irIsCard(dwa.screens.s_code), 'DWA4 coding should render as a card');
+  ok(irAsCard(dwa.screens.s_code, new Map()).fields.length === 8,
+     'DWA4 coding card lost fields');
+
+  // A screen whose flags outnumber its non-ident values is an indicator
+  // panel and must NOT become a card -- the glyph is the point there.
+  for (const [e, n] of [['BC_V', 's_digital'],            // 18 clamp states
+                        ['BZMF_E65', 's_status_links'],   // button panel
+                        ['CCM38', 's_codierung_abfrage'], // 53 of 58 lamps
+                        // 8 occupancy flags + 9 ident fields: the ident block
+                        // says nothing about the flags
+                        ['SBSR', 's_status_sitzbelegung_oc3']]) {
+    ok(!irIsCard(load(e).screens[n]), `${e}/${n} is a lamp panel, not a card`);
+  }
 }
 
 // ---- a PC file operation is not an ECU function --------------------------
