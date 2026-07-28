@@ -11,6 +11,12 @@
 # Some checks need the app running (the EDIABAS engine answers _ARGUMENTS and
 # _RESULTS offline, no cable required). Those SKIP rather than fail when it is
 # not, so this is safe to run anywhere.
+#
+# Three generators are run BY HAND and so are named by no code -- they look
+# orphaned to a grep, but their output is load-bearing. Do not delete them:
+#   ipo_extract_all.py  -> data/inpa-layouts/   (served by ConfigEndpoints.cs)
+#   sgbd_tables.py      -> data/inpa-screens/_tables.json (test_activations_safe)
+#   steuern_layout.py   -> data/steuern-labels.json (src/EdiabasMac/SteuernLabels.cs)
 set -e
 cd "$(dirname "$0")/.."
 
