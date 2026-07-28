@@ -421,6 +421,8 @@ function irMenuItems(ir, menuName, variant) {
       // changes the ECU permanently (EEPROM write, service reset) rather
       // than driving an actuator for the duration of a test
       writeJob: !!it.writeJob,
+      // pressed as Shift+Fn on a real INPA keyboard (ITEM n+10)
+      shift: !!it.shift,
       // the argument this key sends, which may be all that distinguishes it
       // from its neighbour (RADIO's sources, CDC's transport mode)
       jobArg: it.jobArg || null,
@@ -1095,8 +1097,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     }]);
   };
 
+  // INPA's softkey bar has two rows: F1..F10 and their shifted partners,
+  // which the bytecode numbers ITEM n+10. SM46's F3 is "inclination +" and
+  // Shift+F3 is "inclination -" -- the same seat motor, the other way. Saying
+  // "F13" would name a key the car's INPA does not have.
+  const fkey = (it) => (it.shift ? `\u21e7F${it.nr - 10}` : `F${it.nr}`);
+
   const keys = () => items.slice(0, FKEY_SLOTS).map((it, n) => ({
-    key: String(n + 1), keyLabel: `F${it.nr}`, label: it.label,
+    key: String(n + 1), keyLabel: fkey(it), label: it.label,
     fn: () => open(it),
   }));
 
@@ -1143,7 +1151,8 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     items.forEach((it) => {
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
-      row.innerHTML = `<span class="inpa-fn-key">&lt; F${it.nr} &gt;</span>`
+      row.innerHTML = `<span class="inpa-fn-key">`
+        + `&lt; ${esc(fkey(it))} &gt;</span>`
         + `<span class="inpa-fn-label">${esc(it.label)}</span>`
         + `<span class="act-key-val">${esc(count(it))}</span>`
         // the arrow marks a key that GOES somewhere -- a submenu or a screen.

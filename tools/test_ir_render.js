@@ -312,10 +312,13 @@ ok(!irIsCard(g.screens['s_analog_1']),
   const rad = load('RADIO');
   const eq = irMenuItems(rad, 'm_steuern_eq');
   const fm = eq.find(i => /source FM$/i.test(i.label));
-  const am = eq.find(i => /^AM$/i.test(i.label));
+  // the shifted half now carries INPA's full caption: "AM" is printed as
+  // "<Shift> + < F2 >  entertainment source AM", i.e. ITEM 12
+  const am = eq.find(i => /source AM$/i.test(i.label));
   ok(fm && fm.job === 'STEUERN_NEXT_ENTSOURCE' && fm.jobArg === 'FM',
      `RADIO FM: job=${fm && fm.job} arg=${fm && fm.jobArg}`);
-  ok(am && am.jobArg === 'AM', `RADIO AM arg=${am && am.jobArg}`);
+  ok(am && am.jobArg === 'AM' && am.shift && am.nr === 12,
+     `RADIO AM: arg=${am && am.jobArg} shift=${am && am.shift} nr=${am && am.nr}`);
   ok(new Set(eq.filter(i => i.jobArg).map(i => i.jobArg)).size
      === eq.filter(i => i.jobArg).length,
      'two entertainment-source keys share an argument');
@@ -331,6 +334,40 @@ ok(!irIsCard(g.screens['s_analog_1']),
   const off = cdc.find(i => /OFF$/i.test(i.label));
   ok(on && off && on.job === off.job && on.jobArg !== off.jobArg,
      `CDC transport mode must differ by argument: ${on && on.jobArg} vs ${off && off.jobArg}`);
+}
+
+// ---- INPA's softkey bar has TWO rows: Fn and Shift+Fn ---------------------
+// The shifted half is a real function, not chrome: SM46's F3 is
+// "inclination +" and Shift+F3 is "inclination -" -- the same seat motor the
+// other way, on SNV_AUF against SNV_AB. The bytecode numbers the shifted key
+// ITEM n+10 (542 of 554 corpus pairings), so it was showing as a separate
+// "F13" wearing the cramped ITEM label "ankle -". 2678 keys across 362 ECUs.
+{
+  const sm = load('SM46');
+  const act = irMenuItems(sm, 'm_steuern');
+  const pairs = [['seat forward', 'seat back', 'SLV_VOR', 'SLV_ZUR'],
+                 // F2 still reads its ITEM label "height +" -- the plain-key
+                 // join only takes a softkey caption when it is LONGER, and
+                 // "seat up" is shorter. Left alone deliberately: removing
+                 // that rule mislabels MFLR50's Status key "Mode", a separate
+                 // screen-selection bug in the join.
+                 ['height +', 'seat down', 'SHV_AUF', 'SHV_AB'],
+                 ['inclination +', 'inclination -', 'SNV_AUF', 'SNV_AB'],
+                 ['backrest forward', 'backrest back', 'LNV_VOR', 'LNV_ZUR']];
+  for (const [up, dn, aUp, aDn] of pairs) {
+    const u = act.find(i => i.label === up);
+    const d = act.find(i => i.label === dn);
+    ok(u && !u.shift && u.jobArg === aUp,
+       `SM46 "${up}" should be plain F${u && u.nr} on ${aUp}, got ${u && u.jobArg}`);
+    ok(d && d.shift && d.jobArg === aDn,
+       `SM46 "${dn}" should be shifted on ${aDn}, got shift=${d && d.shift} arg=${d && d.jobArg}`);
+    // the shifted key is its partner's ITEM + 10
+    ok(u && d && d.nr === u.nr + 10,
+       `SM46 "${dn}" should be ITEM ${u && u.nr + 10}, got ${d && d.nr}`);
+  }
+  // a shifted key must never keep the cramped ITEM label
+  ok(!act.some(i => /^(ankle|b-rest|seat bw|pos\.) /.test(i.label)),
+     `a shifted key kept its ITEM label: ${act.map(i => i.label)}`);
 }
 
 // ---- a PC file operation is not an ECU function --------------------------
