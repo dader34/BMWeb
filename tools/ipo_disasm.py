@@ -274,6 +274,7 @@ BUILTINS = {
 }
 
 _INLINE_OPS = {0x21, 0x22, 0x24}      # LINE/ITEM: label inline until \n
+_NEG = 0x6d                           # unary minus; see calls_of
 
 
 def walk(data, lo, hi, pool):
@@ -376,8 +377,17 @@ def calls_of(toks):
         elif t["op"] in ("const", "var", "procref"):
             args.append(t)
         elif t["op"] == "binop":
-            # fold arithmetic: keep the first var/const operand
-            pass
+            # 0x6d is unary minus on the constant just pushed, and it is how
+            # every negative gauge bound in the corpus is encoded: MS450's
+            # exhaust Vanos pushes `135.0 neg 40.0 neg ...` for -135..-40, and
+            # ABSASC5's yaw rate `800.0 neg 800.0` for -800..+800. Dropping it
+            # turned both into a zero-width range, so the gauge lost its scale.
+            # Other binops stay folded away -- they combine operands we do not
+            # evaluate, and keeping the first is the closest single value.
+            if t["n"] == _NEG and args and args[-1]["op"] == "const" \
+                    and isinstance(args[-1].get("v"), (int, float)) \
+                    and not isinstance(args[-1].get("v"), bool):
+                args[-1] = dict(args[-1], v=-args[-1]["v"])
         elif t["op"] in ("call", "calluser"):
             out.append({"call": t.get("name", f"user_{t['n']}"),
                         "n": t["n"], "args": list(args),
