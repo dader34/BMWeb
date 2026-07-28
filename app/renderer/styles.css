@@ -1081,15 +1081,15 @@ html[data-theme="inpa"] .act-row.running .inpa-fn-label { color: #a00000; }
 }
 /* INPA draws its zones in flat saturated green and red on white */
 html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000; }
-/* ...and on a zoned bar the zones ARE the bar, so the value marker is a rule
-   rather than a solid fill that would hide them */
-.gauge-track.zoned .gauge-fill {
-  background: none; border-right: 2px solid var(--ink);
-}
 .gauge-fill {
   position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
   background: var(--gauge-fill, #000);
   transition: width .25s ease;
+}
+/* ...and on a zoned bar the zones ARE the bar, so the value marker is a rule
+   rather than a solid fill that would hide them */
+.gauge-track.zoned .gauge-fill {
+  background: none; border-right: 2px solid var(--ink);
 }
 /* the unit sits under the label on its own line, INPA-style: "[V]" */
 .gauge-unit { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
