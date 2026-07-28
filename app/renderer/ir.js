@@ -85,7 +85,9 @@ function irRows(scr) {
   // separately and one wheel's value cannot overwrite another's.
   const multiArg = new Set((scr.lines || []).map(l => l.jobArg)
     .filter(Boolean)).size > 1;
+  let lineNo = -1;
   for (const ln of scr.lines || []) {
+    lineNo++;
     const els = ln.elements || [];
     const caps = String(ln.caption || '').split(',').map(s => s.trim());
     const valued = els.filter(e => e.key && e.t !== 'text');
@@ -106,8 +108,13 @@ function irRows(scr) {
     })();
     let pending = null;
     let unitAhead = null;
+    let captionKey = null;
     let nth = 0;
     for (const e of els) {
+      // a _TEXT result read purely to caption the value below it. The ECU
+      // supplies the wording, so it is a live caption rather than a row --
+      // carried on the row it labels and filled in by the poller.
+      if (e.t === 'caption') { captionKey = e.key; continue; }
       if (e.t === 'text') {
         const s = String(e.s || '').trim();
         // "[rpm]" printed above a gauge is its UNIT, not its caption
@@ -131,6 +138,14 @@ function irRows(scr) {
       let label = pending;
       if (!label && caps.length > 1 && valued.length === caps.length)
         label = caps[nth];
+      // ...and when the line draws a whole GROUP per caption. INPA pairs a
+      // _TEXT with a _WERT for one reading (the text is the state, the value
+      // the number), so "Lambda Heizung UP1, Lambda Heizung UP2" names two
+      // banks across four elements. Requiring an exact count left all eight
+      // of MS450's mixture-adaptation rows falling back to their raw keys.
+      if (!label && caps.length > 1 && valued.length > caps.length
+          && valued.length % caps.length === 0)
+        label = caps[Math.floor(nth / (valued.length / caps.length))];
       if (!label && capForAll) label = caps[0];
       // The geometric pairing. It fills a row the reading-order rules left
       // bare, and it also CORRECTS one they got wrong -- but only on a line
@@ -144,6 +159,7 @@ function irRows(scr) {
         label: label || null,
         unit: e.unit || unitAhead || null,
         kind: e.t,
+        line: lineNo,
       };
       // on a per-position screen the LINE caption ("Rad 1") is the position,
       // and the argument is what distinguishes otherwise identical keys. The
@@ -155,6 +171,8 @@ function irRows(scr) {
         const pos = (ln.caption || '').trim();
         if (pos) row.pos = pos;
       }
+      // the ECU supplies this row's caption as a result of its own
+      if (captionKey) { row.captionKey = captionKey; captionKey = null; }
       if (typeof e.min === 'number' && typeof e.max === 'number'
           && e.max > e.min) { row.min = e.min; row.max = e.max; }
       if (e.on) row.on = e.on;
@@ -190,6 +208,41 @@ function irScreens(scr) {
       rows: rows.filter(r => r.arg === j.arg),
       grid: null,
     })).filter(s => s.rows.length);
+  }
+  // Several jobs can fill ONE page, each feeding its own block of rows.
+  // MS450's mixture adaptation reads seven -- STATUS_ADAPTION_GEMISCH for the
+  // PWM/ADD/FAC pairs, then STATUS_INT, STATUS_L_SONDE and their bank-2
+  // partners, one per LINE -- and INPA draws the result as a single screen.
+  // Paging per job instead showed that screen seven times, every copy holding
+  // every row. Distinguished by the line each job was read on: when the jobs
+  // sit on different lines they are filling one page between them, not
+  // offering alternative pages of the same rows.
+  // Each still polls separately -- every job has to be sent -- but it carries
+  // only the rows it answers, so the page is drawn once instead of once per
+  // job. A job owns its own line plus any following line that declared no job
+  // of its own (INPA leaves those to the read before them).
+  const lined = jobs.filter(j => typeof j.line === 'number');
+  if (lined.length === jobs.length
+      && new Set(lined.map(j => j.line)).size > 1) {
+    // Every row belongs to exactly one job: the first job declared on its own
+    // line, or -- for a line that declares none -- the last job read before
+    // it. Jobs sharing a line still poll; they just add no rows of their own.
+    const owner = new Map();
+    for (const j of jobs) if (!owner.has(j.line)) owner.set(j.line, j.name);
+    const lineJob = new Map();
+    let last = jobs[0].name;
+    const maxLine = Math.max(...rows.map(r => r.line), ...jobs.map(j => j.line));
+    for (let l = 0; l <= maxLine; l++) {
+      if (owner.has(l)) last = owner.get(l);
+      lineJob.set(l, last);
+    }
+    return jobs.map(j => ({
+      job: j.name,
+      args: j.arg || '',
+      group: scr.title || null,
+      rows: rows.filter(r => lineJob.get(r.line) === j.name),
+      grid: null,
+    }));
   }
   return jobs.map(j => ({
     job: j.name,

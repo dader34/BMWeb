@@ -157,6 +157,35 @@ _SK_CHROME = re.compile(r"^(Print(\s*screen)?|Back|Exit|End|Ende|Zur(ü|ue)ck|"
                         r"Bildschirmdruck|Change\s+Editor|Gesamt)$", re.I)
 
 
+# ..._TEXT, or ..._TEXT2 where the index distinguishes bank 1 from bank 2
+_TEXT_KEY = re.compile(r"^(.*)_TEXT(\d*)$")
+_VALUE_KEY = re.compile(r"^(.*)_(WERT|VALUE)(\d*)$")
+
+
+def _pairs_with_value(key, toks, ti):
+    """Is this _TEXT read purely to caption the value that follows it?
+
+    Only then is it a caption. A _TEXT read on its own is a real row -- some
+    screens print an ECU status string with no number beside it -- so the
+    stem and index both have to match: STAT_ZYL1_TEXT before STAT_ZYL1_WERT,
+    STAT_VLS_UP_TEXT2 before STAT_VLS_UP_WERT2.
+    """
+    m = _TEXT_KEY.match(key)
+    if not m:
+        return False
+    stem, idx = m.group(1), m.group(2)
+    for t in toks[ti + 1:ti + 24]:
+        if t["op"] != "const" or t.get("t") != "s":
+            continue
+        v = str(t["v"])
+        mv = _VALUE_KEY.match(v)
+        if mv and mv.group(1) == stem and mv.group(3) == idx:
+            return True
+        if _TEXT_KEY.match(v) and v != key:
+            return False        # the next readout began; no value for this one
+    return False
+
+
 def _dispatch(toks):
     """{selector value: {job, arg}} for a func that switches on its argument.
 
@@ -286,7 +315,7 @@ def _screen_ir(toks):
                 out.append(lastconst[a["n"]])
         return out
 
-    for t in toks:
+    for ti, t in enumerate(toks):
         op = t["op"]
         if op == "LINE":
             cap = (t.get("label") or "").strip() or None
@@ -338,6 +367,15 @@ def _screen_ir(toks):
                     el = {"t": "value", "key": bind[slot]}
                     if bind[slot].endswith("_EINH"):
                         el = None       # unit companion, rendered with gauge
+                    elif _TEXT_KEY.match(bind[slot]) \
+                            and _pairs_with_value(bind[slot], toks, ti):
+                        # ...and _TEXT is the CAPTION companion: INPA reads the
+                        # ECU's own description into a slot, prints it above the
+                        # bar, then draws the number. One readout, not two --
+                        # emitting the text as its own row gave MS450's rough-
+                        # running page eight phantom lamps reading
+                        # "DESCRIPTIONSTEXT" beside the six real gauges.
+                        el = {"t": "caption", "key": bind[slot]}
                 elif s.strip():
                     if title is None and row == 1 and name == "ftextout":
                         title = s.strip()
@@ -370,6 +408,14 @@ def _screen_ir(toks):
                            for j in jobs):
                         jobs.append({"name": jname,
                                      "write": bool(_WRITE_JOB.search(jname)),
+                                     # which LINE this job feeds. A screen can
+                                     # read several jobs to fill ONE page --
+                                     # MS450's mixture adaptation reads seven,
+                                     # one per pair of rows -- and without the
+                                     # association the app cannot tell that
+                                     # from a screen that pages per job, so it
+                                     # drew seven copies of every row.
+                                     "line": max(0, len(lines) - 1),
                                      **({"arg": arg} if arg else {}),
                                      **({"argFromMenu": True}
                                         if arg is None and var_arg else {})})
