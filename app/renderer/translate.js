@@ -166,6 +166,42 @@ const DE_TOKENS = [
   // Whole captions, ahead of every word-level rule: "Fehlerspeicher" must not
   // become "faultspeicher" and "Status lesen" must not become "Status Read".
   [/^Fehlerspeicher$/i, 'Error memory'],
+  // Whole phrases first: a word table cannot reorder German ("Fehlerspeicher
+  // lesen" is verb-last), so the common menu captions are translated as units.
+  [/^Fehlerspeicher lesen$/i, 'Read error memory'],
+  [/^Fehlerspeicher lesen Detail$/i, 'Read error memory (detail)'],
+  [/^Fehlerspeicher l(ö|oe)schen$/i, 'Clear error memory'],
+  [/^Fehlerspeicher mit [Ff]reeze [Ff]rame Daten$/i,
+   'Read error memory with freeze frame'],
+  [/^Fehlerspeicher HEX-Dump \(Detail\)$/i, 'Error memory hex dump (detail)'],
+  [/^Infospeicher lesen$/i, 'Read info memory'],
+  [/^Infospeicher l(ö|oe)schen$/i, 'Clear info memory'],
+  [/^Historienspeicher l(ö|oe)schen$/i, 'Clear history memory'],
+  [/^Bildschirm drucken$/i, 'Print screen'],
+  [/^INPA beenden$/i, 'Exit INPA'],
+  // the two verbs the word table still leaves German -- after the phrases
+  // above, which would otherwise be half-translated ("Bildschirm print")
+  [/\bdrucken\b/gi, 'print'], [/\bspeichern\b/gi, 'save'],
+  [/^Historienspeicher lesen$/i, 'Read history memory'],
+  [/^Anpassungswerte selektiv l(ö|oe)schen$/i,
+   'Clear selected adaptation values'],
+  [/^Speicher lesen erweitert$/i, 'Read memory (extended)'],
+  // ...and the compounds INPA builds from it. Without these the bare /Fehler/
+  // rule fires and leaves "faultspeicher lesen" -- German grammar with an
+  // English stem, which is worse than either language alone.
+  [/\bFehlerspeicher(s|n)?\b/gi, 'error memory'],
+  [/\bInfospeicher(s|n)?\b/gi, 'info memory'],
+  [/\bHistorienspeicher(s|n)?\b/gi, 'history memory'],
+  [/\bAnpassungswerte?\b/gi, 'adaptation values'],
+  [/\bStellgliedansteuerung(en)?\b/gi, 'actuator activation'],
+  [/\bStellglied(er)?\b/gi, 'actuator'],
+  [/\bSystemdiagnose(n)?\b/gi, 'system diagnostics'],
+  [/\bSG-Identifikation\b/gi, 'ECU identification'],
+  [/\bAnwenderInfoFeld\b/gi, 'user info field'],
+  [/\bKommentar einf(ü|ue)gen\b/gi, 'insert comment'],
+  [/\bAbspeicherung\b/gi, 'saving'],
+  [/\bselektiv\b/gi, 'selective'],
+
   [/^Status lesen$/i, 'Read status'],
   [/^Speicher lesen$/i, 'Read memory'],
   [/^Identifikation$/i, 'Identification'],
