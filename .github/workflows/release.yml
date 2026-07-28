@@ -1,0 +1,55 @@
+name: Release DMG
+
+# Builds and packages the native macOS app into a drag-to-Applications DMG on a
+# real macOS runner (the only place dotnet's macOS workload, codesign and
+# hdiutil exist). Two ways in:
+#   - push a tag  v*  -> builds and publishes a GitHub Release with the DMG
+#   - run manually    -> builds and uploads the DMG as an artifact (a dry run
+#                        that makes no release)
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    steps:
+      - name: Checkout (with LFS: the SGBDs/IPOs the app bundles)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install the macOS workload
+        run: dotnet workload install macos
+
+      - name: Package the DMG
+        run: bash scripts/package-macos.sh
+
+      - name: Locate the built DMG
+        id: dmg
+        run: echo "path=$(ls dist-release/*.dmg | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload DMG as build artifact (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BMacW-dmg
+          path: dist-release/*.dmg
+          if-no-files-found: error
+
+      - name: Publish GitHub Release (tag pushes only)
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" "${{ steps.dmg.outputs.path }}" \
+            --title "${{ github.ref_name }}" \
+            --notes "Automated macOS build of ${{ github.ref_name }}. Unsigned: after install run  xattr -dr com.apple.quarantine /Applications/BMacW.app"
