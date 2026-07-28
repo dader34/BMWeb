@@ -26,7 +26,8 @@ import ipo_recognize as R                                       # noqa: E402
 import ipo_enrich as E                                          # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HAND = os.path.join(HERE, "..", "data", "inpa-layouts", "enriched", "MS450.json")
+HAND = os.path.join(HERE, "..", "reference", "ms45-handwired",
+                    "MS450.enriched.json")
 IPO = os.path.join(L1.SGDAT, "MS450.IPO")
 
 # Fields the hand-built layout carries that are NOT in MS450.IPO at all — they
