@@ -86,6 +86,12 @@ OUT_DIR = os.path.join(os.path.dirname(L1.OUT), "inpa-ir")
 
 _KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
 
+# A RESULT name, which is laxer than a job name: BMW ships mixed-case results
+# ("Dimmerstellung" on BMBT46TN, "EINSCHALTZAEHLER_FKT2a") and two-letter ones
+# ("ECU", "TYP"). Used only where a Result* call names what it reads -- job
+# names keep the strict form, or a bare argument like "FM" would pass for one.
+_RESULTISH = re.compile(r"^[A-Z][A-Za-z0-9_]+$")
+
 _WRITE_JOB = re.compile(r"SCHREIBEN|STEUERN|RESET|LOESCHEN|CLEAR|WRITE", re.I)
 
 # A menu item's job that changes the ECU PERMANENTLY, as opposed to driving an
@@ -276,7 +282,7 @@ def _screen_ir(toks):
                 # screen's global frame (drawn by a later LINE's analogout)
                 ref = next((a for a in args if a["op"] == "procref"
                             and a["kind"] in (0, 2)), None)
-                key = next((s for s in strs if D._KEYISH.match(s)), None)
+                key = next((s for s in strs if _RESULTISH.match(s)), None)
                 if ref is not None and key:
                     bind[(2 if ref["kind"] == 2 else 0, ref["n"])] = key
             elif name == "INPAapiResultInto":
@@ -284,7 +290,7 @@ def _screen_ir(toks):
                 # copyslot moves the value out afterwards. LWS5's coding page
                 # reads COD_DATEN this way for each of its seven blocks.
                 pending_result = next(
-                    (s for s in strs if D._KEYISH.match(s)), None)
+                    (s for s in strs if _RESULTISH.match(s)), None)
             elif name == "copyslot":
                 # (dst, src): carry the binding, or the result the preceding
                 # ResultInto left pending, into the destination slot
@@ -958,6 +964,18 @@ def main():
                   for e in ln["elements"] if e.get("key")]
             if len(ks) != want:
                 fails.append(f"LWS5 {name}: {len(ks)} values, want {want}")
+
+        # BMW ships mixed-case and two-letter RESULT names -- BMBT46TN reads
+        # "Dimmerstellung", others "ECU"/"TYP"/"EINSCHALTZAEHLER_FKT2a" -- and
+        # the all-caps job-name pattern rejected them, so those rows kept their
+        # caption and unit and showed no value at all. 107 of 7357 result reads
+        # corpus-wide. Job names keep the strict pattern: widening it there
+        # would let a bare argument like "FM" pass for a job.
+        b = build("BMBT46TN")["screens"]["s_status_steuergeraet"]
+        bk = [e["key"] for ln in b["lines"] for e in ln["elements"]
+              if e.get("key")]
+        if "Dimmerstellung" not in bk:
+            fails.append(f"BMBT46TN lost its mixed-case result: {bk}")
 
         # A result read into the screen's GLOBAL frame (procref kind 2) and
         # drawn many LINEs later must still reach its gauge. KOMBI's tank line

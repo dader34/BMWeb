@@ -433,6 +433,18 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
      `deGerman mangled English: ${JSON.stringify(eng)} -> ${JSON.stringify(deGerman(eng))}`);
 }
 
+// ---- INPA's caption may carry its own separator --------------------------
+// BMBT46TN prints "Monitor pot. :" as ONE string rather than caption + ":" at
+// a fixed column, so the card added a second one and the row read ": -12".
+{
+  const bm = load('BMBT46TN');
+  const rows = irRows(bm.screens.s_status_drehgeber).rows;
+  ok(rows.every(r => !/[:=]\s*$/.test(r.label || '')),
+     `a caption kept its separator: ${rows.map(r => r.label)}`);
+  ok(rows.some(r => r.label === 'Monitor pot.'),
+     `expected "Monitor pot.", got ${rows.map(r => r.label)}`);
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.
