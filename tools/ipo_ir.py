@@ -244,6 +244,15 @@ def _screen_ir(toks):
             args = []
         elif op in ("const", "var", "procref"):
             args.append(t)
+        elif op == "binop" and t["n"] == D._NEG:
+            # unary minus on the constant just pushed -- how every negative
+            # gauge bound is encoded. MS450's exhaust Vanos writes
+            # `135.0 neg 40.0 neg` for -135..-40; dropping the operator left
+            # min=135 max=40, an inverted range that drew no scale at all.
+            if args and args[-1]["op"] == "const" \
+                    and isinstance(args[-1].get("v"), (int, float)) \
+                    and not isinstance(args[-1].get("v"), bool):
+                args[-1] = dict(args[-1], v=-args[-1]["v"])
         elif op == "store":
             if args and args[-1]["op"] == "const" \
                     and t["n"] not in lastconst:
