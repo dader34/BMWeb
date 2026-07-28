@@ -157,6 +157,60 @@ _SK_CHROME = re.compile(r"^(Print(\s*screen)?|Back|Exit|End|Ende|Zur(ü|ue)ck|"
                         r"Bildschirmdruck|Change\s+Editor|Gesamt)$", re.I)
 
 
+def _dispatch(toks):
+    """{selector value: {job, arg}} for a func that switches on its argument.
+
+    INPA reuses ONE func for every key of an actuator screen and tells the
+    keys apart by the number the caller passes: MS450's E-box fan menu calls
+    `ebl_ansteuer` with 0 for "on", 1 for "off", 255 for "return to DME", and
+    the screen itself calls it with 254 to poll status. The func is then a
+    chain of `if arg == N: INPAapiJob(...)`, so the comparison constant names
+    which key runs which job -- including its argument, which is the only
+    thing separating "on" (STEUERN_EBL "0") from "off" (STEUERN_EBL "1").
+
+    Two shapes, both present in MS450's VANOS:
+
+      guarded    `if arg == 255: INPAapiJob(STEUERN_VANOS_IN_ENDE)`
+                 the job and its own literal argument are in the branch
+      fall-through  `INPAapiJob(STEUERN_VANOS_IN, <var>)`
+                 no guard, and the argument is the number the caller passed
+                 -- this is how the three duty keys (16 / 50 / 91 %) share
+                 one job. Recorded under "*" and applied to any selector the
+                 guards did not claim.
+
+    Without this all of a screen's keys resolved to the same func and the app
+    drew a status page instead of firing anything.
+    """
+    out, sel, args = {}, None, []
+    for t in toks:
+        if t["op"] == "var" and t.get("sc") == 2 and t["n"] == 0:
+            sel = "armed"
+        elif t["op"] == "const" and t.get("t") == "i" and sel == "armed":
+            sel = t["v"]
+        elif t["op"] == "frame":
+            args = []
+        elif t["op"] in ("const", "var", "procref"):
+            args.append(t)
+        elif t["op"] == "call":
+            if t.get("name") == "INPAapiJob":
+                s = [a["v"] for a in args
+                     if a["op"] == "const" and a.get("t") == "s"]
+                if s and D._KEYISH.match(s[0]):
+                    e = {"job": s[0]}
+                    if len(s) > 1 and s[1] != "":
+                        e["arg"] = s[1]
+                    if isinstance(sel, int):
+                        out.setdefault(str(sel), e)
+                    elif any(a["op"] == "var" for a in args):
+                        # argument comes from the caller's number
+                        e.pop("arg", None)
+                        e["argFromKey"] = True
+                        out.setdefault("*", e)
+                sel = None
+            args = []
+    return out
+
+
 def _softkeys(lines):
     """{item_nr: (caption, shifted)} from a screen's printed softkey help.
 
@@ -425,6 +479,9 @@ def _screen_ir(toks):
 
     lines = [ln for ln in lines if ln["elements"] or ln["caption"]]
     out = {"title": title, "jobs": jobs, "lines": lines}
+    disp = _dispatch(toks)
+    if disp:
+        out["dispatch"] = disp
     sk = _softkeys(lines)
     if sk:
         # {item_nr: [caption, shifted]} -- shifted keys are ITEM n+10 and are
@@ -695,6 +752,16 @@ def _menu_ir(toks, id2name, name=None):
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
             entry.setdefault("_callf", t["n"])
+            # ...and the NUMBER it passes, when the func switches on it. One
+            # func serves every key of an actuator screen and the argument is
+            # what tells them apart -- see _dispatch.
+            lo = ti
+            while lo > 0 and toks[lo - 1]["op"] != "frame":
+                lo -= 1
+            sel = next((x["v"] for x in toks[lo:ti]
+                        if x["op"] == "const" and x.get("t") == "i"), None)
+            if sel is not None:
+                entry.setdefault("_callsel", sel)
         elif t["op"] == "call" and t["n"] in (0x5c, 0x79) \
                 and cur_label is not None:
             # A PC file operation: 5c shows a named file, 79 opens one (LWS5's
@@ -913,12 +980,32 @@ def build(ecu):
     for menu in ir["menus"].values():
         for it in menu["items"]:
             fid = it.pop("_callf", None)
+            sel = it.pop("_callsel", None)
             if fid is None or it.get("screen"):
                 continue
             nm = funcid.get(fid)
-            if nm:
-                it["screen"] = nm
-                used.add(nm)
+            if not nm:
+                continue
+            # The func switches on the number this key passes, so the key both
+            # RUNS a job and opens the func's screen: INPA fires the actuator
+            # and then draws that actuator's own readout underneath. MS450's
+            # E-box fan menu is three such keys (on / off / return to DME)
+            # plus the screen's own status poll; resolving them to the screen
+            # ALONE made every key draw the same status page without firing.
+            disp = (ir["screens"].get(nm) or {}).get("dispatch") or {}
+            hit = None
+            if sel is not None:
+                hit = disp.get(str(sel)) or disp.get("*")
+            if hit:
+                it["job"] = hit["job"]
+                if hit.get("argFromKey"):
+                    it["arg"] = str(sel)
+                elif hit.get("arg") is not None:
+                    it["arg"] = hit["arg"]
+                if _WRITE_JOB.search(hit["job"]):
+                    it["writeJob"] = True
+            it["screen"] = nm
+            used.add(nm)
     for nm, scr in list(ir["screens"].items()):
         if scr.get("fromFunc") and nm not in used:
             del ir["screens"][nm]
