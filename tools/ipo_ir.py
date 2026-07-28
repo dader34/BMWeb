@@ -167,8 +167,13 @@ def _pairs_with_value(key, toks, ti):
 
     Only then is it a caption. A _TEXT read on its own is a real row -- some
     screens print an ECU status string with no number beside it -- so the
-    stem and index both have to match: STAT_ZYL1_TEXT before STAT_ZYL1_WERT,
+    stem has to match: STAT_ZYL1_TEXT before STAT_ZYL1_WERT,
     STAT_VLS_UP_TEXT2 before STAT_VLS_UP_WERT2.
+
+    The value does not always ADD a suffix. MS450's VANOS adaptation reads
+    STAT_CAM_REF_IN_1_TEXT and draws STAT_CAM_REF_IN_1 -- the stem alone --
+    so requiring a _WERT left four of that screen's eight gauges captioned by
+    a phantom row and only four drawn as bars.
     """
     m = _TEXT_KEY.match(key)
     if not m:
@@ -178,10 +183,15 @@ def _pairs_with_value(key, toks, ti):
         if t["op"] != "const" or t.get("t") != "s":
             continue
         v = str(t["v"])
+        if v == key:
+            continue
+        # the value read for this same stem, with or without a _WERT suffix
+        if v == stem + idx or v == stem:
+            return True
         mv = _VALUE_KEY.match(v)
         if mv and mv.group(1) == stem and mv.group(3) == idx:
             return True
-        if _TEXT_KEY.match(v) and v != key:
+        if _TEXT_KEY.match(v):
             return False        # the next readout began; no value for this one
     return False
 
