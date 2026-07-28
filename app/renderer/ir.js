@@ -1012,7 +1012,35 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // library. Running only the named job showed adjustment data under a
     // "Read error memory" caption, so route on what the key IS -- unless the
     // job it names is itself the fault read.
-    if (it.inPlace && IR_FAULT_READ.test(it.label)
+    // A fault read may also name a SCREEN rather than running in place --
+    // MS450's fault menu is five such keys -- but that screen has no rows:
+    // INPA formats the fault list in code, so there is nothing to poll and it
+    // rendered as an empty page. The app's own fault view is what this is for.
+    // A key whose SCREEN carries the job, with no rows to show for it: INPA
+    // runs it and prints its own confirmation. MS450's "Clear error memory"
+    // is FS_LOESCHEN on s_fs_loesch, so the key opened a blank page and did
+    // nothing. Hand it to the same confirm-and-run path as any other write.
+    const jobScreen = it.screen && (ir.screens || {})[it.screen];
+    if (!it.job && jobScreen && !irReadable(jobScreen)
+        && (jobScreen.jobs || []).length === 1
+        && !IR_FAULT_READ.test(it.label)) {
+      const only = jobScreen.jobs[0];
+      // Memory clears are the one write surfaced this way. Anything else --
+      // CODIERDATEN_SCHREIBEN, C_FG_SCHREIBEN, a control-unit reset -- takes
+      // an argument the SCREEN builds from a menu selection (argFromMenu),
+      // and sending it bare would write whatever the ECU makes of nothing.
+      // Those stay as they were: listed, and not armed by this shortcut.
+      const clears = /^(FS|IS|HS)_LOESCHEN$/i.test(only.name);
+      if (!only.write || clears) {
+        it = { ...it, job: only.name, writeJob: !!only.write, inPlace: true };
+      }
+    }
+    const faultScreen = it.screen && (ir.screens || {})[it.screen];
+    const faultKey = IR_FAULT_READ.test(it.label)
+      && (it.inPlace
+          || (faultScreen && !irReadable(faultScreen)
+              && (faultScreen.jobs || []).some(j => /^FS_/i.test(j.name))));
+    if (faultKey
         && !/^(FS|IS|HS)_LESEN$/i.test(it.job || '')
         && typeof runJob === 'function') {
       // the caption says WHICH memory: "Read IM" -> IS_LESEN. 239 ECUs keep
