@@ -639,29 +639,22 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
       + `${r} 0 ${a.toFixed(1)}%, ${g} ${a.toFixed(1)}% ${b.toFixed(1)}%,`
       + `${r} ${b.toFixed(1)}% 100%)`;
     track.classList.add('zoned');
-    // INPA prints the threshold under the bar where the colours meet, between
-    // the two scale ends: "0 ... 5 ... 8". It is the number the gauge is read
-    // against, so it belongs on the axis, not just in the colouring.
-    const mark = cellEl.querySelector('.gauge-ok');
-    const edge = rowSpec.okMax < max ? rowSpec.okMax : rowSpec.okMin;
-    if (mark) {
-      const t = fmtRange(edge);
-      if (mark.textContent !== t) mark.textContent = t;
-      mark.style.left = at(edge).toFixed(1) + '%';
-    }
+    // INPA prints EVERY colour boundary on the axis, not just one: its VANOS
+    // reference gauge reads "110 111 ... 135 140", the scale ends plus both
+    // band edges. An edge sitting on a scale end is already labelled there.
+    setEdge(cellEl, '.gauge-ok-lo', rowSpec.okMin, min, max, at);
+    setEdge(cellEl, '.gauge-ok-hi', rowSpec.okMax, min, max, at);
   } else if (declared) {
     // A declared scale with no band is a plain INPA bar: all green, no
     // threshold. It still must not draw the solid fill, which read as a
     // black bar sitting over half the gauge.
     track.style.background = 'var(--gauge-ok)';
     track.classList.add('zoned');
-    const mark = cellEl.querySelector('.gauge-ok');
-    if (mark) mark.textContent = '';
+    clearEdges(cellEl);
   } else if (track.classList.contains('zoned')) {
     track.style.background = '';
     track.classList.remove('zoned');
-    const mark = cellEl.querySelector('.gauge-ok');
-    if (mark) mark.textContent = '';
+    clearEdges(cellEl);
   }
   cellEl.querySelector('.gauge-min').textContent = fmtRange(min);
   cellEl.querySelector('.gauge-max').textContent = fmtRange(max);
@@ -790,12 +783,31 @@ function gaugeCellHTML(key, unit) {
         <div class="gauge-track"><div class="gauge-fill"></div></div>
         <div class="gauge-foot">
           <span class="gauge-min"></span>
-          <span class="gauge-ok"></span>
+          <span class="gauge-ok-lo gauge-edge"></span>
+          <span class="gauge-ok-hi gauge-edge"></span>
           <span class="gauge-max"></span>
         </div>
       </div>
       <span class="gauge-val live-v"></span>
     </div>`;
+}
+
+// one band edge on the axis, positioned where the colours meet. An edge that
+// coincides with a scale end is left blank -- that number is already printed.
+function setEdge(cellEl, sel, v, min, max, at) {
+  const el = cellEl.querySelector(sel);
+  if (!el) return;
+  const show = v != null && v > min && v < max;
+  const t = show ? fmtRange(v) : '';
+  if (el.textContent !== t) el.textContent = t;
+  if (show) el.style.left = at(v).toFixed(1) + '%';
+}
+
+function clearEdges(cellEl) {
+  for (const sel of ['.gauge-ok-lo', '.gauge-ok-hi']) {
+    const el = cellEl.querySelector(sel);
+    if (el && el.textContent) el.textContent = '';
+  }
 }
 
 // update a gauge cell in place from a parsed measurement

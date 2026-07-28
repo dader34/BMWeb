@@ -27,7 +27,7 @@
   --gauge-track: #0c1218; --gauge-fill: var(--amber);
   /* the two zones analogout declares: the good band, and the rest of the
      scale. INPA paints these green and red on every bar that carries them. */
-  --gauge-ok: #1f7a4d; --gauge-warn: #7a2020;
+  --gauge-ok: #1f7a4d; --gauge-warn: #7a2020; --gauge-mark: #05080b;
   /* logo */
   --logo-bg: #11161c;
   --logo-border: #9aa6b2;
@@ -1080,15 +1080,18 @@ html[data-theme="inpa"] .act-row.running .inpa-fn-label { color: #a00000; }
   border: 1px solid var(--line);
 }
 /* INPA draws its zones in flat saturated green and red on white */
-html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000; }
+html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000;
+  --gauge-mark: #000; }
 .gauge-fill {
   position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
   background: var(--gauge-fill, #000);
   transition: width .25s ease;
 }
-/* ...and on a zoned bar the zones ARE the bar: INPA draws no value marker on
-   it at all, the reading is the number printed to its right. */
-.gauge-track.zoned .gauge-fill { display: none; }
+/* INPA fills a zoned bar from the left up to the reading, in black over the
+   coloured zones -- its VANOS page shows a -5..5 gauge black to the midpoint
+   at 0.0. So the fill stays; it just must not be the ONLY thing drawn, which
+   is what the zones behind it are for. */
+.gauge-track.zoned .gauge-fill { background: var(--gauge-mark); }
 /* the unit sits under the label on its own line, INPA-style: "[V]" */
 .gauge-unit { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
   min-height: 12px; line-height: 12px; }
@@ -1106,11 +1109,11 @@ html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000; }
 /* the threshold sits under the point where the colours meet, so the foot has
    to position it proportionally rather than space it evenly */
 .gauge-foot { position: relative; }
-.gauge-ok {
+.gauge-edge {
   position: absolute; transform: translateX(-50%);
   pointer-events: none; white-space: nowrap;
 }
-.gauge-ok:empty { display: none; }
+.gauge-edge:empty { display: none; }
 .gauge-val {
   flex: none; text-align: left; font-size: 15px; font-weight: 700;
   color: var(--cyan); white-space: nowrap; line-height: 14px;
