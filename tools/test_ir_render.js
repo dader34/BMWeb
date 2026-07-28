@@ -594,6 +594,30 @@ for (const [de, en] of [
      `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);
 }
 
+// ---- several keys, one screen, told apart by an index --------------------
+// MS450's user-info-field menu has fifteen keys -- "current", "AIF 1".."AIF14"
+// -- and every one opens s_aif. They differ only in the record number the key
+// stores before opening it, which the screen then passes to AIF_LESEN. Without
+// that index all fifteen showed the same page. 6699 keys across 404 ECUs carry
+// one; 7630 jobs across 450 take their argument from the menu this way.
+{
+  const ms3 = load('MS450');
+  const aif = irMenuItems(ms3, 'm_aif');
+  ok(aif.length >= 15, `MS450 AIF menu should list >=15 keys, got ${aif.length}`);
+  ok(aif.every(i => i.screen === 's_aif'),
+     'MS450 AIF keys should all open s_aif');
+  const sels = aif.map(i => i.sel).filter(v => v != null);
+  ok(sels.length === aif.length,
+     `every AIF key needs its record index: ${aif.map(i => i.label + '=' + i.sel)}`);
+  ok(new Set(sels).size === sels.length,
+     `two AIF keys share a record index: ${sels}`);
+  ok(aif[0].sel === 0 && aif[1].sel === 1,
+     `AIF indices should start 0,1: ${sels.slice(0, 3)}`);
+  // and the screen must declare that its job takes that argument
+  ok((ms3.screens.s_aif.jobs || []).some(j => j.argFromMenu),
+     'AIF_LESEN should be marked as taking its argument from the menu');
+}
+
 // ---- a PC file operation is not an ECU function --------------------------
 // LWS5's fault menu offers "Read protocol file" and "Delete Protocol file":
 // the first displays na_fs_pr.tmp, the second reopens it "w" to truncate it.

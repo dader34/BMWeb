@@ -271,11 +271,19 @@ def _screen_ir(toks):
                     after = strs[strs.index(jname) + 1:] if jname in strs else []
                     arg = next((s for s in after if s.strip()), None)
                     cur()["jobArg"] = arg
+                    # ...or a VARIABLE argument, which the menu key set before
+                    # opening this screen. MS450's fifteen AIF keys share
+                    # s_aif and differ only in the record index they store, so
+                    # the screen is parameterised rather than fixed.
+                    if arg is None and any(a["op"] == "var" for a in args):
+                        var_arg = True
                     if all(j["name"] != jname or j.get("arg") != arg
                            for j in jobs):
                         jobs.append({"name": jname,
                                      "write": bool(_WRITE_JOB.search(jname)),
-                                     **({"arg": arg} if arg else {})})
+                                     **({"arg": arg} if arg else {}),
+                                     **({"argFromMenu": True}
+                                        if arg is None and var_arg else {})})
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
                           "INPAapiResultDigital", "INPAapiResultNumber"):
                 # destination slot: kind 0 writes scratch, kind 2 writes the
@@ -496,6 +504,7 @@ def _field_values(all_toks, order):
 def _menu_ir(toks, id2name, name=None):
     items, cur_nr, cur_label = [], None, None
     entry = None
+    last_const = None
     # the screen this menu is displayed with: the setscreen in its INIT
     # block, i.e. before the first ITEM. That screen prints the softkey
     # captions for this menu's own F-keys.
@@ -545,6 +554,21 @@ def _menu_ir(toks, id2name, name=None):
                 items.append({"nr": cur_nr, "label": cur_label})
             entry = None
             cur_nr, cur_label = t.get("nr"), (t.get("label") or "").strip()
+            last_const = None
+        elif t["op"] == "const" and t.get("t") in ("i", "b"):
+            last_const = t["v"]
+        elif t["op"] == "store" and cur_label is not None \
+                and last_const is not None:
+            # An INDEX the key selects, which the shared screen then reads.
+            # MS450's fifteen AIF keys all open s_aif and differ only in the
+            # record number they store (current=0, "AIF 1"=1 ...), so without
+            # it every one of them showed the same page. The screen passes
+            # that slot to AIF_LESEN as its argument.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry.setdefault("_sel", (t["n"], last_const))
+            last_const = None
         elif t["op"] == "procref" and t.get("kind") == 0x42 \
                 and cur_label is not None:
             # a STATE machine, INPA's third proc kind after screen and menu:
