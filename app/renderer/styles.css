@@ -1086,11 +1086,9 @@ html[data-theme="inpa"] { --gauge-ok: #00d000; --gauge-warn: #ff0000; }
   background: var(--gauge-fill, #000);
   transition: width .25s ease;
 }
-/* ...and on a zoned bar the zones ARE the bar, so the value marker is a rule
-   rather than a solid fill that would hide them */
-.gauge-track.zoned .gauge-fill {
-  background: none; border-right: 2px solid var(--ink);
-}
+/* ...and on a zoned bar the zones ARE the bar: INPA draws no value marker on
+   it at all, the reading is the number printed to its right. */
+.gauge-track.zoned .gauge-fill { display: none; }
 /* the unit sits under the label on its own line, INPA-style: "[V]" */
 .gauge-unit { font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
   min-height: 12px; line-height: 12px; }
