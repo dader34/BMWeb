@@ -6,20 +6,12 @@ using System.Text.RegularExpressions;
 
 namespace EdiabasMac;
 
-// raw EDIABAS job list -> English INPA-style functional menu.
-// mirrors tools/menugen.py.
-public sealed record MenuItem(string Job, string Label, bool Danger);
-public sealed record MenuSection(string Section, List<MenuItem> Items);
-
+// Activation (actuator-test) derivation for the /activations endpoint: pairs
+// STEUERN start/stop jobs and reads argument schemas offline. The menu-build
+// half of this file moved to the renderer (app/renderer/menugen.js), which
+// owns the job->section rules and builds menus from the raw /jobs list.
 public static class MenuGen
 {
-    static readonly HashSet<string> System = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "_JOBS","_JOBCOMMENTS","_ARGUMENTS","_RESULTS","_VERSIONINFO","_TABLES","_TABLE",
-        "INITIALISIERUNG","ENDE","NORMALER_DATENVERKEHR","DIAGNOSE_AUFRECHT",
-        "DIAGNOSE_MODE","DIAGNOSE_ENDE","SENDE_TELEGRAMM",
-    };
-
     static readonly Dictionary<string, string> Curated = new(StringComparer.OrdinalIgnoreCase)
     {
         ["FS_LESEN"] = "Read fault codes",
@@ -123,103 +115,10 @@ public static class MenuGen
         return null;
     }
 
-    static readonly string[] Order = { "Faults","Status","Activations","System Check","Coding","Identity","AIF","Adaption","Service","Special","Other" };
-    static readonly Regex Danger = new(@"FLASH|LOESCHEN|SCHREIBEN|RESET|AUTHENTISIERUNG|PROGRAMMIER|BAUDRATE|_SETZEN|STEUERN(?!\w*LESEN)|STELLGLIED", RegexOptions.IgnoreCase);
     // suffix verbs moved to front of label
     static readonly Dictionary<string,string> FrontVerb = new(StringComparer.OrdinalIgnoreCase)
         { ["LESEN"]="Read", ["SCHREIBEN"]="Write", ["LOESCHEN"]="Clear", ["SETZEN"]="Set" };
 
-    static string SectionFor(string job)
-    {
-        string j = job.ToUpperInvariant();
-        if (j.StartsWith("FS_") || j.Contains("FEHLER")) return "Faults";
-        if (j is "IDENT" or "INFO" or "SERIENNUMMER_LESEN" || j.StartsWith("IDENT")) return "Identity";
-        if (j.Contains("VERSION") || j.Contains("HARDWARE") || j.Contains("REFERENZ") || j.Contains("_HW_")) return "Identity";
-        if (j.StartsWith("STATUS") || j.StartsWith("MW_") || j.Contains("MESSWERT")) return "Status";
-        // STEUERN_WERT_LESEN and friends read the current activation value:
-        // read jobs, not actuator tests
-        if (j.StartsWith("STEUERN") && j.Contains("LESEN")) return "Status";
-        if (j.StartsWith("STEUERN") || j.Contains("STELLGLIED") || j.Contains("AUSGAENGE_SCHALTEN")) return "Activations";
-        // Flash/authentication jobs are deliberately NOT a menu section: INPA
-        // has no flash screen (MS450.IPO's only "FLASH" string is the EXT-FLASH
-        // memory REGION on the Speicher screen), and these are raw primitives
-        // that are only safe inside the seed/key sequence the Flashing tool
-        // drives. Listing them as buttons would offer erase/write out of order.
-        if (j.Contains("FLASH") || j.Contains("PROGRAMMIER") || j.Contains("AUTHENTISIERUNG") || j.Contains("SIGNATUR")) return null;
-        // INPA has no generic "Other": every job lives in a named menu. split the
-        // former catch-all into INPA's submenus (System-Check, Codierung, Ident,
-        // Service-Funktionen, Sonderfunktionen).
-        if (j.Contains("SYSTEMCHECK")) return "System Check";
-        if (j.Contains("CODIER") || j.Contains("ECU_CONFIG") || j.Contains("SET_PARAMETER")
-            || j.Contains("BAUDRATE") || j.Contains("INTERFACETYPE") || j.Contains("ACCESS_TIMING")) return "Coding";
-        // INPA gives the user-information field its own root key (F3 "AIF"),
-        // separate from Ident (F2): it is a programming LOG, not ECU identity.
-        if (j.Contains("AIF")) return "AIF";
-        if (j.Contains("ZIF") || j.Contains("PRUEFCODE")
-            || j.Contains("C_CI") || j.Contains("C_FG") || j.Contains("C_C_")) return "Identity";
-        if (j.Contains("EWS") || j.Contains("DISTANCE_MIL") || j.StartsWith("SPEICHER")) return "Special";
-        // INPA gives adaptation clearing its own root key (F8 "Adaption"):
-        // it erases what the DME has learned, which is not a service read.
-        if (j.Contains("ADAP")) return "Adaption";
-        if (j.Contains("CBS") || j.Contains("PRUEFSTEMPEL") || j.Contains("PRUEFFLAG")
-            || j.Contains("DIAGNOSEPROTOKOLL")
-            || j.Contains("RESET") || j.Contains("STARTWERT") || j.Contains("SLEEP")
-            || j.Contains("INNENTEMP")) return "Service";
-
-        // E36/early-E46 engine and body ECUs expose many DS1/DS2-era jobs the rules
-        // above miss. route them into INPA's named submenus (verified against the
-        // a_smot/a_dmot frontends and the .prg job sets) so nothing lands in "Other".
-
-        // self-tests, actuator/sensor diagnostics, ABS/DSC bleeding + pressure
-        // build/hold cycles, hydraulic/pump tests, simulations -> System-Check.
-        if (j.Contains("SELBSTTEST") || j.Contains("PRUEFLAUF") || j.Contains("IO_STATUS")
-            || j.Contains("I_O_DIAGNOSE") || j.StartsWith("TEST_") || j.Contains("TESTPRG")
-            || j.Contains("TEST_PRG") || j.Contains("SIMULATION") || j.Contains("_SIM_")
-            || j.Contains("SIM_HA") || j.Contains("EINSPURMODELL") || j.Contains("MCS_AKTIVIEREN")
-            || j.Contains("DISPLAYTEST") || j.Contains("DISPLAY_TEST") || j.StartsWith("DOWNLOAD_")
-            || j.Contains("DRUCKABBAU") || j.Contains("DRUCKAUFBAU") || j.Contains("DRUCKHALTEN")
-            || j.Contains("PUMPEN") || j.Contains("ENTLUEFTUNG") || j.Contains("BLEEDMASTER")
-            || j.Contains("VAKUUM") || j.Contains("FUEHLER") || j.Contains("ANFAHREN_POSITION")
-            || j.Contains("MOTOR_FAHREN") || j.Contains("TIPP_FUNKTION") || j.Contains("TANK_LECK")
-            || j.Contains("CRASH_AUSLOESEN") || j.Contains("EICHLAUF")) return "System Check";
-
-        // variant/equipment/vehicle-data coding -> Coding.
-        if (j.StartsWith("COD_") || j.StartsWith("COD") && j.Contains("LESEN") || j.Contains("KODIER")
-            || j.Contains("VAR_COD") || j.Contains("EMK_COD") || j.Contains("AGR_COD")
-            || j.Contains("AUSSTATTUNG") || j.Contains("KFZ_DATEN") || j.Contains("PARAMETERSATZ")
-            || j.Contains("ZCS") || j.Contains("DATENSATZNUMMER") || j.Contains("FAKTOR_SCHREIBEN")
-            || j.Contains("TRIG_SCHREIBEN")) return "Coding";
-
-        // production/identification data, counters, system-address + KD reads -> Identity.
-        if (j.Contains("PROD_NR") || j.Contains("BMW_NR") || j.Contains("FG_NR") || j.Contains("FGNR")
-            || j.Contains("HERSTELLDAT") || j.Contains("HERSTELLDATEN") || j.Contains("HERSTELLERDATEN")
-            || j.Contains("HERSTELLER_DATEN") || j.Contains("TYP_LESEN") || j.Contains("ZAEHLERSTAENDE")
-            || j.Contains("SYS_ADR") || j.Contains("SYSTEM_ADRESSEN") || j.Contains("MAX_BLOCK")
-            || j.Contains("KD_DATEN") || j.Contains("KD_INIT") || j.Contains("ZUSTAND_LESEN")
-            || j.Contains("ZCS_LESEN")) return "Identity";
-
-        // memory dumps, immobilizer ISN, security access (login/seed/password),
-        // rolling code + key data, function/lock state -> Special.
-        if (j.StartsWith("RAM_") || j.StartsWith("ROM_") || j.Contains("EEPROM") || j.Contains("ISN")
-            || j.Contains("SEED") || j.Contains("LOGIN") || j.Contains("PASSWORT")
-            || j.Contains("WECHSELCODE") || j.Contains("SCHLUESSEL") || j.StartsWith("SCHL_")
-            || j.Contains("INFOSPEICHER") || j == "IS_LESEN" || j.Contains("FUNKTIONSSPERRE")
-            || j.Contains("VERRIEGELUNG") || j.Contains("INIT_SPERRE")) return "Special";
-
-        // adaptation clears, CO/idle/consumption adjustment, programming-voltage,
-        // battery messages, diagnostic-session control, end-of-line -> Service.
-        if (j.Contains("ADAPT") || j.Contains("ABGLEICH") || j.Contains("ABGAS_VARIANTE")
-            || j.Contains("UPROG") || j.Contains("MESSE_VERSTELLZEIT") || j.Contains("BATTERIE_MELDUNG")
-            || j.Contains("DIAGNOSE_") || j.Contains("DIAGNOSTICEND") || j.Contains("START_BUS")
-            || j.StartsWith("BET_") || j.Contains("RPA_EOL") || j.EndsWith("_LOESCHEN")) return "Service";
-
-        // raw OBD-II mode readouts + transparent/raw access, ADC + parameter reads -> Status.
-        if (j.Contains("_MODE") || j.Contains("_REQ") || j.Contains("RAWMODE")
-            || j.Contains("TRANSPARENT") || j.Contains("ADC_LESEN") || j == "PARAMETER_LESEN")
-            return "Status";
-
-        return "Other";
-    }
 
     static string Translate(string job)
     {
@@ -410,17 +309,4 @@ public static class MenuGen
         return false;
     }
 
-    public static List<MenuSection> Build(IEnumerable<string> jobs)
-    {
-        var buckets = Order.ToDictionary(s => s, _ => new List<MenuItem>());
-        foreach (var job in jobs)
-        {
-            if (System.Contains(job)) continue;
-            string section = SectionFor(job);
-            if (section == null) continue;   // no INPA menu holds this job
-            buckets[section].Add(new MenuItem(job, Translate(job), Danger.IsMatch(job)));
-        }
-        return Order.Where(s => buckets[s].Count > 0)
-                    .Select(s => new MenuSection(s, buckets[s])).ToList();
-    }
 }
