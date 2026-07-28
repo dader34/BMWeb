@@ -63,7 +63,9 @@ function irRows(scr) {
         // week "/" year), so it is punctuation too and the caption before it
         // still belongs to both.
         if (/^[:=|/-]+$/.test(s)) continue;
-        if (s) pending = s;
+        // ...and a caption may carry the separator itself ("Monitor pot. :"),
+        // where the renderer adds its own and the row reads ": -12"
+        if (s) pending = s.replace(/\s*[:=]\s*$/, '');
         continue;
       }
       if (!e.key) continue;
