@@ -139,7 +139,18 @@ _SK_CHROME = re.compile(r"^(Print(\s*screen)?|Back|Exit|End|Ende|Zur(ü|ue)ck|"
 
 
 def _softkeys(lines):
-    """{fkey: caption} from a screen's own printed softkey help."""
+    """{item_nr: (caption, shifted)} from a screen's printed softkey help.
+
+    A softkey bar has TWO rows. INPA prints the plain keys as "< F3 >" and
+    their shifted partners as "<Shift> + < F3 >", and the shifted half is a
+    real function -- on SM46 F3 is "inclination +" and Shift+F3 is
+    "inclination -", the same seat motor in the other direction.
+
+    The shifted key is ITEM n+10 in the bytecode: verified across the corpus,
+    542 of 554 pairings, the remainder being chrome (Exit, Gesamt) whose +10
+    slot does not exist. So the key a caption belongs to is n for a plain row
+    and n+10 for a shifted one, which is what this returns.
+    """
     out = {}
     for ln in lines:
         for e in ln.get("elements", []):
@@ -151,14 +162,14 @@ def _softkeys(lines):
             # INPA may print two keys on ONE line ("< F3 > -1°KW  < F4 > +1°KW").
             # Split on every marker so each key takes only its own text --
             # taking the whole tail captioned F3 with F4's wording as well.
-            parts = re.split(r"<\s*((?:Shift\s*>\s*\+\s*<\s*)?)F(\d+)\s*>", s)
+            parts = re.split(r"<\s*((?:Shift\s*>\s*\+\s*<\s*)?)F\s*(\d+)\s*>", s)
             for i in range(1, len(parts) - 2, 3):
-                if parts[i]:                # shifted row is INPA chrome
-                    continue
+                shifted = bool(parts[i])
                 cap = parts[i + 2].strip()
                 if len(cap) < 2 or _SK_CHROME.match(cap):
                     continue
-                out.setdefault(int(parts[i + 1]), cap)
+                nr = int(parts[i + 1]) + (10 if shifted else 0)
+                out.setdefault(nr, (cap, shifted))
     return out
 
 
@@ -343,7 +354,9 @@ def _screen_ir(toks):
     out = {"title": title, "jobs": jobs, "lines": lines}
     sk = _softkeys(lines)
     if sk:
-        out["softkeys"] = {str(k): v for k, v in sorted(sk.items())}
+        # {item_nr: [caption, shifted]} -- shifted keys are ITEM n+10 and are
+        # pressed as Shift+Fn, which the app has to say or the key is unusable
+        out["softkeys"] = {str(k): list(v) for k, v in sorted(sk.items())}
     return out
 
 
@@ -824,9 +837,22 @@ def build(ecu):
             continue
         sk = ir["screens"][target].get("softkeys") or {}
         for it in menu["items"]:
-            cap = sk.get(str(it.get("nr")))
-            if cap and len(cap) > len(it.get("label") or ""):
+            hit = sk.get(str(it.get("nr")))
+            if not hit:
+                continue
+            cap, shifted = hit
+            # A SHIFTED key's caption always wins: the ITEM label of a shifted
+            # key is the cramped half of a pair (SM46's ITEM 13 says "ankle -"
+            # where INPA prints "inclination -", the partner of F3's
+            # "inclination +"), and it is the only place the real wording
+            # exists. For a plain key the longer of the two still wins --
+            # making the softkey win outright there changed 237 captions and
+            # exposed an off-by-one join on GSDS2, which is its own bug.
+            if shifted or len(cap) > len(it.get("label") or ""):
                 it["label"] = cap
+            # how the key is actually pressed, so the app can say so
+            if shifted:
+                it["shift"] = True
     ir["coverage"] = round(100 * (1 - cov_unk / cov_len), 1) if cov_len else 0
     # An .IPO can ship several root menus, one per ECU variant. INPA does not
     # guess from the SGBD filename: inpainit runs INITIALISIERUNG, reads its
@@ -899,9 +925,13 @@ def main():
         if len(gk) != 7 or "STAT_UBAT_WERT" not in gk:
             fails.append(f"GSDS2 s_ana2_834 gauges drifted: {gk}")
         st = [i for i in g["menus"]["m_status"]["items"]
-              if i.get("label") == "Analog2"]
+              if re.match(r"^Analog( values)? ?2$", i.get("label") or "")]
         if not st or "screen" not in st[0]:
             fails.append("GSDS2 m_status Analog2 lost its screen target")
+        # ...and it is a SHIFTED key: INPA prints it as <Shift> + < F7 >, i.e.
+        # ITEM 17. Labelling it "F17" would name a key that does not exist.
+        if not st or not st[0].get("shift"):
+            fails.append("GSDS2 Analog values 2 should be a shifted key")
 
         # builtin 64 is a result read like its 63/66/67 neighbours (5026 sites
         # in 411 files), and INPA may pass the value through a FORMATTING
