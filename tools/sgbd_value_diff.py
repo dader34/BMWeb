@@ -109,9 +109,19 @@ def decode_with_spec(spec, telegram):
     hand-sliced payload. Anything the spec did not pin down decodes to None
     and the comparison reports it as unknown rather than pretending.
     """
-    # spec offsets are payload-relative; BMW-FAST carries a 3-byte header
-    # (len|dst|src) that the bytecode strips before indexing.
-    payload = telegram[3:] if len(telegram) > 3 else telegram
+    # How far into the frame the spec's offsets are measured from depends on
+    # the PROTOCOL, which is why one hardcoded strip could not satisfy both:
+    #
+    #   BMW-FAST  [0x80|len, dst, src, ...data]  the bytecode strips the
+    #             3-byte header into its own register, so offsets are
+    #             payload-relative (MS450 STATUS_UBATT reads [2,3] of the data)
+    #   DS2       [addr, len, ...data, xor]      the bytecode indexes the frame
+    #             directly, so offsets are frame-relative (BMS46 IDENT reads
+    #             [3..9], which IS the frame, header included)
+    #
+    # Detected from the frame itself: BMW-FAST always sets bit 7 of byte 0.
+    fast = bool(telegram) and (telegram[0] & 0x80) == 0x80
+    payload = telegram[3:] if fast and len(telegram) > 3 else telegram
     out = {}
     for r in spec.get("results", []):
         if r.get("const") is not None:
@@ -126,8 +136,19 @@ def decode_with_spec(spec, telegram):
             # a string result is the BYTES, not a number built from them:
             # AIF_FG_NR is a 7-byte VIN field, and folding it into an integer
             # produced 0 where the engine reports the (empty) text.
+            # NUL-terminate only. `.strip()` looked harmless and silently ate
+            # real payload: BMS46's ID_DIAG_INDEX is the two bytes 08,09, and
+            # 0x09 is a TAB, so stripping whitespace deleted half the value and
+            # reported a disagreement the lifted offsets had not caused.
             out[r["name"]] = bytes(telegram_[o] for o in offs) \
-                .split(b"\0")[0].decode("latin-1", "replace").strip()
+                .split(b"\0")[0].decode("latin-1", "replace")
+            continue
+        if r.get("ascii"):
+            # the bytes are digit CHARACTERS parsed by a2fix, not a binary
+            # number -- reading them as big-endian gives 1029 for "05"
+            txt = bytes(telegram_[o] for o in offs).decode("latin-1", "replace")
+            digits = "".join(c for c in txt if c.isdigit())
+            out[r["name"]] = int(digits) if digits else 0
             continue
         raw = 0
         for o in offs:                      # big-endian, in bytecode read order
@@ -185,19 +206,39 @@ CASES = [
     ("ms450ds0", "AIF_LESEN",
      [0x86, 0x12, 0xF1, 0x23, 0x00, 0x00, 0x00, 0x07, 0x40],
      [0x63, 0x01] + [0x00] * 30),
+    # A DS2 ECU, to keep the two framings honest: DS2 offsets are
+    # FRAME-relative where BMW-FAST's are payload-relative, and one hardcoded
+    # header strip cannot serve both.
+    ("bms46ds0", "IDENT", [0x12, 0x04, 0x00],
+     [0xA0, 0x12, 0x34, 0x56, 0x78, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+      0x07, 0x08, 0x09, 0x0A], "ds2"),
 ]
 
 
-def run_case(sgbd, job, req, payload, verbose=True):
+def ds2_telegram(addr, payload):
+    """DS2 frame: [addr, len, ...payload, xor-of-all-preceding]."""
+    tel = [addr, len(payload) + 3] + list(payload)
+    x = 0
+    for b in tel:
+        x ^= b
+    return tel + [x]
+
+
+def run_case(sgbd, job, req, payload, verbose=True, ds2=False):
     data, jobs = SP.load(sgbd)
     addr = SP.job_addr(data, jobs, job)
     if addr is None:
         print(f"{sgbd}:{job} absent")
         return 0, 0, 0
     spec = SP.extract(data, addr, sgbd, job)
-    resp = fast_telegram(0xF1, 0x12, payload)
-    init = (INIT_PAIR[0], fast_telegram(0xF1, 0x12, [0x5A, 0x80] + [0] * 10))
-    write_sim(SIM_DIR, sgbd, [init, (req, resp)])
+    if ds2:
+        # DS2 ECUs need no init exchange and frame differently
+        resp = ds2_telegram(0x12, payload)
+        write_sim(SIM_DIR, sgbd, [(req, resp)])
+    else:
+        resp = fast_telegram(0xF1, 0x12, payload)
+        init = (INIT_PAIR[0], fast_telegram(0xF1, 0x12, [0x5A, 0x80] + [0] * 10))
+        write_sim(SIM_DIR, sgbd, [init, (req, resp)])
     res = run_engine(sgbd, job, SIM_DIR)
     if "sets" not in res:
         print(f"{sgbd}:{job} engine run failed: {res}")
@@ -217,8 +258,10 @@ def run_case(sgbd, job, req, payload, verbose=True):
 def selftest():
     """Every case must decode to exactly what the engine decodes."""
     ta = td = tu = 0
-    for sgbd, job, req, payload in CASES:
-        a, d, u = run_case(sgbd, job, req, payload)
+    for case in CASES:
+        sgbd, job, req, payload = case[:4]
+        a, d, u = run_case(sgbd, job, req, payload,
+                           ds2=(len(case) > 4 and case[4] == "ds2"))
         ta, td, tu = ta + a, td + d, tu + u
     print(f"\n{ta} agree, {td} disagree, {tu} not decodable from the spec yet")
     return 1 if td else 0
