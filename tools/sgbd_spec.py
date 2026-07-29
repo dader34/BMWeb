@@ -45,6 +45,10 @@ OUT_DIR = os.path.join(HERE, "..", "data", "job-specs")
 
 SPEC_VERSION = 1
 
+# opcodes that put the request on the wire: response-byte offsets only exist
+# after one of these has run
+SEND_OPS = {"xsend", "xsendf", "xsendr", "xsendex", "xrequf", "xraw"}
+
 # result-writing opcodes -> the EDIABAS result type they produce
 ERG_TYPE = {"ergb": "byte", "ergw": "word", "ergd": "dword", "ergi": "int",
             "ergl": "long", "ergr": "real", "ergs": "string", "ergy": "binary",
@@ -137,8 +141,20 @@ def extract(data, addr, sgbd, job):
     # so track the last string literal moved into each register.
     results, pending_scale, pending_off = [], None, None
     units, reg_str = {}, {}
+    # response-byte offsets staged for the result currently being built
+    pending_index = staged_index = None
+    pending_bytes, pending_shift = [], False
+    seen_send = False
     for _, name, args in ops:
         strs = [a["s"] for a in args if "s" in a]
+        if name in SEND_OPS:
+            # Response offsets only exist AFTER the telegram goes out. The
+            # request-building phase uses the same stage-and-index shape
+            # (MS450 stages #$3e9 there), so collecting before the send mixes
+            # request scratch into the result's byte list.
+            seen_send = True
+            pending_bytes, pending_shift = [], False
+            pending_index = staged_index = None
         # Track literal strings staged in registers -- but a register loaded
         # from ANOTHER register (`move S1, S4`) now holds computed data, so
         # its literal binding must be dropped. Without this the tracker goes
@@ -159,12 +175,39 @@ def extract(data, addr, sgbd, job):
             pending_off = pending_off or 0.0
         elif name == "fadd" and pending_scale is not None:
             pending_off = pending_scale
+        elif name == "move" and len(args) == 2 and "v" in args[1] \
+                and args[0].get("r", "").startswith("L"):
+            # `move L0, #$a` MAY stage a response-byte index. Only the value
+            # still pending when an `atsp` pops it into an index register
+            # counts -- the same instruction shape is used for shift counts
+            # (`move L0, #$8` before an asl) and other scratch constants, so a
+            # bare collect picks up numbers that are not offsets at all.
+            pending_index = args[1]["v"]
+        elif name == "atsp":
+            # pops the staged constant into the index register: from here the
+            # next reg[reg] read is against THIS offset
+            staged_index = pending_index
+            pending_index = None
+        elif name == "move" and len(args) == 2 and args[1].get("m") == 10 \
+                and staged_index is not None and seen_send:
+            # reg[reg] read against the staged index -> a response byte at a
+            # known offset. Collect them in order; the next erg* claims them.
+            pending_bytes.append(staged_index)
+            staged_index = None
+        elif name == "asl":
+            pending_shift = True
         elif name == "etag" and strs:
             # `etag #$c, "NAME"` gates a conditional result block: EDIABAS
             # asks "did the caller request NAME?" and the body that follows
             # computes it only if so. RDC's STATUS_IO produces STAT_FOLGAUS
             # exclusively through this path -- no erg* names it -- so a spec
             # built from erg* alone silently drops it.
+            #
+            # It also DELIMITS one result's bytecode from the next, which is
+            # what keeps STAT_MOTORDREHZAHL_SOLL_WERT's offsets (12,13) from
+            # inheriting the preceding result's (10,11).
+            pending_bytes, pending_shift = [], False
+            pending_index = staged_index = None
             nm = strs[0]
             if not INTERNAL.match(nm) and nm not in {r["name"]
                                                      for r in results}:
@@ -238,6 +281,20 @@ def extract(data, addr, sgbd, job):
                 pending_scale = pending_off = None
                 continue
             r = {"name": nm, "type": ERG_TYPE[name]}
+            if pending_bytes:
+                # The response bytes this result was built from, in the order
+                # the bytecode read them, indexed from the start of the
+                # PAYLOAD -- the bytecode strips the transport header into its
+                # own register before indexing, so offset 2 of MS450's
+                # STATUS_UBATT is the third payload byte, not the third byte
+                # of the frame. Verified against the engine: bytes [2,3] of
+                # `84 F1 12 61 A3 76 0A 0B` are 76 0A, which scales to the
+                # 12.000051288 V the engine reports.
+                r["bytes"] = list(pending_bytes)
+                r["base"] = "payload"
+                r["width"] = len(pending_bytes)
+                if len(pending_bytes) > 1 and pending_shift:
+                    r["endian"] = "big"
             if name == "ergr" and pending_scale is not None:
                 r["scale"] = pending_scale
                 if pending_off:
@@ -250,6 +307,8 @@ def extract(data, addr, sgbd, job):
                     r["values"] = [lit]
             results.append(r)
             pending_scale = pending_off = None
+            pending_index = staged_index = None
+    pending_bytes, pending_shift = [], False
     # attach units to their value results (STAT_UBATT_WERT <- STAT_UBATT_EINH)
     for r in results:
         stem = r["name"][:-5] if r["name"].endswith("_WERT") else r["name"]
