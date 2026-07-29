@@ -620,6 +620,26 @@ def extract(data, addr, sgbd, job):
     # happens to still hold its initialiser, so adopting them trades honest
     # gaps for silent wrong answers. `_consts` stays available for callers
     # that want to inspect it; the spec does not claim it.
+    # `a2fix` parses an ASCII string into a number: the response bytes are
+    # DIGIT CHARACTERS, not a binary value, so a range lifted for them decodes
+    # to nonsense (BMS46's ID_HW_NR read "05" as 0x0405 = 1029 where the
+    # engine reports 0). Flagged rather than silently kept -- the offsets are
+    # right, the interpretation is not.
+    # `a2fix L0, S4` writes L0, but the erg* reads I0 -- a NARROWER VIEW of the
+    # same storage (see best2_abstract._overlaps), so matching the register
+    # name alone never fires. Expand to every view that shares those bytes.
+    a2fix_dst = set()
+    for _, n, args in ops:
+        if n in ("a2fix", "a2flt") and args and "r" in args[0]:
+            a2fix_dst |= BA._overlaps(args[0]["r"])
+    if a2fix_dst:
+        for _, n, args in ops:
+            if n in ERG_TYPE and args and "s" in args[0] and len(args) > 1 \
+                    and args[1].get("r") in a2fix_dst:
+                for r in results:
+                    if r["name"] == args[0]["s"] and r.get("bytes"):
+                        r["ascii"] = True
+
     for r in results:
         r.pop("_srcReg", None)
 

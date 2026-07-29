@@ -264,6 +264,16 @@ class Machine:
                     self.resp_regs.discard(a0["r"])
         elif name == "move" and a0 is not None and a1 is not None:
             val = self.get(a1)
+            # NOT modelled: accumulating `move S4[L1], B0` into a string
+            # buffer. BMS46's IDENT assembles ID_BMW_NR byte by byte that way,
+            # and treating the buffer as the sum of what was written to it
+            # LOOKS right -- it resolved 4 more results per IDENT. The value
+            # harness rejected it: the spec produced bytes 4..10 where the
+            # engine reads 1..7. Only one buffer write is visible per pass,
+            # because the loop that fills the rest is exactly the control flow
+            # this linear walk skips, so the accumulated range is real
+            # provenance shifted to the wrong offset. Needs loop modelling,
+            # not a partial sum.
             if a0.get("m") == 9 and a0.get("r") == "S0":
                 self.slots[a0.get("i")] = val
             elif "r" in a0:
