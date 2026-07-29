@@ -131,8 +131,11 @@ def decode_with_spec(spec, telegram):
     # BMW-FAST. In DS2 byte 1 IS the total frame length, so the frame
     # self-identifies; BMW-FAST puts the payload length in byte 0's low bits.
     fast = True
-    if len(telegram) >= 2 and telegram[1] == len(telegram):
-        fast = False                      # DS2: [addr, len, ...data, xor]
+    if len(telegram) >= 2 and telegram[1] in (len(telegram), len(telegram) + 1):
+        # DS2: [addr, len, ...data, xor]. The length byte counts the whole
+        # frame including the checksum, so it equals len() -- or len()+1 when
+        # the capture omits the checksum, which IFH traces sometimes do.
+        fast = False
     payload = telegram[3:] if fast and len(telegram) > 3 else telegram
     out = {}
     for r in spec.get("results", []):

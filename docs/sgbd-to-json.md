@@ -258,6 +258,38 @@ This is the value of having built two independent lifters rather than one:
 neither is trusted because it looks right, and the disagreements are where the
 bugs were.
 
+## What the coverage number does NOT mean
+
+Resolution (92.7%) counts results whose BYTES were located in the bytecode.
+It is not a claim that 92.7% of jobs run correctly, and the gap is wide:
+
+- **Per result** 3955/4267 = 92.7% have located bytes.
+- **Per job** only 376 of 497 (75.7%) have every result resolved; 102 are
+  partial and 19 resolve nothing. One missing field breaks a job.
+- **Verified** against the real engine on real bytes: that is the only number
+  that answers "does this work", and hand-built cases covered 5 jobs of 628.
+
+`tools/sgbd_bulk_verify.py` closes that last gap by automating the loop --
+discover each job's request from the engine's own IFH trace, synthesise a
+response framed the same way, and diff engine against spec across the whole
+corpus. The first full run checked **410 jobs / 712 results and agreed on
+only 42.8%**, which is the honest state of the lifted specs and nowhere near
+what the coverage figure suggested.
+
+Two dominant causes, both already understood:
+
+1. **Loop jobs decode iteration zero, sixteen times.** MS450's
+   `STATUS_MESSWERTBLOCK_0` returns `4377` for all sixteen measurements where
+   the engine returns sixteen different values. The `repeat` structure is
+   lifted (cursorSlot/strideSlot) but the decoder does not walk it. 444
+   results (10.4%) sit in the 20 jobs with a lifted loop.
+2. **A framing bug in the harness itself**, found by the same run: DS2's
+   length byte counts the frame INCLUDING its checksum, so `byte1 == len()`
+   missed captures whose checksum the trace omitted, and those DS2 requests
+   were answered with BMW-FAST replies. Every offset in those jobs then read
+   exactly 3 bytes too far (spec 10029 against the engine's 4377 -- three
+   pattern positions along, which is how it was diagnosed).
+
 ## Can this reach 100%?
 
 **Not by lifting alone, and the ceiling is a property of the ECUs rather than

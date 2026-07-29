@@ -163,9 +163,23 @@ def discover_init(sgbd, probe_job):
     return (req, synth_response(req))
 
 
+def is_ds2(frame):
+    """True if `frame` is DS2 rather than BMW-FAST.
+
+    DS2's byte 1 is the length of the WHOLE frame, checksum included -- so it
+    equals len(frame), or len(frame)+1 when the capture omits the trailing
+    checksum, which the IFH trace sometimes does. Testing only for equality
+    missed those and answered a DS2 request with a BMW-FAST reply: the reply
+    then carried a 3-byte header the job did not expect, and EVERY offset in
+    those jobs read three bytes too far (spec 10029 against the engine's
+    4377, exactly 3 pattern positions along).
+    """
+    return len(frame) >= 2 and frame[1] in (len(frame), len(frame) + 1)
+
+
 def synth_response(req):
     """A response framed like the request, with the distinctive payload."""
-    ds2 = len(req) >= 2 and req[1] == len(req)
+    ds2 = is_ds2(req)
     if ds2:
         # positive DS2 answer: 0xA0 then data
         return V.ds2_telegram(req[0], [0xA0] + PATTERN[:24])
