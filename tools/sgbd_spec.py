@@ -193,6 +193,8 @@ def extract(data, addr, sgbd, job):
             # request scratch into the result's byte list.
             seen_send = True
             pending_bytes, pending_shift = [], False
+            pending_range = False
+            pending_conv = None
             pending_index = staged_index = None
             # `xsend <recv>, <send>` names the register the ANSWER lands in.
             # Reads must be attributed to that register only: S0 is scratch
@@ -278,6 +280,8 @@ def extract(data, addr, sgbd, job):
             # what keeps STAT_MOTORDREHZAHL_SOLL_WERT's offsets (12,13) from
             # inheriting the preceding result's (10,11).
             pending_bytes, pending_shift = [], False
+            pending_range = False
+            pending_conv = None
             pending_index = staged_index = None
             nm = strs[0]
             if not INTERNAL.match(nm) and nm not in {r["name"]
@@ -489,6 +493,42 @@ def extract(data, addr, sgbd, job):
                 r["bitTest"] = {"table": bit_table,
                                 "maskColumn": "MASK", "valueColumn": "VALUE"}
 
+    # ---- cross-check against the interpreter -----------------------------
+    # The direct lifter accumulates offsets as it walks and clears them at
+    # each `etag` / result store. Where a job reads bytes BETWEEN those
+    # boundaries -- validation reads, a length check, a preceding branch --
+    # the leftovers ride along into the next result: SMG2's one-byte
+    # FLASH_LOESCHEN_STATUS came out as [4,5,6,7,8].
+    #
+    # The abstract interpreter has no such state; it answers from the value
+    # actually stored. Where both resolve a result they agree 514 times and
+    # differ 91, and every difference is this accumulation -- so the
+    # interpreter wins, and the direct answer is kept only when it matches or
+    # the interpreter has nothing.
+    try:
+        _flow = BA.resolve_result_bytes(data, addr)
+    except Exception:                                       # noqa: BLE001
+        _flow = {}
+    for r in results:
+        if not r.get("bytes"):
+            continue
+        alt = _flow.get(r["name"])
+        if alt and list(alt) != list(r["bytes"]):
+            # A genuine substring keeps its contiguous range; the interpreter
+            # reports only the byte that reached the store, which for a real
+            # range read is its first. Anything else -- a "range" that is not
+            # contiguous from the interpreter's byte, or a scalar -- is the
+            # accumulation bug, and the interpreter's answer replaces it.
+            contiguous = (r.get("kind") == "range"
+                          and len(alt) == 1 and r["bytes"][0] == alt[0])
+            if contiguous:
+                continue
+            r["bytes"] = list(alt)
+            r["width"] = len(alt)
+            r["via"] = "dataflow"
+            r.pop("kind", None)
+            r.pop("convert", None)
+
     # ---- dataflow fallback ----------------------------------------------
     # Results whose bytes the direct lifter could not see because the value
     # travels through scratch slots and the operand stack. The abstract
@@ -499,10 +539,7 @@ def extract(data, addr, sgbd, job):
     missing = [r for r in results
                if r.get("const") is None and not r.get("bytes")]
     if missing:
-        try:
-            flow = BA.resolve_result_bytes(data, addr)
-        except Exception:                                   # noqa: BLE001
-            flow = {}
+        flow = _flow
         for r in missing:
             b = flow.get(r["name"])
             if b:

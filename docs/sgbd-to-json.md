@@ -236,6 +236,28 @@ only the last `tabset` attributed every measurement label to `JobResult` /
 **Resolution now stands at 87.1% (3720/4272): 2872 by byte offset, 560 by
 table lookup, 288 by bit test.**
 
+## Two lifters, cross-checked
+
+The direct lifter and the abstract interpreter reach results by completely
+different routes, so where both resolve one they are a check on each other.
+Run across five SGBDs they **agree 514 times and differ 91** — and every
+single difference is the same bug, in the direct lifter: it accumulates
+offsets as it walks and clears them at `etag` boundaries, so bytes read
+*between* those boundaries (validation reads, length checks, a preceding
+branch) ride along into the next result. SMG2's one-byte
+`FLASH_LOESCHEN_STATUS` came out as `[4,5,6,7,8]`; the interpreter said `[8]`,
+and the disassembly shows a single `move B0, S1[L1]`.
+
+The interpreter now wins those disputes — 287 offsets corrected across the E46
+set — with one exception it would otherwise get wrong: a genuine substring
+(MS450's 9-byte `SERIENNUMMER`) legitimately spans a contiguous range, and
+there the interpreter reports only the first byte. That case is detected and
+the range kept.
+
+This is the value of having built two independent lifters rather than one:
+neither is trusted because it looks right, and the disagreements are where the
+bugs were.
+
 ## What the remaining 12.9% needs
 
 The 552 still unresolved are concentrated in `computed`-archetype jobs (the
