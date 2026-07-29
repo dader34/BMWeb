@@ -198,6 +198,38 @@ internal static class Program
                     }
                     return 0;
 
+                // run a job against recorded telegrams (no cable): emits the
+                // result sets as JSON so tools/sgbd_value_diff.py can compare
+                // them against the values a lifted spec decodes from the same
+                // bytes. --sim <dir> holds <sgbd>.sim.
+                case "simrun":
+                {
+                    if (rest.Count == 0)
+                    {
+                        Console.Error.WriteLine(
+                            "usage: simrun <JOB> [sgbd] --sim <dir> [--arg <s>]");
+                        return 2;
+                    }
+                    string sjob = rest[0];
+                    sgbd = rest.Count > 1 ? rest[1] : DefaultSgbd;
+                    string simDir = Opt(args, "--sim");
+                    if (simDir == null)
+                    {
+                        Console.Error.WriteLine("simrun needs --sim <dir>");
+                        return 2;
+                    }
+                    diag.AttachSimulation(Path.GetFullPath(simDir));
+                    string traceDir = Opt(args, "--trace");
+                    if (traceDir != null) diag.TraceTo(Path.GetFullPath(traceDir));
+                    diag.Load(sgbd);
+                    var sets = diag.Run(sjob, Opt(args, "--arg"));
+                    var outSets = sets.Select(s => s.ToDictionary(
+                        kv => kv.Key, kv => Diag.Format(kv.Value))).ToList();
+                    Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+                        new { sgbd = diag.LoadedSgbd, job = sjob, sets = outSets }));
+                    return 0;
+                }
+
                 case "read":
                     return LiveFaultCodes(diag, sgbd, port, clear: false, new InpaConfig(inpaRoot, ecuPath));
 
@@ -252,6 +284,16 @@ internal static class Program
         }
         Console.WriteLine(n == 0 ? "No stored fault codes." : $"{n} fault code(s).");
         return 0;
+    }
+
+    // value of a "--flag value" pair straight off argv. ParseArgs folds unknown
+    // flags into `rest`, so simrun's options are read from the raw array.
+    private static string Opt(string[] args, string flag)
+    {
+        for (int i = 0; i + 1 < args.Length; i++)
+            if (string.Equals(args[i], flag, StringComparison.OrdinalIgnoreCase))
+                return args[i + 1];
+        return null;
     }
 
     private static (string cmd, List<string> rest, string port) ParseArgs(string[] args)

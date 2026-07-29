@@ -27,6 +27,36 @@ public sealed class Diag : IDisposable
         _ediabas.EdInterfaceClass = obd;
     }
 
+    // Run jobs against recorded telegrams instead of a car: EDIABAS answers
+    // from <simPath>/<sgbd>.sim, whose [REQUEST]/[RESPONSE] pairs are matched
+    // by request bytes. This is what makes the jobs-to-JSON differential
+    // (tools/sgbd_value_diff.py) runnable with nothing plugged in -- the same
+    // response bytes go to the engine and to the lifted spec, and the decoded
+    // values must agree.
+    public void AttachSimulation(string simPath)
+    {
+        // Order matters: EdInterfaceObd decides at attach time whether it is in
+        // simulation mode (IsSimulationMode() wants Simulation=1 AND an
+        // existing SimulationPath), so both properties must be set before the
+        // interface is wired up -- otherwise it tries to open a real serial
+        // port and fails with IFH-0056 ILLEGAL CHANNEL.
+        _ediabas.SetConfigProperty("Simulation", "1");
+        _ediabas.SetConfigProperty("SimulationPath", simPath);
+        _ediabas.EdInterfaceClass = new EdInterfaceObd { ComPort = "SIM" };
+    }
+
+    // Interface-level trace (the telegrams EDIABAS sends and receives) into
+    // <dir>/ifh.trc. Building a .sim by hand needs to know what the SGBD's
+    // INITIALISIERUNG asks for before any job can answer; this is how that
+    // request is captured rather than guessed.
+    public void TraceTo(string dir)
+    {
+        _ediabas.SetConfigProperty("TracePath", dir);
+        _ediabas.SetConfigProperty("IfhTrace", "3");
+        _ediabas.SetConfigProperty("AppendTrace", "0");
+        _ediabas.SetConfigProperty("IfhTraceBuffering", "0");
+    }
+
     public void Load(string sgbd) => _ediabas.ResolveSgbdFile(sgbd);
 
     public string LoadedSgbd => _ediabas.SgbdFileName;
