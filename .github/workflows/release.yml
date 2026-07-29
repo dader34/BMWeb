@@ -4,8 +4,7 @@ name: Release DMG
 # real macOS runner (the only place dotnet's macOS workload, codesign and
 # hdiutil exist). Two ways in:
 #   - push a tag  v*  -> builds and publishes a GitHub Release with the DMG
-#   - run manually    -> builds and uploads the DMG as an artifact (a dry run
-#                        that makes no release)
+#   - run manually    -> builds and uploads the DMG as an artifact (no release)
 on:
   push:
     tags: ['v*']
@@ -16,12 +15,18 @@ permissions:
 
 jobs:
   dmg:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
-      - name: Checkout (with LFS: the SGBDs/IPOs the app bundles)
+      - name: Checkout with Git LFS (SGBDs and IPOs the app bundles)
         uses: actions/checkout@v4
         with:
           lfs: true
+
+      - name: Show the runner's default Xcode (macos-15 default is complete + recent enough)
+        run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
+          xcrun --sdk macosx --find clang
 
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
@@ -30,6 +35,13 @@ jobs:
 
       - name: Install the macOS workload
         run: dotnet workload install macos
+
+      - name: Fetch the ediabaslib engine source (gitignored; pinned commit)
+        run: |
+          git init -q vendor/ediabaslib-src
+          git -C vendor/ediabaslib-src remote add origin https://github.com/uholeschak/ediabaslib.git
+          git -C vendor/ediabaslib-src fetch -q --depth 1 origin b784044b45fd904e3b0f637a05174158be2c99ce
+          git -C vendor/ediabaslib-src checkout -q FETCH_HEAD
 
       - name: Package the DMG
         run: bash scripts/package-macos.sh
