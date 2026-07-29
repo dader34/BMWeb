@@ -161,6 +161,9 @@ def extract(data, addr, sgbd, job):
     pending_range = False
     pending_conv = None
     pending_int = pending_fdiv = None
+    last_float_const = None
+    freg_const = {}   # float register -> the constant a2flt put there
+    fapplied = {}     # float register -> [scale, offset] applied to it
     pending_mask = pending_add = None
     reg_num = {}                 # register -> last integer constant moved in
     # registers holding the response telegram. The bytecode routinely aliases
@@ -245,14 +248,76 @@ def extract(data, addr, sgbd, job):
                 reg_str[dst] = args[1]["s"]
             else:
                 reg_str.pop(dst, None)
+        # Bind a float constant to the REGISTER holding it, not to a single
+        # "most recent constant" slot. BMS46 loads 0.1 into F3 with
+        # `move S1,"0.1"` / `a2flt F3,S1` and multiplies ~78 instructions
+        # later; a lone pending value is long overwritten by then, so the
+        # scale was dropped and F_BSZ_ALT decoded 6431 where the engine says
+        # 643.1. The constant is either staged through a string register or
+        # INLINE in the operand (`a2flt F0,"-48"` -- how the coolant
+        # temperature's offset arrives); both bind here.
         if name == "move" and strs:
             v = _num(strs[-1])
             if v is not None:
                 pending_scale = v          # candidate; confirmed by fmul below
-        elif name == "fmul" and pending_scale is not None:
+                last_float_const = v
+        elif name == "a2flt" and len(args) == 2 and "r" in args[0]:
+            inline = _num(args[1]["s"]) if "s" in args[1] else None
+            if inline is not None:
+                freg_const[args[0]["r"]] = inline
+            elif last_float_const is not None:
+                freg_const[args[0]["r"]] = last_float_const
+        elif name == "fmul" and len(args) == 2:
+            src, dst = args[1].get("r"), args[0].get("r")
+            if src in freg_const:
+                pending_scale = freg_const[src]
+                pending_off = pending_off or 0.0
+            elif pending_scale is not None:
+                pending_off = pending_off or 0.0
+            # ...and bind what was applied to the register itself, because a
+            # job stores the same computed value more than once (BMS46 emits
+            # STAT_ and STATUS_MOTORTEMPERATUR_WERT from one F0) and the
+            # pending slot is consumed by the first store.
+            if pending_scale is not None and dst:
+                fapplied[dst] = [pending_scale, fapplied.get(dst, [None, None])[1]]
+        elif name == "fadd" and len(args) == 2:
+            src, dst = args[1].get("r"), args[0].get("r")
+            if src in freg_const:
+                pending_off = freg_const[src]
+            elif pending_scale is not None:
+                pending_off = pending_scale
+            if pending_off is not None and dst in fapplied:
+                fapplied[dst][1] = pending_off
+        elif name == "fdiv" and len(args) == 2 \
+                and args[1].get("r") in freg_const \
+                and freg_const[args[1]["r"]]:
+            # a division IS a scale, stated as its reciprocal: STAT_AUSGANG
+            # is the PWM byte / 2.56, which the engine reports as raw*0.390625
+            # truncated by the ergi. The divisor reaches here the same way
+            # every float constant does (a2flt from a register or inline).
+            src, dst = args[1]["r"], args[0].get("r")
+            pending_scale = 1.0 / freg_const[src]
             pending_off = pending_off or 0.0
-        elif name == "fadd" and pending_scale is not None:
-            pending_off = pending_scale
+            if dst:
+                fapplied[dst] = [pending_scale,
+                                 fapplied.get(dst, [None, None])[1]]
+        elif name == "move" and len(args) == 2 \
+                and (args[0].get("r") or "").startswith("F"):
+            # a float-register copy carries both the constant and the applied
+            # scale; any other write to it invalidates them
+            dst, src = args[0]["r"], args[1].get("r")
+            if src in freg_const:
+                freg_const[dst] = freg_const[src]
+            else:
+                freg_const.pop(dst, None)
+            if src in fapplied:
+                fapplied[dst] = list(fapplied[src])
+            else:
+                fapplied.pop(dst, None)
+        elif name in ("fix2flt", "flt2fix", "a2fix") and args \
+                and (args[0].get("r") or "").startswith("F"):
+            freg_const.pop(args[0]["r"], None)
+            fapplied.pop(args[0]["r"], None)
         elif name in RANGE_READ_OPS and len(args) == 2 \
                 and args[1].get("m") in (12, 13, 14, 15) and seen_send:
             # Substring read: `move S5, S1[L0]#L1` (or [#$idx]#$len) pulls a
@@ -416,10 +481,28 @@ def extract(data, addr, sgbd, job):
                         r["convert"] = pending_conv
                 elif len(pending_bytes) > 1 and pending_shift:
                     r["endian"] = "big"
-            if name == "ergr" and pending_scale is not None:
-                r["scale"] = pending_scale
-                if pending_off:
-                    r["offset"] = pending_off
+            # A scale is not exclusive to float results: STAT_AUSGANG divides
+            # the PWM byte by 2.56 and stores through flt2fix + ergi, so the
+            # engine reports trunc(raw * 0.390625). For ergr the fapplied
+            # register binding also serves stores after the pending slot was
+            # consumed (one F0 emitted under two names); integral stores get
+            # the scale only when the float chain just computed one.
+            # (pending_off doubles as the "a float chain actually ran" flag:
+            # fmul/fdiv always set it, a bare numeric string constant --
+            # `move S1,"5"` staged for an ergs -- never does, so a stray
+            # constant cannot attach itself to an integral store.)
+            if name == "ergr" or (name in ("ergi", "ergw", "ergb", "ergl",
+                                           "ergd")
+                                  and pending_scale is not None
+                                  and pending_off is not None):
+                sc, off = pending_scale, pending_off
+                if sc is None and name == "ergr" and len(args) > 1 \
+                        and args[1].get("r") in fapplied:
+                    sc, off = fapplied[args[1]["r"]]
+                if sc is not None:
+                    r["scale"] = sc
+                    if off:
+                        r["offset"] = off
             if name == "ergs":
                 lit = strs[1] if len(strs) >= 2 else (
                     reg_str.get(args[1]["r"]) if len(args) > 1
@@ -624,6 +707,26 @@ def extract(data, addr, sgbd, job):
                 r["width"] = len(b)
                 r["via"] = "dataflow"
 
+    # ---- honesty pass ----------------------------------------------------
+    # A REPEATED offset inside one value is the direct lifter's accumulation
+    # artifact: a byte read for something else (a length check, a status
+    # byte) rode along into the next result, and no encoding reads the same
+    # response byte twice into one number. When the interpreter has no
+    # answer to replace the list with, the spec must say UNRESOLVED rather
+    # than carry offsets that decode to a plausible-looking wrong value --
+    # every consumer used to re-detect this garbage independently, which is
+    # exactly backwards: the producer is the one place that knows.
+    # (Non-monotonic but unique lists stay: bytes are recorded in READ
+    # order, and a little-endian field legitimately reads high offset first.)
+    for r in results:
+        b = r.get("bytes")
+        if b and len(set(b)) != len(b) and r["name"] not in _flow:
+            del r["bytes"]
+            r.pop("width", None)
+            r.pop("endian", None)
+            gaps.append(f"{r['name']}: accumulated offsets dropped "
+                        f"(reads could not be attributed)")
+
     # A per-iteration read loop: one body executed once per record, the
     # sixteen STAT_MESSWERTn results being sixteen passes over it. The stride
     # is read from the response (the ECU declares the record width), so the
@@ -738,7 +841,13 @@ def extract(data, addr, sgbd, job):
     # name alone never fires. Expand to every view that shares those bytes.
     a2fix_dst = set()
     for _, n, args in ops:
-        if n in ("a2fix", "a2flt") and args and "r" in args[0]:
+        # `a2flt F0,"-48"` converts a CONSTANT, not response bytes -- it is
+        # how a scale or offset is loaded. Only converting a value read from
+        # the wire makes a result ASCII-parsed; without this test the coolant
+        # temperature was flagged ascii and decoded as digit characters
+        # (0x1F, 0x27 hold none, so 0) instead of scaled to -24.6356425.
+        if n in ("a2fix", "a2flt") and args and "r" in args[0] \
+                and not (len(args) > 1 and "s" in args[1]):
             a2fix_dst |= BA._overlaps(args[0]["r"])
     if a2fix_dst:
         for _, n, args in ops:

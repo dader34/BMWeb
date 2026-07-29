@@ -29,6 +29,7 @@ Broad verification needs captures from a real car (record `_TEL_AUFTRAG` /
 honest limit of what can be claimed without one.
 """
 import os
+import math
 import re
 import sys
 import json
@@ -173,11 +174,10 @@ def decode_with_spec(spec, telegram):
             continue
         offs = r.get("bytes")
         telegram_ = payload if r.get("base") == "payload" else telegram
-        # bounds AND sanity: a lifted offset list must be in range and must
-        # not contain a byte value that cannot exist. AIC's ID_BMW_NR lifts
-        # as [4,5,6,0,2,1,0] -- non-monotonic and repeating, which is the
-        # accumulator bug rather than a real field, and decoding it produced
-        # garbage that looked like a value.
+        # bounds only: an ECU can answer shorter than the spec assumed.
+        # Attribution is the LIFTER's job -- it drops offsets it cannot
+        # attribute -- so the decoder trusts the spec rather than
+        # re-auditing it.
         if not offs or any(not isinstance(o, int) or o < 0
                            or o >= len(telegram_) for o in offs):
             out[r["name"]] = None
@@ -244,7 +244,14 @@ def decode_with_spec(spec, telegram):
             out[r["name"]] = raw
             continue
         if r.get("scale") is not None:
-            out[r["name"]] = raw * r["scale"] + (r.get("offset") or 0.0)
+            val = raw * r["scale"] + (r.get("offset") or 0.0)
+            # An INTEGRAL result type is the truncation: `flt2fix` then
+            # `ergi` cannot store 9.765, so the engine reports 9. This is
+            # the erg opcode's semantics, not a heuristic -- STAT_AUSGANG
+            # is the PWM byte / 2.56 stored through ergi.
+            if r.get("type") in ("byte", "word", "int", "long", "dword"):
+                val = math.trunc(val)
+            out[r["name"]] = val
         else:
             out[r["name"]] = raw
     return out
