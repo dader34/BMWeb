@@ -410,6 +410,67 @@ def resolve_result_bytes(data, addr, want_consts=False):
     return (out, consts) if want_consts else out
 
 
+def resolve_transforms(data, addr):
+    """{result: {mask, addend}} -- transformations applied before the store.
+
+    A raw byte is rarely stored as-is. BM_WIDE masks a bit out of it
+    (`and L0, L1` where L1 holds 1: the engine returns 1, the unmasked byte is
+    17) and offsets another by a constant (`adds L0, L1` with L1 = 0x20:
+    0x1F + 32 = 63, exactly the engine's value).
+
+    This has to live in the interpreter rather than the linear lifter because
+    the operand is a REGISTER, not an immediate -- the constant reaches it
+    through the stack (`move L0,#$1` / `push L0` / `pop L1` / `and L0,L1`).
+    A rule keyed on an immediate operand never fires; one keyed on a register
+    tracker never fires either, because the tracker does not model the stack.
+    The machine here does.
+    """
+    m = Machine()
+    out = {}
+    mask = add = None
+    skip_until = None
+    for start, name, args in S.walk(data, addr):
+        if skip_until is not None and start >= skip_until:
+            skip_until = None
+        if name in _COND_JUMPS and args and "v" in args[0]:
+            target = args[0]["v"]
+            if start < target <= start + 32:
+                skip_until = max(skip_until or 0, target)
+            continue
+        if skip_until is not None and start < skip_until:
+            continue
+
+        if name in ("and", "adds", "addc") and len(args) == 2 and m.seen_send:
+            operand = m.get(args[1])
+            target = m.get(args[0])
+            # The transform must apply to a value DERIVED FROM THE RESPONSE.
+            # Without that test every loop counter and index bump was lifted
+            # as a value transform -- JOB_STATUS came out with `addend: 4`,
+            # and MS450's AIF_KM picked up a stray +5 that made it decode 5
+            # where the engine says 0.
+            derived = isinstance(target, (Byte, Sum))
+            if isinstance(operand, int) and derived:
+                if name == "and":
+                    # a full-width mask strips the protocol header; only a
+                    # narrower one selects a field
+                    if operand not in (0xFF, 0xFFFF, 0xFFFFFFFF):
+                        mask = operand
+                elif operand:
+                    add = operand
+        elif name.startswith("erg") and args and "s" in args[0]:
+            nm = args[0]["s"]
+            if mask is not None or add is not None:
+                entry = {}
+                if mask is not None:
+                    entry["mask"] = mask
+                if add is not None:
+                    entry["addend"] = add
+                out.setdefault(nm, entry)
+            mask = add = None
+        m.step(name, args)
+    return out
+
+
 def detect_loop(data, addr):
     """Describe a per-iteration read loop, or None.
 
