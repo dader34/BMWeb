@@ -352,6 +352,10 @@ def extract(data, addr, sgbd, job):
                 pending_scale = pending_off = None
                 continue
             r = {"name": nm, "type": ERG_TYPE[name]}
+            # the register the value came from, so a table lookup writing that
+            # register can be attributed to this result below
+            if len(args) > 1 and "r" in args[1]:
+                r["_srcReg"] = args[1]["r"]
             if pending_bytes:
                 # The response bytes this result was built from, in the order
                 # the bytecode read them, indexed from the start of the
@@ -397,6 +401,93 @@ def extract(data, addr, sgbd, job):
         spec["results"] = results
     else:
         gaps.append("no ECU results recovered")
+
+    # ---- table-driven results -------------------------------------------
+    # A whole class of results is not extracted from the response at all: it
+    # is LOOKED UP. MS450's measurement blocks read a measurement number from
+    # the ECU, seek it in the SGBD's own FUmweltTexte table, and take the
+    # label, unit, scale and offset from that row -- `tabset "FUmweltTexte"`,
+    # `tabseek "UWNR", <n>`, then `tabget S7,"UWTEXT"` / `S6,"MUL_WORD"` /
+    # `S6,"ADD"` / `S6,"UW_EINH"`. So the scale is per-measurement DATA, not a
+    # constant in the bytecode, which is why no float literal was ever found
+    # for these and every one of them looked unresolvable.
+    #
+    # The table travels with the SGBD and the engine already serves it
+    # (/api/ecu/<sgbd>/table/<name>), so recording the lookup -- table, key
+    # column, value column -- is enough for a walker to reproduce it.
+    # Walk once in order, keeping the CURRENT binding of each register to the
+    # lookup that last filled it, and snapshot that binding when a result is
+    # stored. A single pass that keeps only the final binding attributes every
+    # result to whichever table happened to be set last -- which made MS450's
+    # measurement labels claim to come from JobResult/STATUS_TEXT (the
+    # protocol status table) instead of FUmweltTexte/UWTEXT.
+    cur_table = seek_col = None
+    tab_reads = {}          # register -> (table, keyCol, valueCol)
+    result_lookup = {}      # result name -> that tuple, as of its store
+    for _, name, args in ops:
+        strs = [a["s"] for a in args if "s" in a]
+        if name in ("tabset", "tabsetex") and strs:
+            cur_table, seek_col = strs[0], None
+        elif name in ("tabseek", "tabseeku") and strs:
+            seek_col = strs[0]
+        elif name == "tabget" and cur_table:
+            dst = args[0].get("r") if args else None
+            col = strs[-1] if strs else None
+            if dst and col:
+                tab_reads[dst] = (cur_table, seek_col, col)
+        elif name == "move" and len(args) == 2 and "r" in args[0] \
+                and "r" in args[1]:
+            # a table value copied on to another register keeps its origin
+            if args[1]["r"] in tab_reads:
+                tab_reads[args[0]["r"]] = tab_reads[args[1]["r"]]
+            else:
+                tab_reads.pop(args[0]["r"], None)
+        elif name in ERG_TYPE and strs:
+            src = args[1].get("r") if len(args) > 1 else None
+            if src in tab_reads:
+                result_lookup.setdefault(strs[0], tab_reads[src])
+    for r in results:
+        if r.get("const") is not None or r.get("bytes"):
+            continue
+        hit = result_lookup.get(r["name"])
+        if hit:
+            t, k, c = hit
+            r["lookup"] = {"table": t, "valueColumn": c}
+            if k:
+                r["lookup"]["keyColumn"] = k
+
+    # ---- table-masked bit flags -----------------------------------------
+    # The other table shape: a digital-status job reads one response byte and
+    # tests a BIT in it, with both the mask and the expected value coming from
+    # a table row (`tabget S1,"MASK"` / `tabget S1,"VALUE"`, then `and` + `xor`
+    # against the byte). BMS46's STATUS_DIGITAL builds STAT_KL15_EIN,
+    # STAT_START_EIN and their neighbours exactly this way -- 248 results
+    # across the E46 set, the single largest unresolved group.
+    #
+    # The bit position is per-result DATA in the table, so like the
+    # measurement scales it is recorded as a lookup rather than a constant.
+    # the table that is actually SET when MASK/VALUE are fetched -- not the
+    # job's first tabset, which is the protocol status table (JobResult)
+    bit_table = None
+    _cur = None
+    _seen = set()
+    for _, n, args in ops:
+        strs = [a["s"] for a in args if "s" in a]
+        if n in ("tabset", "tabsetex") and strs:
+            _cur = strs[0]
+        elif n == "tabget" and strs:
+            col = strs[-1].upper()
+            if col in ("MASK", "VALUE"):
+                _seen.add(col)
+                if bit_table is None:
+                    bit_table = _cur
+    if _seen >= {"MASK", "VALUE"}:
+        for r in results:
+            if r.get("const") is not None or r.get("bytes") or r.get("lookup"):
+                continue
+            if r.get("type") in ("int", "byte", "word"):
+                r["bitTest"] = {"table": bit_table,
+                                "maskColumn": "MASK", "valueColumn": "VALUE"}
 
     # ---- dataflow fallback ----------------------------------------------
     # Results whose bytes the direct lifter could not see because the value
@@ -456,6 +547,9 @@ def extract(data, addr, sgbd, job):
                     r["deadStore"] = near[0]
                     gaps.append(f"{r['name']} is stored but gated as {near[0]}"
                                 " (SGBD bug: never returned)")
+
+    for r in results:
+        r.pop("_srcReg", None)
 
     if gaps:
         spec["gaps"] = gaps
