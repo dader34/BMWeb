@@ -49,6 +49,10 @@ SPEC_VERSION = 1
 # after one of these has run
 SEND_OPS = {"xsend", "xsendf", "xsendr", "xsendex", "xrequf", "xraw"}
 
+# opcodes that read a RANGE of response bytes (addressing modes 12-15).
+# move/scut copy the slice; y2bcd/y2hex convert it.
+RANGE_READ_OPS = {"move", "scut", "y2bcd", "y2hex", "ergs"}
+
 # result-writing opcodes -> the EDIABAS result type they produce
 ERG_TYPE = {"ergb": "byte", "ergw": "word", "ergd": "dword", "ergi": "int",
             "ergl": "long", "ergr": "real", "ergs": "string", "ergy": "binary",
@@ -144,9 +148,43 @@ def extract(data, addr, sgbd, job):
     # response-byte offsets staged for the result currently being built
     pending_index = staged_index = None
     pending_bytes, pending_shift = [], False
+    pending_range = False
+    pending_conv = None
+    reg_num = {}                 # register -> last integer constant moved in
+    # registers holding the response telegram. The bytecode routinely aliases
+    # it (`xsend S3, ...` then `move S1, S3`) and reads through the copy, so
+    # tracking only the register xsend named missed ZKE5's key numbers
+    # entirely. S0 stays excluded: it is the scratch/stack register.
+    resp_reg = set()
+    payload_regs = set()   # response regs that are already payload-relative
     seen_send = False
     for _, name, args in ops:
         strs = [a["s"] for a in args if "s" in a]
+        # constants staged in registers, so a substring read whose index and
+        # length are register-held can still be resolved
+        if name == "move" and len(args) == 2 and "r" in args[0] and seen_send:
+            dst_r, src_r = args[0]["r"], args[1].get("r")
+            if args[1].get("m") in (1, 2, 3, 4):
+                if src_r in resp_reg and dst_r != "S0":
+                    resp_reg.add(dst_r)      # plain alias
+                elif dst_r in resp_reg and src_r not in resp_reg:
+                    resp_reg.discard(dst_r)  # overwritten with something else
+            elif args[1].get("m") in (12, 13, 14, 15) and src_r in resp_reg \
+                    and dst_r != "S0":
+                # `move S4, S3[A2]#I2` slices the PAYLOAD out of the raw
+                # telegram: S4 now holds the response body, and every result
+                # read afterwards indexes S4, not S3. Missing this alias is
+                # why MS450 -- whose two jobs decode correctly -- still showed
+                # only 28% of its results with offsets.
+                resp_reg.add(dst_r)
+                payload_regs.add(dst_r)
+        if name == "move" and len(args) == 2 and "r" in args[0]:
+            if "v" in args[1]:
+                reg_num[args[0]["r"]] = args[1]["v"]
+            elif "r" in args[1] and args[1]["r"] in reg_num:
+                reg_num[args[0]["r"]] = reg_num[args[1]["r"]]
+            else:
+                reg_num.pop(args[0]["r"], None)
         if name in SEND_OPS:
             # Response offsets only exist AFTER the telegram goes out. The
             # request-building phase uses the same stage-and-index shape
@@ -155,6 +193,13 @@ def extract(data, addr, sgbd, job):
             seen_send = True
             pending_bytes, pending_shift = [], False
             pending_index = staged_index = None
+            # `xsend <recv>, <send>` names the register the ANSWER lands in.
+            # Reads must be attributed to that register only: S0 is scratch
+            # (the bytecode stages intermediate words there), and counting
+            # `move I0, S0[#$0]` as a response read appended a phantom byte 0
+            # to MS450's RPM results, turning 1000 rpm into 256024.5.
+            if args and "r" in args[0]:
+                resp_reg = {args[0]["r"]}
         # Track literal strings staged in registers -- but a register loaded
         # from ANOTHER register (`move S1, S4`) now holds computed data, so
         # its literal binding must be dropped. Without this the tracker goes
@@ -175,6 +220,24 @@ def extract(data, addr, sgbd, job):
             pending_off = pending_off or 0.0
         elif name == "fadd" and pending_scale is not None:
             pending_off = pending_scale
+        elif name in RANGE_READ_OPS and len(args) == 2 \
+                and args[1].get("m") in (12, 13, 14, 15) and seen_send:
+            # Substring read: `move S5, S1[L0]#L1` (or [#$idx]#$len) pulls a
+            # RANGE out of the response -- how every string result is built
+            # (MS450's SERIENNUMMER is offset 2, length 9). The index and
+            # length are either immediates in the operand or registers whose
+            # constants were staged just above, so both forms resolve here.
+            src = args[1]
+            idx = src.get("i", reg_num.get(src.get("ir")))
+            ln = src.get("len", reg_num.get(src.get("lenr")))
+            if idx is not None and ln is not None and ln > 0:
+                pending_bytes = list(range(idx, idx + ln))
+                pending_shift = False
+                pending_range = True
+                # y2bcd/y2hex do not copy the bytes, they CONVERT them: RLS's
+                # ID_HW_NR is one BCD byte at offset 7, so a walker that just
+                # sliced the range would report 0x37 where EDIABAS reports 37.
+                pending_conv = {"y2bcd": "bcd", "y2hex": "hex"}.get(name)
         elif name == "move" and len(args) == 2 and "v" in args[1] \
                 and args[0].get("r", "").startswith("L"):
             # `move L0, #$a` MAY stage a response-byte index. Only the value
@@ -188,6 +251,13 @@ def extract(data, addr, sgbd, job):
             # next reg[reg] read is against THIS offset
             staged_index = pending_index
             pending_index = None
+        elif name == "move" and len(args) == 2 and args[1].get("m") == 9 \
+                and seen_send and args[1].get("r") in resp_reg:
+            # Direct immediate-indexed read: `move I0, S0[#$6]` takes byte 6
+            # straight out of the response with no staging at all -- ZKE5's
+            # key-memory numbers and many IDENT fields are built this way.
+            # Simplest of the three read shapes and the last one missing.
+            pending_bytes.append(args[1]["i"])
         elif name == "move" and len(args) == 2 and args[1].get("m") == 10 \
                 and staged_index is not None and seen_send:
             # reg[reg] read against the staged index -> a response byte at a
@@ -293,7 +363,13 @@ def extract(data, addr, sgbd, job):
                 r["bytes"] = list(pending_bytes)
                 r["base"] = "payload"
                 r["width"] = len(pending_bytes)
-                if len(pending_bytes) > 1 and pending_shift:
+                if pending_range:
+                    # a substring: the bytes ARE the value (ASCII), not digits
+                    # of one big-endian number
+                    r["kind"] = "range"
+                    if pending_conv:
+                        r["convert"] = pending_conv
+                elif len(pending_bytes) > 1 and pending_shift:
                     r["endian"] = "big"
             if name == "ergr" and pending_scale is not None:
                 r["scale"] = pending_scale

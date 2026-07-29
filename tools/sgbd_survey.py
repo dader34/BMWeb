@@ -148,9 +148,21 @@ def walk(data, addr, limit=250_000):
             elif mode == 10:                             # reg[reg]
                 args.append({"m": mode, "r": _reg(raw[0]),
                              "ir": _reg(raw[1])})
-            else:                                        # indexed + length
+            elif mode == 12:                             # reg[#idx]#len
                 args.append({"m": mode, "r": _reg(raw[0]),
-                             "raw": raw[1:].hex()})
+                             "i": int.from_bytes(raw[1:3], "little"),
+                             "len": int.from_bytes(raw[3:5], "little")})
+            elif mode == 13:                             # reg[#idx]lenreg
+                args.append({"m": mode, "r": _reg(raw[0]),
+                             "i": int.from_bytes(raw[1:3], "little"),
+                             "lenr": _reg(raw[3])})
+            elif mode == 14:                             # reg[idxreg]#len
+                args.append({"m": mode, "r": _reg(raw[0]),
+                             "ir": _reg(raw[1]),
+                             "len": int.from_bytes(raw[2:4], "little")})
+            else:                                        # 15: reg[idxreg]lenreg
+                args.append({"m": mode, "r": _reg(raw[0]),
+                             "ir": _reg(raw[1]), "lenr": _reg(raw[2])})
         # Jump targets are PC-RELATIVE and signed: EdiabasNet resolves them as
         # `labelAddress = pcCounter_after_operands + arg0` (Arg0IsNearAddress,
         # Imm32). Reading them as absolute made every backward branch look like
@@ -180,12 +192,11 @@ def fmt_arg(opname, a):
         if opname in JUMPS:
             return f'L{a["v"]:06x}'
         return f'#${a["v"]:x}'
-    if "ir" in a:
-        return f'{a["r"]}[{a["ir"]}]'
-    if "i" in a:
-        return f'{a["r"]}[#${a["i"]:x}]'
-    if "raw" in a:
-        return f'{a["r"]}[{a["raw"]}]'
+    idx = (f'#${a["i"]:x}' if "i" in a else a["ir"]) if ("i" in a or "ir" in a) \
+        else None
+    ln = (f'#${a["len"]:x}' if "len" in a else a.get("lenr"))
+    if idx is not None:
+        return f'{a["r"]}[{idx}]' + (f'#{ln}' if ln else "")
     return a.get("r", "?")
 
 
@@ -276,12 +287,21 @@ def e46_sgbds():
     port = os.environ.get("BMACW_PORT")
     if port:
         try:
+            # 60s, not 5: the app's FIRST /api/chassis call resolves every
+            # ENTRY code against the .prg directory and can take tens of
+            # seconds cold, while later calls answer in ~0.2s. A short timeout
+            # silently fell back to the CFGDAT scan below, which finds 37 of
+            # the 55 SGBDs -- so an identical command reported 628 or 701 jobs
+            # depending only on whether the app happened to be warm.
             c = json.load(urllib.request.urlopen(
-                f"http://127.0.0.1:{port}/api/chassis/E46", timeout=5))
+                f"http://127.0.0.1:{port}/api/chassis/E46", timeout=60))
             return sorted({e["sgbd"].lower() for s in c["sections"]
                            for e in s["ecus"] if e.get("sgbd")})
-        except Exception:
-            pass
+        except Exception as ex:
+            # loud, not silent: a partial ECU set makes every downstream
+            # percentage wrong in a way that looks like a real result
+            print(f"WARNING: chassis API failed ({type(ex).__name__}: {ex}); "
+                  f"falling back to CFGDAT scan (fewer SGBDs)", file=sys.stderr)
     names = set()
     for m in re.finditer(r"^ENTRY=(\w+)", open(CFG, encoding="latin-1").read(),
                          re.M):
