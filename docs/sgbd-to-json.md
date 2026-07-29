@@ -96,9 +96,30 @@ Recorded because both produced confident, wrong numbers first.
 `_RESULTS` schema, which the engine answers offline with no cable attached.
 
 **698/701 IR-referenced jobs across the 55 E46 SGBDs lift their result names
-exactly.** The other three are jobs for which BMW shipped no `_RESULTS`
-schema at all, so there is nothing to compare against — the lifted spec is
-strictly more informative than the engine's metadata there.
+exactly, and no spec carries a duplicate or invented result.** The other three
+are BMBT46's `STATUS_LESEN_SG` variants, for which BMW shipped no `_RESULTS`
+schema at all — there is nothing to compare against, and the lifted spec (14
+results, read from the bytecode) is strictly more informative than the
+engine's own metadata.
+
+Those three are also where the *shape* problems surfaced, which the schema
+check could not see because it compares name SETS:
+
+- **Repeated stores of one name are branches, not results.** A string result
+  written once per state (`CASSETTEN_STATUS_TEXT`: "Wiedergabe" / "Eject,
+  Standby, …" / "undefinierter Tastenstatus") is an ENUMERATION — one result
+  whose `values` list the alternatives. 61 such results across the corpus.
+  Numeric results written from several branches (per-variant scaling) collapse
+  the same way, keeping `altScales`.
+- **Register bindings go stale.** Tracking literals staged through registers
+  (`move S1, "V"` → `ergs "X_EINH", S1`) is necessary, but a register later
+  loaded from another register holds computed data. Without dropping the
+  binding there, BMBT46's cassette-deck HOUR COUNTER inherited the string
+  "undefinierter Tastenstatus" from an earlier branch.
+- **`_ANTWORT1` is not always internal.** Filtering bare telegram-looking
+  names cost 8 jobs their agreement: ASCMK20, LSZ and CVM_II declare
+  `_AUFTRAG1` / `_ANTWORT` as genuine results. What a job publishes is the
+  SGBD's decision, not a naming convention to infer.
 
 Getting to that number surfaced four things worth keeping:
 
