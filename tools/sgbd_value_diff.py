@@ -122,6 +122,13 @@ def decode_with_spec(spec, telegram):
         if not offs or any(o >= len(telegram_) for o in offs):
             out[r["name"]] = None
             continue
+        if r.get("type") == "string":
+            # a string result is the BYTES, not a number built from them:
+            # AIF_FG_NR is a 7-byte VIN field, and folding it into an integer
+            # produced 0 where the engine reports the (empty) text.
+            out[r["name"]] = bytes(telegram_[o] for o in offs) \
+                .split(b"\0")[0].decode("latin-1", "replace").strip()
+            continue
         raw = 0
         for o in offs:                      # big-endian, in bytecode read order
             raw = (raw << 8) | telegram_[o]
@@ -171,6 +178,13 @@ CASES = [
     ("ms450ds0", "STATUS_MOTORDREHZAHL",
      [0x83, 0x12, 0xF1, 0x22, 0x40, 0x00],
      [0x62, 0x40, 0x00] + [0] * 7 + [0x0F, 0xA0, 0x0B, 0xB8]),
+    # AIF_LESEN: the programming-log block. Its own size check rejects
+    # arbitrary payloads (ERROR_SIZE_UIF), so the count byte must be 1 --
+    # which is also how the engine was made to answer OKAY here at all.
+    # Exercises the multi-byte STRING results (the VIN fields).
+    ("ms450ds0", "AIF_LESEN",
+     [0x86, 0x12, 0xF1, 0x23, 0x00, 0x00, 0x00, 0x07, 0x40],
+     [0x63, 0x01] + [0x00] * 30),
 ]
 
 
