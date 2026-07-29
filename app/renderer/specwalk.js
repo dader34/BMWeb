@@ -57,9 +57,11 @@ function specText(bytes) {
   return s;
 }
 
-// A lifted offset list must be in range, and must not be the accumulator bug:
-// AIC's ID_BMW_NR lifts as [4,5,6,0,2,1,0], non-monotonic and repeating, which
-// is not a field at all. Decoding it produced garbage that looked like a value.
+// A lifted offset list must be in range of the frame actually received --
+// an ECU can answer shorter than the spec's job assumed. Nothing more: the
+// lifter guarantees the offsets it emits are attributable (it drops what it
+// cannot attribute), so the walker's job is to trust the spec, not to
+// re-audit it.
 function specOffsetsUsable(offs, frame) {
   if (!Array.isArray(offs) || offs.length === 0) return false;
   return offs.every((o) => Number.isInteger(o) && o >= 0 && o < frame.length);
@@ -126,16 +128,29 @@ function specWalkResult(result, frame, ctx) {
   if (result.addend) big += BigInt(result.addend);
   const raw = big <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(big) : big;
 
+  // Scaling is float arithmetic, so a BigInt raw has to narrow first --
+  // `BigInt * Number` throws, and the catch turned an 8-byte field into
+  // null. Precision past 2^53 is lost by the multiply anyway, exactly as it
+  // is in Python, so this loses nothing the reference keeps.
+  const scalar = typeof raw === 'bigint' ? Number(raw) : raw;
+
   const lk = result.lookup;
   if (result.iteration != null && lk && lk.scaleColumn) {
     const row = specSeekRow(ctx.tables, lk, ctx.keys && ctx.keys[result.iteration]);
     if (row) {
-      return raw * specNum(row[lk.scaleColumn], 1) +
+      return scalar * specNum(row[lk.scaleColumn], 1) +
         specNum(row[lk.offsetColumn], 0);
     }
     return raw;   // no key yet: the raw word is still honest
   }
-  if (result.scale != null) return raw * result.scale + (result.offset || 0);
+  if (result.scale != null) {
+    const scaled = scalar * result.scale + (result.offset || 0);
+    // An INTEGRAL result type is the truncation: `flt2fix` then `ergi`
+    // cannot store 9.765, so the engine reports 9. This is the erg
+    // opcode's semantics, not a heuristic.
+    return ['byte', 'word', 'int', 'long', 'dword'].includes(result.type)
+      ? Math.trunc(scaled) : scaled;
+  }
   return raw;
 }
 

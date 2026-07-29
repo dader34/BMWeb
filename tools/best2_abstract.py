@@ -80,8 +80,34 @@ class Byte:
         return hash((self.offset, self.scale))
 
 
+class Slot:
+    """The unresolved CONTENT of an S0 scratch slot, as a symbol.
+
+    Some slot values are genuinely runtime data -- MESSWERTBLOCK's record
+    stride arrives in job arguments and the response header -- and reading
+    them used to return UNKNOWN, which poisoned every sum they touched. The
+    loop cursor is the value `S0[cursor] + S0[stride]`, and detecting it
+    requires that shape to SURVIVE abstraction even when the stride's number
+    cannot be known statically.
+    """
+
+    __slots__ = ("idx",)
+
+    def __init__(self, idx):
+        self.idx = idx
+
+    def __repr__(self):
+        return f"S0[{self.idx}]"
+
+    def __eq__(self, o):
+        return isinstance(o, Slot) and o.idx == self.idx
+
+    def __hash__(self):
+        return hash(("slot", self.idx))
+
+
 class Sum:
-    """A sum of Byte terms plus an integer constant."""
+    """A sum of symbolic terms (Byte, Slot) plus an integer constant."""
 
     __slots__ = ("terms", "const")
 
@@ -96,6 +122,12 @@ class Sum:
         return " + ".join(parts) or "0"
 
     def bytes_used(self):
+        """Response-byte offsets -- only meaningful when every term IS a
+        response byte. A Sum still carrying a Slot term depends on data this
+        pass could not resolve, and reporting its Byte part alone would be
+        partial provenance dressed up as an answer."""
+        if not all(isinstance(t, Byte) for t in self.terms):
+            return []
         return sorted({t.offset for t in self.terms})
 
 
@@ -204,7 +236,12 @@ class Machine:
             return UNKNOWN
         r = arg.get("r")
         if arg.get("m") == 9 and r == "S0":
-            return self.slots.get(arg.get("i"), UNKNOWN)
+            # an absent slot reads as its SYMBOL, not as unknown: the value
+            # may be runtime data, but which slot it came from is a fact,
+            # and the loop detector needs that fact to survive addition
+            i = arg.get("i")
+            v = self.slots.get(i, Slot(i))
+            return Slot(i) if v is UNKNOWN else v
         if arg.get("m") == 9 and r in self.resp_regs:
             # a direct response-byte read
             return Byte(arg.get("i"))
@@ -241,18 +278,42 @@ class Machine:
             self.seen_send = True
             if a0 and "r" in a0:
                 self.resp_regs = {a0["r"]}
-            self.stack.clear()
+            # The REAL machine does not touch the operand stack at a send
+            # (OpXsend never reaches _stackList). Clearing it here was a
+            # harmless simplification while atsp meant "peek the top"; with
+            # depth-accurate atsp it desynchronised every post-send stack
+            # read in a multi-telegram job -- AIF_LESEN's second-phase fields
+            # shifted by exactly the first response's length.
             return
 
         if name == "push":
-            self.stack.append(self.get(a0))
+            # A non-4-byte push would shift every deeper atsp position. The
+            # corpus never does it (15865 mode-7 immediates + 20473 L
+            # registers, nothing else), but if one appears, push UNKNOWN so
+            # the entry count stays right and the value honestly degrades.
+            four = a0 is not None and (a0.get("m") == 7
+                                       or (a0.get("r") or " ")[0] == "L")
+            self.stack.append(self.get(a0) if four else UNKNOWN)
         elif name == "pop":
             v = self.stack.pop() if self.stack else UNKNOWN
             if a0 and "r" in a0 and a0.get("m") in (1, 2, 3, 4):
                 self.setreg(a0["r"], v)
         elif name == "atsp":
-            # peek: copy top of stack into a register without popping
-            v = self.stack[-1] if self.stack else UNKNOWN
+            # `atsp reg, #pos` reads the stack POS BYTES down from the top
+            # (OpAtsp: index = pos - length into the byte stack), it does NOT
+            # peek the top. Entries are uniformly 4 bytes -- every push in
+            # the corpus is a mode-7 immediate or an L register -- so pos 4
+            # is the top entry, 8 the second, $c the third. Treating every
+            # atsp as "peek the top" was right only for pos 4: at $c it
+            # grabbed a stale flag instead of the value, which poisoned F1 at
+            # the fix2flt and killed EVERY float-scaled result downstream.
+            # That one wrong line is why the garbled-offset cases looked
+            # unresolvable: the garbled lists and the interpreter's blind
+            # spot were the same bug.
+            pos = a1["v"] if a1 and "v" in a1 else 4
+            depth = pos // 4
+            v = self.stack[-depth] if 1 <= depth <= len(self.stack) \
+                else UNKNOWN
             if a0 and "r" in a0:
                 self.setreg(a0["r"], v)
         elif name == "clear":
@@ -338,36 +399,32 @@ def trace_job(data, addr, limit=200_000):
     return m, snaps
 
 
-def resolve_result_bytes(data, addr, want_consts=False):
-    """{result_name: [byte offsets]} for results the direct lifter misses.
+def _linear_scan(data, addr):
+    """Yield a job's instructions in LAYOUT order, skipping short branch
+    bodies -- the traversal every verified resolution was built on.
 
-    Walks the job tracking the abstract state, and when an `erg*` stores from
-    a register, reports the response bytes that register's value came from.
+    The walk is linear, so it would otherwise run both sides of every
+    branch, and the sign-extension idiom that follows nearly every signed
+    read (`jpl` over `move I1,#$ffff` / `move B1,#$ff`) would clobber the
+    value on the way past. Short forward conditional hops (<= 32 bytes) are
+    therefore TAKEN; everything else falls through in layout order.
 
-    Conditionally-executed instructions are SKIPPED rather than executed. The
-    walk is linear, so it would otherwise run both sides of every branch --
-    and the sign-extension idiom that follows nearly every signed read
-        move B0, S0[#$2]      ; the value
-        jpl  L...             ; skip if positive
-        move I1, #$ffff       ; ONLY on negative: extend the sign
-        move B1, #$ff
-    would clobber the value with 0xFF on the way past. That is what left
-    SMG2's ADAPTIONSWERTE_LESEN (112 results, the single largest unresolved
-    job) reporting 255 instead of its response byte.
+    A NOTE ON WHAT THIS IS NOT. A control-flow-faithful executor (follow
+    unconditional jumps, enter rotated loop bodies at iteration zero) was
+    built and rejected: each compiler topology it fixed broke another --
+    following AIF_LESEN's rotation skipped MESSWERTBLOCK's dispatch table
+    and silently cost the loop specs their engine-verified iteration
+    records. The linear scan's known blind spot is the rotated loop, where
+    a first-record field can shift by one stride; that is a bounded,
+    documented error, where the executor's failures were unbounded and
+    silent. Revisit only with per-job regression coverage in place.
     """
-    m = Machine()
-    out = {}
-    consts = {}
     skip_until = None
     for start, name, args in S.walk(data, addr):
-        # resume exactly AT the branch target -- the instruction there is the
-        # join point and belongs to both paths
+        # resume exactly AT the branch target -- the instruction there is
+        # the join point and belongs to both paths
         if skip_until is not None and start >= skip_until:
             skip_until = None
-        # a forward conditional jump: ignore the instructions it may hop over.
-        # Only short hops (the sign-extension idiom is two instructions); a
-        # long forward jump is ordinary control flow whose body holds the
-        # result stores, and skipping that resolves nothing at all.
         if name in _COND_JUMPS and args and "v" in args[0]:
             target = args[0]["v"]
             if start < target <= start + 32:
@@ -375,6 +432,20 @@ def resolve_result_bytes(data, addr, want_consts=False):
             continue
         if skip_until is not None and start < skip_until:
             continue
+        yield start, name, args
+
+
+def resolve_result_bytes(data, addr, want_consts=False):
+    """{result_name: [byte offsets]} for results the direct lifter misses.
+
+    Runs the abstract machine over the job (see _linear_scan), and when an
+    `erg*` stores from a register, reports the response bytes that
+    register's value came from.
+    """
+    m = Machine()
+    out = {}
+    consts = {}
+    for start, name, args in _linear_scan(data, addr):
         if name.startswith("erg") and args and "s" in args[0]:
             nm = args[0]["s"]
             src = args[1] if len(args) > 1 else None
@@ -428,18 +499,7 @@ def resolve_transforms(data, addr):
     m = Machine()
     out = {}
     mask = add = None
-    skip_until = None
-    for start, name, args in S.walk(data, addr):
-        if skip_until is not None and start >= skip_until:
-            skip_until = None
-        if name in _COND_JUMPS and args and "v" in args[0]:
-            target = args[0]["v"]
-            if start < target <= start + 32:
-                skip_until = max(skip_until or 0, target)
-            continue
-        if skip_until is not None and start < skip_until:
-            continue
-
+    for start, name, args in _linear_scan(data, addr):
         if name in ("and", "adds", "addc") and len(args) == 2 and m.seen_send:
             operand = m.get(args[1])
             target = m.get(args[0])
@@ -448,7 +508,11 @@ def resolve_transforms(data, addr):
             # as a value transform -- JOB_STATUS came out with `addend: 4`,
             # and MS450's AIF_KM picked up a stray +5 that made it decode 5
             # where the engine says 0.
-            derived = isinstance(target, (Byte, Sum))
+            # A Sum of only Slot symbols is scratch bookkeeping, not wire
+            # data -- transforms must not lift from it.
+            derived = isinstance(target, Byte) or (
+                isinstance(target, Sum)
+                and any(isinstance(t, Byte) for t in target.terms))
             if isinstance(operand, int) and derived:
                 if name == "and":
                     # a full-width mask strips the protocol header; only a
@@ -495,24 +559,56 @@ def detect_loop(data, addr):
     if not has_back_branch:
         return None
 
-    cursor = counter = stride_slot = None
-    prev_slots = []
-    for start, name, args in S.walk(data, addr):
-        if name == "move" and len(args) == 2 and args[1].get("m") == 9 \
-                and args[1].get("r") == "S0":
-            prev_slots.append(args[1].get("i"))
+    # The cursor is found SEMANTICALLY, not by instruction adjacency. The
+    # first version matched the syntactic shape "read S0[a], read S0[b],
+    # write S0[a]" -- which held for MESSWERTBLOCK_0/_1 and silently missed
+    # _2/_3, whose signed handling interleaves sign-extension writes between
+    # the stride read and the cursor write. The property that defines a
+    # cursor is in the VALUES: a slot rewritten as ITSELF plus a
+    # response-derived stride. The abstract machine already computes exactly
+    # that (the advance arrives through the stack, which is why atsp depth
+    # semantics matter here), so ask it.
+    m = Machine()
+    cursor = counter = stride_slot = stride_const = None
+    for start, name, args in _linear_scan(data, addr):
         if name == "move" and len(args) == 2 and args[0].get("m") == 9 \
-                and args[0].get("r") == "S0" and len(prev_slots) >= 2:
+                and args[0].get("r") == "S0":
             dst = args[0].get("i")
-            if dst == prev_slots[-2] and prev_slots[-1] != dst:
-                cursor, stride_slot = dst, prev_slots[-1]
-            elif dst == prev_slots[-1]:
+            old = m.slots.get(dst)
+            val = m.get(args[1])
+            if isinstance(val, Sum) and isinstance(old, int) \
+                    and val.const == old:
+                # cursor = its own old position plus a stride SYMBOL; the
+                # symbol names the slot the stride lives in
+                # (MESSWERTBLOCK_0/_1: the ECU declares the record width)
+                for t in val.terms:
+                    if isinstance(t, Slot) and t.idx != dst:
+                        cursor, stride_slot = dst, t.idx
+                        break
+            elif isinstance(val, int) and isinstance(old, int) \
+                    and val == old + 1:
                 counter = dst
-            prev_slots = []
+            elif isinstance(val, int) and isinstance(old, int) \
+                    and val > old + 1 and cursor is None:
+                # advance by a CONSTANT stride: the signed variants (_2/_3)
+                # hardcode their record width, so the machine resolves the
+                # whole sum to a number and no symbol survives. +1 is the
+                # counter; anything larger is a cursor. Matches the engine:
+                # MESSWERT3 reads the word at 2 + 3*2 = 8. Weakest of the
+                # three rules -- other slots also step by constants (text
+                # pointers) -- so it fills in only where nothing stronger
+                # has, and never overrides the symbolic match.
+                cursor, stride_const = dst, val - old
+        m.step(name, args)
     if cursor is None:
         return None
-    return {"cursorSlot": cursor, "strideSlot": stride_slot,
-            "counterSlot": counter}
+    out = {"cursorSlot": cursor, "strideSlot": stride_slot,
+           "counterSlot": counter}
+    if stride_slot is None and stride_const is not None:
+        # the record width is hardcoded in the bytecode, so the spec can
+        # state it outright instead of naming a slot to read at runtime
+        out["stride"] = stride_const
+    return out
 
 
 def main():
