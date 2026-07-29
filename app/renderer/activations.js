@@ -14,7 +14,7 @@ function actLabel(a) {
   // MenuGen builds these from the job name, so German nouns survive into the
   // label ("Relay Frontscheibe", "Heizspannung ..."); translate before showing.
   const tr = (s) => (typeof deGerman === 'function' ? (deGerman(s) || s) : s);
-  if (inpaMode() && a.inpaLabel) return tr(a.inpaLabel);
+  if (inpaMode() && a.inpaLabel) return a.inpaLabelEn || tr(a.inpaLabel);
   return tr((a.label || a.start).replace(/^Activate /, ''));
 }
 
@@ -323,6 +323,19 @@ async function showActivations(ecu, sec, container, exitAction) {
   let acts;
   try { acts = await api(`/api/ecu/${ecu.sgbd}/activations`); }
   catch (e) { container.innerHTML = errorBlock(e.message); sbLeft.textContent = 'failed'; return; }
+
+  // INPA's own actuator captions, carried in the IR (steuernLabels: job ->
+  // caption as INPA prints it). Resolved here, where the ECU is in scope, so
+  // actLabel needs no ECU context: inpaLabel is the raw caption, inpaLabelEn
+  // the per-ECU translation when the i18n layer has one (irLabel semantics).
+  const stl = (ecu._ir && ecu._ir.steuernLabels) || {};
+  const i18n = (ecu._ir && ecu._ir.i18n) || {};
+  for (const a of acts) {
+    const cap = stl[a.start];
+    if (!cap) continue;
+    a.inpaLabel = cap;
+    if (Object.prototype.hasOwnProperty.call(i18n, cap)) a.inpaLabelEn = i18n[cap];
+  }
 
   // INPA's own decoded actuator menus (each key carries the exact value INPA
   // sends). Shown first — they are the faithful control set; the job list below

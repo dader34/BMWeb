@@ -134,6 +134,92 @@ _APP_TOOL = re.compile(r"\.ipo$|^kvp_edit|^\\\\?inpa\\\\|\\\\sgdat\\\\", re.I)
 _DE_MARKERS = re.compile(r"\b(lesen|Fehler|Drehzahl|Speicher|Spannung|"
                          r"Zurueck|Zurück|Ansteuern|Kennung|Werte?)\b")
 
+# ---------------------------------------------------------------------------
+# Actuator (STEUERN_) captions, absorbed from the former steuern_layout.py.
+#
+# INPA compiles each actuator test as a pair of blocks: the start job
+# (STEUERN_X) and its stop job (STEUERN_X_ENDE). Only the stop block carries a
+# human caption -- the "...Ansteuerung beendet!" acknowledgement INPA prints
+# when the test ends. The start block holds nothing but the job name and its
+# JOB_STATUS/OKAY check, so a nearest-string scan from the START job walks into
+# the NEXT actuator's caption and mislabels almost every entry.
+#
+# This is a string-pool adjacency scan over the raw bytes, not a decompiler
+# pass: the pairing lives in string ORDER, which the decoded token stream does
+# not preserve across blocks. It produced data/steuern-labels.json for a year;
+# the fold into the IR keeps its output byte-identical (verified at fold time).
+
+# printable runs, latin-1: the .IPO keeps German captions in CP1252/latin-1
+_ST_RUN = re.compile(rb"[\x20-\x7e\xa0-\xff]{3,}")
+# a bare code token, result name, or number is never a caption
+_ST_NOISE = re.compile(r"^(JOB_STATUS|OKAY|ERROR|[A-Z0-9_]+|[\d.,;x\s+-]+)$")
+_ST_STOP = re.compile(r"^(STEUERN_[A-Z0-9_]+?)_(ENDE|AUS|STOP)$")
+
+# INPA screen chrome and job-failure text: these sit in the same string pool
+# and would otherwise be captured as an actuator's name
+_ST_CHROME = re.compile(
+    r"fehler\s+bei|job-?status|^\s*(drucken|print|info|status|auswahl|selection"
+    r"|aktive\s+fehlermeldung|ende|exit|zur(ü|ue)ck|back|weiter)\s*$"
+    r"|^\s*(activate|ansteuern|steuern|aktivieren|ein|aus|on|off|start|stop)\s*$",
+    re.I)
+
+# acknowledgement wording INPA appends to the component name; stripped so the
+# button reads "E-Lüfter", not "E-Lüfteransteuerung beendet!"
+_ST_STRIP = [
+    (re.compile(r"\s*-?\s*ansteuerung\s+beendet\s*!?\s*$", re.I), ""),
+    (re.compile(r"\s*ansteuerung\s*$", re.I), ""),
+    (re.compile(r"^\s*status\s+", re.I), ""),
+    (re.compile(r"\s+(ein|aus|on|off)\s*$", re.I), ""),
+    (re.compile(r"\s*!+\s*$"), ""),
+]
+
+
+def _st_is_caption(s):
+    """A human-readable caption, not a code token / result name / number."""
+    s = s.strip()
+    if not 4 <= len(s) <= 60:
+        return False
+    if _ST_NOISE.fullmatch(s):
+        return False
+    if s.startswith(("STEUERN", "STATUS_", "STAT_", "_TEL", "ergebnis")):
+        return False
+    if _ST_CHROME.search(s):
+        return False
+    return bool(re.search(r"[a-zäöüß]", s))
+
+
+def _st_clean(caption):
+    """Acknowledgement text -> component name."""
+    s = caption.strip()
+    for pat, rep in _ST_STRIP:
+        s = pat.sub(rep, s)
+    return s.strip(" -:\t") or caption.strip()
+
+
+def _steuern_labels(data):
+    """{start_job: caption} mined from the raw .IPO bytes."""
+    seq = [m.group(0).decode("latin-1") for m in _ST_RUN.finditer(data)]
+    out = {}
+    for i, s in enumerate(seq):
+        m = _ST_STOP.fullmatch(s)
+        if not m:
+            continue
+        start = m.group(1)
+        if start in out:
+            continue
+        # the caption sits just past the stop job, before the next block's
+        # JOB_STATUS/OKAY check
+        for nxt in seq[i + 1:i + 6]:
+            if not _st_is_caption(nxt):
+                continue
+            label = _st_clean(nxt)
+            # stripping the acknowledgement can leave bare chrome ("Status")
+            if len(label) < 2 or _ST_CHROME.search(label):
+                continue
+            out[start] = label
+            break
+    return out
+
 
 def _language(pool):
     votes = 0
@@ -1205,12 +1291,22 @@ def build(ecu):
                 continue
             if 11 <= n <= 19 and (n - 10) in nrs:
                 it["shift"] = True
+    # Actuator captions, mined from the same file's string pool (see
+    # _steuern_labels above). {STEUERN_X: "component name"} -- the names INPA
+    # itself prints; the app's Activations view joins them to /activations by
+    # job. Emitted only when the mine found something, so a diff against the
+    # retired data/steuern-labels.json stays one-to-one.
+    st = _steuern_labels(data)
+    if st:
+        ir["steuernLabels"] = st
     # Every caption this ECU displays, gathered once. The renderer used to
     # translate at draw time -- 24 call sites, the same string re-resolved on
     # every repaint -- which also meant a per-ECU correction had nowhere to
     # live. tools/ipo_i18n.js fills this in from the shared vocabulary plus
     # data/inpa-i18n/<ECU>.json, and the interpreter then just looks up.
     strings = set()
+    for lab in (ir.get("steuernLabels") or {}).values():
+        strings.add(lab)
     for menu in ir["menus"].values():
         for it in menu["items"]:
             if it.get("label"):
