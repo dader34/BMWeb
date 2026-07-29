@@ -190,7 +190,13 @@ def extract(data, addr, sgbd, job):
         elif name in ("fix2flt", "a2flt") and pending_int is not None:
             pending_fdiv = pending_int
             pending_int = None
-        elif name == "fdiv" and pending_fdiv:
+        elif name == "fdiv" and pending_fdiv \
+                and freg_const.get((args[0] or {}).get("r")) is None:
+            # dividing a KNOWN CONSTANT is arithmetic, not a scale: ASCMK20's
+            # zero-default branch computes 0/1 into the same register the
+            # real branch scales by 100, and recording its "scale" of 1.0
+            # crowded the real 0.01 into altScales. Wire data has no
+            # freg_const entry, so the target being known means fold, skip.
             pending_scale = 1.0 / pending_fdiv
             pending_off = 0.0
             pending_fdiv = None
@@ -212,13 +218,33 @@ def extract(data, addr, sgbd, job):
                 # only 28% of its results with offsets.
                 resp_reg.add(dst_r)
                 payload_regs.add(dst_r)
-        if name == "move" and len(args) == 2 and "r" in args[0]:
+        if name == "move" and len(args) == 2 and "r" in args[0] \
+                and args[0].get("m") in (1, 2, 3, 4):
+            dst_reg = args[0]["r"]
+            # a write stales every VIEW sharing the storage: `move B0, ...`
+            # invalidates what reg_num knew about L0
+            for rr in (BA._overlaps(dst_reg) if dst_reg[0] in "BIL"
+                       else {dst_reg}):
+                if rr != dst_reg:
+                    reg_num.pop(rr, None)
             if "v" in args[1]:
-                reg_num[args[0]["r"]] = args[1]["v"]
+                reg_num[dst_reg] = args[1]["v"]
             elif "r" in args[1] and args[1]["r"] in reg_num:
-                reg_num[args[0]["r"]] = reg_num[args[1]["r"]]
+                reg_num[dst_reg] = reg_num[args[1]["r"]]
             else:
-                reg_num.pop(args[0]["r"], None)
+                reg_num.pop(dst_reg, None)
+        elif name in ("pop", "atsp", "clear", "adds", "addc", "subb",
+                      "subc", "mult", "div", "mod", "asl", "lsl", "lsr",
+                      "asr", "and", "or", "xor", "not", "slen", "a2fix",
+                      "flt2fix") and args and "r" in args[0] \
+                and args[0].get("m") in (1, 2, 3, 4):
+            # these WRITE their first operand; the constant is gone. Without
+            # this, `atsp L2, #$8` left a stale constant on L2 and a
+            # fix2flt of response data was mistaken for a constant load.
+            dst_reg = args[0]["r"]
+            for rr in (BA._overlaps(dst_reg) if dst_reg[0] in "BIL"
+                       else {dst_reg}):
+                reg_num.pop(rr, None)
         if name in SEND_OPS:
             # Response offsets only exist AFTER the telegram goes out. The
             # request-building phase uses the same stage-and-index shape
@@ -267,7 +293,8 @@ def extract(data, addr, sgbd, job):
                 freg_const[args[0]["r"]] = inline
             elif last_float_const is not None:
                 freg_const[args[0]["r"]] = last_float_const
-        elif name == "fmul" and len(args) == 2:
+        elif name == "fmul" and len(args) == 2 \
+                and freg_const.get(args[0].get("r")) is None:
             src, dst = args[1].get("r"), args[0].get("r")
             if src in freg_const:
                 pending_scale = freg_const[src]
@@ -290,7 +317,8 @@ def extract(data, addr, sgbd, job):
                 fapplied[dst][1] = pending_off
         elif name == "fdiv" and len(args) == 2 \
                 and args[1].get("r") in freg_const \
-                and freg_const[args[1]["r"]]:
+                and freg_const[args[1]["r"]] \
+                and freg_const.get(args[0].get("r")) is None:
             # a division IS a scale, stated as its reciprocal: STAT_AUSGANG
             # is the PWM byte / 2.56, which the engine reports as raw*0.390625
             # truncated by the ergi. The divisor reaches here the same way
@@ -316,7 +344,15 @@ def extract(data, addr, sgbd, job):
                 fapplied.pop(dst, None)
         elif name in ("fix2flt", "flt2fix", "a2fix") and args \
                 and (args[0].get("r") or "").startswith("F"):
-            freg_const.pop(args[0]["r"], None)
+            # fix2flt of a register holding a KNOWN integer is a constant
+            # load into float space -- ASCMK20's `move L0,#$64` /
+            # `fix2flt F1,L0` is how the divisor 100 arrives. A conversion
+            # of anything else (response data, stack values) invalidates.
+            csrc = args[1].get("r") if len(args) > 1 else None
+            if name == "fix2flt" and csrc in reg_num:
+                freg_const[args[0]["r"]] = float(reg_num[csrc])
+            else:
+                freg_const.pop(args[0]["r"], None)
             fapplied.pop(args[0]["r"], None)
         elif name in RANGE_READ_OPS and len(args) == 2 \
                 and args[1].get("m") in (12, 13, 14, 15) and seen_send:
@@ -426,11 +462,18 @@ def extract(data, addr, sgbd, job):
                 # the engine returns one, and a duplicated name would make the
                 # spec's result set structurally wrong even though the schema
                 # check, which compares sets, cannot see it.
-                if name == "ergr" and pending_scale is not None \
-                        and pending_scale != prev.get("scale"):
-                    prev.setdefault("altScales", [])
-                    if pending_scale not in prev["altScales"]:
-                        prev["altScales"].append(pending_scale)
+                if name == "ergr" and pending_scale is not None:
+                    if prev.get("scale") is None:
+                        # the earlier branch computed a constant (ASCMK20's
+                        # zero default) and rightly claimed no scale; the
+                        # branch that scales wire data owns the slot
+                        prev["scale"] = pending_scale
+                        if pending_off:
+                            prev["offset"] = pending_off
+                    elif pending_scale != prev.get("scale"):
+                        prev.setdefault("altScales", [])
+                        if pending_scale not in prev["altScales"]:
+                            prev["altScales"].append(pending_scale)
                 prev["branches"] = prev.get("branches", 1) + 1
                 pending_scale = pending_off = None
                 continue
@@ -706,6 +749,74 @@ def extract(data, addr, sgbd, job):
                 r["base"] = "payload"
                 r["width"] = len(b)
                 r["via"] = "dataflow"
+
+    # ---- enumeration selectors -------------------------------------------
+    # A string result stored once per branch of a comparison ladder is an
+    # ENUMERATION -- BMBT's deck status reads byte 3, dispatches through
+    #     comp L0,#$1 / jz Lcase1
+    #     comp L0,#$0 / jz Lcase0
+    #     jump Ldefault
+    # and each case block stores its own literal. The values were already
+    # collected; what makes them DECODABLE is which compared constant selects
+    # which text, plus the default for codes the ladder does not name
+    # (the engine reports "Code nicht definiert" for 0x11).
+    # The compared constant is read through the ABSTRACT MACHINE, because
+    # only the oldest ladders compare against an immediate -- BMBT46TN
+    # stages each constant through push/pop (`move L0,#$0 / push / pop L1 /
+    # comp L0,L1`), which no syntactic match can see. `jz` selects the jump
+    # target as the case block; `jnz` is the inverted shape, where the case
+    # block is the FALL-THROUGH.
+    case_key, default_blocks = {}, set()
+    prev_cmp, in_ladder = None, False
+    _lm = BA.Machine()
+    next_addr = {ops[i][0]: ops[i + 1][0] for i in range(len(ops) - 1)}
+    for st, name, a in ops:
+        if name == "comp" and len(a) == 2:
+            vals = [_lm.get(a[0]), _lm.get(a[1])]
+            const = next((v for v in reversed(vals)
+                          if isinstance(v, int)), None)
+            prev_cmp, in_ladder = const, True
+        elif name == "jz" and prev_cmp is not None and a and "v" in a[0]:
+            case_key[a[0]["v"]] = prev_cmp
+            prev_cmp = None
+        elif name == "jnz" and prev_cmp is not None and st in next_addr:
+            case_key[next_addr[st]] = prev_cmp
+            prev_cmp = None
+        elif name == "jump" and in_ladder and a and "v" in a[0]:
+            default_blocks.add(a[0]["v"])
+            in_ladder = False
+        elif name not in ("nop",):
+            prev_cmp = None
+            if name not in ("jz", "jnz"):
+                in_ladder = False
+        _lm.step(name, a)
+    if case_key:
+        enum_map, enum_default = {}, {}
+        cur, lit_reg = None, {}
+        for st, name, a in ops:
+            if st in case_key:
+                cur = ("case", case_key[st])
+            elif st in default_blocks:
+                cur = ("default",)
+            if name == "move" and len(a) == 2 and "r" in a[0] and "s" in a[1]:
+                lit_reg[a[0]["r"]] = a[1]["s"]
+            elif name == "ergs" and a and "s" in a[0] and cur is not None:
+                nm = a[0]["s"]
+                lit = a[1].get("s") if len(a) > 1 and "s" in a[1] \
+                    else lit_reg.get(a[1].get("r")) if len(a) > 1 else None
+                if lit is not None:
+                    if cur[0] == "case":
+                        enum_map.setdefault(nm, {})[str(cur[1])] = lit
+                    else:
+                        enum_default[nm] = lit
+                cur = None
+        for r in results:
+            m = enum_map.get(r["name"])
+            if m and r.get("bytes") and len(m) + (1 if r["name"] in
+                                                 enum_default else 0) >= 2:
+                r["enumMap"] = m
+                if r["name"] in enum_default:
+                    r["enumDefault"] = enum_default[r["name"]]
 
     # ---- honesty pass ----------------------------------------------------
     # A REPEATED offset inside one value is the direct lifter's accumulation

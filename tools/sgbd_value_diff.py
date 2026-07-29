@@ -183,9 +183,17 @@ def decode_with_spec(spec, telegram):
             out[r["name"]] = None
             continue
         if r.get("convert") in ("bcd", "hex"):
-            # y2bcd/y2hex render each byte as its two hex NIBBLES, which for
-            # BCD data are the decimal digits: 0x55 -> "55".
-            txt = "".join(f"{telegram_[o]:02X}" for o in offs)
+            # y2hex renders each byte as two hex digits. y2bcd is NOT the
+            # same: a nibble above 9 is not a BCD digit, and the engine
+            # renders it as "*" (ValueToBcd) -- 0x1F comes out "1*", not
+            # "1F". BMBT's cassette hour counter is exactly such data.
+            if r["convert"] == "bcd":
+                txt = "".join(
+                    (f"{n:X}" if n <= 9 else "*")
+                    for o in offs
+                    for n in ((telegram_[o] >> 4) & 0xF, telegram_[o] & 0xF))
+            else:
+                txt = "".join(f"{telegram_[o]:02X}" for o in offs)
             if r.get("ascii"):
                 # ...and the two conversions COMPOSE, they are not
                 # alternatives: AIC renders byte 12 as "AA" with y2bcd and
@@ -197,6 +205,15 @@ def decode_with_spec(spec, telegram):
                 out[r["name"]] = int(digits) if digits else 0
             else:
                 out[r["name"]] = txt
+            continue
+        if r.get("enumMap"):
+            # an in-code switch: the byte selects one of the ladder's
+            # literals, anything unlisted gets the default block's text
+            key = 0
+            for o in offs:
+                key = (key << 8) | telegram_[o]
+            out[r["name"]] = r["enumMap"].get(
+                str(key), r.get("enumDefault"))
             continue
         if r.get("type") == "string":
             # a string result is the BYTES, not a number built from them:
