@@ -138,6 +138,46 @@ Getting to that number surfaced four things worth keeping:
   marks them `deadStore`. The spec reproduces the engine bug for bug; that is
   the whole contract.
 
+## Response-byte offsets
+
+Scale and unit were lifted first; the offsets a walker needs to know WHICH
+bytes to scale came second, and they are never immediates in the read
+instruction. Three shapes carry them, all now lifted:
+
+    move L0, #$a / atsp L1 / move A0, S1[L1]   staged index  (numeric fields)
+    move S5, S1[L0]#L1                         range read    (strings)
+    y2bcd S4, S1[L0]#L1                        range + convert (BCD/hex)
+    move I0, S0[#$6]                           direct index  (simple fields)
+
+62.5% of value results (2672/4272) now carry offsets, verified end to end:
+MS450's battery voltage and both RPM values decode bit-identically to the
+engine. Constraints that only surfaced by getting a wrong answer first:
+
+- offsets are **payload-relative**, not frame-relative (12.00 V vs 1.87 V)
+- reads count only against the register `xsend` names, plus its aliases --
+  including `move S4, S3[A2]#I2`, which slices the payload out of the raw
+  telegram. `S0` is scratch: counting `move I0, S0[#$0]` as a response read
+  appended a phantom byte and turned 1000 rpm into 256024.5
+- `etag` delimits one result's code from the next, or the RPM setpoint
+  inherits the preceding result's offsets
+
+## What the remaining 37.5% needs
+
+The 1372 results without offsets are NOT another read shape. Tracing
+`ms450ds0:STATUS_MESSWERTBLOCK_0` -- 48 of them in one job -- the values are
+emitted as `ergr "STAT_MESSWERT0_WERT", F0`, where `F0` was computed further
+up from a scratch slot (`S0[#$a]`) that was itself filled through the operand
+stack. The 16 measurement blocks are fully unrolled (16 distinct emit sites at
+a uniform 297-byte stride), so nothing is hidden behind a runtime loop -- the
+byte source is simply several dataflow steps removed from the store.
+
+Reaching them means a small abstract interpreter over the operand stack:
+model push/pop/atsp plus integer arithmetic on known constants, and resolve
+`S0` slots to the response bytes that fed them. A prototype resolved 18 of 26
+slot writes in that job, but attributed request-phase constants to them, so it
+needs the same send-boundary discipline the direct lifter already has. That is
+the next piece of work rather than a variation on this one.
+
 ## Where this leaves the plan
 
 Schema agreement is necessary but not sufficient: it proves the spec knows
