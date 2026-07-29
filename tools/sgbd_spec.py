@@ -144,6 +144,15 @@ def extract(data, addr, sgbd, job):
     # A unit is written either inline (`ergs "X_EINH", "V"`) or -- more often --
     # staged through a register first (`move S1, "V"` then `ergs "X_EINH", S1`),
     # so track the last string literal moved into each register.
+    # Transformations applied before a store (bit mask, integer offset).
+    # Computed by the interpreter, which models the stack -- the constant
+    # reaches the operand register through push/pop, so neither an immediate
+    # match nor a register tracker can see it.
+    try:
+        _xform = BA.resolve_transforms(data, addr)
+    except Exception:                                       # noqa: BLE001
+        _xform = {}
+
     results, pending_scale, pending_off = [], None, None
     units, reg_str = {}, {}
     # response-byte offsets staged for the result currently being built
@@ -151,6 +160,8 @@ def extract(data, addr, sgbd, job):
     pending_bytes, pending_shift = [], False
     pending_range = False
     pending_conv = None
+    pending_int = pending_fdiv = None
+    pending_mask = pending_add = None
     reg_num = {}                 # register -> last integer constant moved in
     # registers holding the response telegram. The bytecode routinely aliases
     # it (`xsend S3, ...` then `move S1, S3`) and reads through the copy, so
@@ -161,6 +172,25 @@ def extract(data, addr, sgbd, job):
     seen_send = False
     for _, name, args in ops:
         strs = [a["s"] for a in args if "s" in a]
+        # An INTEGER divisor staged for fdiv, watched SEPARATELY from the main
+        # dispatch below. Scales are not always float literals: BM_WIDE's
+        # battery voltage is `move L0, #$a` / fix2flt / fdiv -- a divide by ten
+        # the lifter never saw, so it reported the raw byte 53 where the engine
+        # reports 5.3. This must not sit in the same elif chain as the
+        # staged-index reader, which matches the identical instruction shape:
+        # doing so stole every `move L0, #$n` and dropped byte coverage from
+        # 69% to 29%.
+
+        if name == "move" and len(args) == 2 and "v" in args[1] \
+                and args[0].get("r", "").startswith("L"):
+            pending_int = args[1]["v"]
+        elif name in ("fix2flt", "a2flt") and pending_int is not None:
+            pending_fdiv = pending_int
+            pending_int = None
+        elif name == "fdiv" and pending_fdiv:
+            pending_scale = 1.0 / pending_fdiv
+            pending_off = 0.0
+            pending_fdiv = None
         # constants staged in registers, so a substring read whose index and
         # length are register-held can still be resolved
         if name == "move" and len(args) == 2 and "r" in args[0] and seen_send:
@@ -360,6 +390,12 @@ def extract(data, addr, sgbd, job):
             # register can be attributed to this result below
             if len(args) > 1 and "r" in args[1]:
                 r["_srcReg"] = args[1]["r"]
+            # mask/addend do NOT require pending_bytes: the offsets for
+            # these results are often recovered later by the interpreter,
+            # while the transformation is visible right here in the
+            # instruction stream. Gating on pending_bytes dropped both.
+            r_mask = _xform.get(nm, {}).get("mask")
+            r_add = _xform.get(nm, {}).get("addend")
             if pending_bytes:
                 # The response bytes this result was built from, in the order
                 # the bytecode read them, indexed from the start of the
@@ -390,7 +426,12 @@ def extract(data, addr, sgbd, job):
                     and "r" in args[1] else None)
                 if lit:
                     r["values"] = [lit]
+            if r_mask is not None:
+                r["mask"] = r_mask
+            if r_add:
+                r["addend"] = r_add
             results.append(r)
+            pending_mask = pending_add = None
             pending_scale = pending_off = None
             pending_index = staged_index = None
     pending_bytes, pending_shift = [], False

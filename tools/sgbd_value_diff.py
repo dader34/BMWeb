@@ -219,6 +219,12 @@ def decode_with_spec(spec, telegram):
         raw = 0
         for o in offs:                      # big-endian, in bytecode read order
             raw = (raw << 8) | telegram_[o]
+        # transformations the bytecode applies before the store, in its order:
+        # mask selects a bit field, then a constant offset is added
+        if r.get("mask") is not None:
+            raw &= r["mask"]
+        if r.get("addend"):
+            raw += r["addend"]
         # A loop record's scale lives in the SGBD table, one row per
         # iteration, not in the bytecode -- so it can only be applied by
         # reading that table.
