@@ -51,6 +51,13 @@ ERG_TYPE = {"ergb": "byte", "ergw": "word", "ergd": "dword", "ergi": "int",
             "ergc": "char"}
 
 # results that are protocol bookkeeping rather than ECU data
+# Protocol bookkeeping rather than ECU data.
+#
+# Only the _TEL_ prefixed tags belong here. The bare _AUFTRAG1 / _ANTWORT1
+# (ASCMK20) and _ANTWORT (LSZ, CVM_II) LOOK like the same internal telegrams,
+# but the engine declares them as genuine results for those SGBDs -- filtering
+# them cost 8 jobs their schema agreement. What a job publishes is the SGBD's
+# decision, not a naming convention we get to infer.
 INTERNAL = re.compile(r"^(_TEL_|JOB_|SAETZE|VARIANTE$)")
 
 
@@ -132,8 +139,18 @@ def extract(data, addr, sgbd, job):
     units, reg_str = {}, {}
     for _, name, args in ops:
         strs = [a["s"] for a in args if "s" in a]
-        if name == "move" and strs and len(args) == 2 and "r" in args[0]:
-            reg_str[args[0]["r"]] = strs[-1]
+        # Track literal strings staged in registers -- but a register loaded
+        # from ANOTHER register (`move S1, S4`) now holds computed data, so
+        # its literal binding must be dropped. Without this the tracker goes
+        # stale and attributes a much earlier literal to an unrelated result:
+        # BMBT46's CASSETTENDECK_BETRIEBSSTUNDENZAEHLER, an hour counter,
+        # picked up "undefinierter Tastenstatus" from a preceding branch.
+        if name in ("move", "clear") and len(args) >= 1 and "r" in args[0]:
+            dst = args[0]["r"]
+            if name == "move" and strs and len(args) == 2 and "s" in args[1]:
+                reg_str[dst] = args[1]["s"]
+            else:
+                reg_str.pop(dst, None)
         if name == "move" and strs:
             v = _num(strs[-1])
             if v is not None:
@@ -174,14 +191,63 @@ def extract(data, addr, sgbd, job):
                 # that folded it into a `unit` field would produce a result set
                 # the engine's consumers do not see. Emit both -- the spec's job
                 # is to reproduce the engine's output, not to improve on it.
-                results.append({"name": nm, "type": "string",
-                                **({"const": val} if val else {})})
+                # Written from several branches (one per variant's unit), so
+                # collapse onto the existing entry the same way values do.
+                prior = next((x for x in results if x["name"] == nm), None)
+                if prior is not None:
+                    if val and val != prior.get("const"):
+                        prior.setdefault("altConst", [])
+                        if val not in prior["altConst"]:
+                            prior["altConst"].append(val)
+                else:
+                    results.append({"name": nm, "type": "string",
+                                    **({"const": val} if val else {})})
+                continue
+            prev = next((x for x in results if x["name"] == nm), None)
+            if prev is not None and name != "ergs":
+                # Same non-string result stored from several branches: one
+                # result, computed differently per variant or per response
+                # shape (ASCMK20 writes each wheel speed from two branches,
+                # EWS COD_LESEN writes COD_DME_SS from three). Record the
+                # alternative scales so nothing is lost, but emit ONE result --
+                # the engine returns one, and a duplicated name would make the
+                # spec's result set structurally wrong even though the schema
+                # check, which compares sets, cannot see it.
+                if name == "ergr" and pending_scale is not None \
+                        and pending_scale != prev.get("scale"):
+                    prev.setdefault("altScales", [])
+                    if pending_scale not in prev["altScales"]:
+                        prev["altScales"].append(pending_scale)
+                prev["branches"] = prev.get("branches", 1) + 1
+                pending_scale = pending_off = None
+                continue
+            if prev is not None and name == "ergs":
+                # The SAME string result written from several mutually
+                # exclusive branches is an ENUMERATION, not several results:
+                # BMBT46's CASSETTEN_STATUS_TEXT has one store per deck state
+                # ("Wiedergabe", "Eject, Standby, ..."), guarded by a comp on
+                # the status byte, and exactly one executes. Collect the
+                # alternatives instead of emitting the name repeatedly.
+                lit = strs[1] if len(strs) >= 2 else (
+                    reg_str.get(args[1]["r"]) if len(args) > 1
+                    and "r" in args[1] else None)
+                if lit:
+                    prev.setdefault("values", [])
+                    if lit not in prev["values"]:
+                        prev["values"].append(lit)
+                pending_scale = pending_off = None
                 continue
             r = {"name": nm, "type": ERG_TYPE[name]}
             if name == "ergr" and pending_scale is not None:
                 r["scale"] = pending_scale
                 if pending_off:
                     r["offset"] = pending_off
+            if name == "ergs":
+                lit = strs[1] if len(strs) >= 2 else (
+                    reg_str.get(args[1]["r"]) if len(args) > 1
+                    and "r" in args[1] else None)
+                if lit:
+                    r["values"] = [lit]
             results.append(r)
             pending_scale = pending_off = None
     # attach units to their value results (STAT_UBATT_WERT <- STAT_UBATT_EINH)
