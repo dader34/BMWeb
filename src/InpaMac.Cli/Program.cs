@@ -230,6 +230,50 @@ internal static class Program
                     return 0;
                 }
 
+                // Batch form of simrun: read {sgbd, job, sim} requests as JSON
+                // lines on stdin, answer one JSON line each. Verifying the
+                // whole corpus one process per job costs ~1.6s of .NET startup
+                // each -- half an hour of doing nothing -- so the bulk harness
+                // (tools/sgbd_bulk_verify.py) drives this instead.
+                case "simbatch":
+                {
+                    string line;
+                    while ((line = Console.ReadLine()) != null)
+                    {
+                        if (line.Length == 0) continue;
+                        string rsgbd = null, rjob = null;
+                        try
+                        {
+                            using var doc = System.Text.Json.JsonDocument.Parse(line);
+                            var el = doc.RootElement;
+                            rsgbd = el.GetProperty("sgbd").GetString();
+                            rjob = el.GetProperty("job").GetString();
+                            string rsim = el.GetProperty("sim").GetString();
+                            string rarg = el.TryGetProperty("arg", out var av)
+                                ? av.GetString() : null;
+                            // a fresh engine per job: EDIABAS caches the loaded
+                            // SGBD and its simulation file, and reusing one
+                            // across ECUs answers the next job from the
+                            // previous ECU's telegrams.
+                            using var d = new Diag(ecuPath);
+                            d.AttachSimulation(Path.GetFullPath(rsim));
+                            d.Load(rsgbd);
+                            var s = d.Run(rjob, rarg);
+                            var os = s.Select(x => x.ToDictionary(
+                                kv => kv.Key, kv => Diag.Format(kv.Value))).ToList();
+                            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+                                new { sgbd = rsgbd, job = rjob, sets = os }));
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(
+                                new { sgbd = rsgbd, job = rjob, error = ex.Message }));
+                        }
+                        Console.Out.Flush();
+                    }
+                    return 0;
+                }
+
                 case "read":
                     return LiveFaultCodes(diag, sgbd, port, clear: false, new InpaConfig(inpaRoot, ecuPath));
 
