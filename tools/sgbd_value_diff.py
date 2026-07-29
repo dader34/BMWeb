@@ -150,16 +150,21 @@ def decode_with_spec(spec, telegram):
                            or o >= len(telegram_) for o in offs):
             out[r["name"]] = None
             continue
-        if r.get("convert") == "bcd":
-            # y2bcd renders each byte as its two hex NIBBLES, which for BCD
-            # data are the decimal digits: 0x55 -> "55". AIC's IDENT is built
-            # this way, and reading the byte as a number gave 85 where the
-            # engine reports 55. The spec already carried `convert`; the
-            # decoder was ignoring it.
-            out[r["name"]] = "".join(f"{telegram_[o]:02X}" for o in offs)
-            continue
-        if r.get("convert") == "hex":
-            out[r["name"]] = "".join(f"{telegram_[o]:02X}" for o in offs)
+        if r.get("convert") in ("bcd", "hex"):
+            # y2bcd/y2hex render each byte as its two hex NIBBLES, which for
+            # BCD data are the decimal digits: 0x55 -> "55".
+            txt = "".join(f"{telegram_[o]:02X}" for o in offs)
+            if r.get("ascii"):
+                # ...and the two conversions COMPOSE, they are not
+                # alternatives: AIC renders byte 12 as "AA" with y2bcd and
+                # then parses that text with a2fix. "AA" holds no decimal
+                # digits, so the engine reports 0 -- which is exactly what
+                # this job means by "no date". Treating bcd and ascii as
+                # either/or returned the raw "AA" instead.
+                digits = "".join(c for c in txt if c.isdigit())
+                out[r["name"]] = int(digits) if digits else 0
+            else:
+                out[r["name"]] = txt
             continue
         if r.get("type") == "string":
             # a string result is the BYTES, not a number built from them:
