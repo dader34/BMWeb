@@ -37,10 +37,8 @@ internal static class DiagnosticsEndpoints
                 return Results.Json(acts.Select(a => new
                 {
                     label = a.Label,
-                    // INPA's own caption for this actuator, mined from the .IPO
-                    // (null when the mine found none). The renderer shows it
-                    // verbatim in INPA mode; it is never translated.
-                    inpaLabel = SteuernLabels.For(state.Root, sgbd, a.Start),
+                    // INPA's own caption for this actuator lives in the IR
+                    // (steuernLabels); the renderer joins it by job.
                     start = a.Start, stop = a.Stop, momentary = a.Momentary, critical = a.Critical,
                     // arguments the SGBD declares, and whether we can supply
                     // them. A test needing a component selector (STEUERN_DIGITAL
