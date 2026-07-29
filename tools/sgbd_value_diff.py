@@ -107,6 +107,35 @@ def sent_telegram(trace_dir):
     return [int(b, 16) for b in sends[-1].split()] if sends else None
 
 
+_TABLE_CACHE = {}
+
+
+def sgbd_table(sgbd, table):
+    """Rows of an SGBD table, from the running app's offline endpoint.
+
+    Loop jobs carry a per-record SCALE in the SGBD's own table rather than in
+    the bytecode: MS450's sixteen measurements scale by 1/256, 1/8, 1,
+    0.000396729 ... one per UWNR row of FUmweltTexte. A decoder that ignores
+    the table gets the offsets right and every value wrong.
+    """
+    key = (sgbd.lower(), table.upper())
+    if key in _TABLE_CACHE:
+        return _TABLE_CACHE[key]
+    rows = []
+    port = os.environ.get("BMACW_PORT")
+    if port:
+        try:
+            import urllib.request
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{port}/api/ecu/{sgbd}/table/{table}",
+                    timeout=30) as r:
+                rows = json.load(r)
+        except Exception:                                   # noqa: BLE001
+            rows = []
+    _TABLE_CACHE[key] = rows
+    return rows
+
+
 def decode_with_spec(spec, telegram):
     """Decode a full response TELEGRAM per the lifted spec.
 
@@ -190,6 +219,24 @@ def decode_with_spec(spec, telegram):
         raw = 0
         for o in offs:                      # big-endian, in bytecode read order
             raw = (raw << 8) | telegram_[o]
+        # A loop record's scale lives in the SGBD table, one row per
+        # iteration, not in the bytecode -- so it can only be applied by
+        # reading that table.
+        lk = r.get("lookup") or {}
+        if r.get("iteration") is not None and lk.get("scaleColumn"):
+            # The scale for a loop record CANNOT be resolved statically. The
+            # table is keyed by MEASUREMENT NUMBER (FUmweltTexte.UWNR), and
+            # that number arrives in the ECU's response -- the caller asks for
+            # measurements by id, and the ECU says which it returned. Indexing
+            # the table by iteration position gives the wrong row: MS450's
+            # third measurement wants MUL_WORD 0.125, and row 2 holds
+            # 0.00390625.
+            #
+            # So this reports the RAW word and flags the record as needing the
+            # runtime key. A walker with the response in hand can do the
+            # lookup; a static decoder honestly cannot.
+            out[r["name"]] = raw
+            continue
         if r.get("scale") is not None:
             out[r["name"]] = raw * r["scale"] + (r.get("offset") or 0.0)
         else:

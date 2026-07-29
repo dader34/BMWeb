@@ -594,6 +594,61 @@ def extract(data, addr, sgbd, job):
         loop = None
     if loop:
         spec["repeat"] = loop
+        # Per-iteration OFFSETS. The lifted repeat says which scratch slots
+        # carry the cursor and stride, but a decoder needs the actual byte
+        # positions, and the interpreter's single linear pass reports every
+        # iteration at iteration ZERO's offsets -- which is why
+        # STATUS_MESSWERTBLOCK_0 returned one value sixteen times where the
+        # engine returns sixteen.
+        #
+        # The records are contiguous and equal-width, so iteration i sits at
+        # base + i*stride. Both fall out of the results themselves: indexed
+        # names (STAT_MESSWERT<n>_WERT) give i, and the width is the span the
+        # iteration-zero result already occupies. Verified against the engine
+        # on MS450: stride 2, so MESSWERT3 reads payload [6,7] = 15171,
+        # exactly what the engine reports.
+        idx_re = re.compile(r"^(.*?)([0-9A-F])(_WERT|_TEXT|_EINH|_STRING)$")
+        indexed = []
+        for r in results:
+            m = idx_re.match(r["name"])
+            if m and r.get("bytes"):
+                indexed.append((int(m.group(2), 16), m.group(1), m.group(3), r))
+        if len({stem for _, stem, _, _ in indexed}) == 1 and len(indexed) > 1:
+            zero = [r for i, _, _, r in indexed if i == 0]
+            if zero and zero[0].get("bytes"):
+                width = len(zero[0]["bytes"])
+                # The interpreter's iteration-zero offset IS the base -- no
+                # adjustment. Solved against the engine rather than reasoned
+                # about: MS450 reports MESSWERT3 = 15171, which is the word at
+                # PAYLOAD offset 8, and 2 + 3*2 = 8. An earlier attempt wound
+                # the base back one stride (on the theory that the cursor
+                # advances before the first store, which it does) and put
+                # every value one iteration out.
+                base = min(zero[0]["bytes"])
+                for i, _, suffix, r in indexed:
+                    if suffix != "_WERT":
+                        continue      # text/unit come from the table, not bytes
+                    r["bytes"] = [base + i * width + k for k in range(width)]
+                    r["iteration"] = i
+                spec["repeat"]["stride"] = width
+                spec["repeat"]["base"] = base
+                # The per-record SCALE is in the same table the sibling
+                # _TEXT/_EINH results already point at, one row per
+                # measurement (FUmweltTexte: MUL_WORD and ADD keyed by UWNR).
+                # It is not in the bytecode -- MS450's sixteen measurements
+                # scale by 1/256, 1/8, 1, 0.000396729 and so on -- so the
+                # _WERT result has to carry the lookup too or a decoder gets
+                # every offset right and every value wrong.
+                sib = next((x.get("lookup") for x in results
+                            if x.get("lookup")
+                            and x["name"].endswith(("_TEXT", "_EINH"))), None)
+                if sib:
+                    for _, _, suffix, r in indexed:
+                        if suffix == "_WERT":
+                            r["lookup"] = {"table": sib["table"],
+                                           "keyColumn": sib.get("keyColumn"),
+                                           "scaleColumn": "MUL_WORD",
+                                           "offsetColumn": "ADD"}
 
     if arch == "computed":
         gaps.append("archetype needs hand-written handler")
