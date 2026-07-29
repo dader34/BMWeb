@@ -451,14 +451,26 @@ def extract(data, addr, sgbd, job):
             if src in tab_reads:
                 result_lookup.setdefault(strs[0], tab_reads[src])
     for r in results:
-        if r.get("const") is not None or r.get("bytes"):
+        if r.get("const") is not None:
             continue
         hit = result_lookup.get(r["name"])
-        if hit:
-            t, k, c = hit
-            r["lookup"] = {"table": t, "valueColumn": c}
-            if k:
-                r["lookup"]["keyColumn"] = k
+        if not hit:
+            continue
+        # A `tabget` into the register the result is stored from is decisive:
+        # the value IS the table cell, whatever bytes the walker happened to
+        # collect on the way there. AIC's ID_LIEF_TEXT is
+        # tabseek "LIEF_NR" / tabget "LIEF_TEXT" -- the supplier name -- and
+        # keeping the byte offsets alongside it decoded one raw byte ("»")
+        # where the engine reports "unbekannter Hersteller".
+        t, k, c = hit
+        r["lookup"] = {"table": t, "valueColumn": c}
+        if k:
+            r["lookup"]["keyColumn"] = k
+        r.pop("bytes", None)
+        r.pop("width", None)
+        r.pop("kind", None)
+        r.pop("convert", None)
+        r.pop("ascii", None)
 
     # ---- table-masked bit flags -----------------------------------------
     # The other table shape: a digital-status job reads one response byte and
