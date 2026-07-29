@@ -64,7 +64,13 @@ def write_sim(sim_dir, sgbd, pairs):
     named after the .prg. Bytes are COMMA separated -- space separated values
     parse as one oversized token and the file is silently rejected (IFH-0026).
     """
+    # Clear any SGBD sim file left by a previous case. obd.sim is shared (the
+    # interface-level file EdiabasLib looks up at connect time), so a stale
+    # per-SGBD file beside it makes the NEXT ECU load the wrong telegrams and
+    # fail with IFH-0056 -- BMS46 passed alone and failed only after AIC ran.
     os.makedirs(sim_dir, exist_ok=True)
+    for old in glob.glob(os.path.join(sim_dir, "*.sim")):
+        os.remove(old)
     req = "\n".join(f"R{i+1} = {hexcsv(q)}" for i, (q, _) in enumerate(pairs))
     rsp = "\n".join(f"R{i+1} = {hexcsv(a)}" for i, (_, a) in enumerate(pairs))
     body = f"[REQUEST]\n{req}\n\n[RESPONSE]\n{rsp}\n"
@@ -119,8 +125,14 @@ def decode_with_spec(spec, telegram):
     #             directly, so offsets are frame-relative (BMS46 IDENT reads
     #             [3..9], which IS the frame, header included)
     #
-    # Detected from the frame itself: BMW-FAST always sets bit 7 of byte 0.
-    fast = bool(telegram) and (telegram[0] & 0x80) == 0x80
+    # Detected from the LENGTH FIELD, not from bit 7 of byte 0. That first
+    # guess was wrong: plenty of DS2 ECUs have an address with bit 7 set
+    # (AIC sends E8,04,00; BM_WIDE sends F0,04,00) and were misread as
+    # BMW-FAST. In DS2 byte 1 IS the total frame length, so the frame
+    # self-identifies; BMW-FAST puts the payload length in byte 0's low bits.
+    fast = True
+    if len(telegram) >= 2 and telegram[1] == len(telegram):
+        fast = False                      # DS2: [addr, len, ...data, xor]
     payload = telegram[3:] if fast and len(telegram) > 3 else telegram
     out = {}
     for r in spec.get("results", []):
@@ -129,8 +141,25 @@ def decode_with_spec(spec, telegram):
             continue
         offs = r.get("bytes")
         telegram_ = payload if r.get("base") == "payload" else telegram
-        if not offs or any(o >= len(telegram_) for o in offs):
+        # bounds AND sanity: a lifted offset list must be in range and must
+        # not contain a byte value that cannot exist. AIC's ID_BMW_NR lifts
+        # as [4,5,6,0,2,1,0] -- non-monotonic and repeating, which is the
+        # accumulator bug rather than a real field, and decoding it produced
+        # garbage that looked like a value.
+        if not offs or any(not isinstance(o, int) or o < 0
+                           or o >= len(telegram_) for o in offs):
             out[r["name"]] = None
+            continue
+        if r.get("convert") == "bcd":
+            # y2bcd renders each byte as its two hex NIBBLES, which for BCD
+            # data are the decimal digits: 0x55 -> "55". AIC's IDENT is built
+            # this way, and reading the byte as a number gave 85 where the
+            # engine reports 55. The spec already carried `convert`; the
+            # decoder was ignoring it.
+            out[r["name"]] = "".join(f"{telegram_[o]:02X}" for o in offs)
+            continue
+        if r.get("convert") == "hex":
+            out[r["name"]] = "".join(f"{telegram_[o]:02X}" for o in offs)
             continue
         if r.get("type") == "string":
             # a string result is the BYTES, not a number built from them:
@@ -212,6 +241,12 @@ CASES = [
     ("bms46ds0", "IDENT", [0x12, 0x04, 0x00],
      [0xA0, 0x12, 0x34, 0x56, 0x78, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
       0x07, 0x08, 0x09, 0x0A], "ds2"),
+    # A DS2 ECU whose ADDRESS has bit 7 set (0xE8). The first framing
+    # heuristic keyed on that bit and misread this whole class as BMW-FAST;
+    # this case exists so that cannot regress. Also exercises BCD results.
+    ("aic", "IDENT", [0xE8, 0x04, 0x00],
+     [0xA0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA,
+      0xBB, 0xCC, 0xDD], "ds2", 0xE8),
 ]
 
 
@@ -224,7 +259,10 @@ def ds2_telegram(addr, payload):
     return tel + [x]
 
 
-def run_case(sgbd, job, req, payload, verbose=True, ds2=False):
+def run_case(sgbd, job, req, payload, verbose=True, ds2=False, ecu_addr=0x12):
+    # `ecu_addr`, not `addr`: the ECU's bus address collided with the job's
+    # BYTECODE address below, so every DS2 frame was built with a 20-bit
+    # code offset as its address byte and the engine rejected the file.
     data, jobs = SP.load(sgbd)
     addr = SP.job_addr(data, jobs, job)
     if addr is None:
@@ -233,7 +271,7 @@ def run_case(sgbd, job, req, payload, verbose=True, ds2=False):
     spec = SP.extract(data, addr, sgbd, job)
     if ds2:
         # DS2 ECUs need no init exchange and frame differently
-        resp = ds2_telegram(0x12, payload)
+        resp = ds2_telegram(ecu_addr, payload)
         write_sim(SIM_DIR, sgbd, [(req, resp)])
     else:
         resp = fast_telegram(0xF1, 0x12, payload)
@@ -243,7 +281,14 @@ def run_case(sgbd, job, req, payload, verbose=True, ds2=False):
     if "sets" not in res:
         print(f"{sgbd}:{job} engine run failed: {res}")
         return 0, 1, 0
-    agree, disagree, unknown = compare(res["sets"], decode_with_spec(spec, resp))
+    try:
+        decoded = decode_with_spec(spec, resp)
+    except Exception as ex:                                 # noqa: BLE001
+        # a spec that cannot even be decoded is a failure, not a crash of the
+        # whole suite -- the remaining cases still need to run
+        print(f"{sgbd}:{job} spec decode failed: {type(ex).__name__}: {ex}")
+        return 0, 1, 0
+    agree, disagree, unknown = compare(res["sets"], decoded)
     if verbose:
         print(f"{sgbd}:{job}")
         for n, got, want in agree:
@@ -261,7 +306,8 @@ def selftest():
     for case in CASES:
         sgbd, job, req, payload = case[:4]
         a, d, u = run_case(sgbd, job, req, payload,
-                           ds2=(len(case) > 4 and case[4] == "ds2"))
+                           ds2=(len(case) > 4 and case[4] == "ds2"),
+                           ecu_addr=(case[5] if len(case) > 5 else 0x12))
         ta, td, tu = ta + a, td + d, tu + u
     print(f"\n{ta} agree, {td} disagree, {tu} not decodable from the spec yet")
     return 1 if td else 0
