@@ -211,6 +211,19 @@ class Machine:
         if arg.get("m") == 10 and r in self.resp_regs:
             idx = self.regs.get(arg.get("ir"), UNKNOWN)
             return Byte(idx) if isinstance(idx, int) else UNKNOWN
+        if arg.get("m") in (12, 13, 14, 15) and r in self.resp_regs:
+            # ranged read `S1[L0]#L1` -- a substring of the response. Index
+            # and length are either immediates or registers; both forms
+            # appear, and AIF_LESEN's VIN fields are built this way.
+            idx = arg.get("i")
+            if idx is None:
+                idx = self.regs.get(arg.get("ir"), UNKNOWN)
+            ln = arg.get("len")
+            if ln is None and arg.get("lenr"):
+                ln = self.regs.get(arg["lenr"], UNKNOWN)
+            if isinstance(idx, int) and isinstance(ln, int) and 0 < ln <= 64:
+                return Sum([Byte(idx + k) for k in range(ln)])
+            return UNKNOWN
         return self.regs.get(r, UNKNOWN)
 
     def step(self, name, args):
@@ -218,11 +231,16 @@ class Machine:
         a1 = args[1] if len(args) > 1 else None
 
         if name in ("xsend", "xsendf", "xsendr", "xsendex", "xrequf", "xraw"):
+            # Clear request-phase scratch on the FIRST send only. A job that
+            # exchanges several telegrams (AIF_LESEN sends twice) carries
+            # values decoded from the first response into the second phase,
+            # and wiping the slots at every send threw those away -- its
+            # numeric fields all resolved to the pre-send initialiser instead.
+            if not self.seen_send:
+                self.slots.clear()
             self.seen_send = True
             if a0 and "r" in a0:
                 self.resp_regs = {a0["r"]}
-            # request-phase scratch must not leak into response dataflow
-            self.slots.clear()
             self.stack.clear()
             return
 
@@ -341,12 +359,17 @@ def resolve_result_bytes(data, addr):
             nm = args[0]["s"]
             src = args[1] if len(args) > 1 else None
             val = m.get(src) if src else UNKNOWN
+            # LAST resolvable store wins, not the first. A job routinely
+            # initialises a result to "" or 0 in one branch and computes the
+            # real value in another -- AIF_LESEN writes AIF_FG_NR twice, an
+            # empty string first and the VIN substring second. Keeping the
+            # first store left 15 of its 16 results unresolved.
             if isinstance(val, Byte):
-                out.setdefault(nm, [val.offset])
+                out[nm] = [val.offset]
             elif isinstance(val, Sum):
                 b = val.bytes_used()
                 if b:
-                    out.setdefault(nm, b)
+                    out[nm] = b
         m.step(name, args)
     return out
 
