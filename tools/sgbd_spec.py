@@ -40,6 +40,7 @@ import glob
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import sgbd_survey as S                                       # noqa: E402
+import best2_abstract as BA                                   # noqa: E402
 
 OUT_DIR = os.path.join(HERE, "..", "data", "job-specs")
 
@@ -397,10 +398,43 @@ def extract(data, addr, sgbd, job):
     else:
         gaps.append("no ECU results recovered")
 
+    # ---- dataflow fallback ----------------------------------------------
+    # Results whose bytes the direct lifter could not see because the value
+    # travels through scratch slots and the operand stack. The abstract
+    # interpreter follows that chain; it independently reproduces the direct
+    # lifter's answers on the value-verified jobs (MS450 STATUS_UBATT [2,3],
+    # STATUS_MOTORDREHZAHL [10,11] and [12,13]), which is what makes it
+    # trustworthy for the ones only it can reach.
+    missing = [r for r in results
+               if r.get("const") is None and not r.get("bytes")]
+    if missing:
+        try:
+            flow = BA.resolve_result_bytes(data, addr)
+        except Exception:                                   # noqa: BLE001
+            flow = {}
+        for r in missing:
+            b = flow.get(r["name"])
+            if b:
+                r["bytes"] = b
+                r["base"] = "payload"
+                r["width"] = len(b)
+                r["via"] = "dataflow"
+
+    # A per-iteration read loop: one body executed once per record, the
+    # sixteen STAT_MESSWERTn results being sixteen passes over it. The stride
+    # is read from the response (the ECU declares the record width), so the
+    # spec names the slot rather than inventing a constant.
+    loop = None
+    try:
+        loop = BA.detect_loop(data, addr)
+    except Exception:                                       # noqa: BLE001
+        loop = None
+    if loop:
+        spec["repeat"] = loop
+
     if arch == "computed":
         gaps.append("archetype needs hand-written handler")
-    if arch == "looped_read":
-        spec["repeat"] = {"note": "result loop; iteration bounds not yet lifted"}
+    if arch == "looped_read" and "repeat" not in spec:
         gaps.append("loop bounds not lifted")
     if feats["par"]:
         spec["takesArguments"] = feats["par"]

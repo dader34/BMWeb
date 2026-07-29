@@ -161,22 +161,55 @@ engine. Constraints that only surfaced by getting a wrong answer first:
 - `etag` delimits one result's code from the next, or the RPM setpoint
   inherits the preceding result's offsets
 
-## What the remaining 37.5% needs
+## The abstract interpreter
 
-The 1372 results without offsets are NOT another read shape. Tracing
-`ms450ds0:STATUS_MESSWERTBLOCK_0` -- 48 of them in one job -- the values are
-emitted as `ergr "STAT_MESSWERT0_WERT", F0`, where `F0` was computed further
-up from a scratch slot (`S0[#$a]`) that was itself filled through the operand
-stack. The 16 measurement blocks are fully unrolled (16 distinct emit sites at
-a uniform 297-byte stride), so nothing is hidden behind a runtime loop -- the
-byte source is simply several dataflow steps removed from the store.
+`tools/best2_abstract.py` follows the dataflow the direct lifter cannot see:
+the operand stack, registers, `S0` scratch slots, and integer arithmetic over
+abstract values (a concrete int, a `Byte(offset)` symbol, a `Sum`, or
+UNKNOWN). A response read produces a symbol rather than a number, so byte
+provenance survives every intermediate step.
 
-Reaching them means a small abstract interpreter over the operand stack:
-model push/pop/atsp plus integer arithmetic on known constants, and resolve
-`S0` slots to the response bytes that fed them. A prototype resolved 18 of 26
-slot writes in that job, but attributed request-phase constants to them, so it
-needs the same send-boundary discipline the direct lifter already has. That is
-the next piece of work rather than a variation on this one.
+It is trustworthy because it **independently reproduces the direct lifter's
+answers** on the value-verified jobs -- `STATUS_UBATT` → bytes [2,3],
+`STATUS_MOTORDREHZAHL` → [10,11] and [12,13] -- by a completely different
+route. Used as a fallback, it resolves 200 results the direct lifter missed,
+taking offset coverage to **67.2%** (2872/4272).
+
+Two facts about the machine had to be modelled correctly, and each was a dead
+end until it was:
+
+- **B/I/L registers are views over one shared byte array** (`EdiabasNet
+  Register.GetValueData`): `B0` is byte 0, `I0` bytes 0-1, `L0` bytes 0-3.
+  Every single-byte response read is `clear L0` then `move B0, S1[L1]`, and
+  the following `push L0` expects to see that byte. Treating them as
+  independent registers made every such read a dead end. (The register table
+  was also mis-named: indices 0-15 are `B0..BF`, only 16+ are `A0..AF`.)
+- **Float ops preserve provenance.** `fmul F2, F3` applies a scale; the number
+  changes but the bytes it came from do not, and provenance is all the
+  interpreter is asked for. Poisoning the symbol with the unknown constant
+  lost every scaled result.
+
+## Loops are real, and now described
+
+`STATUS_MESSWERTBLOCK_0` is not unrolled. It ends in a jump table (`comp L0,
+#$10 / jz ...` sixteen times) whose targets are the sixteen emit sites, and
+the tail jumps *back* into the body: one shared block executed once per
+measurement. `S0[4]` is a byte cursor, advanced each pass by `S0[8]`, with
+`S0[2]` counting iterations.
+
+`detect_loop` lifts that as `repeat: {cursorSlot, strideSlot, counterSlot}` --
+21 jobs across the E46 set carry one. The stride is deliberately NOT a
+constant: the ECU declares the record width in its response, so the spec names
+the slot that carries it rather than baking in a number that would be wrong
+for the next car.
+
+## What the remaining 32.8% needs
+
+The 1400 results still without offsets are dominated by `computed`-archetype
+jobs and by string results built through table lookups rather than direct byte
+reads. Those need the table machinery (`tabset`/`tabseek`/`tabget`) modelled,
+which is data the SGBD carries and the engine already exposes -- a different
+kind of work from dataflow tracing, and the next thing to pick up.
 
 ## Where this leaves the plan
 
