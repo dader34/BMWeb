@@ -258,7 +258,42 @@ This is the value of having built two independent lifters rather than one:
 neither is trusted because it looks right, and the disagreements are where the
 bugs were.
 
-## What the remaining 12.9% needs
+## Can this reach 100%?
+
+**Not by lifting alone, and the ceiling is a property of the ECUs rather than
+of the tooling.** Resolution stands at 89.9% (3836/4267). The remaining 431
+sort into three groups, and only the last is a wall:
+
+1. **Tractable with more interpreter work (~150).** SMG2's
+   `ADAPTIONSWERTE_LESEN` alone holds 112 — a `param_read` whose results are
+   fed from five scratch slots refilled once per loop iteration
+   (`cursorSlot 3`, `strideSlot 6`). The interpreter makes one linear pass, so
+   it sees iteration zero; teaching it to carry a symbolic iteration index
+   would resolve these. Real work, no unknowns.
+
+2. **The named handler shapes (~200).** The `computed` archetype from the
+   original survey: BCD/nibble unpacking (`AIF_LESEN` on every DME,
+   `FGNR_LESEN`'s VIN mill), polynomial linearization (the MS420 temperature
+   jobs), and multi-step command sequences. These are not extraction at all --
+   they are computation, and a spec format that could express them would be a
+   programming language, i.e. the BEST2 interpreter we are trying to retire.
+   The answer is a handful of named handlers, written once and reused: one BCD
+   decoder serves every `AIF_LESEN`.
+
+3. **Genuinely dynamic (~80).** `param_read` jobs whose response layout
+   depends on the argument the caller passes. There is no static offset to
+   lift because there is no static answer; the spec would have to express the
+   offset as a function of the request. Expressible, but it is a spec-format
+   extension rather than a lifting improvement.
+
+So: ~95% is reachable by finishing the interpreter, and the last ~5% is
+handlers plus a spec-format extension. **100% "by lifting" is not the right
+goal** -- the honest target is that every job either lifts completely or is
+explicitly marked as needing a named handler, with nothing silently partial.
+The value-level harness is what enforces that distinction, since a spec that
+lifts the wrong bytes fails there rather than looking plausible.
+
+## What the remaining 10.1% needs
 
 The 552 still unresolved are concentrated in `computed`-archetype jobs (the
 named handler shapes: BCD unpacking, polynomial linearization, command

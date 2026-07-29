@@ -493,6 +493,29 @@ def extract(data, addr, sgbd, job):
                 r["bitTest"] = {"table": bit_table,
                                 "maskColumn": "MASK", "valueColumn": "VALUE"}
 
+    # ---- constant string results -----------------------------------------
+    # Some results are simply a literal the job stores when a flag is set:
+    # MS450's ECU_CONFIG emits STAT_AT_TEXT = "Automatik Getriebe" beside the
+    # STAT_AT flag it just decoded. Non-empty literals only -- `move S1, ""`
+    # is an initialisation, and treating that as the value would have marked
+    # AIF_LESEN's VIN fields resolved when they are BCD-unpacked further down.
+    reg_lit = {}
+    for _, name, args in ops:
+        if name == "move" and len(args) == 2 and "r" in args[0]:
+            if "s" in args[1]:
+                reg_lit[args[0]["r"]] = args[1]["s"]
+            else:
+                reg_lit.pop(args[0]["r"], None)
+        elif name in ERG_TYPE and args and "s" in args[0]:
+            src = args[1].get("r") if len(args) > 1 else None
+            lit = reg_lit.get(src)
+            if lit:
+                for r in results:
+                    if r["name"] == args[0]["s"] and r.get("const") is None \
+                            and not r.get("bytes") and not r.get("lookup") \
+                            and not r.get("bitTest") and "values" not in r:
+                        r["const"] = lit
+
     # ---- cross-check against the interpreter -----------------------------
     # The direct lifter accumulates offsets as it walks and clears them at
     # each `etag` / result store. Where a job reads bytes BETWEEN those
