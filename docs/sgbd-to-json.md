@@ -261,15 +261,30 @@ bugs were.
 ## Can this reach 100%?
 
 **Not by lifting alone, and the ceiling is a property of the ECUs rather than
-of the tooling.** Resolution stands at 89.9% (3836/4267). The remaining 431
-sort into three groups, and only the last is a wall:
+of the tooling.** Resolution stands at **91.6% (3910/4267)**. The remaining
+357 sort into three groups, and only the last is a wall:
 
-1. **Tractable with more interpreter work (~150).** SMG2's
-   `ADAPTIONSWERTE_LESEN` alone holds 112 — a `param_read` whose results are
-   fed from five scratch slots refilled once per loop iteration
-   (`cursorSlot 3`, `strideSlot 6`). The interpreter makes one linear pass, so
-   it sees iteration zero; teaching it to carry a symbolic iteration index
-   would resolve these. Real work, no unknowns.
+1. ~~Tractable with more interpreter work (~150)~~ — **done, and the diagnosis
+   was wrong.** SMG2's `ADAPTIONSWERTE_LESEN` was never a loop: it has **no
+   backward branch at all**, and simply re-fills the same scratch slot before
+   each of its 112 results. What actually blocked it was the sign-extension
+   idiom that follows nearly every signed read:
+
+       move B0, S0[#$2]      ; the value
+       jpl  L...             ; skip if positive
+       move I1, #$ffff       ; ONLY on negative: extend the sign
+       move B1, #$ff
+
+   A linear walk executes both sides of that branch, so the value was
+   overwritten with 0xFF on the way past — every affected result resolved to
+   255. Skipping short forward conditional bodies (≤32 bytes; longer jumps are
+   ordinary control flow whose targets hold the result stores) fixed it: SMG2
+   went from 44 to 98 results resolved, and `KORR_SW_EVEN_WERT` now reports
+   byte 9, matching the disassembly by hand.
+
+   The same investigation showed `detect_loop` was claiming loops for two jobs
+   with no backward branch, inventing a cursor and stride for straight-line
+   code. It now requires the branch as evidence.
 
 2. **The named handler shapes (~200).** The `computed` archetype from the
    original survey: BCD/nibble unpacking (`AIF_LESEN` on every DME,
@@ -286,14 +301,14 @@ sort into three groups, and only the last is a wall:
    offset as a function of the request. Expressible, but it is a spec-format
    extension rather than a lifting improvement.
 
-So: ~95% is reachable by finishing the interpreter, and the last ~5% is
+So: ~93% is reachable by finishing the interpreter, and the last ~7% is
 handlers plus a spec-format extension. **100% "by lifting" is not the right
 goal** -- the honest target is that every job either lifts completely or is
 explicitly marked as needing a named handler, with nothing silently partial.
 The value-level harness is what enforces that distinction, since a spec that
 lifts the wrong bytes fails there rather than looking plausible.
 
-## What the remaining 10.1% needs
+## What the remaining 8.4% needs
 
 The 552 still unresolved are concentrated in `computed`-archetype jobs (the
 named handler shapes: BCD unpacking, polynomial linearization, command

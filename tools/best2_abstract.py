@@ -50,6 +50,13 @@ class Unknown:
 
 UNKNOWN = Unknown()
 
+# Conditional jumps. Their bodies are skipped by resolve_result_bytes: a
+# linear walk that executes both sides of a branch corrupts the value it is
+# trying to trace. `jump` is deliberately absent -- an unconditional jump is
+# control flow the real machine always takes.
+_COND_JUMPS = {"ja", "jae", "jbe", "jc", "jg", "jge", "jl", "jle", "jmi",
+               "jnt", "jnv", "jnz", "jpl", "jt", "jv", "jz"}
+
 
 class Byte:
     """One response byte, by offset. `scale` carries an applied shift/multiply
@@ -299,10 +306,37 @@ def resolve_result_bytes(data, addr):
 
     Walks the job tracking the abstract state, and when an `erg*` stores from
     a register, reports the response bytes that register's value came from.
+
+    Conditionally-executed instructions are SKIPPED rather than executed. The
+    walk is linear, so it would otherwise run both sides of every branch --
+    and the sign-extension idiom that follows nearly every signed read
+        move B0, S0[#$2]      ; the value
+        jpl  L...             ; skip if positive
+        move I1, #$ffff       ; ONLY on negative: extend the sign
+        move B1, #$ff
+    would clobber the value with 0xFF on the way past. That is what left
+    SMG2's ADAPTIONSWERTE_LESEN (112 results, the single largest unresolved
+    job) reporting 255 instead of its response byte.
     """
     m = Machine()
     out = {}
+    skip_until = None
     for start, name, args in S.walk(data, addr):
+        # resume exactly AT the branch target -- the instruction there is the
+        # join point and belongs to both paths
+        if skip_until is not None and start >= skip_until:
+            skip_until = None
+        # a forward conditional jump: ignore the instructions it may hop over.
+        # Only short hops (the sign-extension idiom is two instructions); a
+        # long forward jump is ordinary control flow whose body holds the
+        # result stores, and skipping that resolves nothing at all.
+        if name in _COND_JUMPS and args and "v" in args[0]:
+            target = args[0]["v"]
+            if start < target <= start + 32:
+                skip_until = max(skip_until or 0, target)
+            continue
+        if skip_until is not None and start < skip_until:
+            continue
         if name.startswith("erg") and args and "s" in args[0]:
             nm = args[0]["s"]
             src = args[1] if len(args) > 1 else None
@@ -330,6 +364,17 @@ def detect_loop(data, addr):
     how wide each record is), so the spec records WHICH slot carries it rather
     than a number that would be wrong for every other car.
     """
+    # A loop needs a backward branch. The slot-advance pattern alone is not
+    # enough evidence: straight-line jobs re-fill the same scratch slot before
+    # each result (SMG2's ADAPTIONSWERTE_LESEN refills S0[2] 100+ times with no
+    # branch at all), and calling that a loop invented a cursor and stride for
+    # a job that simply reads consecutive bytes.
+    has_back_branch = any(
+        n in S.JUMPS and a and "v" in a[0] and addr <= a[0]["v"] < st
+        for st, n, a in S.walk(data, addr))
+    if not has_back_branch:
+        return None
+
     cursor = counter = stride_slot = None
     prev_slots = []
     for start, name, args in S.walk(data, addr):
