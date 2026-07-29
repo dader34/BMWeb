@@ -203,13 +203,46 @@ constant: the ECU declares the record width in its response, so the spec names
 the slot that carries it rather than baking in a number that would be wrong
 for the next car.
 
-## What the remaining 32.8% needs
+## Tables: results that are looked up, not extracted
 
-The 1400 results still without offsets are dominated by `computed`-archetype
-jobs and by string results built through table lookups rather than direct byte
-reads. Those need the table machinery (`tabset`/`tabseek`/`tabget`) modelled,
-which is data the SGBD carries and the engine already exposes -- a different
-kind of work from dataflow tracing, and the next thing to pick up.
+A large class of results never comes out of the response at all. MS450's
+measurement blocks read a measurement NUMBER from the ECU, seek it in the
+SGBD's own `FUmweltTexte` table, and take everything else from that row:
+
+    tabset  "FUmweltTexte"
+    tabseek "UWNR", <n>          the measurement number from the response
+    tabget  S7, "UWTEXT"         the label
+    tabget  S6, "MUL_WORD"       the SCALE
+    tabget  S6, "ADD"            the OFFSET
+    tabget  S6, "UW_EINH"        the unit
+
+That is why no float literal was ever found for these and every one looked
+unresolvable: the scale is per-measurement data, not a constant in the
+bytecode. The spec records the lookup (`table`, `keyColumn`, `valueColumn`);
+the table travels with the SGBD and the engine already serves it at
+`/api/ecu/<sgbd>/table/<name>`.
+
+The second table shape is the bit flag. A digital-status job reads one byte
+and tests a bit in it, with the mask AND the expected value coming from a
+table row (`tabget S1,"MASK"` / `tabget S1,"VALUE"`, then `and` + `xor`).
+BMS46's `STATUS_DIGITAL` builds `STAT_KL15_EIN` and its neighbours that way --
+288 results across the E46 set, recorded as `bitTest`.
+
+Both needed the binding tracked at the point the result is STORED. Keeping
+only the last `tabset` attributed every measurement label to `JobResult` /
+`STATUS_TEXT`, the protocol status table, instead of `FUmweltTexte` / `UWTEXT`
+-- a wrong answer that still looked structurally right.
+
+**Resolution now stands at 87.1% (3720/4272): 2872 by byte offset, 560 by
+table lookup, 288 by bit test.**
+
+## What the remaining 12.9% needs
+
+The 552 still unresolved are concentrated in `computed`-archetype jobs (the
+named handler shapes: BCD unpacking, polynomial linearization, command
+sequences) and in `param_read` jobs whose response layout depends on the
+argument the caller passes -- so the offset genuinely is not static, and the
+spec must express it as a function of the request rather than a number.
 
 ## Where this leaves the plan
 
