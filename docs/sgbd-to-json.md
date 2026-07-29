@@ -89,13 +89,47 @@ Recorded because both produced confident, wrong numbers first.
    it is nameable — which is the sanity check that the metric measures
    something real.
 
+## The extractor and the harness
+
+`tools/sgbd_spec.py` lifts a job into the spec format above;
+`tools/sgbd_diff.py` checks each lifted spec against the engine's own
+`_RESULTS` schema, which the engine answers offline with no cable attached.
+
+**698/701 IR-referenced jobs across the 55 E46 SGBDs lift their result names
+exactly.** The other three are jobs for which BMW shipped no `_RESULTS`
+schema at all, so there is nothing to compare against — the lifted spec is
+strictly more informative than the engine's metadata there.
+
+Getting to that number surfaced four things worth keeping:
+
+- **`etag` gates conditional results.** `etag #$c, "NAME"` asks whether the
+  caller requested NAME and computes it only if so. RDC's `STATUS_IO`
+  produces `STAT_FOLGAUS` *only* through that path, with no `erg*` naming it.
+- **Units are results, not attributes.** The engine emits `STAT_UBATT_EINH`
+  beside `STAT_UBATT_WERT`. Folding the unit into a `unit` field made a
+  tidier spec that produced the wrong result set — so the spec carries both.
+- **A command job with no results is a match, not a failure.** 207 of the 701
+  (every `STEUERN_X_ENDE`, `FS_LOESCHEN`) declare no results, and a spec that
+  lifts none agrees with the engine exactly.
+- **One SGBD bug, recorded rather than corrected.** `ekp_ds2:STATUS_MESSWERTE`
+  gates `STAT_TEMP_UEBER_*_WERT` but stores to `STAT_UEBER_TEMP_*_WERT` — BMW
+  transposed the words, so those two values never reach any caller. The spec
+  marks them `deadStore`. The spec reproduces the engine bug for bug; that is
+  the whole contract.
+
 ## Where this leaves the plan
 
-The conversion is viable and the shape of the work is known. The next step is
-not more classification — it is to write the spec format against ~10 jobs and
-build the differential harness: run each job through real EdiabasLib and
-through the spec walker, diff the result sets, and only ship a job as JSON once
-they agree. Same method that got the .IPO decompiler to zero mismatches.
+Schema agreement is necessary but not sufficient: it proves the spec knows
+*which* results a job produces, not that it decodes the bytes to the same
+*values*. That is the next step, and it needs response bytes — either a car or
+a `.sim` file (EdiabasLib supports `SimulationPath` with REQUEST/RESPONSE
+sections, and the engine already exposes the raw telegrams as `_TEL_AUFTRAG` /
+`_TEL_ANTWORT`, so captures can be recorded from a real session and replayed).
+Feed identical bytes to the engine and to a spec walker, diff the decoded
+values, and only then mark a spec `verified`.
+
+Then the loop bounds for `looped_read` (currently an explicit gap in every such
+spec) and handlers for the named `computed` shapes.
 
 Sequencing note: the `.prg` files stay in the app until their jobs are
 converted, so this retires the 443 MB `vendor/EDIABAS/Ecu` tree gradually, per
