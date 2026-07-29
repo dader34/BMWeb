@@ -319,7 +319,7 @@ def trace_job(data, addr, limit=200_000):
     return m, snaps
 
 
-def resolve_result_bytes(data, addr):
+def resolve_result_bytes(data, addr, want_consts=False):
     """{result_name: [byte offsets]} for results the direct lifter misses.
 
     Walks the job tracking the abstract state, and when an `erg*` stores from
@@ -338,6 +338,7 @@ def resolve_result_bytes(data, addr):
     """
     m = Machine()
     out = {}
+    consts = {}
     skip_until = None
     for start, name, args in S.walk(data, addr):
         # resume exactly AT the branch target -- the instruction there is the
@@ -370,8 +371,24 @@ def resolve_result_bytes(data, addr):
                 b = val.bytes_used()
                 if b:
                     out[nm] = b
+            elif isinstance(val, int) and name != "ergs":
+                # Not every result comes off the wire. `move L0, #$0` then
+                # `ergi "ID_OBD2", I0` says this ECU simply has no OBD2 --
+                # a constant the SGBD states outright, and BMS46/MS420's
+                # IDENT is full of them (ID_EWS_SS=3, ID_EML=0, ID_OBD2=0,
+                # all confirmed against the engine).
+                #
+                # STRING results are excluded, and that exclusion is the whole
+                # reason this is safe: checked against the engine, 8 of the
+                # interpreter's 18 IDENT constants were right and 10 were
+                # wrong -- every wrong one an `ergs` whose real value is
+                # response data (ID_BMW_NR is a 7-byte part number) that the
+                # interpreter had merely failed to track, leaving a stale 0.
+                # Trusting those wholesale would have injected wrong data
+                # under the appearance of extra coverage.
+                consts[nm] = val
         m.step(name, args)
-    return out
+    return (out, consts) if want_consts else out
 
 
 def detect_loop(data, addr):

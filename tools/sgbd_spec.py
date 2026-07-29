@@ -529,9 +529,9 @@ def extract(data, addr, sgbd, job):
     # interpreter wins, and the direct answer is kept only when it matches or
     # the interpreter has nothing.
     try:
-        _flow = BA.resolve_result_bytes(data, addr)
+        _flow, _consts = BA.resolve_result_bytes(data, addr, want_consts=True)
     except Exception:                                       # noqa: BLE001
-        _flow = {}
+        _flow, _consts = {}, {}
     for r in results:
         if not r.get("bytes"):
             continue
@@ -608,6 +608,18 @@ def extract(data, addr, sgbd, job):
                     gaps.append(f"{r['name']} is stored but gated as {near[0]}"
                                 " (SGBD bug: never returned)")
 
+    # NOT adopted: the interpreter's numeric constants.
+    #
+    # They look like free coverage -- `move L0, #$0` / `ergi "ID_OBD2", I0`
+    # really does mean this ECU has no OBD2, and on BMS46's IDENT 8 of them
+    # check out against the engine exactly. But the value harness rejected
+    # the change: MS450's AIF_ANZ_DATEN came out 0 where the engine says 31,
+    # because that field is computed from the AIF block's structure and the
+    # interpreter had simply failed to track it, leaving the initialiser
+    # behind. A "constant" is indistinguishable from an untracked value that
+    # happens to still hold its initialiser, so adopting them trades honest
+    # gaps for silent wrong answers. `_consts` stays available for callers
+    # that want to inspect it; the spec does not claim it.
     for r in results:
         r.pop("_srcReg", None)
 
