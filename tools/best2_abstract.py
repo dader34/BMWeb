@@ -284,6 +284,15 @@ class Machine:
             self.setreg(a0.get("r"), _mul(self.get(a0), self.get(a1)))
         elif name in ("asl", "lsl") and a0 is not None:
             self.setreg(a0.get("r"), _shl(self.get(a0), self.get(a1)))
+        elif name == "not" and a0 is not None and "r" in a0:
+            # Bitwise complement. `not L0` followed by `+1` is two's-complement
+            # negation -- how MESSWERTBLOCK_2/_3 turn a raw reading into a
+            # signed value, where _0 does not. The NUMBER changes, the bytes it
+            # came from do not, and provenance is all this interpreter reports,
+            # so the symbol survives (same reasoning as the float ops).
+            x = self.get(a0)
+            self.setreg(a0["r"], x if isinstance(x, (Byte, Sum)) else (
+                ~x if isinstance(x, int) else UNKNOWN))
         elif name in ("lsr", "asr") and a0 is not None:
             x, y = self.get(a0), self.get(a1)
             self.setreg(a0.get("r"), x >> y if isinstance(x, int)
