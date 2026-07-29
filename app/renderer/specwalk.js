@@ -105,12 +105,26 @@ function specWalkResult(result, frame, ctx) {
   if (!specOffsetsUsable(offs, buf)) return null;
   const picked = offs.map((o) => buf[o]);
 
-  // y2bcd/y2hex render each byte as its two hex nibbles, which for BCD data
-  // ARE the decimal digits: 0x55 -> "55". When a2fix follows, the two compose
-  // rather than being alternatives -- the text is then parsed as a number.
+  // y2hex renders each byte as two hex digits. y2bcd is NOT the same: a
+  // nibble above 9 is not a BCD digit, and the engine renders it as "*"
+  // (ValueToBcd) -- 0x1F comes out "1*", not "1F". When a2fix follows, the
+  // two compose rather than being alternatives -- the text is then parsed
+  // as a number ("*" holds no digits, so pure non-BCD data parses to 0,
+  // which is exactly what the engine reports for "no date").
   if (result.convert === 'bcd' || result.convert === 'hex') {
-    const txt = picked.map(specHex).join('');
+    const txt = result.convert === 'bcd'
+      ? picked.map((b) => [(b >> 4) & 0xF, b & 0xF]
+          .map((n) => (n <= 9 ? String(n) : '*')).join('')).join('')
+      : picked.map(specHex).join('');
     return result.ascii ? specDigits(txt) : txt;
+  }
+  if (result.enumMap) {
+    // an in-code switch: the byte selects one of the ladder's literals,
+    // anything unlisted gets the default block's text
+    let key = 0;
+    for (const b of picked) key = (key << 8) | b;
+    const hit = result.enumMap[String(key)];
+    return hit !== undefined ? hit : (result.enumDefault ?? null);
   }
   if (result.type === 'string') return specText(picked);
   if (result.ascii) return specDigits(specText(picked));
