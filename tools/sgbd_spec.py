@@ -991,8 +991,14 @@ def job_addr(data, jobs, want):
 
 
 def load(sgbd):
-    path = next((p for p in glob.glob(os.path.join(S.ECU_DIR, "*.prg"))
-                 + glob.glob(os.path.join(S.ECU_DIR, "*.PRG"))
+    # .grp GROUP files are the same container as .prg -- same XOR 0xF7
+    # stream, same job table at *0x88, same 0x44-byte entries. They are how
+    # EDIABAS resolves "which variant is this ECU?": the group runs an
+    # identification job and picks a concrete variant SGBD from the answer.
+    # Loading only .prg meant variant detection had no code to run at all.
+    pats = ["*.prg", "*.PRG", "*.grp", "*.GRP"]
+    path = next((p for pat in pats
+                 for p in glob.glob(os.path.join(S.ECU_DIR, pat))
                  if os.path.basename(p)[:-4].lower() == sgbd.lower()), None)
     if not path:
         raise SystemExit(f"no such SGBD: {sgbd}")

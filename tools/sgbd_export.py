@@ -188,6 +188,66 @@ def _export_tables_one(sgbd):
               f"{os.path.getsize(tp)//1024:5} KB")
 
 
+def export_groups(chassis="E46"):
+    """Export the GROUP files and the variant assignment table.
+
+    This is how EDIABAS answers "which SGBD is this ECU?", and without it a
+    client can only talk to an ECU whose variant it was already told. A .grp
+    is the same container as a .prg (see sgbd_spec.load), so its
+    IDENTIFIKATION job runs on the same VM; what it needs alongside is
+    ZuordnungsTabelle from t_grtb, which maps the identification answer
+    (ADR_VAR_DIAG) to a concrete SGBD name.
+    """
+    import urllib.request
+    out_dir = os.path.join(ROOT, "data", "groups")
+    os.makedirs(out_dir, exist_ok=True)
+    # The assignment table lives in t_grtb, a separate SGBD that every group
+    # reaches with `tabsetex "ZuordnungsTabelle", "t_grtb"`. Its key
+    # ADR_VAR_DIAG is "<ecu addr> <id pattern> <code>", e.g. "12 .0W. 0010"
+    # -> ME9N45, with '.' and '-' as wildcards; the group's IDENTIFIKATION
+    # job assembles that key from the ECU's identification response and
+    # looks up the concrete SGBD name.
+    try:
+        rows = V.sgbd_table("t_grtb", "ZuordnungsTabelle")
+    except Exception:                                       # noqa: BLE001
+        rows = None
+    if rows:
+        # keep only the rows for this chassis; the full table covers every
+        # BMW platform and most of it is dead weight for one car
+        want = [r for r in rows
+                if str(r.get("BAUREIHE", "")).upper() == chassis.upper()]
+        with open(os.path.join(out_dir, "variants.json"), "w") as f:
+            json.dump({"chassis": chassis, "table": "ZuordnungsTabelle",
+                       "keyColumn": "ADR_VAR_DIAG", "sgbdColumn": "SGBD",
+                       "rows": want or rows}, f, ensure_ascii=False,
+                      separators=(",", ":"))
+        print(f"  variants.json  {len(want)} rows for {chassis}"
+              f" (of {len(rows)} total)")
+    # the group programs themselves
+    # Which groups does this chassis actually use? The assignment table
+    # names them, so ship those rather than all 248.
+    used = sorted({str(r.get("GRUPPE", "")).lower()
+                   for r in (want or rows or []) if r.get("GRUPPE")})
+    import sgbd_code as C
+    # every group also needs the assignment table alongside its code
+    for g in used:
+        if rows:
+            with open(os.path.join(TABLE_DIR, f"{g}.json"), "w") as f:
+                json.dump({"ZuordnungsTabelle": rows}, f,
+                          ensure_ascii=False, separators=(",", ":"))
+    made = []
+    for g in used:
+        try:
+            r = C.export(g)
+        except SystemExit:
+            continue
+        if r:
+            made.append(r)
+            print(f"  {r[0]:12} {r[1]:2} jobs {r[2]:6} ops {r[4]//1024:4} KB")
+    print(f"groups: {len(made)} of {len(used)} referenced by {chassis}")
+    return made
+
+
 def audit_tables(targets):
     """Fail loudly when a shipped table set is missing declared tables.
 
@@ -422,6 +482,8 @@ def main():
         export_tables(targets)
     if "--coverage" in sys.argv:
         coverage(targets)
+    if "--groups" in sys.argv:
+        export_groups()
     if "--audit" in sys.argv:
         return audit_tables(targets)
     if "--ship" in sys.argv:

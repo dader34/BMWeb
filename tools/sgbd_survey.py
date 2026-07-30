@@ -351,7 +351,9 @@ def main():
 
     if "--dump" in sys.argv:
         sgbd, want = args[0].lower(), args[1].upper()
-        path = next(p for p in glob.glob(os.path.join(ECU_DIR, "*.prg"))
+        # .grp group files share the .prg container (see sgbd_spec.load)
+        path = next(p for pat in ("*.prg", "*.PRG", "*.grp", "*.GRP")
+                    for p in glob.glob(os.path.join(ECU_DIR, pat))
                     if os.path.basename(p)[:-4].lower() == sgbd)
         data, jobs = read_jobs(path)
         addr = next(a for n, a in jobs if n.upper() == want)
