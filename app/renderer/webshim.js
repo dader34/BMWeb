@@ -229,7 +229,16 @@ function installWebShim() {
     const file = webApiPath(rel);
     if (!file) return err(`no static route for ${rel}`, 404);
     const res = await real(file);
-    if (!res.ok) return err(`not shipped: ${file}`, 404);
+    if (!res.ok) {
+      // A MISS IS SOMETIMES THE QUESTION, NOT A FAILURE. irUseVariantSgbd asks
+      // "is this variant name also an SGBD?" by fetching its job list, and
+      // takes the error as "no" -- so an ECU whose variant is not a separate
+      // SGBD logs a red 404 on every open. Answer the probe with an empty job
+      // list instead: the caller's `!jobs.length` check reads it identically
+      // and DevTools stays quiet, so a 404 that IS a fault remains visible.
+      if (/^\/api\/ecu\/[^/]+\/jobs$/.test(rel.split('?')[0])) return ok([]);
+      return err(`not shipped: ${file}`, 404);
+    }
     return res;
   };
 }
