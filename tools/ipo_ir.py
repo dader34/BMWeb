@@ -1566,7 +1566,24 @@ def main():
         os.makedirs(OUT_DIR, exist_ok=True)
         n = scr = el = 0
         failed = []
-        for p in sorted(glob.glob(os.path.join(L1.SGDAT, "*.IPO"))):
+        # CASE-INSENSITIVE ON PURPOSE. BMW shipped SGDAT with both spellings
+        # -- 763 files are *.IPO and 1025 are *.ipo -- and globbing "*.IPO" on
+        # a case-sensitive filesystem silently lifted only the first group.
+        # That is why 82 ECUs (E89's whole set among them) had no IR and fell
+        # back to the token-built menu: not because they were unliftable, but
+        # because the corpus walk never saw their file. Dedupe by lowered stem
+        # so a directory holding both FOO.IPO and foo.ipo builds once.
+        seen = set()
+        paths = []
+        for p in sorted(glob.glob(os.path.join(L1.SGDAT, "*"))):
+            if not p.lower().endswith(".ipo"):
+                continue
+            stem = os.path.basename(p)[:-4]
+            if stem.lower() in seen:
+                continue
+            seen.add(stem.lower())
+            paths.append(p)
+        for p in paths:
             ecu = os.path.basename(p)[:-4]
             try:
                 ir = build(ecu)
