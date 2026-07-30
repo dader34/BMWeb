@@ -1,6 +1,6 @@
-# BMacW
+# BMacW / BMWeb
 
-BMW diagnostics for macOS and the browser. Read fault codes, watch live values,
+BMW diagnostics for macOS (app form) and the browser. Read fault codes, watch live values,
 run actuator tests and inspect coding data over a K+DCAN cable, with no Windows,
 no virtual machine, and no EDIABAS install.
 
