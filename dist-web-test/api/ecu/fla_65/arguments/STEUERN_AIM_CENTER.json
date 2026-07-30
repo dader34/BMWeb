@@ -1,1 +1,0 @@
-{"job":"STEUERN_AIM_CENTER","arguments":[{"ARG":"CENTER_H","ARGTYPE":"unsigned char","ARGCOMMENT0":"Neues H-Center in Pixeln. Default = 0 (keine Änderung)"},{"ARG":"CENTER_V","ARGTYPE":"unsigned char","ARGCOMMENT0":"Neuer V-Center in Pixeln. Default = 0 (keine Änderung)"}]}

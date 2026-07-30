@@ -1,1 +1,0 @@
-{"job":"STEUERN_FREQUENZBAND","arguments":[{"ARG":"FREQUENZBAND","ARGTYPE":"unsigned char","ARGCOMMENT0":"Bereich: 0 - 3","ARGCOMMENT1":"0: FM","ARGCOMMENT2":"1: MW","ARGCOMMENT3":"2: LW","ARGCOMMENT4":"3: SW"}]}

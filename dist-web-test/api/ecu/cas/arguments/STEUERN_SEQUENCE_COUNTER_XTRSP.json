@@ -1,1 +1,0 @@
-{"job":"STEUERN_SEQUENCE_COUNTER_XTRSP","arguments":[{"ARG":"DATA_HIGH","ARGTYPE":"unsigned int","ARGCOMMENT0":"\"High\": 0-65535","ARGCOMMENT1":"======> Byte0-1"},{"ARG":"DATA_LOW","ARGTYPE":"unsigned int","ARGCOMMENT0":"\"Low\":  0-65535","ARGCOMMENT1":"======> Byte2-3"}]}

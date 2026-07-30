@@ -1,1 +1,0 @@
-{"job":"IDENT_SCHREIBEN_29_BYTES","arguments":[{"ARG":"DATAS","ARGTYPE":"string","ARGCOMMENT0":"Es muessen 29 Ident_Daten als ein Hex_String ","ARGCOMMENT1":"uebergeben werden: z.B. 01,AB,56,FF ... 18   ","ARGCOMMENT2":"Bereich:  0x00-0xFF"}]}

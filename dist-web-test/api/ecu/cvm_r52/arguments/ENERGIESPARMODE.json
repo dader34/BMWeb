@@ -1,1 +1,0 @@
-{"job":"ENERGIESPARMODE","arguments":[{"ARG":"fertigungsmode","ARGTYPE":"int","ARGCOMMENT0":"0 bzw. 1"},{"ARG":"transportmode","ARGTYPE":"int","ARGCOMMENT0":"0 bzw. 1"}]}

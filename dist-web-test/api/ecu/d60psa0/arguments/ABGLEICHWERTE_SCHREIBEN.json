@@ -1,1 +1,0 @@
-{"job":"ABGLEICHWERTE_SCHREIBEN","arguments":[{"ARG":"ABGLEICHWERTE_SCHREIBEN_ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"Anzahl der zu schreibenden Abgleichdatenbytes","ARGCOMMENT1":"Anzahl bei 8-stelligen IMA-Werten: 125"},{"ARG":"ABGLEICHWERTE_SCHREIBEN_DATEN","ARGTYPE":"string","ARGCOMMENT0":"Abgleichdaten im QR-Code-Format"}]}

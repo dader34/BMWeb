@@ -1,1 +1,0 @@
-["STAT_WAKEUP_STATUS : 0 = nicht initialisiert, 1 = SG hat geweckt,  2= SG wurde geweckt","STAT_WAKEUP_STATUS_TEXT : 0 = nicht initialisiert, 1 = SG hat geweckt,  2= SG wurde geweckt","JOB_STATUS : \"OKAY\", wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

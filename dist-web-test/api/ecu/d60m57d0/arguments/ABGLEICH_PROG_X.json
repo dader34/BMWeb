@@ -1,1 +1,0 @@
-{"job":"ABGLEICH_PROG_X","arguments":[{"ARG":"IDENTIFIER_ABGLEICH","ARGTYPE":"int","ARGCOMMENT0":"Spalte LID aus Tabelle ABGLEICH"},{"ARG":"ABGLEICH_PROG_WERT","ARGTYPE":"string","ARGCOMMENT0":"Neuer Programmierwert"}]}

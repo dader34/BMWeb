@@ -1,1 +1,0 @@
-{"job":"START_EEPROM_INIT_MPC","arguments":[{"ARG":"START_WERT","ARGTYPE":"int","ARGCOMMENT0":"Anzahl der zu initialisierenden EEPROM Bloecke"}]}

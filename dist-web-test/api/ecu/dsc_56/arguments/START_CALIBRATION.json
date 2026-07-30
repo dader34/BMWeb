@@ -1,1 +1,0 @@
-{"job":"START_CALIBRATION","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Mit Diagnose Mode = E oder Nur Sequenz = W"},{"ARG":"WERT","ARGTYPE":"string","ARGCOMMENT0":"gewuenschter Wert:","ARGCOMMENT1":"LB,QB,GR,DS"}]}

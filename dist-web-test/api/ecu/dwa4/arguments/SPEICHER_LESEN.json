@@ -1,1 +1,0 @@
-{"job":"SPEICHER_LESEN","arguments":[{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"ADRESSE_HIGH","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"ADRESSE_LOW","ARGTYPE":"int","ARGCOMMENT0":""}]}

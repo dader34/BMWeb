@@ -1,1 +1,0 @@
-{"job":"FS_LOESCHEN","arguments":[{"ARG":"F_CODE","ARGTYPE":"int","ARGCOMMENT0":"0x????: Angabe eines einzelnen Fehlers","ARGCOMMENT1":"0xFFFB: alle Antriebsfehler","ARGCOMMENT2":"0xFFFC: alle Fahrwerkfehler","ARGCOMMENT3":"0xFFFD: alle Karosseriefehler","ARGCOMMENT4":"0xFFFE: alle Netzwerkfehler","ARGCOMMENT5":"Default:","ARGCOMMENT6":"0xFFFF: alle Fehler"}]}

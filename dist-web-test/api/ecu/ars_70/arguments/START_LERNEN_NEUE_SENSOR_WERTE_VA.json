@@ -1,1 +1,0 @@
-{"job":"START_LERNEN_NEUE_SENSOR_WERTE_VA","arguments":[{"ARG":"SENSOR_NULLPKT_VA","ARGTYPE":"int","ARGCOMMENT0":"SensorNullpunkt in [mV]"},{"ARG":"SENSOR_STEIGUNG_VA","ARGTYPE":"int","ARGCOMMENT0":"Steigung in [mue Volt/bar]"}]}

@@ -1,1 +1,0 @@
-{"job":"SMC_SPEICHER_SCHREIBEN_LEAR","arguments":[{"ARG":"SMC","ARGTYPE":"string","ARGCOMMENT0":"SMC links bzw. rechts"},{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"0x000000 - 0xFFFFFF"},{"ARG":"DATEN","ARGTYPE":"string","ARGCOMMENT0":"zu schreibende Daten (immer 1 Byte)","ARGCOMMENT1":"z.B. 1"}]}

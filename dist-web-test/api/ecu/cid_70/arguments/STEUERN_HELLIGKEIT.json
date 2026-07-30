@@ -1,1 +1,0 @@
-{"job":"STEUERN_HELLIGKEIT","arguments":[{"ARG":"PWM_VALUE","ARGTYPE":"int","ARGCOMMENT0":"Range 0x0000 - 0xFFFF"}]}

@@ -1,1 +1,0 @@
-{"job":"STEUERN_CAN_DISKRET","arguments":[{"ARG":"ORT","ARGTYPE":"string","ARGCOMMENT0":"gewuenschte Komponente","ARGCOMMENT1":"table CANDiskretSignale NAME TEXT"},{"ARG":"CAN_WERT","ARGTYPE":"string","ARGCOMMENT0":"","ARGCOMMENT1":"table CANsub NAME TEXT"}]}

@@ -1,1 +1,0 @@
-{"job":"LERNWERTE_RUECKSETZEN_X","arguments":[{"ARG":"IDENTIFIER_ABGLEICH","ARGTYPE":"int","ARGCOMMENT0":"Spalte LID aus Tabelle LERNWERTE_RUECK"},{"ARG":"LERNWERT_RUECKSETZEN_WERT","ARGTYPE":"int","ARGCOMMENT0":"ID für zylinderspezifische LABEL (z.B. Einzelinjektoren wechseln)"}]}

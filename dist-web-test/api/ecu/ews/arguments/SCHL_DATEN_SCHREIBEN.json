@@ -1,1 +1,0 @@
-{"job":"SCHL_DATEN_SCHREIBEN","arguments":[{"ARG":"SCHL_NUMMER","ARGTYPE":"int","ARGCOMMENT0":"0 bis 9"},{"ARG":"SCHL_IDENT","ARGTYPE":"string","ARGCOMMENT0":"8 Byte"},{"ARG":"SCHL_FREIGABE","ARGTYPE":"int","ARGCOMMENT0":"0 : gesperrt / >0 : freigeschaltet"}]}

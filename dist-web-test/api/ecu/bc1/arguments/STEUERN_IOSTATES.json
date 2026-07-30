@@ -1,1 +1,0 @@
-{"job":"STEUERN_IOSTATES","arguments":[{"ARG":"ORT","ARGTYPE":"string","ARGCOMMENT0":"Digital output to force, DOP_?","ARGCOMMENT1":"Identifier \"DOP_?\" from \"NAME\" column in table \"BITS\""},{"ARG":"EIN","ARGTYPE":"int","ARGCOMMENT0":"1 = ON, 0 = OFF","ARGCOMMENT1":"1 wenn einschalten / 0 wenn ausschalten"}]}

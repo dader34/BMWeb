@@ -1,1 +1,0 @@
-{"job":"STATUS_MEMORY_POSITION_SPIEGEL","arguments":[{"ARG":"KEY","ARGTYPE":"int","ARGCOMMENT0":"0 bis 3 und 255","ARGCOMMENT1":"welcher Schluessel"},{"ARG":"MEM_POS_SLOT","ARGTYPE":"int","ARGCOMMENT0":"0 bis 3","ARGCOMMENT1":"welche Memoryposition"}]}

@@ -1,1 +1,0 @@
-{"job":"_FS_LESEN_SELEKTIV","arguments":[{"ARG":"FEHLER","ARGTYPE":"string","ARGCOMMENT0":"welche Fehler sollen ausgelesen werden","ARGCOMMENT1":"\"DSC\" oder \"dsc\" fuer DSC Fehler","ARGCOMMENT2":"\"BUS\" oder \"bus\" fuer BUS Fehler","ARGCOMMENT3":"\"SZL\" oder \"szl\" fuer SZL Fehler"}]}

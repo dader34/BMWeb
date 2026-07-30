@@ -1,1 +1,0 @@
-{"job":"ABGLEICH_PROGRAMMIEREN_IMA_ZYL","arguments":[{"ARG":"ABGLEICH_VERSTELLEN_IMA_IDENT","ARGTYPE":"string","ARGCOMMENT0":"Identifier zylinderspezifisch IMA1 - IMA8"},{"ARG":"ABGLEICH_VERSTELLEN_IMA_ZYL","ARGTYPE":"string","ARGCOMMENT0":"IMA - Wert für selektierten Zylinder"}]}

@@ -1,1 +1,0 @@
-{"job":"ABGLEICH_CSF_LESEN","arguments":[{"ARG":"LABEL_ECU","ARGTYPE":"string","ARGCOMMENT0":"gewaehlter Service Bibliothekeintrag (OPTIONAL)","ARGCOMMENT1":"dient nur zur Prüfung mit ECU-TEST"}]}

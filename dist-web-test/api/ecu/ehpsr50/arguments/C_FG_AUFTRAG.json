@@ -1,1 +1,0 @@
-{"job":"C_FG_AUFTRAG","arguments":[{"ARG":"FG_NR","ARGTYPE":"string","ARGCOMMENT0":"Fahrgestellnummer (18-stellig)","ARGCOMMENT1":"VIN - stored as 17 ascii characters ( + 1 ascii checksum )","ARGCOMMENT2":"string can be 17 or 18 characters - if 18 the last character is ignored"}]}

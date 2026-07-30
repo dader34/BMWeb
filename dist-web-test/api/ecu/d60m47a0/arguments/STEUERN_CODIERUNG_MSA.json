@@ -1,1 +1,0 @@
-{"job":"STEUERN_CODIERUNG_MSA","arguments":[{"ARG":"SW_CODIERUNG_MSA_WERT","ARGTYPE":"unsigned long","ARGCOMMENT0":"Codierung fuer MSA, 0 = kein MSA-Fahrzeug, 1 = MSA-Fahrzeug,","ARGCOMMENT1":"1BYTE in 0 bis 255   Min: 0 Max: 255  "}]}

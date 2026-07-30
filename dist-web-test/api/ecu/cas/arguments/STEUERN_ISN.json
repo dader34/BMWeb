@@ -1,1 +1,0 @@
-{"job":"STEUERN_ISN","arguments":[{"ARG":"ISN_CODE","ARGTYPE":"string","ARGCOMMENT0":"\"ISN\": z.B. \"0x00,0x00,0x55,0xAA\"","ARGCOMMENT1":"======> Byte0-3"}]}

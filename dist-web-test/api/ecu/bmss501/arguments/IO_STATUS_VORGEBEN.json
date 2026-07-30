@@ -1,1 +1,0 @@
-{"job":"IO_STATUS_VORGEBEN","arguments":[{"ARG":"PIN_NUMMER","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"TASTVERHAELTNIS","ARGTYPE":"int","ARGCOMMENT0":"00 Stellglied nicht angesteuert, ff staendig angesteuert"},{"ARG":"PERIODENDAUER","ARGTYPE":"int","ARGCOMMENT0":"00 ungueltig"}]}

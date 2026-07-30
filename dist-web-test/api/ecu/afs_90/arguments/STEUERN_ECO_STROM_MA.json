@@ -1,1 +1,0 @@
-{"job":"STEUERN_ECO_STROM_MA","arguments":[{"ARG":"ECO_STROM_SOLL_WERT","ARGTYPE":"int","ARGCOMMENT0":"zu stellender Strom fuer das ECO Ventil, (2 Byte)","ARGCOMMENT1":"Wertebereich[0..1000 mA]"}]}

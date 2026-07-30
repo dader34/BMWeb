@@ -1,1 +1,0 @@
-{"job":"STEUERN_STATUS_VORGEBEN_LOOP","arguments":[{"ARG":"ORT1","ARGTYPE":"string","ARGCOMMENT0":"gewuenschte Komponente 1"},{"ARG":"TIME","ARGTYPE":"int","ARGCOMMENT0":"Zeit in Sekunden"}]}

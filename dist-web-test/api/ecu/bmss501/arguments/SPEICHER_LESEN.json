@@ -1,1 +1,0 @@
-{"job":"SPEICHER_LESEN","arguments":[{"ARG":"SEGMENT","ARGTYPE":"int","ARGCOMMENT0":"Segment oder Speicher"},{"ARG":"ADR","ARGTYPE":"unsigned long","ARGCOMMENT0":"Adresse"},{"ARG":"ANZ_BYTE","ARGTYPE":"int","ARGCOMMENT0":"Anzahl der zu lesenden Bytes"}]}

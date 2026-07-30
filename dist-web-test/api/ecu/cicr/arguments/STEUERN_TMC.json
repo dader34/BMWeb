@@ -1,1 +1,0 @@
-{"job":"STEUERN_TMC","arguments":[{"ARG":"ARG_TMC","ARGTYPE":"unsigned char","ARGCOMMENT0":"TMC activation state that should become active.","ARGCOMMENT1":"values from table TTMC"}]}

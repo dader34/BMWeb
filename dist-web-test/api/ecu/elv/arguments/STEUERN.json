@@ -1,1 +1,0 @@
-{"job":"STEUERN","arguments":[{"ARG":"ORT","ARGTYPE":"string","ARGCOMMENT0":"gewuenschte Komponente","ARGCOMMENT1":"table BITS NAME TEXT"},{"ARG":"EIN","ARGTYPE":"int","ARGCOMMENT0":"'1' zum Einschalten / '0' zum Ausschalten"}]}

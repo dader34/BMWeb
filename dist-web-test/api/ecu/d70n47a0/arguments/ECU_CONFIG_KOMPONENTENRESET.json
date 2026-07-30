@@ -1,1 +1,0 @@
-{"job":"ECU_CONFIG_KOMPONENTENRESET","arguments":[{"ARG":"IDENTIFIER_NAME","ARGTYPE":"string","ARGCOMMENT0":"Bezeichnung der Komponente aus DIG_BLOCKx"},{"ARG":"IDENTIFIER_STATUS","ARGTYPE":"int","ARGCOMMENT0":"Gewünschter Status der Komponente aus DIG_BLOCKx (0 = nicht erkannt (default))/ 1 = erkannt)"}]}

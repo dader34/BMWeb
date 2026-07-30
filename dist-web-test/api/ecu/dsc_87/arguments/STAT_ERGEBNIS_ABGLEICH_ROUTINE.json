@@ -1,1 +1,0 @@
-{"job":"STAT_ERGEBNIS_ABGLEICH_ROUTINE","arguments":[{"ARG":"TYP","ARGTYPE":"string","ARGCOMMENT0":"Typ der Routine angeben"},{"ARG":"RESULT","ARGTYPE":"string","ARGCOMMENT0":"mit R als Argument wird das Result mehrfach abgefragt, bis pos. Ergebnis vorliegt","ARGCOMMENT1":"ohne R als Argument liefert dieser Job nur einmal das Result der Routine zurück"}]}

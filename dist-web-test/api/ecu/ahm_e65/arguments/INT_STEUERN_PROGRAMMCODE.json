@@ -1,1 +1,0 @@
-{"job":"INT_STEUERN_PROGRAMMCODE","arguments":[{"ARG":"BLOCK_NUMMER","ARGTYPE":"int","ARGCOMMENT0":"Werte: 0...7","ARGCOMMENT1":"======> CID"},{"ARG":"BLOCK_DATA","ARGTYPE":"string","ARGCOMMENT0":"\"Block Data\": z.B. 0x01,0x02,0x03,0x04,0x05,0x06...","ARGCOMMENT1":"======> Byte 0-31"}]}

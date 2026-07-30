@@ -1,1 +1,0 @@
-{"job":"SPEICHER_LESEN","arguments":[{"ARG":"SEGMENT","ARGTYPE":"int","ARGCOMMENT0":"Speichersegment","ARGCOMMENT1":"Bereich: 0x00-0xFF"},{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"Speicheradresse","ARGCOMMENT1":"Bereich: 0x0000-0xFFFF"},{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"Anzahl der Daten","ARGCOMMENT1":"Bereich: 1 bis 16"}]}

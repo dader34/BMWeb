@@ -1,1 +1,0 @@
-{"job":"STEUERN_BASS_TREBLE","arguments":[{"ARG":"BL","ARGTYPE":"char","ARGCOMMENT0":"bass level","ARGCOMMENT1":"Range [-10 .. +10]"},{"ARG":"TL","ARGTYPE":"char","ARGCOMMENT0":"treble level","ARGCOMMENT1":"Range [-10 .. +10]"}]}

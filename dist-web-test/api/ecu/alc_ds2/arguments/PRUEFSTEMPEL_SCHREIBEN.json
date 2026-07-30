@@ -1,1 +1,0 @@
-{"job":"PRUEFSTEMPEL_SCHREIBEN","arguments":[{"ARG":"JOB07_BYT0","ARGTYPE":"int","ARGCOMMENT0":"number 1 out of 3","ARGCOMMENT1":"valid:  0x00-0xFF"},{"ARG":"JOB07_BYT1","ARGTYPE":"int","ARGCOMMENT0":"number 2 out of 3","ARGCOMMENT1":"valid:  0x00-0xFF"},{"ARG":"JOB07_BYT2","ARGTYPE":"int","ARGCOMMENT0":"number 3 out of 3","ARGCOMMENT1":"valid:  0x00-0xFF"}]}

@@ -1,1 +1,0 @@
-{"job":"FLASH_SCHREIBEN","arguments":[{"ARG":"DATA","ARGTYPE":"binary","ARGCOMMENT0":"Data to transfer to the ECU (62 bytes)"}]}

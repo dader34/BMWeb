@@ -1,1 +1,0 @@
-{"job":"RAM_LESEN","arguments":[{"ARG":"RAM_LESEN_ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Startadresse High-Low Angabe in Hex 0x12"},{"ARG":"RAM_LESEN_ANZAHL_BYTE","ARGTYPE":"int","ARGCOMMENT0":"Uebergabeparameter, Anzahl der auszulesenden BYTES in Hex 0x3"}]}

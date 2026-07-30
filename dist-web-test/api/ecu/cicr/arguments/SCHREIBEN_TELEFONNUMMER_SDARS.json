@@ -1,1 +1,0 @@
-{"job":"SCHREIBEN_TELEFONNUMMER_SDARS","arguments":[{"ARG":"ARG_NR_SDARS","ARGTYPE":"string","ARGCOMMENT0":"Nummer des Bereitschaftsdienstes","ARGCOMMENT1":"Stringlänge max. 35 Zeichen (ohne Endezeichen \\0)"}]}

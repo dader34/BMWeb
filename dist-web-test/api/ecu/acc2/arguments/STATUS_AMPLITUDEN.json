@@ -1,1 +1,0 @@
-{"job":"STATUS_AMPLITUDEN","arguments":[{"ARG":"MODUS","ARGTYPE":"int","ARGCOMMENT0":"0x00 Messmodus, 0x01 Messung, 0x02 Fahrmodus"},{"ARG":"DISTANZ","ARGTYPE":"int","ARGCOMMENT0":"Erlaubter Bereich: 50..255cm"}]}

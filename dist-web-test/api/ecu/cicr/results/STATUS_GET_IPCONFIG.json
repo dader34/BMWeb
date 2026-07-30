@@ -1,1 +1,0 @@
-["STAT_FORMAT : 0x00  IPv4, 0x01  IPv6","STAT_IPADDRESS : IP Adress e.g. 10.230.1.60","STAT_NETMASK : Netmask e.g. 255.255.255.0","STAT_GATEWAY : default Gateway Adress e.g. 10.230.1.1","JOB_STATUS : \"OKAY\", wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

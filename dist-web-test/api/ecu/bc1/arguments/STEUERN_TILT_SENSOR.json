@@ -1,1 +1,0 @@
-{"job":"STEUERN_TILT_SENSOR","arguments":[{"ARG":"EIN","ARGTYPE":"int","ARGCOMMENT0":"0 = OFF,      >0 = ON","ARGCOMMENT1":"'>0', wenn ein / '0', wenn aus"}]}

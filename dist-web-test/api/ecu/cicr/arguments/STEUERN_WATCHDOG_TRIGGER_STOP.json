@@ -1,1 +1,0 @@
-{"job":"STEUERN_WATCHDOG_TRIGGER_STOP","arguments":[{"ARG":"ARG_TIME_WATCHDOG","ARGTYPE":"unsigned int","ARGCOMMENT0":"Beschreibung: z.B. ARG_TIME_WATCHDOG = 4 bedeutet Abschalten des","ARGCOMMENT1":"Watchdog-Triggers nach 4 Sekunden.","ARGCOMMENT2":"nur positiven Zahlen und die 0. Skalierung: 1 entspricht 1 Sekunde"}]}

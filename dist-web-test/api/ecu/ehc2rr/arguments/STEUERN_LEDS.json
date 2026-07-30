@@ -1,1 +1,0 @@
-{"job":"STEUERN_LEDS","arguments":[{"ARG":"LEDS1","ARGTYPE":"int","ARGCOMMENT0":"LEDs","ARGCOMMENT1":"Bit0: reserved","ARGCOMMENT2":"Bit1: standard","ARGCOMMENT3":"Bit2: reserved, Bit3: reserved,Bit4: reserved, Bit5: reserved, Bit6: reserved","ARGCOMMENT4":"Bit7: offroad"}]}

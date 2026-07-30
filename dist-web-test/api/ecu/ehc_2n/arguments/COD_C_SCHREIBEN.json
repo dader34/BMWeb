@@ -1,1 +1,0 @@
-{"job":"COD_C_SCHREIBEN","arguments":[{"ARG":"BINAER_BUFFER","ARGTYPE":"binary","ARGCOMMENT0":"21 Byte Headerdaten (0 - 20) + 25 Byte Daten + 1 Byte ETX Kennung (0x03)"}]}

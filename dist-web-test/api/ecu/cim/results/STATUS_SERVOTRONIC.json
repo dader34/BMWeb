@@ -1,1 +1,0 @@
-["STAT_SERVO : Fehlerstatus der Servotronic (OKAY wenn fehlerfrei) ","STAT_VENTILSTROM_WERT : Strom durch Servotronicventil ","STAT_VENTILSTROM_EINH : Einheit des Ventilstroms ","JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_ANTWORT : Hex-Antwort von SG"]

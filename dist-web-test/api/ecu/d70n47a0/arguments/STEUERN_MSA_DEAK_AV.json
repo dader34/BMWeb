@@ -1,1 +1,0 @@
-{"job":"STEUERN_MSA_DEAK_AV","arguments":[{"ARG":"SW_STAT_MSA_DEAK_AV_WERT","ARGTYPE":"unsigned long","ARGCOMMENT0":"Selektive Deaktivierung Abschaltverhinderer MSA (MotorStopAutomatik)","ARGCOMMENT1":"Swmsaav   Min: 0 Max: 4294967295  "}]}

@@ -1,1 +1,0 @@
-{"job":"STEUERN_USB_TEST","arguments":[{"ARG":"ARG_PRODUCTID","ARGTYPE":"string","ARGCOMMENT0":"Format should be '0000'","ARGCOMMENT1":"If empty then default 0000 is written."},{"ARG":"ARG_VENDORID","ARGTYPE":"string","ARGCOMMENT0":"Format should be '0000'","ARGCOMMENT1":"If empty then default 0000 is written."}]}

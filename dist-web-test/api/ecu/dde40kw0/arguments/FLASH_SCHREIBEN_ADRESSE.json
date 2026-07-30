@@ -1,1 +1,0 @@
-{"job":"FLASH_SCHREIBEN_ADRESSE","arguments":[{"ARG":"FLASH_SCHREIBEN_ADRESSE_ANFANG","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Startadresse High-Middle-Low und Daten"},{"ARG":"FLASH_SCHREIBEN_ADRESSE_ENDE","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Endadresse High-Middle-Low und Daten"}]}

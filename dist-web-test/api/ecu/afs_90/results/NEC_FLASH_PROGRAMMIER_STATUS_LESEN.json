@@ -1,1 +1,0 @@
-["STAT_NEC_FLASH_WERT : moegliche Zustaende ( 0 --> FLASH_BOOT )","STAT_NEC_FLASH_TEXT : Textausgabe ueber Tabellenzugriff, --> NecFlash  ( 1 Byte )","JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_AUFTRAG : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG","_TEL_DATEN : Hex-Antwort von SG"]

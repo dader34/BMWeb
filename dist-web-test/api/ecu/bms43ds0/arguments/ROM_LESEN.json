@@ -1,1 +1,0 @@
-{"job":"ROM_LESEN","arguments":[{"ARG":"ROM_LESEN_ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Startadresse High-Middle-Low"},{"ARG":"ROM_LESEN_ANZAHL_BYTE","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Anzahl der auszulesenden BYTES"}]}

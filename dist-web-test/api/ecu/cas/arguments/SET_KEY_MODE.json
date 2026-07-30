@@ -1,1 +1,0 @@
-{"job":"SET_KEY_MODE","arguments":[{"ARG":"COMMAND","ARGTYPE":"string","ARGCOMMENT0":"\"Befehl\": 0-7","ARGCOMMENT1":"table Key_Mode_Befehle NAME TEXT","ARGCOMMENT2":"======> Byte0"},{"ARG":"DATEN","ARGTYPE":"string","ARGCOMMENT0":"\"Daten\": Nur fuer START_AUTH_DIAG(=4)","ARGCOMMENT1":"======> Byte1-16 (z.B. 0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A)"}]}

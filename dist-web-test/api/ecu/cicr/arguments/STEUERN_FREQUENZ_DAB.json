@@ -1,1 +1,0 @@
-{"job":"STEUERN_FREQUENZ_DAB","arguments":[{"ARG":"ARG_FREQUENZ_DAB","ARGTYPE":"string","ARGCOMMENT0":"Frequency to be set. 3 ASCII Bytes are needed for this argument","ARGCOMMENT1":"sample ABC"}]}

@@ -1,1 +1,0 @@
-{"job":"SPEICHER_LESEN","arguments":[{"ARG":"ZAHL","ARGTYPE":"int","ARGCOMMENT0":"1 bis 24"},{"ARG":"HIGH","ARGTYPE":"int","ARGCOMMENT0":"0 = RAM, 1 = ROM"},{"ARG":"LOW","ARGTYPE":"int","ARGCOMMENT0":"range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM"}]}

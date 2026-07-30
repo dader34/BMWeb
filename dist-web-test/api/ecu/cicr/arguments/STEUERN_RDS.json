@@ -1,1 +1,0 @@
-{"job":"STEUERN_RDS","arguments":[{"ARG":"ARG_TP","ARGTYPE":"unsigned char","ARGCOMMENT0":"Activation state of TP","ARGCOMMENT1":"0 TP aus, 1 TP ein, 2 TP keine Änderung"},{"ARG":"ARG_RDS","ARGTYPE":"unsigned char","ARGCOMMENT0":"Activation state of RDS","ARGCOMMENT1":"0 RDS aus, 1 RDS ein, 2 RDS keine Änderung"}]}

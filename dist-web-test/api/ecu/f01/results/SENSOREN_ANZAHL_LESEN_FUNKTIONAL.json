@@ -1,1 +1,0 @@
-["ECU_ADR : Steuergeräteadresse als Hex-String","ECU_GROBNAME : Grobname des Steuergerätes","ID_SG_ADR : Steuergeräteadresse","SENSOR_ANZAHL : Anzahl der intelligenten Subbussensoren","JOB_STATUS : OKAY, wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_RESPONSE : Hex-Antwort von SG"]

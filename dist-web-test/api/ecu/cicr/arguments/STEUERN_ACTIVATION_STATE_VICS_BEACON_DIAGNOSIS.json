@@ -1,1 +1,0 @@
-{"job":"STEUERN_ACTIVATION_STATE_VICS_BEACON_DIAGNOSIS","arguments":[{"ARG":"ARG_ACTIVATION_STATE_VICS_BEACON_DIAGNOSIS","ARGTYPE":"unsigned char","ARGCOMMENT0":"Activation state of the VICS Beacon diagnosis","ARGCOMMENT1":"0x00\tDeactivated","ARGCOMMENT2":"0x01\tActivated"}]}

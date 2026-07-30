@@ -1,1 +1,0 @@
-{"job":"STEUERN_LAMPEN_PWM","arguments":[{"ARG":"ORT","ARGTYPE":"string","ARGCOMMENT0":"table LampNrTexte NAME TEXT","ARGCOMMENT1":"Lampe aus Tabelle auswaehlen"},{"ARG":"PWM_WERT","ARGTYPE":"int","ARGCOMMENT0":"von 0 bis 100 in Prozent"}]}

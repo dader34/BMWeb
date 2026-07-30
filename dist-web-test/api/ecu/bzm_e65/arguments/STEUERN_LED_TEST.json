@@ -1,1 +1,0 @@
-{"job":"STEUERN_LED_TEST","arguments":[{"ARG":"ARG_LED_ZUSTAND","ARGTYPE":"string","ARGCOMMENT0":"Ein -> Alle LED Einschalten","ARGCOMMENT1":"Aus -> Alle LED Ausschalten","ARGCOMMENT2":"default = Ein","ARGCOMMENT3":"Werte: true, false","ARGCOMMENT4":"table DigitalArgument TEXT"}]}

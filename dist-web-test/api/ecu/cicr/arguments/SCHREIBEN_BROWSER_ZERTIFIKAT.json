@@ -1,1 +1,0 @@
-{"job":"SCHREIBEN_BROWSER_ZERTIFIKAT","arguments":[{"ARG":"ARG_FILE","ARGTYPE":"string","ARGCOMMENT0":"BROWSER Zertifikat read from file to be written","ARGCOMMENT1":"complete path is necessary"},{"ARG":"ARG_STREAM","ARGTYPE":"string","ARGCOMMENT0":"BROWSER Zertifikat from STREAM to be written","ARGCOMMENT1":"file content as a string"}]}

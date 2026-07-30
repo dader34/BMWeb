@@ -1,1 +1,0 @@
-{"job":"STEUERN_PVVA_PWM_OHNE_FP","arguments":[{"ARG":"STROM_MA_PVVA","ARGTYPE":"int","ARGCOMMENT0":"Quantisierung 0,001A","ARGCOMMENT1":"Bereich 0 mA - 3000 mA","ARGCOMMENT2":"Strom in mA"}]}

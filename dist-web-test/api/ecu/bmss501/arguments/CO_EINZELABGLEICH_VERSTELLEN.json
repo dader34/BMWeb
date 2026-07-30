@@ -1,1 +1,0 @@
-{"job":"CO_EINZELABGLEICH_VERSTELLEN","arguments":[{"ARG":"ZYLINDER_NR","ARGTYPE":"int","ARGCOMMENT0":"Uebergabeparameter, Index fuer Zylinder"},{"ARG":"CO_VERSTELL_WERT","ARGTYPE":"int","ARGCOMMENT0":"Neuer Verstellwert"}]}

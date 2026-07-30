@@ -1,1 +1,0 @@
-{"job":"EEPROM_BYTE_AENDERN","arguments":[{"ARG":"EEPROM_ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Startadresse High-Middle-Low"},{"ARG":"EEPROM_AENDERN_BYTE","ARGTYPE":"int","ARGCOMMENT0":"Uebergabeparameter, BYTE zum verundern/verodern"},{"ARG":"EEPROM_AENDERN_OPER","ARGTYPE":"string","ARGCOMMENT0":"Uebergabeparameter, Operator- \"AND\", \"OR\", \"XOR\""}]}

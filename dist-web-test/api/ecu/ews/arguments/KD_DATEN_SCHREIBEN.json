@@ -1,1 +1,0 @@
-{"job":"KD_DATEN_SCHREIBEN","arguments":[{"ARG":"KD_BLOCK","ARGTYPE":"int","ARGCOMMENT0":"0 bis 11"},{"ARG":"KD_DATEN","ARGTYPE":"string","ARGCOMMENT0":"16 Byte"}]}
