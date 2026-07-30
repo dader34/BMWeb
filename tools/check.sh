@@ -39,3 +39,12 @@ node tools/ipo_i18n.js --check
 echo
 echo "== IR interpreter renders known screens =="
 node tools/test_ir_render.js
+
+# Table completeness: the VM reaches tables the lifter never modelled, so a
+# shipped set that omits declared tables silently decodes lookups as "".
+# Needs a running app for the ECU table API; skipped otherwise.
+if [ -n "$BMACW_PORT" ] && [ -d data/sgbd-tables ]; then
+  echo
+  echo "== shipped tables cover what the SGBDs declare =="
+  python3 tools/sgbd_export.py --audit || exit 1
+fi
