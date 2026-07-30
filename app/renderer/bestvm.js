@@ -447,13 +447,17 @@ class Best2Vm {
     return this._tabIndex.get(want) || null;
   }
 
-  // Publish a result unless an `etag` said the caller does not want it.
+  // Publish a result. The KEY IS UPPERCASED (SetResultData keys
+  // _resultDict on Name.ToUpper), so ZKE5's "STAT_IFFHMax_WERT" is
+  // published as STAT_IFFHMAX_WERT -- the values were already right, only
+  // the key case differed, and a caller looking up the engine's name found
+  // nothing. Last write wins, as the engine's dictionary assignment does.
   emit(name, value) {
-    if (this.wanted && !this.wanted.has(name.toUpperCase())
-        && !name.startsWith('JOB_')) {
+    const key = String(name).toUpperCase();
+    if (this.wanted && !this.wanted.has(key) && !key.startsWith('JOB_')) {
       return;
     }
-    this.cur.set(name, value);
+    this.cur.set(key, value);
   }
 
   // THE width rule: GetArgsValueLength returns arg0.GetDataLen(TRUE) and
@@ -1217,18 +1221,32 @@ class Best2Vm {
   // the first '.' or ','. Unparseable yields 0. This is what table cells
   // are run through by tabseeku, so "0x10" seeks as 16.
   static strToValue(s) {
-    const t = String(s ?? '').trim();
+    // StringToValue uses Convert.ToInt64, which is ALL-OR-NOTHING: it
+    // throws on trailing junk and the caller catches it as 0. parseInt
+    // happily takes a valid prefix, and that difference is visible --
+    // y2bcd renders a non-BCD nibble as '*', so LSZ's ID_HW_NR is the text
+    // "2*", which the engine reports as 0 and parseInt would call 2.
+    const t = String(s ?? '').replace(/\s+$/, '');
     if (!t) return 0;
     const low = t.toLowerCase();
     if (low.startsWith('0x')) {
-      const v = parseInt(t.slice(2), 16);
+      const body = t.slice(2);
+      if (!/^[0-9a-fA-F]+$/.test(body)) return 0;
+      const v = parseInt(body, 16);
       return Number.isFinite(v) ? v : 0;
     }
     if (low.startsWith('0y')) {
-      const v = parseInt(t.slice(2), 2);
+      const body = t.slice(2);
+      if (!/^[01]+$/.test(body)) return 0;
+      const v = parseInt(body, 2);
       return Number.isFinite(v) ? v : 0;
     }
-    const cut = t.split(/[.,]/)[0];
+    if (low === '-' || low === '--') return 0;
+    if (/^[a-z]/i.test(low)) return 0;      // a leading letter rejects it
+    // decimal, truncated at the first '.' or ',' -- then it must be a
+    // COMPLETE integer or the conversion fails
+    const cut = t.trimStart().split(/[.,]/)[0];
+    if (!/^[+-]?[0-9]+$/.test(cut)) return 0;
     const v = parseInt(cut, 10);
     return Number.isFinite(v) ? v : 0;
   }
