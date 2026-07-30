@@ -400,6 +400,20 @@ class Best2Vm {
     }
   }
 
+  // Store TEXT into a string register the way Operand.SetStringData does:
+  // the bytes PLUS one appended NUL when non-empty (an empty string stores a
+  // zero-length array with no NUL). This is observable, not cosmetic --
+  // `scmp` is byte-exact, and the compiler's literals carry the terminator
+  // ("6\0"), so a stored "6" without one never matched and MS420's VANOS
+  // jobs fell through to ERROR_FUNCTION_*.
+  storeText(op, txt) {
+    const b = Best2Vm.strBytes(String(txt ?? ''));
+    if (b.length === 0) { this.store(op, b, true); return; }
+    const out = new Uint8Array(b.length + 1);
+    out.set(b);
+    this.store(op, out, true);
+  }
+
   // A pool entry as TEXT: a byte-array literal is NUL-terminated text.
   lit(i) {
     const v = this.code.strings[i];
@@ -712,12 +726,11 @@ class Best2Vm {
         return;
       }
       case 'flt2a': {
-        const v = this.getReg(B[1]);
-        this.store(A, Best2Vm.strBytes(String(v)), true);
+        this.storeText(A, String(this.getReg(B[1])));
         return;
       }
       case 'fix2a': case 'ufix2a': {
-        this.store(A, Best2Vm.strBytes(String(this.val(B))), true);
+        this.storeText(A, String(this.val(B)));
         return;
       }
       case 'fix2dez': case 'ufix2dez': {
@@ -728,7 +741,7 @@ class Best2Vm {
           const lim = 2 ** (8 * w);
           if (v >= lim / 2) v -= lim;
         }
-        this.store(A, Best2Vm.strBytes(String(v)), true);
+        this.storeText(A, String(v));
         return;
       }
 
@@ -745,7 +758,7 @@ class Best2Vm {
         const v = this.val(B);
         const txt = '0x' + (v >>> 0).toString(16).toUpperCase()
           .padStart(digits, '0');
-        this.store(A, Best2Vm.strBytes(txt), true);
+        this.storeText(A, txt);
         return;
       }
       case 'y2hex': {
@@ -753,7 +766,7 @@ class Best2Vm {
         for (const x of this.bytes(B)) {
           s += x.toString(16).toUpperCase().padStart(2, '0');
         }
-        this.store(A, Best2Vm.strBytes(s), true);
+        this.storeText(A, s);
         return;
       }
       case 'y2bcd': {
@@ -764,7 +777,7 @@ class Best2Vm {
             s += n <= 9 ? String(n) : '*';
           }
         }
-        this.store(A, Best2Vm.strBytes(s), true);
+        this.storeText(A, s);
         return;
       }
       case 'hex2y': {
@@ -1043,8 +1056,8 @@ class Best2Vm {
         const col = this.lit(B[1]) ?? Best2Vm.cstr(this.bytes(B));
         const cell = this.table && this.table.row
           ? this.table.row[col] : undefined;
-        this.store(A, Best2Vm.strBytes(cell === undefined || cell === null
-          ? '' : String(cell)), true);
+        this.storeText(A, cell === undefined || cell === null
+          ? '' : String(cell));
         f.zero = cell === undefined || cell === null;
         return;
       }
@@ -1087,7 +1100,7 @@ class Best2Vm {
           txt = parts[i];
           f.zero = false;
         }
-        this.store(A, Best2Vm.strBytes(txt), true);
+        this.storeText(A, txt);
         return;
       }
       case 'parb': case 'parw': case 'parl': case 'pard': case 'pari': {
