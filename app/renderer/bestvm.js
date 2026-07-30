@@ -47,8 +47,8 @@ const JUMP_TESTS = {
   jge: (f) => f.sign === f.overflow,
   jl: (f) => f.sign !== f.overflow,
   jle: (f) => f.zero || (f.sign !== f.overflow),
-  jt: (f) => f.tested,
-  jnt: (f) => !f.tested,
+  // jt/jnt are handled in step(): they test the TRAP REGISTER with an
+  // optional bit selector, not a boolean flag.
 };
 
 class Best2Vm {
@@ -78,6 +78,13 @@ class Best2Vm {
     this.cur = new Map();              // set being built
     this.wanted = null;                // etag filter, null = everything
     this.table = null;                 // {rows, cols, row}
+    // The trap register: -1 = clean, 0 = an error with no mapped bit,
+    // 2..29 = a mapped EDIABAS error (BIP_0010 -> 10 is the table error),
+    // >= 0x40000000 = a user trap from `sett`. jt/jnt test THIS, not a
+    // generic "tested" flag -- a tabset that SUCCEEDS must leave it clean,
+    // and mine left a stale flag so `jt err,#10` fired after a good tabset
+    // and 31 jobs reported ERROR_TABLE.
+    this.trapBit = -1;
     this.answer = new Uint8Array(0);
     this.steps = 0;
   }
@@ -225,7 +232,13 @@ class Best2Vm {
   // byte-array read (string registers, ranges, literals)
   bytes(op) {
     const [m, a, b, c] = op;
-    if (m === 8) return Best2Vm.strBytes(this.code.strings[a] ?? '');
+    if (m === 8) {
+      // a pool entry is either a byte ARRAY (an exact literal, possibly
+      // containing NULs) or a plain string (a result/table name)
+      const lit = this.code.strings[a];
+      return Array.isArray(lit) ? Uint8Array.from(lit)
+        : Best2Vm.strBytes(lit ?? '');
+    }
     if (m >= 1 && m <= 4) {
       if (a[0] === 'S') return this.getS(a);
       const span = Best2Vm.regSpan(a);
@@ -385,6 +398,13 @@ class Best2Vm {
       this.results.push(Object.fromEntries(this.cur));
       this.cur = new Map();
     }
+  }
+
+  // A pool entry as TEXT: a byte-array literal is NUL-terminated text.
+  lit(i) {
+    const v = this.code.strings[i];
+    if (Array.isArray(v)) return Best2Vm.cstr(Uint8Array.from(v));
+    return v ?? '';
   }
 
   // Job arguments split on ';'. An EMPTY argument string is ZERO
@@ -661,7 +681,7 @@ class Best2Vm {
       }
       case 'fadd': case 'fsub': case 'fmul': case 'fdiv': {
         const x = this.getReg(A[1]);
-        const y = B[0] === 8 ? Best2Vm.parseNum(this.code.strings[B[1]])
+        const y = B[0] === 8 ? Best2Vm.parseNum(this.lit(B[1]))
           : (B[1] && String(B[1])[0] === 'F' ? this.getReg(B[1]) : this.val(B));
         let r = x;
         if (name === 'fadd') r = x + y;
@@ -672,7 +692,7 @@ class Best2Vm {
         return;
       }
       case 'a2flt': {
-        const txt = B[0] === 8 ? this.code.strings[B[1]]
+        const txt = B[0] === 8 ? this.lit(B[1])
           : Best2Vm.cstr(this.bytes(B));
         this.fregs.set(A[1], Best2Vm.parseNum(txt));
         return;
@@ -683,7 +703,7 @@ class Best2Vm {
         // stops at the 'x' and yields 0 -- so every table-driven bit test
         // masked with 0 and reported the bit set.
         const w = this.widthOf(A);
-        const txt = B[0] === 8 ? this.code.strings[B[1]]
+        const txt = B[0] === 8 ? this.lit(B[1])
           : Best2Vm.cstr(this.bytes(B));
         const v = Best2Vm.strToValue(txt);
         this.store(A, ((v % 2 ** (8 * w)) + 2 ** (8 * w)) % 2 ** (8 * w));
@@ -812,7 +832,7 @@ class Best2Vm {
         // busy" on an OKAY response, so all 28 BMS46 jobs retried the
         // telegram until the step limit.
         const xs = Best2Vm.cstr(this.bytes(A));
-        const ys = B[0] === 8 ? this.code.strings[B[1]]
+        const ys = B[0] === 8 ? this.lit(B[1])
           : Best2Vm.cstr(this.bytes(B));
         f.zero = xs !== String(ys ?? '');
         return;
@@ -873,9 +893,32 @@ class Best2Vm {
       case 'jump':
         if (A[1] === null) throw new VmError(`unresolved jump at ${pc}`);
         return A[1];
+      case 'jt': case 'jnt': {
+        // `jt target[, bit]`: with a bit selector, fire when the trap
+        // register equals it (bit 32 aliases the unmapped bit 0); with no
+        // selector, jt fires on ANY pending trap. jnt is the inverse --
+        // except with no selector, where EDIABAS has a documented bug
+        // (tests >= 0x40000000, so it effectively always jumps); that is
+        // emulated deliberately, since SGBDs are compiled against it.
+        let hit;
+        if (B && B[0] !== 0) {
+          const bit = this.val(B, 1);
+          hit = bit > 0
+            ? (this.trapBit === bit || (this.trapBit === 0 && bit === 32))
+            : this.trapBit >= 0x40000000;
+        } else {
+          hit = name === 'jt' ? this.trapBit >= 0
+            : this.trapBit >= 0x40000000;
+        }
+        if (name === 'jnt') hit = !hit;
+        if (!hit) return;
+        if (A[1] === null) throw new VmError(`unresolved jump at ${pc}`);
+        return A[1];
+      }
+      case 'clrt': this.trapBit = -1; return;
       case 'jz': case 'jnz': case 'jc': case 'jnc': case 'jae': case 'jbe':
       case 'ja': case 'jb': case 'jmi': case 'jpl': case 'jv': case 'jnv':
-      case 'jg': case 'jge': case 'jl': case 'jle': case 'jt': case 'jnt': {
+      case 'jg': case 'jge': case 'jl': case 'jle': {
         const test = JUMP_TESTS[name];
         if (!test) throw new VmError(`no test for ${name}`);
         if (!test(f)) return;
@@ -884,29 +927,44 @@ class Best2Vm {
       }
 
       // ---- results
-      case 'ergb': case 'ergw': case 'ergd': case 'ergi': case 'ergl': {
-        this.emit(this.code.strings[A[1]], this.val(B));
+      // Each erg* opcode has a FIXED width and signedness, independent of
+      // the operand's own type (the reference's result table):
+      //   ergb  unsigned 8    ergc  SIGNED 8
+      //   ergw  unsigned 16   ergi  SIGNED 16
+      //   ergd  unsigned 32   ergl  SIGNED 32
+      // Publishing ergi unsigned reported SMG2's coolant temperature as
+      // 65531 where the engine says -5.
+      case 'ergb': case 'ergw': case 'ergd':
+      case 'ergi': case 'ergl': {
+        const spec = { ergb: [1, false], ergw: [2, false], ergd: [4, false],
+                       ergi: [2, true], ergl: [4, true] }[name];
+        const [w, signed] = spec;
+        let v = this.val(B, w) % 2 ** (8 * w);
+        if (signed && v >= 2 ** (8 * w - 1)) v -= 2 ** (8 * w);
+        this.emit(this.lit(A[1]), v);
         return;
       }
       case 'ergr': {
-        this.emit(this.code.strings[A[1]],
+        this.emit(this.lit(A[1]),
                   B[1] && String(B[1])[0] === 'F'
                     ? this.getReg(B[1]) : this.val(B));
         return;
       }
       case 'ergs': {
-        const txt = B[0] === 8 ? this.code.strings[B[1]]
+        const txt = B[0] === 8 ? this.lit(B[1])
           : Best2Vm.cstr(this.bytes(B));
-        this.emit(this.code.strings[A[1]], txt);
+        this.emit(this.lit(A[1]), txt);
         return;
       }
       case 'ergy': {
-        this.emit(this.code.strings[A[1]], Array.from(this.bytes(B)));
+        this.emit(this.lit(A[1]), Array.from(this.bytes(B)));
         return;
       }
       case 'ergc': {
-        this.emit(this.code.strings[A[1]],
-                  String.fromCharCode(this.val(B) & 0xff));
+        // SIGNED 8-bit, published as a NUMBER (TypeC), not a character
+        let v = this.val(B, 1) & 0xff;
+        if (v >= 0x80) v -= 0x100;
+        this.emit(this.lit(A[1]), v);
         return;
       }
       case 'enewset':
@@ -919,7 +977,7 @@ class Best2Vm {
         // "everything is wanted", so the jump is never taken -- which is
         // why treating this as a flag left every result uncomputed.
         if (!this.wanted || this.wanted.size === 0) return;
-        const nm = B && B[0] === 8 ? this.code.strings[B[1]]
+        const nm = B && B[0] === 8 ? this.lit(B[1])
           : (B ? Best2Vm.cstr(this.bytes(B)) : '');
         if (this.wanted.has(String(nm || '').toUpperCase())) return;
         if (A[1] === null) throw new VmError(`unresolved etag at ${pc}`);
@@ -932,28 +990,30 @@ class Best2Vm {
         // ToUpper), and `tabsetex` names the table in arg0 with the SGBD
         // file in arg1 -- an empty file name keeps the current stream.
         const nameOp = A;
-        const t = nameOp[0] === 8 ? this.code.strings[nameOp[1]]
+        const t = nameOp[0] === 8 ? this.lit(nameOp[1])
           : Best2Vm.cstr(this.bytes(nameOp));
         const rows = this.findTable(t);
         this.table = rows ? { name: t, rows, row: null } : null;
-        // a missing table is EDIABAS_BIP_0010; the SGBD sees it via the
-        // flags and its own guard emits ERROR_TABLE
+        // a missing table is EDIABAS_BIP_0010 (trap bit 10); a found one
+        // must CLEAR the trap, or the SGBD's `jt err,#10` guard fires on a
+        // perfectly good table
         f.zero = !rows;
+        this.trapBit = rows ? -1 : 10;
         return;
       }
       case 'tabseek': case 'tabseeku': {
-        if (!this.table) { f.zero = true; f.tested = false; return; }
+        if (!this.table) { f.zero = true; this.trapBit = 10; return; }
         // arg0 is always the COLUMN NAME, arg1 the value being sought.
         // `tabseek` compares text case-INsensitively; `tabseeku` parses
         // each cell as a NUMBER (StringToValue: 0x hex, 0y binary, else
         // decimal) and compares numerically -- which is what makes
         // JobResult's "0x10" style status bytes match a numeric key.
-        const col = A[0] === 8 ? this.code.strings[A[1]]
+        const col = A[0] === 8 ? this.lit(A[1])
           : Best2Vm.cstr(this.bytes(A));
         const keyOp = B || A;
         const numeric = name === 'tabseeku';
         const keyNum = numeric ? this.val(keyOp) : null;
-        const keyTxt = keyOp[0] === 8 ? this.code.strings[keyOp[1]]
+        const keyTxt = keyOp[0] === 8 ? this.lit(keyOp[1])
           : Best2Vm.cstr(this.bytes(keyOp));
         const want = numeric ? [] : [keyTxt];
         const ci = true;
@@ -977,11 +1037,10 @@ class Best2Vm {
         this.table.row = hit || this.table.rows[this.table.rows.length - 1]
           || null;
         f.zero = !hit;
-        f.tested = !!hit;
         return;
       }
       case 'tabget': {
-        const col = this.code.strings[B[1]] ?? Best2Vm.cstr(this.bytes(B));
+        const col = this.lit(B[1]) ?? Best2Vm.cstr(this.bytes(B));
         const cell = this.table && this.table.row
           ? this.table.row[col] : undefined;
         this.store(A, Best2Vm.strBytes(cell === undefined || cell === null
@@ -1085,7 +1144,7 @@ class Best2Vm {
       // ---- environment / no-ops for decode purposes. These affect timing,
       // tracing or interface configuration, none of which changes a decoded
       // value, so they are accepted and ignored rather than aborting a job.
-      case 'settmr': case 'gettmr': case 'clrt': case 'wait': case 'setspc':
+      case 'settmr': case 'gettmr': case 'wait': case 'setspc':
       case 'xconnect': case 'xhangup': case 'xstopf': case 'xawlen':
       case 'xreps': case 'xsetpar': case 'xkeyb': case 'xkeybytes':
       case 'setflt': case 'clrflt': case 'shmset': case 'shmget':

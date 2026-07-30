@@ -128,9 +128,17 @@ def walk(data, addr, limit=250_000):
                 pos += 2
                 raw = bytes(b ^ 0xF7 for b in data[pos:pos + max(0, slen)])
                 pos += max(0, slen)
+                # "s" is the TEXT reading, NUL-terminated, which is what
+                # every caller that wants a name or caption expects. But an
+                # inline literal is also how a job carries a TELEGRAM
+                # TEMPLATE, and those contain NULs as data -- ME9N45's
+                # request is 83 12 F1 31 DA 00, which as text is just "\x83".
+                # So the untruncated bytes ride along in "b" for callers
+                # (tools/sgbd_code.py) that must reproduce them exactly.
                 args.append({"m": mode,
                              "s": raw.split(b"\0")[0].decode("latin-1",
-                                                             "replace")})
+                                                             "replace"),
+                             "b": list(raw)})
                 continue
             ln = MODE_LEN.get(mode, 0)
             raw = bytes(b ^ 0xF7 for b in data[pos:pos + ln])
