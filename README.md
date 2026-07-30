@@ -58,12 +58,12 @@ where data and bytes come from.
 over loopback, owns `/dev/cu.usbserial*`, and provides PDF export, CSV logging,
 durable settings and window chrome. About 600 lines of C#, no EDIABAS.
 
-**Web build.** `scripts/build-web.sh` produces a static directory. Reading ECU
+**Web build.** `scripts/build/build-web.sh` produces a static directory. Reading ECU
 data works with no cable and no server. Running a job needs a K+DCAN cable and a
 browser with Web Serial, which means desktop Chrome or Edge.
 
 ```sh
-scripts/build-web.sh
+scripts/build/build-web.sh
 python3 -m http.server -d dist-web 8080
 ```
 
@@ -86,7 +86,7 @@ Two sources feed it, and both are generated rather than hand edited:
   documents.
 
 ```sh
-node scripts/build-faultdb.mjs   # writes app/renderer/faultdb.js + faultindex.js
+node scripts/build/build-faultdb.mjs   # writes app/renderer/faultdb.js + faultindex.js
 ```
 
 `faultdb.js`, `faultindex.js`, `faultmeta.js`, `faultinfo.js` and `pcodes.js`
@@ -118,25 +118,61 @@ against that engine offline.
 
 - macOS on Apple Silicon, or desktop Chrome/Edge for the web build
 - A K+DCAN USB cable, which appears as `/dev/cu.usbserial-*`
-- BMW EDIABAS and INPA data, only to build from source
 
-The BMW files (`vendor/EDIABAS/Ecu`, `vendor/EC-APPS`) come from BMW Standard
-Tools and are committed via Git LFS, so a clone with LFS pulls them. They are
-build inputs. The shipped app reads only the generated JSON.
+Running a release build needs nothing else. The app reads only generated JSON.
 
 
-## Building
+## Building from source
+
+BMW's own files are **not in this repository**. They are build inputs: every
+screen, job and table the app ships is generated from them, and they are BMW's
+to distribute, not ours. To build or to regenerate data you have to supply them
+yourself.
+
+They come from BMW Standard Tools, which contains an `EDIABAS` directory and an
+`EC-APPS` directory. Copy those in so the tree looks exactly like this:
+
+```
+vendor/
+  EDIABAS/
+    Ecu/                *.prg     ECU modules: job code, tables, metadata
+  EC-APPS/
+    INPA/
+      SGDAT/            *.IPO     INPA screens, and their *.ini siblings
+      CFGDAT/           *.ENG     chassis config: which ECUs each car has
+```
+
+`EDIABAS/Bin` and `EDIABAS/Hardware` are Win32 tools and drivers. Skip them.
+Filename case does not matter, the tools match either.
+
+One source for the package is
+[here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl).
+
+Check your layout before anything else:
+
+```sh
+scripts/setup/check-vendor.sh               # names exactly what is missing and where
+```
+
+Then:
 
 ```sh
 dotnet build src/InpaMac.App          # macOS app
-scripts/package-macos.sh              # signed DMG
-scripts/build-web.sh                  # static web build
+scripts/build/package-macos.sh              # signed DMG (needs dist-web/ built first)
+scripts/build/build-web.sh                  # static web build
 tools/check.sh                        # every guard on the pipeline
+scripts/setup/data-cache.sh expand|clean    # the generated data's working copies
 ```
 
 `tools/check.sh` verifies the decompiler against known screens, the interpreter
 across all 832 ECUs, the VM against captured telegrams, the write guard, and
 that every table an SGBD references is shipped.
+
+Fetching BMW's files is scripted, since the folder is public:
+
+```sh
+scripts/setup/fetch-vendor.sh         # downloads and unpacks into vendor/
+```
 
 
 ## Layout
@@ -148,7 +184,7 @@ src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
 tools/            decompilers, exporters, test harnesses
 data/             generated JSON: job code, tables, metadata, screens
 ecus/             per ECU ship tree assembled from the above
-vendor/           BMW originals (Git LFS)
+vendor/           BMW originals: NOT in the repo, supply your own
 ```
 
 `src/InpaMac.Cli` still links EDIABAS on purpose. It is the ground truth the VM
