@@ -236,8 +236,11 @@ def decode_with_spec(spec, telegram):
         raw = 0
         for o in offs:                      # big-endian, in bytecode read order
             raw = (raw << 8) | telegram_[o]
-        # transformations the bytecode applies before the store, in its order:
-        # mask selects a bit field, then a constant offset is added
+        # transformations the bytecode applies before the store, in its
+        # order: a right shift positions the field, the mask selects it,
+        # then a constant offset is added (dws switch bits: lsr #3 / and #1)
+        if r.get("shift"):
+            raw >>= r["shift"]
         if r.get("mask") is not None:
             raw &= r["mask"]
         if r.get("addend"):

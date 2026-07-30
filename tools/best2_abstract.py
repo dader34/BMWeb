@@ -353,6 +353,25 @@ class Machine:
                         and isinstance(y, int) else UNKNOWN)
         elif name == "mult" and a0 is not None:
             self.setreg(a0.get("r"), _mul(self.get(a0), self.get(a1)))
+        elif name in ("and", "or", "xor") and a0 is not None and "r" in a0:
+            # bitwise ops change the NUMBER, not which bytes it came from --
+            # the mask itself is lifted by resolve_transforms. Without this,
+            # `and #$f / mult #$64 / divs #$f` (dws switch levels) lost its
+            # provenance at the and, and the composite scale never surfaced.
+            x = self.get(a0)
+            self.setreg(a0["r"], x if isinstance(x, (Byte, Sum)) else UNKNOWN)
+        elif name in ("div", "divs") and a0 is not None:
+            # integer scaling is often mult-then-div (dws switch levels are
+            # raw * 100 / 15); the quotient's provenance is the dividend's,
+            # and the composite factor rides in the Byte's scale so
+            # resolve_transforms can state it
+            x, y = self.get(a0), self.get(a1)
+            if isinstance(x, int) and isinstance(y, int) and y:
+                self.setreg(a0.get("r"), x // y)
+            elif isinstance(x, Byte) and isinstance(y, int) and y:
+                self.setreg(a0.get("r"), Byte(x.offset, x.scale / y))
+            else:
+                self.setreg(a0.get("r"), UNKNOWN)
         elif name in ("asl", "lsl") and a0 is not None:
             self.setreg(a0.get("r"), _shl(self.get(a0), self.get(a1)))
         elif name == "not" and a0 is not None and "r" in a0:
@@ -365,9 +384,17 @@ class Machine:
             self.setreg(a0["r"], x if isinstance(x, (Byte, Sum)) else (
                 ~x if isinstance(x, int) else UNKNOWN))
         elif name in ("lsr", "asr") and a0 is not None:
+            # a right shift of response data is a BIT EXTRACTION (dws tests
+            # switch bits with `lsr #n / and #1`); the bytes the value came
+            # from do not change, so the symbol survives -- the shift amount
+            # itself is lifted by resolve_transforms, not modelled here
             x, y = self.get(a0), self.get(a1)
-            self.setreg(a0.get("r"), x >> y if isinstance(x, int)
-                        and isinstance(y, int) else UNKNOWN)
+            if isinstance(x, int) and isinstance(y, int):
+                self.setreg(a0.get("r"), x >> y)
+            elif isinstance(x, (Byte, Sum)):
+                self.setreg(a0.get("r"), x)
+            else:
+                self.setreg(a0.get("r"), UNKNOWN)
         elif name in ("fix2flt", "flt2fix", "a2fix", "fix2dez", "ufix2dez"):
             # numeric conversions preserve which BYTES the value came from
             if a0 is not None and a1 is not None and "r" in a0:
@@ -498,9 +525,18 @@ def resolve_transforms(data, addr):
     """
     m = Machine()
     out = {}
-    mask = add = None
+    mask = add = shift = None
     for start, name, args in _linear_scan(data, addr):
-        if name in ("and", "adds", "addc") and len(args) == 2 and m.seen_send:
+        if name in ("lsr", "asr") and len(args) == 2 and m.seen_send:
+            operand = m.get(args[1])
+            target = m.get(args[0])
+            # a right shift of wire data selects a bit field (dws:
+            # `lsr #3 / and #1` is "switch bit 3"); of anything else it is
+            # loop arithmetic and must not be lifted
+            if isinstance(operand, int) and isinstance(target, (Byte, Sum)):
+                shift = operand
+        elif name in ("and", "adds", "addc") and len(args) == 2 \
+                and m.seen_send:
             operand = m.get(args[1])
             target = m.get(args[0])
             # The transform must apply to a value DERIVED FROM THE RESPONSE.
@@ -523,14 +559,30 @@ def resolve_transforms(data, addr):
                     add = operand
         elif name.startswith("erg") and args and "s" in args[0]:
             nm = args[0]["s"]
-            if mask is not None or add is not None:
+            # An integer MULTIPLIER rides in the stored value's own symbol:
+            # `mult L0, L1` with 16 leaves Byte(o, scale=16), and dws's ABS
+            # pressures are that byte * 16. A Sum is word ASSEMBLY
+            # (resp[2]*256 + resp[3]) whose factors the decoder's big-endian
+            # fold already supplies, so only the single-Byte case is a real
+            # transform.
+            mult = None
+            src = args[1] if len(args) > 1 else None
+            val = m.get(src) if src else UNKNOWN
+            if isinstance(val, Byte) and val.scale not in (0, 1):
+                mult = val.scale
+            if mask is not None or add is not None or shift is not None \
+                    or mult is not None:
                 entry = {}
+                if shift is not None:
+                    entry["shift"] = shift
                 if mask is not None:
                     entry["mask"] = mask
                 if add is not None:
                     entry["addend"] = add
+                if mult is not None:
+                    entry["mult"] = mult
                 out.setdefault(nm, entry)
-            mask = add = None
+            mask = add = shift = None
         m.step(name, args)
     return out
 
