@@ -62,11 +62,14 @@ class Best2Vm {
     this.tables = opts.tables || {};
     this.argText = opts.args || '';
     this.maxSteps = opts.maxSteps || 2_000_000;
+    // the job's declared array size (ArrayMaxBufSize); 1024 is EDIABAS's
+    // default and every E46 job fits it
+    this.arraySize = opts.arraySize || 1024;
   }
 
   reset() {
     this.regBuf = new Uint8Array(REG_BYTES);
-    this.sregs = new Map();            // name -> Uint8Array
+    this.sregs = new Map();            // name -> {buf, len}
     this.fregs = new Map();            // name -> number
     this.stack = [];                   // BYTE stack (push writes N bytes)
     this.flags = { zero: false, sign: false, carry: false,
@@ -119,14 +122,49 @@ class Best2Vm {
     }
   }
 
-  getS(name) {
-    if (!this.sregs.has(name)) this.sregs.set(name, new Uint8Array(0));
-    return this.sregs.get(name);
+  // A string register is a FIXED-CAPACITY buffer plus a logical length,
+  // exactly like EdiabasNet's StringData -- not a JS array that shrinks.
+  // The distinction is observable: `clear` zeroes the length but reads at an
+  // index past it still see whatever bytes are in the buffer
+  // (Operand.GetRawData uses GetArrayData(TRUE), the complete buffer), and
+  // MS450's IDENT publishes ID_SG_ADR from exactly such a stale byte.
+  sd(name) {
+    let d = this.sregs.get(name);
+    if (!d) {
+      d = { buf: new Uint8Array(this.arraySize), len: 0 };
+      this.sregs.set(name, d);
+    }
+    return d;
   }
 
-  setS(name, bytes) {
-    this.sregs.set(name, bytes instanceof Uint8Array
-      ? bytes : Uint8Array.from(bytes || []));
+  // logical contents
+  getS(name) {
+    const d = this.sd(name);
+    return d.buf.subarray(0, d.len);
+  }
+
+  // the complete buffer, stale bytes included -- what indexed reads see
+  getSraw(name) {
+    return this.sd(name).buf;
+  }
+
+  setS(name, bytes, keepLength) {
+    const d = this.sd(name);
+    const src = bytes instanceof Uint8Array ? bytes
+      : Uint8Array.from(bytes || []);
+    if (src.length > d.buf.length) {
+      // over capacity: the engine errors and does NOT write
+      return;
+    }
+    d.buf.set(src, 0);
+    if (!keepLength) d.len = src.length;
+  }
+
+  // `clear` on a string register zeroes the whole buffer AND the length
+  clearS(name) {
+    const d = this.sd(name);
+    d.buf.fill(0);
+    d.len = 0;
   }
 
   // ---- operands -------------------------------------------------------
@@ -166,7 +204,7 @@ class Best2Vm {
       return this.getReg(a);
     }
     if (m === 9 || m === 10 || m === 11) {
-      const buf = this.getS(a);
+      const buf = this.getSraw(a);          // complete buffer, stale included
       let i = m === 9 ? b : this.getReg(b);
       if (m === 11) i += c || 0;
       const n = width || 1;
@@ -194,12 +232,12 @@ class Best2Vm {
       return this.regBuf.slice(span[0], span[0] + span[1]);
     }
     if (m === 9 || m === 10) {
-      const buf = this.getS(a);
+      const buf = this.getSraw(a);
       const i = m === 9 ? b : this.getReg(b);
       return i < buf.length ? buf.slice(i, i + 1) : new Uint8Array(0);
     }
     if (m >= 12 && m <= 15) {
-      const buf = this.getS(a);
+      const buf = this.getSraw(a);
       const i = this.resolveIdx(m, b);
       const n = this.resolveLen(m, c);
       // reads past the current length yield what exists, not an error --
@@ -227,29 +265,35 @@ class Best2Vm {
       this.setReg(a, value);
       return;
     }
-    if (m === 9 || m === 10) {
-      const i = m === 9 ? b : this.getReg(b);
-      const buf = this.getS(a);
-      const need = i + 1;
-      const grown = buf.length >= need ? buf : (() => {
-        const g = new Uint8Array(need);
-        g.set(buf);
-        return g;
-      })();
-      grown[i] = asBytes ? (value[0] || 0) : (Number(value) & 0xff);
-      this.setS(a, grown);
+    if (m === 9 || m === 10 || m === 11) {
+      let i = m === 9 ? b : this.getReg(b);
+      if (m === 11) i += c || 0;
+      const d = this.sd(a);
+      if (i >= d.buf.length) return;              // over capacity: no write
+      // value is serialized LITTLE-endian across `width` bytes
+      const src = asBytes ? value
+        : (() => {
+          const w = 1;
+          const o = new Uint8Array(w);
+          let v = Number(value);
+          for (let k = 0; k < w; k++) { o[k] = v & 0xff; v = Math.floor(v / 256); }
+          return o;
+        })();
+      for (let k = 0; k < src.length && i + k < d.buf.length; k++) {
+        d.buf[i + k] = src[k];
+      }
+      d.len = Math.max(d.len, i + src.length);    // grows, never shrinks
       return;
     }
     if (m >= 12 && m <= 15) {
       const i = this.resolveIdx(m, b);
       const n = this.resolveLen(m, c);
       const src = asBytes ? value : Uint8Array.from([Number(value) & 0xff]);
-      const buf = this.getS(a);
-      const end = i + Math.max(0, n);
-      const grown = new Uint8Array(Math.max(buf.length, end));
-      grown.set(buf);
-      for (let k = 0; k < n; k++) grown[i + k] = k < src.length ? src[k] : 0;
-      this.setS(a, grown);
+      const d = this.sd(a);
+      for (let k = 0; k < n && i + k < d.buf.length; k++) {
+        d.buf[i + k] = k < src.length ? src[k] : 0;
+      }
+      d.len = Math.max(d.len, Math.min(i + Math.max(0, n), d.buf.length));
       return;
     }
     throw new VmError(`operand mode ${m} as destination`);
@@ -469,7 +513,11 @@ class Best2Vm {
       }
 
       case 'clear': {
-        if (A[0] >= 1 && A[0] <= 4 && A[1][0] === 'S') { this.setS(A[1], new Uint8Array(0)); return; }
+        if (A[0] >= 1 && A[0] <= 4 && A[1][0] === 'S') {
+          this.clearS(A[1]);
+          f.carry = false; f.zero = true; f.sign = false; f.overflow = false;
+          return;
+        }
         this.store(A, 0, false);
         return;
       }

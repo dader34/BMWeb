@@ -39,6 +39,17 @@ const verbose = process.argv.includes('--verbose');
 const only = process.argv.includes('--sgbd')
   ? process.argv[process.argv.indexOf('--sgbd') + 1] : null;
 
+// Results the ENGINE derives from state a fresh VM cannot have.
+//
+// ID_SG_ADR is the honest example: MS450's IDENT publishes it from
+// `move B0, S1[1002]` on a register whose logical length is 0 -- i.e. it
+// reads UNINITIALIZED BUFFER MEMORY. EDIABAS zeroes string registers at job
+// start (ClearData), so a clean session yields 0; the engine's 18 is a
+// leftover byte from the init exchange of the same Diag session. Neither
+// value is "the decode" -- the SGBD has a bug -- so this is excluded rather
+// than chased, and the reason is recorded here instead of in a diff list.
+const UNINITIALIZED_READS = new Set(['ID_SG_ADR']);
+
 // Injected by EdiabasNet around job execution, not by job bytecode.
 const SYSTEM_RESULTS = new Set([
   'OBJECT', 'JOBNAME', 'VARIANTE', 'GRUPPE', 'FAMILIE', 'SAETZE',
@@ -142,6 +153,7 @@ for (const c of fix.cases) {
       // bytecode, so the VM is not expected to synthesise them and
       // counting them as failures would hide real decode gaps.
       if (SYSTEM_RESULTS.has(k)) continue;
+      if (UNINITIALIZED_READS.has(k)) continue;
       if (!got.has(k)) {
         missing++;
         if (diffs.length < 400) diffs.push([c.sgbd, c.job, k, '(absent)', want]);

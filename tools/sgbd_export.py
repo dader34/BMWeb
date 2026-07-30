@@ -138,20 +138,37 @@ def export_tables(targets):
 
 
 def _export_tables_one(sgbd):
-    path = os.path.join(SPEC_DIR, f"{sgbd}.json")
-    if not os.path.exists(path):
-        return
-    spec_file = json.load(open(path))
+    # EVERY table the .prg declares, not just the ones a lifted spec field
+    # happens to name. MS450 declares 53 and the spec fields named 20, so a
+    # third of its lookup text was missing -- STATUS_MESSWERTBLOCK's unit
+    # column resolved to "" because the table holding it was never shipped.
+    # The VM reaches tables the lifter never modelled, so the export has to
+    # come from the SGBD, not from our summary of it.
     names = set()
-    for spec in spec_file.get("jobs", {}).values():
-        if spec.get("statusTable"):
-            names.add(spec["statusTable"])
-        for t in spec.get("tables", []):
-            names.add(t)
-        for r in spec.get("results", []):
-            lk = r.get("lookup")
-            if lk and lk.get("table"):
-                names.add(lk["table"])
+    port = os.environ.get("BMACW_PORT")
+    if port:
+        import urllib.request
+        try:
+            listing = json.load(urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/ecu/{sgbd}/tables", timeout=60))
+            for t in (listing if isinstance(listing, list) else []):
+                n = t if isinstance(t, str) else t.get("name")
+                if n:
+                    names.add(n)
+        except Exception:                                   # noqa: BLE001
+            pass
+    path = os.path.join(SPEC_DIR, f"{sgbd}.json")
+    if os.path.exists(path):
+        spec_file = json.load(open(path))
+        for spec in spec_file.get("jobs", {}).values():
+            if spec.get("statusTable"):
+                names.add(spec["statusTable"])
+            for t in spec.get("tables", []):
+                names.add(t)
+            for r in spec.get("results", []):
+                lk = r.get("lookup")
+                if lk and lk.get("table"):
+                    names.add(lk["table"])
     if not names:
         return
     tables = {}
