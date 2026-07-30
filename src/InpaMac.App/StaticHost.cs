@@ -17,7 +17,7 @@ namespace InpaMac.App;
 //
 // So this is a file server on an ephemeral loopback port, and the whole API
 // surface is now static JSON under dist-web/api (tools/web_export.py), read
-// through app/renderer/webshim.js. The one thing a static file cannot do --
+// through app/renderer/core/webshim.js. The one thing a static file cannot do --
 // touch the cable -- goes through SerialProxy on the native bridge instead.
 public static class StaticHost
 {

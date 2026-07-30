@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Dump lifted specs + the Python decoder's output, for the JS walker test.
 
-app/renderer/specwalk.js has to decode exactly like decode_with_spec() in
+app/renderer/screens/specwalk.js has to decode exactly like decode_with_spec() in
 sgbd_value_diff.py -- that Python function is the one the value harness
 verified against the real EDIABAS engine, so if the JS drifts from it, what
 ships stops being what was tested.

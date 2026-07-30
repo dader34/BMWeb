@@ -49,7 +49,7 @@ const ctx = {
 };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['app/renderer/bestvm.js', 'app/renderer/vmbridge.js']) {
+for (const f of ['app/renderer/core/bestvm.js', 'app/renderer/core/vmbridge.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx);
 }
 

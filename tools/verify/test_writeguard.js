@@ -14,7 +14,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..', '..');
 const ctx = { module: { exports: {} }, console };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(ROOT, 'app/renderer/bestvm.js'),
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'),
                                 'utf8'), ctx);
 const { Best2Vm, isWriteJob } = ctx.module.exports;
 

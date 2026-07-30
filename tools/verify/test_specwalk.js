@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Does the JS spec walker decode exactly like the Python reference?
 //
-// app/renderer/specwalk.js is what will run in the browser; decode_with_spec()
+// app/renderer/screens/specwalk.js is what will run in the browser; decode_with_spec()
 // in tools/sgbd_value_diff.py is what the value harness verified against the
 // real EDIABAS engine. If those two drift, the thing we ship stops being the
 // thing we tested -- so this compares them result by result over every job
@@ -21,7 +21,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..', '..');
-const src = fs.readFileSync(path.join(ROOT, 'app/renderer/specwalk.js'), 'utf8');
+const src = fs.readFileSync(path.join(ROOT, 'app/renderer/screens/specwalk.js'), 'utf8');
 const ctx = { module: { exports: {} } };
 vm.createContext(ctx);
 vm.runInContext(src, ctx);

@@ -1,4 +1,4 @@
-// Guard: the IR interpreter (app/renderer/ir.js) renders known screens right.
+// Guard: the IR interpreter (app/renderer/screens/ir.js) renders known screens right.
 //
 // Every assertion was a live defect while building it:
 //   - "[rpm]" printed above a gauge is its UNIT, not its caption
@@ -27,14 +27,14 @@ function loadScreens(stem) {
 const R = path.join(__dirname, '..', '..');
 
 const lang = () => 'en';
-eval(fs.readFileSync(path.join(R, 'app/renderer/translate.js'), 'utf8'));
+eval(fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'));
 const inpaMode = () => true, esc = (s) => s, stagger = () => {}, FKEY_SLOTS = 9;
 const api = async () => { throw new Error('offline'); };   // descs unavailable
 // `const` declarations inside eval() are not visible to this scope, so the
 // few the guard asserts on are exposed deliberately. Copying their patterns
 // here instead would test a copy, not the code -- which is exactly how the
 // last mislabelling survived a passing run.
-let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/ir.js'), 'utf8');
+let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/screens/ir.js'), 'utf8');
 _irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVariant = irMenuFitsVariant; function irMenuFitsVariant')
                .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
                .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')

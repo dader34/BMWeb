@@ -93,7 +93,7 @@ jobs:
           # Content-Encoding only if the original is absent, so keep both and
           # let the shim's .gz-sibling lookup do the choosing, exactly as the
           # macOS StaticHost does.
-          find dist-web -maxdepth 1 -name '*.js' -size +1M -print0 \
+          find dist-web -name '*.js' -size +1M -print0 \
             | xargs -0 -r -P 4 -I{} gzip -9 -k -f {}
 
       - name: Report what is being published
