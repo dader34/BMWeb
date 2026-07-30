@@ -90,6 +90,26 @@ function showSettings() {
     (v) => Settings.set('demo', v),
   ));
 
+  // OUR BEST2 VM against BMW's engine. It matches the engine on 100% of
+  // 3730 results in tools/test_bestvm.js -- but all of those responses were
+  // synthetic. Shadow mode is how it earns trust on a real car: the engine
+  // still talks to the ECU and its answers are what you see, while the VM
+  // re-decodes the same captured telegrams and logs any disagreement
+  // (console, or vmStats() for the running tally). Nothing it does can reach
+  // the bus. Switch to "VM results" only once shadow has been quiet on your
+  // own vehicle.
+  wrap.appendChild(settingRow(
+    'BEST2 VM',
+    'Decode job results with the built-in interpreter instead of the EDIABAS engine. Shadow compares the two on every job and reports differences without changing what you see; call vmStats() in the console for the tally.',
+    [
+      { val: 'off', label: 'Engine only' },
+      { val: 'shadow', label: 'Shadow (compare)' },
+      { val: 'on', label: 'VM results' },
+    ],
+    Settings.get('vm', 'off'),
+    (v) => Settings.set('vm', v),
+  ));
+
   // actuator tests decoded from the .IPO. Off by default: these drive real
   // components, and unlike a read there is no safe way to try one and see.
   // INPA itself asks for no confirmation -- pressing the key sends the job --

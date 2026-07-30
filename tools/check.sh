@@ -54,6 +54,10 @@ echo "== IR interpreter renders known screens =="
 node tools/test_ir_render.js
 
 echo
+echo "== renderer's VM bridge reconstructs frames the engine consumed =="
+node tools/test_vmbridge.js || exit 1
+
+echo
 echo "== write guard holds =="
 node tools/test_writeguard.js || exit 1
 

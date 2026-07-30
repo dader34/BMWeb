@@ -65,6 +65,15 @@ internal static class DiagnosticsEndpoints
         app.MapGet("/api/ecu/{sgbd}/table/{table}", (string sgbd, string table) =>
             Offline(state, sgbd, diag => Results.Json(diag.TableRows(table))));
 
+        // The BEST2 VM's inputs: the job code we lifted from the .prg and the
+        // SGBD's tables. Served from data/ rather than the renderer dir so the
+        // whole data tree does not become web-reachable -- only these two
+        // files per ECU, by name, with no path separators allowed through.
+        app.MapGet("/data/job-code/{file}", (string file) =>
+            ServeDataFile(state, "job-code", file));
+        app.MapGet("/data/sgbd-tables/{file}", (string file) =>
+            ServeDataFile(state, "sgbd-tables", file));
+
         // ---- live (bus) ----
 
         // battery + ignition (KL15) state, INPA's top "Battery / Ignition" lights.
@@ -213,5 +222,22 @@ internal static class DiagnosticsEndpoints
             return Results.Json(new { error = ServerState.Explain(ex), raw = ex.Message },
                 statusCode: StatusCodes.Status500InternalServerError);
         }
+    }
+
+    // A single JSON file out of a known data subdirectory. Rejects anything
+    // that is not a bare <name>.json: no separators, no traversal, no other
+    // extensions -- the file name arrives from a URL.
+    static IResult ServeDataFile(ServerState state, string dir, string file)
+    {
+        if (string.IsNullOrEmpty(file)
+            || file.IndexOfAny(new[] { '/', '\\' }) >= 0
+            || file.Contains("..")
+            || !file.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.NotFound();
+        }
+        var path = Path.Combine(state.Root, "data", dir, file);
+        if (!File.Exists(path)) return Results.NotFound();
+        return Results.File(path, "application/json");
     }
 }
