@@ -11,11 +11,21 @@ internal static class DiagnosticsEndpoints
     {
         // ---- offline (no cable) ----
 
+        // Job list, result schema and argument list all come from the .prg's
+        // DESCRIPTION block, which tools/sgbd_meta.py exports to
+        // data/job-meta/<sgbd>.json. Serving that instead of asking EDIABAS
+        // is what lets the app browse an ECU with no Ecu tree present at all
+        // -- the engine is then needed only to talk to the car. Verified
+        // equal to the engine's answers by tools/test_meta.py (397 jobs, 313
+        // results, zero missing); the engine remains the fallback for any
+        // SGBD not yet exported.
         app.MapGet("/api/ecu/{sgbd}/jobs", (string sgbd) =>
-            Offline(state, sgbd, diag => Results.Json(diag.Jobs())));
+            MetaJobs(state, sgbd) ?? Offline(state, sgbd,
+                diag => Results.Json(diag.Jobs())));
 
         app.MapGet("/api/ecu/{sgbd}/results/{job}", (string sgbd, string job) =>
-            Offline(state, sgbd, diag => Results.Json(diag.ResultsOf(job))));
+            MetaResults(state, sgbd, job) ?? Offline(state, sgbd,
+                diag => Results.Json(diag.ResultsOf(job))));
 
         // a job's declared arguments (offline, via the _ARGUMENTS pseudo-job). lets the
         // UI know which jobs need input (flash address/parameter, etc.) and their types.
@@ -239,5 +249,60 @@ internal static class DiagnosticsEndpoints
         var path = Path.Combine(state.Root, "data", dir, file);
         if (!File.Exists(path)) return Results.NotFound();
         return Results.File(path, "application/json");
+    }
+
+    // ---- metadata from data/job-meta, with the engine as fallback ----
+
+    static System.Text.Json.JsonDocument? MetaDoc(ServerState state, string sgbd)
+    {
+        if (string.IsNullOrEmpty(sgbd)
+            || sgbd.IndexOfAny(new[] { '/', '\\' }) >= 0 || sgbd.Contains(".."))
+        {
+            return null;
+        }
+        var path = Path.Combine(state.Root, "data", "job-meta",
+                                sgbd.ToLowerInvariant() + ".json");
+        if (!File.Exists(path)) return null;
+        try { return System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)); }
+        catch { return null; }
+    }
+
+    // The engine lists jobs with its own synthetic "_JOBS" first; keep that
+    // shape so the renderer sees no difference.
+    static IResult? MetaJobs(ServerState state, string sgbd)
+    {
+        using var doc = MetaDoc(state, sgbd);
+        if (doc == null) return null;
+        if (!doc.RootElement.TryGetProperty("jobs", out var jobs)) return null;
+        var names = new List<string> { "_JOBS" };
+        foreach (var j in jobs.EnumerateObject())
+        {
+            var name = j.Value.TryGetProperty("name", out var n)
+                ? n.GetString() : j.Name;
+            if (!string.IsNullOrEmpty(name)) names.Add(name!);
+        }
+        return names.Count > 1 ? Results.Json(names) : null;
+    }
+
+    // "NAME : comment" lines, exactly as diag.ResultsOf produces them.
+    static IResult? MetaResults(ServerState state, string sgbd, string job)
+    {
+        using var doc = MetaDoc(state, sgbd);
+        if (doc == null) return null;
+        if (!doc.RootElement.TryGetProperty("jobs", out var jobs)) return null;
+        if (!jobs.TryGetProperty((job ?? "").ToUpperInvariant(), out var j))
+            return null;
+        if (!j.TryGetProperty("results", out var results)) return null;
+        var lines = new List<string>();
+        foreach (var r in results.EnumerateArray())
+        {
+            var name = r.TryGetProperty("name", out var n) ? n.GetString() : null;
+            if (string.IsNullOrEmpty(name)) continue;
+            var comment = r.TryGetProperty("comment", out var c)
+                ? c.GetString() : null;
+            lines.Add(string.IsNullOrEmpty(comment)
+                ? name! : $"{name} : {comment}");
+        }
+        return lines.Count > 0 ? Results.Json(lines) : null;
     }
 }

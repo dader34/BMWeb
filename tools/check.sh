@@ -53,6 +53,12 @@ echo
 echo "== IR interpreter renders known screens =="
 node tools/test_ir_render.js
 
+if [ -n "$BMACW_PORT" ]; then
+  echo
+  echo "== job metadata matches the engine =="
+  python3 tools/test_meta.py || exit 1
+fi
+
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="
 node tools/test_vmbridge.js || exit 1
