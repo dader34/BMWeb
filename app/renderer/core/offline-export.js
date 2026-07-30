@@ -57,6 +57,73 @@ async function offlineGet(path) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
+// Double-clickable launchers. The folder needs an HTTP server because a
+// file:// page gets an opaque origin where fetch() is blocked, and asking
+// someone to remember a python one-liner a year from now is how a working
+// copy becomes an unopenable one.
+//
+// Both scripts do the same three things: find a runtime that can serve a
+// directory, serve THIS folder on a free-ish port, and open a browser at it.
+// They try python3, then python, then php, then node, so whichever the
+// machine has is enough.
+const OFFLINE_SH = `#!/bin/sh
+# Run BMacW offline. Double-click, or: ./run-mac-linux.sh
+#
+# Serves this folder over HTTP and opens it. A browser will not let a page
+# opened straight from disk read its own data files, which is why this needs
+# a server at all.
+set -e
+cd "$(dirname "$0")"
+PORT=8777
+
+open_browser () {
+  sleep 1
+  if command -v open        >/dev/null 2>&1; then open "http://localhost:$PORT"
+  elif command -v xdg-open  >/dev/null 2>&1; then xdg-open "http://localhost:$PORT"
+  else echo "Open http://localhost:$PORT in your browser."
+  fi
+}
+
+echo "BMacW offline  ->  http://localhost:$PORT"
+echo "Press Ctrl-C to stop."
+open_browser &
+
+if   command -v python3 >/dev/null 2>&1; then exec python3 -m http.server "$PORT"
+elif command -v python  >/dev/null 2>&1; then exec python  -m http.server "$PORT"
+elif command -v php     >/dev/null 2>&1; then exec php -S "localhost:$PORT"
+elif command -v npx     >/dev/null 2>&1; then exec npx --yes serve -l "$PORT" .
+else
+  echo "No python3, php or node found. Install any one of them, or serve"
+  echo "this folder with any static web server and open it."
+  exit 1
+fi
+`;
+
+const OFFLINE_BAT = `@echo off
+REM Run BMacW offline. Double-click this file.
+REM
+REM Serves this folder over HTTP and opens it. A browser will not let a page
+REM opened straight from disk read its own data files, which is why this
+REM needs a server at all.
+setlocal
+cd /d "%~dp0"
+set PORT=8777
+
+echo BMacW offline  -^>  http://localhost:%PORT%
+echo Press Ctrl-C to stop.
+start "" "http://localhost:%PORT%"
+
+where python >nul 2>nul && (python -m http.server %PORT% & goto :eof)
+where py     >nul 2>nul && (py -3 -m http.server %PORT% & goto :eof)
+where php    >nul 2>nul && (php -S localhost:%PORT% & goto :eof)
+where npx    >nul 2>nul && (npx --yes serve -l %PORT% . & goto :eof)
+
+echo.
+echo No Python, PHP or Node found. Install any one of them, or serve this
+echo folder with any static web server and open it.
+pause
+`;
+
 // README for the folder, so it is obvious how to open it a year from now.
 function offlineReadme(chassis, withFaults) {
   return `BMacW offline copy - ${chassis}
@@ -68,14 +135,20 @@ decodes it.
 
 RUNNING IT
 
-A browser will not let a page opened straight from disk (file://) read its
-own data files, so serve the folder over HTTP. Any one of these:
+  macOS / Linux    sh run-mac-linux.sh
+                   (or: chmod +x run-mac-linux.sh && ./run-mac-linux.sh)
+  Windows          double-click run-windows.bat
 
-    python3 -m http.server 8080
-    npx serve .
-    php -S localhost:8080
+Those serve this folder and open a browser at it. A browser will not let a
+page opened straight from disk (file://) read its own data files, which is
+why a server is involved at all; the scripts use whatever they find of
+python3, python, php or node.
 
-then open http://localhost:8080 .
+By hand, if you prefer:
+
+    python3 -m http.server 8777
+
+then open http://localhost:8777 .
 
 WHAT WORKS OFFLINE
 
@@ -134,9 +207,15 @@ async function offlineExport(chassis, withFaults, onProgress) {
     }
   }
 
-  files['README.txt'] = new TextEncoder()
-    .encode(offlineReadme(chassis === '*' ? ids.join(', ') : chassis,
-                          withFaults));
+  const enc = new TextEncoder();
+  files['README.txt'] = enc.encode(
+    offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults));
+  // Plain bytes, no attrs tuple: this fflate build applies the external
+  // attributes to the NEXT entry rather than the one they belong to, so the
+  // executable bit landed on the .bat. The README says to chmod, which is one
+  // line and honest, instead of shipping a permission that might be wrong.
+  files['run-mac-linux.sh'] = enc.encode(OFFLINE_SH);
+  files['run-windows.bat'] = enc.encode(OFFLINE_BAT);
 
   say('compressing');
   // level 0 on the .chassis entry: it is already a zip of deflated members,
