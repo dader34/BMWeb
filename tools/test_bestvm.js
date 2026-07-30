@@ -50,6 +50,23 @@ const only = process.argv.includes('--sgbd')
 // than chased, and the reason is recorded here instead of in a diff list.
 const UNINITIALIZED_READS = new Set(['ID_SG_ADR']);
 
+// KNOWN OPEN DIFFERENCES, listed so the count stays honest rather than
+// silently excluded. These are NOT passing:
+//
+//   ews:FGNR_LESEN FG_PZ -- the VIN check digit. FG_NR itself matches the
+//     engine character for character, so the inputs are identical; the
+//     weighted checksum accumulates to 666 in the VM against something
+//     congruent to 5 (mod 36) in the engine, i.e. one arithmetic step
+//     inside a 17-character loop is still wrong. Traced as far as `divs
+//     L0,#36` (quotient and remainder both correct for its input) -- the
+//     divergence is upstream in the accumulation.
+//
+//   ms450ds0:IDENT JOB_STATUS -- both engine and VM REJECT the synthetic
+//     fixture; they just name different guards (INCORRECT_RESPONSE_ID vs
+//     INCORRECT_LEN). This measures fixture quality, not decode fidelity:
+//     the response was synthesised to exercise the lifter and is not a
+//     shape this ECU accepts.
+
 // Injected by EdiabasNet around job execution, not by job bytecode.
 const SYSTEM_RESULTS = new Set([
   'OBJECT', 'JOBNAME', 'VARIANTE', 'GRUPPE', 'FAMILIE', 'SAETZE',
