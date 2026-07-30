@@ -296,6 +296,31 @@ function irLabel(s) {
   return (typeof deGerman === 'function' && deGerman(s)) || s;
 }
 
+// A RESULTCOMMENT is DOCUMENTATION, not a display name. BMW writes the
+// description, then pads with two-plus spaces and appends the value legend
+// and the storage slot:
+//
+//   "Ueberwachung Kraftstoffsystem  Test abgeschlossen oder nicht anwendbar
+//    = 0  Test nicht abgeschlossen = 1 "        -> STATE_READY_OBD_1[5]
+//
+// Used whole, that becomes a 90-character column header ("FUEL SYSTEM
+// MONITORING: TEST NOT SUPPORTED BY THIS MODULE = 0, SUPPORTED = 1") for a
+// cell showing "46". INPA never does this -- its own screen says "misfire /
+// MONITOR / READINESS" -- and the label only reaches the UI at all for rows
+// INPA drew without a caption.
+//
+// The padding is the author's own separator between name and legend, so cut
+// at the first run of two spaces. Median comment is 21 chars and p99 is 72;
+// this only bites the 2.3% that carry a documentation tail.
+function irDescLabel(s) {
+  if (!s) return s;
+  let t = String(s).trim().split(/\s{2,}/)[0].trim();
+  // a legend can also follow a single space ("... nicht unterstuetzt = 0")
+  const eq = t.search(/\s+\S*=\s*-?\d/);
+  if (eq > 12) t = t.slice(0, eq).trim();
+  return t.replace(/[\s:,;.-]+$/, '') || String(s).trim();
+}
+
 // INPA's own state words, so a lamp reads ON/OFF in English mode
 function irState(s) {
   if (s == null) return s;
@@ -346,7 +371,7 @@ function irRowsTranslated(scr, descs) {
       // particular row, so the SGBD description wins over it.
       label: (r.pos ? `${irLabel(r.pos)} · ` : '') + irLabel(
         (IR_LOOP_CAPTION.test(r.label || '') || ambiguous(r) ? null : r.label)
-        || (descs && descs.get(r.key)) || r.label || r.key),
+        || irDescLabel(descs && descs.get(r.key)) || r.label || r.key),
       unit: r.unit ? irLabel(r.unit) : r.unit,
       on: irState(r.on),
       off: irState(r.off),
@@ -950,7 +975,7 @@ function irAsCard(scr, descs) {
       .map(j => j.name),
     fields: rows.map(r => ({
       key: r.key,
-      label: irLabel(r.label || (descs && descs.get(r.key)) || r.key),
+      label: irLabel(r.label || irDescLabel(descs && descs.get(r.key)) || r.key),
       // INPA reads this row in its own pass ("Data Block 3" is
       // CODIERUNG_LESEN "3"), so the card must read it separately
       ...(r.arg != null

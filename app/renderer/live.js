@@ -536,11 +536,12 @@ function boolGlyph(raw) {
   return null;
 }
 
-// render a boolean as INPA's lamp. Only in INPA mode — the modern layout keeps
-// the word, which reads better next to numeric gauges. Returns false if the
-// value isn't a boolean, so the caller falls back to plain text.
+// render a boolean as INPA's lamp, in BOTH themes. It was INPA-mode-only, and
+// the modern layout then showed the raw value instead -- fine for a word
+// ("aktiv") but not for the bare 0/1 an OBD readiness flag returns, which
+// reads as a measurement. Returns false if the value isn't a boolean, so the
+// caller falls back to plain text.
 function setBoolCell(cellEl, valEl, raw, rowSpec) {
-  if (!inpaMode()) return false;
   const b = boolGlyph(raw);
   if (!b) { cellEl.classList.remove('bool'); return false; }
   cellEl.classList.add('bool');
@@ -591,7 +592,12 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     // ECU chose. A number here means an unmapped state, and showing it bare
     // ("HOOD / RADIO  94") reads as a measurement -- the one thing a lamp
     // never is. Anything non-zero is on, which is what digitalout tests.
-    if (p.num !== null && inpaMode()) {
+    //
+    // NOT gated on inpaMode(). It used to be, and in the modern theme every
+    // lamp fell through to the raw number: MSD80's OBD readiness page drew
+    // "48 / 46 / 44" where INPA shows on/off indicators. The theme decides
+    // how a lamp LOOKS, never whether a lamp is a lamp.
+    if (p.num !== null) {
       cellEl.classList.add('bool');
       cellEl.classList.remove('text-only');
       const shown = p.num ? '\u25cf on' : '\u25cb off';
