@@ -54,11 +54,11 @@ jobs:
           # raw). web_export.py reads .json, so expand in place first. job-code
           # keeps BOTH: the exporter ships the .gz as-is and the browser
           # inflates it via Content-Encoding.
-          for d in job-meta sgbd-tables inpa-ir; do
+          for d in inpa-ir; do
             find "data/$d" -name '*.json.gz' -print0 \
               | xargs -0 -r -P 4 -I{} gzip -dkf {}
           done
-          echo "expanded: $(find data/job-meta data/sgbd-tables data/inpa-ir \
+          echo "expanded: $(find data/inpa-ir \
             -name '*.json' | wc -l) files"
 
       - name: Build the static site

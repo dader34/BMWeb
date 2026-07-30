@@ -34,7 +34,8 @@ sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import sgbd_survey as S                                       # noqa: E402
-import sgbd_spec as SP                                        # noqa: E402
+import sgbd_spec as SP
+import ecu_tree as ET                                        # noqa: E402
 import sgbd_value_diff as V                                   # noqa: E402
 import sgbd_bulk_verify as B                                  # noqa: E402
 
@@ -454,9 +455,8 @@ def ship(chassis="E46"):
             # the job list survives into ecus/ -- INPA shows no screen for
             # these and neither do we, but the data is there to drive one.
             if not (spec or {}).get("jobs"):
-                mp = os.path.join(ROOT, "data", "job-meta", f"{sgbd}.json")
-                if sgbd and os.path.exists(mp):
-                    meta = json.load(open(mp))
+                meta = ET.read_ecu(sgbd, "meta.json") if sgbd else None
+                if meta:
                     if meta.get("jobs"):
                         spec = {"format": 1, "sgbd": sgbd,
                                 "source": "job-meta",

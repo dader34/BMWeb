@@ -37,7 +37,7 @@ instruction boundary would be a decode bug, so it is reported rather than
 silently clamped.
 
     python3 tools/sgbd_code.py ms450ds0            # one, to stdout stats
-    python3 tools/sgbd_code.py --all               # -> data/job-code/
+    python3 tools/sgbd/sgbd_code.py --all-chassis  # -> data/chassis/*/*/
 """
 import os
 import sys
@@ -51,7 +51,7 @@ import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..")
-OUT_DIR = os.path.join(ROOT, "data", "job-code")
+import ecu_tree as ET                                        # noqa: E402
 
 # Modes whose payload is a jump target rather than a plain immediate are
 # handled by the JUMPS set from the survey; every other mode-7 immediate
@@ -175,12 +175,15 @@ def export(sgbd, write=True, all_jobs=False):
     if unresolved:
         out["unresolvedJumps"] = unresolved
     if write:
-        os.makedirs(OUT_DIR, exist_ok=True)
-        p = os.path.join(OUT_DIR, f"{sgbd}.json")
-        with open(p, "w") as f:
-            json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+        # job-code is the biggest thing in the tree by far -- raw it is 1.26
+        # GB across 1022 folders, 4% of that gzipped -- and only the VM reads
+        # it, so it is stored compressed.
+        import gzip as _gz
+        blob = _gz.compress(json.dumps(
+            out, ensure_ascii=False, separators=(",", ":")).encode(), 6)
+        n = ET.write_ecu(sgbd, "job-code.json.gz", None, raw=blob)
         return (sgbd, len(out["jobs"]), len(ops), unresolved,
-                os.path.getsize(p))
+                len(blob) if n else 0)
     return (sgbd, len(out["jobs"]), len(ops), unresolved, 0)
 
 
@@ -227,11 +230,28 @@ def write_index():
     Reflects the whole DIRECTORY, not this run's targets: exporting a single
     SGBD by name must not shrink the manifest to that one entry.
     """
-    if not os.path.isdir(OUT_DIR):
+    # Walk the per-car tree, not a flat directory: an SGBD in several cars
+    # has a copy in each, so collect DISTINCT sgbds from their ecu.json.
+    if not os.path.isdir(ET.TREE):
         return
-    names = sorted(f[:-5] for f in os.listdir(OUT_DIR)
-                   if f.endswith(".json") and f != "index.json")
-    with open(os.path.join(OUT_DIR, "index.json"), "w") as f:
+    names = set()
+    for cid in os.listdir(ET.TREE):
+        cd = os.path.join(ET.TREE, cid)
+        if not os.path.isdir(cd):
+            continue
+        for code in os.listdir(cd):
+            if not os.path.exists(os.path.join(cd, code, "job-code.json.gz")):
+                continue
+            ep = os.path.join(cd, code, "ecu.json")
+            try:
+                with open(ep) as f:
+                    names.add(json.load(f).get("sgbd") or code.lower())
+            except (OSError, ValueError):
+                names.add(code.lower())
+    names = sorted(names)
+    out_dir = os.path.join(ROOT, "data", "job-code")
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "index.json"), "w") as f:
         json.dump({"format": 1, "sgbds": names}, f, separators=(",", ":"))
     print(f"index: {len(names)} sgbds with code")
 

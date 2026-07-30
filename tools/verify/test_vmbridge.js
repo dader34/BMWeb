@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const TT = require('./ecu_tree.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -25,7 +26,21 @@ const ctx = {
   console,
   window: {},
   Settings: { get: (k, d) => (k === 'vm' ? 'shadow' : d) },
+  // vmbridge asks for data/job-code/<sgbd>.json and data/sgbd-tables/<sgbd>
+  // .json, which is how the app's own shim addresses them. Those flat folders
+  // are gone -- the generated data lives per car now -- so map the request
+  // onto the tree rather than teaching the renderer a second layout.
   fetch: async (p) => {
+    let m = /^data\/job-code\/(.+)\.json$/.exec(p);
+    if (m && m[1] !== 'index') {
+      const j = TT.readEcuJson(m[1], 'job-code.json');
+      return j ? { ok: true, json: async () => j } : { ok: false };
+    }
+    m = /^data\/sgbd-tables\/(.+)\.json$/.exec(p);
+    if (m) {
+      const j = TT.readEcuJson(m[1], 'tables.json');
+      return j ? { ok: true, json: async () => j } : { ok: false };
+    }
     const f = path.join(ROOT, p);
     return fs.existsSync(f)
       ? { ok: true, json: async () => JSON.parse(fs.readFileSync(f, 'utf8')) }

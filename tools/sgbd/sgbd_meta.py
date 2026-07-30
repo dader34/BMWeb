@@ -22,7 +22,7 @@ line opens a result and the RESULTTYPE/RESULTCOMMENT lines after it belong
 to that result, until the next RESULT. Same shape for ARGUMENT.
 
     python3 tools/sgbd_meta.py ms450ds0        # summarise one
-    python3 tools/sgbd_meta.py --all           # -> data/job-meta/
+    python3 tools/sgbd_meta.py --all           # -> data/chassis/*/*/meta.json
 """
 import os
 import sys
@@ -37,7 +37,7 @@ import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..")
-OUT_DIR = os.path.join(ROOT, "data", "job-meta")
+import ecu_tree as ET                                        # noqa: E402
 
 # Keys that open a new item within a job section. Anything following one
 # belongs to it until the next opener of the same kind.
@@ -131,11 +131,12 @@ def export(sgbd, write=True):
     nres = sum(len(j["results"]) for j in meta["jobs"].values())
     nargs = sum(len(j["arguments"]) for j in meta["jobs"].values())
     if write:
-        os.makedirs(OUT_DIR, exist_ok=True)
-        p = os.path.join(OUT_DIR, f"{sgbd}.json")
-        with open(p, "w") as f:
-            json.dump(meta, f, ensure_ascii=False, separators=(",", ":"))
-        return (sgbd, len(meta["jobs"]), nres, nargs, os.path.getsize(p))
+        # Straight into data/chassis/<CHASSIS>/<ECU>/meta.json, once per car
+        # that uses this SGBD. write_ecu owns the fan-out so the copies cannot
+        # drift; an SGBD no chassis references writes nowhere and says so.
+        blob = json.dumps(meta, ensure_ascii=False, separators=(",", ":"))
+        n = ET.write_ecu(sgbd, "meta.json", None, raw=blob)
+        return (sgbd, len(meta["jobs"]), nres, nargs, len(blob) if n else 0)
     return (sgbd, len(meta["jobs"]), nres, nargs, 0)
 
 
