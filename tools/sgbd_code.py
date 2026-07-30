@@ -69,14 +69,31 @@ def encode(data, addr_list):
     spool = {}
 
     def sref(s):
+        # keyed by the exact byte tuple so two literals differing only past a
+        # NUL are not merged
         if s not in spool:
             spool[s] = len(strings)
             strings.append(s)
         return spool[s]
 
+    def bref(raw):
+        # A literal is BYTES. Storing it as a JSON string round-trips through
+        # an encoding and mangles anything outside CP1252; a byte array is
+        # exact, and the VM reads pool entries as bytes either way.
+        key = ("b",) + tuple(raw)
+        if key not in spool:
+            spool[key] = len(strings)
+            strings.append(list(raw))
+        return spool[key]
+
     def enc_arg(name, a):
         m = a.get("m")
         if "s" in a:
+            # the RAW bytes, not the NUL-truncated text: a literal doubles as
+            # a telegram template and those carry NULs as data
+            raw = a.get("b")
+            if raw is not None:
+                return [m, bref(raw)]
             return [m, sref(a["s"])]
         if "v" in a:
             return [m, a["v"]]
