@@ -53,13 +53,12 @@ const UNINITIALIZED_READS = new Set(['ID_SG_ADR']);
 // KNOWN OPEN DIFFERENCES, listed so the count stays honest rather than
 // silently excluded. These are NOT passing:
 //
-//   ews:FGNR_LESEN FG_PZ -- the VIN check digit. FG_NR itself matches the
-//     engine character for character, so the inputs are identical; the
-//     weighted checksum accumulates to 666 in the VM against something
-//     congruent to 5 (mod 36) in the engine, i.e. one arithmetic step
-//     inside a 17-character loop is still wrong. Traced as far as `divs
-//     L0,#36` (quotient and remainder both correct for its input) -- the
-//     divergence is upstream in the accumulation.
+//   (ews:FGNR_LESEN FG_PZ is FIXED -- it was `scut`, whose length argument
+//   counts the terminating NUL, so `scut S1,#1` on a 2-byte "FP" removes
+//   only the absent terminator instead of the 'P'. Found by diffing the
+//   engine's own ifh instruction trace against the VM's, address by
+//   address: control flow matched for 2660 steps and then split at a `jc`,
+//   which traced back to a string one byte short 200 instructions earlier.)
 //
 //   ms450ds0:IDENT JOB_STATUS -- both engine and VM REJECT the synthetic
 //     fixture; they just name different guards (INCORRECT_RESPONSE_ID vs

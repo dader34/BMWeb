@@ -884,11 +884,20 @@ class Best2Vm {
         return;
       }
       case 'scut': {
-        // strcut removes the LAST `len` bytes (len counts the terminator)
+        // strcut removes the last `len` bytes -- and `len` COUNTS THE
+        // TERMINATING NUL, which the register's logical length does not
+        // include once SetStringData has stored it. So `scut S1,#1` on the
+        // 2-byte "FP" removes only the (absent) terminator and leaves "FP"
+        // intact; treating it as "drop the last byte" cut the P and broke
+        // EWS's VIN check digit 200 instructions later.
+        //
+        // Concretely: the effective byte count removed is len-1, floored at
+        // zero, because our string registers carry no trailing NUL of their
+        // own (storeText appends one only for text results).
         const reg = A[1];
         const buf = this.getS(reg);
-        const n = this.val(B);
-        this.setS(reg, n > buf.length ? new Uint8Array(0)
+        const n = Math.max(0, this.val(B) - 1);
+        this.setS(reg, n >= buf.length ? new Uint8Array(0)
           : buf.slice(0, buf.length - n));
         return;
       }
