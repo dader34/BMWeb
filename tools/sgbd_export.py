@@ -48,96 +48,127 @@ def _decodable(r):
             or r.get("enumMap") or r.get("values"))
 
 
+def _export_one(sgbd):
+    """Extract + probe one SGBD, write its spec file; returns a summary.
+
+    Top-level so ProcessPoolExecutor can pickle it. Each worker spawns its
+    own dotnet probes into per-SGBD scratch dirs (see sgbd_bulk_verify), so
+    workers cannot trample each other.
+    """
+    try:
+        data, jobs = SP.load(sgbd)
+    except SystemExit:
+        return (sgbd, None, 0, 0, False)
+    ir = S.ir_jobs_for(sgbd)
+    out = {"format": 1, "sgbd": sgbd, "jobs": {}}
+    first_job = None
+    n_res = n_dec = 0
+    for name, addr in jobs:
+        if name.startswith("_") or name.upper() not in ir:
+            continue
+        first_job = first_job or name
+        try:
+            spec = SP.extract(data, addr, sgbd, name)
+        except Exception as e:                              # noqa: BLE001
+            spec = {"sgbd": sgbd, "job": name,
+                    "gaps": [f"extract failed: {e}"]}
+        out["jobs"][name] = spec
+        res = [r for r in spec.get("results", [])
+               if not r.get("name", "").startswith("_")]
+        n_res += len(res)
+        n_dec += sum(1 for r in res if _decodable(r))
+    # The init exchange and framing, derived by running the REAL engine
+    # against a stub sim -- what it sends first is what the ECU needs.
+    if first_job:
+        try:
+            init = B.discover_init(sgbd, first_job)
+            reqs = B.discover(sgbd, [first_job], init)
+            probe = reqs.get(first_job)
+            conn = {}
+            if probe:
+                conn["protocol"] = "ds2" if B.is_ds2(probe) else "fast"
+                conn["address"] = probe[1] if conn["protocol"] == "fast" \
+                    else probe[0]
+            if init:
+                conn["init"] = [{"send": list(init[0]),
+                                 "expect": list(init[1] or [])}]
+            if conn:
+                out["connection"] = conn
+        except Exception:                                   # noqa: BLE001
+            pass
+    path = os.path.join(SPEC_DIR, f"{sgbd}.json")
+    with open(path, "w") as f:
+        json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+    return (sgbd, len(out["jobs"]), n_res, n_dec,
+            bool(out.get("connection")))
+
+
 def export_specs(targets):
     os.makedirs(SPEC_DIR, exist_ok=True)
+    # Extraction is pure Python and the probes are dotnet subprocesses, so
+    # a PROCESS pool parallelises both; the serial run spent most of its
+    # wall clock waiting on one dotnet at a time.
+    from concurrent.futures import ProcessPoolExecutor
+    workers = min(6, os.cpu_count() or 4)
     grand_jobs = grand_res = grand_dec = 0
-    for sgbd in targets:
-        try:
-            data, jobs = SP.load(sgbd)
-        except SystemExit:
-            print(f"  {sgbd:12} -- no .prg, skipped")
-            continue
-        ir = S.ir_jobs_for(sgbd)
-        out = {"format": 1, "sgbd": sgbd, "jobs": {}}
-        first_job = None
-        for name, addr in jobs:
-            if name.startswith("_") or name.upper() not in ir:
+    # warm the CLI binary once, before workers race to build it
+    B.cli_cmd("--version")
+    with ProcessPoolExecutor(max_workers=workers) as ex:
+        for sgbd, nj, nr, nd, conn in ex.map(_export_one, targets):
+            if nj is None:
+                print(f"  {sgbd:12} -- no .prg, skipped")
                 continue
-            first_job = first_job or name
-            try:
-                spec = SP.extract(data, addr, sgbd, name)
-            except Exception as e:                          # noqa: BLE001
-                spec = {"sgbd": sgbd, "job": name,
-                        "gaps": [f"extract failed: {e}"]}
-            out["jobs"][name] = spec
-            res = [r for r in spec.get("results", [])
-                   if not r.get("name", "").startswith("_")]
-            grand_res += len(res)
-            grand_dec += sum(1 for r in res if _decodable(r))
-        grand_jobs += len(out["jobs"])
-        # The init exchange and framing, derived by running the REAL engine
-        # against a stub sim -- what it sends first is what the ECU needs.
-        if first_job:
-            try:
-                init = B.discover_init(sgbd, first_job)
-                reqs = B.discover(sgbd, [first_job], init)
-                probe = reqs.get(first_job)
-                conn = {}
-                if probe:
-                    conn["protocol"] = "ds2" if B.is_ds2(probe) else "fast"
-                    conn["address"] = probe[1] if conn["protocol"] == "fast" \
-                        else probe[0]
-                if init:
-                    conn["init"] = [{"send": list(init[0]),
-                                     "expect": list(init[1] or [])}]
-                if conn:
-                    out["connection"] = conn
-            except Exception:                               # noqa: BLE001
-                pass
-        path = os.path.join(SPEC_DIR, f"{sgbd}.json")
-        with open(path, "w") as f:
-            json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
-        print(f"  {sgbd:12} {len(out['jobs']):3} jobs "
-              f"{os.path.getsize(path)//1024:5} KB "
-              f"conn={'yes' if out.get('connection') else 'no'}")
+            grand_jobs += nj
+            grand_res += nr
+            grand_dec += nd
+            path = os.path.join(SPEC_DIR, f"{sgbd}.json")
+            print(f"  {sgbd:12} {nj:3} jobs "
+                  f"{os.path.getsize(path)//1024:5} KB "
+                  f"conn={'yes' if conn else 'no'}")
     print(f"specs: {grand_jobs} jobs, {grand_res} results, "
           f"{grand_dec} decodable ({100*grand_dec/max(grand_res,1):.1f}%)")
 
 
 def export_tables(targets):
     os.makedirs(TABLE_DIR, exist_ok=True)
-    for sgbd in targets:
-        path = os.path.join(SPEC_DIR, f"{sgbd}.json")
-        if not os.path.exists(path):
-            continue
-        spec_file = json.load(open(path))
-        names = set()
-        for spec in spec_file.get("jobs", {}).values():
-            if spec.get("statusTable"):
-                names.add(spec["statusTable"])
-            for t in spec.get("tables", []):
-                names.add(t)
-            for r in spec.get("results", []):
-                lk = r.get("lookup")
-                if lk and lk.get("table"):
-                    names.add(lk["table"])
-        if not names:
-            continue
-        tables = {}
-        for t in sorted(names):
-            try:
-                rows = V.sgbd_table(sgbd, t)
-            except Exception:                               # noqa: BLE001
-                rows = None
-            if rows:
-                tables[t] = rows
-        if tables:
-            tp = os.path.join(TABLE_DIR, f"{sgbd}.json")
-            with open(tp, "w") as f:
-                json.dump(tables, f, ensure_ascii=False,
-                          separators=(",", ":"))
-            print(f"  {sgbd:12} {len(tables):2} tables "
-                  f"{os.path.getsize(tp)//1024:5} KB")
+    # table fetches are HTTP calls to the engine API: thread them
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        list(ex.map(_export_tables_one, targets))
+
+
+def _export_tables_one(sgbd):
+    path = os.path.join(SPEC_DIR, f"{sgbd}.json")
+    if not os.path.exists(path):
+        return
+    spec_file = json.load(open(path))
+    names = set()
+    for spec in spec_file.get("jobs", {}).values():
+        if spec.get("statusTable"):
+            names.add(spec["statusTable"])
+        for t in spec.get("tables", []):
+            names.add(t)
+        for r in spec.get("results", []):
+            lk = r.get("lookup")
+            if lk and lk.get("table"):
+                names.add(lk["table"])
+    if not names:
+        return
+    tables = {}
+    for t in sorted(names):
+        try:
+            rows = V.sgbd_table(sgbd, t)
+        except Exception:                                   # noqa: BLE001
+            rows = None
+        if rows:
+            tables[t] = rows
+    if tables:
+        tp = os.path.join(TABLE_DIR, f"{sgbd}.json")
+        with open(tp, "w") as f:
+            json.dump(tables, f, ensure_ascii=False,
+                      separators=(",", ":"))
+        print(f"  {sgbd:12} {len(tables):2} tables "
+              f"{os.path.getsize(tp)//1024:5} KB")
 
 
 def coverage(targets):

@@ -62,12 +62,50 @@ WRITE_JOB = re.compile(
 PATTERN = [((i * 7 + 0x11) & 0x7F) | 0x01 for i in range(64)]
 
 
+_CLI_BIN = None
+
+
+def cli_cmd(*args):
+    """dotnet argv for the CLI -- a prebuilt DLL when it is FRESH, else
+    `dotnet run`.
+
+    `dotnet run --project` re-evaluates the project on every invocation
+    (~1-2 s), and the export pipeline makes two probe calls per SGBD across
+    hundreds of SGBDs -- most of its wall clock was dotnet startup. The DLL
+    is only used when newer than every .cs source (ours and the vendored
+    engine's); a stale binary silently running old code is exactly the kind
+    of drift this repo's harnesses exist to prevent. If missing or stale it
+    is built once, then reused.
+    """
+    global _CLI_BIN
+    if _CLI_BIN is None:
+        def newest_dll():
+            hits = glob.glob(os.path.join(CLI, "bin", "**",
+                                          "InpaMac.Cli.dll"), recursive=True)
+            return max(hits, key=os.path.getmtime) if hits else None
+        srcs = (glob.glob(os.path.join(ROOT, "src", "**", "*.cs"),
+                          recursive=True)
+                + glob.glob(os.path.join(ROOT, "vendor", "ediabaslib-src",
+                                         "EdiabasLib", "EdiabasLib", "*.cs")))
+        src_m = max((os.path.getmtime(p) for p in srcs), default=0)
+        dll = newest_dll()
+        if not dll or os.path.getmtime(dll) < src_m:
+            subprocess.run(["dotnet", "build", CLI], capture_output=True,
+                           text=True, cwd=ROOT,
+                           env=dict(os.environ, DOTNET_ROLL_FORWARD="Major"))
+            dll = newest_dll()
+        _CLI_BIN = dll or ""
+    if _CLI_BIN:
+        return ["dotnet", _CLI_BIN] + list(args)
+    return ["dotnet", "run", "--project", CLI, "--"] + list(args)
+
+
 def batch(requests):
     """Run many {sgbd, job, sim} through one engine process."""
     if not requests:
         return []
     proc = subprocess.run(
-        ["dotnet", "run", "--project", CLI, "--", "simbatch"],
+        cli_cmd("simbatch"),
         input="\n".join(json.dumps(r) for r in requests),
         capture_output=True, text=True, cwd=ROOT,
         env=dict(os.environ, DOTNET_ROLL_FORWARD="Major"))
@@ -121,7 +159,8 @@ def discover(sgbd, jobs, init_reply=None):
     only then does the job get far enough to send its real request.
     """
     found = {}
-    d = os.path.join(WORK, "disc")
+    # dir is keyed by SGBD so parallel exports cannot trample each other
+    d = os.path.join(WORK, f"disc_{sgbd}")
     tr = os.path.join(d, "trace")
     for job in jobs:
         shutil.rmtree(d, ignore_errors=True)
@@ -129,8 +168,7 @@ def discover(sgbd, jobs, init_reply=None):
         pairs = [init_reply] if init_reply else []
         write_sim(d, sgbd, pairs)
         subprocess.run(
-            ["dotnet", "run", "--project", CLI, "--", "simrun", job, sgbd,
-             "--sim", d, "--trace", tr],
+            cli_cmd("simrun", job, sgbd, "--sim", d, "--trace", tr),
             capture_output=True, text=True, cwd=ROOT,
             env=dict(os.environ, DOTNET_ROLL_FORWARD="Major"))
         sends = all_sends(tr)
@@ -146,14 +184,13 @@ def discover(sgbd, jobs, init_reply=None):
 
 def discover_init(sgbd, probe_job):
     """The init exchange an ECU demands before any job runs, or None."""
-    d = os.path.join(WORK, "init")
+    d = os.path.join(WORK, f"init_{sgbd}")
     tr = os.path.join(d, "trace")
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(tr, exist_ok=True)
     write_sim(d, sgbd, [])
     subprocess.run(
-        ["dotnet", "run", "--project", CLI, "--", "simrun", probe_job, sgbd,
-         "--sim", d, "--trace", tr],
+        cli_cmd("simrun", probe_job, sgbd, "--sim", d, "--trace", tr),
         capture_output=True, text=True, cwd=ROOT,
         env=dict(os.environ, DOTNET_ROLL_FORWARD="Major"))
     sends = all_sends(tr)
