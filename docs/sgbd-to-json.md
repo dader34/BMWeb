@@ -358,6 +358,21 @@ spec must express it as a function of the request rather than a number.
 Everything above is the extractor; these are the files the web app actually
 downloads, emitted by `tools/sgbd_export.py`:
 
+The tree the web app downloads is assembled by `--ship` into
+`data/ecus/<CHASSIS>/<ECU>/` -- one self-contained folder per ECU:
+
+    data/ecus/E46/index.json          the single entry point (sections -> ECUs)
+    data/ecus/E46/MS450/ecu.json      identity: code, label, section, sgbd
+                        screens.json  the decompiled INPA UI (IR)
+                        jobs.json     lifted job specs + connection block
+                        tables.json   SGBD tables those specs reference
+                        i18n.json     per-ECU caption translations
+                        faults.json   fault-code map (linked by declared sgbd)
+
+The whole E46 chassis is 6.8 MB against BMW's 443 MB Ecu tree + 162 MB IPO
+tree. Generator intermediates stay put; re-running any generator and then
+`--ship` keeps the tree honest:
+
 - `data/job-specs/<sgbd>.json` — every job the compiled INPA UI references,
   as `{format: 1, sgbd, jobs: {NAME: spec}, connection}`. The `connection`
   block carries the framing (`ds2`/`fast`), the ECU address, and the init

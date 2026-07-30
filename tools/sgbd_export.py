@@ -198,6 +198,93 @@ def coverage(targets):
           f"({100*covered/max(total,1):.1f}%)")
 
 
+def ship(chassis="E46"):
+    """Assemble data/ecus/<CHASSIS>/<ECU>/ -- one self-contained folder per
+    ECU holding EVERYTHING the web app needs for it:
+
+        ecu.json       identity (code, label, section, sgbd, group)
+        screens.json   the decompiled INPA UI (IR)
+        jobs.json      the lifted job specs + connection block
+        tables.json    the SGBD tables those specs reference
+        i18n.json      per-ECU caption translations (hand-written source)
+        faults.json    fault-code map (linked by the sgbd it declares)
+
+    plus <CHASSIS>/index.json, the single entry point listing sections and
+    their ECUs. Sources stay where their generators put them; this is the
+    packaging step, so regenerating any input and re-running --ship keeps
+    the tree honest.
+    """
+    import urllib.request
+    port = os.environ.get("BMACW_PORT")
+    if not port:
+        raise SystemExit("--ship needs BMACW_PORT (chassis config API)")
+    cfg = json.load(urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/api/chassis/{chassis}", timeout=60))
+    # fault maps self-declare the sgbd they cover
+    faults_by_sgbd = {}
+    for p in glob.glob(os.path.join(ROOT, "data", "faults",
+                                    chassis.lower(), "*.json")):
+        try:
+            faults_by_sgbd[json.load(open(p)).get("sgbd", "").lower()] = p
+        except Exception:                                   # noqa: BLE001
+            pass
+    root = os.path.join(ROOT, "data", "ecus", chassis)
+    os.makedirs(root, exist_ok=True)
+    index = {"chassis": chassis, "sections": []}
+    for sec in cfg.get("sections", []):
+        entry = {"name": sec["name"], "ecus": []}
+        for e in sec.get("ecus", []):
+            code = e["code"]
+            sgbd = (e.get("sgbd") or "").lower()
+            d = os.path.join(root, code)
+            os.makedirs(d, exist_ok=True)
+            parts = {"ecu": True}
+
+            def put(name, obj):
+                with open(os.path.join(d, name + ".json"), "w") as f:
+                    json.dump(obj, f, ensure_ascii=False,
+                              separators=(",", ":"))
+                parts[name] = True
+
+            put("ecu", {"code": code, "label": e.get("label"),
+                        "section": sec["name"], "sgbd": sgbd,
+                        "group": e.get("group")})
+            # the IR is named by IPO stem: the code, or an sgbd stem
+            stems = {code.lower(), sgbd}
+            for suf in ("ds0", "ds2", "ds1", "_n", "ds"):
+                if sgbd.endswith(suf):
+                    stems.add(sgbd[:-len(suf)])
+            for f in glob.glob(os.path.join(IR_DIR, "*.json")):
+                if os.path.basename(f)[:-5].lower() in stems:
+                    put("screens", json.load(open(f)))
+                    break
+            sp = os.path.join(SPEC_DIR, f"{sgbd}.json")
+            if sgbd and os.path.exists(sp):
+                put("jobs", json.load(open(sp)))
+            tp = os.path.join(TABLE_DIR, f"{sgbd}.json")
+            if sgbd and os.path.exists(tp):
+                put("tables", json.load(open(tp)))
+            for f in glob.glob(os.path.join(ROOT, "data", "inpa-i18n",
+                                            "*.json")):
+                if os.path.basename(f)[:-5].lower() in stems:
+                    put("i18n", json.load(open(f)))
+                    break
+            if sgbd in faults_by_sgbd:
+                put("faults", json.load(open(faults_by_sgbd[sgbd])))
+            entry["ecus"].append({"code": code, "label": e.get("label"),
+                                  "parts": sorted(k for k, v in parts.items()
+                                                  if v)})
+            missing = [k for k in ("screens", "jobs") if k not in parts]
+            note = f"  MISSING {','.join(missing)}" if missing else ""
+            print(f"  {code:12} {' '.join(sorted(parts))}{note}")
+        index["sections"].append(entry)
+    with open(os.path.join(root, "index.json"), "w") as f:
+        json.dump(index, f, ensure_ascii=False, indent=1)
+    total = sum(os.path.getsize(os.path.join(dp, fn))
+                for dp, _, fns in os.walk(root) for fn in fns)
+    print(f"shipped {root}: {total//1024} KB")
+
+
 def main():
     targets = [a.lower() for a in sys.argv[1:] if not a.startswith("--")] \
         or S.e46_sgbds()
@@ -207,6 +294,8 @@ def main():
         export_tables(targets)
     if "--coverage" in sys.argv:
         coverage(targets)
+    if "--ship" in sys.argv:
+        ship()
     if len(sys.argv) < 2:
         print(__doc__)
     return 0
