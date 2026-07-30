@@ -136,10 +136,14 @@ The package is publicly shared, so this is scripted:
 scripts/setup/fetch-vendor.sh
 ```
 
-It downloads BMW Standard Tools (~950 MB Windows installer) from the Drive
-folder linked below, unpacks the two trees it needs with `7z`, and puts them in
-place. Needs `curl` and `7z` (`brew install sevenzip`) and about 3 GB free while
-unpacking. It no-ops if `vendor/` is already complete.
+It downloads `ec-apps.zip` (~710 MB) from the Drive folder linked below,
+unpacks the two trees it needs with `7z`, and puts them in place. Needs `curl`
+and `7z` (`brew install sevenzip`) and about 4 GB free while unpacking. It
+no-ops if `vendor/` is already complete.
+
+Not the `BMW_Standard_Tools_Setup` .exe in the same folder: that is a 32 MB
+installer stub which downloads its payload at install time, so it holds no
+`.prg` or `.IPO` at all.
 
 To do it by hand instead: BMW Standard Tools contains an `EDIABAS` directory and
 an `EC-APPS` directory. Copy them in so the tree looks exactly like this:
