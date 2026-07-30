@@ -65,6 +65,8 @@ class Best2Vm {
     // the job's declared array size (ArrayMaxBufSize); 1024 is EDIABAS's
     // default and every E46 job fits it
     this.arraySize = opts.arraySize || 1024;
+    // process-wide shared data (shmset/shmget), persists across jobs
+    this.shared = opts.shared || new Map();
   }
 
   reset() {
@@ -683,9 +685,21 @@ class Best2Vm {
       }
 
       // ---- float
-      case 'fix2flt': case 'ufix2flt':
-        this.fregs.set(A[1], this.val(B));
+      case 'fix2flt': case 'ufix2flt': {
+        // fix2flt SIGN-EXTENDS by the SOURCE operand's width (1/2/4 ->
+        // SByte/Int16/Int32); ufix2flt does not. Skipping the sign made a
+        // negative reading come out as its unsigned complement scaled --
+        // SMG2's lateral acceleration read 4294942.72 where the engine
+        // says -24.576, i.e. exactly (value - 2^32) * scale.
+        const w = this.widthOf(B) || 4;
+        let v = this.val(B, w);
+        if (name === 'fix2flt') {
+          const lim = 2 ** (8 * w);
+          if (v >= lim / 2) v -= lim;
+        }
+        this.fregs.set(A[1], v);
         return;
+      }
       case 'flt2fix': {
         const w = this.widthOf(A);
         const v = Math.trunc(this.getReg(B[1]));
@@ -1157,10 +1171,32 @@ class Best2Vm {
       // ---- environment / no-ops for decode purposes. These affect timing,
       // tracing or interface configuration, none of which changes a decoded
       // value, so they are accepted and ignored rather than aborting a job.
+      case 'shmset': {
+        // process-wide shared data, keys UPPERCASED. Values persist across
+        // jobs in a session, which is how one job hands a block to the next.
+        const key = String(B && B[0] === 8 ? this.lit(B[1])
+          : Best2Vm.cstr(this.bytes(A))).toUpperCase();
+        const val = B ? this.bytes(B) : this.bytes(A);
+        const k2 = String(A[0] === 8 ? this.lit(A[1])
+          : Best2Vm.cstr(this.bytes(A))).toUpperCase();
+        this.shared.set(k2 || key, Uint8Array.from(val));
+        return;
+      }
+      case 'shmget': {
+        // CARRY IS THE MISS INDICATOR (true = key absent), and the
+        // destination gets an empty array. Returning nothing silently made
+        // AIF_LESEN read zeros where a prior job had stored its block.
+        const key = String(B && B[0] === 8 ? this.lit(B[1])
+          : (B ? Best2Vm.cstr(this.bytes(B)) : '')).toUpperCase();
+        const hit = this.shared.get(key);
+        f.carry = !hit;
+        this.store(A, hit || new Uint8Array(0), true);
+        return;
+      }
       case 'settmr': case 'gettmr': case 'wait': case 'setspc':
       case 'xconnect': case 'xhangup': case 'xstopf': case 'xawlen':
       case 'xreps': case 'xsetpar': case 'xkeyb': case 'xkeybytes':
-      case 'setflt': case 'clrflt': case 'shmset': case 'shmget':
+      case 'setflt': case 'clrflt':
       case 'cfgig': case 'cfgsg': case 'cfgss': case 'date': case 'time':
       case 'ticks': case 'trap': case 'plink': case 'pjob': case 'pexec':
       case 'fopen': case 'fclose': case 'fseekln': case 'freadln':
