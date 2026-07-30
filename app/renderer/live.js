@@ -506,7 +506,7 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
 }
 
 // Screen rows in the order INPA actually draws them. When the .IPO decode gave
-// us a grid (tools/ipo_grid.py), it carries the true row/column of every value,
+// us a grid, it carries the true row/column of every value,
 // so reading-order becomes row-major — which is what makes bank 1 / bank 2 line
 // up as pairs. Without a grid, or outside INPA mode, the layout order stands.
 function gridOrder(scr) {
