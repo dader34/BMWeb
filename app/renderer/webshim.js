@@ -276,9 +276,14 @@ function installWebShim() {
     if (run) {
       const q = new URLSearchParams(rel.split('?')[1] || '');
       const arg = q.get('arg');
-      if (q.get('demo') === '1') {
-        return err('demo mode needs the macOS app: the web build has no '
-          + 'value synthesiser', 501);
+      // Demo answers from the job's DECLARED results, so screens populate the
+      // way they would on a real read. It never touches the bus, and it is
+      // checked before the cable so the UI can be walked with one plugged in.
+      if (q.get('demo') === '1' && typeof webDemoSets === 'function') {
+        const sgbd = run[1].toLowerCase();
+        const meta = await webFetchJson(`${WEB_API_BASE}/ecu/${sgbd}/meta.json`);
+        return ok({ job: run[2], demo: true,
+                    sets: webDemoSets(meta, decodeURIComponent(run[2]), arg) });
       }
       if (!webBus.connected) return err('no cable connected', 503);
       try {
