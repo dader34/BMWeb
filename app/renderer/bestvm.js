@@ -28,6 +28,23 @@ const REG_BYTES = 32;
 
 class VmError extends Error {}
 
+// Jobs that CHANGE the ECU rather than read it. Kept deliberately identical
+// to WRITE_JOB in tools/sgbd_bulk_verify.py -- two different answers to
+// "is this a write?" is worse than either answer alone.
+//
+// The list is by NAME because that is what BEST2 gives us: the bytecode has
+// no flag saying "this telegram writes", and the service byte varies per
+// protocol. Naming is the SGBD authors' own convention (STEUERN_ = actuate,
+// _LOESCHEN = clear, _SCHREIBEN = write) and it is what INPA's own screens
+// are marked with.
+const WRITE_JOB = new RegExp(
+  '^(STEUERN|SCHREIBEN|.*_SCHREIBEN|.*_LOESCHEN|FS_LOESCHEN|.*_SETZEN'
+  + '|FLASH.*|PROGRAMMIER.*|.*_RESET|RESET.*|CODIER.*_SCHREIB.*)', 'i');
+
+function isWriteJob(name) {
+  return WRITE_JOB.test(String(name || ''));
+}
+
 // Which flag combination each conditional jump tests (EdOperations' jump
 // handlers). Named exactly as the disassembler emits them.
 const JUMP_TESTS = {
@@ -67,6 +84,10 @@ class Best2Vm {
     this.arraySize = opts.arraySize || 1024;
     // process-wide shared data (shmset/shmget), persists across jobs
     this.shared = opts.shared || new Map();
+    // Permission to transmit for a job that CHANGES the ECU. Off by
+    // default: a caller has to say so, and saying so is the point where a
+    // UI can put a confirmation in front of the user.
+    this.allowWrites = !!opts.allowWrites;
   }
 
   reset() {
@@ -382,6 +403,15 @@ class Best2Vm {
   // AIF block size and free count arrive that way via shmset/shmget. Without
   // it those results read zeros.
   run(jobName, args) {
+    // Refuse a write job BEFORE anything is transmitted -- including the
+    // implicit INITIALISIERUNG, which is itself only a read but still puts
+    // bytes on the wire. "Nothing was sent" is a much easier promise to
+    // reason about than "only harmless things were sent".
+    if (isWriteJob(jobName) && !this.allowWrites) {
+      throw new VmError(
+        `refusing to run write job ${jobName}: `
+        + 'construct the VM with {allowWrites: true} to permit it');
+    }
     const init = this.code.jobs.INITIALISIERUNG;
     if (init !== undefined && !this._inited
         && String(jobName).toUpperCase() !== 'INITIALISIERUNG') {
@@ -400,6 +430,10 @@ class Best2Vm {
     const entry = entryIdx !== undefined ? entryIdx
       : (this.code.jobs[jobName] ?? this.code.jobs[jobName?.toUpperCase()]);
     if (entry === undefined) throw new VmError(`no job ${jobName}`);
+    this.jobName = jobName || this.jobName;
+    // INITIALISIERUNG runs implicitly before a real job; it is never a
+    // write, and must not inherit the target job's classification.
+    this.writeJob = entryIdx !== undefined ? false : isWriteJob(jobName);
     this.reset();
     if (args !== undefined) this.argText = args;
     this.argBytes = Best2Vm.strBytes(this.argText);
@@ -1232,6 +1266,17 @@ class Best2Vm {
         // arg0 names the register that RECEIVES the answer; the request is
         // the second operand where present, else arg0's current contents.
         const req = B ? this.bytes(B) : this.bytes(A);
+        // THE WRITE GUARD. This is the only point where bytes leave the VM,
+        // so it is the only place the check has to exist. A job whose name
+        // says it CHANGES the ECU refuses to transmit unless the caller
+        // opted in -- the failure happens before the bytes reach the cable
+        // rather than after. Simulation and fixtures are unaffected: they
+        // pass allowWrites, because writing into a .sim file harms nothing.
+        if (this.writeJob && !this.allowWrites) {
+          throw new VmError(
+            `refusing to transmit for write job ${this.jobName}: `
+            + 'construct the VM with {allowWrites: true} to permit it');
+        }
         const ans = this.send(Array.from(req)) || [];
         this.answer = Uint8Array.from(ans);
         this.store(A, this.answer, true);
@@ -1324,5 +1369,6 @@ class Best2Vm {
 const STOP = Symbol('eoj');
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Best2Vm, VmError, STOP, JUMP_TESTS, REG_BYTES };
+  module.exports = { Best2Vm, VmError, STOP, JUMP_TESTS, REG_BYTES,
+                     isWriteJob, WRITE_JOB };
 }
