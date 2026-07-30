@@ -183,14 +183,12 @@ def main():
             with open(vmtp, "rb") as tf:
                 ecu_contents["sgbd-tables.json"] = tf.read()
 
-        # Build the .ecu zip
+        # Build the .ecu zip. Held in memory only: every one of these goes
+        # inside its chassis archive below, and writing them loose as well
+        # duplicated all 310 for 47 MB with nothing reading them -- the shim
+        # takes an ECU from the chassis bundle it already has cached.
         if ecu_contents:
-            zip_bytes = make_zip(ecu_contents, compress=True)
-            ecu_zips[sgbd] = zip_bytes
-            
-            # Save the .ecu file directly in api/ecu/ for standalone usage/debugging
-            with open(os.path.join(api, "ecu", f"{sgbd}.ecu"), "wb") as f:
-                f.write(zip_bytes)
+            ecu_zips[sgbd] = make_zip(ecu_contents, compress=True)
 
     print(f"  packaged {len(ecu_zips)} .ecu archives ({njobs} jobs, {nres} result schemas, {ntab} tables, {nir} IRs)")
 
@@ -215,6 +213,21 @@ def main():
             f.write(chassis_zip_bytes)
 
     print(f"  packaged {len(ids)} .chassis archives")
+
+    # Which car owns each SGBD. ECUs live only inside their chassis archive,
+    # so opening one the shim has not cached means finding its owner; without
+    # this it would try chassis archives in turn, downloading up to 122 MB to
+    # find a 116 KB ECU. 5 KB answers it in one lookup.
+    owner = {}
+    for cid in ids:
+        for sec in chassis_configs[cid].get("sections", []):
+            for e in sec.get("ecus", []):
+                sgbd = (e.get("sgbd") or "").lower()
+                if sgbd and sgbd not in owner:
+                    owner[sgbd] = cid
+    with open(os.path.join(api, "ecu-index.json"), "w") as f:
+        json.dump(owner, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  ecu-index.json: {len(owner)} sgbds")
 
     # 4. Copy the global job-code index
     src_idx = os.path.join(ROOT, "data", "job-code", "index.json")
