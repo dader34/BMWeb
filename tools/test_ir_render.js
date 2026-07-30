@@ -381,7 +381,7 @@ ok(!irIsCard(g.screens['s_analog_1']),
     return n === 20 ? null : String(n % 10);
   };
   let collisions = 0, shiftedMenus = 0;
-  for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir'))) {
+  for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'))) {
     const ir2 = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
     for (const mn of Object.keys(ir2.menus || {})) {
       const its = irMenuItems(ir2, mn);
@@ -913,7 +913,7 @@ ok(infoCard.fields[0].label === 'Rework program',
 
 // no row anywhere may be labelled with punctuation
 let punct = 0;
-for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir'))) {
+for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'))) {
   const ir2 = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
   for (const s of Object.values(ir2.screens || {}))
     for (const x of irRows(s).rows)
