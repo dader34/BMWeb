@@ -198,6 +198,23 @@ def coverage(targets):
           f"({100*covered/max(total,1):.1f}%)")
 
 
+def all_chassis():
+    import urllib.request
+    port = os.environ.get("BMACW_PORT")
+    return json.load(urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/api/chassis", timeout=60))
+
+
+def chassis_sgbds(chassis):
+    import urllib.request
+    port = os.environ.get("BMACW_PORT")
+    c = json.load(urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/api/chassis/{chassis}", timeout=300))
+    return sorted({(e.get("sgbd") or "").lower()
+                   for s in c.get("sections", [])
+                   for e in s.get("ecus", []) if e.get("sgbd")})
+
+
 def ship(chassis="E46"):
     """Assemble data/ecus/<CHASSIS>/<ECU>/ -- one self-contained folder per
     ECU holding EVERYTHING the web app needs for it:
@@ -228,7 +245,7 @@ def ship(chassis="E46"):
             faults_by_sgbd[json.load(open(p)).get("sgbd", "").lower()] = p
         except Exception:                                   # noqa: BLE001
             pass
-    root = os.path.join(ROOT, "data", "ecus", chassis)
+    root = os.path.join(ROOT, "ecus", chassis)
     os.makedirs(root, exist_ok=True)
     index = {"chassis": chassis, "sections": []}
     for sec in cfg.get("sections", []):
@@ -286,8 +303,17 @@ def ship(chassis="E46"):
 
 
 def main():
-    targets = [a.lower() for a in sys.argv[1:] if not a.startswith("--")] \
-        or S.e46_sgbds()
+    targets = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
+    if not targets:
+        if "--all-chassis" in sys.argv:
+            targets = sorted({g for ch in all_chassis()
+                              for g in chassis_sgbds(ch)})
+            if "--force" not in sys.argv:
+                # keep what an earlier run already extracted
+                targets = [t for t in targets if not os.path.exists(
+                    os.path.join(SPEC_DIR, f"{t}.json"))]
+        else:
+            targets = S.e46_sgbds()
     if "--specs" in sys.argv:
         export_specs(targets)
     if "--tables" in sys.argv:
@@ -295,7 +321,14 @@ def main():
     if "--coverage" in sys.argv:
         coverage(targets)
     if "--ship" in sys.argv:
-        ship()
+        chs = [a for a in sys.argv[1:]
+               if not a.startswith("--") and a.upper() == a and len(a) <= 4]
+        for ch in (chs or all_chassis()):
+            print(f"[{ch}]")
+            try:
+                ship(ch)
+            except Exception as e:                          # noqa: BLE001
+                print(f"  {ch}: {e}")
     if len(sys.argv) < 2:
         print(__doc__)
     return 0
