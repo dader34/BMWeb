@@ -438,8 +438,29 @@ def ship(chassis="E46"):
                     put("screens", json.load(open(f)))
                     break
             sp = os.path.join(SPEC_DIR, f"{sgbd}.json")
+            spec = None
             if sgbd and os.path.exists(sp):
-                put("jobs", json.load(open(sp)))
+                spec = json.load(open(sp))
+            # KEEP THE DATA EVEN WHEN THERE IS NO SCREEN TO SHOW IT ON.
+            # Spec lifting is driven by what a screen invokes, so an ECU BMW
+            # never drew a UI for lifts zero specs -- 15 of them, marked
+            # ScreenCount=0 in BMW's own .ini. They still DECLARE plenty of
+            # real work (hud_70 98 jobs, ulf_60 80 including BT_ANTENNA_TEST,
+            # elv 13 with FS_LESEN/IDENT), all of it described in the .prg and
+            # already exported to data/job-meta. Shipping an empty jobs.json
+            # threw that away at the last step. Fall back to the metadata so
+            # the job list survives into ecus/ -- INPA shows no screen for
+            # these and neither do we, but the data is there to drive one.
+            if not (spec or {}).get("jobs"):
+                mp = os.path.join(ROOT, "data", "job-meta", f"{sgbd}.json")
+                if sgbd and os.path.exists(mp):
+                    meta = json.load(open(mp))
+                    if meta.get("jobs"):
+                        spec = {"format": 1, "sgbd": sgbd,
+                                "source": "job-meta",
+                                "jobs": meta["jobs"]}
+            if spec:
+                put("jobs", spec)
             tp = os.path.join(TABLE_DIR, f"{sgbd}.json")
             if sgbd and os.path.exists(tp):
                 put("tables", json.load(open(tp)))
