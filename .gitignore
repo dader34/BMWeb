@@ -62,3 +62,27 @@ __pycache__/
 
 # Workflow scripts (throwaway, contain absolute paths)
 tools/*.mjs
+
+# Generated ECU data, committed GZIPPED ONLY (38 MB against 573 MB raw).
+# The Pages build has no app and no vendor tree to regenerate from, so the
+# inputs the site needs have to be in the repo. The workflow expands them;
+# the .json originals stay ignored.
+#
+# Un-ignoring a directory re-includes EVERYTHING under it, so each rule
+# re-ignores the raw .json immediately after opening the directory.
+!data/job-meta/
+data/job-meta/*
+!data/job-meta/*.json.gz
+!data/sgbd-tables/
+data/sgbd-tables/*
+!data/sgbd-tables/*.json.gz
+!data/inpa-ir/
+data/inpa-ir/*
+!data/inpa-ir/*.json.gz
+!data/job-code/
+data/job-code/*
+!data/job-code/*.json.gz
+!data/job-code/index.json
+
+# local scratch notes
+/docs

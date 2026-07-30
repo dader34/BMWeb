@@ -48,6 +48,20 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Expand the committed data
+        run: |
+          set -euo pipefail
+          # The generated JSON is committed gzipped only (38 MB against 573 MB
+          # raw). web_export.py reads .json, so expand in place first. job-code
+          # keeps BOTH: the exporter ships the .gz as-is and the browser
+          # inflates it via Content-Encoding.
+          for d in job-meta sgbd-tables inpa-ir; do
+            find "data/$d" -name '*.json.gz' -print0 \
+              | xargs -0 -r -P 4 -I{} gzip -dkf {}
+          done
+          echo "expanded: $(find data/job-meta data/sgbd-tables data/inpa-ir \
+            -name '*.json' | wc -l) files"
+
       - name: Build the static site
         run: |
           set -euo pipefail
@@ -60,6 +74,11 @@ jobs:
           # index.html already loads webshim.js -- both hosts need it.
           test -s dist-web/index.html
           grep -q webshim.js dist-web/index.html
+          # A build that exported nothing must FAIL here, not deploy a shell
+          # of a site: the first Pages run shipped 63 files and looked green.
+          n=$(find dist-web/api/ecu -maxdepth 1 -type d | wc -l)
+          echo "ecu directories: $n"
+          test "$n" -gt 300
 
       - name: Pre-compress the large payloads
         run: |
