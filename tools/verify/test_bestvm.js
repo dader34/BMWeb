@@ -25,7 +25,7 @@ function load(rel) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), ctx);
   return ctx.module.exports;
 }
-const { Best2Vm, VmError } = load('app/renderer/bestvm.js');
+const { Best2Vm, VmError } = load('app/renderer/core/bestvm.js');
 
 const fixPath = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixPath)) {

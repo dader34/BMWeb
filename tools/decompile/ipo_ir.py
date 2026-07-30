@@ -69,7 +69,7 @@ KNOWN LIMITS, carried in the data rather than papered over:
 TRANSLATION is a second pass, not a render-time concern. This emitter gathers
 every caption an ECU displays into `strings`; tools/ipo_i18n.js resolves them
 once -- data/inpa-i18n/<ECU>.json first, then the shared vocabulary in
-app/renderer/translate.js -- and writes the result back as `i18n`, consuming
+app/renderer/core/translate.js -- and writes the result back as `i18n`, consuming
 `strings`. The interpreter looks up that map instead of translating.
 
 That per-ECU layer is the point: BMW's compounds are not shared vocabulary.

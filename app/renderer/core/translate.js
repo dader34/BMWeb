@@ -820,7 +820,7 @@ function loadPcodes() {
   if (_pcodesPromise) return _pcodesPromise;
   _pcodesPromise = new Promise((resolve) => {
     const s = document.createElement('script');
-    s.src = 'pcodes.js';
+    s.src = 'data/pcodes.js';
     s.onload = () => resolve();
     s.onerror = () => { _pcodesPromise = null; resolve(); };
     document.head.appendChild(s);
@@ -848,8 +848,8 @@ function _lazyScript(src, ready, holder) {
   };
 }
 const _metaHolder = {}, _infoHolder = {};
-const loadFaultMeta = _lazyScript('faultmeta.js', 'BMW_FAULT_META', _metaHolder);
-const loadFaultInfo = _lazyScript('faultinfo.js', 'BMW_FAULT_INFO', _infoHolder);
+const loadFaultMeta = _lazyScript('data/faultmeta.js', 'BMW_FAULT_META', _metaHolder);
+const loadFaultInfo = _lazyScript('data/faultinfo.js', 'BMW_FAULT_INFO', _infoHolder);
 
 // per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. The
 // `info` field indexes into BMW_FAULT_INFO[hex] (the service document).

@@ -1,4 +1,4 @@
-// Generates app/renderer/faultdb.js from the fault translation files.
+// Generates app/renderer/data/faultdb.js from the fault translation files.
 //   node scripts/build-faultdb.mjs
 //
 // Sources (all authoritative, derived from the BMW SGBD FORTTEXTE tables):

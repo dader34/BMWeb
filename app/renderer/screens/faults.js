@@ -14,7 +14,7 @@ function loadFaultDb() {
   if (_faultDbPromise) return _faultDbPromise;
   _faultDbPromise = new Promise((resolve) => {
     const s = document.createElement('script');
-    s.src = 'faultdb.js';
+    s.src = 'data/faultdb.js';
     s.onload = () => resolve();
     s.onerror = () => { _faultDbPromise = null; resolve(); }; // lookups fall back to deGerman
     document.head.appendChild(s);

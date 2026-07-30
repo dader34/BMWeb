@@ -12,7 +12,7 @@
 //
 //   data/inpa-i18n/<ECU>.json   { "German caption": "English caption" }
 //
-// checked first, then the shared vocabulary in app/renderer/translate.js.
+// checked first, then the shared vocabulary in app/renderer/core/translate.js.
 // The result lands in the IR as `i18n`, and the interpreter reads that map
 // instead of translating. An ECU with no overrides file simply gets the
 // shared vocabulary, exactly as before.
@@ -28,7 +28,7 @@ const OVR_DIR = path.join(R, 'data/inpa-i18n');
 
 // the shared vocabulary, loaded the same way the guards load it
 const lang = () => 'en';
-eval(fs.readFileSync(path.join(R, 'app/renderer/translate.js'), 'utf8'));
+eval(fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'));
 
 // every caption an IR displays, for the check path (the emitter supplies the
 // same list as `strings` on a fresh build)

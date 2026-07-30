@@ -9,7 +9,7 @@
 #
 #   tools/web_export.py   freezes every GET the renderer makes into static
 #                         JSON (chassis config, job metadata, tables, IR)
-#   app/renderer/webshim.js  intercepts fetch: static files for reads, and
+#   app/renderer/core/webshim.js  intercepts fetch: static files for reads, and
 #                         our BEST2 VM over Web Serial for job runs
 #
 # Nothing in the renderer changes. webshim.js installs over window.fetch
@@ -57,7 +57,7 @@ cp -R "$ROOT/app/renderer/." "$OUT/"
 # They load lazily in the app; on a static host they are just weight, so ship
 # them gzipped beside the original the way job code already does.
 echo "==> pre-compressing the large payloads"
-find "$OUT" -maxdepth 1 -name "*.js" -size +1M -print0 \
+find "$OUT" -name "*.js" -size +1M -print0 \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {}
 find "$OUT/api" -name "*.json" -size +256k -print0 2>/dev/null \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {} 2>/dev/null || true

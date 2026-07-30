@@ -14,7 +14,7 @@ function loadFaultIndex() {
   if (window.__faultIndexLoading) return window.__faultIndexLoading;
   window.__faultIndexLoading = new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = 'faultindex.js';
+    s.src = 'data/faultindex.js';
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('failed to load fault index'));
     document.head.appendChild(s);
