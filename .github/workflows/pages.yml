@@ -78,20 +78,13 @@ jobs:
           test -s dist-web/index.html
           grep -q webshim.js dist-web/index.html
           # A build that exported nothing must FAIL here, not deploy a shell
-          # of a site: the first Pages run shipped 63 files and looked green.
-          # A build that exported nothing must FAIL here, not deploy a shell
-          # of a site. The .ecu archives are nested inside the .chassis ones
-          # now, so count those and check one has real contents.
+          # of a site: an earlier run shipped 63 files and looked green, and a
+          # later one shipped archives that were present but hollow. Check
+          # both: the archives exist, AND one holds real ECUs.
           n=$(find dist-web/api/chassis -name '*.chassis' | wc -l)
           echo "chassis archives: $n"
           test "$n" -ge 21
-          python3 - <<'EOF'
-import zipfile, sys
-z = zipfile.ZipFile("dist-web/api/chassis/E90.chassis")
-ecus = [n for n in z.namelist() if n.endswith(".ecu")]
-print(f"E90 holds {len(ecus)} .ecu")
-sys.exit(0 if len(ecus) > 40 else 1)
-EOF
+          python3 -c "import zipfile,sys; z=zipfile.ZipFile('dist-web/api/chassis/E90.chassis'); e=[n for n in z.namelist() if n.endswith('.ecu')]; print(f'E90 holds {len(e)} .ecu'); sys.exit(0 if len(e)>40 else 1)"
 
       - name: Pre-compress the large payloads
         run: |
