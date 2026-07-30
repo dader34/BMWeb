@@ -67,7 +67,7 @@ async function offlineGet(path) {
 // They try python3, then python, then php, then node, so whichever the
 // machine has is enough.
 const OFFLINE_SH = `#!/bin/sh
-# Run BMacW offline. Double-click, or: ./run-mac-linux.sh
+# Run BMacW offline. Double-click this file.
 #
 # Serves this folder over HTTP and opens it. A browser will not let a page
 # opened straight from disk read its own data files, which is why this needs
@@ -135,9 +135,9 @@ decodes it.
 
 RUNNING IT
 
-  macOS / Linux    sh run-mac-linux.sh
-                   (or: chmod +x run-mac-linux.sh && ./run-mac-linux.sh)
-  Windows          double-click run-windows.bat
+  macOS      double-click "Run BMacW.command"
+  Windows    double-click run-windows.bat
+  Linux      sh run-linux.sh
 
 Those serve this folder and open a browser at it. A browser will not let a
 page opened straight from disk (file://) read its own data files, which is
@@ -210,11 +210,22 @@ async function offlineExport(chassis, withFaults, onProgress) {
   const enc = new TextEncoder();
   files['README.txt'] = enc.encode(
     offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults));
-  // Plain bytes, no attrs tuple: this fflate build applies the external
-  // attributes to the NEXT entry rather than the one they belong to, so the
-  // executable bit landed on the .bat. The README says to chmod, which is one
-  // line and honest, instead of shipping a permission that might be wrong.
-  files['run-mac-linux.sh'] = enc.encode(OFFLINE_SH);
+  // DOUBLE-CLICKABLE ON MACOS. Finder always opens a .command in Terminal,
+  // where a .sh may go to an editor depending on what the user has set, and
+  // 0o755 in the high half of the external attributes means it arrives
+  // runnable rather than needing chmod.
+  //
+  // EXACTLY ONE ENTRY GETS attrs. This fflate build mishandles more than
+  // one: with two tuples the second is dropped and its bit reappears on
+  // whatever entry happens to be last. With a single tuple the bit lands
+  // correctly wherever the entry sits, and the stray copy falls on the .bat,
+  // which is harmless because Windows ignores POSIX modes.
+  //
+  // Linux therefore gets the same script without the bit. Its file managers
+  // mostly refuse to run a downloaded script on double-click anyway, so the
+  // README tells Linux users to run it, which is what they would do.
+  files['Run BMacW.command'] = [enc.encode(OFFLINE_SH), { attrs: 0o755 << 16 }];
+  files['run-linux.sh'] = enc.encode(OFFLINE_SH);
   files['run-windows.bat'] = enc.encode(OFFLINE_BAT);
 
   say('compressing');
