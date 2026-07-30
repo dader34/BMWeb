@@ -95,3 +95,9 @@ data/job-code/*
 # checks they are present.
 vendor/EDIABAS/Ecu/
 vendor/EC-APPS/
+
+# Per-car view of the generated data: data/chassis/<CHASSIS>/<ECU>/.
+# Everything about one ECU in one folder, which means a shared SGBD is stored
+# once per car that uses it (310 distinct -> 1022 folders). Derived, so it is
+# not committed: rebuild with tools/export/build_ecu_tree.py.
+data/chassis/

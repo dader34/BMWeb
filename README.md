@@ -183,7 +183,6 @@ src/InpaMac.App/  macOS shell: window, serial proxy, static file host
 src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
 tools/            decompilers, exporters, test harnesses
 data/             generated JSON: job code, tables, metadata, screens
-ecus/             per ECU ship tree assembled from the above
 vendor/           BMW originals: NOT in the repo, supply your own
 ```
 

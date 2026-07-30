@@ -73,21 +73,20 @@ const SYSTEM_RESULTS = new Set([
   'IGNITIONHISTORY', 'SPRACHE', 'DONE', 'QUALIFIER', 'RESULTSOURCE',
 ]);
 
+// Both come from data/chassis/<CHASSIS>/<ECU>/ now: the generated data is
+// laid out per car, not per kind.
+const T = require('./ecu_tree.js');
 const codeCache = new Map();
 function codeFor(sgbd) {
   if (!codeCache.has(sgbd)) {
-    const p = path.join(ROOT, 'data/job-code', `${sgbd}.json`);
-    codeCache.set(sgbd, fs.existsSync(p)
-      ? JSON.parse(fs.readFileSync(p, 'utf8')) : null);
+    codeCache.set(sgbd, T.readEcuJson(sgbd, 'job-code.json'));
   }
   return codeCache.get(sgbd);
 }
 const tableCache = new Map();
 function tablesFor(sgbd) {
   if (!tableCache.has(sgbd)) {
-    const p = path.join(ROOT, 'data/sgbd-tables', `${sgbd}.json`);
-    tableCache.set(sgbd, fs.existsSync(p)
-      ? JSON.parse(fs.readFileSync(p, 'utf8')) : {});
+    tableCache.set(sgbd, T.readEcuJson(sgbd, 'tables.json') || {});
   }
   return tableCache.get(sgbd);
 }

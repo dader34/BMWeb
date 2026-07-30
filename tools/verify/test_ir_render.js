@@ -11,6 +11,19 @@
 //   node tools/test_ir_render.js
 const fs = require('fs');
 const path = require('path');
+const TT = require('./ecu_tree.js');
+
+// THIS TEST READS THE FLAT IR CORPUS, NOT THE PER-CAR TREE, and deliberately.
+// data/inpa-ir holds 832 decompiled ECUs; only 356 of them are referenced by
+// some chassis, so the per-car tree can hold no more than those. The other 476
+// never ship -- the export filters to chassis-referenced SGBDs -- but they are
+// exactly what makes this a DECOMPILER regression test: a decoder bug that
+// only breaks unreferenced ECUs would otherwise go unseen, and the corpus
+// floor below (rows > 20000) is measured over all of them.
+const IRDIR = path.join(__dirname, '..', '..', 'data', 'inpa-ir');
+function loadScreens(stem) {
+  return fs.readFileSync(path.join(IRDIR, `${stem}.json`), 'utf8');
+}
 const R = path.join(__dirname, '..', '..');
 
 const lang = () => 'en';
@@ -47,7 +60,7 @@ function keyScreen(ir, re) {
 }
 
 const load = (e) => JSON.parse(
-  fs.readFileSync(path.join(R, 'data/inpa-ir', e + '.json'), 'utf8'));
+  loadScreens(e));
 const fails = [];
 const ok = (cond, msg) => { if (!cond) fails.push(msg); };
 
@@ -381,8 +394,8 @@ ok(!irIsCard(g.screens['s_analog_1']),
     return n === 20 ? null : String(n % 10);
   };
   let collisions = 0, shiftedMenus = 0;
-  for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'))) {
-    const ir2 = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+  for (const f of fs.readdirSync(IRDIR).filter(f => f.endsWith('.json'))) {
+    const ir2 = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
     for (const mn of Object.keys(ir2.menus || {})) {
       const its = irMenuItems(ir2, mn);
       if (!its.length) continue;
@@ -913,8 +926,8 @@ ok(infoCard.fields[0].label === 'Rework program',
 
 // no row anywhere may be labelled with punctuation
 let punct = 0;
-for (const f of fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'))) {
-  const ir2 = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+for (const f of fs.readdirSync(IRDIR).filter(f => f.endsWith('.json'))) {
+  const ir2 = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
   for (const s of Object.values(ir2.screens || {}))
     for (const x of irRows(s).rows)
       if (/^[:=|-]+$/.test(String(x.label || '').trim())) punct++;
@@ -1066,11 +1079,11 @@ for (const list of Object.values(kb.rootVariants || {})) {
 }
 
 // ---- corpus: the interpreter must not throw on any ECU --------------------
-let files = fs.readdirSync(path.join(R, 'data/inpa-ir')).filter(f => f.endsWith('.json'));
+let files = fs.readdirSync(IRDIR).filter(f => f.endsWith('.json'));
 let screens = 0, rows = 0, broke = 0;
 for (const f of files) {
   try {
-    const ir = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+    const ir = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
     for (const scr of Object.values(ir.screens || {})) {
       screens++;
       rows += irRows(scr).rows.length;
@@ -1087,7 +1100,7 @@ ok(rows > 20000, `corpus rows regressed: ${rows}`);
 // ("Info", "Ident", "Memory", "KVP", anything German) was invisible.
 let rooted = 0;
 for (const f of files) {
-  const ir = JSON.parse(fs.readFileSync(path.join(R, 'data/inpa-ir', f), 'utf8'));
+  const ir = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
   if (irRootMenu(ir)) rooted++;
 }
 ok(rooted > 450, `ECUs drivable from their own root menu regressed: ${rooted}`);
