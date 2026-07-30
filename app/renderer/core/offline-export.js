@@ -58,9 +58,10 @@ async function offlineGet(path) {
 }
 
 // README for the folder, so it is obvious how to open it a year from now.
+// Always branded BMWeb: the copy runs in a browser no matter who exported it.
 function offlineReadme(chassis, withFaults) {
-  return `BMacW offline copy - ${chassis}
-${'='.repeat(24 + chassis.length)}
+  return `BMWeb offline copy - ${chassis}
+${'='.repeat(21 + chassis.length)}
 
 Everything needed to browse ${chassis} with no internet and no server
 install: the app itself, ${chassis}'s ECU data, and the BEST2 VM that
@@ -170,7 +171,7 @@ async function offlineExport(chassis, withFaults, onProgress) {
   const zipped = fflate.zipSync(files, opts);
 
   say('saving');
-  const name = `bmacw-${chassis === '*' ? 'all' : chassis.toLowerCase()}`
+  const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}`
     + '-offline.zip';
 
   // ASK WHERE, when the host can. In the macOS app a browser download lands

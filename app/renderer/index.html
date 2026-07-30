@@ -81,6 +81,36 @@
     <div class="fkeybar-status"><span id="sb-left">ready</span><span id="sb-right"></span></div>
   </footer>
 
+  <!-- Name the product BEFORE the browser's first paint. The native shell
+       injects window.bmacw at document start, so its absence means the web
+       build. This cannot wait for app.js: the parser stalls for seconds on
+       the big scripts below (the offline copy embeds megabytes of data) and
+       the browser paints the splash in the meantime. -->
+  <script>
+    const IS_WEB = !window.bmacw;
+    const APP_NAME = IS_WEB ? 'BMWeb' : 'BMacW';
+    if (IS_WEB) {
+      document.title = APP_NAME;
+      document.querySelector('.splash-name').textContent = APP_NAME;
+      document.querySelector('.splash-tag').textContent = 'BMW diagnostics in the browser';
+      document.querySelector('.brand-name').textContent = APP_NAME;
+      // in a browser these drive nothing -- the real window has its own chrome
+      document.getElementById('win-controls').remove();
+      document.documentElement.classList.add('web');
+    }
+    // Paint in the saved skin from the first frame, same reason as above.
+    // core.js re-applies the full theme (translucency, dock icon) when it
+    // loads; this only sets what CSS needs.
+    try {
+      const early = window.__bmacwSettings ||
+        JSON.parse(localStorage.getItem('bmacw.settings') || '{}');
+      if (early.theme && early.theme !== 'instrument') {
+        document.documentElement.setAttribute('data-theme', early.theme);
+      }
+      document.documentElement.style.setProperty('--aero-opacity', '0.82');
+    } catch { /* file:// can refuse localStorage; default skin then */ }
+  </script>
+
   <!-- faultdb.js / faultmeta.js / faultinfo.js (generated, large) are injected
        lazily by loadFaultDb()/loadFaultMeta()/loadFaultInfo(). -->
   <script src="vendor/fflate.min.js"></script>

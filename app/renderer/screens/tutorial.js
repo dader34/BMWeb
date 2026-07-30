@@ -32,7 +32,7 @@ function tourSteps() {
       screen: 'home',
       sel: '#link-status',
       title: 'Cable & connection',
-      body: 'BMacW talks to the car over a K+DCAN USB cable. This LED shows '
+      body: APP_NAME + ' talks to the car over a K+DCAN USB cable. This LED shows '
           + 'the link state: green when the cable answers, red when it does '
           + 'not. With no cable connected you can still browse every screen '
           + 'offline, so feel free to explore before you plug in.',
@@ -117,7 +117,7 @@ async function maybeOfferTutorial() {
   if (Settings.get('tutorialSeen', 'no') === 'yes') return;
   Settings.set('tutorialSeen', 'yes');
   const go = await confirmDialog({
-    title: 'Welcome to BMacW',
+    title: `Welcome to ${APP_NAME}`,
     body: 'Would you like to walk through the tutorial? It takes under a '
         + 'minute and shows where everything lives.',
     confirmLabel: 'Take the tour',
@@ -247,7 +247,7 @@ function howItWorksSlides() {
   return [
     {
       icon: '🔌',
-      title: 'What BMacW is',
+      title: `What ${APP_NAME} is`,
       body: `A native macOS diagnostics app for BMW ${ver ? '· ' + ver : ''}. It reads `
         + 'fault codes, live values, and control-module data straight from the '
         + 'car, with no Windows, no VM, and no dealer tool. Everything you see here also '
@@ -256,7 +256,7 @@ function howItWorksSlides() {
     {
       icon: '🧰',
       title: 'The cable & the engine',
-      body: 'BMacW speaks to the car over a K+DCAN USB cable. Under the hood it '
+      body: APP_NAME + ' speaks to the car over a K+DCAN USB cable. Under the hood it '
         + 'runs a native port of BMW’s EDIABAS diagnostic engine, the same '
         + 'protocol layer the factory tools use, so it talks to each ECU in its '
         + 'own language over K-line and D-CAN.',
@@ -265,7 +265,7 @@ function howItWorksSlides() {
       icon: '📂',
       title: 'SGBD description files',
       body: 'Each control module is described by an SGBD (.prg) file that defines '
-        + 'its jobs, results, and fault tables. BMacW ships BMW’s own SGBDs and '
+        + 'its jobs, results, and fault tables. ' + APP_NAME + ' ships BMW’s own SGBDs and '
         + 'runs their jobs directly: FS_LESEN to read faults, STATUS_* for live '
         + 'values, etc...',
     },
@@ -273,7 +273,7 @@ function howItWorksSlides() {
       icon: '🖥️',
       title: 'INPA screens, decoded',
       body: 'The status pages mirror INPA, BMW’s classic diagnostic frontend. '
-        + 'BMacW decodes INPA’s compiled .IPO screen programs to reproduce the '
+        + APP_NAME + ' decodes INPA’s compiled .IPO screen programs to reproduce the '
         + 'exact user interface.',
     },
     {

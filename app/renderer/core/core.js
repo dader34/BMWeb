@@ -3,6 +3,8 @@
 // sidecar (EDIABAS engine).
 
 const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8777';
+// IS_WEB / APP_NAME are declared inline in index.html: the name has to land
+// before first paint, which is earlier than any external script runs.
 
 // persisted settings
 const Settings = {
@@ -39,9 +41,22 @@ function applyTheme(id) {
 function applyAeroOpacity() {
   document.documentElement.style.setProperty('--aero-opacity', '0.82');
 }
-// render logo SVG to a 256x256 canvas with theme colors, send PNG to the dock
+// swap the tab icon in place; the page ships no <link rel="icon">, so make one
+function setFavicon(dataUrl) {
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.type = 'image/png';
+  link.href = dataUrl;
+}
+// render logo SVG to a 256x256 canvas with theme colors, send PNG to the
+// dock -- or, on the web, to the favicon. Same icon, different sink.
 function updateDockIcon() {
-  if (!window.bmacw || !window.bmacw.setDockIcon) return;
+  const dock = window.bmacw && window.bmacw.setDockIcon;
+  if (!dock && !IS_WEB) return;
   const styles = getComputedStyle(document.documentElement);
   const bg = styles.getPropertyValue('--logo-bg').trim() || '#11161c';
   const border = styles.getPropertyValue('--logo-border').trim() || '#9aa6b2';
@@ -74,7 +89,8 @@ function updateDockIcon() {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0);
     const dataUrl = canvas.toDataURL('image/png');
-    window.bmacw.setDockIcon(dataUrl).catch(console.error);
+    if (dock) window.bmacw.setDockIcon(dataUrl).catch(console.error);
+    else setFavicon(dataUrl);
     URL.revokeObjectURL(url);
   };
   img.onerror = (e) => {
@@ -173,7 +189,7 @@ function explainError(raw) {
   const lower = m.toLowerCase();
 
   if (lower.includes('no interface') || lower.includes('no serial') || lower.includes('no cable'))
-    return { title: 'No adapter connected', detail: 'BMacW could not find the K+DCAN cable.',
+    return { title: 'No adapter connected', detail: `${APP_NAME} could not find the K+DCAN cable.`,
       fix: 'Plug the cable into the Mac (directly, not through a hub) and into the car OBD-II port. The status light turns green when detected.' };
 
   if (lower.includes('security access') || lower.includes('denied'))
@@ -202,7 +218,7 @@ function explainError(raw) {
 
   if (lower.includes('engine failed to start'))
     return { title: 'Engine failed to start', detail: 'The diagnostic engine (the bundled sidecar) did not come up.',
-      fix: 'Press Retry. If it keeps failing, quit and reopen BMacW.' };
+      fix: `Press Retry. If it keeps failing, quit and reopen ${APP_NAME}.` };
 
   // fallback: raw message
   return { title: 'Something went wrong', detail: m || 'Unknown error.',

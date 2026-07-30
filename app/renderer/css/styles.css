@@ -72,6 +72,11 @@ html, body {
   background: linear-gradient(180deg, #131a22, #0d1217);
   border-bottom: 1px solid var(--line);
 }
+/* the web build removes .win-controls, which left the 1fr column on
+   .topbar-right and dragged everything leftward; re-shape the grid so the
+   breadcrumbs take the slack and the right group stays right */
+html.web .topbar { grid-template-columns: auto 1fr auto; }
+
 /* custom traffic-light controls (frameless window) */
 .win-controls { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 8px; }
 .win-dot {
@@ -206,12 +211,17 @@ html, body {
 /* INPA-style settings: the same rows, laid out the way INPA laid out
    everything -- monospace, one per line, ruled rather than carded. Matches
    the ECU Hauptmenue so the two screens do not look like different apps. */
-.inpa-settings { gap: 0; max-width: 640px; }
+.inpa-settings { gap: 0; max-width: 720px; }
 .inpa-settings .setting-row {
   background: none; border: none; border-radius: 0;
   border-bottom: 1px dotted var(--line);
-  padding: 9px 6px; align-items: baseline;
+  padding: 9px 6px; cursor: pointer;
+  /* the Hauptmenue's vertical key list: key | text | control per row.
+     A 4th auto column takes the Download row's extra button. */
+  display: grid; grid-template-columns: 150px 1fr auto auto;
+  column-gap: 16px; align-items: baseline;
 }
+.inpa-settings .setting-row > .inpa-fn-key { font-size: 12px; }
 .inpa-settings .setting-row:hover { background: rgba(127, 127, 127, .07); }
 .inpa-settings .setting-title {
   font-family: var(--mono); font-size: 13px; font-weight: 400;
@@ -221,8 +231,11 @@ html, body {
   font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
   margin-top: 2px;
 }
-/* the theme swatches stay a grid: a list of colour names would be worse */
-.inpa-settings .theme-row { border-bottom: 1px dotted var(--line); }
+/* the theme swatches stay a grid: a list of colour names would be worse.
+   the swatches drop under the text, in the text column */
+.inpa-settings .theme-row { border-bottom: 1px dotted var(--line);
+  grid-template-columns: 150px 1fr; }
+.inpa-settings .theme-row .theme-grid { grid-column: 2; }
 .inpa-settings .combo-btn,
 .inpa-settings .btn {
   font-family: var(--mono); font-size: 12px; border-radius: 0;
