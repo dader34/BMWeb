@@ -188,6 +188,60 @@ def _export_tables_one(sgbd):
               f"{os.path.getsize(tp)//1024:5} KB")
 
 
+def audit_tables(targets):
+    """Fail loudly when a shipped table set is missing declared tables.
+
+    The VM reaches tables the lifter never modelled, so "the specs did not
+    mention it" is not evidence a table is unused. This audit compares what
+    each .prg DECLARES against what was exported -- the check that would
+    have caught 523 missing tables corpus-wide instead of one ECU's unit
+    column decoding as "".
+    """
+    import urllib.request
+    port = os.environ.get("BMACW_PORT")
+    if not port:
+        print("audit needs BMACW_PORT")
+        return 1
+    bad = 0
+    tot_decl = tot_ship = 0
+    for sgbd in targets:
+        p = os.path.join(TABLE_DIR, f"{sgbd}.json")
+        shipped = set(json.load(open(p))) if os.path.exists(p) else set()
+        try:
+            listing = json.load(urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/api/ecu/{sgbd}/tables", timeout=60))
+        except Exception:                                   # noqa: BLE001
+            continue
+        decl = {(t if isinstance(t, str) else t.get("name"))
+                for t in (listing if isinstance(listing, list) else [])}
+        decl = {d for d in decl if d}
+        up = {x.upper() for x in shipped}
+        missing = []
+        for d in sorted(decl):
+            if d.upper() in up:
+                continue
+            # A table can be DECLARED and genuinely EMPTY in the .prg
+            # (alc_60's FUMWELTMATRIX has zero rows). There is nothing to
+            # ship, so that is complete, not missing -- but prove it by
+            # reading rather than assuming.
+            try:
+                if not V.sgbd_table(sgbd, d):
+                    continue
+            except Exception:                               # noqa: BLE001
+                pass
+            missing.append(d)
+        tot_decl += len(decl)
+        tot_ship += len(decl) - len(missing)
+        if missing:
+            bad += 1
+            print(f"  {sgbd:12} missing {len(missing):3} of {len(decl):3}"
+                  f"  e.g. {', '.join(missing[:3])}")
+    print(f"tables declared {tot_decl}, shipped {tot_ship}"
+          f" ({100 * tot_ship / max(tot_decl, 1):.1f}%)"
+          f" -- {bad} SGBDs incomplete")
+    return 1 if bad else 0
+
+
 def coverage(targets):
     """Of the result keys the IR screens display, how many decode?"""
     total = covered = 0
@@ -368,6 +422,8 @@ def main():
         export_tables(targets)
     if "--coverage" in sys.argv:
         coverage(targets)
+    if "--audit" in sys.argv:
+        return audit_tables(targets)
     if "--ship" in sys.argv:
         chs = [a for a in sys.argv[1:]
                if not a.startswith("--") and a.upper() == a and len(a) <= 4]
