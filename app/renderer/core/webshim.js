@@ -226,27 +226,42 @@ async function loadChassis(chassisId, realFetch) {
   const upperId = chassisId.toUpperCase();
   if (CHASSIS_CACHE.has(upperId)) return CHASSIS_CACHE.get(upperId);
 
+  // AN OFFLINE COPY HAS NO SERVER. A file:// page gets an opaque origin
+  // where fetch() is blocked, so the offline export inlines each archive as
+  // base64 in a <script> instead -- which file:// loads happily. Use that
+  // when it is there, and only reach for the network otherwise.
+  if (typeof BMACW_INLINE === 'object' && BMACW_INLINE
+      && BMACW_INLINE[upperId]) {
+    const bin = atob(BMACW_INLINE[upperId]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return cacheChassis(upperId, bytes);
+  }
+
   const fileUrl = `${WEB_BASE}/api/chassis/${upperId}.chassis`;
   const res = await realFetch(fileUrl);
   if (!res.ok) throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
 
   const buffer = await res.arrayBuffer();
+  return cacheChassis(upperId, new Uint8Array(buffer));
+}
+
+// Unpack one .chassis and remember it. Shared by the inline and network
+// paths, which differ only in where the bytes came from.
+function cacheChassis(upperId, bytes) {
   if (typeof fflate === 'undefined') {
     throw new Error('fflate decompression library not loaded');
   }
-  const unzipped = fflate.unzipSync(new Uint8Array(buffer));
+  const unzipped = fflate.unzipSync(bytes);
 
   const configBytes = unzipped['config.json'];
   if (!configBytes) throw new Error(`Missing config.json in chassis ${upperId}`);
-
-  const configText = new TextDecoder('utf-8').decode(configBytes);
-  const config = JSON.parse(configText);
+  const config = JSON.parse(new TextDecoder('utf-8').decode(configBytes));
 
   const ecuZips = new Map();
-  for (const [name, bytes] of Object.entries(unzipped)) {
+  for (const [name, b] of Object.entries(unzipped)) {
     if (name.startsWith('ecu/') && name.endsWith('.ecu')) {
-      const sgbd = name.slice(4, -4).toLowerCase();
-      ecuZips.set(sgbd, bytes);
+      ecuZips.set(name.slice(4, -4).toLowerCase(), b);
     }
   }
 
@@ -273,8 +288,11 @@ async function loadEcu(sgbd, realFetch) {
   // them -- so find the car that owns this SGBD and load that. Costs one
   // chassis download, after which every ECU in the same car is already here.
   if (!ecuZipBytes) {
-    const idx = await (await realFetch(
-      `${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)).json().catch(() => null);
+    const idx = (typeof BMACW_INLINE === 'object' && BMACW_INLINE
+                 && BMACW_INLINE._index)
+      ? BMACW_INLINE._index
+      : await (await realFetch(
+          `${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)).json().catch(() => null);
     const cid = idx && idx[lowerSgbd];
     if (cid) {
       const data = await loadChassis(cid, realFetch);
@@ -413,6 +431,9 @@ function installWebShim() {
         // archives, and a static server answers with an index page -- 200,
         // text/html, and the renderer parses it as the chassis list. Name the
         // file explicitly.
+        if (typeof BMACW_INLINE === 'object' && BMACW_INLINE) {
+          return ok(Object.keys(BMACW_INLINE).filter((k) => k !== '_index'));
+        }
         return real(`${WEB_BASE}/${WEB_API_BASE}/chassis.json`, init);
       } else {
         const cid = m[1];

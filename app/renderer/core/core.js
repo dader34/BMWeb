@@ -130,24 +130,6 @@ async function api(path, opts) {
   const res = await fetch(url, opts);
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
   const data = await res.json();
-  // Every job run in the app goes through here, so this is the one place the
-  // BEST2 VM has to be hooked to see all of them. It replays the telegrams
-  // the ENGINE just exchanged (published as _TEL_AUFTRAG/_TEL_ANTWORT) and
-  // either reports disagreements (shadow) or supplies the displayed results
-  // (on). Off by default, and it can neither reach the bus nor break a
-  // screen: vmObserve swallows its own errors and returns null.
-  if (typeof vmObserve === 'function' && data && data.sets
-      && path.includes('/run/')) {
-    try {
-      const m = path.match(/\/api\/ecu\/([^/]+)\/run\/([^?]+)/);
-      if (m) {
-        const arg = new URLSearchParams(path.split('?')[1] || '').get('arg');
-        const swap = await vmObserve(decodeURIComponent(m[1]),
-                                     decodeURIComponent(m[2]), data.sets, arg);
-        if (swap) data.sets = swap;
-      }
-    } catch (e) { /* the engine's answer stands */ }
-  }
   return data;
 }
 
