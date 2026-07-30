@@ -40,35 +40,15 @@ def main():
     print(f"  pool       MUST_EXX anchored at {ps}, "
           f"pool[0x0c3d]={a and a[1]!r}")
 
-    # -- MS450 ground truth --------------------------------------------------
-    # The hand-wired layout no longer drives the app -- the interpreter does --
-    # but it stays as the decompiler's ground truth: it was verified against
-    # INPA screen by screen, so every result key in it must still be recalled.
-    hand = json.load(open(os.path.join(
-        ROOT, "reference/ms45-handwired/MS450.layout.json")))
-    r = D.decompile("MS450")
-    hit = miss = 0
-    missed = []
-    for h in hand["screens"]:
-        proc = h.get("proc")
-        if not proc or proc == "s_fehlerbehandlung":
-            continue
-        d = r["screens"].get(proc)
-        if d is None:
-            continue
-        dk = {f["key"] for f in d["fields"] if f.get("key")}
-        for k in h.get("result_keys") or []:
-            if not k:
-                continue
-            if k in dk:
-                hit += 1
-            else:
-                miss += 1
-                missed.append(f"{proc}:{k}")
-    if miss:
-        failures.append(f"MS450 hand-layout keys missed: {missed[:6]}")
-    print(f"  ms450      {hit}/{hit + miss} hand-verified result keys recalled"
-          f" (must be all)")
+    # -- MS450 ground truth: REMOVED -----------------------------------------
+    # reference/ms45-handwired/ held a layout verified against INPA screen by
+    # screen, and this checked that the decompiler still recalled every result
+    # key in it. The directory was deleted, so the check went with it.
+    #
+    # Nothing replaces it: it was the only INDEPENDENT check on ipo_disasm.py.
+    # Everything below derives from BMW's own files, so a decoder bug that
+    # changes what those files mean cannot be caught here. The knowns below
+    # (GSDS2, RDC) are narrower spot checks, not recall over a whole ECU.
 
     # -- GSDS2 knowns --------------------------------------------------------
     g = D.decompile("GSDS2")

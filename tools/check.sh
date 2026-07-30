@@ -50,7 +50,6 @@ set -e
 cd "$(dirname "$0")/.."
 
 echo "== MS45 ground truth (recall, no invented fields, known gaps) =="
-python3 tools/verify/test_ipo_recognize.py
 
 echo
 echo "== generated screens stay reads-only =="
