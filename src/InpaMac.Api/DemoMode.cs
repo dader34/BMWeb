@@ -110,8 +110,19 @@ internal static class DemoMode
         // _TEXT / _EINH carriers read as words, not numbers
         if (Regex.IsMatch(name, @"_TEXT\d*$", RegexOptions.IgnoreCase))
             return States[i % States.Length];
+        // A UNIT CARRIER ALREADY KNOWS ITS UNIT. BMW writes it as the result's
+        // own comment -- STAT_AUSLASS_EINH is documented "°CRK", the cam
+        // adaptations "degreeCRK" -- so answering a flat "%" labelled every
+        // gauge on MSD80's VANOS page a percentage, cam angles included.
+        // Use what the SGBD declares and keep "%" only as the last resort.
         if (Regex.IsMatch(name, @"_EINH\d*$", RegexOptions.IgnoreCase))
+        {
+            string u = (desc ?? "").Trim();
+            // the comment is the unit only when it is SHORT and not prose
+            // ("Text von CAM_IN[1]" is a description of the carrier, not a unit)
+            if (u.Length > 0 && u.Length <= 12 && !u.Contains(' ')) return u;
             return "%";
+        }
         foreach (var (match, value) in Shapes)
             if (match.IsMatch(desc) || match.IsMatch(name))
                 return value(i);

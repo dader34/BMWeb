@@ -91,6 +91,33 @@ function normUnit(u) {
   if (/^grad$/i.test(s)) return '°';
   if (/^1\/min$/i.test(s) || /^u\/min$/i.test(s)) return '1/min';
   if (/^volt$/i.test(s)) return 'V';
+  // CRANK/CAM ANGLE. BMW spells the same unit four ways across SGBDs --
+  // "°CRK", "degreeCRK", "degree_KW", "Grad KW" -- and the raw token reads as
+  // a variable name rather than a unit. INPA prints degrees, so normalise to
+  // the symbol and keep the reference (KW = Kurbelwelle = crankshaft).
+  if (/^(°|deg(ree)?)[\s_]*(crk|kw)$/i.test(s)) return '°KW';
+  if (/^grad[\s_]*kw$/i.test(s)) return '°KW';
+  // WHOLE WORDS FIRST. "percent" contains "per" and the rate pattern below
+  // would split it into 1/cent, which is not a unit of anything.
+  if (/^percent$/i.test(s)) return '%';
+  if (/^ampere$/i.test(s)) return 'A';
+  // "kgperh" -> "kg/h". BMW writes rate units as words because the .prg
+  // description block is plain ASCII with no '/' convention, so the token
+  // reaches the UI looking like an identifier. This is a general spelling, not
+  // one unit: the corpus ships kgperh, mgperstk, gpers, kmperh, mgperStroke,
+  // perMinute -- so translate the "per" rather than listing every pair.
+  //
+  // Both sides must be a UNIT, not any letters: requiring a known numerator
+  // (or none, for "perMinute") stops the pattern eating an ordinary word that
+  // happens to contain "per".
+  const per = /^(|1|[munkcdhKMG]?(?:g|m|l|s|A|V|W|J|N|Pa|bar|Hz|U|km|mg|kg))per([a-z]+?)_?$/i
+    .exec(s);
+  if (per) {
+    const DENOM = { h: 'h', s: 's', min: 'min', minute: 'min',
+                    stk: 'stk', stroke: 'stroke', hub: 'hub' };
+    const d = DENOM[per[2].toLowerCase()];
+    if (d) return per[1] ? `${per[1]}/${d}` : `1/${d}`;
+  }
   return s;
 }
 // STAT_MOTORTEMPERATUR_WERT -> "Engine temp"
@@ -108,6 +135,24 @@ function humanizeKey(key) {
 // pair STAT_X_WERT with STAT_X_EINH and humanize the key. one entry per
 // measurement, unit merged in ("13" + "Grad C" -> "13 °C"). keys without
 // _WERT/_EINH structure pass through unchanged.
+// The unit the ECU shipped beside ONE value, for the IR screen path.
+//
+// pairWertEinh below does this for the generic poller by walking every result;
+// an IR screen instead draws the rows its .IPO declared and looks each key up
+// by name, so it needs the same _WERT -> _EINH hop for a single key. Without
+// it a screen whose layout omits the literal "[unit]" text -- MSD80's entire
+// VANOS page -- printed cam angles as bare numbers, dropping the °CRK the ECU
+// had already sent.
+function irUnitFor(key, vals) {
+  const m = String(key || '').match(/^(.*)_WERT$/);
+  if (!m || !vals) return null;
+  const u = vals.get(m[1] + '_EINH');
+  if (u == null) return null;
+  const t = normUnit(String(u).trim());
+  // a blank or placeholder _EINH means the ECU declined to name a unit
+  return t && t !== '-' && t !== '--' ? t : null;
+}
+
 function pairWertEinh(merged) {
   const out = [];
   const seen = new Set();

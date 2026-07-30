@@ -467,17 +467,30 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
         const live = r.captionKey ? String(vals.get(r.captionKey) ?? '').trim() : '';
         const caption = (live && !IR_STATE_WORD.test(live) ? deGerman(live) : '')
           || deGerman(r.label) || r.key;
+        // THE ECU SHIPS THE UNIT BESIDE THE VALUE. EDIABAS pairs every
+        // STAT_x_WERT with a STAT_x_EINH holding its unit ("°CRK", "degreeCRK",
+        // "%"), and INPA prints it. r.unit only carries what the .IPO wrote as
+        // a literal "[rpm]" above the gauge, which most screens omit -- MSD80's
+        // whole VANOS page declares none, so every cam-angle read as a bare
+        // number with no indication it was degrees. Fall back to the ECU's own
+        // answer when INPA's layout gave us nothing.
+        // A LAMP HAS NO UNIT. It is an on/off indicator, so a "[%]" over it is
+        // nonsense whatever the ECU's _EINH says -- MSD80's REAL VALUE is a
+        // lamp and read "[%] ● on".
+        const unit = r.kind === 'lamp'
+          ? null : (r.unit || irUnitFor(r.key, vals));
         let cell = cellEls.get(ck);
         if (!cell) {
           cell = document.createElement('div');
           cell.className = 'live-cell gauge-cell';
-          cell.innerHTML = gaugeCellHTML(caption, r.unit);
+          cell.innerHTML = gaugeCellHTML(caption, unit);
           grid.appendChild(cell);
           cellEls.set(ck, cell);
           keyOrder.push(ck);
           added = true;
         }
-        updateGaugeSpec(cell, r, vals.get(r.key));
+        updateGaugeSpec(cell, unit === r.unit ? r : { ...r, unit },
+                        vals.get(r.key));
       }
     }
     if (added) pager.relayout();
