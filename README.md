@@ -68,6 +68,29 @@ python3 -m http.server -d dist-web 8080
 ```
 
 
+## Offline download
+
+Either build can package itself: Settings has a **Download offline copy**
+button that zips the app plus one car's data, in the browser tab, with no
+server involved. The result runs by opening `index.html`: double-click it or
+drag it into a browser. No install, no launcher script, no internet. The
+copy is branded BMWeb, since it always runs in a browser whoever exported it.
+
+The ECU data is embedded in the page rather than fetched, which is what lets
+a page opened straight from disk read it at all (a `file://` page gets an
+opaque origin where `fetch()` is blocked). Fault descriptions are always
+included, so codes read with their English text, not as bare hex.
+
+One chassis per download by default, 2 to 13 MB, where the whole site is
+about 200 MB and zipping that in a tab would hold it all in memory. "All
+chassis" is offered, with that warning.
+
+What works offline: browsing every screen, job, table and coding view, the
+fault lookup, and demo mode's simulated values. Running a job against a real
+car needs a K+DCAN cable and a browser with Web Serial (desktop Chrome or
+Edge). Writes are refused, as in any web build.
+
+
 ## Fault lookup
 
 Beyond reading a car's memory, the app carries an offline fault database:
