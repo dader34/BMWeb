@@ -12,11 +12,24 @@
 # _RESULTS offline, no cable required). Those SKIP rather than fail when it is
 # not, so this is safe to run anywhere.
 #
-# Two generators are run BY HAND and so are named by no code -- they look
-# orphaned to a grep, but their output is load-bearing. Do not delete them:
+# SOME GENERATORS ARE RUN BY HAND and so are named by no code. They look
+# orphaned to a grep -- a reference count says 1, itself -- but their output
+# is load-bearing. Do not delete them:
 #   ipo_extract_all.py  -> data/inpa-layouts/   (served by ConfigEndpoints.cs)
 #   sgbd_tables.py      -> data/inpa-screens/_tables.json (test_activations_safe)
+#   ipo_actmenus.py     -> _actmenus.json  \
+#   ipo_coding.py       -> _coding.json     > all consumed by ipo_enrich.py
+#   ipo_submenus.py     -> _submenus.json  /
+#   dump_specs.py       -> specdump.json   (input to test_specwalk.js)
+#   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
+#   sgbd_code.py        -> data/job-code/  (input to the VM)
 # (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
+#
+# Removed 2026-07-29 as genuinely dead, after checking each for importers and
+# for output anyone reads: inpa2json.py (superseded by ipo_ir.py),
+# ipo_actions.py (its _actions.json was never written, let alone read),
+# ipo_grid.py (no output on disk, no importer -- live.js only mentioned it in
+# a comment describing the grid format).
 set -e
 cd "$(dirname "$0")/.."
 
