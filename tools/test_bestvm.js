@@ -75,7 +75,11 @@ function same(want, got) {
       && String(want).trim() !== '' ) {
     return Math.abs(wn - gn) <= Math.max(1e-6, Math.abs(wn) * 1e-9);
   }
-  const gs = Array.isArray(got) ? got.join(';') : String(got);
+  // The engine formats a byte-array result as dash-separated uppercase hex
+  // (Diag.Format), so compare a VM byte array the same way.
+  const gs = Array.isArray(got)
+    ? got.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join('-')
+    : String(got);
   return String(want) === gs;
 }
 
@@ -88,12 +92,21 @@ for (const c of fix.cases) {
   if (!code) continue;
   if (code.jobs[c.job] === undefined) continue;
   jobs++;
-  let queue = (c.telegrams || []).map((t) => t.response);
-  let qi = 0;
+  // Answer the way the engine's simulator does: MATCH THE REQUEST, not the
+  // call order. A sequential queue returns nothing once exhausted, and a
+  // job that retries until it gets a valid answer (AIF_LESEN) then spins
+  // forever -- that was every one of the step-limit "hangs".
+  const pairs = (c.telegrams || []).map(
+    (t) => [String(t.request), t.response]);
+  const byReq = new Map(pairs);
+  let lastResp = pairs.length ? pairs[pairs.length - 1][1] : [];
   const machine = new Best2Vm(code, {
     tables: tablesFor(c.sgbd),
     args: c.args || '',
-    send: () => queue[qi++] || [],
+    send: (req) => {
+      const hit = byReq.get(String(Array.from(req)));
+      return hit !== undefined ? hit : lastResp;
+    },
   });
   let sets;
   try {

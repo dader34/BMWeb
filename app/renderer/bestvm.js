@@ -142,22 +142,43 @@ class Best2Vm {
     return this.getReg(a);
   }
 
-  // numeric read
-  val(op) {
+  // Numeric read. `width` is the DESTINATION's width, and for byte-array
+  // sources it decides how many bytes are folded -- Operand.GetValueData
+  // takes dataLen from the caller and assembles that many bytes
+  // LITTLE-endian, zero-padding when the slice is short.
+  //
+  // This matters far beyond arithmetic: `move I2, S2[B2]` reads TWO bytes
+  // of the response into I2. Reading one byte made every response-length
+  // guard of the form `move I2,S2[B2] / and / comp I5,I4` compare the wrong
+  // number, so jobs reported ERROR_ECU_INCORRECT_LEN and emitted nothing.
+  val(op, width) {
     const [m, a, b, c] = op;
     if (m >= 5 && m <= 7) return a;
     if (m === 8) return 0;                     // a string literal as number
-    if (m >= 1 && m <= 4) return this.getReg(a);
-    if (m === 9 || m === 10) {
+    if (m >= 1 && m <= 4) {
+      if (a[0] === 'S') {
+        const buf = this.getS(a);
+        const n = width || buf.length;
+        let v = 0;
+        for (let i = n - 1; i >= 0; i--) v = v * 256 + (buf[i] || 0);
+        return v;
+      }
+      return this.getReg(a);
+    }
+    if (m === 9 || m === 10 || m === 11) {
       const buf = this.getS(a);
-      const i = m === 9 ? b : this.getReg(b);
-      return i < buf.length ? buf[i] : 0;
+      let i = m === 9 ? b : this.getReg(b);
+      if (m === 11) i += c || 0;
+      const n = width || 1;
+      let v = 0;
+      for (let k = n - 1; k >= 0; k--) v = v * 256 + (buf[i + k] || 0);
+      return v;
     }
     if (m >= 12 && m <= 15) {
-      // little-endian, zero-padded when short (Operand.GetValueData)
       const buf = this.bytes(op);
+      const n = width || buf.length;
       let v = 0;
-      for (let i = buf.length - 1; i >= 0; i--) v = v * 256 + buf[i];
+      for (let i = n - 1; i >= 0; i--) v = v * 256 + (buf[i] || 0);
       return v;
     }
     throw new VmError(`operand mode ${m} as value`);
@@ -267,6 +288,7 @@ class Best2Vm {
     this.reset();
     if (args !== undefined) this.argText = args;
     this.argBytes = Best2Vm.strBytes(this.argText);
+    this._args = undefined;
     let pc = entry;
     const ops = this.code.ops;
     while (pc >= 0 && pc < ops.length) {
@@ -287,6 +309,16 @@ class Best2Vm {
       this.results.push(Object.fromEntries(this.cur));
       this.cur = new Map();
     }
+  }
+
+  // Job arguments split on ';'. An EMPTY argument string is ZERO
+  // parameters (GetActiveArgStrings only splits when length > 0), not one
+  // empty string -- otherwise `parn` reports 1 and every arg guard inverts.
+  args() {
+    if (this._args === undefined) {
+      this._args = this.argText.length > 0 ? this.argText.split(';') : [];
+    }
+    return this._args;
   }
 
   // Case-insensitive table lookup, with the exact name preferred.
@@ -408,8 +440,9 @@ class Best2Vm {
           || (B[0] >= 1 && B[0] <= 4 && B[1] && B[1][0] === 'S');
         if (dstIsBytes) { this.store(A, this.bytes(B), true); return; }
         const w = this.widthOf(A);
-        const v = this.val(B);
+        const v = this.val(B, w);
         this.store(A, v);
+        f.carry = false; f.overflow = false;
         this.updateFlags(v, w);
         return;
       }
@@ -418,7 +451,7 @@ class Best2Vm {
       // destination's width; Overflow is the signed one.
       case 'adds': case 'addc': {
         const w = this.widthOf(A);
-        const x = this.val(A), y = this.val(B)
+        const x = this.val(A, w), y = this.val(B, w)
           + (name === 'addc' && f.carry ? 1 : 0);
         const sum = x + y;
         const lim = 2 ** (8 * w);
@@ -433,7 +466,7 @@ class Best2Vm {
       }
       case 'subb': case 'subc': {
         const w = this.widthOf(A);
-        const x = this.val(A), y = this.val(B)
+        const x = this.val(A, w), y = this.val(B, w)
           + (name === 'subc' && f.carry ? 1 : 0);
         const lim = 2 ** (8 * w);
         const diff = x - y;
@@ -449,7 +482,7 @@ class Best2Vm {
       case 'comp': {
         // compare = subtract without storing
         const w = this.widthOf(A);
-        const x = this.val(A), y = this.val(B);
+        const x = this.val(A, w), y = this.val(B, w);
         const lim = 2 ** (8 * w);
         const diff = x - y;
         f.carry = diff < 0;
@@ -462,7 +495,7 @@ class Best2Vm {
       }
       case 'mult': {
         const w = this.widthOf(A);
-        const p = this.val(A) * this.val(B);
+        const p = this.val(A, w) * this.val(B, w);
         this.store(A, p % 2 ** (8 * w));
         this.updateFlags(p, w);
         return;
@@ -485,7 +518,7 @@ class Best2Vm {
       }
       case 'and': case 'or': case 'xor': {
         const w = this.widthOf(A);
-        const x = BigInt(this.val(A)), y = BigInt(this.val(B));
+        const x = BigInt(this.val(A, w)), y = BigInt(this.val(B, w));
         const r = Number(name === 'and' ? (x & y)
           : name === 'or' ? (x | y) : (x ^ y));
         this.store(A, r);
@@ -637,13 +670,27 @@ class Best2Vm {
         return;
       }
       case 'scut': {
-        this.store(A, this.bytes(B), true);
+        // strcut removes the LAST `len` bytes (len counts the terminator)
+        const reg = A[1];
+        const buf = this.getS(reg);
+        const n = this.val(B);
+        this.setS(reg, n > buf.length ? new Uint8Array(0)
+          : buf.slice(0, buf.length - n));
         return;
       }
       case 'spaste': {
-        // splice B into A at the destination's index
+        // INSERT (datainsert), shifting the tail right -- not an overwrite.
+        // Inserting at or past the current logical end is a silent no-op.
+        const reg = A[1];
+        const idx = A[0] === 9 ? A[2] : this.getReg(A[2]);
         const src = this.bytes(B);
-        this.store(A, src, true);
+        const buf = this.getS(reg);
+        if (idx >= buf.length) return;
+        const out = new Uint8Array(buf.length + src.length);
+        out.set(buf.slice(0, idx), 0);
+        out.set(src, idx);
+        out.set(buf.slice(idx), idx + src.length);
+        this.setS(reg, out);
         return;
       }
       case 'scmp': case 'strcmp': {
@@ -653,6 +700,21 @@ class Best2Vm {
         f.zero = xs === ys;
         f.carry = xs < ys;
         f.sign = xs < ys;
+        return;
+      }
+      case 'serase': {
+        // delete `len` bytes at arg0's index, closing the gap (dataerase).
+        // arg0 must be an indexed operand; the index names the position.
+        const reg = A[1];
+        const idx = A[0] === 9 ? A[2] : this.getReg(A[2]);
+        const n = this.val(B);
+        const buf = this.getS(reg);
+        const out = new Uint8Array(Math.max(0, buf.length - Math.max(0, n)));
+        let w = 0;
+        for (let i = 0; i < buf.length; i++) {
+          if (i < idx || i >= idx + n) out[w++] = buf[i];
+        }
+        this.setS(reg, out.slice(0, w));
         return;
       }
       case 'srevrs': {
@@ -665,6 +727,27 @@ class Best2Vm {
                    true);
         return;
       }
+      case 'swap': {
+        const reg = A[1];
+        const idx = A[2] ?? 0, n = A[3] ?? 0;
+        const buf = Uint8Array.from(this.getS(reg));
+        const part = buf.slice(idx, idx + n).reverse();
+        buf.set(part, idx);
+        this.setS(reg, buf);
+        return;
+      }
+      case 'test': {
+        // non-destructive AND: flags only, arg0 is NOT written
+        const w = this.widthOf(A);
+        const r = Number(BigInt(this.val(A)) & BigInt(this.val(B)));
+        f.overflow = false;
+        this.updateFlags(r, w);
+        return;
+      }
+      case 'setc': f.carry = true; return;
+      case 'clrc': f.carry = false; return;
+      case 'clrv': f.overflow = false; return;
+      case 'sett': this.trapBit = this.val(A) || 0x40000000; return;
       case 'ssize': {
         const n = this.bytes(A).length;
         this.store(B, n);
@@ -815,30 +898,58 @@ class Best2Vm {
       }
 
       // ---- job arguments
+      // ---- job arguments. ZERO IS THE PRESENCE FLAG, not "value == 0":
+      // par* set Zero=true and only clear it when the requested parameter
+      // exists and is non-empty. Indices are 1-BASED and the decrement is
+      // unsigned, so index 0 underflows and always misses. Without these
+      // flags a job that guards on `pars / jz` ran its with-arguments path
+      // on no arguments and exited before emitting anything.
       case 'pars': {
-        const parts = this.argText.split(';');
-        const i = this.val(B);
-        this.store(A, Best2Vm.strBytes(parts[i] ?? ''), true);
+        const parts = this.args();
+        const i = this.val(B) - 1;
+        f.zero = true;
+        let txt = '';
+        if (i >= 0 && i < parts.length && parts[i] !== '') {
+          txt = parts[i];
+          f.zero = false;
+        }
+        this.store(A, Best2Vm.strBytes(txt), true);
         return;
       }
       case 'parb': case 'parw': case 'parl': case 'pard': case 'pari': {
-        const parts = this.argText.split(';');
-        const i = this.val(B);
-        this.store(A, Math.trunc(Best2Vm.parseNum(parts[i] ?? '0')));
+        const parts = this.args();
+        const i = this.val(B) - 1;
+        f.zero = true; f.carry = false; f.sign = false; f.overflow = false;
+        let v = 0;
+        if (i >= 0 && i < parts.length && parts[i] !== '') {
+          v = Best2Vm.strToValue(parts[i]);
+          f.zero = false;
+        }
+        this.store(A, v);
         return;
       }
       case 'parr': {
-        const parts = this.argText.split(';');
-        this.fregs.set(A[1], Best2Vm.parseNum(parts[this.val(B)] ?? '0'));
+        const parts = this.args();
+        const i = this.val(B) - 1;
+        f.zero = true; f.carry = false; f.sign = false; f.overflow = false;
+        let v = 0;
+        if (i >= 0 && i < parts.length && parts[i] !== '') {
+          v = Best2Vm.parseNum(parts[i]);
+          f.zero = false;
+        }
+        this.fregs.set(A[1], v);
         return;
       }
       case 'parn': {
-        const n = this.argText === '' ? 0 : this.argText.split(';').length;
+        const n = this.args().length;
         this.store(A, n);
-        this.updateFlags(n, this.widthOf(A));
+        f.overflow = false;
+        this.updateFlags(this.val(A), this.widthOf(A));
         return;
       }
       case 'pary': {
+        // the WHOLE binary argument blob -- no index, no splitting
+        f.zero = this.argBytes.length === 0;
         this.store(A, this.argBytes, true);
         return;
       }
