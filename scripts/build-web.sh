@@ -48,23 +48,10 @@ python3 tools/web_export.py --out "$OUT"
 
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
-# The shim is web-only; the macOS build must never load it.
-# index.html is shared, so inject the tag here rather than committing it.
-python3 - "$OUT/index.html" <<'PY'
-import sys
-p = sys.argv[1]
-s = open(p).read()
-tag = '  <script src="webshim.js"></script>\n'
-if 'webshim.js' not in s:
-    # BEFORE bestvm.js: the shim installs over window.fetch, and anything
-    # that fetches during load must already see the static tree.
-    s = s.replace('  <script src="bestvm.js"></script>\n',
-                  tag + '  <script src="bestvm.js"></script>\n', 1)
-    open(p, 'w').write(s)
-    print("  injected webshim.js before bestvm.js")
-else:
-    print("  webshim.js already present")
-PY
+# index.html already loads webshim.js: BOTH builds need it now. The macOS app
+# dropped its C# API too, so the shim is the only thing answering /api/* in
+# either host -- it picks its transport at load (Web Serial in a browser, the
+# native bridge inside the app).
 
 # faultinfo.js is 60 MB of ISTA fault detail and faultmeta.js another 14 MB.
 # They load lazily in the app; on a static host they are just weight, so ship

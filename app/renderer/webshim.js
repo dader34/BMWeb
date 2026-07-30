@@ -24,6 +24,73 @@ const WEB_API_BASE = 'api';
 // cable: 115200 8N1, no flow control.
 const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
 
+// Read one answer off the K line. Shared by both transports, because the
+// protocol does not change with the plumbing.
+//
+// The K line is HALF DUPLEX: one wire, so everything written is also heard
+// back. Drop exactly as many bytes as were sent rather than pattern-matching
+// the echo -- a request and its answer can legitimately share a prefix, and
+// EdInterfaceObd drops by count for the same reason.
+//
+// Then the frame: BMW-FAST is [0x80|len, dst, src, ...payload, checksum]
+// where the low 6 bits of byte 0 give the payload length; a zero there means
+// the length moved to byte 3 (the long form).
+async function readFrame(echoLen, timeoutMs, pump) {
+  const buf = [];
+  const deadline = Date.now() + timeoutMs;
+  while (buf.length < echoLen && Date.now() < deadline) {
+    const got = await pump();
+    if (got && got.length) buf.push(...got);
+    else await new Promise((r) => setTimeout(r, 4));
+  }
+  buf.splice(0, echoLen);
+  while (Date.now() < deadline) {
+    if (buf.length >= 4) {
+      const short = buf[0] & 0x3f;
+      const total = short ? short + 4 : buf[3] + 5;
+      if (buf.length >= total) return buf.slice(0, total);
+    }
+    const got = await pump();
+    if (got && got.length) buf.push(...got);
+    else await new Promise((r) => setTimeout(r, 4));
+  }
+  if (!buf.length) throw new Error('no answer from ECU (timeout)');
+  return buf;
+}
+
+// The same bus, over the native bridge. A WKWebView has no Web Serial -- that
+// is a Chrome API, and the macOS app is a Cocoa window around WebKit -- so the
+// shell owns the port and moves bytes for us (SerialProxy.cs). The framing,
+// checksums and echo handling stay here, identical to the Web Serial path;
+// only the four primitives differ.
+class NativeSerialBus {
+  constructor() { this.path = null; }
+
+  get connected() { return !!this.path; }
+
+  async connect() {
+    const r = await window.bmacw.serialOpen(null, KDCAN.baudRate);
+    this.path = (r && r.port) || 'serial';
+    return this.portLabel();
+  }
+
+  portLabel() { return (this.path || '').replace('/dev/', ''); }
+
+  async disconnect() {
+    try { await window.bmacw.serialClose(); } catch { /* already closed */ }
+    this.path = null;
+  }
+
+  async exchange(out, timeoutMs = 2000) {
+    // A stale partial frame from a timed-out job would be read as this job's
+    // answer, so start clean.
+    await window.bmacw.serialFlush();
+    await window.bmacw.serialWrite(out);
+    return readFrame(out.length, timeoutMs,
+      async () => window.bmacw.serialRead());
+  }
+}
+
 class WebSerialBus {
   constructor() { this.port = null; this.reader = null; this.writer = null; }
 
@@ -66,29 +133,11 @@ class WebSerialBus {
   // request and its answer can legitimately share a prefix.
   async exchange(out, timeoutMs = 2000) {
     await this.writer.write(new Uint8Array(out));
-    const want = out.length;
-    const buf = [];
     const deadline = Date.now() + timeoutMs;
-    // echo first
-    while (buf.length < want && Date.now() < deadline) {
+    return readFrame(out.length, timeoutMs, async () => {
       const { value, done } = await this.readSome(deadline);
-      if (done) break;
-      if (value) buf.push(...value);
-    }
-    buf.splice(0, want);
-    // then the frame: [fmt, dst, src, ...payload, checksum]
-    while (Date.now() < deadline) {
-      if (buf.length >= 4) {
-        const len = (buf[0] & 0x3f) || buf[3];
-        const total = (buf[0] & 0x3f) ? len + 4 : len + 5;
-        if (buf.length >= total) return buf.slice(0, total);
-      }
-      const { value, done } = await this.readSome(deadline);
-      if (done) break;
-      if (value) buf.push(...value);
-    }
-    if (!buf.length) throw new Error('no answer from ECU (timeout)');
-    return buf;
+      return done ? null : value;
+    });
   }
 
   async readSome(deadline) {
@@ -103,7 +152,12 @@ class WebSerialBus {
   }
 }
 
-const webBus = new WebSerialBus();
+// Whichever transport this host can actually do. The native bridge wins when
+// present: inside the macOS app there is no Web Serial to fall back to, and
+// outside it there is no bridge.
+const webBus = (typeof window !== 'undefined'
+                && window.bmacw && window.bmacw.serialOpen)
+  ? new NativeSerialBus() : new WebSerialBus();
 
 // ---------------------------------------------------------------- job runner
 
