@@ -1,1 +1,0 @@
-{"job":"EEPROM_LESEN","arguments":[{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"2 Byte (high / low)"},{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"normal 16"}]}

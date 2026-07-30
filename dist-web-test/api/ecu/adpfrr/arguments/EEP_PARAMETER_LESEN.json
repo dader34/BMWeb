@@ -1,1 +1,0 @@
-{"job":"EEP_PARAMETER_LESEN","arguments":[{"ARG":"DATA_IDX","ARGTYPE":"string","ARGCOMMENT0":"Index der Daten","ARGCOMMENT1":"table ReadDataIdx DATA_TYPE TypeName"},{"ARG":"PARA_1","ARGTYPE":"char","ARGCOMMENT0":"Nur fuer KEY_LONG_TIME","ARGCOMMENT1":"Index der Taste","ARGCOMMENT2":"Bereich: 0-255","ARGCOMMENT3":"zusaetzlicher Parameter"}]}

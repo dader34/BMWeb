@@ -1,1 +1,0 @@
-{"job":"FLASH_SCHREIBEN_ADRESSE","arguments":[{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"24 bit ECU memory address","ARGCOMMENT1":"Addresse speicher SG","ARGCOMMENT2":"0x108000 -> 0x13FFFF (FLASH)"},{"ARG":"SIZE","ARGTYPE":"long","ARGCOMMENT0":"Uncompressed memory size 0x000000 -> 0xFFFFFF","ARGCOMMENT1":"Speicher umfang"}]}

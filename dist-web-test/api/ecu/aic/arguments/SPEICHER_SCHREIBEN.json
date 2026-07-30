@@ -1,1 +1,0 @@
-{"job":"SPEICHER_SCHREIBEN","arguments":[{"ARG":"ADRESSE","ARGTYPE":"int","ARGCOMMENT0":"Bereich: 0-65535 bzw. 0x0000-0xFFFF"},{"ARG":"ZELLE","ARGTYPE":"int","ARGCOMMENT0":"Bereich: 0-255 bzw. 0x00-0xFF"}]}

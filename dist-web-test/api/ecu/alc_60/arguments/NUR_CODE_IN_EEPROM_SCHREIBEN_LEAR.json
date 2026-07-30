@@ -1,1 +1,0 @@
-{"job":"NUR_CODE_IN_EEPROM_SCHREIBEN_LEAR","arguments":[{"ARG":"CODIERDATEN_DATEI","ARGTYPE":"string","ARGCOMMENT0":"Dateiname mit generiertem Code","ARGCOMMENT1":"Datei muss in ediabas/ecu liegen","ARGCOMMENT2":"bei leerem Argument wird die Datei cod_lm.cod codiert","ARGCOMMENT3":"letztes Zeichen muss ein LF sein"}]}

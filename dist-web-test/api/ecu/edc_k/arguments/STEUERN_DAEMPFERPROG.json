@@ -1,1 +1,0 @@
-{"job":"STEUERN_DAEMPFERPROG","arguments":[{"ARG":"EDCK_MODUS","ARGTYPE":"unsigned char","ARGCOMMENT0":"0 = normaler Regelbetrieb","ARGCOMMENT1":"1 = Sportbetrieb aktiv","ARGCOMMENT2":"2 = Default Sportbetrieb"}]}

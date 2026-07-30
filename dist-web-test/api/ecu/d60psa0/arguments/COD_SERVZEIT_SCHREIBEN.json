@@ -1,1 +1,0 @@
-{"job":"COD_SERVZEIT_SCHREIBEN","arguments":[{"ARG":"SERVICEZEIT_FAKTOR1","ARGTYPE":"real","ARGCOMMENT0":"Als Argument neuen Servicezeit-Faktor1 eingeben","ARGCOMMENT1":"0.0 , 0.5 , 1.0 , ... "},{"ARG":"SERVICEZEIT_FAKTOR2","ARGTYPE":"real","ARGCOMMENT0":"Als Argument neuen Servicezeit-Faktor2 eingeben","ARGCOMMENT1":"0.0 , 0.5 , 1.0 , ... "}]}

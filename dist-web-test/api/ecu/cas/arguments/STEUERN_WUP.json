@@ -1,1 +1,0 @@
-{"job":"STEUERN_WUP","arguments":[{"ARG":"WUP_BYTE_HIGH","ARGTYPE":"unsigned char","ARGCOMMENT0":"\"High\": 0-255","ARGCOMMENT1":"======> Byte0"},{"ARG":"WUP_BYTE_MIDDLE","ARGTYPE":"unsigned char","ARGCOMMENT0":"\"Mid\":  0-255","ARGCOMMENT1":"======> Byte1"},{"ARG":"WUP_BYTE_LOW","ARGTYPE":"unsigned char","ARGCOMMENT0":"\"Low\":  0-255","ARGCOMMENT1":"======> Byte2"}]}

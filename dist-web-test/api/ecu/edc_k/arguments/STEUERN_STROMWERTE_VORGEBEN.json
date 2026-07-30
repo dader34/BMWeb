@@ -1,1 +1,0 @@
-{"job":"STEUERN_STROMWERTE_VORGEBEN","arguments":[{"ARG":"ACHSE","ARGTYPE":"unsigned char","ARGCOMMENT0":"0 = Vorderachse","ARGCOMMENT1":"1 = Hinterachse"},{"ARG":"STROMWERT","ARGTYPE":"unsigned int","ARGCOMMENT0":"Bereich: 0..2000 mA","ARGCOMMENT1":"keine Angabe -> Freigabe"}]}

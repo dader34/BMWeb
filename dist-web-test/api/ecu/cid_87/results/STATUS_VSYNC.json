@@ -1,1 +1,0 @@
-["JOB_STATUS : OKAY, wenn fehlerfrei","STAT_VSYNC_1_ACT : 0 = Vsync Ausfall, 1 = Vsync vorhanden","STAT_VSYNC_2_ACT : 0 = Vsync Ausfall, 1 = Vsync vorhanden","STAT_DE_ACT : 0 = DE Ausfall, 1 = DE vorhanden","STAT_CCFL_ENA : 0 = Backlight OFF, 1 = Backlight ON","STAT_MONITOR_ENA : 0 = Monitor Steuerung CAN disable, 1 = enable","_TEL_ANTWORT : Hex-Antwort von SG"]

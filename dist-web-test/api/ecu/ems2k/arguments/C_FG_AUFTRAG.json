@@ -1,1 +1,0 @@
-{"job":"C_FG_AUFTRAG","arguments":[{"ARG":"FG_NR","ARGTYPE":"string","ARGCOMMENT0":"Fahrgestellnummer","ARGCOMMENT1":"VIN","ARGCOMMENT2":"Either 17 or 18 characters - if 18 the last character is ignored"}]}

@@ -1,1 +1,0 @@
-{"job":"ABGLEICH_CSF_LESEN_UB","arguments":[{"ARG":"IDENTIFIER_BANK","ARGTYPE":"string","ARGCOMMENT0":"Wird nur bei Motoren mit 2 Bänken benötigt (M67TÜ)","ARGCOMMENT1":"Das Argument ist bei 2-Bank-Motoren entweder BANK1 oder BANK2","ARGCOMMENT2":"bei allen anderen Motoren braucht man dieses Argument nicht übergeben ","ARGCOMMENT3":"Default: Bank 1"}]}

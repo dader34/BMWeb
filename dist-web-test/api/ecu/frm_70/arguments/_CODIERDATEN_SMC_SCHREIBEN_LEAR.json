@@ -1,1 +1,0 @@
-{"job":"_CODIERDATEN_SMC_SCHREIBEN_LEAR","arguments":[{"ARG":"CODIERDATEN_DATEI","ARGTYPE":"string","ARGCOMMENT0":"Dateiname mit Default-Codierdaten","ARGCOMMENT1":"Datei muss in ediabas/ecu liegen","ARGCOMMENT2":"bei leerem Argument wird die Datei cod_lm.dat codiert","ARGCOMMENT3":"letztes Zeichen muss ein LF sein"}]}

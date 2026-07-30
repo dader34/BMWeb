@@ -1,1 +1,0 @@
-{"job":"STATUS_OFFSETLERNEN","arguments":[{"ARG":"STELLER","ARGTYPE":"string","ARGCOMMENT0":"Auswahl eines Stellers (Pflicht)","ARGCOMMENT1":"\"AGRO\"  ... AGR-Ventil Offset","ARGCOMMENT2":"\"DRAO\"  ... Drallklappen-Offset","ARGCOMMENT3":"\"NAGRO\" ... NDAGR-Ventil Offset"}]}

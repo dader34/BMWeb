@@ -1,1 +1,0 @@
-{"job":"STEUERN_EMERGENCY_EJECT","arguments":[{"ARG":"ARG_DRIVE","ARGTYPE":"unsigned char","ARGCOMMENT0":"Drives from which the media must be","ARGCOMMENT1":"0x02 CD","ARGCOMMENT2":"0x04 DVD (default)"}]}

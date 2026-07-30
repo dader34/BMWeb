@@ -1,1 +1,0 @@
-{"job":"IDENT_PROGRAMMING_DATE_SCHREIBEN","arguments":[{"ARG":"DATAS","ARGTYPE":"string","ARGCOMMENT0":"Es muessen 4 Ident_Daten als ein Hex_String ","ARGCOMMENT1":"uebergeben werden: z.B. 19,99,12,27","ARGCOMMENT2":"Datum: 27.12.1999","ARGCOMMENT3":"Bereich:  0x00-0xFF"}]}

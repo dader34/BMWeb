@@ -1,1 +1,0 @@
-["STAT_PTCAN_FAHRGESTELLNR : vom AFS eingelesene Fahrgestellnummer ueber PT-CAN","STAT_PTCAN_FAHRGESTELLNR_HEX : Hexdarstellung des PT-CAN Signals Fahrgestellummer ( 8 Byte )","JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_AUFTRAG : Hex Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG","_TEL_DATEN : Hex-Antwort von SG"]

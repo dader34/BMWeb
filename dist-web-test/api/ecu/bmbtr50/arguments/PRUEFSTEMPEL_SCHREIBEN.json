@@ -1,1 +1,0 @@
-{"job":"PRUEFSTEMPEL_SCHREIBEN","arguments":[{"ARG":"BYTE1","ARGTYPE":"int","ARGCOMMENT0":"kann beliebig verwendet werden (0x00-0xFF)","ARGCOMMENT1":"you can use any value you like (0x00-0xFF)"},{"ARG":"BYTE2","ARGTYPE":"int","ARGCOMMENT0":"kann beliebig verwendet werden (0x00-0xFF)"},{"ARG":"BYTE3","ARGTYPE":"int","ARGCOMMENT0":"kann beliebig verwendet werden (0x00-0xFF)"}]}

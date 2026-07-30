@@ -1,1 +1,0 @@
-{"job":"STEUERN_VAK_BEFUELL","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Einmal = E, Wiederholung = W"},{"ARG":"ZEIT_ROUTINE","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"DELAY_PUMPE","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"ERGEBNIS","ARGTYPE":"string","ARGCOMMENT0":"Default: Ergebnis nicht abholen. Wenn Argument <Ergebnis> vorhanden, dann Ergebnis abholen"}]}

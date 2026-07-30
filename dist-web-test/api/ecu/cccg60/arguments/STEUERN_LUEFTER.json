@@ -1,1 +1,0 @@
-{"job":"STEUERN_LUEFTER","arguments":[{"ARG":"PWM","ARGTYPE":"int","ARGCOMMENT0":"speed in %","ARGCOMMENT1":"Range [50 .. 100]"},{"ARG":"TIMEOUT","ARGTYPE":"int","ARGCOMMENT0":"timeout in Sec","ARGCOMMENT1":"Range [0 .. 31]"}]}

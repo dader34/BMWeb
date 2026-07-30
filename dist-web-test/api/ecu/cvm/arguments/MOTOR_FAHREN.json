@@ -1,1 +1,0 @@
-{"job":"MOTOR_FAHREN","arguments":[{"ARG":"MOTOR","ARGTYPE":"string","ARGCOMMENT0":"anzusteuernder Motor (KLAPPE_AUF/ZU, VERDECK_AUF/ZU, UERSS_AUF/ZU, ALLE_AUS)"}]}

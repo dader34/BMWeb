@@ -1,1 +1,0 @@
-{"job":"RPA_SCHREIBEN","arguments":[{"ARG":"DATA","ARGTYPE":"string","ARGCOMMENT0":"Es muss 1 Byte uebergeben werden","ARGCOMMENT1":"z.B. 35","ARGCOMMENT2":"Bereich:  0x00-0xFF"}]}

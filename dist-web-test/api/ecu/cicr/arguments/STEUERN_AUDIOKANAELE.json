@@ -1,1 +1,0 @@
-{"job":"STEUERN_AUDIOKANAELE","arguments":[{"ARG":"ARG_KANAL","ARGTYPE":"long","ARGCOMMENT0":"is the desired  BIT combination of the following","ARGCOMMENT1":"values from table TAudiokanal WERT"}]}

@@ -1,1 +1,0 @@
-{"job":"STEUERN_DPRAM_TESTSTIM","arguments":[{"ARG":"STEUERN_TYP","ARGTYPE":"int","ARGCOMMENT0":"Wertebereich[0....255]"},{"ARG":"STEUERN_DPRAM_TEST_VEKTOR","ARGTYPE":"int","ARGCOMMENT0":"Wertebereich[0..255]"}]}

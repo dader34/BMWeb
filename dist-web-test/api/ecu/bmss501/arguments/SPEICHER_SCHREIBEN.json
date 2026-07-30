@@ -1,1 +1,0 @@
-{"job":"SPEICHER_SCHREIBEN","arguments":[{"ARG":"SEGMENT","ARGTYPE":"unsigned int","ARGCOMMENT0":"Segment oder Speicher"},{"ARG":"ADR","ARGTYPE":"unsigned long","ARGCOMMENT0":"Adresse"},{"ARG":"ANZ_BYTE","ARGTYPE":"unsigned int","ARGCOMMENT0":"Anzahl der zu schreibenden Bytes"},{"ARG":"DATEN","ARGTYPE":"string","ARGCOMMENT0":"Inhalte von Byte 1 bis n in ASCII-Code"}]}

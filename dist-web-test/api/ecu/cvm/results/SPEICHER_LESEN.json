@@ -1,1 +1,0 @@
-["JOB_STATUS : Liefert: OKAY od. ERROR_NACK","ANZAHL_BYTES : 1 bis 24","START_ADRESSE_HIGH_BYTE : 0 = RAM, 1 = ROM","START_ADRESSE_LOW_BYTE : range = 0x90 bis 0xCF bei RAM und 0x01 bis 0xFF bei ROM","DATEN : Hexdump des gewuenschten Speicherbereiches","_ANTWORT : Antworttelegramm","_SENDEN : Sendetelegramm"]

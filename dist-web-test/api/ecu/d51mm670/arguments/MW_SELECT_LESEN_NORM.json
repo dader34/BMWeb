@@ -1,1 +1,0 @@
-{"job":"MW_SELECT_LESEN_NORM","arguments":[{"ARG":"MW_SELECT_LESEN_MNR","ARGTYPE":"binary","ARGCOMMENT0":"Übergabe im Format Messagenummern zB.: 00C0000D für N und V","ARGCOMMENT1":"Messagenummern ADR_ALT aus Tabelle BETRIEBSWTAB"}]}

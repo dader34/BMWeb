@@ -1,1 +1,0 @@
-{"job":"STEUERN_STROMABGLEICH","arguments":[{"ARG":"ADC_OFFSET","ARGTYPE":"int","ARGCOMMENT0":"ADC Offset"},{"ARG":"ADC_STEIGUNG","ARGTYPE":"unsigned int","ARGCOMMENT0":"ADC Steigung"},{"ARG":"CHECKSUM","ARGTYPE":"unsigned char","ARGCOMMENT0":"Checksumme"}]}

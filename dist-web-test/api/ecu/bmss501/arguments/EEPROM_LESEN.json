@@ -1,1 +1,0 @@
-{"job":"EEPROM_LESEN","arguments":[{"ARG":"EEPROM_LESEN_ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"Uebergabeparameter, Startadresse Segment-High-Middle-Low"},{"ARG":"EEPROM_LESEN_ANZAHL_BYTE","ARGTYPE":"int","ARGCOMMENT0":"Uebergabeparameter, Anzahl der auszulesenden BYTES"}]}

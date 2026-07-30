@@ -1,1 +1,0 @@
-{"job":"STATUS_FSP_NEC_CONTROLFELD","arguments":[{"ARG":"F_CODE","ARGTYPE":"int","ARGCOMMENT0":"DTC Codes des INFO Fehlerspeicherbereiches, 2 Byte","ARGCOMMENT1":"Wertebereich des DTC[6101..61FF]"}]}

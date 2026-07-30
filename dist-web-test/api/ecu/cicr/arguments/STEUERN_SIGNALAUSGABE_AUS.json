@@ -1,1 +1,0 @@
-{"job":"STEUERN_SIGNALAUSGABE_AUS","arguments":[{"ARG":"ARG_AUSGANG","ARGTYPE":"unsigned int","ARGCOMMENT0":"Output on which the signal output has to be ended","ARGCOMMENT1":"values from table TVideoAusgang or combination of the values"}]}

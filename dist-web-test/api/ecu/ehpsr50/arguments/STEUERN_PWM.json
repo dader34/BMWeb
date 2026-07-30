@@ -1,1 +1,0 @@
-{"job":"STEUERN_PWM","arguments":[{"ARG":"VALUE","ARGTYPE":"int","ARGCOMMENT0":"Value to set the PWM ( 0 -> 100 % )"}]}

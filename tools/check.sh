@@ -29,11 +29,11 @@
 # is not a set of independent commands -- three of them feed each other, and
 # running them out of order silently ships worse data than doing nothing:
 #
-#   1. python3 tools/ipo_ir.py --write     -> data/inpa-ir/, i18n EMPTY plus a
+#   1. python3 tools/decompile/ipo_ir.py --write     -> data/inpa-ir/, i18n EMPTY plus a
 #                                             `strings` hand-off list
-#   2. node tools/ipo_i18n.js              -> RESOLVES those strings back INTO
+#   2. node tools/decompile/ipo_i18n.js              -> RESOLVES those strings back INTO
 #                                             the IR files and drops the list
-#   3. python3 tools/sgbd_export.py --ship -> copies the finished IR into ecus/
+#   3. python3 tools/export/sgbd_export.py --ship -> copies the finished IR into ecus/
 #
 # Run i18n before --write and step 1 overwrites its work: every IR lands with
 # i18n {} and the app renders raw German captions ("Control zurück an DME").
@@ -50,38 +50,38 @@ set -e
 cd "$(dirname "$0")/.."
 
 echo "== MS45 ground truth (recall, no invented fields, known gaps) =="
-python3 tools/test_ipo_recognize.py
+python3 tools/verify/test_ipo_recognize.py
 
 echo
 echo "== generated screens stay reads-only =="
-python3 tools/test_activations_safe.py
+python3 tools/verify/test_activations_safe.py
 
 echo
 echo "== .IPO decompiler vs ground truth =="
-python3 tools/test_disasm.py
+python3 tools/verify/test_disasm.py
 
 echo
 echo "== IR emitter invariants =="
-python3 tools/ipo_ir.py --check
-node tools/ipo_i18n.js --check
+python3 tools/decompile/ipo_ir.py --check
+node tools/decompile/ipo_i18n.js --check
 
 echo
 echo "== IR interpreter renders known screens =="
-node tools/test_ir_render.js
+node tools/verify/test_ir_render.js
 
 if [ -n "$BMACW_PORT" ]; then
   echo
   echo "== job metadata matches the engine =="
-  python3 tools/test_meta.py || exit 1
+  python3 tools/verify/test_meta.py || exit 1
 fi
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="
-node tools/test_vmbridge.js || exit 1
+node tools/verify/test_vmbridge.js || exit 1
 
 echo
 echo "== write guard holds =="
-node tools/test_writeguard.js || exit 1
+node tools/verify/test_writeguard.js || exit 1
 
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".
@@ -89,5 +89,5 @@ node tools/test_writeguard.js || exit 1
 if [ -n "$BMACW_PORT" ] && [ -d data/sgbd-tables ]; then
   echo
   echo "== shipped tables cover what the SGBDs declare =="
-  python3 tools/sgbd_export.py --audit || exit 1
+  python3 tools/export/sgbd_export.py --audit || exit 1
 fi

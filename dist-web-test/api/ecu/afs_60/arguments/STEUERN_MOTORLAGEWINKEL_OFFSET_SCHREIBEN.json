@@ -1,1 +1,0 @@
-{"job":"STEUERN_MOTORLAGEWINKEL_OFFSET_SCHREIBEN","arguments":[{"ARG":"MOTORLAGEWINKEL_OFFSET_WERT","ARGTYPE":"real","ARGCOMMENT0":"in Grad"},{"ARG":"PSW","ARGTYPE":"string","ARGCOMMENT0":"Freischaltung zum Schreiben"}]}

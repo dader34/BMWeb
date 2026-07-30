@@ -1,1 +1,0 @@
-{"job":"STEUERN_CLEAR_TEMP_VERTEILUNG","arguments":[{"ARG":"ARG_LIST","ARGTYPE":"unsigned char","ARGCOMMENT0":"Component from which the temperature histogram must be deleted","ARGCOMMENT1":"0x00 FOT, 0x01 DVD, 0x02 HDD, 0x03 Power, 0x04 SH4"}]}

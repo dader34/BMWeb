@@ -1,1 +1,0 @@
-{"job":"NORMALER_DATENVERKEHR","arguments":[{"ARG":"FREIGEBEN","ARGTYPE":"string","ARGCOMMENT0":"\"ja\"   -> normalen Datenverkehr freigeben","ARGCOMMENT1":"\"nein\" -> normalen Datenverkehr sperren","ARGCOMMENT2":"table DigitalArgument TEXT"}]}

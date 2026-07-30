@@ -1,1 +1,0 @@
-{"job":"SPEICHER_LESEN","arguments":[{"ARG":"SEGMENT","ARGTYPE":"int","ARGCOMMENT0":"gewuenschtes Startsegment (0 bis 3)"},{"ARG":"MIDDLE","ARGTYPE":"int","ARGCOMMENT0":"gewuenschte Startadresse midle als Hexwert!"},{"ARG":"LOW","ARGTYPE":"int","ARGCOMMENT0":"gewuenschte Startadresse low als Hexwert!"},{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"gewuenschte Anzahl Bytes"}]}

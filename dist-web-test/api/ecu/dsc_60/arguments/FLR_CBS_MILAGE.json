@@ -1,1 +1,0 @@
-{"job":"FLR_CBS_MILAGE","arguments":[{"ARG":"ARG_1","ARGTYPE":"string","ARGCOMMENT0":"\"FLR_ON\" oder \"FLR_OFF\" oder \"ROM_FIX\" oder \"EEPROM_FIX\" oder \"EEPROM_VAR\""},{"ARG":"ARG_2","ARGTYPE":"string","ARGCOMMENT0":"\"FLR_ON\" oder \"FLR_OFF\" oder \"ROM_FIX\" oder \"EEPROM_FIX\" oder \"EEPROM_VAR\""}]}

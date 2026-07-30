@@ -1,1 +1,0 @@
-{"job":"STEUERN_LAMPEN_DIGITAL","arguments":[{"ARG":"ORT","ARGTYPE":"string","ARGCOMMENT0":"table LampNrTexte NAME TEXT","ARGCOMMENT1":"Lampe aus Tabelle auswaehlen"},{"ARG":"AUSGANG_EIN","ARGTYPE":"string","ARGCOMMENT0":"Werte: ein, aus","ARGCOMMENT1":"table DigitalArgument TEXT"}]}

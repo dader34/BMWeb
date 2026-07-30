@@ -1,1 +1,0 @@
-{"job":"START_LERNEN_NEUE_WERTE_QUERBESCH","arguments":[{"ARG":"SENSOR_NULLPKT_AQUER","ARGTYPE":"int","ARGCOMMENT0":"SensorNullpunkt in [mV]"},{"ARG":"SENSOR_STEIGUNG_AQUER","ARGTYPE":"int","ARGCOMMENT0":"Steigung in [mVolt/g]"}]}

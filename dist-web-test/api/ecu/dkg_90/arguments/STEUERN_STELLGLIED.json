@@ -1,1 +1,0 @@
-{"job":"STEUERN_STELLGLIED","arguments":[{"ARG":"STELLGLIED_IO_HEX","ARGTYPE":"string","ARGCOMMENT0":"Siehe Stellglied IO Hex  in der Job Übersicht"},{"ARG":"STELLGLIED_WERT","ARGTYPE":"string","ARGCOMMENT0":"table IO_SETZEN ","ARGCOMMENT1":"Wertebereich, siehe Job Übersicht"}]}

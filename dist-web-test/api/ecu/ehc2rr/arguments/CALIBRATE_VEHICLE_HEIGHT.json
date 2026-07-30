@@ -1,1 +1,0 @@
-{"job":"CALIBRATE_VEHICLE_HEIGHT","arguments":[{"ARG":"DELTA_HOEHE_LINKS","ARGTYPE":"int","ARGCOMMENT0":"mm"},{"ARG":"DELTA_HOEHE_RECHTS","ARGTYPE":"int","ARGCOMMENT0":"mm"},{"ARG":"ACHSE","ARGTYPE":"int","ARGCOMMENT0":"1 Vorne und 2 Hinten"}]}

@@ -1,1 +1,0 @@
-{"job":"STEUERN_ANALOG_CAN_ASC_LM","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Einmal = E oder Wiederholung = W"},{"ARG":"MD_ASC","ARGTYPE":"int","ARGCOMMENT0":"gewuenschter wert in %"},{"ARG":"MD_LM","ARGTYPE":"int","ARGCOMMENT0":"gewuenschter wert in %"}]}

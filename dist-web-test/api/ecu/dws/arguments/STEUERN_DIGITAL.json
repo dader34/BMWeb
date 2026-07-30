@@ -1,1 +1,0 @@
-{"job":"STEUERN_DIGITAL","arguments":[{"ARG":"START_STANDARD","ARGTYPE":"int","ARGCOMMENT0":"1 = Standardisierung starten"},{"ARG":"BANDMODE_CLR","ARGTYPE":"int","ARGCOMMENT0":"1 = Bandmode loeschen"},{"ARG":"BANDMODE_SET","ARGTYPE":"int","ARGCOMMENT0":"1 = Bandmode setzen"}]}

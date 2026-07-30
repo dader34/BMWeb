@@ -1,1 +1,0 @@
-["RET_STATUS : 0xFF letztes oder einziges element des Datenstreams","RET_BLOCKNR : Übertragende Blocknummer (Zähler) bei langen Datenstreams","RET_LEN : Länge des Individualisierungs Datenstream oder -streamstücks","RET_DATA : Individualisierungs Datenstream","JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_ANTWORT : Hex-Antwort von SG"]

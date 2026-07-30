@@ -1,1 +1,0 @@
-{"job":"COD_SCHREIBEN_RPA_2","arguments":[{"ARG":"C_BYTES","ARGTYPE":"string","ARGCOMMENT0":"Es muessen 12Bytes (bis SW4.83dec) bzw. 28Bytes(ab SW4.83dec) Codier_Daten als ein Hex_String ","ARGCOMMENT1":"uebergeben werden: z.B. 01,AB,56,FF ... 18","ARGCOMMENT2":"das Laengenbyte wird automatisch berechnet","ARGCOMMENT3":"Bereich:  0x00-0xFF"}]}

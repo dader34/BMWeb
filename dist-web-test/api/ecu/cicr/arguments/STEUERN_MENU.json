@@ -1,1 +1,0 @@
-{"job":"STEUERN_MENU","arguments":[{"ARG":"ARG_MENU","ARGTYPE":"long","ARGCOMMENT0":"ID of the menu that must be activated (for RSE: left display)"},{"ARG":"ARG_MENU_RSE_RIGHT","ARGTYPE":"long","ARGCOMMENT0":"ID of the menu that must be activated on the 2nd RSE HMI (right display)","ARGCOMMENT1":"00000000 if head-unit"}]}

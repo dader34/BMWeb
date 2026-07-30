@@ -1,1 +1,0 @@
-{"job":"PROG_FG_NR_LESEN_FUNKTIONAL","arguments":[{"ARG":"FUNKTIONALE_ADRESSE","ARGTYPE":"string","ARGCOMMENT0":"gewünschte funktionale Adresse","ARGCOMMENT1":"table FunktionaleAdresse F_ADR F_ADR_TEXT","ARGCOMMENT2":"Defaultwert: ALL ( alle Steuergeräte )"}]}
