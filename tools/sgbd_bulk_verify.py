@@ -28,9 +28,14 @@ of doing nothing.
     python3 tools/sgbd_bulk_verify.py ms450ds0       # one ECU
     python3 tools/sgbd_bulk_verify.py --limit 40     # quick pass
 
-Jobs that WRITE are never run: the request-discovery pass would otherwise send
-STEUERN_/SCHREIBEN_/LOESCHEN_ telegrams into the simulation, which is harmless
-here but bakes a habit that is not harmless against a car.
+Jobs that WRITE are skipped by default. The discovery pass would otherwise
+send STEUERN_/SCHREIBEN_/LOESCHEN_ telegrams, which is harmless against the
+simulated interface used here but bakes a habit that is not harmless against
+a car. `--writes` opts in deliberately, and is how the write PATH -- argument
+handling, request assembly, status decode -- gets exercised at all; 192 such
+jobs had never been executed even once, in simulation or otherwise.
+
+    python3 tools/sgbd_bulk_verify.py --writes ms450ds0   # include writes
 """
 import os
 import re
@@ -55,6 +60,14 @@ CLI = os.path.join(ROOT, "src", "InpaMac.Cli")
 WRITE_JOB = re.compile(
     r"^(STEUERN|SCHREIBEN|.*_SCHREIBEN|.*_LOESCHEN|FS_LOESCHEN|.*_SETZEN"
     r"|FLASH.*|PROGRAMMIER.*|.*_RESET|RESET.*|CODIER.*_SCHREIB.*)", re.I)
+
+# Write jobs are excluded by default -- see the module docstring. `--writes`
+# opts in, and ONLY the simulated interface can honour it: EdInterfaceObd is
+# pointed at SIMULATION for every job here, so a STEUERN_ telegram goes into
+# a .sim file and never onto a bus. That is what makes exercising the write
+# PATH (argument handling, request assembly, status decode) safe, and 192
+# such jobs had never been executed even once.
+INCLUDE_WRITES = "--writes" in sys.argv
 
 # a payload byte pattern that makes a misread offset obvious: every byte
 # differs from its neighbours and none are 0x00 or 0xFF (which read as
@@ -248,7 +261,7 @@ def main():
         ir = S.ir_jobs_for(sgbd)
         names = [n for n, _ in jobs
                  if not n.startswith("_") and n.upper() in ir
-                 and not WRITE_JOB.match(n)]
+                 and (INCLUDE_WRITES or not WRITE_JOB.match(n))]
         if limit:
             names = names[:limit]
         if not names:
