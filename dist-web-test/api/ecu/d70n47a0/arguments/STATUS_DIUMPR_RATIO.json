@@ -1,0 +1,1 @@
+{"job":"STATUS_DIUMPR_RATIO","arguments":[{"ARG":"READINESS","ARGTYPE":"string","ARGCOMMENT0":"gewünschte ReadinessGroup","ARGCOMMENT1":"Format: Hex-Nummer (z.B. 0x60)","ARGCOMMENT2":"ReadinessGroup-Name (z.B. Catalyst_Bank1)"}]}

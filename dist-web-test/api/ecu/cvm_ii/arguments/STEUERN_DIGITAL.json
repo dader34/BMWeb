@@ -1,0 +1,1 @@
+{"job":"STEUERN_DIGITAL","arguments":[{"ARG":"AUSGANG","ARGTYPE":"string","ARGCOMMENT0":"anzusteuernder Ausgang (Ventil, Pumpe oder Heckscheibe)","ARGCOMMENT1":"table Stellglieder STEUERN STEUER_I_O"}]}

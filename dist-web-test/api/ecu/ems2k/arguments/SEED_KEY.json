@@ -1,0 +1,1 @@
+{"job":"SEED_KEY","arguments":[{"ARG":"MODE","ARGTYPE":"int","ARGCOMMENT0":"Security access mode","ARGCOMMENT1":"Typ zugang","ARGCOMMENT2":"1 = breakdown, 3 = dealer, 5 = End of line","ARGCOMMENT3":"7 = programming, 9 = development"}]}

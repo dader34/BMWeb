@@ -76,8 +76,8 @@ jobs:
           grep -q webshim.js dist-web/index.html
           # A build that exported nothing must FAIL here, not deploy a shell
           # of a site: the first Pages run shipped 63 files and looked green.
-          n=$(find dist-web/api/ecu -maxdepth 1 -type d | wc -l)
-          echo "ecu directories: $n"
+          n=$(find dist-web/api/ecu -maxdepth 1 -name '*.ecu' | wc -l)
+          echo "ecu files: $n"
           test "$n" -gt 300
 
       - name: Pre-compress the large payloads

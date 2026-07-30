@@ -1,0 +1,1 @@
+{"job":"ECU_CONFIG_ENABLE","arguments":[{"ARG":"SWITCH","ARGTYPE":"int","ARGCOMMENT0":"0 ... alle Selbsterkennungen deaktiviert","ARGCOMMENT1":"1 ... alle Selbsterkennungen aktiviert"}]}

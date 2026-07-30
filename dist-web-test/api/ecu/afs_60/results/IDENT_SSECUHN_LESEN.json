@@ -1,0 +1,1 @@
+["FZG_TYP : Fahrzeugart ( 3 Byte )","FZG_TYP_HEX : Fahrzeugart ( 3 Byte ) in Telegrammdarstellung","INTEGRATIONS_STUFE : aktuelle Interationssufe z.B. 'I330'( 4 Byte )","INTEGRATIONS_STUFE_HEX : aktuelle Interationssufe z.B. 'I330'( 4 Byte )","JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_AUFTRAG : Hex-Daten von SG","_TEL_DATEN : Hex-Daten von SG","_TEL_ANTWORT : Hex-Antwort von SG"]

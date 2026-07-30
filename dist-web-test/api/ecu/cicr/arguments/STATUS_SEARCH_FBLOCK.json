@@ -1,0 +1,1 @@
+{"job":"STATUS_SEARCH_FBLOCK","arguments":[{"ARG":"ARG_FBLOCKID","ARGTYPE":"unsigned char","ARGCOMMENT0":"FBlockID.InstID searched in Registry"},{"ARG":"ARG_INSTID","ARGTYPE":"unsigned char","ARGCOMMENT0":"FBlockID.InstID searched in Registry"}]}

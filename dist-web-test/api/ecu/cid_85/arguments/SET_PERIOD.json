@@ -1,0 +1,1 @@
+{"job":"SET_PERIOD","arguments":[{"ARG":"CHANNEL","ARGTYPE":"char","ARGCOMMENT0":"Kanalnummer 0=Boost, 1 = Dimmer"},{"ARG":"PWM_PERIOD","ARGTYPE":"unsigned int","ARGCOMMENT0":"Vorgabewert Periodendauer 16bit"}]}

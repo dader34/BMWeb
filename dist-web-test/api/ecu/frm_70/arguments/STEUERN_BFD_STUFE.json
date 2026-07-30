@@ -1,0 +1,1 @@
+{"job":"STEUERN_BFD_STUFE","arguments":[{"ARG":"ORT","ARGTYPE":"string","ARGCOMMENT0":"table BFDStufeTexte NAME TEXT","ARGCOMMENT1":"BFD-Stufe aus Tabelle auswaehlen"},{"ARG":"AUSGANG_EIN","ARGTYPE":"string","ARGCOMMENT0":"Werte: ein, aus","ARGCOMMENT1":"table DigitalArgument TEXT"}]}

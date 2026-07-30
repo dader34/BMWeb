@@ -1,0 +1,1 @@
+{"job":"_STEUERN_STEUERGERAET_CODIEREN","arguments":[{"ARG":"TRANSMISSION_TYPE","ARGTYPE":"int","ARGCOMMENT0":"Getriebeart","ARGCOMMENT1":"Werte: 0 = Automatik, 1 = Manuell","ARGCOMMENT2":"Default: 0 = Automatik"}]}

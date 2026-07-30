@@ -1,0 +1,1 @@
+{"job":"STEUERN_NAVI_MAP","arguments":[{"ARG":"ARG_ACTION","ARGTYPE":"unsigned char","ARGCOMMENT0":"Action to perform","ARGCOMMENT1":"0x00 Deactivate customer navigation map","ARGCOMMENT2":"0x01 Erase customer navigation map"}]}

@@ -1,0 +1,1 @@
+{"job":"START_DIAGNOSTIC_SESSION","arguments":[{"ARG":"MODE","ARGTYPE":"int","ARGCOMMENT0":"Diagnostic mode: 0x81=Standard, 0x85=Programming"}]}

@@ -1,0 +1,1 @@
+{"job":"EMF_EINBREMSPROZEDUR","arguments":[{"ARG":"ZUSTAND","ARGTYPE":"string","ARGCOMMENT0":"die Einbremsprozedur kann hier auf starten (\"START\") oder beenden (\"END\") gesetzt werden"},{"ARG":"ERGEBNIS","ARGTYPE":"string","ARGCOMMENT0":"Default: Ergebnis nicht abholen. Wenn Argument (\"R\") vorhanden, dann Ergebnis der Einbremsprozedur abholen"}]}

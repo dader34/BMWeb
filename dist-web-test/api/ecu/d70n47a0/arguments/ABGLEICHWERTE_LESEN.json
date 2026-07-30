@@ -1,0 +1,1 @@
+{"job":"ABGLEICHWERTE_LESEN","arguments":[{"ARG":"ABGLEICHWERTE_SCHREIBEN_DATEN","ARGTYPE":"string","ARGCOMMENT0":"String der Abgleichdaten vom COD-File (dient der Selektion des Ausgabeformats)","ARGCOMMENT1":"Argument ist Pflicht, sonst ERROR_ARGUMENT_DATEN"}]}

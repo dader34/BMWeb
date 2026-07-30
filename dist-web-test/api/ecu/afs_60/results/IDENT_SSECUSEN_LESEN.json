@@ -1,0 +1,1 @@
+["SERIENNUMMER : Seriennummer des Steuergeraets (9 Byte), aus EEPROM","SERIENNUMMER_HEX : Seriennummer des Steuergeraets","IDENT_DATEN : Hex-Daten an Cotool","JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_AUFTRAG : Hex-Daten von SG","_TEL_DATEN : Hex-Daten von SG","_TEL_ANTWORT : Hex-Antwort von SG"]

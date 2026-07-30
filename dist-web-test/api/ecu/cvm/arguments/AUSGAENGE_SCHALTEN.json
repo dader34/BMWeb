@@ -1,0 +1,1 @@
+{"job":"AUSGAENGE_SCHALTEN","arguments":[{"ARG":"FUNKTION","ARGTYPE":"string","ARGCOMMENT0":"anzufuehrende Funktion(FH_AUF, FH_ZU, LAMPE_EIN, RESERVE, STOP)"}]}

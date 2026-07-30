@@ -1,0 +1,1 @@
+{"job":"EEP_PRUEFSTEMPEL_LESEN","arguments":[{"ARG":"PLACEMENT","ARGTYPE":"string","ARGCOMMENT0":"Index der Pruefstelle","ARGCOMMENT1":"table PruefStempelOrt TEST_ORT"},{"ARG":"DATA_IDX","ARGTYPE":"string","ARGCOMMENT0":"Index der Daten","ARGCOMMENT1":"table PruefStempelData TEST_DATA"}]}

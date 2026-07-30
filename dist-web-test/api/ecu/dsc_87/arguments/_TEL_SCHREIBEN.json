@@ -1,0 +1,1 @@
+{"job":"_TEL_SCHREIBEN","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Einmal = E oder Wiederholung = W"},{"ARG":"T_BYTES","ARGTYPE":"string","ARGCOMMENT0":"Bereich: 0-255 bzw. 0x00-0xFF"}]}

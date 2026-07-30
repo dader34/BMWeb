@@ -206,33 +206,6 @@ async function webFetchJson(path) {
   return r.ok ? r.json().catch(() => null) : null;
 }
 
-// Map an /api/... path onto the frozen tree. Everything is a .json file, and
-// job/table names are upper-cased because that is how web_export.py wrote
-// them (EDIABAS job names are case-insensitive; a static host is not).
-function webApiPath(path) {
-  const [p] = path.split('?');
-  const m = p.replace(/^\/api\//, '').split('/').filter(Boolean);
-  if (!m.length) return null;
-  if (m[0] === 'chassis') {
-    return m.length === 1
-      ? `${WEB_API_BASE}/chassis.json`
-      : `${WEB_API_BASE}/chassis/${m[1].toUpperCase()}.json`;
-  }
-  if (m[0] === 'ecu' && m.length >= 3) {
-    const sgbd = m[1].toLowerCase();
-    const kind = m[2];
-    if (kind === 'jobs' || kind === 'ir' || kind === 'tables') {
-      return `${WEB_API_BASE}/ecu/${sgbd}/${kind}.json`;
-    }
-    if ((kind === 'results' || kind === 'arguments' || kind === 'table')
-        && m[3]) {
-      return `${WEB_API_BASE}/ecu/${sgbd}/${kind}/`
-        + `${decodeURIComponent(m[3]).toUpperCase()}.json`;
-    }
-  }
-  return null;
-}
-
 // WHERE THIS PAGE LIVES. GitHub Pages serves a project site from a subpath
 // (/BMacW/), not the domain root, so "/api/chassis" would resolve to
 // dader34.github.io/api/chassis -- off the site entirely. Derive the base
@@ -241,18 +214,107 @@ function webApiPath(path) {
 const WEB_BASE = (typeof location !== 'undefined'
   ? location.pathname.replace(/\/[^/]*$/, '') : '').replace(/\/$/, '');
 
+// Cache of chassis configs and their ECU zip buffers.
+// Format: chassisId -> { config: Object, ecuZips: Map(sgbd -> ArrayBuffer) }
+const CHASSIS_CACHE = new Map();
+
+// Cache of parsed ECU files.
+// Format: sgbd -> Map(filename -> content)
+const ECU_CACHE = new Map();
+
+async function loadChassis(chassisId, realFetch) {
+  const upperId = chassisId.toUpperCase();
+  if (CHASSIS_CACHE.has(upperId)) return CHASSIS_CACHE.get(upperId);
+
+  const fileUrl = `${WEB_BASE}/api/chassis/${upperId}.chassis`;
+  const res = await realFetch(fileUrl);
+  if (!res.ok) throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
+
+  const buffer = await res.arrayBuffer();
+  if (typeof fflate === 'undefined') {
+    throw new Error('fflate decompression library not loaded');
+  }
+  const unzipped = fflate.unzipSync(new Uint8Array(buffer));
+
+  const configBytes = unzipped['config.json'];
+  if (!configBytes) throw new Error(`Missing config.json in chassis ${upperId}`);
+
+  const configText = new TextDecoder('utf-8').decode(configBytes);
+  const config = JSON.parse(configText);
+
+  const ecuZips = new Map();
+  for (const [name, bytes] of Object.entries(unzipped)) {
+    if (name.startsWith('ecu/') && name.endsWith('.ecu')) {
+      const sgbd = name.slice(4, -4).toLowerCase();
+      ecuZips.set(sgbd, bytes);
+    }
+  }
+
+  const data = { config, ecuZips };
+  CHASSIS_CACHE.set(upperId, data);
+  return data;
+}
+
+async function loadEcu(sgbd, realFetch) {
+  const lowerSgbd = sgbd.toLowerCase();
+  if (ECU_CACHE.has(lowerSgbd)) return ECU_CACHE.get(lowerSgbd);
+
+  // Search cached chassis first
+  let ecuZipBytes = null;
+  for (const chassisData of CHASSIS_CACHE.values()) {
+    if (chassisData.ecuZips.has(lowerSgbd)) {
+      ecuZipBytes = chassisData.ecuZips.get(lowerSgbd);
+      break;
+    }
+  }
+
+  // Fallback: fetch directly
+  if (!ecuZipBytes) {
+    const fileUrl = `${WEB_BASE}/api/ecu/${lowerSgbd}.ecu`;
+    const res = await realFetch(fileUrl);
+    if (res.ok) {
+      const buffer = await res.arrayBuffer();
+      ecuZipBytes = new Uint8Array(buffer);
+    }
+  }
+
+  if (!ecuZipBytes) {
+    throw new Error(`ECU archive not found for ${lowerSgbd}`);
+  }
+
+  if (typeof fflate === 'undefined') {
+    throw new Error('fflate decompression library not loaded');
+  }
+  const unzipped = fflate.unzipSync(ecuZipBytes);
+  const ecuFiles = new Map();
+  const decoder = new TextDecoder('utf-8');
+
+  for (const [name, bytes] of Object.entries(unzipped)) {
+    try {
+      const text = decoder.decode(bytes);
+      const parsed = JSON.parse(text);
+      ecuFiles.set(name, parsed);
+    } catch (e) {
+      ecuFiles.set(name, decoder.decode(bytes));
+    }
+  }
+
+  ECU_CACHE.set(lowerSgbd, ecuFiles);
+  return ecuFiles;
+}
+
 // Install over window.fetch so core.js's api() needs no change at all.
 function installWebShim() {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     let rel = url.replace(/^https?:\/\/[^/]+/, '');
-    // core.js builds "<API>/api/..." from a base that means nothing here, and
-    // a subpath deploy adds its own prefix. Reduce both to a bare /api/ path.
-    if (WEB_BASE && rel.startsWith(`${WEB_BASE}/api/`)) {
+    
+    // Normalize path relative to WEB_BASE
+    if (WEB_BASE && rel.startsWith(WEB_BASE)) {
       rel = rel.slice(WEB_BASE.length);
     }
-    if (!rel.startsWith('/api/')) return real(input, init);
+    if (!rel.startsWith('/')) rel = '/' + rel;
 
     const ok = (body) => new Response(JSON.stringify(body),
       { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -260,13 +322,42 @@ function installWebShim() {
       JSON.stringify({ error: msg }),
       { status, headers: { 'Content-Type': 'application/json' } });
 
+    // --- VM bytecode / sgbd-tables files interception (from cached ECUs)
+    if (rel.startsWith('/data/job-code/') && rel !== '/data/job-code/index.json') {
+      const sgbd = rel.split('?')[0].split('/').pop()
+        .replace(/\.json$/, '').toLowerCase();
+      try {
+        const ecu = await loadEcu(sgbd, real);
+        const code = ecu.get('job-code.json');
+        if (!code) return err(`Job code not found for ${sgbd}`, 404);
+        return ok(code);
+      } catch (e) {
+        return err(e.message, 404);
+      }
+    }
+
+    if (rel.startsWith('/data/sgbd-tables/')) {
+      const sgbd = rel.split('?')[0].split('/').pop()
+        .replace(/\.json$/, '').toLowerCase();
+      try {
+        const ecu = await loadEcu(sgbd, real);
+        const tables = ecu.get('sgbd-tables.json');
+        if (!tables) return err(`SGBD tables not found for ${sgbd}`, 404);
+        return ok(tables);
+      } catch (e) {
+        return err(e.message, 404);
+      }
+    }
+
+    // Only route to API if prefix matches /api/
+    if (!rel.startsWith('/api/')) return real(input, init);
+
     // --- endpoints the server computed, answered locally
     if (/^\/api\/health/.test(rel)) return ok({ ok: true, web: true });
     if (/^\/api\/port/.test(rel)) {
       return ok({ port: webBus.connected ? webBus.portLabel() : null });
     }
     if (/^\/api\/state/.test(rel)) {
-      // battery/ignition come from a DME job; without a cable say so plainly
       return ok({ battery: null, ignition: null, connected: webBus.connected,
                   detail: webBus.connected ? null : 'no cable connected' });
     }
@@ -276,14 +367,17 @@ function installWebShim() {
     if (run) {
       const q = new URLSearchParams(rel.split('?')[1] || '');
       const arg = q.get('arg');
-      // Demo answers from the job's DECLARED results, so screens populate the
-      // way they would on a real read. It never touches the bus, and it is
-      // checked before the cable so the UI can be walked with one plugged in.
       if (q.get('demo') === '1' && typeof webDemoSets === 'function') {
         const sgbd = run[1].toLowerCase();
-        const meta = await webFetchJson(`${WEB_API_BASE}/ecu/${sgbd}/meta.json`);
-        return ok({ job: run[2], demo: true,
-                    sets: webDemoSets(meta, decodeURIComponent(run[2]), arg) });
+        try {
+          const ecu = await loadEcu(sgbd, real);
+          const meta = ecu.get('meta.json');
+          if (!meta) return err(`Metadata not found for ${sgbd}`, 404);
+          return ok({ job: run[2], demo: true,
+                      sets: webDemoSets(meta, decodeURIComponent(run[2]), arg) });
+        } catch (e) {
+          return err(e.message, 404);
+        }
       }
       if (!webBus.connected) return err('no cable connected', 503);
       try {
@@ -291,27 +385,65 @@ function installWebShim() {
         return ok({ job: run[2], sets: r.sets });
       } catch (e) { return err(e.message); }
     }
-    // Writes stay refused here as well as in the VM: the web build has no
-    // confirmation flow, and a mis-click on a phone should not reach the bus.
     if (/^\/api\/ecu\/[^/]+\/(clear|write|flash)/.test(rel)) {
       return err('write operations are not available in the web build', 501);
     }
 
-    // --- everything else is a static file
-    const file = webApiPath(rel);
-    if (!file) return err(`no static route for ${rel}`, 404);
-    const res = await real(file);
-    if (!res.ok) {
-      // A MISS IS SOMETIMES THE QUESTION, NOT A FAILURE. irUseVariantSgbd asks
-      // "is this variant name also an SGBD?" by fetching its job list, and
-      // takes the error as "no" -- so an ECU whose variant is not a separate
-      // SGBD logs a red 404 on every open. Answer the probe with an empty job
-      // list instead: the caller's `!jobs.length` check reads it identically
-      // and DevTools stays quiet, so a 404 that IS a fault remains visible.
-      if (/^\/api\/ecu\/[^/]+\/jobs$/.test(rel.split('?')[0])) return ok([]);
-      return err(`not shipped: ${file}`, 404);
+    // --- everything else is a static file route (served from the zip archives)
+    //
+    // SPLIT THE PATH, NOT THE QUERY. ecu.js asks for "/api/ecu/msv80/ir?code=
+    // MSV80" so the server can match a layout by INPA code, and splitting the
+    // whole string leaves the last segment as "ir?code=MSV80", which matches
+    // no kind. Every ECU then fell through to "no screen definition" while its
+    // archive sat there holding 161 screens.
+    const m = rel.split('?')[0].replace(/^\/api\//, '').split('/').filter(Boolean);
+    if (!m.length) return err('not found', 404);
+
+    if (m[0] === 'chassis') {
+      if (m.length === 1) {
+        // The LIST, not the directory. Passing the bare /api/chassis through
+        // asks the host for a path that is now a directory of .chassis
+        // archives, and a static server answers with an index page -- 200,
+        // text/html, and the renderer parses it as the chassis list. Name the
+        // file explicitly.
+        return real(`${WEB_BASE}/${WEB_API_BASE}/chassis.json`, init);
+      } else {
+        const cid = m[1];
+        try {
+          const data = await loadChassis(cid, real);
+          return ok(data.config);
+        } catch (e) {
+          return err(e.message, 404);
+        }
+      }
     }
-    return res;
+
+    if (m[0] === 'ecu' && m.length >= 3) {
+      const sgbd = m[1].toLowerCase();
+      const kind = m[2];
+      try {
+        const ecu = await loadEcu(sgbd, real);
+        if (kind === 'jobs' || kind === 'ir' || kind === 'tables') {
+          const res = ecu.get(`${kind}.json`);
+          if (!res) {
+            if (kind === 'jobs') return ok([]);
+            return err(`${kind} not found for ${sgbd}`, 404);
+          }
+          return ok(res);
+        }
+        if ((kind === 'results' || kind === 'arguments' || kind === 'table') && m[3]) {
+          const subName = decodeURIComponent(m[3]).toUpperCase();
+          const res = ecu.get(`${kind}/${subName}.json`);
+          if (!res) return err(`${kind}/${subName} not found for ${sgbd}`, 404);
+          return ok(res);
+        }
+      } catch (e) {
+        if (kind === 'jobs') return ok([]);
+        return err(e.message, 404);
+      }
+    }
+
+    return err(`no static route for ${rel}`, 404);
   };
 }
 

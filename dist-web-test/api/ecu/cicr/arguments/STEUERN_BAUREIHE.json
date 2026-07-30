@@ -1,0 +1,1 @@
+{"job":"STEUERN_BAUREIHE","arguments":[{"ARG":"ARG_BAUREIHE","ARGTYPE":"unsigned char","ARGCOMMENT0":"the desired Baureihe of the Gateway table as uchar","ARGCOMMENT1":"0x01 (L1),0x02 (L2),0x04 (L4),0x06 (L6), 0xFF (FF)","ARGCOMMENT2":"'FF' means all Baureihen"}]}

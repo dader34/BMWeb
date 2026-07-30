@@ -1,0 +1,1 @@
+{"job":"STEUERN_ANALOG_MSR","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Einmal = E, Wiederholung = W"},{"ARG":"MD_MSR","ARGTYPE":"int","ARGCOMMENT0":"gewuenschter wert in %"}]}

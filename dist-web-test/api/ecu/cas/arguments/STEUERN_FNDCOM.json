@@ -1,0 +1,1 @@
+{"job":"STEUERN_FNDCOM","arguments":[{"ARG":"FNDCOM_ID","ARGTYPE":"string","ARGCOMMENT0":"FNDCOM_ID: z.B. \"0x00,0x00,0x55,0xAA\"","ARGCOMMENT1":"======> Byte0-2"}]}

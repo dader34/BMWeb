@@ -1,0 +1,1 @@
+{"job":"STEUERN_STEPPER_MOTOR","arguments":[{"ARG":"EIN","ARGTYPE":"int","ARGCOMMENT0":"0 for START, any other value for STOP","ARGCOMMENT1":"0 fuer anfang, >0 fuer halt"}]}

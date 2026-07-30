@@ -1,0 +1,1 @@
+{"job":"COD_AEIND_SCHREIBEN","arguments":[{"ARG":"COD_AE_INDEX","ARGTYPE":"string","ARGCOMMENT0":"Aenderungsindex max. 2-stellig ASCII","ARGCOMMENT1":"'a', 'b', .., 'y', 'z', 'aa', 'ab', .., 'zy', 'zz'"}]}

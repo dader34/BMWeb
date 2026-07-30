@@ -1,0 +1,1 @@
+{"job":"SET_REGULATOR_STAT","arguments":[{"ARG":"NIVEAU","ARGTYPE":"string","ARGCOMMENT0":"Aktuatoren"}]}

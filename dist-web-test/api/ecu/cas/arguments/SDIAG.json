@@ -1,0 +1,1 @@
+{"job":"SDIAG","arguments":[{"ARG":"BINAER_BUFFER","ARGTYPE":"binary","ARGCOMMENT0":"Der Binaerbuffer hat folgenden Aufbau","ARGCOMMENT1":"Byte 0              : SID","ARGCOMMENT2":"Byte 1              : Daten"}]}

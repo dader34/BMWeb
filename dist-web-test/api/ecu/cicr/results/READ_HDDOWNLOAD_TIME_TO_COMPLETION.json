@@ -1,0 +1,1 @@
+["JOB_STATUS : OKAY, wenn fehlerfrei","RESPONSE_CODE : Fehlercode","TIME_TO_COMPLETION : TIME_TO_COMPLETION >> 16","TIME_TO_COMPLETION_HI : TIME_TO_COMPLETION & 0xffff","TIME_TO_COMPLETION_LO : ","TIME_TO_COMPLETION_D : als Dezimalzahl (String von Dezimalziffern)","_TEL_AUFTRAG : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

@@ -1,0 +1,1 @@
+{"job":"EEPROM_SCHREIBEN","arguments":[{"ARG":"EEPROM_SCHREIBEN_ADRESSE_DATEN","ARGTYPE":"binary","ARGCOMMENT0":"Uebergabeparameter, Startadresse High-Middle-Low und Daten"}]}

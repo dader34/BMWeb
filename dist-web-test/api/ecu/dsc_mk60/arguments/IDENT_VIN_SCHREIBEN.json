@@ -1,0 +1,1 @@
+{"job":"IDENT_VIN_SCHREIBEN","arguments":[{"ARG":"FG_NR","ARGTYPE":"string","ARGCOMMENT0":"Fahrgestellnummer (18-stellig)","ARGCOMMENT1":"Es muss 1 String mit 18 Zeichen uebergeben werden","ARGCOMMENT2":"das letzte Zeichen ist ein Dummy","ARGCOMMENT3":"z.B. WBAAX71010JR250001","ARGCOMMENT4":"FG_NR: WBAAX71010JR25000"}]}

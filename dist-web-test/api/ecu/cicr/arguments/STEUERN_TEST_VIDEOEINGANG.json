@@ -1,0 +1,1 @@
+{"job":"STEUERN_TEST_VIDEOEINGANG","arguments":[{"ARG":"ARG_QUELLE","ARGTYPE":"long","ARGCOMMENT0":"Video source from which the signal will be tested","ARGCOMMENT1":"values from Table TVideoQuelle"}]}

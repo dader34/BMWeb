@@ -1,0 +1,1 @@
+{"job":"STEUERN_CAS_INIT_KENNUNG","arguments":[{"ARG":"DATEN","ARGTYPE":"string","ARGCOMMENT0":"\"Daten\": z.B. \"0xAA,0xAA,0xAA\"","ARGCOMMENT1":"======> Byte0-2"}]}

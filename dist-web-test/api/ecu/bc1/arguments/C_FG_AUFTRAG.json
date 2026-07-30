@@ -1,0 +1,1 @@
+{"job":"C_FG_AUFTRAG","arguments":[{"ARG":"FG_NR","ARGTYPE":"string","ARGCOMMENT0":"Vehicle ID number","ARGCOMMENT1":"Fahrgestellnummer","ARGCOMMENT2":"7 or 8 character string - if 8 characters the last is ignored"}]}

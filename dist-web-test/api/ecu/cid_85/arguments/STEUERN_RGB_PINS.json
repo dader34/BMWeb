@@ -1,0 +1,1 @@
+{"job":"STEUERN_RGB_PINS","arguments":[{"ARG":"RGB_PINS","ARGTYPE":"char","ARGCOMMENT0":"Bit0=MODN, Bit1=MODW, Bit2=MODS, Bit7=DiagEna"}]}

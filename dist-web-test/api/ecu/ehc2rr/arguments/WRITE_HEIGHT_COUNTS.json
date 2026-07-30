@@ -1,0 +1,1 @@
+{"job":"WRITE_HEIGHT_COUNTS","arguments":[{"ARG":"OFFSET_V_LINKS","ARGTYPE":"int","ARGCOMMENT0":"counts"},{"ARG":"OFFSET_V_RECHTS","ARGTYPE":"int","ARGCOMMENT0":"counts"},{"ARG":"OFFSET_H_LINKS","ARGTYPE":"int","ARGCOMMENT0":"counts"},{"ARG":"OFFSET_H_RECHTS","ARGTYPE":"int","ARGCOMMENT0":"counts"}]}

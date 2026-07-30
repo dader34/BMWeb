@@ -1,0 +1,1 @@
+{"job":"AKTUALISIEREN_CHIP_CARD_DATEN","arguments":[{"ARG":"CHIP_CARD_DATA","ARGTYPE":"unsigned char","ARGCOMMENT0":"Bereich: 0-255","ARGCOMMENT1":"======> Byte0"}]}

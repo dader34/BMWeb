@@ -1,0 +1,1 @@
+{"job":"STEUERN_DWA_LED","arguments":[{"ARG":"DIGITALWERT","ARGTYPE":"string","ARGCOMMENT0":"Werte:","ARGCOMMENT1":"true: LED EIN","ARGCOMMENT2":"false: LED AUS"}]}

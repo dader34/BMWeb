@@ -1,0 +1,1 @@
+{"job":"STEUERN_EINBREMSEN","arguments":[{"ARG":"BREMSFUNKTION","ARGTYPE":"int","ARGCOMMENT0":"AUS, Werkstatt, Kontinuierlich","ARGCOMMENT1":"Werte: 0 = AUS, 1 = Werkstatt, 2 = Kontinuierlich"}]}

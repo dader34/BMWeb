@@ -1,0 +1,1 @@
+{"job":"_MODE4_CLEARRESETEMISSIONRELEATEDDIAGNOSTICINFORMATION","arguments":[{"ARG":"ANALYZE","ARGTYPE":"int","ARGCOMMENT0":"do analyze or not"},{"ARG":"TESTER","ARGTYPE":"unsigned char","ARGCOMMENT0":"Adress in request"}]}

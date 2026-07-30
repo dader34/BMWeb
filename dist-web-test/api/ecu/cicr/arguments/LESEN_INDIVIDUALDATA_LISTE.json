@@ -1,0 +1,1 @@
+{"job":"LESEN_INDIVIDUALDATA_LISTE","arguments":[{"ARG":"ARG_LISTENTRY","ARGTYPE":"unsigned int","ARGCOMMENT0":"Nummer des angeforderten Listenelements (0,1,2,...)","ARGCOMMENT1":"0x0000 = Anforderung, das 1. Listelement zu senden","ARGCOMMENT2":"0x0001 = Anforderung, das 2. Listelement zu senden"}]}

@@ -1,0 +1,1 @@
+["RET_ENTRYNR : Nummer des zurückgegebenen Listenelements (0,1,2,...)","RET_STATUS : Information ob aktuelles Listenelement das Letzte ist","RET_FROMWHERE : Individualdaten müssen via CAN oder MOST oder XY angesprochen werden.","RET_DATA : Listentry zur Individualdaten-Abfrage","RET_COMMENT : Kommentarspalte des Entries","JOB_STATUS : OKAY, wenn fehlerfrei"]

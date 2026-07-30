@@ -1,0 +1,1 @@
+{"job":"STEUERN_CMD_READ_PAGE_TRSP","arguments":[{"ARG":"PAGE_NUMMER","ARGTYPE":"unsigned char","ARGCOMMENT0":"\"Page\": 0-7,0xFF,\"WUP\": 0xFE","ARGCOMMENT1":"Diagnosed, 4 Pages: 0xFD","ARGCOMMENT2":"======> Byte0"}]}

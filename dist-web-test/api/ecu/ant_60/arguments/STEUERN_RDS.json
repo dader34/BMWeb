@@ -1,0 +1,1 @@
+{"job":"STEUERN_RDS","arguments":[{"ARG":"RDS","ARGTYPE":"int","ARGCOMMENT0":"Werte der Tabelle TTunerRDS","ARGCOMMENT1":"0    AF aus / TP aus","ARGCOMMENT2":"1    AF aus / TP ein","ARGCOMMENT3":"2    AF ein / TP aus","ARGCOMMENT4":"3    AF ein / TP ein"}]}

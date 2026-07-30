@@ -1,0 +1,1 @@
+{"job":"STEUERN_VEHICLE_PRODUCTION_DATE","arguments":[{"ARG":"DATE","ARGTYPE":"string","ARGCOMMENT0":"\"Date\" 8 x ASCII (0-9)","ARGCOMMENT1":"======> Byte0-7"}]}

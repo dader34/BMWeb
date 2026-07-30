@@ -1,0 +1,1 @@
+{"job":"MODUS_VORGEBEN","arguments":[{"ARG":"MODE","ARGTYPE":"string","ARGCOMMENT0":"TRANSPORT oder MONTAGE"},{"ARG":"SCHALT_WERT","ARGTYPE":"string","ARGCOMMENT0":"EIN oder AUS"}]}

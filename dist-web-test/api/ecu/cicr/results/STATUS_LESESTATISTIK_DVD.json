@@ -1,0 +1,1 @@
+["STAT_ATA_ID : SmartValue ATA ID","STAT_ATA_ID_TEXT : SmartValue ATA ID Texte from table THDDSmartValues","STAT_NORMALIZED_VALUE : Current normalized SmartValue from 0x01 up to 0xFD","STAT_TRESHOLD_VALUE : Treshold for SmartValue","JOB_STATUS : \"OKAY\", wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

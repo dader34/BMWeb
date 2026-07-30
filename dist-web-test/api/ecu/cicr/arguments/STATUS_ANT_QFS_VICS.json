@@ -1,0 +1,1 @@
+{"job":"STATUS_ANT_QFS_VICS","arguments":[{"ARG":"ARG_FREQUENZ","ARGTYPE":"unsigned long","ARGCOMMENT0":"Frequency that must be set","ARGCOMMENT1":"if empty no change"}]}

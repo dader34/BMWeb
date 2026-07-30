@@ -1,0 +1,1 @@
+{"job":"_EEPROM_LESEN","arguments":[{"ARG":"ARG_START_ADRESSE","ARGTYPE":"int","ARGCOMMENT0":"Start Adresse min 0000 hex"},{"ARG":"ARG_END_ADRESSE","ARGTYPE":"int","ARGCOMMENT0":"End Adresse max FF hex"}]}

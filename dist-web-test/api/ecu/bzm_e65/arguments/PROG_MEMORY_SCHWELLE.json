@@ -1,0 +1,1 @@
+{"job":"PROG_MEMORY_SCHWELLE","arguments":[{"ARG":"VEHICLE_VELOCITY","ARGTYPE":"int","ARGCOMMENT0":"Geschwindigkeit [1/10 km/h] 0..0xFFFF","ARGCOMMENT1":"-> 0xFFFF schaltet die Funktion ab"}]}

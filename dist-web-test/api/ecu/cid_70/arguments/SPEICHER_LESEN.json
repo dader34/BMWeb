@@ -1,0 +1,1 @@
+{"job":"SPEICHER_LESEN","arguments":[{"ARG":"SEGMENT","ARGTYPE":"string","ARGCOMMENT0":"table SpeicherSegment SEG_NAME SEG_TEXT"},{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"0x000000 - 0xFFFFFF"},{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"1 - n ( 254 )"}]}

@@ -1,0 +1,1 @@
+{"job":"AUTHENTISIERUNG_ZUFALLSZAHL_LESEN","arguments":[{"ARG":"LEVEL","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"USER_ID","ARGTYPE":"long","ARGCOMMENT0":"optional"}]}

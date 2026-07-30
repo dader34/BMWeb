@@ -1,0 +1,1 @@
+{"job":"STEUERN_SERVOTRONIC","arguments":[{"ARG":"CONTROL","ARGTYPE":"char","ARGCOMMENT0":"0 = Steuerung zurueck an ECU ","ARGCOMMENT1":"6 = Vorgabe durch Tester "},{"ARG":"PWM","ARGTYPE":"char","ARGCOMMENT0":"PWM_Vorgabe von 0 bis 30 Prozent "}]}

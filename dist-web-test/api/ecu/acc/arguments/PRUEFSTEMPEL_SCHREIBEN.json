@@ -1,0 +1,1 @@
+{"job":"PRUEFSTEMPEL_SCHREIBEN","arguments":[{"ARG":"PRUEFSTEMP_WERT1","ARGTYPE":"string","ARGCOMMENT0":"Pruefstempel Byte1"},{"ARG":"PRUEFSTEMP_WERT2","ARGTYPE":"string","ARGCOMMENT0":"Pruefstempel Byte2"},{"ARG":"PRUEFSTEMP_WERT3","ARGTYPE":"string","ARGCOMMENT0":"Pruefstempel Byte3"}]}

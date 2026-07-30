@@ -1,0 +1,1 @@
+{"job":"STEUERN_DAC","arguments":[{"ARG":"DAC_CHANNEL","ARGTYPE":"char","ARGCOMMENT0":"Gewählter DAC Kanal"},{"ARG":"DAC_VALUE","ARGTYPE":"char","ARGCOMMENT0":"DAC Wert"}]}

@@ -1,0 +1,1 @@
+["JOB_STATUS : OKAY, wenn fehlerfrei","VERSION : HD-Download-Kennung-Version","ANZAHL_SWE : Anzahl der vorhandenen SGBM-IDs","SGBM_ID_RECORD : Feld der SGBM-IDs [0..ANZAHL_SWE-1]","LAENGE_MAPINFO : Anzahl Bytes der Map-Info","MAPINFO : Map-Info in ASCII","_TEL_AUFTRAG : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

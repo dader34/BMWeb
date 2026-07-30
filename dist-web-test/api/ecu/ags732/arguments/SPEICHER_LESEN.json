@@ -1,0 +1,1 @@
+{"job":"SPEICHER_LESEN","arguments":[{"ARG":"SPEICHERART","ARGTYPE":"string","ARGCOMMENT0":"Speicherart: EPROM, EEPROM, RAM_INTERN, RAM_EXTERN"},{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"Startadresse"},{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"Anzahl zu lesender Bytes"}]}

@@ -1,0 +1,1 @@
+{"job":"STEUERN_AL_EINSCHALTEN","arguments":[{"ARG":"AL_EIN_AUS","ARGTYPE":"string","ARGCOMMENT0":"Werte: ein, aus","ARGCOMMENT1":"table DigitalArgument TEXT"},{"ARG":"AL_ZEIT","ARGTYPE":"int","ARGCOMMENT0":"Werte: 0 bis 254","ARGCOMMENT1":"Einheit: secons","ARGCOMMENT2":"Optional argument, by default is 15 sec."}]}

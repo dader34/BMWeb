@@ -1,0 +1,1 @@
+{"job":"STEUERN_EWS4_KEY","arguments":[{"ARG":"DATEN","ARGTYPE":"string","ARGCOMMENT0":"\"Daten\": z.B. \"0x11,0x22,0x33,0x44...\"","ARGCOMMENT1":"======> Byte0-63"}]}

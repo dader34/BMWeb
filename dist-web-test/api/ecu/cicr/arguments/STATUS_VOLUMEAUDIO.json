@@ -1,0 +1,1 @@
+{"job":"STATUS_VOLUMEAUDIO","arguments":[{"ARG":"ARG_AUDIO_SIGNAL","ARGTYPE":"unsigned char","ARGCOMMENT0":"Adjusts the volume of a definite audio signal from table TAudioSignal","ARGCOMMENT1":"Default, 0x00 Entertainment"}]}

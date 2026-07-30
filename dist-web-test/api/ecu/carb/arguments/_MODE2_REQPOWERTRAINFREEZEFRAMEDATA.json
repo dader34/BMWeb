@@ -1,0 +1,1 @@
+{"job":"_MODE2_REQPOWERTRAINFREEZEFRAMEDATA","arguments":[{"ARG":"PID","ARGTYPE":"unsigned char","ARGCOMMENT0":"requested PID"},{"ARG":"FRAME","ARGTYPE":"unsigned char","ARGCOMMENT0":"requested Freeze Frame"},{"ARG":"ANALYZE","ARGTYPE":"int","ARGCOMMENT0":"do analyze or not"},{"ARG":"TESTER","ARGTYPE":"unsigned char","ARGCOMMENT0":"Adress in request"}]}

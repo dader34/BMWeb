@@ -1,0 +1,1 @@
+{"job":"LESEN_CONFIGURATION_TABLE","arguments":[{"ARG":"ARG_DESIRED_CONFIGTABLE_INDEX","ARGTYPE":"unsigned char","ARGCOMMENT0":"desired configtable","ARGCOMMENT1":"0x00 currently active table, 0x01 first config table, ..."},{"ARG":"ARG_DESIRED_PARAMETER","ARGTYPE":"string","ARGCOMMENT0":"name of desired parameter."}]}

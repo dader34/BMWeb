@@ -1,0 +1,1 @@
+{"job":"STEUERN_VORGEBEN_VAR_TIMEOUT","arguments":[{"ARG":"SOLLFOERDERMENGE","ARGTYPE":"int","ARGCOMMENT0":"Wert der vorzugebenden Soll-Foerdermenge"},{"ARG":"TIMEOUTZEIT","ARGTYPE":"int","ARGCOMMENT0":"Zeit für das Timeout dieser Vorgabe in Sekunden","ARGCOMMENT1":"Moeglich sind 1 bis 3000 Sekunden (50 Minuten)"}]}

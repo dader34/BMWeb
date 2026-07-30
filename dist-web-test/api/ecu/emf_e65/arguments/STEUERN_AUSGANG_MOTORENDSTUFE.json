@@ -1,0 +1,1 @@
+{"job":"STEUERN_AUSGANG_MOTORENDSTUFE","arguments":[{"ARG":"MOTOR_FUNKTION","ARGTYPE":"int","ARGCOMMENT0":"AUS, Anziehen, Loesen","ARGCOMMENT1":"Werte: 0= AUS,1=anziehen,2=loesen"},{"ARG":"MOTOR_DUTY","ARGTYPE":"int","ARGCOMMENT0":"TASTVERHAELTNISS in %"}]}

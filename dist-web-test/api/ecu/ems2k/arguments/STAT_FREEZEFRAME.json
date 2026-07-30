@@ -1,0 +1,1 @@
+{"job":"STAT_FREEZEFRAME","arguments":[{"ARG":"DTC","ARGTYPE":"int","ARGCOMMENT0":"Diagnostic trouble code","ARGCOMMENT1":"See \"ORT\" column in table \"FOrtTexte\"","ARGCOMMENT2":"Fehler ort nummer"}]}

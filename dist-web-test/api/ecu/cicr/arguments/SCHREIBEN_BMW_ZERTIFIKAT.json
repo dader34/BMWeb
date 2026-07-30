@@ -1,0 +1,1 @@
+{"job":"SCHREIBEN_BMW_ZERTIFIKAT","arguments":[{"ARG":"ARG_FILE","ARGTYPE":"string","ARGCOMMENT0":"BMW Zertifikat read from file to be written","ARGCOMMENT1":"complete path is necessary"},{"ARG":"ARG_STREAM","ARGTYPE":"string","ARGCOMMENT0":"BMW Zertifikat from STREAM to be written","ARGCOMMENT1":"file content as a string"}]}

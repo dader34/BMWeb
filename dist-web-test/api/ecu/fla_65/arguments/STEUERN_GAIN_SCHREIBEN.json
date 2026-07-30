@@ -1,0 +1,1 @@
+{"job":"STEUERN_GAIN_SCHREIBEN","arguments":[{"ARG":"GAIN_CLEAR","ARGTYPE":"unsigned char","ARGCOMMENT0":"Neuer ClearGain Wert. Default = 0 (keine Änderung)"},{"ARG":"GAIN_RED","ARGTYPE":"unsigned char","ARGCOMMENT0":"Neuer RedGain Wert. Default = 0 (keine Änderung)"}]}

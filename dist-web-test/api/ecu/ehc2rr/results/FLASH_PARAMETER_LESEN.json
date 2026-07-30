@@ -1,0 +1,1 @@
+["JOB_STATUS : OKAY oder ERROR_DIAG_PROT oder ERROR_SG_AUTHENTISIERUNG","SG_ADRESSE : Steuergeräteadresse","SG_MAXANZAHL_AIF : Anzahl der Anwender-Infofelder","SG_GROESSE_AIF : Grösse des Anwender-Infofeldes","SG_ENDEKENNUNG_AIF : Offset für letztes Anwender-Infofeld","SG_AUTHENTISIERUNG : Authentisierungsart","DIAG_PROT_IST : Gibt das aktuelle gewählte Protokoll aus"]

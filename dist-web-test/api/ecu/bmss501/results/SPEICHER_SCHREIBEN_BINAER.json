@@ -1,0 +1,1 @@
+["SEGMENT_RESULT : Segment oder Speicher","ADR_RESULT : naechste freie Adresse low","ANZ_BYTE_RESULT : Anzahl der beschriebenen Bytes","VERIFY_BYTE : 01-O.K., 02-falsch, 03-nicht geloescht etc.","JOB_STATUS : Status der Kommunikation"]

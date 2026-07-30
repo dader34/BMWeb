@@ -1,0 +1,1 @@
+{"job":"DF_AUSGANG_AKTIVIEREN","arguments":[{"ARG":"DF_AUSGANG_ZUSTAND","ARGTYPE":"string","ARGCOMMENT0":"P = passiv, nicht aktivieren oder S = Stillstand oder F = Fahrt"}]}

@@ -1,0 +1,1 @@
+{"job":"STEUERN_ADAPTIONSWERTE_PV7_SCHREIBEN","arguments":[{"ARG":"PV7_DATEN_1","ARGTYPE":"char","ARGCOMMENT0":"Adaptionswert PV7 Daten High Byte 1"},{"ARG":"PV7_DATEN_2","ARGTYPE":"char","ARGCOMMENT0":"Adaptionswert PV7 Daten Low Byte 1"}]}

@@ -1,0 +1,1 @@
+{"job":"STEUERN_TUNER_SUCHLAUF","arguments":[{"ARG":"ARG_SUCHLAUF","ARGTYPE":"unsigned char","ARGCOMMENT0":"Direction of the search","ARGCOMMENT1":"0x00\tDescending, 0x01\tAscending, 0x02\tStop"}]}

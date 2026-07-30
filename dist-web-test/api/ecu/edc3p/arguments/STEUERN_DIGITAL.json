@@ -1,0 +1,1 @@
+{"job":"STEUERN_DIGITAL","arguments":[{"ARG":"FUNKTION","ARGTYPE":"string","ARGCOMMENT0":"Ansteuerfunktion auswaehlen"},{"ARG":"EIN","ARGTYPE":"int","ARGCOMMENT0":"\"1\", wenn einschalten / \"0\", wenn ausschalten"}]}

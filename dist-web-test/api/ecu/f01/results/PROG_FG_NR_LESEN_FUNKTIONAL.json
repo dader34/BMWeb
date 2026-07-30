@@ -1,0 +1,1 @@
+["ECU_ADR : Steuergeräteadresse als Hex-String","ECU_GROBNAME : Grobname des Steuergerätes","ID_SG_ADR : Steuergeräteadresse","FG_NR_KURZ : kurze Fahrgestellnummer (VIN) 7-stellig","FG_NR_LANG : lange Fahrgestellnummer (VIN) 17-stellig","JOB_STATUS : OKAY, wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_RESPONSE : Hex-Antwort von SG"]

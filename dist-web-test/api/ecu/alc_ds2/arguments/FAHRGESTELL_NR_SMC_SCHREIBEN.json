@@ -1,0 +1,1 @@
+{"job":"FAHRGESTELL_NR_SMC_SCHREIBEN","arguments":[{"ARG":"SMC","ARGTYPE":"string","ARGCOMMENT0":"SMC links bzw. rechts"},{"ARG":"FG_DATEN","ARGTYPE":"string","ARGCOMMENT0":"7stellige FG-Nr"}]}

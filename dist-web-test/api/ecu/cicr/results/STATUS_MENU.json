@@ -1,0 +1,1 @@
+["STAT_MENU_WERT : ID of the menu that is currently active (for RSE left display)","STAT_MENU_RSE_RIGHT_WERT : ID of the menu that is currently active (for RSE right display). (00000000 for head-unit)","JOB_STATUS : \"OKAY\", wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

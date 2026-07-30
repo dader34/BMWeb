@@ -1,0 +1,1 @@
+{"job":"STEUERN_PWM_VORGEBEN","arguments":[{"ARG":"SOLL_PWM","ARGTYPE":"unsigned char","ARGCOMMENT0":"Wert der vorzugebenden Soll-PWM","ARGCOMMENT1":"Bereich 0-100 Prozent"}]}

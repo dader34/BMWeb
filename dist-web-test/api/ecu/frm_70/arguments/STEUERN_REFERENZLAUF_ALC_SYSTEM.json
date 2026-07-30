@@ -1,0 +1,1 @@
+{"job":"STEUERN_REFERENZLAUF_ALC_SYSTEM","arguments":[{"ARG":"REFERENZLAUF","ARGTYPE":"string","ARGCOMMENT0":"Referenzlauf fuer Kurvenlicht auswaehlen","ARGCOMMENT1":"falls keiner ausgewaehlt dann wird mit Sensor ausgewaehlt"}]}
