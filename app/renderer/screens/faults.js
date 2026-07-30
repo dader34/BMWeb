@@ -129,7 +129,7 @@ async function exportFaults(ecu, view) {
     [['Generated', now.toLocaleString()], ['Total faults', faults.length], ['Present', present]],
     body);
 
-  const name = `BMacW-faults-${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
+  const name = `${APP_NAME}-faults-${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
   sbLeft.textContent = 'saving…';
   try {
     const res = await window.bmacw.savePdf(name, html);

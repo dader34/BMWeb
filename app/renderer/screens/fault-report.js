@@ -61,12 +61,12 @@ function faultReportHtml(sub, metaPairs, bodyHtml) {
   const meta = metaPairs.map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`).join('');
   return `<!doctype html><html><head><meta charset="utf-8"><style>${FAULT_REPORT_CSS}</style></head><body>
     <header>
-      <div class="brand">BMacW Fault Report</div>
+      <div class="brand">${APP_NAME} Fault Report</div>
       <div class="sub">${esc(sub)}</div>
       <div class="meta">${meta}</div>
     </header>
     ${bodyHtml}
-    <footer>BMacW · native macOS BMW diagnostics. Codes read over K+DCAN; descriptions are best-effort translations.</footer>
+    <footer>${APP_NAME} · ${IS_WEB ? 'BMW diagnostics' : 'native macOS BMW diagnostics'}. Codes read over K+DCAN; descriptions are best-effort translations.</footer>
   </body></html>`;
 }
 
@@ -87,7 +87,7 @@ async function exportFaultPdf(chassisId, faulty, stats) {
      ['Total faults', totalFaults], ['Read', `${stats.scanned} · skipped ${stats.skipped}`]],
     body);
 
-  const name = `BMacW-faults-${dispChassis(chassisId)}-${now.toISOString().slice(0, 10)}.pdf`;
+  const name = `${APP_NAME}-faults-${dispChassis(chassisId)}-${now.toISOString().slice(0, 10)}.pdf`;
   const btn = document.getElementById('quick-pdf');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {

@@ -5,7 +5,7 @@ function showSettings() {
   if (typeof cancelSweep === 'function') cancelSweep(); // stop a running sweep
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Settings' }]);
   sbLeft.textContent = 'settings';
-  view.innerHTML = head('Preferences', 'Settings', 'Configure how BMacW displays diagnostics.');
+  view.innerHTML = head('Preferences', 'Settings', `Configure how ${APP_NAME} displays diagnostics.`);
 
   const wrap = document.createElement('div');
   // INPA laid its options out the same way it laid out everything else: a
@@ -66,7 +66,8 @@ function showSettings() {
       { val: 'off', label: 'Modern' },
     ],
     Settings.get('inpaScreens', 'off'),
-    (v) => Settings.set('inpaScreens', v),
+    // re-render in place: this screen is itself laid out differently per mode
+    (v) => { Settings.set('inpaScreens', v); showSettings(); },
   ));
 
   // auto-scan the DME (and trans) for stored faults when a chassis is opened,
@@ -178,7 +179,7 @@ function showSettings() {
   hiwRow.innerHTML = `
     <div class="setting-text">
       <div class="setting-title">How it works</div>
-      <div class="setting-desc">A quick guided demo of what BMacW does and the BMW software it uses.</div>
+      <div class="setting-desc">A quick guided demo of what ${APP_NAME} does and the BMW software it uses.</div>
     </div>`;
   const hiwBtn = document.createElement('button');
   hiwBtn.className = 'btn';
@@ -232,10 +233,46 @@ function showSettings() {
   // version footer
   const ver = document.createElement('div');
   ver.className = 'settings-version';
-  ver.textContent = `BMacW ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : ''}`.trim();
+  ver.textContent = `${APP_NAME} ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : ''}`.trim();
   view.appendChild(ver);
 
   stagger(wrap, 40);
+
+  // INPA mode: the rows as the Hauptmenue draws its keys -- a vertical
+  // < F n > list down the left edge, shift-spelled past nine, the way every
+  // ECU home screen reads. The whole row presses like a key: toggles cycle
+  // to their next option, the Skin row cycles themes, pickers open, buttons
+  // fire. Clicks on the controls themselves keep their own behavior.
+  if (inpaMode()) {
+    const activate = (row) => {
+      const seg = [...row.querySelectorAll('.seg-btn')];
+      if (seg.length) {
+        const i = seg.findIndex(b => b.classList.contains('active'));
+        return seg[(i + 1) % seg.length].click();
+      }
+      const cards = [...row.querySelectorAll('.theme-card')];
+      if (cards.length) {
+        const i = cards.findIndex(c => c.classList.contains('active'));
+        return cards[(i + 1) % cards.length].click();
+      }
+      const btn = row.querySelector('.combo-btn, .btn');
+      if (btn) btn.click();
+    };
+    [...wrap.children].forEach((row, i) => {
+      const shift = i >= FKEY_SLOTS;
+      const n = shift ? i - FKEY_SLOTS + 1 : i + 1;
+      if (n > FKEY_SLOTS) return;
+      const tag = document.createElement('span');
+      tag.className = 'inpa-fn-key';
+      tag.innerHTML = shift ? `&lt; Shift &gt; + &lt; F${n} &gt;`
+                            : `&lt; F${n} &gt;`;
+      row.prepend(tag);
+      row.onclick = (e) => {
+        if (e.target.closest('button, .combo')) return;
+        activate(row);
+      };
+    });
+  }
 
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => lastScreen() }]);
 }
@@ -446,7 +483,8 @@ async function waitForEngine() {
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
   document.getElementById('flash-btn').onclick = showFlashing;
-  // custom window controls (frameless window for Aero)
+  // custom window controls (frameless window for Aero; removed by index.html
+  // on the web, where they drive nothing)
   if (window.bmacw) {
     document.getElementById('win-close').onclick = () => window.bmacw.winClose();
     document.getElementById('win-min').onclick = () => window.bmacw.winMinimize();

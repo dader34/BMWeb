@@ -366,3 +366,14 @@ html[data-theme="inpa"] .split-nav-item.active .nav-key {
   border-bottom-color: #808080 !important;
   box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a9a5a0;
 }
+
+/* The INPA-layout settings list is a ruled list in every skin: the per-theme
+   card treatment of .setting-row (borders above) must not box its rows. */
+html .inpa-settings .setting-row {
+  background: none !important; border: none !important;
+  border-bottom: 1px dotted var(--line) !important;
+  border-radius: 0 !important; box-shadow: none !important;
+}
+html[data-theme="inpa"] .inpa-settings .setting-row {
+  border-bottom-color: #c9c9c9 !important;
+}
