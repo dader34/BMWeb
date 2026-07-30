@@ -19,6 +19,7 @@ import os
 import sys
 import json
 import gzip
+import glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
@@ -124,6 +125,73 @@ def main():
                     n_file += 1
             n_ecu += 1
         print(f"  {cid:6} {len(ecus):3} ecus")
+
+    # -- ECUs no chassis claims ---------------------------------------------
+    # data/inpa-ir holds 832 decompiled ECUs; only ~356 are named by a chassis
+    # config. The rest are real decompiler output for ECUs INPA ships but no
+    # car in CFGDAT references: other models, other markets, or variants BMW
+    # never wired into a chassis file. They do not ship, but dropping them
+    # from the tree would make the layout a lie -- "everything we decompiled"
+    # would silently mean "everything some car mentions".
+    if not want:
+        claimed = set()
+        for cid, ecus in _by_chassis().items():
+            for code, sgbd, _ in ecus:
+                claimed.add(code.lower())
+                claimed.add(sgbd)
+        # BMW also ships an .IPO per CAR, not per ECU: the whole-vehicle
+        # screens you see before picking a module (E90.IPO is a two-screen
+        # "ID Lesen / Anzeigen / Drucken" page, e46.IPO an Information /
+        # Fehlerspeicher menu). They are not ECUs and do not belong beside
+        # one, so they get their own bucket rather than being swept into
+        # other/ with the genuine orphans.
+        chassis_ids = {os.path.basename(q)[:-5].upper()
+                       for q in glob.glob(os.path.join(T.CONFIG, "*.json"))} - {"INDEX"}
+
+        def bucket(stem_name):
+            u = stem_name.upper()
+            if u in chassis_ids or any(u.startswith(c + "_") for c in chassis_ids):
+                return "vehicle"
+            return "other"
+
+        n_other = 0
+        counts = {}
+        for stem, p in sorted(stems.items()):
+            if stem in claimed:
+                continue
+            name0 = os.path.basename(p).split(".")[0]
+            d = os.path.join(T.TREE, bucket(name0), name0)
+            os.makedirs(d, exist_ok=True)
+            b = (gzip.open(p, "rb") if p.endswith(".gz") else open(p, "rb")).read()
+            _write(d, "screens.json", b)
+            kind0 = bucket(name0)
+            _write(d, "ecu.json", json.dumps(
+                {"code": name0, "sgbd": stem, "chassis": None,
+                 "kind": kind0,
+                 "note": ("INPA's whole-vehicle screens for this car, not an "
+                          "ECU") if kind0 == "vehicle" else
+                         "decompiled, but no chassis config references it"},
+                ensure_ascii=False, separators=(",", ":")).encode())
+            n_file += 2
+            # a handful do have compiled code and metadata
+            for name, kind in SOURCES:
+                raw = load(kind, stem)
+                if not raw:
+                    continue
+                if name == "job-code.json":
+                    _write(d, name + ".gz", gzip.compress(raw, 6))
+                else:
+                    _write(d, name, raw)
+                n_file += 1
+            counts[kind0] = counts.get(kind0, 0) + 1
+            n_other += 1
+        for b in ("other", "vehicle"):
+            if counts.get(b):
+                what = ("no chassis references them" if b == "other"
+                        else "whole-vehicle INPA screens, not ECUs")
+                print(f"  {b:7} {counts[b]:3} ({what})")
+        if n_other:
+            n_ecu += n_other
 
     print(f"\n{n_ecu} ecu folders, {n_file} files -> data/chassis/")
     return 0
