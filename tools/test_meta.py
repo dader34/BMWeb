@@ -87,6 +87,16 @@ def main():
     print(f"jobs          : {tot_jobs} engine, {miss_jobs} missing from ours,"
           f" {extra_jobs} extra")
     print(f"results       : {tot_res} engine, {miss_res} missing from ours")
+    if not checked_ecus:
+        # A COMPARISON AGAINST NOTHING IS NOT A PASS. The app no longer serves
+        # /api/ecu/*/jobs from EDIABAS -- that endpoint went with InpaMac.Api --
+        # so this reads zero engine answers and every difference count is
+        # trivially zero. Say so instead of printing a green line: the engine
+        # is still reachable through the CLI (src/InpaMac.Cli), which is what
+        # sgbd_bulk_verify.py uses, and this check needs rewriting onto it.
+        print("SKIPPED: no engine endpoint to compare against "
+              "(InpaMac.Api removed; port served only static files)")
+        return 0
     bad = miss_jobs or miss_res
     print("metadata matches the engine" if not bad else "MISMATCH")
     return 1 if bad else 0

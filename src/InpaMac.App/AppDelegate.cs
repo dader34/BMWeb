@@ -1,31 +1,36 @@
 using AppKit;
 using CoreGraphics;
-using EdiabasMac;
 using Foundation;
-using InpaMac.Server;
 using WebKit;
 
 namespace InpaMac.App;
 
-// Single-binary host: starts the JSON API in-process on an ephemeral loopback
-// port (Kestrel is an implementation detail, not a second process), then opens
-// the existing renderer in a WKWebView. Window chrome matches the Electron
+// Single-binary host: serves the renderer over an ephemeral loopback port
+// (Kestrel is an implementation detail, not a second process), then opens it
+// in a WKWebView. There is no API and no EDIABAS engine -- the BEST2 VM in
+// the renderer decodes jobs, and the cable is reached through SerialProxy on
+// the native bridge. Window chrome matches the Electron
 // shell: hidden titlebar, renderer-drawn traffic lights, draggable background.
 public sealed class AppDelegate : NSApplicationDelegate
 {
     private Microsoft.AspNetCore.Builder.WebApplication? _server;
-    private ServerState? _state;
     private NSWindow? _window;
     private WKWebView? _webView;
     private BmacwBridge? _bridge;
 
     public override void DidFinishLaunching(NSNotification notification)
     {
-        string root = Paths.FindRepoRoot();
+        string root = AppPaths.FindRoot();
         string rendererDir = Path.Combine(root, "app", "renderer");
 
-        // engine + API in-process; port 0 = let the kernel pick a free one
-        (_server, _state) = ServerHost.Build(Array.Empty<string>(), rendererDir);
+        // A FILE SERVER, NOT AN API. The renderer decodes jobs itself now (the
+        // BEST2 VM in bestvm.js) and reads everything else from static JSON, so
+        // nothing is left to serve but files. It still has to be http:// rather
+        // than file://, because a file:// page gets an opaque origin where
+        // fetch() is blocked and the app cannot read its own data.
+        // port 0 = let the kernel pick a free one.
+        string dataDir = Path.Combine(root, "dist-web");
+        _server = StaticHost.Build(rendererDir, dataDir);
         _server.Urls.Add("http://127.0.0.1:0");
         _server.StartAsync().GetAwaiter().GetResult();
         string origin = _server.Urls.First();
@@ -47,13 +52,12 @@ public sealed class AppDelegate : NSApplicationDelegate
 
     public override void WillTerminate(NSNotification notification)
     {
-        // same shutdown discipline as the sidecar: reset any in-progress
-        // flash and release the FTDI port before the process dies.
+        // Release the FTDI port before the process dies. This used to be the
+        // engine's job (ServerState.Shutdown); the engine is gone, and the
+        // only thing still holding hardware is the bridge's SerialProxy.
         // NO graceful Kestrel stop here: blocking the AppKit main thread on
         // StopAsync deadlocks (sync-over-async against the run-loop context)
-        // and the process exits right after this anyway — Shutdown() already
-        // released everything that matters.
-        _state?.Shutdown();
+        // and the process exits right after this anyway.
         _bridge?.Dispose();
     }
 

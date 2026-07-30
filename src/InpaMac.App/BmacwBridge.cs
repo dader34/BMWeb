@@ -16,6 +16,7 @@ namespace InpaMac.App;
 public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
 {
     private readonly NSWindow _window;
+    private readonly SerialProxy _serial = new();
     private readonly Dictionary<string, StreamWriter> _logs = new();
     private int _logSeq;
     private WKWebView? _pdfWorker; // kept alive while rendering a report
@@ -46,6 +47,16 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         winMinimize: () => call('winMinimize'),
         winZoom: () => call('winZoom'),
         winDrag: () => call('winDrag'),
+        // The cable. WKWebView has no Web Serial (Chrome does, which is how
+        // the web build reaches the bus), so the shell moves the bytes and
+        // the VM in the renderer does everything else. Byte arrays cross as
+        // plain number arrays: the message channel is JSON.
+        serialList: () => call('serialList'),
+        serialOpen: (path, baud) => call('serialOpen', path || null, baud || 115200),
+        serialClose: () => call('serialClose'),
+        serialWrite: (bytes) => call('serialWrite', Array.from(bytes)),
+        serialRead: () => call('serialRead'),
+        serialFlush: () => call('serialFlush'),
       };
       // WKWebView ignores -webkit-app-region, so the Electron-era drag CSS on
       // .topbar/.splash does nothing here: reimplement it by handing the
@@ -85,6 +96,14 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "winMinimize": _window.Miniaturize(this); Settle(webView, id, Ok()); return;
                 case "winZoom": _window.Zoom(this); Settle(webView, id, Ok()); return;
                 case "winDrag": WinDrag(); Settle(webView, id, Ok()); return;
+                case "serialList": Settle(webView, id, SerialProxy.ListPorts()); return;
+                case "serialOpen":
+                    Settle(webView, id, new { port = _serial.Open(ArgString(args, 0), ArgInt(args, 1)) });
+                    return;
+                case "serialClose": _serial.Close(); Settle(webView, id, Ok()); return;
+                case "serialWrite": _serial.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
+                case "serialRead": Settle(webView, id, _serial.ReadAvailable()); return;
+                case "serialFlush": _serial.Flush(); Settle(webView, id, Ok()); return;
                 default: Settle(webView, id, null, $"unknown bridge fn '{fn}'"); return;
             }
         }
@@ -279,6 +298,25 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
 
     private static object Ok() => new { ok = true };
 
+    private static int ArgInt(JsonElement args, int index) =>
+        args.ValueKind == JsonValueKind.Array && args.GetArrayLength() > index
+        && args[index].ValueKind == JsonValueKind.Number
+            ? args[index].GetInt32() : 0;
+
+    // A byte array arrives as a JSON number array -- the message channel is
+    // text, so there is no typed-array to unwrap.
+    private static byte[] ArgBytes(JsonElement args, int index)
+    {
+        if (args.ValueKind != JsonValueKind.Array || args.GetArrayLength() <= index)
+            return Array.Empty<byte>();
+        var a = args[index];
+        if (a.ValueKind != JsonValueKind.Array) return Array.Empty<byte>();
+        var bytes = new byte[a.GetArrayLength()];
+        int i = 0;
+        foreach (var el in a.EnumerateArray()) bytes[i++] = (byte)(el.GetInt32() & 0xff);
+        return bytes;
+    }
+
     private static string? ArgString(JsonElement args, int index) =>
         args.ValueKind == JsonValueKind.Array && args.GetArrayLength() > index
         && args[index].ValueKind == JsonValueKind.String
@@ -298,6 +336,9 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
     {
         foreach (var w in _logs.Values) w.Dispose();
         _logs.Clear();
+        // Release the cable: a port still held by a dead app blocks the next
+        // launch, and the FTDI driver does not always reap it promptly.
+        _serial.Dispose();
         base.Dispose();
     }
 }

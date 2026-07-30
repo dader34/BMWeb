@@ -25,9 +25,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- the whole JSON API + engine, hosted in-process (no sidecar) -->
-    <ProjectReference Include="..\InpaMac.Api\InpaMac.Api.csproj" />
+    <!-- Kestrel only: StaticHost serves the renderer and dist-web/. The API
+         and the EDIABAS engine are gone; the VM decodes jobs in the renderer
+         and SerialProxy owns the cable. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- SerialProxy: the shell owns the cable now that the VM decodes jobs in
+         the renderer. -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
