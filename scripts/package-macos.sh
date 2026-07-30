@@ -44,6 +44,23 @@ cp -R "$ROOT/tools/translations"           "$DATA/tools/translations"
 cp -R "$ROOT/data/inpa-layouts/enriched"   "$DATA/data/inpa-layouts/enriched"
 #  - the UI itself
 cp -R "$ROOT/app/renderer"                 "$DATA/app/renderer"
+#  - the BEST2 VM's inputs and the offline metadata endpoints' data, for all
+#    21 chassis. Job code ships GZIPPED ONLY: 456 MB of JSON compresses to
+#    21 MB, and ServeDataFile prefers a .json.gz sibling and sets
+#    Content-Encoding so fetch() inflates it transparently. Copying the raw
+#    .json too would add 456 MB to the bundle for no benefit.
+mkdir -p "$DATA/data/job-code" "$DATA/data/job-meta" \
+         "$DATA/data/sgbd-tables" "$DATA/data/inpa-ir"
+cp "$ROOT/data/job-code/"*.json.gz          "$DATA/data/job-code/"
+cp "$ROOT/data/job-code/index.json"         "$DATA/data/job-code/"
+# job-meta is read SERVER-SIDE off disk (MetaDoc -> File.ReadAllText), not
+# served through ServeDataFile, so it needs the plain .json -- shipping only
+# the .gz would make every offline job list 404 to the engine fallback.
+cp "$ROOT/data/job-meta/"*.json             "$DATA/data/job-meta/"
+cp -R "$ROOT/data/sgbd-tables/."            "$DATA/data/sgbd-tables/"
+cp -R "$ROOT/data/inpa-ir/."                "$DATA/data/inpa-ir/"
+#  - the per-ECU ship tree the chassis screens read
+cp -R "$ROOT/ecus"                          "$DATA/ecus"
 
 echo "==> ad-hoc signing (after resources, so the seal matches final contents)"
 codesign --force --deep --sign - "$STAGE/BMacW.app"

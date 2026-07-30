@@ -140,7 +140,7 @@ def relocate(ops, index, data):
     return unresolved
 
 
-def export(sgbd, write=True):
+def export(sgbd, write=True, all_jobs=False):
     data, jobs = SP.load(sgbd)
     ir = S.ir_jobs_for(sgbd)
     # INITIALISIERUNG is not referenced by any screen, but EDIABAS RUNS IT
@@ -149,9 +149,20 @@ def export(sgbd, write=True):
     # free count come from there via shmset/shmget. Skipping it made those
     # results read zeros. Same for the standard exit job, which pairs with it.
     always = {"INITIALISIERUNG", "IDENTIFIKATION", "ENDE"}
+    # all_jobs: export EVERY job the SGBD declares, not just the ones a lifted
+    # screen happens to name.
+    #
+    # The IR filter is right for E46, where the screens are fully lifted -- it
+    # keeps the file to what the app can actually invoke. It is WRONG as a
+    # coverage story anywhere else: an SGBD whose screens were never lifted has
+    # an empty `ir`, so `wanted` collapses to the three `always` jobs and the
+    # export "succeeds" with a 1-job file. absmk4 declares 8 jobs and shipped
+    # INITIALISIERUNG alone -- a file that exists, passes every check, and
+    # cannot answer a single real request. Silent partial coverage is worse
+    # than none, because the manifest then claims the SGBD is handled.
     wanted = [(n, a) for n, a in jobs
               if not n.startswith("_")
-              and (n.upper() in ir or n.upper() in always)]
+              and (all_jobs or n.upper() in ir or n.upper() in always)]
     if not wanted:
         return None
     ops, index, strings = encode(data, [a for _, a in wanted])
@@ -173,11 +184,19 @@ def export(sgbd, write=True):
 
 def main():
     args = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
-    targets = args or S.e46_sgbds()
+    all_jobs = "--all-jobs" in sys.argv
+    # --all-chassis: every SGBD any shipped ECU names, not just E46's. Implies
+    # --all-jobs, because the point of widening the SGBD set is coverage and a
+    # chassis without lifted screens would otherwise export three jobs each.
+    if "--all-chassis" in sys.argv:
+        targets = args or S.all_shipped_sgbds()
+        all_jobs = True
+    else:
+        targets = args or S.e46_sgbds()
     tot_ops = tot_bytes = tot_unres = 0
     for sgbd in targets:
         try:
-            r = export(sgbd)
+            r = export(sgbd, all_jobs=all_jobs)
         except SystemExit:
             continue
         if not r:

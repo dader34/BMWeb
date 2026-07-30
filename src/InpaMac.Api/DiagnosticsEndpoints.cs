@@ -84,10 +84,10 @@ internal static class DiagnosticsEndpoints
         // SGBD's tables. Served from data/ rather than the renderer dir so the
         // whole data tree does not become web-reachable -- only these two
         // files per ECU, by name, with no path separators allowed through.
-        app.MapGet("/data/job-code/{file}", (string file) =>
-            ServeDataFile(state, "job-code", file));
-        app.MapGet("/data/sgbd-tables/{file}", (string file) =>
-            ServeDataFile(state, "sgbd-tables", file));
+        app.MapGet("/data/job-code/{file}", (HttpContext ctx, string file) =>
+            ServeDataFile(state, "job-code", file, ctx));
+        app.MapGet("/data/sgbd-tables/{file}", (HttpContext ctx, string file) =>
+            ServeDataFile(state, "sgbd-tables", file, ctx));
 
         // ---- live (bus) ----
 
@@ -242,7 +242,8 @@ internal static class DiagnosticsEndpoints
     // A single JSON file out of a known data subdirectory. Rejects anything
     // that is not a bare <name>.json: no separators, no traversal, no other
     // extensions -- the file name arrives from a URL.
-    static IResult ServeDataFile(ServerState state, string dir, string file)
+    static IResult ServeDataFile(ServerState state, string dir, string file,
+                                 HttpContext? ctx = null)
     {
         if (string.IsNullOrEmpty(file)
             || file.IndexOfAny(new[] { '/', '\\' }) >= 0
@@ -252,6 +253,21 @@ internal static class DiagnosticsEndpoints
             return Results.NotFound();
         }
         var path = Path.Combine(state.Root, "data", dir, file);
+        // Prefer a pre-compressed sibling. Job code for every chassis is 456 MB
+        // of JSON but only ~18 MB gzipped -- the bytecode is repetitive enough
+        // to compress to 4%, so shipping the .gz is what makes whole-corpus
+        // coverage fit in the app bundle at all. Content-Encoding: gzip means
+        // fetch() inflates it transparently and the renderer never knows.
+        // Only when the caller advertises gzip; without the header the client
+        // would get raw deflate bytes and fail to parse the JSON.
+        var gz = path + ".gz";
+        var accepts = ctx?.Request.Headers.AcceptEncoding.ToString() ?? "";
+        if (File.Exists(gz)
+            && accepts.Contains("gzip", StringComparison.OrdinalIgnoreCase))
+        {
+            ctx!.Response.Headers.ContentEncoding = "gzip";
+            return Results.File(gz, "application/json");
+        }
         if (!File.Exists(path)) return Results.NotFound();
         return Results.File(path, "application/json");
     }

@@ -139,7 +139,13 @@ def export(sgbd, write=True):
 
 def main():
     args = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
-    targets = args or S.e46_sgbds()
+    # --all-chassis: every SGBD any shipped ECU names, so an offline browse of
+    # a non-E46 car has its job list and result schema too. The description
+    # block is read straight from the .prg, so this needs no running app.
+    if "--all-chassis" in sys.argv:
+        targets = args or S.all_shipped_sgbds()
+    else:
+        targets = args or S.e46_sgbds()
     tot_j = tot_r = tot_b = 0
     for sgbd in targets:
         try:
