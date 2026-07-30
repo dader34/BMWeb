@@ -243,6 +243,8 @@ def decode_with_spec(spec, telegram):
             raw >>= r["shift"]
         if r.get("mask") is not None:
             raw &= r["mask"]
+        if r.get("mult"):
+            raw = raw * r["mult"]
         if r.get("addend"):
             raw += r["addend"]
         # A loop record's scale lives in the SGBD table, one row per
@@ -263,17 +265,17 @@ def decode_with_spec(spec, telegram):
             # lookup; a static decoder honestly cannot.
             out[r["name"]] = raw
             continue
+        val = raw
         if r.get("scale") is not None:
-            val = raw * r["scale"] + (r.get("offset") or 0.0)
-            # An INTEGRAL result type is the truncation: `flt2fix` then
-            # `ergi` cannot store 9.765, so the engine reports 9. This is
-            # the erg opcode's semantics, not a heuristic -- STAT_AUSGANG
-            # is the PWM byte / 2.56 stored through ergi.
-            if r.get("type") in ("byte", "word", "int", "long", "dword"):
-                val = math.trunc(val)
-            out[r["name"]] = val
-        else:
-            out[r["name"]] = raw
+            val = val * r["scale"] + (r.get("offset") or 0.0)
+        # An INTEGRAL result type is the truncation: `flt2fix` then `ergi`
+        # cannot store 9.765, so the engine reports 9 -- and a fractional
+        # mult (dws: *100/15) truncates the same way. The erg opcode's
+        # semantics, not a heuristic.
+        if not isinstance(val, int) \
+                and r.get("type") in ("byte", "word", "int", "long", "dword"):
+            val = math.trunc(val)
+        out[r["name"]] = val
     return out
 
 
