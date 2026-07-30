@@ -578,12 +578,17 @@ class Best2Vm {
         return;
       }
       case 'a2fix': {
+        // StringToValue, NOT a float parse: it understands 0x hex and 0y
+        // binary. The `bits` tables hold masks as "0x01", and parseFloat
+        // stops at the 'x' and yields 0 -- so every table-driven bit test
+        // masked with 0 and reported the bit set.
         const w = this.widthOf(A);
         const txt = B[0] === 8 ? this.code.strings[B[1]]
           : Best2Vm.cstr(this.bytes(B));
-        const v = Math.trunc(Best2Vm.parseNum(txt));
+        const v = Best2Vm.strToValue(txt);
         this.store(A, ((v % 2 ** (8 * w)) + 2 ** (8 * w)) % 2 ** (8 * w));
-        this.updateFlags(v, w);
+        // a2fix forces Zero and Sign false regardless of the value
+        f.zero = false; f.sign = false; f.overflow = false;
         return;
       }
       case 'flt2a': {
@@ -693,13 +698,23 @@ class Best2Vm {
         this.setS(reg, out);
         return;
       }
-      case 'scmp': case 'strcmp': {
+      case 'scmp': {
+        // datacmp: byte-exact, and Zero means EQUAL (the normal sense)
         const x = this.bytes(A), y = this.bytes(B);
-        const xs = name === 'strcmp' ? Best2Vm.cstr(x) : Best2Vm.bytesStr(x);
-        const ys = name === 'strcmp' ? Best2Vm.cstr(y) : Best2Vm.bytesStr(y);
-        f.zero = xs === ys;
-        f.carry = xs < ys;
-        f.sign = xs < ys;
+        f.zero = x.length === y.length && x.every((v, i) => v === y[i]);
+        return;
+      }
+      case 'strcmp': {
+        // INVERTED relative to scmp: OpStrcmp sets
+        //   Zero = (String.Compare(a, b, Ordinal) != 0)
+        // so ZERO MEANS THE STRINGS DIFFER. Getting this backwards made
+        // every `strcmp S2,"BUSY" / jz done` status check read as "still
+        // busy" on an OKAY response, so all 28 BMS46 jobs retried the
+        // telegram until the step limit.
+        const xs = Best2Vm.cstr(this.bytes(A));
+        const ys = B[0] === 8 ? this.code.strings[B[1]]
+          : Best2Vm.cstr(this.bytes(B));
+        f.zero = xs !== String(ys ?? '');
         return;
       }
       case 'serase': {
