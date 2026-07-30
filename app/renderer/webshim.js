@@ -268,13 +268,17 @@ async function loadEcu(sgbd, realFetch) {
     }
   }
 
-  // Fallback: fetch directly
+  // Not in a chassis we have open yet. ECUs ship only inside their chassis
+  // archive -- loose copies duplicated all 310 for 47 MB and nothing read
+  // them -- so find the car that owns this SGBD and load that. Costs one
+  // chassis download, after which every ECU in the same car is already here.
   if (!ecuZipBytes) {
-    const fileUrl = `${WEB_BASE}/api/ecu/${lowerSgbd}.ecu`;
-    const res = await realFetch(fileUrl);
-    if (res.ok) {
-      const buffer = await res.arrayBuffer();
-      ecuZipBytes = new Uint8Array(buffer);
+    const idx = await (await realFetch(
+      `${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)).json().catch(() => null);
+    const cid = idx && idx[lowerSgbd];
+    if (cid) {
+      const data = await loadChassis(cid, realFetch);
+      ecuZipBytes = data.ecuZips.get(lowerSgbd) || null;
     }
   }
 
