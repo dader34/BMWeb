@@ -504,6 +504,8 @@ def extract(data, addr, sgbd, job):
             # instruction stream. Gating on pending_bytes dropped both.
             r_mask = _xform.get(nm, {}).get("mask")
             r_add = _xform.get(nm, {}).get("addend")
+            r_shift = _xform.get(nm, {}).get("shift")
+            r_mult = _xform.get(nm, {}).get("mult")
             if pending_bytes:
                 # The response bytes this result was built from, in the order
                 # the bytecode read them, indexed from the start of the
@@ -552,10 +554,16 @@ def extract(data, addr, sgbd, job):
                     and "r" in args[1] else None)
                 if lit:
                     r["values"] = [lit]
+            if r_shift:
+                r["shift"] = r_shift
             if r_mask is not None:
                 r["mask"] = r_mask
             if r_add:
                 r["addend"] = r_add
+            if r_mult and r.get("scale") is None:
+                # an INTEGER multiply before the store (dws: byte * 16); a
+                # float scale, when present, already includes it
+                r["scale"] = r_mult
             results.append(r)
             pending_mask = pending_add = None
             pending_scale = pending_off = None

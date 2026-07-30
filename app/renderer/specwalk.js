@@ -138,6 +138,9 @@ function specWalkResult(result, frame, ctx) {
   // wide fields go through it and come back as a Number only when they fit.
   let big = 0n;
   for (const b of picked) big = (big << 8n) | BigInt(b);
+  // in the bytecode's order: shift positions the field, mask selects it,
+  // then a constant offset is added (dws switch bits: lsr #3 / and #1)
+  if (result.shift) big >>= BigInt(result.shift);
   if (result.mask != null) big &= BigInt(result.mask);
   if (result.addend) big += BigInt(result.addend);
   const raw = big <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(big) : big;
