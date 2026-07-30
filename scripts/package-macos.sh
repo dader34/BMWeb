@@ -31,36 +31,19 @@ RES="$STAGE/BMacW.app/Contents/Resources"
 
 echo "==> bundling runtime data into Contents/Resources/data"
 DATA="$RES/data"
-mkdir -p "$DATA/vendor/EDIABAS" "$DATA/vendor" "$DATA/tools" \
-         "$DATA/data/inpa-layouts" "$DATA/app"
-#  - vendor/EDIABAS/Ecu: the SGBDs the engine interprets (skip Bin/Hardware:
-#    Win32 tools and drivers, dead weight on macOS)
-cp -R "$ROOT/vendor/EDIABAS/Ecu"           "$DATA/vendor/EDIABAS/Ecu"
-#  - vendor/EC-APPS: INPA chassis config + SGDAT screen sources
-cp -R "$ROOT/vendor/EC-APPS"               "$DATA/vendor/EC-APPS"
-#  - community token translations MenuGen loads at runtime
-cp -R "$ROOT/tools/translations"           "$DATA/tools/translations"
-#  - mined + hand-curated screen layouts served by /api/ecu/{sgbd}/layout
-cp -R "$ROOT/data/inpa-layouts/enriched"   "$DATA/data/inpa-layouts/enriched"
-#  - the UI itself
+mkdir -p "$DATA/app"
+# THE APP READS TWO THINGS. AppDelegate serves app/renderer over loopback and
+# dist-web beside it; there is no engine and no API any more, so the .prg
+# tree, EC-APPS, the MenuGen translations and the mined layouts are all build
+# inputs now, not runtime data. Bundling vendor/EDIABAS/Ecu alone was 443 MB
+# that nothing opened.
 cp -R "$ROOT/app/renderer"                 "$DATA/app/renderer"
-#  - the BEST2 VM's inputs and the offline metadata endpoints' data, for all
-#    21 chassis. Job code ships GZIPPED ONLY: 456 MB of JSON compresses to
-#    21 MB, and ServeDataFile prefers a .json.gz sibling and sets
-#    Content-Encoding so fetch() inflates it transparently. Copying the raw
-#    .json too would add 456 MB to the bundle for no benefit.
-mkdir -p "$DATA/data/job-code" "$DATA/data/job-meta" \
-         "$DATA/data/sgbd-tables" "$DATA/data/inpa-ir"
-cp "$ROOT/data/job-code/"*.json.gz          "$DATA/data/job-code/"
-cp "$ROOT/data/job-code/index.json"         "$DATA/data/job-code/"
-# job-meta is read SERVER-SIDE off disk (MetaDoc -> File.ReadAllText), not
-# served through ServeDataFile, so it needs the plain .json -- shipping only
-# the .gz would make every offline job list 404 to the engine fallback.
-cp "$ROOT/data/job-meta/"*.json             "$DATA/data/job-meta/"
-cp -R "$ROOT/data/sgbd-tables/."            "$DATA/data/sgbd-tables/"
-cp -R "$ROOT/data/inpa-ir/."                "$DATA/data/inpa-ir/"
-#  - the per-ECU ship tree the chassis screens read
-cp -R "$ROOT/ecus"                          "$DATA/ecus"
+if [ ! -d "$ROOT/dist-web/api" ]; then
+  echo "error: dist-web/ is missing or empty. Build it first:" >&2
+  echo "       scripts/build-web.sh" >&2
+  exit 1
+fi
+cp -R "$ROOT/dist-web"                     "$DATA/dist-web"
 
 echo "==> ad-hoc signing (after resources, so the seal matches final contents)"
 codesign --force --deep --sign - "$STAGE/BMacW.app"
