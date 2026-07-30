@@ -69,18 +69,23 @@ function tablesFor(sgbd) {
 // else as text. The engine reports every result as a string.
 function same(want, got) {
   if (got === undefined || got === null) return false;
+  // A byte array is formatted FIRST, before any numeric comparison: the
+  // engine renders it as dash-separated uppercase hex (Diag.Format), and
+  // parseFloat("1F-27-2D") is 31 -- which accidentally equals the first
+  // byte and would score a wrong value as correct.
+  if (Array.isArray(got)) {
+    const hex = got.map(
+      (b) => b.toString(16).toUpperCase().padStart(2, '0')).join('-');
+    return String(want) === hex;
+  }
   const wn = parseFloat(want), gn = typeof got === 'number' ? got
     : parseFloat(String(got));
   if (Number.isFinite(wn) && Number.isFinite(gn)
-      && String(want).trim() !== '' ) {
+      && String(want).trim() !== ''
+      && /^[-+0-9.eE]+$/.test(String(want).trim())) {
     return Math.abs(wn - gn) <= Math.max(1e-6, Math.abs(wn) * 1e-9);
   }
-  // The engine formats a byte-array result as dash-separated uppercase hex
-  // (Diag.Format), so compare a VM byte array the same way.
-  const gs = Array.isArray(got)
-    ? got.map((b) => b.toString(16).toUpperCase().padStart(2, '0')).join('-')
-    : String(got);
-  return String(want) === gs;
+  return String(want) === String(got);
 }
 
 let jobs = 0, agree = 0, disagree = 0, missing = 0, crashed = 0;
@@ -118,12 +123,18 @@ for (const c of fix.cases) {
     errs.set(key, (errs.get(key) || 0) + 1);
     continue;
   }
-  // the engine's sets, flattened by name -- INPA reads results by name
-  const got = new Map();
-  for (const s of sets) for (const [k, v] of Object.entries(s)) {
-    if (!got.has(k)) got.set(k, v);
-  }
-  for (const s of (c.sets || [])) {
+  // Compare SET BY SET, not flattened. A multi-record job (FS_LESEN emits
+  // one set per fault) legitimately repeats a result name with different
+  // values per set, and flattening kept only the first -- which read as a
+  // VM error when the VM had produced both records correctly.
+  // The engine's set 0 is the injected system set, so its data sets start
+  // at index 1; the VM emits data sets only.
+  const engineSets = (c.sets || []).filter(
+    (s) => !Object.keys(s).some((k) => SYSTEM_RESULTS.has(k)));
+  for (let si = 0; si < engineSets.length; si++) {
+    const s = engineSets[si];
+    const vmSet = sets[si] || {};
+    const got = new Map(Object.entries(vmSet));
     for (const [k, want] of Object.entries(s)) {
       if (k.startsWith('_')) continue;
       // System results the ENGINE injects around every job (identity,
