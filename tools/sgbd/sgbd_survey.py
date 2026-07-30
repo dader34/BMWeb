@@ -40,8 +40,12 @@ IR_DIR = os.path.join(ROOT, "data", "inpa-ir")
 CFG = os.path.join(ROOT, "vendor", "EC-APPS", "INPA", "CFGDAT", "E46.ENG")
 
 # opcode number -> name, transcribed from EdiabasNet.cs OcList (184 entries)
-OPS = json.load(open(os.path.join(HERE, "best2_ops.json"))) \
-    if os.path.exists(os.path.join(HERE, "best2_ops.json")) else None
+# The opcode tables live in tools/, one level up from this file since the
+# reorg. Falling back to None here made every decode silently produce
+# nothing instead of failing, so resolve properly and let a genuine absence
+# be loud.
+_OPS_PATH = os.path.join(os.path.dirname(HERE), "best2_ops.json")
+OPS = json.load(open(_OPS_PATH)) if os.path.exists(_OPS_PATH) else None
 
 # operand byte counts per addressing mode (EdiabasNet.GetOpArg). ImmStr is
 # 2-byte length + payload, handled inline.
@@ -89,8 +93,8 @@ def read_jobs(path):
     return data, jobs
 
 
-REGS = json.load(open(os.path.join(HERE, "best2_regs.json"))) \
-    if os.path.exists(os.path.join(HERE, "best2_regs.json")) else {}
+_REGS_PATH = os.path.join(os.path.dirname(HERE), "best2_regs.json")
+REGS = json.load(open(_REGS_PATH)) if os.path.exists(_REGS_PATH) else {}
 
 
 def _reg(b):
@@ -321,7 +325,7 @@ def e46_sgbds():
 
 
 def all_shipped_sgbds():
-    """Every SGBD named by an ECU in the ecus/ ship tree, all chassis.
+    """Every SGBD any chassis config names, all 21 cars.
 
     e46_sgbds() answers "what does the E46 need"; this answers "what can the
     app ever open". The VM's job code was generated from the former, so
@@ -330,20 +334,26 @@ def all_shipped_sgbds():
     API so it needs no running app and no cable.
     """
     names = set()
-    for p in glob.glob(os.path.join(ROOT, "ecus", "*", "*", "ecu.json")):
+    # Read the resolved chassis config, which is the thing that actually
+    # knows which ECUs a car has. This used to walk the ecus/ ship tree; that
+    # tree was derived and has been removed, so reading it returned nothing
+    # and every --all-chassis run silently did no work.
+    for p in glob.glob(os.path.join(ROOT, "data", "chassis-config", "*.json")):
+        if os.path.basename(p) == "index.json":
+            continue
         try:
             with open(p) as f:
                 d = json.load(f)
         except (OSError, ValueError):
             continue
-        s = d.get("sgbd")
-        if isinstance(s, str) and s:
-            stem = s.lower()
-            if stem.endswith(".prg"):
-                stem = stem[:-4]
-            # only what we can actually compile: the .prg must be present
-            if glob.glob(os.path.join(ECU_DIR, stem + ".prg")):
-                names.add(stem)
+        for sec in d.get("sections", []):
+            for e in sec.get("ecus", []):
+                stem = (e.get("sgbd") or "").lower()
+                if stem.endswith(".prg"):
+                    stem = stem[:-4]
+                # only what we can actually compile: the .prg must be present
+                if stem and glob.glob(os.path.join(ECU_DIR, stem + ".prg")):
+                    names.add(stem)
     return sorted(names)
 
 
