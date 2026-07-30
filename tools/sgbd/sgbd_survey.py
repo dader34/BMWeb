@@ -34,7 +34,7 @@ import struct
 import collections
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 ECU_DIR = os.path.join(ROOT, "vendor", "EDIABAS", "Ecu")
 IR_DIR = os.path.join(ROOT, "data", "inpa-ir")
 CFG = os.path.join(ROOT, "vendor", "EC-APPS", "INPA", "CFGDAT", "E46.ENG")

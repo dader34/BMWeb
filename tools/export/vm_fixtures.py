@@ -24,7 +24,7 @@ sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import sgbd_bulk_verify as B                                  # noqa: E402
 
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 BULK = os.path.join(ROOT, "data", "sim-captures", "bulk")
 
 

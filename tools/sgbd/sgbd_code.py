@@ -50,7 +50,7 @@ sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 OUT_DIR = os.path.join(ROOT, "data", "job-code")
 
 # Modes whose payload is a jump target rather than a plain immediate are

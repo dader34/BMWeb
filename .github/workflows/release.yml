@@ -44,7 +44,7 @@ jobs:
           git -C vendor/ediabaslib-src checkout -q FETCH_HEAD
 
       - name: Package the DMG
-        run: bash scripts/package-macos.sh
+        run: bash scripts/build/package-macos.sh
 
       - name: Locate the built DMG
         id: dmg

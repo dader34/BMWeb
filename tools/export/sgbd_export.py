@@ -38,7 +38,7 @@ import sgbd_spec as SP                                        # noqa: E402
 import sgbd_value_diff as V                                   # noqa: E402
 import sgbd_bulk_verify as B                                  # noqa: E402
 
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 SPEC_DIR = os.path.join(ROOT, "data", "job-specs")
 TABLE_DIR = os.path.join(ROOT, "data", "sgbd-tables")
 IR_DIR = os.path.join(ROOT, "data", "inpa-ir")

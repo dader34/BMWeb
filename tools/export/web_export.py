@@ -15,7 +15,7 @@ import io
 import gzip
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 CACHE = os.path.join(ROOT, "data", "chassis-config")
 
 

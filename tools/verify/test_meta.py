@@ -24,7 +24,7 @@ import sgbd_survey as S                                       # noqa: E402
 import sgbd_meta as M                                         # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 
 
 def engine(port, path):

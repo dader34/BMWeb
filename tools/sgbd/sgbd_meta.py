@@ -36,7 +36,7 @@ sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
-ROOT = os.path.join(HERE, "..", "..", "..")
+ROOT = os.path.join(HERE, "..", "..")
 OUT_DIR = os.path.join(ROOT, "data", "job-meta")
 
 # Keys that open a new item within a job section. Anything following one

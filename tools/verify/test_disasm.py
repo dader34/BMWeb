@@ -2,8 +2,6 @@
 """Guard: the .IPO decompiler stays correct against ground truth.
 
 Every assertion here was a live failure mode during development:
-  - MS450 recall: the hand-verified layout's result keys must all be found
-    (s_fehlerbehandlung excluded -- it builds keys at runtime by strcat)
   - GSDS2 s_ana2_834: exactly the seven analog keys, none invented
   - GSDS2 s_code: EXISTS. The old declaration parser missed it and F3 Coding
     was wrongly reported dead for 38 ECUs; zero dead keys may remain unless a
@@ -100,20 +98,10 @@ def main():
     print(f"  corpus     {len(dec)} ECUs, {fields} keyed fields "
           f"(floors 500 / 15000)")
 
-    # -- statusMenu pages carry fields ---------------------------------------
-    gen = glob.glob(os.path.join(ROOT, "data/inpa-layouts/generated/*.json"))
-    with_fields = 0
-    for p in gen:
-        try:
-            lay = json.load(open(p))
-        except Exception:                   # noqa: BLE001
-            continue
-        sm = lay.get("statusMenu")
-        if sm and any(it.get("fields") for it in sm.get("items", [])):
-            with_fields += 1
-    if with_fields < 100:
-        failures.append(f"statusMenu pages with fields: {with_fields} (< 100)")
-    print(f"  pages      {with_fields} layouts have per-page fields")
+    # -- statusMenu pages: REMOVED -------------------------------------------
+    # This counted layouts under data/inpa-layouts/generated that carried
+    # per-page fields. That tree was the OLD screen generator's output; the app
+    # renders from the IR now, so the data was deleted and the check with it.
 
     if failures:
         print("\nFAIL")

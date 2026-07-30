@@ -2,7 +2,7 @@
 #
 # The web build is the same renderer as the macOS app with no server behind
 # it: static JSON for every read, and Web Serial for the cable. See
-# scripts/build-web.sh.
+# scripts/build/build-web.sh.
 #
 # Runs on a push to main that touches anything the build is made of, and can
 # be triggered by hand. The generated tree is ~330 MB across ~42k files, so
@@ -22,7 +22,7 @@ on:
       - 'data/**'
       - 'ecus/**'
       - 'tools/web_export.py'
-      - 'scripts/build-web.sh'
+      - 'scripts/build/build-web.sh'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

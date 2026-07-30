@@ -87,3 +87,11 @@ data/job-code/*
 
 # local scratch notes
 /docs
+
+# BMW originals: BUILD INPUTS, not shipped and no longer in the repo.
+# 605 MB of .prg and .IPO that every generator reads and nothing at runtime
+# does -- the app ships dist-web/, which is derived from them. Get them from
+# BMW Standard Tools (see README) and drop them here; scripts/fetch-vendor.sh
+# checks they are present.
+vendor/EDIABAS/Ecu/
+vendor/EC-APPS/

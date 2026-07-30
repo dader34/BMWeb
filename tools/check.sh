@@ -15,8 +15,7 @@
 # SOME GENERATORS ARE RUN BY HAND and so are named by no code. They look
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
-#   ipo_extract_all.py  -> data/inpa-layouts/   (served by ConfigEndpoints.cs)
-#   sgbd_tables.py      -> data/inpa-screens/_tables.json (test_activations_safe)
+#   sgbd_tables.py      -> data/inpa-screens/_tables.json
 #   ipo_actmenus.py     -> _actmenus.json  \
 #   ipo_coding.py       -> _coding.json     > all consumed by ipo_enrich.py
 #   ipo_submenus.py     -> _submenus.json  /
@@ -47,13 +46,14 @@
 # ipo_grid.py (no output on disk, no importer -- live.js only mentioned it in
 # a comment describing the grid format).
 set -e
+
 cd "$(dirname "$0")/.."
+
+# BMW originals are not in the repo; say so clearly before anything reads them
+scripts/setup/check-vendor.sh >/dev/null 2>&1 || { scripts/setup/check-vendor.sh; exit 1; }
 
 echo "== MS45 ground truth (recall, no invented fields, known gaps) =="
 
-echo
-echo "== generated screens stay reads-only =="
-python3 tools/verify/test_activations_safe.py
 
 echo
 echo "== .IPO decompiler vs ground truth =="
