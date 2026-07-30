@@ -560,10 +560,12 @@ def extract(data, addr, sgbd, job):
                 r["mask"] = r_mask
             if r_add:
                 r["addend"] = r_add
-            if r_mult and r.get("scale") is None:
-                # an INTEGER multiply before the store (dws: byte * 16); a
-                # float scale, when present, already includes it
-                r["scale"] = r_mult
+            if r_mult:
+                # an integer multiply applied BEFORE the addend, distinct
+                # from the float scale which may follow it: BMBT's voltage
+                # is (raw*1085 + 7000) * 0.0001, so folding the multiplier
+                # into the scale would misplace the addend
+                r["mult"] = r_mult
             results.append(r)
             pending_mask = pending_add = None
             pending_scale = pending_off = None

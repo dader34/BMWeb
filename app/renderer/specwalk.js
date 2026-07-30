@@ -139,11 +139,20 @@ function specWalkResult(result, frame, ctx) {
   let big = 0n;
   for (const b of picked) big = (big << 8n) | BigInt(b);
   // in the bytecode's order: shift positions the field, mask selects it,
-  // then a constant offset is added (dws switch bits: lsr #3 / and #1)
+  // an integer multiplier scales it, then a constant offset is added
+  // (dws switch bits: lsr #3 / and #1; BMBT voltage: raw*1085 + 7000)
   if (result.shift) big >>= BigInt(result.shift);
   if (result.mask != null) big &= BigInt(result.mask);
-  if (result.addend) big += BigInt(result.addend);
-  const raw = big <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(big) : big;
+  let raw;
+  if (result.mult != null && !Number.isInteger(result.mult)) {
+    // a fractional composite (mult 100 / divs 15): float space, exactly
+    // as the Python reference computes it
+    raw = Number(big) * result.mult + (result.addend || 0);
+  } else {
+    if (result.mult != null) big *= BigInt(result.mult);
+    if (result.addend) big += BigInt(result.addend);
+    raw = big <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(big) : big;
+  }
 
   // Scaling is float arithmetic, so a BigInt raw has to narrow first --
   // `BigInt * Number` throws, and the catch turned an 8-byte field into
@@ -160,15 +169,19 @@ function specWalkResult(result, frame, ctx) {
     }
     return raw;   // no key yet: the raw word is still honest
   }
+  let val = raw;
   if (result.scale != null) {
-    const scaled = scalar * result.scale + (result.offset || 0);
-    // An INTEGRAL result type is the truncation: `flt2fix` then `ergi`
-    // cannot store 9.765, so the engine reports 9. This is the erg
-    // opcode's semantics, not a heuristic.
-    return ['byte', 'word', 'int', 'long', 'dword'].includes(result.type)
-      ? Math.trunc(scaled) : scaled;
+    val = scalar * result.scale + (result.offset || 0);
   }
-  return raw;
+  // An INTEGRAL result type is the truncation: `flt2fix` then `ergi`
+  // cannot store 9.765, so the engine reports 9 -- and a fractional mult
+  // (dws: *100/15) truncates the same way. The erg opcode's semantics,
+  // not a heuristic.
+  if (typeof val === 'number' && !Number.isInteger(val)
+      && ['byte', 'word', 'int', 'long', 'dword'].includes(result.type)) {
+    val = Math.trunc(val);
+  }
+  return val;
 }
 
 // Run a whole spec against a response frame.

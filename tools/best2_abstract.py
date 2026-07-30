@@ -570,6 +570,15 @@ def resolve_transforms(data, addr):
             val = m.get(src) if src else UNKNOWN
             if isinstance(val, Byte) and val.scale not in (0, 1):
                 mult = val.scale
+            elif isinstance(val, Sum) and val.const \
+                    and len(val.terms) == 1 \
+                    and isinstance(val.terms[0], Byte) \
+                    and val.terms[0].scale not in (0, 1):
+                # one scaled byte plus a constant: BMBT's display voltage is
+                # (raw*1085 + 7000)/10000, and the +7000 turns the Byte into
+                # a Sum -- the multiplier still belongs to the spec. The
+                # constant itself is the addend, lifted at its adds.
+                mult = val.terms[0].scale
             if mask is not None or add is not None or shift is not None \
                     or mult is not None:
                 entry = {}
