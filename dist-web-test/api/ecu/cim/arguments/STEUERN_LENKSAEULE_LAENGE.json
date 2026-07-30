@@ -1,0 +1,1 @@
+{"job":"STEUERN_LENKSAEULE_LAENGE","arguments":[{"ARG":"CONTROL","ARGTYPE":"char","ARGCOMMENT0":"0 = LS stoppen ","ARGCOMMENT1":"6 = LS verstellen "},{"ARG":"IMPULSE","ARGTYPE":"int","ARGCOMMENT0":"Verstellweg = Anzahl der Hallimpulse (max. 300 +- 30) "}]}

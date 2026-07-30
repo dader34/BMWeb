@@ -1,0 +1,1 @@
+{"job":"STATUS_CALIB","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Mit Diagnose Mode = E oder Nur Sequenz = W"},{"ARG":"WERT","ARGTYPE":"string","ARGCOMMENT0":"gewuenschter Wert:","ARGCOMMENT1":"LW,LB,QB,GR,DS"}]}

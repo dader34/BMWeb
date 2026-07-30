@@ -1,0 +1,1 @@
+{"job":"STATUS_RADARZIEL","arguments":[{"ARG":"D_MIN","ARGTYPE":"int","ARGCOMMENT0":"0...150 m"},{"ARG":"D_MAX","ARGTYPE":"int","ARGCOMMENT0":"0...150 m"},{"ARG":"V_MIN","ARGTYPE":"int","ARGCOMMENT0":"-60 m/s ... 60 m/s"},{"ARG":"V_MAX","ARGTYPE":"int","ARGCOMMENT0":"-60 m/s ... 60 m/s"}]}

@@ -1,0 +1,1 @@
+{"job":"ABS_REGELSIMULATION","arguments":[{"ARG":"ANZAHL_WARTESCHLEIFEN","ARGTYPE":"int","ARGCOMMENT0":"Anzahl Warteschleifen, wenn nicht angegeben == 3"}]}

@@ -1,0 +1,1 @@
+{"job":"STEUERN_AUSRICHTUNGSTEST_WERK","arguments":[{"ARG":"H_DEV","ARGTYPE":"char","ARGCOMMENT0":"Horizontaler Offset in 0.1°"},{"ARG":"V_DEV","ARGTYPE":"char","ARGCOMMENT0":"Horizontaler Offset in 0.1°"},{"ARG":"AIM_AXIS","ARGTYPE":"string","ARGCOMMENT0":"Zu testende Achse: H,V,HV"}]}

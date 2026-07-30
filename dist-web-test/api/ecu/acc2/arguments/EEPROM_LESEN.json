@@ -1,0 +1,1 @@
+{"job":"EEPROM_LESEN","arguments":[{"ARG":"BLOCK_ID","ARGTYPE":"int","ARGCOMMENT0":"Nummer des EEPROM-Blockes"},{"ARG":"ZAHL_BYTES","ARGTYPE":"int","ARGCOMMENT0":"Anzahl der auszulesenden Bytes"}]}

@@ -1,0 +1,1 @@
+{"job":"FLASH_SIGNATUR_PRUEFEN","arguments":[{"ARG":"BEREICH","ARGTYPE":"string","ARGCOMMENT0":"'Programm'","ARGCOMMENT1":"'Daten'"},{"ARG":"SIGNATURTESTZEIT","ARGTYPE":"int","ARGCOMMENT0":"Zeit in Sekunden"}]}

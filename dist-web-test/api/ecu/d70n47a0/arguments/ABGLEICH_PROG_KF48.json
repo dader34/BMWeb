@@ -1,0 +1,1 @@
+{"job":"ABGLEICH_PROG_KF48","arguments":[{"ARG":"ABGLEICH_PROG_WERT_KF48","ARGTYPE":"string","ARGCOMMENT0":"Neuer Programmierwert für 48Pkte KF","ARGCOMMENT1":"Format der Eingabe: Mengen in real, durch Blank getrennte 48 Punkte","ARGCOMMENT2":"Format der Eingabe zB: 1.0 1.1 1.5 .... 1.5","ARGCOMMENT3":"Achtung: Es müssen alle Programmierwerte eingegeben werden !"}]}

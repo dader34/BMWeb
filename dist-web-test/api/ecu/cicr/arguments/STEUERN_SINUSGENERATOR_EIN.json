@@ -1,0 +1,1 @@
+{"job":"STEUERN_SINUSGENERATOR_EIN","arguments":[{"ARG":"ARG_FREQUENZ","ARGTYPE":"unsigned int","ARGCOMMENT0":"desired frequency in Hz"},{"ARG":"ARG_LEVEL","ARGTYPE":"unsigned char","ARGCOMMENT0":"Volumelevel 0x00-0x3F"},{"ARG":"ARG_KANAL","ARGTYPE":"long","ARGCOMMENT0":"Bit combination of desired speakers","ARGCOMMENT1":"values from table TAudioKanal"}]}

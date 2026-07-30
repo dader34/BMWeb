@@ -1,0 +1,1 @@
+{"job":"SET_PWM","arguments":[{"ARG":"CHANNEL","ARGTYPE":"char","ARGCOMMENT0":"Kanalnummer 0=Boost, 1 = Dimmer"},{"ARG":"PWM_VALUE","ARGTYPE":"unsigned int","ARGCOMMENT0":"Vorgabewert 16bit"}]}

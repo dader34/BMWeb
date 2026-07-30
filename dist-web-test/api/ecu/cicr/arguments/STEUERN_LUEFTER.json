@@ -1,0 +1,1 @@
+{"job":"STEUERN_LUEFTER","arguments":[{"ARG":"ARG_DURATION","ARGTYPE":"unsigned char","ARGCOMMENT0":"Duration in seconds for which the fan will rotate Range 0…30 seconds"}]}

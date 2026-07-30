@@ -1,0 +1,1 @@
+{"job":"ADAP_SELEKTIV_LOESCHEN","arguments":[{"ARG":"AUSWAHLBYTE_1","ARGTYPE":"int","ARGCOMMENT0":"Bit=1 löscht Bit=0 behält alten Wert"},{"ARG":"AUSWAHLBYTE_2","ARGTYPE":"int","ARGCOMMENT0":"Bit=1 löscht Bit=0 behält alten Wert"},{"ARG":"AUSWAHLBYTE_3","ARGTYPE":"int","ARGCOMMENT0":"Bit=1 löscht Bit=0 behält alten Wert"}]}

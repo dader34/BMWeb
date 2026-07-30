@@ -1,0 +1,1 @@
+["STAT_TDA_ATM : 0x01 enabled, 0x00 disabled","STAT_STARTTIME : Hour when mechanism should start (0-24)","STAT_INTERVALL : Minutes between the test calls","STAT_CALLID : 0x01, 0x02, 0x04 …","JOB_STATUS : \"OKAY\", wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

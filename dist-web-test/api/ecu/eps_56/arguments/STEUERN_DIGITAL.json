@@ -1,0 +1,1 @@
+{"job":"STEUERN_DIGITAL","arguments":[{"ARG":"SOLL_STATUS_FEHLERLAMPE","ARGTYPE":"int","ARGCOMMENT0":"Sollstatus der EPS Fehlerlampe","ARGCOMMENT1":"Ausgabe ueber Service ID64","ARGCOMMENT2":"Bit 0=1: Fehlerlampe ein, Bit 0=0:  Fehlerlampeaus aus"}]}

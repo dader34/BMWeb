@@ -1,0 +1,1 @@
+{"job":"STEUERN_GLUEHKERZENTAUSCH","arguments":[{"ARG":"IDENTIFIER_GLU","ARGTYPE":"string","ARGCOMMENT0":"Einzelkerze rücksetzen: GLU1 ... GLU6 (... GLU8)","ARGCOMMENT1":"alle Kerzen rücksetzen: GLUALLE","ARGCOMMENT2":"andere Argumente sind nicht erlaubt!"}]}

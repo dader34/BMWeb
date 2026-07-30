@@ -1,0 +1,1 @@
+{"job":"STEUERN_NEXT_ENTSOURCE","arguments":[{"ARG":"ARG_ENTSOURCE","ARGTYPE":"string","ARGCOMMENT0":"Einzustellende Entertainmentquelle","ARGCOMMENT1":"table TEntSource TEXT","ARGCOMMENT2":"Wenn weggelassen, dann weiterschalten"}]}

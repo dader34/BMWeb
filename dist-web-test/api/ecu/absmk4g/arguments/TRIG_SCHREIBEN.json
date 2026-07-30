@@ -1,0 +1,1 @@
+{"job":"TRIG_SCHREIBEN","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Einmal = E oder Wiederholung = W"},{"ARG":"ORT1","ARGTYPE":"string","ARGCOMMENT0":"gewuenschte Komponente 1"},{"ARG":"ORT2","ARGTYPE":"string","ARGCOMMENT0":"gewuenschte Komponente 2"}]}

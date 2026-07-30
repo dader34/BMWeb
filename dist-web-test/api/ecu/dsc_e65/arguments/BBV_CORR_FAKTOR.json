@@ -1,0 +1,1 @@
+{"job":"BBV_CORR_FAKTOR","arguments":[{"ARG":"VA","ARGTYPE":"string","ARGCOMMENT0":"Setzt den Korrekturfaktor der Vorderachse auf den Wert 1","ARGCOMMENT1":"entspricht Neuzustand"},{"ARG":"HA","ARGTYPE":"string","ARGCOMMENT0":"Setzt den Korrekturfaktor der Hinterachse auf den Wert 1","ARGCOMMENT1":"entspricht Neuzustand"}]}

@@ -1,0 +1,1 @@
+{"job":"SMC_SPEICHER_LESEN_LEAR","arguments":[{"ARG":"SMC","ARGTYPE":"string","ARGCOMMENT0":"SMC links bzw. rechts"},{"ARG":"ADRESSE","ARGTYPE":"long","ARGCOMMENT0":"zu lesende Adresse"}]}

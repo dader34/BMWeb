@@ -1,0 +1,1 @@
+{"job":"STEUERN_TEST_AUXVERBINDUNG","arguments":[{"ARG":"ARG_VERBINDUNG","ARGTYPE":"unsigned int","ARGCOMMENT0":"Connection to be tested","ARGCOMMENT1":"values from table TAuxVerbindung","ARGCOMMENT2":"(Each channel is defined as a special Bit)"}]}

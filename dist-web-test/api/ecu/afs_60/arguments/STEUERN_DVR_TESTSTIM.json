@@ -1,0 +1,1 @@
+{"job":"STEUERN_DVR_TESTSTIM","arguments":[{"ARG":"STEUERN_DVR_TYP","ARGTYPE":"int","ARGCOMMENT0":"Wertebereich[0....255]"},{"ARG":"STEUERN_DVR_TEST_VEKTOR","ARGTYPE":"long","ARGCOMMENT0":"Wertebereich[0...2147483648]"}]}

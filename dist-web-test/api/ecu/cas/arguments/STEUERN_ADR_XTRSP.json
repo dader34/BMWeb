@@ -1,0 +1,1 @@
+{"job":"STEUERN_ADR_XTRSP","arguments":[{"ARG":"ADRESSE_HIGH","ARGTYPE":"unsigned int","ARGCOMMENT0":"\"High\": 0-65535","ARGCOMMENT1":"======> Byte0-1"},{"ARG":"ADRESSE_LOW","ARGTYPE":"unsigned int","ARGCOMMENT0":"\"Low\":  0-65535","ARGCOMMENT1":"======> Byte2-3"}]}

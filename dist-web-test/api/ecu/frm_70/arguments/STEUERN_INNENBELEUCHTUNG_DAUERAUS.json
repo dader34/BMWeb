@@ -1,0 +1,1 @@
+{"job":"STEUERN_INNENBELEUCHTUNG_DAUERAUS","arguments":[{"ARG":"INNENBELEUCHTUNG_DAUERAUS_EIN","ARGTYPE":"string","ARGCOMMENT0":"Werte: ein, aus","ARGCOMMENT1":"table DigitalArgument TEXT","ARGCOMMENT2":"Innenbeleuchtung Dauerausschalten"}]}

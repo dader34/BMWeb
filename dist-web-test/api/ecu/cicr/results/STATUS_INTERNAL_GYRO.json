@@ -1,0 +1,1 @@
+["STAT_INTERNAL_GYRO_STATUS : Status of the internal gyro as integer","STAT_INTERNAL_GYRO_STATUS_TEXT : Status of the internal gyro as table TInternalGyroStatus","STAT_GYRO_VOLTAGE_WERT : Gyro voltage expressed in mV","JOB_STATUS : \"OKAY\", wenn fehlerfrei","_REQUEST : Hex-Auftrag an SG","_TEL_ANTWORT : Hex-Antwort von SG"]

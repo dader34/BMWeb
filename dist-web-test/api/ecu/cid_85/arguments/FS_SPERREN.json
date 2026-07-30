@@ -1,0 +1,1 @@
+{"job":"FS_SPERREN","arguments":[{"ARG":"SPERREN","ARGTYPE":"string","ARGCOMMENT0":"\"ja\"   -> Fehlerspeicher sperren","ARGCOMMENT1":"\"nein\" -> Fehlerspeicher freigeben","ARGCOMMENT2":"table DigitalArgument TEXT"}]}

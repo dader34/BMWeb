@@ -1,0 +1,1 @@
+{"job":"STEUERN_PERSISTENZ","arguments":[{"ARG":"ARG_SECTION","ARGTYPE":"unsigned char","ARGCOMMENT0":"which section of the persistency","ARGCOMMENT1":"0 Alles (disabled), 1 nur SWT Persistenz (disabled)","ARGCOMMENT2":"2 Löschen der Navi-Kalibrierung"}]}

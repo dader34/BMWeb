@@ -1,0 +1,1 @@
+{"job":"STEUERN_POSITION_LWR","arguments":[{"ARG":"POS_LWR","ARGTYPE":"long","ARGCOMMENT0":"Winkel fuer LWR","ARGCOMMENT1":"Einstellung in 1/100 Grad","ARGCOMMENT2":"max. bzw. min. kann mit STATUS_LWR_LESEN ausgelesen werden"},{"ARG":"AUSGANG_EIN","ARGTYPE":"string","ARGCOMMENT0":"Werte: ein, aus","ARGCOMMENT1":"table DigitalArgument TEXT"}]}

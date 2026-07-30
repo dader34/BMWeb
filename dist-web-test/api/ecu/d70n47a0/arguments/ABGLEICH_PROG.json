@@ -1,0 +1,1 @@
+{"job":"ABGLEICH_PROG","arguments":[{"ARG":"IDENTIFIER_ABGLEICH","ARGTYPE":"string","ARGCOMMENT0":"Spalte LABEL aus Tabelle ABGLEICH"},{"ARG":"ABGLEICH_PROG_WERT","ARGTYPE":"real","ARGCOMMENT0":"Neuer Programmierwert an SG"},{"ARG":"ABGLEICH_PROG_WERT2","ARGTYPE":"real","ARGCOMMENT0":"Neuer Programmierwert 2 an SG"}]}

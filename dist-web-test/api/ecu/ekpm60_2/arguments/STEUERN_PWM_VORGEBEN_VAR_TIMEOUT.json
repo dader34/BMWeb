@@ -1,0 +1,1 @@
+{"job":"STEUERN_PWM_VORGEBEN_VAR_TIMEOUT","arguments":[{"ARG":"SOLL_PWM","ARGTYPE":"unsigned char","ARGCOMMENT0":"Wert der vorzugebenden Soll-PWM","ARGCOMMENT1":"Bereich 0-100 Prozent"},{"ARG":"TIMEOUTZEIT","ARGTYPE":"int","ARGCOMMENT0":"Zeit für das Timeout dieser Vorgabe in Sekunden","ARGCOMMENT1":"Moeglich sind 1 bis 3000 Sekunden (50 Minuten)"}]}

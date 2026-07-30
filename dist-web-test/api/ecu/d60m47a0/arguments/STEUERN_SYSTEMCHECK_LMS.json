@@ -1,0 +1,1 @@
+{"job":"STEUERN_SYSTEMCHECK_LMS","arguments":[{"ARG":"VAR_ID","ARGTYPE":"long","ARGCOMMENT0":"Variantenindex"},{"ARG":"DIA_ID","ARGTYPE":"long","ARGCOMMENT0":"Diagnoseindex"}]}

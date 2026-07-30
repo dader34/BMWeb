@@ -1,0 +1,1 @@
+{"job":"LENKWINKEL_DSC_ABGLEICHEN","arguments":[{"ARG":"LWS_OFFSET_KORREKTUR_GRAD","ARGTYPE":"real","ARGCOMMENT0":"LWS-Offset in Grad","ARGCOMMENT1":"Unbedingt ein PUNKT als Dezimaltrennzeichen benutzen","ARGCOMMENT2":"Format: -0.123","ARGCOMMENT3":"Gueltigkeitsbereich: -1°.. 1°","ARGCOMMENT4":"Offset=0 (Defaultwert), wenn kein Argument uebergeben wird"}]}

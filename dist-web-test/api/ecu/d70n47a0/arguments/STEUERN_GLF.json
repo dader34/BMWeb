@@ -1,0 +1,1 @@
+{"job":"STEUERN_GLF","arguments":[{"ARG":"SW_TV_GLF_WERT","ARGTYPE":"unsigned long","ARGCOMMENT0":"Sollwert Gesteuerte Luftfuehrung","ARGCOMMENT1":"LV_ACT_ECRAS_UP_EXT_ADJ   Min: 0 Max: 1  "},{"ARG":"SW_TO_GLF_WERT","ARGTYPE":"unsigned long","ARGCOMMENT0":"Timeout Gesteuerte Luftfuehrung","ARGCOMMENT1":"1BYTE in 0 bis 510s   Einheit: s   Min: 0 Max: 510  "}]}

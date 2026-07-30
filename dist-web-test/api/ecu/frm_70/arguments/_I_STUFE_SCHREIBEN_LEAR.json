@@ -1,0 +1,1 @@
+{"job":"_I_STUFE_SCHREIBEN_LEAR","arguments":[{"ARG":"I_STEP_1","ARGTYPE":"unsigned int","ARGCOMMENT0":"Bereich: 0-65535 bzw. 0x0000-0xFFFF"},{"ARG":"I_STEP_2","ARGTYPE":"unsigned int","ARGCOMMENT0":"Bereich: 0-65535 bzw. 0x0000-0xFFFF"},{"ARG":"I_STEP_3","ARGTYPE":"unsigned int","ARGCOMMENT0":"Bereich: 0-65535 bzw. 0x0000-0xFFFF"}]}

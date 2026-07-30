@@ -1,0 +1,1 @@
+{"job":"SPEICHER_LESEN","arguments":[{"ARG":"ANZAHL","ARGTYPE":"int","ARGCOMMENT0":"1 - 32"},{"ARG":"ADRESSE","ARGTYPE":"int","ARGCOMMENT0":"0x0000 - 0xFFFF"}]}

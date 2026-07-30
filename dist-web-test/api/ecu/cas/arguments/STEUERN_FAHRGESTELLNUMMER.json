@@ -1,0 +1,1 @@
+{"job":"STEUERN_FAHRGESTELLNUMMER","arguments":[{"ARG":"FG_NUMMER","ARGTYPE":"string","ARGCOMMENT0":"\"Fahrgestellnummer\" 17 x {1...0A...Z}","ARGCOMMENT1":"======> Byte0-16"}]}

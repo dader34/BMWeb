@@ -1,0 +1,1 @@
+{"job":"STEUERN_TEST_ANTENNE","arguments":[{"ARG":"ARG_ANTENNE","ARGTYPE":"unsigned long","ARGCOMMENT0":"Bitcombination of antennas to be tested","ARGCOMMENT1":"values from table TAntenne"}]}

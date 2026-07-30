@@ -1,0 +1,1 @@
+{"job":"SPEICHER_SCHREIBEN","arguments":[{"ARG":"ADRESSE","ARGTYPE":"int","ARGCOMMENT0":"RAM   : 0x0000 - 0x07FF ","ARGCOMMENT1":"EEPROM: 0x0C00 - 0x0FFF "},{"ARG":"DATA","ARGTYPE":"int","ARGCOMMENT0":"0x00 - 0xFF, neuer Inhalt der Zelle"}]}

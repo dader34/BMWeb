@@ -1,0 +1,1 @@
+{"job":"FAKTOR_SCHREIBEN","arguments":[{"ARG":"FAKTOR1","ARGTYPE":"int","ARGCOMMENT0":"Bereich: 0-255 bzw. 0x00-0xFF"},{"ARG":"FAKTOR2","ARGTYPE":"int","ARGCOMMENT0":"Bereich: 0-255 bzw. 0x00-0xFF"},{"ARG":"FAKTOR3","ARGTYPE":"int","ARGCOMMENT0":"Bereich: 0-255 bzw. 0x00-0xFF"},{"ARG":"FAKTOR4","ARGTYPE":"int","ARGCOMMENT0":"Bereich: 0-255 bzw. 0x00-0xFF"}]}

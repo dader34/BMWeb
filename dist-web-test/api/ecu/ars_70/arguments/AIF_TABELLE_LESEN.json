@@ -1,0 +1,1 @@
+{"job":"AIF_TABELLE_LESEN","arguments":[{"ARG":"AIF_NR","ARGTYPE":"int","ARGCOMMENT0":"== 0 : aktuelles AIF","ARGCOMMENT1":"> 0 : Nummer des zu lesenden AIF","ARGCOMMENT2":"default = 0 : aktuelles AIF","ARGCOMMENT3":"AIF Blocknummer"}]}

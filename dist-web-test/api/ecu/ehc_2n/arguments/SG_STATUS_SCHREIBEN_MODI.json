@@ -1,0 +1,1 @@
+{"job":"SG_STATUS_SCHREIBEN_MODI","arguments":[{"ARG":"MODUSLISTE","ARGTYPE":"string","ARGCOMMENT0":"gewuenschte Modi, getrennt durch Leerzeichen"},{"ARG":"SET","ARGTYPE":"int","ARGCOMMENT0":"SET != 0: die gewaehlten modi werden gesetzt, ansonsten zurueckgesetzt"}]}

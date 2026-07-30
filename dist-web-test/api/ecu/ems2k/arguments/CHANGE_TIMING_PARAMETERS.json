@@ -1,0 +1,1 @@
+{"job":"CHANGE_TIMING_PARAMETERS","arguments":[{"ARG":"MODE","ARGTYPE":"int","ARGCOMMENT0":"Set timing parameters mode","ARGCOMMENT1":"0 = set timing parameters to standard mode","ARGCOMMENT2":"1 = set timing parameters to programming mode"}]}

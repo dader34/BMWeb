@@ -1,0 +1,1 @@
+["JOB_STATUS : OKAY, wenn fehlerfrei","_TEL_ANTWORT : Hex-Antwort von SG","STAT_LAST_RF_CODE : Last valid RF code received from plip","STAT_RF_REMOTE_OK_ROLLING_CODE_OK : Base and window code status","STAT_RF_REMOTE_OK_ROLLING_CODE_NOT_OK : Rolling code synchronisation status","STAT_RF_REMOTE_INCORRECT : Remote (Base) code status","STAT_RF_REMOTE_BATTERY_DEAD : Battery status"]

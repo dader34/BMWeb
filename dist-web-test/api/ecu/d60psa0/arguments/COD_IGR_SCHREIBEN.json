@@ -1,0 +1,1 @@
+{"job":"COD_IGR_SCHREIBEN","arguments":[{"ARG":"STATUS_IGR","ARGTYPE":"int","ARGCOMMENT0":"Als Argument neuen iGR-Status eingeben","ARGCOMMENT1":"0 ... iGR nicht codieren , 1 ... iGR codieren"}]}

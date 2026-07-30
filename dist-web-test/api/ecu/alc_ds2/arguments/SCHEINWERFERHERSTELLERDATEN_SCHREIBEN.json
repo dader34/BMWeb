@@ -1,0 +1,1 @@
+{"job":"SCHEINWERFERHERSTELLERDATEN_SCHREIBEN","arguments":[{"ARG":"SMC","ARGTYPE":"string","ARGCOMMENT0":"SMC links bzw. rechts"},{"ARG":"SCHEINWERFER_HERSTELLERDATEN","ARGTYPE":"string","ARGCOMMENT0":"Herstellerdaten"}]}

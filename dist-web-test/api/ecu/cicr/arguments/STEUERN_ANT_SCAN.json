@@ -1,0 +1,1 @@
+{"job":"STEUERN_ANT_SCAN","arguments":[{"ARG":"ARG_SCAN","ARGTYPE":"unsigned char","ARGCOMMENT0":"Operation to be performed","ARGCOMMENT1":"0x00 switch to AM, 0x01 switch to next FM (create a peek)"}]}

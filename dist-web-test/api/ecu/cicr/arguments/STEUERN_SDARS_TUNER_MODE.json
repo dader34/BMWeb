@@ -1,0 +1,1 @@
+{"job":"STEUERN_SDARS_TUNER_MODE","arguments":[{"ARG":"ARG_SDARS_TUNER_MODE","ARGTYPE":"unsigned char","ARGCOMMENT0":"Mode of the SDARS tuner that must be set values from table TSdarsTunerMode"}]}

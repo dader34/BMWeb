@@ -1,0 +1,1 @@
+{"job":"C_AZCS_AUFTRAG","arguments":[{"ARG":"GM","ARGTYPE":"string","ARGCOMMENT0":"Zentralcode C1 - Grundmerkmal (8 ASCII nos + 1 ASCII c/sum)"},{"ARG":"SA","ARGTYPE":"string","ARGCOMMENT0":"Zentralcode C2 - Sonderausstattung (16 ASCII nos + 1 ASCII c/sum)"},{"ARG":"VN","ARGTYPE":"string","ARGCOMMENT0":"Zentralcode C3 - Versionsmerkmal (10 ASCII nos + 1 ASCII c/sum)"}]}

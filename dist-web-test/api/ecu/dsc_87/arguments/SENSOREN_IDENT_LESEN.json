@@ -1,0 +1,1 @@
+{"job":"SENSOREN_IDENT_LESEN","arguments":[{"ARG":"SENSOR_NR","ARGTYPE":"long","ARGCOMMENT0":"optionales Argument","ARGCOMMENT1":"gewuenschter Sensor xx (0x01 - 0xFF)"}]}

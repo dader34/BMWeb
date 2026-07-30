@@ -1,0 +1,1 @@
+{"job":"MOST_CAN_GATEWAY_DISABLE","arguments":[{"ARG":"TESTER_ADRESSE","ARGTYPE":"unsigned char","ARGCOMMENT0":"0xF1, wenn BMW-Tester","ARGCOMMENT1":"0xFA, wenn MOST-Tester"}]}

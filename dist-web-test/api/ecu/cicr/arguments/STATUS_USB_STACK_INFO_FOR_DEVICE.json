@@ -1,0 +1,1 @@
+{"job":"STATUS_USB_STACK_INFO_FOR_DEVICE","arguments":[{"ARG":"ARG_TYPE","ARGTYPE":"unsigned char","ARGCOMMENT0":"UMS-type of requested Info","ARGCOMMENT1":"0x01 USB Stick","ARGCOMMENT2":"0x02 IPOD","ARGCOMMENT3":"0x03 MTP Player","ARGCOMMENT4":"0x04 UNKNOWN"}]}

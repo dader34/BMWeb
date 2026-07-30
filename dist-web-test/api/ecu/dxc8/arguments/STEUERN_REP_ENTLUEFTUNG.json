@@ -1,0 +1,1 @@
+{"job":"STEUERN_REP_ENTLUEFTUNG","arguments":[{"ARG":"E_OR_W","ARGTYPE":"string","ARGCOMMENT0":"Einmal = E, Wiederholung = W"},{"ARG":"RAD_NR","ARGTYPE":"string","ARGCOMMENT0":""},{"ARG":"WIEDERHOLUNG","ARGTYPE":"int","ARGCOMMENT0":""},{"ARG":"ERGEBNIS","ARGTYPE":"string","ARGCOMMENT0":"Default: Ergebnis nicht abholen. Wenn Argument <Ergebnis> vorhanden, dann Ergebnis abholen"}]}

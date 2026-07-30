@@ -1,0 +1,1 @@
+{"job":"STEUERN_SELECTIV_X","arguments":[{"ARG":"IDENTIFIER_STELLER","ARGTYPE":"int","ARGCOMMENT0":"LID aus Tabelle STELLER"},{"ARG":"TASTVERHAELTNIS","ARGTYPE":"real","ARGCOMMENT0":"Neuer Verstellwert"}]}

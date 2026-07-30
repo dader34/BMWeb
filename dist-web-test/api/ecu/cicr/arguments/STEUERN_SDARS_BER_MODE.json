@@ -1,0 +1,1 @@
+{"job":"STEUERN_SDARS_BER_MODE","arguments":[{"ARG":"ARG_SDARS_BER_MODE","ARGTYPE":"unsigned char","ARGCOMMENT0":"BER mode that must be set values from table TSdarsBerMode"}]}

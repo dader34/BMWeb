@@ -1,0 +1,1 @@
+{"job":"STEUERN_SERVO_STROM_MA","arguments":[{"ARG":"SERVO_STROM_SOLL_WERT","ARGTYPE":"int","ARGCOMMENT0":"zu stellender Strom fuer das Servo Ventil","ARGCOMMENT1":"Wertebereich[0..1000 mA]"}]}

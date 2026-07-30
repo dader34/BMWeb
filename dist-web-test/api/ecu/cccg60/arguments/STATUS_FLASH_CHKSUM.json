@@ -1,0 +1,1 @@
+{"job":"STATUS_FLASH_CHKSUM","arguments":[{"ARG":"DESTINATION","ARGTYPE":"string","ARGCOMMENT0":"externer oder interner flash","ARGCOMMENT1":"table FlashType FlashName","ARGCOMMENT2":"default: intern"}]}

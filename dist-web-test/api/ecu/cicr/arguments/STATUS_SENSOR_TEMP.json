@@ -1,0 +1,1 @@
+{"job":"STATUS_SENSOR_TEMP","arguments":[{"ARG":"ARG_SENSOR","ARGTYPE":"unsigned char","ARGCOMMENT0":"Sensor for which the temperature must be returned"}]}

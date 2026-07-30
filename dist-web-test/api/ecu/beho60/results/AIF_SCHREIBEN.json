@@ -1,0 +1,1 @@
+["JOB_STATUS : OKAY, wenn fehlerfrei","AIF_NUMMER : Nummer des geschreibenen AIF","AIF_DATEN : AIF Hex-Daten","_TEL_AUFTRAG : Hex-Auftrag an SG AIF lesen","_TEL_ANTWORT : Hex-Antwort von SG AIF lesen","_TEL_AUFTRAG_2 : Hex-Auftrag an SG AIF schreiben","_TEL_ANTWORT_2 : Hex-Antwort von SG AIF schreiben"]

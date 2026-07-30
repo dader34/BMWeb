@@ -1,0 +1,1 @@
+{"job":"STEUERN_SELECTIV","arguments":[{"ARG":"IDENTIFIER_STELLER","ARGTYPE":"string","ARGCOMMENT0":"LABEL aus Tabelle STELLER"},{"ARG":"TASTVERHAELTNIS","ARGTYPE":"real","ARGCOMMENT0":"Neuer Verstellwert"},{"ARG":"ANSTEUERDAUER","ARGTYPE":"long","ARGCOMMENT0":"Dauer der Stelleransteuerung in Sekunden (optional)","ARGCOMMENT1":"Maximalwert 60 Sekunden"}]}

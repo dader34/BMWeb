@@ -1,0 +1,1 @@
+{"job":"STEUERN_AKTIVE_ANTENNE_DAB","arguments":[{"ARG":"ARG_AKTIVE_ANTENNE_DAB","ARGTYPE":"unsigned char","ARGCOMMENT0":"Antenna(e) that should be activated","ARGCOMMENT1":"Values from table TAktiveAntenneDAB","ARGCOMMENT2":"default ist 0x03 Both antennas"}]}

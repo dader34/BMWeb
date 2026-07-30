@@ -1,0 +1,1 @@
+{"job":"STEUERN_PWB_TEMP","arguments":[{"ARG":"TEMPERATUR_VALUE","ARGTYPE":"int","ARGCOMMENT0":"Temperatur (Grad C)","ARGCOMMENT1":"Range [-50 .. 135]"},{"ARG":"TIMEOUT","ARGTYPE":"int","ARGCOMMENT0":"timeout in Sec","ARGCOMMENT1":"Range [0 .. 31]"}]}
