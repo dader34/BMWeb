@@ -1,135 +1,165 @@
 # BMacW
 
-BMW diagnostics on macOS. Runs the EDIABAS engine and INPA's data natively over a
-K+DCAN cable, with no Windows install or virtual machine.
+BMW diagnostics for macOS and the browser. Read fault codes, watch live values,
+run actuator tests and inspect coding data over a K+DCAN cable, with no Windows,
+no virtual machine, and no EDIABAS install.
 
-Read and clear fault codes, watch live values as gauge bars, run actuator tests,
-and back up the MS45 DME flash. The interface mirrors INPA's layout, with an
-optional modern theme.
-
-
-## Status
-
-Works on the bench and on the car (tested against an E46 with an MS45.1 DME).
-Fault reading, live status, and actuator tests are functional. Flashing is
-read/backup only for now; writing is not enabled.
+INPA is a Windows application built on BMW's EDIABAS engine. It reads two kinds
+of proprietary file: `.prg` modules that describe how to talk to each ECU, and
+`.IPO` screens that describe what to draw. BMacW reimplements both halves. It
+decompiles the screens ahead of time into JSON, and interprets the ECU modules
+at runtime with its own virtual machine.
 
 
-## Requirements
+## Coverage
 
-- macOS on Apple Silicon
-- .NET 10 and Node.js
-- A K+DCAN USB cable (appears as `/dev/tty.usbserial-*`)
-- BMW EDIABAS and INPA data (from BMW Standard Tools)
+| | |
+|---|---|
+| Chassis | 21 (E36 through F30, R50/R56, RR1) |
+| ECUs | 1015 |
+| Decompiled screens | 21,101 across 832 ECUs |
+| Diagnostic jobs | 23,956 |
+| Fault codes | 51,484 |
 
-The EDIABAS and INPA data (`vendor/EDIABAS/Ecu`, `vendor/EC-APPS`) is committed via
-Git LFS, so a clone with LFS pulls it automatically. The original BMW Standard Tools
-package is also available [here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl).
-
-
-## Setup
-
-1. Clone with Git LFS so the BMW data comes down:
-
-   ```
-   git lfs install
-   git clone <repo-url>
-   ```
-
-   The data lives at `vendor/EDIABAS/Ecu` and `vendor/EC-APPS`.
-
-2. Build and start the app (requires the .NET SDK with the `macos` workload:
-   `dotnet workload install macos`):
-
-   ```
-   dotnet build src/InpaMac.App
-   open src/InpaMac.App/bin/Debug/net10.0-macos/osx-arm64/BMacW.app
-   ```
-
-Everything runs in that one process: the UI, the diagnostic API, and the
-EDIABAS engine. Plug in the cable, turn the ignition on, and select your
-chassis.
+Every ECU the app can open renders from its own decompiled INPA screen. There is
+no fallback renderer and no hand written layout.
 
 
 ## How it works
 
-- `src/InpaMac.App/` is the app: a native macOS window (WKWebView) showing
-  `app/renderer/`, with the EDIABAS engine and the JSON API hosted in-process.
-- `app/renderer/` is the UI: plain HTML/JS, no framework, no build step.
-- `src/InpaMac.Api/` is the diagnostic JSON API as a library.
-- `src/InpaMac.Server/` hosts that API standalone on `127.0.0.1:8777`, a
-  development harness for curl/scripts, not needed to run the app.
-- `src/EdiabasMac/` wraps the EDIABAS engine, the serial transport, and the MS45
-  flash routines.
-- `tools/` holds the INPA layout extractors (`inpa2json.py` converts any
-  .ips/.IPO to portable JSON), a PowerPC disassembler, and the fault-map
-  builders.
+Four pieces, none of them BMW's code.
+
+**The screen decompiler** (`tools/ipo_ir.py`) turns each `.IPO` into JSON: menus,
+F-key numbers, screens, gauges with their scales, lamps, and which job feeds each
+row. The renderer interprets that file directly, so a screen looks the way INPA
+drew it because it is the same description.
+
+**The BEST2 virtual machine** (`app/renderer/bestvm.js`) executes the bytecode
+inside a `.prg`. EDIABAS compiles each ECU's logic to a 184 opcode instruction
+set; the VM runs it, including the register file, byte stack, string table and
+table lookups. This is what turns raw bytes off the wire into named results. It
+agrees with the real EDIABAS engine on 100% of 3,730 results across 460 jobs.
+
+**The static data layer** holds what the VM needs: lifted job code, SGBD tables,
+job metadata and per ECU screens, all generated from the BMW files by the tools
+in `tools/`.
+
+**The transport** moves bytes. That is the only part that has to be native, and
+it differs by host: Web Serial in a browser, a small serial proxy in the macOS
+shell.
 
 
-## Installing a release build
+## Two builds, one renderer
 
-The `.dmg` is unsigned (there is no Apple Developer account behind it), so macOS
-flags it on first launch. After dragging BMacW to Applications, clear the
-download quarantine once:
+The same renderer runs in both. `app/renderer/webshim.js` decides at load time
+where data and bytes come from.
 
+**macOS app.** A Cocoa window around WKWebView. The shell serves the renderer
+over loopback, owns `/dev/cu.usbserial*`, and provides PDF export, CSV logging,
+durable settings and window chrome. About 600 lines of C#, no EDIABAS.
+
+**Web build.** `scripts/build-web.sh` produces a static directory. Reading ECU
+data works with no cable and no server. Running a job needs a K+DCAN cable and a
+browser with Web Serial, which means desktop Chrome or Edge.
+
+```sh
+scripts/build-web.sh
+python3 -m http.server -d dist-web 8080
 ```
-xattr -dr com.apple.quarantine /Applications/BMacW.app
-```
-
-Or run the helper, which also re-signs the bundle ad-hoc:
-
-```
-./scripts/install-macos.sh
-```
-
-Then open BMacW normally.
 
 
-## Packaging
+## Fault lookup
 
-`dotnet build src/InpaMac.App` produces the `BMacW.app` bundle. Release
-packaging (`dotnet publish` with the BMW data bundled under `Resources/data`,
-plus a `.dmg`) is being rebuilt for the native app; the 0.1.x `.dmg` releases
-were produced by the retired Electron shell.
+Beyond reading a car's memory, the app carries an offline fault database:
+search any code across every chassis and module, or filter by either. Each
+result shows the code, its P-code where one exists, and the English
+description. Opening a code shows that ECU's service document: set condition,
+monitoring conditions, fault impact, warning lamp behaviour, and service
+measures.
 
+Two sources feed it, and both are generated rather than hand edited:
 
-## Fault Lookup
+- **BMW SGBD `FORTTEXTE` tables**, the fault text each ECU ships in its `.prg`.
+  This is the same data EDIABAS reads over the cable.
+- **BMW ISTA diagnostic database**, the dealer tool's reference, which supplies
+  fleet wide descriptions, the BMW hex to SAE P-code mapping, and the service
+  documents.
 
-Fault Lookup is an offline reference for the entire BMW fault-code space, with no
-cable, no car needed. Search by fault text, by BMW hex code, or by SAE `Pxxxx`
-code across every chassis and module, or narrow with the chassis / module
-filters. Each result shows the code (with its P-code stacked over the hex where
-one exists) and the English description; clicking a code opens a detail panel
-with that ECU's service document: set condition, monitoring conditions
-(voltage / terminal / time), fault impact, warning-lamp behaviour, and the
-service measures and notes.
-
-The data is generated, never hand-edited. Two sources feed it:
-
-- **BMW SGBD `FORTTEXTE` tables**: the fault-location text each ECU ships in its
-  `.prg`, the same data EDIABAS reads over the cable. These drive the codes
-  BMacW reads live and the per-ECU translations under
-  [`data/faults/`](data/faults/):
-  - flat cross-ECU DTC maps: [`data/faults/*.json`](data/faults), `{ "<HEX>": "English" }`
-  - per-ECU files: `data/faults/<chassis>/*.json`, `{ sgbd, scheme, faults }`
-- **BMW ISTA diagnostic database**: the dealer tool's fault reference, giving
-  fleet-wide descriptions, per-ECU-variant wording, the authoritative BMW-hex →
-  SAE P-code mapping, and the service documents. These are baked into:
-  - [`data/faults/ista-dtc.json`](data/faults/ista-dtc.json): fleet English names
-  - [`app/renderer/pcodes.js`](app/renderer/pcodes.js): `hex → [P-codes]`
-  - [`app/renderer/faultmeta.js`](app/renderer/faultmeta.js): `hex → { pcodes, variants }`
-  - [`app/renderer/faultinfo.js`](app/renderer/faultinfo.js): parsed service documents
-
-The build merges everything into the runtime lookup files, with the
-hand-curated per-ECU translations taking precedence over the broad ISTA text
-where they overlap:
-
-```
+```sh
 node scripts/build-faultdb.mjs   # writes app/renderer/faultdb.js + faultindex.js
 ```
 
-`app/renderer/faultdb.js`, `faultindex.js`, `faultmeta.js`, `faultinfo.js`, and
-`pcodes.js` are all generated; never edit them by hand.
+`faultdb.js`, `faultindex.js`, `faultmeta.js`, `faultinfo.js` and `pcodes.js`
+are all generated. Never edit them by hand.
+
+
+## Safety
+
+Write jobs are refused unless explicitly enabled. The guard sits in the VM
+itself, before anything is transmitted, so a job that codes, clears or flashes
+sends zero bytes rather than being stopped partway. `tools/test_writeguard.js`
+asserts that.
+
+The web build refuses writes outright, in both the shim and the VM.
+
+
+## Status
+
+Fault reading, live values, actuator tests and coding readout work. Flashing is
+backup only; writing is not enabled.
+
+The transport is the untested part. Both hosts share the framing and half duplex
+echo handling, and neither has moved a byte over a real cable since the EDIABAS
+engine was removed from the app path. Everything above the transport is verified
+against that engine offline.
+
+
+## Requirements
+
+- macOS on Apple Silicon, or desktop Chrome/Edge for the web build
+- A K+DCAN USB cable, which appears as `/dev/cu.usbserial-*`
+- BMW EDIABAS and INPA data, only to build from source
+
+The BMW files (`vendor/EDIABAS/Ecu`, `vendor/EC-APPS`) come from BMW Standard
+Tools and are committed via Git LFS, so a clone with LFS pulls them. They are
+build inputs. The shipped app reads only the generated JSON.
+
+
+## Building
+
+```sh
+dotnet build src/InpaMac.App          # macOS app
+scripts/package-macos.sh              # signed DMG
+scripts/build-web.sh                  # static web build
+tools/check.sh                        # every guard on the pipeline
+```
+
+`tools/check.sh` verifies the decompiler against known screens, the interpreter
+across all 832 ECUs, the VM against captured telegrams, the write guard, and
+that every table an SGBD references is shipped.
+
+
+## Layout
+
+```
+app/renderer/     the UI: IR interpreter, BEST2 VM, transport shim
+src/InpaMac.App/  macOS shell: window, serial proxy, static file host
+src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
+tools/            decompilers, exporters, test harnesses
+data/             generated JSON: job code, tables, metadata, screens
+ecus/             per ECU ship tree assembled from the above
+vendor/           BMW originals (Git LFS)
+```
+
+`src/InpaMac.Cli` still links EDIABAS on purpose. It is the ground truth the VM
+is diffed against; the app itself ships no engine.
+
+
+## Credits
+
+Built on the file format work in
+[EdiabasLib](https://github.com/uholeschak/ediabaslib) by Ulrich Holeschak.
+EDIABAS, INPA and the vehicle data are BMW's.
 
 
 ## License

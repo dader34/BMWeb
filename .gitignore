@@ -32,6 +32,11 @@ ecus/
 !data/faults/
 data/faults/*
 !data/faults/*.json
+# Chassis config resolved from INPA's CFGDAT against the .prg tree. Committed
+# because the Pages build has no running app to resolve it from, and it is
+# 136 KB that only changes when BMW's config does.
+!data/chassis-config/
+!data/chassis-config/*.json
 !data/faults/*/
 !data/faults/*/*.json
 # Per-ECU caption translations. These are hand-written SOURCE, not generated:
