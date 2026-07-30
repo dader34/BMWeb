@@ -1368,6 +1368,13 @@ class Best2Vm {
 
 const STOP = Symbol('eoj');
 
+// Loaded two ways: as a <script> in the app (globals) and via require() in
+// tools/test_bestvm.js (module.exports). Both must work from one file.
+if (typeof window !== 'undefined') {
+  window.Best2Vm = Best2Vm;
+  window.VmError = VmError;
+  window.isWriteJob = isWriteJob;
+}
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { Best2Vm, VmError, STOP, JUMP_TESTS, REG_BYTES,
                      isWriteJob, WRITE_JOB };
