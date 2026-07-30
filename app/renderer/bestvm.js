@@ -674,11 +674,26 @@ class Best2Vm {
         return;
       }
       case 'div': case 'divs': {
+        // OpDivs does 32-BIT SIGNED division for EVERY width -- the narrow
+        // native forms are commented out in the engine as "DIVS failure in
+        // ediabas!" -- and it writes the REMAINDER back into arg1 when arg1
+        // is register-backed. Dividing unsigned gave SMG2's hydraulic
+        // pressure 42949660 where the engine says 65524: the dividend was
+        // 0xFFFFFB38 = -1224, and -1224/100 = -12, which is 65524 as an
+        // unsigned 16-bit result.
         const w = this.widthOf(A);
-        const d = this.val(B);
-        const q = d === 0 ? 0 : Math.trunc(this.val(A) / d);
-        this.store(A, ((q % 2 ** (8 * w)) + 2 ** (8 * w)) % 2 ** (8 * w));
-        this.updateFlags(q, w);
+        const toI32 = (v) => (v >= 0x80000000 ? v - 0x100000000 : v);
+        const x = toI32(this.val(A, w)), y = toI32(this.val(B, w));
+        const lim = 2 ** (8 * w);
+        let q = 0, rem = 0;
+        if (y !== 0) { q = Math.trunc(x / y); rem = x % y; }
+        const stored = ((q % lim) + lim) % lim;
+        this.store(A, stored);
+        f.overflow = false;
+        this.updateFlags(stored, w);
+        if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
+          this.store(B, ((rem % lim) + lim) % lim);
+        }
         return;
       }
       case 'mod': {
