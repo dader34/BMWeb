@@ -129,6 +129,22 @@ def main():
         total += write(os.path.join(api, "ecu", sgbd, "jobs.json"),
                        sorted(jobs.keys()))
         njobs += 1
+
+        # The demo synthesiser's input. It invents a value per result from the
+        # unit in that result's comment, so it needs name+comment for every
+        # job in one file -- the per-job results/*.json above are a flat
+        # "NAME : comment" list built for a different consumer, and fetching
+        # one per job would be a request per screen. Carries only the three
+        # fields it reads, not the whole description block.
+        slim = {}
+        for jname, j in jobs.items():
+            rs = [{"name": r["name"], "comment": r.get("comment", "")}
+                  for r in j.get("results", []) if r.get("name")]
+            if rs:
+                slim[jname.upper()] = {"results": rs}
+        if slim:
+            total += write(os.path.join(api, "ecu", sgbd, "meta.json"),
+                           {"sgbd": sgbd, "jobs": slim})
         for jname, j in jobs.items():
             # the engine's "NAME : comment" line shape the renderer parses
             lines = [f"{r['name']} : {r.get('comment', '')}"
