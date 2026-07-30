@@ -145,11 +145,24 @@ async function offlineExport(chassis, withFaults, onProgress) {
   const zipped = fflate.zipSync(files, opts);
 
   say('saving');
+  const name = `bmacw-${chassis === '*' ? 'all' : chassis.toLowerCase()}`
+    + '-offline.zip';
+
+  // ASK WHERE, when the host can. In the macOS app a browser download lands
+  // wherever WKWebView decides, which is neither visible nor chosen; the
+  // shell opens a real Save panel instead. On the web there is no such thing,
+  // so fall back to the download the browser does know how to do.
+  if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
+    const r = await window.bmacw.saveFile(name, zipped);
+    if (r && r.cancelled) throw new Error('cancelled');
+    return zipped.length;
+  }
+
   const blob = new Blob([zipped], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `bmacw-${chassis === '*' ? 'all' : chassis.toLowerCase()}-offline.zip`;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
