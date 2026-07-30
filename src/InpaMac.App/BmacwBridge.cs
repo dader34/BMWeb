@@ -41,6 +41,18 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         appendLog: (i, c) => call('appendLog', i, c),
         stopLog: (i) => call('stopLog', i),
         savePdf: (n, h) => call('savePdf', n, h),
+        // Write bytes to a path the user picks. BASE64, not a number array:
+        // the channel is JSON, where a byte costs ~3.5 characters as a number
+        // and 1.33 as base64. A 10 MB zip is the difference between 36 MB of
+        // text and 13 MB.
+        saveFile: (name, bytes) => {
+          let s = '';
+          const CH = 0x8000; // chunk: String.fromCharCode has an arg limit
+          for (let i = 0; i < bytes.length; i += CH) {
+            s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+          }
+          return call('saveFile', name, btoa(s));
+        },
         setTranslucent: (o) => call('setTranslucent', o),
         setDockIcon: (d) => call('setDockIcon', d),
         winClose: () => call('winClose'),
@@ -90,6 +102,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "appendLog": Settle(webView, id, AppendLog(args)); return;
                 case "stopLog": Settle(webView, id, StopLog(args)); return;
                 case "savePdf": SavePdf(webView, id, args); return;
+                case "saveFile": SaveFile(webView, id, args); return;
                 case "setTranslucent": Settle(webView, id, SetTranslucent(args)); return;
                 case "setDockIcon": Settle(webView, id, SetDockIcon(args)); return;
                 case "winClose": _window.PerformClose(this); Settle(webView, id, Ok()); return;
@@ -202,6 +215,37 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
 
     // save dialog → offscreen WKWebView renders the report HTML → paginated
     // Letter PDF via NSPrintOperation (0.5in margins, like Electron's
+    // Any file the renderer has built, to a location the user chooses.
+    // The offline export assembles a zip in the page; without this it would
+    // land in the browser's Downloads folder, which inside a WKWebView is
+    // neither visible nor chosen.
+    private void SaveFile(WKWebView? webView, long id, JsonElement args)
+    {
+        string suggested = ArgString(args, 0) ?? "bmacw-export.zip";
+        byte[] bytes = Convert.FromBase64String(ArgString(args, 1) ?? "");
+
+        var panel = NSSavePanel.SavePanel;
+        panel.Title = "Save offline copy";
+        panel.NameFieldStringValue = suggested;
+        panel.BeginSheet(_window, result =>
+        {
+            if (result != 1 || panel.Url?.Path is not string dest)
+            {
+                Settle(webView, id, new { ok = false, cancelled = true });
+                return;
+            }
+            try
+            {
+                File.WriteAllBytes(dest, bytes);
+                Settle(webView, id, new { ok = true, path = dest });
+            }
+            catch (Exception ex)
+            {
+                Settle(webView, id, null, ex.Message);
+            }
+        });
+    }
+
     // printToPDF), written straight to the chosen path.
     private void SavePdf(WKWebView? webView, long id, JsonElement args)
     {
