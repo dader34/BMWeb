@@ -126,11 +126,23 @@ Running a release build needs nothing else. The app reads only generated JSON.
 
 BMW's own files are **not in this repository**. They are build inputs: every
 screen, job and table the app ships is generated from them, and they are BMW's
-to distribute, not ours. To build or to regenerate data you have to supply them
-yourself.
+to distribute, not ours. To build, or to regenerate data, you supply them.
 
-They come from BMW Standard Tools, which contains an `EDIABAS` directory and an
-`EC-APPS` directory. Copy those in so the tree looks exactly like this:
+### Get the BMW files
+
+The package is publicly shared, so this is scripted:
+
+```sh
+scripts/setup/fetch-vendor.sh
+```
+
+It downloads BMW Standard Tools (~950 MB Windows installer) from the Drive
+folder linked below, unpacks the two trees it needs with `7z`, and puts them in
+place. Needs `curl` and `7z` (`brew install sevenzip`) and about 3 GB free while
+unpacking. It no-ops if `vendor/` is already complete.
+
+To do it by hand instead: BMW Standard Tools contains an `EDIABAS` directory and
+an `EC-APPS` directory. Copy them in so the tree looks exactly like this:
 
 ```
 vendor/
@@ -142,38 +154,44 @@ vendor/
       CFGDAT/           *.ENG     chassis config: which ECUs each car has
 ```
 
-`EDIABAS/Bin` and `EDIABAS/Hardware` are Win32 tools and drivers. Skip them.
-Filename case does not matter, the tools match either.
+`EDIABAS/Bin` and `EDIABAS/Hardware` are Win32 tools and drivers, skip them.
+Filename case does not matter, the tools match either. The installer is
+[here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl)
+if you would rather fetch it yourself.
 
-One source for the package is
-[here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl).
-
-Check your layout before anything else:
+Either way, check the layout before anything else. It names exactly what is
+missing and where it goes:
 
 ```sh
-scripts/setup/check-vendor.sh               # names exactly what is missing and where
+scripts/setup/check-vendor.sh
 ```
 
-Then:
+### Build
 
 ```sh
+tools/export/build_ecu_tree.py        # data/chassis/<CAR>/<ECU>/ from data/ecu-src
+scripts/build/build-web.sh            # static web build -> dist-web/
 dotnet build src/InpaMac.App          # macOS app
-scripts/build/package-macos.sh              # signed DMG (needs dist-web/ built first)
-scripts/build/build-web.sh                  # static web build
+scripts/build/package-macos.sh        # signed DMG (needs dist-web/ first)
 tools/check.sh                        # every guard on the pipeline
-scripts/setup/data-cache.sh expand|clean    # the generated data's working copies
 ```
 
 `tools/check.sh` verifies the decompiler against known screens, the interpreter
 across all 832 ECUs, the VM against captured telegrams, the write guard, and
 that every table an SGBD references is shipped.
 
-Fetching BMW's files is scripted, since the folder is public:
+### Where the data lives
 
-```sh
-scripts/setup/fetch-vendor.sh         # downloads and unpacks into vendor/
-```
+`data/ecu-src/` holds one gzipped copy per SGBD of the generated job code,
+metadata and tables. That is what is committed. `data/chassis/<CAR>/<ECU>/` is
+built from it and gitignored: everything about one ECU in one folder, which
+means an SGBD used by several cars is stored once per car (310 distinct ECUs
+become 1022 folders). Convenient to work in, wasteful to commit, so only the
+deduplicated source is in git.
 
+Two folders sit outside the cars: `other/` for ECUs INPA decompiles but no
+chassis config references, and `vehicle/` for the whole-vehicle screens BMW
+ships per car rather than per module. Neither is shipped.
 
 ## Layout
 
@@ -182,7 +200,8 @@ app/renderer/     the UI: IR interpreter, BEST2 VM, transport shim
 src/InpaMac.App/  macOS shell: window, serial proxy, static file host
 src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
 tools/            decompilers, exporters, test harnesses
-data/             generated JSON: job code, tables, metadata, screens
+data/ecu-src/     committed source: one gzipped copy per SGBD
+data/chassis/     derived per-car tree (gitignored)
 vendor/           BMW originals: NOT in the repo, supply your own
 ```
 
