@@ -19,7 +19,7 @@ const OFFLINE_SHELL = [
   'index.html', 'app.js', 'logo.svg',
   'css/styles.css', 'css/themes.css', 'css/lookup.css',
   'vendor/fflate.min.js',
-  'core/webdemo.js', 'core/webshim.js', 'core/bestvm.js', 'core/vmbridge.js',
+  'core/webdemo.js', 'core/webshim.js', 'core/bestvm.js',
   'core/core.js', 'core/translate.js', 'core/nav.js',
   'screens/autoscan.js', 'screens/sweep.js', 'screens/fault-report.js',
   'screens/ir.js', 'screens/ecu.js', 'screens/flashing.js',
@@ -57,73 +57,6 @@ async function offlineGet(path) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
-// Double-clickable launchers. The folder needs an HTTP server because a
-// file:// page gets an opaque origin where fetch() is blocked, and asking
-// someone to remember a python one-liner a year from now is how a working
-// copy becomes an unopenable one.
-//
-// Both scripts do the same three things: find a runtime that can serve a
-// directory, serve THIS folder on a free-ish port, and open a browser at it.
-// They try python3, then python, then php, then node, so whichever the
-// machine has is enough.
-const OFFLINE_SH = `#!/bin/sh
-# Run BMacW offline. Double-click this file.
-#
-# Serves this folder over HTTP and opens it. A browser will not let a page
-# opened straight from disk read its own data files, which is why this needs
-# a server at all.
-set -e
-cd "$(dirname "$0")"
-PORT=8777
-
-open_browser () {
-  sleep 1
-  if command -v open        >/dev/null 2>&1; then open "http://localhost:$PORT"
-  elif command -v xdg-open  >/dev/null 2>&1; then xdg-open "http://localhost:$PORT"
-  else echo "Open http://localhost:$PORT in your browser."
-  fi
-}
-
-echo "BMacW offline  ->  http://localhost:$PORT"
-echo "Press Ctrl-C to stop."
-open_browser &
-
-if   command -v python3 >/dev/null 2>&1; then exec python3 -m http.server "$PORT"
-elif command -v python  >/dev/null 2>&1; then exec python  -m http.server "$PORT"
-elif command -v php     >/dev/null 2>&1; then exec php -S "localhost:$PORT"
-elif command -v npx     >/dev/null 2>&1; then exec npx --yes serve -l "$PORT" .
-else
-  echo "No python3, php or node found. Install any one of them, or serve"
-  echo "this folder with any static web server and open it."
-  exit 1
-fi
-`;
-
-const OFFLINE_BAT = `@echo off
-REM Run BMacW offline. Double-click this file.
-REM
-REM Serves this folder over HTTP and opens it. A browser will not let a page
-REM opened straight from disk read its own data files, which is why this
-REM needs a server at all.
-setlocal
-cd /d "%~dp0"
-set PORT=8777
-
-echo BMacW offline  -^>  http://localhost:%PORT%
-echo Press Ctrl-C to stop.
-start "" "http://localhost:%PORT%"
-
-where python >nul 2>nul && (python -m http.server %PORT% & goto :eof)
-where py     >nul 2>nul && (py -3 -m http.server %PORT% & goto :eof)
-where php    >nul 2>nul && (php -S localhost:%PORT% & goto :eof)
-where npx    >nul 2>nul && (npx --yes serve -l %PORT% . & goto :eof)
-
-echo.
-echo No Python, PHP or Node found. Install any one of them, or serve this
-echo folder with any static web server and open it.
-pause
-`;
-
 // README for the folder, so it is obvious how to open it a year from now.
 function offlineReadme(chassis, withFaults) {
   return `BMacW offline copy - ${chassis}
@@ -135,20 +68,12 @@ decodes it.
 
 RUNNING IT
 
-  macOS      double-click "Run BMacW.command"
-  Windows    double-click run-windows.bat
-  Linux      sh run-linux.sh
+Open index.html. That is the whole procedure: double-click it, or drag it
+into a browser. No server, no install, no launcher script.
 
-Those serve this folder and open a browser at it. A browser will not let a
-page opened straight from disk (file://) read its own data files, which is
-why a server is involved at all; the scripts use whatever they find of
-python3, python, php or node.
-
-By hand, if you prefer:
-
-    python3 -m http.server 8777
-
-then open http://localhost:8777 .
+Everything this folder needs is inside it, and the ECU data is embedded in
+data/inline.js rather than loaded as separate files, which is what lets a
+page opened straight from disk read it at all.
 
 WHAT WORKS OFFLINE
 
@@ -171,12 +96,21 @@ async function offlineExport(chassis, withFaults, onProgress) {
     throw new Error('fflate is not loaded');
   }
   const files = {};
+  const enc0 = new TextEncoder();
 
   const say = (t) => { if (onProgress) onProgress(t); };
 
   say('collecting the app');
   for (const f of OFFLINE_SHELL) {
     files[f] = await offlineGet(f);
+  }
+  // the inline data has to exist before webshim.js looks for it
+  {
+    const html = new TextDecoder().decode(files['index.html'])
+      .replace('<script src="core/webshim.js"></script>',
+               '<script src="data/inline.js"></script>\n'
+               + '  <script src="core/webshim.js"></script>');
+    files['index.html'] = enc0.encode(html);
   }
 
   // "*" means every car: read the real list and take them all. This is the
@@ -188,16 +122,34 @@ async function offlineExport(chassis, withFaults, onProgress) {
   } else {
     ids = [chassis];
   }
-  files['api/chassis.json'] = new TextEncoder().encode(JSON.stringify(ids));
+  // INLINE, NOT FETCHED. A file:// page gets an opaque origin where fetch()
+  // is blocked, so an offline copy that keeps its data in separate files
+  // needs a web server to read them -- which meant shipping a launcher
+  // script, which macOS then refuses to run (Archive Utility drops the
+  // executable bit, and the download carries com.apple.quarantine).
+  //
+  // A <script> tag has no such restriction. Base64 costs 33% over the raw
+  // archive and removes the server, the launcher and both macOS problems, so
+  // the folder genuinely opens by double-clicking index.html.
+  const b64 = (u8) => {
+    let str = '';
+    const CH = 0x8000;
+    for (let i = 0; i < u8.length; i += CH) {
+      str += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+    }
+    return btoa(str);
+  };
+  const inline = {};
   for (const id of ids) {
     say(`collecting ${id}`);
-    files[`api/chassis/${id}.chassis`] =
-      await offlineGet(`api/chassis/${id}.chassis`);
+    inline[id] = b64(await offlineGet(`api/chassis/${id}.chassis`));
   }
-  // the shim reads this to find which car owns an SGBD
   try {
-    files['api/ecu-index.json'] = await offlineGet('api/ecu-index.json');
-  } catch { /* optional: only used for a cross-chassis lookup */ }
+    const idx = await offlineGet('api/ecu-index.json');
+    inline._index = JSON.parse(new TextDecoder().decode(idx));
+  } catch { /* only used for a cross-chassis lookup */ }
+  files['data/inline.js'] = enc0.encode(
+    `window.BMACW_INLINE=${JSON.stringify(inline)};`);
 
   if (withFaults) {
     for (const f of OFFLINE_FAULTS) {
@@ -210,23 +162,6 @@ async function offlineExport(chassis, withFaults, onProgress) {
   const enc = new TextEncoder();
   files['README.txt'] = enc.encode(
     offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults));
-  // DOUBLE-CLICKABLE ON MACOS. Finder always opens a .command in Terminal,
-  // where a .sh may go to an editor depending on what the user has set, and
-  // 0o755 in the high half of the external attributes means it arrives
-  // runnable rather than needing chmod.
-  //
-  // EXACTLY ONE ENTRY GETS attrs. This fflate build mishandles more than
-  // one: with two tuples the second is dropped and its bit reappears on
-  // whatever entry happens to be last. With a single tuple the bit lands
-  // correctly wherever the entry sits, and the stray copy falls on the .bat,
-  // which is harmless because Windows ignores POSIX modes.
-  //
-  // Linux therefore gets the same script without the bit. Its file managers
-  // mostly refuse to run a downloaded script on double-click anyway, so the
-  // README tells Linux users to run it, which is what they would do.
-  files['Run BMacW.command'] = [enc.encode(OFFLINE_SH), { attrs: 0o755 << 16 }];
-  files['run-linux.sh'] = enc.encode(OFFLINE_SH);
-  files['run-windows.bat'] = enc.encode(OFFLINE_BAT);
 
   say('compressing');
   // level 0 on the .chassis entry: it is already a zip of deflated members,

@@ -1,3 +1,9 @@
+// NOT LOADED BY THE APP. Kept as the fixture tools/verify/test_vmbridge.js
+// runs: it replays telegrams the C# engine captured and checks the VM decodes
+// them to the same results, which is still the best evidence the VM is right
+// about real bytes. There is no engine in the app any more, so there is
+// nothing to shadow at runtime and index.html no longer includes this.
+//
 // Run jobs through OUR BEST2 VM instead of the C# EDIABAS engine.
 //
 // This is the switch-over seam. The VM matches the engine on 100% of 3730

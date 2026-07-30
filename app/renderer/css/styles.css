@@ -202,6 +202,31 @@ html, body {
 
 /* settings */
 .settings-list { display: grid; gap: 12px; max-width: 720px; }
+
+/* INPA-style settings: the same rows, laid out the way INPA laid out
+   everything -- monospace, one per line, ruled rather than carded. Matches
+   the ECU Hauptmenue so the two screens do not look like different apps. */
+.inpa-settings { gap: 0; max-width: 640px; }
+.inpa-settings .setting-row {
+  background: none; border: none; border-radius: 0;
+  border-bottom: 1px dotted var(--line);
+  padding: 9px 6px; align-items: baseline;
+}
+.inpa-settings .setting-row:hover { background: rgba(127, 127, 127, .07); }
+.inpa-settings .setting-title {
+  font-family: var(--mono); font-size: 13px; font-weight: 400;
+  letter-spacing: .02em;
+}
+.inpa-settings .setting-desc {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  margin-top: 2px;
+}
+/* the theme swatches stay a grid: a list of colour names would be worse */
+.inpa-settings .theme-row { border-bottom: 1px dotted var(--line); }
+.inpa-settings .combo-btn,
+.inpa-settings .btn {
+  font-family: var(--mono); font-size: 12px; border-radius: 0;
+}
 .setting-row {
   display: flex; align-items: center; gap: 20px; justify-content: space-between;
   border: 1px solid var(--line); border-radius: 4px; padding: 16px 20px;
