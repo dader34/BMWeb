@@ -1064,9 +1064,17 @@ html[data-theme="inpa"] .act-row.running .inpa-fn-label { color: #a00000; }
 .live-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
 .live-head .live-stop { margin-left: auto; padding: 7px 14px; font-size: 12px; }
 .live-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-.live-cell { padding: 12px 16px; border-top: 1px solid var(--line); border-right: 1px solid var(--line); }
+/* min-width:0 is load-bearing, not tidiness. A grid/flex item's default
+   min-width is auto, i.e. "never shrink below my content", so a long
+   nowrap label (MSD80's "MISFIRE MONITORING: TEST NOT SUPPORTED BY THIS
+   MODULE = 0, SUPPORTED = 1") widened its own track and ran off the panel
+   instead of ellipsing. The ellipsis below only engages once the box is
+   allowed to be narrower than its text. */
+.live-cell { padding: 12px 16px; border-top: 1px solid var(--line); border-right: 1px solid var(--line);
+  min-width: 0; overflow: hidden; }
 .live-k { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-dim);
-  text-transform: uppercase; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  text-transform: uppercase; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  min-width: 0; max-width: 100%; }
 .live-v { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--cyan); }
 .live-v.flash { animation: vflash .5s ease; }
 @keyframes vflash { 0% { color: #fff; text-shadow: 0 0 10px rgba(79,210,255,.8); } 100% {} }

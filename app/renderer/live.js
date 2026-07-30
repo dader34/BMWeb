@@ -776,7 +776,7 @@ function highlightWatched(view, jobs) {
 // the bar with the value to its RIGHT and the scale ends tucked beneath it.
 function gaugeCellHTML(key, unit) {
   return `
-    <div class="live-k">${esc(key)}</div>
+    <div class="live-k" title="${esc(key)}">${esc(key)}</div>
     <div class="gauge-unit">${unit ? `[${esc(unit)}]` : ''}</div>
     <div class="gauge">
       <div class="gauge-bar">
