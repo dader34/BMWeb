@@ -70,7 +70,10 @@ class Best2Vm {
   }
 
   reset() {
-    this.regBuf = new Uint8Array(REG_BYTES);
+    // Per the reference: a job start clears the stack, flags, string
+    // registers, results and traps. It does NOT clear byte/float registers,
+    // and shared data is process-wide -- so neither is reset here.
+    this.regBuf = this.regBuf || new Uint8Array(REG_BYTES);
     this.sregs = new Map();            // name -> {buf, len}
     this.fregs = new Map();            // name -> number
     this.stack = [];                   // BYTE stack (push writes N bytes)
@@ -373,8 +376,29 @@ class Best2Vm {
   }
 
   // ---- the loop -------------------------------------------------------
+  // Run a job the way a SESSION does: EDIABAS executes the SGBD's
+  // INITIALISIERUNG job once before the first real job (ExecuteInitJob),
+  // and SGBDs use it to populate shared data that later jobs read -- MS450's
+  // AIF block size and free count arrive that way via shmset/shmget. Without
+  // it those results read zeros.
   run(jobName, args) {
-    const entry = this.code.jobs[jobName] ?? this.code.jobs[jobName?.toUpperCase()];
+    const init = this.code.jobs.INITIALISIERUNG;
+    if (init !== undefined && !this._inited
+        && String(jobName).toUpperCase() !== 'INITIALISIERUNG') {
+      this._inited = true;
+      try {
+        this.runOne(init, '');
+      } catch (e) {
+        // an init that fails must not take the real job down with it; the
+        // engine logs and continues into the job as well
+      }
+    }
+    return this.runOne(undefined, args, jobName);
+  }
+
+  runOne(entryIdx, args, jobName) {
+    const entry = entryIdx !== undefined ? entryIdx
+      : (this.code.jobs[jobName] ?? this.code.jobs[jobName?.toUpperCase()]);
     if (entry === undefined) throw new VmError(`no job ${jobName}`);
     this.reset();
     if (args !== undefined) this.argText = args;
@@ -414,6 +438,15 @@ class Best2Vm {
     const out = new Uint8Array(b.length + 1);
     out.set(b);
     this.store(op, out, true);
+  }
+
+  // A shared-data key. GetStringData stops at the first NUL, so a key that
+  // IS a NUL byte reads as the empty string -- which is a perfectly valid
+  // key, and the one MS450's AIF block uses. Uppercased, as the engine does.
+  shmKey(op) {
+    const raw = op[0] === 8 ? this.code.strings[op[1]] : this.bytes(op);
+    const bytes = Array.isArray(raw) ? Uint8Array.from(raw) : raw;
+    return Best2Vm.cstr(bytes).toUpperCase();
   }
 
   // A pool entry as TEXT: a byte-array literal is NUL-terminated text.
@@ -1175,24 +1208,19 @@ class Best2Vm {
       // ---- environment / no-ops for decode purposes. These affect timing,
       // tracing or interface configuration, none of which changes a decoded
       // value, so they are accepted and ignored rather than aborting a job.
+      // Process-wide shared data. `shmset key, value` (arg0 is the KEY,
+      // arg1 the value); `shmget dest, key` (arg0 is the DEST). Keys are
+      // uppercased, values persist across jobs in a session -- which is how
+      // MS450 hands its AIF block from one job to the next, using a key
+      // that is literally a single NUL byte.
       case 'shmset': {
-        // process-wide shared data, keys UPPERCASED. Values persist across
-        // jobs in a session, which is how one job hands a block to the next.
-        const key = String(B && B[0] === 8 ? this.lit(B[1])
-          : Best2Vm.cstr(this.bytes(A))).toUpperCase();
-        const val = B ? this.bytes(B) : this.bytes(A);
-        const k2 = String(A[0] === 8 ? this.lit(A[1])
-          : Best2Vm.cstr(this.bytes(A))).toUpperCase();
-        this.shared.set(k2 || key, Uint8Array.from(val));
+        this.shared.set(this.shmKey(A), Uint8Array.from(this.bytes(B)));
         return;
       }
       case 'shmget': {
-        // CARRY IS THE MISS INDICATOR (true = key absent), and the
-        // destination gets an empty array. Returning nothing silently made
-        // AIF_LESEN read zeros where a prior job had stored its block.
-        const key = String(B && B[0] === 8 ? this.lit(B[1])
-          : (B ? Best2Vm.cstr(this.bytes(B)) : '')).toUpperCase();
-        const hit = this.shared.get(key);
+        // CARRY IS THE MISS INDICATOR (true = key absent); the destination
+        // gets an empty array.
+        const hit = this.shared.get(this.shmKey(B));
         f.carry = !hit;
         this.store(A, hit || new Uint8Array(0), true);
         return;

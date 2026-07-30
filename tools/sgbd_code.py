@@ -143,8 +143,15 @@ def relocate(ops, index, data):
 def export(sgbd, write=True):
     data, jobs = SP.load(sgbd)
     ir = S.ir_jobs_for(sgbd)
+    # INITIALISIERUNG is not referenced by any screen, but EDIABAS RUNS IT
+    # before the first job of a session (ExecuteInitJob), and SGBDs use it to
+    # populate shared data the later jobs read -- MS450's AIF block size and
+    # free count come from there via shmset/shmget. Skipping it made those
+    # results read zeros. Same for the standard exit job, which pairs with it.
+    always = {"INITIALISIERUNG", "IDENTIFIKATION", "ENDE"}
     wanted = [(n, a) for n, a in jobs
-              if not n.startswith("_") and n.upper() in ir]
+              if not n.startswith("_")
+              and (n.upper() in ir or n.upper() in always)]
     if not wanted:
         return None
     ops, index, strings = encode(data, [a for _, a in wanted])
