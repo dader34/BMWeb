@@ -256,21 +256,53 @@ class Best2Vm {
   }
 
   static strBytes(s) {
-    const out = new Uint8Array(s.length);
-    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i) & 0xff;
-    return out;
+    return Best2Vm.strBytesCp1252(String(s ?? ''));
   }
+
+  // CP1252, the engine's ambient Encoding -- NOT latin-1. Bytes 0x80..0x9F
+  // are printable there (0x96 is an en dash), and decoding them as latin-1
+  // control characters turned "LLR - Solldrehzahl" into a C1 escape.
+  static CP1252_HIGH = [
+    0x20AC, 0x81, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021,
+    0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x8D, 0x017D, 0x8F,
+    0x90, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x9D, 0x017E, 0x0178];
 
   static bytesStr(b) {
     let s = '';
-    for (const x of b) s += String.fromCharCode(x);
+    for (const x of b) {
+      s += String.fromCharCode(x >= 0x80 && x <= 0x9F
+        ? Best2Vm.CP1252_HIGH[x - 0x80] : x);
+    }
     return s;
+  }
+
+  // ...and the inverse, for text written back into a byte buffer
+  static strBytesCp1252(str) {
+    const out = new Uint8Array(str.length);
+    for (let i = 0; i < str.length; i++) {
+      const c = str.charCodeAt(i);
+      if (c <= 0xff) { out[i] = c; continue; }
+      const k = Best2Vm.CP1252_HIGH.indexOf(c);
+      out[i] = k >= 0 ? 0x80 + k : 0x3f;
+    }
+    return out;
   }
 
   // NUL-terminated text, the way result strings are published
   static cstr(b) {
     const z = b.indexOf(0);
     return Best2Vm.bytesStr(z < 0 ? b : b.slice(0, z));
+  }
+
+  // Flags.SetOverflow: only when the operands SHARE a sign that differs
+  // from the result's. Operands are compared at the operation width.
+  setOverflow(v1, v2, result, width) {
+    const sm = 2 ** (8 * width - 1);
+    const s1 = (v1 & sm) !== 0, s2 = (v2 & sm) !== 0;
+    const sr = (((result % 2 ** (8 * width)) + 2 ** (8 * width))
+      % 2 ** (8 * width) & sm) !== 0;
+    this.flags.overflow = s1 === s2 && s1 !== sr;
   }
 
   // ---- flags ----------------------------------------------------------
@@ -418,12 +450,23 @@ class Best2Vm {
         this.updateFlags(v, w);
         return;
       }
-      case 'pushf':
-        for (let i = 0; i < 4; i++) this.stack.push(0);
+      case 'pushf': {
+        // the flags WORD (bit0 carry, bit1 zero, bit2 sign, bit3 overflow),
+        // 4 bytes LSB-first like any other push -- not four zeros
+        let v = (f.carry ? 1 : 0) | (f.zero ? 2 : 0)
+          | (f.sign ? 4 : 0) | (f.overflow ? 8 : 0);
+        for (let i = 0; i < 4; i++) { this.stack.push(v & 0xff); v >>= 8; }
         return;
-      case 'popf':
-        for (let i = 0; i < 4; i++) this.stack.pop();
+      }
+      case 'popf': {
+        let v = 0;
+        if (this.stack.length >= 4) {
+          for (let i = 0; i < 4; i++) v = v * 256 + this.stack.pop();
+        }
+        f.carry = !!(v & 1); f.zero = !!(v & 2);
+        f.sign = !!(v & 4); f.overflow = !!(v & 8);
         return;
+      }
 
       case 'clear': {
         if (A[0] >= 1 && A[0] <= 4 && A[1][0] === 'S') { this.setS(A[1], new Uint8Array(0)); return; }
@@ -456,10 +499,7 @@ class Best2Vm {
         const sum = x + y;
         const lim = 2 ** (8 * w);
         f.carry = sum >= lim;
-        const half = lim / 2;
-        const sx = x >= half ? x - lim : x, sy = y >= half ? y - lim : y;
-        const ss = sx + sy;
-        f.overflow = ss >= half || ss < -half;
+        this.setOverflow(x, y, sum, w);
         this.store(A, sum % lim);
         this.updateFlags(sum, w);
         return;
@@ -471,33 +511,45 @@ class Best2Vm {
         const lim = 2 ** (8 * w);
         const diff = x - y;
         f.carry = diff < 0;
-        const half = lim / 2;
-        const sx = x >= half ? x - lim : x, sy = y >= half ? y - lim : y;
-        const sd = sx - sy;
-        f.overflow = sd >= half || sd < -half;
+        this.setOverflow(x, (0x100000000 - y) % 0x100000000, diff, w);
         this.store(A, ((diff % lim) + lim) % lim);
         this.updateFlags(diff, w);
         return;
       }
       case 'comp': {
-        // compare = subtract without storing
+        // Subtract without storing. Carry is the unsigned BORROW, and
+        // Overflow follows SetOverflow(val0, (uint)(-val1), diff) -- the
+        // subtrahend is negated in FULL 32-BIT two's complement and only
+        // then masked to the width, which for w < 4 is NOT the same as
+        // negating within the width. This decides `jc`/`jl`/`jg`, i.e.
+        // every loop bound in the corpus, so it is copied literally.
         const w = this.widthOf(A);
         const x = this.val(A, w), y = this.val(B, w);
-        const lim = 2 ** (8 * w);
         const diff = x - y;
         f.carry = diff < 0;
-        const half = lim / 2;
-        const sx = x >= half ? x - lim : x, sy = y >= half ? y - lim : y;
-        const sd = sx - sy;
-        f.overflow = sd >= half || sd < -half;
+        this.setOverflow(x, (0x100000000 - y) % 0x100000000, diff, w);
         this.updateFlags(diff, w);
         return;
       }
       case 'mult': {
+        // SIGNED narrow multiply, and it CLOBBERS arg1 with the high half
+        // when arg1 is register-backed (OpMult). Missing the clobber left a
+        // stride register holding a stale value, so FS_LESEN's fault-record
+        // cursor advanced from the wrong base and every record read one
+        // byte early.
         const w = this.widthOf(A);
-        const p = this.val(A, w) * this.val(B, w);
-        this.store(A, p % 2 ** (8 * w));
-        this.updateFlags(p, w);
+        const lim = 2 ** (8 * w), half = lim / 2;
+        const sx = (() => { const v = this.val(A, w); return v >= half ? v - lim : v; })();
+        const sy = (() => { const v = this.val(B, w); return v >= half ? v - lim : v; })();
+        const p = sx * sy;
+        const lo = ((p % lim) + lim) % lim;
+        this.store(A, lo);
+        f.overflow = false;
+        this.updateFlags(lo, w);
+        if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
+          const hi = Math.trunc((p < 0 ? p + 2 ** 32 : p) / lim);
+          this.store(B, ((hi % lim) + lim) % lim);
+        }
         return;
       }
       case 'div': case 'divs': {
