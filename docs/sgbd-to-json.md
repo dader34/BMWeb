@@ -353,6 +353,45 @@ sequences) and in `param_read` jobs whose response layout depends on the
 argument the caller passes -- so the offset genuinely is not static, and the
 spec must express it as a function of the request rather than a number.
 
+## The shipped artifacts (2026-07-29)
+
+Everything above is the extractor; these are the files the web app actually
+downloads, emitted by `tools/sgbd_export.py`:
+
+- `data/job-specs/<sgbd>.json` — every job the compiled INPA UI references,
+  as `{format: 1, sgbd, jobs: {NAME: spec}, connection}`. The `connection`
+  block carries the framing (`ds2`/`fast`), the ECU address, and the init
+  exchange the ECU demands — derived by running the real engine against a
+  stub simulator and recording what it sends first, the same ground truth
+  the value harness uses.
+- `data/sgbd-tables/<sgbd>.json` — `{TABLE: [rows]}` for every table any
+  spec of that SGBD references (status tables, FUmweltTexte lookups), so
+  the browser walker resolves runtime-keyed scales without the engine.
+
+Per-result decode fields, applied by the walker in the BYTECODE'S order —
+shift, mask, mult, addend, then scale (`app/renderer/specwalk.js` and the
+reference `decode_with_spec` are equivalence-tested on every result of
+every E46 spec, so the two cannot drift silently):
+
+| field | meaning | example ground truth |
+|---|---|---|
+| `bytes` | payload/frame offsets, in read order | MS450 UBATT `[2,3]` |
+| `shift` | right-shift before mask (bit extraction) | dws switch bit `lsr #3` |
+| `mask` | AND after shift | dws `and #1` |
+| `mult` | integer multiplier before addend | BMBT voltage `*1085` |
+| `addend` | integer offset | BMBT voltage `+7000` |
+| `scale`/`offset` | float scale after all of the above | `/10000` |
+| type integral | truncate any fractional value (ergi semantics) | `9.765 -> 9` |
+| `convert: bcd` | nibble > 9 renders `*` (ValueToBcd) | `0x1F -> "1*"` |
+| `enumMap`/`enumDefault` | in-code switch: value -> literal | deck status |
+| `lookup` | runtime table row keyed by a response value | FUmweltTexte |
+| `iteration` | loop record index (offsets pre-expanded per record) | MESSWERTBLOCK |
+
+The coverage number that matters for shipping is not "results with bytes"
+but "IR screen keys that decode" — `sgbd_export.py --coverage` walks every
+screen element to its result key and asks whether some job spec on that
+screen resolves it.
+
 ## Where this leaves the plan
 
 Schema agreement is necessary but not sufficient: it proves the spec knows
