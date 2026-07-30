@@ -40,6 +40,10 @@ echo
 echo "== IR interpreter renders known screens =="
 node tools/test_ir_render.js
 
+echo
+echo "== write guard holds =="
+node tools/test_writeguard.js || exit 1
+
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".
 # Needs a running app for the ECU table API; skipped otherwise.

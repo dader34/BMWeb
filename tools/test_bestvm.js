@@ -135,6 +135,11 @@ for (const c of fix.cases) {
   const machine = new Best2Vm(code, {
     tables: tablesFor(c.sgbd),
     args: c.args || '',
+    // This harness replays CAPTURED telegrams into a callback; nothing
+    // reaches a bus, so the write guard is opted past deliberately. That is
+    // the only place in the repo that should do so without a human saying
+    // yes -- see the guard's comment in bestvm.js.
+    allowWrites: true,
     send: (req) => {
       const hit = byReq.get(String(Array.from(req)));
       return hit !== undefined ? hit : lastResp;
