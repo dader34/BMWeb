@@ -449,6 +449,16 @@ class Best2Vm {
     return Best2Vm.cstr(bytes).toUpperCase();
   }
 
+  // A result NAME is arg0.GetStringData(): usually an inline literal, but
+  // it can equally be a REGISTER -- MS420's VANOS jobs name a result from a
+  // register still holding response bytes, and the engine faithfully
+  // publishes the resulting garbage key. Assuming a pool index dropped the
+  // name to the empty string.
+  resName(op) {
+    if (op[0] === 8) return this.lit(op[1]);
+    return Best2Vm.cstr(this.bytes(op));
+  }
+
   // A pool entry as TEXT: a byte-array literal is NUL-terminated text.
   lit(i) {
     const v = this.code.strings[i];
@@ -1020,11 +1030,11 @@ class Best2Vm {
         const [w, signed] = spec;
         let v = this.val(B, w) % 2 ** (8 * w);
         if (signed && v >= 2 ** (8 * w - 1)) v -= 2 ** (8 * w);
-        this.emit(this.lit(A[1]), v);
+        this.emit(this.resName(A), v);
         return;
       }
       case 'ergr': {
-        this.emit(this.lit(A[1]),
+        this.emit(this.resName(A),
                   B[1] && String(B[1])[0] === 'F'
                     ? this.getReg(B[1]) : this.val(B));
         return;
@@ -1032,18 +1042,18 @@ class Best2Vm {
       case 'ergs': {
         const txt = B[0] === 8 ? this.lit(B[1])
           : Best2Vm.cstr(this.bytes(B));
-        this.emit(this.lit(A[1]), txt);
+        this.emit(this.resName(A), txt);
         return;
       }
       case 'ergy': {
-        this.emit(this.lit(A[1]), Array.from(this.bytes(B)));
+        this.emit(this.resName(A), Array.from(this.bytes(B)));
         return;
       }
       case 'ergc': {
         // SIGNED 8-bit, published as a NUMBER (TypeC), not a character
         let v = this.val(B, 1) & 0xff;
         if (v >= 0x80) v -= 0x100;
-        this.emit(this.lit(A[1]), v);
+        this.emit(this.resName(A), v);
         return;
       }
       case 'enewset':
