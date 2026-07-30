@@ -101,3 +101,10 @@ vendor/EC-APPS/
 # once per car that uses it (310 distinct -> 1022 folders). Derived, so it is
 # not committed: rebuild with tools/export/build_ecu_tree.py.
 data/chassis/
+
+# ...but the DEDUPLICATED source it is built from IS committed: one copy per
+# SGBD, gzipped, 32 MB. Committing the tree instead would put its 2.7x
+# duplication into git permanently (252 MB).
+!data/ecu-src/
+data/ecu-src/*
+!data/ecu-src/*.gz

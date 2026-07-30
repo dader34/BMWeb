@@ -20,7 +20,8 @@ on:
     paths:
       - 'app/renderer/**'
       - 'data/**'
-      - 'tools/web_export.py'
+      - 'tools/export/**'
+      - 'tools/sgbd/ecu_tree.py'
       - 'scripts/build/build-web.sh'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
@@ -50,16 +51,19 @@ jobs:
       - name: Expand the committed data
         run: |
           set -euo pipefail
-          # The generated JSON is committed gzipped only (38 MB against 573 MB
-          # raw). web_export.py reads .json, so expand in place first. job-code
-          # keeps BOTH: the exporter ships the .gz as-is and the browser
-          # inflates it via Content-Encoding.
-          for d in inpa-ir; do
-            find "data/$d" -name '*.json.gz' -print0 \
-              | xargs -0 -r -P 4 -I{} gzip -dkf {}
-          done
-          echo "expanded: $(find data/inpa-ir \
-            -name '*.json' | wc -l) files"
+          # The committed data is gzipped. inpa-ir is read as .json by the tree
+          # builder, so expand it in place first.
+          find data/inpa-ir -name '*.json.gz' -print0 \
+            | xargs -0 -r -P 4 -I{} gzip -dkf {}
+          echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) files"
+
+      - name: Assemble the per-car tree
+        run: |
+          set -euo pipefail
+          # data/chassis/ is DERIVED and gitignored, so the runner has to build
+          # it before anything can read it. It is what web_export reads now.
+          python3 tools/export/build_ecu_tree.py
+          test -d data/chassis/E46
 
       - name: Build the static site
         run: |
@@ -68,16 +72,26 @@ jobs:
           # config; here the exporter reads the committed cache instead, so
           # call the pieces directly rather than fighting that check.
           mkdir -p dist-web
-          python3 tools/web_export.py --out dist-web
+          python3 tools/export/web_export.py --out dist-web
           cp -R app/renderer/. dist-web/
           # index.html already loads webshim.js -- both hosts need it.
           test -s dist-web/index.html
           grep -q webshim.js dist-web/index.html
           # A build that exported nothing must FAIL here, not deploy a shell
           # of a site: the first Pages run shipped 63 files and looked green.
-          n=$(find dist-web/api/ecu -maxdepth 1 -name '*.ecu' | wc -l)
-          echo "ecu files: $n"
-          test "$n" -gt 300
+          # A build that exported nothing must FAIL here, not deploy a shell
+          # of a site. The .ecu archives are nested inside the .chassis ones
+          # now, so count those and check one has real contents.
+          n=$(find dist-web/api/chassis -name '*.chassis' | wc -l)
+          echo "chassis archives: $n"
+          test "$n" -ge 21
+          python3 - <<'EOF'
+import zipfile, sys
+z = zipfile.ZipFile("dist-web/api/chassis/E90.chassis")
+ecus = [n for n in z.namelist() if n.endswith(".ecu")]
+print(f"E90 holds {len(ecus)} .ecu")
+sys.exit(0 if len(ecus) > 40 else 1)
+EOF
 
       - name: Pre-compress the large payloads
         run: |

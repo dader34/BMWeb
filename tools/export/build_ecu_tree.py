@@ -35,15 +35,37 @@ SOURCES = [
 ]
 
 
+# One copy per SGBD of everything the tree fans out. This is what is
+# COMMITTED -- the tree itself is derived and gitignored, and storing it
+# instead would put the 2.7x duplication into git permanently (252 MB against
+# 32 MB here).
+SRC = os.path.join(ROOT, "data", "ecu-src")
+
+# tree filename -> the name it has in ecu-src
+# the generator's directory name -> the file it becomes in an ECU folder
+SRC_NAME = {
+    "job-code": "job-code.json.gz",
+    "job-meta": "meta.json.gz",
+    "sgbd-tables": "tables.json.gz",
+    "job-specs": "specs.json.gz",
+}
+
+
 def load(kind, sgbd):
-    """A generator's output for one SGBD, from .json or its .gz twin."""
+    """A generator's output for one SGBD, decompressed."""
+    name = SRC_NAME.get(kind)
+    if name:
+        p = os.path.join(SRC, f"{sgbd}.{name}")
+        if os.path.exists(p):
+            with gzip.open(p, "rb") as f:
+                return f.read()
+    # legacy flat folders, if someone still has them
     base = os.path.join(ROOT, "data", kind, f"{sgbd}.json")
-    if os.path.exists(base):
-        with open(base, "rb") as f:
-            return f.read()
-    if os.path.exists(base + ".gz"):
-        with gzip.open(base + ".gz", "rb") as f:
-            return f.read()
+    for q in (base, base + ".gz"):
+        if os.path.exists(q):
+            op = gzip.open if q.endswith(".gz") else open
+            with op(q, "rb") as f:
+                return f.read()
     return None
 
 
