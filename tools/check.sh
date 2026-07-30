@@ -25,6 +25,22 @@
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
 # (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
 #
+# THE HAND-RUN GENERATORS ARE ORDERED. Regenerating everything before a build
+# is not a set of independent commands -- three of them feed each other, and
+# running them out of order silently ships worse data than doing nothing:
+#
+#   1. python3 tools/ipo_ir.py --write     -> data/inpa-ir/, i18n EMPTY plus a
+#                                             `strings` hand-off list
+#   2. node tools/ipo_i18n.js              -> RESOLVES those strings back INTO
+#                                             the IR files and drops the list
+#   3. python3 tools/sgbd_export.py --ship -> copies the finished IR into ecus/
+#
+# Run i18n before --write and step 1 overwrites its work: every IR lands with
+# i18n {} and the app renders raw German captions ("Control zurück an DME").
+# test_ir_render.js is what catches it -- and `git status` will NOT, because
+# data/* and ecus/ are gitignored, so a clean tree says nothing about whether
+# the generated content is right. Trust check.sh, not git.
+#
 # Removed 2026-07-29 as genuinely dead, after checking each for importers and
 # for output anyone reads: inpa2json.py (superseded by ipo_ir.py),
 # ipo_actions.py (its _actions.json was never written, let alone read),

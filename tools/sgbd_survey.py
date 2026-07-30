@@ -320,6 +320,33 @@ def e46_sgbds():
     return sorted(names)
 
 
+def all_shipped_sgbds():
+    """Every SGBD named by an ECU in the ecus/ ship tree, all chassis.
+
+    e46_sgbds() answers "what does the E46 need"; this answers "what can the
+    app ever open". The VM's job code was generated from the former, so
+    browsing any other chassis found no code and fell back to the engine --
+    correct, but not coverage. Reads the shipped tree rather than the chassis
+    API so it needs no running app and no cable.
+    """
+    names = set()
+    for p in glob.glob(os.path.join(ROOT, "ecus", "*", "*", "ecu.json")):
+        try:
+            with open(p) as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            continue
+        s = d.get("sgbd")
+        if isinstance(s, str) and s:
+            stem = s.lower()
+            if stem.endswith(".prg"):
+                stem = stem[:-4]
+            # only what we can actually compile: the .prg must be present
+            if glob.glob(os.path.join(ECU_DIR, stem + ".prg")):
+                names.add(stem)
+    return sorted(names)
+
+
 def ir_jobs_for(sgbd):
     """Jobs the decompiled INPA UI actually runs for this SGBD, by stem."""
     stems = {sgbd}
