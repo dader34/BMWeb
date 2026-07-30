@@ -628,6 +628,18 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     if (p.num < min) min = p.num;
     if (p.num > max) max = p.num;
   }
+  // DEMO values are synthesized from the result's UNIT, and the server cannot
+  // see the IR's declared scale -- so a gauge whose unit matches no shape gets
+  // the generic `i % 100`, which lands outside its own axis: MSV80's exhaust
+  // spread read 58 on a -135..-40 scale, pinning the bar full with the number
+  // beside it contradicting both end labels. With no car attached that is
+  // noise, not data. Fold it into the declared span so the bar demonstrates
+  // the real scale. Never touches a live reading -- a real value that leaves
+  // its scale is a fact worth seeing pinned.
+  if (declared && demoMode() && (p.num < min || p.num > max)) {
+    const span0 = (max - min) || 1;
+    p.num = +(min + span0 * (((Math.abs(p.num) % 70) + 15) / 100)).toFixed(1);
+  }
   const span = (max - min) || 1;
   const pct = Math.max(0, Math.min(100, ((p.num - min) / span) * 100));
   const track = cellEl.querySelector('.gauge-track');
