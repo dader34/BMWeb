@@ -19,6 +19,7 @@ app/server-dist/
 
 # Release builds
 dist-release/
+dist-web/
 app/dist-release/
 
 # Derived/proprietary data: INPA-mined layouts, RE anchors tied to a flash dump,
