@@ -233,12 +233,25 @@ function webApiPath(path) {
   return null;
 }
 
+// WHERE THIS PAGE LIVES. GitHub Pages serves a project site from a subpath
+// (/BMacW/), not the domain root, so "/api/chassis" would resolve to
+// dader34.github.io/api/chassis -- off the site entirely. Derive the base
+// from the document's own URL and hang every static path off it. Empty at a
+// domain root and inside the macOS app, so both behave exactly as before.
+const WEB_BASE = (typeof location !== 'undefined'
+  ? location.pathname.replace(/\/[^/]*$/, '') : '').replace(/\/$/, '');
+
 // Install over window.fetch so core.js's api() needs no change at all.
 function installWebShim() {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
-    const rel = url.replace(/^https?:\/\/[^/]+/, '');
+    let rel = url.replace(/^https?:\/\/[^/]+/, '');
+    // core.js builds "<API>/api/..." from a base that means nothing here, and
+    // a subpath deploy adds its own prefix. Reduce both to a bare /api/ path.
+    if (WEB_BASE && rel.startsWith(`${WEB_BASE}/api/`)) {
+      rel = rel.slice(WEB_BASE.length);
+    }
     if (!rel.startsWith('/api/')) return real(input, init);
 
     const ok = (body) => new Response(JSON.stringify(body),

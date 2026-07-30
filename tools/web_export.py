@@ -32,10 +32,51 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..")
 
 
+CACHE = os.path.join(ROOT, "data", "chassis-config")
+
+
 def get(port, path):
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}",
-                                timeout=120) as r:
-        return json.load(r)
+    """The chassis config, from the running app or the committed cache.
+
+    Only two endpoints are computed rather than generated -- the chassis list
+    and each chassis config -- and resolving them needs INPA's CFGDAT matched
+    against the .prg tree, which is what the app does at startup.
+
+    That made the export need a running GUI app, which a CI runner has no way
+    to provide. The answers are 136 KB in total and change only when BMW's
+    config does, so they are committed under data/chassis-config and used
+    whenever the app is not up. The app stays the source of truth: run the
+    export locally with BMACW_PORT set and the cache is refreshed.
+    """
+    if port:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}",
+                                        timeout=120) as r:
+                return json.load(r)
+        except Exception:                                   # noqa: BLE001
+            pass                                            # fall back below
+    name = "index" if path == "/api/chassis" else path.rsplit("/", 1)[-1]
+    p = os.path.join(CACHE, f"{name}.json")
+    if not os.path.exists(p):
+        raise SystemExit(
+            f"no app on 127.0.0.1:{port or '-'} and no cached {name}.json.\n"
+            f"Start the app and re-run to populate {CACHE}.")
+    with open(p) as f:
+        return json.load(f)
+
+
+def refresh_cache(port, ids):
+    """Keep the committed cache in step whenever the app IS running."""
+    if not port:
+        return
+    os.makedirs(CACHE, exist_ok=True)
+    try:
+        write(os.path.join(CACHE, "index.json"), ids)
+        for cid in ids:
+            write(os.path.join(CACHE, f"{cid}.json"),
+                  get(port, f"/api/chassis/{cid}"))
+    except Exception:                                       # noqa: BLE001
+        pass        # a stale cache is better than a failed export
 
 
 def write(path, obj):
@@ -46,11 +87,11 @@ def write(path, obj):
 
 
 def main():
+    # No app is fine: the chassis config falls back to data/chassis-config,
+    # which is what a CI runner uses. Everything else is a generated file.
     port = os.environ.get("BMACW_PORT")
     if not port:
-        print("BMACW_PORT not set: start the app first, the chassis config is "
-              "resolved by it", file=sys.stderr)
-        return 1
+        print("  (no BMACW_PORT: using cached chassis config)")
     out = os.path.join(ROOT, "dist-web")
     if "--out" in sys.argv:
         out = sys.argv[sys.argv.index("--out") + 1]
@@ -58,6 +99,7 @@ def main():
 
     total = 0
     ids = get(port, "/api/chassis")
+    refresh_cache(port, ids)
     # A directory and a file cannot share one name: /api/chassis/{id} needs
     # `chassis/` to be a directory, so the list itself is chassis.json and the
     # fetch shim appends ".json" to every API path.
