@@ -47,10 +47,30 @@ async function vmFetchJson(path) {
   return res.json().catch(() => null);
 }
 
+// Which SGBDs have code shipped at all. Job code is exported for E46 only --
+// the app can browse ten other chassis, and asking for code that was never
+// generated is a guaranteed 404. Fetching anyway "works" (vmFetchJson returns
+// null and the job skips), but DevTools logs every failed request in red, so
+// opening an E65 screen paints the console with errors that look like a fault
+// and are not one. Consult the manifest first and skip without the request.
+let VM_INDEX = null;
+async function vmHasCode(key) {
+  if (VM_INDEX === null) {
+    const idx = await vmFetchJson('data/job-code/index.json');
+    // No manifest shipped -> assume yes and let the 404 decide, rather than
+    // disabling the VM wholesale on a missing index.
+    VM_INDEX = idx && Array.isArray(idx.sgbds) ? new Set(idx.sgbds) : false;
+  }
+  return VM_INDEX === false || VM_INDEX.has(key);
+}
+
 async function vmCodeFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!VM_CODE_CACHE.has(key)) {
-    VM_CODE_CACHE.set(key, await vmFetchJson(`data/job-code/${key}.json`));
+    const shipped = await vmHasCode(key);
+    VM_CODE_CACHE.set(key, shipped
+      ? await vmFetchJson(`data/job-code/${key}.json`)
+      : null);
   }
   return VM_CODE_CACHE.get(key);
 }

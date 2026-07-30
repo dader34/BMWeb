@@ -99,13 +99,19 @@ def parse(data):
             kind = "arguments"
             cur["arguments"].append(item)
         elif item is not None and key.startswith(("RESULT", "ARG")):
-            # RESULTTYPE / RESULTCOMMENT / ARGUMENTTYPE / ARGUMENTCOMMENT --
-            # keep the suffix as the field, appending repeats (a comment is
-            # often split over several lines).
+            # RESULTTYPE / RESULTCOMMENT / ARGTYPE / ARGCOMMENT. A COMMENT
+            # repeats -- one line per sentence, and the SGBD convention
+            # "table NAME VALUECOL TEXTCOL" arrives as its own line naming the
+            # table an argument's legal values come from. The engine exposes
+            # those as ARGCOMMENT0/1/2..., and the renderer matches on that
+            # numbering to find the table reference, so the repeats are kept
+            # as a LIST rather than joined into one string.
             field = key.replace(OPEN_RESULT, "", 1).replace(OPEN_ARG, "", 1)
             field = (field or "comment").lower()
-            if field in item:
-                item[field] = f"{item[field]} {val}".strip()
+            if field == "comment":
+                item.setdefault("comments", []).append(val)
+                # first line doubles as the plain summary
+                item.setdefault("comment", val)
             else:
                 item[field] = val
         elif kind is None:

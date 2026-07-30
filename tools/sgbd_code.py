@@ -191,7 +191,28 @@ def main():
               f"{size//1024:5} KB{flag}")
     print(f"code: {tot_ops} ops, {tot_bytes//1024} KB, "
           f"{tot_unres} unresolved jumps")
+    write_index()
     return 0
+
+
+def write_index():
+    """Manifest of the SGBDs that have code shipped.
+
+    vmbridge.js reads this before fetching, so browsing a chassis we never
+    exported (job code is E46-only; the app can open ten others) skips the
+    VM quietly instead of firing a request that 404s and paints the DevTools
+    console red -- noise that reads as a fault and is not one.
+
+    Reflects the whole DIRECTORY, not this run's targets: exporting a single
+    SGBD by name must not shrink the manifest to that one entry.
+    """
+    if not os.path.isdir(OUT_DIR):
+        return
+    names = sorted(f[:-5] for f in os.listdir(OUT_DIR)
+                   if f.endswith(".json") and f != "index.json")
+    with open(os.path.join(OUT_DIR, "index.json"), "w") as f:
+        json.dump({"format": 1, "sgbds": names}, f, separators=(",", ":"))
+    print(f"index: {len(names)} sgbds with code")
 
 
 if __name__ == "__main__":
