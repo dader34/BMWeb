@@ -310,6 +310,9 @@ async function loadEcu(sgbd, realFetch) {
 // Install over window.fetch so core.js's api() needs no change at all.
 function installWebShim() {
   const real = window.fetch.bind(window);
+  // Anything that needs the FILE rather than the shim's answer (the offline
+  // exporter zips the archives themselves) asks for this.
+  window.webRealFetch = real;
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     let rel = url.replace(/^https?:\/\/[^/]+/, '');

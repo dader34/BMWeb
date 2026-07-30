@@ -202,6 +202,46 @@ function showSettings() {
   hiwRow.appendChild(hiwBtn);
   wrap.appendChild(hiwRow);
 
+  // Offline copy: zip the app plus a car's data, in the browser.
+  //
+  // Fault text is always included: without it a code reads as a bare hex
+  // number, which is the one thing an offline copy is least able to look up.
+  // "All chassis" is offered but warned about -- it is the whole ~200 MB site
+  // held in a tab as one Blob, which not every machine will manage.
+  if (typeof offlineExport === 'function') {
+    let pickVal = 'E46';
+    const opts = [{ val: '*', label: 'All chassis (large)' }];
+    const combo = settingCombo(
+      'Download offline copy',
+      'A folder that runs with no internet. Includes fault descriptions.',
+      opts, pickVal, (v) => { pickVal = v; });
+    const goBtn = document.createElement('button');
+    goBtn.className = 'btn';
+    goBtn.textContent = 'Download';
+    goBtn.style.marginLeft = '8px';
+    combo.el.querySelector('.combo').after(goBtn);
+    api('/api/chassis').then((ids) => {
+      combo.setOptions(
+        [{ val: '*', label: 'All chassis (large)' }]
+          .concat(ids.map(id => ({ val: id, label: id }))),
+        pickVal);
+    }).catch(() => { goBtn.disabled = true; });
+    goBtn.onclick = async () => {
+      const was = goBtn.textContent;
+      goBtn.disabled = true;
+      try {
+        const n = await offlineExport(pickVal, true,
+                                      (t) => { goBtn.textContent = t; });
+        goBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
+      } catch (e) {
+        goBtn.textContent = `failed: ${e.message}`;
+      }
+      setTimeout(() => { goBtn.textContent = was; goBtn.disabled = false; },
+                 5000);
+    };
+    wrap.appendChild(combo.el);
+  }
+
   view.appendChild(wrap);
 
   // version footer
