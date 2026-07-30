@@ -30,7 +30,7 @@ internal static class DiagnosticsEndpoints
         // a job's declared arguments (offline, via the _ARGUMENTS pseudo-job). lets the
         // UI know which jobs need input (flash address/parameter, etc.) and their types.
         app.MapGet("/api/ecu/{sgbd}/arguments/{job}", (string sgbd, string job) =>
-            Offline(state, sgbd, diag =>
+            MetaArguments(state, sgbd, job) ?? Offline(state, sgbd, diag =>
             {
                 var args = new List<Dictionary<string, string>>();
                 foreach (var set in diag.Run("_ARGUMENTS", job))
@@ -69,11 +69,16 @@ internal static class DiagnosticsEndpoints
         // "table BITS NAME TEXT" takes its legal values from a table like
         // this, so the UI can offer the real component list instead of a
         // free-text box.
+        // Tables come from data/sgbd-tables, which sgbd_export.py fills from
+        // every table the .prg DECLARES (audited 709/709 by --audit in
+        // check.sh). The engine stays as the fallback.
         app.MapGet("/api/ecu/{sgbd}/tables", (string sgbd) =>
-            Offline(state, sgbd, diag => Results.Json(diag.Tables())));
+            TableNames(state, sgbd) ?? Offline(state, sgbd,
+                diag => Results.Json(diag.Tables())));
 
         app.MapGet("/api/ecu/{sgbd}/table/{table}", (string sgbd, string table) =>
-            Offline(state, sgbd, diag => Results.Json(diag.TableRows(table))));
+            TableRows(state, sgbd, table) ?? Offline(state, sgbd,
+                diag => Results.Json(diag.TableRows(table))));
 
         // The BEST2 VM's inputs: the job code we lifted from the .prg and the
         // SGBD's tables. Served from data/ rather than the renderer dir so the
@@ -304,5 +309,79 @@ internal static class DiagnosticsEndpoints
                 ? name! : $"{name} : {comment}");
         }
         return lines.Count > 0 ? Results.Json(lines) : null;
+    }
+
+    // The engine returns set 0 (its system header) then one set per argument
+    // carrying ARG/ARGTYPE/ARGCOMMENT0..n. live.js filters on the presence of
+    // ARG and matches ARGCOMMENT<digits> to find the "table NAME VAL TEXT"
+    // reference that turns a free-text box into a real component list, so the
+    // numbering is reproduced exactly rather than flattened.
+    static IResult? MetaArguments(ServerState state, string sgbd, string job)
+    {
+        using var doc = MetaDoc(state, sgbd);
+        if (doc == null) return null;
+        if (!doc.RootElement.TryGetProperty("jobs", out var jobs)) return null;
+        if (!jobs.TryGetProperty((job ?? "").ToUpperInvariant(), out var j))
+            return null;
+        if (!j.TryGetProperty("arguments", out var argsEl)) return null;
+        var list = new List<Dictionary<string, string>>();
+        foreach (var a in argsEl.EnumerateArray())
+        {
+            var d = new Dictionary<string, string>();
+            if (a.TryGetProperty("name", out var n))
+                d["ARG"] = n.GetString() ?? "";
+            if (a.TryGetProperty("type", out var t))
+                d["ARGTYPE"] = t.GetString() ?? "";
+            if (a.TryGetProperty("comments", out var cs))
+            {
+                int i = 0;
+                foreach (var c in cs.EnumerateArray())
+                    d[$"ARGCOMMENT{i++}"] = c.GetString() ?? "";
+            }
+            if (d.Count > 0) list.Add(d);
+        }
+        // A job with no declared arguments is a real answer, not a miss --
+        // but only when the job itself exists in our export, which it does
+        // here, so return the empty list rather than falling through.
+        return Results.Json(new { job, arguments = list });
+    }
+
+    static System.Text.Json.JsonDocument? TableDoc(ServerState state, string sgbd)
+    {
+        if (string.IsNullOrEmpty(sgbd)
+            || sgbd.IndexOfAny(new[] { '/', '\\' }) >= 0 || sgbd.Contains(".."))
+        {
+            return null;
+        }
+        var path = Path.Combine(state.Root, "data", "sgbd-tables",
+                                sgbd.ToLowerInvariant() + ".json");
+        if (!File.Exists(path)) return null;
+        try { return System.Text.Json.JsonDocument.Parse(File.ReadAllText(path)); }
+        catch { return null; }
+    }
+
+    static IResult? TableNames(ServerState state, string sgbd)
+    {
+        using var doc = TableDoc(state, sgbd);
+        if (doc == null) return null;
+        var names = doc.RootElement.EnumerateObject()
+            .Select(p => p.Name).ToList();
+        return names.Count > 0 ? Results.Json(names) : null;
+    }
+
+    // Table lookup is case-insensitive in EDIABAS (TableNameDict is keyed on
+    // ToUpper), so match that rather than requiring the caller's exact case.
+    static IResult? TableRows(ServerState state, string sgbd, string table)
+    {
+        using var doc = TableDoc(state, sgbd);
+        if (doc == null || string.IsNullOrEmpty(table)) return null;
+        foreach (var p in doc.RootElement.EnumerateObject())
+        {
+            if (string.Equals(p.Name, table, StringComparison.OrdinalIgnoreCase))
+                return Results.Json(System.Text.Json.JsonSerializer
+                    .Deserialize<List<Dictionary<string, string>>>(
+                        p.Value.GetRawText()));
+        }
+        return null;
     }
 }
