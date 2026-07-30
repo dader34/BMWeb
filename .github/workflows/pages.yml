@@ -20,7 +20,6 @@ on:
     paths:
       - 'app/renderer/**'
       - 'data/**'
-      - 'ecus/**'
       - 'tools/web_export.py'
       - 'scripts/build/build-web.sh'
       - '.github/workflows/pages.yml'

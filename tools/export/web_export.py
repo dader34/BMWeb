@@ -18,6 +18,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 CACHE = os.path.join(ROOT, "data", "chassis-config")
 
+sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
+import ecu_tree as T                                          # noqa: E402
+
 
 def get(port, path):
     """Get the chassis config, from the running app or the committed cache."""
@@ -119,9 +122,19 @@ def main():
     for sgbd in sorted(sgbds):
         ecu_contents = {}
 
-        # Load job metadata
-        mp = os.path.join(ROOT, "data", "job-meta", f"{sgbd}.json")
-        if os.path.exists(mp):
+        # EVERYTHING COMES FROM THE PER-CAR TREE. data/chassis/<C>/<ECU>/ is
+        # the source of truth now; the flat per-kind folders it was built from
+        # are gone. src() finds the file in whichever car folder holds this
+        # SGBD -- the copies are written together, so any one of them will do.
+        def src(name):
+            for d in T.ecu_dirs(sgbd):
+                q = os.path.join(d, name)
+                if os.path.exists(q):
+                    return q
+            return None
+
+        mp = src("meta.json")
+        if mp:
             with open(mp) as f:
                 meta = json.load(f)
             jobs = meta.get("jobs", {})
@@ -155,8 +168,8 @@ def main():
                     )
 
         # Load tables
-        tp = os.path.join(ROOT, "data", "sgbd-tables", f"{sgbd}.json")
-        if os.path.exists(tp):
+        tp = src("tables.json")
+        if tp:
             with open(tp) as f:
                 tabs = json.load(f)
             ecu_contents["tables.json"] = json.dumps(sorted(tabs.keys()), separators=(",", ":"))
@@ -165,21 +178,21 @@ def main():
             ntab += 1
 
         # Add IR if matched
-        if sgbd in sgbd_to_ir:
-            ir_path = os.path.join(ir_dir, sgbd_to_ir[sgbd])
+        ir_path = src("screens.json")
+        if ir_path:
             with open(ir_path, "rb") as f:
                 ecu_contents["ir.json"] = f.read()
             nir += 1
 
         # Decompress and embed the VM's job-code bytecode
-        gp = os.path.join(ROOT, "data", "job-code", f"{sgbd}.json.gz")
-        if os.path.exists(gp):
+        gp = src("job-code.json.gz")
+        if gp:
             with gzip.open(gp, "rb") as gf:
                 ecu_contents["job-code.json"] = gf.read()
 
         # Embed VM SGBD tables
-        vmtp = os.path.join(ROOT, "data", "sgbd-tables", f"{sgbd}.json")
-        if os.path.exists(vmtp):
+        vmtp = src("tables.json")
+        if vmtp:
             with open(vmtp, "rb") as tf:
                 ecu_contents["sgbd-tables.json"] = tf.read()
 

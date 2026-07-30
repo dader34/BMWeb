@@ -36,12 +36,13 @@ for (const [name, want] of [
 }
 
 // ---- behaviour, against a real job with real captured telegrams
-const codeP = path.join(ROOT, 'data/job-code/ms450ds0.json');
+const T = require('./ecu_tree.js');
+const code0 = T.readEcuJson('ms450ds0', 'job-code.json');
 const fixP = path.join(ROOT, 'data/sim-captures/vmfix.json');
-if (fs.existsSync(codeP) && fs.existsSync(fixP)) {
-  const code = JSON.parse(fs.readFileSync(codeP, 'utf8'));
-  const tp = path.join(ROOT, 'data/sgbd-tables/ms450ds0.json');
-  const tables = fs.existsSync(tp) ? JSON.parse(fs.readFileSync(tp, 'utf8')) : {};
+if (code0 && fs.existsSync(fixP)) {
+  const code = code0;
+
+  const tables = T.readEcuJson('ms450ds0', 'tables.json') || {};
   const fix = JSON.parse(fs.readFileSync(fixP, 'utf8'));
   const c = fix.cases.find((x) => x.sgbd === 'ms450ds0'
     && x.job === 'FS_LOESCHEN');
