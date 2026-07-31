@@ -58,28 +58,25 @@ its FSW as a u16 followed by the two bytes 10 00, with 01 68 00 ahead and
 switch centre, gives FLC_KL58G, KALTUEBERWACHUNG_BL_L, PWM_ANSTEUERUNG_BLK_RZ
 and CC_MELDUNG_FL_L at 51% in-domain, where every earlier attempt scored 0%.
 
-MODULES DO NOT SHARE ONE KEYWORD TABLE. SWTFSW01 and SWTFSW06 agree on
-only 10 ids out of ~3,700, and which one a module wants is not the file
-extension: LSZ reads correctly against 01, while GM3 reads correctly only
-against 06, where it gives SPIEGELABKLAPPEN_GM and SPIEGELHEIZUNG_VERBAUT_GM
--- keywords suffixed with the module's own name. Nothing yet says which
-table a given .C0x belongs to, and there may be tables beyond these two.
-Until that is settled, a name is only trustworthy when the module and the
-table have been paired by hand.
+THE TREE IS PER CHASSIS, which matters more than it sounds. DATEN holds
+E39/ and E46/ subdirectories, each with its own copy of a module's coding
+file -- E46/LSZ.C26 is not E39/LSZ.C26. An earlier extraction of mine
+flattened them and let same-named files overwrite each other, so 186 of
+567 files were silently lost and the survivors were a mix of two chassis.
+Any figure computed before this was measured on a corrupted tree. 346
+files now, not 260.
 
-HOW GOOD IS IT. On LSZ, 56 of 67 names are the light switch centre's own
-work: KALTUEBERWACHUNG_BL_L, PWM_ANSTEUERUNG_BLK_RZ, BI_XENON,
-LEUCHTWEITENREGELUNG, HEIMLEUCHTEN_ABBRUCH, and six PROGRAMMPARAMETER_LCM_n
--- LCM being the same box under its other name. 83%, and the first
-measurement of this said 51% only because the word list used to judge it
-was too narrow, which is worth remembering the next time a score looks
-poor. The eleven that remain (GURTSCHLOSS_HINTEN_LI_2, E52_LINKS_LENKER)
-are genuine misses.
-
-Requiring both sides of the keyword is what bought that. The suffix alone
-admits about a fifth more names, most of them not the module's; the
-two-sided anchor costs a few real rows and takes 14,412 across 252 of 260
-files instead of 48,739 across 259, which is the better trade.
+MODULES DO NOT SHARE ONE KEYWORD TABLE, and which one a module wants is
+still unsolved. SWTFSW01 and SWTFSW06 agree on 10 ids out of ~3,700.
+E46/LSZ reads clearly against 01 (36 of 67 names are the light module's
+own) and poorly against 06. ACC gets exactly one plausible name from 06
+and none from 01. GM5 gets nothing from either. Three things were tried
+and none discriminates: whether the module's name appears in its own
+keywords (25 for 01, 51 for 06, 184 ties), how many ids resolve (biased,
+01 is the larger table), and SGID_CODIERINDEX, which turns out to be just
+the file extension restated. So a name is trustworthy only where the
+module and table have been paired by hand, and LSZ against 01 is the one
+pairing this has actually verified.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -286,7 +283,8 @@ def summarise(path, verbose=False):
 
 def corpus():
     """Does the reader understand every file, or only the one it was built on?"""
-    files = sorted(glob.glob(f'{DATEN}/*.C[0-9][0-9]'))
+    files = sorted(glob.glob(f'{DATEN}/*.C[0-9][0-9]')
+                   + glob.glob(f'{DATEN}/*/*.C[0-9][0-9]'))
     if not files:
         sys.exit(f'no .C0x files in {DATEN} '
                  '(run scripts/setup/fetch-vendor.sh)')
@@ -342,8 +340,12 @@ def main():
     if not args.file:
         ap.print_help()
         return 1
-    p = args.file if os.path.exists(args.file) else f'{DATEN}/{args.file}'
+    p = args.file
     if not os.path.exists(p):
+        # the tree is per chassis: DATEN/E46/LSZ.C26
+        hit = glob.glob(f'{DATEN}/{args.file}') + glob.glob(f'{DATEN}/*/{args.file}')
+        p = hit[0] if hit else ''
+    if not p or not os.path.exists(p):
         sys.exit(f'not found: {args.file}')
     summarise(p, args.verbose)
 
