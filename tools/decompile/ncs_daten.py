@@ -119,17 +119,26 @@ bits at roughly a thousand each.
 So a coding blob can now be read: BLOCKNR and WORTADR say which word,
 MASKE says which bits, FSW says what it is called.
 
-THERE IS A SECOND RECORD SHAPE this does not parse. The 14 12 00 01 header
-is present in 109 of 346 files; the rest put their keyword 14 bytes past a
-different tag (DWA3 uses 01 00 00 01, ACC 00 00 00 01, both on every row),
-which is consistent with BLOCKNR being the optional field the signature
-says it is -- those records are simply shorter. Sweeping for the word
-offset by the no-collision rule does find one for DWA3 (FSW-16, 10 densely
-packed groups, no collisions), but the same sweep fails on the long shape
-because there the invariant needs BLOCKNR and WORTADR TOGETHER, and one
-offset cannot express a pair. A parser for the short shape needs to know
-where its block lives, or that it has none; guessing produced word numbers
-in the millions, so it is left unparsed rather than fabricated.
+WHICH KEYWORD TABLE A MODULE WANTS IS STILL UNANSWERED, and it is worth
+recording that NCS Expert's own config does not say. COAPI.INI declares a
+DATEN path per chassis (E46_PFAD_DATEN = ..\daten\e46), which confirms
+the per-chassis tree found by reading the archive, and it puts the SWT
+tables in the root beside them -- but nothing in it names a table. The
+choice lives in the program, not its configuration.
+
+Seven approaches have now failed and are listed so none is retried: the
+module naming itself in its own keywords (184 ties), raw resolution count
+(biased, 01 is larger), SGID_CODIERINDEX (restates the file extension),
+vocabulary coherence (picks 01 everywhere, including where 01 is wrong),
+surviving-row count (same size bias), resolution lift over table density
+(both tables resolve 85-100% of structurally valid rows, so it cannot
+discriminate), and COAPI.INI. The tables cover the same id space with
+different names, which is exactly why no statistic separates them: only
+knowing what the module does can.
+
+Also worth knowing: this archive ships coding data for E39 and E46 only,
+570 files, though COAPI.INI declares paths for twenty-odd chassis. The
+other cars' DATEN is simply not in it.
 
 Read-only: decodes files on disk, never talks to a car.
 """
