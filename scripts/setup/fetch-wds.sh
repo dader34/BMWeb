@@ -108,6 +108,13 @@ rm -rf vendor/WDS
 mkdir -p vendor/WDS
 cp -R "$REL/svg"   vendor/WDS/svg
 cp -R "$REL/zinfo" vendor/WDS/zinfo
+# The photographs the descriptions point at. A component location is mostly
+# its picture -- "wheel hub front left" is a caption under a photo of the
+# hub -- so without these those pages are a caption and a broken-image box.
+# They sit one level up from release/us, beside it rather than inside it.
+for cand in "$REL/zi_images" "$(dirname "$REL")/zi_images"; do
+  [ -d "$cand" ] && { cp -R "$cand" vendor/WDS/zi_images; break; }
+done
 # the tree XML only. Its siblings are atc50c.jar (the Java navigation applet
 # WDS used, which this app's own viewer replaces) and files.zip (that same
 # XML, zipped). Copying a jar we never load just invites the question.
