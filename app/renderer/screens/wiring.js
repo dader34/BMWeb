@@ -154,12 +154,12 @@ let WIRING_CHASSIS = null;
 async function wiringChassisList() {
   if (WIRING_CHASSIS) return WIRING_CHASSIS;
   const ids = await api('/api/chassis').catch(() => []);
-  const found = [];
-  for (const id of ids) {
-    if (await hasWiring(id)) found.push(id);
-  }
-  WIRING_CHASSIS = found;
-  return found;
+  // ALL AT ONCE, not one after another. This asks whether each of 21 cars has
+  // an archive, and in a browser that is 21 network round trips: serially it
+  // was seconds of blank screen, in parallel it is one round trip's worth.
+  const have = await Promise.all(ids.map((id) => hasWiring(id)));
+  WIRING_CHASSIS = ids.filter((_, i) => have[i]);
+  return WIRING_CHASSIS;
 }
 
 // Wiring as its own section, like Fault Lookup: pick the car here rather
@@ -176,9 +176,20 @@ async function showWiringChassis() {
   const classic = typeof inpaMode === 'function' && inpaMode();
   const grid = document.createElement('div');
   grid.className = classic ? 'inpa-vlist' : 'chassis-grid stagger';
+
+  // Say something while the list is worked out. Finding which cars have
+  // diagrams means asking for each archive in turn, which on a hosted site
+  // is 21 requests over the network -- several seconds of blank page
+  // otherwise, with nothing to say it was doing anything.
+  const wait = document.createElement('div');
+  wait.className = 'wiring-loading';
+  wait.innerHTML = `<span class="wiring-spinner"></span>`
+    + `<span>Looking for the vehicles with diagrams…</span>`;
+  view.appendChild(wait);
   view.appendChild(grid);
 
   const ids = await wiringChassisList();
+  wait.remove();
   if (!ids.length) {
     // NOT AN ERROR, and errorBlock said one had occurred ("Something went
     // wrong", then advice about the cable and ignition, which has nothing to
@@ -188,14 +199,10 @@ async function showWiringChassis() {
     const note = document.createElement('div');
     note.className = 'empty wiring-absent';
     note.innerHTML = `
-      <div class="empty-big">Not available on this site</div>
-      <div>BMW's wiring diagrams are 1.1 GB, and a GitHub Pages site may hold
-           1 GB, so this hosted copy ships without them.</div>
-      <div>They are in the <strong>macOS app</strong>, and in an
-           <strong>offline copy</strong> exported from it: 23,926 schematics,
-           component locations, connector views and pin assignments across 15
-           chassis.</div>
-      <div style="font-size:12px;color:var(--ink-faint)">Building from source:
+      <div class="empty-big">No wiring data in this build</div>
+      <div>The diagrams come from BMW's WDS, which is a separate download and
+           not part of this repository.</div>
+      <div style="font-size:12px;color:var(--ink-faint)">To add them:
            <code>scripts/setup/fetch-wds.sh</code> then
            <code>tools/wds_import.py --wds vendor/WDS</code>.</div>`;
     view.appendChild(note);
@@ -330,6 +337,11 @@ function showWiring(chassisId, openDoc = null) {
   view.appendChild(split);
 
   const treeEl = split.querySelector('#wiring-tree');
+  // the archive is 2 to 24 MB, so on a hosted site there is a real wait
+  // between opening a car and its tree appearing. Fill it.
+  treeEl.innerHTML = `<div class="wiring-loading">`
+    + `<span class="wiring-spinner"></span>`
+    + `<span>Loading ${esc(dispChassis(chassisId))} diagrams…</span></div>`;
   const viewEl = split.querySelector('#wiring-view');
   const searchEl = split.querySelector('#wiring-search');
 
@@ -431,6 +443,7 @@ function showWiring(chassisId, openDoc = null) {
         }
       }
     };
+    treeEl.innerHTML = '';           // drop the "loading" placeholder
     renderTree(data.tree, treeEl, 0);
 
     // ---- search: flat results across the whole car, tree hidden while typing

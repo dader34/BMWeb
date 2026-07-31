@@ -1867,3 +1867,19 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   min-width: 316px; min-height: 237px; background: rgba(127,127,127,.10);
   border: 1px dashed var(--line);
 }
+
+/* waiting for wiring data: the chassis probe on the picker, the archive
+   download on a car. Both are seconds on a hosted site. */
+.wiring-loading {
+  display: flex; align-items: center; gap: 10px; padding: 18px 8px;
+  color: var(--ink-dim); font-size: 13px;
+}
+.wiring-spinner {
+  width: 13px; height: 13px; flex: none; border-radius: 50%;
+  border: 2px solid var(--line-bright); border-top-color: var(--amber);
+  animation: wiring-spin .7s linear infinite;
+}
+@keyframes wiring-spin { to { transform: rotate(360deg); } }
+/* the WDS frame keeps its own palette */
+.wds-frame .wiring-loading { color: #333; }
+.wds-frame .wiring-spinner { border-color: #b0b0b0; border-top-color: #000080; }
