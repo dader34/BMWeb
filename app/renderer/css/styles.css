@@ -1503,7 +1503,10 @@ select.modal-input { appearance: none; cursor: pointer; }
    A tree on the left, one document on the right. The document is either a
    vector schematic (pan/zoom by viewBox) or BMW's own description HTML. */
 .wiring-split {
-  /* the diagram takes the window: topbar (56) + fkey bar + padding */
+  /* the diagram takes the window: topbar (56) + fkey bar + padding.
+     A column, not .split's grid: the panes live inside .wiring-body so the
+     WDS layout can stack a toolbar above them and a footer below. */
+  display: flex; flex-direction: column;
   height: calc(100vh - 150px); min-height: 320px;
 }
 .wiring-nav { display: flex; flex-direction: column; min-height: 0; }
@@ -1573,3 +1576,88 @@ select.modal-input { appearance: none; cursor: pointer; }
 .wiring-doc a { color: var(--amber); }
 .sys-wiring .nav-count { color: var(--amber); }
 .wiring-zoom { display: flex; gap: 6px; }
+
+/* ---- WDS chrome (INPA layout only) ----------------------------------------
+   The frame BMW's own tool wore: a grey toolbar of raised buttons, a blue
+   title strip, the panes sunken into it, and a footer holding the search and
+   the zoom controls. Only the frame is period; the panes inside are the same
+   ones the modern layout uses. */
+.wiring-split.wds-frame {
+  display: flex; flex-direction: column; gap: 0;
+  background: #808080; border: 2px solid #808080; max-width: none;
+}
+.wiring-split.wds-frame .wiring-body {
+  display: grid; grid-template-columns: 300px 1fr; gap: 0;
+  flex: 1; min-height: 0; background: #808080;
+}
+.wiring-split:not(.wds-frame) .wiring-body {
+  display: grid; grid-template-columns: 300px 1fr; gap: 18px;
+  flex: 1; min-height: 0;
+}
+.wds-toolbar {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  background: #808080; flex: none;
+}
+.wds-nav-pair { display: flex; gap: 6px; margin-left: 26px; }
+.wds-help { margin-left: auto; }
+/* Win95-era raised button: light top/left, dark bottom/right */
+.wds-btn {
+  font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: 700;
+  color: #000; background: #c0c0c0; cursor: pointer;
+  padding: 7px 18px; border: 2px solid;
+  border-color: #ffffff #404040 #404040 #ffffff;
+  box-shadow: inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+}
+.wds-btn:active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow: inset 1px 1px 0 #808080;
+}
+.wds-btn-sq { padding: 7px 12px; min-width: 40px; }
+.wds-titlebar {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #808080; color: #4da6ff; flex: none;
+  font-family: Arial, Helvetica, sans-serif; font-size: 17px; font-weight: 700;
+  padding: 2px 10px 8px;
+}
+.wds-version { font-size: 15px; }
+/* the panes: white, sunken, separated by the grey frame */
+.wds-frame .wiring-nav, .wds-frame .wiring-view {
+  background: #fff; border: 2px solid;
+  border-color: #404040 #ffffff #ffffff #404040;
+  padding: 0; min-height: 0;
+}
+.wds-frame .wiring-nav { margin-right: 4px; }
+.wds-frame .wiring-tree { padding: 6px 4px; }
+.wds-frame .wiring-folder, .wds-frame .wiring-leaf {
+  color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 12.5px;
+}
+.wds-frame .wiring-folder { color: #333; }
+.wds-frame .wiring-folder:hover, .wds-frame .wiring-leaf:hover { background: #cde0ff; }
+.wds-frame .wiring-trail { color: #666; }
+.wds-frame .wiring-bar { border-bottom: 1px solid #c0c0c0; background: #f0f0f0; }
+.wds-frame .wiring-title { color: #000; }
+.wds-frame .wiring-kind { color: #555; }
+.wds-frame .wiring-doc { color: #000; }
+.wds-frame .wiring-doc h2 { color: #0066cc; }
+.wds-frame .wiring-doc h3 { color: #333; }
+.wds-frame .empty, .wds-frame .empty div { color: #333; }
+.wds-footer {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  background: #808080; flex: none;
+}
+.wds-searchlabel {
+  font-family: Arial, Helvetica, sans-serif; font-size: 13px;
+  font-weight: 700; color: #000;
+}
+.wds-input {
+  font-family: Arial, Helvetica, sans-serif; font-size: 13px; color: #000;
+  background: #fff; padding: 5px 7px; width: 210px;
+  border: 2px solid; border-color: #404040 #ffffff #ffffff #404040;
+}
+.wds-input:focus { outline: 1px solid #0066cc; }
+.wds-zoomgroup { display: flex; gap: 6px; margin-left: auto; }
+.wds-zoomgroup .wds-btn { font-size: 15px; line-height: 1; }
+.wds-help-doc { max-width: 70ch; }
+.wds-help-doc ul { margin: 0 0 12px; padding-left: 22px; }
+.wds-help-doc li { margin-bottom: 5px; }
+.wds-help-doc .wiring-dot { display: inline-block; margin-right: 3px; }
