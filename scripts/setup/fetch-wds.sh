@@ -108,11 +108,16 @@ rm -rf vendor/WDS
 mkdir -p vendor/WDS
 cp -R "$REL/svg"   vendor/WDS/svg
 cp -R "$REL/zinfo" vendor/WDS/zinfo
+# the tree XML only. Its siblings are atc50c.jar (the Java navigation applet
+# WDS used, which this app's own viewer replaces) and files.zip (that same
+# XML, zipped). Copying a jar we never load just invites the question.
 for d in "$REL"/*/; do
   [ -d "$d/tree" ] || continue
   name=$(basename "$d")
-  mkdir -p "vendor/WDS/$name"
-  cp -R "$d/tree" "vendor/WDS/$name/tree"
+  xml=$(find "$d/tree" -maxdepth 1 -name '*_files.xml' | head -1)
+  [ -n "$xml" ] || continue          # e90's tree holds only a readme
+  mkdir -p "vendor/WDS/$name/tree"
+  cp "$xml" "vendor/WDS/$name/tree/"
 done
 
 echo "==> verifying"
