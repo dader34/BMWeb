@@ -72,10 +72,10 @@ function showSettings() {
 
   // which hardware moves the bytes. The bus is chosen at page load, so
   // switching reloads.
-  wrap.appendChild(settingRow(
+  const adapterRow = settingRow(
     'Adapter',
     IS_WEB
-      ? 'K+DCAN USB cable over Web Serial, or the THOR WiFi dongle through its local bridge (node thor_bridge.js, shipped with this build).'
+      ? 'K+DCAN USB cable over Web Serial, or the THOR WiFi dongle through its local bridge (shipped with this build).'
       : 'K+DCAN USB cable, or the THOR WiFi dongle over its own WiFi network (join Thor_Wifi first).',
     [
       { val: 'kdcan', label: 'K+DCAN (USB)' },
@@ -100,7 +100,67 @@ function showSettings() {
       }
       location.reload();
     },
-  ));
+  );
+  wrap.appendChild(adapterRow);
+
+  // THOR in a browser needs its relay running, and a page cannot start a
+  // process -- the sandbox forbids it, and rightly. So say plainly whether
+  // the bridge is up, and make the command one click to copy. The macOS app
+  // opens the socket itself and needs none of this.
+  if (IS_WEB && Settings.get('adapter', 'kdcan') === 'thor') {
+    const bridgeRow = document.createElement('div');
+    bridgeRow.className = 'setting-row';
+    bridgeRow.innerHTML = `
+      <div class="setting-text">
+        <div class="setting-title">THOR bridge</div>
+        <div class="setting-desc">
+          Browsers cannot open the adapter's TCP socket, so a small relay
+          carries it. Offline copies ship a double-click starter; otherwise
+          run it from where this build is served.
+        </div>
+      </div>`;
+    const controls = document.createElement('div');
+    controls.className = 'setting-controls';
+    const state = document.createElement('span');
+    state.className = 'bridge-state';
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn';
+    copyBtn.textContent = 'Copy command';
+    copyBtn.title = 'Copy "node thor_bridge.js" to the clipboard';
+    copyBtn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText('node thor_bridge.js');
+        copyBtn.textContent = 'Copied';
+      } catch {
+        copyBtn.textContent = 'node thor_bridge.js';
+      }
+      setTimeout(() => { copyBtn.textContent = 'Copy command'; }, 2500);
+    };
+    controls.append(state, copyBtn);
+    bridgeRow.appendChild(controls);
+    wrap.appendChild(bridgeRow);
+
+    // poll while this screen is open: the point is to watch it come up
+    // after starting the relay, without having to reload anything
+    const ping = () => {
+      const ws = new WebSocket('ws://127.0.0.1:8124');
+      const settle = (up) => {
+        state.className = `bridge-state ${up ? 'up' : 'down'}`;
+        state.textContent = up ? 'running' : 'not running';
+        try { ws.close(); } catch { /* already closing */ }
+      };
+      ws.onopen = () => settle(true);
+      ws.onerror = () => settle(false);
+    };
+    ping();
+    // Stop when the row leaves the document. Screens replace view.innerHTML
+    // rather than firing any teardown event, so watch for the removal
+    // itself: no timer survives the screen that owns it.
+    const timer = setInterval(() => {
+      if (!bridgeRow.isConnected) { clearInterval(timer); return; }
+      ping();
+    }, 3000);
+  }
 
   // auto-scan the DME (and trans) for stored faults when a chassis is opened,
   // popping a corner badge if anything needs attention.
