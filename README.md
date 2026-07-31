@@ -282,6 +282,15 @@ tools/wds_import.py --wds vendor/WDS
 Skip all of this if you do not want wiring diagrams. Nothing else depends on
 them, and `check-vendor.sh` reports them as absent rather than failing.
 
+The importer also takes `--images-out DIR`, which writes the component
+photographs beside the archives instead of inside them, deduplicated across
+chassis. That is how the hosted build is made: a GitHub Pages site may hold
+1 GB and the archives are 1.02 GB, of which 878 MB is photographs. So the web
+build ships the 144 MB of diagrams and text and pulls each picture from
+[a CDN](https://github.com/dader34/BMacW-wiring-images) as it is needed,
+keeping it in the browser's cache. The macOS app and offline copies keep the
+images inside their archives and never touch the network for them.
+
 ### Check the layout
 
 Before anything else. It names exactly what is missing and where it goes:
