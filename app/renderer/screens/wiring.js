@@ -82,17 +82,57 @@ function wiringDoc(data, docId) {
   return null;
 }
 
+// WHERE THE PHOTOGRAPHS COME FROM WHEN THEY ARE NOT IN THE ARCHIVE.
+//
+// The app and offline copies carry them inside the .wiring file, so they
+// need no network. The hosted site cannot: they are 878 MB across the
+// chassis and a GitHub Pages site may hold 1 GB in total, so that build
+// ships the diagrams (144 MB) and fetches the pictures from a CDN.
+//
+// jsDelivr rather than a release asset: release downloads send no
+// access-control-allow-origin, so a page cannot fetch them at all, while
+// jsDelivr is CORS-open and edge-cached. Verified both from the live site.
+const WIRING_IMG_CDN =
+  'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@main/';
+const WIRING_IMG_CACHE = 'bmacw-wiring-images-v1';
+
 // A blob URL per image, made once and kept: the same photo appears on many
 // documents (one wheel-hub shot serves every sensor mounted there), and
 // minting a URL per view would leak one each time.
-function wiringImageUrl(data, path, bytes) {
+function wiringImageUrl(data, path, bytesOrBlob) {
   if (!data.imgUrls) data.imgUrls = new Map();
   let url = data.imgUrls.get(path);
   if (!url) {
-    url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+    // from the archive it is bytes; from the CDN it is already a Blob
+    const blob = (bytesOrBlob instanceof Blob) ? bytesOrBlob
+      : new Blob([bytesOrBlob], { type: 'image/png' });
+    url = URL.createObjectURL(blob);
     data.imgUrls.set(path, url);
   }
   return url;
+}
+
+// Fetch a photograph the archive does not hold, and keep it. The Cache API
+// survives reloads, so a car browsed once keeps its pictures offline
+// afterwards; the browser may evict under pressure, and a miss just fetches
+// again.
+async function wiringFetchImage(name) {
+  const url = WIRING_IMG_CDN + name;
+  try {
+    const cache = await caches.open(WIRING_IMG_CACHE);
+    const hit = await cache.match(url);
+    if (hit) return hit.blob();
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    await cache.put(url, res.clone());
+    return res.blob();
+  } catch {
+    // no Cache API (file://, private mode): still show the picture
+    try {
+      const res = await fetch(url);
+      return res.ok ? res.blob() : null;
+    } catch { return null; }
+  }
 }
 
 // flatten the tree once for search: every leaf with the folder path above it
@@ -140,8 +180,25 @@ async function showWiringChassis() {
 
   const ids = await wiringChassisList();
   if (!ids.length) {
-    view.innerHTML += errorBlock('No wiring data is shipped in this build. '
-      + 'Build it with tools/wds_import.py from a WDS release.');
+    // NOT AN ERROR, and errorBlock said one had occurred ("Something went
+    // wrong", then advice about the cable and ignition, which has nothing to
+    // do with it). The hosted site simply cannot carry these: the diagrams
+    // are 1.1 GB and a GitHub Pages site may be no larger than 1 GB. Say
+    // that, and say where they do work.
+    const note = document.createElement('div');
+    note.className = 'empty wiring-absent';
+    note.innerHTML = `
+      <div class="empty-big">Not available on this site</div>
+      <div>BMW's wiring diagrams are 1.1 GB, and a GitHub Pages site may hold
+           1 GB, so this hosted copy ships without them.</div>
+      <div>They are in the <strong>macOS app</strong>, and in an
+           <strong>offline copy</strong> exported from it: 23,926 schematics,
+           component locations, connector views and pin assignments across 15
+           chassis.</div>
+      <div style="font-size:12px;color:var(--ink-faint)">Building from source:
+           <code>scripts/setup/fetch-wds.sh</code> then
+           <code>tools/wds_import.py --wds vendor/WDS</code>.</div>`;
+    view.appendChild(note);
     return;
   }
   ids.forEach((id, i) => {
@@ -430,9 +487,16 @@ function showWiring(chassisId, openDoc = null) {
         // bytes as a blob URL instead. Component locations are mostly
         // photographs, so this is most of what those pages are.
         art.querySelectorAll('img[src^="img/"]').forEach((im) => {
-          const bytes = data.files.get(im.getAttribute('src'));
-          if (!bytes) { im.remove(); return; }   // absent: a box helps nobody
-          im.src = wiringImageUrl(data, im.getAttribute('src'), bytes);
+          const path = im.getAttribute('src');
+          const bytes = data.files.get(path);
+          if (bytes) { im.src = wiringImageUrl(data, path, bytes); return; }
+          // not in this archive: the hosted build keeps them on a CDN
+          im.classList.add('wiring-img-loading');
+          wiringFetchImage(path.slice(4)).then((blob) => {
+            im.classList.remove('wiring-img-loading');
+            if (!blob) { im.remove(); return; }  // gone: a box helps nobody
+            im.src = wiringImageUrl(data, path, blob);
+          });
         });
         // cross-document links resolve inside the app, never the network
         art.querySelectorAll('a[href^="#wds/"]').forEach((a) => {

@@ -86,6 +86,30 @@ jobs:
           test "$n" -ge 21
           python3 -c "import zipfile,sys; z=zipfile.ZipFile('dist-web/api/chassis/E90.chassis'); e=[n for n in z.namelist() if n.endswith('.ecu')]; print(f'E90 holds {len(e)} .ecu'); sys.exit(0 if len(e)>40 else 1)"
 
+      - name: Wiring diagrams
+        run: |
+          set -euo pipefail
+          # The .wiring archives are built from a WDS release, which is 4.7 GB
+          # and not in this repo, so they cannot be generated here. They are
+          # published to the wiring-images repo's releases by hand and pulled
+          # in: 154 MB of diagrams and text, no photographs. Those come from a
+          # CDN at runtime (see WIRING_IMG_CDN in screens/wiring.js) because a
+          # Pages site may hold 1 GB and the images alone are 539 MB.
+          #
+          # Absent is not fatal: the site simply has no Wiring section, which
+          # is what happened before this step existed.
+          mkdir -p dist-web/data/wiring
+          if gh release download wiring-latest \
+               --repo dader34/BMacW-wiring-images \
+               --pattern '*.wiring' --dir dist-web/data/wiring 2>/dev/null; then
+            echo "wiring archives: $(ls dist-web/data/wiring/*.wiring | wc -l)"
+            du -sh dist-web/data/wiring
+          else
+            echo "no wiring release found; publishing without the wiring section"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Pre-compress the large payloads
         run: |
           set -euo pipefail
