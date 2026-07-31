@@ -96,18 +96,16 @@ public sealed class AppDelegate : NSApplicationDelegate
     {
         var controller = new WKUserContentController();
         controller.AddScriptMessageHandler(bridge, "bmacw");
-        // durable settings, injected before any page script runs (core.js
-        // reads them synchronously; localStorage alone resets every launch
-        // because the app's origin port is ephemeral)
-        controller.AddUserScript(new WKUserScript(
-            new NSString($"window.__bmacwSettings = {BmacwBridge.LoadSettingsJs()};"),
-            WKUserScriptInjectionTime.AtDocumentStart, isForMainFrameOnly: true));
-        // stamp the bundle version into the shim (settings page shows it)
+        // durable settings + the bmacw surface, injected before any page
+        // script runs (core.js reads settings synchronously; localStorage
+        // alone resets every launch because the origin port is ephemeral).
+        // The bridge owns the scripts so a settings save can re-inject fresh
+        // values for the next reload. Version stamped into the shim (the
+        // settings page shows it).
         string version = NSBundle.MainBundle
             .ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString() ?? "dev";
-        controller.AddUserScript(new WKUserScript(
-            new NSString(BmacwBridge.ShimSource.Replace("'native'", $"'{version}'")),
-            WKUserScriptInjectionTime.AtDocumentStart, isForMainFrameOnly: true));
+        bridge.AttachUserScripts(controller,
+            BmacwBridge.ShimSource.Replace("'native'", $"'{version}'"));
 
         var config = new WKWebViewConfiguration { UserContentController = controller };
         config.Preferences.SetValueForKey(NSNumber.FromBoolean(true),

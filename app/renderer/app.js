@@ -82,7 +82,24 @@ function showSettings() {
       { val: 'thor', label: 'THOR (WiFi)' },
     ],
     Settings.get('adapter', 'kdcan'),
-    (v) => { Settings.set('adapter', v); location.reload(); },
+    async (v) => {
+      Settings.set('adapter', v);
+      // native: get the machine onto the adapter's network before the reload
+      // auto-connects; the shell opens the system Wi-Fi picker if it cannot
+      if (v === 'thor' && window.bmacw && window.bmacw.wifiJoin) {
+        sbLeft.textContent = 'joining Thor_Wifi…';
+        try { await window.bmacw.wifiJoin('Thor_Wifi'); }
+        catch { /* the picker is open; the chip retries the connect */ }
+      }
+      // Settings.set fires the shell's durable save without awaiting it, and
+      // a reload that wins that race boots from the OLD injected settings --
+      // the choice appeared not to stick. Let the save land first.
+      if (window.bmacw && window.bmacw.saveSettings) {
+        try { await window.bmacw.saveSettings(JSON.stringify(Settings.data)); }
+        catch { /* localStorage still carries it for this session */ }
+      }
+      location.reload();
+    },
   ));
 
   // auto-scan the DME (and trans) for stored faults when a chassis is opened,
@@ -519,6 +536,12 @@ async function waitForEngine() {
         if (webBus.connected) {
           await webBus.disconnect();
         } else {
+          // THOR in the app: make sure we are on its network first
+          if (webBus.readState && window.bmacw && window.bmacw.wifiJoin) {
+            linkText.textContent = 'joining Thor_Wifi…';
+            try { await window.bmacw.wifiJoin('Thor_Wifi'); }
+            catch { /* picker opened; connect below still gets its say */ }
+          }
           linkText.textContent = 'connecting…';
           await webBus.connect();
         }
@@ -530,6 +553,15 @@ async function waitForEngine() {
       lastStatePoll = 0;         // show battery/ignition now, not in 12 s
       await refreshStatus();
     };
+
+    // THOR needs no user gesture (a socket, not a port picker), so a page
+    // that loads with it selected connects on its own; the chip retries.
+    if (webBus.readState && !webBus.connected) {
+      linkText.textContent = 'connecting…';
+      webBus.connect()
+        .then(() => { lastStatePoll = 0; return refreshStatus(); })
+        .catch((e) => { led.className = 'led off'; linkText.textContent = e.message; });
+    }
   }
 
   // jump straight to a preselected startup vehicle (and module), else the picker
