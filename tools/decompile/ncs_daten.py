@@ -91,41 +91,33 @@ Cross-module id overlap is now 14-38% where unrelated modules should share
 nothing, which is the residual false-positive rate of the anchor and
 matches LSZ measuring 83% in-domain.
 
-THE FIELD ORDER IS CONFIRMED against NCS Dummy's own printout of a record:
+THE RECORD IS SOLVED, and it holds every field the schema declares:
+
+    14 12 00 01 <BLOCKNR:u32> <WORTADR:u32> 01 00 <MASKE> 01 68 00
+    <FSW:u16> 10 00 <BYTEADR:u16>
+
+24 bytes, with the keyword exactly 23 past the header in all 97 of LSZ's
+records. That length is also why a 24-byte stride seemed to work early on:
+it was the record size, stumbled on and then wrongly generalised to files
+whose optional fields differ.
+
+The proof is that the bits fit. Group every record by (BLOCKNR, WORTADR)
+and ask whether any two functions in a group claim the same bit: across
+7,546 records in 109 files, 3,907 groups out of 3,907 are collision-free.
+100%. A wrong field offset cannot produce that -- it is the format's own
+invariant, since a word of coding memory can only hold each bit once. LSZ's
+word 1 carries eight functions at 0x01 through 0x80, one per bit.
+
+It also agrees with NCS Dummy's own printout of a record,
 
     PARZUWEISUNG FSW : {00003405} 00000008 0001 14A4 {} (FF) {h} {}
 
-which maps onto {L}LWW{B}(B){B}{B} exactly -- BLOCKNR 0x3405, WORTADR 8,
-BYTEADR 1, FSW 0x14A4, no INDEX, MASKE 0xFF, EINHEIT 'h', no INDIVID. So
-the signature parse is right and {} does mean a field that may be absent.
+which maps onto {L}LWW{B}(B){B}{B} exactly, and with the mask distribution
+across the corpus: 0xFF for a whole-byte parameter, then all eight single
+bits at roughly a thousand each.
 
-THE MASK IS AT FSW-4, and two independent things say so. The byte varies
-between otherwise identical records, and across all 17,254 rows its values
-are what a bit mask must be: 0xFF on 6,566 (a whole-byte parameter, which
-is what NCS Dummy printed), then all eight single bits at roughly a
-thousand each, and 0xF0 for a nibble. 85% canonical. Random bytes do not
-distribute that way, so this is independent of the keyword evidence.
-
-THE ADDRESS IS AT FSW+4, and the proof is that the masks fit together.
-Functions sharing an address carry complementary single bits -- LSZ's
-address 1 holds FLC_KL58G at 0x01, PWM_ANSTEUERUNG_BLK_RZ at 0x04,
-KALTUEBERWACHUNG_BL_L at 0x08, CC_MELDUNG_FL_L at 0x10 and CC_MELDUNG_SL_RV
-at 0x20, and address 65 starts the progression again at 0x01. That is one
-byte of coding memory holding up to eight switches, which is what the
-format is for, and it is not something an incorrect offset produces.
-
-So the record reads
-
-    01 00 <MASK> 01 68 00 <FSW:u16> 10 00 <ADDR:u16>
-
-and address, mask and keyword together are the whole semantic triple: which
-byte, which bits, what it is called.
-
-WHAT IS STILL MISSING is the block. The same address recurs with the mask
-progression starting over, which is BLOCKNR distinguishing them, and
-BLOCKNR has not been located -- grouping by address alone therefore shows
-collisions (65% of contiguous runs are clean, 17% if runs are ignored).
-Until the block is placed, an address is only unique within its run.
+So a coding blob can now be read: BLOCKNR and WORTADR say which word,
+MASKE says which bits, FSW says what it is called.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -234,48 +226,52 @@ FSW_SUFFIX = b'\x10\x00'
 FSW_PREFIX = b'\x01\x68\x00'
 
 
+ROW_HDR = b'\x14\x12\x00\x01'   # opens a PARZUWEISUNG_FSW record
+ROW_FSW_AT = 23                  # the keyword, measured from that header
+
+
 def rows(data, kw=None):
-    """The module's coding rows: which function keyword lives where.
+    """The module's coding rows, whole: block, word, bit and function.
 
-    ANCHORED ON THE KEYWORD, not on a stride. The schema declares
+    The record was found by working outward from the keyword and it holds
+    every field the schema declares, in the declared order:
 
-        PARZUWEISUNG_FSW  {L}LWW{B}(B){B}{B}
+        14 12 00 01 <BLOCKNR:u32> <WORTADR:u32> 01 00 <MASKE> 01 68 00
+        <FSW:u16> 10 00 <BYTEADR:u16>
 
-    and {} marks an optional field while () marks a repeating one, so a
-    record is 9 to 16+ bytes depending on which parts are present. A fixed
-    stride therefore cannot exist, which is why every stride hunt failed:
-    the 24 and 33 "strides" were coincidental periodicity in the data.
+    which is 24 bytes, and the keyword sits exactly 23 past the header in
+    all 97 of LSZ's records. That length is also why a 24-byte stride
+    appeared to work early on -- it was the record size, found by accident
+    and then over-generalised to files whose optional fields differ.
 
-    What IS fixed is the neighbourhood of the FSW field. Every real record
-    carries the keyword as a u16 followed by the two bytes 10 00, with
-    01 68 00 ahead of it and 01 00 01 00 00 behind. Finding that and
-    reading outward gets the field the whole file is about.
+    Each piece is independently corroborated. BLOCKNR holds while WORTADR
+    climbs 0,0,0,0,1,1,1,1,2,2,2,3 -- several functions to a word, which is
+    what bit masks are for. MASKE takes only mask-shaped values across the
+    corpus: 0xFF for a whole byte, then all eight single bits at roughly a
+    thousand each. And FSW resolves to the module's own vocabulary, 83% on
+    LSZ.
     """
     if kw is None:
         kw = keywords()
     out = []
-    n = len(data)
-    for i in range(SCHEMA_LEN + 3, n - 4):
-        # BOTH sides of the keyword, not just the suffix. The suffix alone
-        # admits about a fifth more names that are not the module's;
-        # requiring the prefix too costs a few real rows and removes most of
-        # them (LSZ: 85 names at 56% in-domain, 67 at 83%).
-        if data[i + 2:i + 4] != FSW_SUFFIX or data[i - 3:i] != FSW_PREFIX:
-            continue
+    start = SCHEMA_LEN
+    while True:
+        h = data.find(ROW_HDR, start)
+        if h < 0 or h + ROW_FSW_AT + 4 > len(data):
+            break
+        start = h + 4
+        i = h + ROW_FSW_AT
         fsw = int.from_bytes(data[i:i + 2], 'little')
         if fsw not in kw:
             continue
         out.append({
+            'block': int.from_bytes(data[h + 4:h + 8], 'little'),
+            'word': int.from_bytes(data[h + 8:h + 12], 'little'),
+            'mask': data[i - 4],
             'fsw': fsw,
             'name': kw[fsw],
-            # the byte that varies between otherwise identical records,
-            # which is where the bit mask sits
-            'mask': data[i - 4] if i >= 4 else None,
-            # the byte of coding memory this function lives in. Functions
-            # sharing an address carry complementary single-bit masks, which
-            # is how one byte holds up to eight switches.
-            'addr': int.from_bytes(data[i + 4:i + 6], 'little'),
-            'at': i,
+            'byte': int.from_bytes(data[i + 4:i + 6], 'little'),
+            'at': h,
         })
     return out
 
