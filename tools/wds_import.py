@@ -138,11 +138,16 @@ def collect_docs(node, out):
         collect_docs(c, out)
 
 
-def clean_description(html):
+def clean_description(html, images=None):
     """Keep the document, drop the frame plumbing.
 
     WDS descriptions are XHTML pages with BMW's stylesheet and a script
     block; the app supplies its own chrome, so only the body matters.
+
+    Component locations are mostly PICTURES -- "wheel hub front left" is a
+    caption under a photo of the wheel hub -- so the images they reference
+    are collected into `images` for packing, and their src rewritten to the
+    archive's own layout.
     """
     m = re.search(r'<body[^>]*>(.*?)</body>', html, re.S | re.I)
     body = m.group(1) if m else html
@@ -151,6 +156,14 @@ def clean_description(html):
     # WDS links between documents keep working: rewrite to the app's scheme
     body = re.sub(r'href="[^"]*?(?:file=)?([A-Za-z0-9_.-]+)\.htm[^"]*"',
                   r'href="#wds/\1"', body, flags=re.I)
+
+    # ../../zi_images/B030024C.png -> img/B030024C.png, and remember the name
+    def take(m):
+        name = m.group(1)
+        if images is not None:
+            images.add(name)
+        return f'src="img/{name}"'
+    body = re.sub(r'src="[^"]*?zi_images/([^"]+)"', take, body, flags=re.I)
     return body.strip()
 
 
@@ -187,6 +200,7 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False):
     out_path = os.path.join(out_dir, f'{app_chassis}.wiring')
     kinds = {}
     missing = 0
+    images = set()
     with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for did in sorted(wanted):
             svgz = os.path.join(wds_root, 'svg', 'sp', f'{did}.svgz')
@@ -198,16 +212,29 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False):
                 kinds['svg'] = kinds.get('svg', 0) + 1
             elif os.path.exists(zinfo):
                 html = open(zinfo, encoding='utf-8', errors='replace').read()
-                z.writestr(f'doc/{did}.html', clean_description(html))
+                z.writestr(f'doc/{did}.html', clean_description(html, images))
                 kinds['doc'] = kinds.get('doc', 0) + 1
             else:
                 missing += 1
+
+        # The pictures those documents point at. A component location is
+        # mostly its photo, so without these the page is a caption and a
+        # broken-image box. Stored, not deflated: PNG is already compressed.
+        img_dir = os.path.join(wds_root, 'zi_images')
+        for name in sorted(images):
+            src = os.path.join(img_dir, name)
+            if os.path.exists(src):
+                with open(src, 'rb') as fh:
+                    z.writestr(f'img/{name}', fh.read(), zipfile.ZIP_STORED)
+                kinds['img'] = kinds.get('img', 0) + 1
+
         z.writestr('tree.json', json.dumps(root, ensure_ascii=False,
                                            separators=(',', ':')))
     size = os.path.getsize(out_path) / 1048576
     if not quiet:
         print(f'{app_chassis:6} {size:6.1f} MB  '
               f'{kinds.get("svg", 0):5} diagrams  {kinds.get("doc", 0):5} documents'
+              f'  {kinds.get("img", 0):5} images'
               + (f'  ({missing} not in this release)' if missing else ''))
     return out_path
 

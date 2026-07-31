@@ -1852,3 +1852,7 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 }
 .bridge-state.up { color: var(--green); border-color: var(--green); }
 .bridge-state.down { color: var(--ink-faint); }
+
+/* WDS component-location photos: BMW drew them small, so let them be their
+   own size rather than stretched, but never wider than the page */
+.wiring-doc img { max-width: 100%; height: auto; display: block; margin: 10px 0; }

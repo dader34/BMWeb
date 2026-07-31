@@ -82,6 +82,19 @@ function wiringDoc(data, docId) {
   return null;
 }
 
+// A blob URL per image, made once and kept: the same photo appears on many
+// documents (one wheel-hub shot serves every sensor mounted there), and
+// minting a URL per view would leak one each time.
+function wiringImageUrl(data, path, bytes) {
+  if (!data.imgUrls) data.imgUrls = new Map();
+  let url = data.imgUrls.get(path);
+  if (!url) {
+    url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+    data.imgUrls.set(path, url);
+  }
+  return url;
+}
+
 // flatten the tree once for search: every leaf with the folder path above it
 function wiringIndex(tree) {
   const out = [];
@@ -412,6 +425,15 @@ function showWiring(chassisId, openDoc = null) {
         const art = document.createElement('article');
         art.className = 'wiring-doc';
         art.innerHTML = doc.text;
+        // The pictures live in the archive, not on a server, so an <img src>
+        // pointing at "img/x.png" resolves to nothing. Hand each one its
+        // bytes as a blob URL instead. Component locations are mostly
+        // photographs, so this is most of what those pages are.
+        art.querySelectorAll('img[src^="img/"]').forEach((im) => {
+          const bytes = data.files.get(im.getAttribute('src'));
+          if (!bytes) { im.remove(); return; }   // absent: a box helps nobody
+          im.src = wiringImageUrl(data, im.getAttribute('src'), bytes);
+        });
         // cross-document links resolve inside the app, never the network
         art.querySelectorAll('a[href^="#wds/"]').forEach((a) => {
           const target = a.getAttribute('href').slice(5);
