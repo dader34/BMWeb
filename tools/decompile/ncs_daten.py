@@ -43,6 +43,15 @@ may be absent and () marks one that repeats:
     L long (4 bytes)   W word (2)   B byte (1)   S string (NUL-terminated)
     A a further signature, applied to a nested record
 
+WHAT IS DONE AND WHAT IS NOT. The schema reads, on all 260 files, and it is
+the SAME schema in every one -- the preamble is byte-identical and always
+ends at 1148, so it is a fixed template and everything after it is that
+module's own data. Walking those data records is the part still open: the
+rows carry the framing the schema describes, but the record boundaries do
+not fall out of a single stride (LWS5's tail repeats every 24 bytes; the
+body before it does not), so the reader stops at the schema rather than
+emitting rows it cannot stand behind.
+
 Read-only: decodes files on disk, never talks to a car.
 """
 
