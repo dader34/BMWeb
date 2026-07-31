@@ -305,6 +305,19 @@ function setActions(actions, shifted) {
   paintActions(actions);
 }
 
+// Add one key to the bar a screen has already set.
+//
+// setActions() is a screen change: it stops polling, drops the shift row, and
+// clears the fault badge. A key ADDED to a menu that is already drawn -- the
+// app's own Coding entry on an ECU root -- must do none of that, so it slots
+// into the current row in front of Back and repaints just the bar.
+function addAction(a) {
+  if (!a || baseActions.some(x => x.key === a.key)) return;
+  const at = baseActions.findIndex(x => x.kind === 'back');
+  if (at >= 0) baseActions.splice(at, 0, a); else baseActions.push(a);
+  if (!shiftHeld) { currentActions = baseActions; paintActions(baseActions); }
+}
+
 function fireAction(a) {
   if (!a || !a.fn) return;
   if (a._el) { a._el.classList.remove('flash'); void a._el.offsetWidth; a._el.classList.add('flash'); }

@@ -24,10 +24,14 @@ const OFFLINE_SHELL = [
   'screens/autoscan.js', 'screens/sweep.js', 'screens/fault-report.js',
   'screens/ir.js', 'screens/ecu.js', 'screens/flashing.js',
   'screens/activations.js', 'screens/syscheck.js', 'screens/coding.js',
+  'screens/coding-edit.js',
   'screens/identity.js', 'screens/aif.js', 'screens/adaption.js',
   'screens/service.js', 'screens/special.js', 'screens/measurements.js',
   'screens/live.js', 'screens/faults.js', 'screens/lookup.js',
   'screens/tutorial.js', 'screens/wiring.js',
+  // what an ECU's coding values mean. 73 KB, unlike the fault tables, so it
+  // travels with the shell rather than being opt-in.
+  'data/codingmap.js',
 ];
 
 // The fault tables. Lazy-loaded by the app and 80 MB together, so they are
