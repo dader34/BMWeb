@@ -352,6 +352,27 @@ window.addEventListener('keydown', (e) => {
   if (match) { e.preventDefault(); fireAction(match); }
 });
 
+// Turn title= into an instant tooltip. The browser's own waits about a second
+// and a half, which is long enough that nobody sees it; this shows on hover.
+// The title stays for accessibility and as a fallback, and the tip is anchored
+// to whichever edge keeps it on screen.
+function tipify(root) {
+  root.querySelectorAll('[title]:not([data-tip])').forEach((el) => {
+    const text = el.getAttribute('title');
+    if (!text) return;
+    el.dataset.tip = text;
+    // measured once on first hover: layout is settled by then
+    el.addEventListener('pointerenter', () => {
+      const r = el.getBoundingClientRect();
+      const half = Math.min(text.length * 6.2, 320) / 2;
+      el.classList.toggle('tip-left', r.left + r.width / 2 - half < 8);
+      el.classList.toggle('tip-right',
+        r.left + r.width / 2 + half > window.innerWidth - 8);
+      el.classList.toggle('tip-below', r.top < 92);
+    }, { once: false });
+  });
+}
+
 function head(eyebrow, title, subtitle) {
   return `<div class="screen-head">
     <div class="eyebrow">${esc(eyebrow)}</div>

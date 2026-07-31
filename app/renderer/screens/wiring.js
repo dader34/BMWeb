@@ -185,15 +185,22 @@ function showWiring(chassisId, openDoc = null) {
   split.innerHTML = `
     ${classic ? `
     <div class="wds-toolbar">
-      <button class="wds-btn" id="wds-series">&lt;&lt; Series</button>
-      <button class="wds-btn" id="wds-print">Print</button>
-      <button class="wds-btn" id="wds-exit">Exit</button>
-      <button class="wds-btn" id="wds-start">Start</button>
+      <button class="wds-btn" id="wds-series"
+              title="Back to the vehicle list">&lt;&lt; Series</button>
+      <button class="wds-btn" id="wds-print"
+              title="Print this diagram, filling the sheet">Print</button>
+      <button class="wds-btn" id="wds-exit"
+              title="Leave wiring and return to the vehicles">Exit</button>
+      <button class="wds-btn" id="wds-start"
+              title="Back to the top of this vehicle's tree">Start</button>
       <span class="wds-nav-pair">
-        <button class="wds-btn wds-btn-sq" id="wds-prev">&lt;&lt;</button>
-        <button class="wds-btn wds-btn-sq" id="wds-next">&gt;&gt;</button>
+        <button class="wds-btn wds-btn-sq" id="wds-prev"
+                title="Previous document in tree order">&lt;&lt;</button>
+        <button class="wds-btn wds-btn-sq" id="wds-next"
+                title="Next document in tree order">&gt;&gt;</button>
       </span>
-      <button class="wds-btn wds-help" id="wds-help">Help</button>
+      <button class="wds-btn wds-help" id="wds-help"
+              title="How to use this screen">Help</button>
     </div>
     <div class="wds-titlebar">
       <span>WDS BMW Wiring Diagram System - ${esc(dispChassis(chassisId))}</span>
@@ -210,16 +217,19 @@ function showWiring(chassisId, openDoc = null) {
     ${classic ? `
     <div class="wds-footer">
       <label class="wds-searchlabel" for="wiring-search">Enter search word</label>
-      <input class="wds-input" id="wiring-search" type="search" autocomplete="off">
-      <button class="wds-btn" id="wds-find">Search</button>
-      <button class="wds-btn" id="wds-new">New</button>
+      <input class="wds-input" id="wiring-search" type="search" autocomplete="off"
+             title="Search every document title in this vehicle">
+      <button class="wds-btn" id="wds-find"
+              title="Search for the word above">Search</button>
+      <button class="wds-btn" id="wds-new"
+              title="Clear the search and show the whole tree">New</button>
       <span class="wds-panegroup">
         <button class="wds-btn wds-btn-sq wds-pane" id="wds-pane-doc"
-                title="Diagram only">${WDS_PANE_GLYPH.doc}</button>
+                title="Give the whole window to the diagram">${WDS_PANE_GLYPH.doc}</button>
         <button class="wds-btn wds-btn-sq wds-pane" id="wds-pane-split"
-                title="Tree and diagram">${WDS_PANE_GLYPH.split}</button>
+                title="Show the tree and the diagram side by side">${WDS_PANE_GLYPH.split}</button>
         <button class="wds-btn wds-btn-sq wds-pane" id="wds-pane-tree"
-                title="Tree only">${WDS_PANE_GLYPH.tree}</button>
+                title="Give the whole window to the tree">${WDS_PANE_GLYPH.tree}</button>
       </span>
       <span class="wds-zoomgroup" id="wds-zoomgroup"></span>
     </div>` : ''}`;
@@ -236,7 +246,7 @@ function showWiring(chassisId, openDoc = null) {
     split.querySelector('#wds-exit').onclick = showChassis;
     split.querySelector('#wds-start').onclick = () => showWiring(chassisId);
     split.querySelector('#wds-help').onclick = () => showWiringHelp(chassisId);
-    split.querySelector('#wds-print').onclick = () => window.print();
+    split.querySelector('#wds-print').onclick = () => printWiring(chassisId);
     // "New" clears the search and collapses the tree, as it did in WDS
     split.querySelector('#wds-new').onclick = () => {
       searchEl.value = '';
@@ -262,6 +272,7 @@ function showWiring(chassisId, openDoc = null) {
     split.querySelector('#wds-pane-split').onclick = () => setPane('split');
     split.querySelector('#wds-pane-tree').onclick = () => setPane('tree');
     setPane(Settings.get('wdsPane', 'split'));
+    tipify(split);
   }
 
   // the bar while nothing is open; a diagram replaces it with its zoom keys
@@ -448,6 +459,8 @@ function fitAndPan(svg, stage, bar, classic = false) {
   svg.removeAttribute('height');
   // fill the pane rather than preserving the drawing's own letterboxing
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+  // the drawing's own box, kept for printing (paper wants all of it)
+  svg.dataset.homeViewbox = `${home.x} ${home.y} ${home.w} ${home.h}`;
 
   // One zoom step. fx/fy is the fixed point in 0..1 of the pane: the
   // pointer for a wheel, the centre for a key, so what you are looking at
@@ -517,9 +530,10 @@ function fitAndPan(svg, stage, bar, classic = false) {
   // grey buttons with magnifier glyphs; the modern layout labels them.
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
-  [[classic ? '⊕' : '+', 'Zoom in', () => zoomBy(1 / 1.3)],
-   [classic ? '⊖' : '−', 'Zoom out', () => zoomBy(1.3)],
-   [classic ? '⊡' : 'Fit', 'Fit to pane', fit]].forEach(([label, title, fn]) => {
+  [[classic ? '⊕' : '+', 'Zoom in (+ key, or scroll the wheel)', () => zoomBy(1 / 1.3)],
+   [classic ? '⊖' : '−', 'Zoom out (- key)', () => zoomBy(1.3)],
+   [classic ? '⊡' : 'Fit', 'Fit the whole diagram (0 key)', fit]]
+    .forEach(([label, title, fn]) => {
     const b = document.createElement('button');
     b.className = classic ? 'wds-btn wds-btn-sq' : 'btn wiring-fit';
     b.textContent = label;
@@ -530,8 +544,54 @@ function fitAndPan(svg, stage, bar, classic = false) {
   // the shared WDS footer keeps one set; the per-document bar is new each time
   if (classic) bar.innerHTML = '';
   bar.appendChild(controls);
+  if (typeof tipify === 'function') tipify(controls);
 
   return { by: zoomBy, fit };
+}
+
+// Print the DOCUMENT, not the app around it.
+//
+// The screen is a tool: toolbar, tree, footer, and the diagram in whatever
+// corner is left. On paper none of that is wanted -- a printed wiring
+// diagram is the diagram, as large as the sheet allows, with enough of a
+// caption to know what it is a year from now. So the print stylesheet hides
+// the chrome, and this fills in a header the screen does not need because
+// the title bar already says it.
+//
+// The zoomed viewBox is deliberately NOT printed: you zoom to read on
+// screen, but a printout wants the whole circuit. The full drawing is
+// restored for the print and put back afterwards.
+function printWiring(chassisId) {
+  const stage = document.querySelector('.wiring-stage');
+  const svg = stage && stage.querySelector('svg');
+  const title = document.querySelector('.wiring-title');
+  const kind = document.querySelector('.wiring-kind');
+  if (!title) { window.print(); return; }   // a description prints as it is
+
+  const head = document.createElement('div');
+  head.className = 'print-head';
+  head.innerHTML = `
+    <div class="print-title">${esc(title.textContent)}</div>
+    <div class="print-meta">
+      <span>${esc(dispChassis(chassisId))}</span>
+      <span>${esc((kind && kind.textContent) || 'Wiring diagram')}</span>
+      <span>BMW WDS · printed ${new Date().toLocaleDateString()}</span>
+    </div>`;
+  document.body.appendChild(head);
+
+  // show the whole drawing, not the part currently zoomed to
+  const zoomed = svg && svg.getAttribute('viewBox');
+  if (svg && svg.dataset.homeViewbox) {
+    svg.setAttribute('viewBox', svg.dataset.homeViewbox);
+  }
+  const cleanup = () => {
+    head.remove();
+    if (svg && zoomed) svg.setAttribute('viewBox', zoomed);
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+  window.print();
+  setTimeout(cleanup, 1000);   // Safari/WKWebView do not always fire afterprint
 }
 
 // WDS's own Help page, in the terms that apply here: the controls are ours

@@ -1698,3 +1698,83 @@ select.modal-input { appearance: none; cursor: pointer; }
 body.wds-nofkeys .fkeybar { display: none; }
 body.wds-nofkeys .view { inset: 56px 0 0 0; }
 body.wds-nofkeys .wiring-split.wds-frame { height: calc(100vh - 56px); }
+
+/* ---- print ----------------------------------------------------------------
+   On screen this is a tool: toolbar, tree, footer, status bars. On paper the
+   document is the only thing wanted, as large as the sheet allows. */
+@media print {
+  @page { size: landscape; margin: 12mm; }
+  html, body {
+    background: #fff !important; color: #000 !important;
+    height: auto; overflow: visible;
+  }
+  /* every piece of app chrome */
+  .topbar, .fkeybar, .grain, .splash, .modal-overlay,
+  .wds-toolbar, .wds-titlebar, .wds-footer, .wiring-nav,
+  .screen-head, .crumbs, .breadcrumbs { display: none !important; }
+
+  /* the view stops being a scrolling pane and becomes the page */
+  .view {
+    position: static !important; inset: auto !important;
+    padding: 0 !important; overflow: visible !important;
+  }
+  .wiring-split, .wiring-split.wds-frame {
+    display: block !important; height: auto !important; margin: 0 !important;
+    border: none !important; background: #fff !important;
+  }
+  .wiring-body { display: block !important; }
+  .wiring-view {
+    display: block !important; border: none !important;
+    background: #fff !important; overflow: visible !important;
+  }
+  /* the diagram fills the sheet; SVG scales, so this is lossless */
+  .wiring-stage {
+    height: 16cm !important; overflow: visible !important;
+    background: #fff !important; border: 1px solid #999;
+  }
+  .wiring-stage svg { width: 100% !important; height: 100% !important; }
+  /* the on-screen title bar is replaced by the print header */
+  .wiring-bar { display: none !important; }
+  .print-head { display: block !important; margin-bottom: 6mm; }
+  .print-title {
+    font-family: Arial, Helvetica, sans-serif; font-size: 15pt;
+    font-weight: 700; color: #000; margin-bottom: 2mm;
+  }
+  .print-meta {
+    display: flex; gap: 6mm; font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt; color: #444;
+    border-bottom: 1px solid #999; padding-bottom: 2mm;
+  }
+  /* a description prints as a document, not a diagram */
+  .wiring-doc {
+    max-width: none !important; overflow: visible !important;
+    padding: 0 !important; color: #000 !important; font-size: 11pt;
+  }
+  .wiring-doc h1, .wiring-doc h2, .wiring-doc h3 { color: #000 !important; }
+  .wiring-doc h2 { page-break-after: avoid; }
+  .wiring-doc table, .wiring-doc tr { page-break-inside: avoid; }
+}
+/* the header exists only for printing */
+.print-head { display: none; }
+
+/* Tooltips that appear at once. The browser's own take about a second and a
+   half, which is long enough to give up on; these use the same title text so
+   nothing is duplicated and the native one still serves as a fallback. */
+[data-tip] { position: relative; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; z-index: 60; pointer-events: none;
+  bottom: calc(100% + 7px); left: 50%; transform: translateX(-50%);
+  white-space: nowrap; font-family: var(--mono); font-size: 11px;
+  font-weight: 400; letter-spacing: .01em; line-height: 1.3;
+  color: #f2f5f8; background: #1a2129; border: 1px solid #39424d;
+  border-radius: 4px; padding: 5px 9px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  opacity: 0; transition: opacity .1s .05s;
+}
+[data-tip]:hover::after, [data-tip]:focus-visible::after { opacity: 1; }
+/* a tip that would run off the left or right edge anchors to that edge */
+[data-tip].tip-left::after { left: 0; transform: none; }
+[data-tip].tip-right::after { left: auto; right: 0; transform: none; }
+/* below the control instead, for anything on the top row */
+[data-tip].tip-below::after { bottom: auto; top: calc(100% + 7px); }
