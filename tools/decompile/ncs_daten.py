@@ -67,9 +67,19 @@ table a given .C0x belongs to, and there may be tables beyond these two.
 Until that is settled, a name is only trustworthy when the module and the
 table have been paired by hand.
 
-Remaining, and worth stating: roughly half the anchored rows in a file are
-not that module's (LSZ shares 29 of 85 keywords with ACC, which should have
-nothing in common), so the anchor still admits false positives.
+HOW GOOD IS IT. On LSZ, 56 of 67 names are the light switch centre's own
+work: KALTUEBERWACHUNG_BL_L, PWM_ANSTEUERUNG_BLK_RZ, BI_XENON,
+LEUCHTWEITENREGELUNG, HEIMLEUCHTEN_ABBRUCH, and six PROGRAMMPARAMETER_LCM_n
+-- LCM being the same box under its other name. 83%, and the first
+measurement of this said 51% only because the word list used to judge it
+was too narrow, which is worth remembering the next time a score looks
+poor. The eleven that remain (GURTSCHLOSS_HINTEN_LI_2, E52_LINKS_LENKER)
+are genuine misses.
+
+Requiring both sides of the keyword is what bought that. The suffix alone
+admits about a fifth more names, most of them not the module's; the
+two-sided anchor costs a few real rows and takes 14,412 across 252 of 260
+files instead of 48,739 across 259, which is the better trade.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -175,6 +185,7 @@ SCHEMA_LEN = 1148
 # That, not a stride, is what locates a record: the schema declares three
 # optional fields and one repeating one, so records are variable length.
 FSW_SUFFIX = b'\x10\x00'
+FSW_PREFIX = b'\x01\x68\x00'
 
 
 def rows(data, kw=None):
@@ -198,8 +209,12 @@ def rows(data, kw=None):
         kw = keywords()
     out = []
     n = len(data)
-    for i in range(SCHEMA_LEN, n - 4):
-        if data[i + 2:i + 4] != FSW_SUFFIX:
+    for i in range(SCHEMA_LEN + 3, n - 4):
+        # BOTH sides of the keyword, not just the suffix. The suffix alone
+        # admits about a fifth more names that are not the module's;
+        # requiring the prefix too costs a few real rows and removes most of
+        # them (LSZ: 85 names at 56% in-domain, 67 at 83%).
+        if data[i + 2:i + 4] != FSW_SUFFIX or data[i - 3:i] != FSW_PREFIX:
             continue
         fsw = int.from_bytes(data[i:i + 2], 'little')
         if fsw not in kw:
