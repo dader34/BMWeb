@@ -43,14 +43,36 @@ may be absent and () marks one that repeats:
     L long (4 bytes)   W word (2)   B byte (1)   S string (NUL-terminated)
     A a further signature, applied to a nested record
 
-WHAT IS DONE AND WHAT IS NOT. The schema reads, on all 260 files, and it is
-the SAME schema in every one -- the preamble is byte-identical and always
-ends at 1148, so it is a fixed template and everything after it is that
-module's own data. Walking those data records is the part still open: the
-rows carry the framing the schema describes, but the record boundaries do
-not fall out of a single stride (LWS5's tail repeats every 24 bytes; the
-body before it does not), so the reader stops at the schema rather than
-emitting rows it cannot stand behind.
+WHAT IS DONE AND WHAT IS NOT.
+
+The SCHEMA reads, on all 260 files, and it is the same schema in every one:
+the preamble is byte-identical and always ends at 1148, so it is a fixed
+template and everything after it is that module's own data. That part is
+solid, and so is the keyword table -- SWTFSW01.dat gives 3,801 FSW numbers
+and their names.
+
+THE ROW WALK IS NOT SOLID, and the numbers it produces should not be
+trusted yet. Rows can be found: a byte triple repeats at a fixed spacing,
+the spacing differs by module (24 in LWS5, 33 in ACC), and following it
+yields thousands of rows whose FSW numbers resolve against the table. But
+resolving is not the same as being right, and the test that matters says
+they are not:
+
+    ACC   -- adaptive cruise -- decodes to window and airbag functions
+    LSZ   -- light switch    -- decodes to BAUREIHE_E31
+    LWS5  -- steering angle  -- decodes to OELSERVICE_ZAEHLER
+
+Zero in-domain hits for any of the three. An earlier version appeared to
+work on LSZ, and that was a coincidence of a different marker, not
+evidence. So the offsets within a row are wrong, or the rows begin
+somewhere other than where the marker sits, or both. Finding the rows is
+not the same as parsing them, and this is the latter problem.
+
+What would settle it: the .C0x files pair with the SGBDs, and 53 ECUs name
+their own coding values (tools/decompile/coding_map.py). Decoding one of
+THOSE and checking the names against what the SGBD already says is a real
+test with a knowable answer. That is the next step rather than more
+guessing at strides.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -144,8 +166,9 @@ def schema(data):
 # each opens with the same three bytes, which is what makes them findable:
 # the schema says what the fields ARE, but not where a record begins, and
 # the section headers between them are not a reliable stride.
-ROW_MARK = b'\x14\x10\x00'
-ROW_LEN = 24
+# Row lengths seen across the corpus. LWS5 uses 24, ACC 33; the reader
+# tries each and keeps whichever explains the most rows in the file.
+STRIDES = (24, 33, 21, 30, 36, 42, 18, 27, 39, 45, 48)
 
 # The schema preamble is byte-identical in all 260 files and always this
 # long, so the data begins here in every one of them.
@@ -167,40 +190,80 @@ def rows(data):
     # find the byte triple that actually repeats at a 24-byte spacing in
     # THIS file, and walk from its first occurrence.
     body = data[SCHEMA_LEN:]
-    if len(body) < ROW_LEN * 3:
+    if len(body) < 96:
         return []
+
+    # THE STRIDE IS NOT 24 EVERYWHERE EITHER. LWS5's rows are 24 bytes and
+    # ACC's are 33 -- ACC has no triple at all repeating at 24, which is why
+    # assuming that length found nothing in 220 of 260 files. So the row
+    # length is discovered per file alongside the marker: try each plausible
+    # length and keep the (length, marker) pair that explains the most rows.
     seen = {}
-    for i in range(len(body) - ROW_LEN - 3):
-        t = body[i:i + 3]
-        # 00s and FFs are padding and unset fields; they repeat at every
-        # stride and would outvote the real head of a row (LWS5's ff ff ff
-        # occurs 89 times against the true marker's 65).
-        if t in (b'\x00\x00\x00', b'\xff\xff\xff'):
-            continue
-        if t == body[i + ROW_LEN:i + ROW_LEN + 3]:
-            seen[t] = seen.get(t, 0) + 1
+    for stride in STRIDES:
+        for i in range(len(body) - stride - 3):
+            t = body[i:i + 3]
+            # 00s and FFs are padding and unset fields; they repeat at every
+            # stride and would outvote the real head of a row (LWS5's
+            # ff ff ff occurs 89 times against the true marker's 65).
+            if t in (b'\x00\x00\x00', b'\xff\xff\xff'):
+                continue
+            if t == body[i + stride:i + stride + 3]:
+                seen[(stride, t)] = seen.get((stride, t), 0) + 1
     if not seen:
         return []
-    mark = max(seen, key=lambda k: seen[k])
-    if seen[mark] < 2:
+
+    # COUNTING REPEATS IS NOT ENOUGH. A triple can sit 24 apart in a few
+    # places and everywhere else besides: LSZ's winner occurred 450 times
+    # with gaps of 5, 7 and 9, which is ordinary data, not the head of a
+    # record. A real marker's occurrences are MOSTLY 24 apart. So score each
+    # candidate by the share of its gaps that are exactly one row, and take
+    # the best -- LWS5's marker scores 65 of 71, LSZ's noise scores a
+    # handful of 450.
+    # HOW MANY ROWS IT FINDS COMES FIRST, cleanliness second. Ranking by the
+    # share of gaps that are one row put a triple occurring 11 times at a
+    # perfect 1.0 above the true marker's 65 at 0.92 -- a marker that
+    # explains eleven rows is not better than one that explains sixty-five.
+    # So score by the count, and use the share only to reject the ones that
+    # are ordinary data (LSZ's winner appeared 450 times with gaps of 5, 7
+    # and 9).
+    def score(stride, t):
+        offs = [m.start() for m in re.finditer(re.escape(t), body)]
+        if len(offs) < 3:
+            return 0, 0.0
+        good = sum(1 for a, b in zip(offs, offs[1:]) if b - a == stride)
+        return good, good / (len(offs) - 1)
+
+    best, best_score = None, (0, 0.0)
+    for stride, t in seen:
+        s = score(stride, t)
+        if s[1] >= 0.4 and s > best_score:
+            best, best_score = (stride, t), s
+    if best is None or best_score[0] < 3:
         return []
+    row_len, mark = best
 
     # Rows come in RUNS, not one unbroken table: LWS5's 72 rows sit 24 apart
     # except at four points where a block header of 82-83 bytes intervenes.
     # So follow the marker rather than the stride, and let the stride only
     # decide where to look next -- stopping at the first gap loses most of
     # the file, and stepping blindly by 24 drifts into the header.
-    out = []
-    i = body.find(mark)
-    while 0 <= i and i + ROW_LEN <= len(body):
-        out.append({
-            'fsw': int.from_bytes(body[i + 3:i + 5], 'little'),
-            'index': body[i + 7],
-            'raw': body[i:i + 12].hex(' '),
-        })
-        nxt = body.find(mark, i + ROW_LEN)
-        i = nxt
-    return out
+    # Take the occurrences that are actually a row apart. Following every
+    # occurrence swept in whatever else happened to match; requiring an
+    # unbroken stride stopped at the first block header. The rows are the
+    # ones in a run, so keep those and let a run end where it ends.
+    offs = [m.start() for m in re.finditer(re.escape(mark), body)]
+    keep = []
+    for a, b in zip(offs, offs[1:]):
+        if b - a == row_len:
+            if not keep or keep[-1] != a:
+                keep.append(a)
+            keep.append(b)
+    return [{
+        'fsw': int.from_bytes(body[i + 3:i + 5], 'little'),
+        'index': body[i + 7],
+        'len': row_len,
+        'raw': body[i:i + 12].hex(' '),
+    } for i in keep if i + row_len <= len(body)]
 
 
 def keywords():
