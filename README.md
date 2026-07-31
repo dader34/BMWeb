@@ -134,7 +134,7 @@ and put it above Wi-Fi in System Settings > Network > service order.
 ## Wiring diagrams
 
 BMW's own wiring documentation, from WDS (Wiring Diagram System, the tool the
-dealer traced circuits on). Open a car and pick **Wiring diagrams**: BMW's
+dealer traced circuits on). Open the main menu and pick **Wiring diagrams**: BMW's
 document tree on the left, the document on the right. 15 chassis are covered,
 E38 through F01.
 
