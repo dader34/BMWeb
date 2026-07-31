@@ -203,6 +203,36 @@ def rows(data):
     return out
 
 
+def keywords():
+    """FSW number -> BMW's own name for that function.
+
+    SWTFSW01.dat is the table, and it says so itself: its schema declares
+    SWT_EINTRAG over KEYID,KEYWORD. 3,801 entries, each a u16 id followed
+    by the name.
+
+    HOW FAR TO TRUST IT. On LSZ the names land where they should --
+    FEHLER_NSL_RECHTS and KALTUEBERWACHUNG_NSL_R against a light switch
+    centre, matching the COD_NSL_* values its own SGBD declares. On LWS5
+    they do not: a steering angle sensor comes back with OELSERVICE_ZAEHLER
+    and SIA_ANZEIGE, which belong to a service-interval module. So the row
+    walk is right for some families and lands off-by-something for others,
+    and 59% of rows corpus-wide resolve at all. Reported, not papered over.
+    """
+    p = f'{DATEN}/SWTFSW01.dat'
+    if not os.path.exists(p):
+        return {}
+    data = open(p, 'rb').read()
+    out = {}
+    head = data.find(b'KEYID,KEYWORD\x00')
+    start = head + 14 if head >= 0 else 0
+    for m in re.finditer(rb'([A-Z][A-Z0-9_]{2,60})\x00', data[start:]):
+        i = m.start() + start
+        if i < 2:
+            continue
+        out[int.from_bytes(data[i - 2:i], 'little')] = m.group(1).decode()
+    return out
+
+
 def summarise(path, verbose=False):
     data = open(path, 'rb').read()
     secs = schema(data)
@@ -216,8 +246,10 @@ def summarise(path, verbose=False):
             flds = ','.join(s['fields'])
             print(f"   {s['name']:26} {sig:22} {flds}")
         print()
+        kw = keywords()
         for r in rr[:20]:
-            print(f"   FSW {r['fsw']:6}   index {r['index']:3}")
+            print(f"   FSW {r['fsw']:6}   index {r['index']:3}   "
+                  f"{kw.get(r['fsw'], '')}")
         if len(rr) > 20:
             print(f"   ... {len(rr) - 20} more")
     elif fsw:
