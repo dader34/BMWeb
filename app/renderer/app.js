@@ -246,10 +246,16 @@ function showSettings() {
     const goBtn = document.createElement('button');
     goBtn.className = 'btn';
     goBtn.textContent = 'Download';
-    goBtn.style.marginLeft = '8px';
-    combo.el.querySelector('.combo').after(goBtn);
-    goBtn.before(wireLabel);
-    tipify(wireLabel.parentNode);
+
+    // ONE cell, not three. The INPA layout gives a settings row a fixed set
+    // of columns, so a third control spilled the button onto its own line;
+    // grouping them keeps the row a row in both layouts.
+    const picker = combo.el.querySelector('.combo');
+    const controls = document.createElement('div');
+    controls.className = 'setting-controls';
+    picker.replaceWith(controls);
+    controls.append(picker, wireLabel, goBtn);
+    tipify(controls);
     api('/api/chassis').then((ids) => {
       combo.setOptions(
         [{ val: '*', label: 'All chassis (large)' }]

@@ -149,13 +149,16 @@ and wire gauges, colour codes and connector numbers stay sharp at any
 magnification. Nothing is rasterised and no viewer library is involved.
 
 ```sh
-tools/wds_import.py --wds /Volumes/<WDS>/WDS\ BMW/release/us
+scripts/setup/fetch-wds.sh              # WDS v15 ISO (4.7 GB) -> vendor/WDS
+tools/wds_import.py --wds vendor/WDS    # -> app/renderer/data/wiring/
 ```
 
-That writes one `.wiring` archive per car into `app/renderer/data/wiring/`
-(2 to 24 MB each). WDS itself is a build input like the rest of the BMW data:
-it is not in this repository, and the importer maps its chassis names onto the
-app's (WDS splits `e60e61`, and its E90 folder is a stub pointing at E87).
+That writes one `.wiring` archive per car (2 to 24 MB each). WDS is a build
+input like the rest of the BMW data: it is not in this repository, and it is
+optional, so `check-vendor.sh` reports it as absent rather than failing.
+Everything else builds and runs without it; only the Wiring screen is missing.
+The importer maps WDS's chassis names onto the app's (WDS splits `e60e61`,
+and its E90 folder is a stub pointing at E87).
 
 
 ## Fault lookup
