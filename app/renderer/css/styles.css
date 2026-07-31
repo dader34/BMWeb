@@ -1856,3 +1856,9 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 /* WDS component-location photos: BMW drew them small, so let them be their
    own size rather than stretched, but never wider than the page */
 .wiring-doc img { max-width: 100%; height: auto; display: block; margin: 10px 0; }
+/* a photograph on its way from the CDN: hold the space, say something is
+   coming, and never flash a broken-image box */
+.wiring-img-loading {
+  min-width: 316px; min-height: 237px; background: rgba(127,127,127,.10);
+  border: 1px dashed var(--line);
+}

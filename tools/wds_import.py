@@ -167,7 +167,8 @@ def clean_description(html, images=None):
     return body.strip()
 
 
-def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False):
+def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
+          images_out=None):
     trees = []
     for d in wds_dirs:
         tdir = os.path.join(wds_root, d, 'tree')
@@ -220,13 +221,26 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False):
         # The pictures those documents point at. A component location is
         # mostly its photo, so without these the page is a caption and a
         # broken-image box. Stored, not deflated: PNG is already compressed.
+        #
+        # images_out sends them OUTSIDE the archive instead, deduplicated
+        # across chassis: the hosted build cannot carry 878 MB of them (a
+        # GitHub Pages site may hold 1 GB) so it fetches them from a CDN and
+        # caches what it has seen. The app and offline copies keep them in
+        # here, where nothing needs a network at all.
         img_dir = os.path.join(wds_root, 'zi_images')
         for name in sorted(images):
             src = os.path.join(img_dir, name)
-            if os.path.exists(src):
+            if not os.path.exists(src):
+                continue
+            if images_out is not None:
+                dst = os.path.join(images_out, name)
+                if not os.path.exists(dst):     # shared: write each one once
+                    with open(src, 'rb') as fh, open(dst, 'wb') as out:
+                        out.write(fh.read())
+            else:
                 with open(src, 'rb') as fh:
                     z.writestr(f'img/{name}', fh.read(), zipfile.ZIP_STORED)
-                kinds['img'] = kinds.get('img', 0) + 1
+            kinds['img'] = kinds.get('img', 0) + 1
 
         z.writestr('tree.json', json.dumps(root, ensure_ascii=False,
                                            separators=(',', ':')))
@@ -248,10 +262,19 @@ def main():
     ap.add_argument('--chassis', help='one app chassis id (default: all mapped)')
     ap.add_argument('--out', default='app/renderer/data/wiring',
                     help='output directory for .wiring archives')
+    ap.add_argument('--images-out', metavar='DIR',
+                    help='write the images HERE as loose files instead of into '
+                         'the archives, deduplicated across chassis. For the '
+                         'hosted build, which fetches them from a CDN because '
+                         'a GitHub Pages site may hold only 1 GB and these are '
+                         '516 MB on their own.')
     args = ap.parse_args()
 
     if not os.path.isdir(os.path.join(args.wds, 'svg', 'sp')):
         sys.exit(f'not a WDS release directory (no svg/sp/): {args.wds}')
+
+    if args.images_out:
+        os.makedirs(args.images_out, exist_ok=True)
 
     todo = ([args.chassis.upper()] if args.chassis
             else sorted(CHASSIS_MAP))
@@ -261,7 +284,7 @@ def main():
         if not dirs:
             print(f'{ch}: no WDS data (not in this release)')
             continue
-        if build(args.wds, ch, dirs, args.out):
+        if build(args.wds, ch, dirs, args.out, images_out=args.images_out):
             built += 1
     print(f'\n{built} chassis written to {args.out}/')
 
