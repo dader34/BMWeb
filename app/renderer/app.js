@@ -233,11 +233,23 @@ function showSettings() {
       'Download offline copy',
       'A folder that runs with no internet. Includes fault descriptions.',
       opts, pickVal, (v) => { pickVal = v; });
+    // Wiring is opt-in: it is 2 to 24 MB per car on top of the copy, and only
+    // some cars have it at all. Checked by default because an offline copy
+    // that can trace a circuit is the one worth having.
+    const wireLabel = document.createElement('label');
+    wireLabel.className = 'setting-check';
+    wireLabel.title = 'Include BMW’s wiring diagrams for the selected vehicle';
+    wireLabel.innerHTML = `<input type="checkbox" id="offline-wiring" checked>`
+      + `<span>Wiring diagrams</span>`;
+    const wireBox = wireLabel.querySelector('input');
+
     const goBtn = document.createElement('button');
     goBtn.className = 'btn';
     goBtn.textContent = 'Download';
     goBtn.style.marginLeft = '8px';
     combo.el.querySelector('.combo').after(goBtn);
+    goBtn.before(wireLabel);
+    tipify(wireLabel.parentNode);
     api('/api/chassis').then((ids) => {
       combo.setOptions(
         [{ val: '*', label: 'All chassis (large)' }]
@@ -249,7 +261,8 @@ function showSettings() {
       goBtn.disabled = true;
       try {
         const n = await offlineExport(pickVal, true,
-                                      (t) => { goBtn.textContent = t; });
+                                      (t) => { goBtn.textContent = t; },
+                                      wireBox.checked);
         goBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
       } catch (e) {
         goBtn.textContent = `failed: ${e.message}`;

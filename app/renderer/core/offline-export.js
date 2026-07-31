@@ -59,7 +59,7 @@ async function offlineGet(path) {
 
 // README for the folder, so it is obvious how to open it a year from now.
 // Always branded BMWeb: the copy runs in a browser no matter who exported it.
-function offlineReadme(chassis, withFaults) {
+function offlineReadme(chassis, withFaults, withWiring) {
   return `BMWeb offline copy - ${chassis}
 ${'='.repeat(21 + chassis.length)}
 
@@ -79,8 +79,7 @@ page opened straight from disk read it at all.
 WHAT WORKS OFFLINE
 
   reading screens, jobs, tables and coding data for ${chassis}
-  the wiring diagrams, where WDS covers ${chassis}
-  the demo mode, which fills screens with plausible values
+${withWiring ? `  the wiring diagrams, where WDS covers ${chassis}\n` : ''}  the demo mode, which fills screens with plausible values
 ${withFaults ? '  fault code lookup with full English descriptions\n' : '  fault codes read off a car (their English text is NOT included)\n'}
 WHAT NEEDS A CABLE
 
@@ -108,7 +107,7 @@ Other chassis are not included. Export them separately from Settings.
 
 // Build the zip. onProgress(text) is called as it goes; the whole thing runs
 // in the tab, so the caller should keep the UI responsive.
-async function offlineExport(chassis, withFaults, onProgress) {
+async function offlineExport(chassis, withFaults, onProgress, withWiring = true) {
   if (typeof fflate === 'undefined') {
     throw new Error('fflate is not loaded');
   }
@@ -171,13 +170,15 @@ async function offlineExport(chassis, withFaults, onProgress) {
 
   // Wiring diagrams, inlined the same way and for the same reason. Absent
   // for a car WDS never covered, which is not an error: the Wiring entry
-  // simply does not appear.
+  // simply does not appear. Opt-out, because it is 2 to 24 MB per car.
   const wiring = {};
-  for (const id of ids) {
-    try {
-      say(`collecting ${id} wiring`);
-      wiring[id] = b64(await offlineGet(`data/wiring/${id}.wiring`));
-    } catch { /* no WDS data for this car */ }
+  if (withWiring) {
+    for (const id of ids) {
+      try {
+        say(`collecting ${id} wiring`);
+        wiring[id] = b64(await offlineGet(`data/wiring/${id}.wiring`));
+      } catch { /* no WDS data for this car */ }
+    }
   }
   if (Object.keys(wiring).length) {
     files['data/wiring.js'] = enc0.encode(
@@ -194,7 +195,8 @@ async function offlineExport(chassis, withFaults, onProgress) {
 
   const enc = new TextEncoder();
   files['README.txt'] = enc.encode(
-    offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults));
+    offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults,
+                  Object.keys(wiring).length > 0));
 
   say('compressing');
   // level 0 on the .chassis entry: it is already a zip of deflated members,
