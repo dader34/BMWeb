@@ -256,8 +256,35 @@ Filename case does not matter, the tools match either. The installer is
 [here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl)
 if you would rather fetch it yourself.
 
-Either way, check the layout before anything else. It names exactly what is
-missing and where it goes:
+### Get the wiring diagrams (optional)
+
+A separate BMW product and a separate download, so it is a separate script:
+
+```sh
+scripts/setup/fetch-wds.sh
+```
+
+It downloads the WDS v15 English ISO (4.7 GB), mounts it, and copies the
+~200 MB the importer actually reads into `vendor/WDS`: the shared `svg/` and
+`zinfo/` document stores plus one document tree per chassis. The rest of the
+disc is a Java applet and a frameset that the app replaces with its own
+viewer. Needs `hdiutil` (so macOS; on Linux, mount the ISO and copy its
+`release/us` tree to `vendor/WDS` by hand) and about 11 GB free while working.
+It no-ops if `vendor/WDS` is already there, and resumes a part-finished
+download.
+
+Then build the per-car archives:
+
+```sh
+tools/wds_import.py --wds vendor/WDS
+```
+
+Skip all of this if you do not want wiring diagrams. Nothing else depends on
+them, and `check-vendor.sh` reports them as absent rather than failing.
+
+### Check the layout
+
+Before anything else. It names exactly what is missing and where it goes:
 
 ```sh
 scripts/setup/check-vendor.sh
@@ -267,6 +294,7 @@ scripts/setup/check-vendor.sh
 
 ```sh
 tools/export/build_ecu_tree.py        # data/chassis/<CAR>/<ECU>/ from data/ecu-src
+tools/wds_import.py --wds vendor/WDS  # wiring archives (optional, needs WDS)
 scripts/build/build-web.sh            # static web build -> dist-web/
 dotnet build src/InpaMac.App          # macOS app
 scripts/build/package-macos.sh        # signed DMG (needs dist-web/ first)
@@ -300,6 +328,7 @@ tools/            decompilers, exporters, test harnesses
 data/ecu-src/     committed source: one gzipped copy per SGBD
 data/chassis/     derived per-car tree (gitignored)
 vendor/           BMW originals: NOT in the repo, supply your own
+vendor/WDS/       BMW's wiring diagrams, optional (scripts/setup/fetch-wds.sh)
 ```
 
 `src/InpaMac.Cli` still links EDIABAS on purpose. It is the ground truth the VM
