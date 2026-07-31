@@ -76,6 +76,9 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         tcpClose: () => call('tcpClose'),
         tcpWrite: (bytes) => call('tcpWrite', Array.from(bytes)),
         tcpRead: () => call('tcpRead'),
+        // join a WiFi network (the THOR's AP); opens the system Wi-Fi
+        // picker instead when it cannot
+        wifiJoin: (ssid) => call('wifiJoin', ssid),
       };
       // WKWebView ignores -webkit-app-region, so the Electron-era drag CSS on
       // .topbar/.splash does nothing here: reimplement it by handing the
@@ -104,7 +107,15 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
 
             switch (fn)
             {
-                case "saveSettings": Settle(webView, id, SaveSettings(args)); return;
+                case "saveSettings":
+                    var saved = SaveSettings(args);
+                    // the injected __bmacwSettings script is otherwise a
+                    // launch-time snapshot: a page reload right after a save
+                    // (the Adapter setting does exactly that) would boot from
+                    // stale values. Re-inject so reloads see what was saved.
+                    RefreshUserScripts();
+                    Settle(webView, id, saved);
+                    return;
                 case "startLog": StartLog(webView, id, args); return;
                 case "appendLog": Settle(webView, id, AppendLog(args)); return;
                 case "stopLog": Settle(webView, id, StopLog(args)); return;
@@ -125,11 +136,30 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "serialRead": Settle(webView, id, _serial.ReadAvailable()); return;
                 case "serialFlush": _serial.Flush(); Settle(webView, id, Ok()); return;
                 case "tcpOpen":
-                    Settle(webView, id, new { port = _tcp.Open(ArgString(args, 0), ArgInt(args, 1)) });
+                {
+                    // OFF the UI thread: connect blocks up to its 4 s timeout,
+                    // and this handler runs on the main thread -- an adapter
+                    // that is not there must not beachball the whole app.
+                    string? tcpHost = ArgString(args, 0);
+                    int tcpPort = ArgInt(args, 1);
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            var opened = new { port = _tcp.Open(tcpHost, tcpPort) };
+                            InvokeOnMainThread(() => Settle(webView, id, opened));
+                        }
+                        catch (Exception ex)
+                        {
+                            InvokeOnMainThread(() => Settle(webView, id, null, ex.Message));
+                        }
+                    });
                     return;
+                }
                 case "tcpClose": _tcp.Close(); Settle(webView, id, Ok()); return;
                 case "tcpWrite": _tcp.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
                 case "tcpRead": Settle(webView, id, _tcp.ReadAvailable()); return;
+                case "wifiJoin": WifiJoin(webView, id, args); return;
                 default: Settle(webView, id, null, $"unknown bridge fn '{fn}'"); return;
             }
         }
@@ -137,6 +167,60 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         {
             Settle(webView, id, null, ex.Message);
         }
+    }
+
+    // ---- WiFi ----------------------------------------------------------------
+    // Get the machine onto the adapter's network. networksetup joins open and
+    // previously-known networks with no password and no location permission
+    // (CoreWLAN scans hide SSIDs without one on modern macOS). Joining takes
+    // seconds and this handler runs on the UI thread, so do it on a task. If
+    // the join fails, open the system Wi-Fi picker so the user can.
+    private void WifiJoin(WKWebView? webView, long id, JsonElement args)
+    {
+        string ssid = ArgString(args, 0) ?? "Thor_Wifi";
+        Task.Run(() =>
+        {
+            string output;
+            try
+            {
+                string device = "en0";
+                var list = RunTool("/usr/sbin/networksetup", "-listallhardwareports");
+                var m = System.Text.RegularExpressions.Regex.Match(
+                    list, @"Hardware Port: Wi-Fi\s*\nDevice: (\w+)");
+                if (m.Success) device = m.Groups[1].Value;
+                output = RunTool("/usr/sbin/networksetup",
+                    $"-setairportnetwork {device} \"{ssid}\"").Trim();
+            }
+            catch (Exception ex) { output = ex.Message; }
+            // success is silent (or "already associated"); anything else is a
+            // complaint ("Failed to join network...", "Could not find network...")
+            bool joined = output.Length == 0
+                || output.Contains("already associated", StringComparison.OrdinalIgnoreCase);
+            InvokeOnMainThread(() =>
+            {
+                if (!joined)
+                {
+                    NSWorkspace.SharedWorkspace.OpenUrl(new NSUrl(
+                        "x-apple.systempreferences:com.apple.wifi-settings-extension"));
+                }
+                Settle(webView, id, new { joined, detail = output });
+            });
+        });
+    }
+
+    private static string RunTool(string path, string arguments)
+    {
+        var psi = new System.Diagnostics.ProcessStartInfo(path, arguments)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        using var p = System.Diagnostics.Process.Start(psi)
+            ?? throw new InvalidOperationException($"could not run {path}");
+        string output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
+        p.WaitForExit(20000);
+        return output;
     }
 
     // ---- durable settings ----------------------------------------------------
@@ -159,6 +243,32 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
             return json;
         }
         catch { return "null"; }
+    }
+
+    // The document-start user scripts (settings + bmacw surface), owned here
+    // so a settings save can rebuild them: WKUserContentController re-injects
+    // the same script text on every load, so without a refresh the injected
+    // settings stay frozen at whatever they were when the app launched.
+    private WKUserContentController? _controller;
+    private string _shimSource = "";
+
+    public void AttachUserScripts(WKUserContentController controller, string shimSource)
+    {
+        _controller = controller;
+        _shimSource = shimSource;
+        RefreshUserScripts();
+    }
+
+    private void RefreshUserScripts()
+    {
+        if (_controller == null) return;
+        _controller.RemoveAllUserScripts();
+        _controller.AddUserScript(new WKUserScript(
+            new NSString($"window.__bmacwSettings = {LoadSettingsJs()};"),
+            WKUserScriptInjectionTime.AtDocumentStart, isForMainFrameOnly: true));
+        _controller.AddUserScript(new WKUserScript(
+            new NSString(_shimSource),
+            WKUserScriptInjectionTime.AtDocumentStart, isForMainFrameOnly: true));
     }
 
     private static object SaveSettings(JsonElement args)

@@ -272,8 +272,11 @@ class ThorWifiBus {
 const wantThor = (() => {
   if (typeof location !== 'undefined' && /[?&]thor\b/.test(location.search)) return true;
   try {
-    const s = window.__bmacwSettings
-      || JSON.parse(localStorage.getItem('bmacw.settings') || '{}');
+    // localStorage over the injected copy: it is written synchronously the
+    // moment the setting changes, while the shell's injected settings are
+    // one reload behind when the page reloads right after a change.
+    const s = { ...(window.__bmacwSettings || {}),
+                ...JSON.parse(localStorage.getItem('bmacw.settings') || '{}') };
     return s.adapter === 'thor';
   } catch { return false; }
 })();
