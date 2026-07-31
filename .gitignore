@@ -95,6 +95,9 @@ data/job-code/*
 # checks they are present.
 vendor/EDIABAS/Ecu/
 vendor/EC-APPS/
+# BMW's WDS, same deal: 259 MB of wiring documents that only the importer
+# reads. scripts/setup/fetch-wds.sh installs it.
+vendor/WDS/
 
 # Per-car view of the generated data: data/chassis/<CHASSIS>/<ECU>/.
 # Everything about one ECU in one folder, which means a shared SGBD is stored
