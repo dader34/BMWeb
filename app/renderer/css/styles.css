@@ -1816,3 +1816,14 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 }
 /* the panes take what the toolbar leaves */
 .wiring-split:not(.wds-frame) .wiring-body { min-height: 0; }
+
+/* an inline checkbox beside a setting's control (the offline copy's
+   "wiring diagrams" opt-out) */
+.setting-check {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  margin-left: 12px; font-size: 12.5px; color: var(--ink-dim);
+  white-space: nowrap;
+}
+.setting-check input { accent-color: var(--amber); cursor: pointer; margin: 0; }
+.setting-check:hover { color: var(--ink); }
+.inpa-settings .setting-check { font-family: var(--mono); font-size: 12px; }
