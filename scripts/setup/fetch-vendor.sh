@@ -108,11 +108,29 @@ INPA=$(find_tree INPA)
        Extract the installer by hand and copy them per the README." >&2
   exit 1; }
 
+# NCS Expert's tree, which the same archive carries. DATEN holds what a
+# module's coding MEANS -- which bit at which address is which function --
+# for the ECUs whose SGBD does not say so itself. Optional: nothing that
+# exists today reads it, and its absence is not an error.
+NCS=$(find_tree NCSEXPER)
+
 echo "==> installing into vendor/"
 mkdir -p vendor/EDIABAS vendor/EC-APPS
 rm -rf vendor/EDIABAS/Ecu vendor/EC-APPS/INPA
 cp -R "$ECU"  vendor/EDIABAS/Ecu
 cp -R "$INPA" vendor/EC-APPS/INPA
+if [ -n "$NCS" ]; then
+  # DATEN and CFGDAT only: SGDAT here is a second copy of INPA's screens and
+  # BIN is Win32 executables, neither of which anything reads.
+  rm -rf vendor/EC-APPS/NCSEXPER
+  mkdir -p vendor/EC-APPS/NCSEXPER
+  for sub in DATEN CFGDAT; do
+    [ -d "$NCS/$sub" ] && cp -R "$NCS/$sub" "vendor/EC-APPS/NCSEXPER/$sub"
+  done
+  echo "    NCSEXPER: $(find vendor/EC-APPS/NCSEXPER -type f | wc -l | tr -d ' ') coding files"
+else
+  echo "    (no NCSEXPER in this archive; coding data will be absent)"
+fi
 
 echo "==> verifying"
 scripts/setup/check-vendor.sh
