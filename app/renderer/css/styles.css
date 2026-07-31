@@ -1669,3 +1669,32 @@ select.modal-input { appearance: none; cursor: pointer; }
 .wds-help-doc ul { margin: 0 0 12px; padding-left: 22px; }
 .wds-help-doc li { margin-bottom: 5px; }
 .wds-help-doc .wiring-dot { display: inline-block; margin-right: 3px; }
+
+/* WDS pane buttons: hand the window to the tree, the document, or both.
+   A schematic is very wide, so "document only" is the one that earns its
+   place; the choice persists across documents and sessions. */
+.wds-panegroup { display: flex; gap: 6px; margin-left: 26px; }
+.wds-pane { display: inline-flex; align-items: center; justify-content: center; }
+.wds-pane.active {
+  border-color: #404040 #ffffff #ffffff #404040;
+  box-shadow: inset 1px 1px 0 #808080;
+  background: #b0b8c8;
+}
+/* min-width:0 on the panes: a grid item's automatic minimum is its content,
+   which on a hidden-sibling layout leaves the surviving pane at its border
+   width instead of the track's. */
+.wds-frame .wiring-nav, .wds-frame .wiring-view { min-width: 0; }
+/* ONE column when a pane is hidden, not a zero-width one: display:none takes
+   the hidden pane out of the grid entirely, so the survivor would otherwise
+   slide into the collapsed first track and render at its border width. */
+.wds-frame .wiring-body[data-pane="doc"] { grid-template-columns: 1fr; }
+.wds-frame .wiring-body[data-pane="doc"] .wiring-nav { display: none; }
+.wds-frame .wiring-body[data-pane="tree"] { grid-template-columns: 1fr; }
+.wds-frame .wiring-body[data-pane="tree"] .wiring-view { display: none; }
+.wds-frame .wiring-body[data-pane="tree"] .wiring-nav { margin-right: 0; }
+
+/* the WDS screen supplies its own footer, so the app's F-key bar steps
+   aside and the frame takes the height it leaves */
+body.wds-nofkeys .fkeybar { display: none; }
+body.wds-nofkeys .view { inset: 56px 0 0 0; }
+body.wds-nofkeys .wiring-split.wds-frame { height: calc(100vh - 56px); }

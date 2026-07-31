@@ -11,6 +11,23 @@
 
 const WIRING_CACHE = new Map();   // chassis -> { tree, files: Map(name -> u8) }
 
+// WDS's pane buttons, drawn as it drew them: a frame with the divider pushed
+// one way or the other. The filled block is the pane that gets the room.
+const WDS_PANE_GLYPH = {
+  // divider hard left: the document takes the window
+  doc: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
+    <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <rect x="1" y="1" width="3.5" height="12" fill="currentColor"/></svg>`,
+  // divider centred: both panes
+  split: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
+    <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <rect x="6.5" y="1" width="3" height="12" fill="currentColor"/></svg>`,
+  // divider hard right: the tree takes the window
+  tree: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
+    <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <rect x="11.5" y="1" width="3.5" height="12" fill="currentColor"/></svg>`,
+};
+
 // kinds the tree uses, in the order a person looks for them
 const WIRING_KIND_LABEL = {
   schematic: 'Wiring diagram',
@@ -159,6 +176,10 @@ function showWiring(chassisId, openDoc = null) {
   // white pane, and a footer holding the search box and the zoom controls.
   // Same code underneath -- only the frame around it changes.
   const classic = typeof inpaMode === 'function' && inpaMode();
+  // WDS carries its own footer, so the app's F-key bar would be a second one
+  // saying the same things. setCrumbs clears this for every other screen, so
+  // leaving by any route puts the bar back.
+  if (classic) document.body.classList.add('wds-nofkeys');
   const split = document.createElement('div');
   split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
   split.innerHTML = `
@@ -192,6 +213,14 @@ function showWiring(chassisId, openDoc = null) {
       <input class="wds-input" id="wiring-search" type="search" autocomplete="off">
       <button class="wds-btn" id="wds-find">Search</button>
       <button class="wds-btn" id="wds-new">New</button>
+      <span class="wds-panegroup">
+        <button class="wds-btn wds-btn-sq wds-pane" id="wds-pane-doc"
+                title="Diagram only">${WDS_PANE_GLYPH.doc}</button>
+        <button class="wds-btn wds-btn-sq wds-pane" id="wds-pane-split"
+                title="Tree and diagram">${WDS_PANE_GLYPH.split}</button>
+        <button class="wds-btn wds-btn-sq wds-pane" id="wds-pane-tree"
+                title="Tree only">${WDS_PANE_GLYPH.tree}</button>
+      </span>
       <span class="wds-zoomgroup" id="wds-zoomgroup"></span>
     </div>` : ''}`;
   view.appendChild(split);
@@ -215,12 +244,34 @@ function showWiring(chassisId, openDoc = null) {
     };
     split.querySelector('#wds-find').onclick = () =>
       searchEl.dispatchEvent(new Event('input'));
+
+    // The pane buttons: give the window to the tree, to the document, or
+    // share it. A schematic is very wide, so "document only" is the one that
+    // earns its place -- and the setting sticks, the way WDS remembered it.
+    const body = split.querySelector('.wiring-body');
+    const setPane = (mode) => {
+      body.dataset.pane = mode;
+      split.querySelectorAll('.wds-pane').forEach((b) =>
+        b.classList.toggle('active', b.id === `wds-pane-${mode}`));
+      Settings.set('wdsPane', mode);
+      // the SVG scales to its box, so the fit has to follow the new width
+      const svg = body.querySelector('.wiring-stage svg');
+      if (svg && paneFit) requestAnimationFrame(paneFit);
+    };
+    split.querySelector('#wds-pane-doc').onclick = () => setPane('doc');
+    split.querySelector('#wds-pane-split').onclick = () => setPane('split');
+    split.querySelector('#wds-pane-tree').onclick = () => setPane('tree');
+    setPane(Settings.get('wdsPane', 'split'));
   }
 
   // the bar while nothing is open; a diagram replaces it with its zoom keys
   const browseActions = [{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
                            kind: 'back', fn: showWiringChassis }];
   setActions(browseActions);
+
+  // the open diagram's "fit", so a pane change can re-fit it. Set when a
+  // schematic opens, cleared when anything else does.
+  let paneFit = null;
 
   loadWiring(chassisId).then((data) => {
     const index = wiringIndex(data.tree);
@@ -316,6 +367,7 @@ function showWiring(chassisId, openDoc = null) {
       viewEl.appendChild(bar);
 
       setActions(browseActions);   // reset; a schematic adds its zoom keys
+      paneFit = null;              // no schematic open unless one opens below
       if (!doc) {
         viewEl.insertAdjacentHTML('beforeend',
           `<div class="empty"><div>This document is not in the WDS release the `
@@ -351,6 +403,7 @@ function showWiring(chassisId, openDoc = null) {
         // them on the document's own bar.
         const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
         const zoom = fitAndPan(svg, stage, zoomHost, classic);
+        paneFit = zoom && zoom.fit;   // a pane change re-fits this diagram
         // INPA's own idiom: the bar carries what the screen can do. A
         // diagram can zoom, so the keys are there rather than only on a
         // wheel a trackpad-less machine may not have.
