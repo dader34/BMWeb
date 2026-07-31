@@ -38,6 +38,46 @@ const OFFLINE_FAULTS = [
   'data/faultmeta.js', 'data/faultinfo.js',
 ];
 
+// Starts the relay the THOR needs, from a double-click. cd's to its own
+// directory first: Finder runs a .command from the user's home, not from
+// where the file lives, so a bare "node thor_bridge.js" would miss.
+const THOR_LAUNCHER = `#!/bin/bash
+# Double-click this to connect the THOR WiFi adapter.
+#
+# A browser cannot open the raw TCP socket the adapter uses, so this relays
+# it over a local WebSocket the page can reach. Leave the window open while
+# you use the adapter; close it when you are done.
+cd "$(dirname "$0")"
+if ! command -v node >/dev/null 2>&1; then
+  echo "node is not installed. Get it from https://nodejs.org and try again."
+  echo
+  read -n 1 -s -r -p "Press any key to close."
+  exit 1
+fi
+echo "Starting the THOR bridge. Keep this window open."
+echo "In the app: Settings > Adapter > THOR (WiFi), then click the cable chip."
+echo
+node thor_bridge.js
+echo
+read -n 1 -s -r -p "The bridge stopped. Press any key to close."
+`;
+
+const THOR_LAUNCHER_BAT = `@echo off
+rem Double-click this to connect the THOR WiFi adapter.
+cd /d "%~dp0"
+where node >nul 2>nul
+if errorlevel 1 (
+  echo node is not installed. Get it from https://nodejs.org and try again.
+  pause
+  exit /b 1
+)
+echo Starting the THOR bridge. Keep this window open.
+echo In the app: Settings ^> Adapter ^> THOR (WiFi), then click the cable chip.
+echo.
+node thor_bridge.js
+pause
+`;
+
 function offlineBase() {
   const p = location.pathname.replace(/\/[^/]*$/, '');
   return p.replace(/\/$/, '');
@@ -90,13 +130,15 @@ THE THOR WIFI ADAPTER
 
 The THOR WiFi dongle works too, through a small relay this folder ships
 (browsers cannot open the raw TCP connection the adapter uses). It needs
-node from nodejs.org, then, from this folder:
-
-  node thor_bridge.js
+node from nodejs.org.
 
 1. Plug the THOR into the car and join its Thor_Wifi network.
-2. Open index.html and set Settings > Adapter to "THOR (WiFi)".
-3. Click the cable chip in the top bar to connect.
+2. Start the relay and leave its window open:
+     macOS    double-click "Start THOR bridge.command"
+     Windows  double-click start-thor-bridge.bat
+     Linux    sh -c 'node thor_bridge.js'
+3. Open index.html and set Settings > Adapter to "THOR (WiFi)".
+4. Click the cable chip in the top bar to connect.
 
 Battery voltage, ignition state and the adapter identity read out today;
 running jobs over the THOR is still being wired up.
@@ -197,6 +239,22 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   files['README.txt'] = enc.encode(
     offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults,
                   Object.keys(wiring).length > 0));
+
+  // Double-clickable starter for the THOR bridge. A page cannot spawn a
+  // process -- that is the sandbox doing its job -- so the nearest thing to
+  // a button off the macOS app is a file Finder will run.
+  //
+  // .command, not .sh: Finder always opens a .command in Terminal, while a
+  // .sh may go to whatever editor the user has associated. 0o755 in the high
+  // half of the external attributes makes it arrive runnable instead of
+  // needing chmod.
+  //
+  // EXACTLY ONE ENTRY MAY CARRY attrs in this fflate build: with two tuples
+  // the second is dropped and its bit reappears on whatever entry is last.
+  // This is the only one, so it is safe.
+  files['Start THOR bridge.command'] = [enc.encode(THOR_LAUNCHER),
+                                        { attrs: 0o755 << 16 }];
+  files['start-thor-bridge.bat'] = enc.encode(THOR_LAUNCHER_BAT);
 
   say('compressing');
   // level 0 on the .chassis entry: it is already a zip of deflated members,

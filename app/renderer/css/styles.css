@@ -1843,3 +1843,12 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 .setting-controls .combo { flex: none; }
 .setting-controls .setting-check { margin-left: 0; }
 .inpa-settings .setting-controls { justify-content: flex-end; }
+
+/* is the THOR relay up? watched live while Settings is open */
+.bridge-state {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  padding: 5px 10px; border-radius: 4px; border: 1px solid var(--line);
+  color: var(--ink-dim); white-space: nowrap;
+}
+.bridge-state.up { color: var(--green); border-color: var(--green); }
+.bridge-state.down { color: var(--ink-faint); }
