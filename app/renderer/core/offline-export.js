@@ -27,7 +27,7 @@ const OFFLINE_SHELL = [
   'screens/identity.js', 'screens/aif.js', 'screens/adaption.js',
   'screens/service.js', 'screens/special.js', 'screens/measurements.js',
   'screens/live.js', 'screens/faults.js', 'screens/lookup.js',
-  'screens/tutorial.js',
+  'screens/tutorial.js', 'screens/wiring.js',
 ];
 
 // The fault tables. Lazy-loaded by the app and 80 MB together, so they are
@@ -79,6 +79,7 @@ page opened straight from disk read it at all.
 WHAT WORKS OFFLINE
 
   reading screens, jobs, tables and coding data for ${chassis}
+  the wiring diagrams, where WDS covers ${chassis}
   the demo mode, which fills screens with plausible values
 ${withFaults ? '  fault code lookup with full English descriptions\n' : '  fault codes read off a car (their English text is NOT included)\n'}
 WHAT NEEDS A CABLE
@@ -125,6 +126,7 @@ async function offlineExport(chassis, withFaults, onProgress) {
     const html = new TextDecoder().decode(files['index.html'])
       .replace('<script src="core/webshim.js"></script>',
                '<script src="data/inline.js"></script>\n'
+               + '  <script src="data/wiring.js"></script>\n'
                + '  <script src="core/webshim.js"></script>');
     files['index.html'] = enc0.encode(html);
   }
@@ -166,6 +168,21 @@ async function offlineExport(chassis, withFaults, onProgress) {
   } catch { /* only used for a cross-chassis lookup */ }
   files['data/inline.js'] = enc0.encode(
     `window.BMACW_INLINE=${JSON.stringify(inline)};`);
+
+  // Wiring diagrams, inlined the same way and for the same reason. Absent
+  // for a car WDS never covered, which is not an error: the Wiring entry
+  // simply does not appear.
+  const wiring = {};
+  for (const id of ids) {
+    try {
+      say(`collecting ${id} wiring`);
+      wiring[id] = b64(await offlineGet(`data/wiring/${id}.wiring`));
+    } catch { /* no WDS data for this car */ }
+  }
+  if (Object.keys(wiring).length) {
+    files['data/wiring.js'] = enc0.encode(
+      `window.BMACW_WIRING=${JSON.stringify(wiring)};`);
+  }
 
   if (withFaults) {
     for (const f of OFFLINE_FAULTS) {

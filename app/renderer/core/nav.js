@@ -35,6 +35,7 @@ async function showChassis() {
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
           <button class="inpa-fn inpa-fn-lookup" id="vsel-lookup"><span class="inpa-fn-key">⌕</span><span class="inpa-fn-label">Fault Lookup …</span></button>
+          <button class="inpa-fn inpa-fn-lookup" id="vsel-wiring"><span class="inpa-fn-key">⌁</span><span class="inpa-fn-label">Wiring Diagrams …</span></button>
         </div>
       </div>`;
     view.appendChild(panel);
@@ -43,10 +44,12 @@ async function showChassis() {
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
     panel.querySelector('#vsel-lookup').onclick = () => showLookup();
+    panel.querySelector('#vsel-wiring').onclick = () => showWiringChassis();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({ key: String(i + 1), label: dispChassis(id), fn: () => showScriptSelection(id) }));
     if (old.length) acts.push({ key: '9', label: 'Other models', fn: () => showOtherModels(old) });
+    acts.push({ key: '0', label: 'Wiring', fn: () => showWiringChassis() });
     setActions(acts);
     return;
   }
@@ -84,10 +87,25 @@ async function showChassis() {
   lookupCard.onclick = () => showLookup();
   view.appendChild(lookupCard);
 
-  // Root screen: quick-pick common chassis + Fault Lookup, no back.
+  // Wiring diagrams: BMW's WDS, its own reference section like the lookup.
+  // Needs no cable and no chassis chosen first, so it belongs beside it.
+  const wiringCard = document.createElement('button');
+  wiringCard.className = 'lookup-entry';
+  wiringCard.innerHTML = `
+    <span class="lookup-entry-icon">⌁</span>
+    <span class="lookup-entry-text">
+      <span class="lookup-entry-title">Wiring Diagrams</span>
+      <span class="lookup-entry-desc">BMW's own schematics, component locations and connector views</span>
+    </span>
+    <span class="lookup-entry-arrow">→</span>`;
+  wiringCard.onclick = () => showWiringChassis();
+  view.appendChild(wiringCard);
+
+  // Root screen: quick-pick common chassis + the two reference sections.
   const quick = ['E46', 'E60', 'E90'].filter(id => ids.includes(id));
   const acts = quick.map((id, i) => ({ key: String(i + 1), label: id, fn: () => showSections(id) }));
   acts.push({ key: String(quick.length + 1), label: 'Fault Lookup', fn: () => showLookup() });
+  acts.push({ key: String(quick.length + 2), label: 'Wiring', fn: () => showWiringChassis() });
   setActions(acts);
 }
 
@@ -232,6 +250,7 @@ function backToModules(chassisId) {
 
 // screen 2: sections sidebar + ECU list
 async function showSections(id, selectIndex = 0) {
+  let wiringKey = null;          // the F-key, added only if WDS data is here
   cancelSweep();                 // entering the section list stops any sweep (sweep.js)
   lastScreen = () => showSections(id, selectIndex);
   setStateSgbd(id);              // retarget the battery/ignition poll (autoscan.js)
@@ -297,6 +316,19 @@ async function showSections(id, selectIndex = 0) {
   scan.onclick = () => quickErrorSweep(id);
   nav.appendChild(scan);
 
+  // Wiring lives on its own page (like Fault Lookup), but a car that is
+  // already open should not have to go back out to reach its diagrams.
+  if (typeof hasWiring === 'function' && await hasWiring(id)) {
+    const wire = document.createElement('button');
+    wire.className = 'sys-item sys-wiring';
+    wire.innerHTML = `<span class="nav-key">0</span>
+                      <span class="nav-name">Wiring diagrams</span>
+                      <span class="nav-count">WDS</span>`;
+    wire.onclick = () => showWiring(id);
+    nav.appendChild(wire);
+    wiringKey = { key: '0', label: 'Wiring', fn: () => showWiring(id) };
+  }
+
   sbLeft.textContent = ch.description;
   selectSection(Math.min(selectIndex, ch.sections.length - 1));
 
@@ -305,6 +337,7 @@ async function showSections(id, selectIndex = 0) {
     key: String(i + 1), label: s.name, fn: () => selectSection(i),
   }));
   actions.push({ key: '9', label: 'Error scan', fn: () => quickErrorSweep(id) });
+  if (wiringKey) actions.push(wiringKey);
   actions.push({ key: 'Escape', keyLabel: 'Esc', label: 'Vehicles', kind: 'back', fn: showChassis });
   setActions(actions);
 }

@@ -340,7 +340,11 @@ window.addEventListener('keydown', (e) => {
   // physical digit (e.code) as well -- the shifted row is reached by holding
   // Shift and pressing the same number.
   const digit = /^Digit(\d)$/.exec(e.code || '');
+  // "+" needs Shift on most layouts, so the bare key on the same cap counts
+  // too: = for zoom in, _ for zoom out. Both read as the key they are next to.
+  const alias = { '=': '+', '_': '-' }[key];
   const match = currentActions.find(a => a.key === key)
+    || (alias && currentActions.find(a => a.key === alias))
     || (digit && currentActions.find(a => a.key === digit[1]));
   if (match) { e.preventDefault(); fireAction(match); }
 });

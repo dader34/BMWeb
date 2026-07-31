@@ -131,6 +131,33 @@ machine a second link (Ethernet, or an iPhone via USB with Personal Hotspot)
 and put it above Wi-Fi in System Settings > Network > service order.
 
 
+## Wiring diagrams
+
+BMW's own wiring documentation, from WDS (Wiring Diagram System, the tool the
+dealer traced circuits on). Open a car and pick **Wiring diagrams**: BMW's
+document tree on the left, the document on the right. 15 chassis are covered,
+E38 through F01.
+
+Per car that is roughly 2,000 to 5,500 wiring diagrams plus component
+locations, connector views, pin assignments, specification values, test
+procedures and functional descriptions. Search covers every document title in
+the car at once.
+
+The diagrams are **vector, not images**. WDS ships them as `.svgz`, which is
+gzipped SVG, so the browser draws them directly: scroll to zoom, drag to pan,
+and wire gauges, colour codes and connector numbers stay sharp at any
+magnification. Nothing is rasterised and no viewer library is involved.
+
+```sh
+tools/wds_import.py --wds /Volumes/<WDS>/WDS\ BMW/release/us
+```
+
+That writes one `.wiring` archive per car into `app/renderer/data/wiring/`
+(2 to 24 MB each). WDS itself is a build input like the rest of the BMW data:
+it is not in this repository, and the importer maps its chassis names onto the
+app's (WDS splits `e60e61`, and its E90 folder is a stub pointing at E87).
+
+
 ## Fault lookup
 
 Beyond reading a car's memory, the app carries an offline fault database:
