@@ -51,28 +51,39 @@ template and everything after it is that module's own data. That part is
 solid, and so is the keyword table -- SWTFSW01.dat gives 3,801 FSW numbers
 and their names.
 
-THE ROW WALK IS NOT SOLID, and the numbers it produces should not be
-trusted yet. Rows can be found: a byte triple repeats at a fixed spacing,
-the spacing differs by module (24 in LWS5, 33 in ACC), and following it
-yields thousands of rows whose FSW numbers resolve against the table. But
-resolving is not the same as being right, and the test that matters says
-they are not:
+THE ROW WALK IS NOT SOLID and should not be built on. Rows can be FOUND --
+a byte triple repeats at a fixed spacing, the spacing differs by module (24
+in LWS5, 33 in ACC) -- but the fields inside one are not being read
+correctly, and three separate checks say so:
 
-    ACC   -- adaptive cruise -- decodes to window and airbag functions
-    LSZ   -- light switch    -- decodes to BAUREIHE_E31
-    LWS5  -- steering angle  -- decodes to OELSERVICE_ZAEHLER
+  * A module's rows decode to another module's functions. ACC (adaptive
+    cruise) yields window and airbag names, LSZ (light switch) yields
+    BAUREIHE_E31, LWS5 (steering angle) yields OELSERVICE_ZAEHLER. Zero
+    in-domain hits for any of them.
 
-Zero in-domain hits for any of the three. An earlier version appeared to
-work on LSZ, and that was a coincidence of a different marker, not
-evidence. So the offsets within a row are wrong, or the rows begin
-somewhere other than where the marker sits, or both. Finding the rows is
-not the same as parsing them, and this is the latter problem.
+  * The keyword table is DENSE: 3,749 ids spread over the u16 space, so
+    5.6% of random values resolve to a name. "It resolved" is therefore
+    weak evidence, and an earlier version of this file reported 59% as
+    though it meant something. It means the rows are not random -- which
+    they are not -- but not that the right field is being read.
 
-What would settle it: the .C0x files pair with the SGBDs, and 53 ECUs name
-their own coding values (tools/decompile/coding_map.py). Decoding one of
-THOSE and checking the names against what the SGBD already says is a real
-test with a knowable answer. That is the next step rather than more
-guessing at strides.
+  * Scanning a row for the offset with the highest keyword density finds
+    +1 and +5 at 100%, and both return the SAME name for every row: they
+    are part of the marker, not a field. Offset +3 varies but gives the
+    wrong domain.
+
+So the marker is probably not the head of a record. It may be a field
+inside one, with the real record starting some bytes earlier, which would
+put every offset measured from it wrong by a constant.
+
+WHAT WOULD SETTLE IT, and what was tried. The plan was to test against an
+ECU whose SGBD already names its coding values (coding_map.py finds 53).
+That does not work directly: the SGBD's result names and NCS's keywords are
+different vocabularies -- none of dwa4's 89 SGBD names appear in the
+keyword table at all. A usable test needs a module whose .C0x can be
+checked some other way: a known coding string for a known car, or the
+NETTODAT trace of a read, which is what NCS Expert writes out and what
+would pin the layout exactly.
 
 Read-only: decodes files on disk, never talks to a car.
 """
