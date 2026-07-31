@@ -154,20 +154,68 @@ function showWiring(chassisId, openDoc = null) {
   // crumbs already say where you are. The browse screens keep theirs.
   view.innerHTML = '';
 
+  // INPA mode wears WDS's own chrome, the way the ECU screens wear INPA's:
+  // grey toolbar of raised buttons, blue title strip, the tree in a sunken
+  // white pane, and a footer holding the search box and the zoom controls.
+  // Same code underneath -- only the frame around it changes.
+  const classic = typeof inpaMode === 'function' && inpaMode();
   const split = document.createElement('div');
-  split.className = 'split wiring-split';
+  split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
   split.innerHTML = `
-    <nav class="split-nav wiring-nav">
-      <input class="wiring-search" id="wiring-search" type="search"
-             placeholder="Search diagrams…" autocomplete="off">
-      <div class="wiring-tree" id="wiring-tree"></div>
-    </nav>
-    <div class="split-content wiring-view" id="wiring-view"></div>`;
+    ${classic ? `
+    <div class="wds-toolbar">
+      <button class="wds-btn" id="wds-series">&lt;&lt; Series</button>
+      <button class="wds-btn" id="wds-print">Print</button>
+      <button class="wds-btn" id="wds-exit">Exit</button>
+      <button class="wds-btn" id="wds-start">Start</button>
+      <span class="wds-nav-pair">
+        <button class="wds-btn wds-btn-sq" id="wds-prev">&lt;&lt;</button>
+        <button class="wds-btn wds-btn-sq" id="wds-next">&gt;&gt;</button>
+      </span>
+      <button class="wds-btn wds-help" id="wds-help">Help</button>
+    </div>
+    <div class="wds-titlebar">
+      <span>WDS BMW Wiring Diagram System - ${esc(dispChassis(chassisId))}</span>
+      <span class="wds-version">Version</span>
+    </div>` : ''}
+    <div class="wiring-body">
+      <nav class="split-nav wiring-nav">
+        ${classic ? '' : `<input class="wiring-search" id="wiring-search" type="search"
+               placeholder="Search diagrams…" autocomplete="off">`}
+        <div class="wiring-tree" id="wiring-tree"></div>
+      </nav>
+      <div class="split-content wiring-view" id="wiring-view"></div>
+    </div>
+    ${classic ? `
+    <div class="wds-footer">
+      <label class="wds-searchlabel" for="wiring-search">Enter search word</label>
+      <input class="wds-input" id="wiring-search" type="search" autocomplete="off">
+      <button class="wds-btn" id="wds-find">Search</button>
+      <button class="wds-btn" id="wds-new">New</button>
+      <span class="wds-zoomgroup" id="wds-zoomgroup"></span>
+    </div>` : ''}`;
   view.appendChild(split);
 
   const treeEl = split.querySelector('#wiring-tree');
   const viewEl = split.querySelector('#wiring-view');
   const searchEl = split.querySelector('#wiring-search');
+
+  if (classic) {
+    // The toolbar buttons WDS had, doing what they say here. Print and Help
+    // are omitted rather than faked: a dead button is worse than none.
+    split.querySelector('#wds-series').onclick = showWiringChassis;
+    split.querySelector('#wds-exit').onclick = showChassis;
+    split.querySelector('#wds-start').onclick = () => showWiring(chassisId);
+    split.querySelector('#wds-help').onclick = () => showWiringHelp(chassisId);
+    split.querySelector('#wds-print').onclick = () => window.print();
+    // "New" clears the search and collapses the tree, as it did in WDS
+    split.querySelector('#wds-new').onclick = () => {
+      searchEl.value = '';
+      searchEl.dispatchEvent(new Event('input'));
+    };
+    split.querySelector('#wds-find').onclick = () =>
+      searchEl.dispatchEvent(new Event('input'));
+  }
 
   // the bar while nothing is open; a diagram replaces it with its zoom keys
   const browseActions = [{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
@@ -178,6 +226,19 @@ function showWiring(chassisId, openDoc = null) {
     const index = wiringIndex(data.tree);
     sbLeft.textContent = 'wiring';
     sbRight.textContent = `${index.length} documents`;
+
+    // << and >> step through the documents in tree order, which is what
+    // they did in WDS: the flat index IS that order.
+    let atIndex = -1;
+    if (classic) {
+      const step = (d) => {
+        if (!index.length) return;
+        atIndex = (atIndex + d + index.length) % index.length;
+        openDocument(index[atIndex]);
+      };
+      split.querySelector('#wds-prev').onclick = () => step(-1);
+      split.querySelector('#wds-next').onclick = () => step(1);
+    }
 
     // ---- the tree: folders collapse, leaves open
     const renderTree = (node, parent, depth) => {
@@ -245,6 +306,7 @@ function showWiring(chassisId, openDoc = null) {
 
     // ---- the document pane
     function openDocument(entry) {
+      atIndex = index.findIndex(e => e.doc === entry.doc);
       const doc = wiringDoc(data, entry.doc);
       viewEl.innerHTML = '';
       const bar = document.createElement('div');
@@ -285,7 +347,10 @@ function showWiring(chassisId, openDoc = null) {
       viewEl.appendChild(stage);
       const svg = stage.querySelector('svg');
       if (svg) {
-        const zoom = fitAndPan(svg, stage, bar);
+        // WDS kept its zoom buttons in the footer; the modern layout keeps
+        // them on the document's own bar.
+        const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
+        const zoom = fitAndPan(svg, stage, zoomHost, classic);
         // INPA's own idiom: the bar carries what the screen can do. A
         // diagram can zoom, so the keys are there rather than only on a
         // wheel a trackpad-less machine may not have.
@@ -319,7 +384,7 @@ function showWiring(chassisId, openDoc = null) {
 
 // Zoom and pan by rewriting the viewBox: the SVG stays vector at every
 // scale, and nothing re-renders but the attribute.
-function fitAndPan(svg, stage, bar) {
+function fitAndPan(svg, stage, bar, classic = false) {
   const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
   if (vb.length !== 4 || vb.some(Number.isNaN)) return null;
   const home = { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
@@ -395,22 +460,82 @@ function fitAndPan(svg, stage, bar) {
   stage.addEventListener('pointerup', end);
   stage.addEventListener('pointercancel', end);
 
-  // on-screen zoom controls, mirroring the F-keys
+  // on-screen zoom controls, mirroring the F-keys. WDS drew these as raised
+  // grey buttons with magnifier glyphs; the modern layout labels them.
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
-  [['−', 'Zoom out', () => zoomBy(1.3)],
-   ['+', 'Zoom in', () => zoomBy(1 / 1.3)],
-   ['Fit', 'Fit to pane', fit]].forEach(([label, title, fn]) => {
+  [[classic ? '⊕' : '+', 'Zoom in', () => zoomBy(1 / 1.3)],
+   [classic ? '⊖' : '−', 'Zoom out', () => zoomBy(1.3)],
+   [classic ? '⊡' : 'Fit', 'Fit to pane', fit]].forEach(([label, title, fn]) => {
     const b = document.createElement('button');
-    b.className = 'btn wiring-fit';
+    b.className = classic ? 'wds-btn wds-btn-sq' : 'btn wiring-fit';
     b.textContent = label;
     b.title = title;
     b.onclick = fn;
     controls.appendChild(b);
   });
+  // the shared WDS footer keeps one set; the per-document bar is new each time
+  if (classic) bar.innerHTML = '';
   bar.appendChild(controls);
 
   return { by: zoomBy, fit };
+}
+
+// WDS's own Help page, in the terms that apply here: the controls are ours
+// (a wheel and a drag, not Strg+click), but the tree, the search and the
+// document kinds are BMW's and worth explaining once.
+function showWiringHelp(chassisId) {
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Wiring', fn: showWiringChassis },
+    { label: dispChassis(chassisId), fn: () => showWiring(chassisId) },
+    { label: 'Help' },
+  ]);
+  view.innerHTML = head('WDS', 'Operation and navigation', '');
+  const art = document.createElement('article');
+  art.className = 'wiring-doc wds-help-doc';
+  art.innerHTML = `
+    <h2>Navigation</h2>
+    <ul>
+      <li>Click a folder in the tree to open it, click again to close it.</li>
+      <li><strong>New</strong> clears the search and returns to the full tree.</li>
+      <li><strong>&lt;&lt;</strong> and <strong>&gt;&gt;</strong> step through the
+          documents in tree order.</li>
+    </ul>
+    <h2>Search</h2>
+    <ul>
+      <li>Type in the field at the bottom left; results replace the tree as
+          you type, and <strong>Search</strong> repeats the current word.</li>
+      <li>Every document title in this vehicle is searched at once.</li>
+    </ul>
+    <h2>Zooming and moving a diagram</h2>
+    <ul>
+      <li>Scroll the wheel over a diagram to zoom about the pointer.</li>
+      <li>Drag with the mouse to move it.</li>
+      <li>The footer buttons and the keys <strong>+</strong>,
+          <strong>-</strong> and <strong>0</strong> (fit) do the same.</li>
+      <li>Diagrams are vector, so they stay sharp at any magnification.</li>
+    </ul>
+    <h2>What the marks in the tree mean</h2>
+    <ul>
+      <li><span class="wiring-dot" style="background:var(--amber)"></span>
+          wiring diagram &nbsp;
+          <span class="wiring-dot" style="background:var(--green)"></span>
+          component location &nbsp;
+          <span class="wiring-dot" style="background:#6ab0ff"></span>
+          connector view</li>
+      <li><span class="wiring-dot" style="background:#b98cff;border-radius:50%"></span>
+          pin assignment &nbsp;
+          <span class="wiring-dot" style="background:#ffd166;border-radius:50%"></span>
+          specification values &nbsp;
+          <span class="wiring-dot" style="background:var(--red)"></span>
+          test procedure</li>
+    </ul>
+    <p>The diagrams, their titles and their arrangement are BMW's own, taken
+       from WDS. Printing uses the browser's print dialog.</p>`;
+  view.appendChild(art);
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: () => showWiring(chassisId) }]);
 }
 
 // Does this car have wiring data? Cheap enough to ask before drawing a
