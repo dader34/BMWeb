@@ -106,11 +106,26 @@ is what NCS Dummy printed), then all eight single bits at roughly a
 thousand each, and 0xF0 for a nibble. 85% canonical. Random bytes do not
 distribute that way, so this is independent of the keyword evidence.
 
-Still not placed: BLOCKNR, WORTADR, BYTEADR. Read backwards from FSW at
-the documented widths they give a constant BYTEADR of 104 and absurd
-WORTADRs, because 01 68 00 before the keyword and 10 00 after it are field
-tags rather than payload. The keyword and its mask are verified; the
-addresses are not.
+THE ADDRESS IS AT FSW+4, and the proof is that the masks fit together.
+Functions sharing an address carry complementary single bits -- LSZ's
+address 1 holds FLC_KL58G at 0x01, PWM_ANSTEUERUNG_BLK_RZ at 0x04,
+KALTUEBERWACHUNG_BL_L at 0x08, CC_MELDUNG_FL_L at 0x10 and CC_MELDUNG_SL_RV
+at 0x20, and address 65 starts the progression again at 0x01. That is one
+byte of coding memory holding up to eight switches, which is what the
+format is for, and it is not something an incorrect offset produces.
+
+So the record reads
+
+    01 00 <MASK> 01 68 00 <FSW:u16> 10 00 <ADDR:u16>
+
+and address, mask and keyword together are the whole semantic triple: which
+byte, which bits, what it is called.
+
+WHAT IS STILL MISSING is the block. The same address recurs with the mask
+progression starting over, which is BLOCKNR distinguishing them, and
+BLOCKNR has not been located -- grouping by address alone therefore shows
+collisions (65% of contiguous runs are clean, 17% if runs are ignored).
+Until the block is placed, an address is only unique within its run.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -256,6 +271,10 @@ def rows(data, kw=None):
             # the byte that varies between otherwise identical records,
             # which is where the bit mask sits
             'mask': data[i - 4] if i >= 4 else None,
+            # the byte of coding memory this function lives in. Functions
+            # sharing an address carry complementary single-bit masks, which
+            # is how one byte holds up to eight switches.
+            'addr': int.from_bytes(data[i + 4:i + 6], 'little'),
             'at': i,
         })
     return out
@@ -305,8 +324,8 @@ def summarise(path, verbose=False):
             print(f"   {s['name']:26} {sig:22} {flds}")
         print()
         for r in rr[:20]:
-            print(f"   FSW {r['fsw']:6}  mask 0x{(r['mask'] or 0):02x}  "
-                  f"{r['name']}")
+            print(f"   addr {r['addr']:5}  mask 0x{(r['mask'] or 0):02x}  "
+                  f"FSW {r['fsw']:6}  {r['name']}")
         if len(rr) > 20:
             print(f"   ... {len(rr) - 20} more")
     elif fsw:
