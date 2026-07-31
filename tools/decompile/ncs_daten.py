@@ -140,17 +140,86 @@ def schema(data):
     return secs
 
 
+# A coding row, in the data section. The rows are fixed 24-byte records and
+# each opens with the same three bytes, which is what makes them findable:
+# the schema says what the fields ARE, but not where a record begins, and
+# the section headers between them are not a reliable stride.
+ROW_MARK = b'\x14\x10\x00'
+ROW_LEN = 24
+
+# The schema preamble is byte-identical in all 260 files and always this
+# long, so the data begins here in every one of them.
+SCHEMA_LEN = 1148
+
+
+def rows(data):
+    """The module's coding rows: which function keyword lives where.
+
+    FSW is BMW's function keyword number -- the identifier that
+    SWTFSW*.DAT turns into a readable name ("fold mirrors on lock"). The
+    index counts the rows within a block and is what the module's own
+    coding memory is addressed by.
+    """
+    # THE STRIDE IS THE INVARIANT, not the marker. Rows are 24 bytes in
+    # every module, but what sits at the head of one differs by family --
+    # LWS5's begin 14 10 00, ACC's begin 00 01 00 -- so anchoring on any one
+    # of them found rows in 64 files and nothing in the other 196. Instead,
+    # find the byte triple that actually repeats at a 24-byte spacing in
+    # THIS file, and walk from its first occurrence.
+    body = data[SCHEMA_LEN:]
+    if len(body) < ROW_LEN * 3:
+        return []
+    seen = {}
+    for i in range(len(body) - ROW_LEN - 3):
+        t = body[i:i + 3]
+        # 00s and FFs are padding and unset fields; they repeat at every
+        # stride and would outvote the real head of a row (LWS5's ff ff ff
+        # occurs 89 times against the true marker's 65).
+        if t in (b'\x00\x00\x00', b'\xff\xff\xff'):
+            continue
+        if t == body[i + ROW_LEN:i + ROW_LEN + 3]:
+            seen[t] = seen.get(t, 0) + 1
+    if not seen:
+        return []
+    mark = max(seen, key=lambda k: seen[k])
+    if seen[mark] < 2:
+        return []
+
+    # Rows come in RUNS, not one unbroken table: LWS5's 72 rows sit 24 apart
+    # except at four points where a block header of 82-83 bytes intervenes.
+    # So follow the marker rather than the stride, and let the stride only
+    # decide where to look next -- stopping at the first gap loses most of
+    # the file, and stepping blindly by 24 drifts into the header.
+    out = []
+    i = body.find(mark)
+    while 0 <= i and i + ROW_LEN <= len(body):
+        out.append({
+            'fsw': int.from_bytes(body[i + 3:i + 5], 'little'),
+            'index': body[i + 7],
+            'raw': body[i:i + 12].hex(' '),
+        })
+        nxt = body.find(mark, i + ROW_LEN)
+        i = nxt
+    return out
+
+
 def summarise(path, verbose=False):
     data = open(path, 'rb').read()
     secs = schema(data)
     name = os.path.basename(path)
     fsw = secs.get('PARZUWEISUNG_FSW') or {}
-    print(f'{name}  {len(data)} bytes  {len(secs)} sections')
+    rr = rows(data)
+    print(f'{name}  {len(data)} bytes  {len(secs)} sections  {len(rr)} coding rows')
     if verbose:
         for s in secs.values():
             sig = s['sig']
             flds = ','.join(s['fields'])
             print(f"   {s['name']:26} {sig:22} {flds}")
+        print()
+        for r in rr[:20]:
+            print(f"   FSW {r['fsw']:6}   index {r['index']:3}")
+        if len(rr) > 20:
+            print(f"   ... {len(rr) - 20} more")
     elif fsw:
         print(f"   PARZUWEISUNG_FSW  {fsw['sig']}  "
               f"{','.join(fsw['fields'])}")
@@ -181,6 +250,17 @@ def corpus():
             no_fsw.append(os.path.basename(p))
     print(f'{ok}/{len(files)} files read')
     print(f'{len(files) - len(no_fsw)} carry PARZUWEISUNG_FSW')
+    n_rows = 0
+    empty = 0
+    keywords = set()
+    for p in files:
+        rr = rows(open(p, 'rb').read())
+        n_rows += len(rr)
+        keywords |= {r['fsw'] for r in rr}
+        if not rr:
+            empty += 1
+    print(f'{n_rows} coding rows, {len(keywords)} distinct function keywords'
+          + (f', {empty} files with none' if empty else ''))
     print('\nits signature, and how many files use it:')
     for s, n in sorted(sigs.items(), key=lambda kv: -kv[1]):
         print(f'  {n:4}  {s}')
