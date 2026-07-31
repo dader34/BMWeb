@@ -152,12 +152,134 @@ class WebSerialBus {
   }
 }
 
-// Whichever transport this host can actually do. The native bridge wins when
-// present: inside the macOS app there is no Web Serial to fall back to, and
-// outside it there is no bridge.
-const webBus = (typeof window !== 'undefined'
-                && window.bmacw && window.bmacw.serialOpen)
-  ? new NativeSerialBus() : new WebSerialBus();
+// The THOR WiFi adapter: a Deep-OBD-style custom adapter (EdiabasLib's
+// DEEPOBDWIFI protocol) behind an ESP-Link WiFi bridge at 192.168.4.1:23.
+// NOT an ELM327: it carries BMW-FAST-framed telegrams, which is exactly what
+// the VM sends -- but a browser has no TCP, so tools/thor_bridge.js relays a
+// local WebSocket to the adapter. Telegram framing and meaning stay here.
+//
+// The F1 -> F1 "special" telegrams are answered by the adapter MCU itself
+// (ident, ignition sense, battery voltage off the OBD pin), so connecting
+// and the topbar indicators work against ANY car. Wrapping job telegrams for
+// the K-line/D-CAN side is BMW-specific and still to come.
+const THOR_BRIDGE = 'ws://127.0.0.1:8124';
+const THOR_HOST = '192.168.4.1';
+const THOR_PORT = 23;
+
+class ThorWifiBus {
+  constructor() {
+    this.ws = null;
+    this.native = false;                             // shell-owned TCP socket
+    this.fw = null;                                  // { type, version }
+    this.state = { battery: null, ignition: null };  // last ident readings
+    this.rx = [];
+  }
+
+  get connected() {
+    return this.native || (!!this.ws && this.ws.readyState === 1);
+  }
+
+  async connect() {
+    if (window.bmacw && window.bmacw.tcpOpen) {
+      // the macOS shell opens the socket itself: no relay, no node
+      await window.bmacw.tcpOpen(THOR_HOST, THOR_PORT);
+      this.native = true;
+    } else {
+      const ws = new WebSocket(THOR_BRIDGE);
+      ws.binaryType = 'arraybuffer';
+      await new Promise((res, rej) => {
+        ws.onopen = res;
+        ws.onerror = () => rej(new Error(
+          'THOR bridge is not running. Start it with: node thor_bridge.js'));
+      });
+      ws.onmessage = (e) => this.rx.push(...new Uint8Array(e.data));
+      ws.onclose = () => { this.ws = null; };
+      this.ws = ws;
+    }
+    // prove there is an adapter behind the socket, not just a socket
+    const fw = await this.special(0xFD, 9);
+    this.fw = { type: (fw[4] << 8) | fw[5], version: (fw[6] << 8) | fw[7] };
+    await this.readState();
+    return this.portLabel();
+  }
+
+  portLabel() {
+    const v = this.fw ? ` v${this.fw.version >> 8}.${this.fw.version & 0xff}` : '';
+    return `THOR${v}`;
+  }
+
+  async disconnect() {
+    if (this.native) {
+      try { await window.bmacw.tcpClose(); } catch { /* already gone */ }
+      this.native = false;
+    }
+    try { if (this.ws) this.ws.close(); } catch { /* already gone */ }
+    this.ws = null;
+  }
+
+  // One special telegram: 82 F1 F1 <cmd> <cmd> <sum8>. The adapter echoes
+  // the request, then appends its answer (respLen bytes, sum8 last). Over
+  // the WebSocket, bytes arrive via onmessage; over the native socket, poll
+  // the shell (same shape as NativeSerialBus, and the timeout policy stays
+  // here either way).
+  async special(cmd, respLen, timeoutMs = 2000) {
+    const req = [0x82, 0xF1, 0xF1, cmd, cmd];
+    req.push(req.reduce((a, b) => (a + b) & 0xff, 0));
+    if (this.native) await window.bmacw.tcpRead();  // drop anything stale
+    this.rx.length = 0;
+    if (this.native) await window.bmacw.tcpWrite(req);
+    else this.ws.send(new Uint8Array(req));
+    const want = req.length + respLen;
+    const deadline = Date.now() + timeoutMs;
+    while (this.rx.length < want && Date.now() < deadline) {
+      if (this.native) {
+        const got = await window.bmacw.tcpRead();
+        if (got && got.length) { this.rx.push(...got); continue; }
+      }
+      await new Promise((r) => setTimeout(r, 15));
+    }
+    if (this.rx.length < want) throw new Error('THOR adapter did not answer');
+    const resp = this.rx.slice(req.length, want);
+    const sum = resp.slice(0, -1).reduce((a, b) => (a + b) & 0xff, 0);
+    if (sum !== resp[resp.length - 1]) throw new Error('THOR answer checksum bad');
+    return resp;
+  }
+
+  // ignition sense + battery voltage, read from the adapter (no car protocol
+  // involved). Feeds /api/state, so the topbar KL30/KL15 indicators are real.
+  async readState() {
+    const ign = await this.special(0xFE, 6);
+    this.state.ignition = (ign[4] & 0x01) !== 0;
+    if (this.fw && this.fw.type >= 2) {
+      const v = await this.special(0xFC, 6);
+      this.state.battery = v[4] / 10;
+    }
+    return this.state;
+  }
+
+  async exchange() {
+    throw new Error('Jobs over the THOR adapter are not wired up yet: the '
+      + 'K-line/D-CAN telegram wrapping is BMW-specific and waits for the '
+      + 'BMW to be back from the shop.');
+  }
+}
+
+// Whichever transport this host can actually do. THOR is an explicit choice
+// (?thor=1 or the Adapter setting) and works in both hosts: shell-owned TCP
+// inside the macOS app, the local WebSocket relay in a browser. Otherwise
+// the native serial bridge wins when present: inside the macOS app there is
+// no Web Serial to fall back to, and outside it there is no bridge.
+const wantThor = (() => {
+  if (typeof location !== 'undefined' && /[?&]thor\b/.test(location.search)) return true;
+  try {
+    const s = window.__bmacwSettings
+      || JSON.parse(localStorage.getItem('bmacw.settings') || '{}');
+    return s.adapter === 'thor';
+  } catch { return false; }
+})();
+const webBus = wantThor ? new ThorWifiBus()
+  : (typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen)
+    ? new NativeSerialBus() : new WebSerialBus();
 
 // ---------------------------------------------------------------- job runner
 
@@ -383,6 +505,14 @@ function installWebShim() {
       return ok({ port: webBus.connected ? webBus.portLabel() : null });
     }
     if (/^\/api\/state/.test(rel)) {
+      // the THOR adapter senses ignition and battery itself; ask it
+      if (webBus.connected && webBus.readState) {
+        try {
+          const st = await webBus.readState();
+          return ok({ battery: st.battery, ignition: st.ignition,
+                      connected: true, detail: null });
+        } catch { /* adapter went away; report disconnected below */ }
+      }
       return ok({ battery: null, ignition: null, connected: webBus.connected,
                   detail: webBus.connected ? null : 'no cable connected' });
     }

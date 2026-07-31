@@ -91,6 +91,46 @@ car needs a K+DCAN cable and a browser with Web Serial (desktop Chrome or
 Edge). Writes are refused, as in any web build.
 
 
+## THOR WiFi adapter
+
+The THOR WiFi dongle is a Deep-OBD-style custom adapter (the EdiabasLib
+DEEPOBDWIFI protocol, not an ELM327): an ESP-Link WiFi bridge at
+`192.168.4.1:23` carrying BMW-FAST-framed telegrams, which is exactly what
+the VM speaks. One catch: browsers cannot open raw TCP sockets, and no web
+API changes that today (Direct Sockets is restricted to Isolated Web Apps,
+and port 23 is on the browser blocked-port list besides). So the web build
+ships `thor_bridge.js`, a dependency-free WebSocket relay that runs locally
+and pipes bytes to the adapter. Loopback WebSockets are exempt from
+mixed-content blocking, so this works even on an https host like GitHub
+Pages.
+
+**Web build or GitHub Pages:**
+
+1. Install node (nodejs.org), then run the relay:
+   `node thor_bridge.js` from the served directory, or download
+   `thor_bridge.js` from the site and run it anywhere.
+2. Plug the THOR into the car; join its `Thor_Wifi` network.
+3. Open the site, set Settings > Adapter to "THOR (WiFi)", and click the
+   cable chip in the top bar to connect.
+
+**Offline copy:** identical, and the zip already contains `thor_bridge.js`
+next to `index.html`. The copy's own README repeats these steps.
+
+**macOS app:** no relay at all. The shell opens the TCP socket itself
+(TcpProxy, beside the serial proxy), so it is just: join `Thor_Wifi`, pick
+Settings > Adapter > "THOR (WiFi)", click the cable chip.
+
+The status chip shows the adapter firmware, and the topbar battery and
+ignition indicators read live from the adapter, against any car. Running
+diagnostic jobs through the THOR is still being wired up: the K-line and
+D-CAN telegram wrapping is BMW-specific and untested until the car is
+available.
+
+Tip if you need internet while connected to the adapter's network: give the
+machine a second link (Ethernet, or an iPhone via USB with Personal Hotspot)
+and put it above Wi-Fi in System Settings > Network > service order.
+
+
 ## Fault lookup
 
 Beyond reading a car's memory, the app carries an offline fault database:

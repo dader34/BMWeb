@@ -70,6 +70,21 @@ function showSettings() {
     (v) => { Settings.set('inpaScreens', v); showSettings(); },
   ));
 
+  // which hardware moves the bytes. The bus is chosen at page load, so
+  // switching reloads.
+  wrap.appendChild(settingRow(
+    'Adapter',
+    IS_WEB
+      ? 'K+DCAN USB cable over Web Serial, or the THOR WiFi dongle through its local bridge (node thor_bridge.js, shipped with this build).'
+      : 'K+DCAN USB cable, or the THOR WiFi dongle over its own WiFi network (join Thor_Wifi first).',
+    [
+      { val: 'kdcan', label: 'K+DCAN (USB)' },
+      { val: 'thor', label: 'THOR (WiFi)' },
+    ],
+    Settings.get('adapter', 'kdcan'),
+    (v) => { Settings.set('adapter', v); location.reload(); },
+  ));
+
   // auto-scan the DME (and trans) for stored faults when a chassis is opened,
   // popping a corner badge if anything needs attention.
   wrap.appendChild(settingRow(
@@ -489,6 +504,32 @@ async function waitForEngine() {
     document.getElementById('win-close').onclick = () => window.bmacw.winClose();
     document.getElementById('win-min').onclick = () => window.bmacw.winMinimize();
     document.getElementById('win-zoom').onclick = () => window.bmacw.winZoom();
+  }
+
+  // The status chip IS the connect control, in both hosts. Web Serial
+  // refuses to show its port picker outside a user gesture, so a click has
+  // to start it; the same click toggles the THOR WiFi bus (native TCP in
+  // the app, the local bridge in a browser) or the app's own serial port.
+  if (window.webBus) {
+    const chip = document.getElementById('link-status');
+    chip.style.cursor = 'pointer';
+    chip.title = 'Connect / disconnect the adapter';
+    chip.onclick = async () => {
+      try {
+        if (webBus.connected) {
+          await webBus.disconnect();
+        } else {
+          linkText.textContent = 'connecting…';
+          await webBus.connect();
+        }
+      } catch (e) {
+        led.className = 'led off';
+        linkText.textContent = e.message;
+        return;
+      }
+      lastStatePoll = 0;         // show battery/ignition now, not in 12 s
+      await refreshStatus();
+    };
   }
 
   // jump straight to a preselected startup vehicle (and module), else the picker

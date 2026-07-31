@@ -16,7 +16,7 @@
 
 // Files the renderer needs whatever car you picked.
 const OFFLINE_SHELL = [
-  'index.html', 'app.js', 'logo.svg',
+  'index.html', 'app.js', 'logo.svg', 'thor_bridge.js',
   'css/styles.css', 'css/themes.css', 'css/lookup.css',
   'vendor/fflate.min.js',
   'core/webdemo.js', 'core/webshim.js', 'core/bestvm.js',
@@ -85,6 +85,21 @@ WHAT NEEDS A CABLE
 
 Running a job against a real ECU needs a K+DCAN cable and a browser with
 Web Serial (desktop Chrome or Edge). Nothing here talks to a car by itself.
+
+THE THOR WIFI ADAPTER
+
+The THOR WiFi dongle works too, through a small relay this folder ships
+(browsers cannot open the raw TCP connection the adapter uses). It needs
+node from nodejs.org, then, from this folder:
+
+  node thor_bridge.js
+
+1. Plug the THOR into the car and join its Thor_Wifi network.
+2. Open index.html and set Settings > Adapter to "THOR (WiFi)".
+3. Click the cable chip in the top bar to connect.
+
+Battery voltage, ignition state and the adapter identity read out today;
+running jobs over the THOR is still being wired up.
 
 Other chassis are not included. Export them separately from Settings.
 `;
