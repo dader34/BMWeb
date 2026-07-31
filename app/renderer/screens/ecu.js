@@ -137,6 +137,7 @@ async function showEcu(chassisId, sectionName, ecu) {
     if (bar) bar.remove();
     grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
     renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
+    await addCodingEntry(ecu, chassisId, sectionName, grid);
     return;
   }
 
@@ -149,6 +150,63 @@ async function showEcu(chassisId, sectionName, ecu) {
     'This ECU has no INPA screen definition (ScreenCount=0). '
     + 'Its jobs are shipped in ecus/ but INPA draws no UI for it.');
   sbLeft.textContent = 'no screen';
+}
+
+// The Coding entry, appended to an ECU's root menu.
+//
+// This is OURS, not INPA's. INPA's own Coding key runs its coding sequence --
+// on LWS5 it dumps the module to a .COD file on the PC, which is why that key
+// opens an empty list here -- and none of that is the labelled, editable page
+// the SGBD's own result names make possible. So the app adds a key of its own
+// rather than pretending to reproduce one of INPA's.
+//
+// It appends to the rendered root menu instead of being merged into the IR's
+// item list, because the IR is INPA's bytecode and adding an invented key to
+// it would put a row on the softkey bar with an F-number INPA never assigned.
+async function addCodingEntry(ecu, chassisId, sectionName, grid) {
+  if (typeof hasCoding !== 'function' || !(await hasCoding(ecu.sgbd))) return;
+  const back = () => showEcu(chassisId, sectionName, ecu);
+  const open = () => {
+    setCrumbs([
+      { label: 'Vehicles', fn: showChassis },
+      { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
+      { label: ecu.label, fn: back },
+      { label: 'Coding' },
+    ]);
+    showCoding(ecu, grid, back);
+  };
+
+  if (inpaMode()) {
+    // the same "< Fn > label" row as the rest of the list, with no F-number:
+    // INPA assigns those and this key is not one of INPA's
+    const list = grid.querySelector('#ir-list');
+    if (!list) return;
+    const row = document.createElement('button');
+    row.className = 'inpa-fn act-key-row';
+    row.innerHTML = `<span class="inpa-fn-key">&lt; C &gt;</span>`
+      + `<span class="inpa-fn-label">Coding</span>`
+      + `<span class="act-key-val">read</span>`
+      + `<span class="ir-enter">&#8629;</span>`;
+    row.onclick = open;
+    list.appendChild(row);
+  } else {
+    const tile = document.createElement('div');
+    tile.className = 'group-tile';
+    tile.innerHTML = `<div class="group-name">Coding</div>
+      <div class="group-count">read what this module is coded to</div>
+      <div class="group-arrow">→</div>`;
+    tile.onclick = open;
+    grid.appendChild(tile);
+  }
+
+  // "c" opens it from the keyboard. The digits belong to INPA's own F-keys, so
+  // this takes a letter and never displaces one of them.
+  //
+  // Added to the live bar rather than through setActions(): re-running that
+  // would clear the shift row renderIrMenu just installed and stop the header's
+  // polling, and this key is an addition to that bar, not a new screen.
+  if (typeof addAction === 'function')
+    addAction({ key: 'c', keyLabel: 'C', label: 'Coding', fn: open });
 }
 
 // INPA softkey captions, kept verbatim in both UI modes — except the

@@ -1019,6 +1019,63 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .coding-name { font-size: 13px; color: var(--ink-dim); }
 .coding-opt.fitted .coding-name { color: var(--ink); }
 
+/* Coding editor: one row per named coding value. The label reads as English,
+   the SGBD's own result name sits beside it in mono (that name is what you
+   check against a coding table), then the value as a toggle or a number. */
+.cod-list { display: grid; gap: 1px; max-width: 860px; margin-top: 6px; }
+.cod-row {
+  display: grid; grid-template-columns: 1fr 260px 92px 84px;
+  gap: 14px; align-items: baseline; padding: 4px 6px;
+  border-left: 2px solid transparent;
+}
+.cod-row:nth-child(even) { background: var(--row-alt, rgba(127,127,127,.045)); }
+.cod-name { font-size: 13px; color: var(--ink); }
+/* BMW's own list of permitted values, where its comment is an enumeration
+   rather than a description ("E31,E32,E34,E36") */
+.cod-hint {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+  margin-left: 8px;
+}
+.cod-key { font-size: 11px; color: var(--ink-faint);
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cod-val { font-family: var(--mono); font-size: 12.5px; }
+/* a staged row is marked, so an edited value never looks like a read one */
+.cod-row.staged { border-left-color: var(--amber, #d79921); }
+.cod-was { font-family: var(--mono); font-size: 10.5px; color: var(--amber, #d79921); }
+/* this module's write cannot carry this value */
+.cod-row.cod-nowrite .cod-key { opacity: .55; }
+
+.cod-toggle, .cod-num {
+  display: inline-flex; align-items: baseline; gap: 7px;
+  background: none; border: 1px solid var(--line); border-radius: 3px;
+  padding: 2px 8px; cursor: pointer; font: inherit;
+  font-family: var(--mono); font-size: 12px; color: var(--ink-dim);
+}
+.cod-toggle:hover, .cod-num:hover { border-color: var(--ink-faint); color: var(--ink); }
+.cod-lamp { font-size: 12px; color: var(--ink-faint); }
+.cod-toggle.on .cod-lamp { color: var(--green); }
+.cod-toggle.on .cod-state { color: var(--ink); }
+
+.cod-note { font-size: 12px; padding: 2px 0 8px; }
+.cod-note-dim { color: var(--ink-faint); }
+.cod-note-staged { color: var(--amber, #d79921); font-weight: 600; }
+.cod-note-warn { color: var(--red); font-size: 11px; }
+/* the standing statement that nothing is sent — never styled as a warning
+   about a risk taken, because no write leaves the app */
+.cod-blocked {
+  font-size: 12px; line-height: 1.5; color: var(--ink-dim);
+  border-left: 2px solid var(--line); padding-left: 10px;
+}
+
+/* INPA mode: same rows in the terminal's own monospace, no zebra */
+.cod-inpa .cod-row { background: none; font-family: var(--mono); }
+.cod-inpa .cod-name { font-family: var(--mono); font-size: 12.5px; }
+
+@media (max-width: 900px) {
+  .cod-row { grid-template-columns: 1fr 92px 74px; }
+  .cod-key { display: none; }
+}
+
 /* a system check's diagnosis line — INPA prints the routine's state here */
 .sc-state {
   font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--cyan);
