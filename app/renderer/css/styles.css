@@ -400,6 +400,11 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 .chassis-card:hover { transform: translateY(-3px); border-color: var(--line-bright);
   box-shadow: var(--shadow); }
 .chassis-card:hover::before { opacity: 1; }
+/* color explicitly rather than by inheritance: the wiring picker builds these
+   cards as <button>, and a button does not inherit the page's text colour --
+   it starts from the browser's own black, which on this background is
+   invisible. The vehicle picker's <div> cards were fine and hid the bug. */
+.chassis-card { color: var(--ink); font-family: inherit; text-align: left; }
 .chassis-code { font-size: 30px; font-weight: 900; letter-spacing: .02em; }
 .chassis-tag {
   font-family: var(--mono); font-size: 10px; letter-spacing: .14em;
