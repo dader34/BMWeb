@@ -76,6 +76,16 @@ Reading ECU data (screens, jobs, fault text) works with no cable and no
 server. Running a job needs a K+DCAN cable and a browser with Web Serial
 (Chrome/Edge desktop) -- click the cable control to pick the port.
 
+THOR WiFi adapter: browsers cannot open the raw TCP socket the adapter
+uses, so a small relay (shipped in this directory) carries it. With node
+installed:
+
+  node $OUT/thor_bridge.js
+
+Join the Thor_Wifi network, open the site, set Settings > Adapter to
+"THOR (WiFi)", and click the cable chip. Works from an https host too:
+loopback WebSockets are exempt from mixed-content blocking.
+
 Not available in the web build, by design:
   * write jobs (coding, clearing, flashing) -- refused in the shim AND in
     the VM's own write guard

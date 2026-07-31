@@ -17,6 +17,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
 {
     private readonly NSWindow _window;
     private readonly SerialProxy _serial = new();
+    private readonly TcpProxy _tcp = new();
     private readonly Dictionary<string, StreamWriter> _logs = new();
     private int _logSeq;
     private WKWebView? _pdfWorker; // kept alive while rendering a report
@@ -69,6 +70,12 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         serialWrite: (bytes) => call('serialWrite', Array.from(bytes)),
         serialRead: () => call('serialRead'),
         serialFlush: () => call('serialFlush'),
+        // The THOR WiFi adapter: raw TCP the shell owns. A WKWebView cannot
+        // open sockets; the web build runs a local relay for the same reason.
+        tcpOpen: (host, port) => call('tcpOpen', host || null, port || 0),
+        tcpClose: () => call('tcpClose'),
+        tcpWrite: (bytes) => call('tcpWrite', Array.from(bytes)),
+        tcpRead: () => call('tcpRead'),
       };
       // WKWebView ignores -webkit-app-region, so the Electron-era drag CSS on
       // .topbar/.splash does nothing here: reimplement it by handing the
@@ -117,6 +124,12 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "serialWrite": _serial.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
                 case "serialRead": Settle(webView, id, _serial.ReadAvailable()); return;
                 case "serialFlush": _serial.Flush(); Settle(webView, id, Ok()); return;
+                case "tcpOpen":
+                    Settle(webView, id, new { port = _tcp.Open(ArgString(args, 0), ArgInt(args, 1)) });
+                    return;
+                case "tcpClose": _tcp.Close(); Settle(webView, id, Ok()); return;
+                case "tcpWrite": _tcp.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
+                case "tcpRead": Settle(webView, id, _tcp.ReadAvailable()); return;
                 default: Settle(webView, id, null, $"unknown bridge fn '{fn}'"); return;
             }
         }
