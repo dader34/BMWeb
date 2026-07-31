@@ -43,47 +43,33 @@ may be absent and () marks one that repeats:
     L long (4 bytes)   W word (2)   B byte (1)   S string (NUL-terminated)
     A a further signature, applied to a nested record
 
-WHAT IS DONE AND WHAT IS NOT.
+WHY STRIDE-HUNTING WAS THE WRONG ANGLE, and what replaced it.
 
-The SCHEMA reads, on all 260 files, and it is the same schema in every one:
-the preamble is byte-identical and always ends at 1148, so it is a fixed
-template and everything after it is that module's own data. That part is
-solid, and so is the keyword table -- SWTFSW01.dat gives 3,801 FSW numbers
-and their names.
+The signature declares three OPTIONAL fields and one REPEATING one, so a
+record is 9 to 16+ bytes depending on what is present. A fixed stride
+therefore cannot exist -- the 24 and 33 "strides" earlier versions chased
+were coincidental periodicity, which is why they found rows in 40 of 260
+files and read the wrong bytes in those.
 
-THE ROW WALK IS NOT SOLID and should not be built on. Rows can be FOUND --
-a byte triple repeats at a fixed spacing, the spacing differs by module (24
-in LWS5, 33 in ACC) -- but the fields inside one are not being read
-correctly, and three separate checks say so:
+What is fixed is the NEIGHBOURHOOD of the keyword. Every real row carries
+its FSW as a u16 followed by the two bytes 10 00, with 01 68 00 ahead and
+01 00 01 00 00 behind. Anchoring there reads 48,739 rows out of 259 of the
+260 files, and the names finally land in the right domain: LSZ, the light
+switch centre, gives FLC_KL58G, KALTUEBERWACHUNG_BL_L, PWM_ANSTEUERUNG_BLK_RZ
+and CC_MELDUNG_FL_L at 51% in-domain, where every earlier attempt scored 0%.
 
-  * A module's rows decode to another module's functions. ACC (adaptive
-    cruise) yields window and airbag names, LSZ (light switch) yields
-    BAUREIHE_E31, LWS5 (steering angle) yields OELSERVICE_ZAEHLER. Zero
-    in-domain hits for any of them.
+MODULES DO NOT SHARE ONE KEYWORD TABLE. SWTFSW01 and SWTFSW06 agree on
+only 10 ids out of ~3,700, and which one a module wants is not the file
+extension: LSZ reads correctly against 01, while GM3 reads correctly only
+against 06, where it gives SPIEGELABKLAPPEN_GM and SPIEGELHEIZUNG_VERBAUT_GM
+-- keywords suffixed with the module's own name. Nothing yet says which
+table a given .C0x belongs to, and there may be tables beyond these two.
+Until that is settled, a name is only trustworthy when the module and the
+table have been paired by hand.
 
-  * The keyword table is DENSE: 3,749 ids spread over the u16 space, so
-    5.6% of random values resolve to a name. "It resolved" is therefore
-    weak evidence, and an earlier version of this file reported 59% as
-    though it meant something. It means the rows are not random -- which
-    they are not -- but not that the right field is being read.
-
-  * Scanning a row for the offset with the highest keyword density finds
-    +1 and +5 at 100%, and both return the SAME name for every row: they
-    are part of the marker, not a field. Offset +3 varies but gives the
-    wrong domain.
-
-So the marker is probably not the head of a record. It may be a field
-inside one, with the real record starting some bytes earlier, which would
-put every offset measured from it wrong by a constant.
-
-WHAT WOULD SETTLE IT, and what was tried. The plan was to test against an
-ECU whose SGBD already names its coding values (coding_map.py finds 53).
-That does not work directly: the SGBD's result names and NCS's keywords are
-different vocabularies -- none of dwa4's 89 SGBD names appear in the
-keyword table at all. A usable test needs a module whose .C0x can be
-checked some other way: a known coding string for a known car, or the
-NETTODAT trace of a read, which is what NCS Expert writes out and what
-would pin the layout exactly.
+Remaining, and worth stating: roughly half the anchored rows in a file are
+not that module's (LSZ shares 29 of 85 keywords with ACC, which should have
+nothing in common), so the anchor still admits false positives.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -185,96 +171,48 @@ STRIDES = (24, 33, 21, 30, 36, 42, 18, 27, 39, 45, 48)
 # long, so the data begins here in every one of them.
 SCHEMA_LEN = 1148
 
+# Every coding row carries its keyword as a u16 followed by these two bytes.
+# That, not a stride, is what locates a record: the schema declares three
+# optional fields and one repeating one, so records are variable length.
+FSW_SUFFIX = b'\x10\x00'
 
-def rows(data):
+
+def rows(data, kw=None):
     """The module's coding rows: which function keyword lives where.
 
-    FSW is BMW's function keyword number -- the identifier that
-    SWTFSW*.DAT turns into a readable name ("fold mirrors on lock"). The
-    index counts the rows within a block and is what the module's own
-    coding memory is addressed by.
+    ANCHORED ON THE KEYWORD, not on a stride. The schema declares
+
+        PARZUWEISUNG_FSW  {L}LWW{B}(B){B}{B}
+
+    and {} marks an optional field while () marks a repeating one, so a
+    record is 9 to 16+ bytes depending on which parts are present. A fixed
+    stride therefore cannot exist, which is why every stride hunt failed:
+    the 24 and 33 "strides" were coincidental periodicity in the data.
+
+    What IS fixed is the neighbourhood of the FSW field. Every real record
+    carries the keyword as a u16 followed by the two bytes 10 00, with
+    01 68 00 ahead of it and 01 00 01 00 00 behind. Finding that and
+    reading outward gets the field the whole file is about.
     """
-    # THE STRIDE IS THE INVARIANT, not the marker. Rows are 24 bytes in
-    # every module, but what sits at the head of one differs by family --
-    # LWS5's begin 14 10 00, ACC's begin 00 01 00 -- so anchoring on any one
-    # of them found rows in 64 files and nothing in the other 196. Instead,
-    # find the byte triple that actually repeats at a 24-byte spacing in
-    # THIS file, and walk from its first occurrence.
-    body = data[SCHEMA_LEN:]
-    if len(body) < 96:
-        return []
-
-    # THE STRIDE IS NOT 24 EVERYWHERE EITHER. LWS5's rows are 24 bytes and
-    # ACC's are 33 -- ACC has no triple at all repeating at 24, which is why
-    # assuming that length found nothing in 220 of 260 files. So the row
-    # length is discovered per file alongside the marker: try each plausible
-    # length and keep the (length, marker) pair that explains the most rows.
-    seen = {}
-    for stride in STRIDES:
-        for i in range(len(body) - stride - 3):
-            t = body[i:i + 3]
-            # 00s and FFs are padding and unset fields; they repeat at every
-            # stride and would outvote the real head of a row (LWS5's
-            # ff ff ff occurs 89 times against the true marker's 65).
-            if t in (b'\x00\x00\x00', b'\xff\xff\xff'):
-                continue
-            if t == body[i + stride:i + stride + 3]:
-                seen[(stride, t)] = seen.get((stride, t), 0) + 1
-    if not seen:
-        return []
-
-    # COUNTING REPEATS IS NOT ENOUGH. A triple can sit 24 apart in a few
-    # places and everywhere else besides: LSZ's winner occurred 450 times
-    # with gaps of 5, 7 and 9, which is ordinary data, not the head of a
-    # record. A real marker's occurrences are MOSTLY 24 apart. So score each
-    # candidate by the share of its gaps that are exactly one row, and take
-    # the best -- LWS5's marker scores 65 of 71, LSZ's noise scores a
-    # handful of 450.
-    # HOW MANY ROWS IT FINDS COMES FIRST, cleanliness second. Ranking by the
-    # share of gaps that are one row put a triple occurring 11 times at a
-    # perfect 1.0 above the true marker's 65 at 0.92 -- a marker that
-    # explains eleven rows is not better than one that explains sixty-five.
-    # So score by the count, and use the share only to reject the ones that
-    # are ordinary data (LSZ's winner appeared 450 times with gaps of 5, 7
-    # and 9).
-    def score(stride, t):
-        offs = [m.start() for m in re.finditer(re.escape(t), body)]
-        if len(offs) < 3:
-            return 0, 0.0
-        good = sum(1 for a, b in zip(offs, offs[1:]) if b - a == stride)
-        return good, good / (len(offs) - 1)
-
-    best, best_score = None, (0, 0.0)
-    for stride, t in seen:
-        s = score(stride, t)
-        if s[1] >= 0.4 and s > best_score:
-            best, best_score = (stride, t), s
-    if best is None or best_score[0] < 3:
-        return []
-    row_len, mark = best
-
-    # Rows come in RUNS, not one unbroken table: LWS5's 72 rows sit 24 apart
-    # except at four points where a block header of 82-83 bytes intervenes.
-    # So follow the marker rather than the stride, and let the stride only
-    # decide where to look next -- stopping at the first gap loses most of
-    # the file, and stepping blindly by 24 drifts into the header.
-    # Take the occurrences that are actually a row apart. Following every
-    # occurrence swept in whatever else happened to match; requiring an
-    # unbroken stride stopped at the first block header. The rows are the
-    # ones in a run, so keep those and let a run end where it ends.
-    offs = [m.start() for m in re.finditer(re.escape(mark), body)]
-    keep = []
-    for a, b in zip(offs, offs[1:]):
-        if b - a == row_len:
-            if not keep or keep[-1] != a:
-                keep.append(a)
-            keep.append(b)
-    return [{
-        'fsw': int.from_bytes(body[i + 3:i + 5], 'little'),
-        'index': body[i + 7],
-        'len': row_len,
-        'raw': body[i:i + 12].hex(' '),
-    } for i in keep if i + row_len <= len(body)]
+    if kw is None:
+        kw = keywords()
+    out = []
+    n = len(data)
+    for i in range(SCHEMA_LEN, n - 4):
+        if data[i + 2:i + 4] != FSW_SUFFIX:
+            continue
+        fsw = int.from_bytes(data[i:i + 2], 'little')
+        if fsw not in kw:
+            continue
+        out.append({
+            'fsw': fsw,
+            'name': kw[fsw],
+            # the byte that varies between otherwise identical records,
+            # which is where the bit mask sits
+            'mask': data[i - 4] if i >= 4 else None,
+            'at': i,
+        })
+    return out
 
 
 def keywords():
@@ -320,10 +258,9 @@ def summarise(path, verbose=False):
             flds = ','.join(s['fields'])
             print(f"   {s['name']:26} {sig:22} {flds}")
         print()
-        kw = keywords()
         for r in rr[:20]:
-            print(f"   FSW {r['fsw']:6}   index {r['index']:3}   "
-                  f"{kw.get(r['fsw'], '')}")
+            print(f"   FSW {r['fsw']:6}  mask 0x{(r['mask'] or 0):02x}  "
+                  f"{r['name']}")
         if len(rr) > 20:
             print(f"   ... {len(rr) - 20} more")
     elif fsw:
