@@ -91,6 +91,27 @@ Cross-module id overlap is now 14-38% where unrelated modules should share
 nothing, which is the residual false-positive rate of the anchor and
 matches LSZ measuring 83% in-domain.
 
+THE FIELD ORDER IS CONFIRMED against NCS Dummy's own printout of a record:
+
+    PARZUWEISUNG FSW : {00003405} 00000008 0001 14A4 {} (FF) {h} {}
+
+which maps onto {L}LWW{B}(B){B}{B} exactly -- BLOCKNR 0x3405, WORTADR 8,
+BYTEADR 1, FSW 0x14A4, no INDEX, MASKE 0xFF, EINHEIT 'h', no INDIVID. So
+the signature parse is right and {} does mean a field that may be absent.
+
+THE MASK IS AT FSW-4, and two independent things say so. The byte varies
+between otherwise identical records, and across all 17,254 rows its values
+are what a bit mask must be: 0xFF on 6,566 (a whole-byte parameter, which
+is what NCS Dummy printed), then all eight single bits at roughly a
+thousand each, and 0xF0 for a nibble. 85% canonical. Random bytes do not
+distribute that way, so this is independent of the keyword evidence.
+
+Still not placed: BLOCKNR, WORTADR, BYTEADR. Read backwards from FSW at
+the documented widths they give a constant BYTEADR of 104 and absurd
+WORTADRs, because 01 68 00 before the keyword and 10 00 after it are field
+tags rather than payload. The keyword and its mask are verified; the
+addresses are not.
+
 Read-only: decodes files on disk, never talks to a car.
 """
 
