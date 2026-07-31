@@ -1507,7 +1507,9 @@ select.modal-input { appearance: none; cursor: pointer; }
      A column, not .split's grid: the panes live inside .wiring-body so the
      WDS layout can stack a toolbar above them and a footer below. */
   display: flex; flex-direction: column;
-  height: calc(100vh - 150px); min-height: 320px;
+  /* fill what .view leaves: its box minus its own padding. height:100% would
+     resolve against the padding box and come up short. */
+  height: calc(100% - 38px); min-height: 320px;
 }
 .wiring-nav { display: flex; flex-direction: column; min-height: 0; }
 .wiring-search {
@@ -1588,7 +1590,16 @@ select.modal-input { appearance: none; cursor: pointer; }
 .wiring-split.wds-frame {
   display: flex; flex-direction: column; gap: 0;
   background: #808080; border: none; max-width: none;
-  margin: -38px -44px; height: calc(100vh - 108px);
+  /* fill .view exactly. It is position:absolute with fixed insets, so its
+     own box is already the right size -- viewport maths would have to know
+     the topbar and F-key bar heights and got them wrong, which is what let
+     the page scroll. box-sizing keeps the negative margins from widening it. */
+  /* Break out of .view's padding without growing past it: negative margins
+     pull the edges out, and the matching extra width is taken back so the
+     box still measures exactly the container. Getting this wrong is what let
+     the page scroll right and down. */
+  margin: -38px -44px; width: calc(100% + 88px); height: calc(100% + 76px);
+  box-sizing: border-box;
 }
 .wiring-split.wds-frame .wiring-body {
   display: grid; grid-template-columns: 300px 1fr; gap: 0;
@@ -1683,21 +1694,25 @@ select.modal-input { appearance: none; cursor: pointer; }
 /* min-width:0 on the panes: a grid item's automatic minimum is its content,
    which on a hidden-sibling layout leaves the surviving pane at its border
    width instead of the track's. */
-.wds-frame .wiring-nav, .wds-frame .wiring-view { min-width: 0; }
+.wiring-nav, .wiring-view { min-width: 0; }
 /* ONE column when a pane is hidden, not a zero-width one: display:none takes
    the hidden pane out of the grid entirely, so the survivor would otherwise
    slide into the collapsed first track and render at its border width. */
-.wds-frame .wiring-body[data-pane="doc"] { grid-template-columns: 1fr; }
-.wds-frame .wiring-body[data-pane="doc"] .wiring-nav { display: none; }
-.wds-frame .wiring-body[data-pane="tree"] { grid-template-columns: 1fr; }
-.wds-frame .wiring-body[data-pane="tree"] .wiring-view { display: none; }
-.wds-frame .wiring-body[data-pane="tree"] .wiring-nav { margin-right: 0; }
+.wiring-body[data-pane="doc"] { grid-template-columns: 1fr !important; }
+.wiring-body[data-pane="doc"] .wiring-nav { display: none; }
+.wiring-body[data-pane="tree"] { grid-template-columns: 1fr !important; }
+.wiring-body[data-pane="tree"] .wiring-view { display: none; }
+.wiring-body[data-pane="tree"] .wiring-nav { margin-right: 0; }
 
 /* the WDS screen supplies its own footer, so the app's F-key bar steps
    aside and the frame takes the height it leaves */
 body.wds-nofkeys .fkeybar { display: none; }
 body.wds-nofkeys .view { inset: 56px 0 0 0; }
-body.wds-nofkeys .wiring-split.wds-frame { height: calc(100vh - 56px); }
+/* This screen sizes itself to the window, so the page must not scroll: the
+   panes scroll their own contents instead. */
+.view:has(.wiring-split) { overflow: hidden !important; }
+/* .view's inset already grew when the F-key bar went away, so the frame
+   needs no separate height here. */
 
 /* ---- print ----------------------------------------------------------------
    On screen this is a tool: toolbar, tree, footer, status bars. On paper the
@@ -1778,3 +1793,26 @@ body.wds-nofkeys .wiring-split.wds-frame { height: calc(100vh - 56px); }
 [data-tip].tip-right::after { left: auto; right: 0; transform: none; }
 /* below the control instead, for anything on the top row */
 [data-tip].tip-below::after { bottom: auto; top: calc(100% + 7px); }
+
+/* modern-layout wiring toolbar: the same controls the WDS frame carries,
+   in this app's own dress rather than 1998's */
+.wiring-toolbar {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 0 0 12px; margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wiring-toolbar .wiring-search { width: 260px; margin: 0; flex: none; }
+.wiring-tbtn {
+  font-size: 12px; padding: 6px 12px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.wiring-tsep { width: 1px; height: 20px; background: var(--line); margin: 0 2px; }
+.wiring-tspacer { flex: 1; }
+.wiring-panegroup { display: flex; gap: 4px; margin-left: 4px; }
+.wiring-panegroup .wiring-tbtn { padding: 6px 9px; }
+.wiring-tbtn.wds-pane.active {
+  border-color: var(--amber); color: var(--amber);
+  background: rgba(255, 158, 44, .12);
+}
+/* the panes take what the toolbar leaves */
+.wiring-split:not(.wds-frame) .wiring-body { min-height: 0; }
