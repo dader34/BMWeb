@@ -515,6 +515,7 @@ async function waitForEngine() {
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
   document.getElementById('flash-btn').onclick = showFlashing;
+  tipify(document.querySelector('.topbar'));   // instant tooltips up top
   // custom window controls (frameless window for Aero; removed by index.html
   // on the web, where they drive nothing)
   if (window.bmacw) {
@@ -530,7 +531,7 @@ async function waitForEngine() {
   if (window.webBus) {
     const chip = document.getElementById('link-status');
     chip.style.cursor = 'pointer';
-    chip.title = 'Connect / disconnect the adapter';
+    chip.title = 'Click to connect or disconnect the adapter';
     chip.onclick = async () => {
       try {
         if (webBus.connected) {
