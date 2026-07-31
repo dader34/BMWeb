@@ -238,52 +238,54 @@ FSW_SUFFIX = b'\x10\x00'
 FSW_PREFIX = b'\x01\x68\x00'
 
 
-ROW_HDR = b'\x14\x12\x00\x01'   # opens a PARZUWEISUNG_FSW record
-ROW_FSW_AT = 23                  # the keyword, measured from that header
+# Where each field sits, measured back from the keyword. One layout serves
+# every file; what differs is whether the optional BLOCKNR is there.
+BLOCK_AT, WORD_AT, MASK_AT = 19, 15, 4
 
 
 def rows(data, kw=None):
-    """The module's coding rows, whole: block, word, bit and function.
+    """The module's coding rows: block, word, bit and function.
 
-    The record was found by working outward from the keyword and it holds
-    every field the schema declares, in the declared order:
+    Read back from the keyword, which is the one field with an outside
+    check -- it must resolve against SWTFSW:
 
-        14 12 00 01 <BLOCKNR:u32> <WORTADR:u32> 01 00 <MASKE> 01 68 00
-        <FSW:u16> 10 00 <BYTEADR:u16>
+        <BLOCKNR:u32> <WORTADR:u32> ... <MASKE> 01 68 00 <FSW:u16> 10 00
 
-    which is 24 bytes, and the keyword sits exactly 23 past the header in
-    all 97 of LSZ's records. That length is also why a 24-byte stride
-    appeared to work early on -- it was the record size, found by accident
-    and then over-generalised to files whose optional fields differ.
+    THE BIT RULE DECIDES WHAT IS REAL. A word of coding memory can hold
+    each bit once, so a row claiming a bit already taken in its (block,
+    word) is not a row -- it is the anchor matching something else. Using
+    the invariant to filter rather than merely to check is what lets one
+    layout serve every file: 13,477 rows out of 330 of the 346, where
+    keying on a header byte pattern reached only 109.
 
-    Each piece is independently corroborated. BLOCKNR holds while WORTADR
-    climbs 0,0,0,0,1,1,1,1,2,2,2,3 -- several functions to a word, which is
-    what bit masks are for. MASKE takes only mask-shaped values across the
-    corpus: 0xFF for a whole byte, then all eight single bits at roughly a
-    thousand each. And FSW resolves to the module's own vocabulary, 83% on
-    LSZ.
+    BLOCKNR really is optional, as the {L} in the signature says. Where the
+    long is implausible -- a block number is small -- the record simply has
+    none and the word alone identifies the memory.
     """
     if kw is None:
         kw = keywords()
     out = []
-    start = SCHEMA_LEN
-    while True:
-        h = data.find(ROW_HDR, start)
-        if h < 0 or h + ROW_FSW_AT + 4 > len(data):
-            break
-        start = h + 4
-        i = h + ROW_FSW_AT
+    seen = {}
+    for i in range(SCHEMA_LEN + WORD_AT, len(data) - 8):
+        if data[i - 3:i] != FSW_PREFIX or data[i + 2:i + 4] != FSW_SUFFIX:
+            continue
         fsw = int.from_bytes(data[i:i + 2], 'little')
         if fsw not in kw:
             continue
+        word = int.from_bytes(data[i - WORD_AT:i - WORD_AT + 4], 'little')
+        mask = data[i - MASK_AT]
+        if word > 4096 or not mask:
+            continue
+        block = 0
+        if i >= SCHEMA_LEN + BLOCK_AT:
+            b = int.from_bytes(data[i - BLOCK_AT:i - BLOCK_AT + 4], 'little')
+            block = b if b <= 256 else 0
+        if seen.get((block, word), 0) & mask:
+            continue
+        seen[(block, word)] = seen.get((block, word), 0) | mask
         out.append({
-            'block': int.from_bytes(data[h + 4:h + 8], 'little'),
-            'word': int.from_bytes(data[h + 8:h + 12], 'little'),
-            'mask': data[i - 4],
-            'fsw': fsw,
-            'name': kw[fsw],
-            'byte': int.from_bytes(data[i + 4:i + 6], 'little'),
-            'at': h,
+            'block': block, 'word': word, 'mask': mask,
+            'fsw': fsw, 'name': kw[fsw], 'at': i,
         })
     return out
 
@@ -332,8 +334,8 @@ def summarise(path, verbose=False):
             print(f"   {s['name']:26} {sig:22} {flds}")
         print()
         for r in rr[:20]:
-            print(f"   addr {r['addr']:5}  mask 0x{(r['mask'] or 0):02x}  "
-                  f"FSW {r['fsw']:6}  {r['name']}")
+            print(f"   block {r['block']:3}  word {r['word']:4}  "
+                  f"mask 0x{r['mask']:02x}  {r['name']}")
         if len(rr) > 20:
             print(f"   ... {len(rr) - 20} more")
     elif fsw:
