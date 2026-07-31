@@ -206,10 +206,34 @@ function showWiring(chassisId, openDoc = null) {
       <span>WDS BMW Wiring Diagram System - ${esc(dispChassis(chassisId))}</span>
       <span class="wds-version">Version</span>
     </div>` : ''}
+    ${classic ? '' : `
+    <div class="wiring-toolbar">
+      <input class="wiring-search" id="wiring-search" type="search"
+             placeholder="Search diagrams…" autocomplete="off"
+             title="Search every document title in this vehicle">
+      <button class="btn wiring-tbtn" id="wds-new"
+              title="Clear the search and show the whole tree">Clear</button>
+      <span class="wiring-tsep"></span>
+      <button class="btn wiring-tbtn" id="wds-prev"
+              title="Previous document in tree order">←</button>
+      <button class="btn wiring-tbtn" id="wds-next"
+              title="Next document in tree order">→</button>
+      <span class="wiring-panegroup">
+        <button class="btn wiring-tbtn wds-pane" id="wds-pane-tree"
+                title="Give the whole window to the tree">${WDS_PANE_GLYPH.tree}</button>
+        <button class="btn wiring-tbtn wds-pane" id="wds-pane-split"
+                title="Show the tree and the diagram side by side">${WDS_PANE_GLYPH.split}</button>
+        <button class="btn wiring-tbtn wds-pane" id="wds-pane-doc"
+                title="Give the whole window to the diagram">${WDS_PANE_GLYPH.doc}</button>
+      </span>
+      <span class="wiring-tspacer"></span>
+      <button class="btn wiring-tbtn" id="wds-print"
+              title="Print this diagram, filling the sheet">Print</button>
+      <button class="btn wiring-tbtn" id="wds-help"
+              title="How to use this screen">Help</button>
+    </div>`}
     <div class="wiring-body">
       <nav class="split-nav wiring-nav">
-        ${classic ? '' : `<input class="wiring-search" id="wiring-search" type="search"
-               placeholder="Search diagrams…" autocomplete="off">`}
         <div class="wiring-tree" id="wiring-tree"></div>
       </nav>
       <div class="split-content wiring-view" id="wiring-view"></div>
@@ -239,68 +263,67 @@ function showWiring(chassisId, openDoc = null) {
   const viewEl = split.querySelector('#wiring-view');
   const searchEl = split.querySelector('#wiring-search');
 
-  if (classic) {
-    // The toolbar buttons WDS had, doing what they say here. Print and Help
-    // are omitted rather than faked: a dead button is worse than none.
-    split.querySelector('#wds-series').onclick = showWiringChassis;
-    split.querySelector('#wds-exit').onclick = showChassis;
-    split.querySelector('#wds-start').onclick = () => showWiring(chassisId);
-    split.querySelector('#wds-help').onclick = () => showWiringHelp(chassisId);
-    split.querySelector('#wds-print').onclick = () => printWiring(chassisId);
-    // "New" clears the search and collapses the tree, as it did in WDS
-    split.querySelector('#wds-new').onclick = () => {
-      searchEl.value = '';
-      searchEl.dispatchEvent(new Event('input'));
-    };
-    split.querySelector('#wds-find').onclick = () =>
-      searchEl.dispatchEvent(new Event('input'));
+  // the open diagram's "fit", so a pane change can re-fit it. Declared here
+  // because setPane below closes over it, and set when a schematic opens.
+  let paneFit = null;
 
-    // The pane buttons: give the window to the tree, to the document, or
-    // share it. A schematic is very wide, so "document only" is the one that
-    // earns its place -- and the setting sticks, the way WDS remembered it.
-    const body = split.querySelector('.wiring-body');
-    const setPane = (mode) => {
-      body.dataset.pane = mode;
-      split.querySelectorAll('.wds-pane').forEach((b) =>
-        b.classList.toggle('active', b.id === `wds-pane-${mode}`));
-      Settings.set('wdsPane', mode);
-      // the SVG scales to its box, so the fit has to follow the new width
-      const svg = body.querySelector('.wiring-stage svg');
-      if (svg && paneFit) requestAnimationFrame(paneFit);
-    };
-    split.querySelector('#wds-pane-doc').onclick = () => setPane('doc');
-    split.querySelector('#wds-pane-split').onclick = () => setPane('split');
-    split.querySelector('#wds-pane-tree').onclick = () => setPane('tree');
-    setPane(Settings.get('wdsPane', 'split'));
-    tipify(split);
-  }
+  // Both layouts carry the same controls; only their dress differs. WDS's
+  // toolbar has a few extra (Series, Exit, Start) that the modern layout
+  // reaches through its crumbs instead.
+  const on = (sel, fn) => {
+    const el = split.querySelector(sel);
+    if (el) el.onclick = fn;
+  };
+  on('#wds-series', showWiringChassis);
+  on('#wds-exit', showChassis);
+  on('#wds-start', () => showWiring(chassisId));
+  on('#wds-help', () => showWiringHelp(chassisId));
+  on('#wds-print', () => printWiring(chassisId));
+  // "New"/"Clear" empties the search and brings the whole tree back
+  on('#wds-new', () => {
+    searchEl.value = '';
+    searchEl.dispatchEvent(new Event('input'));
+  });
+  on('#wds-find', () => searchEl.dispatchEvent(new Event('input')));
+
+  // The pane buttons: give the window to the tree, to the document, or share
+  // it. A schematic is very wide, so "document only" is the one that earns
+  // its place -- and the setting sticks, the way WDS remembered it.
+  const body = split.querySelector('.wiring-body');
+  const setPane = (mode) => {
+    body.dataset.pane = mode;
+    split.querySelectorAll('.wds-pane').forEach((b) =>
+      b.classList.toggle('active', b.id === `wds-pane-${mode}`));
+    Settings.set('wdsPane', mode);
+    // the SVG scales to its box, so the fit has to follow the new width
+    if (paneFit) requestAnimationFrame(paneFit);
+  };
+  on('#wds-pane-doc', () => setPane('doc'));
+  on('#wds-pane-split', () => setPane('split'));
+  on('#wds-pane-tree', () => setPane('tree'));
+  setPane(Settings.get('wdsPane', 'split'));
+  tipify(split);
 
   // the bar while nothing is open; a diagram replaces it with its zoom keys
   const browseActions = [{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
                            kind: 'back', fn: showWiringChassis }];
   setActions(browseActions);
 
-  // the open diagram's "fit", so a pane change can re-fit it. Set when a
-  // schematic opens, cleared when anything else does.
-  let paneFit = null;
-
   loadWiring(chassisId).then((data) => {
     const index = wiringIndex(data.tree);
     sbLeft.textContent = 'wiring';
     sbRight.textContent = `${index.length} documents`;
 
-    // << and >> step through the documents in tree order, which is what
-    // they did in WDS: the flat index IS that order.
+    // prev/next step through the documents in tree order, which is what they
+    // did in WDS: the flat index IS that order.
     let atIndex = -1;
-    if (classic) {
-      const step = (d) => {
-        if (!index.length) return;
-        atIndex = (atIndex + d + index.length) % index.length;
-        openDocument(index[atIndex]);
-      };
-      split.querySelector('#wds-prev').onclick = () => step(-1);
-      split.querySelector('#wds-next').onclick = () => step(1);
-    }
+    const step = (d) => {
+      if (!index.length) return;
+      atIndex = (atIndex + d + index.length) % index.length;
+      openDocument(index[atIndex]);
+    };
+    on('#wds-prev', () => step(-1));
+    on('#wds-next', () => step(1));
 
     // ---- the tree: folders collapse, leaves open
     const renderTree = (node, parent, depth) => {
