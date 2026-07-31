@@ -38,9 +38,18 @@ const OFFLINE_FAULTS = [
   'data/faultmeta.js', 'data/faultinfo.js',
 ];
 
-// Starts the relay the THOR needs, from a double-click. cd's to its own
-// directory first: Finder runs a .command from the user's home, not from
-// where the file lives, so a bare "node thor_bridge.js" would miss.
+// Starts the relay the THOR needs, from a double-click.
+//
+// TWO THINGS MACOS DOES TO A DOWNLOADED SCRIPT, both of which this survives:
+//
+// 1. Archive Utility DROPS THE EXECUTABLE BIT when it expands a zip on a
+//    double-click, whatever the archive said. So the bit we set is a bonus,
+//    not the plan: the folder also ships an .html page whose one job is to
+//    show the "sh" one-liner, and the README leads with it. A launcher that
+//    only works when the bit survives is a launcher that mostly does not.
+//
+// 2. Finder runs a .command from the user's HOME, not from where the file
+//    lives, so this cd's to its own directory before looking for the bridge.
 const THOR_LAUNCHER = `#!/bin/bash
 # Double-click this to connect the THOR WiFi adapter.
 #
@@ -48,6 +57,9 @@ const THOR_LAUNCHER = `#!/bin/bash
 # it over a local WebSocket the page can reach. Leave the window open while
 # you use the adapter; close it when you are done.
 cd "$(dirname "$0")"
+# Put the bit back for next time. Archive Utility drops it on extraction, so
+# the first run comes through "sh" and every run after is a double-click.
+chmod +x "$0" 2>/dev/null
 if ! command -v node >/dev/null 2>&1; then
   echo "node is not installed. Get it from https://nodejs.org and try again."
   echo
@@ -60,6 +72,64 @@ echo
 node thor_bridge.js
 echo
 read -n 1 -s -r -p "The bridge stopped. Press any key to close."
+`;
+
+// The page that gets someone past the one obstacle macOS puts in the way.
+// Opened from Finder like index.html, so it needs no permissions of its own,
+// and it carries a copy button rather than asking anyone to retype a path.
+const THOR_LAUNCHER_HELP = `<!doctype html>
+<meta charset="utf-8"><title>Start the THOR bridge</title>
+<style>
+  body { font: 15px/1.6 -apple-system, Segoe UI, sans-serif; color: #111;
+         background: #fff; max-width: 44rem; margin: 8vh auto; padding: 0 6vw; }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  p.lead { color: #555; margin: 0 0 26px; }
+  ol { padding-left: 20px; } li { margin-bottom: 14px; }
+  code { font: 13px/1.5 ui-monospace, Menlo, monospace; background: #f2f3f5;
+         border: 1px solid #e0e2e6; border-radius: 5px; padding: 2px 6px; }
+  .cmd { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; }
+  .cmd code { flex: 1; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
+  button { font: 600 13px -apple-system, sans-serif; cursor: pointer;
+           background: #111; color: #fff; border: 0; border-radius: 5px;
+           padding: 10px 14px; }
+  .note { color: #666; font-size: 13.5px; border-top: 1px solid #e5e7ea;
+          margin-top: 30px; padding-top: 16px; }
+</style>
+<h1>Start the THOR bridge</h1>
+<p class="lead">The adapter speaks TCP and a browser cannot open a TCP socket,
+so a small relay carries it. It needs
+<a href="https://nodejs.org">node</a> installed.</p>
+<ol>
+  <li>Plug the THOR into the car and join its <code>Thor_Wifi</code> network.</li>
+  <li>Double-click <code>Start THOR bridge.command</code> in this folder.
+    <p style="margin:8px 0 0;color:#555">If macOS says it "could not be executed
+    because you do not have appropriate access privileges", that is macOS
+    dropping the executable flag when it unzipped the folder. Open Terminal
+    and paste this once. Every double-click after it works.</p>
+    <div class="cmd">
+      <code id="c">sh "$PWD_PLACEHOLDER/Start THOR bridge.command"</code>
+      <button onclick="copyCmd()">Copy</button>
+    </div>
+  </li>
+  <li>Leave that window open, then open <code>index.html</code> and set
+      <b>Settings &rsaquo; Adapter</b> to <b>THOR (WiFi)</b>.</li>
+  <li>Click the cable chip in the top bar to connect.</li>
+</ol>
+<p class="note">Battery voltage, ignition state and the adapter's identity read
+out today. Running diagnostic jobs over the THOR is still being wired up.</p>
+<script>
+  // the folder's real path, as the browser sees it: turns the instruction
+  // into something that can be pasted rather than reconstructed by hand
+  var dir = decodeURIComponent(location.pathname.replace(/\\/[^/]*$/, ''));
+  var cmd = 'sh ' + JSON.stringify(dir + '/Start THOR bridge.command');
+  document.getElementById('c').textContent = cmd;
+  function copyCmd() {
+    navigator.clipboard.writeText(cmd).then(function () {
+      var b = document.querySelector('button');
+      b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 2000);
+    });
+  }
+</script>
 `;
 
 const THOR_LAUNCHER_BAT = `@echo off
@@ -136,7 +206,18 @@ node from nodejs.org.
 2. Start the relay and leave its window open:
      macOS    double-click "Start THOR bridge.command"
      Windows  double-click start-thor-bridge.bat
-     Linux    sh -c 'node thor_bridge.js'
+     Linux    node thor_bridge.js
+
+   macOS may refuse the first time with "you do not have appropriate access
+   privileges". That is macOS dropping the executable flag when it unzipped
+   this folder, not a broken file. Open
+   "Start THOR bridge (read me first).html" for a command you can copy, or
+   run this once in Terminal from this folder:
+
+     sh "Start THOR bridge.command"
+
+   It puts the flag back, so every double-click after that works.
+
 3. Open index.html and set Settings > Adapter to "THOR (WiFi)".
 4. Click the cable chip in the top bar to connect.
 
@@ -255,6 +336,8 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   files['Start THOR bridge.command'] = [enc.encode(THOR_LAUNCHER),
                                         { attrs: 0o755 << 16 }];
   files['start-thor-bridge.bat'] = enc.encode(THOR_LAUNCHER_BAT);
+  files['Start THOR bridge (read me first).html'] =
+    enc.encode(THOR_LAUNCHER_HELP);
 
   say('compressing');
   // level 0 on the .chassis entry: it is already a zip of deflated members,
