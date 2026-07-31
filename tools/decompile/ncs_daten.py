@@ -119,6 +119,18 @@ bits at roughly a thousand each.
 So a coding blob can now be read: BLOCKNR and WORTADR say which word,
 MASKE says which bits, FSW says what it is called.
 
+THERE IS A SECOND RECORD SHAPE this does not parse. The 14 12 00 01 header
+is present in 109 of 346 files; the rest put their keyword 14 bytes past a
+different tag (DWA3 uses 01 00 00 01, ACC 00 00 00 01, both on every row),
+which is consistent with BLOCKNR being the optional field the signature
+says it is -- those records are simply shorter. Sweeping for the word
+offset by the no-collision rule does find one for DWA3 (FSW-16, 10 densely
+packed groups, no collisions), but the same sweep fails on the long shape
+because there the invariant needs BLOCKNR and WORTADR TOGETHER, and one
+offset cannot express a pair. A parser for the short shape needs to know
+where its block lives, or that it has none; guessing produced word numbers
+in the millions, so it is left unparsed rather than fabricated.
+
 Read-only: decodes files on disk, never talks to a car.
 """
 
