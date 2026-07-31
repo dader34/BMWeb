@@ -123,16 +123,31 @@ function showSettings() {
     controls.className = 'setting-controls';
     const state = document.createElement('span');
     state.className = 'bridge-state';
+    // The command with the bridge's ABSOLUTE path, so it runs from wherever
+    // a terminal happens to be sitting rather than needing a cd first. An
+    // offline copy is a file:// page, so its own URL gives the real
+    // directory; a served build cannot know its server's filesystem, so it
+    // names the file and lets the reader supply the folder.
+    const bridgeCmd = () => {
+      if (location.protocol === 'file:') {
+        const dir = decodeURIComponent(location.pathname.replace(/\/[^/]*$/, ''));
+        const path = `${dir}/thor_bridge.js`;
+        // quote only when it needs it: paths with spaces are common on macOS
+        return `node ${/[\s'"\\]/.test(path) ? JSON.stringify(path) : path}`;
+      }
+      return 'node thor_bridge.js';
+    };
     const copyBtn = document.createElement('button');
     copyBtn.className = 'btn';
     copyBtn.textContent = 'Copy command';
-    copyBtn.title = 'Copy "node thor_bridge.js" to the clipboard';
+    copyBtn.title = `Copy "${bridgeCmd()}" to the clipboard`;
     copyBtn.onclick = async () => {
+      const cmd = bridgeCmd();
       try {
-        await navigator.clipboard.writeText('node thor_bridge.js');
+        await navigator.clipboard.writeText(cmd);
         copyBtn.textContent = 'Copied';
       } catch {
-        copyBtn.textContent = 'node thor_bridge.js';
+        copyBtn.textContent = cmd;   // not copyable: show it to be read
       }
       setTimeout(() => { copyBtn.textContent = 'Copy command'; }, 2500);
     };
