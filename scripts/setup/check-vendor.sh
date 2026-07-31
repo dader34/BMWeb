@@ -21,10 +21,22 @@ need () {   # path  minimum-file-count  glob  what-it-is
   fi
 }
 
+# Optional: reported, but never a reason to fail. The app builds and runs
+# without it; only the wiring screen goes missing.
+want () {   # path  minimum-file-count  glob  what-it-is
+  n=$(find "$1" -maxdepth 2 -iname "$3" 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -lt "$2" ]; then
+    printf '  absent   %-34s optional: %s\n' "$1" "$4"
+  else
+    printf '  ok       %-34s %s files\n' "$1" "$n"
+  fi
+}
+
 echo "BMW originals (build inputs):"
 need vendor/EDIABAS/Ecu            500 '*.prg'  "ECU modules: job code, tables, metadata"
 need vendor/EC-APPS/INPA/SGDAT    1000 '*.ipo'  "INPA screens: the decompiled UI"
 need vendor/EC-APPS/INPA/CFGDAT     10 '*.eng'  "chassis config: which ECUs each car has"
+want vendor/WDS/svg/sp           10000 '*.svgz' "WDS wiring diagrams (scripts/setup/fetch-wds.sh)"
 
 if [ "$miss" -gt 0 ]; then
   cat >&2 <<'EOF'
@@ -48,3 +60,19 @@ EOF
   exit 1
 fi
 echo "all present"
+
+# The wiring diagrams are separate: a different BMW product (WDS), a
+# different download, and the only thing that needs them is the wiring
+# screen. Say how to get them rather than leaving "absent" unexplained.
+if [ "$(find vendor/WDS/svg/sp -maxdepth 2 -iname '*.svgz' 2>/dev/null | wc -l | tr -d ' ')" -lt 10000 ]; then
+  cat <<'EOF'
+
+Wiring diagrams are optional and not installed. To add them:
+
+  scripts/setup/fetch-wds.sh          # downloads the WDS v15 ISO (4.7 GB)
+  tools/wds_import.py --wds vendor/WDS
+
+Everything else builds and runs without them; only the Wiring screen is
+missing until they are there.
+EOF
+fi

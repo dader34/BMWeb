@@ -206,19 +206,25 @@ html.web .topbar { grid-template-columns: auto 1fr auto; }
 #flash-btn:hover { color: var(--red); border-color: var(--red); }
 
 /* settings */
-.settings-list { display: grid; gap: 12px; max-width: 720px; }
+/* wide enough for the widest row: the offline copy carries a picker, a
+   checkbox and a button side by side */
+.settings-list { display: grid; gap: 12px; max-width: 860px; }
 
 /* INPA-style settings: the same rows, laid out the way INPA laid out
    everything -- monospace, one per line, ruled rather than carded. Matches
    the ECU Hauptmenue so the two screens do not look like different apps. */
-.inpa-settings { gap: 0; max-width: 720px; }
+/* wide enough for the widest row: the offline copy carries a picker, a
+   checkbox and a button in one cell */
+.inpa-settings { gap: 0; max-width: 860px; }
 .inpa-settings .setting-row {
   background: none; border: none; border-radius: 0;
   border-bottom: 1px dotted var(--line);
   padding: 9px 6px; cursor: pointer;
   /* the Hauptmenue's vertical key list: key | text | control per row.
      A 4th auto column takes the Download row's extra button. */
-  display: grid; grid-template-columns: 150px 1fr auto auto;
+  /* the text column gets a floor: an "auto" control column will otherwise
+     take what it likes and squeeze a title into one word per line */
+  display: grid; grid-template-columns: 150px minmax(20ch, 1fr) auto;
   column-gap: 16px; align-items: baseline;
 }
 .inpa-settings .setting-row > .inpa-fn-key { font-size: 12px; }
@@ -1827,3 +1833,13 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 .setting-check input { accent-color: var(--amber); cursor: pointer; margin: 0; }
 .setting-check:hover { color: var(--ink); }
 .inpa-settings .setting-check { font-family: var(--mono); font-size: 12px; }
+
+/* several controls in one settings cell (the offline copy's picker, its
+   wiring checkbox and its button), so a row stays one row */
+.setting-controls {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.setting-controls .combo { flex: none; }
+.setting-controls .setting-check { margin-left: 0; }
+.inpa-settings .setting-controls { justify-content: flex-end; }

@@ -433,6 +433,12 @@ function showWiring(chassisId, openDoc = null) {
       viewEl.appendChild(stage);
       const svg = stage.querySelector('svg');
       if (svg) {
+        // BMW left a <title> in every drawing ("Schaltplan Viewer -
+        // Copyright BMW AG 2004"), and a <title> child of an SVG element is
+        // that element's tooltip. So hovering anywhere over a diagram popped
+        // a copyright notice. The document's own name is already in the bar
+        // above it, so the element goes.
+        svg.querySelectorAll(':scope > title').forEach((t) => t.remove());
         // WDS kept its zoom buttons in the footer; the modern layout keeps
         // them on the document's own bar.
         const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
