@@ -235,6 +235,9 @@ function errorBlock(raw, accent = 'amber') {
 }
 
 function setCrumbs(items) {
+  // the WDS wiring screen hides the F-key bar (it has its own footer); any
+  // other screen drawing itself is the signal to put it back
+  document.body.classList.remove('wds-nofkeys');
   crumbs = items;
   crumbsEl.innerHTML = '';
   items.forEach((c, i) => {
