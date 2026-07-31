@@ -66,17 +66,30 @@ flattened them and let same-named files overwrite each other, so 186 of
 Any figure computed before this was measured on a corrupted tree. 346
 files now, not 260.
 
-MODULES DO NOT SHARE ONE KEYWORD TABLE, and which one a module wants is
-still unsolved. SWTFSW01 and SWTFSW06 agree on 10 ids out of ~3,700.
-E46/LSZ reads clearly against 01 (36 of 67 names are the light module's
-own) and poorly against 06. ACC gets exactly one plausible name from 06
-and none from 01. GM5 gets nothing from either. Three things were tried
-and none discriminates: whether the module's name appears in its own
-keywords (25 for 01, 51 for 06, 184 ties), how many ids resolve (biased,
-01 is the larger table), and SGID_CODIERINDEX, which turns out to be just
-the file extension restated. So a name is trustworthy only where the
-module and table have been paired by hand, and LSZ against 01 is the one
-pairing this has actually verified.
+THE TWO KEYWORD TABLES ARE RENUMBERINGS, not different vocabularies.
+SWTFSW01 and SWTFSW06 share 1,414 names -- and 1,405 of those carry a
+DIFFERENT id in each. So decoding with the wrong table does not fail
+loudly; it yields real keywords that belong to some other function, which
+is exactly the failure mode seen on ACC and GM5.
+
+Which table a module wants is still unsolved, and four approaches have now
+failed, recorded here so they are not retried:
+
+  * whether the module's own name appears in its keywords -- 25 for 01, 51
+    for 06, 184 ties
+  * how many ids resolve -- biased, 01 is simply the larger table
+  * SGID_CODIERINDEX -- turns out to restate the file extension
+  * vocabulary coherence, scoring how often decoded names reuse word stems
+    -- picks 01 for everything including ACC, where 01 is demonstrably
+    wrong and 06 gives the one plausible name
+
+E46/LSZ against SWTFSW01 is the single pairing this has verified, by its
+output being unmistakably a light module's (36 of 67 names). Everything
+else should be treated as unlabelled until a selector is found.
+
+Cross-module id overlap is now 14-38% where unrelated modules should share
+nothing, which is the residual false-positive rate of the anchor and
+matches LSZ measuring 83% in-domain.
 
 Read-only: decodes files on disk, never talks to a car.
 """
