@@ -612,8 +612,13 @@ async function waitForEngine() {
   tipify(document.querySelector('.topbar'));   // instant tooltips up top
   // custom window controls (frameless window for Aero; removed by index.html
   // on the web, where they drive nothing)
-  if (window.bmacw) {
-    document.getElementById('win-close').onclick = () => window.bmacw.winClose();
+  // ...and by index.html in any host that keeps the window's OWN titlebar,
+  // which the Windows/Linux build does. Having a bridge is not the same as
+  // having these buttons: checking only for window.bmacw threw on a null
+  // element there and killed boot behind the splash.
+  const winClose = document.getElementById('win-close');
+  if (window.bmacw && winClose) {
+    winClose.onclick = () => window.bmacw.winClose();
     document.getElementById('win-min').onclick = () => window.bmacw.winMinimize();
     document.getElementById('win-zoom').onclick = () => window.bmacw.winZoom();
   }

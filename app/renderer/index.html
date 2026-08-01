@@ -106,9 +106,11 @@
       document.title = APP_NAME;
       document.querySelector('.splash-name').textContent = APP_NAME;
       document.querySelector('.brand-name').textContent = APP_NAME;
-    }
-    if (IS_WEB) {
-      document.querySelector('.splash-tag').textContent = 'BMW diagnostics in the browser';
+      // the tagline follows the NAME, not the host: only the macOS build is
+      // "for macOS", and a Windows window saying so is simply wrong
+      document.querySelector('.splash-tag').textContent = IS_WEB
+        ? 'BMW diagnostics in the browser'
+        : 'BMW diagnostics';
     }
     if (!OWN_CHROME) {
       // nothing for these to drive: the window's own chrome is showing
