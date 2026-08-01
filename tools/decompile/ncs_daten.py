@@ -50,13 +50,20 @@ the function's VALUE ENUM: the parameter keyword and the bytes it writes.
 LSZ's KALTUEBERWACHUNG_BL carries aktiv=00 / nicht_aktiv=01. That is
 exactly what a coding editor needs and what no earlier version extracted.
 
-THE KEYWORD TABLE IS CHOSEN PER FILE, not per module and not per chassis.
-With real ids, resolution finally discriminates: E39/ACC resolves 100%
-against SWTFSW01 and 63% against SWTFSW06; E46/LSZ is 98% against 06 and
-62% against 01; E46/EKP_DS2 wants 01 even though the E46 directory ships
-06. So the per-chassis table copies are just each release's majority
-table, and the right rule is to score both tables against a file's own ids
-and keep the winner. The PSW table follows the same suffix.
+THE KEYWORD TABLE IS THE CHASSIS'S OWN, and SP-Daten says so by shipping
+one FSW/PSW/ASW set inside each chassis directory: E39 uses SWTFSW01, E46
+SWTFSW06, E60 SWTFSW05, E70 SWTFSW11, E89 SWTFSW03. Eleven distinct tables
+are in use across the 18 chassis here. There is nothing to infer.
+
+That was invisible while only two tables were on disk. With E39's and
+E46's alone to choose between, every module looked like a fresh "which
+table?" question, and seven attempts to find a per-module selector failed
+because no such selector exists. Reading a module against the wrong table
+does not fail loudly -- every id still resolves, to real keywords
+belonging to some other function -- which is what made the wrong answers
+look plausible. `rows(data, chassis=...)` takes the directory; without it
+the reader falls back to inference, which works but can be confidently
+wrong.
 
 HOW THE OLD READER WENT WRONG, recorded so nobody anchors again. It keyed
 on the bytes 01 68 00 <u16> 10 00. In the real format that is the tail of
@@ -81,10 +88,17 @@ SGBD maps; treat it as a weak lower bound, because the two vocabularies
 abbreviate differently (FEHLER vs FEHLERMELDUNG, RUECKLICHT vs SL_HINTEN)
 and a token metric misses synonyms that are obvious side by side.
 
-Also worth knowing: this archive ships coding data for E39 and E46 only,
-though COAPI.INI declares paths for twenty-odd chassis. NCS Dummy's
-example record (BLOCKNR 0x3405, FSW 0x14A4) appears in none of these
-files: that printout is from a release this archive does not contain.
+COVERAGE, from SP-Daten v74 (scripts/setup/fetch-coding.sh): 2,219 module
+files across 18 chassis, 164,311 coding rows, 97% resolving to a keyword,
+9,252 distinct function names. 233 residual bit collisions (0.14%) against
+the memory-model invariant.
+
+ONE KNOWN-BAD SOURCE, worth recording so it is not mistaken for a decoder
+fault: E39's ACC.C0x resolve 91/91 against E39's own table and return
+names belonging to a cluster or window module (SENSOR_SETTLE_TIME reading
+"m50b25_alpina"). E38's ACC, same table, reads exactly as a radar sensor
+should -- EINBAUORT_HORIZONTAL, B_BLIND_EINAUS -- and E60's ACC2 likewise
+under its own table. So the E39 files are the anomaly, not the reader.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -274,21 +288,50 @@ def _load_swt(path):
 _TABLES = {}
 
 
-def fsw_tables():
-    """Both function-keyword tables, keyed by suffix. Which one a FILE uses
-    is decided by resolution of that file's own ids (see rows)."""
-    if 'fsw' not in _TABLES:
-        _TABLES['fsw'] = {s: _load_swt(f'{DATEN}/SWTFSW{s}.dat')
-                          for s in ('01', '06')}
-    return _TABLES['fsw']
+def _tables(kind, chassis=None):
+    """Keyword tables, keyed by suffix ('01', '06', ...).
+
+    THE TABLE IS THE CHASSIS'S OWN. SP-Daten ships one FSW/PSW/ASW set per
+    chassis directory and they are not interchangeable: E39 uses SWTFSW01,
+    E46 SWTFSW06, E60 SWTFSW05, E70 SWTFSW11. Reading a module against the
+    wrong one does not fail loudly -- every id still resolves, to real
+    keywords belonging to some other function -- which is exactly what made
+    this look like an unsolvable "which table?" problem when only two
+    tables were on disk to choose between.
+
+    So when the file's own chassis directory holds a table, that is the
+    answer and there is nothing to infer. Everything found anywhere in the
+    tree is returned as a fallback, for a stray file with no chassis.
+    """
+    key = (kind, chassis)
+    if key not in _TABLES:
+        found = {}
+        roots = [f'{DATEN}/{chassis}'] if chassis else []
+        roots += [DATEN] + sorted(glob.glob(f'{DATEN}/*'))
+        for root in roots:
+            if not os.path.isdir(root):
+                continue
+            # case varies between SP-Daten releases (SWTFSW01.dat beside
+            # SWTfsw05.dat), so match the name rather than glob for it
+            for p in sorted(glob.glob(f'{root}/*')):
+                m = re.fullmatch(rf'SWT{kind}(\d+)\.dat', os.path.basename(p),
+                                 re.I)
+                if m and m.group(1) not in found:
+                    found[m.group(1)] = _load_swt(p)
+            if chassis and root.endswith(f'/{chassis}') and found:
+                break            # the chassis names its own table: done
+        _TABLES[key] = found
+    return _TABLES[key]
 
 
-def psw_tables():
-    """Both parameter-keyword tables, same suffixes as the FSW pair."""
-    if 'psw' not in _TABLES:
-        _TABLES['psw'] = {s: _load_swt(f'{DATEN}/SWTPSW{s}.dat')
-                          for s in ('01', '06')}
-    return _TABLES['psw']
+def fsw_tables(chassis=None):
+    """Function-keyword tables. See _tables: the chassis's own wins."""
+    return _tables('FSW', chassis)
+
+
+def psw_tables(chassis=None):
+    """Parameter-keyword tables, alongside the FSW set."""
+    return _tables('PSW', chassis)
 
 
 def keywords():
@@ -296,15 +339,25 @@ def keywords():
     return fsw_tables().get('01', {})
 
 
-def rows(data, kw=None):
+def chassis_of(path):
+    """The chassis directory a file sits in, which names its keyword table."""
+    d = os.path.basename(os.path.dirname(os.path.abspath(path)))
+    return d if re.fullmatch(r'[A-Z0-9]{3}', d) else None
+
+
+def rows(data, kw=None, chassis=None):
     """The module's coding rows: block, word, bit, function and its values.
 
     Walks the framed records, parses PARZUWEISUNG_FSW payloads under the
     file's own declared signature, and attaches the PARZUWEISUNG_PSW1
     records that follow each one -- the value enum, as (name, data-hex)
-    pairs. The keyword table is picked per file by which of the two
-    resolves more of the file's ids; `kw` overrides that when a caller
-    wants a specific table.
+    pairs.
+
+    `chassis` names the directory whose keyword tables to use, which is
+    the real answer: SP-Daten ships one table set per chassis and they are
+    not interchangeable. Without it, the table is inferred from whichever
+    resolves more of the file's ids -- a fallback that works but that ACC
+    proved can be confidently wrong. `kw` overrides both.
     """
     secs = schema(data)
     fsw_sec = secs.get('PARZUWEISUNG_FSW')
@@ -342,15 +395,29 @@ def rows(data, kw=None):
     if kw is not None:
         pick, table = kw, '01'
     else:
-        tabs = fsw_tables()
+        tabs = fsw_tables(chassis)
         if not any(tabs.values()):
             return out
-        table = max(tabs, key=lambda s: sum(1 for r in out
-                                            if r['fsw'] in tabs[s]))
+        # one table in the chassis directory IS the answer; several means
+        # we are looking tree-wide and have to infer
+        table = next(iter(tabs)) if len(tabs) == 1 else max(
+            tabs, key=lambda s: sum(1 for r in out if r['fsw'] in tabs[s]))
         pick = tabs[table]
-    ptab = psw_tables().get(table, {})
+    # The PSW table travels with the FSW one inside a chassis directory, so
+    # there is nothing to choose there either. Tree-wide, it is inferred on
+    # its own evidence rather than by inheriting the FSW suffix.
+    ptabs = psw_tables(chassis)
+    pids = [p for r in out for p, _ in r['psw']]
+    if len(ptabs) == 1:
+        ptable = next(iter(ptabs))
+    elif pids and any(ptabs.values()):
+        ptable = max(ptabs, key=lambda s: sum(1 for p in pids if p in ptabs[s]))
+    else:
+        ptable = table
+    ptab = ptabs.get(ptable, {})
     for r in out:
         r['table'] = table
+        r['psw_table'] = ptable
         r['name'] = pick.get(r['fsw'])
         r['psw'] = [(ptab.get(p, p), d.hex()) for p, d in r['psw']]
     return out
@@ -361,7 +428,7 @@ def summarise(path, verbose=False):
     secs = schema(data)
     name = os.path.basename(path)
     fsw = secs.get('PARZUWEISUNG_FSW') or {}
-    rr = rows(data)
+    rr = rows(data, chassis=chassis_of(path))
     named = sum(1 for r in rr if r['name'])
     table = rr[0].get('table', '?') if rr else '-'
     print(f'{name}  {len(data)} bytes  {len(secs)} sections  '
@@ -391,14 +458,14 @@ def corpus():
         sys.exit(f'no .C0x files in {DATEN} '
                  '(run scripts/setup/fetch-vendor.sh)')
     n_rows = named = empty = collisions = 0
-    tables = {'01': 0, '06': 0}
+    tables = {}
     fsws = set()
     with_fsw = 0
     for p in files:
-        rr = rows(open(p, 'rb').read())
+        rr = rows(open(p, 'rb').read(), chassis=chassis_of(p))
         if rr:
             with_fsw += 1
-            tables[rr[0]['table']] += 1
+            tables[rr[0]['table']] = tables.get(rr[0]['table'], 0) + 1
         else:
             empty += 1
         n_rows += len(rr)
@@ -418,8 +485,8 @@ def corpus():
           + (f', {empty} without' if empty else ''))
     print(f'{n_rows} rows, {named} named ({100 * named // max(1, n_rows)}%), '
           f'{len(fsws)} distinct function keywords')
-    print(f'table picked per file: SWTFSW01 x {tables["01"]}, '
-          f'SWTFSW06 x {tables["06"]}')
+    print('table used: ' + ', '.join(
+        f'SWTFSW{t} x {n}' for t, n in sorted(tables.items())))
     print(f'bit collisions within a (block, word): {collisions}')
 
 
@@ -477,7 +544,7 @@ def validate():
         mod = os.path.basename(p).split('.')[0].upper()
         if mod not in sgbd:
             continue
-        rr = rows(open(p, 'rb').read())
+        rr = rows(open(p, 'rb').read(), chassis=chassis_of(p))
         if len(rr) < 20:
             continue
 
