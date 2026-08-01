@@ -1321,6 +1321,20 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return;
     }
     if (it.inPlace) {
+      // A KEY INPA RUNS ON THE PC, NOT ON THE CAR. NAVI's "languages load"
+      // reads a language table off a Windows filesystem and holds it for the
+      // next key to send, so it decompiles to a label and nothing else --
+      // there is genuinely no job in the .IPO, verified by hand against the
+      // bytecode. The file is not the interesting part though: the job it
+      // feeds takes three plain language codes, so a picker does what the
+      // file did. navlang.js draws that.
+      if (/sprach|language/i.test(it.label) && /lad|load/i.test(it.label)
+          && typeof showNavLanguages === 'function') {
+        const reopen = () =>
+          renderIrMenu(ecu, ir, menuName, container, back, trail);
+        showNavLanguages(ecu, container, reopen);
+        return;
+      }
       // INPA runs this from the menu: each key sets its own REQ/VAL pair in
       // ONE argument string, and a single job re-commands every actuator on
       // the ECU at once. The pairing is decoded (comp.items) -- what is not
@@ -1445,6 +1459,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // library -- but open() hands it to the app's fault view, so it does
       // work and must not be labelled undecoded
       if (IR_FAULT_READ.test(it.label)) return 'read';
+      // the PC-side language picker, which does work (see open())
+      if (/sprach|language/i.test(it.label) && /lad|load/i.test(it.label)) {
+        return 'choose';
+      }
       return 'not decoded';
     }
     if (!it.menu && !it.screen) return '';
