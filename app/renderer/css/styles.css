@@ -1777,10 +1777,19 @@ select.modal-input { appearance: none; cursor: pointer; }
 body.wds-nofkeys .fkeybar { display: none; }
 body.wds-nofkeys .view { inset: 56px 0 0 0; }
 /* This screen sizes itself to the window, so the page must not scroll: the
-   panes scroll their own contents instead. */
-.view:has(.wiring-split) { overflow: hidden !important; }
-/* .view's inset already grew when the F-key bar went away, so the frame
-   needs no separate height here. */
+   panes scroll their own contents instead.
+   .view's generous page padding is for reading text, and this screen is not
+   text -- every pixel it takes comes off the diagram. The tree and the
+   document keep their own insets, so trimming it loses no breathing room and
+   hands the height back to the drawing. */
+.view:has(.wiring-split) {
+  overflow: hidden !important;
+  padding: 12px 16px 0;
+}
+/* ...and the frame is the box it sits in, less the padding above it. height
+   resolves against .view's PADDING box, so a bare 100% overshoots by the
+   12px top inset and pushes the footer under the window edge. */
+.view:has(.wiring-split) .wiring-split { height: calc(100% - 12px); }
 
 /* ---- print ----------------------------------------------------------------
    On screen this is a tool: toolbar, tree, footer, status bars. On paper the
