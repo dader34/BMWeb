@@ -92,9 +92,14 @@ function wiringDoc(data, docId) {
 // jsDelivr rather than a release asset: release downloads send no
 // access-control-allow-origin, so a page cannot fetch them at all, while
 // jsDelivr is CORS-open and edge-cached. Verified both from the live site.
+// The photographs sit under img/ in that repository: GitHub truncates a
+// directory listing at 1,000 files, and there are 11,549 of them, so at the
+// root the repo could not be browsed at all.
 const WIRING_IMG_CDN =
-  'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@main/';
-const WIRING_IMG_CACHE = 'bmacw-wiring-images-v1';
+  'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@main/img/';
+// bumped with the path: the old cache holds entries keyed by the root URLs,
+// which now 404, and a stale hit would draw nothing
+const WIRING_IMG_CACHE = 'bmacw-wiring-images-v2';
 
 // A blob URL per image, made once and kept: the same photo appears on many
 // documents (one wheel-hub shot serves every sensor mounted there), and

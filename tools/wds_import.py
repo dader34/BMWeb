@@ -267,7 +267,11 @@ def main():
                          'the archives, deduplicated across chassis. For the '
                          'hosted build, which fetches them from a CDN because '
                          'a GitHub Pages site may hold only 1 GB and these are '
-                         '516 MB on their own.')
+                         '516 MB on their own. Point this at the images repo\'s '
+                         'img/ subdirectory: the renderer\'s WIRING_IMG_CDN '
+                         'expects that prefix, and 11,549 files at a repo root '
+                         'make the listing untraversable (GitHub truncates at '
+                         '1,000).')
     args = ap.parse_args()
 
     if not os.path.isdir(os.path.join(args.wds, 'svg', 'sp')):
