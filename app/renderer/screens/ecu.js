@@ -173,7 +173,9 @@ async function addCodingEntry(ecu, chassisId, sectionName, grid) {
       { label: ecu.label, fn: back },
       { label: 'Coding' },
     ]);
-    showCoding(ecu, grid, back);
+    // the car you are actually looking at, so the coding map opens on its
+    // own chassis instead of whichever sorts first
+    showCoding(ecu, grid, back, chassisId);
   };
 
   if (inpaMode()) {

@@ -426,9 +426,11 @@ async function hasCoding(sgbd) {
 // The address is shown because it is the useful part: block, word, byte and
 // mask are exactly what another coding tool wants, and what makes a value
 // checkable against a known-good car.
-function showDatenReference(ecu, daten, cont, setPanel, back) {
+function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
   const chassis = Object.keys(daten.chassis);
-  let ch = chassis[0];
+  // open on the car being worked on, not on whichever chassis sorts first
+  const want = String(chassisId || '').toUpperCase();
+  let ch = chassis.includes(want) ? want : chassis[0];
   let vname = Object.keys(daten.chassis[ch])[0];
   let filter = '';
 
@@ -505,13 +507,30 @@ function showDatenReference(ecu, daten, cont, setPanel, back) {
         : isDefault
           ? `<span class="dat-val"><span class="dat-val-n">default</span>`
             + `<span class="dat-val-v mono">0x${esc(vals[0][1])}</span></span>`
-          : vals.map(([n, v]) => {
-              const long = typeof v === 'string' && v.length > 4;
-              return `<span class="dat-val"${long ? ` title="${esc(v)}"` : ''}>`
-                + `<span class="dat-val-n">${esc(codTranslate(n, true))}</span>`
-                + `<span class="dat-val-v mono">`
-                + `${long ? `${v.length / 2} bytes` : esc(v)}</span></span>`;
-            }).join('');
+          : (() => {
+              // A BUFFER PARAMETER IS NOT A PICK LIST. LWS5's KENNFELD rows
+              // carry the same 16-byte characteristic curve once per chassis
+              // (e38, e39, e46 ...), and rendering nine "16 bytes" chips wraps
+              // over four lines and says nothing. Summarise those and let the
+              // row stay one line; a real choice still lists its settings.
+              const long = vals.filter(([, v]) =>
+                typeof v === 'string' && v.length > 4);
+              if (long.length === vals.length && vals.length > 2) {
+                const bytes = vals[0][1].length / 2;
+                return `<span class="dat-val" title="${esc(
+                  vals.map(([n, v]) => `${n}: ${v}`).join('\n'))}">`
+                  + `<span class="dat-val-n">${vals.length} variants</span>`
+                  + `<span class="dat-val-v mono">${bytes} bytes each</span>`
+                  + `</span>`;
+              }
+              return vals.map(([n, v]) => {
+                const big = typeof v === 'string' && v.length > 4;
+                return `<span class="dat-val"${big ? ` title="${esc(v)}"` : ''}>`
+                  + `<span class="dat-val-n">${esc(codTranslate(n, true))}</span>`
+                  + `<span class="dat-val-v mono">`
+                  + `${big ? `${v.length / 2} bytes` : esc(v)}</span></span>`;
+              }).join('');
+            })();
       // BMW's keyword under the English label, but only when translating
       // actually said something. This vocabulary is far wider than the
       // dictionary built for E39/E46, so 99% of these come back as the
@@ -563,7 +582,7 @@ function showDatenReference(ecu, daten, cont, setPanel, back) {
 }
 
 // The coding screen. `back` returns to whatever opened it.
-async function showCoding(ecu, container, back) {
+async function showCoding(ecu, container, back, chassisId) {
   const cont = container || view;
   // .view owns the page's padding AND its scrolling (inset + overflow-y).
   // Overwriting its class with .results-panel takes both away: the rows run to
@@ -575,7 +594,8 @@ async function showCoding(ecu, container, back) {
     // No named values in the SGBD. BMW's DATEN files may still describe
     // this module's blob, which is the whole point of them.
     const daten = await datenFor(ecu.sgbd);
-    if (daten) return showDatenReference(ecu, daten, cont, setPanel, back);
+    if (daten) return showDatenReference(ecu, daten, cont, setPanel, back,
+                                         chassisId);
     setPanel();
     cont.innerHTML = errorBlock(
       `${ecu.sgbd}.prg does not name its coding values, and BMW's DATEN files `
