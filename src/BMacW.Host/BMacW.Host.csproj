@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The parts of the shell that are not about any one platform's windows:
+       the file server, the cable, the TCP socket, and where the data lives.
+       macOS (InpaMac.App) and the Windows/Linux host both reference this, so
+       there is ONE implementation of the things that talk to hardware. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BMacW.Host</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- StaticHost serves app/renderer and dist-web over loopback -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <!-- SerialProxy: the K+DCAN cable -->
+    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>

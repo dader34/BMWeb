@@ -87,16 +87,33 @@
        the big scripts below (the offline copy embeds megabytes of data) and
        the browser paints the splash in the meantime. -->
   <script>
+    // THE NAME AND THE CHROME ARE TWO QUESTIONS, not one.
+    //
+    // BMacW is the macOS app -- the name is the pun. Everywhere else it is
+    // BMWeb: in a browser, and in the Windows/Linux desktop build, which is
+    // the same renderer in a WebView2/WebKitGTK window. So the host says what
+    // it is called (window.bmacw.appName) and the browser, having no host at
+    // all, is BMWeb by definition.
+    //
+    // Window controls are a separate matter: only the macOS build draws its
+    // own traffic lights, because only it hides the real titlebar. A browser
+    // has none to draw and the Photino window keeps its own, so both drop the
+    // renderer's set.
     const IS_WEB = !window.bmacw;
-    const APP_NAME = IS_WEB ? 'BMWeb' : 'BMacW';
-    if (IS_WEB) {
+    const APP_NAME = IS_WEB ? 'BMWeb' : (window.bmacw.appName || 'BMacW');
+    const OWN_CHROME = !IS_WEB && window.bmacw.ownChrome !== false;
+    if (APP_NAME !== 'BMacW') {
       document.title = APP_NAME;
       document.querySelector('.splash-name').textContent = APP_NAME;
-      document.querySelector('.splash-tag').textContent = 'BMW diagnostics in the browser';
       document.querySelector('.brand-name').textContent = APP_NAME;
-      // in a browser these drive nothing -- the real window has its own chrome
+    }
+    if (IS_WEB) {
+      document.querySelector('.splash-tag').textContent = 'BMW diagnostics in the browser';
+    }
+    if (!OWN_CHROME) {
+      // nothing for these to drive: the window's own chrome is showing
       document.getElementById('win-controls').remove();
-      document.documentElement.classList.add('web');
+      document.documentElement.classList.add('no-chrome');
     }
     // Paint in the saved skin from the first frame, same reason as above.
     // core.js re-applies the full theme (translucency, dock icon) when it

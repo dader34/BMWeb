@@ -29,9 +29,10 @@
          and the EDIABAS engine are gone; the VM decodes jobs in the renderer
          and SerialProxy owns the cable. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <!-- SerialProxy: the shell owns the cable now that the VM decodes jobs in
-         the renderer. -->
-    <PackageReference Include="System.IO.Ports" Version="9.0.0" />
+    <!-- The file server, the cable and the TCP socket, shared with the
+         Windows/Linux host: this project is only the AppKit window around
+         them. -->
+    <ProjectReference Include="..\BMacW.Host\BMacW.Host.csproj" />
   </ItemGroup>
 
   <ItemGroup>

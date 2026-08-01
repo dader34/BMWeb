@@ -1,6 +1,6 @@
 using System.Net.Sockets;
 
-namespace InpaMac.App;
+namespace BMacW.Host;
 
 // The THOR WiFi adapter, exposed to JavaScript.
 //

@@ -1,4 +1,4 @@
-namespace InpaMac.App;
+namespace BMacW.Host;
 
 // Where the app's files live, for the shell alone.
 //
@@ -20,6 +20,15 @@ public static class AppPaths
         string bundled = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory, "..", "Resources", "data"));
         if (IsRoot(bundled)) return bundled;
+
+        // Windows/Linux release: no bundle to hide inside, so the data sits in
+        // a `data` folder beside the executable.
+        string beside = Path.Combine(AppContext.BaseDirectory, "data");
+        if (IsRoot(beside)) return beside;
+
+        // ...or the executable's own directory IS the root (published with the
+        // renderer copied in flat, which is what the zip layout does).
+        if (IsRoot(AppContext.BaseDirectory)) return AppContext.BaseDirectory;
 
         // dev tree: walk up from bin/ to the repo root
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
