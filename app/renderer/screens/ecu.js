@@ -136,8 +136,16 @@ async function showEcu(chassisId, sectionName, ecu) {
       `${items.length} functions`;
     if (bar) bar.remove();
     grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
+    // registered BEFORE the first draw, because renderIrMenu redraws the root
+    // itself when a submenu returns and the entry has to survive that
+    const show = await hasCoding(ecu.sgbd);
+    if (typeof setIrRootExtras === 'function') {
+      setIrRootExtras(show
+        ? (e, c) => addCodingEntry(e, chassisId, sectionName, c)
+        : null);
+    }
     renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
-    await addCodingEntry(ecu, chassisId, sectionName, grid);
+    if (show) addCodingEntry(ecu, chassisId, sectionName, grid);
     return;
   }
 
@@ -163,15 +171,16 @@ async function showEcu(chassisId, sectionName, ecu) {
 // It appends to the rendered root menu instead of being merged into the IR's
 // item list, because the IR is INPA's bytecode and adding an invented key to
 // it would put a row on the softkey bar with an F-number INPA never assigned.
-async function addCodingEntry(ecu, chassisId, sectionName, grid) {
-  if (typeof hasCoding !== 'function' || !(await hasCoding(ecu.sgbd))) return;
+function addCodingEntry(ecu, chassisId, sectionName, grid) {
+  // called after every draw of the root menu, so never add a second one
+  if (grid.querySelector('.app-coding-entry')) return;
   const back = () => showEcu(chassisId, sectionName, ecu);
   const open = () => {
     setCrumbs([
       { label: 'Vehicles', fn: showChassis },
       { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
       { label: ecu.label, fn: back },
-      { label: 'Coding' },
+      { label: 'Coding map' },
     ]);
     // the car you are actually looking at, so the coding map opens on its
     // own chassis instead of whichever sorts first
@@ -184,18 +193,18 @@ async function addCodingEntry(ecu, chassisId, sectionName, grid) {
     const list = grid.querySelector('#ir-list');
     if (!list) return;
     const row = document.createElement('button');
-    row.className = 'inpa-fn act-key-row';
+    row.className = 'inpa-fn act-key-row app-coding-entry';
     row.innerHTML = `<span class="inpa-fn-key">&lt; C &gt;</span>`
-      + `<span class="inpa-fn-label">Coding</span>`
+      + `<span class="inpa-fn-label">Coding map</span>`
       + `<span class="act-key-val">read</span>`
       + `<span class="ir-enter">&#8629;</span>`;
     row.onclick = open;
     list.appendChild(row);
   } else {
     const tile = document.createElement('div');
-    tile.className = 'group-tile';
-    tile.innerHTML = `<div class="group-name">Coding</div>
-      <div class="group-count">read what this module is coded to</div>
+    tile.className = 'group-tile app-coding-entry';
+    tile.innerHTML = `<div class="group-name">Coding map</div>
+      <div class="group-count">what every coding bit in this module means</div>
       <div class="group-arrow">→</div>`;
     tile.onclick = open;
     grid.appendChild(tile);
@@ -208,7 +217,7 @@ async function addCodingEntry(ecu, chassisId, sectionName, grid) {
   // would clear the shift row renderIrMenu just installed and stop the header's
   // polling, and this key is an addition to that bar, not a new screen.
   if (typeof addAction === 'function')
-    addAction({ key: 'c', keyLabel: 'C', label: 'Coding', fn: open });
+    addAction({ key: 'c', keyLabel: 'C', label: 'Coding map', fn: open });
 }
 
 // INPA softkey captions, kept verbatim in both UI modes — except the

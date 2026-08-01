@@ -1518,8 +1518,22 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   setActions([...keys(), {
     key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back,
   }], shiftKeys());
+
+  // Anything the app adds to an ECU's ROOT menu has to be re-added here, not
+  // just once when the screen opens: this function redraws the root from
+  // inside itself whenever a submenu returns, and a row appended afterwards
+  // is wiped by that redraw. The app's Coding entry went missing exactly that
+  // way -- open INPA's own Coding key, press Back, and it was gone.
+  if (menuName === irRootMenu(ir, ecu._variant) && typeof irRootExtras === 'function') {
+    irRootExtras(ecu, container);
+  }
   return true;
 }
+
+// Set by showEcu: what to append to the root menu after every draw of it.
+// A function of (ecu, container), or null when there is nothing to add.
+let irRootExtras = null;
+function setIrRootExtras(fn) { irRootExtras = fn; }
 
 // The ECU's own root menu, rendered as INPA draws it.
 //
