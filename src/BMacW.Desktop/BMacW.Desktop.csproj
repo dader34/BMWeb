@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- BMacW for Windows and Linux.
+       The macOS app (InpaMac.App) is AppKit + WKWebView and stays as it is:
+       it is the platform this was written on and it wears its chrome
+       properly. This is the same renderer and the same BMacW.Host core in a
+       Photino window, which is WebView2 on Windows and WebKitGTK on Linux. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>BMacW.Desktop</RootNamespace>
+    <!-- the binary users double-click, so it carries this build's name -->
+    <AssemblyName>BMWeb</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.8.3</Version>
+    <!-- one folder to copy, no runtime to install first -->
+    <SelfContained>true</SelfContained>
+    <!-- Photino ships native libraries per RID; trimming strips the managed
+         glue that finds them, and the BMW data dwarfs anything trimming would
+         save anyway (same reasoning as the macOS bundle). -->
+    <PublishTrimmed>false</PublishTrimmed>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Windows reads the icon out of the .exe itself for Explorer and the
+         taskbar; Program.cs also points the window at a file at runtime,
+         which is what GTK needs on Linux. -->
+    <ApplicationIcon>..\..\app\icon.ico</ApplicationIcon>
+    <Product>BMWeb</Product>
+    <AssemblyTitle>BMWeb</AssemblyTitle>
+    <Description>BMW diagnostics: faults, live values, wiring diagrams, coding</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
+    <ProjectReference Include="..\BMacW.Host\BMacW.Host.csproj" />
+  </ItemGroup>
+
+</Project>

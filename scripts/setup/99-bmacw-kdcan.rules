@@ -1,0 +1,29 @@
+# K+DCAN cable access without root, on Linux.
+#
+#   sudo cp 99-bmacw-kdcan.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   (unplug and replug the cable)
+#
+# WHY THIS EXISTS: /dev/ttyUSB0 belongs to root:dialout, so opening it fails
+# with "access denied" until you are in that group -- which needs a full log
+# out to take effect, and is easy to mistake for a broken cable. This grants
+# the cable to whoever is at the machine instead, which is the same trust
+# model as plugging in any other USB device you own.
+#
+# The alternative, if you prefer groups:
+#   sudo usermod -aG dialout $USER    # then log out and back in
+#
+# The IDs below are the chips BMW K+DCAN cables actually ship with. A cable
+# that enumerates as something else will not match; find its ids with
+# `lsusb` and add a line.
+
+# FTDI FT232R -- the genuine and most common K+DCAN cable
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", TAG+="uaccess", MODE="0660", GROUP="dialout"
+# FTDI FT232H / FT2232 variants
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", TAG+="uaccess", MODE="0660", GROUP="dialout"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", TAG+="uaccess", MODE="0660", GROUP="dialout"
+# WCH CH340/CH341 -- most clone cables
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", TAG+="uaccess", MODE="0660", GROUP="dialout"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="5523", TAG+="uaccess", MODE="0660", GROUP="dialout"
+# Silicon Labs CP210x -- some interfaces
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", TAG+="uaccess", MODE="0660", GROUP="dialout"

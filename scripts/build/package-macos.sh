@@ -43,7 +43,13 @@ if [ ! -d "$ROOT/dist-web/api" ]; then
   echo "       scripts/build/build-web.sh" >&2
   exit 1
 fi
-cp -R "$ROOT/dist-web"                     "$DATA/dist-web"
+# THE FROZEN API ONLY. dist-web is a BUILD of the renderer (build-web.sh
+# copies app/renderer into it and adds api/), so copying the whole tree
+# bundled the renderer twice -- and with it a second copy of the ~1 GB of
+# wiring archives. StaticHost serves app/renderer for the app's own files and
+# dist-web only for the frozen API beside them.
+mkdir -p "$DATA/dist-web"
+cp -R "$ROOT/dist-web/api"                 "$DATA/dist-web/api"
 
 echo "==> ad-hoc signing (after resources, so the seal matches final contents)"
 codesign --force --deep --sign - "$STAGE/BMacW.app"

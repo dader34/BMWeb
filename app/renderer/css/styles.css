@@ -72,10 +72,12 @@ html, body {
   background: linear-gradient(180deg, #131a22, #0d1217);
   border-bottom: 1px solid var(--line);
 }
-/* the web build removes .win-controls, which left the 1fr column on
+/* Hosts that keep the window's own titlebar -- a browser tab, and the
+   Windows/Linux build -- remove .win-controls, which left the 1fr column on
    .topbar-right and dragged everything leftward; re-shape the grid so the
-   breadcrumbs take the slack and the right group stays right */
-html.web .topbar { grid-template-columns: auto 1fr auto; }
+   breadcrumbs take the slack and the right group stays right. Only the macOS
+   app draws its own traffic lights, which is why it alone keeps them. */
+html.no-chrome .topbar { grid-template-columns: auto 1fr auto; }
 
 /* custom traffic-light controls (frameless window) */
 .win-controls { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 8px; }

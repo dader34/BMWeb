@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using BMacW.Host;
 using AppKit;
 using CoreGraphics;
 using Foundation;

@@ -1,6 +1,6 @@
 using System.IO.Ports;
 
-namespace InpaMac.App;
+namespace BMacW.Host;
 
 // The cable, exposed to JavaScript.
 //
@@ -28,18 +28,42 @@ public sealed class SerialProxy : IDisposable
 
     public string? PortPath => _port?.PortName;
 
-    // Cables enumerate as tty.usbserial-XXXX (FTDI) or cu.usbserial-XXXX.
-    // Prefer "cu." -- "tty." blocks on open until DCD is asserted, which an
-    // OBD cable never does, so opening the tty node can hang the app.
+    // The cables this app sees, per platform.
+    //
+    // macOS: tty.usbserial-XXXX (FTDI) or cu.usbserial-XXXX. Prefer "cu." --
+    // "tty." blocks on open until DCD is asserted, which an OBD cable never
+    // does, so opening the tty node can hang the app.
+    //
+    // Linux: /dev/ttyUSB* (FTDI, CH340) and /dev/ttyACM* (CDC). Note that
+    // reaching these usually needs the user in the `dialout` group, or the
+    // udev rule shipped in scripts/setup/ -- otherwise the node exists and
+    // opening it is denied, which Open() reports as such.
+    //
+    // Windows: COM ports, which SerialPort itself enumerates. There is no
+    // path pattern to match, so ask the framework rather than guessing.
     public static List<string> ListPorts()
     {
         var found = new List<string>();
-        foreach (var pattern in new[] { "cu.usbserial*", "cu.usbmodem*",
-                                        "cu.SLAB*", "cu.wchusbserial*" })
+
+        if (OperatingSystem.IsWindows())
         {
-            if (!Directory.Exists("/dev")) break;
-            foreach (var dev in Directory.EnumerateFiles("/dev", pattern))
-                if (!found.Contains(dev)) found.Add(dev);
+            // COM1..COMn in the order Windows reports them. A K+DCAN cable is
+            // whichever COM the FTDI driver claimed; we cannot tell which from
+            // the name alone, so all of them are offered and the user picks.
+            foreach (var name in SerialPort.GetPortNames())
+                if (!found.Contains(name)) found.Add(name);
+            return found;
+        }
+
+        var patterns = OperatingSystem.IsMacOS()
+            ? new[] { "cu.usbserial*", "cu.usbmodem*", "cu.SLAB*", "cu.wchusbserial*" }
+            : new[] { "ttyUSB*", "ttyACM*" };
+
+        if (Directory.Exists("/dev"))
+        {
+            foreach (var pattern in patterns)
+                foreach (var dev in Directory.EnumerateFiles("/dev", pattern))
+                    if (!found.Contains(dev)) found.Add(dev);
         }
         return found;
     }
@@ -49,7 +73,13 @@ public sealed class SerialProxy : IDisposable
         Close();
         string dev = string.IsNullOrEmpty(path) ? (ListPorts().FirstOrDefault() ?? "") : path;
         if (string.IsNullOrEmpty(dev))
-            throw new InvalidOperationException("no K+DCAN cable found (no /dev/cu.usbserial*)");
+        {
+            // say where we looked, in the terms of the platform we are on
+            string where = OperatingSystem.IsWindows() ? "no COM port is present"
+                : OperatingSystem.IsMacOS() ? "no /dev/cu.usbserial*"
+                : "no /dev/ttyUSB* or /dev/ttyACM*";
+            throw new InvalidOperationException($"no K+DCAN cable found ({where})");
+        }
 
         var p = new SerialPort(dev, baud <= 0 ? 115200 : baud, Parity.None, 8, StopBits.One)
         {
@@ -62,7 +92,23 @@ public sealed class SerialProxy : IDisposable
             DtrEnable = true,
             RtsEnable = true,
         };
-        p.Open();
+        try
+        {
+            p.Open();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // The usual Linux first run: the node is there and the user is not
+            // in the group that may open it. Saying "access denied" alone
+            // sends people looking for a broken cable, so say what to do.
+            if (OperatingSystem.IsLinux())
+                throw new InvalidOperationException(
+                    $"{dev} exists but this user may not open it. Add yourself to "
+                    + "the dialout group (sudo usermod -aG dialout $USER, then log "
+                    + "out and back in), or install the udev rule in "
+                    + "scripts/setup/99-bmacw-kdcan.rules.");
+            throw;
+        }
         p.DiscardInBuffer();
         p.DiscardOutBuffer();
         _port = p;

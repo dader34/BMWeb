@@ -49,16 +49,39 @@ it differs by host: Web Serial in a browser, a small serial proxy in the macOS
 shell.
 
 
-## Two builds, one renderer
+## Three builds, one renderer
 
-The same renderer runs in both. `app/renderer/webshim.js` decides at load time
-where data and bytes come from.
+The same renderer runs in all of them. `app/renderer/webshim.js` decides at
+load time where data and bytes come from, and each shell provides only what a
+web page cannot do for itself: the cable, a raw socket, and the file dialogs.
 
-**macOS app.** A Cocoa window around WKWebView. The shell serves the renderer
-over loopback, owns `/dev/cu.usbserial*`, and provides PDF export, CSV logging,
-durable settings and window chrome. About 600 lines of C#, no EDIABAS.
+**macOS app (BMacW).** A Cocoa window around WKWebView. The shell serves the
+renderer over loopback, owns `/dev/cu.usbserial*`, and provides PDF export,
+CSV logging, durable settings and window chrome. About 600 lines of C#, no
+EDIABAS.
 
-**Web build.** `scripts/build/build-web.sh` produces a static directory. Reading ECU
+**Windows and Linux app (BMWeb).** The same thing in a Photino window, which
+is WebView2 on Windows and WebKitGTK on Linux. It shares the cable, the THOR
+socket, the file server and the settings file with the macOS build
+(`src/BMacW.Host`), so anything that talks to a car is literally the same
+code. Three macOS-only affordances are absent rather than stubbed, and the
+renderer feature-detects each: PDF fault reports, the translucent Aero skin,
+and dock-icon theming.
+
+```sh
+scripts/build/build-web.sh                 # dist-web/api, needed by the app
+scripts/build/package-desktop.sh all       # -> dist-release/BMWeb-*.zip / .tar.gz
+BMACW_NO_WIRING=1 scripts/build/package-desktop.sh all   # 160 MB instead of 1.2 GB
+```
+
+Both cross-build from any platform: `dotnet publish -r` handles the runtime
+and Photino ships prebuilt native libraries per target. Users need the
+WebView2 runtime on Windows (already present on Windows 11 and current 10) or
+`libwebkit2gtk-4.1` on Linux, plus cable permission via
+`scripts/setup/99-bmacw-kdcan.rules` or the `dialout` group. The full notes
+ship beside the binary as `scripts/build/desktop-README.txt`.
+
+**Web build (BMWeb).** `scripts/build/build-web.sh` produces a static directory. Reading ECU
 data works with no cable and no server. Running a job needs a K+DCAN cable and a
 browser with Web Serial, which means desktop Chrome or Edge.
 
@@ -331,7 +354,9 @@ ships per car rather than per module. Neither is shipped.
 
 ```
 app/renderer/     the UI: IR interpreter, BEST2 VM, transport shim
-src/InpaMac.App/  macOS shell: window, serial proxy, static file host
+src/BMacW.Host/   shared shell core: file host, cable, TCP, settings, paths
+src/InpaMac.App/  macOS shell: AppKit window + WKWebView around that core
+src/BMacW.Desktop/ Windows/Linux shell: Photino window around the same core
 src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
 tools/            decompilers, exporters, test harnesses
 data/ecu-src/     committed source: one gzipped copy per SGBD
