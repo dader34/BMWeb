@@ -26,8 +26,13 @@
 // THE SEND IS BLOCKED, like the coding writes. SPEICHER_SCHREIBEN makes the
 // nav reload its voice data; wrong codes leave it without a working language,
 // and recovering means writing again through the nav you just broke. This
-// stages the change and shows the exact job and arguments. Reading is safe
-// and runs for real.
+// stages the change and shows the exact job and arguments.
+//
+// AND IT DOES ONLY THIS. An earlier version also ran SPEICHER_LESEN and
+// printed the module's current languages, software-load state and codes at
+// the top. That is a different key -- "Current languages read" is F1 of the
+// same INPA menu -- and putting it here made a one-job screen look like a
+// status page. This key loads languages, so this screen picks languages.
 
 // Languages beyond the stock table, from the keys BMW hardcodes in NAVI.IPO
 // because CODESPRACHEN does not list them.
@@ -92,29 +97,28 @@ async function showNavLanguages(ecu, container, back) {
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
 
   const langs = await navLanguages(ecu.sgbd);
-  let current = null;           // what the module reports
   let picked = [null, null, null];
-  let readErr = null;
 
   const byCode = (c) => langs.find(l => l.code === c);
+  const hex = (c) => `0x${c.toString(16).toUpperCase().padStart(2, '0')}`;
 
   const draw = () => {
     setPanel();
     const chosen = picked.filter(c => c != null);
     const opt = (sel, i) => `<option value=""${sel == null ? ' selected' : ''}>`
-      + `— slot ${i + 1} —</option>`
+      + `\u2014 slot ${i + 1} \u2014</option>`
       + langs.map(l => `<option value="${l.code}"`
         + `${l.code === sel ? ' selected' : ''}>`
-        + `${esc(l.label)} · 0x${l.code.toString(16).toUpperCase().padStart(2, '0')}`
-        + `</option>`).join('');
+        + `${esc(l.label)} \u00b7 ${hex(l.code)}</option>`).join('');
 
     cont.innerHTML = `
       <div class="act-menu">
-        <div class="act-menu-title">Voice languages</div>
-        <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg · `
-      + `SPEICHER_LESEN / SPEICHER_SCHREIBEN</div>
-        <div class="cod-note" id="nav-note"></div>
-        <div class="ident-card" id="nav-current"></div>
+        <div class="act-menu-title">Load languages</div>
+        <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg \u00b7 `
+      + `SPEICHER_SCHREIBEN</div>
+        <div class="cod-note"><span class="cod-note-dim">INPA loads these `
+      + `three from a file on the PC. They are just language codes, so pick `
+      + `them here.</span></div>
         <div class="nav-pickers">
           ${[0, 1, 2].map(i => `<label class="dat-pick">Language ${i + 1}
             <select class="nav-pick" data-i="${i}">${opt(picked[i], i)}</select>
@@ -123,59 +127,32 @@ async function showNavLanguages(ecu, container, back) {
         <div class="cod-blocked" id="nav-send"></div>
       </div>`;
 
-    const note = cont.querySelector('#nav-note');
-    const card = cont.querySelector('#nav-current');
-    if (readErr) {
-      card.innerHTML = errorBlock(readErr);
-    } else if (!current) {
-      card.innerHTML = `<div class="empty"><span class="loader"></span>`
-        + `<span>Reading the module…</span></div>`;
-    } else {
-      card.innerHTML = current.map(([k, v]) =>
-        `<div class="ident-line"><span class="ident-lk">${esc(k)}</span>`
-        + `<span class="ident-lc">:</span>`
-        + `<span class="ident-lv">${esc(v)}</span></div>`).join('')
-        || `<div class="empty"><div>The module named no languages.</div></div>`;
-    }
-    note.innerHTML = current
-      ? '<span class="cod-note-dim">What this nav computer currently has loaded.</span>'
-      : '';
-
     // what WOULD be sent, spelled out, and why it is not
     const send = cont.querySelector('#nav-send');
     if (chosen.length === 3) {
-      // hex, the way BMW writes it in its own hardcoded keys
-      // (0x89;0x81;0x86), so the string can be compared with theirs directly
-      const hex = (c) => `0x${c.toString(16).toUpperCase().padStart(2, '0')}`;
       const args = picked.map(hex).join(';');
-      // each language already reads "English UK, female", so joining three of
-      // them with commas ran them together; separate the slots clearly
       const names = picked
-        .map(c => (byCode(c) || {}).label || `0x${c.toString(16)}`)
+        .map(c => (byCode(c) || {}).label || hex(c))
         .map((n, i) => `${i + 1}. ${n}`).join('   ');
       send.innerHTML = `<b>Not sent.</b> This would run `
         + `<span class="mono">SPEICHER_SCHREIBEN</span> with `
-        + `<span class="mono">${esc(args)}</span> — ${esc(names)}. `
+        + `<span class="mono">${esc(args)}</span><br>${esc(names)}<br><br>`
         + `Sending is disabled: the nav reloads its voice data from this, and `
         + `wrong codes leave it with no working language, which is recovered `
-        + `by writing again through the nav you just broke. Use this to check `
-        + `the codes, not to apply them.`;
+        + `by writing again through the nav you just broke.`;
     } else {
-      send.innerHTML = `<span class="cod-note-dim">Choose three languages to `
-        + `see exactly what INPA would send. Nothing is written to the car.`
-        + `</span>`;
+      send.innerHTML = `<span class="cod-note-dim">Choose three to see exactly `
+        + `what INPA would send. Nothing is written to the car.</span>`;
     }
 
     cont.querySelectorAll('.nav-pick').forEach(sel => {
       sel.onchange = () => {
-        const i = Number(sel.dataset.i);
-        picked[i] = sel.value === '' ? null : Number(sel.value);
+        picked[Number(sel.dataset.i)] = sel.value === '' ? null : Number(sel.value);
         draw();
       };
     });
 
-    const acts = [{ key: '1', keyLabel: 'F1', label: 'Read', kind: 'primary',
-                    fn: doRead }];
+    const acts = [];
     if (chosen.length) {
       acts.push({ key: '3', keyLabel: 'F3', label: 'Clear',
                   fn: () => { picked = [null, null, null]; draw(); } });
@@ -183,39 +160,9 @@ async function showNavLanguages(ecu, container, back) {
     if (back) acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back',
                           kind: 'back', fn: back });
     setActions(acts);
+    sbLeft.textContent = `${ecu.sgbd}.prg \u00b7 load languages`;
     tipify(cont);
   };
 
-  // SPEICHER_LESEN is a read and runs for real. It names both what is loaded
-  // now and what a previous modification asked for, which is the pair worth
-  // seeing before changing anything.
-  const doRead = async () => {
-    readErr = null;
-    current = null;
-    draw();
-    sbLeft.textContent = 'SPEICHER_LESEN…';
-    try {
-      const d = await api(`/api/ecu/${ecu.sgbd}/run/SPEICHER_LESEN`,
-                          { method: 'POST' });
-      const vals = new Map(flatResults(d.sets));
-      const want = [
-        ['SPRACHE_1_AKTUELL_TEXT', 'Language 1'],
-        ['SPRACHE_2_AKTUELL_TEXT', 'Language 2'],
-        ['SPRACHE_3_AKTUELL_TEXT', 'Language 3'],
-        ['SPRACHEN_AKTUELL_CODE', 'Current code'],
-        ['SPRACHEN_MODIFIZIERT_CODE', 'Modified code'],
-        ['STAT_SW_LADEN_TEXT', 'Software load'],
-      ];
-      current = want.filter(([k]) => vals.has(k))
-                    .map(([k, label]) => [label, String(vals.get(k))]);
-      sbLeft.textContent = `SPEICHER_LESEN · ${current.length} values`;
-    } catch (e) {
-      readErr = e.message;
-      sbLeft.textContent = 'read failed';
-    }
-    draw();
-  };
-
   draw();
-  doRead();
 }
