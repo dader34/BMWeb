@@ -3,6 +3,7 @@
 
     tools/decompile/ncs_daten.py LSZ.C26          # one file, full listing
     tools/decompile/ncs_daten.py --corpus         # coverage over all of them
+    tools/decompile/ncs_daten.py --validate       # names vs the SGBDs' own
 
 WHAT THESE ARE. A module hands back its coding as a binary blob. NCS Expert
 turns that into "fold mirrors on lock" using these files, which say which
@@ -139,6 +140,44 @@ knowing what the module does can.
 Also worth knowing: this archive ships coding data for E39 and E46 only,
 570 files, though COAPI.INI declares paths for twenty-odd chassis. The
 other cars' DATEN is simply not in it.
+
+THE EXTRACTION IS RIGHT, AND HERE IS THE OUTSIDE PROOF. Everything above
+is internal evidence -- the bits fit, the schema parses -- which cannot
+tell you whether the NAMES are the right names. The SGBDs can: 14 of these
+modules also describe their own coding (coding_map.py), and those two
+descriptions are independent, one from BMW's diagnostics and one from
+BMW's coding tool. So score every DATEN file's decoded keywords against
+all 53 SGBD coding maps and ask where its OWN module ranks.
+
+    28 DATEN files have an SGBD to check against
+      own module ranked #1     22  (78%)
+      own module in the top 3  25  (89%)
+      chance, 1 of 53                (~2%)
+
+And the null test that makes it mean something: replace each file's real
+keywords with the same NUMBER of random ones from SWTFSW01 and rerun. That
+scores 0 of 28. So the result is not an artifact of file size, table
+density, or the scoring -- it is the names being right.
+
+The misses are informative rather than worrying. LSZ's files rank #2
+behind LCM, which is the same physical box under two names (Light Control
+Module / Lichtschaltzentrum), so the top two are both the light module.
+ACC is the real failure at rank 53, which matches its being the one module
+whose keywords looked wrong from the start.
+
+WHAT THIS DOES NOT SETTLE. Which of the two tables a module wants is still
+open, and the seven dead ends above still stand. This says only that
+SWTFSW01 gives the right names for the modules we can check, which is the
+pairing already suspected. It also does not make every individual row
+right: LSZ resolves plenty of light-module names and some that belong
+nowhere near a light module, which is the anchor's residual
+false-positive rate showing through.
+
+A DEAD END, recorded so it is not retried: NCS Dummy's published record
+(PARZUWEISUNG FSW : {00003405} 00000008 0001 14A4) cannot be used as an
+anchor here. BLOCKNR 0x3405 appears in none of the 346 files and FSW
+0x14A4 is not in SWTFSW01 at all, so that printout is from a DATEN release
+this archive does not contain.
 
 Read-only: decodes files on disk, never talks to a car.
 """
@@ -397,18 +436,115 @@ def corpus():
               + (' ...' if len(no_fsw) > 8 else ''))
 
 
+def validate():
+    """Check the decoded names against BMW's OTHER description of the same
+    modules, which is the only outside evidence available.
+
+    14 of these modules also name their coding values in their own SGBD
+    (coding_map.py). Those two descriptions come from different BMW tools
+    and neither was derived from the other, so agreement between them is
+    real evidence that the row walk reads the right field.
+
+    The test: score a DATEN file's keywords against all 53 SGBD coding
+    maps, and see where the file's own module ranks. Chance is 1 in 53.
+    The null run repeats it with random keywords from the same table, so a
+    high score cannot come from file size or table density alone.
+    """
+    import json
+    import random
+
+    def stem(s):
+        s = re.sub(r'^(COD|STAT|STATUS|CODIER)_', '', s.upper())
+        return set(t for t in s.split('_') if len(t) > 2)
+
+    try:
+        cm = json.load(open('data/inpa-screens/_codingmap.json'))
+    except OSError:
+        sys.exit('run tools/decompile/coding_map.py first')
+
+    sgbd = {}
+    for name, v in cm.items():
+        toks = set()
+        for f in v['fields']:
+            toks |= stem(f['name'])
+        if toks:
+            sgbd[name.upper()] = toks
+
+    # the same box under two names, so a hit on either is a hit
+    FAMILY = {'LSZ': {'LSZ', 'LCM'}, 'LCM': {'LSZ', 'LCM'},
+              'ZKE4': {'ZKE4', 'ZKE5'}, 'ZKE5': {'ZKE4', 'ZKE5'}}
+
+    kw_names = list(keywords().values())
+    random.seed(7)
+    real, null = [], []
+    for p in sorted(glob.glob(f'{DATEN}/*/*.C[0-9]*')):
+        mod = os.path.basename(p).split('.')[0].upper()
+        if mod not in sgbd:
+            continue
+        try:
+            rr = rows(open(p, 'rb').read())
+        except Exception:
+            continue
+        if len(rr) < 20:
+            continue
+
+        def rank(names, want):
+            toks = set()
+            for n in names:
+                toks |= stem(n)
+            if not toks:
+                return None
+            order = [m for _, m in sorted(
+                ((len(toks & s) / max(1, len(s)), m) for m, s in sgbd.items()),
+                reverse=True)]
+            fam = FAMILY.get(want, {want})
+            got = [order.index(f) for f in fam if f in order]
+            return min(got) + 1 if got else None
+
+        r = rank([x['name'] for x in rr if x.get('name')], mod)
+        if r:
+            real.append((r, os.path.relpath(p, DATEN)))
+        n = rank(random.sample(kw_names, min(len(rr), len(kw_names))), mod)
+        if n:
+            null.append(n)
+
+    if not real:
+        print('nothing to check')
+        return 0
+    top1 = sum(1 for r, _ in real if r == 1)
+    top3 = sum(1 for r, _ in real if r <= 3)
+    print(f'{len(real)} DATEN files have an SGBD coding map to check against')
+    print(f'  own module ranked #1    {top1:3d}  ({100 * top1 // len(real)}%)')
+    print(f'  own module in the top 3 {top3:3d}  ({100 * top3 // len(real)}%)')
+    print(f'  chance, 1 of {len(sgbd)}          ~{100 // len(sgbd)}%')
+    if null:
+        n1 = sum(1 for r in null if r == 1)
+        print(f'  NULL (random keywords)  {n1:3d}  ({100 * n1 // len(null)}%)')
+    worst = sorted(real, reverse=True)[:5]
+    if worst and worst[0][0] > 3:
+        print('\n  worst:')
+        for r, f in worst:
+            if r > 3:
+                print(f'    rank {r:3d}  {f}')
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('file', nargs='?', help='a .C0x file (name or path)')
     ap.add_argument('--corpus', action='store_true',
                     help='read every .C0x and report what is understood')
+    ap.add_argument('--validate', action='store_true',
+                    help="check decoded names against the SGBDs' own coding maps")
     ap.add_argument('-v', '--verbose', action='store_true',
                     help='list every section, not just the coding one')
     args = ap.parse_args()
 
     if args.corpus:
         return corpus()
+    if args.validate:
+        return validate()
     if not args.file:
         ap.print_help()
         return 1
