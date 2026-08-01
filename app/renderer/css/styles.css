@@ -1058,6 +1058,22 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .cod-toggle.on .cod-lamp { color: var(--green); }
 .cod-toggle.on .cod-state { color: var(--ink); }
 
+/* Nav voice languages: three slots, each a label above its own picker.
+   Stacked rather than inline because the option text is long ("English UK,
+   female · 0x81") and a row of label-then-select ran the three together. */
+.nav-pickers {
+  display: flex; flex-wrap: wrap; gap: 12px 18px;
+  margin: 14px 0 12px;
+}
+.nav-pickers .dat-pick {
+  flex-direction: column; align-items: flex-start; gap: 4px;
+}
+.nav-pickers select {
+  min-width: 230px; font-family: var(--mono); font-size: 12px;
+}
+/* the staged telegram sits under the pickers, not beside them */
+#nav-send { max-width: 720px; margin-top: 4px; }
+
 /* the DATEN reference's toolbar: chassis and coding-index pickers plus a
    search, because a module can describe nine chassis and thirty-three
    indices and cycling those one keypress at a time does not scale */
