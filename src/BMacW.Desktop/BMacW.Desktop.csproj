@@ -13,7 +13,7 @@
     <AssemblyName>BMWeb</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>0.8.3</Version>
+    <Version>0.9.0</Version>
     <!-- one folder to copy, no runtime to install first -->
     <SelfContained>true</SelfContained>
     <!-- Photino ships native libraries per RID; trimming strips the managed
