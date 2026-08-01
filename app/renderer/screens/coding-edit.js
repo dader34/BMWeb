@@ -391,10 +391,110 @@ async function codingFor(sgbd) {
   return map[String(sgbd).toLowerCase()] || null;
 }
 
+// BMW's DATEN description of the same module, for the ECUs whose SGBD
+// names nothing. Where the SGBD hands back one opaque CODIER_DATA buffer,
+// this says which bit at which address is which function -- and, unlike the
+// SGBD, what the settings are actually CALLED (aktiv / nicht_aktiv).
+//
+// One module ships several coding variants and nothing on the bench says
+// which a given car wants: that comes from the module's own coding index,
+// which is only knowable with the car connected. So the reference lists
+// every variant rather than picking one.
+async function datenFor(sgbd) {
+  if (typeof loadDatenMap !== 'function') return null;
+  await loadDatenMap();
+  const map = (typeof window !== 'undefined' && window.BMW_DATEN_MAP) || null;
+  if (!map || !sgbd) return null;
+  return map[String(sgbd).toLowerCase()] || null;
+}
+
 // Does this ECU have a coding page worth offering? Used by the ECU menu to
-// decide whether to show the key at all.
+// decide whether to show the key at all. Either source will do: the SGBD's
+// own named values, or BMW's DATEN description of its blob.
 async function hasCoding(sgbd) {
-  return !!(await codingFor(sgbd));
+  return !!(await codingFor(sgbd)) || !!(await datenFor(sgbd));
+}
+
+// BMW's DATEN coding sheet for a module, as a reference.
+//
+// A READING, NOT A READOUT. Everything here comes off the disk: this is
+// what the module's coding memory MEANS, not what this car currently holds.
+// Turning it into live values needs the coding blob off the car and the
+// module's own coding index to pick the variant, neither of which the app
+// reads yet -- so the screen says so rather than implying otherwise.
+//
+// The address is shown because it is the useful part: block, word, byte and
+// mask are exactly what another coding tool wants, and what makes a value
+// checkable against a known-good car.
+function showDatenReference(ecu, daten, cont, setPanel, back) {
+  const chassis = Object.keys(daten.chassis);
+  let chIdx = 0;
+  let varIdx = 0;
+
+  const draw = () => {
+    const ch = chassis[chIdx];
+    const variants = Object.keys(daten.chassis[ch]);
+    if (varIdx >= variants.length) varIdx = 0;
+    const vname = variants[varIdx];
+    const fields = daten.chassis[ch][vname];
+
+    setPanel();
+    cont.innerHTML = `
+      <div class="act-menu">
+        <div class="act-menu-title">Coding map</div>
+        <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg · DATEN `
+      + `${esc(daten.daten)} · ${esc(ch)} · index ${esc(vname)}</div>
+        <div class="cod-note">
+          <span class="cod-note-dim">${fields.length} function`
+      + `${fields.length === 1 ? '' : 's'} BMW's coding tool knows for this `
+      + `module. This is the map, read from disk — not this car's settings.`
+      + `</span>
+        </div>
+        <div class="cod-list" id="dat-list"></div>
+      </div>`;
+    const list = cont.querySelector('#dat-list');
+
+    fields.forEach(f => {
+      const row = document.createElement('div');
+      row.className = 'cod-row dat-row';
+      // the value list, where BMW gives one worth reading. A single entry
+      // is a default rather than a choice, and a long hex string is a
+      // buffer (a characteristic curve), not a setting.
+      const vals = (f.values || []).filter(([, v]) =>
+        typeof v !== 'string' || v.length <= 4);
+      const shown = vals.length > 1
+        ? vals.map(([n, v]) => `<span class="dat-val">`
+            + `<span class="dat-val-n">${esc(codTranslate(n, true))}</span>`
+            + `<span class="dat-val-v mono">${esc(v)}</span></span>`).join('')
+        : `<span class="ink-faint">${(f.values || []).length ? 'value' : '—'}</span>`;
+      row.innerHTML = `
+        <span class="cod-name">${esc(codTidy(codTranslate(f.name, true), f.name))}
+          <span class="cod-hint mono">${esc(f.name)}</span></span>
+        <span class="cod-key mono">blk ${f.block} · word ${f.word}`
+        + ` · byte ${f.byte} · mask 0x${f.mask.toString(16).padStart(2, '0')}</span>
+        <span class="dat-vals">${shown}</span>`;
+      list.appendChild(row);
+    });
+
+    const acts = [];
+    if (variants.length > 1) {
+      acts.push({ key: '1', keyLabel: 'F1',
+                  label: `Index ${vname} (${varIdx + 1}/${variants.length})`,
+                  fn: () => { varIdx = (varIdx + 1) % variants.length; draw(); } });
+    }
+    if (chassis.length > 1) {
+      acts.push({ key: '2', keyLabel: 'F2', label: `Chassis ${ch}`,
+                  fn: () => { chIdx = (chIdx + 1) % chassis.length; varIdx = 0; draw(); } });
+    }
+    if (back) acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                          kind: 'back', fn: back });
+    setActions(acts);
+    sbLeft.textContent = `${ecu.sgbd}.prg · DATEN ${ch}/${vname} · `
+      + `${fields.length} functions`;
+    tipify(cont);
+  };
+
+  draw();
 }
 
 // The coding screen. `back` returns to whatever opened it.
@@ -407,11 +507,14 @@ async function showCoding(ecu, container, back) {
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
   const entry = await codingFor(ecu.sgbd);
   if (!entry) {
+    // No named values in the SGBD. BMW's DATEN files may still describe
+    // this module's blob, which is the whole point of them.
+    const daten = await datenFor(ecu.sgbd);
+    if (daten) return showDatenReference(ecu, daten, cont, setPanel, back);
     setPanel();
     cont.innerHTML = errorBlock(
-      `${ecu.sgbd}.prg does not name its coding values, so there is nothing to `
-      + `label. BMW's own tool reads this module's coding as an opaque block `
-      + `and decodes it from the DATEN files, which this app does not do.`);
+      `${ecu.sgbd}.prg does not name its coding values, and BMW's DATEN files `
+      + `carry no description of this module either. There is nothing to label.`);
     if (back) setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back }]);
     return;
   }

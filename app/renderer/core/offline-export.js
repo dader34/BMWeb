@@ -32,6 +32,10 @@ const OFFLINE_SHELL = [
   // what an ECU's coding values mean. 73 KB, unlike the fault tables, so it
   // travels with the shell rather than being opt-in.
   'data/codingmap.js',
+  // ...and BMW's own coding map for the modules whose SGBD says nothing.
+  // 1.5 MB raw but ~140 KB over the wire, and it is the only description
+  // those ECUs have, so it travels too.
+  'data/datenmap.js',
 ];
 
 // The fault tables. Lazy-loaded by the app and 80 MB together, so they are

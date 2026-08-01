@@ -1058,6 +1058,16 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .cod-toggle.on .cod-lamp { color: var(--green); }
 .cod-toggle.on .cod-state { color: var(--ink); }
 
+/* the DATEN reference: an address column wide enough for block/word/mask,
+   and the value list BMW ships for each function */
+.dat-row { grid-template-columns: 1fr 240px 1fr; }
+.dat-row .cod-name { display: flex; flex-direction: column; gap: 1px; }
+.dat-row .cod-hint { margin-left: 0; }
+.dat-vals { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.dat-val { display: inline-flex; align-items: baseline; gap: 5px; }
+.dat-val-n { font-size: 11.5px; color: var(--ink-dim); }
+.dat-val-v { font-size: 10.5px; color: var(--ink-faint); }
+
 .cod-note { font-size: 12px; padding: 2px 0 8px; }
 .cod-note-dim { color: var(--ink-faint); }
 .cod-note-staged { color: var(--amber, #d79921); font-weight: 600; }

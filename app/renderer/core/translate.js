@@ -847,11 +847,14 @@ function _lazyScript(src, ready, holder) {
     return holder.p;
   };
 }
-const _metaHolder = {}, _infoHolder = {}, _codingHolder = {};
+const _metaHolder = {}, _infoHolder = {}, _codingHolder = {}, _datenHolder = {};
 const loadFaultMeta = _lazyScript('data/faultmeta.js', 'BMW_FAULT_META', _metaHolder);
 const loadFaultInfo = _lazyScript('data/faultinfo.js', 'BMW_FAULT_INFO', _infoHolder);
 // what an ECU's coding values MEAN, for the 32 SGBDs that name their own
 const loadCodingMap = _lazyScript('data/codingmap.js', 'BMW_CODING_MAP', _codingHolder);
+// ...and from BMW's DATEN files, for the ECUs whose SGBD says nothing: the
+// address, mask and value list behind each function in the coding blob
+const loadDatenMap = _lazyScript('data/datenmap.js', 'BMW_DATEN_MAP', _datenHolder);
 
 // per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. The
 // `info` field indexes into BMW_FAULT_INFO[hex] (the service document).
