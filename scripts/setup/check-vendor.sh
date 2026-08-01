@@ -63,16 +63,40 @@ echo "all present"
 
 # The wiring diagrams are separate: a different BMW product (WDS), a
 # different download, and the only thing that needs them is the wiring
-# screen. Say how to get them rather than leaving "absent" unexplained.
-if [ "$(find vendor/WDS/svg/sp -maxdepth 2 -iname '*.svgz' 2>/dev/null | wc -l | tr -d ' ')" -lt 10000 ]; then
+# screen. Check for the BUILT archives rather than the ISO -- those are what
+# the app actually reads, and most people should download them rather than
+# build them.
+n_wiring=$(ls app/renderer/data/wiring/*.wiring 2>/dev/null | wc -l | tr -d ' ')
+if [ "$n_wiring" -lt 1 ]; then
   cat <<'EOF'
 
 Wiring diagrams are optional and not installed. To add them:
 
-  scripts/setup/fetch-wds.sh          # downloads the WDS v15 ISO (4.7 GB)
-  tools/wds_import.py --wds vendor/WDS
+  scripts/setup/fetch-wiring.sh         # built archives, ~1 GB, ready to use
+  scripts/setup/fetch-wiring.sh E46     # or just one car
 
 Everything else builds and runs without them; only the Wiring screen is
-missing until they are there.
+missing until they are there. (To rebuild from BMW's ISO instead, see
+scripts/setup/fetch-wds.sh -- that is 4.7 GB and only needed to regenerate.)
 EOF
+else
+  echo "wiring: $n_wiring chassis installed"
+fi
+
+# The coding definitions are the same shape of thing: BMW's own, optional,
+# and only the Coding screen needs them.
+n_coding=$(ls -d vendor/EC-APPS/NCSEXPER/DATEN/*/ 2>/dev/null | wc -l | tr -d ' ')
+if [ "$n_coding" -lt 1 ]; then
+  cat <<'EOF'
+
+Coding definitions are optional and not installed. To add them:
+
+  scripts/setup/fetch-coding.sh         # 5.6 MB, all 18 chassis
+  tools/decompile/daten_map.py          # -> app/renderer/data/datenmap.js
+
+Without them the Coding screen still works for the 32 ECUs whose SGBD names
+its own values; these add BMW's own map for 35 more.
+EOF
+else
+  echo "coding: $n_coding chassis installed"
 fi

@@ -172,14 +172,22 @@ and wire gauges, colour codes and connector numbers stay sharp at any
 magnification. Nothing is rasterised and no viewer library is involved.
 
 ```sh
+scripts/setup/fetch-wiring.sh           # built archives, ~1 GB -> ready to use
+scripts/setup/fetch-wiring.sh E46       # or just one car
+```
+
+That is the short way: one `.wiring` archive per car, already built, straight
+into `app/renderer/data/wiring/`. To rebuild them from BMW's own ISO instead,
+which you only need for a newer WDS release:
+
+```sh
 scripts/setup/fetch-wds.sh              # WDS v15 ISO (4.7 GB) -> vendor/WDS
 tools/wds_import.py --wds vendor/WDS    # -> app/renderer/data/wiring/
 ```
 
-That writes one `.wiring` archive per car (2 to 24 MB each). WDS is a build
-input like the rest of the BMW data: it is not in this repository, and it is
-optional, so `check-vendor.sh` reports it as absent rather than failing.
-Everything else builds and runs without it; only the Wiring screen is missing.
+Either way it is optional, and `check-vendor.sh` reports it as absent rather
+than failing. Everything else builds and runs without it; only the Wiring
+screen is missing.
 The importer maps WDS's chassis names onto the app's (WDS splits `e60e61`,
 and its E90 folder is a stub pointing at E87).
 
@@ -314,6 +322,34 @@ build ships the 144 MB of diagrams and text and pulls each picture from
 keeping it in the browser's cache. The macOS app and offline copies keep the
 images inside their archives and never touch the network for them.
 
+### Coding definitions (optional)
+
+The Coding screen labels a module's settings from two independent sources.
+The first needs nothing extra: 32 ECUs name their own coding values inside
+their SGBD, and `coding_map.py` mines those. The second is BMW's own coding
+description, which is what NCS Expert reads, and covers the modules whose
+SGBD hands back an unlabelled blob:
+
+```sh
+scripts/setup/fetch-coding.sh           # 5.6 MB, all 18 chassis
+tools/decompile/daten_map.py            # -> app/renderer/data/datenmap.js
+```
+
+That is a slice of SP-Daten: 2,219 `.C0x` module files across E36 to RR1,
+each chassis with the keyword tables that name its functions and values.
+The full SP-Daten distribution is around 16 GB, but almost all of that is
+ECU firmware for reprogramming, which nothing here uses; the coding
+definitions are 17.7 MB of it.
+
+**The keyword table is per chassis** and each archive carries its own: E39
+uses `SWTFSW01`, E46 `SWTFSW06`, E60 `SWTFSW05`, E70 `SWTFSW11`. Reading a
+module against the wrong one does not fail loudly, it returns real keywords
+belonging to some other function, so chassis and table travel together.
+
+Together the two sources describe 85 of the 310 shipped ECUs. Writes stay
+blocked in either case: the screen reads, stages a change and shows exactly
+what would be sent, and there is no send path in it at all.
+
 ### Check the layout
 
 Before anything else. It names exactly what is missing and where it goes:
@@ -363,6 +399,7 @@ data/ecu-src/     committed source: one gzipped copy per SGBD
 data/chassis/     derived per-car tree (gitignored)
 vendor/           BMW originals: NOT in the repo, supply your own
 vendor/WDS/       BMW's wiring diagrams, optional (scripts/setup/fetch-wds.sh)
+vendor/EC-APPS/NCSEXPER/DATEN/  coding definitions (scripts/setup/fetch-coding.sh)
 ```
 
 `src/InpaMac.Cli` still links EDIABAS on purpose. It is the ground truth the VM

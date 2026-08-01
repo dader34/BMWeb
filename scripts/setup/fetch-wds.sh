@@ -11,10 +11,20 @@
 # renderer draws natively), 20,296 functional descriptions, and one document
 # tree per chassis -- 18 of them, E38 through F01.
 #
-# OPTIONAL. Everything else builds and runs without this; only the Wiring
-# screen needs it. That is why it is a separate script from fetch-vendor.sh:
-# different BMW product, different download, and 4.7 GB nobody should pull
-# unless they want the diagrams.
+# YOU PROBABLY WANT fetch-wiring.sh INSTEAD. This script exists to BUILD the
+# .wiring archives from BMW's ISO, which is 4.7 GB to download and about half
+# an hour to import. If you only want working wiring diagrams, the built
+# archives are a direct download:
+#
+#     scripts/setup/fetch-wiring.sh          # ~1 GB, ready to use
+#
+# Come back here when you want to regenerate them from a newer WDS release,
+# or to change what the importer keeps.
+#
+# OPTIONAL EITHER WAY. Everything else builds and runs without this; only the
+# Wiring screen needs it. That is why it is a separate script from
+# fetch-vendor.sh: different BMW product, different download, and 4.7 GB
+# nobody should pull unless they mean to.
 #
 # WHY A SCRIPT AND NOT A CHECKOUT: BMW's files, not ours to redistribute.
 # This automates the fetching; the copy is yours.
