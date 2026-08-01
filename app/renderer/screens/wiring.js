@@ -353,7 +353,6 @@ function showWiring(chassisId, openDoc = null) {
 
   // the open diagram's "fit", so a pane change can re-fit it. Declared here
   // because setPane below closes over it, and set when a schematic opens.
-  let paneFit = null;
 
   // Both layouts carry the same controls; only their dress differs. WDS's
   // toolbar has a few extra (Series, Exit, Start) that the modern layout
@@ -386,8 +385,10 @@ function showWiring(chassisId, openDoc = null) {
     split.querySelectorAll('.wds-pane').forEach((b) =>
       b.classList.toggle('active', b.id === `wds-pane-${mode}`));
     Settings.set('wdsPane', mode);
-    // the SVG scales to its box, so the fit has to follow the new width
-    if (paneFit) requestAnimationFrame(paneFit);
+    // The re-fit is the diagram's own business now: fitAndPan watches the
+    // stage and re-fits whenever its box changes, which covers a pane switch
+    // and a window resize alike -- and, unlike calling fit() from here,
+    // leaves a hand-zoomed view alone instead of snapping it back.
   };
   on('#wds-pane-doc', () => setPane('doc'));
   on('#wds-pane-split', () => setPane('split'));
@@ -493,7 +494,6 @@ function showWiring(chassisId, openDoc = null) {
       viewEl.appendChild(bar);
 
       setActions(browseActions);   // reset; a schematic adds its zoom keys
-      paneFit = null;              // no schematic open unless one opens below
       if (!doc) {
         viewEl.insertAdjacentHTML('beforeend',
           `<div class="empty"><div>This document is not in the WDS release the `
@@ -551,7 +551,6 @@ function showWiring(chassisId, openDoc = null) {
         // them on the document's own bar.
         const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
         const zoom = fitAndPan(svg, stage, zoomHost, classic);
-        paneFit = zoom && zoom.fit;   // a pane change re-fits this diagram
         // INPA's own idiom: the bar carries what the screen can do. A
         // diagram can zoom, so the keys are there rather than only on a
         // wheel a trackpad-less machine may not have.
@@ -602,7 +601,11 @@ function fitAndPan(svg, stage, bar, classic = false) {
   // One zoom step. fx/fy is the fixed point in 0..1 of the pane: the
   // pointer for a wheel, the centre for a key, so what you are looking at
   // stays where it is either way.
+  // set once the view is the user's own doing (a zoom or a drag), so an
+  // automatic re-fit never throws away where they were looking
+  let touched = false;
   const zoomBy = (k, fx = 0.5, fy = 0.5) => {
+    touched = true;
     const w = Math.min(home.w * 4, Math.max(home.w / 60, cur.w * k));
     const h = w * (cur.h / cur.w);
     cur.x += (cur.w - w) * fx;
@@ -616,6 +619,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
   // ratio instead, keeping the drawing centred, so "Fit" means the diagram is
   // as large as it can be here.
   const fit = () => {
+    touched = false;              // back to the automatic view
     const r = stage.getBoundingClientRect();
     const paneRatio = (r.width || 1) / (r.height || 1);
     let w = home.w, h = home.h;
@@ -654,6 +658,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
   const unitsPerPixel = (r) => Math.max(cur.w / r.width, cur.h / r.height);
   stage.addEventListener('pointermove', (e) => {
     if (!drag) return;
+    touched = true;               // panned by hand: keep this view on a re-fit
     const k = unitsPerPixel(stage.getBoundingClientRect());
     cur.x = drag.vx - (e.clientX - drag.x) * k;
     cur.y = drag.vy - (e.clientY - drag.y) * k;
@@ -682,6 +687,28 @@ function fitAndPan(svg, stage, bar, classic = false) {
   if (classic) bar.innerHTML = '';
   bar.appendChild(controls);
   if (typeof tipify === 'function') tipify(controls);
+
+  // FIT ON OPEN, not only when the Fit button is pressed. Without this the
+  // drawing arrives in its own viewBox and is letterboxed by whatever the
+  // pane's ratio happens to be -- BMW draws these very wide, so a squarer
+  // pane wasted most of the screen until you pressed Fit yourself.
+  //
+  // Timing is the whole difficulty: the stage is in the DOM but the zoom bar
+  // above it has not been built yet, so its height is still wrong for a
+  // frame or two, and a requestAnimationFrame fit reads the pre-layout size.
+  // Watch the box instead and re-fit whenever it settles -- which also keeps
+  // the diagram fitted when the window resizes or a pane is switched, both
+  // of which used to need a manual Fit.
+  let last = '';
+  const ro = new ResizeObserver(() => {
+    const r = stage.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    const sig = `${Math.round(r.width)}x${Math.round(r.height)}`;
+    if (sig === last) return;          // same box: nothing to re-fit
+    last = sig;
+    if (!touched) fit();               // a hand-zoomed view is the user's, not ours
+  });
+  ro.observe(stage);
 
   return { by: zoomBy, fit };
 }
