@@ -252,6 +252,19 @@ BMW's own files are **not in this repository**. They are build inputs: every
 screen, job and table the app ships is generated from them, and they are BMW's
 to distribute, not ours. To build, or to regenerate data, you supply them.
 
+### The short version
+
+```sh
+scripts/setup/fetch-vendor.sh     # required: EDIABAS + INPA, ~710 MB
+scripts/setup/fetch-coding.sh     # optional: coding definitions, 5.6 MB
+scripts/setup/fetch-wiring.sh     # optional: wiring diagrams, ~1 GB
+scripts/setup/check-vendor.sh     # what is installed, what is missing
+```
+
+Only the first is needed to build and run. The other two each light up one
+screen, and `check-vendor.sh` says how to get them if they are absent rather
+than failing. Each section below explains what its script actually does.
+
 ### Get the BMW files
 
 The package is publicly shared, so this is scripted:
