@@ -428,24 +428,52 @@ async function hasCoding(sgbd) {
 // checkable against a known-good car.
 function showDatenReference(ecu, daten, cont, setPanel, back) {
   const chassis = Object.keys(daten.chassis);
-  let chIdx = 0;
-  let varIdx = 0;
+  let ch = chassis[0];
+  let vname = Object.keys(daten.chassis[ch])[0];
+  let filter = '';
 
   const draw = () => {
-    const ch = chassis[chIdx];
     const variants = Object.keys(daten.chassis[ch]);
-    if (varIdx >= variants.length) varIdx = 0;
-    const vname = variants[varIdx];
-    const fields = daten.chassis[ch][vname];
+    if (!variants.includes(vname)) vname = variants[0];
+    const all = daten.chassis[ch][vname];
+
+    // SEARCH, because these lists got long. LCM carries 10,415 functions
+    // across its variants and scrolling that to find one is not reading, it
+    // is hunting. Matches BMW's own keyword as well as the English label,
+    // since the keyword is what another coding tool will show you.
+    const q = filter.trim().toLowerCase();
+    const fields = q
+      ? all.filter(f => f.name.toLowerCase().includes(q)
+          || codTidy(codTranslate(f.name, true), f.name).toLowerCase().includes(q))
+      : all;
+
+    // DROPDOWNS, not one-at-a-time cycling. This module may describe nine
+    // chassis and thirty-three coding indices; a softkey that steps through
+    // them one press at a time is unusable at that size, and the earlier
+    // version had exactly that because the data was two chassis deep.
+    const opt = (v, sel) =>
+      `<option value="${esc(v)}"${v === sel ? ' selected' : ''}>${esc(v)}</option>`;
 
     setPanel();
     cont.innerHTML = `
       <div class="act-menu">
         <div class="act-menu-title">Coding map</div>
         <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg · DATEN `
-      + `${esc(daten.daten)} · ${esc(ch)} · index ${esc(vname)}</div>
+      + `${esc(daten.daten)}</div>
+        <div class="dat-bar">
+          ${chassis.length > 1 ? `<label class="dat-pick">Chassis
+            <select id="dat-ch">${chassis.map(c => opt(c, ch)).join('')}</select>
+          </label>` : `<span class="dat-pick-fixed mono">${esc(ch)}</span>`}
+          ${variants.length > 1 ? `<label class="dat-pick">Index
+            <select id="dat-var">${variants.map(v => opt(v, vname)).join('')}</select>
+          </label>` : `<span class="dat-pick-fixed mono">index ${esc(vname)}</span>`}
+          <input class="wiring-search dat-search" id="dat-q" type="search"
+                 placeholder="Search functions…" value="${esc(filter)}"
+                 autocomplete="off">
+        </div>
         <div class="cod-note">
-          <span class="cod-note-dim">${fields.length} function`
+          <span class="cod-note-dim">${fields.length}`
+      + `${q ? ` of ${all.length}` : ''} function`
       + `${fields.length === 1 ? '' : 's'} BMW's coding tool knows for this `
       + `module. This is the map, read from disk — not this car's settings.`
       + `</span>
@@ -457,40 +485,77 @@ function showDatenReference(ecu, daten, cont, setPanel, back) {
     fields.forEach(f => {
       const row = document.createElement('div');
       row.className = 'cod-row dat-row';
-      // the value list, where BMW gives one worth reading. A single entry
-      // is a default rather than a choice, and a long hex string is a
-      // buffer (a characteristic curve), not a setting.
-      const vals = (f.values || []).filter(([, v]) =>
-        typeof v !== 'string' || v.length <= 4);
-      const shown = vals.length > 1
-        ? vals.map(([n, v]) => `<span class="dat-val">`
-            + `<span class="dat-val-n">${esc(codTranslate(n, true))}</span>`
-            + `<span class="dat-val-v mono">${esc(v)}</span></span>`).join('')
-        : `<span class="ink-faint">${(f.values || []).length ? 'value' : '—'}</span>`;
+      // WHAT BMW ACTUALLY LISTS, which is three different things:
+      //
+      //   several named settings   aktiv=00 / nicht_aktiv=01, a real choice
+      //   one wert_NN entry        not a choice at all: a numeric field, and
+      //                            the byte is its DEFAULT. 5,562 rows are
+      //                            this, and printing "value" threw the
+      //                            number away.
+      //   a long hex value         a buffer, usually a characteristic curve
+      //                            or a country parameter block. Showing it
+      //                            whole is unreadable and dropping it lost
+      //                            PROGRAMMPARAMETER_LCM's seven country
+      //                            variants entirely, so the NAMES show and
+      //                            the bytes are a tooltip.
+      const vals = f.values || [];
+      const isDefault = vals.length === 1 && /^wert_\d+$/i.test(vals[0][0]);
+      const shown = !vals.length
+        ? '<span class="ink-faint">—</span>'
+        : isDefault
+          ? `<span class="dat-val"><span class="dat-val-n">default</span>`
+            + `<span class="dat-val-v mono">0x${esc(vals[0][1])}</span></span>`
+          : vals.map(([n, v]) => {
+              const long = typeof v === 'string' && v.length > 4;
+              return `<span class="dat-val"${long ? ` title="${esc(v)}"` : ''}>`
+                + `<span class="dat-val-n">${esc(codTranslate(n, true))}</span>`
+                + `<span class="dat-val-v mono">`
+                + `${long ? `${v.length / 2} bytes` : esc(v)}</span></span>`;
+            }).join('');
+      // BMW's keyword under the English label, but only when translating
+      // actually said something. This vocabulary is far wider than the
+      // dictionary built for E39/E46, so 99% of these come back as the
+      // keyword with underscores swapped for spaces -- and a second line
+      // repeating the first is noise, not context.
+      const label = codTidy(codTranslate(f.name, true), f.name);
+      const same = label.toUpperCase().replace(/ /g, '_') === f.name.toUpperCase();
       row.innerHTML = `
-        <span class="cod-name">${esc(codTidy(codTranslate(f.name, true), f.name))}
-          <span class="cod-hint mono">${esc(f.name)}</span></span>
+        <span class="cod-name">${esc(same ? f.name : label)}
+          ${same ? '' : `<span class="cod-hint mono">${esc(f.name)}</span>`}</span>
         <span class="cod-key mono">blk ${f.block} · word ${f.word}`
         + ` · byte ${f.byte} · mask 0x${f.mask.toString(16).padStart(2, '0')}</span>
         <span class="dat-vals">${shown}</span>`;
       list.appendChild(row);
     });
 
-    const acts = [];
-    if (variants.length > 1) {
-      acts.push({ key: '1', keyLabel: 'F1',
-                  label: `Index ${vname} (${varIdx + 1}/${variants.length})`,
-                  fn: () => { varIdx = (varIdx + 1) % variants.length; draw(); } });
+    const chSel = cont.querySelector('#dat-ch');
+    if (chSel) chSel.onchange = () => { ch = chSel.value; vname = null; draw(); };
+    const vSel = cont.querySelector('#dat-var');
+    if (vSel) vSel.onchange = () => { vname = vSel.value; draw(); };
+
+    // redraw on input, keeping the caret where it was: the whole panel is
+    // rebuilt, so the field would otherwise lose focus on every keystroke
+    const qEl = cont.querySelector('#dat-q');
+    if (qEl) {
+      qEl.oninput = () => {
+        const at = qEl.selectionStart;
+        filter = qEl.value;
+        draw();
+        const again = cont.querySelector('#dat-q');
+        if (again) { again.focus(); again.setSelectionRange(at, at); }
+      };
     }
-    if (chassis.length > 1) {
-      acts.push({ key: '2', keyLabel: 'F2', label: `Chassis ${ch}`,
-                  fn: () => { chIdx = (chIdx + 1) % chassis.length; varIdx = 0; draw(); } });
+
+    const acts = [];
+    if (q) {
+      acts.push({ key: '1', keyLabel: 'F1', label: 'Clear search',
+                  fn: () => { filter = ''; draw(); } });
     }
     if (back) acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back',
                           kind: 'back', fn: back });
     setActions(acts);
     sbLeft.textContent = `${ecu.sgbd}.prg · DATEN ${ch}/${vname} · `
-      + `${fields.length} functions`;
+      + `${fields.length} function${fields.length === 1 ? '' : 's'}`;
     tipify(cont);
   };
 
