@@ -253,10 +253,13 @@ function showWiring(chassisId, openDoc = null) {
   // white pane, and a footer holding the search box and the zoom controls.
   // Same code underneath -- only the frame around it changes.
   const classic = typeof inpaMode === 'function' && inpaMode();
-  // WDS carries its own footer, so the app's F-key bar would be a second one
-  // saying the same things. setCrumbs clears this for every other screen, so
-  // leaving by any route puts the bar back.
-  if (classic) document.body.classList.add('wds-nofkeys');
+  // No F-key bar on this screen, in either mode. WDS carries its own footer,
+  // and the modern layout puts the same things on its toolbar -- Back, print,
+  // help, paging -- with the zoom controls sitting on the diagram itself. A
+  // bar repeating them only cost the diagram 52px of height, which is the one
+  // thing this screen never has enough of. setCrumbs clears this for every
+  // other screen, so leaving by any route puts the bar back.
+  document.body.classList.add('wds-nofkeys');
   const split = document.createElement('div');
   split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
   split.innerHTML = `
@@ -285,6 +288,9 @@ function showWiring(chassisId, openDoc = null) {
     </div>` : ''}
     ${classic ? '' : `
     <div class="wiring-toolbar">
+      <button class="btn wiring-tbtn" id="wds-back"
+              title="Back to the vehicle list (Esc)">←&nbsp;Back</button>
+      <span class="wiring-tsep"></span>
       <input class="wiring-search" id="wiring-search" type="search"
              placeholder="Search diagrams…" autocomplete="off"
              title="Search every document title in this vehicle">
@@ -358,6 +364,9 @@ function showWiring(chassisId, openDoc = null) {
   };
   on('#wds-series', showWiringChassis);
   on('#wds-exit', showChassis);
+  // modern mode's own Back: the F-key bar is hidden on this screen, so the
+  // route out has to be on the toolbar (Esc still works, as it always did)
+  on('#wds-back', showWiringChassis);
   on('#wds-start', () => showWiring(chassisId));
   on('#wds-help', () => showWiringHelp(chassisId));
   on('#wds-print', () => printWiring(chassisId));
