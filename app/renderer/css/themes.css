@@ -391,3 +391,21 @@ html[data-theme="inpa"] .fkey-btns .fkey.empty:hover {
 }
 html[data-theme="inpa"] .fkeybar-run { display: block; }
 html[data-theme="inpa"] .fkeybar-run::before { background: #00ff00; color: #000; }
+
+/* ---------------------------------------------------------------------------
+   THE BAR'S F-NUMBERS ARE PRINTED LABELS, NOT KEYS -- in every skin.
+
+   Each theme dresses .fkey-num as a beveled chip, because that is the in-key
+   badge used elsewhere in the app (.nav-key and friends). Those rules are
+   `html[data-theme="x"] .fkey-num`, which TIES on specificity with anything
+   styles.css can write, and themes.css loads second -- so the chip won and the
+   number row arrived beveled. Undone last, here, where nothing follows it. */
+html .fkey-nums .fkey-num {
+  background: none !important; border: 0 !important; box-shadow: none !important;
+  border-radius: 0 !important; padding: 0 !important; min-width: 0 !important;
+  text-shadow: none !important; overflow: visible !important;
+}
+html .fkey-nums .fkey-num::after,
+html .fkey-nums .fkey-num::before {
+  content: none !important; display: none !important;
+}

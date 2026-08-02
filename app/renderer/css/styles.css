@@ -1553,12 +1553,12 @@ select.modal-input { appearance: none; cursor: pointer; }
   display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px;
   min-width: 0; padding: 0 6px;
 }
+/* A PRINTED LABEL, NOT A KEY. The chip treatment every skin puts on .fkey-num
+   is undone in themes.css -- that sheet loads last, and the theme rules it has
+   to beat tie with anything writable here. */
 .fkey-nums .fkey-num {
-  /* a printed label, not a key: no chip treatment here */
-  background: none; border: 0; box-shadow: none;
   color: var(--ink-faint); font-family: var(--display); font-weight: 700;
-  font-size: 11px; text-align: center; padding: 0;
-  min-width: 0; line-height: 14px;
+  font-size: 11px; text-align: center; line-height: 14px;
 }
 .fkey-btns .fkey { min-width: 0; padding: 0 3px; height: 26px; }
 .fkey-btns .fkey .fkey-label {
