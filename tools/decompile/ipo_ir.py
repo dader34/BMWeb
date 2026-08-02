@@ -813,8 +813,24 @@ def _seq_jobs(name, all_toks, id2name, seen=None):
                        and not re.fullmatch(r"D_\d+", x["v"])), None)
             if nm and nm not in out:
                 out.append(nm)
-        # 0x42/0x43: a transition to another state proc
-        elif t["op"] == "procref" and t.get("kind") in (0x42, 0x43):
+        # 0x43 IS AN INTERNAL STATE INDEX, NOT A PROC ID, and reading it as one
+        # is what merged every machine in a file into a single reachable set.
+        # A state proc declares its own steps and jumps between them by
+        # ordinal: LWS5's sm_id_schreiben_lief compiles to
+        #
+        #     02 43 00 00   -> %Z_TOGGLE   (its own state 0)
+        #     02 43 01 00   -> %Z_WEITER   (its own state 1)
+        #     02 43 02 00   -> %Z_END      (its own state 2)
+        #
+        # Resolving 0/1/2 against the FILE's state table pointed them at
+        # sm_steuern_digital, sm_Codier_Datei and sm_ps_schreiben, so every
+        # "Change: ..." key reported the same two jobs even though the bodies
+        # plainly differ -- one names Supplier, another Week and Year.
+        #
+        # A machine's steps are inside its own body, which this already walks,
+        # so there is nothing further to follow. The only real cross-proc
+        # transition is 0x42, which carries a genuine proc id.
+        elif t["op"] == "procref" and t.get("kind") == 0x42:
             tgt = id2name.get(("state", t["n"]))
             if tgt:
                 for j in _seq_jobs(tgt, all_toks, id2name, seen):
