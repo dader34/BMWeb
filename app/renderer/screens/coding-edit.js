@@ -408,10 +408,19 @@ async function datenFor(sgbd) {
   return map[String(sgbd).toLowerCase()] || null;
 }
 
+// TURNED OFF. Flip to true to put the Coding map back on the ECU menu.
+//
+// The screen and its data are intact -- this is the one gate every entry
+// point runs through (the tile, the INPA row, the C key, and the hook that
+// survives a submenu redraw), so switching it here removes all of them
+// without disturbing the code that draws them.
+const CODING_MAP_ENABLED = false;
+
 // Does this ECU have a coding page worth offering? Used by the ECU menu to
 // decide whether to show the key at all. Either source will do: the SGBD's
 // own named values, or BMW's DATEN description of its blob.
 async function hasCoding(sgbd) {
+  if (!CODING_MAP_ENABLED) return false;
   return !!(await codingFor(sgbd)) || !!(await datenFor(sgbd));
 }
 
