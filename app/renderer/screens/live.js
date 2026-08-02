@@ -502,16 +502,20 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
 
   const cellEls = new Map();  // "job:key" -> cell
   const keyOrder = [];
-  const pager = attachInpaPager(container, grid,
-    () => keyOrder, (k) => cellEls.get(k));
-
   // A SCREEN INPA DRAWS AS A TABLE renders as one, not as N stacked pages.
   // RDC's WE-Telegramm reads the same seven values once per wheel; the IR
   // carries the column layout, so draw the grid and fill it per pass.
+  //
+  // BEFORE THE PAGER, deliberately. That pages `cellEls`, which a table never
+  // fills, so attaching it first left an empty green box with no arrow in it
+  // and nothing to scroll.
   const tableScr = screens.find(s => s.table);
   if (tableScr && screens.length === 1) {
     return showInpaTable(ecu, tableScr, container, title, meta, grid, liveTok);
   }
+
+  const pager = attachInpaPager(container, grid,
+    () => keyOrder, (k) => cellEls.get(k));
 
   async function tick() {
     let added = false, alive = 0, lastErr = null;
