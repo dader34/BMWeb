@@ -774,6 +774,55 @@ def _composite(toks):
     return {"job": job, "order": order, "items": items, "send": send}
 
 
+def _seq_jobs(name, all_toks, id2name, seen=None):
+    """Every job a STATE proc reaches, following its transitions.
+
+    INPA's special tests are state machines, not screens. S_ABSASC (ABS/ASC
+    bleeding) declares twelve state procs and the entry one calls no job at
+    all -- it prints "to start programm press brake pedal" and transitions:
+
+        ABS_ASC_G_ENTLUEFTUNG -> IDENT_LESEN -> EINGANGSTEST -> AUFFORDERN
+                              -> STATUS_LESEN -> ANSTEUERN
+
+    and the LEAF states are where the work happens (STATUS_IO_LESEN,
+    STEUERN_DIGITAL). Reading a state proc's own tokens therefore found
+    nothing, which is why four special tests decompiled to empty menus while
+    naming their jobs plainly in the file.
+
+    So follow the transitions. Depth is bounded by `seen` because these
+    machines loop back on themselves by design (a bleeding step repeats until
+    the pedal is pressed).
+    """
+    if seen is None:
+        seen = set()
+    if name in seen or name not in all_toks:
+        return []
+    seen.add(name)
+    toks = all_toks[name]
+    out = []
+    for i, t in enumerate(toks):
+        if t["op"] == "call" and t.get("name") == "INPAapiJob":
+            lo = i
+            while lo > 0 and toks[lo - 1]["op"] != "frame":
+                lo -= 1
+            # The FIRST key-shaped string in the call frame is the job; a
+            # D_nnnn is one of INPA's own message ids, which sit in the same
+            # frame as the prompt text and are not jobs at all.
+            nm = next((x["v"] for x in toks[lo:i] if x["op"] == "const"
+                       and x.get("t") == "s" and _KEYISH.match(x["v"])
+                       and not re.fullmatch(r"D_\d+", x["v"])), None)
+            if nm and nm not in out:
+                out.append(nm)
+        # 0x42/0x43: a transition to another state proc
+        elif t["op"] == "procref" and t.get("kind") in (0x42, 0x43):
+            tgt = id2name.get(("state", t["n"]))
+            if tgt:
+                for j in _seq_jobs(tgt, all_toks, id2name, seen):
+                    if j not in out:
+                        out.append(j)
+    return out
+
+
 def _field_values(all_toks, order):
     """{slot: {"init": v, "values": [...]}} across the whole file."""
     out = {s: {"init": None, "values": set()} for s in order}
@@ -890,6 +939,14 @@ def _menu_ir(toks, id2name, name=None):
                 alts = entry.setdefault(slot + "Alts", [])
                 if tgt not in alts:
                     alts.append(tgt)
+        elif t["op"] == "call" and t.get("name") == "start" \
+                and cur_label is not None:
+            # launches the script's own state machine; which one is not named
+            # here, so it is resolved after every proc is known
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["_start"] = True
         elif t["op"] == "call" and t.get("name") == "INPAapiJob" \
                 and cur_label is not None:
             # an item that calls its OWN job (RDC F18 Sleep -> SLEEP_MODE):
@@ -1232,6 +1289,12 @@ def build(ecu):
         if scr.get("fromFunc") and nm not in used:
             del ir["screens"][nm]
 
+    # The machine `start` launches: the first state proc the file declares.
+    # ...the FIRST one, by declaration id: INPA runs the machine the file
+    # opens with, and the later states are the steps it transitions into.
+    _states = sorted((i, n) for (k, i), n in id2name.items() if k == "state")
+    state_entry = _states[0][1] if _states else None
+
     # A key that launches a STATE machine which only writes a file is still a
     # PC action: LWS5's single Coding key runs sm_Codier_Datei, whose whole
     # body is "prompt for a path, open it 'w', write the coding data" -- INPA
@@ -1266,6 +1329,57 @@ def build(ecu):
                     if _PERSISTENT_WRITE.search(nm):
                         it["writeJob"] = True
                     break
+            # ...and when the state proc calls no job ITSELF, follow where it
+            # goes. INPA's special tests are built this way: S_ABSASC's entry
+            # state prints "press brake pedal" and transitions through
+            # IDENT_LESEN, EINGANGSTEST, STATUS_LESEN and ANSTEUERN, which are
+            # the states that actually talk to the car. Reading one proc's own
+            # tokens found nothing, so four special tests decompiled to menus
+            # of dead keys while naming their jobs plainly in the file.
+            if "job" not in it:
+                reached = _seq_jobs(st, all_toks, id2name)
+                if reached:
+                    it["job"] = reached[0]
+                    it["stateJob"] = True
+                    # the whole sequence, so the app can say what the test
+                    # actually does rather than showing one job of many
+                    it["stateJobs"] = reached
+                    if any(_PERSISTENT_WRITE.search(j) for j in reached):
+                        it["writeJob"] = True
+
+    # A KEY THAT CALLS `start` LAUNCHES THE SCRIPT'S OWN MACHINE. INPA's
+    # special tests (ABS/ASC bleeding, RDC antenna check) are whole programs
+    # rather than an ECU's menu: the key names no state at all, it calls the
+    # builtin `start`, and the machine that runs is the one the file declares.
+    # So the entry state is the first one declared, and its reachable jobs are
+    # what the key does.
+    if state_entry:
+        reached = _seq_jobs(state_entry, all_toks, id2name)
+        if reached:
+            for menu in ir["menus"].values():
+                for it in menu["items"]:
+                    if it.get("job") or not it.get("_start"):
+                        continue
+                    it["job"] = reached[0]
+                    it["stateJob"] = True
+                    it["stateJobs"] = reached
+                    if any(_PERSISTENT_WRITE.search(j) for j in reached):
+                        it["writeJob"] = True
+    for menu in ir["menus"].values():
+        for it in menu["items"]:
+            it.pop("_start", None)
+
+    # A SCRIPT THAT IS ONLY A STATE MACHINE. RDC's antenna check and telegram
+    # recording have no launch key at all -- their menu holds an EXIT and an
+    # acknowledgement, because INPA runs the machine as soon as the script
+    # opens. There is no item to hang the jobs on, so record them on the
+    # script itself.
+    if state_entry:
+        reached = _seq_jobs(state_entry, all_toks, id2name)
+        named = any(it.get("job")
+                    for m in ir["menus"].values() for it in m["items"])
+        if reached and not named:
+            ir["sequence"] = {"entry": state_entry, "jobs": reached}
     # Which screen a menu is drawn in: the key that installs the menu sets the
     # screen in the same breath (KOMBI F6 Activate -> m_steuern_46 + s_steuern),
     # so the pairing is the item's own, not a guess from the name. Without it
