@@ -946,6 +946,40 @@ def _menu_ir(toks, id2name, name=None):
                         if x["op"] == "const" and x.get("t") == "i"), None)
             if sel is not None:
                 entry.setdefault("_callsel", sel)
+            # ...and the JOB, when the func is handed one to run. MS42's eight
+            # actuator keys are exactly this: each passes its own job and a
+            # caption to a shared `ansteuerung` ("actuation") helper, so the
+            # key IS one job even though it never calls INPAapiJob itself.
+            #
+            #     ITEM 1 "EV 1"  ->  const "STEUERN_EV_1"
+            #                        const "fuel injection valve Cylinder 1"
+            #                        calluser ansteuerung
+            #
+            # Reading only INPAapiJob missed 2,159 items across 508 files, and
+            # they showed as "not decoded" while naming their job plainly. The
+            # first string is the job and the second is its caption, which the
+            # order below relies on rather than guessing by content.
+            strs = [x["v"] for x in toks[lo:ti]
+                    if x["op"] == "const" and x.get("t") == "s"]
+            nm = next((s for s in strs if _KEYISH.match(s)), None)
+            if nm and "job" not in entry:
+                entry["job"] = nm
+                entry["_viaFunc"] = True
+                if _PERSISTENT_WRITE.search(nm):
+                    entry["writeJob"] = True
+                # WHAT FOLLOWS THE JOB IS NOT ALWAYS AN ARGUMENT. On this path
+                # the helper is handed a job AND a caption to display, and
+                # MS42's actuators take no argument at all -- STEUERN_EV_1's
+                # signature is empty, so recording "fuel injection valve
+                # Cylinder 1" as its argument would send the label as data.
+                # Only keep a following string that looks like a KEY rather
+                # than prose; SMG2's MAGNETVENTIL_* really are handed
+                # POSITIONSVORGABE that way.
+                rest = strs[strs.index(nm) + 1:] if nm in strs else []
+                arg = next((s for s in rest
+                            if s.strip() and _KEYISH.match(s.strip())), None)
+                if arg:
+                    entry.setdefault("jobArg", arg)
         elif t["op"] == "call" and t["n"] in (0x5c, 0x79) \
                 and cur_label is not None:
             # A PC file operation: 5c shows a named file, 79 opens one (LWS5's
@@ -1165,6 +1199,10 @@ def build(ecu):
         for it in menu["items"]:
             fid = it.pop("_callf", None)
             sel = it.pop("_callsel", None)
+            # a marker for the audit above, not part of the schema: the
+            # renderer only needs to know the item HAS a job, not which
+            # bytecode shape it arrived in
+            it.pop("_viaFunc", None)
             if fid is None or it.get("screen"):
                 continue
             nm = funcid.get(fid)
