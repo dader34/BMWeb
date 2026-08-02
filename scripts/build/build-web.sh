@@ -7,7 +7,7 @@
 # The macOS app ships a C# server that answers /api/*. A browser has no such
 # thing, so the web build replaces it with two pieces:
 #
-#   tools/web_export.py   freezes every GET the renderer makes into static
+#   tools/export/web_export.py   freezes every GET the renderer makes into static
 #                         JSON (chassis config, job metadata, tables, IR)
 #   app/renderer/core/webshim.js  intercepts fetch: static files for reads, and
 #                         our BEST2 VM over Web Serial for job runs
@@ -44,7 +44,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 echo "==> freezing the API surface"
-python3 tools/web_export.py --out "$OUT"
+python3 tools/export/web_export.py --out "$OUT"
 
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
