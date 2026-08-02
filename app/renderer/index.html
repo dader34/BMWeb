@@ -77,6 +77,10 @@
   <main id="view" class="view"></main>
 
   <footer class="fkeybar" id="fkeybar">
+    <!-- INPA prints a green RUNNING block at the far left of the bar and
+         centres "Select menu" over the keys. Both are chrome the INPA theme
+         shows and every other theme hides. -->
+    <div class="fkeybar-run" aria-hidden="true"></div>
     <div class="fkeys" id="fkeys"></div>
     <div class="fkeybar-status"><span id="sb-left">ready</span><span id="sb-right"></span></div>
   </footer>

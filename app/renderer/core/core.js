@@ -31,6 +31,11 @@ const THEMES = [
 function applyTheme(id) {
   if (!id || id === 'instrument') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', id);
+  // Repaint the F-key bar: its chrome (the RUNNING block) is theme-dependent,
+  // so a live swap has to redraw rather than wait for the next screen.
+  // (guarded: applyTheme is DECLARED above the bar's state, so a call made
+  // before it initialises would hit the temporal dead zone)
+  try { paintActions(currentActions); } catch { /* bar not built yet */ }
   // aero only: frameless + transparent window
   if (window.bmacw && window.bmacw.setTranslucent) {
     window.bmacw.setTranslucent(id === 'aero');
@@ -264,17 +269,80 @@ let shiftActions = null;
 let baseActions = [];
 let shiftHeld = false;
 
-function paintActions(actions) {
-  fkeysEl.innerHTML = '';
-  actions.forEach(a => {
-    const el = document.createElement('div');
-    el.className = 'fkey' + (a.kind ? ' ' + a.kind : '');
-    el.innerHTML = `<span class="fkey-num">${esc(a.keyLabel || a.key)}</span>
-                    <span class="fkey-label">${esc(a.label)}</span>`;
-    el.onclick = () => fireAction(a);
-    a._el = el;
-    fkeysEl.appendChild(el);
+// The bar is TEN FIXED SLOTS, F1..F10, drawn whether or not a key is bound --
+// INPA's layout, kept in every skin. The empty ones are part of it: they are
+// how you see at a glance that F4 does nothing on this screen. The F-number is
+// printed on its own row ABOVE the buttons rather than inside them.
+//
+// So a screen's actions have to be placed into slots rather than listed. A key
+// says which slot it wants: '1'..'9' and '0' are INPA's own F1..F10 (0 IS F10,
+// which is why Escape/back lands there), and anything else -- the letter keys
+// some screens use -- takes the next free slot.
+const INPA_SLOTS = 10;
+
+function inpaSlot(a) {
+  // Back is F10, always -- that is where INPA puts End/Exit on every screen.
+  // Checked before the number, because these carry keyLabel:'Esc' and would
+  // otherwise fail to parse and land in whatever slot happened to be free.
+  if (a.kind === 'back') return INPA_SLOTS - 1;
+  // `key` is the binding; keyLabel is only its caption ('Esc', 'F3'). Read the
+  // binding first so a decorative label cannot move a key out of its slot.
+  const m = /^F?(\d+)$/.exec(String(a.key || a.keyLabel || '').toUpperCase());
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (n === 0) return INPA_SLOTS - 1;    // INPA's F10 is the '0' key
+  return n >= 1 && n <= INPA_SLOTS ? n - 1 : null;
+}
+
+function paintActionsInpa(actions) {
+  const slots = new Array(INPA_SLOTS).fill(null);
+  const spill = [];
+  // Back claims F10 FIRST. A screen that also binds '0' would otherwise take
+  // the slot on its way past and push End into a random gap.
+  const ordered = [...actions].sort((x, y) =>
+    (y.kind === 'back') - (x.kind === 'back'));
+  ordered.forEach(a => {
+    const i = inpaSlot(a);
+    if (i !== null && !slots[i]) slots[i] = a; else spill.push(a);
   });
+  // a letter-keyed action (or a collision) fills the first empty slot, so it is
+  // still reachable by mouse and still lines up under a printed F-number
+  spill.forEach(a => {
+    const i = slots.indexOf(null);
+    if (i >= 0) slots[i] = a;
+  });
+
+  fkeysEl.innerHTML = '';
+  const keys = document.createElement('div');
+  keys.className = 'fkey-nums';
+  const btns = document.createElement('div');
+  btns.className = 'fkey-btns';
+  slots.forEach((a, i) => {
+    const num = document.createElement('span');
+    num.className = 'fkey-num';
+    num.textContent = `F${i + 1}`;
+    keys.appendChild(num);
+
+    const el = document.createElement('div');
+    el.className = 'fkey' + (a && a.kind ? ' ' + a.kind : '')
+                 + (a ? '' : ' empty');
+    if (a) {
+      el.innerHTML = `<span class="fkey-label">${esc(a.label)}</span>`;
+      el.onclick = () => fireAction(a);
+      a._el = el;
+    }
+    btns.appendChild(el);
+  });
+  fkeysEl.appendChild(keys);
+  fkeysEl.appendChild(btns);
+}
+
+// The bar is the same SHAPE in every theme -- ten fixed slots, numbers above
+// the keys -- because it is INPA's bar, not a decoration. Themes restyle it;
+// they do not rearrange it.
+function paintActions(actions) {
+  fkeysEl.classList.add('inpa-bar');
+  paintActionsInpa(actions);
   fkeysEl.classList.toggle('shifted', actions === shiftActions);
 }
 

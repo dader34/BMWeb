@@ -377,3 +377,17 @@ html .inpa-settings .setting-row {
 html[data-theme="inpa"] .inpa-settings .setting-row {
   border-bottom-color: #c9c9c9 !important;
 }
+
+/* ---------------------------------------------------------------------------
+   INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers
+   above the keys, the RUNNING block) is structural and lives in styles.css,
+   because it is INPA's bar in every skin. This block only skins it. */
+html[data-theme="inpa"] .fkeys.inpa-bar::before { color: #000; }
+html[data-theme="inpa"] .fkey-nums .fkey-num { color: #000 !important; }
+html[data-theme="inpa"] .fkey-btns .fkey .fkey-label { color: #000; }
+html[data-theme="inpa"] .fkey-btns .fkey.empty,
+html[data-theme="inpa"] .fkey-btns .fkey.empty:hover {
+  background: #e9e6e1 !important;
+}
+html[data-theme="inpa"] .fkeybar-run { display: block; }
+html[data-theme="inpa"] .fkeybar-run::before { background: #00ff00; color: #000; }

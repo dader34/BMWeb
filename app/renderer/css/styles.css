@@ -1525,14 +1525,60 @@ select.modal-input { appearance: none; cursor: pointer; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* INPA-style function-key bar */
+/* INPA'S BAR, IN EVERY SKIN. Ten fixed slots F1..F10, drawn whether or not a
+   key is bound -- the empty ones are the point, because they show at a glance
+   that F4 does nothing on this screen. The F-number is printed on its own row
+   ABOVE the button rather than inside it, "Select menu" is centred over the
+   row, and the RUNNING block sits at the far left. This is layout, so it lives
+   here; themes.css only recolours it. */
 .fkeybar {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 52px;
+  position: absolute; bottom: 0; left: 0; right: 0; height: 62px;
   display: flex; align-items: stretch; justify-content: space-between;
-  padding: 7px 14px; gap: 14px;
+  padding: 0 0 4px; gap: 0;
   background: linear-gradient(180deg, #0e141a, #090d11);
   border-top: 1px solid var(--line);
 }
-.fkeys { display: flex; align-items: stretch; gap: 6px; flex: 1; min-width: 0; }
+.fkeys {
+  display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0;
+  position: static; padding-top: 15px;
+}
+.fkeys::before {
+  content: 'Select menu';
+  position: absolute; top: 0; left: 0; right: 0; text-align: center;
+  font-family: var(--display); font-size: 11px; font-weight: 700;
+  color: var(--ink-dim); line-height: 15px;
+}
+/* the two rows share one grid, so each number sits exactly over its own key */
+.fkey-nums, .fkey-btns {
+  display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px;
+  min-width: 0; padding: 0 6px;
+}
+.fkey-nums .fkey-num {
+  /* a printed label, not a key: no chip treatment here */
+  background: none; border: 0; box-shadow: none;
+  color: var(--ink-faint); font-family: var(--display); font-weight: 700;
+  font-size: 11px; text-align: center; padding: 0;
+  min-width: 0; line-height: 14px;
+}
+.fkey-btns .fkey { min-width: 0; padding: 0 3px; height: 26px; }
+.fkey-btns .fkey .fkey-label {
+  font-family: var(--display); font-size: 11.5px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+/* an unbound slot: present, inert, and visibly empty */
+.fkey-btns .fkey.empty,
+.fkey-btns .fkey.empty:hover {
+  cursor: default; background: var(--panel); border-color: var(--line);
+  box-shadow: none; transform: none;
+}
+/* INPA's green state block. Chrome from the original, not information the app
+   produces, so only the INPA skin draws it -- themes.css turns it on. */
+.fkeybar-run { display: none; position: absolute; left: 0; top: 0; z-index: 1; }
+.fkeybar-run::before {
+  content: 'RUNNING';
+  font-family: var(--display); font-size: 11px; font-weight: 700;
+  display: block; padding: 0 8px; line-height: 15px;
+}
 .fkey {
   -webkit-app-region: no-drag; cursor: pointer;
   display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -1552,16 +1598,6 @@ select.modal-input { appearance: none; cursor: pointer; }
   color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   min-width: 0;
 }
-/* 7+ keys: drop chip min-width, tighten */
-.fkeys:has(.fkey:nth-child(7)) .fkey { padding: 0 6px; gap: 4px; }
-.fkeys:has(.fkey:nth-child(7)) .fkey-num { min-width: 18px; padding: 3px 4px; }
-.fkeys:has(.fkey:nth-child(7)) .fkey-label { font-size: 11px; }
-/* 10+ keys (the memory screen: 4 regions + 4 address steps + go-to + back):
-   at an even 1/10 split every label ellipsises to nothing, so let each key take
-   only the width its own label needs and stack the chip above short captions. */
-.fkeys:has(.fkey:nth-child(10)) .fkey { padding: 0 4px; gap: 3px; flex: 0 1 auto; }
-.fkeys:has(.fkey:nth-child(10)) .fkey-num { min-width: 16px; padding: 2px 3px; font-size: 10px; }
-.fkeys:has(.fkey:nth-child(10)) .fkey-label { font-size: 10.5px; }
 .fkey.back .fkey-num { color: var(--cyan); }
 /* the page you are already on, for softkeys that select rather than act */
 .fkey.active { border-color: var(--green); }
@@ -1571,18 +1607,12 @@ select.modal-input { appearance: none; cursor: pointer; }
 .fkey.flash { animation: fkflash .35s ease; }
 @keyframes fkflash { 0% { background: var(--amber); } 100% {} }
 
-/* Fixed width, not content width: this column sits beside the flex:1 F-key row,
-   so letting it grow with its text ("sent" -> "released") squeezed every key on
-   each status change. Reserve the space once and ellipsize inside it. */
-.fkeybar-status {
-  display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
-  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
-  gap: 2px;
-  flex: 0 0 168px; width: 168px; min-width: 0; overflow: hidden;
-}
-.fkeybar-status > * {
-  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+/* HIDDEN, NOT REMOVED. INPA's bar is ten keys edge to edge with no status
+   column, and this one was crowding F10. The element stays in the DOM because
+   ~150 call sites across the screens write to sbLeft/sbRight as they work;
+   dropping it would mean touching every one of them for no visible gain, and
+   the writes are harmless no-ops while it is not displayed. */
+.fkeybar-status { display: none; }
 
 /* first-run tutorial: spotlight ring + coach-mark tip (tour-overlay rides the
    modal-overlay class so the global action keys stand down while it's up) */
