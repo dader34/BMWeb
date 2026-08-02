@@ -207,6 +207,82 @@ function irRows(scr) {
   return { rows, cells };
 }
 
+// A SCREEN INPA DRAWS AS A TABLE, or null.
+//
+// RDC's WE-Telegramm reads the same seven values once per wheel and prints
+// them as a grid: a header line, then one row per index. The IR keeps that
+// exactly -- every element carries its character row and column -- but the
+// row builder flattens it, so five wheels x seven values arrived as 35
+// unrelated readouts stacked vertically. 195 screens across 63 ECUs have this
+// shape (wheels, cylinders, ignition circuits, banks).
+//
+// The test is that the DATA LINES all put their values in the same columns.
+// That is what makes them a table rather than a list that happens to be long,
+// and it is structural: no caption wording is consulted.
+function irTable(scr) {
+  const lines = scr.lines || [];
+  if (lines.length < 3) return null;
+  const colsOf = (l) => (l.elements || [])
+    .filter(e => e.key && e.t !== 'text' && typeof e.col === 'number')
+    .map(e => e.col);
+
+  const data = lines.filter(l => colsOf(l).length);
+  if (data.length < 3) return null;
+  const sig = (l) => colsOf(l).slice().sort((a, b) => a - b).join(',');
+  const first = sig(data[0]);
+  if (!data.every(l => sig(l) === first)) return null;
+  const cols = colsOf(data[0]).slice().sort((a, b) => a - b);
+  if (cols.length < 3) return null;
+  // COLUMNS MUST BE DISTINCT POSITIONS. ACC's history screen prints four
+  // captioned values one under another, all at column 40, and a signature
+  // match alone called that a 16x4 table -- four copies of one column, every
+  // cell the same key. A table has values side by side.
+  if (new Set(cols).size !== cols.length) return null;
+
+  // The header is a text-only line, and INPA prints each heading a column or
+  // two LEFT of the values under it (Idx at 0 over (1) at 0, "press." at 14
+  // over the value at 15). So a heading claims the nearest value column at or
+  // after it rather than an exact match.
+  const head = lines.find(l => !colsOf(l).length
+    && (l.elements || []).some(e => e.t === 'text' && String(e.s || '').trim()));
+  const headings = new Map();
+  let rowHead = '';
+  if (head) {
+    for (const e of head.elements || []) {
+      if (e.t !== 'text' || !String(e.s || '').trim()) continue;
+      // A heading sitting LEFT of the first value column belongs to the row
+      // label, not to a value: RDC's "Idx" heads the (1)..(5) column. Claiming
+      // the nearest value column for it shifted every other heading one place
+      // right and dropped the last one off the end.
+      if (e.col < cols[0] - 2) { rowHead = rowHead || String(e.s).trim(); continue; }
+      const c = cols.find(x => x >= e.col - 2);
+      if (c !== undefined && !headings.has(c)) headings.set(c, String(e.s).trim());
+    }
+  }
+
+  return {
+    cols,
+    rowHead,
+    headings: cols.map(c => headings.get(c) || ''),
+    // the row label is the leading text on each data line: "(1)", "(2)" ...
+    labels: data.map(l => {
+      const t = (l.elements || []).find(e => e.t === 'text'
+        && String(e.s || '').trim() && e.col <= cols[0]);
+      return t ? String(t.s).trim() : (l.caption || '');
+    }),
+    // which key sits in which column, per data line
+    keys: data.map(l => {
+      const byCol = new Map();
+      for (const e of l.elements || []) {
+        if (e.key && e.t !== 'text' && typeof e.col === 'number'
+            && !byCol.has(e.col)) byCol.set(e.col, e.key);
+      }
+      return cols.map(c => byCol.get(c) || null);
+    }),
+    args: data.map(l => l.jobArg || null),
+  };
+}
+
 // One IR screen -> the screen objects showInpaScreens polls. A screen with
 // several read jobs becomes one entry per job: the poller reads them all each
 // tick and keeps whichever keys each answers.
@@ -220,6 +296,22 @@ function irScreens(scr) {
   // the rows read in that pass -- otherwise all five wheels share one read
   // and show identical values
   if (rows.some(r => r.arg)) {
+    // ...but when INPA draws those passes as a TABLE -- one row per wheel,
+    // the same columns each time -- it stays ONE screen. Splitting it per
+    // argument turned RDC's WE-Telegramm into five pages of seven stacked
+    // readouts, where INPA shows a five-row grid. Every job still polls; the
+    // table just says where each answer belongs.
+    const table = irTable(scr);
+    if (table) {
+      return [{
+        job: jobs[0].name,
+        args: '',
+        group: scr.title || null,
+        rows,
+        polls: jobs.map(j => ({ job: j.name, args: j.arg || '' })),
+        table,
+      }];
+    }
     return jobs.map(j => ({
       job: j.name,
       args: j.arg || '',

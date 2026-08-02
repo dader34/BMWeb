@@ -1058,6 +1058,33 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 .cod-toggle.on .cod-lamp { color: var(--green); }
 .cod-toggle.on .cod-state { color: var(--ink); }
 
+/* A screen INPA draws as a TABLE: one row per wheel/cylinder/circuit, the
+   same columns each time. Reading four wheels against each other is the whole
+   point of the layout, which stacking the values destroys. Monospace and
+   right-aligned numbers so the columns line up the way INPA's do. */
+.inpa-table-wrap { overflow-x: auto; }
+.inpa-table {
+  border-collapse: collapse; font-family: var(--mono); font-size: 12.5px;
+  min-width: 100%;
+}
+.inpa-table th, .inpa-table td {
+  padding: 5px 14px 5px 0; text-align: right; white-space: nowrap;
+}
+.inpa-table thead th {
+  color: var(--ink-faint); font-weight: 500; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--line); padding-bottom: 6px;
+}
+/* the row label (the index) reads as a heading, on the left */
+.inpa-table tbody th {
+  text-align: left; color: var(--ink-dim); font-weight: 500;
+  padding-right: 20px;
+}
+.inpa-table tbody td { color: var(--ink); }
+.inpa-table tbody tr:nth-child(even) {
+  background: var(--row-alt, rgba(127,127,127,.045));
+}
+
 /* Nav voice languages: three slots, each a label above its own picker.
    Stacked rather than inline because the option text is long ("English UK,
    female · 0x81") and a row of label-then-select ran the three together. */
