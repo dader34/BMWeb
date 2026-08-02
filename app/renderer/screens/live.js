@@ -394,6 +394,79 @@ function applyGaugeSpecs(ecu, screens) {
   }));
 }
 
+// One INPA screen that is genuinely a TABLE: a header row, then one row per
+// pass of the same job. RDC's WE-Telegramm is five wheels x seven values, and
+// INPA prints it as a grid with the columns lined up -- which is how you read
+// four wheels against each other at a glance. Flattening it into 35 stacked
+// readouts loses exactly the thing the layout is for.
+//
+// Each row is its own read (the job takes the index as its argument), so the
+// poller walks `polls` and fills that row. A pass that fails leaves its row
+// showing the last value rather than blanking the table.
+async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
+  const t = scr.table;
+  const polls = scr.polls || [{ job: scr.job, args: scr.args || '' }];
+
+  grid.classList.remove('inpa-grid', 'two-col');
+  grid.classList.add('inpa-table-wrap');
+  grid.innerHTML = `
+    <table class="inpa-table">
+      <thead><tr>
+        <th>${esc(deGerman(t.rowHead) || t.rowHead || '')}</th>
+        ${t.headings.map(h => `<th>${esc(deGerman(h) || h)}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${t.labels.map((lab, i) => `<tr data-r="${i}">
+          <th scope="row">${esc(lab)}</th>
+          ${t.cols.map((_, c) => `<td data-c="${c}">–</td>`).join('')}
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+  const cellAt = (r, c) =>
+    grid.querySelector(`tr[data-r="${r}"] td[data-c="${c}"]`);
+
+  async function tick() {
+    let alive = 0, lastErr = null;
+    for (let r = 0; r < polls.length && r < t.labels.length; r++) {
+      const p = polls[r];
+      let data;
+      try {
+        const url = `/api/ecu/${ecu.sgbd}/run/${p.job}`
+          + (p.args ? `?arg=${encodeURIComponent(p.args)}` : '');
+        data = await api(url, { method: 'POST' });
+      } catch (e) { lastErr = e; continue; }
+      alive++;
+      const vals = new Map(flatResults(data.sets));
+      (t.keys[r] || []).forEach((key, c) => {
+        const cell = cellAt(r, c);
+        if (!cell || !key || !vals.has(key)) return;
+        const raw = vals.get(key);
+        // THE UNIT BELONGS TO THE COLUMN, NOT THE CELL. A table's heading
+        // already says what the column is ("press.", "temp."), so repeating a
+        // unit in every cell only adds noise -- and reading it per key was
+        // wrong anyway: irUnitFor knows EDIABAS's own STAT_x_WERT/_EINH
+        // pairing, where a bare `${key}_EINH` lookup returned the neighbouring
+        // row's "%" for RDC's pressures.
+        const shown = String(raw);
+        if (cell.textContent !== shown) { cell.textContent = shown; flash(cell); }
+      });
+    }
+    if (alive) {
+      meta.textContent = demoMode() ? 'demo' : 'live';
+      sbLeft.textContent = `${scr.job} · ${t.labels.length}x${t.cols.length}`;
+    } else if (lastErr) {
+      meta.textContent = 'no response';
+      sbLeft.textContent = 'no response';
+    }
+  }
+
+  await tick();
+  if (liveTok === _liveToken && container.querySelector('.inpa-table')) {
+    scheduleLive(tick);
+  }
+}
+
 async function showInpaScreens(ecu, screens, container, title, { scroll = false } = {}) {
   stopLive();
   screens = applyGaugeSpecs(ecu, screens);
@@ -431,6 +504,14 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
   const keyOrder = [];
   const pager = attachInpaPager(container, grid,
     () => keyOrder, (k) => cellEls.get(k));
+
+  // A SCREEN INPA DRAWS AS A TABLE renders as one, not as N stacked pages.
+  // RDC's WE-Telegramm reads the same seven values once per wheel; the IR
+  // carries the column layout, so draw the grid and fill it per pass.
+  const tableScr = screens.find(s => s.table);
+  if (tableScr && screens.length === 1) {
+    return showInpaTable(ecu, tableScr, container, title, meta, grid, liveTok);
+  }
 
   async function tick() {
     let added = false, alive = 0, lastErr = null;
