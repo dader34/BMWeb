@@ -48,6 +48,10 @@ python3 tools/export/web_export.py --out "$OUT"
 
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
+# The relay is not part of the product any more: it needed node running
+# beside the page, which no phone can do. Kept in the repo for anyone who
+# still starts one by hand (?relay=1), but not shipped.
+rm -f "$OUT/thor_bridge.js"
 # index.html already loads webshim.js: BOTH builds need it now. The macOS app
 # dropped its C# API too, so the shim is the only thing answering /api/* in
 # either host -- it picks its transport at load (Web Serial in a browser, the
@@ -76,15 +80,14 @@ Reading ECU data (screens, jobs, fault text) works with no cable and no
 server. Running a job needs a K+DCAN cable and a browser with Web Serial
 (Chrome/Edge desktop) -- click the cable control to pick the port.
 
-THOR WiFi adapter: browsers cannot open the raw TCP socket the adapter
-uses, so a small relay (shipped in this directory) carries it. With node
-installed:
+THOR WiFi adapter: flash it once with the WebSocket firmware
+(vendor/esp-link-ws) and it serves the socket itself -- no relay, no node,
+nothing running beside the page. Join the Thor_Wifi network, open the site,
+set Settings > Adapter to "THOR (WiFi)", and click the cable chip.
 
-  node $OUT/thor_bridge.js
-
-Join the Thor_Wifi network, open the site, set Settings > Adapter to
-"THOR (WiFi)", and click the cable chip. Works from an https host too:
-loopback WebSockets are exempt from mixed-content blocking.
+Note this needs the page on http:// or file://, not https://: a secure page
+cannot open a ws:// connection, and a private IP cannot hold a certificate.
+That is what the single-file download is for.
 
 Not available in the web build, by design:
   * write jobs (coding, clearing, flashing) -- refused in the shim AND in

@@ -187,6 +187,23 @@ html.no-chrome .topbar { grid-template-columns: auto 1fr auto; }
   border-radius: 4px; background: var(--panel);
 }
 .topbar-right { -webkit-app-region: no-drag; display: flex; align-items: center; gap: 10px; }
+/* Back, for touch. Hidden by default: on a desktop Esc and the F-key bar
+   already cover it, and a second back control would just be clutter. The
+   mobile breakpoint reveals it. */
+.nav-back {
+  display: none; -webkit-app-region: no-drag; cursor: pointer;
+  align-items: center; justify-content: center;
+  width: 38px; height: 38px; flex: none;
+  font-family: var(--display); font-size: 24px; line-height: 1;
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 4px; padding: 0 0 3px;
+}
+.nav-back:active { background: var(--raised); }
+/* Topbar buttons carry a word on the desktop and a glyph on a phone: the
+   two labels together are 148px of a 320px bar, which is what pushed
+   Flashing and Settings off the edge entirely. */
+.btn-icon { display: none; font-size: 15px; line-height: 1; }
+.nav-back[hidden] { display: none !important; }
 /* Battery / Ignition indicators */
 .kl-state { display: flex; align-items: center; gap: 14px; padding: 5px 12px;
   border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
@@ -2019,14 +2036,16 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 .setting-controls .setting-check { margin-left: 0; }
 .inpa-settings .setting-controls { justify-content: flex-end; }
 
-/* is the THOR relay up? watched live while Settings is open */
-.bridge-state {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
-  padding: 5px 10px; border-radius: 4px; border: 1px solid var(--line);
-  color: var(--ink-dim); white-space: nowrap;
+/* a typed setting (the THOR adapter's address): same box as .combo-btn, so
+   a row with a field and a row with a picker read as the same control */
+.setting-input {
+  min-width: 200px; font-family: var(--mono); font-size: 13px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line-bright); border-radius: 4px;
+  padding: 9px 12px;
 }
-.bridge-state.up { color: var(--green); border-color: var(--green); }
-.bridge-state.down { color: var(--ink-faint); }
+.setting-input:hover { border-color: var(--ink-dim); }
+.setting-input:focus { outline: none; border-color: var(--amber); }
+.setting-input::placeholder { color: var(--ink-faint); }
 
 /* WDS component-location photos: BMW drew them small, so let them be their
    own size rather than stretched, but never wider than the page */
@@ -2053,3 +2072,200 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 /* the WDS frame keeps its own palette */
 .wds-frame .wiring-loading { color: #333; }
 .wds-frame .wiring-spinner { border-color: #b0b0b0; border-top-color: #000080; }
+
+/* ============================================================ mobile
+   A PHONE IS A REAL TARGET NOW. The single-file export runs on iOS and
+   Android next to the car, over the adapter's own WebSocket, with no
+   laptop -- so the layout has to survive 390px, not just tolerate it.
+
+   Three things break at that width, and only three: the topbar's four
+   columns, the fixed chrome insets that leave no room for content, and
+   the F-key bar's ten columns. The content grids already use
+   auto-fill/minmax and reflow on their own.
+
+   Touch, not mouse: hover states mean nothing, and anything tappable
+   wants ~44px of height (Apple's HIG figure, and about right for a
+   thumb in a cold garage). */
+@media (max-width: 760px) {
+  /* The chrome eats a phone screen. Give the content its room back. */
+  .view { inset: 50px 0 60px 0; padding: 14px 12px; }
+  body.wds-nofkeys .view { inset: 50px 0 0 0; }
+
+  /* TOPBAR: four items do not fit beside the logo at 390px -- Settings fell
+     off the right edge entirely. Let the status cluster scroll instead of
+     overflowing, and shrink the pieces that are decoration. */
+  .topbar {
+    height: 50px; padding: 0 6px;
+    grid-template-columns: auto auto 1fr; gap: 6px;
+  }
+  /* THE ARROW COSTS A COLUMN, so something has to give it back. The word
+     "BMWeb" beside the logo is the least useful thing in the bar on a
+     phone -- the logo already says which app this is -- and dropping it
+     when the arrow appears keeps the status cluster from being squeezed. */
+  .topbar:has(.nav-back:not([hidden])) .brand-name { display: none; }
+  .win-controls { display: none; }
+  .breadcrumbs { display: none; }            /* "/ Vehicles" crumb */
+  /* The back arrow: a phone has no Esc key, and the F10 slot is off the
+     right end of a scrolling F-key strip. Fires the screen's own `back`
+     action, so it inherits whatever each screen already does. */
+  .nav-back { display: flex; }
+  /* MIN-WIDTH:0 IS THE WHOLE FIX. A grid child defaults to min-width:auto,
+     which refuses to shrink below its content -- so the status cluster
+     overflowed the bar and clipped FLASHING/SETTINGS instead of scrolling.
+     Both the track and the item need it. */
+  .topbar { min-width: 0; }
+  .topbar-right {
+    gap: 6px; min-width: 0; justify-self: end; max-width: 100%;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .topbar-right::-webkit-scrollbar { display: none; }
+  .topbar-right > * { flex: 0 0 auto; }
+  /* THE BAR HOLDS FOUR THINGS AND HAS ROOM FOR TWO. Measured at 320px:
+     kl-state 128px + status 97px + two buttons at 74px each = 373px in a
+     199px track, so Flashing and Settings sat off the end of a scroll
+     nobody would find. Cut every label down to the glyph that carries it. */
+  .kl-lbl { display: none; }                 /* "Battery" / "Ignition" */
+  .kl-state { padding: 4px 6px; gap: 8px; }
+  .kl-val { min-width: 0; }
+  /* the connection LED is the signal; the text is a desktop luxury */
+  .status #link-text { display: none; }
+  .status { padding: 4px 6px; }
+  .btn-text { display: none; }
+  .btn-icon { display: inline; }
+  .topbar .btn, .topbar .icon-btn {
+    padding: 0; width: 34px; height: 34px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .screen-head { margin-bottom: 12px; }
+  .title { font-size: 24px; }
+  .subtitle { font-size: 13px; }
+  .eyebrow { font-size: 10px; }
+
+  /* CHASSIS CARDS BECOME ROWS. A 1.35 aspect box on a ~200px column is a
+     tall tile with a hole in it, and only one fits per line -- which is how
+     a 27-car list turns into a mile of scrolling. A row shows the same two
+     facts in a third of the height. */
+  .chassis-grid { grid-template-columns: 1fr; gap: 8px; }
+  .chassis-card {
+    aspect-ratio: auto; padding: 12px 14px;
+    flex-direction: row; align-items: baseline; gap: 12px;
+  }
+  .chassis-code { font-size: 22px; }
+  .chassis-tag { font-size: 10px; }
+  .chassis-arrow { display: none; }          /* hover-only affordance */
+  .group-grid { grid-template-columns: 1fr; gap: 8px; }
+
+  /* F-KEYS: ten across is 39px each -- unreadable and untappable. A
+     scrolling strip of real buttons instead, and drop the printed number
+     row, which is a keyboard affordance on a device with no keyboard.
+     min-width on the keys is what forces the strip to overflow (and so
+     to scroll) rather than three keys sitting in a sea of space. */
+  .fkeybar { height: 56px; padding: 0; }
+  .fkeys { padding-top: 0; }
+  .fkeys::before { display: none; }          /* "Select menu" caption */
+  .fkey-nums { display: none; }
+  .fkey-btns {
+    display: flex; gap: 6px; padding: 6px 10px;
+    overflow-x: auto; overflow-y: hidden;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  }
+  .fkey-btns::-webkit-scrollbar { display: none; }
+  .fkey {
+    flex: 0 0 auto; min-width: 88px; min-height: 42px; padding: 0 14px;
+  }
+  .fkey:empty { display: none; }             /* INPA's blank slots */
+  .fkey-label { font-size: 13px; white-space: nowrap; }
+  .fkey-num { font-size: 12px; }
+
+  /* THE SPLIT VIEW MUST STACK. `230px 1fr` leaves 38px of content at
+     320px wide, which is why module cards were clipped mid-word. The
+     system rail becomes a horizontal strip above its modules instead --
+     same information, same order, one column. */
+  .split { grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
+  .split-nav {
+    flex-direction: row; gap: 6px;
+    overflow-x: auto; overflow-y: hidden;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .split-nav::-webkit-scrollbar { display: none; }
+  .sys-item { flex: 0 0 auto; min-height: 40px; padding: 8px 12px; }
+  .sys-item .nav-count { display: none; }    /* the number, not the tally */
+  .split-content { min-width: 0; }
+  .ecu-card { padding: 10px 12px; }
+  .ecu-grid { grid-template-columns: 1fr; }
+
+  /* SETTINGS. Fifteen rows at ~140px each is 2,700px of scrolling on a
+     320px screen, so the stacking is right but the padding is not. Tighten
+     everything and let the description wrap to the full width instead of
+     being clamped at 46ch. */
+  .setting-row {
+    flex-direction: column; align-items: stretch; gap: 8px;
+    padding: 12px 14px; min-width: 0;
+  }
+  .setting-title { font-size: 14px; }
+  .setting-desc { font-size: 12px; max-width: none; margin-top: 3px; }
+  .setting-controls { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+  .setting-input, .combo { width: 100%; min-width: 0; }
+  /* the segmented pickers stretch rather than sitting in a huddle */
+  .seg { width: 100%; }
+  .seg-btn { flex: 1 1 0; min-width: 0; }
+  .settings-version { padding: 12px 0 20px; }
+
+  /* ---- WIRING DIAGRAMS ------------------------------------------------
+     Eleven toolbar controls do not fit in 320px, and the two-pane
+     tree-beside-diagram layout leaves neither pane usable. So: one pane at
+     a time, and only the controls a thumb needs.
+
+     The diagram itself already works -- .wiring-stage has touch-action:
+     none and pointer-based pan/zoom -- so this is chrome, not behaviour. */
+  .wiring-split { height: calc(100% - 8px); }
+  .wiring-toolbar { flex-wrap: wrap; gap: 6px; padding: 6px; }
+  .wiring-toolbar .wiring-search { width: 100%; order: -1; margin: 0; }
+  /* the topbar arrow is the back control now; a second one is clutter */
+  #wds-back, .wiring-tsep, .wiring-tspacer { display: none; }
+  /* printing and help are desktop errands */
+  #wds-print, #wds-help { display: none; }
+  .wiring-tbtn { min-height: 38px; padding: 6px 12px; }
+
+  /* ONE PANE AT A TIME. Side by side gives the tree ~150px and the diagram
+     the rest, which is unreadable on both counts. The pane buttons already
+     switch between them -- this just makes split behave like tree, so the
+     default landing state is the one that is navigable. */
+  /* Specificity matters here: the base rules are
+     `.wiring-split(:not(.wds-frame)) .wiring-body`, which outranks a bare
+     `.wiring-body`. Match the shape rather than reaching for !important. */
+  .wiring-split .wiring-body,
+  .wiring-split.wds-frame .wiring-body,
+  .wiring-split:not(.wds-frame) .wiring-body {
+    grid-template-columns: 1fr; gap: 0;
+  }
+  .wiring-body:not([data-pane="doc"]) .wiring-view { display: none; }
+  .wiring-body[data-pane="doc"] .wiring-nav { display: none; }
+  .wiring-nav { margin-right: 0; }
+  #wds-pane-split { display: none; }         /* no split to give */
+
+  .wiring-leaf, .wiring-folder { padding: 9px 8px; min-height: 40px; }
+  .wiring-bar { padding: 8px 10px; gap: 8px; flex-wrap: wrap; }
+  .wiring-title { font-size: 13px; }
+  .wiring-doc { padding: 12px 14px; font-size: 13px; }
+  /* the zoom buttons are the primary control on a diagram: make them big */
+  .wiring-zoom .wiring-tbtn { min-width: 42px; min-height: 42px; }
+
+  /* Wide content scrolls inside itself. A horizontally scrolling BODY is
+     the one thing that makes a layout feel broken. */
+  .results-panel { overflow-x: auto; }
+
+  /* Touch targets. */
+  .btn, .seg-btn, .inpa-fn { min-height: 40px; }
+  .quick-clear { min-height: 36px; padding: 0 12px; }
+}
+
+/* Hover belongs to a mouse. On a touch screen these stick after a tap,
+   leaving a trail of highlighted rows behind the user. */
+@media (hover: none) {
+  .fkey:hover { border-color: var(--line); background: var(--panel); }
+  .chassis-card:hover, .group-tile:hover { border-color: var(--line); }
+}

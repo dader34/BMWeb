@@ -16,7 +16,7 @@
 
 // Files the renderer needs whatever car you picked.
 const OFFLINE_SHELL = [
-  'index.html', 'app.js', 'logo.svg', 'thor_bridge.js',
+  'index.html', 'app.js', 'logo.svg',
   'css/styles.css', 'css/themes.css', 'css/lookup.css',
   'vendor/fflate.min.js',
   'core/webdemo.js', 'core/webshim.js', 'core/bestvm.js',
@@ -46,115 +46,17 @@ const OFFLINE_FAULTS = [
   'data/faultmeta.js', 'data/faultinfo.js',
 ];
 
-// Starts the relay the THOR needs, from a double-click.
+// THE SINGLE FILE CANNOT CARRY ALL OF THAT. faultinfo.js is 60 MB and
+// faultmeta.js another 14 -- ISTA's extended descriptions and metadata,
+// which turn a 7 MB download into 82 MB. In a zip you keep on a computer
+// that is a fair trade; as one .html on a phone it is not.
 //
-// TWO THINGS MACOS DOES TO A DOWNLOADED SCRIPT, both of which this survives:
-//
-// 1. Archive Utility DROPS THE EXECUTABLE BIT when it expands a zip on a
-//    double-click, whatever the archive said. So the bit we set is a bonus,
-//    not the plan: the folder also ships an .html page whose one job is to
-//    show the "sh" one-liner, and the README leads with it. A launcher that
-//    only works when the bit survives is a launcher that mostly does not.
-//
-// 2. Finder runs a .command from the user's HOME, not from where the file
-//    lives, so this cd's to its own directory before looking for the bridge.
-const THOR_LAUNCHER = `#!/bin/bash
-# Double-click this to connect the THOR WiFi adapter.
-#
-# A browser cannot open the raw TCP socket the adapter uses, so this relays
-# it over a local WebSocket the page can reach. Leave the window open while
-# you use the adapter; close it when you are done.
-cd "$(dirname "$0")"
-# Put the bit back for next time. Archive Utility drops it on extraction, so
-# the first run comes through "sh" and every run after is a double-click.
-chmod +x "$0" 2>/dev/null
-if ! command -v node >/dev/null 2>&1; then
-  echo "node is not installed. Get it from https://nodejs.org and try again."
-  echo
-  read -n 1 -s -r -p "Press any key to close."
-  exit 1
-fi
-echo "Starting the THOR bridge. Keep this window open."
-echo "In the app: Settings > Adapter > THOR (WiFi), then click the cable chip."
-echo
-node thor_bridge.js
-echo
-read -n 1 -s -r -p "The bridge stopped. Press any key to close."
-`;
-
-// The page that gets someone past the one obstacle macOS puts in the way.
-// Opened from Finder like index.html, so it needs no permissions of its own,
-// and it carries a copy button rather than asking anyone to retype a path.
-const THOR_LAUNCHER_HELP = `<!doctype html>
-<meta charset="utf-8"><title>Start the THOR bridge</title>
-<style>
-  body { font: 15px/1.6 -apple-system, Segoe UI, sans-serif; color: #111;
-         background: #fff; max-width: 44rem; margin: 8vh auto; padding: 0 6vw; }
-  h1 { font-size: 21px; margin: 0 0 4px; }
-  p.lead { color: #555; margin: 0 0 26px; }
-  ol { padding-left: 20px; } li { margin-bottom: 14px; }
-  code { font: 13px/1.5 ui-monospace, Menlo, monospace; background: #f2f3f5;
-         border: 1px solid #e0e2e6; border-radius: 5px; padding: 2px 6px; }
-  .cmd { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; }
-  .cmd code { flex: 1; padding: 10px 12px; overflow-x: auto; white-space: nowrap; }
-  button { font: 600 13px -apple-system, sans-serif; cursor: pointer;
-           background: #111; color: #fff; border: 0; border-radius: 5px;
-           padding: 10px 14px; }
-  .note { color: #666; font-size: 13.5px; border-top: 1px solid #e5e7ea;
-          margin-top: 30px; padding-top: 16px; }
-</style>
-<h1>Start the THOR bridge</h1>
-<p class="lead">The adapter speaks TCP and a browser cannot open a TCP socket,
-so a small relay carries it. It needs
-<a href="https://nodejs.org">node</a> installed.</p>
-<ol>
-  <li>Plug the THOR into the car and join its <code>Thor_Wifi</code> network.</li>
-  <li>Double-click <code>Start THOR bridge.command</code> in this folder.
-    <p style="margin:8px 0 0;color:#555">If macOS says it "could not be executed
-    because you do not have appropriate access privileges", that is macOS
-    dropping the executable flag when it unzipped the folder. Open Terminal
-    and paste this once. Every double-click after it works.</p>
-    <div class="cmd">
-      <code id="c">sh "$PWD_PLACEHOLDER/Start THOR bridge.command"</code>
-      <button onclick="copyCmd()">Copy</button>
-    </div>
-  </li>
-  <li>Leave that window open, then open <code>index.html</code> and set
-      <b>Settings &rsaquo; Adapter</b> to <b>THOR (WiFi)</b>.</li>
-  <li>Click the cable chip in the top bar to connect.</li>
-</ol>
-<p class="note">Battery voltage, ignition state and the adapter's identity read
-out today. Running diagnostic jobs over the THOR is still being wired up.</p>
-<script>
-  // the folder's real path, as the browser sees it: turns the instruction
-  // into something that can be pasted rather than reconstructed by hand
-  var dir = decodeURIComponent(location.pathname.replace(/\\/[^/]*$/, ''));
-  var cmd = 'sh ' + JSON.stringify(dir + '/Start THOR bridge.command');
-  document.getElementById('c').textContent = cmd;
-  function copyCmd() {
-    navigator.clipboard.writeText(cmd).then(function () {
-      var b = document.querySelector('button');
-      b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy'; }, 2000);
-    });
-  }
-</script>
-`;
-
-const THOR_LAUNCHER_BAT = `@echo off
-rem Double-click this to connect the THOR WiFi adapter.
-cd /d "%~dp0"
-where node >nul 2>nul
-if errorlevel 1 (
-  echo node is not installed. Get it from https://nodejs.org and try again.
-  pause
-  exit /b 1
-)
-echo Starting the THOR bridge. Keep this window open.
-echo In the app: Settings ^> Adapter ^> THOR (WiFi), then click the cable chip.
-echo.
-node thor_bridge.js
-pause
-`;
+// So the single file ships the names and the P-codes (5 MB), which is what
+// makes a code read as "Oil level sensor" instead of bare hex. The extra
+// prose is what you lose, not the identification.
+const SINGLE_FAULTS = [
+  'data/faultdb.js', 'data/faultindex.js', 'data/pcodes.js',
+];
 
 function offlineBase() {
   const p = location.pathname.replace(/\/[^/]*$/, '');
@@ -206,28 +108,20 @@ Web Serial (desktop Chrome or Edge). Nothing here talks to a car by itself.
 
 THE THOR WIFI ADAPTER
 
-The THOR WiFi dongle works too, through a small relay this folder ships
-(browsers cannot open the raw TCP connection the adapter uses). It needs
-node from nodejs.org.
+The THOR WiFi dongle talks to this app directly, over its own WebSocket --
+no relay, no node, nothing else running. That works on a phone as well as a
+computer.
+
+It needs the WebSocket firmware flashed once. The adapter ships with stock
+esp-link, which serves only raw telnet a browser cannot open. Flashing is an
+upload through esp-link's own web page; see vendor/esp-link-ws/ in the
+project for the images and the steps.
+
+Once it is flashed:
 
 1. Plug the THOR into the car and join its Thor_Wifi network.
-2. Start the relay and leave its window open:
-     macOS    double-click "Start THOR bridge.command"
-     Windows  double-click start-thor-bridge.bat
-     Linux    node thor_bridge.js
-
-   macOS may refuse the first time with "you do not have appropriate access
-   privileges". That is macOS dropping the executable flag when it unzipped
-   this folder, not a broken file. Open
-   "Start THOR bridge (read me first).html" for a command you can copy, or
-   run this once in Terminal from this folder:
-
-     sh "Start THOR bridge.command"
-
-   It puts the flag back, so every double-click after that works.
-
-3. Open index.html and set Settings > Adapter to "THOR (WiFi)".
-4. Click the cable chip in the top bar to connect.
+2. Open index.html and set Settings > Adapter to "THOR (WiFi)".
+3. Click the cable chip in the top bar to connect.
 
 Battery voltage, ignition state and the adapter identity read out today;
 running jobs over the THOR is still being wired up.
@@ -329,23 +223,12 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
     offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults,
                   Object.keys(wiring).length > 0));
 
-  // Double-clickable starter for the THOR bridge. A page cannot spawn a
-  // process -- that is the sandbox doing its job -- so the nearest thing to
-  // a button off the macOS app is a file Finder will run.
-  //
-  // .command, not .sh: Finder always opens a .command in Terminal, while a
-  // .sh may go to whatever editor the user has associated. 0o755 in the high
-  // half of the external attributes makes it arrive runnable instead of
-  // needing chmod.
-  //
-  // EXACTLY ONE ENTRY MAY CARRY attrs in this fflate build: with two tuples
-  // the second is dropped and its bit reappears on whatever entry is last.
-  // This is the only one, so it is safe.
-  files['Start THOR bridge.command'] = [enc.encode(THOR_LAUNCHER),
-                                        { attrs: 0o755 << 16 }];
-  files['start-thor-bridge.bat'] = enc.encode(THOR_LAUNCHER_BAT);
-  files['Start THOR bridge (read me first).html'] =
-    enc.encode(THOR_LAUNCHER_HELP);
+  // NO RELAY LAUNCHER. An offline copy used to ship .command/.bat starters
+  // for thor_bridge.js, because a browser cannot open the raw TCP socket a
+  // stock esp-link adapter listens on. That is "install node and run a
+  // script first" -- the thing this app exists to avoid, and impossible on
+  // a phone. Flash the adapter instead (vendor/esp-link-ws) and it serves
+  // the WebSocket itself; the copy's README says how.
 
   say('compressing');
   // level 0 on the .chassis entry: it is already a zip of deflated members,
@@ -379,6 +262,200 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   return zipped.length;
 }
 
+// ONE FILE, EVERY PLATFORM.
+//
+// The zip above is right for a computer: a folder you keep, with the bridge
+// launcher beside it. It is wrong for a phone. iOS and Android will happily
+// download a zip and then give you no good way to unpack it and open one
+// page out of it in a browser -- Safari in particular cannot.
+//
+// A single .html has no such problem. Downloads, sits in Files or Downloads,
+// opens by tapping it, on Windows, macOS, iPhone and Android alike. Which
+// makes it the only artifact that covers all four, and the one that pairs
+// with the adapter's own WebSocket: tap the file, join the adapter's WiFi,
+// and the whole app is running with no server, no relay and no internet.
+//
+// Everything is inlined because a file:// page gets an opaque origin where
+// fetch() is blocked -- the same reason the zip inlines its data. Here it
+// extends to the scripts and styles too, since there is nowhere else to put
+// them.
+//
+// Wiring is OPT-IN and expensive: 72 MB for an E46 against 13 MB for the
+// whole rest of the car. Worth it on a laptop, rarely on a phone -- so the
+// caller chooses rather than the format deciding.
+async function offlineSingleFile(chassis, withFaults, onProgress,
+                                 withWiring = false) {
+  const say = (t) => { if (onProgress) onProgress(t); };
+  const dec = new TextDecoder();
+  const enc = new TextEncoder();
+
+  say('collecting the app');
+  const shell = {};
+  for (const f of OFFLINE_SHELL) {
+    if (f === 'thor_bridge.js') continue;     // a page cannot run node
+    shell[f] = await offlineGet(f);
+  }
+
+  let html = dec.decode(shell['index.html']);
+
+  // REPORT FAILURES WHERE THEY CAN BE SEEN. A phone has no console you can
+  // open, and the restricted origins a local file gets on iOS
+  // (edge://external-file, Quick Look) hide console output entirely -- so a
+  // script that throws during boot leaves the splash on "starting engine"
+  // forever with nothing to go on.
+  //
+  // alert() survives all of that, so errors go there as well as to the
+  // splash. And because a hang is not an error, the boot leaves CHECKPOINTS:
+  // if it stalls, the splash names the last stage reached, which is what
+  // turns "it does not work" into a line number.
+  html = html.replace('</head>',
+    `  <script>
+  (function () {
+    var reported = false;
+    var mark = function (s) {
+      window.__bmwebStage = s;
+      var el = document.getElementById('splash-status');
+      if (el) el.textContent = s;
+    };
+    var show = function (msg) {
+      var full = msg + ' [stage: ' + (window.__bmwebStage || 'start') + ']';
+      var el = document.getElementById('splash-status');
+      if (el) { el.textContent = full; el.style.color = '#ef6b6b'; }
+      var bar = document.getElementById('splash-bar-fill');
+      if (bar) bar.style.display = 'none';
+      if (!reported) { reported = true; try { alert(full); } catch (e) {} }
+    };
+    window.__bmwebMark = mark;
+    window.addEventListener('error', function (e) {
+      show((e.message || 'script error') + (e.lineno ? ' @' + e.lineno : ''));
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      show('' + ((e.reason && e.reason.message) || e.reason || 'promise rejected'));
+    });
+    // Nothing has thrown and nothing has finished: that is a HANG, and it
+    // needs its own report or the page just sits there.
+    setTimeout(function () {
+      if (!reported && !window.__bmwebBooted) {
+        show('stuck after 12s');
+      }
+    }, 12000);
+    mark('scripts loading');
+  }());
+  </script>
+</head>`);
+
+  // styles first, in the order the document had them
+  html = html.replace(/[ \t]*<link rel="stylesheet" href="([^"]+)"[^>]*>\n?/g,
+    (m, href) => (shell[href]
+      ? `  <style>\n${dec.decode(shell[href])}\n  </style>\n` : ''));
+
+  // Then the scripts, each in place, so load order is preserved exactly.
+  // The car's data has to be defined BEFORE webshim.js runs (it reads
+  // BMACW_INLINE as it loads), so that script tag is the anchor: emit the
+  // data immediately ahead of it. Doing it here rather than with a second
+  // pass avoids matching against text this pass has already rewritten.
+  // A sentinel that cannot appear in source or prose: " DATA " could --
+  // bestvm.js has "0-based over DATA rows" in a comment, and a marker that
+  // collides with the payload it marks corrupts the output silently.
+  const MARK = '<!--BMWEB_DATA_HERE-->';
+  let sawWebshim = false;
+  html = html.replace(/[ \t]*<script src="([^"]+)"><\/script>\n?/g,
+    (m, src) => {
+      if (src === 'thor_bridge.js') return '';
+      if (!shell[src]) return '';
+      // </script> inside a string literal would end the tag early
+      const js = dec.decode(shell[src]).replace(/<\/script>/gi, '<\\/script>');
+      // A checkpoint before each file: a script that hangs or throws leaves
+      // the PREVIOUS mark on screen, which names it. Cheap, and the only
+      // way to localise a failure on an origin with no console.
+      const tag = `  <script>window.__bmwebMark&&window.__bmwebMark('loading ${src}');</script>\n`
+        + `  <script>\n${js}\n  </script>\n`;
+      if (src === 'core/webshim.js') { sawWebshim = true; return MARK + tag; }
+      return tag;
+    });
+  if (!sawWebshim) throw new Error('index.html has no webshim.js tag');
+
+  // the car's data, as the same globals the zip build sets
+  const b64 = (u8) => {
+    let str = '';
+    const CH = 0x8000;
+    for (let i = 0; i < u8.length; i += CH) {
+      str += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
+    }
+    return btoa(str);
+  };
+  let ids;
+  if (chassis === '*') {
+    const r = await OFFLINE_FETCH(`${offlineBase()}/api/chassis.json`);
+    ids = await r.json();
+  } else {
+    ids = [chassis];
+  }
+  const inline = {};
+  for (const id of ids) {
+    say(`collecting ${id}`);
+    inline[id] = b64(await offlineGet(`api/chassis/${id}.chassis`));
+  }
+  try {
+    const idx = await offlineGet('api/ecu-index.json');
+    inline._index = JSON.parse(dec.decode(idx));
+  } catch { /* only used for a cross-chassis lookup */ }
+
+  let dataJs = `window.BMACW_INLINE=${JSON.stringify(inline)};`;
+  if (withWiring) {
+    const wiring = {};
+    for (const id of ids) {
+      try {
+        say(`collecting ${id} wiring`);
+        wiring[id] = b64(await offlineGet(`data/wiring/${id}.wiring`));
+      } catch { /* WDS never covered this car; the section stays absent */ }
+    }
+    if (Object.keys(wiring).length) {
+      dataJs += `\nwindow.BMACW_WIRING=${JSON.stringify(wiring)};`;
+    }
+  }
+  if (withFaults) {
+    for (const f of SINGLE_FAULTS) {
+      say(`collecting ${f.split('/').pop()}`);
+      try { dataJs += `\n${dec.decode(await offlineGet(f))}`; }
+      catch { /* a fault table that was never built is not fatal */ }
+    }
+  }
+
+  // The data is the biggest single script by far -- a 6 MB string literal
+  // for an E46. If a parser or a memory limit is going to give out, it is
+  // most likely here, so bracket it with its own marks.
+  html = html.replace(MARK,
+    '  <script>window.__bmwebMark&&window.__bmwebMark(\'parsing car data\');</script>\n'
+    + `  <script>\n${dataJs.replace(/<\/script>/gi, '<\\/script>')}\n  </script>\n`
+    + '  <script>window.__bmwebMark&&window.__bmwebMark('
+    + '\'car data parsed: \'+(window.BMACW_INLINE?Object.keys(window.BMACW_INLINE).join(","):\'MISSING\'));</script>\n');
+  if (html.includes(MARK)) {
+    throw new Error('single-file: the data marker survived the build');
+  }
+
+  say('saving');
+  const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}.html`;
+  const bytes = enc.encode(html);
+
+  if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
+    const r = await window.bmacw.saveFile(name, bytes);
+    if (r && r.cancelled) throw new Error('cancelled');
+    return bytes.length;
+  }
+  const blob = new Blob([bytes], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  return bytes.length;
+}
+
 if (typeof window !== 'undefined') {
   window.offlineExport = offlineExport;
+  window.offlineSingleFile = offlineSingleFile;
 }

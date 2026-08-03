@@ -40,6 +40,11 @@
       <button class="win-dot win-min"    id="win-min"    title="Minimize" aria-label="Minimize"></button>
       <button class="win-dot win-zoom"   id="win-zoom"   title="Zoom" aria-label="Zoom"></button>
     </div>
+    <!-- Back, for touch. A phone has no Esc key and the F10 slot sits off
+         the right end of the scrolling F-key strip, so without this there
+         is no way back up a screen. Hidden above 760px, where Esc and the
+         F-key bar already do the job. -->
+    <button class="nav-back" id="nav-back" title="Back" aria-label="Back">‹</button>
     <div class="brand">
       <svg class="brand-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMacW logo">
         <!-- outer ring -->
@@ -69,8 +74,8 @@
         <span class="led" id="led"></span>
         <span id="link-text">checking cable...</span>
       </div>
-      <button class="icon-btn" id="flash-btn" title="DME flashing and backup">Flashing</button>
-      <button class="icon-btn" id="settings-btn" title="Skins, adapter, startup vehicle, offline copy">Settings</button>
+      <button class="icon-btn" id="flash-btn" title="DME flashing and backup"><span class="btn-text">Flashing</span><span class="btn-icon" aria-hidden="true">⚡</span></button>
+      <button class="icon-btn" id="settings-btn" title="Skins, adapter, startup vehicle, offline copy"><span class="btn-text">Settings</span><span class="btn-icon" aria-hidden="true">⚙</span></button>
     </div>
   </header>
 

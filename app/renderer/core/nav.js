@@ -257,7 +257,10 @@ async function showSections(id, selectIndex = 0) {
   if (id.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }]);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
-  view.innerHTML = head('Control modules', dispChassis(id), 'Pick a system on the left, then a module.');
+  // "on the left" is a desktop instruction: below 760px the system rail
+  // sits ABOVE its modules as a horizontal strip, so name neither side.
+  view.innerHTML = head('Control modules', dispChassis(id),
+                       'Pick a system, then a module.');
 
   const split = document.createElement('div');
   split.className = 'split';
