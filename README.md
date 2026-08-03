@@ -1,8 +1,21 @@
 # BMacW / BMWeb
 
-BMW diagnostics for macOS (app form) and the browser. Read fault codes, watch live values,
-run actuator tests and inspect coding data over a K+DCAN cable, with no Windows,
-no virtual machine, and no EDIABAS install.
+BMW diagnostics that runs anywhere. Read fault codes, watch live values, run
+actuator tests and inspect coding data, with no Windows, no Windows VM, and
+no EDIABAS install.
+
+**The main build is a single HTML file.** One download, everything inside it -
+the app, the BEST2 VM, and one car's ECU data. It opens in a browser on
+Windows, macOS, iPhone and Android, needs no server and no internet, and talks
+to the car over a WiFi adapter's own WebSocket. Downloaded from Settings, or
+built with the exporter.
+
+The macOS app exists for the **K+DCAN USB cable**. A browser reaches a USB
+serial port only through Web Serial, which is Chrome and Edge on the desktop -
+no Safari, no phone. The app owns the port itself, and adds native save
+dialogs, PDF export and CSV logging.
+
+So: **wireless works everywhere, the cable wants the app or Chrome.**
 
 INPA is a Windows application built on BMW's EDIABAS engine. It reads two kinds
 of proprietary file: `.prg` modules that describe how to talk to each ECU, and
@@ -15,9 +28,9 @@ at runtime with its own virtual machine.
 
 | | |
 |---|---|
-| Chassis | 21 (E36 through F30, R50/R56, RR1) |
+| Chassis | 27 (E31 through F30, R50/R56, RR1, K25/K40) |
 | ECUs | 1015 |
-| Decompiled screens | 21,101 across 832 ECUs |
+| Decompiled screens | 21,386 across 1,117 ECUs |
 | Diagnostic jobs | 23,956 |
 | Fault codes | 51,484 |
 
@@ -49,55 +62,60 @@ it differs by host: Web Serial in a browser, a small serial proxy in the macOS
 shell.
 
 
-## Three builds, one renderer
+## Two builds, one renderer
 
-The same renderer runs in all of them. `app/renderer/webshim.js` decides at
-load time where data and bytes come from, and each shell provides only what a
-web page cannot do for itself: the cable, a raw socket, and the file dialogs.
+The same renderer runs in both. `app/renderer/core/webshim.js` decides at load
+time where data and bytes come from, and the shell provides only what a web
+page cannot do for itself: the USB cable and the file dialogs.
 
-**macOS app (BMacW).** A Cocoa window around WKWebView. The shell serves the
-renderer over loopback, owns `/dev/cu.usbserial*`, and provides PDF export,
-CSV logging, durable settings and window chrome. About 600 lines of C#, no
-EDIABAS.
-
-**Windows and Linux app (BMWeb).** The same thing in a Photino window, which
-is WebView2 on Windows and WebKitGTK on Linux. It shares the cable, the THOR
-socket, the file server and the settings file with the macOS build
-(`src/BMacW.Host`), so anything that talks to a car is literally the same
-code. Three macOS-only affordances are absent rather than stubbed, and the
-renderer feature-detects each: PDF fault reports, the translucent Aero skin,
-and dock-icon theming.
+**The single file (BMWeb).** One `.html` with the app, the VM and one car's
+data inlined, about 7 MB for an E46. No server, no internet, no unzipping.
+Get it from **Settings → Download single file**, or build one directly:
 
 ```sh
-scripts/build/build-web.sh                 # dist-web/api, needed by the app
-scripts/build/package-desktop.sh all       # -> dist-release/BMWeb-*.zip / .tar.gz
-BMACW_NO_WIRING=1 scripts/build/package-desktop.sh all   # 160 MB instead of 1.2 GB
+scripts/build/build-web.sh                 # dist-web, the source of the export
+python3 -m http.server -d dist-web 8080    # then use the Settings button
 ```
 
-Both cross-build from any platform: `dotnet publish -r` handles the runtime
-and Photino ships prebuilt native libraries per target. Users need the
-WebView2 runtime on Windows (already present on Windows 11 and current 10) or
-`libwebkit2gtk-4.1` on Linux, plus cable permission via
-`scripts/setup/99-bmacw-kdcan.rules` or the `dialout` group. The full notes
-ship beside the binary as `scripts/build/desktop-README.txt`.
+Everything is inlined because a `file://` page gets an opaque origin where
+`fetch()` is blocked, so scripts, styles and ECU data all travel in the
+document. That is also why it works from a phone's Downloads folder.
 
-**Web build (BMWeb).** `scripts/build/build-web.sh` produces a static directory. Reading ECU
-data works with no cable and no server. Running a job needs a K+DCAN cable and a
-browser with Web Serial, which means desktop Chrome or Edge.
+Two things to know on iOS: open it in a **browser**, not the Files-app
+preview, which is Quick Look and restricts scripts (the page hangs on the
+splash with no error). And it must stay `http://` or `file://`, an `https://`
+page cannot open `ws://`, and a bare IP cannot hold a certificate.
+
+**macOS app (BMacW).** A Cocoa window around WKWebView, for the K+DCAN cable.
+The shell serves the renderer over loopback, owns `/dev/cu.usbserial*`, and
+provides PDF export, CSV logging, durable settings and window chrome. About
+600 lines of C#, no EDIABAS.
 
 ```sh
-scripts/build/build-web.sh
-python3 -m http.server -d dist-web 8080
+scripts/build/package-macos.sh             # -> dist-release/BMacW-*.dmg
 ```
+
+The hosted site is the same `dist-web` tree. It is how you download the
+single file; it is not how you talk to a car, because HTTPS cannot reach a
+private-IP WebSocket.
 
 
 ## Offline download
 
-Either build can package itself: Settings has a **Download offline copy**
-button that zips the app plus one car's data, in the browser tab, with no
-server involved. The result runs by opening `index.html`: double-click it or
-drag it into a browser. No install, no launcher script, no internet. The
-copy is branded BMWeb, since it always runs in a browser whoever exported it.
+Settings offers two, and they differ in shape rather than content:
+
+**Download single file**, one `.html`, everything inside. The one to use on
+a phone: it AirDrops, sits in Downloads, and opens by tapping it. No folder,
+no unzipping. Wiring diagrams are excluded (72 MB against 7 for the rest of
+an E46); fault text is a checkbox.
+
+**Download offline copy**, a zip of the app plus one car's data, which
+unpacks to a folder you open by double-clicking `index.html`. Right for a
+computer, where a folder is easy to keep and the wiring diagrams are worth
+having.
+
+Both are produced in the browser tab with no server involved, and both are
+branded BMWeb, since they always run in a browser whoever exported them.
 
 The ECU data is embedded in the page rather than fetched, which is what lets
 a page opened straight from disk read it at all (a `file://` page gets an
@@ -117,42 +135,77 @@ Edge). Writes are refused, as in any web build.
 ## THOR WiFi adapter
 
 The THOR WiFi dongle is a Deep-OBD-style custom adapter (the EdiabasLib
-DEEPOBDWIFI protocol, not an ELM327): an ESP-Link WiFi bridge at
-`192.168.4.1:23` carrying BMW-FAST-framed telegrams, which is exactly what
-the VM speaks. One catch: browsers cannot open raw TCP sockets, and no web
-API changes that today (Direct Sockets is restricted to Isolated Web Apps,
-and port 23 is on the browser blocked-port list besides). So the web build
-ships `thor_bridge.js`, a dependency-free WebSocket relay that runs locally
-and pipes bytes to the adapter. Loopback WebSockets are exempt from
-mixed-content blocking, so this works even on an https host like GitHub
-Pages.
+DEEPOBDWIFI protocol, not an ELM327): an ESP8266 running esp-link in front of
+an adapter MCU, carrying BMW-FAST-framed telegrams, exactly what the VM
+speaks. **This is the transport that makes every platform work**, because it
+needs nothing but a browser.
 
-**Web build or GitHub Pages:**
+Stock esp-link offers a page no way in: port 23 is raw telnet, which a browser
+cannot open, and the µC console is HTTP polling of a *text* endpoint, which
+mangles every byte over 0x7F, and telegrams are full of them. So
+`vendor/esp-link-ws/` adds a **binary WebSocket** at `ws://192.168.4.1/bmweb`,
+bridged straight to the UART. Prebuilt images and flashing notes are in
+`vendor/esp-link-ws/firmware/`; it flashes over esp-link's own OTA page and
+keeps the config UI, WiFi setup and telnet bridge intact.
 
-1. Install node (nodejs.org), then run the relay:
-   `node thor_bridge.js` from the served directory, or download
-   `thor_bridge.js` from the site and run it anywhere.
-2. Plug the THOR into the car; join its `Thor_Wifi` network.
-3. Open the site, set Settings > Adapter to "THOR (WiFi)", and click the
-   cable chip in the top bar to connect.
+### Flashing the adapter
 
-**Offline copy:** identical, and the zip already contains `thor_bridge.js`
-next to `index.html`. The copy's own README repeats these steps.
+The dongle ships with stock esp-link, which serves only raw telnet on port
+23, a browser cannot open that, so out of the box the adapter is
+unreachable from a web page. Flashing replaces nothing you need: the config
+pages, WiFi setup, OTA upload and the telnet bridge all keep working, and
+the **adapter MCU is never touched** (it is a separate chip, and it holds
+everything BMW-specific). The worst case is a non-booting ESP in front of a
+perfectly intact adapter.
 
-**macOS app:** no relay at all. The shell opens the TCP socket itself
-(TcpProxy, beside the serial proxy), so it is just: join `Thor_Wifi`, pick
-Settings > Adapter > "THOR (WiFi)", click the cable chip.
+1. **Back up first, if you can.** `esptool.py --port /dev/cu.usbserial-XXXX
+   read_flash 0 0x400000 thor-backup.bin`. This needs physical access to the
+   ESP's TX/RX/GND pads. If your dongle is sealed, know that esp-link's
+   two-slot fallback is then your only safety net.
+2. Join the adapter's `Thor_Wifi` network and open **http://192.168.4.1**.
+3. Go to **Upgrade Firmware**. It names the file it wants, `user1.bin` or
+   `user2.bin`, whichever slot it is *not* running from. Upload that one
+   from `vendor/esp-link-ws/firmware/`. The two are built for different
+   flash offsets and are not interchangeable; the wrong one is rejected
+   rather than half-written.
+4. When it reboots, the page reads `Current firmware: esp-link bmweb-ws.3`.
+5. Check it with `node tools/thor_ws_probe.js`, a pass ends with
+   `VALID IDENT` and the adapter's type and firmware version. The ident is
+   addressed tester-to-tester, so no car is involved.
 
-The status chip shows the adapter firmware, and the topbar battery and
-ignition indicators read live from the adapter, against any car. Running
-diagnostic jobs through the THOR is still being wired up: the K-line and
-D-CAN telegram wrapping is BMW-specific and untested until the car is
-available.
+Then just: join `Thor_Wifi`, open the app, **Settings → Adapter → THOR
+(WiFi)**, and click the cable chip. There is no address to enter -
+`192.168.4.1` is the ESP's own soft-AP address and never changes while you
+are joined to it. The topbar reads "THOR direct" when it is live, along with
+live battery and ignition off the adapter.
 
-Tip if you need internet while connected to the adapter's network: give the
-machine a second link (Ethernet, or an iPhone via USB with Personal Hotspot)
-and put it above Wi-Fi in System Settings > Network > service order.
+Confirmed end to end: adapter type 0x10, firmware v1.15, live values on an
+iPhone with no laptop and no relay.
 
+### Changing the address
+
+Two reasons you might: you would rather reach the adapter over your own
+network, or you changed its AP address. Both are esp-link settings, not app
+settings.
+
+- **Station mode** (adapter joins your WiFi): esp-link's **WiFi Station**
+  page. It gets a normal DHCP address on your LAN, so you keep internet
+  while using it, but at a car, with no network in range, it falls back to
+  being its own AP.
+- **A different AP address**: esp-link's **WiFi Soft-AP** page.
+
+Either way, tell the app with `?ws=<host>` on the URL, for example
+`index.html?ws=192.168.1.57`. A bare host, `host:port`, or a full
+`ws://host/path` all work.
+
+`thor_bridge.js`, the dependency-free relay, is no longer shipped or offered:
+it required installing node and running a process beside the page, which is
+impossible on a phone and the opposite of the point. If you still run one by
+hand, `?relay=1` re-enables the fallback.
+
+Tip if you need internet while on the adapter's network: give the machine a
+second link (Ethernet, or an iPhone via USB with Personal Hotspot) and put it
+above Wi-Fi in System Settings > Network > service order.
 
 ## Wiring diagrams
 
@@ -383,7 +436,7 @@ tools/check.sh                        # every guard on the pipeline
 ```
 
 `tools/check.sh` verifies the decompiler against known screens, the interpreter
-across all 832 ECUs, the VM against captured telegrams, the write guard, and
+across all 1,117 ECUs, the VM against captured telegrams, the write guard, and
 that every table an SGBD references is shipped.
 
 ### Where the data lives
@@ -403,10 +456,10 @@ ships per car rather than per module. Neither is shipped.
 
 ```
 app/renderer/     the UI: IR interpreter, BEST2 VM, transport shim
-src/BMacW.Host/   shared shell core: file host, cable, TCP, settings, paths
+src/BMacW.Host/   shell core: file host, cable, TCP, settings, paths
 src/InpaMac.App/  macOS shell: AppKit window + WKWebView around that core
-src/BMacW.Desktop/ Windows/Linux shell: Photino window around the same core
 src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
+vendor/esp-link-ws/  WebSocket firmware for the THOR adapter, + prebuilt images
 tools/            decompilers, exporters, test harnesses
 data/ecu-src/     committed source: one gzipped copy per SGBD
 data/chassis/     derived per-car tree (gitignored)
