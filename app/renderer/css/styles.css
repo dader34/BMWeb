@@ -1921,9 +1921,13 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     background: #fff !important; color: #000 !important;
     height: auto; overflow: visible;
   }
-  /* every piece of app chrome */
+  /* every piece of app chrome. .wiring-toolbar and .wiring-zoom are the
+     modern layout's own -- the toolbar carries the Print button that started
+     the job, and the zoom controls sit on top of the diagram, so both would
+     otherwise be printed onto the sheet. */
   .topbar, .fkeybar, .grain, .splash, .modal-overlay,
   .wds-toolbar, .wds-titlebar, .wds-footer, .wiring-nav,
+  .wiring-toolbar, .wiring-zoom,
   .screen-head, .crumbs, .breadcrumbs { display: none !important; }
 
   /* the view stops being a scrolling pane and becomes the page */
