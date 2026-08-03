@@ -124,8 +124,21 @@ jobs:
           # every visitor, and assembling it peaks at several times that.
           # A phone does not survive it. Build it once, here.
           mkdir -p dist-web/get
-          node tools/export/build_single.js all-in-one dist-web/get --faults
-          ls -la dist-web/get/
+          # Node sizes its heap from the machine's RAM, and a runner has
+          # less than a laptop. The peak here is several times the 190 MB
+          # result, so say the number rather than inherit one: an OOM would
+          # abort the deploy, and this is the one step that can hit it.
+          node --max-old-space-size=6144 \
+            tools/export/build_single.js all-in-one dist-web/get --faults
+          # A truncated or missing file must fail HERE, not be published as
+          # a download that opens to nothing.
+          test -s dist-web/get/bmweb-all.html
+          python3 -c "
+          import os, sys
+          n = os.path.getsize('dist-web/get/bmweb-all.html') / 1048576
+          print(f'all-cars file: {n:.0f} MB')
+          sys.exit(0 if n > 100 else f'suspiciously small: {n:.0f} MB')"
+
 
       - name: Put the installer at the root
         run: |
