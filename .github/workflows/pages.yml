@@ -48,6 +48,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # build_single.js runs the browser exporter in a VM context
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Expand the committed data
         run: |
           set -euo pipefail
@@ -109,6 +114,18 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Build the all-cars file
+        run: |
+          set -euo pipefail
+          # THE ONE FILE THAT IS THE SAME FOR EVERYONE. Per-car copies are
+          # built in the visitor's browser, which is cheap and covers every
+          # combination -- but "all cars" is ~190 MB and identical for
+          # every visitor, and assembling it peaks at several times that.
+          # A phone does not survive it. Build it once, here.
+          mkdir -p dist-web/get
+          node tools/export/build_single.js all-in-one dist-web/get --faults
+          ls -la dist-web/get/
 
       - name: Put the installer at the root
         run: |

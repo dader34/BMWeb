@@ -295,13 +295,31 @@
       // roughly 190 MB, which is one JavaScript string literal that has to
       // parse before the page runs. Fine on a computer; on a phone it is
       // the shape of thing iOS kills with no error, so it says so.
-      var all = document.createElement('button');
+      // EVERY CAR IS A PREBUILT FILE, not a build. It is the same 190 MB
+      // for everyone, so assembling it per visitor buys nothing -- and the
+      // peak while assembling is several times the result, which is enough
+      // to have iOS kill the tab (it reads as a spontaneous reload, because
+      // an out-of-memory kill raises nothing to catch). CI builds it once
+      // where memory is cheap; this just links to it.
+      var all = document.createElement('a');
       all.className = 'chip chip-all';
-      all.type = 'button';
+      all.href = './get/bmweb-all.html';
+      all.setAttribute('download', '');
       all.innerHTML = '<b>All ' + ids.length + ' cars</b>'
-        + '<span>~190 MB, desktop</span>';
-      all.onclick = function () { build('*'); };
+        + '<span>one file, prebuilt</span>';
       box.appendChild(all);
+      // ...unless it was never published, in which case say so rather than
+      // offering a link that 404s.
+      fetch(all.href, { method: 'HEAD' }).then(function (r) {
+        if (r.ok) {
+          var mb = +r.headers.get('content-length') / 1048576;
+          if (mb > 1) {
+            all.querySelector('span').textContent = mb.toFixed(0) + ' MB, prebuilt';
+          }
+        } else {
+          all.remove();
+        }
+      }).catch(function () { all.remove(); });
       status.textContent = 'Pick a car. The file is built here in the '
         + 'browser, so it takes a moment.';
     }).catch(function () {
