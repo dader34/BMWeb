@@ -14,6 +14,7 @@
     "gyro Fehler": "gyro fault",
     "Produktionsmode ein": "Production mode on",
     "Transportmode ein": "Transport mode on",
-    "Werkstattmode ein": "Workshop mode on"
+    "Werkstattmode ein": "Workshop mode on",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

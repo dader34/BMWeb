@@ -75,6 +75,12 @@
     "Solarsensor rechts": "Solar sensor, right",
     "Standheizung Stoerung": "Parking heater, fault",
     "Standheizung Unterspannung": "Parking heater, undervoltage",
-    "Zuheizer": "Auxiliary heater"
+    "Zuheizer": "Auxiliary heater",
+    "frei 0x09": "Not assigned (0x09)",
+    "frei 0x18": "Not assigned (0x18)",
+    "frei 0x1C": "Not assigned (0x1C)",
+    "frei 0x1E": "Not assigned (0x1E)",
+    "frei 0x1F": "Not assigned (0x1F)",
+    "frei 0x27": "Not assigned (0x27)"
   }
 }

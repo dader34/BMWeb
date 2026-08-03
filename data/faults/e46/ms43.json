@@ -167,6 +167,7 @@
     "Sekundaerluftsystem Bank 2": "Secondary air system, bank 2",
     "NKAT-Sonde, Sondesignal nach SA unplausibel BK1": "Post-cat O2 sensor signal after secondary air implausible, bank 1",
     "NKAT-Sonde, Sondesignal nach SA unplausibel BK2": "Post-cat O2 sensor signal after secondary air implausible, bank 2",
-    "Functional Check TEV": "Functional check: purge valve (TEV)"
+    "Functional Check TEV": "Functional check: purge valve (TEV)",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

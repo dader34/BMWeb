@@ -28,6 +28,7 @@
     "Drehzahlschlupf": "Speed slip",
     "Getriebesteuergeraet": "Transmission control unit",
     "Ueberdrehzahl Motor": "Engine overspeed",
-    "AD-Wandler": "Analog-to-digital converter"
+    "AD-Wandler": "Analog-to-digital converter",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

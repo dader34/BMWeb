@@ -30,6 +30,7 @@
     "Hydraulikpumpe": "Hydraulic pump",
     "Pumpenmotor": "Pump motor",
     "Hydraulikkreislauf": "Hydraulic circuit",
-    "NV-RAM": "NV-RAM"
+    "NV-RAM": "NV-RAM",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

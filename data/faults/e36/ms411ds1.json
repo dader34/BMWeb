@@ -100,6 +100,7 @@
     "Fehler beim Absaugen im Tanksystem": "Fault during purging of the fuel-tank system",
     "Absperrventil klemmt, geschlossen": "Shutoff valve sticking, closed",
     "Tankdeckel fehlt": "Fuel filler cap missing",
-    "TEV klemmt, offen": "Purge valve sticking, open"
+    "TEV klemmt, offen": "Purge valve sticking, open",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

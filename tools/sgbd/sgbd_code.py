@@ -142,7 +142,7 @@ def relocate(ops, index, data):
     return unresolved
 
 
-def export(sgbd, write=True, all_jobs=False):
+def export(sgbd, write=True, all_jobs=False, dest=None):
     data, jobs = SP.load(sgbd)
     ir = S.ir_jobs_for(sgbd)
     # INITIALISIERUNG is not referenced by any screen, but EDIABAS RUNS IT
@@ -181,6 +181,13 @@ def export(sgbd, write=True, all_jobs=False):
         import gzip as _gz
         blob = _gz.compress(json.dumps(
             out, ensure_ascii=False, separators=(",", ":")).encode(), 6)
+        if dest:
+            # An explicit destination bypasses the chassis tree: group
+            # SGBDs belong to no ECU folder, and write_ecu silently drops
+            # anything chassis-config does not name.
+            with open(dest, "wb") as f:
+                f.write(blob)
+            return (sgbd, len(out["jobs"]), len(ops), unresolved, len(blob))
         n = ET.write_ecu(sgbd, "job-code.json.gz", None, raw=blob)
         return (sgbd, len(out["jobs"]), len(ops), unresolved,
                 len(blob) if n else 0)

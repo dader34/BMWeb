@@ -19,6 +19,7 @@
     "keine optische Init und Hardwarefehler": "No optical init and hardware fault",
     "Hardwarefehler Initialisierungsfehler Lichthardwarefehler": "Hardware fault, initialization fault, light hardware fault",
     "Hardwarefehler Initialisierungsfehler Codierfehler": "Hardware fault, initialization fault, coding fault",
-    "Hardwarefehler Initialisierungsfehler Lichtfehler": "Hardware fault, initialization fault, light fault"
+    "Hardwarefehler Initialisierungsfehler Lichtfehler": "Hardware fault, initialization fault, light fault",
+    "Fehlerkombination": "Fault combination"
   }
 }

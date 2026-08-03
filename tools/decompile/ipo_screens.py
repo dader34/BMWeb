@@ -159,8 +159,46 @@ def decodable(rec):
     return bool(rec["fields"] or rec["captions"] or rec["softkeys"])
 
 
+def ipo_paths():
+    """Every .IPO in SGDAT, whichever case BMW shipped it in.
+
+    CASE-INSENSITIVE ON PURPOSE (same fix as ipo_ir.py). BMW shipped
+    SGDAT with both spellings -- 763 files are *.IPO and 1025 are *.ipo
+    -- so a glob of "*.IPO" on a case-sensitive filesystem silently
+    lifted less than half the corpus. And on a CASE-INSENSITIVE
+    filesystem globbing both patterns returns the same file twice, so
+    dedupe by lowered stem: a directory holding both FOO.IPO and
+    foo.ipo yields one path.
+    """
+    seen, out = set(), []
+    for p in sorted(glob.glob(os.path.join(SGDAT, "*"))):
+        if not p.lower().endswith(".ipo"):
+            continue
+        stem = os.path.basename(p)[:-4]
+        if stem.lower() in seen:
+            continue
+        seen.add(stem.lower())
+        out.append(p)
+    return out
+
+
+def ipo_path(ecu):
+    """One ECU's .IPO, tolerating either extension case.
+
+    Hardcoding + ".IPO" only ever worked because APFS is
+    case-insensitive; on Linux it misses the 1025 lowercase files.
+    Falls back to the .IPO spelling so callers' "no such .IPO"
+    error paths still fire on a genuinely missing ECU.
+    """
+    for ext in (".IPO", ".ipo"):
+        p = os.path.join(SGDAT, ecu + ext)
+        if os.path.exists(p):
+            return p
+    return os.path.join(SGDAT, ecu + ".IPO")
+
+
 def corpus(paths=None):
-    for p in sorted(paths or glob.glob(os.path.join(SGDAT, "*.IPO"))):
+    for p in (paths or ipo_paths()):
         yield extract(p)
 
 
@@ -169,7 +207,7 @@ def main():
     write = "--write" in sys.argv
 
     if args:                                # one ECU, full detail
-        path = os.path.join(SGDAT, args[0] + ".IPO")
+        path = ipo_path(args[0])
         if not os.path.exists(path):
             print(f"no such .IPO: {args[0]}", file=sys.stderr)
             return 1

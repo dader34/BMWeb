@@ -15,6 +15,7 @@
     "Libelle 1 Ausloeseschwelle": "Level sensor 1 trigger threshold",
     "Libelle 2": "Level sensor 2",
     "Libelle 2 Ausloeseschwelle": "Level sensor 2 trigger threshold",
-    "g-Sensor": "G-sensor"
+    "g-Sensor": "G-sensor",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

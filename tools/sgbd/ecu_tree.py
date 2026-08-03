@@ -25,6 +25,7 @@ regeneration always updates every car that shares the ECU. Nothing writes into
 this tree by hand.
 """
 import os
+import sys
 import json
 import glob
 
@@ -75,10 +76,15 @@ def write_ecu(sgbd, name, obj, raw=None):
 
     `obj` is JSON-serialised; pass `raw` (bytes/str) instead for content that
     is already encoded. Returns the number of copies written, which is 0 when
-    no chassis config names the SGBD -- worth surfacing rather than silently
-    dropping the output.
+    no chassis config names the SGBD. That case is PRINTED here, not left to
+    each caller: several generators funnel through this function and most of
+    them ignored the return value, so exports for unclaimed SGBDs vanished
+    without a trace.
     """
     dirs = ecu_dirs(sgbd)
+    if not dirs:
+        print(f"  ecu_tree: DROPPED {name} for {sgbd}: "
+              f"no chassis-config entry names this SGBD", file=sys.stderr)
     payload = raw if raw is not None else json.dumps(
         obj, ensure_ascii=False, separators=(",", ":"))
     if isinstance(payload, str):

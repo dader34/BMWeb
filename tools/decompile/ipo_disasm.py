@@ -23,25 +23,63 @@ CONSTANT POOL      typed literal stream, one entry per source literal, in
     ['Read analog status',1,0,1,0 , '',3,0,0,0] == the two ftextout calls
     the source makes at the top of SCREEN s_status_analog().
 
-CODE               self-delimiting tokens, mostly 4 bytes:
-    01 00 <u16>       push VARIABLE slot n
+CODE               self-delimiting tokens, ALL 4 bytes except the inline
+    headers. Cracked line-by-line against BMW_STD.H's own function bodies
+    (instr, trimstr, space, ExtraScript ... BMW ships source AND compiled
+    artifact side by side), so each of these is correlation-proven:
+
+    01 00 <u16>       push GLOBAL slot n
     01 01 <u16>       push CONSTANT pool[n]        <- the missing linkage
+    01 02 <u16>       push param/local slot n (params first, then locals)
+    03 02 <u16>       push THROUGH a reference param (deref read: reading an
+                      out/inout param's value -- trimstr's `Temp=Text`).
+                      Earlier read as a 3-byte int immediate, which desynced
+                      every proc that touches an inout param.
+    06 <sc> <u16>     store into slot n
+    07 02 <u16>       store THROUGH a reference param (instr's `pos=i`)
+    08 <5x> 00 00     local DECLARATION, one per uninitialised local, in
+                      source order: 50=bool 51=int 53=long 55=string proven
+                      (instr: string,int,int,int,bool = 55,51,51,51,50);
+                      52=byte 54=real inferred from the two remaining INPA
+                      types. An initialised local declares as a bare const
+                      push instead (space: s100/s10/s1 then 08 51 for i).
     02 <k> <u16>      push proc reference (k: 40=screen 41=menu, 3e/3f seen)
-    06 00 <u16>       store into variable slot n
-    09 <u16> 00       binary operator (60 add, 62 mul observed)
-    0a 00 <u16>       block header: body length in dwords (ITEM/INIT bodies)
+    09 <u16> 00       binary operator, see BINOPS
+    0a 00 <u16>       FIRST token: block header, u16 = dword index where the
+                      proc's prologue/INIT ends. Anywhere else: unconditional
+                      JUMP to dword index u16 (while-loop back edges, else
+                      skips). Targets are relative to the enclosing block:
+                      the proc body after this header, or the bytes after the
+                      nearest ITEM/LINE header (verified: MUST s_main's
+                      if(ds2_flag) inside LINE 2, MS450 m_speicher ITEM 5).
+    0b 00 <u16>       JUMP-IF-FALSE to dword index u16, same coordinates.
+                      Every if and while compiles to cond / 05-stmt / 0b.
+    05 00 01 00       statement separator
     0c 80 <u16>       call user proc #n
     0c 81 <u16>       call builtin #n
+    0d 00 00 00       end-of-proc marker (sits right before the next decl)
+    0d 01 <u16>       call DLL import #n (import32 table; per-file numbering,
+                      BMW_STD.H's GetPrivateProfileString lands on 8)
+    0e 00 00 00       return / end of the enclosing block
     0f 00 00 00       OPEN CALL FRAME -- args pushed after this belong to the
                       next call, so no arity table is needed
     21/22/24 <u16> <u16> <label> 0a
-                      LINE(21/22) and ITEM(24) headers, label inline
+                      LINE(21/22) and ITEM(24) headers, label inline; the
+                      trailing u16 is the block's END as a dword index, the
+                      same coordinate system the jumps use
     everything else   treated as 4-byte unknown, counted against coverage
 
-BUILTINS (empirically named from MUST correlation; unknowns stay numeric)
-    00 setmenutitle   01 setmenu   04 setscreen   0c exit
-    10 select  11 deselect  13 start  17 printscreen
-    48 text    4a ftextout
+BINOPS (proven against BMW_STD.H/.SRC statements; MUST compiles them all)
+    60 +   61 -   62 *   64 <   65 >   66 <=   67 >=   68 ==   69 !=
+    6a &&  6b ||  6d unary minus  6e !
+    inferred only (slot layout + the INPA manual's operator inventory +
+    usage shape like `(x & 2) == 2`, no compiled source proof):
+    63 /   6c ^^   6f &   70 |   71 ^
+
+BUILTINS: named by aligning every call site in MUST_EXX.SRC + BMW_STD.SRC +
+    BMW_STD.H + the seven includes against the compiled stream, proc by proc
+    (45 of 47 procs align call-for-call; every previously known number was
+    confirmed). Unknowns stay numeric.
 
 Read-only: decodes .IPOs, never talks to a car.
 
@@ -53,7 +91,6 @@ import os
 import re
 import sys
 import json
-import glob
 import struct
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -230,65 +267,127 @@ def find_decls(data, pool_start):
 # ---------------------------------------------------------------- walker ----
 
 BUILTINS = {
+    # UI/navigation (MUST-proven unless said otherwise)
     0x00: "setmenutitle", 0x01: "setmenu",
     0x02: "setitem",         # setitem(nr, caption, enabled)
+    0x03: "settitle",
     0x04: "setscreen", 0x0c: "exit",
-    0x0f: "scriptchange",    # loads another .IPO entirely
+    0x0f: "scriptchange",    # loads another .IPO entirely (empirical)
     0x10: "select", 0x11: "deselect", 0x13: "start", 0x17: "printscreen",
-    # display statements (named from MUST_EXX + GSDS2 correlation)
+    0x18: "printfile",
+    # conversions and string helpers
+    0x1c: "getdate", 0x1d: "gettime",
+    0x1e: "realtostring", 0x1f: "stringtoreal", 0x20: "inttostring",
+    0x24: "strlen",
+    # midstr(dst, src, start, len) -- INPA's substring, its real name from
+    # Inpa.h. 9434 sites in 553 files, the most-used call in the corpus.
+    0x25: "midstr",
+    # (src, dst) -- formats a number into a display string. 520 sites in 66
+    # files. EMPIRICAL: no MUST call site; shape-derived, name is ours.
+    0x27: "formatnum",
+    0x28: "bytetoint", 0x29: "inttolong",
+    # input dialogs. getinputstate reports how the LAST dialog closed
+    # (== input_ok means the user pressed OK, and the answer slots are live).
+    0x3e: "getinputstate",
+    0x43: "input2text",      # (ref a, ref b, title, help, cap1, cap2)
+    0x44: "input2hexnum",    # (ref hexstr, ref int, title, help, ...)
+    0x46: "inputint",        # (ref n, title, range, min, max)
+    # display statements
     0x48: "text",            # text(row, col, str)
-    0x49: "textout",         # textout(str, row, col)
+    0x49: "textout",         # textout(str, row, col)   (empirical)
     0x4a: "ftextout",        # ftextout(str, row, col, flagA, flagB)
     # digitalout(val, row, col, onText, offText). Two opcodes carry it and
     # the argument SHAPES tell them apart: 0x4b is (var,int,int,str,str) --
     # 990 sites, the common form -- while 0x4d takes all-variable arguments
     # (the caption strings held in variables). Only 0x4d was mapped, so
     # KLIMA_5B's I/O status decoded twelve captions and zero values.
+    # (0x4d may really be Inpa.h's multianalogout -- the numbers 48..4c land
+    # exactly on text..analogout in declaration order -- but 0x4b is the
+    # proven digitalout and 0x4d's rows render correctly as lamps, so the
+    # empirical name stays until a compiled source site proves it.)
     0x4b: "digitalout",
     0x4c: "analogout",       # analogout(val, row, col, min, max, wlo, whi, fmt)
     0x4d: "digitalout",
+    0x4e: "hexdump",         # hexdump(adrstr, count, row, col)
+    # boxes, views, PC-side files
+    0x52: "messagebox",
+    0x54: "userboxopen", 0x55: "userboxclose", 0x56: "userboxftextout",
+    0x5b: "callwin",
+    0x5c: "viewopen", 0x5d: "viewclose",
+    0x79: "fileopen", 0x7a: "fileclose",
+    0x7b: "filewrite", 0x7c: "fileread",
     # EDIABAS bridge
+    0x60: "INPAapiInit", 0x61: "INPAapiEnd",
     0x62: "INPAapiJob",             # (sgbd, job, arg, resultfilter)
     0x63: "INPAapiResultText",      # (ref, key, set, fmt)
-    # (ref, key, set) like its neighbours -- a plain numeric read, the value
-    # then formatted by a helper (hex bytes, temperatures, counters). 5026
-    # sites in 411 files; unmapped, it left captioned rows with no value.
-    0x64: "INPAapiResultNumber",
+    0x64: "INPAapiResultInt",       # (ref, key, set)
+    0x65: "INPAapiResultSets",      # (ref)
     0x66: "INPAapiResultDigital",   # (ref, key, set)
     0x67: "INPAapiResultAnalog",    # (ref, key, set)
+    # (key, set) with NO destination ref -- reads into an internal buffer
+    # that GetBinaryDataString then copies out (s_speicher_ausgabe:
+    # INPAapiResultBinary("DATEN",1) before hexdump)
+    0x68: "INPAapiResultBinary",
     0x69: "INPAapiCheckJobStatus",  # (status)
-    # same (sgbd, job, arg, filter) shape as 0x62 -- 734 sites in 334 files,
-    # always three string arguments. RADIO's entertainment-source keys call
-    # their jobs this way, so they read as dead without it.
-    0x6f: "INPAapiJob",
-    # (dst, src, start, len) -- a substring, INPA's MID$. 9434 sites in 553
-    # files, the most-used call in the corpus. Its first argument is a
-    # destination slot: of 359 sampled, 338 are read again afterwards.
-    0x25: "substr",
-    # (src, dst) -- formats a number into a display string. 520 sites in 66
-    # files, always exactly one var and one procref, and the destination is
-    # what gets printed. Same shape as copyslot, opposite argument order.
-    0x27: "formatnum",
-    # (key, set) with NO destination ref -- reads into an implicit slot that
-    # 0x78 then copies out. 975 sites in 399 files, never once preceded by a
-    # procref, which is what distinguishes it from 63/64/66/67.
-    0x68: "INPAapiResultInto",
-    0x78: "copyslot",               # (dst, src) -- always exactly two refs
+    0x6b: "INPAapiFsLesen", 0x6c: "INPAapiFsMode",
+    # the second-connection API (group SGBD): same shapes as INPAapi*.
+    # 0x6f is 734 sites in 334 files -- RADIO's entertainment-source keys
+    # call their jobs this way, so they read as dead without it.
+    0x6f: "INP1apiJob",             # (sgbd, job, arg, resultfilter)
+    0x71: "INP1apiResultText", 0x72: "INP1apiResultInt",
+    0x73: "INP1apiResultSets", 0x75: "INP1apiResultBinary",
+    0x76: "INP1apiErrorCode", 0x77: "INP1apiErrorText",
+    0x78: "GetBinaryDataString",    # (dst, src) -- always exactly two refs
+    # string arrays and structure buffers (BMW_STD.H helpers)
+    0x8c: "StrArrayCreate", 0x8d: "StrArrayDestroy", 0x8e: "StrArrayWrite",
+    0x8f: "StrArrayRead", 0x91: "StrArrayDelete",
+    0x9a: "CreateStructure", 0x9b: "SetStructureMode",
+    0x9c: "StructureByte", 0x9d: "StructureInt", 0x9e: "StructureLong",
+    0x9f: "StructureString",
 }
+
+# The job-call builtins: one per API connection. Consumers that ask "does
+# this run an EDIABAS job" must accept both.
+JOB_CALLS = {"INPAapiJob", "INP1apiJob"}
+
+# binary operators (opcode 09). Proven names per the docstring; the five
+# inferred ones are marked there.
+BINOPS = {
+    0x60: "add", 0x61: "sub", 0x62: "mul", 0x63: "div",
+    0x64: "lt", 0x65: "gt", 0x66: "le", 0x67: "ge",
+    0x68: "eq", 0x69: "ne",
+    0x6a: "and", 0x6b: "or", 0x6c: "xor",
+    0x6d: "neg", 0x6e: "not",
+    0x6f: "band", 0x70: "bor", 0x71: "bxor",
+}
+_CMP = {"lt": "<", "gt": ">", "le": "<=", "ge": ">=", "eq": "==", "ne": "!="}
+
+# local declarations (opcode 08); 52/54 inferred, see docstring
+_DECL_TYPES = {0x50: "bool", 0x51: "int", 0x52: "byte", 0x53: "long",
+               0x54: "real", 0x55: "string"}
 
 _INLINE_OPS = {0x21, 0x22, 0x24}      # LINE/ITEM: label inline until \n
 _NEG = 0x6d                           # unary minus; see calls_of
 
 
 def walk(data, lo, hi, pool):
-    """Token stream of one proc body. Yields dicts; counts unknown bytes."""
+    """Token stream of one proc body. Yields dicts; counts unknown bytes.
+
+    Every token carries "at", its byte offset. Jump tokens carry "to", the
+    target RESOLVED to a byte offset: targets are dword indices relative to
+    the enclosing block (the proc body after its header, or the bytes after
+    the nearest ITEM/LINE header), which `base` tracks.
+    """
     toks, unknown = [], 0
     i = lo
+    base = lo + 4               # dword 0 of the proc's own block
     while i < hi:
+        start = i
+        mark = len(toks)
         op = data[i]
         if op in _INLINE_OPS and i + 6 <= hi:
             # op + u16 0x000a + pad00 + u16 nr + caption 0a + second 0a
-            #    + pad00 + u16 body-dwords
+            #    + pad00 + u16 end-dword
             # LINE's second string is its result-key list ("K1;K2"), usually
             # empty; when empty the tail bytes look like the old "block" token,
             # which is why GSDS2 parsed by accident and MS450 desynced.
@@ -301,11 +400,13 @@ def walk(data, lo, hi, pool):
                 if j2 >= 0 and j2 + 3 <= hi:
                     dwords = int.from_bytes(data[j2 + 2:j2 + 4], "little")
                     t = {"op": "ITEM" if op == 0x24 else "LINE",
-                         "nr": b, "label": label, "dwords": dwords}
+                         "nr": b, "label": label, "dwords": dwords,
+                         "at": start}
                     if second:
                         t["keys"] = second
                     toks.append(t)
                     i = j2 + 4
+                    base = i    # jumps inside this body count from here
                     continue
         if i + 4 > hi:
             unknown += hi - i
@@ -319,23 +420,39 @@ def walk(data, lo, hi, pool):
         elif b0 == 0x01 and b1 in (0x00, 0x02, 0x03):
             # variable push: scope 0 global, 2/3 seen for locals/params
             toks.append({"op": "var", "n": u16, "sc": b1})
+        elif b0 == 0x03 and b1 in (0x00, 0x02, 0x03):
+            # push THROUGH a reference param (reading an out/inout param's
+            # value: trimstr's `Temp=Text`). Previously read as a 3-byte int
+            # immediate, which desynced every proc touching an inout param.
+            toks.append({"op": "var", "n": u16, "sc": b1, "ref": True})
         elif b0 == 0x06 and b1 in (0x00, 0x01, 0x02, 0x03):
             toks.append({"op": "store", "n": u16, "sc": b1})
+        elif b0 == 0x07 and b1 in (0x00, 0x02, 0x03):
+            # store THROUGH a reference param (instr's `pos = i`)
+            toks.append({"op": "store", "n": u16, "sc": b1, "ref": True})
+        elif b0 == 0x08 and b1 in _DECL_TYPES and u16 == 0:
+            # one per uninitialised local, in source order, at proc entry
+            toks.append({"op": "decl", "type": _DECL_TYPES[b1]})
         elif b0 == 0x02:
             toks.append({"op": "procref", "kind": b1, "n": u16})
-        elif b0 == 0x03:
-            # int immediate, 3 bytes like its pool form
-            toks.append({"op": "int", "v": mid})
-            i += 3
-            continue
         elif b0 == 0x09:
-            toks.append({"op": "binop", "n": mid})
+            toks.append({"op": "binop", "n": mid, "name": BINOPS.get(mid)})
         elif b0 == 0x0a and b1 == 0x00:
-            toks.append({"op": "block", "dwords": u16})
+            if not toks:
+                # proc header: where the prologue/INIT block ends
+                toks.append({"op": "block", "dwords": u16})
+            else:
+                # unconditional jump: while back edges, else skips
+                toks.append({"op": "jump", "to": base + 4 * u16})
         elif b0 == 0x0b and b1 == 0x00:
-            toks.append({"op": "jump", "n": u16})
-        elif b0 == 0x0d:
-            toks.append({"op": "op0d", "sub": b1, "n": u16})
+            toks.append({"op": "jfalse", "to": base + 4 * u16})
+        elif b0 == 0x0e and b1 == 0x00 and u16 == 0:
+            toks.append({"op": "ret"})
+        elif b0 == 0x0d and b1 == 0x00 and u16 == 0:
+            toks.append({"op": "endproc"})
+        elif b0 == 0x0d and b1 == 0x01:
+            # import32 DLL call; the import table is per-file, so no names
+            toks.append({"op": "dllcall", "n": u16})
         elif b0 == 0x05 and b1 == 0x00:
             toks.append({"op": "stmt", "n": u16})
         elif b0 == 0x0c and b1 == 0x80:
@@ -352,7 +469,9 @@ def walk(data, lo, hi, pool):
                 j = data.find(b"\n", i + 4, min(hi, i + 4 + 64))
                 s = data[i + 4:j] if j >= 0 else b""
                 if j >= 0 and s and all(0x20 <= c < 0x7f for c in s):
-                    toks.append({"op": "state", "name": s.decode("latin-1")})
+                    toks[-1]["at"] = start
+                    toks.append({"op": "state", "name": s.decode("latin-1"),
+                                 "at": i + 4})
                     i = j + 6
                     continue
         elif b0 == 0x0f:
@@ -360,6 +479,8 @@ def walk(data, lo, hi, pool):
         else:
             toks.append({"op": "unk", "bytes": data[i:i + 4].hex()})
             unknown += 4
+        for t in toks[mark:]:
+            t.setdefault("at", start)
         i += 4
     return toks, unknown, hi - lo
 
@@ -503,7 +624,7 @@ def screen_fields(toks, id2name=None):
                 slot = expr_slot(args)
                 if slot is not None and bind.get(slot, "").endswith("_EINH"):
                     last_unit = {"fromKey": bind[slot]}
-            elif name == "INPAapiJob":
+            elif name in JOB_CALLS:
                 if len(strs) >= 2 and _KEYISH.match(strs[0] if not args or
                                                     args[0]["op"] != "var"
                                                     else strs[0]):
@@ -669,18 +790,32 @@ def decompile(ecu):
 
 # ---------------------------------------------------------------- main ------
 
+def code_end(data, ps):
+    """Where PROC CODE actually ends: at the trailing metadata region, not at
+    the pool. 1785 of 1788 corpus files close their last proc and then carry
+    `11 "Global Data" \\n` (the global-slot type table, one pool-style type
+    code per slot) followed by `12 "Constant Data" \\n` (include names and the
+    import32 DLL signature table) before the constant pool proper. Counting
+    that region as the last proc's body buried the TD-* telegram files under
+    150 KB of "unknown code" each that was never code at all."""
+    end = ps if ps else len(data)
+    m = data.find(b"\x11Global Data\x0a", 0, end)
+    return m if m >= 0 else end
+
+
 def load(ecu):
-    path = os.path.join(L1.SGDAT, ecu + ".IPO")
+    path = L1.ipo_path(ecu)
     data = open(path, "rb").read()
     ps, pool = find_pool(data)
-    decls = find_decls(data, ps if ps else len(data))
+    ce = code_end(data, ps)
+    decls = find_decls(data, ce)
     return data, ps, pool, decls
 
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if "--corpus" in sys.argv:
-        files = sorted(glob.glob(os.path.join(L1.SGDAT, "*.IPO")))
+        files = L1.ipo_paths()
         ok = bad = 0
         tot_unk = tot_len = 0
         for p in files:
@@ -695,7 +830,12 @@ def main():
                 continue
             ok += 1
             for k, (off, typ, name, pid) in enumerate(decls):
-                lo = off + 1 + len(name) + 1 + 4
+                # +1 skips the newline that terminates the declaration --
+                # without it every walk started one byte early, misread the
+                # first token and desynced, so --corpus understated coverage
+                # for the whole corpus (44.7% where the real figure is what
+                # decompile() sees)
+                lo = off + 1 + len(name) + 1 + 4 + 1
                 hi = decls[k + 1][0] if k + 1 < len(decls) else ps
                 _, unk, ln = walk(data, lo, hi, pool)
                 tot_unk += unk

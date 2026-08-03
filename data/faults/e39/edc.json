@@ -28,6 +28,7 @@
     "Ventilfehler hinten: Unterbrechung beider Ventilleitungen Mittel": "Valve fault rear: open circuit both valve lines, medium",
     "Ventilfehler hinten: Unterbrechung einer Ventilleitung Mittel": "Valve fault rear: open circuit one valve line, medium",
     "Ventilfehler hinten: Unterbrechung beider Ventilleitungen Weich": "Valve fault rear: open circuit both valve lines, soft",
-    "Ventilfehler hinten: Unterbrechung einer Ventilleitung Weich": "Valve fault rear: open circuit one valve line, soft"
+    "Ventilfehler hinten: Unterbrechung einer Ventilleitung Weich": "Valve fault rear: open circuit one valve line, soft",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }
