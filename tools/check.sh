@@ -79,6 +79,10 @@ echo "== renderer's VM bridge reconstructs frames the engine consumed =="
 node tools/verify/test_vmbridge.js || exit 1
 
 echo
+echo "== the wire: framing, checksums, port settings, sessions =="
+node tools/verify/test_transport.js || exit 1
+
+echo
 echo "== write guard holds =="
 node tools/verify/test_writeguard.js || exit 1
 

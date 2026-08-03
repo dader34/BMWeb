@@ -209,7 +209,23 @@ function explainError(raw) {
     return { title: 'ECU rejected the request', detail: 'The DME is not in a state that allows this, often the engine is running or ignition is not fully on.',
       fix: 'Set ignition to position 2 with the engine OFF and try again.' };
 
-  if (lower.includes('ifh_0018') || lower.includes('interfaceconnect') || lower.includes('connect'))
+  // IFH-0009: the ECU said nothing at all. INPA's most common error, and
+  // the one people compare against, so it keeps its identity here.
+  if (lower.includes('ifh-0009'))
+    return { title: 'No response from the ECU (IFH-0009)', detail: 'The request went out and nothing came back.',
+      fix: 'Ignition on (engine off), cable seated at both ends. If other modules answer, this one may not be fitted to the car.' };
+
+  // IFH-0003: something is wrong on the line itself
+  if (lower.includes('ifh-0003') || lower.includes('echo'))
+    return { title: 'The cable is not hearing itself (IFH-0003)', detail: 'The K line echoes everything sent; that echo did not come back correctly.',
+      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency needs to be 1 ms.' };
+
+  // IFH-0019: bytes arrived, but not a whole valid telegram
+  if (lower.includes('ifh-0019') || lower.includes('checksum') || lower.includes('incomplete'))
+    return { title: 'Damaged answer from the ECU (IFH-0019)', detail: 'The telegram arrived truncated or with a bad checksum.',
+      fix: 'Usually electrical: check power and the cable, and keep the engine off. Retrying often succeeds.' };
+
+  if (lower.includes('ifh-0018') || lower.includes('ifh_0018') || lower.includes('interfaceconnect') || lower.includes('connect'))
     return { title: 'Could not reach the ECU', detail: 'The cable is present but the DME did not answer.',
       fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency is set to 1 ms.' };
 
@@ -344,6 +360,19 @@ function paintActions(actions) {
   fkeysEl.classList.add('inpa-bar');
   paintActionsInpa(actions);
   fkeysEl.classList.toggle('shifted', actions === shiftActions);
+  syncNavBack(actions);
+}
+
+// The touch back arrow tracks whatever the current screen registered as its
+// `back` action, so it does exactly what Esc does -- no second notion of
+// "back" to keep in step. A screen with no back action (the vehicle picker)
+// hides it rather than showing a dead control.
+function syncNavBack(actions) {
+  const el = document.getElementById('nav-back');
+  if (!el) return;
+  const back = (actions || []).find(a => a.kind === 'back');
+  el.hidden = !back;
+  el.onclick = back ? () => fireAction(back) : null;
 }
 
 // a screen may also want its BODY repainted when the row swaps, so the list

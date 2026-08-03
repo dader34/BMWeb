@@ -66,7 +66,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         // the VM in the renderer does everything else. Byte arrays cross as
         // plain number arrays: the message channel is JSON.
         serialList: () => call('serialList'),
-        serialOpen: (path, baud) => call('serialOpen', path || null, baud || 115200),
+        serialOpen: (path, baud, parity) => call('serialOpen', path || null, baud || 115200, parity || 'none'),
         serialClose: () => call('serialClose'),
         serialWrite: (bytes) => call('serialWrite', Array.from(bytes)),
         serialRead: () => call('serialRead'),
@@ -130,7 +130,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "winDrag": WinDrag(); Settle(webView, id, Ok()); return;
                 case "serialList": Settle(webView, id, SerialProxy.ListPorts()); return;
                 case "serialOpen":
-                    Settle(webView, id, new { port = _serial.Open(ArgString(args, 0), ArgInt(args, 1)) });
+                    Settle(webView, id, new { port = _serial.Open(ArgString(args, 0), ArgInt(args, 1), ArgString(args, 2)) });
                     return;
                 case "serialClose": _serial.Close(); Settle(webView, id, Ok()); return;
                 case "serialWrite": _serial.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
