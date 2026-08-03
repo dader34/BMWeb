@@ -306,19 +306,16 @@
       all.href = './get/bmweb-all.html';
       all.setAttribute('download', '');
       all.innerHTML = '<b>All ' + ids.length + ' cars</b>'
-        + '<span>one file, prebuilt</span>';
+        + '<span>~190 MB, prebuilt</span>';
       box.appendChild(all);
       // ...unless it was never published, in which case say so rather than
       // offering a link that 404s.
+      // Confirm it was published; drop the tile rather than offer a 404.
+      // The SIZE comes from the manifest, not from content-length: Pages
+      // does not expose that header to script, so reading it gave NaN and
+      // the label stayed generic.
       fetch(all.href, { method: 'HEAD' }).then(function (r) {
-        if (r.ok) {
-          var mb = +r.headers.get('content-length') / 1048576;
-          if (mb > 1) {
-            all.querySelector('span').textContent = mb.toFixed(0) + ' MB, prebuilt';
-          }
-        } else {
-          all.remove();
-        }
+        if (!r.ok) all.remove();
       }).catch(function () { all.remove(); });
       status.textContent = 'Pick a car. The file is built here in the '
         + 'browser, so it takes a moment.';
