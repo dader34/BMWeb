@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>THOR WebSocket probe</title>
+<!--
+  Does the THOR adapter serve its own WebSocket?
+-
+  If it does, the web build can talk to the car with NOTHING else running:
+  no tools/thor_bridge.js relay, no node, no shell. That is the whole
+  question this page answers.
+
+  Open it while joined to the THOR's WiFi AP. It is a plain file:// page on
+  purpose -- no server, no build. (An https:// page could not open ws:// at
+  all: mixed content. file:// and http:// can.)
+
+  Three things have to be true, and connecting proves only the first:
+
+    1. An endpoint completes the WebSocket handshake.
+    2. It is bridged to the SAME UART as port 23 -- some firmware serves a
+       WebSocket for the web console/log instead, which connects fine and
+       never reaches the K line.
+    3. It is BINARY-safe. ESP-Link's console WS tends to push UART data as
+       TEXT, which mangles every byte >= 0x80 -- and BMW telegrams are full
+       of them (0x82, 0xB8, 0xF1). Such an endpoint looks healthy and is
+       useless.
+
+  One test settles all three: send the adapter's own firmware-ident
+  telegram and check the answer. It is addressed F1 -> F1 (tester to
+  tester), so the adapter MCU answers it itself -- no car, no ignition, no
+  ECU involved, safe to run anywhere. A correct 9-byte reply with a valid
+  sum8 can only come back over a real, binary-clean UART bridge.
+
+      82 F1 F1 FD FD 5E     ->   echo, then 9 bytes: type at +4/5, ver +6/7
+                     ^^ sum8 of the five bytes before it
+
+  Sequence and offsets mirror EdCustomAdapterCommon.UpdateAdapterInfo in
+  EdiabasLib, same as tools/thor_probe.js which does this over raw TCP.
+-->
+<style>
+  :root {
+    --bg: #faf9f7; --fg: #1a1a1a; --dim: #6b6b6b; --line: #e2e0dc;
+    --ok: #1a7f4b; --bad: #b23c3c; --warn: #9a6b00; --card: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16151a; --fg: #ececec; --dim: #9a9a9a; --line: #2e2c33;
+      --ok: #4ec27f; --bad: #ef6b6b; --warn: #d7a13a; --card: #1e1d23;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; }
+  h1 { font-size: 1.35rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+  p.sub { margin: 0 0 1.5rem; color: var(--dim); }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+  input, button {
+    font: inherit; padding: .5rem .7rem; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  }
+  input { flex: 1 1 12rem; min-width: 0; font-family: ui-monospace, monospace; }
+  button {
+    cursor: pointer; font-weight: 600; border-color: transparent;
+    background: var(--fg); color: var(--bg);
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .result {
+    background: var(--card); border: 1px solid var(--line); border-radius: 9px;
+    padding: .75rem .9rem; margin-bottom: .6rem;
+  }
+  .result h2 {
+    font-size: .95rem; margin: 0 0 .35rem; font-family: ui-monospace, monospace;
+    font-weight: 600; word-break: break-all;
+  }
+  .verdict { font-weight: 600; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .detail { color: var(--dim); font-size: .875rem; margin-top: .2rem; }
+  .bytes {
+    font-family: ui-monospace, monospace; font-size: .8rem; color: var(--dim);
+    margin-top: .35rem; word-break: break-all;
+  }
+  #summary {
+    margin: 1.5rem 0 0; padding: .9rem 1rem; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--card); display: none;
+  }
+  #summary.show { display: block; }
+  #summary h2 { margin: 0 0 .4rem; font-size: 1rem; }
+  code {
+    font-family: ui-monospace, monospace; font-size: .85em;
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
+    padding: .1em .35em; border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>THOR WebSocket probe</h1>
+  <p class="sub">
+    Join the adapter's WiFi, then probe. Each endpoint that opens is asked for
+    its firmware ident — the reply proves whether it reaches the UART and
+    whether it survives binary bytes. Nothing is sent to the car.
+  </p>
+
+  <div class="row">
+    <input id="host" value="192.168.4.1" spellcheck="false" aria-label="Adapter host">
+    <button id="go">Probe</button>
+  </div>
+
+  <div id="out"></div>
+
+  <div id="summary"></div>
+</main>
+
+<script>
+// Candidate endpoints, widest plausible net for ESP-Link / ESPAsyncWebServer
+// / custom firmware. Port 81 is the common "second server" for a WS, and
+// :23 is included to confirm what we already know (a raw telnet port will
+// NOT complete a WebSocket handshake) -- a useful negative control.
+const PATHS = ['/', '/ws', '/console', '/serial', '/uart', '/terminal'];
+const CANDIDATES = (host) => {
+  const list = [];
+  for (const p of PATHS) list.push(`ws://${host}${p}`);
+  for (const p of ['/', '/ws']) list.push(`ws://${host}:81${p}`);
+  list.push(`ws://${host}:23/`);
+  return list;
+};
+
+const sum8 = (b) => b.reduce((a, x) => (a + x) & 0xff, 0);
+const identTelegram = () => {
+  const t = [0x82, 0xF1, 0xF1, 0xFD, 0xFD];
+  t.push(sum8(t));
+  return t;
+};
+const hex = (b) => [...b].map(x => x.toString(16).padStart(2, '0')).join(' ');
+
+const OPEN_MS = 3000;   // handshake
+const REPLY_MS = 2500;  // adapter answer
+
+// One endpoint: open, send the ident telegram, judge what comes back.
+function probe(url) {
+  return new Promise((resolve) => {
+    let ws, settled = false;
+    const rx = [];
+    let sawText = false;
+    const done = (r) => {
+      if (settled) return;
+      settled = true;
+      try { if (ws) ws.close(); } catch {}
+      resolve({ url, ...r });
+    };
+    try { ws = new WebSocket(url); } catch (e) {
+      return done({ state: 'bad', verdict: 'Not a valid WebSocket URL',
+                    detail: e.message });
+    }
+    ws.binaryType = 'arraybuffer';
+
+    const openTimer = setTimeout(
+      () => done({ state: 'bad', verdict: 'No handshake',
+                   detail: 'Nothing accepted a WebSocket connection here '
+                         + `within ${OPEN_MS} ms.` }), OPEN_MS);
+
+    ws.onerror = () => {
+      clearTimeout(openTimer);
+      done({ state: 'bad', verdict: 'Refused',
+             detail: 'The connection failed. For :23 this is expected — a '
+                   + 'raw telnet port cannot complete a WebSocket handshake.' });
+    };
+
+    ws.onopen = () => {
+      clearTimeout(openTimer);
+      const tel = identTelegram();
+      try {
+        ws.send(new Uint8Array(tel));
+      } catch (e) {
+        return done({ state: 'warn', verdict: 'Opened, but the send failed',
+                      detail: e.message });
+      }
+      setTimeout(() => judge(tel), REPLY_MS);
+    };
+
+    ws.onmessage = (e) => {
+      if (typeof e.data === 'string') {
+        sawText = true;
+        // Text frames cannot carry 0x82/0xF1 intact, but record what came
+        // back so a console endpoint is recognisable in the output.
+        for (const ch of e.data) rx.push(ch.charCodeAt(0) & 0xff);
+      } else {
+        rx.push(...new Uint8Array(e.data));
+      }
+    };
+
+    ws.onclose = () => {
+      if (!settled) done({ state: 'bad', verdict: 'Closed immediately',
+                           detail: 'The endpoint accepted then dropped the '
+                                 + 'connection — usually a path that exists '
+                                 + 'but is not a serial bridge.' });
+    };
+
+    // The adapter echoes the request, then appends 9 answer bytes whose
+    // last byte is a sum8 over the other 8. Anything else is not a UART.
+    function judge(tel) {
+      const bytes = `<div class="bytes">${rx.length
+        ? `${rx.length} bytes: ${hex(rx.slice(0, 32))}${rx.length > 32 ? ' …' : ''}`
+        : 'no bytes received'}</div>`;
+
+      if (!rx.length) {
+        return done({ state: 'warn', bytes,
+          verdict: 'Opened, but silent',
+          detail: 'A WebSocket is here, but the ident telegram got no reply. '
+                + 'Most likely it is not bridged to the adapter UART (a log '
+                + 'or config socket).' });
+      }
+      if (sawText) {
+        return done({ state: 'warn', bytes,
+          verdict: 'Opened, but TEXT frames',
+          detail: 'Data came back as text, so bytes ≥ 0x80 are mangled — and '
+                + 'BMW telegrams are full of them. Unusable for jobs even if '
+                + 'it is the right UART.' });
+      }
+
+      const answer = rx.slice(tel.length);
+      if (answer.length < 9) {
+        // Some firmware suppresses the echo; try reading the head as the answer.
+        const head = rx.slice(0, 9);
+        if (rx.length >= 9 && sum8(head.slice(0, 8)) === head[8]) {
+          return done({ state: 'ok', bytes,
+            verdict: 'Adapter answered (no echo)',
+            detail: describe(head) + ' The echo was suppressed, which is fine — '
+                  + 'the transport can drop its echo handling for this path.' });
+        }
+        return done({ state: 'warn', bytes,
+          verdict: 'Opened, answer too short',
+          detail: `Expected the ${tel.length}-byte echo plus 9 bytes, got `
+                + `${rx.length}. Something replied, but not the adapter.` });
+      }
+      const nine = answer.slice(0, 9);
+      if (sum8(nine.slice(0, 8)) !== nine[8]) {
+        return done({ state: 'warn', bytes,
+          verdict: 'Opened, bad checksum',
+          detail: 'Nine bytes came back but the sum8 does not match, so the '
+                + 'path is corrupting data (text mode, or not the adapter).' });
+      }
+      done({ state: 'ok', bytes, verdict: 'THIS IS THE ONE',
+             detail: describe(nine) });
+    }
+
+    function describe(a) {
+      const type = (a[4] << 8) | a[5];
+      const ver = (a[6] << 8) | a[7];
+      return `Valid ident: adapter type 0x${type.toString(16)}, `
+           + `firmware v${ver >> 8}.${ver & 0xff}. Binary-clean and bridged `
+           + 'to the adapter UART.';
+    }
+  });
+}
+
+const out = document.getElementById('out');
+const summaryEl = document.getElementById('summary');
+
+function card(r) {
+  const el = document.createElement('div');
+  el.className = 'result';
+  el.innerHTML = `<h2>${r.url}</h2>`
+    + `<div class="verdict ${r.state}">${r.verdict}</div>`
+    + `<div class="detail">${r.detail || ''}</div>`
+    + (r.bytes || '');
+  out.appendChild(el);
+}
+
+document.getElementById('go').onclick = async () => {
+  const btn = document.getElementById('go');
+  const host = document.getElementById('host').value.trim() || '192.168.4.1';
+  btn.disabled = true;
+  out.innerHTML = '';
+  summaryEl.className = '';
+  const results = [];
+  // Sequential on purpose: a handful of parallel sockets to a small ESP is
+  // a good way to make it drop all of them.
+  for (const url of CANDIDATES(host)) {
+    const r = await probe(url);
+    results.push(r);
+    card(r);
+  }
+  const win = results.find(r => r.state === 'ok');
+  const maybe = results.filter(r => r.state === 'warn');
+  summaryEl.className = 'show';
+  if (win) {
+    summaryEl.innerHTML = `<h2 class="ok">Direct connection works</h2>`
+      + `<div class="detail">Point the app's THOR transport at `
+      + `<code>${win.url}</code> — in <code>app/renderer/core/webshim.js</code>, `
+      + `replace the <code>THOR_BRIDGE</code> constant. The telegram wrapping `
+      + `and framing already in <code>ThorWifiBus</code> need no changes, and `
+      + `<code>tools/thor_bridge.js</code> is no longer needed.</div>`;
+  } else if (maybe.length) {
+    summaryEl.innerHTML = `<h2 class="warn">A WebSocket exists, but it is not a usable bridge</h2>`
+      + `<div class="detail">${maybe.length} endpoint(s) opened without giving `
+      + `a valid ident. That means the firmware serves a WebSocket for `
+      + `something else (console/log), or serves it as text. Reaching the car `
+      + `directly from the browser would need firmware that bridges a BINARY `
+      + `WebSocket to the adapter UART. Keep using the relay until then.</div>`;
+  } else {
+    summaryEl.innerHTML = `<h2 class="bad">No WebSocket on this adapter</h2>`
+      + `<div class="detail">Nothing completed a handshake, so the browser `
+      + `cannot reach it without help. Keep `
+      + `<code>node tools/thor_bridge.js</code>, or reflash the ESP with `
+      + `firmware that serves a binary WebSocket. Check you are joined to the `
+      + `adapter's WiFi and the host above is right.</div>`;
+  }
+  btn.disabled = false;
+};
+</script>
+</body>
+</html>
