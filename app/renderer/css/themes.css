@@ -409,3 +409,17 @@ html .fkey-nums .fkey-num::after,
 html .fkey-nums .fkey-num::before {
   content: none !important; display: none !important;
 }
+
+/* ---- mobile ---------------------------------------------------------
+   The theme grid lives in this sheet, and this sheet loads AFTER
+   styles.css -- so the phone rules for it have to be here too, or the
+   210px minimum wins and every skin card gets its own row. */
+@media (max-width: 760px) {
+  /* Two across instead of one. `minmax(210px, 1fr)` cannot fit two cards
+     in 320px, so the Skin row alone ran to 386px of a 320px screen --
+     the whole viewport before you reach anything else. */
+  .theme-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .theme-card { padding: 8px; gap: 8px; }
+  .theme-swatch { width: 28px; height: 28px; }
+  .theme-name { font-size: 12px; }
+}

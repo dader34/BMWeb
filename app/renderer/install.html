@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMWeb: get it</title>
+<!--
+  The front door. Two builds, and which one you want follows entirely from
+  what you are holding:
+
+    macOS    -> BMacW, the app. It is the only build that reaches a K+DCAN
+               USB cable without Chrome, because Safari has no Web Serial.
+    all else -> BMWeb, the single-file browser build. One .html that runs on
+               Windows, Linux, iPhone and Android with no install at all.
+
+  Detection is a SUGGESTION, never a gate: the other option stays one click
+  away, because a Mac owner with a WiFi adapter may well want the single
+  file, and a phone cannot run the app at all. Guessing wrong and hiding the
+  alternative is worse than not guessing.
+-->
+<style>
+  :root {
+    --bg:#0d1217; --panel:#141b22; --panel2:#182029; --line:#232d38;
+    --ink:#e8edf2; --dim:#93a1ad; --faint:#5d6b78; --amber:#ff9e2c;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink); min-height:100vh;
+    overflow-x:hidden;
+    font:16px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:6vh 20px 8vh;
+  }
+  .wrap { width:100%; max-width:46rem; }
+  .brand { display:flex; align-items:center; gap:12px; margin-bottom:28px; }
+  .logo { width:36px; height:36px; flex:none; }
+  .logo-ring { fill:none; stroke:var(--ink); stroke-width:3; }
+  .q-white { fill:#e8edf2; } .q-color { fill:var(--amber); }
+  .name { font-size:20px; font-weight:800; letter-spacing:-.01em; }
+  h1 { font-size:clamp(24px,6vw,40px); line-height:1.1; margin:0 0 10px;
+       letter-spacing:-.02em; overflow-wrap:break-word; hyphens:auto; }
+  .lead { color:var(--dim); margin:0 0 34px; font-size:17px; }
+  .cards { display:grid; gap:14px; }
+  .card {
+    display:block; text-decoration:none; color:inherit; position:relative;
+    background:linear-gradient(180deg,var(--panel2),var(--panel));
+    border:1px solid var(--line); border-radius:10px; padding:20px 22px;
+    transition:border-color .15s, transform .15s;
+  }
+  .card:hover { border-color:var(--amber); transform:translateY(-2px); }
+  .card.primary { border-color:var(--amber); }
+  .tag {
+    position:absolute; top:-9px; right:18px; background:var(--amber);
+    color:#131a22; font-size:11px; font-weight:800; letter-spacing:.06em;
+    text-transform:uppercase; padding:3px 9px; border-radius:20px;
+  }
+  .card h2 { margin:0 0 4px; font-size:19px; }
+  .card .sub { color:var(--dim); font-size:14.5px; margin:0; }
+  .card .meta {
+    margin-top:12px; color:var(--faint); font-size:12.5px;
+    font-family:ui-monospace,Menlo,monospace;
+  }
+  .note {
+    margin-top:34px; padding-top:20px; border-top:1px solid var(--line);
+    color:var(--faint); font-size:13.5px;
+  }
+  .note a { color:var(--dim); }
+  .note strong { color:var(--dim); font-weight:600; }
+  .switch {
+    background:none; border:0; color:var(--amber); cursor:pointer;
+    font:inherit; font-size:14px; padding:0; text-decoration:underline;
+  }
+  .other { margin-top:18px; color:var(--faint); font-size:14px; }
+  .picker {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
+    gap:8px; margin-top:12px;
+  }
+  /* spans the grid: as a plain child it became a 104px cell and the text
+     wrapped one word per line */
+  .picking { grid-column:1/-1; color:var(--faint); font-size:14px; margin:6px 2px; }
+  .wtoggle {
+    display:flex; gap:9px; align-items:flex-start; cursor:pointer;
+    margin:14px 2px 4px; color:var(--dim); font-size:14px;
+  }
+  .wtoggle input { margin-top:3px; accent-color:var(--amber); flex:none; }
+  .wtoggle em { color:var(--faint); font-style:normal; }
+  .chip { cursor:pointer; font:inherit; text-align:left; }
+  .chip:disabled, .picker.busy .chip { opacity:.5; pointer-events:none; }
+  .picker.busy { cursor:progress; }
+  .picking a { color:var(--amber); }
+  .chip {
+    display:flex; flex-direction:column; gap:2px; text-decoration:none;
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px; color:var(--ink); min-height:44px; justify-content:center;
+  }
+  .chip:hover { border-color:var(--amber); }
+  .chip b { font-size:15px; font-weight:700; }
+  .chip span {
+    color:var(--faint); font-size:11.5px;
+    font-family:ui-monospace,Menlo,monospace;
+  }
+</style>
+<!-- The exporter and its zip library. install.html builds the download in
+     the tab: same code path as the app's own Settings button, so there is
+     one implementation of "what goes in a copy" rather than two. -->
+<script src="./vendor/fflate.min.js"></script>
+<script src="./core/offline-export.js"></script>
+</head>
+<body>
+<main class="wrap">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+      <circle class="logo-ring" cx="50" cy="50" r="48"/>
+      <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
+      <g clip-path="url(#d)">
+        <rect class="q-white" x="19" y="19" width="31" height="31"/>
+        <rect class="q-white" x="50" y="50" width="31" height="31"/>
+        <rect class="q-color" x="50" y="19" width="31" height="31"/>
+        <rect class="q-color" x="19" y="50" width="31" height="31"/>
+      </g>
+      <circle class="logo-ring" cx="50" cy="50" r="31"/>
+    </svg>
+    <span class="name" id="brand-name">BMWeb</span>
+  </div>
+
+  <h1>BMW diagnostics,<br>no Windows.</h1>
+  <p class="lead" id="lead">Read fault codes, watch live values, run actuator
+    tests and inspect coding data, over a K+DCAN cable or a WiFi adapter.</p>
+
+  <div class="cards" id="cards"></div>
+
+  <p class="other" id="other"></p>
+
+  <div class="note">
+    <p><strong>Which cable?</strong> On a computer, either: Windows, macOS
+    and Linux can all use a <strong>K+DCAN USB cable</strong> or a
+    <a href="https://github.com/dader34/BMacW#thor-wifi-adapter">WiFi
+    adapter</a>. On a <strong>phone or tablet there is no USB option</strong>,
+    so iPhone and Android need the WiFi adapter.</p>
+
+    <p><strong>Which build?</strong> BMacW is the macOS app, and the only one
+    that drives a USB cable without Chrome, since Safari has no Web Serial.
+    BMWeb is a single HTML file that runs everywhere; for a USB cable it
+    needs Chrome or Edge on the desktop, and for a WiFi adapter it needs
+    nothing but a browser.</p>
+    <p>Both read the same decompiled INPA screens and run the same BEST2
+    virtual machine. Neither needs EDIABAS installed.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  // Coarse on purpose. The only question that changes the answer is "can
+  // this device run a macOS app", and iPadOS reporting itself as a Mac is
+  // the one trap worth handling -- an iPad cannot, so touch support
+  // disqualifies it.
+  var ua = navigator.userAgent;
+  var isMac = /Macintosh|Mac OS X/.test(ua) && !/iPhone|iPad|iPod/.test(ua)
+    && navigator.maxTouchPoints <= 1;
+
+  var REPO = 'dader34/BMacW';
+  var APP = {
+    id: 'mac',
+    title: 'BMacW for macOS',
+    sub: 'The app. Drives a K+DCAN USB cable directly, with PDF export and '
+       + 'CSV logging.',
+    meta: 'Apple silicon · .dmg',
+    // The releases PAGE until the API answers, then the .dmg itself. Never
+    // a hardcoded filename: the asset carries its version
+    // (BMacW-0.7.0-arm64.dmg), so any URL written here goes stale at the
+    // next release and 404s.
+    href: 'https://github.com/' + REPO + '/releases/latest',
+  };
+  var WEB = {
+    id: 'web',
+    title: 'BMWeb: pick your car',
+    sub: 'One HTML file with the app and that car\'s ECU data inside it. '
+       + 'Open it in a browser: no install, no internet, no server.',
+    meta: 'Windows · Linux · iPhone · Android · macOS',
+    href: '#pick',
+  };
+
+  var order = isMac ? [APP, WEB] : [WEB, APP];
+  var cards = document.getElementById('cards');
+  order.forEach(function (o, i) {
+    var a = document.createElement('a');
+    a.className = 'card' + (i === 0 ? ' primary' : '');
+    a.href = o.href;
+    if (o.id === 'mac') a.rel = 'noopener';
+    a.innerHTML = (i === 0 ? '<span class="tag">Recommended</span>' : '')
+      + '<h2>' + o.title + '</h2>'
+      + '<p class="sub">' + o.sub + '</p>'
+      + '<div class="meta">' + o.meta + '</div>';
+    cards.appendChild(a);
+  });
+
+  // POINT THE MAC CARD AT THE ACTUAL FILE. One API request turns "find the
+  // download on this page" into a click. If it fails -- rate limit, offline,
+  // no release yet -- the card keeps the releases page it already has, which
+  // still works with one more step.
+  fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (rel) {
+      if (!rel || !rel.assets) return;
+      var dmg = rel.assets.filter(function (a) {
+        return /\.dmg$/i.test(a.name);
+      })[0];
+      var card = cards.querySelector('a[href*="releases/latest"]');
+      if (!dmg || !card) return;
+      card.href = dmg.browser_download_url;
+      card.setAttribute('download', '');
+      var meta = card.querySelector('.meta');
+      if (meta) {
+        meta.textContent = 'Apple silicon \u00b7 .dmg \u00b7 '
+          + (dmg.size / 1048576).toFixed(0) + ' MB'
+          + (rel.tag_name ? ' \u00b7 ' + rel.tag_name : '');
+      }
+    })
+    .catch(function () { /* keep the releases-page link */ });
+
+  // Say what was assumed, so a wrong guess is obvious rather than invisible.
+  document.getElementById('other').textContent = isMac
+    ? 'Detected macOS. On a phone or PC, take BMWeb.'
+    : 'BMWeb needs no install. The macOS app is there if you are on a Mac '
+      + 'with a USB cable.';
+
+  // THE PAGE BUILDS THE FILE. Not a list of prebuilt downloads: the same
+  // exporter the app's Settings button uses, run here against the data tree
+  // this site already hosts. That means every combination is available --
+  // any car, wiring or not -- without CI publishing 54 artifacts, and the
+  // sizes are whatever the user actually asked for.
+  var webCard = cards.querySelector('a[href="#pick"]');
+  webCard.addEventListener('click', function (e) {
+    e.preventDefault();
+    if (document.getElementById('picker')) {
+      document.getElementById('picker').scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    var wrap = document.createElement('div');
+    wrap.id = 'picker';
+    wrap.innerHTML =
+      '<label class="wtoggle"><input type="checkbox" id="w-on">'
+      + '<span>Include wiring diagrams <em>(much larger, and only for the '
+      + 'cars BMW documented)</em></span></label>'
+      + '<label class="wtoggle"><input type="checkbox" id="f-on" checked>'
+      + '<span>Include fault descriptions <em>(codes read as text rather '
+      + 'than hex)</em></span></label>'
+      + '<div class="picker" id="cars"><p class="picking">Loading cars…</p></div>'
+      + '<p class="picking" id="build-status"></p>';
+    webCard.insertAdjacentElement('afterend', wrap);
+
+    var status = wrap.querySelector('#build-status');
+    var box = wrap.querySelector('#cars');
+    var busy = false;
+
+    function build(id) {
+      if (busy) return;
+      if (typeof offlineSingleFile !== 'function') {
+        status.textContent = 'The builder did not load. Reload the page.';
+        return;
+      }
+      busy = true;
+      box.classList.add('busy');
+      offlineSingleFile(id, document.getElementById('f-on').checked,
+                        function (t) { status.textContent = id + ': ' + t; },
+                        document.getElementById('w-on').checked)
+        .then(function (n) {
+          status.textContent = id + ': ' + (n / 1048576).toFixed(0)
+            + ' MB downloaded. Open it in a browser.';
+        })
+        .catch(function (err) {
+          status.textContent = id + ': ' + (err.message || 'build failed');
+        })
+        .then(function () { busy = false; box.classList.remove('busy'); });
+    }
+
+    fetch('./api/chassis.json').then(function (r) {
+      if (!r.ok) throw new Error('no chassis list');
+      return r.json();
+    }).then(function (ids) {
+      box.innerHTML = '';
+      ids.forEach(function (id) {
+        var b = document.createElement('button');
+        b.className = 'chip';
+        b.type = 'button';
+        b.innerHTML = '<b>' + id + '</b><span>build</span>';
+        b.onclick = function () { build(id); };
+        box.appendChild(b);
+      });
+      status.textContent = 'Pick a car. The file is built here in the '
+        + 'browser, so it takes a moment.';
+    }).catch(function () {
+      box.innerHTML = '<p class="picking">This page needs to be served '
+        + 'alongside the data tree to build downloads. On the published '
+        + 'site it works; opened straight from disk it cannot.</p>';
+    });
+  });
+}());
+</script>
+</body>
+</html>
