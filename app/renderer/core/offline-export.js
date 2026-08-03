@@ -407,36 +407,53 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   } else {
     ids = [chassis];
   }
-  const inline = {};
+  // ONE COPY AT A TIME. Building an object of every car's base64 and then
+  // JSON.stringify-ing it holds the whole payload TWICE, and "all cars" is
+  // 184 MB of base64 -- so the peak ran to roughly 700 MB for a 190 MB
+  // file and iOS killed the tab (which looks like a spontaneous reload,
+  // since an out-of-memory kill raises nothing to catch).
+  //
+  // Emit the object literal as fragments instead: each car is encoded,
+  // appended, and dropped before the next is fetched. JSON.stringify on
+  // one string at a time still escapes it correctly; base64 has nothing
+  // needing escapes anyway, but this stays honest about that.
+  const dataParts = ['window.BMACW_INLINE={'];
+  let first = true;
   for (const id of ids) {
     say(`collecting ${id}`);
-    inline[id] = b64(await offlineGet(`api/chassis/${id}.chassis`));
+    const enc64 = b64(await offlineGet(`api/chassis/${id}.chassis`));
+    dataParts.push(`${first ? '' : ','}${JSON.stringify(id)}:${JSON.stringify(enc64)}`);
+    first = false;
   }
   try {
     const idx = await offlineGet('api/ecu-index.json');
-    inline._index = JSON.parse(dec.decode(idx));
+    dataParts.push(`,"_index":${dec.decode(idx)}`);
   } catch { /* only used for a cross-chassis lookup */ }
-
-  let dataJs = `window.BMACW_INLINE=${JSON.stringify(inline)};`;
+  dataParts.push('};');
   if (withWiring) {
-    const wiring = {};
+    const parts = [];
+    let wfirst = true;
     for (const id of ids) {
       try {
         say(`collecting ${id} wiring`);
-        wiring[id] = b64(await offlineGet(`data/wiring/${id}.wiring`));
+        const w = b64(await offlineGet(`data/wiring/${id}.wiring`));
+        parts.push(`${wfirst ? '' : ','}${JSON.stringify(id)}:${JSON.stringify(w)}`);
+        wfirst = false;
       } catch { /* WDS never covered this car; the section stays absent */ }
     }
-    if (Object.keys(wiring).length) {
-      dataJs += `\nwindow.BMACW_WIRING=${JSON.stringify(wiring)};`;
+    if (parts.length) {
+      dataParts.push('\nwindow.BMACW_WIRING={', ...parts, '};');
     }
   }
   if (withFaults) {
     for (const f of SINGLE_FAULTS) {
       say(`collecting ${f.split('/').pop()}`);
-      try { dataJs += `\n${dec.decode(await offlineGet(f))}`; }
+      try { dataParts.push('\n', dec.decode(await offlineGet(f))); }
       catch { /* a fault table that was never built is not fatal */ }
     }
   }
+  const dataJs = dataParts.join('');
+  dataParts.length = 0;
 
   // The data is the biggest single script by far -- a 6 MB string literal
   // for an E46. If a parser or a memory limit is going to give out, it is
@@ -452,14 +469,20 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
 
   say('saving');
   const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}.html`;
-  const bytes = enc.encode(html);
 
+  // The native shell wants bytes; a browser does not. enc.encode() makes
+  // one more full-size copy, so only pay for it where it is used.
   if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
+    const bytes = enc.encode(html);
     const r = await window.bmacw.saveFile(name, bytes);
     if (r && r.cancelled) throw new Error('cancelled');
     return bytes.length;
   }
-  const blob = new Blob([bytes], { type: 'text/html' });
+  // A Blob takes PARTS, so the document never has to exist as one string
+  // AND one byte array at the same time. html is dropped straight after.
+  const size = html.length;
+  const blob = new Blob([html], { type: 'text/html' });
+  html = '';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -468,7 +491,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
-  return bytes.length;
+  return size;
 }
 
 if (typeof window !== 'undefined') {

@@ -77,6 +77,10 @@ function makeContext() {
 }
 
 (async () => {
+  // 'all'        -> one file per car (26 files)
+  // 'all-in-one'  -> every car in ONE file, which is what the site links
+  //                 to: identical for every visitor, and far too heavy to
+  //                 assemble in a phone's browser.
   let ids;
   if (which === 'all') {
     ids = JSON.parse(fs.readFileSync(
@@ -93,10 +97,14 @@ function makeContext() {
     // every car's data in memory at once.
     const { ctx, saved } = makeContext();
     const suffix = withWiring ? '-wiring' : '';
-    const out = path.join(outDir, `bmweb-${id.toLowerCase()}${suffix}.html`);
+    // 'all-in-one' asks the exporter for '*' (every car) and lands as one
+    // file the installer can link to.
+    const solo = id === 'all-in-one';
+    const out = path.join(outDir,
+      solo ? 'bmweb-all.html' : `bmweb-${id.toLowerCase()}${suffix}.html`);
     try {
-      const n = await ctx.offlineSingleFile(id, withFaults, () => {},
-                                            withWiring);
+      const n = await ctx.offlineSingleFile(solo ? '*' : id, withFaults,
+                                            () => {}, withWiring);
       fs.writeFileSync(out, Buffer.from(saved()));
       console.log(`${id.padEnd(8)} ${(n / 1048576).toFixed(1)} MB  ${out}`);
     } catch (e) {
