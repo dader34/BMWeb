@@ -7,8 +7,9 @@
 //   POST /api/.../run/X  -> our own BEST2 VM, talking to the cable over
 //                           Web Serial instead of EDIABAS
 //
-// Loaded ONLY by the web build (scripts/build-web.sh injects the tag); the
-// macOS build never sees this file and keeps using the real server.
+// Loaded by EVERY build since the VM migration: the web build pairs it with
+// Web Serial, the app shells pair it with their serial bridge. The C# hosts
+// only move bytes now; framing, checksums and port settings live here.
 //
 // The VM is the whole reason this is possible: bestvm.js already executes a
 // job against a `send(bytes) -> bytes` callback, which is exactly what a
@@ -20,9 +21,87 @@ const WEB_API_BASE = 'api';
 
 // ---------------------------------------------------------------- transport
 
-// K+DCAN over Web Serial. Same wire settings EdInterfaceObd uses for a USB
-// cable: 115200 8N1, no flow control.
+// K+DCAN over Web Serial. Default wire settings, used until a job's SGBD
+// declares its own via xsetpar: BMW-FAST at 115200 8N1 (what EdInterfaceObd
+// uses for a USB cable in that concept).
 const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
+
+// ---- concept-aware framing.
+//
+// The SGBD's telegram EXCLUDES its trailing checksum: appending it is the
+// interface handler's job, and so is knowing what the answer looks like.
+// That was learned the hard way -- every request used to leave here one
+// byte short, which a real ECU silently discards. The VM surfaces each
+// job's xsetpar CommParameter as {concept, baud, timeout}; the framing per
+// concept, verified against data/sim-captures:
+//
+//   1/5/6   DS2 family   9600 8E1   XOR checksum   answer[1] = total length
+//   0x10D   KWP2000*     9600 8E1   sum8           answer[3] + 5 = total
+//   0x10F   BMW-FAST   115200 8N1   sum8           header short/long form
+//   0x110   D-CAN      115200 8N1   sum8           (the cable talks CAN;
+//                                                   its serial side stays
+//                                                   BMW-FAST at 115200)
+//   0x10C   ISO 9141: needs a 5-baud slow init this transport cannot do
+//           yet, so it refuses loudly instead of timing out mysteriously.
+//
+// DS2 checksum is XOR (aic capture: E8 11 A0 ... 48), KWP2000* and BMW-FAST
+// are additive sum8 (obd.sim: 9B F1 12 42 ... AA).
+const conceptOf = (comm) => (comm && comm.concept) || 0x10f;
+const isDs2 = (c) => c === 1 || c === 5 || c === 6;
+
+// Interface-level failures carry their EDIABAS IFH identity, the way INPA
+// reports them: IFH-0009 no answer, IFH-0003 line/echo trouble, IFH-0019
+// a truncated telegram. The renderer's explainError matches on these, and
+// a user comparing against real INPA sees the same code for the same
+// fault. SGBD-level errors (ERROR_ECU_*) stay the jobs' own business.
+function ifhError(code, message) {
+  const e = new Error(`${code}: ${message}`);
+  e.ifh = code;
+  return e;
+}
+
+function withChecksum(out, comm) {
+  const c = conceptOf(comm);
+  if (c === 0x10c) {
+    throw ifhError('IFH-0018', 'this ECU speaks ISO 9141 (5-baud slow init), '
+      + 'which this transport does not implement');
+  }
+  let sum = 0;
+  if (isDs2(c)) for (const b of out) sum ^= b;
+  else for (const b of out) sum = (sum + b) & 0xff;
+  return [...out, sum];
+}
+
+// Total answer length (checksum included), or null while undecidable.
+function frameTotal(buf, comm) {
+  const c = conceptOf(comm);
+  if (isDs2(c)) return buf.length >= 2 ? buf[1] : null;
+  if (c === 0x10d) return buf.length >= 4 ? buf[3] + 5 : null;
+  if (buf.length < 4) return null;
+  const short = buf[0] & 0x3f;
+  return short ? short + 4 : buf[3] + 5;
+}
+
+function verifyChecksum(frame, comm) {
+  let sum = 0;
+  const body = frame.slice(0, -1);
+  if (isDs2(conceptOf(comm))) for (const b of body) sum ^= b;
+  else for (const b of body) sum = (sum + b) & 0xff;
+  if (sum !== frame[frame.length - 1]) {
+    throw ifhError('IFH-0019', 'answer checksum mismatch');
+  }
+}
+
+// The serial settings a concept needs. K-line concepts run 9600 8E1; the
+// BMW-FAST family stays at the cable's 115200 8N1.
+function portConfig(comm) {
+  const c = conceptOf(comm);
+  if (isDs2(c) || c === 0x10d) {
+    return { baudRate: (comm && comm.baud) || 9600,
+             dataBits: 8, stopBits: 1, parity: 'even' };
+  }
+  return KDCAN;
+}
 
 // Read one answer off the K line. Shared by both transports, because the
 // protocol does not change with the plumbing.
@@ -31,31 +110,87 @@ const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
 // back. Drop exactly as many bytes as were sent rather than pattern-matching
 // the echo -- a request and its answer can legitimately share a prefix, and
 // EdInterfaceObd drops by count for the same reason.
-//
-// Then the frame: BMW-FAST is [0x80|len, dst, src, ...payload, checksum]
-// where the low 6 bits of byte 0 give the payload length; a zero there means
-// the length moved to byte 3 (the long form).
-async function readFrame(echoLen, timeoutMs, pump) {
+// `sent` is the exact request written (null when re-reading a continuation
+// frame, which has no echo of its own).
+async function readFrame(sent, timeoutMs, pump, comm) {
   const buf = [];
+  const echoLen = sent ? sent.length : 0;
   const deadline = Date.now() + timeoutMs;
   while (buf.length < echoLen && Date.now() < deadline) {
     const got = await pump();
     if (got && got.length) buf.push(...got);
     else await new Promise((r) => setTimeout(r, 4));
   }
+  if (buf.length < echoLen) {
+    throw ifhError('IFH-0003', 'no echo from the cable (is it connected to the car?)');
+  }
+  if (sent) {
+    // Compare the echo, do not just count it. A mismatch means another
+    // device drove the line while we wrote (bus collision) or the cable is
+    // dropping bytes -- decoding what follows would be garbage, and
+    // EdiabasLib errors here for the same reason.
+    for (let i = 0; i < echoLen; i++) {
+      if (buf[i] !== sent[i]) {
+        throw ifhError('IFH-0003',
+                       'echo did not match the request (bus collision?)');
+      }
+    }
+  }
   buf.splice(0, echoLen);
   while (Date.now() < deadline) {
-    if (buf.length >= 4) {
-      const short = buf[0] & 0x3f;
-      const total = short ? short + 4 : buf[3] + 5;
-      if (buf.length >= total) return buf.slice(0, total);
+    const total = frameTotal(buf, comm);
+    if (total !== null && buf.length >= total) {
+      const frame = buf.slice(0, total);
+      verifyChecksum(frame, comm);
+      return frame;
     }
     const got = await pump();
     if (got && got.length) buf.push(...got);
     else await new Promise((r) => setTimeout(r, 4));
   }
-  if (!buf.length) throw new Error('no answer from ECU (timeout)');
-  return buf;
+  // A half-received frame is NOT an answer -- handing it to the VM decodes
+  // garbage. Distinguish it from silence so the error means something.
+  throw buf.length
+    ? ifhError('IFH-0019', `incomplete answer from ECU (${buf.length} bytes)`)
+    : ifhError('IFH-0009', 'no answer from ECU (timeout)');
+}
+
+// "Response pending": an ECU that needs longer than its declared timeout
+// answers 7F <service> 78 and keeps the request alive. EDIABAS waits for
+// the real answer instead of failing; a flash or a long routine depends on
+// it. The payload sits after the 3-byte BMW-FAST/KWP header.
+function isResponsePending(frame, comm) {
+  const body = isDs2(conceptOf(comm)) ? frame.slice(2) : frame.slice(3);
+  return body[0] === 0x7f && body[2] === 0x78;
+}
+
+// One request/answer exchange with per-concept retry. EDIABAS retransmits
+// on a bad or missing answer (xreps); one retry covers the single-glitch
+// case without hammering a dead bus.
+async function runExchange(bus, out, comm) {
+  await bus.ensureConfig(portConfig(comm));
+  const framed = withChecksum(out, comm);
+  const timeoutMs = (comm && comm.timeout) || 2000;
+  // a `wait` in the SGBD paces the bus: honor it before writing
+  if (comm && comm.waitMs) {
+    await new Promise((r) => setTimeout(r, Math.min(comm.waitMs, 5000)));
+  }
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      let frame = await bus.exchangeRaw(framed, timeoutMs, comm);
+      // keep reading while the ECU says "still working" -- bounded, so a
+      // stuck ECU still fails instead of hanging the screen
+      for (let pending = 0; pending < 30 && isResponsePending(frame, comm); pending++) {
+        frame = await bus.exchangeRaw(null, Math.max(timeoutMs, 5000), comm);
+      }
+      return frame;
+    } catch (e) {
+      lastErr = e;
+      if (!/timeout|checksum|incomplete|echo/.test(String(e.message))) throw e;
+    }
+  }
+  throw lastErr;
 }
 
 // The same bus, over the native bridge. A WKWebView has no Web Serial -- that
@@ -64,13 +199,14 @@ async function readFrame(echoLen, timeoutMs, pump) {
 // checksums and echo handling stay here, identical to the Web Serial path;
 // only the four primitives differ.
 class NativeSerialBus {
-  constructor() { this.path = null; }
+  constructor() { this.path = null; this.config = null; }
 
   get connected() { return !!this.path; }
 
   async connect() {
-    const r = await window.bmacw.serialOpen(null, KDCAN.baudRate);
+    const r = await window.bmacw.serialOpen(null, KDCAN.baudRate, KDCAN.parity);
     this.path = (r && r.port) || 'serial';
+    this.config = KDCAN;
     return this.portLabel();
   }
 
@@ -79,20 +215,40 @@ class NativeSerialBus {
   async disconnect() {
     try { await window.bmacw.serialClose(); } catch { /* already closed */ }
     this.path = null;
+    this.config = null;
   }
 
-  async exchange(out, timeoutMs = 2000) {
-    // A stale partial frame from a timed-out job would be read as this job's
-    // answer, so start clean.
-    await window.bmacw.serialFlush();
-    await window.bmacw.serialWrite(out);
-    return readFrame(out.length, timeoutMs,
-      async () => window.bmacw.serialRead());
+  // Reopen the port when a job's concept needs different wire settings --
+  // an E46 mixes 9600 8E1 body modules with a 115200 8N1 DME, and a port
+  // opened once at connect time can only speak to one of them.
+  async ensureConfig(cfg) {
+    if (this.config && this.config.baudRate === cfg.baudRate
+        && this.config.parity === cfg.parity) return;
+    const r = await window.bmacw.serialOpen(this.path === 'serial'
+      ? null : this.path, cfg.baudRate, cfg.parity);
+    this.path = (r && r.port) || this.path;
+    this.config = cfg;
+  }
+
+  async exchange(out, comm) { return runExchange(this, out, comm); }
+
+  async exchangeRaw(framed, timeoutMs, comm) {
+    if (framed) {
+      // A stale partial frame from a timed-out job would be read as this
+      // job's answer, so start clean.
+      await window.bmacw.serialFlush();
+      await window.bmacw.serialWrite(framed);
+    }
+    return readFrame(framed, timeoutMs,
+      async () => window.bmacw.serialRead(), comm);
   }
 }
 
 class WebSerialBus {
-  constructor() { this.port = null; this.reader = null; this.writer = null; }
+  constructor() {
+    this.port = null; this.reader = null; this.writer = null;
+    this.config = null;
+  }
 
   get connected() { return !!this.port; }
 
@@ -105,9 +261,24 @@ class WebSerialBus {
     }
     this.port = await navigator.serial.requestPort();
     await this.port.open(KDCAN);
+    this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     return this.portLabel();
+  }
+
+  // Close/reopen with a concept's wire settings. Reopening an already-
+  // granted port needs no user gesture, only the first requestPort() does.
+  async ensureConfig(cfg) {
+    if (this.config && this.config.baudRate === cfg.baudRate
+        && this.config.parity === cfg.parity) return;
+    try { if (this.reader) { await this.reader.cancel(); this.reader.releaseLock(); } } catch { /* reopening */ }
+    try { if (this.writer) this.writer.releaseLock(); } catch { /* reopening */ }
+    await this.port.close();
+    await this.port.open(cfg);
+    this.config = cfg;
+    this.writer = this.port.writable.getWriter();
+    this.reader = this.port.readable.getReader();
   }
 
   portLabel() {
@@ -131,13 +302,15 @@ class WebSerialBus {
   // everything sent is also heard). EdInterfaceObd drops exactly as many
   // bytes as it wrote; do the same rather than pattern-matching, because a
   // request and its answer can legitimately share a prefix.
-  async exchange(out, timeoutMs = 2000) {
-    await this.writer.write(new Uint8Array(out));
+  async exchange(out, comm) { return runExchange(this, out, comm); }
+
+  async exchangeRaw(framed, timeoutMs, comm) {
+    if (framed) await this.writer.write(new Uint8Array(framed));
     const deadline = Date.now() + timeoutMs;
-    return readFrame(out.length, timeoutMs, async () => {
+    return readFrame(framed, timeoutMs, async () => {
       const { value, done } = await this.readSome(deadline);
       return done ? null : value;
-    });
+    }, comm);
   }
 
   async readSome(deadline) {
@@ -155,8 +328,9 @@ class WebSerialBus {
 // The THOR WiFi adapter: a Deep-OBD-style custom adapter (EdiabasLib's
 // DEEPOBDWIFI protocol) behind an ESP-Link WiFi bridge at 192.168.4.1:23.
 // NOT an ELM327: it carries BMW-FAST-framed telegrams, which is exactly what
-// the VM sends -- but a browser has no TCP, so tools/thor_bridge.js relays a
-// local WebSocket to the adapter. Telegram framing and meaning stay here.
+// the VM sends. A browser has no TCP, so the adapter is reflashed to serve a
+// WebSocket itself (vendor/esp-link-ws) -- that is what makes this reachable
+// from a phone. Telegram framing and meaning stay here.
 //
 // The F1 -> F1 "special" telegrams are answered by the adapter MCU itself
 // (ident, ignition sense, battery voltage off the OBD pin), so connecting
@@ -166,10 +340,65 @@ const THOR_BRIDGE = 'ws://127.0.0.1:8124';
 const THOR_HOST = '192.168.4.1';
 const THOR_PORT = 23;
 
+// DIRECT MODE. An adapter running the WebSocket firmware in
+// vendor/esp-link-ws serves ws://<ip>/bmweb straight off the dongle, so the
+// page talks to the car with nothing else running -- no relay, no shell.
+// That is what makes this work on a phone: WebSockets are the only browser
+// transport with no platform gaps (Web Serial is desktop-Chrome only, Web
+// Bluetooth does not exist on iOS).
+//
+// Everything below this line is unchanged either way. The telegram wrapping
+// and the framing do not care which socket carries the bytes.
+const THOR_WS_PATH = '/bmweb';
+const THOR_DEFAULT_IP = '192.168.4.1';
+
+// How long to wait on the adapter before falling back to the relay. A
+// socket to an address that is not there does not fail fast -- the browser
+// retransmits SYN for a long time -- so this deadline is what bounds the
+// whole "try direct first" idea. Long enough for a sleepy ESP on a weak
+// AP, short enough that a user who is not on the adapter's WiFi is not
+// left staring.
+const THOR_DIRECT_TIMEOUT_MS = 10000;
+
+// One message that says what was tried and what to do about it. Every
+// branch here is a real, distinguishable situation -- "could not connect"
+// alone sends people to check the wrong thing.
+function thorAdviceFor(failures, https, typedAddress) {
+  const tried = failures.join('; ');
+  if (https) {
+    return 'This page is served over https, which cannot open a ws:// '
+      + 'connection to the adapter (mixed content), and a bare IP cannot '
+      + 'have a certificate. Open this build over http:// or as an offline '
+      + `copy. (${tried})`;
+  }
+  if (typedAddress) {
+    return `No adapter answered at ${typedAddress}. Check you are joined to `
+      + "the adapter's WiFi, that the address is right, and that it runs the "
+      + `WebSocket firmware (vendor/esp-link-ws). (${tried})`;
+  }
+  return "No THOR adapter found. Join the adapter's WiFi, and check it has "
+    + 'the WebSocket firmware flashed (see vendor/esp-link-ws). '
+    + `(${tried})`;
+}
+
+// "192.168.4.1" | "192.168.4.1:81" | "ws://host/path" -> a URL. Bare hosts
+// are the common case (it is what the adapter's own page shows), so accept
+// them and supply the rest.
+function thorDirectUrl(addr) {
+  const a = String(addr || THOR_DEFAULT_IP).trim();
+  if (/^wss?:\/\//i.test(a)) return a;
+  return `ws://${a.replace(/\/+$/, '')}${THOR_WS_PATH}`;
+}
+
 class ThorWifiBus {
-  constructor() {
+  // directUrl: talk to the adapter's own WebSocket instead of the relay.
+  constructor(directUrl) {
     this.ws = null;
     this.native = false;                             // shell-owned TCP socket
+    this.direct = directUrl || null;                 // address the user chose
+    this.usingDirect = null;                         // address that answered
+    this.textFrames = false;
+    this._connecting = null;                         // in-flight connect()
     this.fw = null;                                  // { type, version }
     this.state = { battery: null, ignition: null };  // last ident readings
     this.rx = [];
@@ -179,42 +408,198 @@ class ThorWifiBus {
     return this.native || (!!this.ws && this.ws.readyState === 1);
   }
 
-  async connect() {
-    if (window.bmacw && window.bmacw.tcpOpen) {
-      // the macOS shell opens the socket itself: no relay, no node
-      await window.bmacw.tcpOpen(THOR_HOST, THOR_PORT);
-      this.native = true;
-    } else {
-      const ws = new WebSocket(THOR_BRIDGE);
+  // Open a WebSocket, or give up after `ms`. A socket to an address that
+  // simply is not there does NOT fail fast -- the browser sits in SYN
+  // retransmit, which on a phone can run past a minute. Hence the deadline:
+  // it is what makes "try direct, then fall back" finish in a knowable
+  // time rather than looking hung.
+  openWs(url, ms, onText) {
+    return new Promise((res, rej) => {
+      const ws = new WebSocket(url);
       ws.binaryType = 'arraybuffer';
-      await new Promise((res, rej) => {
-        ws.onopen = res;
-        ws.onerror = () => rej(new Error(
-          'THOR bridge is not running. Start it with: node thor_bridge.js'));
+      let settled = false;
+      // THE DEADLINE COVERS OPENING, AND NOTHING AFTER IT. It exists
+      // because a socket to an address that is not there does not fail
+      // fast -- the browser sits in SYN retransmit. Once the socket is
+      // OPEN that reason is gone, so this must never touch it: closing a
+      // live connection here killed a working adapter ten seconds in,
+      // mid-conversation, with voltage already on screen.
+      const timer = setTimeout(() => {
+        if (settled || ws.readyState === 1) return;
+        settled = true;
+        try { ws.close(); } catch { /* never opened */ }
+        rej(new Error(`no answer from ${url} within ${Math.round(ms / 1000)}s`));
+      }, ms);
+      ws.onopen = () => {
+        clearTimeout(timer);
+        if (settled) {
+          // A late open after we gave up: do not hand back a socket the
+          // caller has stopped waiting for, and do not leak it either.
+          try { ws.close(); } catch { /* already closing */ }
+          return;
+        }
+        settled = true;
+        // KEEPALIVE. A diagnostic session is idle most of the time -- the
+        // user reads a screen and thinks -- and an idle TCP connection is
+        // exactly what times out. The firmware disarms espconn's own
+        // 10-second timer, but an AP or router in between can have its own
+        // idea, so keep the socket warm.
+        //
+        // A browser cannot send a ping opcode, so this is a ZERO-LENGTH
+        // BINARY frame: the firmware's `if (plen) uart0_tx_buffer(...)`
+        // means an empty payload writes nothing to the K-line. Traffic on
+        // the socket, silence on the wire.
+        clearInterval(this.keepAlive);
+        this.keepAlive = setInterval(() => {
+          if (ws.readyState !== 1) { clearInterval(this.keepAlive); return; }
+          try { ws.send(new Uint8Array(0)); } catch { /* closing */ }
+        }, 5000);
+        res(ws);
+      };
+      ws.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { ws.close(); } catch { /* already dead */ }
+        rej(new Error(`could not open ${url}`));
+      };
+      ws.onmessage = (e) => {
+        if (typeof e.data === 'string') { if (onText) onText(); return; }
+        this.rx.push(...new Uint8Array(e.data));
+      };
+      ws.onclose = (e) => {
+        // WHO CLOSED IT, AND WHY. A connection that dies mid-session is
+        // the hardest thing to diagnose blind: the app just says "not
+        // running" and every layer looks innocent. The close code names
+        // the culprit -- 1006 is an abnormal close (no close frame: the
+        // peer vanished or the network dropped), 1001 is going-away,
+        // 1000 is a clean close somebody asked for.
+        console.warn(`[thor] socket closed: code=${e && e.code} `
+          + `reason="${(e && e.reason) || ''}" `
+          + `clean=${e && e.wasClean} url=${url}`);
+        this.ws = null;
+      };
+    });
+  }
+
+  async connect() {
+    // ONE CONNECT AT A TIME. app.js auto-connects on load AND offers the
+    // chip as a manual retry, so two chains can overlap -- and a second
+    // chain's failed attempt would tear down the transport the first one
+    // had already established. Hand the caller the in-flight attempt
+    // instead of starting a rival one.
+    if (this._connecting) return this._connecting;
+    if (this.connected) return this.portLabel();
+    this._connecting = this.connectOnce()
+      .finally(() => { this._connecting = null; });
+    return this._connecting;
+  }
+
+  async connectOnce() {
+    // WHAT TO TRY, IN ORDER. Direct first whenever it is possible: an
+    // adapter running the WebSocket firmware needs nothing else, which is
+    // the only arrangement that works on a phone. The relay and the
+    // shell's socket are the fallbacks, and each one is only offered where
+    // it can actually work.
+    const https = typeof location !== 'undefined'
+      && location.protocol === 'https:';
+    const attempts = [];
+    if (!https) {
+      attempts.push({
+        kind: 'direct',
+        url: this.direct || thorDirectUrl(THOR_DEFAULT_IP),
+        open: async (url) => {
+          this.ws = await this.openWs(url, THOR_DIRECT_TIMEOUT_MS,
+                                      () => { this.textFrames = true; });
+          this.usingDirect = url;
+        },
       });
-      ws.onmessage = (e) => this.rx.push(...new Uint8Array(e.data));
-      ws.onclose = () => { this.ws = null; };
-      this.ws = ws;
     }
-    // prove there is an adapter behind the socket, not just a socket
-    const fw = await this.special(0xFD, 9);
-    this.fw = { type: (fw[4] << 8) | fw[5], version: (fw[6] << 8) | fw[7] };
-    await this.readState();
-    return this.portLabel();
+    if (window.bmacw && window.bmacw.tcpOpen) {
+      attempts.push({
+        kind: 'native',
+        open: async () => {
+          await window.bmacw.tcpOpen(THOR_HOST, THOR_PORT);
+          this.native = true;
+        },
+      });
+    }
+    // THE RELAY IS GONE FROM THE SHIPPED BUILDS. A browser cannot open a
+    // raw TCP socket, so reaching a stock esp-link adapter used to need a
+    // node process beside the page -- which is exactly the "install
+    // something first" this app exists to avoid, and impossible on a phone.
+    // The answer is the WebSocket firmware (vendor/esp-link-ws): flash it
+    // once and the adapter serves the socket itself.
+    //
+    // Kept alive only for someone who still runs thor_bridge.js by hand:
+    // ?relay=1. Not offered, not documented in the UI, and never tried on
+    // its own -- a silent fallback to a relay would hide a wrong address or
+    // unflashed firmware behind a connection that happens to work.
+    if (!this.direct && bootQuery.has('relay')) {
+      attempts.push({
+        kind: 'relay',
+        open: async () => { this.ws = await this.openWs(THOR_BRIDGE, 4000); },
+      });
+    }
+
+    // A SOCKET IS NOT AN ADAPTER, so each attempt has to prove itself
+    // before the next one is skipped. The ident is that proof: addressed
+    // F1 -> F1, the adapter MCU answers it itself, and a correct reply can
+    // only come back over a real, binary-clean UART bridge. No car, no
+    // ignition. An endpoint that opens and then says nothing -- a console
+    // socket, a relay with no adapter behind it -- fails here and the next
+    // transport gets its turn, which is the whole point of trying in order.
+    const failures = [];
+    for (const a of attempts) {
+      try {
+        await a.open(a.url);
+        const fw = await this.special(0xFD, 9);
+        this.fw = { type: (fw[4] << 8) | fw[5], version: (fw[6] << 8) | fw[7] };
+        await this.readState();
+        return this.portLabel();
+      } catch (e) {
+        failures.push(`${a.kind}: ${this.textFrames
+          ? 'text frames, not a binary UART bridge' : e.message}`);
+        await this.dropTransport();
+      }
+    }
+    throw new Error(thorAdviceFor(failures, https, this.direct));
+  }
+
+  // Undo a failed attempt so the next one starts clean.
+  async dropTransport() {
+    clearInterval(this.keepAlive);
+    this.keepAlive = null;
+    try { if (this.ws) this.ws.close(); } catch { /* already gone */ }
+    if (this.native) {
+      try { await window.bmacw.tcpClose(); } catch { /* already gone */ }
+    }
+    this.ws = null;
+    this.native = false;
+    this.usingDirect = null;
+    this.textFrames = false;
+    this.rx.length = 0;
   }
 
   portLabel() {
     const v = this.fw ? ` v${this.fw.version >> 8}.${this.fw.version & 0xff}` : '';
-    return `THOR${v}`;
+    // Name the mode that actually WON, not the one that was configured:
+    // with the fallback in place those differ, and "direct" has to mean
+    // "nothing else is running" or it is worse than no label at all.
+    const how = this.usingDirect ? ' direct' : this.native ? '' : ' via relay';
+    return `THOR${v}${how}`;
   }
 
   async disconnect() {
+    clearInterval(this.keepAlive);
+    this.keepAlive = null;
     if (this.native) {
       try { await window.bmacw.tcpClose(); } catch { /* already gone */ }
       this.native = false;
     }
     try { if (this.ws) this.ws.close(); } catch { /* already gone */ }
     this.ws = null;
+    this.usingDirect = null;
   }
 
   // One special telegram: 82 F1 F1 <cmd> <cmd> <sum8>. The adapter echoes
@@ -257,10 +642,99 @@ class ThorWifiBus {
     return this.state;
   }
 
-  async exchange() {
-    throw new Error('Jobs over the THOR adapter are not wired up yet: the '
-      + 'K-line/D-CAN telegram wrapping is BMW-specific and waits for the '
-      + 'BMW to be back from the shop.');
+  // ---- job telegrams.
+  //
+  // The adapter does not take a bare BMW telegram: it takes a CONFIG header
+  // saying how to drive the K line, with the telegram as payload. That is
+  // what makes THOR the only transport here that can reach a 9600-baud DS2
+  // module without touching the serial port's own settings -- the baud
+  // rides in each telegram.
+  //
+  // Layout (EdiabasLib EdCustomAdapterCommon.CreateAdapterTelegram), the
+  // two firmware generations:
+  //
+  //   fw < 0x0008:  00 00 baudH baudL flags1 interByte lenH lenL <payload> sum8
+  //   fw >= 0x0008: 00 02 baudH baudL flags1 flags2 interByte kwp1281To
+  //                                                  lenH lenL <payload> sum8
+  //
+  // baud is transmitted HALVED, big-endian; 115200 is special-cased to 0,
+  // which means "raw passthrough" (the adapter stops reframing and the wire
+  // is BMW-FAST as-is). flags1 bits 0-2 are parity (0 none, 1 even),
+  // 0x80 selects the K line. The adapter echoes the whole wrapped telegram
+  // back, then appends the ECU's answer with its own sum8 -- so the answer
+  // is checked on its own bytes, not across the echo.
+  static thorConfig(comm) {
+    const c = conceptOf(comm);
+    const kline = isDs2(c) || c === 0x10d;
+    const baud = kline ? ((comm && comm.baud) || 9600) : 115200;
+    // even parity on the K-line concepts, none on BMW-FAST
+    const parity = kline ? 0x01 : 0x00;
+    return {
+      baudHalf: baud === 115200 ? 0 : Math.floor(baud / 2),
+      flags1: parity | 0x80,
+      interByte: 0,
+    };
+  }
+
+  thorWrap(payload, comm) {
+    const cfg = ThorWifiBus.thorConfig(comm);
+    const v2 = this.fw && this.fw.version >= 0x0008;
+    const head = v2
+      ? [0x00, 0x02, (cfg.baudHalf >> 8) & 0xff, cfg.baudHalf & 0xff,
+         cfg.flags1, 0x00, cfg.interByte, 0x3c,
+         (payload.length >> 8) & 0xff, payload.length & 0xff]
+      : [0x00, 0x00, (cfg.baudHalf >> 8) & 0xff, cfg.baudHalf & 0xff,
+         cfg.flags1, cfg.interByte,
+         (payload.length >> 8) & 0xff, payload.length & 0xff];
+    const tel = [...head, ...payload];
+    tel.push(tel.reduce((a, b) => (a + b) & 0xff, 0));
+    return tel;
+  }
+
+  async exchange(out, comm) {
+    // the BMW telegram still needs its own concept checksum -- the adapter
+    // wraps it, it does not compute it
+    const payload = withChecksum(out, comm);
+    const tel = this.thorWrap(payload, comm);
+    const timeoutMs = (comm && comm.timeout) || 2000;
+    if (comm && comm.waitMs) {
+      await new Promise((r) => setTimeout(r, Math.min(comm.waitMs, 5000)));
+    }
+    if (this.native) await window.bmacw.tcpRead();      // drop anything stale
+    this.rx.length = 0;
+    if (this.native) await window.bmacw.tcpWrite(tel);
+    else this.ws.send(new Uint8Array(tel));
+    const deadline = Date.now() + timeoutMs;
+    // wait for the echo first, then let the concept decide how long the
+    // answer is -- same framing rules as the serial path
+    while (this.rx.length < tel.length && Date.now() < deadline) {
+      if (this.native) {
+        const got = await window.bmacw.tcpRead();
+        if (got && got.length) { this.rx.push(...got); continue; }
+      }
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    if (this.rx.length < tel.length) {
+      throw new Error('no echo from the THOR adapter (timeout)');
+    }
+    while (Date.now() < deadline) {
+      const buf = this.rx.slice(tel.length);
+      const total = frameTotal(buf, comm);
+      if (total !== null && buf.length >= total) {
+        const frame = buf.slice(0, total);
+        verifyChecksum(frame, comm);
+        return frame;
+      }
+      if (this.native) {
+        const got = await window.bmacw.tcpRead();
+        if (got && got.length) { this.rx.push(...got); continue; }
+      }
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    const partial = this.rx.length - tel.length;
+    throw new Error(partial > 0
+      ? `incomplete answer from ECU via THOR (${partial} bytes)`
+      : 'no answer from ECU (timeout)');
   }
 }
 
@@ -269,56 +743,165 @@ class ThorWifiBus {
 // inside the macOS app, the local WebSocket relay in a browser. Otherwise
 // the native serial bridge wins when present: inside the macOS app there is
 // no Web Serial to fall back to, and outside it there is no bridge.
-const wantThor = (() => {
-  if (typeof location !== 'undefined' && /[?&]thor\b/.test(location.search)) return true;
+// Settings as the page sees them at load. localStorage over the injected
+// copy: it is written synchronously the moment a setting changes, while
+// the shell's injected settings are one reload behind when the page
+// reloads right after a change.
+const bootSettings = (() => {
   try {
-    // localStorage over the injected copy: it is written synchronously the
-    // moment the setting changes, while the shell's injected settings are
-    // one reload behind when the page reloads right after a change.
-    const s = { ...(window.__bmacwSettings || {}),
-                ...JSON.parse(localStorage.getItem('bmacw.settings') || '{}') };
-    return s.adapter === 'thor';
-  } catch { return false; }
+    return { ...(window.__bmacwSettings || {}),
+             ...JSON.parse(localStorage.getItem('bmacw.settings') || '{}') };
+  } catch { return {}; }
 })();
-const webBus = wantThor ? new ThorWifiBus()
+const bootQuery = (() => {
+  try { return new URLSearchParams(location.search); }
+  catch { return new URLSearchParams(); }
+})();
+
+const wantThor = (() => {
+  if (bootQuery.has('thor') || bootQuery.has('ws')) return true;
+  return bootSettings.adapter === 'thor';
+})();
+
+// The adapter's own address, when it serves the WebSocket itself. Typing
+// one is what turns the relay off:
+//
+//   ?ws=192.168.4.1          the URL wins, for a one-off
+//   Settings > THOR address  the durable choice
+//
+// Empty means "use the relay / the shell's socket", which is the old
+// behavior and stays the default -- stock esp-link has no WebSocket, so
+// direct mode only works on a reflashed adapter.
+// THE ADDRESS IS 192.168.4.1 AND THERE IS NO SETTING FOR IT. That is the
+// ESP's own soft-AP address, fixed by the SDK, and the adapter is its own
+// access point -- so when you are joined to it, it is always there. A field
+// asking for something that never varies is a field that only ever gets
+// typed wrong. Change it in esp-link's WiFi Soft-AP page (or put the
+// adapter on your LAN with Station mode), then pass ?ws=<host> -- the
+// README explains both.
+const thorDirect = (() => {
+  const q = bootQuery.get('ws');
+  if (q) return thorDirectUrl(q === '1' ? THOR_DEFAULT_IP : q);
+  const s = bootSettings.thorAddress;      // honoured if an old copy set it
+  return s ? thorDirectUrl(s) : null;
+})();
+
+const webBus = wantThor ? new ThorWifiBus(thorDirect)
   : (typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen)
     ? new NativeSerialBus() : new WebSerialBus();
 
+// A session must not outlive the cable: dropping the bus without clearing
+// it would leave the next connection thinking INITIALISIERUNG had already
+// run, and reuse shared data from a car that may not even be the same one.
+// ENDE is skipped deliberately -- the wire is already going away.
+{
+  const busDisconnect = webBus.disconnect.bind(webBus);
+  webBus.disconnect = async (...a) => {
+    sessions.clear();
+    loadedSgbd = null;
+    return busDisconnect(...a);
+  };
+}
+
 // ---------------------------------------------------------------- job runner
 
+// EDIABAS's session model, which a fresh-VM-per-job does not have:
+// INITIALISIERUNG runs ONCE when an SGBD is loaded, shared data (shmset)
+// persists across that SGBD's jobs, and ENDE runs when it is unloaded.
+// MS450 hands its AIF block from init to later jobs exactly this way.
+// Keyed by SGBD; switching ECUs ends the previous session.
+const sessions = new Map();          // sgbd -> { shared, inited }
+
+function sessionFor(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  let s = sessions.get(key);
+  if (!s) { s = { shared: new Map(), inited: false }; sessions.set(key, s); }
+  return s;
+}
+
+// Run ENDE for a session being dropped. Fire-and-forget: the answer does
+// not matter, but the ECU is entitled to the notification.
+async function endSession(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  const s = sessions.get(key);
+  if (!s || !s.inited) { sessions.delete(key); return; }
+  sessions.delete(key);
+  try {
+    const code = await webFetchJson(`data/job-code/${key}.json`);
+    if (code && code.jobs && code.jobs.ENDE !== undefined) {
+      await webRunJob(sgbd, 'ENDE', null, { noInit: true, shared: s.shared });
+    }
+  } catch { /* the session is over either way */ }
+}
+
+// The currently-loaded SGBD. EDIABAS holds one at a time; switching ends
+// the old session so its ENDE runs while the bus is still up.
+let loadedSgbd = null;
+
+async function switchSession(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (loadedSgbd === key) return;
+  const prev = loadedSgbd;
+  loadedSgbd = key;
+  if (prev) await endSession(prev);
+}
+
 // Run a job the way the server's /run endpoint did, but in the VM.
-async function webRunJob(sgbd, job, arg) {
+async function webRunJob(sgbd, job, arg, opts = {}) {
   const code = await webFetchJson(`data/job-code/${sgbd.toLowerCase()}.json`);
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
   const tables = await webFetchJson(
     `data/sgbd-tables/${sgbd.toLowerCase()}.json`) || {};
+  const session = opts.shared
+    ? { shared: opts.shared, inited: true }
+    : sessionFor(sgbd);
 
   // The VM's send() is synchronous, so the exchange has to be resolved before
   // run() needs it. Jobs are request/response with a small, fixed set of
   // telegrams, so drive the VM repeatedly: each pass either completes or
   // stops at a send whose answer we do not have yet, which we then fetch and
   // memoise before trying again.
+  //
+  // The memo is PER JOB RUN, and counts repeats: a job that legitimately
+  // sends the same telegram twice (clear-then-verify, status polling) must
+  // get the second answer, not the first one again. Keyed by request bytes
+  // AND occurrence index, which is stable across the replay passes because
+  // the VM is deterministic.
   const answers = new Map();
+  let sendSeq = 0;
   for (let attempt = 0; attempt < 24; attempt++) {
     let missing = null;
+    sendSeq = 0;
     const vm = new Best2Vm(code, {
       tables,
       args: arg == null ? '' : String(arg),
       allowWrites: false,
-      send: (out) => {
-        const key = String(Array.from(out));
+      shared: session.shared,
+      inited: session.inited,
+      send: (out, comm) => {
+        const key = `${sendSeq++}:${Array.from(out)}`;
         if (answers.has(key)) return answers.get(key);
-        missing = Array.from(out);
-        // Unwind this pass: nothing sensible to return, and continuing would
-        // decode garbage. The throw is caught below.
-        throw new Error('__need_answer__');
+        // Carry the wire parameters along with the request: the exchange
+        // below needs the concept to frame, checksum and pace it.
+        missing = { key, out: Array.from(out), comm };
+        // Unwind this pass: nothing sensible to return, and continuing
+        // would decode garbage. The throw is caught below; the marker
+        // makes bestvm's INITIALISIERUNG handling rethrow it instead of
+        // swallowing it -- an init whose telegrams were never fetched used
+        // to "succeed" having sent nothing.
+        const need = new Error('__need_answer__');
+        need.needAnswer = true;
+        throw need;
       },
     });
     try {
-      return { sets: vm.run(job, arg == null ? '' : String(arg)) };
+      const sets = vm.run(job, arg == null ? '' : String(arg));
+      session.inited = true;
+      return { sets };
     } catch (e) {
       if (!missing) throw e;
-      answers.set(String(missing), await webBus.exchange(missing));
+      answers.set(missing.key,
+                  await webBus.exchange(missing.out, missing.comm));
     }
   }
   throw new Error('job did not settle after 24 telegram exchanges');
@@ -539,6 +1122,10 @@ function installWebShim() {
       }
       if (!webBus.connected) return err('no cable connected', 503);
       try {
+        // One SGBD is "loaded" at a time, like the engine: moving to a
+        // different ECU ends the previous session (ENDE) before the new
+        // one initialises.
+        await switchSession(run[1]);
         const r = await webRunJob(run[1], decodeURIComponent(run[2]), arg);
         return ok({ job: run[2], sets: r.sets });
       } catch (e) { return err(e.message); }

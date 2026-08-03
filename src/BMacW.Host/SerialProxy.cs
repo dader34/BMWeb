@@ -16,10 +16,12 @@ namespace BMacW.Host;
 // -- framing, checksums, the echo, retries -- stays in bestvm.js where it is
 // already tested against the engine on 3730 results.
 //
-// Wire settings match EdInterfaceObd for a USB K+DCAN cable: 115200 8N1, no
-// handshake. The K line is half duplex, so a write is ECHOED back before the
-// answer; dropping that echo is the caller's business (it knows how many bytes
-// it sent), which keeps this class free of protocol knowledge.
+// Wire settings come from the caller per ECU: BMW-FAST runs 115200 8N1, the
+// DS2/KWP2000* K-line runs 9600 8E1, and the renderer reopens the port when
+// a job's concept differs. The K line is half duplex, so a write is ECHOED
+// back before the answer; dropping that echo is the caller's business (it
+// knows how many bytes it sent), which keeps this class free of protocol
+// knowledge.
 public sealed class SerialProxy : IDisposable
 {
     private SerialPort? _port;
@@ -68,7 +70,7 @@ public sealed class SerialProxy : IDisposable
         return found;
     }
 
-    public string Open(string? path, int baud)
+    public string Open(string? path, int baud, string? parity = null)
     {
         Close();
         string dev = string.IsNullOrEmpty(path) ? (ListPorts().FirstOrDefault() ?? "") : path;
@@ -81,7 +83,13 @@ public sealed class SerialProxy : IDisposable
             throw new InvalidOperationException($"no K+DCAN cable found ({where})");
         }
 
-        var p = new SerialPort(dev, baud <= 0 ? 115200 : baud, Parity.None, 8, StopBits.One)
+        // Parity follows the ECU's concept: the DS2/KWP2000* K-line runs
+        // 8E1, BMW-FAST runs 8N1. The renderer reopens the port when a
+        // job's xsetpar declares different settings.
+        var par = string.Equals(parity, "even", StringComparison.OrdinalIgnoreCase) ? Parity.Even
+            : string.Equals(parity, "odd", StringComparison.OrdinalIgnoreCase) ? Parity.Odd
+            : Parity.None;
+        var p = new SerialPort(dev, baud <= 0 ? 115200 : baud, par, 8, StopBits.One)
         {
             Handshake = Handshake.None,
             // Reads are drained by the caller's own deadline loop, so never
