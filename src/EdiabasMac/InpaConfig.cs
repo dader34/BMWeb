@@ -10,7 +10,15 @@ namespace EdiabasMac;
 // parses the original INPA config to reproduce its navigation: chassis -> section
 // -> ECU. files BMW shipped:
 //   CFGDAT/<CHASSIS>.ENG  -> sections ([ROOT_*]) and their ECU entries (ENTRY=)
+//   CFGDAT|SGDAT/<CHASSIS>.GER -> German menu, used when no .ENG exists (K25/K40)
 //   SGDAT/<CODE>.IPO      -> resolves an ENTRY code to its real SGBD .prg
+//
+// KEEP IN STEP with tools/export/inpa_config.py: that Python twin regenerates
+// the committed data/chassis-config cache when this project cannot build (the
+// csproj needs vendor/ediabaslib-src, which is not always vendored). Any
+// change to parsing or resolution here must be mirrored there. The twin also
+// handles BMW_ALT.ENG (E31/E34/E38 + legacy E36) and SONDER.ENG, which this
+// loader only covers for the per-chassis files it is asked for.
 //
 // E46.ENG sample:
 //   [ROOT_MOTOR]
@@ -30,13 +38,23 @@ public sealed class InpaConfig
     private readonly string _sgDat;    // .../EC-APPS/INPA/SGDAT
     private readonly string _ecuPath;  // .../EDIABAS/Ecu  (confirms .prg exists)
 
-    // surfaced sections, INPA display order, English names
+    // surfaced sections, INPA display order, English names. This is a NAMING
+    // table, not an allowlist: sections not listed here are kept with a
+    // prettified key (the old 5-name allowlist silently dropped the seat,
+    // door and airbag-satellite menus of E60/E65/E70/E9x/F/RR1).
     private static readonly (string Key, string Name)[] SectionOrder =
     {
         ("ROOT_MOTOR", "Engine"),
         ("ROOT_GETRIEBE", "Transmission"),
         ("ROOT_FAHRWERK", "Chassis"),
         ("ROOT_KAROSSERIE", "Body"),
+        ("ROOT_KAROSSERIE_TUER", "Doors"),
+        ("ROOT_KAROSSERIE_SITZ", "Seats"),
+        ("ROOT_SICHERHEITSMODULE", "Safety modules"),
+        ("ROOT_SICHERHEITSFAHRZEUG", "Vehicle safety"),
+        ("ROOT_ELEKTRIK", "Electrics"),
+        ("ROOT_SONSTIGES", "Other"),
+        ("ROOT_NAVIGATION", "Navigation"),
         ("ROOT_KOMMUNIKATION", "Communication"),
     };
 
@@ -47,22 +65,60 @@ public sealed class InpaConfig
         _ecuPath = ecuPath;
     }
 
-    // chassis with a .ENG file, production codes only (E/F/G/R/RR + digit)
+    // chassis with a menu file, production codes only (E/F/G/R/RR/K + digit).
+    // K25/K40 (motorcycles) only ship a .GER menu, so those count too.
     public List<string> ChassisIds()
     {
         if (!Directory.Exists(_cfgDat)) return new List<string>();
-        return Directory.EnumerateFiles(_cfgDat, "*.ENG")
-            .Select(f => Path.GetFileNameWithoutExtension(f).ToUpperInvariant())
-            .Where(id => Regex.IsMatch(id, "^(E|F|G|R|RR)\\d")) // E46, E60, F30, R56...
-            .OrderBy(id => id)
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string f in Directory.EnumerateFiles(_cfgDat, "*.ENG"))
+            ids.Add(Path.GetFileNameWithoutExtension(f).ToUpperInvariant());
+        foreach (string dir in new[] { _cfgDat, _sgDat })
+            if (Directory.Exists(dir))
+                foreach (string f in Directory.EnumerateFiles(dir, "*.GER"))
+                    ids.Add(Path.GetFileNameWithoutExtension(f).ToUpperInvariant());
+        var list = ids
+            .Where(id => Regex.IsMatch(id, "^(E|F|G|R|RR|K)\\d")) // E46, F30, R56, K25...
             .ToList();
+        // BMW_ALT.ENG is the only menu for the old models; SONDER.ENG holds
+        // the special tests. Neither is a <CHASSIS>.ENG file of its own.
+        if (File.Exists(Path.Combine(_cfgDat, "BMW_ALT.ENG")))
+            foreach (string id in BmwAltChassis)
+                if (!list.Contains(id)) list.Add(id);
+        if (File.Exists(Path.Combine(_cfgDat, "SONDER.ENG")) && !list.Contains("SONDER"))
+            list.Add("SONDER");
+        return list.OrderBy(id => id).ToList();
+    }
+
+    // chassis whose menus live inside BMW_ALT.ENG ([ROOT_E31_MOTOR]...).
+    // BMW_ALT also carries legacy E36 sections, but every one of its E36
+    // entry codes already exists in E36.ENG, so no merge is needed there.
+    private static readonly string[] BmwAltChassis = { "E31", "E34", "E38" };
+
+    // the menu file for a chassis: .ENG, else the German menu (CFGDAT first,
+    // then SGDAT, where some dumps keep the .GER files). Labels from a .GER
+    // menu stay German -- BMW never shipped English ones for those chassis.
+    private string MenuFileFor(string chassisId)
+    {
+        string eng = Path.Combine(_cfgDat, chassisId + ".ENG");
+        if (File.Exists(eng)) return eng;
+        foreach (string ger in new[] { Path.Combine(_cfgDat, chassisId + ".GER"),
+                                       Path.Combine(_sgDat, chassisId + ".GER") })
+            if (File.Exists(ger)) return ger;
+        return null;
     }
 
     public Chassis Load(string chassisId)
     {
-        string file = Path.Combine(_cfgDat, chassisId + ".ENG");
-        if (!File.Exists(file))
-            throw new FileNotFoundException($"No config for chassis {chassisId}", file);
+        if (BmwAltChassis.Contains(chassisId, StringComparer.OrdinalIgnoreCase))
+            return LoadBmwAlt(chassisId.ToUpperInvariant());
+        if (string.Equals(chassisId, "SONDER", StringComparison.OrdinalIgnoreCase))
+            return LoadSonder();
+
+        string file = MenuFileFor(chassisId);
+        if (file == null)
+            throw new FileNotFoundException($"No config for chassis {chassisId}",
+                Path.Combine(_cfgDat, chassisId + ".ENG"));
 
         string description = chassisId;
         var sections = new List<Section>();
@@ -73,15 +129,16 @@ public sealed class InpaConfig
             string line = raw.Trim();
             if (line.Length == 0 || line.StartsWith(";")) continue;
 
-            var sec = Regex.Match(line, @"^\[(ROOT_[A-Z0-9_]+)\]$");
+            // case-insensitive: F30.ENG writes [ROOT_Navigation], and missing
+            // that boundary leaked its cic entry into the preceding section
+            var sec = Regex.Match(line, @"^\[(ROOT_[A-Z0-9_]+)\]$", RegexOptions.IgnoreCase);
             if (sec.Success)
             {
-                string key = sec.Groups[1].Value;
+                string key = sec.Groups[1].Value.ToUpperInvariant();
                 var known = SectionOrder.FirstOrDefault(s => s.Key == key);
+                // unknown sections are kept, not dropped (SectionOrder names)
                 current = new Section(key, known.Name ?? Pretty(key), new List<EcuEntry>());
-                // recognized only
-                if (known.Key != null) sections.Add(current);
-                else current = null;
+                sections.Add(current);
                 continue;
             }
 
@@ -105,16 +162,130 @@ public sealed class InpaConfig
                 string sgbd = ResolveSgbd(code, chassisId);
                 if (sgbd != null) // SGBD must exist on disk
                     current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
+                else // never drop silently
+                    Console.Error.WriteLine(
+                        $"InpaConfig: {chassisId} {current.Key} drops {code} ({label}): no SGBD resolves");
             }
         }
 
-        // INPA order, drop empties
+        // INPA order, drop empties; sections not in SectionOrder sink to the
+        // end but survive (FindIndex yields -1, so map it past the known ones)
         sections = sections
             .Where(s => s.Ecus.Count > 0)
-            .OrderBy(s => Array.FindIndex(SectionOrder, o => o.Key == s.Key))
+            .OrderBy(s =>
+            {
+                int i = Array.FindIndex(SectionOrder, o => o.Key == s.Key);
+                return i < 0 ? SectionOrder.Length : i;
+            })
             .ToList();
 
         return new Chassis(chassisId, description, sections);
+    }
+
+    // one of E31/E34/E38 out of BMW_ALT.ENG, whose sections are named
+    // [ROOT_<CHASSIS>_<SECTION>] with [ROOT_<CHASSIS>] carrying the label
+    private Chassis LoadBmwAlt(string chassisId)
+    {
+        string file = Path.Combine(_cfgDat, "BMW_ALT.ENG");
+        if (!File.Exists(file))
+            throw new FileNotFoundException($"No config for chassis {chassisId}", file);
+
+        string description = chassisId;
+        var sections = new List<Section>();
+        Section current = null;
+        bool inChassisHead = false;
+
+        foreach (string raw in File.ReadLines(file, Latin1()))
+        {
+            string line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith(";")) continue;
+
+            var head = Regex.Match(line, @"^\[ROOT_(E\d+)\]$", RegexOptions.IgnoreCase);
+            if (head.Success)
+            {
+                inChassisHead = string.Equals(head.Groups[1].Value, chassisId,
+                                              StringComparison.OrdinalIgnoreCase);
+                current = null;
+                continue;
+            }
+            var sec = Regex.Match(line, @"^\[ROOT_(E\d+)_([A-Z0-9_]+)\]$", RegexOptions.IgnoreCase);
+            if (sec.Success)
+            {
+                inChassisHead = false;
+                if (!string.Equals(sec.Groups[1].Value, chassisId, StringComparison.OrdinalIgnoreCase))
+                { current = null; continue; }
+                string key = "ROOT_" + sec.Groups[2].Value.ToUpperInvariant();
+                var known = SectionOrder.FirstOrDefault(s => s.Key == key);
+                current = new Section(key, known.Name ?? Pretty(key), new List<EcuEntry>());
+                sections.Add(current);
+                continue;
+            }
+            if (line.StartsWith("DESCRIPTION=", StringComparison.OrdinalIgnoreCase))
+            {
+                if (inChassisHead) description = line.Substring("DESCRIPTION=".Length).Trim();
+                continue;
+            }
+            if (current != null && line.StartsWith("ENTRY=", StringComparison.OrdinalIgnoreCase))
+            {
+                string[] parts = line.Substring("ENTRY=".Length).Split(',');
+                string code = parts[0].Trim();
+                string label = parts.Length > 1 ? parts[1].Trim() : code;
+                if (code.Length == 0) continue;
+                string sgbd = ResolveSgbd(code, chassisId);
+                if (sgbd != null)
+                    current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
+                else
+                    Console.Error.WriteLine(
+                        $"InpaConfig: {chassisId} (BMW_ALT) {current.Key} drops {code} ({label}): no SGBD resolves");
+            }
+        }
+
+        sections = sections
+            .Where(s => s.Ecus.Count > 0)
+            .OrderBy(s =>
+            {
+                int i = Array.FindIndex(SectionOrder, o => o.Key == s.Key);
+                return i < 0 ? SectionOrder.Length : i;
+            })
+            .ToList();
+        return new Chassis(chassisId, description, sections);
+    }
+
+    // SONDER.ENG: the special tests, all under [ROOT]
+    private Chassis LoadSonder()
+    {
+        string file = Path.Combine(_cfgDat, "SONDER.ENG");
+        if (!File.Exists(file))
+            throw new FileNotFoundException("No config for SONDER", file);
+
+        string description = "Special tests";
+        var ecus = new List<EcuEntry>();
+        bool inRoot = false;
+        foreach (string raw in File.ReadLines(file, Latin1()))
+        {
+            string line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith(";")) continue;
+            if (line.Equals("[ROOT]", StringComparison.OrdinalIgnoreCase)) { inRoot = true; continue; }
+            if (line.StartsWith("[")) { inRoot = false; continue; }
+            if (!inRoot) continue;
+            if (line.StartsWith("DESCRIPTION=", StringComparison.OrdinalIgnoreCase))
+            { description = line.Substring("DESCRIPTION=".Length).Trim(); continue; }
+            if (!line.StartsWith("ENTRY=", StringComparison.OrdinalIgnoreCase)) continue;
+            string[] parts = line.Substring("ENTRY=".Length).Split(',');
+            string code = parts[0].Trim();
+            string label = parts.Length > 1 ? parts[1].Trim() : code;
+            if (code.Length == 0) continue;
+            string sgbd = ResolveSgbd(code, "SONDER");
+            if (sgbd != null)
+                ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
+            else
+                Console.Error.WriteLine(
+                    $"InpaConfig: SONDER ROOT drops {code} ({label}): no SGBD resolves");
+        }
+        var sections = new List<Section>();
+        if (ecus.Count > 0)
+            sections.Add(new Section("ROOT_SONDER", "Special tests", ecus));
+        return new Chassis("SONDER", description, sections);
     }
 
     // the diagnostic-address group SGBD (D_00xx.grp) for a module, or null if none.
@@ -165,11 +336,29 @@ public sealed class InpaConfig
             string hit = FindPrgCaseInsensitive(prg);
             if (hit != null) return hit;
         }
+        // motorcycle menus name entries <SGBD>W3 (MRDWAW3 -> MRDWA.PRG);
+        // without this the variant scan below picks a stray token (RDC).
+        var w3 = Regex.Match(code, "^(.*)w3$", RegexOptions.IgnoreCase);
+        if (w3.Success && FindPrgCaseInsensitive(w3.Groups[1].Value.ToLowerInvariant()) != null)
+            return w3.Groups[1].Value.ToLowerInvariant();
         // group/variant entries (e.g. gsds2 = auto trans, kombi = cluster) have no
         // direct .prg; their .ipo lists concrete variants (GS20, KOMBI46, ...).
         foreach (string variant in SgbdVariantsFromIpo(code, chassisId))
         {
             string hit = FindPrgCaseInsensitive(variant.ToLowerInvariant());
+            if (hit != null) return hit;
+        }
+        // per-side seat modules: a-sitz ships only A-SITZ_F/A-SITZ_B
+        foreach (string suf in new[] { "_f", "_b" })
+        {
+            string hit = FindPrgCaseInsensitive(code.ToLowerInvariant() + suf);
+            if (hit != null) return hit;
+        }
+        // chassis-suffixed codes drop the E on disk: KGM_E60 -> KGM_60.prg
+        var em = Regex.Match(code, @"^(.*_)[eE](\d+)$");
+        if (em.Success)
+        {
+            string hit = FindPrgCaseInsensitive((em.Groups[1].Value + em.Groups[2].Value).ToLowerInvariant());
             if (hit != null) return hit;
         }
         return null;

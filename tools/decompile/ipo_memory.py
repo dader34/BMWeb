@@ -32,7 +32,6 @@ import os
 import re
 import sys
 import json
-import glob
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -140,7 +139,7 @@ def main():
     write = "--write" in sys.argv
 
     if args:
-        rec = extract(os.path.join(L1.SGDAT, args[0] + ".IPO"))
+        rec = extract(L1.ipo_path(args[0]))
         m = rec["memory"]
         if not m:
             print(f"{rec['ecu']}: no Read memory screen")
@@ -152,7 +151,7 @@ def main():
         return 0
 
     results, regs = {}, 0
-    for path in sorted(glob.glob(os.path.join(L1.SGDAT, "*.IPO"))):
+    for path in L1.ipo_paths():
         rec = extract(path)
         if not rec["memory"]:
             continue

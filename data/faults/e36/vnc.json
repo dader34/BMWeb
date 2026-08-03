@@ -12,6 +12,7 @@
     "Pruefsummenfehler festgestellt": "Checksum error detected",
     "Ventil 2 defekt": "Valve 2 faulty",
     "Geber 2 defekt": "Sensor 2 faulty",
-    "unbekannte Fehlerart": "Unknown fault type"
+    "unbekannte Fehlerart": "Unknown fault type",
+    "nicht belegt": "Not assigned"
   }
 }

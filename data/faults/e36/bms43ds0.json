@@ -43,6 +43,7 @@
     "CAN-ASC-Signal": "CAN ASC signal",
     "CAN-EGS-Signal": "CAN EGS signal",
     "CAN Funktion EGS": "CAN function EGS",
-    "EWS-Funktion": "EWS function"
+    "EWS-Funktion": "EWS function",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

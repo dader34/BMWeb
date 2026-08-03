@@ -84,6 +84,11 @@ class Best2Vm {
     this.arraySize = opts.arraySize || 1024;
     // process-wide shared data (shmset/shmget), persists across jobs
     this.shared = opts.shared || new Map();
+    // A SESSION runs INITIALISIERUNG once when the SGBD is loaded, not once
+    // per job. Callers that keep a session (webshim) pass inited:true on
+    // every job after the first, so the implicit init below is skipped --
+    // which is both what the engine does and one less telegram per job.
+    this._inited = !!opts.inited;
     // Permission to transmit for a job that CHANGES the ECU. Off by
     // default: a caller has to say so, and saying so is the point where a
     // UI can put a confirmation in front of the user.
@@ -112,6 +117,9 @@ class Best2Vm {
     // and 31 jobs reported ERROR_TABLE.
     this.trapBit = -1;
     this.answer = new Uint8Array(0);
+    this.tokenSep = '';                // setspc separators for stoken
+    this.tokenIdx = 0;                 // 1-based token number, 0 = unset
+    this.comm = null;                  // xsetpar wire parameters, see below
     this.steps = 0;
   }
 
@@ -420,7 +428,13 @@ class Best2Vm {
         this.runOne(init, '');
       } catch (e) {
         // an init that fails must not take the real job down with it; the
-        // engine logs and continues into the job as well
+        // engine logs and continues into the job as well. EXCEPT when the
+        // failure is the driver asking for a telegram answer it has not
+        // fetched yet (webshim's needAnswer sentinel): swallowing that
+        // meant init's own telegrams were never fetched on a live cable,
+        // and init "succeeded" having sent nothing. Rethrow so the driver
+        // fetches the answer and re-enters, and let init run again then.
+        if (e && e.needAnswer) { this._inited = false; throw e; }
       }
     }
     return this.runOne(undefined, args, jobName);
@@ -767,15 +781,33 @@ class Best2Vm {
       }
       case 'asl': case 'lsl': {
         const w = this.widthOf(A);
-        const r = this.val(A) * 2 ** this.val(B);
+        const n = this.val(B);
+        const v = this.val(A, w);
+        const r = v * 2 ** n;
+        // carry is the LAST BIT SHIFTED OUT of the width, like the engine's
+        // shift ops; untouched when the count is zero
+        if (n > 0) f.carry = n <= 8 * w
+          && Math.floor(v / 2 ** (8 * w - n)) % 2 === 1;
         this.store(A, r % 2 ** (8 * w));
         this.updateFlags(r, w);
         return;
       }
       case 'lsr': case 'asr': {
+        // asr is ARITHMETIC: the sign bit (at the operand's width) shifts
+        // back in. lsr shifts in zeros. Both report the last bit shifted
+        // out in carry.
         const w = this.widthOf(A);
-        const r = Math.floor(this.val(A) / 2 ** this.val(B));
-        this.store(A, r);
+        const n = this.val(B);
+        const lim = 2 ** (8 * w);
+        const u = this.val(A, w);                       // bit pattern
+        let v = u;
+        if (name === 'asr' && v >= lim / 2) v -= lim;   // signed view
+        // the shifted-out bit is bit n-1 of the PATTERN, sign play or not
+        if (n > 0 && n <= 8 * w) {
+          f.carry = Math.floor(u / 2 ** (n - 1)) % 2 === 1;
+        }
+        const r = Math.floor(v / 2 ** n);
+        this.store(A, ((r % lim) + lim) % lim);
         this.updateFlags(r, w);
         return;
       }
@@ -813,6 +845,53 @@ class Best2Vm {
         else if (name === 'fmul') r = x * y;
         else r = y === 0 ? 0 : x / y;
         this.fregs.set(A[1], r);
+        return;
+      }
+      case 'fcomp': {
+        // comp for floats: subtract without storing. There is no width or
+        // borrow arithmetic here -- zero/sign carry the ordering and
+        // overflow stays clear, which is exactly what makes jl/jg/jle/jge
+        // (sign vs overflow) and jc/jb (carry) all read as plain < and >.
+        const fv = (op) => (op[0] === 8 ? Best2Vm.parseNum(this.lit(op[1]))
+          : (op[1] && String(op[1])[0] === 'F' ? this.getReg(op[1])
+            : this.val(op)));
+        const x = fv(A), y = fv(B);
+        f.zero = x === y;
+        f.sign = x < y;
+        f.carry = x < y;
+        f.overflow = false;
+        return;
+      }
+      case 'y42flt': case 'y82flt': {
+        // 4/8 raw bytes -> IEEE float, LITTLE-endian: the corpus reverses
+        // wire bytes with swap first (swap S1,0,4 / y42flt F5,S1[0]), so
+        // the op itself reads host order.
+        const n = name === 'y42flt' ? 4 : 8;
+        const [m, a, b, c] = B;
+        let src;
+        if (m >= 9 && m <= 11) {
+          const raw = this.getSraw(a);
+          let i = m === 9 ? b : this.getReg(b);
+          if (m === 11) i += c || 0;
+          src = raw.slice(i, i + n);
+        } else {
+          src = Uint8Array.from(this.bytes(B)).slice(0, n);
+        }
+        const buf = new Uint8Array(n);
+        buf.set(src.slice(0, n));
+        const dv = new DataView(buf.buffer);
+        this.fregs.set(A[1],
+                       n === 4 ? dv.getFloat32(0, true) : dv.getFloat64(0, true));
+        return;
+      }
+      case 'flt2y4': case 'flt2y8': {
+        const n = name === 'flt2y4' ? 4 : 8;
+        const buf = new Uint8Array(n);
+        const dv = new DataView(buf.buffer);
+        const v = this.getReg(B[1]);
+        if (n === 4) dv.setFloat32(0, v, true);
+        else dv.setFloat64(0, v, true);
+        this.store(A, buf, true);
         return;
       }
       case 'a2flt': {
@@ -918,6 +997,15 @@ class Best2Vm {
         return;
       }
       case 'scut': {
+        // KNOWN OPEN QUESTION (do not "fix" without engine evidence): this
+        // counts on string registers carrying no trailing NUL, but
+        // storeText (the store path for pars/tabget/flt2a/...) DOES count
+        // its NUL in the logical length -- so scut directly after a
+        // storeText keeps a NUL the engine would drop. No fixture in the
+        // 3,730-result suite exercises that sequence; changing either side
+        // blind risks the 100% agreement. Revisit with a captured trace of
+        // a job doing scut-after-storeText.
+        //
         // strcut removes the last `len` bytes -- and `len` COUNTS THE
         // TERMINATING NUL, which the register's logical length does not
         // include once SetStringData has stored it. So `scut S1,#1` on the
@@ -995,12 +1083,41 @@ class Best2Vm {
         return;
       }
       case 'swap': {
-        const reg = A[1];
-        const idx = A[2] ?? 0, n = A[3] ?? 0;
+        // ranged modes can hold a REGISTER NAME for index or length --
+        // resolve them the way every other indexed op does, or a register-
+        // backed range coerces to 0 and nothing is reversed
+        const [m, reg, bIdx, cLen] = A;
+        const idx = this.resolveIdx(m, bIdx ?? 0);
+        const n = this.resolveLen(m, cLen ?? 0);
         const buf = Uint8Array.from(this.getS(reg));
         const part = buf.slice(idx, idx + n).reverse();
         buf.set(part, idx);
         this.setS(reg, buf);
+        return;
+      }
+      case 'setspc': {
+        // Sets the split parameters the NEXT stoken uses: arg0 is the
+        // separator characters (a pool string like " " or ", "), arg1 the
+        // 1-based token number.
+        this.tokenSep = Best2Vm.cstr(this.bytes(A));
+        this.tokenIdx = this.val(B);
+        return;
+      }
+      case 'stoken': {
+        // Token extraction: split arg1 by the setspc separators and store
+        // the setspc-selected token into arg0. Zero flag reports "no such
+        // token" -- the corpus idiom is `setspc " ",n / stoken S5,S7 / jz
+        // fail`. Runs of separators collapse: the seps here are " " and
+        // ", ", where keeping empty tokens would make every second token
+        // blank.
+        const src = Best2Vm.cstr(this.bytes(B));
+        const seps = this.tokenSep || ' ';
+        const parts = src.split(new RegExp(
+          `[${seps.replace(/[.*+?^${}()|[\]\\-]/g, '\\$&')}]+`))
+          .filter((t) => t !== '');
+        const tok = this.tokenIdx >= 1 ? parts[this.tokenIdx - 1] : undefined;
+        this.storeText(A, tok ?? '');
+        f.zero = tok === undefined;
         return;
       }
       case 'test': {
@@ -1172,9 +1289,20 @@ class Best2Vm {
         return;
       }
       case 'tabget': {
-        const col = this.lit(B[1]) ?? Best2Vm.cstr(this.bytes(B));
-        const cell = this.table && this.table.row
-          ? this.table.row[col] : undefined;
+        // Column name from a pool literal OR a register (lit() never
+        // returns nullish, so `lit(B[1]) ?? ...` silently missed every
+        // register-held name). Case-insensitive like tabseek.
+        const col = B[0] === 8 ? this.lit(B[1])
+          : Best2Vm.cstr(this.bytes(B));
+        let cell;
+        if (this.table && this.table.row) {
+          cell = this.table.row[col];
+          if (cell === undefined) {
+            const k = Object.keys(this.table.row).find(
+              (x) => x.toUpperCase() === String(col).toUpperCase());
+            if (k !== undefined) cell = this.table.row[k];
+          }
+        }
         this.storeText(A, cell === undefined || cell === null
           ? '' : String(cell));
         f.zero = cell === undefined || cell === null;
@@ -1277,7 +1405,16 @@ class Best2Vm {
             `refusing to transmit for write job ${this.jobName}: `
             + 'construct the VM with {allowWrites: true} to permit it');
         }
-        const ans = this.send(Array.from(req)) || [];
+        // The wire parameters ride along: the transport needs the concept
+        // to frame, checksum and pace this exchange. Callers that replay
+        // captured answers just ignore the second argument. A `wait` since
+        // the last exchange becomes waitMs, honored before the write.
+        let comm = this.comm;
+        if (this.pendingWaitMs) {
+          comm = { ...(comm || {}), waitMs: this.pendingWaitMs };
+          this.pendingWaitMs = 0;
+        }
+        const ans = this.send(Array.from(req), comm) || [];
         this.answer = Uint8Array.from(ans);
         this.store(A, this.answer, true);
         f.zero = this.answer.length === 0;
@@ -1304,15 +1441,154 @@ class Best2Vm {
         this.store(A, hit || new Uint8Array(0), true);
         return;
       }
-      case 'settmr': case 'gettmr': case 'wait': case 'setspc':
+      case 'xsetpar': {
+        // CommParameter: the SGBD tells the interface handler how to drive
+        // the wire. Two packings exist in the corpus. Classic concepts use
+        // 16-bit words: [concept, baud, ecuAddr, ...timings] (ms450ds0:
+        // 06 00 80 25 b8 00 ... = DS2, 9600, addr 0xB8). The 0x1xx family
+        // uses 32-bit dwords: [concept, baud, ...timings] (0d 01 00 00
+        // 80 25 00 00 ... = KWP2000*, 9600). A dword-parse of a classic
+        // blob yields an absurd concept, which is the disambiguator.
+        //
+        // The VM does not touch the port; it surfaces {concept, baud,
+        // timeout} to send(), which owns framing and the wire.
+        const raw = Array.from(this.bytes(A));
+        let words = [];
+        if (raw.length >= 4 && raw.length % 4 === 0) {
+          for (let i = 0; i + 3 < raw.length; i += 4) {
+            words.push(raw[i] + raw[i + 1] * 0x100
+              + raw[i + 2] * 0x10000 + raw[i + 3] * 0x1000000);
+          }
+        }
+        if (!words.length || words[0] > 0x1ff) {
+          words = [];
+          for (let i = 0; i + 1 < raw.length; i += 2) {
+            words.push(raw[i] + raw[i + 1] * 0x100);
+          }
+        }
+        if (words.length >= 2 && words[0] > 0 && words[0] <= 0x1ff) {
+          // The exact index of the answer timeout inside the blob is not
+          // decoded yet; the largest plausible timing word is a safe upper
+          // bound (an answer that IS coming arrives long before it).
+          const timing = words.slice(2).filter((v) => v >= 100 && v <= 30000);
+          this.comm = {
+            concept: words[0],
+            baud: words[1],
+            timeout: timing.length ? Math.max(1000, ...timing) : null,
+            params: words,
+          };
+        }
+        return;
+      }
+      case 'a2y': {
+        // ASCII hex -> bytes: "AB0102" (separators tolerated) into a byte
+        // array. Carry reports a character that is not hex -- conversion
+        // stops there, keeping the bytes parsed so far.
+        const txt = Best2Vm.cstr(this.bytes(B)).trim();
+        const clean = txt.replace(/^0x/i, '');
+        const out = [];
+        let bad = false;
+        for (let i = 0; i < clean.length;) {
+          if (/[\s,;:]/.test(clean[i])) { i += 1; continue; }
+          const pair = clean.slice(i, i + 2);
+          if (!/^[0-9a-fA-F]{2}$/.test(pair)) { bad = true; break; }
+          out.push(parseInt(pair, 16));
+          i += 2;
+        }
+        this.store(A, Uint8Array.from(out), true);
+        f.carry = bad;
+        f.zero = out.length === 0;
+        return;
+      }
+      case 'eerr': {
+        // The corpus idiom is `sett n / eerr` inside flash and
+        // authentication jobs. The engine's exact behavior is not
+        // recoverable from this repo, so raise the trapped error loudly --
+        // a clean failure beats a silently-continued flash guard. If a
+        // replay ever shows eerr on a passing path, the differential test
+        // will flag this and it gets refined.
+        throw new VmError(`SGBD raised error via eerr (trap ${this.trapBit})`);
+      }
+      case 'xtype': {
+        // Interface type name. EdInterfaceObd reports "OBD" for the K+DCAN
+        // cable this app drives; SGBDs (carb) branch on it to pick their
+        // concept.
+        this.store(A, Best2Vm.strBytes('OBD'), true);
+        return;
+      }
+      case 'xvers': {
+        // Interface version as a number. 0x0730 = the 7.3.0 engine the
+        // data was lifted from; nothing in the corpus does more than
+        // require it to be non-zero / recent.
+        this.store(A, 0x0730);
+        return;
+      }
+      case 'date': {
+        // dd.MM.yyyy text, the German convention AIF date fields expect
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        this.storeText(A,
+                       `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`);
+        return;
+      }
+      case 'time': {
+        const d = new Date();
+        const p = (n) => String(n).padStart(2, '0');
+        this.storeText(A,
+                       `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
+        return;
+      }
+      case 'wait': {
+        // The VM is synchronous, so it cannot sleep -- but the TRANSPORT
+        // can. Accumulate the requested pause and hand it to the next
+        // exchange via comm, where runExchange honors it before writing.
+        // Pacing-sensitive sequences (reset-then-reident, adaptation
+        // clears) stop firing back-to-back on a real wire.
+        this.pendingWaitMs = (this.pendingWaitMs || 0) + this.val(A);
+        return;
+      }
+      case 'generr': {
+        // Deliberately raise an EDIABAS error. Modeled like sett: the
+        // error lands in the trap register where jt/jnt can test it, which
+        // is the trappable half of the engine's behavior. (The engine also
+        // terminates when the error is unmasked; the trap-mask layer is
+        // not decoded, so trapping is the conservative choice -- a job
+        // that meant to die still takes its error path via jt.)
+        this.trapBit = this.val(A) || 0x40000000;
+        return;
+      }
+      case 'fopen': {
+        // SGBDs open runtime scratch files (ALC_60: c:/ediabas/ecu/
+        // cod_lm.dat -- a coding session's leftovers, absent even on a
+        // fresh real install). No virtual filesystem is provided, so every
+        // open MISSES with honest flags rather than leaving stale
+        // registers: handle 0, zero = failure -- the state a real engine
+        // reports on a clean machine, and what the jobs' own jz guards
+        // expect to handle.
+        this.store(A, 0);
+        f.zero = true;
+        f.carry = true;
+        return;
+      }
+      case 'freadln': case 'fread': {
+        // nothing is ever open (see fopen): empty read, zero = at end
+        this.store(A, new Uint8Array(0), true);
+        f.zero = true;
+        f.carry = true;
+        return;
+      }
+      case 'settmr': case 'gettmr':
       case 'xconnect': case 'xhangup': case 'xstopf': case 'xawlen':
-      case 'xreps': case 'xsetpar': case 'xkeyb': case 'xkeybytes':
+      case 'xreps': case 'xkeyb': case 'xkeybytes':
+      case 'xprog': case 'xreset':
       case 'setflt': case 'clrflt':
-      case 'cfgig': case 'cfgsg': case 'cfgss': case 'date': case 'time':
+      case 'cfgig': case 'cfgsg': case 'cfgss':
       case 'ticks': case 'trap': case 'plink': case 'pjob': case 'pexec':
-      case 'fopen': case 'fclose': case 'fseekln': case 'freadln':
-      case 'fread': case 'fwrite': case 'stoken': case 'ergsysi':
-      case 'generr': case 'iupdate': case 'realf':
+      case 'fclose': case 'fseekln': case 'fwrite': case 'ergsysi':
+      case 'iupdate': case 'realf':
+        // ergsysi stays a no-op ON PURPOSE: it publishes into result set 0,
+        // which this VM deliberately never synthesizes (the engine injects
+        // set 0; see SYSTEM_RESULTS in test_bestvm.js).
         if (name === 'gettmr' || name === 'ticks') this.store(A, 0);
         return;
 

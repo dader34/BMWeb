@@ -110,15 +110,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Pre-compress the large payloads
+      - name: Put the installer at the root
         run: |
           set -euo pipefail
-          # faultinfo.js alone is 60 MB. Pages serves .gz with the right
-          # Content-Encoding only if the original is absent, so keep both and
-          # let the shim's .gz-sibling lookup do the choosing, exactly as the
-          # macOS StaticHost does.
-          find dist-web -name '*.js' -size +1M -print0 \
-            | xargs -0 -r -P 4 -I{} gzip -9 -k -f {}
+          # THE PAGE BUILDS THE DOWNLOAD, so nothing is prebuilt here. The
+          # site is the data tree plus install.html, and the exporter runs
+          # in the visitor's browser against that tree -- any car, wiring or
+          # not, fault text or not, without CI publishing every combination.
+          #
+          # index.html (the app) moves aside: an https page cannot open the
+          # ws:// connection an adapter needs, so running the app from here
+          # could never talk to a car. Downloading the file is the point.
+          mv dist-web/index.html dist-web/app.html
+          mv dist-web/install.html dist-web/index.html
+          test -s dist-web/index.html
+          grep -q offlineSingleFile dist-web/index.html
 
       - name: Report what is being published
         run: |

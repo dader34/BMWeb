@@ -62,6 +62,7 @@
     "falscher Klimakasten verbaut": "Wrong A/C housing fitted",
     "LL / RL unplausible Kodierung": "LL / RL implausible coding",
     "Info falsche Checksumme": "Info wrong checksum",
-    "Energiesparmode aktiv": "Energy saving mode active"
+    "Energiesparmode aktiv": "Energy saving mode active",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

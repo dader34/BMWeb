@@ -114,6 +114,7 @@
     "Startautomatik Endstufe": "Auto-start output stage",
     "Startautomatik Plausibilitaet  Eingang / Ausgang": "Auto-start plausibility input / output",
     "CAN-Timeout EGS": "CAN timeout EGS",
-    "System Startautomatik  (Ueberpruefung Drehzahlsignal)": "Auto-start system (speed signal check)"
+    "System Startautomatik  (Ueberpruefung Drehzahlsignal)": "Auto-start system (speed signal check)",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

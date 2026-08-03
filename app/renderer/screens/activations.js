@@ -4,7 +4,17 @@
 // activations (INPA F6): actuator tests, paired start/stop (toggle) or one-shot
 // (momentary). writes to the ECU, so every run is confirmed.
 const activeTests = new Set(); // jobs currently on
+// job -> the argument that de-energizes it, when the drive path knows one
+// ("<component>;0" for component drives). null means the generic ?arg=0 /
+// _ENDE fallback in stopAllActivations. Every path that energizes an output
+// MUST register here, or "outputs are released when you leave" is a lie.
+const activeDrives = new Map();
 let activationEcu = null;       // ecu whose tests are active, for cleanup
+
+// Same setting ir.js honors -- one switch governs every actuator confirm.
+// Deliberately NOT consulted for permanent writes or the EWS/DME sequence:
+// those always ask.
+const confirmDrives = () => Settings.get('confirmActuators', 'on') !== 'off';
 
 // actuator name. INPA mode shows the caption mined from the .IPO exactly as
 // INPA prints it (never translated); EDIABAS mode shows the raw job, like
@@ -141,7 +151,7 @@ async function driveArgValue(ecu, act, entry, container) {
   const label = deGerman(entry.label) || entry.label;
   const spec = (act.args || []).find(g => (g.options || [])
     .some(o => o.value === entry.argValue));
-  const ok = await confirmDialog({
+  const ok = !confirmDrives() || await confirmDialog({
     title: `Activate ${esc(label).toLowerCase()}?`,
     body: `Drives <b>${esc(label)}</b> on <b>${esc(ecu.label)}</b> via `
         + `<span class="mono">${esc(act.start)} ${esc(spec ? spec.name : '')}`
@@ -154,6 +164,9 @@ async function driveArgValue(ecu, act, entry, container) {
   try {
     await api(`/api/ecu/${ecu.sgbd}/run/${act.start}`
               + `?arg=${encodeURIComponent(entry.argValue)}`, { method: 'POST' });
+    // the screen promises release-on-leave; keep it
+    activeTests.add(act.start);
+    activeDrives.set(act.start, null);
     sbLeft.textContent = `${act.start} ${entry.argValue} · sent`;
   } catch (e) {
     sbLeft.textContent = 'failed';
@@ -242,7 +255,7 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
   // "<component>;<on|off>" exactly as the SGBD's argument order declares.
   const drive = async (opt) => {
     const label = `${deGerman(opt.label) || opt.label}`;
-    const ok = await confirmDialog({
+    const ok = !confirmDrives() || await confirmDialog({
       title: `${on ? 'Switch on' : 'Switch off'} ${esc(label).toLowerCase()}?`,
       body: `Drives <b>${esc(label)}</b> (<span class="mono">${esc(opt.value)}</span>) `
           + `on <b>${esc(ecu.label)}</b> via <span class="mono">${esc(act.start)}</span>.`
@@ -255,6 +268,15 @@ async function showActivateGroup(ecu, act, menu, group, container, onBack) {
     try {
       await api(`/api/ecu/${ecu.sgbd}/run/${act.start}?arg=${encodeURIComponent(arg)}`,
                 { method: 'POST' });
+      // register (or clear) so stop-all knows what is energized and how to
+      // release it -- a state drive has an exact off form
+      if (state && !on) {
+        activeTests.delete(act.start);
+        activeDrives.delete(act.start);
+      } else {
+        activeTests.add(act.start);
+        activeDrives.set(act.start, state ? `${opt.value};0` : null);
+      }
       // INPA shows the resulting signal state rather than treating the send as
       // fire-and-forget; the caption is its own ("Signal :"), mined from the .IPO
       showDriveState(opt, on);
@@ -982,7 +1004,7 @@ async function toggleActivation(ecu, a, card, btn) {
     });
     if (!ok) return;
   } else if (!running || a.momentary) {
-    const ok = await confirmDialog({
+    const ok = !confirmDrives() || await confirmDialog({
       title: `Run actuator test?`,
       body: `<b>${esc(a.label.replace(/^Activate /, ''))}</b> will drive a component on <b>${esc(ecu.label)}</b> (<span class="mono">${esc(a.start)}</span>).${a.momentary ? '' : ' It stays active (re-sent continuously) until you press Stop or leave this screen.'} Continue?`,
       confirmLabel: a.momentary ? 'Run' : 'Activate',
@@ -1070,10 +1092,13 @@ function stopAllActivations(ecu) {
   for (const start of [...activeTests]) {
     stopKeepAlive(start);
     if (ecuSgbd) {
+      // a drive that registered its exact off form gets it; otherwise
       // arg=0 de-energizes, _ENDE only as fallback
-      api(`/api/ecu/${ecuSgbd}/run/${start}?arg=0`, { method: 'POST' })
+      const off = activeDrives.get(start) || '0';
+      api(`/api/ecu/${ecuSgbd}/run/${start}?arg=${encodeURIComponent(off)}`, { method: 'POST' })
         .catch(() => api(`/api/ecu/${ecuSgbd}/run/${start}_ENDE`, { method: 'POST' }).catch(() => {}));
     }
     activeTests.delete(start);
+    activeDrives.delete(start);
   }
 }

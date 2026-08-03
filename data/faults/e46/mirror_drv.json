@@ -16,6 +16,7 @@
     "Spiegelmotor Horizontal Unterbrechung": "Mirror motor horizontal: open circuit",
     "Spiegelmotor Horizontal Kurzschluss": "Mirror motor horizontal: short circuit",
     "Spiegelmotor Einklappen Unterbrechung": "Mirror fold motor: open circuit",
-    "Spiegelmotor Einklappen Kurzschluss": "Mirror fold motor: short circuit"
+    "Spiegelmotor Einklappen Kurzschluss": "Mirror fold motor: short circuit",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

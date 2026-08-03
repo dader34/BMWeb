@@ -26,6 +26,7 @@
     "Kurzschluss TxD-Leitung nach UBatt": "Short circuit of TxD line to battery voltage",
     "Lenkstockschalter": "Steering-column switch",
     "kein LCD-Dimmsignal vom Kombi": "No LCD dimming signal from instrument cluster",
-    "BLTS - Bremslichttestschalter": "BLTS - brake-light test switch"
+    "BLTS - Bremslichttestschalter": "BLTS - brake-light test switch",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

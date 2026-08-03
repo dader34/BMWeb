@@ -226,8 +226,23 @@ async function runJob(ecu, job, container, danger, presetArg) {
       renderFaults(codes, container, ecu);
       sbLeft.textContent = `${codes.length} fault(s)`;
     } else if (job === 'FS_LOESCHEN') {
-      container.innerHTML = `<div class="empty"><div class="empty-big">Fault memory cleared</div><div>Re-read to confirm.</div></div>`;
-      sbLeft.textContent = 'cleared';
+      // INPA reruns the read after a clear; do the same rather than asking
+      // the user to. A fault that re-set the moment the ECU saw it again
+      // shows immediately instead of hiding behind "cleared".
+      container.innerHTML = `<div class="empty"><span class="loader"></span><span>Cleared · re-reading…</span></div>`;
+      try {
+        const rq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
+        const rr = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${rq}`, { method: 'POST' });
+        const codes = rr.sets.slice(1);
+        await loadFaultDb();
+        renderFaults(codes, container, ecu);
+        sbLeft.textContent = codes.length
+          ? `cleared · ${codes.length} fault(s) still present`
+          : 'cleared · memory clean';
+      } catch {
+        container.innerHTML = `<div class="empty"><div class="empty-big">Fault memory cleared</div><div>Re-read failed - read again to confirm.</div></div>`;
+        sbLeft.textContent = 'cleared';
+      }
     } else {
       renderResultSets(data.sets, container, job);
       sbLeft.textContent = 'done';

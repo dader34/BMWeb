@@ -860,18 +860,26 @@ ok(!szlItems.some(i => /^(Print|Save) (EM|IM|HM)$/i.test(i.label)),
 // RDC's "matching values" calls ABGLEICHWERT_LESEN with "1".."5", once per
 // wheel, so the SAME eight result keys appear five times. Without the job
 // argument the screen showed 40 rows all sharing one read -- five identical
-// blocks. Each pass must poll separately and carry its position.
+// blocks. INPA draws these passes as a TABLE (one grid row per wheel, the
+// same columns each time), so irScreens keeps it ONE screen -- but every
+// wheel must still poll separately and carry its own argument, or the grid
+// shows one wheel's answer five times.
 const mv = r.screens['s_abgleichwert_lesen'];
 const mvJobs = (mv.jobs || []).filter(j => !j.write);
 ok(mvJobs.length === 5 && mvJobs.every(j => j.arg),
    `RDC matching values should read 5 arguments, got ${mvJobs.length}`);
 const mvScreens = irScreens(mv);
-ok(mvScreens.length === 5,
-   `per-wheel screen should poll 5 times, got ${mvScreens.length}`);
-ok(mvScreens.every(s => s.rows.length === 8),
-   `each wheel should carry its own 8 rows: ${mvScreens.map(s => s.rows.length)}`);
-ok(new Set(mvScreens.map(s => s.args)).size === 5,
+ok(mvScreens.length === 1 && mvScreens[0].table,
+   `per-wheel grid should be one table screen, got ${mvScreens.length}`);
+const mvT = mvScreens[0].table || { labels: [], keys: [], args: [] };
+ok(mvT.labels.length === 5 && mvT.keys.every(k => k.length === 8),
+   `grid should be 5 wheels x 8 columns: `
+   + `${mvT.labels.length}x${mvT.keys.map(k => k.length)}`);
+const mvPolls = mvScreens[0].polls || [];
+ok(mvPolls.length === 5 && new Set(mvPolls.map(p => p.args)).size === 5,
    'per-wheel polls must use distinct job arguments');
+ok(new Set(mvT.args).size === 5,
+   'each grid row must carry the argument that fills it');
 ok(!irIsCard(mv),
    'a per-position screen must not collapse onto one card keyed by result name');
 

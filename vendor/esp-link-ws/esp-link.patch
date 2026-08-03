@@ -1,0 +1,77 @@
+Add a binary WebSocket bridged to the UART, at ws://<ip>/bmweb
+
+Lets a browser reach the adapter directly, on every platform including
+iOS and Android. Stock esp-link offers a page no usable path: port 23 is
+raw telnet (a browser cannot open it) and the uC console is HTTP polling
+of a TEXT endpoint (bytes >= 0x80 do not survive, and BMW telegrams are
+full of them).
+
+Three edits. The httpd.c one is the load-bearing one: the server treats
+every received byte as a header byte or POST data, so without an early-out
+an upgraded connection's frames get parsed as malformed HTTP requests.
+
+--- a/esp-link/main.c
++++ b/esp-link/main.c
+@@ -15,6 +15,7 @@
+ #include "cgi.h"
+ #include "cgiwifi.h"
+ #include "cgipins.h"
+ #include "cgitcp.h"
++#include "cgiwsbridge.h"
+
+--- a/esp-link/main.c
++++ b/esp-link/main.c
+@@ -70,6 +70,9 @@ HttpdBuiltInUrl builtInUrls[] = {
+   { "/", cgiRedirect, "/home.html" },
+   { "/menu", cgiMenu, NULL },
++  // The diagnostics WebSocket. Above the catch-alls, like every other
++  // specific route.
++  { "/bmweb", cgiWsBridge, NULL },
+   { "/flash/next", cgiGetFirmwareNext, NULL },
+   { "/flash/upload", cgiUploadFirmware, NULL },
+   { "/flash/reboot", cgiRebootFirmware, NULL },
+
+--- a/esp-link/main.c
++++ b/esp-link/main.c
+@@ -201,6 +201,7 @@ void user_init(void) {
+   uart_add_recv_cb(&serbridgeUartCb);
++  cgiWsBridgeInit();
+
+--- a/httpd/httpd.c
++++ b/httpd/httpd.c
+@@ -30,6 +30,7 @@
+ #include "httpd.h"
++#include "cgiwsbridge.h"
+
+@@ -494,6 +494,13 @@ static void ICACHE_FLASH_ATTR httpdRecvCb(void *arg, char *data, unsigned short
+   struct espconn* pCon = (struct espconn *)arg;
+   HttpdConnData *conn = (HttpdConnData *)pCon->reverse;
+   if (conn == NULL) return; // aborted connection
+
++  // An upgraded WebSocket owns its bytes: they are frames, not HTTP. This
++  // early-out is what makes the upgrade real -- without it the handshake
++  // succeeds and then every frame is parsed as a broken HTTP request.
++  if (cgiWsBridgeOwns(conn)) {
++    cgiWsBridgeRecv(conn, data, len);
++    return;
++  }
++
+   char sendBuff[MAX_SENDBUFF_LEN];
+   httpdSetOutputBuffer(conn, sendBuff, sizeof(sendBuff));
+
+--- a/httpd/httpd.c
++++ b/httpd/httpd.c
+@@ -551,6 +551,7 @@ static void ICACHE_FLASH_ATTR httpdDisconCb(void *arg) {
+   struct espconn* pCon = (struct espconn *)arg;
+   HttpdConnData *conn = (HttpdConnData *)pCon->reverse;
+   if (conn == NULL) return; // aborted connection
++  cgiWsBridgeDiscon(conn);
+   httpdRetireConn(conn);
+ }
+
+--- a/Makefile
++++ b/Makefile
+ # add cgiwsbridge.o to the esp-link module objects; the exact line depends
+ # on your tag. In v3.0.14 the esp-link module picks up *.c automatically
+ # via MODULES, so copying cgiwsbridge.c into esp-link/ is enough and this
+ # hunk is a no-op. Verify with: make 2>&1 | grep cgiwsbridge

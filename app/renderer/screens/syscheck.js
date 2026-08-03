@@ -85,6 +85,19 @@ async function showSystemCheck(ecu, check, container, onBack) {
   const run = async (action) => {
     const job = action === 'start' ? check.start : check.stop;
     if (!job) { sbLeft.textContent = 'not supported'; return; }
+    // starting a routine moves real hardware -- same confirmation contract
+    // as every actuator screen, honoring the same setting
+    if (action === 'start'
+        && Settings.get('confirmActuators', 'on') !== 'off') {
+      const ok = await confirmDialog({
+        title: `Start ${esc(check.title).toLowerCase()}?`,
+        body: `Runs <span class="mono">${esc(job)}</span> on `
+            + `<b>${esc(ecu.label)}</b>. A system test drives real `
+            + `components until it finishes or is stopped.`,
+        confirmLabel: 'Start', danger: true,
+      });
+      if (!ok) { sbLeft.textContent = 'cancelled'; return; }
+    }
     try {
       const d = await api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' });
       const st = ((d.sets || []).slice(-1)[0] || {}).JOB_STATUS || '';
@@ -140,6 +153,17 @@ async function showSystemCheck(ecu, check, container, onBack) {
     key: String(i + 1), keyLabel: `F${k.fkey}`, label: k.label,
     fn: () => run(k.action),
   }));
-  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: onBack });
+  // Leaving the screen must not leave the routine running -- that is the
+  // promise every activation screen makes. Fire the stop job for anything
+  // still in `running` before handing control back.
+  const leave = () => {
+    if (running.size && check.stop) {
+      api(`/api/ecu/${ecu.sgbd}/run/${check.stop}`, { method: 'POST' })
+        .catch(() => {});
+    }
+    running.clear();
+    onBack();
+  };
+  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave });
   setActions(acts);
 }
