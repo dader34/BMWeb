@@ -49,8 +49,8 @@ fi
 # for the app's own files and this directory for everything generated
 # beside them.
 #
-# api/ is the frozen API. data/wiring/ is BMW's schematics -- ~1 GB, and the
-# reason this DMG is large. It was left out when this copy was narrowed to
+# api/ is the frozen API. data/wiring/ is BMW's schematics: ~150 MB for all
+# 15 cars as published, and most of what makes this DMG large. It was left out when this copy was narrowed to
 # api/ alone, which quietly made the app the only build with no Wiring
 # section; the renderer asks for data/wiring/<id>.wiring and got a 404.
 mkdir -p "$DATA/dist-web"
