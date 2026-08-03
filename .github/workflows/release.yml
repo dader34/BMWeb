@@ -77,6 +77,28 @@ jobs:
           grep -q webshim.js dist-web/index.html
           echo "dist-web: $(du -sh dist-web | cut -f1)"
 
+      - name: Wiring diagrams
+        run: |
+          set -euo pipefail
+          # ~1 GB of BMW schematics, built from a WDS release that is not in
+          # this repo and published to the wiring-images repo by hand. The
+          # app BUNDLES these (package-macos.sh copies them into
+          # Contents/Resources), which is most of the DMG's size.
+          #
+          # Absent is not fatal: the app simply has no Wiring section, which
+          # is exactly what shipped in v0.9.1 before this step existed.
+          mkdir -p dist-web/data/wiring
+          if gh release download wiring-latest \
+               --repo dader34/BMacW-wiring-images \
+               --pattern '*.wiring' --dir dist-web/data/wiring 2>/dev/null; then
+            echo "wiring archives: $(ls dist-web/data/wiring/*.wiring | wc -l)"
+            du -sh dist-web/data/wiring
+          else
+            echo "no wiring release found; the DMG will have no Wiring section"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Package the DMG
         run: bash scripts/build/package-macos.sh
 
