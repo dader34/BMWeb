@@ -43,6 +43,40 @@ jobs:
           git -C vendor/ediabaslib-src fetch -q --depth 1 origin b784044b45fd904e3b0f637a05174158be2c99ce
           git -C vendor/ediabaslib-src checkout -q FETCH_HEAD
 
+      # The exporters are Python; a macOS runner ships one, but pin it so
+      # this job and the Pages job agree.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # THE APP BUNDLES dist-web. package-macos.sh copies it into
+      # Contents/Resources/data, and dist-web is DERIVED and gitignored --
+      # so a runner starts without it and the packaging step fails on a
+      # clean checkout. Pages builds it in its own job; this needs its own
+      # copy. Same three steps, same order.
+      - name: Expand the committed data
+        run: |
+          set -euo pipefail
+          find data/inpa-ir -name '*.json.gz' -print0 \
+            | xargs -0 -r -P 4 -I{} gzip -dkf {}
+          echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) files"
+
+      - name: Assemble the per-car tree
+        run: |
+          set -euo pipefail
+          python3 tools/export/build_ecu_tree.py
+          test -d data/chassis/E46
+
+      - name: Build the static site the app serves
+        run: |
+          set -euo pipefail
+          mkdir -p dist-web
+          python3 tools/export/web_export.py --out dist-web
+          cp -R app/renderer/. dist-web/
+          test -s dist-web/index.html
+          grep -q webshim.js dist-web/index.html
+          echo "dist-web: $(du -sh dist-web | cut -f1)"
+
       - name: Package the DMG
         run: bash scripts/build/package-macos.sh
 
