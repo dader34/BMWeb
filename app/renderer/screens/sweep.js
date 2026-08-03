@@ -235,14 +235,46 @@ function setRowFaultStatus(f) {
   st.querySelector('.quick-clear').onclick = () => clearModule(f);
 }
 
-// erase one module's fault memory (FS_LOESCHEN), then mark the row cleared.
+// erase one module's fault memory (FS_LOESCHEN): confirm, clear, then
+// RE-READ to prove it -- INPA reruns the read after a clear, and "cleared"
+// without evidence hides a fault that immediately re-set (a live fault
+// re-enters the memory the moment the ECU sees it again).
 async function clearModule(f) {
+  const n = f.codes.length;
+  const ok = await confirmDialog({
+    title: `Clear ${esc(f.ecu.label)} fault memory?`,
+    body: `Erases ${n} stored fault${n === 1 ? '' : 's'} on `
+        + `<b>${esc(f.ecu.label)}</b> (<span class="mono">FS_LOESCHEN</span>). `
+        + `The memory is re-read afterwards; anything still present will `
+        + `show again.`,
+    confirmLabel: 'Clear', danger: true,
+  });
+  if (!ok) return;
   const st = f.row.querySelector('.quick-status');
   st.innerHTML = '<span class="quick-clearing">clearing…</span>';
   try {
     await api(`/api/ecu/${f.ecu.sgbd}/clear`, { method: 'POST' });
+    // trust the re-read, not the clear
+    st.innerHTML = '<span class="quick-clearing">re-reading…</span>';
+    let remaining = null;
+    try {
+      const d = await api(`/api/ecu/${f.ecu.sgbd}/read`, { method: 'POST' });
+      const codes = (d.codes || []).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
+      remaining = codes.length;
+      if (remaining) f.codes = codes;
+    } catch { /* re-read failed; report the clear alone below */ }
+    if (remaining) {
+      setRowFaultStatus(f);
+      const back = document.createElement('span');
+      back.className = 'quick-clear-fail';
+      back.textContent = ' still present after clear';
+      st.appendChild(back);
+      return;
+    }
     f.row.classList.remove('has-faults'); f.row.classList.add('clean');
-    st.innerHTML = '<span class="quick-cleared">cleared</span>';
+    st.innerHTML = remaining === null
+      ? '<span class="quick-cleared">cleared (re-read failed)</span>'
+      : '<span class="quick-cleared">cleared · re-read clean</span>';
     if (f.row.nextElementSibling?.classList.contains('quick-detail')) f.row.nextElementSibling.remove();
   } catch (e) {
     setRowFaultStatus(f); // rebuild the count + working Clear button
