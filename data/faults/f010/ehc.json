@@ -1,5 +1,5 @@
 {
-  "chassis": "F10",
+  "chassis": "F010",
   "module": "Electronic ride-height control / air suspension (EHC)",
   "sgbd": "ehc",
   "scheme": "text",

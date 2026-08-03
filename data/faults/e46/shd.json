@@ -8,7 +8,8 @@
     "Inkrementgeber": "Incremental (position) sensor",
     "Bedienschalter": "Operating switch",
     "EEPROM-Fehler": "EEPROM error",
-    "reserviert": "Reserved"
+    "reserviert": "Reserved",
+    "unbekannter Fehlerort": "Unknown fault location"
   },
   "variants": [
     "shd46",

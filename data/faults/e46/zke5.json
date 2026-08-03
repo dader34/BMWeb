@@ -94,7 +94,8 @@
     "Linke Spritzdüsenheizung Leitungsunterbrechung": "Left washer-jet heater, open circuit",
     "Rechte Spritzdüsenheizung Kurzschluss gegen Masse": "Right washer-jet heater, short to ground",
     "Rechte Spritzdüsenheizung Leitungsunterbrechung": "Right washer-jet heater, open circuit",
-    "Vorfeldleuchte Kurzschluss gegen Masse oder Unterbrechung oder Kurzschluss gegen U-Batt": "Approach/puddle light, short to ground or open circuit or short to battery positive"
+    "Vorfeldleuchte Kurzschluss gegen Masse oder Unterbrechung oder Kurzschluss gegen U-Batt": "Approach/puddle light, short to ground or open circuit or short to battery positive",
+    "unbekannter Fehlerort": "Unknown fault location"
   },
   "variants": [
     "zke5",

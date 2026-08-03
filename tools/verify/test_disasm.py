@@ -79,6 +79,43 @@ def main():
     print(f"  longnames  AFS_60 {len(a['screens'])} screens, "
           f"34-char declarations decoded")
 
+    # -- the control-flow layer, against BMW's own source --------------------
+    # BMW ships MUST_EXX.SRC/.IPO side by side and BMW_STD.H carries full
+    # function bodies, so `instr` is decodable line-for-line: five local
+    # declarations (string,int,int,int,bool), the while's comparison chain
+    # (== < && then jfalse), and `pos = i` through the out-param. If any of
+    # this drifts, the binop table or the jump decoding regressed.
+    data = open(os.path.join(L1.SGDAT, "MUST_EXX.IPO"), "rb").read()
+    ps, pool = D.find_pool(data)
+    decls = D.find_decls(data, ps)
+    k, (off, typ, name, pid) = next(
+        (k, d) for k, d in enumerate(decls) if d[2] == "instr")
+    lo = off + 1 + len(name) + 1 + 4 + 1
+    toks, unk, ln = D.walk(data, lo, decls[k + 1][0], pool)
+    if unk:
+        failures.append(f"MUST_EXX instr has {unk} unknown bytes")
+    dtypes = [t["type"] for t in toks if t["op"] == "decl"]
+    if dtypes != ["string", "int", "int", "int", "bool"]:
+        failures.append(f"instr locals drifted: {dtypes}")
+    ops = [t.get("name") for t in toks if t["op"] == "binop"]
+    if ops != ["neg", "gt", "gt", "sub", "ge", "sub", "eq", "sub", "lt",
+               "and", "add", "eq"]:
+        failures.append(f"instr binop chain drifted: {ops}")
+    calls = [t["name"] for t in toks if t["op"] == "call"]
+    if calls != ["strlen", "strlen", "midstr"]:
+        failures.append(f"instr calls drifted: {calls}")
+    # the while's exit and back edge, resolved to byte offsets
+    jf = [t["to"] for t in toks if t["op"] == "jfalse"]
+    bk = [t["to"] for t in toks if t["op"] == "jump"]
+    end = next(t["at"] for t in toks if t["op"] == "ret")
+    if not jf or jf[0] != end or not bk or bk[0] >= end:
+        failures.append(f"instr jumps drifted: jfalse {jf} jump {bk} end {end}")
+    mu = D.decompile("MUST_EXX")
+    if mu["coverage"] < 99.5:
+        failures.append(f"MUST_EXX coverage regressed: {mu['coverage']}%")
+    print(f"  flow       MUST_EXX instr byte-exact ({len(ops)} binops, "
+          f"{len(dtypes)} decls), file {mu['coverage']}% covered")
+
     # -- inline STATE labels and the numeric result reader -------------------
     # builtin 06 names a state INLINE ("%Z_TOGGLE\n" after the call, then a
     # 5-byte tail). Not consuming it desynchronised the rest of the proc, which

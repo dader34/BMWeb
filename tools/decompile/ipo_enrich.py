@@ -194,7 +194,7 @@ def main():
     names_lower = {n.lower(): n for n in cache}
 
     if args:
-        path = os.path.join(L1.SGDAT, args[0] + ".IPO")
+        path = L1.ipo_path(args[0])
         if not os.path.exists(path):
             print(f"no such .IPO: {args[0]}", file=sys.stderr)
             return 1

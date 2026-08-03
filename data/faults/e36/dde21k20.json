@@ -28,6 +28,7 @@
     "Spritzbeginnregelung": "Start-of-injection control",
     "Bremslichtschalter / Bremstestschalter": "Brake-light switch / brake-test switch",
     "Elektrisches Abschaltventil ELAB": "Electric shut-off valve ELAB",
-    "Endstufen (Summenfehler)": "Output stages (combined fault)"
+    "Endstufen (Summenfehler)": "Output stages (combined fault)",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

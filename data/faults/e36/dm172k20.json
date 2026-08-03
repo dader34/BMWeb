@@ -33,6 +33,7 @@
     "Lambdaintegrator Regelanschlag": "Oxygen-sensor integrator, control limit reached",
     "Klopfregelung Testimpuls": "Knock control, test pulse",
     "Klopfregelung Regelspannung": "Knock control, control voltage",
-    "EWS Datenuebertragungsfehler,  Botschaft (Code, Parity) falsch": "EWS data-transmission fault, message (code, parity) incorrect"
+    "EWS Datenuebertragungsfehler,  Botschaft (Code, Parity) falsch": "EWS data-transmission fault, message (code, parity) incorrect",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

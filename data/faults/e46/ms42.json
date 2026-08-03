@@ -150,6 +150,7 @@
     "Sekundaerluftventil offen , klemmt mechanisch": "Secondary air valve open, mechanically stuck",
     "NKAT Sonde Signal nach SA unplausibel Bank 1": "Post-cat sensor signal after SA implausible bank 1",
     "NKAT Sonde Signal nach SA unplausibel Bank 2": "Post-cat sensor signal after SA implausible bank 2",
-    "Funktionspruefung Tankentlueftung": "Fuel tank purge function test"
+    "Funktionspruefung Tankentlueftung": "Fuel tank purge function test",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

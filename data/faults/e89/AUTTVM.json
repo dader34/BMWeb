@@ -6,6 +6,7 @@
   "faults": {
     "IBus Dauerhigh Abschaltung": "IBus permanent-high shutdown",
     "Watchdog ausgeloest": "Watchdog triggered",
-    "FeTraWe aktiviert": "FeTraWe (remote transmission path) activated"
+    "FeTraWe aktiviert": "FeTraWe (remote transmission path) activated",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

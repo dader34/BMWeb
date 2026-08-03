@@ -19,7 +19,8 @@
     "Lrw-Gradient zu gross": "Steering angle gradient too large",
     "Lrw-Maximum ueberschritten": "Steering angle maximum exceeded",
     "Stack-Fehler / Case-Fehler": "Stack fault / case fault",
-    "Watchdog": "Watchdog"
+    "Watchdog": "Watchdog",
+    "unbekannter Fehlerort": "Unknown fault location"
   },
   "variants": [
     "lws5",

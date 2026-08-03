@@ -34,6 +34,7 @@
     "Stromschwelle 50 Ampere ueberschritten": "Current threshold of 50 amperes exceeded",
     "Sicherung Klemme 30ZV defekt": "Fuse, terminal 30ZV faulty",
     "Masse Klemme 31ZV fehlt": "Ground, terminal 31ZV missing",
-    "Kalibrierung ausserhalb der Toleranzen": "Calibration outside of tolerances"
+    "Kalibrierung ausserhalb der Toleranzen": "Calibration outside of tolerances",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

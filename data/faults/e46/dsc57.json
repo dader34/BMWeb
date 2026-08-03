@@ -23,6 +23,7 @@
     "Bremslichtschalter Leitungsunterbrechung": "Brake light switch open circuit",
     "V-Vergleich": "Wheel speed comparison",
     "Dauerregelung / Einsteuerung": "Continuous control / actuation",
-    "Versorgungssp. Drehzahlf. (aktive DF), SG-Fehler (passive DF)": "Sensor supply voltage (active WSS), control unit fault (passive WSS)"
+    "Versorgungssp. Drehzahlf. (aktive DF), SG-Fehler (passive DF)": "Sensor supply voltage (active WSS), control unit fault (passive WSS)",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

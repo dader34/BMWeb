@@ -54,6 +54,7 @@
     "CAN-Baustein warning level erreicht": "CAN module warning level reached",
     "CAN-Baustein Bus aus": "CAN module bus off",
     "Leerlaufsteller mechanisches Klemmen": "Idle-speed actuator mechanically jammed",
-    "VANOS mechanisches Klemmen": "VANOS mechanically jammed"
+    "VANOS mechanisches Klemmen": "VANOS mechanically jammed",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

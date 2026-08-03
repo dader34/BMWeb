@@ -32,6 +32,7 @@
     "DKT Temperaturinfo": "DME/DDE (DKT) temperature information",
     "DKT Drosselklapppeninfo": "DME/DDE (DKT) throttle-valve information",
     "DKT Einspritzmenge": "DME/DDE (DKT) injection quantity",
-    "Umschaltg. N->D b. hoher Abtriebsd.": "Shift N->D at high output speed"
+    "Umschaltg. N->D b. hoher Abtriebsd.": "Shift N->D at high output speed",
+    "unbekannte Fehlerart": "Unknown fault type"
   }
 }

@@ -38,6 +38,7 @@
     "EG2 Abgleich": "EG2 calibration",
     "CAN EGS": "CAN EGS (transmission control)",
     "CAN ASR/MSR": "CAN ASR/MSR",
-    "CAN-Botschaft INSTR3": "CAN message INSTR3"
+    "CAN-Botschaft INSTR3": "CAN message INSTR3",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

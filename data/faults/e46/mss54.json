@@ -228,6 +228,7 @@
     "EGAS-Soll-Ist-Vergleich": "EGAS setpoint-actual comparison",
     "intern: Prozessorkontrolle Slave": "internal: processor check slave",
     "Funktionspruefung TEV": "Purge valve (TEV) function test",
-    "interner Index 85": "internal index 85"
+    "interner Index 85": "internal index 85",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

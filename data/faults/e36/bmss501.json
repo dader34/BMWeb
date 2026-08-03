@@ -73,6 +73,7 @@
     "Einspritzventil 4": "Injector 4",
     "Einspritzventil 5": "Injector 5",
     "Einspritzventil 6": "Injector 6",
-    "intern: Kommunikation Slave": "Internal: communication, slave"
+    "intern: Kommunikation Slave": "Internal: communication, slave",
+    "unbekannter Fehlercode": "Unknown fault code"
   }
 }

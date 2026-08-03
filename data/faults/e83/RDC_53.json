@@ -59,6 +59,7 @@
     "Kanal HL: falsche Komponente": "Channel rear left: wrong component",
     "Kanal HR: falsche Komponente": "Channel rear right: wrong component",
     "Kanal Digitalantenne: falsche Komponente": "Channel digital antenna: wrong component",
-    "CRC HF-Telegramm n.i.O. (inkompatible Digitalantenne)": "CRC RF telegram not OK (incompatible digital antenna)"
+    "CRC HF-Telegramm n.i.O. (inkompatible Digitalantenne)": "CRC RF telegram not OK (incompatible digital antenna)",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }
