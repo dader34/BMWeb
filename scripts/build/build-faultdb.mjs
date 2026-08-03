@@ -15,7 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const faultsDir = path.join(root, 'data', 'faults');
 
 // ORT fault-code map for text-scheme ECUs (whose faults key on German text, not a
@@ -86,7 +86,7 @@ for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(
       if (scheme === 'text') addPhrase(k, v, where); else addCode(k, v, where);
     }
     // record the structured entry(ies) for the Lookup screen (skip empty modules,
-    // e.g. cvm/dwa4 whose SGBD table carried no descriptive text). each fault is
+    // should any file carry no translated faults). each fault is
     // [key, english, code]: for "code" scheme the key IS the code.
     const chId = (obj.chassis || chassis.name).toUpperCase();
     const baseModule = obj.module || obj.sgbd || file.replace(/\.json$/i, '');
@@ -177,7 +177,7 @@ const header = `// GENERATED FILE - do not edit by hand. Regenerate: node script
 // loadFaultDb() in faults.js so this literal isn't parsed before first paint.
 // BMW_FAULT_DB: hex DTC -> English. BMW_FAULT_PHRASES: German fault text -> English.
 `;
-const out = path.join(root, 'app', 'renderer', 'faultdb.js');
+const out = path.join(root, 'app', 'renderer', 'data', 'faultdb.js');
 const scopedSorted = {};
 for (const s of Object.keys(scoped).sort()) scopedSorted[s] = scoped[s];
 fs.writeFileSync(out, `${header}window.BMW_FAULT_DB = {\n${cbody}};\nwindow.BMW_FAULT_PHRASES = {\n${pbody}};\n`
@@ -195,7 +195,7 @@ const idxHeader = `// GENERATED FILE - do not edit by hand. Regenerate: node scr
 // German fault text; code is its ORT hex from the FORTTEXTE table (data/ort-codes.json),
 // or "" when the SGBD had no dump.
 `;
-const idxOut = path.join(root, 'app', 'renderer', 'faultindex.js');
+const idxOut = path.join(root, 'app', 'renderer', 'data', 'faultindex.js');
 const idxTotal = index.reduce((n, e) => n + e.faults.length, 0);
 fs.writeFileSync(idxOut, `${idxHeader}window.BMW_FAULT_INDEX = ${JSON.stringify(index)};\n`);
 console.log(`Wrote ${index.length} modules + ${idxTotal} faults to ${path.relative(root, idxOut)}.`);
