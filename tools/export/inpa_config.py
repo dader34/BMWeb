@@ -496,9 +496,11 @@ def build(legacy=False):
                 merged[cid] = merge_sections(out[cid], ch, "BMW_ALT")
             else:
                 out[cid] = ch
-        sonder = load_sonder(res, drops)
-        if sonder:
-            out["SONDER"] = sonder
+        # SONDER is not a car. SONDER.ENG holds standalone special tests
+        # (quick test, ABS bleed, steering-angle adjust) belonging to no
+        # chassis, so listing it beside E46 and F30 offered a "vehicle"
+        # that is not one. load_sonder() stays for whoever wants those
+        # tests surfaced somewhere they fit.
         for ch in out.values():
             ch["variantGroups"] = variant_groups(res, ch)
         ids = sorted(out.keys())
