@@ -293,7 +293,23 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   const shell = {};
   for (const f of OFFLINE_SHELL) {
     if (f === 'thor_bridge.js') continue;     // a page cannot run node
+    if (f === 'index.html') continue;         // fetched by name below
     shell[f] = await offlineGet(f);
+  }
+  // THE APP IS NOT ALWAYS index.html. On the published site the INSTALLER
+  // holds that name and the app is app.html, so fetching "index.html"
+  // blind got the installer -- which has no <script src> tags at all, and
+  // tripped the "no webshim.js tag" guard. Ask for both, in the order that
+  // puts the real app first.
+  for (const name of ['app.html', 'index.html']) {
+    try {
+      const doc = await offlineGet(name);
+      const txt = new TextDecoder().decode(doc);
+      if (txt.includes('webshim.js')) { shell['index.html'] = doc; break; }
+    } catch { /* try the next name */ }
+  }
+  if (!shell['index.html']) {
+    throw new Error('could not find the app page (app.html / index.html)');
   }
 
   let html = dec.decode(shell['index.html']);
