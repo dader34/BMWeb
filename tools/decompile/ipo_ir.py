@@ -53,6 +53,30 @@ ELEMENTS -- one per display statement, in source order:
 
 `nr` on menu items is the ITEM number from the bytecode -- INPA's real F-key.
 
+CONTROL-FLOW FIELDS (decoded from the jump/binop layer; all additive)
+
+    element.showIf   {"key": K, "op": "==|!=|<|>|<=|>=|truthy|falsy",
+                      "v": ...}
+        the element is drawn only when result K satisfies the condition --
+        INPA's `if (job_state != "OKAY") ftextout(...)`. Both branches of
+        an if are still emitted; the renderer picks instead of drawing both.
+
+    job.argSlot      global slot number feeding the job's VARIABLE argument
+        (present only with argFromMenu): the join point for the two item
+        fields below.
+
+    item.promptArg   {"slot": n, "template": ["LAR;", {"input": 0}, ";",
+                      {"input": 1}]}
+        this key asks (see item.prompt), splices the dialog answers into the
+        template, stores it in global slot n, and the screen it opens sends
+        that slot as the job argument. {"input": k} is the k-th answer of
+        the item's dialog(s), in declaration order. A renderer that fills
+        the template can SEND the job; without answers it must not.
+
+    item.step        {"slot": n, "delta": +16}
+        this key steps a counter/address held in global slot n by delta and
+        re-runs whatever reads it (MS450's memory browser: Address+10h).
+
 WRITES are represented, never hidden: a job matching the write shapes carries
 "write": true and the interpreter refuses to auto-run it. INPA's screen is
 reproduced; the action stays behind the same until-verified-on-a-car gate as
@@ -318,13 +342,20 @@ def _dispatch(toks):
         if t["op"] == "var" and t.get("sc") == 2 and t["n"] == 0:
             sel = "armed"
         elif t["op"] == "const" and t.get("t") == "i" and sel == "armed":
-            sel = t["v"]
+            # candidate selector; only the comparison operator confirms it
+            sel = ("pending", t["v"])
+        elif t["op"] == "binop" and isinstance(sel, tuple):
+            # the guard's operator is now decoded rather than assumed: only
+            # `arg == N` names a key's branch. An ordering guard like
+            # `arg >= 2` is a range check, not a selector, and crediting it
+            # to one key sent that key another key's job.
+            sel = sel[1] if t.get("name") == "eq" else None
         elif t["op"] == "frame":
             args = []
         elif t["op"] in ("const", "var", "procref"):
             args.append(t)
         elif t["op"] == "call":
-            if t.get("name") == "INPAapiJob":
+            if t.get("name") in D.JOB_CALLS:
                 s = [a["v"] for a in args
                      if a["op"] == "const" and a.get("t") == "s"]
                 if s and D._KEYISH.match(s[0]):
@@ -387,8 +418,14 @@ _DISPLAY_CALLS = {"textout", "ftextout", "text", "analogout", "digitalout"}
 
 def _is_display_func(toks):
     names = {t.get("name") for t in toks if t["op"] == "call"}
-    return bool(names & _DISPLAY_CALLS) and "INPAapiJob" in names \
+    return bool(names & _DISPLAY_CALLS) and (names & D.JOB_CALLS) \
         and any(n and n.startswith("INPAapiResult") for n in names)
+
+
+_CMP_SYM = {"lt": "<", "gt": ">", "le": "<=", "ge": ">=",
+            "eq": "==", "ne": "!="}
+_CMP_INVERT = {"==": "!=", "!=": "==", "<": ">=", ">=": "<",
+               ">": "<=", "<=": ">", "truthy": "falsy", "falsy": "truthy"}
 
 
 def _screen_ir(toks):
@@ -400,6 +437,14 @@ def _screen_ir(toks):
     lastconst = {}
     args = []
     pending_result = None
+    # CONDITIONAL DISPLAY. Every `if` compiles to cond / stmt / jfalse, and
+    # the jfalse target (a byte offset, resolved by the walker) closes the
+    # guarded range. Elements emitted inside a range whose condition tests a
+    # RESULT-BOUND slot carry showIf; both branches are still emitted -- the
+    # renderer chooses instead of drawing both unconditionally. A guard on an
+    # unbound slot (a variant flag, a loop counter) attaches nothing.
+    guards = []             # innermost last: {"until", "slot", "op", "v"}
+    pend_cmp = None         # last comparison binop and its two operands
 
     def cur():
         return lines[-1]
@@ -420,16 +465,58 @@ def _screen_ir(toks):
 
     for ti, t in enumerate(toks):
         op = t["op"]
+        at = t.get("at", 0)
+        while guards and at >= guards[-1]["until"]:
+            guards.pop()
         if op == "LINE":
             cap = (t.get("label") or "").strip() or None
             keys = [k.strip() for k in re.split(r"[;,]", t.get("keys") or "")
                     if k.strip()] or None
             lines.append({"caption": cap, "keys": keys, "elements": []})
             args = []
+            pend_cmp = None
         elif op == "frame":
             args = []
         elif op in ("const", "var", "procref"):
             args.append(t)
+        elif op == "jfalse":
+            # open a guard to the jump target. The condition is whatever was
+            # just compared: `var <cmp> const`, a bare var (truthy), or a
+            # negated var. Anything else guards the range opaquely.
+            g = {"until": t["to"]}
+            ops_ = pend_cmp[1] if pend_cmp else args[-1:]
+            vtok = next((a for a in ops_ if a["op"] == "var"), None)
+            ctok = next((a for a in ops_ if a["op"] == "const"), None)
+            if pend_cmp and pend_cmp[0] == "falsy" and vtok is not None:
+                g.update(slot=(vtok.get("sc", 0), vtok["n"]),
+                         op="falsy", v=None)
+            elif pend_cmp and vtok is not None and ctok is not None:
+                g.update(slot=(vtok.get("sc", 0), vtok["n"]),
+                         op=_CMP_SYM[pend_cmp[0]], v=ctok["v"])
+            elif not pend_cmp and vtok is not None:
+                g.update(slot=(vtok.get("sc", 0), vtok["n"]),
+                         op="truthy", v=None)
+            guards.append(g)
+            pend_cmp = None
+        elif op == "jump":
+            # an unconditional jump as the LAST token of a guarded range is
+            # the if-branch skipping its else: the else runs under the
+            # INVERSE condition, up to the jump target. Backward jumps are
+            # while back-edges and invert nothing.
+            if guards and at + 4 == guards[-1]["until"] \
+                    and t["to"] > at and guards[-1].get("op"):
+                inv = _CMP_INVERT.get(guards[-1]["op"])
+                g = dict(guards[-1], until=t["to"])
+                if inv:
+                    g["op"] = inv
+                else:
+                    g.pop("op", None)
+                guards[-1] = g
+        elif op == "binop" and t.get("name") in _CMP_SYM:
+            pend_cmp = (t["name"],
+                        args[-2:] if len(args) >= 2 else list(args))
+        elif op == "binop" and t.get("name") == "not":
+            pend_cmp = ("falsy", args[-1:])
         elif op == "binop" and t["n"] == D._NEG:
             # unary minus on the constant just pushed -- how every negative
             # gauge bound is encoded. MS450's exhaust Vanos writes
@@ -443,6 +530,7 @@ def _screen_ir(toks):
             if args and args[-1]["op"] == "const" \
                     and t["n"] not in lastconst:
                 lastconst[t["n"]] = args[-1]["v"]
+            pend_cmp = None     # `x = (a == b)` consumed the comparison
         elif op in ("call", "calluser"):
             name = t.get("name", "")
             strs = [a["v"] for a in args if a["op"] == "const" and a["t"] == "s"]
@@ -489,7 +577,7 @@ def _screen_ir(toks):
                         el["row"] = row
                     if col is not None:
                         el["col"] = col
-            elif name == "INPAapiJob":
+            elif name in D.JOB_CALLS:
                 jname = next((s for s in strs if D._KEYISH.match(s)), None)
                 if jname:
                     # the argument INPA passes. A per-position screen calls
@@ -507,6 +595,19 @@ def _screen_ir(toks):
                     # the screen is parameterised rather than fixed.
                     var_arg = arg is None and any(a["op"] == "var"
                                                   for a in args)
+                    # WHICH slot feeds the variable argument: the first var
+                    # pushed after the job name. That is the join point for a
+                    # menu key that assembled the argument (promptArg) or
+                    # stored a selector before opening this screen.
+                    aslot = None
+                    if var_arg:
+                        ji = next((i2 for i2, a in enumerate(args)
+                                   if a["op"] == "const"
+                                   and a.get("v") == jname), None)
+                        if ji is not None:
+                            aslot = next((a["n"] for a in args[ji + 1:]
+                                          if a["op"] == "var"
+                                          and a.get("sc", 0) == 0), None)
                     if all(j["name"] != jname or j.get("arg") != arg
                            for j in jobs):
                         jobs.append({"name": jname,
@@ -521,9 +622,11 @@ def _screen_ir(toks):
                                      "line": max(0, len(lines) - 1),
                                      **({"arg": arg} if arg else {}),
                                      **({"argFromMenu": True}
-                                        if arg is None and var_arg else {})})
+                                        if arg is None and var_arg else {}),
+                                     **({"argSlot": aslot}
+                                        if aslot is not None else {})})
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
-                          "INPAapiResultDigital", "INPAapiResultNumber"):
+                          "INPAapiResultDigital", "INPAapiResultInt"):
                 # destination slot: kind 0 writes scratch, kind 2 writes the
                 # screen's global frame (drawn by a later LINE's analogout)
                 ref = next((a for a in args if a["op"] == "procref"
@@ -531,13 +634,21 @@ def _screen_ir(toks):
                 key = next((s for s in strs if _RESULTISH.match(s)), None)
                 if ref is not None and key:
                     bind[(2 if ref["kind"] == 2 else 0, ref["n"])] = key
-            elif name == "INPAapiResultInto":
+            elif name == "INPAapiResultBinary":
                 # reads into an IMPLICIT slot -- it names no destination, and
-                # copyslot moves the value out afterwards. LWS5's coding page
-                # reads COD_DATEN this way for each of its seven blocks.
+                # GetBinaryDataString moves the value out afterwards. LWS5's
+                # coding page reads COD_DATEN this way for its seven blocks.
                 pending_result = next(
                     (s for s in strs if _RESULTISH.match(s)), None)
-            elif name == "substr":
+            elif name == "hexdump":
+                # hexdump(adrstr, count, row, col) draws the binary result
+                # the preceding ResultBinary read -- the whole display of a
+                # memory browser screen. Without it s_speicher_ausgabe
+                # decoded to a caption and no data at all.
+                if pending_result and len(ints) >= 2:
+                    el = {"t": "hexdump", "key": pending_result,
+                          "row": ints[-2], "col": ints[-1]}
+            elif name == "midstr":
                 # A substring assembles a DISPLAY string out of a result that
                 # was read into a slot: CVM_II's coding page reads DATENBLOCK
                 # and prints it eight characters at a time. The row still
@@ -561,7 +672,7 @@ def _screen_ir(toks):
                             and a["kind"] in (0, 2)), None)
                 if src and dst:
                     bind[(2 if dst["kind"] == 2 else 0, dst["n"])] = bind[src]
-            elif name == "copyslot":
+            elif name == "GetBinaryDataString":
                 # (dst, src): carry the binding, or the result the preceding
                 # ResultInto left pending, into the destination slot
                 refs = [a for a in args if a["op"] == "procref"
@@ -643,10 +754,19 @@ def _screen_ir(toks):
                     el = {"t": "value", "key": bind[src],
                           "row": ints[0], "col": ints[1]}
             if el is not None:
+                # innermost guard whose condition tests a result-bound slot
+                for g in reversed(guards):
+                    key = bind.get(g.get("slot")) if g.get("op") else None
+                    if key:
+                        el["showIf"] = {"key": key, "op": g["op"],
+                                        **({"v": g["v"]}
+                                           if g.get("v") is not None else {})}
+                        break
                 cur()["elements"].append(el)
             if name in ("analogout", "digitalout") or op == "calluser":
                 lastconst.clear()
             args = []
+            pend_cmp = None
 
     # Dropping the empty lines renumbers the rest, and each job carries the
     # index of the line it was read on -- so remap those too or a job points
@@ -714,7 +834,7 @@ def _composite(toks):
     # the job it feeds, and the append order
     job = None
     for i, t in enumerate(toks):
-        if t["op"] == "call" and t.get("name") == "INPAapiJob":
+        if t["op"] == "call" and t.get("name") in D.JOB_CALLS:
             seg = toks[max(0, i - 8):i]
             if any(x["op"] == "var" and x["n"] == acc for x in seg):
                 nm = next((x["v"] for x in seg if x["op"] == "const"
@@ -758,7 +878,7 @@ def _composite(toks):
     for i, t in enumerate(toks):
         if t["op"] == "ITEM":
             cur = t.get("nr")
-        elif t["op"] == "call" and t.get("name") == "INPAapiJob" \
+        elif t["op"] == "call" and t.get("name") in D.JOB_CALLS \
                 and cur is not None and cur not in items:
             seg = toks[max(0, i - 8):i]
             if any(x["op"] == "var" and x.get("n") == acc for x in seg):
@@ -801,7 +921,7 @@ def _seq_jobs(name, all_toks, id2name, seen=None):
     toks = all_toks[name]
     out = []
     for i, t in enumerate(toks):
-        if t["op"] == "call" and t.get("name") == "INPAapiJob":
+        if t["op"] == "call" and t.get("name") in D.JOB_CALLS:
             lo = i
             while lo > 0 and toks[lo - 1]["op"] != "frame":
                 lo -= 1
@@ -850,6 +970,142 @@ def _field_values(all_toks, order):
             if prev and prev["op"] == "const" and prev.get("t") in ("i", "b"):
                 out[t["n"]]["values"].add(prev["v"])
     return out
+
+
+_INPUT_CALLS = {0x3f, 0x43, 0x44, 0x46}   # input dialogs (see D.BUILTINS)
+_CONVERT_CALLS = {0x1e, 0x20}             # realtostring, inttostring
+
+
+def _menu_flow(toks):
+    """Per-ITEM data flow, for keys that COMPUTE something before acting.
+
+    Two shapes fall out of one symbolic walk of each ITEM body:
+
+    PROMPT-ASSEMBLED ARGUMENTS -- MUST_EXX m_speicher F1: input2hexnum asks
+    for address and count, then the item builds
+        seg_adr_anz = "LAR;" + adresse;  inttostring(anzahl, t);
+        seg_adr_anz = seg_adr_anz + ";" + t
+    into the global slot the shared screen passes to SPEICHER_LESEN. The
+    walk keeps, per slot, the stored string as PARTS: literal strings and
+    {"input": k} = the k-th answer of this item's dialog. Only a global
+    slot whose parts use an answer is kept -- that is the only kind another
+    proc (the screen's job) can consume.
+
+    SELF-STEPPED COUNTERS -- MS450 m_speicher F5 "+ 10h" runs
+    `addr = addr + 16`: an UNGUARDED `slot = slot +/- N`. Guards expire at
+    their jump target ("- 10h" checks for borrow FIRST, then steps after
+    the guard closes), so guardedness is positional, not item-wide sticky;
+    the carry/borrow corrections inside the guards stay out. The delta is
+    per SLOT: a browser that splits the address over byte vars steps the
+    middle byte by 1 for "+100h", and the IR says exactly that.
+
+    Returns {item_nr: {"tmpl": {global_slot: parts}, "step": {...}}}.
+    """
+    out = {}
+    st = None
+    for t in toks:
+        op = t["op"]
+        if op == "ITEM":
+            st = {"inputs": [], "tmpl": {}, "step": None, "expr": [],
+                  "refs": [], "arith": None, "bad": False, "guards": []}
+            out[t.get("nr")] = st
+            continue
+        if st is None:
+            continue
+        expr, tmpl = st["expr"], st["tmpl"]
+        at = t.get("at", 0)
+        while st["guards"] and at >= st["guards"][-1]:
+            st["guards"].pop()
+        if op in ("frame", "stmt"):
+            st["expr"], st["arith"], st["bad"] = [], None, False
+            if op == "frame":
+                st["refs"] = []
+        elif op in ("jfalse", "jump"):
+            if t["to"] > at:            # backward = a while edge, no guard
+                st["guards"].append(t["to"])
+            st["expr"], st["arith"], st["bad"] = [], None, False
+        elif op == "procref":
+            if t.get("kind") in (0, 2):
+                st["refs"].append((t["kind"], t["n"]))
+        elif op == "const":
+            expr.append(t["v"] if t.get("t") == "s" else ("num", t.get("v")))
+        elif op == "var":
+            s = (t.get("sc", 0), t["n"])
+            if s in st["inputs"]:
+                expr.append({"input": st["inputs"].index(s)})
+            elif s in tmpl:
+                expr.extend(tmpl[s])
+            else:
+                expr.append(("var",) + s)
+        elif op == "binop":
+            nm = t.get("name")
+            if nm == "sub":
+                st["arith"] = "sub"
+            elif nm == "add":
+                if any(isinstance(p, tuple) and p[0] == "num" for p in expr):
+                    st["arith"] = st["arith"] or "add"
+            else:
+                st["bad"] = True
+        elif op == "store":
+            s = (t.get("sc", 0), t["n"])
+            if st["bad"]:
+                pass
+            elif st["step"] is None and not st["guards"] \
+                    and len(expr) == 2 and expr[0] == ("var",) + s \
+                    and isinstance(expr[1], tuple) and expr[1][0] == "num" \
+                    and isinstance(expr[1][1], (int, float)) \
+                    and not isinstance(expr[1][1], bool) \
+                    and st["arith"] in ("add", "sub"):
+                st["step"] = {"slot": t["n"], "sc": t.get("sc", 0),
+                              "delta": expr[1][1] if st["arith"] == "add"
+                              else -expr[1][1]}
+            elif expr and all(isinstance(p, (str, dict)) for p in expr):
+                tmpl[s] = list(expr)
+            else:
+                tmpl.pop(s, None)      # stored something we cannot carry
+            st["expr"], st["arith"] = [], None
+        elif op == "call":
+            n = t["n"]
+            if n in _INPUT_CALLS:
+                st["inputs"].extend(r for r in st["refs"]
+                                    if r not in st["inputs"])
+            elif n in _CONVERT_CALLS and st["refs"]:
+                # inttostring(src, dst): dst now displays src. Carrying it
+                # is what lets the count answer reach the template.
+                src = next((p for p in expr if isinstance(p, dict)
+                            or (isinstance(p, tuple) and p[0] == "var")),
+                           None)
+                dst = st["refs"][-1]
+                if isinstance(src, dict):
+                    tmpl[dst] = [src]
+                elif isinstance(src, tuple) and src[0] == "var" \
+                        and src[1:] in tmpl:
+                    tmpl[dst] = tmpl[src[1:]]
+                else:
+                    tmpl.pop(dst, None)
+            else:
+                # any other call may write through its ref args
+                for r in st["refs"]:
+                    tmpl.pop(r, None)
+            st["expr"], st["refs"] = [], []
+            st["arith"], st["bad"] = None, False
+        elif op == "calluser":
+            for r in st["refs"]:
+                tmpl.pop(r, None)
+            st["expr"], st["refs"] = [], []
+            st["arith"], st["bad"] = None, False
+    res = {}
+    for nr, s in out.items():
+        entry = {}
+        for (sc, n), parts in s["tmpl"].items():
+            if sc == 0 and any(isinstance(p, dict) for p in parts):
+                entry.setdefault("tmpl", {})[n] = parts
+        if s["step"] and s["step"]["sc"] == 0:
+            entry["step"] = {"slot": s["step"]["slot"],
+                             "delta": s["step"]["delta"]}
+        if entry:
+            res[nr] = entry
+    return res
 
 
 def _menu_ir(toks, id2name, name=None):
@@ -963,7 +1219,7 @@ def _menu_ir(toks, id2name, name=None):
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
             entry["_start"] = True
-        elif t["op"] == "call" and t.get("name") == "INPAapiJob" \
+        elif t["op"] == "call" and t.get("name") in D.JOB_CALLS \
                 and cur_label is not None:
             # an item that calls its OWN job (RDC F18 Sleep -> SLEEP_MODE):
             # an ordinary one-key-one-job action, nothing to do with any
@@ -1068,7 +1324,7 @@ def _menu_ir(toks, id2name, name=None):
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
             entry["_file"] = True
-        elif t["op"] == "call" and t["n"] in (0x3f, 0x46) \
+        elif t["op"] == "call" and t["n"] in _INPUT_CALLS \
                 and cur_label is not None:
             # an input dialog: INPA asks the user for a value and builds the
             # job argument from it. KLIMA_5B's nine flap positions all call
@@ -1078,11 +1334,21 @@ def _menu_ir(toks, id2name, name=None):
             if entry is None:
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
-            prompts = [x["v"] for x in toks[max(0, ti - 6):ti]
+            # this dialog's own strings: title, help/range, then -- for the
+            # two-answer forms (input2text/input2hexnum) -- one caption per
+            # answer field ("left"/"right"). Bounded by the call FRAME, not a
+            # fixed window: the window used to pick up the "OKAY" of the
+            # CheckJobStatus before it and drop the title.
+            lo2 = ti
+            while lo2 > 0 and toks[lo2 - 1]["op"] != "frame":
+                lo2 -= 1
+            prompts = [x["v"] for x in toks[lo2:ti]
                        if x["op"] == "const" and x.get("t") == "s"
                        and str(x["v"]).strip()]
             if prompts:
-                entry["prompt"] = prompts[-2:]
+                # an item may also ask twice; keep every dialog's wording
+                have = entry.setdefault("prompt", [])
+                have += [p for p in prompts if p not in have]
         elif t["op"] == "call" and t["n"] == 0x0f and cur_label is not None:
             # scriptchange: loads a different .IPO entirely. Its argument is a
             # script or SGBD name ("_DWS", "GS30", "\inpa\sgdat\airbag.ipo"),
@@ -1159,6 +1425,18 @@ def _menu_ir(toks, id2name, name=None):
                 and (stays or not any(it.get(k)
                                       for k in ("screen", "menu"))):
             it["fileAction"] = True
+    # what each key COMPUTES: dialog-assembled argument templates and
+    # self-stepped counters (resolved against the target screen's job by
+    # build(), which knows both sides)
+    flow = _menu_flow(toks)
+    for it in items:
+        f = flow.get(it.get("nr"))
+        if not f:
+            continue
+        if f.get("tmpl"):
+            it["_tmpl"] = f["tmpl"]
+        if f.get("step"):
+            it["step"] = f["step"]
     # INPA lays its softkeys out by number, so the menu reads in F-key order
     # rather than in the order the bytecode happens to declare them
     items.sort(key=lambda x: (x.get("nr") is None, x.get("nr") or 0))
@@ -1301,9 +1579,39 @@ def build(ecu):
                     it["writeJob"] = True
             it["screen"] = nm
             used.add(nm)
-    for nm, scr in list(ir["screens"].items()):
-        if scr.get("fromFunc") and nm not in used:
-            del ir["screens"][nm]
+    # PROMPT-ASSEMBLED JOB ARGUMENTS, resolved now that both sides exist:
+    # the menu key holds the template (_menu_flow) and the screen's job
+    # names the global slot its variable argument reads (argSlot). When they
+    # meet, the item carries everything a renderer needs to actually SEND
+    # the job -- the dialog answers spliced into the template -- instead of
+    # listing a prompt it refuses to act on.
+    for menu in ir["menus"].values():
+        for it in menu["items"]:
+            tmpl = it.pop("_tmpl", None)
+            if not tmpl:
+                continue
+            scr = ir["screens"].get(it.get("screen"))
+            slot = None
+            for j in (scr or {}).get("jobs", []):
+                if j.get("argSlot") in tmpl:
+                    slot = j["argSlot"]
+                    break
+            if slot is None and it.get("job") and not it.get("jobArg") \
+                    and len(tmpl) == 1:
+                # the item's own job call took the assembled variable
+                slot = next(iter(tmpl))
+            if slot is not None:
+                it["promptArg"] = {"slot": slot, "template": tmpl[slot]}
+    # ...but only prune when the file HAS menus. BMW's helper scripts
+    # (RDC_RD, AFS_READ, S_SZL_W and 16 more) declare NO menu and NO screen
+    # proc at all: their single display func IS the whole UI, driven by the
+    # script body rather than opened by a key. Pruning "unreferenced" func-
+    # screens there deleted the only screen those 19 ECUs had, so they built
+    # empty and --write silently skipped them, shipping stale IR forever.
+    if ir["menus"]:
+        for nm, scr in list(ir["screens"].items()):
+            if scr.get("fromFunc") and nm not in used:
+                del ir["screens"][nm]
 
     # The machine `start` launches: the first state proc the file declares.
     # ...the FIRST one, by declaration id: INPA runs the machine the file
@@ -1323,7 +1631,7 @@ def build(ecu):
                 continue
             body = all_toks[st]
             calls = {t["n"] for t in body if t["op"] == "call"}
-            if (calls & {0x5c, 0x79}) and 0x62 not in calls:
+            if (calls & {0x5c, 0x79}) and not (calls & {0x62, 0x6f}):
                 it["fileAction"] = True     # writes a file, never asks the ECU
                 continue
             # ...but a state machine that CALLS A JOB is a real ECU function,
@@ -1334,7 +1642,7 @@ def build(ecu):
             # of these is a permanent EEPROM change behind INPA's own
             # "Only for the developer" title.
             for i, t in enumerate(body):
-                if t["op"] != "call" or t["n"] != 0x62:
+                if t["op"] != "call" or t["n"] not in (0x62, 0x6f):
                     continue
                 nm = next((x["v"] for x in body[max(0, i - 8):i]
                            if x["op"] == "const" and x.get("t") == "s"
@@ -1507,7 +1815,7 @@ def build(ecu):
         if not pname.startswith(("inpainit", "__inpa")):
             continue
         for i, t in enumerate(toks):
-            if t["op"] == "call" and t.get("name") == "INPAapiJob":
+            if t["op"] == "call" and t.get("name") in D.JOB_CALLS:
                 nm = next((x["v"] for x in toks[max(0, i - 6):i]
                            if x["op"] == "const" and x.get("t") == "s"
                            and _KEYISH.match(str(x["v"]))), None)
@@ -1698,6 +2006,46 @@ def main():
         if not sleep or sleep.get("job") != "SLEEP_MODE":
             fails.append(f"RDC F18 should call SLEEP_MODE, got {sleep}")
 
+        # THE CONTROL-FLOW LAYER, against BMW's own source. MUST_EXX ships
+        # with its .SRC: m_speicher F1 prompts for address+count and builds
+        # "LAR;<adresse>;<anzahl>" into the slot s_speicher_ausgabe sends to
+        # SPEICHER_LESEN; the screen shows JOB_STATUS only on failure and
+        # the hexdump only on OKAY. All three decoded, or the renderer is
+        # back to "listed but never sent".
+        mu = build("MUST_EXX")
+        f1 = next((i for i in mu["menus"]["m_speicher"]["items"]
+                   if i.get("nr") == 1), None)
+        pa = (f1 or {}).get("promptArg") or {}
+        if pa.get("template") != ["LAR;", {"input": 0}, ";", {"input": 1}]:
+            fails.append(f"MUST_EXX F1 promptArg drifted: {pa}")
+        sj = mu["screens"]["s_speicher_ausgabe"]["jobs"]
+        if not sj or sj[0]["name"] != "SPEICHER_LESEN" \
+                or sj[0].get("argSlot") != pa.get("slot"):
+            fails.append(f"MUST_EXX SPEICHER_LESEN argSlot broke: {sj}")
+        els = [e for ln in mu["screens"]["s_speicher_ausgabe"]["lines"]
+               for e in ln["elements"]]
+        hx = next((e for e in els if e["t"] == "hexdump"), None)
+        if not hx or hx.get("key") != "DATEN" \
+                or hx.get("showIf") != {"key": "JOB_STATUS", "op": "==",
+                                        "v": "OKAY"}:
+            fails.append(f"MUST_EXX hexdump/showIf drifted: {hx}")
+        if not any(e.get("showIf") == {"key": "JOB_STATUS", "op": "!=",
+                                       "v": "OKAY"} for e in els):
+            fails.append("MUST_EXX JOB_STATUS failure row lost its showIf")
+        # ...and MS450's memory browser steps its address bytes from the
+        # menu: +/-10h on the low byte, +/-100h carried on the middle one
+        ms = build("MS450")
+        steps = {i.get("nr"): i.get("step")
+                 for i in ms["menus"]["m_speicher"]["items"]}
+        if steps.get(5) != {"slot": 97, "delta": 16} \
+                or steps.get(6) != {"slot": 97, "delta": -16} \
+                or steps.get(7) != {"slot": 96, "delta": 1} \
+                or steps.get(8) != {"slot": 96, "delta": -1}:
+            fails.append(f"MS450 address stepping drifted: {steps}")
+        print(f"  ir         MUST_EXX F1 sends {sj and sj[0]['name']} = "
+              f"'LAR;<input0>;<input1>' (slot {pa.get('slot')}), "
+              f"hexdump gated on JOB_STATUS")
+
         # A root item may name several screens (INPA picks by variant).
         # Last-wins put DWS's F5 "Status" on s_ident -- the same screen as F2
         # Ident -- so Read status and Information rendered identically.
@@ -1737,6 +2085,7 @@ def main():
         os.makedirs(OUT_DIR, exist_ok=True)
         n = scr = el = 0
         failed = []
+        lost = []
         # CASE-INSENSITIVE ON PURPOSE. BMW shipped SGDAT with both spellings
         # -- 763 files are *.IPO and 1025 are *.ipo -- and globbing "*.IPO" on
         # a case-sensitive filesystem silently lifted only the first group.
@@ -1766,6 +2115,15 @@ def main():
                 failed.append(f"{ecu}: {type(e).__name__}: {e}")
                 continue
             if not ir or not ir["screens"]:
+                # An empty build is silently skipped -- but when an IR for
+                # this stem ALREADY EXISTS, skipping ships the stale file and
+                # hides a decoder regression: the fromFunc prune emptied 19
+                # menu-less scripts this way and nothing said a word. Say so.
+                stale = [q for q in (os.path.join(OUT_DIR, ecu + ".json"),
+                                     os.path.join(OUT_DIR, ecu + ".json.gz"))
+                         if os.path.exists(q)]
+                if stale:
+                    lost.append(ecu)
                 continue
             with open(os.path.join(OUT_DIR, ecu + ".json"), "w",
                       encoding="utf-8") as f:
@@ -1780,6 +2138,11 @@ def main():
             print(f"  FAILED  {len(failed)} ECUs did not build:")
             for f in failed[:8]:
                 print(f"    {f}")
+        if lost:
+            print(f"  WARNING {len(lost)} ECUs previously had IR but now "
+                  f"build ZERO screens (stale file NOT overwritten):")
+            for e in lost:
+                print(f"    {e}")
         return 0
 
     print(__doc__)

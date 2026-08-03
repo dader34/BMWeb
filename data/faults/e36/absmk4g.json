@@ -36,6 +36,7 @@
     "Ventilfehler Hauptrelais": "Valve fault, main relay",
     "Ventilblock, Stecker abgezogen": "Valve block, connector disconnected",
     "Hardware-gesteuertes Abschalten": "Hardware-controlled shutdown",
-    "NVRAM intern": "NVRAM internal"
+    "NVRAM intern": "NVRAM internal",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

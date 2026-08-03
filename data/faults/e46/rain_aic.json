@@ -10,6 +10,7 @@
     "Spannung oder Temperatur ausserhalb Toleranz": "Voltage or temperature out of tolerance",
     "Kommunikationsprobleme ASIC - Kontroller": "Communication problem, ASIC - controller",
     "Ueberwischen nicht erkannt": "Over-wipe not detected",
-    "Wischermotor Rueckstellkontakt fehlerhaft": "Wiper motor park contact faulty"
+    "Wischermotor Rueckstellkontakt fehlerhaft": "Wiper motor park contact faulty",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

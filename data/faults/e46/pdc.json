@@ -16,6 +16,7 @@
     "Wandler hinten links": "Sensor, rear left",
     "Taste": "Button",
     "Tongeber hinten": "Buzzer, rear",
-    "Kontrollsignal": "Control signal"
+    "Kontrollsignal": "Control signal",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

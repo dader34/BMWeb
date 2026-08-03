@@ -3,6 +3,7 @@
   "module": "Convertible Soft Top Module",
   "sgbd": "CTM_93",
   "scheme": "code",
+  "note": "A69D-A6A6 carry no ORTTEXT in the SGBD FORTTEXTE table (placeholder '@'); their English text comes from the ISTA DTC set (ista-dtc.json), module prefix dropped to match file style.",
   "faults": {
     "A688": "Memory fault",
     "A689": "Hall sensor VSW1.1",
@@ -25,6 +26,16 @@
     "A69A": "Linear sensor LINS1",
     "A69B": "Linear sensor LINS2",
     "A69C": "Linear sensor LINS5",
+    "A69D": "Valve for opening convertible top compartment lid",
+    "A69E": "Valve for roof shells",
+    "A69F": "Relay 1 for hardtop drive",
+    "A6A0": "Relay 2 for hardtop drive",
+    "A6A1": "Drive for hardtop locking",
+    "A6A2": "Control unit: internal processor fault",
+    "A6A3": "Speed in convertible-top intermediate position higher than permitted",
+    "A6A4": "Hardtop operating unit",
+    "A6A5": "Start convertible top opening with fins in segment 2 and convertible top locked",
+    "A6A6": "Switched supply voltage of position sensors",
     "A6A7": "Energy saving mode active",
     "FFFF": "Unknown fault location"
   }

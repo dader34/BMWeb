@@ -191,8 +191,40 @@ def _export_tables_one(sgbd):
               f"{os.path.getsize(tp)//1024:5} KB")
 
 
-def export_groups(chassis="E46"):
-    """Export the GROUP files and the variant assignment table.
+def _cli_dumptable(table, sgbd):
+    """Table rows via the prebuilt CLI: the embedded engine, offline.
+
+    The engine's HTTP API died with the server era, but the checked-in
+    InpaMac.Cli binary still carries the real EdiabasLib and answers _TABLE
+    without any app running. Its output is two columns per row -- complete
+    for the assignment table (ADR_VAR_DIAG -> SGBD IS its schema), lossy
+    for anything wider.
+    """
+    import subprocess
+    cli_dir = os.path.join(ROOT, "src", "InpaMac.Cli")
+    cli = os.path.join(cli_dir, "bin", "Debug", "net9.0", "InpaMac.Cli")
+    if not os.path.exists(cli):
+        return None
+    try:
+        out = subprocess.run([cli, "dumptable", table.upper(), sgbd],
+                             capture_output=True, text=True, timeout=300,
+                             cwd=cli_dir)
+    except Exception:                                       # noqa: BLE001
+        return None
+    rows = []
+    for line in (out.stdout or "").splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        _, key, val = parts
+        if key.upper() == "ADR_VAR_DIAG":                   # header row
+            continue
+        rows.append((key, val))
+    return rows or None
+
+
+def export_groups(chassis=None):
+    """Export EVERY group SGBD and the variant assignment table.
 
     This is how EDIABAS answers "which SGBD is this ECU?", and without it a
     client can only talk to an ECU whose variant it was already told. A .grp
@@ -200,8 +232,12 @@ def export_groups(chassis="E46"):
     IDENTIFIKATION job runs on the same VM; what it needs alongside is
     ZuordnungsTabelle from t_grtb, which maps the identification answer
     (ADR_VAR_DIAG) to a concrete SGBD name.
+
+    All output is self-contained under data/groups/: <g>.json.gz job code
+    per group, variants.json for the mapping. Nothing goes through
+    ecu_tree.write_ecu, which silently drops any SGBD chassis-config does
+    not name -- exactly what kept every group unshipped until now.
     """
-    import urllib.request
     out_dir = os.path.join(ROOT, "data", "groups")
     os.makedirs(out_dir, exist_ok=True)
     # The assignment table lives in t_grtb, a separate SGBD that every group
@@ -214,40 +250,45 @@ def export_groups(chassis="E46"):
         rows = V.sgbd_table("t_grtb", "ZuordnungsTabelle")
     except Exception:                                       # noqa: BLE001
         rows = None
+    if not rows:
+        pairs = _cli_dumptable("ZUORDNUNGSTABELLE", "t_grtb")
+        rows = [{"ADR_VAR_DIAG": k, "SGBD": v} for k, v in pairs or []]
     if rows:
-        # keep only the rows for this chassis; the full table covers every
-        # BMW platform and most of it is dead weight for one car
-        want = [r for r in rows
-                if str(r.get("BAUREIHE", "")).upper() == chassis.upper()]
         with open(os.path.join(out_dir, "variants.json"), "w") as f:
-            json.dump({"chassis": chassis, "table": "ZuordnungsTabelle",
+            json.dump({"table": "ZuordnungsTabelle",
                        "keyColumn": "ADR_VAR_DIAG", "sgbdColumn": "SGBD",
-                       "rows": want or rows}, f, ensure_ascii=False,
+                       "rows": rows}, f, ensure_ascii=False,
                       separators=(",", ":"))
-        print(f"  variants.json  {len(want)} rows for {chassis}"
-              f" (of {len(rows)} total)")
-    # the group programs themselves
-    # Which groups does this chassis actually use? The assignment table
-    # names them, so ship those rather than all 248.
-    used = sorted({str(r.get("GRUPPE", "")).lower()
-                   for r in (want or rows or []) if r.get("GRUPPE")})
+        print(f"  variants.json  {len(rows)} rows")
+    else:
+        print("  variants.json  SKIPPED (no engine API and no CLI binary)")
+    # the group programs themselves: every .grp in the vendor tree, either
+    # extension case, deduped by lowered stem
     import sgbd_code as C
-    # every group also needs the assignment table alongside its code
-    for g in used:
-        if rows:
-            with open(os.path.join(TABLE_DIR, f"{g}.json"), "w") as f:
-                json.dump({"ZuordnungsTabelle": rows}, f,
-                          ensure_ascii=False, separators=(",", ":"))
+    seen, groups = set(), []
+    for pat in ("*.grp", "*.GRP"):
+        for p in glob.glob(os.path.join(S.ECU_DIR, pat)):
+            g = os.path.basename(p)[:-4].lower()
+            if g not in seen:
+                seen.add(g)
+                groups.append(g)
     made = []
-    for g in used:
+    for g in sorted(groups):
         try:
-            r = C.export(g)
+            r = C.export(g, all_jobs=True,
+                         dest=os.path.join(out_dir, f"{g}.json.gz"))
         except SystemExit:
+            continue
+        except Exception as e:                              # noqa: BLE001
+            print(f"  {g:12} FAILED {type(e).__name__}: {e}")
             continue
         if r:
             made.append(r)
-            print(f"  {r[0]:12} {r[1]:2} jobs {r[2]:6} ops {r[4]//1024:4} KB")
-    print(f"groups: {len(made)} of {len(used)} referenced by {chassis}")
+    for r in made[:10]:
+        print(f"  {r[0]:12} {r[1]:3} jobs {r[2]:6} ops {r[4]//1024:4} KB")
+    if len(made) > 10:
+        print(f"  ... and {len(made) - 10} more")
+    print(f"groups: {len(made)} of {len(groups)} in the vendor tree")
     return made
 
 

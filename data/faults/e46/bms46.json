@@ -52,6 +52,7 @@
     "Aussetzer bei Zylinder 4": "Misfire at cylinder 4",
     "Ansteuerung Ventil Sekundaerluft": "Secondary air valve control",
     "Ansteuerung Relais Sekundaerluftpumpe": "Secondary air pump relay control",
-    "Ansteuerung Lambdasondenheizung nach KAT": "O2 sensor heater control post-cat"
+    "Ansteuerung Lambdasondenheizung nach KAT": "O2 sensor heater control post-cat",
+    "Unbekannter Fehlerort": "Unknown fault location"
   }
 }

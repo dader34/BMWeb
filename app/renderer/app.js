@@ -58,28 +58,30 @@ function showSettings() {
 
   // INPA-style screens toggle: render ECU menu and fault list like the original
   // INPA frontend (Hauptmenue F-key list + labeled error-memory view).
-  wrap.appendChild(settingRow(
-    'INPA-style screens',
-    'Lay out the ECU menu and fault memory exactly like the original INPA frontend.',
-    [
-      { val: 'on', label: 'INPA layout' },
-      { val: 'off', label: 'Modern' },
-    ],
-    Settings.get('inpaScreens', 'off'),
-    // re-render in place: this screen is itself laid out differently per mode
-    (v) => { Settings.set('inpaScreens', v); showSettings(); },
-  ));
+  // DESKTOP ONLY. inpaMode() reports off below 760px regardless, so the
+  // control would be a switch that does nothing -- worse than absent.
+  if (!window.matchMedia('(max-width: 760px)').matches) {
+    wrap.appendChild(settingRow(
+      'INPA-style screens',
+      'Lay out the ECU menu and fault memory exactly like the original INPA frontend.',
+      [
+        { val: 'on', label: 'INPA layout' },
+        { val: 'off', label: 'Modern' },
+      ],
+      Settings.get('inpaScreens', 'off'),
+      // re-render in place: this screen is itself laid out differently per mode
+      (v) => { Settings.set('inpaScreens', v); showSettings(); },
+    ));
+  }
 
   // which hardware moves the bytes. The bus is chosen at page load, so
   // switching reloads.
   const adapterRow = settingRow(
     'Adapter',
-    IS_WEB
-      ? 'K+DCAN USB cable over Web Serial, or the THOR WiFi dongle through its local bridge (shipped with this build).'
-      : 'K+DCAN USB cable, or the THOR WiFi dongle over its own WiFi network (join Thor_Wifi first).',
+    'K+DCAN over serial, or THOR WiFi adapter.',
     [
-      { val: 'kdcan', label: 'K+DCAN (USB)' },
-      { val: 'thor', label: 'THOR (WiFi)' },
+      { val: 'kdcan', label: 'K+DCAN' },
+      { val: 'thor', label: 'THOR' },
     ],
     Settings.get('adapter', 'kdcan'),
     async (v) => {
@@ -103,82 +105,6 @@ function showSettings() {
   );
   wrap.appendChild(adapterRow);
 
-  // THOR in a browser needs its relay running, and a page cannot start a
-  // process -- the sandbox forbids it, and rightly. So say plainly whether
-  // the bridge is up, and make the command one click to copy. The macOS app
-  // opens the socket itself and needs none of this.
-  if (IS_WEB && Settings.get('adapter', 'kdcan') === 'thor') {
-    const bridgeRow = document.createElement('div');
-    bridgeRow.className = 'setting-row';
-    bridgeRow.innerHTML = `
-      <div class="setting-text">
-        <div class="setting-title">THOR bridge</div>
-        <div class="setting-desc">
-          Browsers cannot open the adapter's TCP socket, so a small relay
-          carries it. Offline copies ship a double-click starter; otherwise
-          run it from where this build is served.
-        </div>
-      </div>`;
-    const controls = document.createElement('div');
-    controls.className = 'setting-controls';
-    const state = document.createElement('span');
-    state.className = 'bridge-state';
-    // The command with the bridge's ABSOLUTE path, so it runs from wherever
-    // a terminal happens to be sitting rather than needing a cd first. An
-    // offline copy is a file:// page, so its own URL gives the real
-    // directory; a served build cannot know its server's filesystem, so it
-    // names the file and lets the reader supply the folder.
-    const bridgeCmd = () => {
-      if (location.protocol === 'file:') {
-        const dir = decodeURIComponent(location.pathname.replace(/\/[^/]*$/, ''));
-        const path = `${dir}/thor_bridge.js`;
-        // quote only when it needs it: paths with spaces are common on macOS
-        return `node ${/[\s'"\\]/.test(path) ? JSON.stringify(path) : path}`;
-      }
-      return 'node thor_bridge.js';
-    };
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn';
-    copyBtn.textContent = 'Copy command';
-    copyBtn.title = `Copy "${bridgeCmd()}" to the clipboard`;
-    copyBtn.onclick = async () => {
-      const cmd = bridgeCmd();
-      try {
-        await navigator.clipboard.writeText(cmd);
-        copyBtn.textContent = 'Copied';
-      } catch {
-        copyBtn.textContent = cmd;   // not copyable: show it to be read
-      }
-      setTimeout(() => { copyBtn.textContent = 'Copy command'; }, 2500);
-    };
-    controls.append(state, copyBtn);
-    bridgeRow.appendChild(controls);
-    wrap.appendChild(bridgeRow);
-
-    // poll while this screen is open: the point is to watch it come up
-    // after starting the relay, without having to reload anything
-    const ping = () => {
-      const ws = new WebSocket('ws://127.0.0.1:8124');
-      const settle = (up) => {
-        state.className = `bridge-state ${up ? 'up' : 'down'}`;
-        state.textContent = up ? 'running' : 'not running';
-        try { ws.close(); } catch { /* already closing */ }
-      };
-      ws.onopen = () => settle(true);
-      ws.onerror = () => settle(false);
-    };
-    ping();
-    // Stop when the row leaves the document. Screens replace view.innerHTML
-    // rather than firing any teardown event, so watch for the removal
-    // itself: no timer survives the screen that owns it.
-    const timer = setInterval(() => {
-      if (!bridgeRow.isConnected) { clearInterval(timer); return; }
-      ping();
-    }, 3000);
-  }
-
-  // auto-scan the DME (and trans) for stored faults when a chassis is opened,
-  // popping a corner badge if anything needs attention.
   wrap.appendChild(settingRow(
     'Auto-scan on open',
     'Read the engine fault memory automatically when you select a vehicle, and flag stored faults.',
@@ -279,7 +205,7 @@ function showSettings() {
   tourRow.appendChild(tourBtn);
   wrap.appendChild(tourRow);
 
-  // "How it works" — explainer of what the app does and which BMW software/data
+  // "How it works", explainer of what the app does and which BMW software/data
   // it draws from (EDIABAS, SGBDs, INPA screens, the ISTA fault database).
   const hiwRow = document.createElement('div');
   hiwRow.className = 'setting-row tour-setting';
@@ -301,7 +227,14 @@ function showSettings() {
   // number, which is the one thing an offline copy is least able to look up.
   // "All chassis" is offered but warned about -- it is the whole ~200 MB site
   // held in a tab as one Blob, which not every machine will manage.
-  if (typeof offlineExport === 'function') {
+  // A COPY DOES NOT OFFER COPIES. Both exporters fetch the app's own files
+  // from beside the page (offlineGet), which exists on the hosted site and
+  // nowhere else: in a downloaded single file there are no sibling files, so
+  // the buttons would fail on the first fetch. window.BMACW_INLINE is the
+  // marker that this IS such a copy.
+  const isOfflineCopy = typeof window.BMACW_INLINE === 'object'
+    && window.BMACW_INLINE !== null;
+  if (!isOfflineCopy && typeof offlineExport === 'function') {
     let pickVal = 'E46';
     const opts = [{ val: '*', label: 'All chassis (large)' }];
     const combo = settingCombo(
@@ -352,6 +285,55 @@ function showSettings() {
                  5000);
     };
     wrap.appendChild(combo.el);
+
+    // ONE FILE, for a phone. The folder above is right for a computer; a
+    // phone cannot usefully unzip it and open one page out of it. A single
+    // .html AirDrops, sits in Files, and opens in a browser on iOS, Android,
+    // Windows and macOS alike -- which, paired with the adapter's own
+    // WebSocket, is the whole app at a car with no laptop.
+    //
+    // Wiring is excluded: 72 MB against 7 MB for the rest of an E46, and a
+    // phone download is where that difference bites hardest.
+    if (typeof offlineSingleFile === 'function') {
+      let solo = 'E46';
+      const soloCombo = settingCombo(
+        'Download single file (phone)',
+        'One .html with everything inside. Open it in a browser, not the '
+        + 'Files preview - iOS restricts scripts there. No wiring diagrams.',
+        [{ val: 'E46', label: 'E46' }], solo, (v) => { solo = v; });
+      const faultsLabel = document.createElement('label');
+      faultsLabel.className = 'setting-check';
+      faultsLabel.title = 'Include English fault descriptions (adds a few MB)';
+      faultsLabel.innerHTML = '<input type="checkbox" id="solo-faults" checked>'
+        + '<span>Fault text</span>';
+      const faultsBox = faultsLabel.querySelector('input');
+      const soloBtn = document.createElement('button');
+      soloBtn.className = 'btn';
+      soloBtn.textContent = 'Download';
+      const soloPicker = soloCombo.el.querySelector('.combo');
+      const soloControls = document.createElement('div');
+      soloControls.className = 'setting-controls';
+      soloPicker.replaceWith(soloControls);
+      soloControls.append(soloPicker, faultsLabel, soloBtn);
+      tipify(soloControls);
+      api('/api/chassis').then((ids) => {
+        soloCombo.setOptions(ids.map(id => ({ val: id, label: id })), solo);
+      }).catch(() => { soloBtn.disabled = true; });
+      soloBtn.onclick = async () => {
+        const was = soloBtn.textContent;
+        soloBtn.disabled = true;
+        try {
+          const n = await offlineSingleFile(solo, faultsBox.checked,
+                                            (t) => { soloBtn.textContent = t; });
+          soloBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
+        } catch (e) {
+          soloBtn.textContent = `failed: ${e.message}`;
+        }
+        setTimeout(() => { soloBtn.textContent = was; soloBtn.disabled = false; },
+                   5000);
+      };
+      wrap.appendChild(soloCombo.el);
+    }
   }
 
   view.appendChild(wrap);

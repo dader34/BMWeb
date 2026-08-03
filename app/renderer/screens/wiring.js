@@ -385,11 +385,13 @@ function showWiring(chassisId, openDoc = null) {
   // it. A schematic is very wide, so "document only" is the one that earns
   // its place -- and the setting sticks, the way WDS remembered it.
   const body = split.querySelector('.wiring-body');
-  const setPane = (mode) => {
+  const setPane = (mode, remember = true) => {
     body.dataset.pane = mode;
     split.querySelectorAll('.wds-pane').forEach((b) =>
       b.classList.toggle('active', b.id === `wds-pane-${mode}`));
-    Settings.set('wdsPane', mode);
+    // An automatic switch (the phone opening a diagram) must not rewrite
+    // the choice the user made on a desktop -- it is the same setting.
+    if (remember) Settings.set('wdsPane', mode);
     // The re-fit is the diagram's own business now: fitAndPan watches the
     // stage and re-fits whenever its box changes, which covers a pane switch
     // and a window resize alike -- and, unlike calling fit() from here,
@@ -402,8 +404,19 @@ function showWiring(chassisId, openDoc = null) {
   tipify(split);
 
   // the bar while nothing is open; a diagram replaces it with its zoom keys
+  // Back from the tree leaves wiring. Back from a DIAGRAM on a phone
+  // returns to the tree first -- the panes are exclusive there, so leaving
+  // outright would skip a level the user can see they are inside of.
+  const leaveWiring = () => {
+    if (window.matchMedia('(max-width: 760px)').matches
+        && body.dataset.pane === 'doc') {
+      setPane('tree', false);
+      return;
+    }
+    showWiringChassis();
+  };
   const browseActions = [{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                           kind: 'back', fn: showWiringChassis }];
+                           kind: 'back', fn: leaveWiring }];
   setActions(browseActions);
 
   loadWiring(chassisId).then((data) => {
@@ -490,6 +503,12 @@ function showWiring(chassisId, openDoc = null) {
     // ---- the document pane
     function openDocument(entry) {
       atIndex = index.findIndex(e => e.doc === entry.doc);
+      // ONE PANE AT A TIME ON A PHONE. Below 760px the CSS hides whichever
+      // pane is not selected, so a tap on a leaf would load the diagram
+      // into a hidden box (a 0x0 stage) and look like nothing happened.
+      // Switch to it. The topbar's back arrow returns to the tree, and on
+      // a desktop this is a no-op because both panes are already showing.
+      if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
       const doc = wiringDoc(data, entry.doc);
       viewEl.innerHTML = '';
       const bar = document.createElement('div');
@@ -563,8 +582,11 @@ function showWiring(chassisId, openDoc = null) {
           { key: '+', keyLabel: '+', label: 'Zoom in', fn: () => zoom.by(1 / 1.3) },
           { key: '-', keyLabel: '-', label: 'Zoom out', fn: () => zoom.by(1.3) },
           { key: '0', keyLabel: '0', label: 'Fit', fn: () => zoom.fit() },
+          // leaveWiring, not showWiringChassis: on a phone the panes are
+          // exclusive, so back from an open diagram returns to the tree
+          // first. On a desktop the two are identical.
           { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-            fn: showWiringChassis },
+            fn: leaveWiring },
         ]);
       }
       sbLeft.textContent = entry.name;

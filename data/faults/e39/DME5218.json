@@ -103,6 +103,7 @@
     "Startautomatik Eingang": "Auto-start input",
     "Hoehen- zu Ladedrucksensor-Plausibilitaetspruefung": "Altitude vs boost pressure sensor plausibility check",
     "CAN-Timeout EGS": "CAN timeout EGS",
-    "Startautomatik": "Auto-start"
+    "Startautomatik": "Auto-start",
+    "Unbekannter Fehlerort": "Unknown fault location"
   }
 }

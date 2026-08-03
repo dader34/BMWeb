@@ -47,6 +47,7 @@
     "CAN Timeout DME/DDE": "CAN timeout, DME/DDE",
     "CAN Timeout EGS": "CAN timeout, EGS transmission control",
     "Codierfehler": "Coding fault",
-    "ASC Taster": "ASC button"
+    "ASC Taster": "ASC button",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

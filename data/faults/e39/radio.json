@@ -9,6 +9,7 @@
     "Fehler an der Antennenstromversorgung": "Fault in antenna power supply",
     "Internes CD-Laufwerk: Übertemperatur": "Internal CD drive: overtemperature",
     "Internes CD-Laufwerk: Hardware-Fehler": "Internal CD drive: hardware fault",
-    "Internes CD-Laufwerk: Lesefehler": "Internal CD drive: read error"
+    "Internes CD-Laufwerk: Lesefehler": "Internal CD drive: read error",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

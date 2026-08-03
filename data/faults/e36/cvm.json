@@ -4,6 +4,26 @@
   "sgbd": "cvm",
   "variants": ["cvm"],
   "scheme": "text",
-  "note": "FORTTEXTE dump returned only ORT hex codes (0x01–0xFF) with no descriptive German ORTTEXT; no text-keyed fault locations available for this SGBD.",
-  "faults": {}
+  "note": "Keyed on exact German ORTTEXT from the SGBD FORTTEXTE table; variant-agnostic descriptive text.",
+  "faults": {
+    "Klappenmotor 1": "Convertible top compartment lid motor 1",
+    "Klappenmotor 2 oder Verdeckmotor 1": "Compartment lid motor 2 or convertible top motor 1",
+    "Verdeckmotor 2 oder Verriegelungsmotor 1": "Convertible top motor 2 or locking motor 1",
+    "Verdeckmotor 2": "Convertible top motor 2",
+    "Verriegelungsmotor 2": "Locking motor 2",
+    "Mikroschalter Verdeckklappe": "Microswitch, convertible top compartment lid",
+    "Mikroschalter Position 1 oder 2": "Microswitch position 1 or 2",
+    "Mikroschalter Position 1 oder 3": "Microswitch position 1 or 3",
+    "Mikroschalter Position 2": "Microswitch position 2",
+    "Mikroschalter Position 3": "Microswitch position 3",
+    "Klappenmotor": "Convertible top compartment lid motor",
+    "Mikroschalter Position 1 oder Verdeckmotor": "Microswitch position 1 or convertible top motor",
+    "Mikroschalter Position 2 oder Verdeckmotor": "Microswitch position 2 or convertible top motor",
+    "Mikroschalter Position 3 oder Verdeckmotor": "Microswitch position 3 or convertible top motor",
+    "Stack Fehler": "Stack fault",
+    "Gesamtstrom zu gross (>11A)": "Total current too high (>11A)",
+    "Eintraege im EEPROM sind ungleich": "EEPROM entries do not match",
+    "Fehler Ueberrollsensor": "Rollover sensor fault",
+    "unbekannter Fehlerort": "Unknown fault location"
+  }
 }

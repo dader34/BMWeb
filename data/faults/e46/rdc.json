@@ -49,6 +49,7 @@
     "Radsensor: Batterie low, Radposition unbekannt": "Wheel sensor: battery low, wheel position unknown",
     "Radsensor: Sensorfehler, Radposition unbekannt": "Wheel sensor: sensor fault, wheel position unknown",
     "Uebertragungskanal defekt, Position unbekannt": "Transmission channel faulty, position unknown",
-    "defektes 5-Radsystem": "Faulty 5-wheel system"
+    "defektes 5-Radsystem": "Faulty 5-wheel system",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }

@@ -27,7 +27,6 @@ import os
 import re
 import sys
 import json
-import glob
 import collections
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -119,7 +118,7 @@ def main():
     write = "--write" in sys.argv
 
     if args:
-        path = os.path.join(L1.SGDAT, args[0] + ".IPO")
+        path = L1.ipo_path(args[0])
         if not os.path.exists(path):
             print(f"no such .IPO: {args[0]}", file=sys.stderr)
             return 1
@@ -128,7 +127,7 @@ def main():
         return 0
 
     results, shapes = {}, collections.Counter()
-    for path in sorted(glob.glob(os.path.join(L1.SGDAT, "*.IPO"))):
+    for path in L1.ipo_paths():
         rec = extract(path)
         if not rec["items"]:
             continue

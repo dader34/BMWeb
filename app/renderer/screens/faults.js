@@ -85,7 +85,15 @@ function faultFields(c, sgbd) {
            name: faultName(c.F_ORT_TEXT, hex, sgbd), present, ftype, count };
 }
 
-const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on';
+// INPA LAYOUT IS A DESKTOP MODE, and off on a phone whatever the setting
+// says. It reproduces a keyboard-driven Windows UI: ten fixed F-key slots,
+// printed key numbers, Shift for the second row, dense tables sized for a
+// mouse. The mobile stylesheet already strips the parts that make it
+// itself -- the number row, the ten-across bar -- so honouring the setting
+// below 760px would ship the awkward half of INPA with none of the point
+// of it. One reader, so every screen follows.
+const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
+  && !window.matchMedia('(max-width: 760px)').matches;
 
 // INPA "Comment" (F7): attach a free-text note to the current fault read.
 // stored locally with the read so it shows in the export/print.
@@ -192,7 +200,7 @@ function renderFaultsInpa(codes, container, ecu) {
         <div class="inpa-fault-head">
           <span class="inpa-fault-idx">Error: ${i + 1}(${total})</span>
           <span class="inpa-fault-nr">Nr: ${esc(c.F_ORT_NR || '-')}</span>
-          <span class="inpa-fault-name">${esc(faultName(c.F_ORT_TEXT, c.F_HEX_CODE) || 'Unknown')}</span>
+          <span class="inpa-fault-name">${esc(faultName(c.F_ORT_TEXT, c.F_HEX_CODE, ecu && ecu.sgbd) || 'Unknown')}</span>
           ${present ? '<span class="inpa-fault-present">PRESENT</span>' : ''}
           ${freq ? `<span class="inpa-fault-freq">frequency: ${esc(freq)}</span>` : ''}
         </div>

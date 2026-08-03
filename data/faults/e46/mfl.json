@@ -8,6 +8,7 @@
     "Tasten rechts SB und VER gleichzeitig betaetigt": "Right buttons SB and VER pressed together",
     "Tasten links Radio-laut und leise gleichzeitig betaetigt": "Left buttons volume up and down pressed together",
     "Kurzschluss Versorgungsspannung Lenkrad gegen Masse": "Steering-wheel supply voltage short to ground",
-    "EEPROM Schreibfehler": "EEPROM write error"
+    "EEPROM Schreibfehler": "EEPROM write error",
+    "unbekannte Fehlerart": "Unknown fault type"
   }
 }

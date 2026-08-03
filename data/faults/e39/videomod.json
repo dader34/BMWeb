@@ -6,6 +6,7 @@
   "faults": {
     "IBus Dauerhigh Abschaltung": "I-bus permanent high shutoff",
     "Watchdog ausgeloest": "Watchdog triggered",
-    "FeTraWe aktiviert": "FeTraWe activated"
+    "FeTraWe aktiviert": "FeTraWe activated",
+    "unbekannter Fehlerort": "Unknown fault location"
   }
 }
