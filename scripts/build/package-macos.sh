@@ -43,13 +43,25 @@ if [ ! -d "$ROOT/dist-web/api" ]; then
   echo "       scripts/build/build-web.sh" >&2
   exit 1
 fi
-# THE FROZEN API ONLY. dist-web is a BUILD of the renderer (build-web.sh
-# copies app/renderer into it and adds api/), so copying the whole tree
-# bundled the renderer twice -- and with it a second copy of the ~1 GB of
-# wiring archives. StaticHost serves app/renderer for the app's own files and
-# dist-web only for the frozen API beside them.
+# THE GENERATED DATA, NOT THE RENDERER. dist-web is a BUILD of the renderer
+# (build-web.sh copies app/renderer into it and adds api/), so copying the
+# whole tree would bundle the renderer twice. StaticHost serves app/renderer
+# for the app's own files and this directory for everything generated
+# beside them.
+#
+# api/ is the frozen API. data/wiring/ is BMW's schematics -- ~1 GB, and the
+# reason this DMG is large. It was left out when this copy was narrowed to
+# api/ alone, which quietly made the app the only build with no Wiring
+# section; the renderer asks for data/wiring/<id>.wiring and got a 404.
 mkdir -p "$DATA/dist-web"
 cp -R "$ROOT/dist-web/api"                 "$DATA/dist-web/api"
+if [ -d "$ROOT/dist-web/data/wiring" ]; then
+  mkdir -p "$DATA/dist-web/data"
+  cp -R "$ROOT/dist-web/data/wiring"       "$DATA/dist-web/data/wiring"
+  echo "==> wiring: $(du -sh "$DATA/dist-web/data/wiring" | cut -f1)"
+else
+  echo "==> no wiring archives; the app will ship without the Wiring section"
+fi
 
 echo "==> ad-hoc signing (after resources, so the seal matches final contents)"
 codesign --force --deep --sign - "$STAGE/BMacW.app"

@@ -106,6 +106,18 @@
   .ios-help p { margin:0; color:var(--faint); font-size:13px; }
   .ios-help a { color:var(--amber); }
   .ios-help b { color:var(--ink); font-weight:600; }
+  .cmd { display:flex; gap:8px; align-items:center; margin:8px 0 2px; }
+  .cmd code {
+    flex:1; min-width:0; overflow-x:auto; white-space:nowrap;
+    font-family:ui-monospace,Menlo,monospace; font-size:12.5px;
+    color:var(--ink); background:var(--bg); border:1px solid var(--line);
+    border-radius:5px; padding:8px 10px;
+  }
+  .cmd button {
+    flex:none; cursor:pointer; font:600 12.5px inherit;
+    color:var(--bg); background:var(--amber); border:0;
+    border-radius:5px; padding:8px 12px; min-height:36px;
+  }
   .picking a { color:var(--amber); }
   .chip {
     display:flex; flex-direction:column; gap:2px; text-decoration:none;
@@ -188,6 +200,40 @@
   var isIOS = /iPhone|iPad|iPod/.test(ua)
     || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 
+  function macHelp() {
+    var d = document.createElement('div');
+    d.className = 'ios-help';
+    d.id = 'mac-help';
+    d.innerHTML =
+      '<h3>First launch on macOS</h3>'
+      + '<p>The app is ad-hoc signed (no Apple Developer ID), so macOS '
+      + 'quarantines it and refuses the first '
+      + 'launch, usually saying it is damaged. It is not; that is what '
+      + 'the quarantine flag looks like from the outside.</p>'
+      + '<ol>'
+      + '<li>Open the .dmg and drag <b>BMacW</b> to Applications.</li>'
+      + '<li>Open <b>Terminal</b> and run this once:'
+      + '<div class="cmd"><code id="xattr-cmd">xattr -dr '
+      + 'com.apple.quarantine /Applications/BMacW.app</code>'
+      + '<button type="button" id="xattr-copy">Copy</button></div></li>'
+      + '<li>Launch it normally. The flag is cleared for good, so this '
+      + 'is a one-time step per install.</li>'
+      + '</ol>';
+    // clipboard, because retyping a path from a screen is how typos happen
+    setTimeout(function () {
+      var btn = d.querySelector('#xattr-copy');
+      if (!btn) return;
+      btn.onclick = function () {
+        var t = d.querySelector('#xattr-cmd').textContent;
+        navigator.clipboard.writeText(t).then(function () {
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+        }).catch(function () { btn.textContent = 'Select it manually'; });
+      };
+    }, 0);
+    return d;
+  }
+
   function iosHelp() {
     var d = document.createElement('div');
     d.className = 'ios-help';
@@ -244,6 +290,16 @@
       + '<p class="sub">' + o.sub + '</p>'
       + '<div class="meta">' + o.meta + '</div>';
     cards.appendChild(a);
+    // The DMG is ad-hoc signed, so the FIRST launch is blocked and the
+    // error macOS shows ("damaged and can't be opened") describes neither
+    // the cause nor the cure. Say it at the moment the download starts,
+    // which is the only moment anyone will read it.
+    if (o.id === 'mac') {
+      a.addEventListener('click', function () {
+        if (document.getElementById('mac-help')) return;
+        a.insertAdjacentElement('afterend', macHelp());
+      });
+    }
   });
 
   // POINT THE MAC CARD AT THE ACTUAL FILE. One API request turns "find the
