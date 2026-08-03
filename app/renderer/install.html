@@ -87,6 +87,10 @@
   .chip { cursor:pointer; font:inherit; text-align:left; }
   .chip:disabled, .picker.busy .chip { opacity:.5; pointer-events:none; }
   .picker.busy { cursor:progress; }
+  /* the all-cars tile spans, so it reads as a different kind of choice
+     rather than a 28th car */
+  .chip-all { grid-column:1/-1; border-style:dashed; }
+  .chip-all b { color:var(--amber); }
   .picking a { color:var(--amber); }
   .chip {
     display:flex; flex-direction:column; gap:2px; text-decoration:none;
@@ -287,6 +291,17 @@
         b.onclick = function () { build(id); };
         box.appendChild(b);
       });
+      // EVERY CAR IN ONE FILE. Offered, but not as a peer of the others:
+      // roughly 190 MB, which is one JavaScript string literal that has to
+      // parse before the page runs. Fine on a computer; on a phone it is
+      // the shape of thing iOS kills with no error, so it says so.
+      var all = document.createElement('button');
+      all.className = 'chip chip-all';
+      all.type = 'button';
+      all.innerHTML = '<b>All ' + ids.length + ' cars</b>'
+        + '<span>~190 MB, desktop</span>';
+      all.onclick = function () { build('*'); };
+      box.appendChild(all);
       status.textContent = 'Pick a car. The file is built here in the '
         + 'browser, so it takes a moment.';
     }).catch(function () {
