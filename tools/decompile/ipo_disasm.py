@@ -739,7 +739,16 @@ def screen_fields(toks, id2name=None):
 def decompile(ecu):
     """Every screen and menu of one ECU, fully decoded."""
     data, ps, pool, decls = load(ecu)
-    if ps is None:
+    # NO POOL IS NOT NO FILE. The A_* activation scripts (and the CH/CI/CM
+    # test families) carry their strings INLINE rather than in a trailing
+    # pool, so find_pool finds nothing -- but the proc table is intact and
+    # readable. Bailing here threw away 200 files that decode fine: A_IHK46
+    # alone declares thirteen procs, TestCDHFehler through Cod.
+    #
+    # walk() already bounds-checks every pool[] read, so an empty pool costs
+    # the constants and nothing else. A file with no procs EITHER is the
+    # only real nothing.
+    if not decls:
         return None
     id2name = {}
     for off, typ, name, pid in decls:
@@ -748,7 +757,10 @@ def decompile(ecu):
     cov_unk = cov_len = 0
     for k, (off, typ, name, pid) in enumerate(decls):
         lo = off + 1 + len(name) + 1 + 4 + 1
-        hi = decls[k + 1][0] if k + 1 < len(decls) else ps
+        # the last proc runs to the pool, or to end-of-code when a file
+        # has no pool at all (the inline-string dialects)
+        hi = decls[k + 1][0] if k + 1 < len(decls) else (
+            ps if ps is not None else code_end(data, None))
         toks, unk, ln = walk(data, lo, hi, pool)
         cov_unk += unk
         cov_len += ln
@@ -821,10 +833,14 @@ def main():
         for p in files:
             data = open(p, "rb").read()
             ps, pool = find_pool(data)
-            if ps is None:
-                bad += 1
-                continue
-            decls = find_decls(data, ps)
+            # Same rule decompile() uses: a missing POOL is not a missing
+            # file. The inline-string dialects (A_*, and the CH/CI/CM test
+            # families) have an intact proc table and decode fine; only a
+            # file with no procs is nothing. Keeping a second copy of this
+            # test here is how --corpus went on reporting 205 failures
+            # after decompile() had stopped failing on them.
+            end = ps if ps is not None else code_end(data, None)
+            decls = find_decls(data, end)
             if len(decls) < 3:
                 bad += 1
                 continue
@@ -836,7 +852,7 @@ def main():
                 # for the whole corpus (44.7% where the real figure is what
                 # decompile() sees)
                 lo = off + 1 + len(name) + 1 + 4 + 1
-                hi = decls[k + 1][0] if k + 1 < len(decls) else ps
+                hi = decls[k + 1][0] if k + 1 < len(decls) else end
                 _, unk, ln = walk(data, lo, hi, pool)
                 tot_unk += unk
                 tot_len += ln
