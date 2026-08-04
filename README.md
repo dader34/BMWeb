@@ -198,11 +198,6 @@ Either way, tell the app with `?ws=<host>` on the URL, for example
 `index.html?ws=192.168.1.57`. A bare host, `host:port`, or a full
 `ws://host/path` all work.
 
-`thor_bridge.js`, the dependency-free relay, is no longer shipped or offered:
-it required installing node and running a process beside the page, which is
-impossible on a phone and the opposite of the point. If you still run one by
-hand, `?relay=1` re-enables the fallback.
-
 Tip if you need internet while on the adapter's network: give the machine a
 second link (Ethernet, or an iPhone via USB with Personal Hotspot) and put it
 above Wi-Fi in System Settings > Network > service order.
