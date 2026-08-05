@@ -162,6 +162,29 @@ class Resolver:
         return sorted(names, key=lambda t: (rank(t),
                                             1 if t in GENERIC_IPO_TOKENS else 0))
 
+    def sibling_sgbds(self, code, primary):
+        """The OTHER dsN variants of an ENTRY code, beside the one chosen.
+
+        resolve_sgbd stops at the first candidate that exists, and its only
+        suffix is "ds0" -- so an ECU shipping bms46ds0.prg AND bms46ds1.prg
+        contributed just ds0 to the config, and everything downstream keys
+        off the config: sgbd_survey.all_shipped_sgbds() never named ds1, so
+        it was never exported, even though the extractor reads it fine (106
+        jobs against ds0's 96) and its screens were already harvested.
+
+        These are returned separately from `sgbd` rather than replacing it.
+        resolve_sgbd answers "which SGBD IS this menu entry", one name, and
+        three callers plus the C# twin rely on that; the siblings are extra
+        data the exporters may also ship, not a second answer to that
+        question.
+        """
+        base = re.sub(r"ds\d$", "", primary)
+        if base == primary:
+            return []          # not a dsN name: nothing to be a sibling of
+        out = [p for p in self.prg
+               if re.match(re.escape(base) + r"ds\d$", p) and p != primary]
+        return sorted(out)
+
     def resolve_sgbd(self, code, chassis_id):
         """ENTRY code -> real SGBD .prg name (no extension), or None."""
         from_ipo = self.sgbd_from_ipo(code)
@@ -283,9 +306,12 @@ def load_chassis(chassis_id, path, res, drops, legacy=False):
                     continue
                 sgbd = res.resolve_sgbd(code, chassis_id)
                 if sgbd is not None:
-                    current["ecus"].append(
-                        {"code": code, "label": label, "sgbd": sgbd,
-                         "group": res.group_file_for(code)})
+                    entry = {"code": code, "label": label, "sgbd": sgbd,
+                             "group": res.group_file_for(code)}
+                    sibs = res.sibling_sgbds(code, sgbd)
+                    if sibs:
+                        entry["variants"] = sibs
+                    current["ecus"].append(entry)
                 elif drops is not None:
                     drops.append((chassis_id, current["key"], code, label))
 

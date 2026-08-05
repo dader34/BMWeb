@@ -348,12 +348,18 @@ def all_shipped_sgbds():
             continue
         for sec in d.get("sections", []):
             for e in sec.get("ecus", []):
-                stem = (e.get("sgbd") or "").lower()
-                if stem.endswith(".prg"):
-                    stem = stem[:-4]
-                # only what we can actually compile: the .prg must be present
-                if stem and glob.glob(os.path.join(ECU_DIR, stem + ".prg")):
-                    names.add(stem)
+                # "variants" are the sibling dsN builds of the same ECU. INPA
+                # resolves one menu entry to one SGBD (the ds0 it finds
+                # first), so a car shipping both bms46ds0 and bms46ds1 only
+                # ever exported the former -- see sibling_sgbds in
+                # tools/export/inpa_config.py.
+                for stem in [e.get("sgbd")] + list(e.get("variants") or []):
+                    stem = (stem or "").lower()
+                    if stem.endswith(".prg"):
+                        stem = stem[:-4]
+                    # only what we can compile: the .prg must be present
+                    if stem and glob.glob(os.path.join(ECU_DIR, stem + ".prg")):
+                        names.add(stem)
     return sorted(names)
 
 
