@@ -93,11 +93,17 @@ data/job-code/*
 # does -- the app ships dist-web/, which is derived from them. Get them from
 # BMW Standard Tools (see README) and drop them here; scripts/fetch-vendor.sh
 # checks they are present.
-vendor/EDIABAS/Ecu/
-vendor/EC-APPS/
+# No trailing slash: with one these match only a real directory, and a
+# SYMLINK of the same name slips straight past. Working in a git worktree
+# that is exactly what you end up making -- vendor/ is gitignored so a fresh
+# worktree has none of BMW's files, and linking them in from the main
+# checkout is the obvious fix. Three absolute-path symlinks got committed
+# that way; they point at one machine and are useless anywhere else.
+vendor/EDIABAS/Ecu
+vendor/EC-APPS
 # BMW's WDS, same deal: 259 MB of wiring documents that only the importer
 # reads. scripts/setup/fetch-wds.sh installs it.
-vendor/WDS/
+vendor/WDS
 
 # Per-car view of the generated data: data/chassis/<CHASSIS>/<ECU>/.
 # Everything about one ECU in one folder, which means a shared SGBD is stored
