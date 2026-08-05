@@ -560,6 +560,18 @@ def main():
 
     ids, chassis = build(legacy=legacy)
 
+    # NEVER OVERWRITE THE COMMITTED CACHE WITH AN EMPTY BUILD. Everything
+    # here is derived from vendor/EC-APPS/INPA, which is gitignored -- so in
+    # a fresh clone, or in a git worktree, chassis_ids() finds nothing and
+    # returns []. That is not an error state the old code noticed: it wrote
+    # index.json as "[]", left the 26 per-chassis files stale beside it
+    # (the write loop below simply never runs), printed "0 chassis, 0
+    # entries" and exited 0. Silent destruction of a committed file, with a
+    # success code, in exactly the state a new checkout is in.
+    if not ids:
+        sys.exit("no chassis found: vendor/EC-APPS/INPA is missing "
+                 "(run scripts/setup/fetch-vendor.sh)")
+
     if check:
         bad = 0
         for name, payload in [("index", dumps(ids))] + \
