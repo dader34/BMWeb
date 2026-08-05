@@ -1446,6 +1446,88 @@ def _menu_ir(toks, id2name, name=None):
     return out
 
 
+# ---- INPA's OTHER gauge dialect -------------------------------------------
+#
+# analogout declares a bar outright, and the walker above turns it into
+# {"t": "gauge", min, max}. But INPA also draws bars from a screen that only
+# PRINTS -- caption, "[unit]", the key, then four doubles -- which lifts as
+# {"t": "value"} with no unit and no range. BMS46's "analog values 1" is the
+# whole screen in that dialect: on the car INPA fills it with labelled bars,
+# and the app drew a bare label/value list, because irIsCard sends a screen
+# whose rows are all plain values to the identity renderer.
+#
+# tools/ipo_gauges.py already mines that dialect (505 KB, 268 ECUs, 3955
+# readouts). This joins it back onto the IR, which is the ONE source the app
+# reads for a screen -- the older ecu._layout.gaugeSpecs route died with the
+# "IR is the only source" refactor and nothing has written _layout since.
+#
+# WHAT IS DELIBERATELY NOT PROMOTED:
+#   * min == max (617 of them). A zero-width bar is not a measurement, and
+#     scaling by (max-min) would divide by zero. STATUS_GESCHWINDIGKEIT is
+#     mined as 0..0 -- INPA prints a number there, so a number it stays.
+#   * descending (96). ipo_gauges flags min > max, the signature of a range
+#     whose floor is really negative: the bytes say 45.0 for a -45 °C floor
+#     and nothing distinguishes them. Guessing the sign would draw a bar that
+#     is confidently wrong, which is worse than the number alone.
+# Both keep their unit if one was mined: a unit is a fact even when the range
+# is not usable.
+_GAUGES_JSON = os.path.join(L1.OUT, "_gauges.json")
+_GAUGES_CACHE = None
+
+
+def _mined_gauges(ecu):
+    """{result key -> mined gauge} for one ECU, or {} when none was mined."""
+    global _GAUGES_CACHE
+    if _GAUGES_CACHE is None:
+        try:
+            with open(_GAUGES_JSON, encoding="utf-8") as f:
+                raw = json.load(f)
+        except (OSError, ValueError):
+            raw = {}
+        # CASE-FOLDED. _gauges.json is keyed as INPA names the ECU (BMS46),
+        # and the corpus walk builds from the .IPO stem, which is whatever
+        # casing BMW shipped -- 763 files are *.IPO and 1025 *.ipo. Keying on
+        # the raw name matched when run as `ipo_ir.py BMS46` and missed every
+        # ECU under --write, which is a silent no-op across the whole corpus.
+        _GAUGES_CACHE = {k.lower(): v for k, v in raw.items()}
+    out = {}
+    for g in _GAUGES_CACHE.get((ecu or "").lower(), []):
+        key = g.get("key") or ""
+        # mined entries are keyed by the JOB (STATUS_MOTORDREHZAHL); the IR's
+        # elements carry the RESULT it fills (STAT_MOTORDREHZAHL_WERT)
+        if key.startswith("STATUS_"):
+            out[f"STAT_{key[len('STATUS_'):]}_WERT"] = g
+        out[key] = g
+    return out
+
+
+def _apply_mined_gauges(ir, ecu):
+    """Promote printed readouts to gauges where INPA declared a real range."""
+    mined = _mined_gauges(ecu)
+    if not mined:
+        return 0
+    n = 0
+    for scr in ir.get("screens", {}).values():
+        for ln in scr.get("lines", []):
+            for el in ln.get("elements", []):
+                if el.get("t") != "value":
+                    continue
+                g = mined.get(el.get("key"))
+                if not g:
+                    continue
+                if not el.get("unit") and g.get("unit"):
+                    el["unit"] = g["unit"]
+                lo, hi = g.get("min"), g.get("max")
+                if (el.get("min") is None and el.get("max") is None
+                        and lo is not None and hi is not None
+                        and lo != hi and not g.get("descending")):
+                    el["min"], el["max"] = lo, hi
+                    el["t"] = "gauge"
+                    el["gaugeSource"] = "mined"
+                    n += 1
+    return n
+
+
 def build(ecu):
     data, ps, pool, decls = D.load(ecu)
     if ps is None or len(decls) < 3:
@@ -1858,6 +1940,8 @@ def build(ecu):
         "menu": "m_main" if "m_main" in ir["menus"]
         else next(iter(ir["menus"]), None),
     }
+    # last, so it sees every screen the walk produced
+    _apply_mined_gauges(ir, ecu)
     return ir
 
 
