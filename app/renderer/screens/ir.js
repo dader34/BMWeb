@@ -114,7 +114,8 @@ function irRows(scr) {
     let unitAhead = null;
     let captionKey = null;
     let nth = 0;
-    for (const e of els) {
+    for (let ei = 0; ei < els.length; ei++) {
+      const e = els[ei];
       // a _TEXT result read purely to caption the value below it. The ECU
       // supplies the wording, so it is a live caption rather than a row --
       // carried on the row it labels and filled in by the poller.
@@ -132,6 +133,23 @@ function irRows(scr) {
         // in a bracket ("Kennfeld [neu]") still reads as a caption.
         if (!m && /\]$/.test(s) && !s.includes('[')) {
           m = [s, s.slice(0, -1)];
+        }
+        // ...and sometimes INPA prints the unit with no brackets at all.
+        // BMS46's load is captioned "load" then "mg/As/Zyl" then the value,
+        // where every neighbouring row uses "[kgh]" / "[Volt]". Read as a
+        // caption it overwrote "load", so the row drew as "MG/AS/ZYL".
+        //
+        // No text SHAPE can settle this -- the same slot legitimately holds
+        // "Fahrerseite", "backrest", "AM/FM" -- so the test is corroboration
+        // instead: the element it labels already carries a unit, mined
+        // independently from INPA's gauge declaration, and the printed text
+        // is exactly that unit. Corpus-wide this matches 36 times and every
+        // one is a real unit (bar, Nm, 1/min, mg/As/Zyl).
+        if (!m) {
+          const nxt = els[ei + 1];
+          const u = nxt && nxt.t !== 'text' && nxt.col === e.col
+            && nxt.unit ? String(nxt.unit).trim() : null;
+          if (u && u === s) m = [s, s];
         }
         if (m) { unitAhead = m[1].trim(); continue; }
         // INPA lays a labelled row out as three prints: the caption, a bare
