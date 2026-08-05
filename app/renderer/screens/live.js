@@ -477,9 +477,7 @@ async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
   }
 
   await tick();
-  if (liveTok === _liveToken && container.querySelector('.inpa-table')) {
-    scheduleLive(tick);
-  }
+  if (container.querySelector('.inpa-table')) scheduleLive(tick);
 }
 
 async function showInpaScreens(ecu, screens, container, title, { scroll = false } = {}) {
@@ -615,7 +613,20 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
   }
   await tick();
-  if (liveTok === _liveToken && container.querySelector('.inpa-grid')) scheduleLive(tick);
+  // THE DOM IS THE STALENESS TEST, NOT THE TOKEN. Every caller starts the
+  // live view and THEN calls setActions for its Back key -- and setActions
+  // begins with stopLive(), which bumps the token. That happens while this
+  // first tick is still awaiting its first api() call, so by the time we get
+  // here liveTok never equals _liveToken and scheduleLive was never reached:
+  // the screen painted one read, said "live · N values", and froze. Only
+  // ecu.js called setActions first, which is why the classic Status page was
+  // the one screen that kept updating.
+  //
+  // Still guarded: if the user has navigated away, this container no longer
+  // holds this screen's grid, so nothing is rescheduled. scheduleLive
+  // re-reads the token itself for every later tick, so a real stopLive()
+  // during steady-state polling still stops it.
+  if (container.querySelector('.inpa-grid')) scheduleLive(tick);
 }
 
 // Screen rows in the order INPA actually draws them. When the .IPO decode gave
