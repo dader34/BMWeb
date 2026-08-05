@@ -357,11 +357,35 @@ function irScreens(scr) {
       if (owner.has(l)) last = owner.get(l);
       lineJob.set(l, last);
     }
+    // TWO JOBS ON ONE LINE ARE TWO COLUMNS, NOT ALTERNATES. INPA writes a
+    // two-column page as one line per ROW of the page, so a line carries a
+    // reading from the left job and one from the right -- BMS46's analog page
+    // puts battery voltage beside Speed, air mass beside load, coolant beside
+    // cooling-water-leave. Giving the whole line to whichever job was
+    // declared first handed that job BOTH rows and left the other with none;
+    // the poller then dropped the orphaned row (it only keeps keys the job it
+    // polled actually answered), so four of ten readouts silently vanished.
+    //
+    // A result name is the reliable link back: STATUS_GESCHWINDIGKEIT answers
+    // STAT_GESCHWINDIGKEIT_WERT. Where that match is unambiguous it wins over
+    // the line, and the line rule still covers every row it cannot resolve
+    // (an alternates page, where the keys do not echo the job name).
+    const stem = (s) => String(s || '').replace(/^(STATUS|STAT)_/, '')
+      .replace(/_(WERT|EINH|TEXT)$/, '');
+    const byStem = new Map();
+    for (const j of jobs) {
+      const k = stem(j.name);
+      byStem.set(k, byStem.has(k) ? null : j.name);   // null = ambiguous
+    }
+    const jobFor = (r) => {
+      const hit = byStem.get(stem(r.key));
+      return hit || lineJob.get(r.line);
+    };
     return jobs.map(j => ({
       job: j.name,
       args: j.arg || '',
       group: scr.title || null,
-      rows: rows.filter(r => lineJob.get(r.line) === j.name),
+      rows: rows.filter(r => jobFor(r) === j.name),
       grid: null,
     }));
   }
