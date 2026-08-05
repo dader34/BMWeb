@@ -122,7 +122,17 @@ function irRows(scr) {
       if (e.t === 'text') {
         const s = String(e.s || '').trim();
         // "[rpm]" printed above a gauge is its UNIT, not its caption
-        const m = /^\[(.+)\]$/.exec(s);
+        let m = /^\[(.+)\]$/.exec(s);
+        // ...and INPA sometimes loses the OPENING bracket. BMS46's analog
+        // page prints "degree KW]" for the ignition angle -- one unmatched
+        // "]" where every other row has "[...]". Unmatched, it read as a
+        // caption, so the row was titled "DEGREE KW]" and the real caption
+        // ("ignition angle") was overwritten. Only a trailing "]" with no
+        // "[" anywhere qualifies, so a genuine caption that happens to end
+        // in a bracket ("Kennfeld [neu]") still reads as a caption.
+        if (!m && /\]$/.test(s) && !s.includes('[')) {
+          m = [s, s.slice(0, -1)];
+        }
         if (m) { unitAhead = m[1].trim(); continue; }
         // INPA lays a labelled row out as three prints: the caption, a bare
         // ":" separator at a fixed column, then the value. The separator is
