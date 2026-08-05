@@ -1482,15 +1482,27 @@ def _menu_ir(toks, id2name, name=None):
 # reads for a screen -- the older ecu._layout.gaugeSpecs route died with the
 # "IR is the only source" refactor and nothing has written _layout since.
 #
-# WHAT IS DELIBERATELY NOT PROMOTED:
-#   * min == max (617 of them). A zero-width bar is not a measurement, and
-#     scaling by (max-min) would divide by zero. STATUS_GESCHWINDIGKEIT is
-#     mined as 0..0 -- INPA prints a number there, so a number it stays.
+# A ZERO-WIDTH RANGE IS A 0..1 SCALE. INPA declares some readouts with all
+# four bounds identical -- lambda-integrator as (80,80,80,80), the mixture
+# adaptations as (10,10) and (40,40) -- and still draws a normal bar with a
+# 0..1 axis. Photographed on a real car: integrator 1.00 and multiplicative
+# 1.00 sit FULL while additive 0.26 sits at about a quarter. Only 0..1
+# predicts all three; on the 0..80 the bytes appear to say they would be
+# slivers of 1-3%. They are normalised factors -- the SGBD calls the first
+# "Lambdaregelfaktor" -- which is why one scale fits regardless of the unit
+# printed beside them.
+#
+# These were held back at first for a good reason: the numbers look like
+# maximums, and reading (80,80) as "0..80" would have drawn Short Term Fuel
+# Trim, centred on zero and going negative, against a floor of 0. The car
+# is what settles it, not the bytes.
+#
+# STILL NOT PROMOTED:
 #   * descending (96). ipo_gauges flags min > max, the signature of a range
 #     whose floor is really negative: the bytes say 45.0 for a -45 °C floor
 #     and nothing distinguishes them. Guessing the sign would draw a bar that
 #     is confidently wrong, which is worse than the number alone.
-# Both keep their unit if one was mined: a unit is a fact even when the range
+# It keeps its unit if one was mined: a unit is a fact even when the range
 # is not usable.
 _GAUGES_JSON = os.path.join(L1.OUT, "_gauges.json")
 _GAUGES_CACHE = None
@@ -1541,10 +1553,23 @@ def _apply_mined_gauges(ir, ecu):
                 lo, hi = g.get("min"), g.get("max")
                 if (el.get("min") is None and el.get("max") is None
                         and lo is not None and hi is not None
-                        and lo != hi and not g.get("descending")):
-                    el["min"], el["max"] = lo, hi
+                        and not g.get("descending")):
                     el["t"] = "gauge"
                     el["gaugeSource"] = "mined"
+                    if lo == hi:
+                        # A DEGENERATE DECLARATION IS A 0..1 SCALE. Read off
+                        # the car: BMS46's analog-3 page shows lambda
+                        # integrator 1.00 and mixture-multiplicative 1.00 with
+                        # FULL bars beside additive 0.26 at about a quarter --
+                        # exactly what 0..1 predicts and nothing else does. On
+                        # the 0..80 the bytes seem to say, all three would be
+                        # slivers of 1-3%. These readouts are normalised
+                        # factors ("Lambdaregelfaktor"), which is why the same
+                        # scale fits whatever unit they carry.
+                        el["min"], el["max"] = 0.0, 1.0
+                        el["gaugeSource"] = "mined-unit-scale"
+                    else:
+                        el["min"], el["max"] = lo, hi
                     n += 1
     return n
 
