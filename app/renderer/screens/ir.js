@@ -1319,7 +1319,23 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // and sending it bare would write whatever the ECU makes of nothing.
       // Those stay as they were: listed, and not armed by this shortcut.
       const clears = /^(FS|IS|HS)_LOESCHEN$/i.test(only.name);
-      if (!only.write || clears) {
+      // A SCREEN THAT DID NOT DECODE IS NOT AN ACTION. !irReadable means "no
+      // rows to show", and that is true both of a key INPA really does just
+      // run and of a screen this decompiler failed to lift. Arming the
+      // second kind turned BMS46's rough-measuring -- four per-cylinder
+      // readouts INPA draws as gauges -- into an "Activate on BMS46?"
+      // confirm, because its gauges lift as captions with no values (INPA
+      // batches all four result keys ahead of the captions, a layout the
+      // walker does not model yet).
+      //
+      // So the job has to LOOK like an action as well as be write-free.
+      // STATUS_* reads a value: whatever else is wrong, it is never
+      // something to offer to run on a car. That alone is 1307 of the jobs
+      // this shortcut was arming; START/STOP/DIAGNOSE/INITIALISIERUNG and
+      // the memory clears are the ones that belong here.
+      const acts = /^(START|STOP|DIAGNOSE|DIAGNOSEMODE|INITIALISIERUNG|INIT|ENDE|SLEEP|RESET)[_A-Z0-9]*$/i
+        .test(only.name);
+      if ((!only.write && acts) || clears) {
         it = { ...it, job: only.name, writeJob: !!only.write, inPlace: true };
       }
     }
@@ -1546,8 +1562,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
         + (scr && !irReadable(scr)
-          ? `In INPA this entry performs an action, not a readout — it is not `
-            + `offered here until verified on a car.`
+          ? ((scr.jobs || []).some(j => /^(STATUS|LESEN|MESSWERT)/i.test(j.name))
+            // a READ whose layout did not lift. Saying "performs an action"
+            // would be a plain lie about a job that only reads values, and
+            // this is the wording someone sees when the decompiler has a gap
+            // rather than when INPA really has no readout.
+            ? `INPA draws readouts here that this build could not decode from `
+              + `the .IPO yet, so there is nothing to show.`
+            : `In INPA this entry performs an action, not a readout — it is `
+              + `not offered here until verified on a car.`)
           : `INPA lists this entry, but it has no readouts.`)
         + `</div></div>`;
     }

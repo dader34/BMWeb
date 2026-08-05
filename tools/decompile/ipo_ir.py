@@ -530,6 +530,27 @@ def _screen_ir(toks):
             if args and args[-1]["op"] == "const" \
                     and t["n"] not in lastconst:
                 lastconst[t["n"]] = args[-1]["v"]
+            # A PEAK HOLD CARRIES THE RESULT WITH IT. INPA's rough-running
+            # page reads each cylinder into one scratch slot and keeps the
+            # high-water mark per cylinder:
+            #
+            #   ResultAnalog("STAT_..._ZYL1_WERT") -> var 0 sc 2
+            #   if (var0 > var1) var1 = var0
+            #   ...then analogout draws var1, var2, var3, var4
+            #
+            # The key was bound to the scratch slot only, so the four slots
+            # the gauges actually draw held no result and the whole screen
+            # lifted as captions with nothing under them -- which then read
+            # as "not a readout" and offered to ACTIVATE the ECU instead.
+            # Copying the binding across the assignment is what pairs each
+            # caption with its cylinder; the slot number is the cylinder
+            # number, so this cannot mismatch them the way pairing by
+            # emission order would (the captions run 1,3,2,4).
+            if args and args[-1]["op"] == "var":
+                s_from = (args[-1].get("sc", 0), args[-1]["n"])
+                s_to = (t.get("sc", 0), t["n"])
+                if s_from in bind and s_to not in bind:
+                    bind[s_to] = bind[s_from]
             pend_cmp = None     # `x = (a == b)` consumed the comparison
         elif op in ("call", "calluser"):
             name = t.get("name", "")
