@@ -58,9 +58,13 @@ def owners():
             continue
         for sec in cfg.get("sections", []):
             for e in sec.get("ecus", []):
-                sgbd = (e.get("sgbd") or "").lower()
-                if sgbd:
-                    out.setdefault(sgbd, []).append((cid, e["code"]))
+                # the entry's own SGBD and its sibling dsN builds alike: all
+                # of them serve this car, and without the siblings write_ecu
+                # dropped them ("no chassis-config entry names this SGBD")
+                for sgbd in [e.get("sgbd")] + list(e.get("variants") or []):
+                    sgbd = (sgbd or "").lower()
+                    if sgbd:
+                        out.setdefault(sgbd, []).append((cid, e["code"]))
     _OWNERS = out
     return out
 
