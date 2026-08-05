@@ -142,7 +142,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                     return;
                 case "serialClose": _serial.Close(); Settle(webView, id, Ok()); return;
                 case "serialWrite": _serial.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
-                case "serialRead": Settle(webView, id, _serial.ReadAvailable()); return;
+                case "serialRead": Settle(webView, id, Bytes(_serial.ReadAvailable())); return;
                 case "serialFlush": _serial.Flush(); Settle(webView, id, Ok()); return;
                 case "tcpOpen":
                 {
@@ -167,7 +167,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 }
                 case "tcpClose": _tcp.Close(); Settle(webView, id, Ok()); return;
                 case "tcpWrite": _tcp.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
-                case "tcpRead": Settle(webView, id, _tcp.ReadAvailable()); return;
+                case "tcpRead": Settle(webView, id, Bytes(_tcp.ReadAvailable())); return;
                 case "wifiJoin": WifiJoin(webView, id, args); return;
                 default: Settle(webView, id, null, $"unknown bridge fn '{fn}'"); return;
             }
@@ -308,7 +308,10 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 Settle(webView, id, new { ok = false });
                 return;
             }
-            var writer = new StreamWriter(path, append: false);
+            // AutoFlush: rows arrive seconds apart, so buffering buys nothing
+            // and costs the tail of the log on a force-quit or a crash --
+            // which is the one thing streaming to a file exists to survive.
+            var writer = new StreamWriter(path, append: false) { AutoFlush = true };
             if (header.ValueKind == JsonValueKind.Array)
                 writer.WriteLine(string.Join(",",
                     header.EnumerateArray().Select(c => CsvCell(c.ToString()))));
@@ -443,7 +446,17 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
     // what actually decides the sheet, and its default is portrait.
     private void PrintPage(WKWebView? webView, long id)
     {
-        if (webView == null) { Settle(null, id, null, "no view to print"); return; }
+        if (webView == null) return;          // nothing to settle back to
+        // ONE SHEET AT A TIME. A second printPage while the first is up
+        // queues a second sheet in AppKit, and both completions read the one
+        // _printing field: the first clears it, so the second settles against
+        // null and that promise hangs forever -- with it, the renderer's
+        // "put the print header back afterwards" step.
+        if (_printing != null)
+        {
+            Settle(webView, id, new { ok = false, busy = true });
+            return;
+        }
         try
         {
             var info = new NSPrintInfo
@@ -473,6 +486,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         }
         catch (Exception ex)
         {
+            _printing = null;             // no sheet is running; let the next try
             Settle(webView, id, null, ex.Message);
         }
     }
@@ -538,6 +552,22 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         && args[index].ValueKind == JsonValueKind.Number
             ? args[index].GetInt32() : 0;
 
+    // ...and it has to go back the same way. NOT byte[]: System.Text.Json
+    // serializes a byte[] as a BASE64 STRING, so serialRead/tcpRead were
+    // settling "gvER" where the renderer expects [130,241,17]. webshim does
+    // `buf.push(...got)` on the result, which spreads a string into its
+    // CHARACTERS -- so the echo check compared "g" against 0x82 and every
+    // exchange died as "echo did not match the request (bus collision?)",
+    // and the THOR checksum summed characters to NaN. Writes were always
+    // correct (the shim sends Array.from(bytes)), so the app could talk to
+    // the car and never understand the reply. int[] is the symmetric form.
+    private static int[] Bytes(byte[] b)
+    {
+        var out_ = new int[b.Length];
+        for (int i = 0; i < b.Length; i++) out_[i] = b[i];
+        return out_;
+    }
+
     // A byte array arrives as a JSON number array -- the message channel is
     // text, so there is no typed-array to unwrap.
     private static byte[] ArgBytes(JsonElement args, int index)
@@ -574,6 +604,9 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         // Release the cable: a port still held by a dead app blocks the next
         // launch, and the FTDI driver does not always reap it promptly.
         _serial.Dispose();
+        // ...and the THOR socket, which was closed only by the process
+        // exiting -- the adapter saw a reset rather than a clean shutdown.
+        _tcp.Close();
         base.Dispose();
     }
 }

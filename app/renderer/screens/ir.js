@@ -1446,6 +1446,29 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         // only in "FM"/"CDC"/"AM", and CDC's transport mode in "0;1;0" vs
         // "0;0;0". Sending the job bare would fire the wrong command.
         const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
+        // REGISTER BEFORE SENDING, or "released when you leave" is a lie --
+        // which is exactly what the confirm above promises. activations.js
+        // owns the registry and core.js calls stopAllActivations from
+        // setActions, so a drive started here is released on the next screen
+        // change like any other. Registered before the await: if the POST
+        // times out the output may still be energized, and an unreleased
+        // drive is worse than a redundant stop.
+        //
+        // Not for a permanent write (nothing to release, and _ENDE on an
+        // EEPROM job is meaningless) and not for a read that only reached
+        // this path because its screen failed to decode.
+        // ...and an OFF form is the release, not a drive: registering
+        // STEUERN_EV_1_AUS would have cleanup re-send a stop for something
+        // already stopped.
+        const drives = !permanent
+          && /^(STEUERN|START)/i.test(it.job)
+          && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
+          && typeof activeTests === 'object';
+        if (drives) {
+          activationEcu = ecu;
+          activeTests.add(it.job);
+          activeDrives.set(it.job, it.jobArg ? `${it.jobArg};0` : null);
+        }
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
         const r = flatResults(out.sets).map(([k, v]) => `${k}=${v}`)
