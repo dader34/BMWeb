@@ -761,6 +761,35 @@ def _screen_ir(toks):
                 if key and len(ints) >= 2:
                     el = {"t": "value" if lab or len(strs) < 3 else "lamp",
                           "key": key, "row": ints[0], "col": ints[1]}
+                    # A HELPER CAN BE THE GAUGE ITSELF. Some SGBDs do not call
+                    # analogout from the screen at all -- they wrap it in a
+                    # per-ECU proc and hand the bounds to that. MS45's
+                    # measurement blocks are sixteen calls to
+                    # ergebnisAnalogAusgabe(key, row, col, min, max, okMin,
+                    # okMax, fmt), which is a full gauge declaration: SAE
+                    # J1979 passes 50..150 with a green band of 30..100. The
+                    # walker took the key and the position and threw the four
+                    # doubles away, so every row lifted as a bare value and
+                    # the screen drew as a flat label/number list where INPA
+                    # draws bars.
+                    #
+                    # Only when the numbers are actually there: a formatting
+                    # helper with no bounds keeps its old meaning.
+                    if el["t"] == "value":
+                        rng = num_args_after_coords(args)
+                        # ...and the bounds have to be an instrument scale.
+                        # These helpers are also handed raw counter and
+                        # bitfield widths -- 0..536870911 (2^29) on MSD87's
+                        # NOx page, 0..42949672.95 (2^32/100) on S63 -- which
+                        # are field capacities, not something a bar can show.
+                        # A real INPA scale is a plain readable number.
+                        if len(rng) >= 2 and abs(rng[1]) > 1e6:
+                            rng = []
+                        if len(rng) >= 2 and rng[0] != rng[1]:
+                            el["t"] = "gauge"
+                            el["min"], el["max"] = rng[0], rng[1]
+                            if len(rng) >= 4 and (rng[2], rng[3]) != (rng[0], rng[1]):
+                                el["okMin"], el["okMax"] = rng[2], rng[3]
                     if lab:
                         el["s"] = lab
                     else:
