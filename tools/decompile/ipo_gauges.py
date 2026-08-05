@@ -46,9 +46,40 @@ OUT = L1.OUT
 _P = rb"\x03(.)\x00"
 # caption + position, '[unit]' + position, result key
 # named groups: the optional position pushes make positional indexes fragile
-_GAUGE = re.compile(rb"\x06(?P<label>[\x20-\x7e\xa0-\xff]{3,44})\x0a"
+# The unit is USUALLY "[x]", but INPA is not consistent about it and two of
+# the three shapes were being missed outright:
+#   "[degrees C]"  the normal case
+#   "degree KW]"   BMS46's ignition angle -- the opening bracket is simply
+#                  absent from the file
+#   "mg/As/Zyl"    BMS46's load -- no brackets at all
+# All three sit in the same slot, print in the same place on INPA's screen,
+# and are followed by the same four doubles. Requiring the brackets meant
+# BMS46's load (0..7) and its cooling-water-leave temperature (40..120) were
+# dropped even though the ranges are right there in the bytes.
+#
+# The unbracketed forms have to stay tight. A bracketed unit is
+# self-evidencing and keeps the permissive old shape; without brackets there
+# is nothing to distinguish a unit from any other short string INPA prints in
+# that slot, and this file is full of them -- an actuator screen prints
+# "Read error memory" / "Clear" / FS_LOESCHEN in exactly this shape, which a
+# loose pattern mines as a gauge whose unit is "Clear".
+#
+# So the bare form must contain a unit-ish character: a "/" (mg/As/Zyl,
+# kg/h), a "%", a degree sign, or be one of the short symbols INPA uses.
+# Anything else needs its brackets. Every match is still required to be
+# followed by a real min/max pair below, which is the second filter.
+_UNIT_BRACKETED = rb"\[[^\]]{1,16}\]"
+_UNIT_HALF = rb"[^\[\]\n]{1,16}\]"          # lost its opening bracket
+_UNIT_BARE = (rb"(?:[A-Za-z0-9%\xb0.]{1,14}/[A-Za-z0-9%\xb0/.]{1,14}"  # a/b
+              rb"|[A-Za-z]{0,3}[%\xb0][A-Za-z]{0,3}"                   # %, °C
+              rb"|kgh|rpm|ms|mbar|bar|Nm|Ohm|V|A|K)")
+# LABEL LENGTH. Was 44, which silently dropped BMS46's "cooling water
+# temperature-cooling water leave temperature" (57 chars) -- INPA prints the
+# whole thing as one caption, so the cap has to clear the longest it draws.
+_GAUGE = re.compile(rb"\x06(?P<label>[\x20-\x7e\xa0-\xff]{3,80})\x0a"
                     + rb"(?:\x03.\x00){0,2}"
-                    + rb"\x06\[(?P<unit>[^\]]{1,16})\]\x0a"
+                    + rb"\x06(?P<unit>" + _UNIT_BRACKETED
+                    + rb"|" + _UNIT_HALF + rb"|" + _UNIT_BARE + rb")\x0a"
                     + rb"(?:\x03.\x00){0,2}"
                     + rb"\x06(?P<key>[A-Z][A-Z0-9_]{3,})\x0a", re.DOTALL)
 # the little-endian doubles that follow: min, max (repeated for the second page)
@@ -80,9 +111,36 @@ def gauges(data):
         key = m.group("key").decode("latin-1")
         label = m.group("label").decode("latin-1").strip()
         unit = m.group("unit").decode("latin-1").strip()
+        # the group now carries whichever bracketing INPA used, if any
+        unit = unit.lstrip("[").rstrip("]").strip()
         if not L1._clean(label) or key in out:
             continue
+        # "ALBV60B/V2.x" is an SGBD version banner, not a unit -- it only
+        # reaches here because the a/b shape that catches mg/As/Zyl also
+        # catches it. No real unit carries a version number.
+        if not m.group("unit").startswith(b"[") \
+                and re.search(r"[/_]v ?\d", unit, re.I):
+            continue
         ds = _doubles(data, m.end())
+        # AN UNBRACKETED UNIT MUST BE BACKED BY A RANGE. The brackets are what
+        # made the old pattern safe; without them, a match is only credible if
+        # INPA also emitted the min/max pair a bar needs. This is what keeps
+        # the actuator screens out ("Read error memory" / "Clear" /
+        # FS_LOESCHEN prints in the same shape but carries no doubles).
+        if len(ds) < 2 and not m.group("unit").startswith(b"["):
+            continue
+        # ...and the range has to be one a bar could be drawn against. Reading
+        # doubles out of a byte stream finds numbers whether or not they were
+        # meant as bounds: an SGBD version string ("ALBV60B/V2.x") matches the
+        # a/b unit shape and lands on 1.0..0.0, and ACC2's inner temperature
+        # picks up 1.9e-260..1.2e-255 from whatever follows it. INPA's real
+        # bounds are plain instrument numbers.
+        if len(ds) >= 2 and not m.group("unit").startswith(b"["):
+            lo, hi = ds[0], ds[1]
+            if not all(v == 0 or 1e-4 <= abs(v) < 1e7 for v in (lo, hi)):
+                continue
+            if lo == hi == 0:
+                continue
         g = {"key": key, "label": label, "unit": unit, "source": "ipo"}
         if len(ds) >= 2:
             lo, hi = ds[0], ds[1]
