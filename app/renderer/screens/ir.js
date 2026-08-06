@@ -151,6 +151,27 @@ function irRows(scr) {
             && nxt.unit ? String(nxt.unit).trim() : null;
           if (u && u === s) m = [s, s];
         }
+        // A BRACKETED RESULT NAME IS NOT A UNIT. INPA's FASTA developer
+        // pages print THREE columns per row -- caption, value, unit, and
+        // then the ECU's internal variable name in brackets at the far
+        // right: "PWG-Spannung  0.71  [V]  [upwg]". The variable name reads
+        // as "[...]" exactly like a unit does, so it was being taken as one
+        // and ME9N45's whole CO-Poti page showed "[copot]", "[minhub]",
+        // "[ftbr]" where INPA shows [V], [mm] and [].
+        //
+        // The tell is that it repeats the result it labels: [upwg] sits
+        // beside STAT_UPWG_WERT. Corpus-wide that holds 412 times and every
+        // one is a variable name, never a unit. Dropping it lets the row
+        // fall through to irUnitFor, which reads the REAL unit live from the
+        // ECU's own STAT_x_EINH -- which is where INPA gets it too.
+        if (m) {
+          const nxt = els[ei + 1];
+          const stem = nxt && nxt.key
+            ? String(nxt.key).replace(/^STAT(US)?_/, '')
+              .replace(/_(WERT|EIN|EINH|TEXT)\d*$/, '')
+            : null;
+          if (stem && m[1].trim().toUpperCase() === stem.toUpperCase()) continue;
+        }
         if (m) { unitAhead = m[1].trim(); continue; }
         // INPA lays a labelled row out as three prints: the caption, a bare
         // ":" separator at a fixed column, then the value. The separator is
