@@ -161,10 +161,28 @@ function argsDialog(job, argSpecs) {
   });
 }
 
+// THE ECU'S SECOND FAULT STORE. Shadow memory holds entries that have not
+// (yet) met the criteria to become an active fault, and it survives a clear
+// of the main memory -- which is exactly what makes it worth reading: it is
+// the store that is still there after someone clears codes before a sale.
+//
+// Three job names for the one thing, which is why looking for a single name
+// finds less than half of them: FS_SHADOW_LESEN (17 SGBDs -- BMS43/46,
+// MS41x/42x/43x, MSS52, DME 5.2x, DDE22/40, SMG2), FS_LESEN_SHADOW (11 --
+// the newer DDEs) and READ_SHADOW (4 -- E65 tailgate modules).
+//
+// EDIABAS decodes it with decode_shadow_memory_kwp2000, which emits the same
+// eleven F_* results as the normal decoder (B2BMW.CHM), so renderFaults
+// handles it unchanged.
+const SHADOW_JOB_RE = /^(FS_SHADOW_LESEN|FS_LESEN_SHADOW|READ_SHADOW)$/i;
+const isShadowJob = (job) => SHADOW_JOB_RE.test(String(job || ''));
+
 // run a job and render its result sets. FS_LESEN gets the fault-card view, others
 // a generic key/value table.
 async function runJob(ecu, job, container, danger, presetArg) {
-  if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL') loadFaultDb(); // warm the name db
+  if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL' || isShadowJob(job)) {
+    loadFaultDb(); // warm the name db
+  }
   // resolve a required argument first. hand-tuned JOB_ARGS overrides win (they
   // encode special encodings like CBS_RESET's tail); otherwise ask the SGBD what
   // the job declares and build a dialog from that.
@@ -218,13 +236,23 @@ async function runJob(ecu, job, container, danger, presetArg) {
     let q = arg != null && arg !== '' ? `?arg=${encodeURIComponent(arg)}` : '';
     // fault jobs load via the diagnostic-address group so EDIABAS picks the exact
     // variant (see server LoadForJob); other jobs stay on the concrete SGBD.
-    if (ecu.group && /^FS_/.test(job)) q += `${q ? '&' : '?'}group=${encodeURIComponent(ecu.group)}`;
+    // ...and a shadow read is a fault read: READ_SHADOW does not start FS_,
+    // so without this the E65 tailgate modules would miss the group routing
+    // every other fault job gets.
+    if (ecu.group && (/^FS_/.test(job) || isShadowJob(job))) {
+      q += `${q ? '&' : '?'}group=${encodeURIComponent(ecu.group)}`;
+    }
     const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, { method: 'POST' });
-    if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL') {
+    if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL' || isShadowJob(job)) {
       const codes = data.sets.slice(1); // set 0 = system summary
       await loadFaultDb(); // names resolve synchronously in the render
       renderFaults(codes, container, ecu);
-      sbLeft.textContent = `${codes.length} fault(s)`;
+      // say WHICH store this was: a shadow read showing 0 is a different
+      // statement from the main memory showing 0, and the two are easy to
+      // confuse once the cards look identical.
+      sbLeft.textContent = isShadowJob(job)
+        ? `shadow memory · ${codes.length} entr${codes.length === 1 ? 'y' : 'ies'}`
+        : `${codes.length} fault(s)`;
     } else if (job === 'FS_LOESCHEN') {
       // INPA reruns the read after a clear; do the same rather than asking
       // the user to. A fault that re-set the moment the ECU saw it again

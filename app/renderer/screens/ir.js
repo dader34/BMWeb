@@ -583,8 +583,34 @@ const IR_FAULT_JOB = [
   [/\b(HM|HS|Historienspeicher|history\s+memory)\b/i, 'HS_LESEN'],
   [/\b(EM|FS|Fehlerspeicher|(error|fault)\s+memory)\b/i, 'FS_LESEN'],
 ];
-const irFaultJob = (label) =>
-  (IR_FAULT_JOB.find(([re]) => re.test(label)) || [null, 'FS_LESEN'])[1];
+// "Shadow" means two different things depending on the ECU, so the caption
+// alone cannot decide. TOENS labels its INFO memory "Shadow" and answers
+// IS_LESEN -- it has no shadow job at all. 32 other SGBDs have a real second
+// fault store under one of three names, and 25 of those have NO IS_LESEN, so
+// sending IS_LESEN there asks for a job the ECU does not have.
+//
+// Resolve against what the ECU actually declares: a real shadow job wins,
+// otherwise the old IS_LESEN reading stands.
+const IR_SHADOW_JOBS = ['FS_SHADOW_LESEN', 'FS_LESEN_SHADOW', 'READ_SHADOW'];
+
+// Async because it may have to ask the ECU archive which jobs exist. The
+// answer is cached on the ecu, so this costs one request per ECU at most and
+// only for a caption that actually says "Shadow".
+async function irFaultJobFor(label, ecu) {
+  const hit = (IR_FAULT_JOB.find(([re]) => re.test(label)) || [null, 'FS_LESEN'])[1];
+  if (hit !== 'IS_LESEN' || !/^(Shadow|Schatten)/i.test(label)) return hit;
+  if (!ecu || !ecu.sgbd) return hit;
+  if (!ecu._jobNames) {
+    try {
+      const jobs = await api(`/api/ecu/${ecu.sgbd}/jobs`);
+      ecu._jobNames = new Set(
+        (Array.isArray(jobs) ? jobs : [])
+          .map(j => String(typeof j === 'string' ? j : (j && j.name) || '')
+            .toUpperCase()));
+    } catch { ecu._jobNames = new Set(); }
+  }
+  return IR_SHADOW_JOBS.find(j => ecu._jobNames.has(j)) || hit;
+}
 
 // Items INPA implements against the FILE SYSTEM rather than the car: saving
 // the fault list to disk ("FS speichern", which RDC labels "store"). BMW's
@@ -1350,7 +1376,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // the caption says WHICH memory: "Read IM" -> IS_LESEN. 239 ECUs keep
       // an info memory and 20 a history memory that a hardcoded FS_LESEN
       // would never have read.
-      runJob(ecu, irFaultJob(it.label), container, false);
+      // ...and "Shadow" needs the ECU asked, not just the caption read, so
+      // this resolves before the run rather than inline.
+      irFaultJobFor(it.label, ecu)
+        .then(j => runJob(ecu, j, container, false))
+        .catch(() => runJob(ecu, 'FS_LESEN', container, false));
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label}`;
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
