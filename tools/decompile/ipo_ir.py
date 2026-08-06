@@ -1586,17 +1586,29 @@ def _apply_mined_gauges(ir, ecu):
                     el["t"] = "gauge"
                     el["gaugeSource"] = "mined"
                     if lo == hi:
-                        # A DEGENERATE DECLARATION IS A 0..1 SCALE. Read off
-                        # the car: BMS46's analog-3 page shows lambda
-                        # integrator 1.00 and mixture-multiplicative 1.00 with
-                        # FULL bars beside additive 0.26 at about a quarter --
-                        # exactly what 0..1 predicts and nothing else does. On
-                        # the 0..80 the bytes seem to say, all three would be
-                        # slivers of 1-3%. These readouts are normalised
-                        # factors ("Lambdaregelfaktor"), which is why the same
-                        # scale fits whatever unit they carry.
-                        el["min"], el["max"] = 0.0, 1.0
-                        el["gaugeSource"] = "mined-unit-scale"
+                        # A DEGENERATE DECLARATION IS A SYMMETRIC -N..+N SCALE.
+                        # INPA passes ONE number four times when the scale is
+                        # centred on zero, and draws it as -N..+N.
+                        #
+                        # Photographed on a car, MS42's "patrol adaption" page
+                        # declares (80,80,80,80) / (130,130,130,130) /
+                        # (50,50,50,50) and INPA labels those axes -80..80,
+                        # -130..130 and -50..50. The clincher is the "!" on
+                        # that page: INPA marks a reading that falls OUTSIDE
+                        # the scale, and it prints "!-131.07" on the -130..130
+                        # row. -131.07 is only out of range if the floor is
+                        # -130, so the negative half of the axis is real.
+                        #
+                        # This first shipped as 0..1, from three readings on
+                        # BMS46's analog-3 page where the values happened to
+                        # sit near 1.0. That fit those three and nothing else;
+                        # MS42 is the counter-example. Mixture adaptation,
+                        # lambda integrators and trims are all signed
+                        # corrections, so a floor of 0 hides exactly the half
+                        # of the range that says the ECU is compensating
+                        # downwards.
+                        el["min"], el["max"] = -abs(lo), abs(lo)
+                        el["gaugeSource"] = "mined-symmetric"
                     else:
                         el["min"], el["max"] = lo, hi
                     n += 1
