@@ -308,11 +308,23 @@ to distribute, not ours. To build, or to regenerate data, you supply them.
 ### The short version
 
 ```sh
-scripts/setup/fetch-vendor.sh     # required: EDIABAS + INPA, ~710 MB
-scripts/setup/fetch-coding.sh     # optional: coding definitions, 5.6 MB
-scripts/setup/fetch-wiring.sh     # optional: wiring diagrams, ~1 GB
+scripts/setup/fetch.sh            # ask what you need, then get it
+scripts/setup/fetch.sh --list     # what is available, and how big
+scripts/setup/fetch.sh --vendor   # EDIABAS + INPA, ~710 MB
+scripts/setup/fetch.sh --wiring E46   # one car's diagrams (or blank for all)
 scripts/setup/check-vendor.sh     # what is installed, what is missing
 ```
+
+Everything comes from one Hugging Face dataset now
+([CraigFf/bmw-files](https://huggingface.co/datasets/CraigFf/bmw-files)) —
+plain HTTPS, resumable, no login. The old per-asset scripts
+(`fetch-vendor.sh`, `fetch-wiring.sh`, `fetch-coding.sh`, `fetch-wds.sh`)
+still work; they now forward to `fetch.sh`.
+
+**Running BMacW needs none of this.** The app is self-contained: the
+renderer reads static JSON out of `dist-web/`, and `vendor/` is a build
+input rather than runtime data. You want `--vendor` to regenerate the ECU
+data, and `--wiring` if you want diagrams in the app.
 
 Only the first is needed to build and run. The other two each light up one
 screen, and `check-vendor.sh` says how to get them if they are absent rather
