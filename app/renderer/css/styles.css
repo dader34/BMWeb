@@ -397,6 +397,26 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 .stagger > * { opacity: 0; animation: rise .5s cubic-bezier(.2,.7,.2,1) forwards; }
 
+/* chassis series filter chips */
+.chassis-filter-row {
+  display: flex; gap: 8px; margin-bottom: 16px;
+  overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+}
+.chassis-filter-row::-webkit-scrollbar { display: none; }
+.chassis-filter-chip {
+  background: var(--panel); border: 1px solid var(--line);
+  color: var(--ink-dim); padding: 7px 14px; border-radius: 20px;
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  cursor: pointer; white-space: nowrap; flex: 0 0 auto;
+  transition: all .15s ease;
+}
+.chassis-filter-chip:hover { border-color: var(--amber); color: var(--amber); }
+.chassis-filter-chip.active {
+  background: rgba(255, 158, 44, 0.15); border-color: var(--amber);
+  color: var(--amber); font-weight: 700;
+}
+
 /* chassis grid (start screen) */
 .chassis-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -2143,41 +2163,69 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .subtitle { font-size: 13px; }
   .eyebrow { font-size: 10px; }
 
-  /* CHASSIS CARDS BECOME ROWS. A 1.35 aspect box on a ~200px column is a
-     tall tile with a hole in it, and only one fits per line -- which is how
-     a 27-car list turns into a mile of scrolling. A row shows the same two
-     facts in a third of the height. */
-  .chassis-grid { grid-template-columns: 1fr; gap: 8px; }
-  .chassis-card {
-    aspect-ratio: auto; padding: 12px 14px;
-    flex-direction: row; align-items: baseline; gap: 12px;
+  /* MODERN TOUCH-FRIENDLY 2-COLUMN CHASSIS GRID */
+  .chassis-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
   }
-  .chassis-code { font-size: 22px; }
-  .chassis-tag { font-size: 10px; }
+  .chassis-card {
+    aspect-ratio: auto;
+    min-height: 74px;
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    border-radius: 8px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    transition: transform .12s, border-color .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chassis-card:active {
+    transform: scale(0.96);
+    border-color: var(--amber);
+    background: rgba(255, 158, 44, 0.08);
+  }
+  .chassis-code { font-size: 20px; font-weight: 800; }
+  .chassis-tag { font-size: 10px; color: var(--amber); font-weight: 600; }
   .chassis-arrow { display: none; }          /* hover-only affordance */
   .group-grid { grid-template-columns: 1fr; gap: 8px; }
 
-  /* F-KEYS: ten across is 39px each -- unreadable and untappable. A
-     scrolling strip of real buttons instead, and drop the printed number
-     row, which is a keyboard affordance on a device with no keyboard.
-     min-width on the keys is what forces the strip to overflow (and so
-     to scroll) rather than three keys sitting in a sea of space. */
-  .fkeybar { height: 56px; padding: 0; }
+  /* TOUCH F-KEYS & BOTTOM ACTION BAR */
+  .fkeybar {
+    height: 58px; padding: 0 4px;
+    background: rgba(13, 18, 23, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line);
+  }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */
   .fkey-nums { display: none; }
   .fkey-btns {
-    display: flex; gap: 6px; padding: 6px 10px;
+    display: flex; gap: 6px; padding: 6px 8px;
     overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    justify-content: flex-start;
   }
   .fkey-btns::-webkit-scrollbar { display: none; }
   .fkey {
-    flex: 0 0 auto; min-width: 88px; min-height: 42px; padding: 0 14px;
+    flex: 0 0 auto; min-width: 80px; min-height: 44px; padding: 0 12px;
+    border-radius: 8px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fkey:active {
+    background: rgba(255, 158, 44, 0.15);
+    border-color: var(--amber);
+    transform: scale(0.96);
   }
   .fkey:empty { display: none; }             /* INPA's blank slots */
-  .fkey-label { font-size: 13px; white-space: nowrap; }
-  .fkey-num { font-size: 12px; }
+  .fkey-label { font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .fkey-num { display: none; }
 
   /* THE SPLIT VIEW MUST STACK. `230px 1fr` leaves 38px of content at
      320px wide, which is why module cards were clipped mid-word. The

@@ -56,22 +56,56 @@ async function showChassis() {
 
   view.innerHTML = head('Vehicles', 'Select your vehicle',
     'Choose a chassis to load its diagnostic modules.');
+
+  const filterRow = document.createElement('div');
+  filterRow.className = 'chassis-filter-row';
+  const filters = [
+    { label: 'All', match: () => true },
+    { label: '3-Series', match: (id) => ['E30', 'E36', 'E46', 'E90', 'F030'].includes(id) || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('3-SERIES')) },
+    { label: '5-Series', match: (id) => ['E34', 'E39', 'E60', 'F010'].includes(id) || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('5-SERIES')) },
+    { label: '7-Series', match: (id) => ['E32', 'E38', 'E65', 'F001', 'F01'].includes(id) || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('7-SERIES')) },
+    { label: 'X-Series', match: (id) => id.startsWith('E53') || id.startsWith('E70') || id.startsWith('E83') || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('X')) },
+    { label: 'Z / Mini', match: (id) => id.startsWith('E52') || id.startsWith('E85') || id.startsWith('E89') || id.startsWith('R5') }
+  ];
+
+  let activeFilter = filters[0];
   const grid = document.createElement('div');
   grid.className = 'chassis-grid stagger';
-  view.appendChild(grid);
 
-  ids.forEach(id => {
-    const card = document.createElement('div');
-    card.className = 'chassis-card';
-    card.innerHTML = `
-      <div class="chassis-code">${esc(dispChassis(id))}</div>
-      <div class="chassis-tag">${CHASSIS_TAG[id] || 'BMW'}</div>
-      <div class="chassis-arrow">→</div>`;
-    card.onclick = () => showSections(id);
-    grid.appendChild(card);
+  function renderGrid() {
+    grid.innerHTML = '';
+    const filtered = ids.filter(id => activeFilter.match(id));
+    filtered.forEach(id => {
+      const card = document.createElement('div');
+      card.className = 'chassis-card';
+      card.innerHTML = `
+        <div class="chassis-code">${esc(dispChassis(id))}</div>
+        <div class="chassis-tag">${CHASSIS_TAG[id] || 'BMW'}</div>
+        <div class="chassis-arrow">→</div>`;
+      card.onclick = () => showSections(id);
+      grid.appendChild(card);
+    });
+    stagger(grid, 18);
+    sbRight.textContent = `${filtered.length} chassis`;
+  }
+
+  filters.forEach(f => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chassis-filter-chip' + (f === activeFilter ? ' active' : '');
+    chip.textContent = f.label;
+    chip.onclick = () => {
+      activeFilter = f;
+      filterRow.querySelectorAll('.chassis-filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      renderGrid();
+    };
+    filterRow.appendChild(chip);
   });
-  stagger(grid, 22);
-  sbRight.textContent = `${ids.length} chassis`;
+
+  view.appendChild(filterRow);
+  view.appendChild(grid);
+  renderGrid();
 
   // Fault Lookup: reference search across the whole fault database, no cable
   // needed. Sits below the chassis grid as a full-width entry.
