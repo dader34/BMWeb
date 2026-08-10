@@ -493,16 +493,13 @@
       </a>
       <div class="nav-links">
         <a href="index.html" class="nav-btn">Get App / Web</a>
-        <a href="https://huggingface.co/datasets/CraigFf/bmw-files" target="_blank" class="nav-btn primary">
-          <span>Hugging Face</span> ↗
-        </a>
       </div>
     </header>
 
     <div class="hero">
       <h1>BMW Database & SP-Daten Files</h1>
       <p class="lead">
-        Browse and directly download full chassis SP-Daten packages, ISTA SQLite databases, WDS diagrams, and diagnostic tools hosted on Git LFS.
+        Browse and directly download full chassis SP-Daten packages, ISTA SQLite databases, WDS diagrams, and diagnostic tools.
       </p>
     </div>
 
@@ -543,14 +540,11 @@
 
     <!-- Quick Terminal Helper -->
     <div class="cli-box">
-      <div class="cli-title">💻 Download via Terminal / CLI</div>
-      <p class="cli-desc">Clone the full 46GB repository with Git LFS, or download single files via curl or huggingface-cli:</p>
+      <div class="cli-title">💻 Unpack & Restore Archives</div>
+      <p class="cli-desc">To extract all SP-Daten and EC-Apps packages once downloaded to your machine:</p>
       <div class="code-block" id="cli-code">
-# 1. Full clone with Git LFS (requires git-lfs installed)
-git clone https://huggingface.co/datasets/CraigFf/bmw-files
-
-# 2. Decompress all SP-Daten and EC-Apps once downloaded:
-cd bmw-files && python3 restore.py --extract
+# Decompress all SP-Daten and EC-Apps archives:
+python3 restore.py --extract
         <button class="code-btn" onclick="copyCode()">Copy</button>
       </div>
     </div>
