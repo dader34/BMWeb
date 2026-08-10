@@ -2225,13 +2225,14 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .group-count { font-size: 10px; }
   .group-arrow { display: none; }
 
-  /* TOUCH F-KEYS & BOTTOM ACTION BAR */
-  .fkeybar {
-    height: 58px; padding: 0 4px;
-    background: rgba(13, 18, 23, 0.94);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid var(--line);
+  /* HIDE BOTTOM F-KEY BAR ON MOBILE FOR SECTIONS & ECU JOB GRIDS */
+  body:has(.split) .fkeybar,
+  body:has(.group-grid) .fkeybar {
+    display: none !important;
+  }
+  body:has(.split) .view,
+  body:has(.group-grid) .view {
+    bottom: 0 !important;
   }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */

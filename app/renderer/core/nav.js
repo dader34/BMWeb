@@ -331,26 +331,10 @@ async function showSections(id, selectIndex = 0) {
     sbRight.textContent = `${sec.ecus.length} module${sec.ecus.length === 1 ? '' : 's'}`;
   }
 
-  const secIcons = {
-    engine: '⚙️', transmission: '🕹️', getriebe: '🕹️',
-    chassis: '🛑', fahrwerk: '🛑', body: '💡', karosserie: '💡',
-    communication: '📡', infom: '📡', safety: '🛡️', sicherheit: '🛡️',
-    climate: '❄️', klima: '❄️'
-  };
-  function getSecIcon(name) {
-    const l = name.toLowerCase();
-    for (const k in secIcons) {
-      if (l.includes(k)) return secIcons[k];
-    }
-    return '🚗';
-  }
-
   ch.sections.forEach((sec, idx) => {
     const item = document.createElement('button');
     item.className = 'sys-item';
-    const icon = getSecIcon(sec.name);
-    item.innerHTML = `<span class="nav-icon">${icon}</span>
-                      <span class="nav-name">${esc(sec.name)}</span>
+    item.innerHTML = `<span class="nav-name">${esc(sec.name)}</span>
                       <span class="nav-count">${sec.ecus.length}</span>`;
     item.onclick = () => selectSection(idx);
     nav.appendChild(item);
@@ -360,8 +344,7 @@ async function showSections(id, selectIndex = 0) {
   // the modern layout too: scans every module's fault memory in one pass
   const scan = document.createElement('button');
   scan.className = 'sys-item sys-scan';
-  scan.innerHTML = `<span class="nav-icon">⚡</span>
-                    <span class="nav-name">Error scan</span>
+  scan.innerHTML = `<span class="nav-name">Error scan</span>
                     <span class="nav-count">all</span>`;
   scan.onclick = () => quickErrorSweep(id);
   nav.appendChild(scan);
@@ -371,8 +354,7 @@ async function showSections(id, selectIndex = 0) {
   if (typeof hasWiring === 'function' && await hasWiring(id)) {
     const wire = document.createElement('button');
     wire.className = 'sys-item sys-wiring';
-    wire.innerHTML = `<span class="nav-icon">⌁</span>
-                      <span class="nav-name">Wiring</span>
+    wire.innerHTML = `<span class="nav-name">Wiring</span>
                       <span class="nav-count">WDS</span>`;
     wire.onclick = () => showWiring(id);
     nav.appendChild(wire);
