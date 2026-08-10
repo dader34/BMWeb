@@ -554,113 +554,13 @@ python3 restore.py --extract
 
   <script>
     const HF_BASE_URL = "https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main";
-    const MANIFEST_URL = "https://huggingface.co/datasets/CraigFf/bmw-files/raw/main/manifest.json";
+    const TREE_URL = "https://huggingface.co/api/datasets/CraigFf/bmw-files/tree/main?recursive=1";
 
-    // Complete static fallback catalog of all 100 files
-    const STATIC_FILES = {
-      "BMW Scanner/BMW Scanner v140 - manual (recovered).pdf": { "size_bytes": 1287114 },
-      "BMW Scanner/hardware faulty BMW Scanner v140 Install.rar": { "size_bytes": 3746050 },
-      "BMW_WDS_v15_English.iso": { "size_bytes": 4706072576 },
-      "coding/E36.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E38.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E39.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E46.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E52.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E53.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E60.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E65.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E70.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E83.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E85.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/E89.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/K1X.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/K24.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/KH2.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/R50.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/R56.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/RR1.coding.tar.gz": { "size_bytes": 524288 },
-      "coding/all.coding.tar.gz": { "size_bytes": 11534336 },
-      "ec-apps.zip": { "size_bytes": 744589199 },
-      "ista/README.md": { "size_bytes": 1988 },
-      "ista/SQLITE-KEY.txt": { "size_bytes": 2641 },
-      "ista/databases/DE 4.15.12.7z": { "size_bytes": 701523078 },
-      "ista/databases/DiagDocDb.decrypted.sqlite": { "size_bytes": 3293478912 },
-      "ista/databases/DiagDocDb.encrypted-original.sqlite": { "size_bytes": 3293478912 },
-      "ista/databases/EN 4.15.12.7z": { "size_bytes": 718698640 },
-      "ista/databases/OTHER 4.15.12.7z": { "size_bytes": 14093376078 },
-      "ista/installers/BLP 4.15.12.7z": { "size_bytes": 913160192 },
-      "ista/installers/ISTA-D 4.15.16.7z": { "size_bytes": 300845056 },
-      "ista/tools/BMW-Tools/D-CAN.exe.part": { "size_bytes": 71168 },
-      "ista/tools/BMW-Tools/FAQ-EN.pdf.part": { "size_bytes": 6365083 },
-      "ista/tools/BMW-Tools/FAQ-RU.pdf": { "size_bytes": 6443483 },
-      "ista/tools/BMW-Tools/ICOM-A1-A2-A3-Image-03-15-02.7z": { "size_bytes": 28206087 },
-      "ista/tools/BMW-Tools/ICOM-NEXT-Image-03-15-00.7z": { "size_bytes": 13626888 },
-      "ista/tools/BMW-Tools/ISTA-D Reg Fix x64.reg": { "size_bytes": 1506 },
-      "ista/tools/BMW-Tools/ISTA-D Reg Fix x86.reg": { "size_bytes": 1458 },
-      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.1/Activation Key.txt": { "size_bytes": 1024 },
-      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.1/BMW ISTA-P Loader.exe": { "size_bytes": 129079296 },
-      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.4/Activation Key - Loader V6.4L.txt": { "size_bytes": 1024 },
-      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.4/BMW ISTA-P Loader.exe": { "size_bytes": 129079296 },
-      "ista/tools/BMW-Tools/IToolRadar/iTool Radar (x64).7z": { "size_bytes": 5072007 },
-      "ista/tools/BMW-Tools/IToolRadar/iTool Radar (x86).7z": { "size_bytes": 5074228 },
-      "ista/tools/BMW-Tools/License.txt": { "size_bytes": 7592 },
-      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.5.2.exe": { "size_bytes": 69992520 },
-      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.6.2.exe": { "size_bytes": 62000000 },
-      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.7.1.exe": { "size_bytes": 65000000 },
-      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.7.2.exe": { "size_bytes": 68000000 },
-      "ista/tools/BMW-Tools/NetworkTool.exe": { "size_bytes": 849408 },
-      "ista/tools/BMW-Tools/Patched_EDIABAS_7.3.0.msi": { "size_bytes": 17235968 },
-      "ista/tools/BMW-Tools/RCleanerV4.4.exe": { "size_bytes": 45568 },
-      "ista/tools/BMW-Tools/Restore ICOM.7z": { "size_bytes": 35912459 },
-      "ista/tools/BMW-Tools/vcredist/VCRedist x86 x64 All In One Multilingual.exe": { "size_bytes": 26214400 },
-      "ista/tools/BMW-Tools/vcredist/VCRedist x86 x64 All In One Russian.exe": { "size_bytes": 26214400 },
-      "ista/tools/BMW-Tools/vs90_piaredist.exe": { "size_bytes": 1419784 },
-      "sp-daten merge (compressed)/BASE.tar.zst": { "size_bytes": 5073058 },
-      "sp-daten merge (compressed)/E36.tar.zst": { "size_bytes": 30032248 },
-      "sp-daten merge (compressed)/E38.tar.zst": { "size_bytes": 24971483 },
-      "sp-daten merge (compressed)/E39.tar.zst": { "size_bytes": 33675865 },
-      "sp-daten merge (compressed)/E46.tar.zst": { "size_bytes": 60718535 },
-      "sp-daten merge (compressed)/E52.tar.zst": { "size_bytes": 22391417 },
-      "sp-daten merge (compressed)/E53.tar.zst": { "size_bytes": 57147220 },
-      "sp-daten merge (compressed)/E60.tar.zst": { "size_bytes": 3273562388 },
-      "sp-daten merge (compressed)/E65.tar.zst": { "size_bytes": 411626325 },
-      "sp-daten merge (compressed)/E70.tar.zst": { "size_bytes": 4373436208 },
-      "sp-daten merge (compressed)/E83.tar.zst": { "size_bytes": 355065611 },
-      "sp-daten merge (compressed)/E85.tar.zst": { "size_bytes": 60930809 },
-      "sp-daten merge (compressed)/E89.tar.zst": { "size_bytes": 5044332060 },
-      "sp-daten merge (compressed)/F001.tar.zst": { "size_bytes": 40563507 },
-      "sp-daten merge (compressed)/F010.tar.zst": { "size_bytes": 37891603 },
-      "sp-daten merge (compressed)/F020.tar.zst": { "size_bytes": 37891860 },
-      "sp-daten merge (compressed)/F025.tar.zst": { "size_bytes": 37891647 },
-      "sp-daten merge (compressed)/F056.tar.zst": { "size_bytes": 22682339 },
-      "sp-daten merge (compressed)/I001.tar.zst": { "size_bytes": 22238797 },
-      "sp-daten merge (compressed)/K001.tar.zst": { "size_bytes": 1629615 },
-      "sp-daten merge (compressed)/K1X.tar.zst": { "size_bytes": 12320457 },
-      "sp-daten merge (compressed)/K24.tar.zst": { "size_bytes": 144516944 },
-      "sp-daten merge (compressed)/KH2.tar.zst": { "size_bytes": 3465036 },
-      "sp-daten merge (compressed)/R50.tar.zst": { "size_bytes": 25650999 },
-      "sp-daten merge (compressed)/R56.tar.zst": { "size_bytes": 3072042841 },
-      "sp-daten merge (compressed)/RR1.tar.zst": { "size_bytes": 242071292 },
-      "sp-daten merge (compressed)/psdzdata.tar.zst": { "size_bytes": 1195101820 },
-      "wiring/E36.wiring": { "size_bytes": 41943040 },
-      "wiring/E38.wiring": { "size_bytes": 52428800 },
-      "wiring/E39.wiring": { "size_bytes": 52428800 },
-      "wiring/E46.wiring": { "size_bytes": 62914560 },
-      "wiring/E52.wiring": { "size_bytes": 41943040 },
-      "wiring/E53.wiring": { "size_bytes": 62914560 },
-      "wiring/E60.wiring": { "size_bytes": 115238400 },
-      "wiring/E63.wiring": { "size_bytes": 83886080 },
-      "wiring/E65.wiring": { "size_bytes": 94371840 },
-      "wiring/E70.wiring": { "size_bytes": 125829120 },
-      "wiring/E83.wiring": { "size_bytes": 73400320 },
-      "wiring/E85.wiring": { "size_bytes": 62914560 },
-      "wiring/E87.wiring": { "size_bytes": 115238400 },
-      "wiring/E89.wiring": { "size_bytes": 115238400 },
-      "wiring/E90.wiring": { "size_bytes": 115238400 },
-      "wiring/F01.wiring": { "size_bytes": 94371840 },
-      "backup.py": { "size_bytes": 7400 },
-      "restore.py": { "size_bytes": 5200 }
-    };
+    // THE REPOSITORY IS THE CATALOG. This page used to carry a hand-copied
+    // list of every file, which drifted the moment anything was added or
+    // removed -- a deleted README kept showing up here long after it was
+    // gone from the repo. The tree API returns the whole thing in one call,
+    // so there is nothing local to keep in sync.
 
     let allFiles = [];
     let currentFolder = ""; // "" means root
@@ -940,13 +840,28 @@ python3 restore.py --extract
     });
 
     // Initialize with static fallback catalog
-    parseCatalog(STATIC_FILES);
-
-    // Fetch live manifest from Hugging Face
-    fetch(MANIFEST_URL)
-      .then(res => res.ok ? res.json() : Promise.reject())
-      .then(data => parseCatalog(data))
-      .catch(() => console.log('Using static catalog'));
+    // one call, every file, sizes included. LFS entries report the real
+    // size under .lfs.size -- .size on those is the pointer, which would
+    // show a 4.7 GB ISO as 133 bytes.
+    fetch(TREE_URL)
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)))
+      .then(tree => {
+        const files = {};
+        for (const e of tree) {
+          if (e.type !== 'file') continue;
+          if (e.path.startsWith('.')) continue;   // .gitattributes, .gitignore
+          files[e.path] = { size_bytes: (e.lfs && e.lfs.size) || e.size || 0 };
+        }
+        parseCatalog(files);
+      })
+      .catch(err => {
+        const tb = document.getElementById('file-tbody');
+        if (tb) {
+          tb.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;'
+            + 'opacity:.7">Could not reach the file index.<br>'
+            + '<small>' + String(err) + '</small></td></tr>';
+        }
+      });
   </script>
 </body>
 </html>
