@@ -447,7 +447,7 @@ function showWiring(chassisId, openDoc = null) {
           leaf.title = WIRING_KIND_LABEL[c.kind] || c.kind;
           leaf.onclick = () => openDocument(c);
           parent.appendChild(leaf);
-        } else {
+        } else if (c.children && c.children.length > 0) {
           const wrap = document.createElement('div');
           const btn = document.createElement('button');
           btn.className = 'wiring-folder';
@@ -468,6 +468,16 @@ function showWiring(chassisId, openDoc = null) {
           wrap.appendChild(btn);
           wrap.appendChild(kids);
           parent.appendChild(wrap);
+        } else {
+          // Glossary / Signal definition leaf
+          const leaf = document.createElement('button');
+          leaf.className = 'wiring-leaf kind-specs';
+          leaf.style.paddingLeft = `${10 + depth * 12}px`;
+          leaf.innerHTML = `<span class="wiring-dot" style="background: var(--amber);"></span>`
+            + `<span class="wiring-leaf-name">${esc(c.name)}</span>`;
+          leaf.title = 'Signal / Component definition';
+          leaf.onclick = () => openGlossary(c);
+          parent.appendChild(leaf);
         }
       }
     };
@@ -499,6 +509,80 @@ function showWiring(chassisId, openDoc = null) {
       treeEl.parentNode.appendChild(searchWrap);
       sbRight.textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
     };
+
+    // ---- the glossary / signal definition viewer
+    function openGlossary(entry) {
+      if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
+      viewEl.innerHTML = '';
+      const bar = document.createElement('div');
+      bar.className = 'wiring-bar';
+      bar.innerHTML = `<div class="wiring-title">${esc(entry.name)}</div>
+        <div class="wiring-kind">Signal / Component Information</div>`;
+      viewEl.appendChild(bar);
+
+      const parts = entry.name.split(/\s+/);
+      const code = parts[0] || entry.name;
+      const desc = parts.slice(1).join(' ') || entry.name;
+
+      const codeLower = code.toLowerCase();
+      const related = index.filter(e => e.name.toLowerCase().includes(codeLower)).slice(0, 40);
+
+      const art = document.createElement('article');
+      art.className = 'wiring-doc';
+
+      let relatedHtml = '';
+      if (related.length > 0) {
+        relatedHtml = `
+          <div style="margin-top: 20px;">
+            <h2 style="font-size: 14px; font-weight: 700; color: var(--amber); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.5px;">
+              Referenced in ${related.length} Diagram${related.length === 1 ? '' : 's'}
+            </h2>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${related.map((r, idx) => `
+                <div class="setting-row" style="cursor: pointer; padding: 10px 14px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line);" data-doc="${esc(r.doc)}">
+                  <div>
+                    <div style="font-weight: 700; font-size: 13.5px; color: var(--ink);">${esc(r.name)}</div>
+                    <div style="font-size: 11px; color: var(--ink-dim); margin-top: 2px;">${esc(r.trail.slice(-2).join(' › '))}</div>
+                  </div>
+                  <span style="color: var(--amber); font-size: 12px; font-weight: 700; white-space: nowrap;">View →</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>`;
+      } else {
+        relatedHtml = `
+          <div style="margin-top: 20px; padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;">
+            <div style="font-size: 13px; color: var(--ink-dim);">
+              Use the search bar at the top to search across all vehicle schematics for <strong>${esc(code)}</strong>.
+            </div>
+          </div>`;
+      }
+
+      art.innerHTML = `
+        <div style="padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;">
+          <div style="display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 800; color: var(--amber); background: rgba(255, 158, 44, 0.12); border: 1px solid rgba(255, 158, 44, 0.3); border-radius: 4px; padding: 2px 7px; margin-bottom: 8px;">
+            ${esc(code)}
+          </div>
+          <h1 style="font-size: 17px; font-weight: 800; margin: 0 0 6px;">${esc(desc)}</h1>
+          <p style="color: var(--ink-dim); margin: 0; font-size: 12.5px;">
+            BMW WDS Component / Signal Reference Designation.
+          </p>
+        </div>
+        ${relatedHtml}
+      `;
+
+      art.querySelectorAll('[data-doc]').forEach((el) => {
+        el.onclick = () => {
+          const did = el.getAttribute('data-doc');
+          const hit = index.find(e => e.doc === did);
+          if (hit) openDocument(hit);
+        };
+      });
+
+      viewEl.appendChild(art);
+      viewEl.scrollTop = 0;
+      setActions(browseActions);
+    }
 
     // ---- the document pane
     function openDocument(entry) {
