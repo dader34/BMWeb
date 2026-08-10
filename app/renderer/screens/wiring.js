@@ -612,43 +612,38 @@ function showWiring(chassisId, openDoc = null) {
 // Zoom and pan by rewriting the viewBox: the SVG stays vector at every
 // scale, and nothing re-renders but the attribute.
 function fitAndPan(svg, stage, bar, classic = false) {
-  const vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
-  if (vb.length !== 4 || vb.some(Number.isNaN)) return null;
+  let rawVb = svg.getAttribute('viewBox') || svg.getAttribute('viewbox');
+  let vb = rawVb ? rawVb.trim().split(/[\s,]+/).map(Number) : [];
+  if (vb.length !== 4 || vb.some(Number.isNaN)) {
+    const w = parseFloat(svg.getAttribute('width')) || 10000;
+    const h = parseFloat(svg.getAttribute('height')) || 2500;
+    vb = [0, 0, w, h];
+  }
   const home = { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
   const cur = { ...home };
-  const apply = () => svg.setAttribute('viewBox',
-    `${cur.x} ${cur.y} ${cur.w} ${cur.h}`);
+  const apply = () => svg.setAttribute('viewBox', `${cur.x} ${cur.y} ${cur.w} ${cur.h}`);
   svg.removeAttribute('width');
   svg.removeAttribute('height');
-  // fill the pane rather than preserving the drawing's own letterboxing
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-  // the drawing's own box, kept for printing (paper wants all of it)
   svg.dataset.homeViewbox = `${home.x} ${home.y} ${home.w} ${home.h}`;
 
-  // One zoom step. fx/fy is the fixed point in 0..1 of the pane: the
-  // pointer for a wheel, the centre for a key, so what you are looking at
-  // stays where it is either way.
-  // set once the view is the user's own doing (a zoom or a drag), so an
-  // automatic re-fit never throws away where they were looking
   let touched = false;
   const zoomBy = (k, fx = 0.5, fy = 0.5) => {
     touched = true;
-    const w = Math.min(home.w * 4, Math.max(home.w / 60, cur.w * k));
+    const w = Math.min(home.w * 20, Math.max(home.w / 100, cur.w * k));
     const h = w * (cur.h / cur.w);
     cur.x += (cur.w - w) * fx;
     cur.y += (cur.h - h) * fy;
     cur.w = w; cur.h = h;
     apply();
   };
-  // FILL THE PANE, not the document's own aspect. BMW drew these very wide
-  // (14000 x 2400 is common); dropping that box into a squarer pane letterboxes
-  // it and wastes most of the screen. Widen or heighten the box to the pane's
-  // ratio instead, keeping the drawing centred, so "Fit" means the diagram is
-  // as large as it can be here.
+
   const fit = () => {
-    touched = false;              // back to the automatic view
+    touched = false;
     const r = stage.getBoundingClientRect();
-    const paneRatio = (r.width || 1) / (r.height || 1);
+    const pw = r.width || window.innerWidth || 360;
+    const ph = r.height || (window.innerHeight - 100) || 600;
+    const paneRatio = pw / ph;
     let w = home.w, h = home.h;
     if (home.w / home.h > paneRatio) h = home.w / paneRatio;
     else w = home.h * paneRatio;
@@ -661,10 +656,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
   stage.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = stage.getBoundingClientRect();
-    // Where the pointer sits IN THE VIEWBOX, as a fraction of it. With the
-    // letterboxing above that is not its fraction of the pane: the pane
-    // shows k*width user units, of which the viewBox is only cur.w, centred.
-    const k = Math.max(cur.w / r.width, cur.h / r.height);
+    const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
     const fx = ((e.clientX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
     const fy = ((e.clientY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
     zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
@@ -760,7 +752,8 @@ function fitAndPan(svg, stage, bar, classic = false) {
   window.addEventListener('mousemove', (e) => {
     if (!mouseDrag) return;
     touched = true;
-    const k = unitsPerPixel(stage.getBoundingClientRect());
+    const r = stage.getBoundingClientRect();
+    const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
     cur.x = mouseDrag.vx - (e.clientX - mouseDrag.x) * k;
     cur.y = mouseDrag.vy - (e.clientY - mouseDrag.y) * k;
     apply();
@@ -772,8 +765,26 @@ function fitAndPan(svg, stage, bar, classic = false) {
     }
   });
 
-  // on-screen zoom controls, mirroring the F-keys. WDS drew these as raised
-  // grey buttons with magnifier glyphs; the modern layout labels them.
+  // Floating touch zoom controls directly on the stage (always reachable on mobile)
+  const floatControls = document.createElement('div');
+  floatControls.className = 'wiring-zoom-floating';
+  [['+', () => zoomBy(1 / 1.35)],
+   ['−', () => zoomBy(1.35)],
+   ['⊡', fit]]
+    .forEach(([label, fn]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.onclick = (e) => {
+        e.stopPropagation();
+        fn();
+      };
+      b.ontouchstart = (e) => e.stopPropagation();
+      floatControls.appendChild(b);
+    });
+  stage.appendChild(floatControls);
+
+  // on-screen zoom controls, mirroring the F-keys in toolbar
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
   [[classic ? '⊕' : '+', 'Zoom in (+ key, or scroll the wheel)', () => zoomBy(1 / 1.3)],
@@ -787,30 +798,18 @@ function fitAndPan(svg, stage, bar, classic = false) {
     b.onclick = fn;
     controls.appendChild(b);
   });
-  // the shared WDS footer keeps one set; the per-document bar is new each time
   if (classic) bar.innerHTML = '';
   bar.appendChild(controls);
   if (typeof tipify === 'function') tipify(controls);
 
-  // FIT ON OPEN, not only when the Fit button is pressed. Without this the
-  // drawing arrives in its own viewBox and is letterboxed by whatever the
-  // pane's ratio happens to be -- BMW draws these very wide, so a squarer
-  // pane wasted most of the screen until you pressed Fit yourself.
-  //
-  // Timing is the whole difficulty: the stage is in the DOM but the zoom bar
-  // above it has not been built yet, so its height is still wrong for a
-  // frame or two, and a requestAnimationFrame fit reads the pre-layout size.
-  // Watch the box instead and re-fit whenever it settles -- which also keeps
-  // the diagram fitted when the window resizes or a pane is switched, both
-  // of which used to need a manual Fit.
   let last = '';
   const ro = new ResizeObserver(() => {
     const r = stage.getBoundingClientRect();
     if (r.width < 2 || r.height < 2) return;
     const sig = `${Math.round(r.width)}x${Math.round(r.height)}`;
-    if (sig === last) return;          // same box: nothing to re-fit
+    if (sig === last) return;
     last = sig;
-    if (!touched) fit();               // a hand-zoomed view is the user's, not ours
+    if (!touched) fit();
   });
   ro.observe(stage);
 
