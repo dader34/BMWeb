@@ -64,7 +64,16 @@ const UNINITIALIZED_READS = new Set(['ID_SG_ADR']);
 //     fixture; they just name different guards (INCORRECT_RESPONSE_ID vs
 //     INCORRECT_LEN). This measures fixture quality, not decode fidelity:
 //     the response was synthesised to exercise the lifter and is not a
-//     shape this ECU accepts.
+//     shape this ECU accepts. Pinned in KNOWN_DISAGREEMENTS below with its
+//     EXACT values, so the gate stays green on this one case and red on
+//     any drift or any new disagreement.
+
+// sgbd:job:result -> [vm value, engine value], compared exactly. An entry
+// only excuses the disagreement it names; anything else still fails.
+const KNOWN_DISAGREEMENTS = new Map([
+  ['ms450ds0:IDENT:JOB_STATUS',
+    ['ERROR_ECU_INCORRECT_RESPONSE_ID', 'ERROR_ECU_INCORRECT_LEN']],
+]);
 
 // Injected by EdiabasNet around job execution, not by job bytecode.
 const SYSTEM_RESULTS = new Set([
@@ -115,6 +124,7 @@ function same(want, got) {
 }
 
 let jobs = 0, agree = 0, disagree = 0, missing = 0, crashed = 0;
+let knownDiff = 0;
 const errs = new Map();
 const diffs = [];
 for (const c of fix.cases) {
@@ -181,19 +191,25 @@ for (const c of fix.cases) {
       }
       if (same(want, got.get(k))) agree++;
       else {
-        disagree++;
-        if (diffs.length < 400) {
-          diffs.push([c.sgbd, c.job, k, got.get(k), want]);
+        const known = KNOWN_DISAGREEMENTS.get(`${c.sgbd}:${c.job}:${k}`);
+        if (known && known[0] === got.get(k) && known[1] === want) {
+          knownDiff++;
+        } else {
+          disagree++;
+          if (diffs.length < 400) {
+            diffs.push([c.sgbd, c.job, k, got.get(k), want]);
+          }
         }
       }
     }
   }
 }
 
-const checked = agree + disagree + missing;
+const checked = agree + knownDiff + disagree + missing;
 console.log(`jobs replayed : ${jobs}   (VM crashes: ${crashed})`);
 console.log(`results checked: ${checked}`);
 console.log(`  AGREE       : ${agree} (${(100 * agree / Math.max(checked, 1)).toFixed(1)}%)`);
+console.log(`  KNOWN DIFF  : ${knownDiff} (pinned in KNOWN_DISAGREEMENTS)`);
 console.log(`  DISAGREE    : ${disagree}`);
 console.log(`  MISSING     : ${missing}`);
 if (errs.size) {

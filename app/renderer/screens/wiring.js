@@ -95,11 +95,15 @@ function wiringDoc(data, docId) {
 // The photographs sit under img/ in that repository: GitHub truncates a
 // directory listing at 1,000 files, and there are 11,549 of them, so at the
 // root the repo could not be browsed at all.
+// PINNED TO A COMMIT, not @main. jsDelivr serves whatever the ref points at,
+// so a moving branch means a later reorganisation of that repo retroactively
+// breaks the photos in every export ever distributed. Bump this SHA
+// deliberately when the image repo changes.
 const WIRING_IMG_CDN =
-  'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@main/img/';
-// bumped with the path: the old cache holds entries keyed by the root URLs,
-// which now 404, and a stale hit would draw nothing
-const WIRING_IMG_CACHE = 'bmacw-wiring-images-v2';
+  'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@55cad337b4787326cfcacbea220fa4787aaa74e4/img/';
+// bumped with the URL: the old cache holds entries keyed by the previous
+// URLs, which nothing asks for any more -- dead weight, not stale hits
+const WIRING_IMG_CACHE = 'bmacw-wiring-images-v3';
 
 // A blob URL per image, made once and kept: the same photo appears on many
 // documents (one wheel-hub shot serves every sensor mounted there), and

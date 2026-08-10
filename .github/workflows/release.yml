@@ -22,6 +22,19 @@ jobs:
         with:
           lfs: true
 
+      # A v0.9.2 tag must build a 0.9.2 app. Check FIRST, before spending
+      # 20 minutes building something misnamed.
+      - name: Tag must match the app version
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)
+          echo "tag=${GITHUB_REF_NAME}  csproj=${ver}"
+          test "v${ver}" = "${GITHUB_REF_NAME}" || {
+            echo "error: tag ${GITHUB_REF_NAME} does not match ApplicationDisplayVersion ${ver}" >&2
+            exit 1
+          }
+
       - name: Show the runner's default Xcode (macos-15 default is complete + recent enough)
         run: |
           xcodebuild -version
@@ -49,6 +62,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # The verify tests run under node; pin the same version Pages uses.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       # THE APP BUNDLES dist-web. package-macos.sh copies it into
       # Contents/Resources/data, and dist-web is DERIVED and gitignored --
       # so a runner starts without it and the packaging step fails on a
@@ -67,6 +85,18 @@ jobs:
           python3 tools/export/build_ecu_tree.py
           test -d data/chassis/E46
 
+      # NO RELEASE OF UNTESTED CODE. These are the verify tests whose inputs
+      # are all in git (plus the data/chassis tree assembled above): the VM
+      # against captured telegrams, the wire framing, the VM bridge, and the
+      # IR interpreter. They need no app, no vendor tree and no cable.
+      - name: Run the verify tests
+        run: |
+          set -euo pipefail
+          node tools/verify/test_bestvm.js
+          node tools/verify/test_transport.js
+          node tools/verify/test_vmbridge.js
+          node tools/verify/test_ir_render.js
+
       - name: Build the static site the app serves
         run: |
           set -euo pipefail
@@ -75,6 +105,13 @@ jobs:
           cp -R app/renderer/. dist-web/
           test -s dist-web/index.html
           grep -q webshim.js dist-web/index.html
+          # A build that exported nothing must FAIL here, not package a
+          # hollow app: same two checks as the Pages job, for the same
+          # incident -- archives that exist AND one that holds real ECUs.
+          n=$(find dist-web/api/chassis -name '*.chassis' | wc -l)
+          echo "chassis archives: $n"
+          test "$n" -ge 21
+          python3 -c "import zipfile,sys; z=zipfile.ZipFile('dist-web/api/chassis/E90.chassis'); e=[n for n in z.namelist() if n.endswith('.ecu')]; print(f'E90 holds {len(e)} .ecu'); sys.exit(0 if len(e)>40 else 1)"
           echo "dist-web: $(du -sh dist-web | cut -f1)"
 
       - name: Wiring diagrams
@@ -89,17 +126,19 @@ jobs:
           # uncompressed copies -- so size the DMG from what THIS step
           # downloads, not from a working tree.
           #
-          # Absent is not fatal: the app simply has no Wiring section, which
-          # is exactly what shipped in v0.9.1 before this step existed.
-          mkdir -p dist-web/data/wiring
-          if gh release download wiring-latest \
-               --repo dader34/BMacW-wiring-images \
-               --pattern '*.wiring' --dir dist-web/data/wiring 2>/dev/null; then
-            echo "wiring archives: $(ls dist-web/data/wiring/*.wiring | wc -l)"
-            du -sh dist-web/data/wiring
-          else
-            echo "no wiring release found; the DMG will have no Wiring section"
-          fi
+          # Absent IS fatal now: a DMG with no Wiring section already
+          # shipped once (v0.9.1) and nothing in the pipeline noticed. If
+          # the wiring release is genuinely meant to be skipped, delete this
+          # step on purpose rather than letting it fail quietly.
+          # (gh creates the --dir itself; no pre-mkdir, so a failed download
+          # cannot leave an empty directory that passes later [ -d ] checks.)
+          gh release download wiring-latest \
+            --repo dader34/BMacW-wiring-images \
+            --pattern '*.wiring' --dir dist-web/data/wiring
+          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
+          echo "wiring archives: $n"
+          test "$n" -ge 15   # one per covered chassis
+          du -sh dist-web/data/wiring
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -109,6 +148,16 @@ jobs:
       - name: Locate the built DMG
         id: dmg
         run: echo "path=$(ls dist-release/*.dmg | head -1)" >> "$GITHUB_OUTPUT"
+
+      # v0.9.2 with everything aboard is ~350 MB. Missing wiring loses
+      # ~150 MB and a hollow dist-web far more, so a small DMG is a broken
+      # DMG even if every step above looked green.
+      - name: DMG size floor
+        run: |
+          set -euo pipefail
+          size=$(stat -f%z "${{ steps.dmg.outputs.path }}")
+          echo "DMG: ${{ steps.dmg.outputs.path }} ($size bytes)"
+          test "$size" -ge 300000000
 
       - name: Upload DMG as build artifact (always)
         uses: actions/upload-artifact@v4

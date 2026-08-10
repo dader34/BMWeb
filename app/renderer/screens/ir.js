@@ -849,6 +849,18 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   // (RDC F8 "write data into ECU"), which is why it owns no field
   const arg = word.join(';');
 
+  // The word lives in _compState between presses and would survive leaving
+  // the screen with outputs still commanded. Register with the activation
+  // machinery (activations.js:9-11 invariant), with the NEUTRAL word -- the
+  // baseline INPA's own startup sends -- as the release: leaving the screen
+  // re-commands every field back to it, then irResetCompositeState forgets
+  // the toggled flags.
+  activationEcu = ecu;
+  activeTests.add(comp.job);
+  activeDrives.set(comp.job, (comp.baseline
+    ? comp.baseline.split(';')
+    : new Array(comp.fields).fill('0')).join(';'));
+
   // INPA stays on its menu -- the keys keep their state and you toggle the
   // next one -- so the result goes to the status bar and the row's own
   // marker, never to a separate page.
@@ -866,9 +878,16 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} `
     + `${on === null ? 'sent' : (on === '1' ? 'ON' : 'OFF')} `
     + `· ${comp.job} ${arg} · ${status}`;
-  // redraw the menu so every row shows its current on/off state
-  reopen();
+  // redraw the menu so every row shows its current on/off state. Held: the
+  // redraw's setActions is not a screen change, and must not release the
+  // word that was just commanded.
+  keepActivationsDuring(reopen);
 }
+
+// forget every composite actuator word. Called by stopAllActivations
+// (activations.js) after it has sent the neutral word, so a re-entered menu
+// starts from baseline rather than showing flags nobody is driving.
+function irResetCompositeState() { _compState.clear(); }
 
 // A screen with no gauges and no lamps is a labelled READ -- coding data,
 // identification, references. INPA draws those as a colon-aligned list, not
@@ -1267,6 +1286,49 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // and sending it bare would write whatever the ECU makes of nothing.
       // Those stay as they were: listed, and not armed by this shortcut.
       const clears = /^(FS|IS|HS)_LOESCHEN$/i.test(only.name);
+      // A memory clear must prove itself by re-reading: the generic in-place
+      // path printed JOB_STATUS and reopened the menu, so a fault that re-set
+      // the moment the ECU saw it again looked cleared. live.js's runJob owns
+      // the flow (confirm -> clear -> re-read -> report what remains).
+      if (clears && typeof runJob === 'function') {
+        const reopen = () =>
+          renderIrMenu(ecu, ir, menuName, container, back, trail);
+        const mem = only.name.toUpperCase();
+        if (mem === 'FS_LOESCHEN') {
+          // runJob's own FS_LOESCHEN branch: confirm, clear, re-read
+          // FS_LESEN, render the faults actually still present
+          await runJob(ecu, 'FS_LOESCHEN', container, true);
+        } else {
+          const which = mem === 'IS_LOESCHEN' ? 'info memory' : 'history memory';
+          const ok = await confirmDialog({
+            title: `Clear ${which}?`,
+            body: `This permanently erases the ${which} on `
+                + `<b>${esc(ecu.label)}</b>. This cannot be undone.`,
+            confirmLabel: 'Clear', danger: true,
+          });
+          if (!ok) { sbLeft.textContent = 'cancelled'; return; }
+          try {
+            await api(`/api/ecu/${ecu.sgbd}/run/${mem}`, { method: 'POST' });
+          } catch (e) {
+            container.innerHTML = errorBlock(e.message);
+            sbLeft.textContent = 'failed';
+            setActions([...keys(), {
+              key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+              fn: reopen,
+            }], shiftKeys());
+            return;
+          }
+          // prove the clear: re-read the same memory and show what remains
+          await runJob(ecu, mem.replace('_LOESCHEN', '_LESEN'), container, false);
+        }
+        // runJob's own status line ("cleared · N fault(s) still present")
+        // stands; only the keys need restoring
+        setActions([...keys(), {
+          key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+          fn: reopen,
+        }], shiftKeys());
+        return;
+      }
       if (!only.write || clears) {
         it = { ...it, job: only.name, writeJob: !!only.write, inPlace: true };
       }
@@ -1380,13 +1442,23 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
+        // the confirm above promises release on leaving the screen; keep it
+        // (activations.js:9-11 invariant). A permanent write is set-and-stay
+        // by design and must NOT be replayed with arg=0 on leave.
+        if (!permanent) {
+          activationEcu = ecu;
+          activeTests.add(it.job);
+          activeDrives.set(it.job, null);
+        }
         const r = flatResults(out.sets).map(([k, v]) => `${k}=${v}`)
           .slice(0, 3).join(' ') || 'sent';
         sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · ${it.job} · ${r}`;
       } catch (e) {
         sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · failed: ${e.message}`;
       }
-      reopen();
+      // held: redrawing this same menu is not a leave, and must not replay
+      // arg=0 into the job that was just fired
+      keepActivationsDuring(reopen);
       return;
     }
     if (it.inPlace && (ir.menus[menuName] || {}).composite) {

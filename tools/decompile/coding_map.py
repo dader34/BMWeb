@@ -104,7 +104,11 @@ def mine(path):
     sgbd = os.path.basename(path).split('.')[0]
     try:
         meta = json.loads(gzip.open(path).read())
-    except Exception:
+    except Exception as e:
+        # a corrupt or truncated hand-off is NOT "no coding jobs": name the
+        # file, or a bad export silently costs an ECU its coding page
+        print(f'WARNING: unreadable {path} ({type(e).__name__}: {e})',
+              file=sys.stderr)
         return None
     jobs = meta.get('jobs') or {}
 

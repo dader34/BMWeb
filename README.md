@@ -28,7 +28,7 @@ at runtime with its own virtual machine.
 
 | | |
 |---|---|
-| Chassis | 27 (E31 through F30, R50/R56, RR1, K25/K40) |
+| Chassis | 26 (E31 through F30, R50/R56, RR1, K25/K40) |
 | ECUs | 1015 |
 | Decompiled screens | 21,386 across 1,117 ECUs |
 | Diagnostic jobs | 23,956 |
@@ -47,11 +47,13 @@ F-key numbers, screens, gauges with their scales, lamps, and which job feeds eac
 row. The renderer interprets that file directly, so a screen looks the way INPA
 drew it because it is the same description.
 
-**The BEST2 virtual machine** (`app/renderer/bestvm.js`) executes the bytecode
+**The BEST2 virtual machine** (`app/renderer/core/bestvm.js`) executes the bytecode
 inside a `.prg`. EDIABAS compiles each ECU's logic to a 184 opcode instruction
 set; the VM runs it, including the register file, byte stack, string table and
-table lookups. This is what turns raw bytes off the wire into named results. It
-agrees with the real EDIABAS engine on 100% of 3,730 results across 460 jobs.
+table lookups. This is what turns raw bytes off the wire into named results.
+Replaying captured telegrams through read jobs across an E46 corpus, it agrees
+with the real EDIABAS engine on 3,729 of 3,730 results over 460 jobs (the one
+disagreement is a known JOB_STATUS case on a synthetic fixture).
 
 **The static data layer** holds what the VM needs: lifted job code, SGBD tables,
 job metadata and per ECU screens, all generated from the BMW files by the tools
@@ -430,9 +432,12 @@ scripts/build/package-macos.sh        # signed DMG (needs dist-web/ first)
 tools/check.sh                        # every guard on the pipeline
 ```
 
-`tools/check.sh` verifies the decompiler against known screens, the interpreter
-across all 1,117 ECUs, the VM against captured telegrams, the write guard, and
-that every table an SGBD references is shipped.
+`tools/check.sh` verifies the decompiler against known screens, the IR
+emitter's invariants, the interpreter against known screens across the
+decompiled ECUs, the VM against captured telegrams, the VM bridge's frame
+reconstruction, the wire framing and checksums, and the write guard. With the
+app running it also checks job metadata against the engine and that every
+table an SGBD references is shipped; without it those two are skipped.
 
 ### Where the data lives
 

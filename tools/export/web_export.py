@@ -18,6 +18,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 CACHE = os.path.join(ROOT, "data", "chassis-config")
 
+# every request that fell back to the committed cache while the app WAS
+# running -- a mix of fresh and stale configs in one export must be loud
+FALLBACKS = []
+
 sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
 import ecu_tree as T                                          # noqa: E402
 
@@ -29,8 +33,12 @@ def get(port, path):
             with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}",
                                          timeout=120) as r:
                 return json.load(r)
-        except Exception:
-            pass
+        except Exception as e:
+            # the app is up but this ONE request failed: serving the cached
+            # copy instead silently mixes fresh and stale configs
+            print(f"  WARNING: {path} failed ({type(e).__name__}: {e}); "
+                  f"using the committed cache")
+            FALLBACKS.append(path)
     name = "index" if path == "/api/chassis" else path.rsplit("/", 1)[-1]
     p = os.path.join(CACHE, f"{name}.json")
     if not os.path.exists(p):
@@ -53,8 +61,10 @@ def refresh_cache(port, ids):
             cfg = get(port, f"/api/chassis/{cid}")
             with open(os.path.join(CACHE, f"{cid}.json"), "w") as f:
                 json.dump(cfg, f, ensure_ascii=False, separators=(",", ":"))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"  WARNING: cache refresh failed ({type(e).__name__}: {e}); "
+              f"the committed chassis-config cache may be stale")
+        FALLBACKS.append("cache-refresh")
 
 
 def make_zip(contents_dict, compress=True):
@@ -87,13 +97,9 @@ def main():
         json.dump(ids, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  chassis.json written")
 
-    # Gather all referenced SGBDs and resolve IR mappings
+    # Gather all referenced SGBDs. (The IR itself ships from the per-car
+    # tree's screens.json below, so nothing here resolves IR files.)
     sgbds = set()
-    sgbd_to_ir = {}
-    ir_dir = os.path.join(ROOT, "data", "inpa-ir")
-    stems = {f[:-5].lower(): f for f in os.listdir(ir_dir)
-             if f.endswith(".json")} if os.path.isdir(ir_dir) else {}
-
     chassis_configs = {}
     for cid in ids:
         cfg = get(port, f"/api/chassis/{cid}")
@@ -101,18 +107,8 @@ def main():
         for sec in cfg.get("sections", []):
             for e in sec.get("ecus", []):
                 sgbd = (e.get("sgbd") or "").lower()
-                if not sgbd:
-                    continue
-                sgbds.add(sgbd)
-                
-                # Match IR file
-                cand = {e["code"].lower(), sgbd}
-                for suf in ("ds0", "ds2", "ds1", "_n", "ds"):
-                    if sgbd.endswith(suf):
-                        cand.add(sgbd[:-len(suf)])
-                hit = next((stems[c] for c in cand if c in stems), None)
-                if hit:
-                    sgbd_to_ir[sgbd] = hit
+                if sgbd:
+                    sgbds.add(sgbd)
 
     # 2. Package each ECU into its own .ecu (zip) archive
     ecu_zips = {}
@@ -256,6 +252,10 @@ def main():
         for filename in filenames
     )
     print(f"api tree: {total_size // (1024 * 1024)} MB -> {out}")
+    if FALLBACKS:
+        print(f"  WARNING: {len(FALLBACKS)} request(s) fell back to the "
+              f"committed cache: {', '.join(FALLBACKS[:8])}"
+              + (" ..." if len(FALLBACKS) > 8 else ""))
     return 0
 
 

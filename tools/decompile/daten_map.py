@@ -145,7 +145,11 @@ def main():
     try:
         cm = json.load(open('data/inpa-screens/_codingmap.json'))
     except OSError:
-        pass
+        # not fatal, but not nothing either: without the coding map the
+        # SGBD cross-refs are absent and every alias audit reads 0%
+        print('WARNING: no data/inpa-screens/_codingmap.json -- coding '
+              'cross-refs will be absent; run tools/decompile/coding_map.py '
+              'first', file=sys.stderr)
 
     sgbds = {os.path.basename(p).split('.')[0].lower()
              for p in glob.glob('data/ecu-src/*.meta.json.gz')}

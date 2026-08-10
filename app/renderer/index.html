@@ -17,6 +17,52 @@
   <link rel="stylesheet" href="css/styles.css" />
   <link rel="stylesheet" href="css/lookup.css" />
   <link rel="stylesheet" href="css/themes.css" />
+  <!-- GLOBAL CRASH HANDLER, before every app module so it sees them all.
+       A script that throws during boot used to leave the splash on
+       "starting engine" forever, with the only evidence in a console most
+       users never open -- the offline exports have long injected their own
+       version of this (core/offline-export.js), and the app itself deserves
+       no less. During boot the error paints the splash status; afterwards
+       it draws a small dismissible banner. Details stay in the console. -->
+  <script>
+    (function () {
+      let banner = null;
+      const show = (msg) => {
+        const st = document.getElementById('splash-status');
+        if (document.getElementById('splash') && st) {
+          st.textContent = msg;
+          st.style.color = '#ef6b6b';
+          const bar = document.getElementById('splash-bar-fill');
+          if (bar) bar.style.display = 'none';
+          return;
+        }
+        if (!document.body) return;
+        if (!banner) {
+          banner = document.createElement('div');
+          banner.style.cssText = 'position:fixed;left:50%;bottom:24px;'
+            + 'transform:translateX(-50%);z-index:9999;'
+            + 'max-width:min(560px,90vw);padding:10px 14px;border-radius:8px;'
+            + 'background:var(--panel,#20242b);border:1px solid var(--red,#ef6b6b);'
+            + 'color:var(--ink,#eef2f5);font-size:12.5px;line-height:1.5;'
+            + 'box-shadow:0 8px 30px rgba(0,0,0,.45);cursor:pointer';
+          banner.title = 'Click to dismiss. Details are in the console.';
+          banner.onclick = () => { banner.remove(); banner = null; };
+          document.body.appendChild(banner);
+        }
+        banner.textContent = '⚠ ' + msg;
+      };
+      window.addEventListener('error', (e) => {
+        show((e.message || 'script error')
+          + (e.filename
+             ? ` (${e.filename.split('/').pop()}${e.lineno ? ':' + e.lineno : ''})`
+             : ''));
+      });
+      window.addEventListener('unhandledrejection', (e) => {
+        show('unhandled: '
+          + ((e.reason && e.reason.message) || e.reason || 'promise rejected'));
+      });
+    }());
+  </script>
 </head>
 <body>
   <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->

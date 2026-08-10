@@ -541,6 +541,14 @@ async function waitForEngine() {
   return false;
 }
 
+// a boot throw must not leave the splash on "starting engine" forever: drop
+// the splash and show the error instead
+function bootFail(e) {
+  dismissSplash();
+  view.innerHTML = errorBlock((e && e.message) || String(e), 'red');
+  sbLeft.textContent = 'boot failed';
+}
+
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
   document.getElementById('flash-btn').onclick = showFlashing;
@@ -631,7 +639,7 @@ async function waitForEngine() {
       sbLeft.textContent = 'engine offline';
       const retry = () => {
         view.innerHTML = `<div class="empty"><span class="loader"></span><span>Waiting for the engine…</span></div>`;
-        start();
+        start().catch(bootFail);
       };
       document.getElementById('boot-retry').onclick = retry;
       setActions([{ key: '1', label: 'Retry', kind: 'primary', fn: retry }]);
@@ -652,5 +660,5 @@ async function waitForEngine() {
       sbLeft.textContent = 'failed';
     });
   };
-  start();
-})();
+  start().catch(bootFail);
+})().catch(bootFail);

@@ -49,6 +49,12 @@ data/faults/*
 # ORT fault-code map (build input for faultindex.js: text-scheme German -> ORT
 # hex per SGBD variant, dumped offline via `inpamac dumptable`). Small, shipped.
 !data/ort-codes.json
+# VM regression fixture: the replay corpus test_bestvm.js and test_vmbridge.js
+# run against (449 KB). Committed so CI and a fresh clone can run the VM tests;
+# the raw .sim captures and traces beside it stay local.
+!data/sim-captures/
+data/sim-captures/*
+!data/sim-captures/vmfix.json
 # enriched INPA screen layouts the app serves for the Status view (small, shipped)
 !data/inpa-layouts/
 data/inpa-layouts/*

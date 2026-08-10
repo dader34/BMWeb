@@ -27,6 +27,21 @@ const ADAPTER_HOST = process.argv[2] || '192.168.4.1';
 const ADAPTER_PORT = Number(process.argv[3] || 23);
 const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
+// ONLY PAGES THAT ARE THIS APP MAY DRIVE THE CABLE. The relay listens on
+// 127.0.0.1, but "local" is not "trusted": any website open in the same
+// browser can open ws://127.0.0.1:8124 too, and a browser cannot lie about
+// the Origin header on a WebSocket upgrade -- so that header is the one
+// thing that says who is really connecting. Accept the app's own homes:
+//   - no Origin / "null"  -> a file:// offline copy, or a non-browser client
+//   - localhost/127.0.0.1 -> a locally served build, any port
+//   - the published site  -> must match app/renderer/CNAME
+const SITE_ORIGIN = 'https://bmweb.danner.ink';
+function originAllowed(origin) {
+  if (!origin || origin === 'null') return true;
+  if (origin === SITE_ORIGIN) return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+}
+
 const hex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join(' ');
 
 // one server-to-client binary frame (unmasked, fin)
@@ -70,6 +85,13 @@ const server = http.createServer((req, res) => {
 });
 
 server.on('upgrade', (req, sock) => {
+  const origin = req.headers.origin;
+  if (!originAllowed(origin)) {
+    console.log(`[ws] refused connection from origin ${origin}`);
+    sock.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    sock.destroy();
+    return;
+  }
   const key = req.headers['sec-websocket-key'];
   if (!key) { sock.destroy(); return; }
   const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');

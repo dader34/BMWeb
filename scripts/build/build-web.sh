@@ -60,11 +60,17 @@ rm -f "$OUT/thor_bridge.js"
 # faultinfo.js is 60 MB of ISTA fault detail and faultmeta.js another 14 MB.
 # They load lazily in the app; on a static host they are just weight, so ship
 # them gzipped beside the original the way job code already does.
+#
+# The .gz siblings are an OPTIMISATION, not a requirement: StaticHost only
+# rewrites a request onto foo.gz when the plain file is MISSING, and gzip -k
+# keeps the original, so a build without them still serves everything -- just
+# uncompressed. That is why absence is fine but a failure HERE is not: a
+# broken gzip should fail the build, not quietly ship the fat site.
 echo "==> pre-compressing the large payloads"
 find "$OUT" -name "*.js" -size +1M -print0 \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {}
-find "$OUT/api" -name "*.json" -size +256k -print0 2>/dev/null \
-  | xargs -0 -P 8 -I{} gzip -9 -k -f {} 2>/dev/null || true
+find "$OUT/api" -name "*.json" -size +256k -print0 \
+  | xargs -0 -P 8 -I{} gzip -9 -k -f {}
 
 SIZE=$(du -sh "$OUT" | cut -f1)
 RAW=$(find "$OUT" -name "*.json" -o -name "*.js" | wc -l | tr -d ' ')

@@ -11,6 +11,18 @@ const activeTests = new Set(); // jobs currently on
 const activeDrives = new Map();
 let activationEcu = null;       // ecu whose tests are active, for cleanup
 
+// Redrawing the SAME screen right after a send (ir.js reopens its menu so
+// each row shows its armed state) is not a screen change: releasing there
+// would replay the off form into the job that was just fired. The redraw
+// runs inside this hold; every real navigation still releases (setActions
+// in core.js consults activationsHeld before stopping).
+let _activationsHeld = false;
+function keepActivationsDuring(fn) {
+  _activationsHeld = true;
+  try { fn(); } finally { _activationsHeld = false; }
+}
+const activationsHeld = () => _activationsHeld;
+
 // Same setting ir.js honors -- one switch governs every actuator confirm.
 // Deliberately NOT consulted for permanent writes or the EWS/DME sequence:
 // those always ask.
@@ -526,6 +538,11 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
     // back to lastScreen: that points at this very section and would loop.
     const back = { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
                    fn: up || (exit && exit.fn) || (() => {}) };
+    // per-item row + state cell, filled in as the rows are drawn below, so
+    // toggleActivation writes into the row's own element. Handing it the
+    // container let setActBtn rewrite the container's textContent/className
+    // and wipe the whole tree screen.
+    const stateEls = new Map();
     const enter = (it) => {
       const here = [...trail, deGerman(it.label) || it.label];
       const reopen = () => openLevel(items, trail, up);
@@ -545,7 +562,10 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       }
       const a = jobFor(it.label, it);
       if (!a) { sbLeft.textContent = `${it.label}: no job mapped`; return; }
-      toggleActivation(ecu, a, container, container);
+      const cell = stateEls.get(it) || {};
+      // a detached span absorbs the writes harmlessly should the map miss
+      toggleActivation(ecu, a, cell.row || container,
+                       cell.btn || document.createElement('span'));
     };
 
     container.className = 'results-panel';
@@ -599,6 +619,7 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
           + `<span class="inpa-fn-label">${esc(label)}${sub ? ' ▸' : ''}</span>`
           + `<span class="act-key-val">${esc(note)}</span>`;
         row.onclick = () => enter(it);
+        stateEls.set(it, { row, btn: row.querySelector('.act-key-val') });
         list.appendChild(row);
         return;
       }
@@ -606,9 +627,10 @@ function renderActivateTree(ecu, roots, acts, container, exit) {
       tile.className = 'group-tile' + (!sub && !a && !av ? ' act-blocked-card' : '');
       tile.innerHTML = `
         <div class="group-name">${esc(label)}</div>
-        <div class="group-count">${esc(note)}</div>
+        <div class="group-count act-key-val">${esc(note)}</div>
         <div class="group-arrow">${sub ? '▸' : '→'}</div>`;
       tile.onclick = () => enter(it);
+      stateEls.set(it, { row: tile, btn: tile.querySelector('.act-key-val') });
       list.appendChild(tile);
     });
     if (!inpa) stagger(list, 30);
@@ -849,11 +871,29 @@ async function showActionMenu(ecu, spec, container, onBack) {
         danger: true,
       });
       if (!ok) { sbLeft.textContent = 'cancelled'; return; }
+    } else if (!k.release && confirmDrives()) {
+      // a plain drive key honors the same confirm setting as every other
+      // drive path; a release key hands the output back to the ECU and is
+      // the safe direction, so it never asks
+      const ok = await confirmDialog({
+        title: `${esc(spec.title)}: ${esc(keyLabelText(k.label, k.value))}?`,
+        body: `Sends <b>${esc(keyLabelText(k.label, k.value))}</b> (value ${k.value}) `
+            + `to <b>${esc(ecu.label)}</b> via <span class="mono">${esc(job)}</span>. `
+            + `This drives a real component.`,
+        confirmLabel: 'Send', danger: true,
+      });
+      if (!ok) { sbLeft.textContent = 'cancelled'; return; }
     }
     try {
       const st = await sendActivation(ecu, job, k.value);
       if (st && st !== 'OKAY') { showActivationError({ label: spec.title, start: job }, st); sbLeft.textContent = st; return; }
-      if (k.release) activeTests.delete(job); else activeTests.add(job);
+      // Only genuine drives register for release-on-leave. A write/commit
+      // key is set-and-stay by design: registering it would have
+      // stopAllActivations replay the job with ?arg=0 on leaving the screen
+      // -- an unconfirmed permanent write of zero (CO poti, programming).
+      if (write || k.commit) { /* never registered */ }
+      else if (k.release) { activeTests.delete(job); activeDrives.delete(job); }
+      else { activeTests.add(job); activeDrives.set(job, null); }
       sbLeft.textContent = `${job} ${k.value} · ${k.release ? 'released' : 'sent'}`;
       // read back the output this key actually drove, not the menu's default
       const rb = await activationReadback(ecu, k.job ? job : (spec.status || job));
@@ -1030,10 +1070,30 @@ async function toggleActivation(ecu, a, card, btn) {
       // Stop = drive the output to 0. The ECU rejects _ENDE in an active session,
       // but arg=0 de-energizes (verified: fuel pump, e-fan). _ENDE only as fallback.
       const off = await sendActivation(ecu, a.start, 0).catch(() => 'ERR');
+      let released = off !== 'ERR';
       if (off !== 'OKAY' && a.stop) {
-        await api(`/api/ecu/${ecu.sgbd}/run/${a.stop}`, { method: 'POST' }).catch(() => {});
+        try {
+          await api(`/api/ecu/${ecu.sgbd}/run/${a.stop}`, { method: 'POST' });
+          released = true;
+        } catch { /* keep whatever the arg=0 send established */ }
+      }
+      if (!released) {
+        // No release telegram reached the ECU. Saying "stopped" here would
+        // be a lie with a component still driven, so stay registered (the
+        // leave hook retries, and the button still reads Stop) and say so.
+        sbLeft.textContent = `${a.start}: release FAILED — output may still be driven`;
+        confirmDialog({
+          title: 'Stop failed',
+          body: `The release telegram for <span class="mono">${esc(a.start)}</span> `
+              + `did not reach the ECU. <b>The output may still be commanded.</b> `
+              + `Press Stop again; if the component keeps running, switch the `
+              + `ignition off.`,
+          confirmLabel: 'OK', cancelLabel: 'Close',
+        });
+        return;
       }
       activeTests.delete(a.start);
+      activeDrives.delete(a.start);
       setActBtn(btn, false); card.classList.remove('running');
       showActivationResult(card, null);
       sbLeft.textContent = `${a.start} stopped`;
@@ -1085,20 +1145,56 @@ function stopKeepAlive(job) {
   if (t) { clearInterval(t); keepAliveTimers.delete(job); }
 }
 
-// stop all running actuator tests, on leaving the screen
+// stop all running actuator tests, on leaving the screen. A failed release is
+// not swallowed: if neither the off form nor _ENDE went out, the user is told
+// the output may still be commanded rather than being shown nothing.
 function stopAllActivations(ecu) {
   if (!activeTests.size) return;
   const ecuSgbd = ecu?.sgbd;
+  const failed = [];
+  const sends = [];
   for (const start of [...activeTests]) {
     stopKeepAlive(start);
     if (ecuSgbd) {
       // a drive that registered its exact off form gets it; otherwise
       // arg=0 de-energizes, _ENDE only as fallback
       const off = activeDrives.get(start) || '0';
-      api(`/api/ecu/${ecuSgbd}/run/${start}?arg=${encodeURIComponent(off)}`, { method: 'POST' })
-        .catch(() => api(`/api/ecu/${ecuSgbd}/run/${start}_ENDE`, { method: 'POST' }).catch(() => {}));
+      sends.push(
+        api(`/api/ecu/${ecuSgbd}/run/${start}?arg=${encodeURIComponent(off)}`, { method: 'POST' })
+          .catch(() => api(`/api/ecu/${ecuSgbd}/run/${start}_ENDE`, { method: 'POST' }))
+          .catch(() => { failed.push(start); }));
     }
     activeTests.delete(start);
     activeDrives.delete(start);
   }
+  // the composite actuator words (ir.js) were re-commanded to neutral above;
+  // forget them so a re-entered menu starts from baseline, not stale flags
+  if (typeof irResetCompositeState === 'function') irResetCompositeState();
+  Promise.all(sends).then(() => {
+    if (!failed.length) return;
+    sbLeft.textContent = `release FAILED: ${failed.join(', ')} — outputs may still be driven`;
+    confirmDialog({
+      title: 'Release failed',
+      body: `The release telegram failed for <span class="mono">${esc(failed.join(', '))}</span>. `
+          + `<b>The outputs may still be commanded.</b> Check the components; `
+          + `if one is still running, switch the ignition off.`,
+      confirmLabel: 'OK', cancelLabel: 'Close',
+    });
+  });
 }
+
+// Last-ditch release when the whole page goes away (tab close, reload,
+// navigation): the setActions leave hook never fires for those. Nothing can
+// be awaited during unload, so the sends are fire-and-forget.
+window.addEventListener('pagehide', () => {
+  if (activationEcu && activeTests.size) stopAllActivations(activationEcu);
+});
+// ...and warn before closing the tab mid-test. This only prompts: releasing
+// here too would kill the test even when the user cancels the close, so the
+// actual release stays on pagehide, which fires only when the page really
+// goes away.
+window.addEventListener('beforeunload', (e) => {
+  if (!(activationEcu && activeTests.size)) return;
+  e.preventDefault();
+  e.returnValue = '';
+});

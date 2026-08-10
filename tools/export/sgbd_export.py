@@ -82,6 +82,7 @@ def _export_one(sgbd):
         n_dec += sum(1 for r in res if _decodable(r))
     # The init exchange and framing, derived by running the REAL engine
     # against a stub sim -- what it sends first is what the ECU needs.
+    conn_err = None
     if first_job:
         try:
             init = B.discover_init(sgbd, first_job)
@@ -97,13 +98,15 @@ def _export_one(sgbd):
                                  "expect": list(init[1] or [])}]
             if conn:
                 out["connection"] = conn
-        except Exception:                                   # noqa: BLE001
-            pass
+        except Exception as e:                              # noqa: BLE001
+            # a crashed probe is NOT "this ECU needs no init" -- say which,
+            # or conn=no hides a broken discovery behind a plausible answer
+            conn_err = f"{type(e).__name__}: {e}"
     path = os.path.join(SPEC_DIR, f"{sgbd}.json")
     with open(path, "w") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     return (sgbd, len(out["jobs"]), n_res, n_dec,
-            bool(out.get("connection")))
+            conn_err or bool(out.get("connection")))
 
 
 def export_specs(targets):
@@ -114,6 +117,7 @@ def export_specs(targets):
     from concurrent.futures import ProcessPoolExecutor
     workers = min(6, os.cpu_count() or 4)
     grand_jobs = grand_res = grand_dec = 0
+    conn_failed = []
     # warm the CLI binary once, before workers race to build it
     B.cli_cmd("--version")
     with ProcessPoolExecutor(max_workers=workers) as ex:
@@ -125,11 +129,22 @@ def export_specs(targets):
             grand_res += nr
             grand_dec += nd
             path = os.path.join(SPEC_DIR, f"{sgbd}.json")
+            # conn is True/False from discovery, or an error string when the
+            # probe itself failed -- keep the two visibly different
+            if isinstance(conn, str):
+                conn_failed.append(sgbd)
+                conn_s = f"FAILED ({conn})"
+            else:
+                conn_s = "yes" if conn else "no"
             print(f"  {sgbd:12} {nj:3} jobs "
                   f"{os.path.getsize(path)//1024:5} KB "
-                  f"conn={'yes' if conn else 'no'}")
+                  f"conn={conn_s}")
     print(f"specs: {grand_jobs} jobs, {grand_res} results, "
           f"{grand_dec} decodable ({100*grand_dec/max(grand_res,1):.1f}%)")
+    if conn_failed:
+        print(f"WARNING: connection discovery FAILED (not merely absent) for "
+              f"{len(conn_failed)} SGBDs: {', '.join(conn_failed[:10])}"
+              + (" ..." if len(conn_failed) > 10 else ""))
 
 
 def export_tables(targets):
@@ -137,7 +152,20 @@ def export_tables(targets):
     # table fetches are HTTP calls to the engine API: thread them
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=8) as ex:
-        list(ex.map(_export_tables_one, targets))
+        results = list(ex.map(_export_tables_one, targets))
+    # failures MUST outlive the scroll: a listing that fell back to the
+    # spec-referenced subset is the exact regression the comment in
+    # _export_tables_one warns about (a third of MS450's lookup text gone)
+    no_listing = [s for s, lf, _ in results if lf]
+    dropped = sum(nf for _, _, nf in results)
+    if no_listing:
+        print(f"WARNING: table listing failed for {len(no_listing)} SGBDs "
+              f"(exported only spec-referenced tables): "
+              f"{', '.join(no_listing[:10])}"
+              + (" ..." if len(no_listing) > 10 else ""))
+    if dropped:
+        print(f"WARNING: {dropped} declared tables failed to fetch "
+              f"and were dropped")
 
 
 def _export_tables_one(sgbd):
@@ -148,6 +176,8 @@ def _export_tables_one(sgbd):
     # The VM reaches tables the lifter never modelled, so the export has to
     # come from the SGBD, not from our summary of it.
     names = set()
+    listing_failed = False
+    table_failures = 0
     port = os.environ.get("BMACW_PORT")
     if port:
         import urllib.request
@@ -158,8 +188,13 @@ def _export_tables_one(sgbd):
                 n = t if isinstance(t, str) else t.get("name")
                 if n:
                     names.add(n)
-        except Exception:                                   # noqa: BLE001
-            pass
+        except Exception as e:                              # noqa: BLE001
+            # falling back to spec-referenced tables only is exactly the
+            # regression described above -- shout, or it ships again
+            listing_failed = True
+            print(f"  {sgbd:12} WARNING: table listing failed "
+                  f"({type(e).__name__}: {e}) -- exporting only "
+                  f"spec-referenced tables")
     path = os.path.join(SPEC_DIR, f"{sgbd}.json")
     if os.path.exists(path):
         spec_file = json.load(open(path))
@@ -173,12 +208,16 @@ def _export_tables_one(sgbd):
                 if lk and lk.get("table"):
                     names.add(lk["table"])
     if not names:
-        return
+        return (sgbd, listing_failed, table_failures)
     tables = {}
     for t in sorted(names):
         try:
             rows = V.sgbd_table(sgbd, t)
-        except Exception:                                   # noqa: BLE001
+        except Exception as e:                              # noqa: BLE001
+            # a dropped table is not "declared and empty": say which
+            table_failures += 1
+            print(f"  {sgbd:12} WARNING: table {t} fetch failed "
+                  f"({type(e).__name__}: {e}) -- dropped")
             rows = None
         if rows:
             tables[t] = rows
@@ -189,6 +228,7 @@ def _export_tables_one(sgbd):
                       separators=(",", ":"))
         print(f"  {sgbd:12} {len(tables):2} tables "
               f"{os.path.getsize(tp)//1024:5} KB")
+    return (sgbd, listing_failed, table_failures)
 
 
 def _cli_dumptable(table, sgbd):
@@ -273,14 +313,20 @@ def export_groups(chassis=None):
                 seen.add(g)
                 groups.append(g)
     made = []
+    failed = []
     for g in sorted(groups):
         try:
             r = C.export(g, all_jobs=True,
                          dest=os.path.join(out_dir, f"{g}.json.gz"))
-        except SystemExit:
+        except SystemExit as e:
+            # C.export bails with SystemExit for "no such SGBD" and friends;
+            # swallowing it dropped the group without a trace
+            print(f"  {g:12} FAILED SystemExit: {e}")
+            failed.append(g)
             continue
         except Exception as e:                              # noqa: BLE001
             print(f"  {g:12} FAILED {type(e).__name__}: {e}")
+            failed.append(g)
             continue
         if r:
             made.append(r)
@@ -289,6 +335,9 @@ def export_groups(chassis=None):
     if len(made) > 10:
         print(f"  ... and {len(made) - 10} more")
     print(f"groups: {len(made)} of {len(groups)} in the vendor tree")
+    if failed:
+        print(f"  {len(failed)} FAILED: {', '.join(failed[:10])}"
+              + (" ..." if len(failed) > 10 else ""))
     return made
 
 
@@ -308,13 +357,19 @@ def audit_tables(targets):
         return 1
     bad = 0
     tot_decl = tot_ship = 0
+    unreachable = []
     for sgbd in targets:
         p = os.path.join(TABLE_DIR, f"{sgbd}.json")
         shipped = set(json.load(open(p))) if os.path.exists(p) else set()
         try:
             listing = json.load(urllib.request.urlopen(
                 f"http://127.0.0.1:{port}/api/ecu/{sgbd}/tables", timeout=60))
-        except Exception:                                   # noqa: BLE001
+        except Exception as e:                              # noqa: BLE001
+            # an ECU the engine cannot list is UNAUDITED, not clean --
+            # counting it as clean is the same silence this audit exists
+            # to break
+            unreachable.append(sgbd)
+            print(f"  {sgbd:12} UNREACHABLE ({type(e).__name__}: {e})")
             continue
         decl = {(t if isinstance(t, str) else t.get("name"))
                 for t in (listing if isinstance(listing, list) else [])}
@@ -342,8 +397,11 @@ def audit_tables(targets):
                   f"  e.g. {', '.join(missing[:3])}")
     print(f"tables declared {tot_decl}, shipped {tot_ship}"
           f" ({100 * tot_ship / max(tot_decl, 1):.1f}%)"
-          f" -- {bad} SGBDs incomplete")
-    return 1 if bad else 0
+          f" -- {bad} SGBDs incomplete, {len(unreachable)} unaudited")
+    if unreachable:
+        print(f"  unaudited: {', '.join(unreachable[:10])}"
+              + (" ..." if len(unreachable) > 10 else ""))
+    return 1 if bad or unreachable else 0
 
 
 def coverage(targets):

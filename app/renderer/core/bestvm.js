@@ -93,6 +93,19 @@ class Best2Vm {
     // default: a caller has to say so, and saying so is the point where a
     // UI can put a confirmation in front of the user.
     this.allowWrites = !!opts.allowWrites;
+    // Wire parameters from xsetpar. Seeded from the SESSION: xsetpar lives
+    // in INITIALISIERUNG, which runs once per session -- a fresh VM for a
+    // later job never executes it, so the caller carries comm forward the
+    // same way it carries `shared`. Without this seed every ordinary job
+    // transmitted with comm=null, i.e. BMW-FAST 115200 8N1, and every
+    // K-line module got line noise.
+    this.comm = opts.comm || null;
+    // A fixed clock for date/time, when the caller needs determinism.
+    // webshim re-runs a job's bytecode once per telegram fetched, and the
+    // answer memo is keyed on request bytes -- a timestamp that ticks
+    // between passes changes the bytes, misses the memo, and re-transmits
+    // a telegram that already went out.
+    this.now = opts.now || null;
   }
 
   reset() {
@@ -119,7 +132,10 @@ class Best2Vm {
     this.answer = new Uint8Array(0);
     this.tokenSep = '';                // setspc separators for stoken
     this.tokenIdx = 0;                 // 1-based token number, 0 = unset
-    this.comm = null;                  // xsetpar wire parameters, see below
+    // this.comm is deliberately NOT cleared: xsetpar runs in
+    // INITIALISIERUNG, and a job start that wiped it sent every subsequent
+    // telegram with default (BMW-FAST) framing. Comm lives as long as the
+    // VM / session, like shared data.
     this.steps = 0;
   }
 
@@ -194,7 +210,10 @@ class Best2Vm {
     const src = bytes instanceof Uint8Array ? bytes
       : Uint8Array.from(bytes || []);
     if (src.length > d.buf.length) {
-      // over capacity: the engine errors and does NOT write
+      // over capacity: StringData.SetData raises EDIABAS_BIP_0001 (no
+      // mapped trap bit -> 0) and does NOT write. Returning silently left
+      // the register holding stale bytes with a clean trap register.
+      this.trapBit = 0;
       return;
     }
     d.buf.set(src, 0);
@@ -424,17 +443,30 @@ class Best2Vm {
     if (init !== undefined && !this._inited
         && String(jobName).toUpperCase() !== 'INITIALISIERUNG') {
       this._inited = true;
+      let initSets;
       try {
-        this.runOne(init, '');
+        initSets = this.runOne(init, '');
       } catch (e) {
-        // an init that fails must not take the real job down with it; the
-        // engine logs and continues into the job as well. EXCEPT when the
-        // failure is the driver asking for a telegram answer it has not
-        // fetched yet (webshim's needAnswer sentinel): swallowing that
-        // meant init's own telegrams were never fetched on a live cable,
-        // and init "succeeded" having sent nothing. Rethrow so the driver
-        // fetches the answer and re-enters, and let init run again then.
-        if (e && e.needAnswer) { this._inited = false; throw e; }
+        // An init that fails FAILS THE JOB. ExecuteInitJob rethrows any
+        // exception and closes the SGBD to force a reload -- it does not
+        // shrug and continue. Swallowing here converted every loud init
+        // failure (unimplemented opcode, step limit, eerr) into a job that
+        // "succeeded" with empty shared data and published zeros as OKAY.
+        // The needAnswer sentinel (webshim fetching a telegram answer) also
+        // rethrows, and both paths clear _inited so init runs again on the
+        // next attempt.
+        this._inited = false;
+        throw e;
+      }
+      // ExecuteInitJob also demands the init PROVE itself: result set 1
+      // (our set 0; the engine's set 0 is synthetic) must carry DONE=1, or
+      // the engine reports EDIABAS_SYS_0010 and unloads the SGBD.
+      const done = initSets && initSets.length
+        && Number(initSets[0].DONE) === 1;
+      if (!done) {
+        this._inited = false;
+        throw new VmError(
+          'INITIALISIERUNG did not report DONE=1 (EDIABAS_SYS_0010)');
       }
     }
     return this.runOne(undefined, args, jobName);
@@ -646,10 +678,13 @@ class Best2Vm {
       case 'clear': {
         if (A[0] >= 1 && A[0] <= 4 && A[1][0] === 'S') {
           this.clearS(A[1]);
-          f.carry = false; f.zero = true; f.sign = false; f.overflow = false;
-          return;
+        } else {
+          this.store(A, 0, false);
         }
-        this.store(A, 0, false);
+        // OpClear sets the same flags for EVERY register type; leaving them
+        // stale on the numeric path made a jz right after `clear I0` not
+        // jump.
+        f.carry = false; f.zero = true; f.sign = false; f.overflow = false;
         return;
       }
 
@@ -716,18 +751,24 @@ class Best2Vm {
         // stride register holding a stale value, so FS_LESEN's fault-record
         // cursor advanced from the wrong base and every record read one
         // byte early.
+        //
+        // OpMult computes the product in 32-BIT integer arithmetic -- the
+        // exact low 32 bits, wrapping -- never a 64-bit product. A plain JS
+        // double multiply rounds past 2^53 and got the low word wrong for
+        // large 32-bit operands; Math.imul is the exact wrap. The high half
+        // is "(UInt64)result >> (len << 3)" of that 32-bit result, so it is
+        // ZERO at width 4 (the engine's own comment: negative high halves
+        // are not emulated).
         const w = this.widthOf(A);
         const lim = 2 ** (8 * w), half = lim / 2;
         const sx = (() => { const v = this.val(A, w); return v >= half ? v - lim : v; })();
         const sy = (() => { const v = this.val(B, w); return v >= half ? v - lim : v; })();
-        const p = sx * sy;
-        const lo = ((p % lim) + lim) % lim;
-        this.store(A, lo);
+        const result = (w === 4 ? Math.imul(sx | 0, sy | 0) : sx * sy) >>> 0;
+        this.store(A, result % lim);
         f.overflow = false;
-        this.updateFlags(lo, w);
+        this.updateFlags(result, w);
         if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
-          const hi = Math.trunc((p < 0 ? p + 2 ** 32 : p) / lim);
-          this.store(B, ((hi % lim) + lim) % lim);
+          this.store(B, Math.floor(result / lim) % lim);
         }
         return;
       }
@@ -743,8 +784,22 @@ class Best2Vm {
         const toI32 = (v) => (v >= 0x80000000 ? v - 0x100000000 : v);
         const x = toI32(this.val(A, w)), y = toI32(this.val(B, w));
         const lim = 2 ** (8 * w);
-        let q = 0, rem = 0;
-        if (y !== 0) { q = Math.trunc(x / y); rem = x % y; }
+        if (y === 0) {
+          // OpDivs on a zero divisor raises EDIABAS_BIP_0007 (which has no
+          // mapped trap bit -> 0), KEEPS arg0's value, and still writes a
+          // zero remainder. Yielding a silent 0 quotient turned a garbled
+          // count byte into 0-valued results published as OKAY. The
+          // trap-mask layer is not modeled (see generr), so trapping is
+          // the conservative choice over aborting the job.
+          this.trapBit = 0;
+          f.overflow = false;
+          this.updateFlags(0, w);
+          if (B && B[0] >= 1 && B[0] <= 4 && String(B[1])[0] !== 'S') {
+            this.store(B, 0);
+          }
+          return;
+        }
+        const q = Math.trunc(x / y), rem = x % y;
         const stored = ((q % lim) + lim) % lim;
         this.store(A, stored);
         f.overflow = false;
@@ -843,7 +898,13 @@ class Best2Vm {
         if (name === 'fadd') r = x + y;
         else if (name === 'fsub') r = x - y;
         else if (name === 'fmul') r = x * y;
-        else r = y === 0 ? 0 : x / y;
+        else {
+          // OpFdiv divides regardless and stores what comes out; an
+          // infinite or NaN quotient raises EDIABAS_BIP_0011 (trap bit 8).
+          // Storing a silent 0 hid the division by zero entirely.
+          r = x / y;
+          if (!Number.isFinite(r)) this.trapBit = 8;
+        }
         this.fregs.set(A[1], r);
         return;
       }
@@ -915,7 +976,7 @@ class Best2Vm {
         return;
       }
       case 'flt2a': {
-        this.storeText(A, String(this.getReg(B[1])));
+        this.storeText(A, Best2Vm.fltText(this.getReg(B[1])));
         return;
       }
       case 'fix2a': case 'ufix2a': {
@@ -1194,9 +1255,12 @@ class Best2Vm {
         return;
       }
       case 'ergr': {
+        // arg1 is GetFloatData(): a pool literal parses as a number rather
+        // than falling through val()'s m===8 case, which returned 0.
         this.emit(this.resName(A),
-                  B[1] && String(B[1])[0] === 'F'
-                    ? this.getReg(B[1]) : this.val(B));
+                  B[0] === 8 ? Best2Vm.parseNum(this.lit(B[1]))
+                    : B[1] && String(B[1])[0] === 'F'
+                      ? this.getReg(B[1]) : this.val(B));
         return;
       }
       case 'ergs': {
@@ -1415,6 +1479,14 @@ class Best2Vm {
           this.pendingWaitMs = 0;
         }
         const ans = this.send(Array.from(req), comm) || [];
+        if (ans.length > this.arraySize) {
+          // An answer that exceeds the register capacity must not be
+          // half-stored: setS would refuse the write and the job would
+          // decode its own request bytes -- still sitting in the register --
+          // as the ECU's response. Fail loudly instead.
+          throw new VmError(`answer of ${ans.length} bytes exceeds the `
+            + `job's array size (${this.arraySize})`);
+        }
         this.answer = Uint8Array.from(ans);
         this.store(A, this.answer, true);
         f.zero = this.answer.length === 0;
@@ -1524,15 +1596,17 @@ class Best2Vm {
         return;
       }
       case 'date': {
-        // dd.MM.yyyy text, the German convention AIF date fields expect
-        const d = new Date();
+        // dd.MM.yyyy text, the German convention AIF date fields expect.
+        // this.now (when the caller set one) keeps the bytes identical
+        // across webshim's replay passes -- see the constructor.
+        const d = this.now || new Date();
         const p = (n) => String(n).padStart(2, '0');
         this.storeText(A,
                        `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`);
         return;
       }
       case 'time': {
-        const d = new Date();
+        const d = this.now || new Date();
         const p = (n) => String(n).padStart(2, '0');
         this.storeText(A,
                        `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
@@ -1639,6 +1713,35 @@ class Best2Vm {
     if (s === undefined || s === null) return 0;
     const v = parseFloat(String(s).replace(',', '.'));
     return Number.isFinite(v) ? v : 0;
+  }
+
+  // OpFlt2A, ported faithfully: round to floatPrecision (default 4)
+  // SIGNIFICANT digits (RoundToSignificantDigits, Math.Round = half-even),
+  // format invariant, then CUT THE STRING after the Nth digit character --
+  // including the engine's own quirk of truncating an exponent's digits.
+  // JS shortest-roundtrip formatting ("0.30000000000000004") never appears:
+  // the rounding and the cut both bound it.
+  static fltText(value) {
+    const digits = 4;                      // engine _floatPrecision default
+    let v = Number(value);
+    if (Number.isFinite(v) && v !== 0) {
+      const scale = 10 ** (Math.floor(Math.log10(Math.abs(v))) + 1);
+      const x = (v / scale) * 10 ** digits;
+      let r = Math.round(x);               // JS rounds half toward +inf...
+      if (Math.abs(x % 1) === 0.5 && r % 2 !== 0) r -= 1;
+      v = scale * (r / 10 ** digits);      // ...Math.Round is half to even
+    }
+    let s = String(v);
+    const em = /^(-?[\d.]+)e([+-])(\d+)$/.exec(s);
+    if (em) s = `${em[1]}E${em[2]}${em[3].padStart(2, '0')}`;
+    let count = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] >= '0' && s[i] <= '9') {
+        count++;
+        if (count >= digits) { s = s.slice(0, i + 1); break; }
+      }
+    }
+    return s;
   }
 }
 

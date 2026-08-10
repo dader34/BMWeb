@@ -114,9 +114,10 @@ function main() {
     : fs.readdirSync(IR_DIR).filter(f => f.endsWith('.json'));
 
   let ecus = 0, strings = 0, translated = 0, overridden = 0, withOvr = 0;
+  let problems = 0;
   for (const f of files) {
     const p = path.join(IR_DIR, f);
-    if (!fs.existsSync(p)) { console.error(`no IR for ${f}`); continue; }
+    if (!fs.existsSync(p)) { console.error(`no IR for ${f}`); problems++; continue; }
     const ir = JSON.parse(fs.readFileSync(p, 'utf8'));
     // `strings` is the emitter's hand-off and is consumed on the first run, so
     // --check re-derives it from what the IR actually holds. That also makes
@@ -129,7 +130,26 @@ function main() {
     translated += Object.keys(r.map).length;
     overridden += r.fromOvr;
     if (r.hasOvr) withOvr++;
-    if (check) continue;
+    if (check) {
+      // The invariant: what resolution WOULD produce is what the IR on disk
+      // CARRIES. An unconsumed `strings` hand-off means the emitter ran
+      // after this step (the "raw German captions" regression check.sh's
+      // header describes); a map entry the IR lacks means an override or
+      // the vocabulary changed and this step has not been re-run.
+      const have = ir.i18n || {};
+      const missing = Object.keys(r.map).filter(k => have[k] !== r.map[k]);
+      if (Array.isArray(ir.strings)) {
+        console.error(`  ${ir.ecu || f}: strings hand-off unconsumed -- `
+          + `run node tools/decompile/ipo_i18n.js`);
+        problems++;
+      } else if (missing.length) {
+        console.error(`  ${ir.ecu || f}: ${missing.length} resolved captions `
+          + `missing from i18n (e.g. ${JSON.stringify(missing[0])}) -- `
+          + `run node tools/decompile/ipo_i18n.js`);
+        problems++;
+      }
+      continue;
+    }
     if (Object.keys(r.map).length) ir.i18n = r.map;
     else delete ir.i18n;
     // `strings` was the emitter's hand-off to this step; the app never needs
@@ -140,6 +160,10 @@ function main() {
   console.log(`  i18n       ${ecus} ECUs, ${strings} captions, `
     + `${translated} translated (${overridden} from per-ECU overrides, `
     + `${withOvr} ECUs have an overrides file)`);
+  if (check && problems) {
+    console.error(`  i18n check FAILED: ${problems} IR(s) out of step`);
+    process.exitCode = 1;
+  }
 }
 
 main();

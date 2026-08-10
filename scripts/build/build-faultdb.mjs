@@ -1,5 +1,5 @@
 // Generates app/renderer/data/faultdb.js from the fault translation files.
-//   node scripts/build-faultdb.mjs
+//   node scripts/build/build-faultdb.mjs
 //
 // Sources (all authoritative, derived from the BMW SGBD FORTTEXTE tables):
 //   data/faults/*.json          - flat { "<HEXCODE>": "English" } cross-ECU DTC maps.
@@ -26,10 +26,24 @@ const faultsDir = path.join(root, 'data', 'faults');
 // screen splits a module into one entry per variant (labelled by the variant SGBD).
 // Keyed case-insensitively by the base sgbd. Optional: an absent file means no codes.
 let ortMap = {};
-try {
-  const raw = JSON.parse(fs.readFileSync(path.join(root, 'data', 'ort-codes.json'), 'utf8'));
-  for (const [sgbd, m] of Object.entries(raw)) ortMap[sgbd.toLowerCase()] = m;
-} catch { /* no ort map: text rows just carry no code */ }
+{
+  // absent is fine (text rows just carry no code); CORRUPT is not -- a bare
+  // catch treated a truncated dump like a missing one and every ORT code
+  // silently vanished from the Lookup screen.
+  const ortPath = path.join(root, 'data', 'ort-codes.json');
+  if (!fs.existsSync(ortPath)) {
+    console.warn('warning: no data/ort-codes.json - text rows will carry no ORT codes');
+  } else {
+    let raw;
+    try {
+      raw = JSON.parse(fs.readFileSync(ortPath, 'utf8'));
+    } catch (e) {
+      console.error(`FAILED: data/ort-codes.json exists but is unreadable: ${e.message}`);
+      process.exit(1);
+    }
+    for (const [sgbd, m] of Object.entries(raw)) ortMap[sgbd.toLowerCase()] = m;
+  }
+}
 
 const codes = {};    // HEXCODE -> English
 const phrases = {};   // German fault text -> English
@@ -74,8 +88,11 @@ function addPhrase(de, en, where) {
   }
 }
 
-// 2) per-ECU chassis files (data/faults/<chassis>/*.json)
-for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(d => d.isDirectory())) {
+// 2) per-ECU chassis files (data/faults/<chassis>/*.json). Chassis dirs are
+// sorted: later files win colliding phrases, so raw readdir order made the
+// merged DB depend on the filesystem.
+for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(d => d.isDirectory())
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
   const dir = path.join(faultsDir, chassis.name);
   for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort()) {
     const where = `${chassis.name}/${file}`;
@@ -172,7 +189,7 @@ for (const k of ck) {
 let pbody = '';
 for (const k of Object.keys(phrases).sort()) pbody += `  ${JSON.stringify(k)}: ${JSON.stringify(phrases[k])},\n`;
 
-const header = `// GENERATED FILE - do not edit by hand. Regenerate: node scripts/build-faultdb.mjs
+const header = `// GENERATED FILE - do not edit by hand. Regenerate: node scripts/build/build-faultdb.mjs
 // Source of truth: BMW SGBD FORTTEXTE tables (data/faults/**). Injected lazily via
 // loadFaultDb() in faults.js so this literal isn't parsed before first paint.
 // BMW_FAULT_DB: hex DTC -> English. BMW_FAULT_PHRASES: German fault text -> English.
@@ -186,9 +203,11 @@ fs.writeFileSync(out, `${header}window.BMW_FAULT_DB = {\n${cbody}};\nwindow.BMW_
 console.log(`Wrote ${ck.length} codes + ${Object.keys(phrases).length} phrases + ${Object.keys(scoped).length} scoped sgbds to ${path.relative(root, out)} (${codeFiles} flat + ${ecuFiles} per-ECU files).`);
 
 // emit the structured index for the Lookup screen. sorted by chassis then module
-// for stable diffs; each entry's faults keep their source order.
-index.sort((a, b) => a.chassis.localeCompare(b.chassis) || String(a.module).localeCompare(String(b.module)));
-const idxHeader = `// GENERATED FILE - do not edit by hand. Regenerate: node scripts/build-faultdb.mjs
+// for stable diffs; each entry's faults keep their source order. Plain code-unit
+// comparison, not localeCompare: that one sorts by the build machine's locale.
+const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+index.sort((a, b) => byCodeUnit(a.chassis, b.chassis) || byCodeUnit(String(a.module), String(b.module)));
+const idxHeader = `// GENERATED FILE - do not edit by hand. Regenerate: node scripts/build/build-faultdb.mjs
 // Structured per-ECU fault index for the Lookup screen (lookup.js). One entry per
 // per-ECU file: { chassis, module, sgbd, scheme, faults: [[key, english, code], ...] }.
 // scheme "code": key IS the hex DTC (code === key). scheme "text": key is the SGBD

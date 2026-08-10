@@ -70,6 +70,18 @@ jobs:
           python3 tools/export/build_ecu_tree.py
           test -d data/chassis/E46
 
+      # NO DEPLOY OF UNTESTED CODE. These are the verify tests whose inputs
+      # are all in git (plus the data/chassis tree assembled above): the VM
+      # against captured telegrams, the wire framing, the VM bridge, and the
+      # IR interpreter. They need no app, no vendor tree and no cable.
+      - name: Run the verify tests
+        run: |
+          set -euo pipefail
+          node tools/verify/test_bestvm.js
+          node tools/verify/test_transport.js
+          node tools/verify/test_vmbridge.js
+          node tools/verify/test_ir_render.js
+
       - name: Build the static site
         run: |
           set -euo pipefail
@@ -101,17 +113,19 @@ jobs:
           # CDN at runtime (see WIRING_IMG_CDN in screens/wiring.js) because a
           # Pages site may hold 1 GB and the images alone are 539 MB.
           #
-          # Absent is not fatal: the site simply has no Wiring section, which
-          # is what happened before this step existed.
-          mkdir -p dist-web/data/wiring
-          if gh release download wiring-latest \
-               --repo dader34/BMacW-wiring-images \
-               --pattern '*.wiring' --dir dist-web/data/wiring 2>/dev/null; then
-            echo "wiring archives: $(ls dist-web/data/wiring/*.wiring | wc -l)"
-            du -sh dist-web/data/wiring
-          else
-            echo "no wiring release found; publishing without the wiring section"
-          fi
+          # Absent IS fatal now: a site with no Wiring section shipped
+          # before this step existed and nothing noticed. If the wiring
+          # release is genuinely meant to be skipped, delete this step on
+          # purpose rather than letting it fail quietly.
+          # (gh creates the --dir itself; no pre-mkdir, so a failed download
+          # cannot leave an empty directory behind.)
+          gh release download wiring-latest \
+            --repo dader34/BMacW-wiring-images \
+            --pattern '*.wiring' --dir dist-web/data/wiring
+          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
+          echo "wiring archives: $n"
+          test "$n" -ge 15   # one per covered chassis
+          du -sh dist-web/data/wiring
         env:
           GH_TOKEN: ${{ github.token }}
 

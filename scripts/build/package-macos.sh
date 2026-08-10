@@ -38,8 +38,24 @@ mkdir -p "$DATA/app"
 # inputs now, not runtime data. Bundling vendor/EDIABAS/Ecu alone was 443 MB
 # that nothing opened.
 cp -R "$ROOT/app/renderer"                 "$DATA/app/renderer"
+# app/renderer/data/wiring is a gitignored dev-machine build of the wiring
+# archives. Do NOT bundle it: StaticHost registers app/renderer BEFORE
+# dist-web, so a copy here would shadow dist-web's at runtime -- and a dev
+# machine has it while CI does not, which let dev DMGs mask CI wiring
+# failures. The DMG's wiring comes from dist-web/data/wiring only.
+rm -rf "$DATA/app/renderer/data/wiring"
 if [ ! -d "$ROOT/dist-web/api" ]; then
   echo "error: dist-web/ is missing or empty. Build it first:" >&2
+  echo "       scripts/build/build-web.sh" >&2
+  exit 1
+fi
+# web_export.py creates dist-web/api/ unconditionally before doing any work,
+# so the directory existing proves nothing. Count the chassis archives: an
+# export that died early leaves too few (pages.yml holds the same line).
+N_CHASSIS=$(find "$ROOT/dist-web/api" -name '*.chassis' | wc -l | tr -d ' ')
+if [ "$N_CHASSIS" -lt 21 ]; then
+  echo "error: dist-web/api holds $N_CHASSIS chassis archives, need >= 21." >&2
+  echo "       The export died early or exported nothing. Rebuild it:" >&2
   echo "       scripts/build/build-web.sh" >&2
   exit 1
 fi
@@ -59,9 +75,21 @@ if [ -d "$ROOT/dist-web/data/wiring" ]; then
   mkdir -p "$DATA/dist-web/data"
   cp -R "$ROOT/dist-web/data/wiring"       "$DATA/dist-web/data/wiring"
   echo "==> wiring: $(du -sh "$DATA/dist-web/data/wiring" | cut -f1)"
-else
-  echo "==> no wiring archives; the app will ship without the Wiring section"
 fi
+# A DMG without wiring already shipped once (v0.9.1) and looked fine until a
+# user opened the Wiring section. Fail LOUDLY instead, on dev machines and CI
+# alike: the packaged app must hold at least one .wiring archive.
+N_WIRING=$(find "$DATA/dist-web/data/wiring" -name '*.wiring' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$N_WIRING" -eq 0 ]; then
+  echo "error: no wiring archives packaged. Put the .wiring files in" >&2
+  echo "       dist-web/data/wiring first -- in CI the workflow downloads" >&2
+  echo "       them from the wiring-images release; locally copy your" >&2
+  echo "       app/renderer/data/wiring build there or run:" >&2
+  echo "       gh release download wiring-latest --repo dader34/BMacW-wiring-images \\" >&2
+  echo "         --pattern '*.wiring' --dir dist-web/data/wiring" >&2
+  exit 1
+fi
+echo "==> wiring archives: $N_WIRING"
 
 echo "==> ad-hoc signing (after resources, so the seal matches final contents)"
 codesign --force --deep --sign - "$STAGE/BMacW.app"

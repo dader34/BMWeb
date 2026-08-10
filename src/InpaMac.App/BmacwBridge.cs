@@ -134,7 +134,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                     return;
                 case "serialClose": _serial.Close(); Settle(webView, id, Ok()); return;
                 case "serialWrite": _serial.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
-                case "serialRead": Settle(webView, id, _serial.ReadAvailable()); return;
+                case "serialRead": Settle(webView, id, AsNumberArray(_serial.ReadAvailable())); return;
                 case "serialFlush": _serial.Flush(); Settle(webView, id, Ok()); return;
                 case "tcpOpen":
                 {
@@ -159,7 +159,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 }
                 case "tcpClose": _tcp.Close(); Settle(webView, id, Ok()); return;
                 case "tcpWrite": _tcp.Write(ArgBytes(args, 0)); Settle(webView, id, Ok()); return;
-                case "tcpRead": Settle(webView, id, _tcp.ReadAvailable()); return;
+                case "tcpRead": Settle(webView, id, AsNumberArray(_tcp.ReadAvailable())); return;
                 case "wifiJoin": WifiJoin(webView, id, args); return;
                 default: Settle(webView, id, null, $"unknown bridge fn '{fn}'"); return;
             }
@@ -190,7 +190,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                     list, @"Hardware Port: Wi-Fi\s*\nDevice: (\w+)");
                 if (m.Success) device = m.Groups[1].Value;
                 output = RunTool("/usr/sbin/networksetup",
-                    $"-setairportnetwork {device} \"{ssid}\"").Trim();
+                    "-setairportnetwork", device, ssid).Trim();
             }
             catch (Exception ex) { output = ex.Message; }
             // success is silent (or "already associated"); anything else is a
@@ -209,14 +209,18 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         });
     }
 
-    private static string RunTool(string path, string arguments)
+    // Arguments are passed via ArgumentList, so each one reaches the tool as
+    // a single argv entry no matter what characters it contains -- a quote in
+    // a renderer-supplied SSID must not be able to inject extra arguments.
+    private static string RunTool(string path, params string[] arguments)
     {
-        var psi = new System.Diagnostics.ProcessStartInfo(path, arguments)
+        var psi = new System.Diagnostics.ProcessStartInfo(path)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        foreach (var arg in arguments) psi.ArgumentList.Add(arg);
         using var p = System.Diagnostics.Process.Start(psi)
             ?? throw new InvalidOperationException($"could not run {path}");
         string output = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
@@ -471,6 +475,12 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         && args[index].ValueKind == JsonValueKind.Number
             ? args[index].GetInt32() : 0;
 
+    // Bytes going back to the renderer must leave as a JSON number array:
+    // System.Text.Json serializes byte[] as a base64 string, which webshim.js
+    // (buf.push(...got)) cannot spread. Widen to int[] before settling.
+    private static int[] AsNumberArray(byte[] bytes) =>
+        Array.ConvertAll(bytes, b => (int)b);
+
     // A byte array arrives as a JSON number array -- the message channel is
     // text, so there is no typed-array to unwrap.
     private static byte[] ArgBytes(JsonElement args, int index)
@@ -507,6 +517,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         // Release the cable: a port still held by a dead app blocks the next
         // launch, and the FTDI driver does not always reap it promptly.
         _serial.Dispose();
+        _tcp.Dispose();
         base.Dispose();
     }
 }

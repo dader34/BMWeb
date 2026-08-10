@@ -15,7 +15,8 @@
 # SOME GENERATORS ARE RUN BY HAND and so are named by no code. They look
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
-#   sgbd_tables.py      -> data/inpa-screens/_tables.json
+#   sgbd_tables.py      -> data/inpa-screens/_tables.json  (NO readers today;
+#                          kept as a reference dump, not consumed by anything)
 #   ipo_actmenus.py     -> _actmenus.json  \
 #   ipo_coding.py       -> _coding.json     > all consumed by ipo_enrich.py
 #   ipo_submenus.py     -> _submenus.json  /
@@ -32,7 +33,9 @@
 #                                             `strings` hand-off list
 #   2. node tools/decompile/ipo_i18n.js              -> RESOLVES those strings back INTO
 #                                             the IR files and drops the list
-#   3. python3 tools/export/sgbd_export.py --ship -> copies the finished IR into ecus/
+#   3. python3 tools/export/build_ecu_tree.py -> assembles the finished IR into
+#                                             data/chassis/<CAR>/<ECU>/, which is
+#                                             what web_export.py and the tests read
 #
 # Run i18n before --write and step 1 overwrites its work: every IR lands with
 # i18n {} and the app renders raw German captions ("Control zurück an DME").
@@ -73,6 +76,10 @@ if [ -n "$BMACW_PORT" ]; then
   echo "== job metadata matches the engine =="
   python3 tools/verify/test_meta.py || exit 1
 fi
+
+echo
+echo "== the VM against captured telegrams =="
+node tools/verify/test_bestvm.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

@@ -74,6 +74,25 @@ WRITEISH = re.compile(
     r"|LOGIN|AUTHENT|_WRITE|_CLEAR", re.I)
 
 
+_PRG_STEMS = None
+
+
+def have_prg(stem):
+    """Is there a .prg for this stem, in either extension case?
+
+    EDIABAS on its own platform resolves names case-insensitively, so the
+    vendor tree and the chassis configs spell freely (*.prg and *.PRG both
+    ship). An exact-case glob here silently dropped every ECU whose file
+    was the other spelling on a case-sensitive filesystem.
+    """
+    global _PRG_STEMS
+    if _PRG_STEMS is None:
+        _PRG_STEMS = {os.path.basename(p)[:-4].lower()
+                      for p in glob.glob(os.path.join(ECU_DIR, "*"))
+                      if p.lower().endswith(".prg")}
+    return stem.lower() in _PRG_STEMS
+
+
 def read_jobs(path):
     """[(name, address)] from a .prg -- EdiabasNet.GetJobList."""
     data = open(path, "rb").read()
@@ -319,7 +338,7 @@ def e46_sgbds():
                          re.M):
         code = m.group(1).lower()
         for cand in (code, code + "ds0"):
-            if glob.glob(os.path.join(ECU_DIR, cand + ".prg")):
+            if have_prg(cand):
                 names.add(cand)
     return sorted(names)
 
@@ -352,7 +371,7 @@ def all_shipped_sgbds():
                 if stem.endswith(".prg"):
                     stem = stem[:-4]
                 # only what we can actually compile: the .prg must be present
-                if stem and glob.glob(os.path.join(ECU_DIR, stem + ".prg")):
+                if stem and have_prg(stem):
                     names.add(stem)
     return sorted(names)
 
@@ -404,8 +423,10 @@ def main():
         return 0
 
     if "--all" in sys.argv:
-        targets = sorted(os.path.basename(p)[:-4].lower()
-                         for p in glob.glob(os.path.join(ECU_DIR, "*.prg")))
+        # either extension case, deduped by lowered stem (see have_prg)
+        targets = sorted({os.path.basename(p)[:-4].lower()
+                          for p in glob.glob(os.path.join(ECU_DIR, "*"))
+                          if p.lower().endswith(".prg")})
     elif args:
         targets = [a.lower() for a in args]
     else:

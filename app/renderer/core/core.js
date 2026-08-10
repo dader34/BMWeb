@@ -193,6 +193,15 @@ function explainError(raw) {
   const m = (raw || '').toString();
   const lower = m.toLowerCase();
 
+  // VM / app-side errors (bestvm.js VmError, vmbridge): the job interpreter
+  // refused or broke BEFORE anything reached the wire. Checked first, so a
+  // VM message mentioning e.g. a checksum cannot fall into a wire branch —
+  // "check the cable" for these sends the user chasing a hardware fault that
+  // does not exist.
+  if (/vm ?error|unimplemented opcode|refusing to (run|transmit)|step limit at op|unknown register|operand mode|unresolved (jump|etag)|no telegram sink|raised error via eerr/i.test(m))
+    return { title: 'App error — not the car', detail: m || 'The job interpreter failed.',
+      fix: `This is a bug in ${APP_NAME}, not the cable or the car — nothing needs checking on the vehicle. Please report this exact message.` };
+
   if (lower.includes('no interface') || lower.includes('no serial') || lower.includes('no cable'))
     return { title: 'No adapter connected', detail: `${APP_NAME} could not find the K+DCAN cable.`,
       fix: 'Plug the cable into the Mac (directly, not through a hub) and into the car OBD-II port. The status light turns green when detected.' };
@@ -393,7 +402,9 @@ function applyShift(on) {
 function setActions(actions, shifted) {
   stopLive(); stopLogging(); // leaving a screen halts polling + logging
   if (typeof dismissAttention === 'function') dismissAttention(); // drop the fault badge on screen change
-  if (activationEcu && activeTests.size) { stopAllActivations(activationEcu); } // kill active actuator tests
+  // kill active actuator tests -- unless this is a same-screen redraw held
+  // open by keepActivationsDuring (activations.js), which is not a leave
+  if (activationEcu && activeTests.size && !activationsHeld()) { stopAllActivations(activationEcu); }
   baseActions = actions;
   shiftActions = (shifted && shifted.length) ? shifted : null;
   shiftHeld = false;

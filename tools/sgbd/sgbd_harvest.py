@@ -123,8 +123,12 @@ def main():
         print(json.dumps(rec, ensure_ascii=False, indent=1))
         return 0
 
-    names = sorted(os.path.basename(f)[:-4]
-                   for f in glob.glob(os.path.join(ECU_DIR, "*.prg")))
+    # CASE-INSENSITIVE ON PURPOSE (same trap as ipo_ir.py --write): the
+    # vendor tree mixes *.prg and *.PRG, and globbing one spelling silently
+    # dropped 187 of the 1,006 SGBDs. Dedupe by lowered stem.
+    names = sorted({os.path.basename(f)[:-4].lower()
+                    for f in glob.glob(os.path.join(ECU_DIR, "*"))
+                    if f.lower().endswith(".prg")})
     recs, failed, t0 = {}, 0, time.time()
     for i, sgbd in enumerate(names, 1):
         rec = harvest(base, sgbd)

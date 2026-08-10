@@ -158,9 +158,16 @@ async function readFrame(sent, timeoutMs, pump, comm) {
 // "Response pending": an ECU that needs longer than its declared timeout
 // answers 7F <service> 78 and keeps the request alive. EDIABAS waits for
 // the real answer instead of failing; a flash or a long routine depends on
-// it. The payload sits after the 3-byte BMW-FAST/KWP header.
+// it. The payload offset follows the same framing rules as frameTotal:
+// DS2 puts it at 2, KWP2000* behind its 4-byte header, BMW-FAST at 3 for
+// the short form and 4 for the long form (len byte at [3]) -- a long-frame
+// 7F..78 sliced at 3 was returned to the VM as the final answer.
 function isResponsePending(frame, comm) {
-  const body = isDs2(conceptOf(comm)) ? frame.slice(2) : frame.slice(3);
+  const c = conceptOf(comm);
+  let body;
+  if (isDs2(c)) body = frame.slice(2);
+  else if (c === 0x10d) body = frame.slice(4);
+  else body = (frame[0] & 0x3f) ? frame.slice(3) : frame.slice(4);
   return body[0] === 0x7f && body[2] === 0x78;
 }
 
@@ -305,7 +312,18 @@ class WebSerialBus {
   async exchange(out, comm) { return runExchange(this, out, comm); }
 
   async exchangeRaw(framed, timeoutMs, comm) {
-    if (framed) await this.writer.write(new Uint8Array(framed));
+    if (framed) {
+      // Drain anything stale before a fresh write -- the same start-clean
+      // the native path gets from serialFlush(). A late answer from a
+      // timed-out exchange would otherwise be read as this request's echo,
+      // fail the compare, and cascade IFH-0003 until the stream happens to
+      // run dry.
+      for (;;) {
+        const { value, done } = await this.readSome(Date.now() + 2);
+        if (done || !value || !value.length) break;
+      }
+      await this.writer.write(new Uint8Array(framed));
+    }
     const deadline = Date.now() + timeoutMs;
     return readFrame(framed, timeoutMs, async () => {
       const { value, done } = await this.readSome(deadline);
@@ -555,7 +573,9 @@ class ThorWifiBus {
         await a.open(a.url);
         const fw = await this.special(0xFD, 9);
         this.fw = { type: (fw[4] << 8) | fw[5], version: (fw[6] << 8) | fw[7] };
-        await this.readState();
+        // the raw method, not the bus-locked wrapper installed below --
+        // connect() already holds the lock, and the wrapper would deadlock
+        await ThorWifiBus.prototype.readState.call(this);
         return this.portLabel();
       } catch (e) {
         failures.push(`${a.kind}: ${this.textFrames
@@ -790,17 +810,40 @@ const webBus = wantThor ? new ThorWifiBus(thorDirect)
   : (typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen)
     ? new NativeSerialBus() : new WebSerialBus();
 
+// ONE EXCHANGE AT A TIME, BUS-WIDE. The K-line is half duplex and the THOR
+// socket has a single rx buffer: two concurrent callers interleave writes
+// and steal each other's answers -- the 3-second topbar state poll was
+// clobbering any job that took longer than a second. The old C# engine
+// held a bus lock server-side; the VM migration lost it. Every entry point
+// that can touch the wire queues here.
+let busChain = Promise.resolve();
+function withBusLock(fn) {
+  const run = busChain.then(fn, fn);
+  busChain = run.then(() => {}, () => {});
+  return run;
+}
+
 // A session must not outlive the cable: dropping the bus without clearing
 // it would leave the next connection thinking INITIALISIERUNG had already
 // run, and reuse shared data from a car that may not even be the same one.
 // ENDE is skipped deliberately -- the wire is already going away.
 {
-  const busDisconnect = webBus.disconnect.bind(webBus);
+  const raw = {
+    disconnect: webBus.disconnect.bind(webBus),
+    exchange: webBus.exchange.bind(webBus),
+    connect: webBus.connect.bind(webBus),
+    readState: webBus.readState ? webBus.readState.bind(webBus) : null,
+  };
   webBus.disconnect = async (...a) => {
     sessions.clear();
     loadedSgbd = null;
-    return busDisconnect(...a);
+    return withBusLock(() => raw.disconnect(...a));
   };
+  webBus.exchange = (...a) => withBusLock(() => raw.exchange(...a));
+  webBus.connect = (...a) => withBusLock(() => raw.connect(...a));
+  if (raw.readState) {
+    webBus.readState = (...a) => withBusLock(() => raw.readState(...a));
+  }
 }
 
 // ---------------------------------------------------------------- job runner
@@ -809,13 +852,20 @@ const webBus = wantThor ? new ThorWifiBus(thorDirect)
 // INITIALISIERUNG runs ONCE when an SGBD is loaded, shared data (shmset)
 // persists across that SGBD's jobs, and ENDE runs when it is unloaded.
 // MS450 hands its AIF block from init to later jobs exactly this way.
+// The session also carries COMM: xsetpar lives in INITIALISIERUNG, so a
+// later job's fresh VM never executes it -- without the carry, every
+// ordinary job transmitted with default BMW-FAST framing and every K-line
+// module got 115200 8N1 line noise.
 // Keyed by SGBD; switching ECUs ends the previous session.
-const sessions = new Map();          // sgbd -> { shared, inited }
+const sessions = new Map();          // sgbd -> { shared, inited, comm }
 
 function sessionFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   let s = sessions.get(key);
-  if (!s) { s = { shared: new Map(), inited: false }; sessions.set(key, s); }
+  if (!s) {
+    s = { shared: new Map(), inited: false, comm: null };
+    sessions.set(key, s);
+  }
   return s;
 }
 
@@ -829,7 +879,8 @@ async function endSession(sgbd) {
   try {
     const code = await webFetchJson(`data/job-code/${key}.json`);
     if (code && code.jobs && code.jobs.ENDE !== undefined) {
-      await webRunJob(sgbd, 'ENDE', null, { noInit: true, shared: s.shared });
+      await webRunJob(sgbd, 'ENDE', null,
+                      { noInit: true, shared: s.shared, comm: s.comm });
     }
   } catch { /* the session is over either way */ }
 }
@@ -853,7 +904,7 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
   const tables = await webFetchJson(
     `data/sgbd-tables/${sgbd.toLowerCase()}.json`) || {};
   const session = opts.shared
-    ? { shared: opts.shared, inited: true }
+    ? { shared: opts.shared, inited: true, comm: opts.comm || null }
     : sessionFor(sgbd);
 
   // The VM's send() is synchronous, so the exchange has to be resolved before
@@ -868,8 +919,12 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
   // AND occurrence index, which is stable across the replay passes because
   // the VM is deterministic.
   const answers = new Map();
+  // one clock for every pass: a date/time that ticked between passes would
+  // change the request bytes, miss the memo, and re-transmit a telegram
+  // that already went out
+  const jobNow = new Date();
   let sendSeq = 0;
-  for (let attempt = 0; attempt < 24; attempt++) {
+  for (let attempt = 0; attempt < 64; attempt++) {
     let missing = null;
     sendSeq = 0;
     const vm = new Best2Vm(code, {
@@ -878,6 +933,8 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
       allowWrites: false,
       shared: session.shared,
       inited: session.inited,
+      comm: session.comm,
+      now: jobNow,
       send: (out, comm) => {
         const key = `${sendSeq++}:${Array.from(out)}`;
         if (answers.has(key)) return answers.get(key);
@@ -897,14 +954,18 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
     try {
       const sets = vm.run(job, arg == null ? '' : String(arg));
       session.inited = true;
+      session.comm = vm.comm || session.comm;
       return { sets };
     } catch (e) {
-      if (!missing) throw e;
+      // Only the needAnswer sentinel may turn into a wire exchange. A real
+      // VM error thrown in the same pass must surface as itself, not be
+      // recycled into "did not settle".
+      if (!missing || !e.needAnswer) throw e;
       answers.set(missing.key,
                   await webBus.exchange(missing.out, missing.comm));
     }
   }
-  throw new Error('job did not settle after 24 telegram exchanges');
+  throw new Error('job did not settle after 64 telegram exchanges');
 }
 
 // ---------------------------------------------------------------- fetch shim
@@ -1186,7 +1247,10 @@ function installWebShim() {
           return ok(res);
         }
       } catch (e) {
-        if (kind === 'jobs') return ok([]);
+        // loadEcu THREW -- the archive is missing or failed to load, which
+        // is not the same as a healthy archive with no jobs.json. Answering
+        // ok([]) here made a broken export indistinguishable from an ECU
+        // that genuinely has no jobs.
         return err(e.message, 404);
       }
     }
