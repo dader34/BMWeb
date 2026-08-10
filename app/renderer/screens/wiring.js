@@ -670,76 +670,81 @@ function fitAndPan(svg, stage, bar, classic = false) {
     zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
   }, { passive: false });
 
-  // DEDICATED TOUCH ENGINE FOR IOS / MOBILE (PINCH-TO-ZOOM + PAN)
-  let touchPinch = null;
-  let touchDrag = null;
+  // DEDICATED CONTINUOUS TOUCH ENGINE FOR IOS / MOBILE (PINCH-ZOOM + PAN)
+  let lastTouchDist = 0;
+  let lastTouchMidX = 0;
+  let lastTouchMidY = 0;
+  let lastTouchX = 0;
+  let lastTouchY = 0;
 
   stage.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
-      const t = e.touches[0];
-      touchDrag = { x: t.clientX, y: t.clientY, vx: cur.x, vy: cur.y };
-      touchPinch = null;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+      lastTouchDist = 0;
     } else if (e.touches.length >= 2) {
       const t1 = e.touches[0], t2 = e.touches[1];
-      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-      const midX = (t1.clientX + t2.clientX) / 2;
-      const midY = (t1.clientY + t2.clientY) / 2;
-      const r = stage.getBoundingClientRect();
-      const k = unitsPerPixel(r);
-      const fx = ((midX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
-      const fy = ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
-
-      touchPinch = {
-        dist: Math.max(dist, 10),
-        midX, midY, fx, fy,
-        curW: cur.w, curH: cur.h,
-        curX: cur.x, curY: cur.y
-      };
-      touchDrag = null;
+      lastTouchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      lastTouchMidX = (t1.clientX + t2.clientX) / 2;
+      lastTouchMidY = (t1.clientY + t2.clientY) / 2;
     }
   }, { passive: false });
 
   stage.addEventListener('touchmove', (e) => {
-    e.preventDefault(); // Prevent iOS Safari page-level rubberbanding and viewport zooming
+    e.preventDefault();
     touched = true;
 
-    if (e.touches.length >= 2 && touchPinch) {
+    if (e.touches.length >= 2) {
       const t1 = e.touches[0], t2 = e.touches[1];
-      const currentDist = Math.max(Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY), 10);
-      const currentMidX = (t1.clientX + t2.clientX) / 2;
-      const currentMidY = (t1.clientY + t2.clientY) / 2;
-      const r = stage.getBoundingClientRect();
-      const k = unitsPerPixel(r);
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
 
-      const zoomRatio = touchPinch.dist / currentDist;
-      const newW = Math.min(home.w * 8, Math.max(home.w / 80, touchPinch.curW * zoomRatio));
-      const newH = newW * (touchPinch.curH / touchPinch.curW);
+      if (lastTouchDist > 0 && dist > 0) {
+        const factor = lastTouchDist / dist;
+        const r = stage.getBoundingClientRect();
+        const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
+        const fx = Math.max(0, Math.min(1, ((midX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w));
+        const fy = Math.max(0, Math.min(1, ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h));
 
-      const dx = (currentMidX - touchPinch.midX) * k;
-      const dy = (currentMidY - touchPinch.midY) * k;
+        // 1. Zoom smoothly around touch center point
+        zoomBy(factor, fx, fy);
 
-      cur.x = touchPinch.curX + (touchPinch.curW - newW) * touchPinch.fx - dx;
-      cur.y = touchPinch.curY + (touchPinch.curH - newH) * touchPinch.fy - dy;
-      cur.w = newW;
-      cur.h = newH;
-      apply();
-    } else if (e.touches.length === 1 && touchDrag) {
+        // 2. Pan with midpoint movement
+        const dx = (lastTouchMidX - midX) * k;
+        const dy = (lastTouchMidY - midY) * k;
+        cur.x += dx;
+        cur.y += dy;
+        apply();
+      }
+
+      lastTouchDist = dist;
+      lastTouchMidX = midX;
+      lastTouchMidY = midY;
+    } else if (e.touches.length === 1) {
       const t = e.touches[0];
-      const k = unitsPerPixel(stage.getBoundingClientRect());
-      cur.x = touchDrag.vx - (t.clientX - touchDrag.x) * k;
-      cur.y = touchDrag.vy - (t.clientY - touchDrag.y) * k;
+      const r = stage.getBoundingClientRect();
+      const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
+      const dx = (lastTouchX - t.clientX) * k;
+      const dy = (lastTouchY - t.clientY) * k;
+
+      cur.x += dx;
+      cur.y += dy;
       apply();
+
+      lastTouchX = t.clientX;
+      lastTouchY = t.clientY;
+      lastTouchDist = 0;
     }
   }, { passive: false });
 
   const onTouchEnd = (e) => {
     if (e.touches.length === 1) {
-      const t = e.touches[0];
-      touchDrag = { x: t.clientX, y: t.clientY, vx: cur.x, vy: cur.y };
-      touchPinch = null;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+      lastTouchDist = 0;
     } else if (e.touches.length === 0) {
-      touchDrag = null;
-      touchPinch = null;
+      lastTouchDist = 0;
     }
   };
   stage.addEventListener('touchend', onTouchEnd, { passive: false });
