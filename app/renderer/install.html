@@ -17,8 +17,7 @@
     :root {
       --bg:#0d1217; --panel:#141b22; --panel2:#182029; --panel3:#202b37;
       --line:#232d38; --ink:#e8edf2; --dim:#93a1ad; --faint:#5d6b78;
-      --amber:#ff9e2c; --amber-glow:rgba(255, 158, 44, 0.15);
-      --blue:#3b82f6; --blue-glow:rgba(59, 130, 246, 0.15);
+      --amber:#ff9e2c; --amber-glow:rgba(255, 158, 44, 0.18);
     }
     * { box-sizing:border-box; }
     body {
@@ -26,10 +25,10 @@
       overflow-x:hidden;
       font:16px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
       display:flex; flex-direction:column; align-items:center;
-      padding:4vh 20px 8vh;
+      padding:6vh 20px 8vh;
     }
     .wrap { width:100%; max-width:46rem; }
-    .top-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; gap:12px; }
+    .top-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; }
     .brand { display:flex; align-items:center; gap:12px; }
     .nav-links { display:flex; align-items:center; gap:10px; }
     .nav-btn {
@@ -46,25 +45,6 @@
     .q-white { fill:#e8edf2; } .q-color { fill:var(--amber); }
     .name { font-size:20px; font-weight:800; letter-spacing:-.01em; }
 
-    /* Platform banner */
-    .platform-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 13px;
-      color: var(--amber);
-      font-weight: 600;
-      margin-bottom: 16px;
-    }
-    .platform-badge .dot {
-      width: 7px; height: 7px; border-radius: 50%; background: var(--amber);
-      box-shadow: 0 0 8px var(--amber);
-    }
-
     h1 { font-size:clamp(24px,6vw,40px); line-height:1.1; margin:0 0 10px;
          letter-spacing:-.02em; overflow-wrap:break-word; hyphens:auto; }
     .lead { color:var(--dim); margin:0 0 28px; font-size:16.5px; }
@@ -73,80 +53,141 @@
     .card {
       display:block; text-decoration:none; color:inherit; position:relative;
       background:linear-gradient(180deg,var(--panel2),var(--panel));
-      border:1px solid var(--line); border-radius:10px; padding:20px 22px;
-      transition:border-color .15s, transform .15s;
+      border:1px solid var(--line); border-radius:12px; padding:22px 24px;
+      transition:border-color .15s, transform .15s, box-shadow .15s;
     }
     .card:hover { border-color:var(--amber); transform:translateY(-2px); }
-    .card.primary { border-color:var(--amber); box-shadow:0 0 20px var(--amber-glow); }
+    .card.primary { border-color:var(--amber); box-shadow:0 0 24px var(--amber-glow); }
     .tag {
       position:absolute; top:-9px; right:18px; background:var(--amber);
       color:#131a22; font-size:11px; font-weight:800; letter-spacing:.06em;
       text-transform:uppercase; padding:3px 9px; border-radius:20px;
     }
-    .card h2 { margin:0 0 4px; font-size:19px; }
+    .card h2 { margin:0 0 6px; font-size:20px; font-weight:700; }
     .card .sub { color:var(--dim); font-size:14.5px; margin:0; }
     .card .meta {
-      margin-top:12px; color:var(--faint); font-size:12.5px;
+      margin-top:14px; color:var(--faint); font-size:12.5px;
       font-family:ui-monospace,Menlo,monospace;
     }
 
-    /* iPhone Guided Tutorial Card */
-    .tutorial-card {
-      margin-top: 20px;
-      background: var(--panel);
-      border: 1px solid var(--amber);
-      border-radius: 12px;
-      padding: 22px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.35);
-    }
-    .tutorial-title {
+    /* Modal Tutorial Overlay */
+    .tutorial-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 6, 10, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 99999;
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 17px;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeIn .2s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.98); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .tutorial-modal {
+      background: #131922;
+      border: 1px solid var(--amber);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.85), 0 0 30px var(--amber-glow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .tutorial-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #0d1217;
+    }
+    .tutorial-title {
+      font-size: 16.5px;
       font-weight: 700;
       color: var(--amber);
-      margin: 0 0 8px;
-    }
-    .tutorial-desc {
-      color: var(--dim);
-      font-size: 14px;
-      margin: 0 0 18px;
-    }
-    .step-grid {
-      display: grid;
-      gap: 12px;
-    }
-    .step-row {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
+      gap: 8px;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--faint);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      border-radius: 6px;
+    }
+    .close-btn:hover { color: var(--ink); }
+    .tutorial-body {
+      padding: 20px;
+      overflow-y: auto;
+      max-height: 70vh;
+    }
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .step-item {
+      display: flex;
       gap: 14px;
       background: var(--panel2);
       border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 12px 16px;
+      border-radius: 10px;
+      padding: 12px 14px;
+      align-items: center;
     }
-    .step-num {
-      width: 26px;
-      height: 26px;
+    .step-badge {
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
       background: var(--amber);
       color: #11161c;
+      font-weight: 800;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 13px;
-      font-weight: 800;
       flex: none;
-      margin-top: 2px;
     }
-    .step-content {
-      flex: 1;
-      font-size: 14px;
+    .step-text {
+      font-size: 13.5px;
       color: var(--ink);
     }
-    .step-content b { color: var(--amber); font-weight: 600; }
-    .step-content span { color: var(--dim); display: block; font-size: 12.5px; margin-top: 2px; }
+    .step-text b { color: var(--amber); }
+    .step-text span { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
+    .tutorial-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .launch-now-btn {
+      width: 100%;
+      background: var(--amber);
+      color: #11161c;
+      border: none;
+      padding: 13px 18px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: all .15s;
+    }
+    .launch-now-btn:hover {
+      background: #ffb152;
+      transform: translateY(-1px);
+    }
 
     .note {
       margin-top:34px; padding-top:20px; border-top:1px solid var(--line);
@@ -154,10 +195,6 @@
     }
     .note a { color:var(--dim); }
     .note strong { color:var(--dim); font-weight:600; }
-    .switch {
-      background:none; border:0; color:var(--amber); cursor:pointer;
-      font:inherit; font-size:14px; padding:0; text-decoration:underline;
-    }
     .other { margin-top:18px; color:var(--faint); font-size:14px; }
     .picker {
       display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
@@ -184,9 +221,6 @@
     .ios-help h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
     .ios-help ol { margin:0 0 10px; padding-left:20px; }
     .ios-help li { margin-bottom:6px; }
-    .ios-help p { margin:0; color:var(--faint); font-size:13px; }
-    .ios-help a { color:var(--amber); }
-    .ios-help b { color:var(--ink); font-weight:600; }
     .cmd { display:flex; gap:8px; align-items:center; margin:8px 0 2px; }
     .cmd code {
       flex:1; min-width:0; overflow-x:auto; white-space:nowrap;
@@ -225,19 +259,11 @@
     </nav>
   </header>
 
-  <div id="platform-pill" class="platform-badge">
-    <span class="dot"></span>
-    <span id="platform-text">Detecting platform…</span>
-  </div>
-
   <h1>BMW diagnostics,<br>no Windows.</h1>
   <p class="lead" id="lead">Read fault codes, watch live values, run actuator
     tests and inspect coding data, over a K+DCAN cable or a WiFi adapter.</p>
 
   <div class="cards" id="cards"></div>
-
-  <!-- Dynamic iPhone Guided Tutorial inserted here if on iOS -->
-  <div id="ios-tutorial-wrap"></div>
 
   <p class="other" id="other"></p>
 
@@ -260,36 +286,68 @@
 
 <script>
 (function () {
-  // Register Service Worker for instant offline PWA
+  // Service Worker for offline PWA
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('./sw.js').catch(function () {});
     });
   }
 
-  // Device & Platform Detection
   var ua = navigator.userAgent;
   var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
   var isAndroid = /Android/i.test(ua);
   var isMobile = isIOS || isAndroid;
   var isMac = /Macintosh|Mac OS X/.test(ua) && !isIOS && navigator.maxTouchPoints <= 1;
-  var isWindows = /Windows/i.test(ua);
-  var isLinux = /Linux/i.test(ua) && !isAndroid;
 
-  // Platform Status Banner Text
-  var pillText = document.getElementById('platform-text');
-  if (isIOS) {
-    pillText.textContent = 'Detected iPhone / iPad · Web App (PWA) Recommended';
-  } else if (isAndroid) {
-    pillText.textContent = 'Detected Android · Web App (PWA) Recommended';
-  } else if (isMac) {
-    pillText.textContent = 'Detected macOS · Native Desktop App Recommended';
-  } else if (isWindows) {
-    pillText.textContent = 'Detected Windows · BMWeb in Chrome/Edge Recommended';
-  } else if (isLinux) {
-    pillText.textContent = 'Detected Linux · BMWeb in Chrome/Edge Recommended';
-  } else {
-    pillText.textContent = 'Web App & Native Builds Available';
+  // The app URL resolves to app.html on published Pages, or index.html locally
+  var targetAppUrl = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
+
+  function showIosTutorialModal(e) {
+    if (e) e.preventDefault();
+    if (document.getElementById('tutorial-overlay')) return;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'tutorial-overlay';
+    overlay.id = 'tutorial-overlay';
+    overlay.innerHTML =
+      '<div class="tutorial-modal">'
+      + '  <div class="tutorial-header">'
+      + '    <div class="tutorial-title">📲 Add to iPhone Home Screen</div>'
+      + '    <button class="close-btn" id="close-modal">✕</button>'
+      + '  </div>'
+      + '  <div class="tutorial-body">'
+      + '    <div class="step-list">'
+      + '      <div class="step-item">'
+      + '        <div class="step-badge">1</div>'
+      + '        <div class="step-text"><b>Tap the Share button</b><span>Tap the square Share icon with the arrow (⎋) in Safari\'s bottom toolbar.</span></div>'
+      + '      </div>'
+      + '      <div class="step-item">'
+      + '        <div class="step-badge">2</div>'
+      + '        <div class="step-text"><b>Select "Add to Home Screen"</b><span>Scroll down in the share sheet and tap <b>Add to Home Screen</b> (+).</span></div>'
+      + '      </div>'
+      + '      <div class="step-item">'
+      + '        <div class="step-badge">3</div>'
+      + '        <div class="step-text"><b>Tap "Add"</b><span>Tap <b>Add</b> in the top right corner of the sheet.</span></div>'
+      + '      </div>'
+      + '      <div class="step-item">'
+      + '        <div class="step-badge">4</div>'
+      + '        <div class="step-text"><b>Launch from Home Screen</b><span>Tap the BMWeb icon on your Home Screen to run full-screen!</span></div>'
+      + '      </div>'
+      + '    </div>'
+      + '    <div class="tutorial-actions">'
+      + '      <a href="' + targetAppUrl + '" class="launch-now-btn">Open in Browser Now ➔</a>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>';
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#close-modal').onclick = function () {
+      overlay.remove();
+    };
+    overlay.onclick = function (evt) {
+      if (evt.target === overlay) overlay.remove();
+    };
   }
 
   function macHelp() {
@@ -299,15 +357,13 @@
     d.innerHTML =
       '<h3>First launch on macOS</h3>'
       + '<p>The app is ad-hoc signed (no Apple Developer ID), so macOS '
-      + 'quarantines it and refuses the first launch, usually saying it is damaged. '
-      + 'It is not; that is what the quarantine flag looks like from the outside.</p>'
+      + 'quarantines it and refuses the first launch. That is what the quarantine flag looks like.</p>'
       + '<ol>'
       + '<li>Open the .dmg and drag <b>BMacW</b> to Applications.</li>'
       + '<li>Open <b>Terminal</b> and run this once:'
-      + '<div class="cmd"><code id="xattr-cmd">xattr -dr '
-      + 'com.apple.quarantine /Applications/BMacW.app</code>'
+      + '<div class="cmd"><code id="xattr-cmd">xattr -dr com.apple.quarantine /Applications/BMacW.app</code>'
       + '<button type="button" id="xattr-copy">Copy</button></div></li>'
-      + '<li>Launch it normally. The flag is cleared for good.</li>'
+      + '<li>Launch it normally.</li>'
       + '</ol>';
     setTimeout(function () {
       var btn = d.querySelector('#xattr-copy');
@@ -323,42 +379,6 @@
     return d;
   }
 
-  function renderIosTutorial() {
-    var d = document.createElement('div');
-    d.className = 'tutorial-card';
-    d.id = 'ios-tutorial';
-    d.innerHTML =
-      '<div class="tutorial-title">📲 How to Add BMWeb to your iPhone Home Screen</div>'
-      + '<p class="tutorial-desc">Add BMWeb to your Home Screen to run full-screen as a standalone native app with zero memory crashes:</p>'
-      + '<div class="step-grid">'
-      + '  <div class="step-row">'
-      + '    <div class="step-num">1</div>'
-      + '    <div class="step-content"><b>Open in Safari</b><span>Visit this site (<code>bmweb.danner.ink</code>) in Safari.</span></div>'
-      + '  </div>'
-      + '  <div class="step-row">'
-      + '    <div class="step-num">2</div>'
-      + '    <div class="step-content"><b>Tap the Share button</b><span>Tap the square Share icon with the arrow pointing up (⎋) at the bottom of Safari.</span></div>'
-      + '  </div>'
-      + '  <div class="step-row">'
-      + '    <div class="step-num">3</div>'
-      + '    <div class="step-content"><b>Select "Add to Home Screen"</b><span>Scroll down in the share sheet and tap <b>Add to Home Screen</b> (+).</span></div>'
-      + '  </div>'
-      + '  <div class="step-row">'
-      + '    <div class="step-num">4</div>'
-      + '    <div class="step-content"><b>Tap "Add"</b><span>Tap <b>Add</b> in the top right corner of your screen.</span></div>'
-      + '  </div>'
-      + '  <div class="step-row">'
-      + '    <div class="step-num">5</div>'
-      + '    <div class="step-content"><b>Launch BMWeb</b><span>Tap the new BMWeb icon on your Home Screen. It will launch in full screen with no browser address bar!</span></div>'
-      + '  </div>'
-      + '  <div class="step-row">'
-      + '    <div class="step-num">6</div>'
-      + '    <div class="step-content"><b>Connect to THOR WiFi</b><span>Join your THOR WiFi adapter network in iOS Settings, tap <b>Connect</b> in BMWeb, and start diagnosing!</span></div>'
-      + '  </div>'
-      + '</div>';
-    return d;
-  }
-
   var REPO = 'dader34/BMacW';
   var APP = {
     id: 'mac',
@@ -369,10 +389,12 @@
   };
   var WEB_PWA = {
     id: 'pwa',
-    title: 'Launch BMWeb App (PWA)',
-    sub: 'Full-featured web app. Connects directly to THOR WiFi adapter over WebSocket. Add to Home Screen on mobile.',
-    meta: 'iPhone · iPad · Android · Windows · Linux · macOS',
-    href: 'index.html',
+    title: 'Launch BMWeb App',
+    sub: isIOS
+      ? 'Progressive Web App. Tap for Home Screen installation guide & instant launch.'
+      : 'Connects directly to THOR WiFi adapter over WebSocket.',
+    meta: isIOS ? 'iPhone · iPad · Full-screen PWA' : 'All platforms · Browser app',
+    href: targetAppUrl,
   };
   var WEB_BUILD = {
     id: 'web',
@@ -382,9 +404,11 @@
     href: '#pick',
   };
 
+  // ON MOBILE: Show ONLY the Launch BMWeb App card!
+  // ON DESKTOP: Show macOS App and Web options.
   var order;
-  if (isIOS || isAndroid) {
-    order = [WEB_PWA, WEB_BUILD, APP];
+  if (isMobile) {
+    order = [WEB_PWA];
   } else if (isMac) {
     order = [APP, WEB_PWA, WEB_BUILD];
   } else {
@@ -408,13 +432,10 @@
         if (document.getElementById('mac-help')) return;
         a.insertAdjacentElement('afterend', macHelp());
       });
+    } else if (o.id === 'pwa' && isIOS) {
+      a.addEventListener('click', showIosTutorialModal);
     }
   });
-
-  // Always show iPhone tutorial on iOS devices
-  if (isIOS) {
-    document.getElementById('ios-tutorial-wrap').appendChild(renderIosTutorial());
-  }
 
   // Mac download URL lookup from releases
   fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
@@ -437,9 +458,9 @@
     })
     .catch(function () {});
 
-  document.getElementById('other').textContent = isMac
-    ? 'Detected macOS. On a phone or PC, take BMWeb.'
-    : (isIOS ? 'Detected iOS. Launch the PWA above and add it to your Home Screen!' : 'BMWeb needs no install.');
+  document.getElementById('other').textContent = isMobile
+    ? 'Tap Launch BMWeb App to begin diagnostics.'
+    : (isMac ? 'Detected macOS. On a phone or PC, take BMWeb.' : 'BMWeb needs no install.');
 
   var webCard = cards.querySelector('a[href="#pick"]');
   if (webCard) {
@@ -501,7 +522,6 @@
           box.appendChild(b);
         });
 
-        if (isMobile) return;
         var all = document.createElement('a');
         all.className = 'chip chip-all';
         all.href = './get/bmweb-all.html';
