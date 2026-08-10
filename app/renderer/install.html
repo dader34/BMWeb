@@ -1,6 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
+<script>
+(function () {
+  var isStandalone = (window.navigator.standalone === true) || 
+                     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if (isStandalone) {
+    var target = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
+    window.location.replace(target + window.location.search + window.location.hash);
+  }
+})();
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BMWeb: get it</title>
@@ -439,10 +449,17 @@
         if (document.getElementById('mac-help')) return;
         a.insertAdjacentElement('afterend', macHelp());
       });
-    } else if (o.id === 'pwa' && isIOS) {
-      a.addEventListener('click', showIosTutorialModal);
     }
   });
+
+  if (isIOS) {
+    var guideP = document.createElement('p');
+    guideP.className = 'other';
+    guideP.style.marginTop = '14px';
+    guideP.innerHTML = '<a href="#" id="ios-guide-link" style="color:var(--amber);text-decoration:none;font-weight:600;">📲 How to add BMWeb to iPhone Home Screen</a>';
+    cards.insertAdjacentElement('afterend', guideP);
+    guideP.querySelector('#ios-guide-link').addEventListener('click', showIosTutorialModal);
+  }
 
   // Mac download URL lookup from releases
   fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
