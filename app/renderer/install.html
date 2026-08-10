@@ -36,7 +36,18 @@
     padding:6vh 20px 8vh;
   }
   .wrap { width:100%; max-width:46rem; }
-  .brand { display:flex; align-items:center; gap:12px; margin-bottom:28px; }
+  .top-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; }
+  .brand { display:flex; align-items:center; gap:12px; }
+  .nav-links { display:flex; align-items:center; gap:10px; }
+  .nav-btn {
+    display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    color:var(--ink); text-decoration:none; font-size:13.5px; font-weight:600;
+    transition:all .15s ease;
+  }
+  .nav-btn:hover {
+    border-color:var(--amber); color:var(--amber); transform:translateY(-1px);
+  }
   .logo { width:36px; height:36px; flex:none; }
   .logo-ring { fill:none; stroke:var(--ink); stroke-width:3; }
   .q-white { fill:#e8edf2; } .q-color { fill:var(--amber); }
@@ -139,20 +150,25 @@
 </head>
 <body>
 <main class="wrap">
-  <div class="brand">
-    <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
-      <circle class="logo-ring" cx="50" cy="50" r="48"/>
-      <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
-      <g clip-path="url(#d)">
-        <rect class="q-white" x="19" y="19" width="31" height="31"/>
-        <rect class="q-white" x="50" y="50" width="31" height="31"/>
-        <rect class="q-color" x="50" y="19" width="31" height="31"/>
-        <rect class="q-color" x="19" y="50" width="31" height="31"/>
-      </g>
-      <circle class="logo-ring" cx="50" cy="50" r="31"/>
-    </svg>
-    <span class="name" id="brand-name">BMWeb</span>
-  </div>
+  <header class="top-nav">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+        <circle class="logo-ring" cx="50" cy="50" r="48"/>
+        <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
+        <g clip-path="url(#d)">
+          <rect class="q-white" x="19" y="19" width="31" height="31"/>
+          <rect class="q-white" x="50" y="50" width="31" height="31"/>
+          <rect class="q-color" x="50" y="19" width="31" height="31"/>
+          <rect class="q-color" x="19" y="50" width="31" height="31"/>
+        </g>
+        <circle class="logo-ring" cx="50" cy="50" r="31"/>
+      </svg>
+      <span class="name" id="brand-name">BMWeb</span>
+    </div>
+    <nav class="nav-links">
+      <a href="files.html" class="nav-btn"><span>📁 BMW Files & SP-Daten</span></a>
+    </nav>
+  </header>
 
   <h1>BMW diagnostics,<br>no Windows.</h1>
   <p class="lead" id="lead">Read fault codes, watch live values, run actuator
@@ -277,15 +293,8 @@
     meta: 'Windows · Linux · iPhone · Android · macOS',
     href: '#pick',
   };
-  var FILES = {
-    id: 'files',
-    title: 'BMW Files & SP-Daten Hub',
-    sub: 'Browse and download full SP-Daten archives, ISTA databases, wiring diagrams, and diagnostic tools.',
-    meta: '46 GB repository · 100 packages · Direct downloads',
-    href: 'files.html',
-  };
 
-  var order = isMac ? [APP, WEB, FILES] : [WEB, APP, FILES];
+  var order = isMac ? [APP, WEB] : [WEB, APP];
   var cards = document.getElementById('cards');
   order.forEach(function (o, i) {
     var a = document.createElement('a');
