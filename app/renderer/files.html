@@ -19,10 +19,9 @@
       --amber: #ff9e2c;
       --amber-glow: rgba(255, 158, 44, 0.18);
       --green: #2ecc71;
-      --green-glow: rgba(46, 204, 113, 0.18);
       --blue: #3b82f6;
       --blue-glow: rgba(59, 130, 246, 0.18);
-      --purple: #a855f7;
+      --folder: #f59e0b;
     }
     * { box-sizing: border-box; }
     body {
@@ -110,55 +109,13 @@
       font-size: 16px;
       max-width: 48rem;
     }
-    
-    .status-banner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 12px;
-      padding: 12px 18px;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      margin-bottom: 24px;
-    }
-    .status-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13.5px;
-    }
-    .status-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 10px var(--green);
-      flex: none;
-    }
-    .status-meta {
-      font-family: ui-monospace, Menlo, monospace;
-      color: var(--dim);
-      font-size: 12.5px;
-    }
-    .repo-link {
-      color: var(--amber);
-      text-decoration: none;
-      font-size: 13px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .repo-link:hover { text-decoration: underline; }
 
     /* Controls */
     .controls {
       display: flex;
       flex-direction: column;
       gap: 12px;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     .search-row {
       display: flex;
@@ -192,32 +149,6 @@
       transform: translateY(-50%);
       color: var(--faint);
       pointer-events: none;
-    }
-    .view-toggle {
-      display: flex;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 2px;
-      flex: none;
-    }
-    .view-btn {
-      background: none;
-      border: none;
-      color: var(--dim);
-      padding: 6px 12px;
-      font-size: 13px;
-      font-weight: 500;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      transition: all .15s;
-    }
-    .view-btn.active {
-      background: var(--panel3);
-      color: var(--ink);
     }
 
     /* Category pills */
@@ -260,26 +191,50 @@
       color: inherit;
     }
 
-    /* Breadcrumbs */
-    .tree-nav {
+    /* Breadcrumbs Navigation */
+    .breadcrumbs {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      padding: 10px 16px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-bottom: none;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
       font-size: 13.5px;
       color: var(--dim);
-      margin-bottom: 14px;
       overflow-x: auto;
-      padding: 6px 0;
+      white-space: nowrap;
     }
-    .crumb-item {
-      cursor: pointer;
+    .crumb-btn {
+      background: none;
+      border: none;
       color: var(--dim);
+      padding: 2px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
       display: inline-flex;
       align-items: center;
       gap: 4px;
+      transition: all .12s;
     }
-    .crumb-item:hover { color: var(--amber); }
-    .crumb-item.active { color: var(--ink); font-weight: 600; cursor: default; }
+    .crumb-btn:hover {
+      color: var(--amber);
+      background: rgba(255,158,44,0.08);
+    }
+    .crumb-btn.active {
+      color: var(--ink);
+      font-weight: 700;
+      cursor: default;
+      background: none;
+    }
+    .crumb-sep {
+      color: var(--faint);
+      user-select: none;
+    }
 
     /* File List & Items */
     .file-container {
@@ -288,6 +243,10 @@
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .file-container.has-crumbs {
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
     }
     .file-table {
       width: 100%;
@@ -302,7 +261,7 @@
       letter-spacing: .05em;
       color: var(--faint);
       border-bottom: 1px solid var(--line);
-      background: var(--panel2);
+      background: #0f151b;
     }
     .file-table td {
       padding: 12px 16px;
@@ -315,6 +274,12 @@
     .file-row:hover {
       background: rgba(255, 158, 44, 0.04);
     }
+    .file-row.folder-row {
+      cursor: pointer;
+    }
+    .file-row.folder-row:hover {
+      background: rgba(245, 158, 11, 0.06);
+    }
     .file-row:last-child td {
       border-bottom: none;
     }
@@ -323,7 +288,6 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      cursor: pointer;
     }
     .file-icon {
       font-size: 18px;
@@ -347,9 +311,14 @@
     .file-title:hover {
       color: var(--amber);
     }
-    .file-path {
+    .folder-title {
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 14.5px;
+    }
+    .file-path-sub {
       color: var(--faint);
-      font-size: 12px;
+      font-size: 11.5px;
       font-family: ui-monospace, Menlo, monospace;
     }
     
@@ -373,6 +342,7 @@
     .cat-wiring { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
     .cat-core { background: rgba(46, 204, 113, 0.15); color: #4ade80; border: 1px solid rgba(46, 204, 113, 0.3); }
     .cat-tools { background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .cat-folder { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
 
     .actions-cell {
       text-align: right;
@@ -398,6 +368,24 @@
       transform: translateY(-1px);
       box-shadow: 0 3px 10px rgba(255, 158, 44, 0.3);
     }
+    .folder-enter-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .folder-enter-btn:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
     .copy-btn {
       display: inline-flex;
       align-items: center;
@@ -414,48 +402,6 @@
     .copy-btn:hover {
       border-color: var(--amber);
       color: var(--ink);
-    }
-
-    /* Grid cards view */
-    .grid-view {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 14px;
-      padding: 16px;
-    }
-    .grid-card {
-      background: linear-gradient(180deg, var(--panel2), var(--panel));
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 12px;
-      transition: all .15s;
-    }
-    .grid-card:hover {
-      border-color: var(--amber);
-      transform: translateY(-2px);
-    }
-    .grid-card-top {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-    }
-    .grid-card-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--ink);
-      word-break: break-all;
-    }
-    .grid-card-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-top: 1px solid var(--line);
-      padding-top: 12px;
-      margin-top: auto;
     }
 
     /* Terminal helper box */
@@ -526,13 +472,6 @@
       opacity: 1;
       transform: translateY(0);
     }
-    
-    @media (max-width: 640px) {
-      .file-table th:nth-child(3),
-      .file-table td:nth-child(3) {
-        display: none;
-      }
-    }
   </style>
 </head>
 <body>
@@ -553,8 +492,7 @@
         <span class="name">BMacW <span class="sub-brand">Files Hub</span></span>
       </a>
       <div class="nav-links">
-        <a href="install.html" class="nav-btn">Get App / Web</a>
-        <a href="index.html" class="nav-btn">Diagnostics</a>
+        <a href="index.html" class="nav-btn">Get App / Web</a>
         <a href="https://huggingface.co/datasets/CraigFf/bmw-files" target="_blank" class="nav-btn primary">
           <span>Hugging Face</span> ↗
         </a>
@@ -566,56 +504,41 @@
       <p class="lead">
         Browse and directly download full chassis SP-Daten packages, ISTA SQLite databases, WDS diagrams, and diagnostic tools hosted on Git LFS.
       </p>
-
-      <div class="status-banner">
-        <div class="status-left">
-          <span class="status-dot"></span>
-          <span id="stat-text">Connected to Hugging Face Dataset (CraigFf/bmw-files)</span>
-        </div>
-        <div class="status-meta">
-          <span id="stat-count">100 Files</span> • <span id="stat-size">46.2 GB Total</span>
-        </div>
-      </div>
     </div>
 
     <div class="controls">
       <div class="search-row">
         <div class="search-box">
           <span class="search-icon">🔍</span>
-          <input type="text" id="search-input" class="search-input" placeholder="Search by chassis (e.g. E46, E90, F10), file name, or extension..." />
-        </div>
-        <div class="view-toggle">
-          <button class="view-btn active" id="btn-list" onclick="setViewMode('list')">☰ Table</button>
-          <button class="view-btn" id="btn-grid" onclick="setViewMode('grid')">⊞ Grid</button>
+          <input type="text" id="search-input" class="search-input" placeholder="Search across all folders by chassis (e.g. E46, E90, F10), file name, or extension..." />
         </div>
       </div>
 
       <div class="filters" id="category-filters">
-        <button class="filter-chip active" onclick="setFilter('all')">All Files <span class="count-badge" id="c-all">100</span></button>
-        <button class="filter-chip" onclick="setFilter('sp-daten')">📦 SP-Daten (.tar.zst) <span class="count-badge" id="c-spdaten">27</span></button>
-        <button class="filter-chip" onclick="setFilter('ista')">🗄️ ISTA Databases <span class="count-badge" id="c-ista">27</span></button>
-        <button class="filter-chip" onclick="setFilter('wiring')">⚡ Wiring Diagrams <span class="count-badge" id="c-wiring">17</span></button>
-        <button class="filter-chip" onclick="setFilter('ec-apps')">📁 EC-Apps & WDS ISO <span class="count-badge" id="c-ecapps">2</span></button>
-        <button class="filter-chip" onclick="setFilter('tools')">🛠️ Tools & Scanner <span class="count-badge" id="c-tools">27</span></button>
+        <button class="filter-chip active" onclick="setCategoryFilter('all')">📁 All Folders</button>
+        <button class="filter-chip" onclick="navigateToFolder('sp-daten merge (compressed)')">📦 SP-Daten (.tar.zst) <span class="count-badge">27</span></button>
+        <button class="filter-chip" onclick="navigateToFolder('ista/databases')">🗄️ ISTA Databases <span class="count-badge">8</span></button>
+        <button class="filter-chip" onclick="navigateToFolder('wiring')">⚡ Wiring Diagrams <span class="count-badge">17</span></button>
+        <button class="filter-chip" onclick="navigateToFolder('coding')">💻 Coding Profiles <span class="count-badge">19</span></button>
+        <button class="filter-chip" onclick="navigateToFolder('ista/tools/BMW-Tools')">🛠️ BMW Tools <span class="count-badge">20</span></button>
       </div>
     </div>
 
-    <!-- Tree Breadcrumbs when browsing folders in table mode -->
-    <div class="tree-nav" id="breadcrumbs" style="display:none;"></div>
+    <!-- Breadcrumb folder navigation -->
+    <div class="breadcrumbs" id="breadcrumbs"></div>
 
-    <div class="file-container" id="file-container">
+    <div class="file-container has-crumbs" id="file-container">
       <table class="file-table" id="file-table">
         <thead>
           <tr>
-            <th>File / Directory</th>
+            <th>Name</th>
             <th>Size</th>
-            <th>Category</th>
+            <th>Type</th>
             <th style="text-align:right;">Action</th>
           </tr>
         </thead>
         <tbody id="file-tbody"></tbody>
       </table>
-      <div class="grid-view" id="grid-view" style="display:none;"></div>
     </div>
 
     <!-- Quick Terminal Helper -->
@@ -623,7 +546,7 @@
       <div class="cli-title">💻 Download via Terminal / CLI</div>
       <p class="cli-desc">Clone the full 46GB repository with Git LFS, or download single files via curl or huggingface-cli:</p>
       <div class="code-block" id="cli-code">
-        # 1. Full clone with Git LFS (requires git-lfs installed)
+# 1. Full clone with Git LFS (requires git-lfs installed)
 git clone https://huggingface.co/datasets/CraigFf/bmw-files
 
 # 2. Decompress all SP-Daten and EC-Apps once downloaded:
@@ -639,84 +562,116 @@ cd bmw-files && python3 restore.py --extract
     const HF_BASE_URL = "https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main";
     const MANIFEST_URL = "https://huggingface.co/datasets/CraigFf/bmw-files/raw/main/manifest.json";
 
-    // Static fallback database (generated during backup)
-    const STATIC_DATA = {
-      "ec-apps.zip": { "size_bytes": 744589199, "sha256": "2ecaaedb2b0e07b1b9b42eac06397aede8a6556834f758bd76a4e161c7851f96", "cat": "ec-apps" },
-      "BMW_WDS_v15_English.iso": { "size_bytes": 4706072576, "sha256": "17f1355fe3685c396464a4769330250b471b136fec445424528538b3bfa10377", "cat": "ec-apps" },
-      
-      // SP-Daten compressed archives
-      "sp-daten merge (compressed)/BASE.tar.zst": { "size_bytes": 5073058, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E36.tar.zst": { "size_bytes": 30032248, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E38.tar.zst": { "size_bytes": 24971483, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E39.tar.zst": { "size_bytes": 33675865, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E46.tar.zst": { "size_bytes": 60718535, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E52.tar.zst": { "size_bytes": 22391417, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E53.tar.zst": { "size_bytes": 57147220, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E60.tar.zst": { "size_bytes": 3273562388, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E65.tar.zst": { "size_bytes": 411626325, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E70.tar.zst": { "size_bytes": 4373436208, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E83.tar.zst": { "size_bytes": 355065611, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E85.tar.zst": { "size_bytes": 60930809, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/E89.tar.zst": { "size_bytes": 5044332060, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/F001.tar.zst": { "size_bytes": 40563507, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/F010.tar.zst": { "size_bytes": 37891603, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/F020.tar.zst": { "size_bytes": 37891860, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/F025.tar.zst": { "size_bytes": 37891647, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/F056.tar.zst": { "size_bytes": 22682339, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/I001.tar.zst": { "size_bytes": 22238797, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/K001.tar.zst": { "size_bytes": 1629615, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/K1X.tar.zst": { "size_bytes": 12320457, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/K24.tar.zst": { "size_bytes": 144516944, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/KH2.tar.zst": { "size_bytes": 3465036, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/R50.tar.zst": { "size_bytes": 25650999, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/R56.tar.zst": { "size_bytes": 3072042841, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/RR1.tar.zst": { "size_bytes": 242071292, "cat": "sp-daten" },
-      "sp-daten merge (compressed)/psdzdata.tar.zst": { "size_bytes": 1195101820, "cat": "sp-daten" },
-
-      // ISTA Databases
-      "ista/databases/DiagDocDb.decrypted.sqlite": { "size_bytes": 3293478912, "cat": "ista" },
-      "ista/databases/DiagDocDb.encrypted-original.sqlite": { "size_bytes": 3293478912, "cat": "ista" },
-      "ista/databases/OTHER 4.15.12.7z": { "size_bytes": 14093376078, "cat": "ista" },
-      "ista/databases/DE 4.15.12.7z": { "size_bytes": 701523078, "cat": "ista" },
-      "ista/databases/EN 4.15.12.7z": { "size_bytes": 718698640, "cat": "ista" },
-      "ista/databases/ZH 4.15.12.7z": { "size_bytes": 450000000, "cat": "ista" },
-      "ista/installers/ISTA-D 4.15.16.7z": { "size_bytes": 300845056, "cat": "ista" },
-      "ista/installers/BLP 4.15.12.7z": { "size_bytes": 913160192, "cat": "ista" },
-
-      // Wiring diagrams
-      "wiring/E90.wiring": { "size_bytes": 115238400, "cat": "wiring" },
-      "wiring/E89.wiring": { "size_bytes": 115238400, "cat": "wiring" },
-      "wiring/E87.wiring": { "size_bytes": 115238400, "cat": "wiring" },
-      "wiring/E85.wiring": { "size_bytes": 62914560, "cat": "wiring" },
-      "wiring/E83.wiring": { "size_bytes": 73400320, "cat": "wiring" },
-      "wiring/E70.wiring": { "size_bytes": 125829120, "cat": "wiring" },
-      "wiring/E65.wiring": { "size_bytes": 94371840, "cat": "wiring" },
-      "wiring/E60.wiring": { "size_bytes": 115238400, "cat": "wiring" },
-      "wiring/E53.wiring": { "size_bytes": 62914560, "cat": "wiring" },
-      "wiring/E52.wiring": { "size_bytes": 41943040, "cat": "wiring" },
-      "wiring/E46.wiring": { "size_bytes": 62914560, "cat": "wiring" },
-      "wiring/E39.wiring": { "size_bytes": 52428800, "cat": "wiring" },
-      "wiring/E38.wiring": { "size_bytes": 52428800, "cat": "wiring" },
-      "wiring/E36.wiring": { "size_bytes": 41943040, "cat": "wiring" },
-      "wiring/R56.wiring": { "size_bytes": 83886080, "cat": "wiring" },
-      "wiring/R50.wiring": { "size_bytes": 52428800, "cat": "wiring" },
-      "wiring/RR1.wiring": { "size_bytes": 62914560, "cat": "wiring" },
-
-      // Tools & Scripts
-      "ista/tools/BMW-Tools/Patched_EDIABAS_7.3.0.msi": { "size_bytes": 17235968, "cat": "tools" },
-      "ista/tools/BMW-Tools/ICOM-NEXT-Image-03-15-00.7z": { "size_bytes": 13626888, "cat": "tools" },
-      "ista/tools/BMW-Tools/ICOM-A1-A2-A3-Image-03-15-02.7z": { "size_bytes": 28206087, "cat": "tools" },
-      "ista/tools/BMW-Tools/Restore ICOM.7z": { "size_bytes": 35912459, "cat": "tools" },
-      "BMW Scanner/BMW Scanner v1.4.0.zip": { "size_bytes": 5033164, "cat": "tools" },
-      "coding/NCS-Expert_Profiles.zip": { "size_bytes": 11534336, "cat": "tools" },
-      "backup.py": { "size_bytes": 7400, "cat": "tools" },
-      "restore.py": { "size_bytes": 5200, "cat": "tools" }
+    // Complete static fallback catalog of all 100 files
+    const STATIC_FILES = {
+      "BMW Scanner/BMW Scanner v140 - manual (recovered).pdf": { "size_bytes": 1287114 },
+      "BMW Scanner/hardware faulty BMW Scanner v140 Install.rar": { "size_bytes": 3746050 },
+      "BMW_WDS_v15_English.iso": { "size_bytes": 4706072576 },
+      "README.md": { "size_bytes": 3387 },
+      "coding/E36.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E38.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E39.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E46.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E52.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E53.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E60.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E65.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E70.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E83.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E85.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/E89.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/K1X.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/K24.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/KH2.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/R50.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/R56.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/RR1.coding.tar.gz": { "size_bytes": 524288 },
+      "coding/all.coding.tar.gz": { "size_bytes": 11534336 },
+      "ec-apps.zip": { "size_bytes": 744589199 },
+      "ista/README.md": { "size_bytes": 1988 },
+      "ista/SQLITE-KEY.txt": { "size_bytes": 2641 },
+      "ista/databases/DE 4.15.12.7z": { "size_bytes": 701523078 },
+      "ista/databases/DiagDocDb.decrypted.sqlite": { "size_bytes": 3293478912 },
+      "ista/databases/DiagDocDb.encrypted-original.sqlite": { "size_bytes": 3293478912 },
+      "ista/databases/EN 4.15.12.7z": { "size_bytes": 718698640 },
+      "ista/databases/OTHER 4.15.12.7z": { "size_bytes": 14093376078 },
+      "ista/installers/BLP 4.15.12.7z": { "size_bytes": 913160192 },
+      "ista/installers/ISTA-D 4.15.16.7z": { "size_bytes": 300845056 },
+      "ista/tools/BMW-Tools/D-CAN.exe.part": { "size_bytes": 71168 },
+      "ista/tools/BMW-Tools/FAQ-EN.pdf.part": { "size_bytes": 6365083 },
+      "ista/tools/BMW-Tools/FAQ-RU.pdf": { "size_bytes": 6443483 },
+      "ista/tools/BMW-Tools/ICOM-A1-A2-A3-Image-03-15-02.7z": { "size_bytes": 28206087 },
+      "ista/tools/BMW-Tools/ICOM-NEXT-Image-03-15-00.7z": { "size_bytes": 13626888 },
+      "ista/tools/BMW-Tools/ISTA-D Reg Fix x64.reg": { "size_bytes": 1506 },
+      "ista/tools/BMW-Tools/ISTA-D Reg Fix x86.reg": { "size_bytes": 1458 },
+      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.1/Activation Key.txt": { "size_bytes": 1024 },
+      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.1/BMW ISTA-P Loader.exe": { "size_bytes": 129079296 },
+      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.4/Activation Key - Loader V6.4L.txt": { "size_bytes": 1024 },
+      "ista/tools/BMW-Tools/ISTA-P Loader/ISTA-P Loader 6.4/BMW ISTA-P Loader.exe": { "size_bytes": 129079296 },
+      "ista/tools/BMW-Tools/IToolRadar/iTool Radar (x64).7z": { "size_bytes": 5072007 },
+      "ista/tools/BMW-Tools/IToolRadar/iTool Radar (x86).7z": { "size_bytes": 5074228 },
+      "ista/tools/BMW-Tools/License.txt": { "size_bytes": 7592 },
+      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.5.2.exe": { "size_bytes": 69992520 },
+      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.6.2.exe": { "size_bytes": 62000000 },
+      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.7.1.exe": { "size_bytes": 65000000 },
+      "ista/tools/BMW-Tools/Net Framework/Net Framework 4.7.2.exe": { "size_bytes": 68000000 },
+      "ista/tools/BMW-Tools/NetworkTool.exe": { "size_bytes": 849408 },
+      "ista/tools/BMW-Tools/Patched_EDIABAS_7.3.0.msi": { "size_bytes": 17235968 },
+      "ista/tools/BMW-Tools/RCleanerV4.4.exe": { "size_bytes": 45568 },
+      "ista/tools/BMW-Tools/Restore ICOM.7z": { "size_bytes": 35912459 },
+      "ista/tools/BMW-Tools/vcredist/VCRedist x86 x64 All In One Multilingual.exe": { "size_bytes": 26214400 },
+      "ista/tools/BMW-Tools/vcredist/VCRedist x86 x64 All In One Russian.exe": { "size_bytes": 26214400 },
+      "ista/tools/BMW-Tools/vs90_piaredist.exe": { "size_bytes": 1419784 },
+      "sp-daten merge (compressed)/BASE.tar.zst": { "size_bytes": 5073058 },
+      "sp-daten merge (compressed)/E36.tar.zst": { "size_bytes": 30032248 },
+      "sp-daten merge (compressed)/E38.tar.zst": { "size_bytes": 24971483 },
+      "sp-daten merge (compressed)/E39.tar.zst": { "size_bytes": 33675865 },
+      "sp-daten merge (compressed)/E46.tar.zst": { "size_bytes": 60718535 },
+      "sp-daten merge (compressed)/E52.tar.zst": { "size_bytes": 22391417 },
+      "sp-daten merge (compressed)/E53.tar.zst": { "size_bytes": 57147220 },
+      "sp-daten merge (compressed)/E60.tar.zst": { "size_bytes": 3273562388 },
+      "sp-daten merge (compressed)/E65.tar.zst": { "size_bytes": 411626325 },
+      "sp-daten merge (compressed)/E70.tar.zst": { "size_bytes": 4373436208 },
+      "sp-daten merge (compressed)/E83.tar.zst": { "size_bytes": 355065611 },
+      "sp-daten merge (compressed)/E85.tar.zst": { "size_bytes": 60930809 },
+      "sp-daten merge (compressed)/E89.tar.zst": { "size_bytes": 5044332060 },
+      "sp-daten merge (compressed)/F001.tar.zst": { "size_bytes": 40563507 },
+      "sp-daten merge (compressed)/F010.tar.zst": { "size_bytes": 37891603 },
+      "sp-daten merge (compressed)/F020.tar.zst": { "size_bytes": 37891860 },
+      "sp-daten merge (compressed)/F025.tar.zst": { "size_bytes": 37891647 },
+      "sp-daten merge (compressed)/F056.tar.zst": { "size_bytes": 22682339 },
+      "sp-daten merge (compressed)/I001.tar.zst": { "size_bytes": 22238797 },
+      "sp-daten merge (compressed)/K001.tar.zst": { "size_bytes": 1629615 },
+      "sp-daten merge (compressed)/K1X.tar.zst": { "size_bytes": 12320457 },
+      "sp-daten merge (compressed)/K24.tar.zst": { "size_bytes": 144516944 },
+      "sp-daten merge (compressed)/KH2.tar.zst": { "size_bytes": 3465036 },
+      "sp-daten merge (compressed)/R50.tar.zst": { "size_bytes": 25650999 },
+      "sp-daten merge (compressed)/R56.tar.zst": { "size_bytes": 3072042841 },
+      "sp-daten merge (compressed)/RR1.tar.zst": { "size_bytes": 242071292 },
+      "sp-daten merge (compressed)/psdzdata.tar.zst": { "size_bytes": 1195101820 },
+      "wiring/E36.wiring": { "size_bytes": 41943040 },
+      "wiring/E38.wiring": { "size_bytes": 52428800 },
+      "wiring/E39.wiring": { "size_bytes": 52428800 },
+      "wiring/E46.wiring": { "size_bytes": 62914560 },
+      "wiring/E52.wiring": { "size_bytes": 41943040 },
+      "wiring/E53.wiring": { "size_bytes": 62914560 },
+      "wiring/E60.wiring": { "size_bytes": 115238400 },
+      "wiring/E63.wiring": { "size_bytes": 83886080 },
+      "wiring/E65.wiring": { "size_bytes": 94371840 },
+      "wiring/E70.wiring": { "size_bytes": 125829120 },
+      "wiring/E83.wiring": { "size_bytes": 73400320 },
+      "wiring/E85.wiring": { "size_bytes": 62914560 },
+      "wiring/E87.wiring": { "size_bytes": 115238400 },
+      "wiring/E89.wiring": { "size_bytes": 115238400 },
+      "wiring/E90.wiring": { "size_bytes": 115238400 },
+      "wiring/F01.wiring": { "size_bytes": 94371840 },
+      "backup.py": { "size_bytes": 7400 },
+      "restore.py": { "size_bytes": 5200 }
     };
 
-    let filesCatalog = [];
-    let currentFilter = 'all';
-    let currentSearch = '';
-    let currentViewMode = 'list';
+    let allFiles = [];
+    let currentFolder = ""; // "" means root
+    let searchQuery = "";
 
     function formatBytes(bytes, decimals = 1) {
       if (!bytes || bytes === 0) return '0 B';
@@ -728,78 +683,247 @@ cd bmw-files && python3 restore.py --extract
     }
 
     function getFileIcon(path) {
-      if (path.endsWith('.tar.zst')) return '📦';
+      if (path.endsWith('.tar.zst') || path.endsWith('.tar.gz')) return '📦';
       if (path.endsWith('.iso')) return '💿';
       if (path.endsWith('.sqlite')) return '🗄️';
-      if (path.endsWith('.zip') || path.endsWith('.7z')) return '🗜️';
+      if (path.endsWith('.zip') || path.endsWith('.7z') || path.endsWith('.rar')) return '🗜️';
       if (path.endsWith('.wiring')) return '⚡';
       if (path.endsWith('.py')) return '🐍';
-      if (path.endsWith('.json')) return '📋';
-      if (path.endsWith('.msi') || path.endsWith('.exe')) return '⚙️';
+      if (path.endsWith('.json') || path.endsWith('.txt') || path.endsWith('.md')) return '📄';
+      if (path.endsWith('.pdf')) return '📕';
+      if (path.endsWith('.msi') || path.endsWith('.exe') || path.endsWith('.reg')) return '⚙️';
       return '📄';
     }
 
-    function getCategory(path) {
-      if (path.includes('sp-daten merge')) return 'sp-daten';
-      if (path.startsWith('ista/databases') || path.startsWith('ista/installers')) return 'ista';
-      if (path.startsWith('wiring')) return 'wiring';
-      if (path.includes('ec-apps') || path.endsWith('.iso')) return 'ec-apps';
-      return 'tools';
+    function getFileTypeBadge(path) {
+      if (path.endsWith('.tar.zst')) return '<span class="category-badge cat-spdaten">SP-Daten</span>';
+      if (path.endsWith('.sqlite')) return '<span class="category-badge cat-ista">Database</span>';
+      if (path.endsWith('.wiring')) return '<span class="category-badge cat-wiring">Wiring</span>';
+      if (path.endsWith('.iso') || path.endsWith('.zip')) return '<span class="category-badge cat-core">Archive</span>';
+      if (path.endsWith('.7z') || path.endsWith('.tar.gz')) return '<span class="category-badge cat-tools">Package</span>';
+      if (path.endsWith('.py') || path.endsWith('.md')) return '<span class="category-badge cat-tools">Script</span>';
+      return '<span class="category-badge cat-tools">File</span>';
     }
 
     function getDownloadUrl(path) {
-      // Direct raw download link from Hugging Face LFS
       const encoded = path.split('/').map(encodeURIComponent).join('/');
       return `${HF_BASE_URL}/${encoded}?download=true`;
     }
 
-    function populateFiles(manifestData) {
-      filesCatalog = [];
-      const filesObj = manifestData.files || manifestData;
+    function parseCatalog(data) {
+      allFiles = [];
+      const filesObj = data.files || data;
       for (const [path, info] of Object.entries(filesObj)) {
-        filesCatalog.push({
+        allFiles.push({
           path: path,
           name: path.split('/').pop(),
-          dir: path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '',
-          size_bytes: info.size_bytes || 0,
-          sha256: info.sha256 || '',
-          cat: info.cat || getCategory(path)
+          size_bytes: info.size_bytes || 0
         });
       }
-
-      // Sort by path
-      filesCatalog.sort((a, b) => a.path.localeCompare(b.path));
-      updateCounts();
       render();
     }
 
-    function updateCounts() {
-      document.getElementById('c-all').textContent = filesCatalog.length;
-      document.getElementById('c-spdaten').textContent = filesCatalog.filter(f => f.cat === 'sp-daten').length;
-      document.getElementById('c-ista').textContent = filesCatalog.filter(f => f.cat === 'ista').length;
-      document.getElementById('c-wiring').textContent = filesCatalog.filter(f => f.cat === 'wiring').length;
-      document.getElementById('c-ecapps').textContent = filesCatalog.filter(f => f.cat === 'ec-apps').length;
-      document.getElementById('c-tools').textContent = filesCatalog.filter(f => f.cat === 'tools').length;
-
-      const totalSize = filesCatalog.reduce((acc, f) => acc + f.size_bytes, 0);
-      document.getElementById('stat-size').textContent = `${formatBytes(totalSize)} Total`;
-      document.getElementById('stat-count').textContent = `${filesCatalog.length} Files`;
-    }
-
-    function setFilter(cat) {
-      currentFilter = cat;
+    function navigateToFolder(folderPath) {
+      currentFolder = folderPath.trim();
+      searchQuery = "";
+      document.getElementById('search-input').value = "";
       document.querySelectorAll('.filter-chip').forEach(el => el.classList.remove('active'));
-      event.currentTarget.classList.add('active');
       render();
     }
 
-    function setViewMode(mode) {
-      currentViewMode = mode;
-      document.getElementById('btn-list').classList.toggle('active', mode === 'list');
-      document.getElementById('btn-grid').classList.toggle('active', mode === 'grid');
-      document.getElementById('file-table').style.display = mode === 'list' ? 'table' : 'none';
-      document.getElementById('grid-view').style.display = mode === 'grid' ? 'grid' : 'none';
-      render();
+    function setCategoryFilter(cat) {
+      if (cat === 'all') {
+        navigateToFolder("");
+        document.querySelector('.filter-chip').classList.add('active');
+      }
+    }
+
+    function renderBreadcrumbs() {
+      const container = document.getElementById('breadcrumbs');
+      if (searchQuery) {
+        container.innerHTML = `<span>Search results for "<b>${searchQuery}</b>" across all folders</span>`;
+        return;
+      }
+
+      let html = `<button class="crumb-btn ${currentFolder === '' ? 'active' : ''}" onclick="navigateToFolder('')">📁 Root</button>`;
+      
+      if (currentFolder) {
+        const parts = currentFolder.split('/');
+        let accum = '';
+        parts.forEach((p, idx) => {
+          accum += (idx > 0 ? '/' : '') + p;
+          const isLast = idx === parts.length - 1;
+          const target = accum;
+          html += `<span class="crumb-sep">/</span>`;
+          if (isLast) {
+            html += `<span class="crumb-btn active">${p}</span>`;
+          } else {
+            html += `<button class="crumb-btn" onclick="navigateToFolder('${target}')">${p}</button>`;
+          }
+        });
+      }
+      container.innerHTML = html;
+    }
+
+    function render() {
+      renderBreadcrumbs();
+      const tbody = document.getElementById('file-tbody');
+      tbody.innerHTML = '';
+
+      // Mode 1: Search active (Global flat search results)
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matches = allFiles.filter(f => f.path.toLowerCase().includes(q));
+
+        if (matches.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 36px; color: var(--faint);">No files found matching "${searchQuery}".</td></tr>`;
+          return;
+        }
+
+        matches.forEach(f => {
+          const dlUrl = getDownloadUrl(f.path);
+          const icon = getFileIcon(f.path);
+          const badge = getFileTypeBadge(f.path);
+          const sizeStr = formatBytes(f.size_bytes);
+
+          const tr = document.createElement('tr');
+          tr.className = 'file-row';
+          tr.innerHTML = `
+            <td>
+              <div class="file-name-cell">
+                <span class="file-icon">${icon}</span>
+                <div class="file-info">
+                  <a href="${dlUrl}" class="file-title" download>${f.name}</a>
+                  <span class="file-path-sub">${f.path}</span>
+                </div>
+              </div>
+            </td>
+            <td><span class="size-badge">${sizeStr}</span></td>
+            <td>${badge}</td>
+            <td class="actions-cell">
+              <a href="${dlUrl}" class="dl-btn" download>Download ⬇</a>
+              <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        return;
+      }
+
+      // Mode 2: Folder View
+      const subdirs = new Map(); // name -> total size & count
+      const currentLevelFiles = [];
+
+      allFiles.forEach(f => {
+        const p = f.path;
+        if (!currentFolder) {
+          // Root level
+          if (p.includes('/')) {
+            const topDir = p.split('/')[0];
+            if (!subdirs.has(topDir)) subdirs.set(topDir, { count: 0, size: 0 });
+            const s = subdirs.get(topDir);
+            s.count += 1;
+            s.size += f.size_bytes;
+          } else {
+            currentLevelFiles.push(f);
+          }
+        } else {
+          // Inside a subfolder
+          const prefix = currentFolder + '/';
+          if (p.startsWith(prefix)) {
+            const rel = p.substring(prefix.length);
+            if (rel.includes('/')) {
+              const subDirName = rel.split('/')[0];
+              if (!subdirs.has(subDirName)) subdirs.set(subDirName, { count: 0, size: 0 });
+              const s = subdirs.get(subDirName);
+              s.count += 1;
+              s.size += f.size_bytes;
+            } else {
+              currentLevelFiles.push(f);
+            }
+          }
+        }
+      });
+
+      // 1. Parent directory row (if not in root)
+      if (currentFolder) {
+        const parentFolder = currentFolder.includes('/') ? currentFolder.substring(0, currentFolder.lastIndexOf('/')) : '';
+        const trParent = document.createElement('tr');
+        trParent.className = 'file-row folder-row';
+        trParent.onclick = () => navigateToFolder(parentFolder);
+        trParent.innerHTML = `
+          <td>
+            <div class="file-name-cell">
+              <span class="file-icon" style="color:var(--folder);">📁</span>
+              <div class="file-info">
+                <span class="folder-title" style="color:var(--amber);">.. (Parent Directory)</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="size-badge">--</span></td>
+          <td><span class="category-badge cat-folder">Folder</span></td>
+          <td class="actions-cell">
+            <button class="folder-enter-btn">Up ⬆</button>
+          </td>
+        `;
+        tbody.appendChild(trParent);
+      }
+
+      // 2. Subdirectories
+      const sortedSubdirs = Array.from(subdirs.keys()).sort();
+      sortedSubdirs.forEach(dirName => {
+        const info = subdirs.get(dirName);
+        const fullDirPath = currentFolder ? `${currentFolder}/${dirName}` : dirName;
+        const tr = document.createElement('tr');
+        tr.className = 'file-row folder-row';
+        tr.onclick = () => navigateToFolder(fullDirPath);
+        tr.innerHTML = `
+          <td>
+            <div class="file-name-cell">
+              <span class="file-icon" style="color:var(--folder);">📁</span>
+              <div class="file-info">
+                <span class="folder-title">${dirName}/</span>
+                <span class="file-path-sub">${info.count} items</span>
+              </div>
+            </div>
+          </td>
+          <td><span class="size-badge">${formatBytes(info.size)}</span></td>
+          <td><span class="category-badge cat-folder">Directory</span></td>
+          <td class="actions-cell">
+            <button class="folder-enter-btn">Open ➔</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // 3. Files in current folder
+      currentLevelFiles.sort((a, b) => a.name.localeCompare(b.name));
+      currentLevelFiles.forEach(f => {
+        const dlUrl = getDownloadUrl(f.path);
+        const icon = getFileIcon(f.path);
+        const badge = getFileTypeBadge(f.path);
+        const sizeStr = formatBytes(f.size_bytes);
+
+        const tr = document.createElement('tr');
+        tr.className = 'file-row';
+        tr.innerHTML = `
+          <td>
+            <div class="file-name-cell">
+              <span class="file-icon">${icon}</span>
+              <div class="file-info">
+                <a href="${dlUrl}" class="file-title" download>${f.name}</a>
+              </div>
+            </div>
+          </td>
+          <td><span class="size-badge">${sizeStr}</span></td>
+          <td>${badge}</td>
+          <td class="actions-cell">
+            <a href="${dlUrl}" class="dl-btn" download>Download ⬇</a>
+            <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
 
     function copyToClipboard(text, msg = 'Copied to clipboard!') {
@@ -816,107 +940,20 @@ cd bmw-files && python3 restore.py --extract
       copyToClipboard(code, 'Terminal command copied!');
     }
 
-    function render() {
-      const q = currentSearch.toLowerCase().trim();
-      const filtered = filesCatalog.filter(f => {
-        const matchFilter = currentFilter === 'all' || f.cat === currentFilter;
-        const matchSearch = !q || f.path.toLowerCase().includes(q);
-        return matchFilter && matchSearch;
-      });
-
-      const tbody = document.getElementById('file-tbody');
-      const grid = document.getElementById('grid-view');
-      tbody.innerHTML = '';
-      grid.innerHTML = '';
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 36px; color: var(--faint);">No files found matching your search criteria.</td></tr>`;
-        grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 36px; color: var(--faint);">No files found matching your search criteria.</div>`;
-        return;
-      }
-
-      filtered.forEach(f => {
-        const dlUrl = getDownloadUrl(f.path);
-        const icon = getFileIcon(f.path);
-        const sizeStr = formatBytes(f.size_bytes);
-        
-        let catClass = 'cat-tools';
-        let catLabel = 'Tool';
-        if (f.cat === 'sp-daten') { catClass = 'cat-spdaten'; catLabel = 'SP-Daten'; }
-        else if (f.cat === 'ista') { catClass = 'cat-ista'; catLabel = 'ISTA DB'; }
-        else if (f.cat === 'wiring') { catClass = 'cat-wiring'; catLabel = 'Wiring'; }
-        else if (f.cat === 'ec-apps') { catClass = 'cat-core'; catLabel = 'Package'; }
-
-        // 1. Table row
-        const tr = document.createElement('tr');
-        tr.className = 'file-row';
-        tr.innerHTML = `
-          <td>
-            <div class="file-name-cell">
-              <span class="file-icon">${icon}</span>
-              <div class="file-info">
-                <a href="${dlUrl}" class="file-title" download>${f.name}</a>
-                <span class="file-path">${f.dir ? f.dir + '/' : ''}</span>
-              </div>
-            </div>
-          </td>
-          <td><span class="size-badge">${sizeStr}</span></td>
-          <td><span class="category-badge ${catClass}">${catLabel}</span></td>
-          <td class="actions-cell">
-            <a href="${dlUrl}" class="dl-btn" download title="Direct Download via Git LFS">
-              <span>Download</span> ⬇
-            </a>
-            <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Direct Download Link">🔗</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-
-        // 2. Grid card
-        const card = document.createElement('div');
-        card.className = 'grid-card';
-        card.innerHTML = `
-          <div class="grid-card-top">
-            <span class="file-icon" style="font-size:24px;">${icon}</span>
-            <div class="file-info">
-              <span class="category-badge ${catClass}" style="align-self:flex-start; margin-bottom:4px;">${catLabel}</span>
-              <a href="${dlUrl}" class="grid-card-title" download>${f.name}</a>
-              <span class="file-path">${f.dir ? f.dir + '/' : ''}</span>
-            </div>
-          </div>
-          <div class="grid-card-meta">
-            <span class="size-badge">${sizeStr}</span>
-            <div>
-              <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
-              <a href="${dlUrl}" class="dl-btn" download style="margin-left:4px;">Download ⬇</a>
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    // Search input handler
+    // Search event
     document.getElementById('search-input').addEventListener('input', (e) => {
-      currentSearch = e.target.value;
+      searchQuery = e.target.value.trim();
       render();
     });
 
-    // Initialize with static fallback data first
-    populateFiles(STATIC_DATA);
+    // Initialize with static fallback catalog
+    parseCatalog(STATIC_FILES);
 
-    // Attempt to load live manifest from Hugging Face Hub
+    // Fetch live manifest from Hugging Face
     fetch(MANIFEST_URL)
-      .then(res => {
-        if (!res.ok) throw new Error('Live manifest not yet available');
-        return res.json();
-      })
-      .then(data => {
-        console.log('Successfully fetched live manifest from Hugging Face');
-        populateFiles(data);
-      })
-      .catch(err => {
-        console.log('Using pre-rendered static catalog (repository is currently pushing data)');
-      });
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => parseCatalog(data))
+      .catch(() => console.log('Using static catalog'));
   </script>
 </body>
 </html>
