@@ -670,104 +670,102 @@ function fitAndPan(svg, stage, bar, classic = false) {
     zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
   }, { passive: false });
 
-  // Multi-touch pinch zoom & smooth panning for mobile/touch
-  const pointers = new Map();
-  let pinchStart = null;
-  let dragStart = null;
+  // DEDICATED TOUCH ENGINE FOR IOS / MOBILE (PINCH-TO-ZOOM + PAN)
+  let touchPinch = null;
+  let touchDrag = null;
 
-  const getMidpoint = (p1, p2) => ({
-    x: (p1.x + p2.x) / 2,
-    y: (p1.y + p2.y) / 2
-  });
-  const getDistance = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
-
-  stage.addEventListener('pointerdown', (e) => {
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    try { stage.setPointerCapture(e.pointerId); } catch (_) {}
-    stage.classList.add('grabbing');
-
-    if (pointers.size === 1) {
-      dragStart = { x: e.clientX, y: e.clientY, vx: cur.x, vy: cur.y };
-      pinchStart = null;
-    } else if (pointers.size === 2) {
-      const [p1, p2] = Array.from(pointers.values());
-      const dist = getDistance(p1, p2);
-      const mid = getMidpoint(p1, p2);
+  stage.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchDrag = { x: t.clientX, y: t.clientY, vx: cur.x, vy: cur.y };
+      touchPinch = null;
+    } else if (e.touches.length >= 2) {
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
       const r = stage.getBoundingClientRect();
       const k = unitsPerPixel(r);
-      const fx = ((mid.x - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
-      const fy = ((mid.y - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
+      const fx = ((midX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
+      const fy = ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
 
-      pinchStart = {
+      touchPinch = {
         dist: Math.max(dist, 10),
-        mid,
-        fx,
-        fy,
-        curW: cur.w,
-        curH: cur.h,
-        curX: cur.x,
-        curY: cur.y
+        midX, midY, fx, fy,
+        curW: cur.w, curH: cur.h,
+        curX: cur.x, curY: cur.y
       };
-      dragStart = null;
+      touchDrag = null;
     }
-  });
+  }, { passive: false });
 
-  stage.addEventListener('pointermove', (e) => {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  stage.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent iOS Safari page-level rubberbanding and viewport zooming
     touched = true;
 
-    if (pointers.size >= 2 && pinchStart) {
-      const [p1, p2] = Array.from(pointers.values());
-      const currentDist = Math.max(getDistance(p1, p2), 10);
-      const currentMid = getMidpoint(p1, p2);
+    if (e.touches.length >= 2 && touchPinch) {
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const currentDist = Math.max(Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY), 10);
+      const currentMidX = (t1.clientX + t2.clientX) / 2;
+      const currentMidY = (t1.clientY + t2.clientY) / 2;
       const r = stage.getBoundingClientRect();
       const k = unitsPerPixel(r);
 
-      // Pinch zoom scale
-      const zoomRatio = pinchStart.dist / currentDist;
-      const newW = Math.min(home.w * 8, Math.max(home.w / 80, pinchStart.curW * zoomRatio));
-      const newH = newW * (pinchStart.curH / pinchStart.curW);
+      const zoomRatio = touchPinch.dist / currentDist;
+      const newW = Math.min(home.w * 8, Math.max(home.w / 80, touchPinch.curW * zoomRatio));
+      const newH = newW * (touchPinch.curH / touchPinch.curW);
 
-      // Midpoint pan delta
-      const dx = (currentMid.x - pinchStart.mid.x) * k;
-      const dy = (currentMid.y - pinchStart.mid.y) * k;
+      const dx = (currentMidX - touchPinch.midX) * k;
+      const dy = (currentMidY - touchPinch.midY) * k;
 
-      cur.x = pinchStart.curX + (pinchStart.curW - newW) * pinchStart.fx - dx;
-      cur.y = pinchStart.curY + (pinchStart.curH - newH) * pinchStart.fy - dy;
+      cur.x = touchPinch.curX + (touchPinch.curW - newW) * touchPinch.fx - dx;
+      cur.y = touchPinch.curY + (touchPinch.curH - newH) * touchPinch.fy - dy;
       cur.w = newW;
       cur.h = newH;
       apply();
-    } else if (pointers.size === 1 && dragStart) {
+    } else if (e.touches.length === 1 && touchDrag) {
+      const t = e.touches[0];
       const k = unitsPerPixel(stage.getBoundingClientRect());
-      cur.x = dragStart.vx - (e.clientX - dragStart.x) * k;
-      cur.y = dragStart.vy - (e.clientY - dragStart.y) * k;
+      cur.x = touchDrag.vx - (t.clientX - touchDrag.x) * k;
+      cur.y = touchDrag.vy - (t.clientY - touchDrag.y) * k;
       apply();
     }
-  });
+  }, { passive: false });
 
-  const onPointerEnd = (e) => {
-    pointers.delete(e.pointerId);
-    try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
-
-    if (pointers.size === 1) {
-      const [remaining] = Array.from(pointers.values());
-      dragStart = { x: remaining.x, y: remaining.y, vx: cur.x, vy: cur.y };
-      pinchStart = null;
-    } else if (pointers.size === 0) {
-      dragStart = null;
-      pinchStart = null;
-      stage.classList.remove('grabbing');
+  const onTouchEnd = (e) => {
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      touchDrag = { x: t.clientX, y: t.clientY, vx: cur.x, vy: cur.y };
+      touchPinch = null;
+    } else if (e.touches.length === 0) {
+      touchDrag = null;
+      touchPinch = null;
     }
   };
+  stage.addEventListener('touchend', onTouchEnd, { passive: false });
+  stage.addEventListener('touchcancel', onTouchEnd, { passive: false });
 
-  stage.addEventListener('pointerup', onPointerEnd);
-  stage.addEventListener('pointercancel', onPointerEnd);
-
-  // Prevent iOS Safari page-level pinch gestures on the diagram
-  stage.addEventListener('gesturestart', (e) => e.preventDefault());
-  stage.addEventListener('gesturechange', (e) => e.preventDefault());
-  stage.addEventListener('gestureend', (e) => e.preventDefault());
+  // MOUSE DRAG FOR DESKTOP
+  let mouseDrag = null;
+  stage.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    mouseDrag = { x: e.clientX, y: e.clientY, vx: cur.x, vy: cur.y };
+    stage.classList.add('grabbing');
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!mouseDrag) return;
+    touched = true;
+    const k = unitsPerPixel(stage.getBoundingClientRect());
+    cur.x = mouseDrag.vx - (e.clientX - mouseDrag.x) * k;
+    cur.y = mouseDrag.vy - (e.clientY - mouseDrag.y) * k;
+    apply();
+  });
+  window.addEventListener('mouseup', () => {
+    if (mouseDrag) {
+      mouseDrag = null;
+      stage.classList.remove('grabbing');
+    }
+  });
 
   // on-screen zoom controls, mirroring the F-keys. WDS drew these as raised
   // grey buttons with magnifier glyphs; the modern layout labels them.
