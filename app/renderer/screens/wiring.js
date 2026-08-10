@@ -902,7 +902,7 @@ function printWiring(chassisId) {
   const svg = stage && stage.querySelector('svg');
   const title = document.querySelector('.wiring-title');
   const kind = document.querySelector('.wiring-kind');
-  if (!title) { window.print(); return; }   // a description prints as it is
+  if (!title) { triggerPrint(); return; }   // a description prints as it is
 
   const head = document.createElement('div');
   head.className = 'print-head';
@@ -920,14 +920,39 @@ function printWiring(chassisId) {
   if (svg && svg.dataset.homeViewbox) {
     svg.setAttribute('viewBox', svg.dataset.homeViewbox);
   }
+  // ONCE, whichever route gets there first: the native print settles a
+  // promise, the browser fires afterprint, and the timer covers the WKWebView
+  // that does neither. Restoring the zoom twice would be harmless; removing
+  // the header while the print operation is still laying out the page is not.
+  let done = false;
   const cleanup = () => {
+    if (done) return;
+    done = true;
     head.remove();
     if (svg && zoomed) svg.setAttribute('viewBox', zoomed);
     window.removeEventListener('afterprint', cleanup);
   };
   window.addEventListener('afterprint', cleanup);
-  window.print();
-  setTimeout(cleanup, 1000);   // Safari/WKWebView do not always fire afterprint
+  triggerPrint().then(cleanup, cleanup);
+  setTimeout(cleanup, 20000);   // last resort if nothing ever settles
+}
+
+// PRINT THE WEB VIEW, not a re-render of it.
+//
+// window.print() is a no-op inside a WKWebView -- there is no print dialog
+// behind it, so the toolbar's Print button did nothing at all in the Mac app
+// (it works in the browser build, which is why the print stylesheet was
+// right all along). The shell runs an NSPrintOperation over the live view
+// instead, which lays out the page through that same @media print CSS.
+//
+// The promise resolves when the print panel closes, so the caller can put
+// the header and the zoomed viewBox back afterwards.
+function triggerPrint() {
+  if (window.bmacw && typeof window.bmacw.printPage === 'function') {
+    return window.bmacw.printPage().catch(() => {});
+  }
+  window.print();          // browser build: the dialog is real
+  return Promise.resolve();
 }
 
 // WDS's own Help page, in the terms that apply here: the controls are ours

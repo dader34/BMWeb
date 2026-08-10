@@ -234,7 +234,16 @@ function showSettings() {
   // marker that this IS such a copy.
   const isOfflineCopy = typeof window.BMACW_INLINE === 'object'
     && window.BMACW_INLINE !== null;
-  if (!isOfflineCopy && typeof offlineExport === 'function') {
+  // NOT IN THE MAC APP EITHER. Both exporters build a copy of the *site* --
+  // they fetch the app's own files from beside the page and zip them up. The
+  // Mac app is already the installed thing those copies exist to stand in
+  // for, and it serves the renderer from a local static host rather than as
+  // sibling files on a web server, so the buttons offered a download of
+  // something the user had by definition already installed. The installer
+  // lives online; the app is not where you get it. window.bmacw is defined
+  // only by the native shell's shim, so its presence is the marker.
+  const isNativeApp = typeof window.bmacw === 'object' && window.bmacw !== null;
+  if (!isOfflineCopy && !isNativeApp && typeof offlineExport === 'function') {
     let pickVal = 'E46';
     const opts = [{ val: '*', label: 'All chassis (large)' }];
     const combo = settingCombo(

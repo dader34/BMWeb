@@ -114,7 +114,8 @@ function irRows(scr) {
     let unitAhead = null;
     let captionKey = null;
     let nth = 0;
-    for (const e of els) {
+    for (let ei = 0; ei < els.length; ei++) {
+      const e = els[ei];
       // a _TEXT result read purely to caption the value below it. The ECU
       // supplies the wording, so it is a live caption rather than a row --
       // carried on the row it labels and filled in by the poller.
@@ -122,7 +123,55 @@ function irRows(scr) {
       if (e.t === 'text') {
         const s = String(e.s || '').trim();
         // "[rpm]" printed above a gauge is its UNIT, not its caption
-        const m = /^\[(.+)\]$/.exec(s);
+        let m = /^\[(.+)\]$/.exec(s);
+        // ...and INPA sometimes loses the OPENING bracket. BMS46's analog
+        // page prints "degree KW]" for the ignition angle -- one unmatched
+        // "]" where every other row has "[...]". Unmatched, it read as a
+        // caption, so the row was titled "DEGREE KW]" and the real caption
+        // ("ignition angle") was overwritten. Only a trailing "]" with no
+        // "[" anywhere qualifies, so a genuine caption that happens to end
+        // in a bracket ("Kennfeld [neu]") still reads as a caption.
+        if (!m && /\]$/.test(s) && !s.includes('[')) {
+          m = [s, s.slice(0, -1)];
+        }
+        // ...and sometimes INPA prints the unit with no brackets at all.
+        // BMS46's load is captioned "load" then "mg/As/Zyl" then the value,
+        // where every neighbouring row uses "[kgh]" / "[Volt]". Read as a
+        // caption it overwrote "load", so the row drew as "MG/AS/ZYL".
+        //
+        // No text SHAPE can settle this -- the same slot legitimately holds
+        // "Fahrerseite", "backrest", "AM/FM" -- so the test is corroboration
+        // instead: the element it labels already carries a unit, mined
+        // independently from INPA's gauge declaration, and the printed text
+        // is exactly that unit. Corpus-wide this matches 36 times and every
+        // one is a real unit (bar, Nm, 1/min, mg/As/Zyl).
+        if (!m) {
+          const nxt = els[ei + 1];
+          const u = nxt && nxt.t !== 'text' && nxt.col === e.col
+            && nxt.unit ? String(nxt.unit).trim() : null;
+          if (u && u === s) m = [s, s];
+        }
+        // A BRACKETED RESULT NAME IS NOT A UNIT. INPA's FASTA developer
+        // pages print THREE columns per row -- caption, value, unit, and
+        // then the ECU's internal variable name in brackets at the far
+        // right: "PWG-Spannung  0.71  [V]  [upwg]". The variable name reads
+        // as "[...]" exactly like a unit does, so it was being taken as one
+        // and ME9N45's whole CO-Poti page showed "[copot]", "[minhub]",
+        // "[ftbr]" where INPA shows [V], [mm] and [].
+        //
+        // The tell is that it repeats the result it labels: [upwg] sits
+        // beside STAT_UPWG_WERT. Corpus-wide that holds 412 times and every
+        // one is a variable name, never a unit. Dropping it lets the row
+        // fall through to irUnitFor, which reads the REAL unit live from the
+        // ECU's own STAT_x_EINH -- which is where INPA gets it too.
+        if (m) {
+          const nxt = els[ei + 1];
+          const stem = nxt && nxt.key
+            ? String(nxt.key).replace(/^STAT(US)?_/, '')
+              .replace(/_(WERT|EIN|EINH|TEXT)\d*$/, '')
+            : null;
+          if (stem && m[1].trim().toUpperCase() === stem.toUpperCase()) continue;
+        }
         if (m) { unitAhead = m[1].trim(); continue; }
         // INPA lays a labelled row out as three prints: the caption, a bare
         // ":" separator at a fixed column, then the value. The separator is
@@ -347,11 +396,35 @@ function irScreens(scr) {
       if (owner.has(l)) last = owner.get(l);
       lineJob.set(l, last);
     }
+    // TWO JOBS ON ONE LINE ARE TWO COLUMNS, NOT ALTERNATES. INPA writes a
+    // two-column page as one line per ROW of the page, so a line carries a
+    // reading from the left job and one from the right -- BMS46's analog page
+    // puts battery voltage beside Speed, air mass beside load, coolant beside
+    // cooling-water-leave. Giving the whole line to whichever job was
+    // declared first handed that job BOTH rows and left the other with none;
+    // the poller then dropped the orphaned row (it only keeps keys the job it
+    // polled actually answered), so four of ten readouts silently vanished.
+    //
+    // A result name is the reliable link back: STATUS_GESCHWINDIGKEIT answers
+    // STAT_GESCHWINDIGKEIT_WERT. Where that match is unambiguous it wins over
+    // the line, and the line rule still covers every row it cannot resolve
+    // (an alternates page, where the keys do not echo the job name).
+    const stem = (s) => String(s || '').replace(/^(STATUS|STAT)_/, '')
+      .replace(/_(WERT|EINH|TEXT)$/, '');
+    const byStem = new Map();
+    for (const j of jobs) {
+      const k = stem(j.name);
+      byStem.set(k, byStem.has(k) ? null : j.name);   // null = ambiguous
+    }
+    const jobFor = (r) => {
+      const hit = byStem.get(stem(r.key));
+      return hit || lineJob.get(r.line);
+    };
     return jobs.map(j => ({
       job: j.name,
       args: j.arg || '',
       group: scr.title || null,
-      rows: rows.filter(r => lineJob.get(r.line) === j.name),
+      rows: rows.filter(r => jobFor(r) === j.name),
       grid: null,
     }));
   }
@@ -531,8 +604,34 @@ const IR_FAULT_JOB = [
   [/\b(HM|HS|Historienspeicher|history\s+memory)\b/i, 'HS_LESEN'],
   [/\b(EM|FS|Fehlerspeicher|(error|fault)\s+memory)\b/i, 'FS_LESEN'],
 ];
-const irFaultJob = (label) =>
-  (IR_FAULT_JOB.find(([re]) => re.test(label)) || [null, 'FS_LESEN'])[1];
+// "Shadow" means two different things depending on the ECU, so the caption
+// alone cannot decide. TOENS labels its INFO memory "Shadow" and answers
+// IS_LESEN -- it has no shadow job at all. 32 other SGBDs have a real second
+// fault store under one of three names, and 25 of those have NO IS_LESEN, so
+// sending IS_LESEN there asks for a job the ECU does not have.
+//
+// Resolve against what the ECU actually declares: a real shadow job wins,
+// otherwise the old IS_LESEN reading stands.
+const IR_SHADOW_JOBS = ['FS_SHADOW_LESEN', 'FS_LESEN_SHADOW', 'READ_SHADOW'];
+
+// Async because it may have to ask the ECU archive which jobs exist. The
+// answer is cached on the ecu, so this costs one request per ECU at most and
+// only for a caption that actually says "Shadow".
+async function irFaultJobFor(label, ecu) {
+  const hit = (IR_FAULT_JOB.find(([re]) => re.test(label)) || [null, 'FS_LESEN'])[1];
+  if (hit !== 'IS_LESEN' || !/^(Shadow|Schatten)/i.test(label)) return hit;
+  if (!ecu || !ecu.sgbd) return hit;
+  if (!ecu._jobNames) {
+    try {
+      const jobs = await api(`/api/ecu/${ecu.sgbd}/jobs`);
+      ecu._jobNames = new Set(
+        (Array.isArray(jobs) ? jobs : [])
+          .map(j => String(typeof j === 'string' ? j : (j && j.name) || '')
+            .toUpperCase()));
+    } catch { ecu._jobNames = new Set(); }
+  }
+  return IR_SHADOW_JOBS.find(j => ecu._jobNames.has(j)) || hit;
+}
 
 // Items INPA implements against the FILE SYSTEM rather than the car: saving
 // the fault list to disk ("FS speichern", which RDC labels "store"). BMW's
@@ -1329,7 +1428,24 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }], shiftKeys());
         return;
       }
-      if (!only.write || clears) {
+      // A SCREEN THAT DID NOT DECODE IS NOT AN ACTION. !irReadable means "no
+      // rows to show", and that is true both of a key INPA really does just
+      // run and of a screen this decompiler failed to lift. Arming the
+      // second kind turned BMS46's rough-measuring -- four per-cylinder
+      // readouts INPA draws as gauges -- into an "Activate on BMS46?"
+      // confirm, because its gauges lift as captions with no values (INPA
+      // batches all four result keys ahead of the captions, a layout the
+      // walker does not model yet).
+      //
+      // So the job has to LOOK like an action as well as be write-free.
+      // STATUS_* reads a value: whatever else is wrong, it is never
+      // something to offer to run on a car. That alone is 1307 of the jobs
+      // this shortcut was arming; START/STOP/DIAGNOSE/INITIALISIERUNG and
+      // the memory clears are the ones that belong here.
+      const acts = /^(START|STOP|DIAGNOSE|DIAGNOSEMODE|INITIALISIERUNG|INIT|ENDE|SLEEP|RESET)[_A-Z0-9]*$/i
+        .test(only.name);
+      if ((!only.write && acts) || clears) {
+
         it = { ...it, job: only.name, writeJob: !!only.write, inPlace: true };
       }
     }
@@ -1344,7 +1460,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // the caption says WHICH memory: "Read IM" -> IS_LESEN. 239 ECUs keep
       // an info memory and 20 a history memory that a hardcoded FS_LESEN
       // would never have read.
-      runJob(ecu, irFaultJob(it.label), container, false);
+      // ...and "Shadow" needs the ECU asked, not just the caption read, so
+      // this resolves before the run rather than inline.
+      irFaultJobFor(it.label, ecu)
+        .then(j => runJob(ecu, j, container, false))
+        .catch(() => runJob(ecu, 'FS_LESEN', container, false));
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label}`;
       setActions([...keys(), {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
@@ -1440,6 +1560,29 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         // only in "FM"/"CDC"/"AM", and CDC's transport mode in "0;1;0" vs
         // "0;0;0". Sending the job bare would fire the wrong command.
         const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
+        // REGISTER BEFORE SENDING, or "released when you leave" is a lie --
+        // which is exactly what the confirm above promises. activations.js
+        // owns the registry and core.js calls stopAllActivations from
+        // setActions, so a drive started here is released on the next screen
+        // change like any other. Registered before the await: if the POST
+        // times out the output may still be energized, and an unreleased
+        // drive is worse than a redundant stop.
+        //
+        // Not for a permanent write (nothing to release, and _ENDE on an
+        // EEPROM job is meaningless) and not for a read that only reached
+        // this path because its screen failed to decode.
+        // ...and an OFF form is the release, not a drive: registering
+        // STEUERN_EV_1_AUS would have cleanup re-send a stop for something
+        // already stopped.
+        const drives = !permanent
+          && /^(STEUERN|START)/i.test(it.job)
+          && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
+          && typeof activeTests === 'object';
+        if (drives) {
+          activationEcu = ecu;
+          activeTests.add(it.job);
+          activeDrives.set(it.job, it.jobArg ? `${it.jobArg};0` : null);
+        }
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
         // the confirm above promises release on leaving the screen; keep it
@@ -1566,8 +1709,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
         + (scr && !irReadable(scr)
-          ? `In INPA this entry performs an action, not a readout — it is not `
-            + `offered here until verified on a car.`
+          ? ((scr.jobs || []).some(j => /^(STATUS|LESEN|MESSWERT)/i.test(j.name))
+            // a READ whose layout did not lift. Saying "performs an action"
+            // would be a plain lie about a job that only reads values, and
+            // this is the wording someone sees when the decompiler has a gap
+            // rather than when INPA really has no readout.
+            ? `INPA draws readouts here that this build could not decode from `
+              + `the .IPO yet, so there is nothing to show.`
+            : `In INPA this entry performs an action, not a readout — it is `
+              + `not offered here until verified on a car.`)
           : `INPA lists this entry, but it has no readouts.`)
         + `</div></div>`;
     }

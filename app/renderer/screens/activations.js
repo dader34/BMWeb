@@ -860,8 +860,15 @@ async function showActionMenu(ecu, spec, container, onBack) {
     // keys and exhaust from the A keys, and DMTL has three solenoids on one page
     const job = k.job || spec.job;
     if (!job) { sbLeft.textContent = 'no job for this menu'; return; }
-    // a permanent write always asks first; a commit key spells out what it does
-    if (write || k.commit) {
+    // A DRIVE KEY ASKS TOO. This menu's plain keys energize real outputs --
+    // the fuel pump, the injectors, the e-fan at 99%, a VANOS step -- and it
+    // was the one drive path in the app that never consulted the
+    // confirm-actuators setting: only writes and commits asked, so with the
+    // setting ON every other path confirmed and this one fired on a click.
+    // A release key ("to DME", "off") is the safe direction and stays
+    // immediate, which is how INPA behaves.
+    const asks = write || k.commit || (!k.release && confirmDrives());
+    if (asks) {
       const ok = await confirmDialog({
         title: k.commit ? `Program ${esc(spec.title)}?` : `${esc(spec.title)}: ${esc(keyLabelText(k.label, k.value))}`,
         body: k.commit
@@ -925,8 +932,20 @@ async function showActionMenu(ecu, spec, container, onBack) {
     });
   }
 
+  // BIND THE KEY THAT IS PRINTED. The rows above draw INPA's own number
+  // ("< F3 >"), and INPA's menus skip numbers -- a page with F2/F3/F5 is
+  // ordinary. Binding by list POSITION while printing fkey meant pressing
+  // the 3 shown beside one actuator drove whichever happened to be third,
+  // on a screen whose keys energize injectors and fuel pumps.
+  // renderActivateTree (line ~616) already binds `String(it.fkey)`; these
+  // two paths contradicted each other.
+  //
+  // Latent today -- this screen is reached only through
+  // ecu._layout.actionMenus, which nothing populates since the IR refactor
+  // -- so this is a trap disarmed before _layout is ever revived.
   const acts = spec.keys.slice(0, 9).map((k, i) => ({
-    key: String(i + 1), keyLabel: `F${k.fkey}`, label: keyLabelText(k.label, k.value),
+    key: String(k.fkey != null ? k.fkey : i + 1),
+    keyLabel: `F${k.fkey}`, label: keyLabelText(k.label, k.value),
     kind: k.commit ? 'danger' : undefined, fn: () => send(k),
   }));
   acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: onBack });

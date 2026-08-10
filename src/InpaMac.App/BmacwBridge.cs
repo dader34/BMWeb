@@ -22,6 +22,9 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
     private readonly Dictionary<string, StreamWriter> _logs = new();
     private int _logSeq;
     private WKWebView? _pdfWorker; // kept alive while rendering a report
+    // the view a print sheet is running over: the completion selector carries
+    // only the promise id, so it cannot be reached any other way
+    private WKWebView? _printing;
 
     public BmacwBridge(NSWindow window) => _window = window;
 
@@ -43,6 +46,10 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         appendLog: (i, c) => call('appendLog', i, c),
         stopLog: (i) => call('stopLog', i),
         savePdf: (n, h) => call('savePdf', n, h),
+        // Print what is on screen. window.print() does nothing in a WKWebView,
+        // so the shell runs the print panel over the live view instead; the
+        // page's own @media print CSS decides what lands on paper.
+        printPage: () => call('printPage'),
         // Write bytes to a path the user picks. BASE64, not a number array:
         // the channel is JSON, where a byte costs ~3.5 characters as a number
         // and 1.33 as base64. A 10 MB zip is the difference between 36 MB of
@@ -121,6 +128,7 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 case "appendLog": Settle(webView, id, AppendLog(args)); return;
                 case "stopLog": Settle(webView, id, StopLog(args)); return;
                 case "savePdf": SavePdf(webView, id, args); return;
+                case "printPage": PrintPage(webView, id); return;
                 case "saveFile": SaveFile(webView, id, args); return;
                 case "setTranslucent": Settle(webView, id, SetTranslucent(args)); return;
                 case "setDockIcon": Settle(webView, id, SetDockIcon(args)); return;
@@ -304,7 +312,10 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
                 Settle(webView, id, new { ok = false });
                 return;
             }
-            var writer = new StreamWriter(path, append: false);
+            // AutoFlush: rows arrive seconds apart, so buffering buys nothing
+            // and costs the tail of the log on a force-quit or a crash --
+            // which is the one thing streaming to a file exists to survive.
+            var writer = new StreamWriter(path, append: false) { AutoFlush = true };
             if (header.ValueKind == JsonValueKind.Array)
                 writer.WriteLine(string.Join(",",
                     header.EnumerateArray().Select(c => CsvCell(c.ToString()))));
@@ -424,6 +435,76 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         });
     }
 
+    // ---- printing what is on screen ------------------------------------------
+
+    // THE PRINT BUTTON, for the wiring diagrams and anything else with print
+    // CSS. A WKWebView has no print dialog behind window.print(), so the
+    // renderer's call was silently doing nothing in the Mac app while working
+    // in the browser build. -[WKWebView printOperationWithPrintInfo:] renders
+    // the live view -- the same DOM, through the same @media print rules -- so
+    // the header the renderer just added and the un-zoomed viewBox are both
+    // picked up without re-rendering anything.
+    //
+    // LANDSCAPE, because BMW draws these very wide (14000 x 2400 is common)
+    // and the print stylesheet already asks for it with @page; NSPrintInfo is
+    // what actually decides the sheet, and its default is portrait.
+    private void PrintPage(WKWebView? webView, long id)
+    {
+        if (webView == null) return;          // nothing to settle back to
+        // ONE SHEET AT A TIME. A second printPage while the first is up
+        // queues a second sheet in AppKit, and both completions read the one
+        // _printing field: the first clears it, so the second settles against
+        // null and that promise hangs forever -- with it, the renderer's
+        // "put the print header back afterwards" step.
+        if (_printing != null)
+        {
+            Settle(webView, id, new { ok = false, busy = true });
+            return;
+        }
+        try
+        {
+            var info = new NSPrintInfo
+            {
+                Orientation = NSPrintingOrientation.Landscape,
+                TopMargin = 36, BottomMargin = 36,
+                LeftMargin = 36, RightMargin = 36,
+                // scale the content to the sheet rather than spilling a very
+                // wide diagram across several pages
+                HorizontalPagination = NSPrintingPaginationMode.Fit,
+                VerticalPagination = NSPrintingPaginationMode.Fit,
+                HorizontallyCentered = true,
+                VerticallyCentered = true,
+            };
+            var op = webView.GetPrintOperation(info);
+            op.ShowsPrintPanel = true;
+            op.ShowsProgressPanel = true;
+            _printing = webView;
+            // AS A SHEET, not RunOperation(). A modal run would block the main
+            // thread inside a script-message handler, which is where this is;
+            // the sheet returns at once and settles when the user is done, so
+            // the renderer can put the print header back only after the panel
+            // has closed rather than while it is still open.
+            op.RunOperationModal(_window, this,
+                new ObjCRuntime.Selector("printDidRun:success:contextInfo:"),
+                (IntPtr)id);
+        }
+        catch (Exception ex)
+        {
+            _printing = null;             // no sheet is running; let the next try
+            Settle(webView, id, null, ex.Message);
+        }
+    }
+
+    // NSPrintOperation's completion callback. The pending promise id rides
+    // across as contextInfo, so the right caller is settled.
+    [Export("printDidRun:success:contextInfo:")]
+    public void PrintDidRun(NSPrintOperation op, bool success, IntPtr contextInfo)
+    {
+        var view = _printing;
+        _printing = null;
+        Settle(view, (long)contextInfo, new { ok = success });
+    }
+
     private sealed class PdfNavDelegate : WKNavigationDelegate
     {
         private readonly Action _onLoaded;
@@ -475,9 +556,15 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         && args[index].ValueKind == JsonValueKind.Number
             ? args[index].GetInt32() : 0;
 
-    // Bytes going back to the renderer must leave as a JSON number array:
-    // System.Text.Json serializes byte[] as a base64 string, which webshim.js
-    // (buf.push(...got)) cannot spread. Widen to int[] before settling.
+    // Bytes going back to the renderer must leave as a JSON number array.
+    // System.Text.Json serializes a byte[] as a BASE64 STRING, so
+    // serialRead/tcpRead settled "gvER" where the renderer expects
+    // [130,241,17]. webshim.js does `buf.push(...got)`, which spreads a
+    // string into its CHARACTERS -- the echo check compared "g" against 0x82
+    // and every exchange died as "echo did not match the request (bus
+    // collision?)", and the THOR checksum summed characters to NaN. Writes
+    // were always correct (the shim sends Array.from(bytes)), so the app
+    // could talk to the car and never understand the reply.
     private static int[] AsNumberArray(byte[] bytes) =>
         Array.ConvertAll(bytes, b => (int)b);
 
@@ -517,6 +604,8 @@ public sealed class BmacwBridge : NSObject, IWKScriptMessageHandler, IDisposable
         // Release the cable: a port still held by a dead app blocks the next
         // launch, and the FTDI driver does not always reap it promptly.
         _serial.Dispose();
+        // ...and the THOR socket, which used to go down only with the
+        // process, so the adapter saw a reset rather than a clean shutdown.
         _tcp.Dispose();
         base.Dispose();
     }

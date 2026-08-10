@@ -530,6 +530,27 @@ def _screen_ir(toks):
             if args and args[-1]["op"] == "const" \
                     and t["n"] not in lastconst:
                 lastconst[t["n"]] = args[-1]["v"]
+            # A PEAK HOLD CARRIES THE RESULT WITH IT. INPA's rough-running
+            # page reads each cylinder into one scratch slot and keeps the
+            # high-water mark per cylinder:
+            #
+            #   ResultAnalog("STAT_..._ZYL1_WERT") -> var 0 sc 2
+            #   if (var0 > var1) var1 = var0
+            #   ...then analogout draws var1, var2, var3, var4
+            #
+            # The key was bound to the scratch slot only, so the four slots
+            # the gauges actually draw held no result and the whole screen
+            # lifted as captions with nothing under them -- which then read
+            # as "not a readout" and offered to ACTIVATE the ECU instead.
+            # Copying the binding across the assignment is what pairs each
+            # caption with its cylinder; the slot number is the cylinder
+            # number, so this cannot mismatch them the way pairing by
+            # emission order would (the captions run 1,3,2,4).
+            if args and args[-1]["op"] == "var":
+                s_from = (args[-1].get("sc", 0), args[-1]["n"])
+                s_to = (t.get("sc", 0), t["n"])
+                if s_from in bind and s_to not in bind:
+                    bind[s_to] = bind[s_from]
             pend_cmp = None     # `x = (a == b)` consumed the comparison
         elif op in ("call", "calluser"):
             name = t.get("name", "")
@@ -740,6 +761,35 @@ def _screen_ir(toks):
                 if key and len(ints) >= 2:
                     el = {"t": "value" if lab or len(strs) < 3 else "lamp",
                           "key": key, "row": ints[0], "col": ints[1]}
+                    # A HELPER CAN BE THE GAUGE ITSELF. Some SGBDs do not call
+                    # analogout from the screen at all -- they wrap it in a
+                    # per-ECU proc and hand the bounds to that. MS45's
+                    # measurement blocks are sixteen calls to
+                    # ergebnisAnalogAusgabe(key, row, col, min, max, okMin,
+                    # okMax, fmt), which is a full gauge declaration: SAE
+                    # J1979 passes 50..150 with a green band of 30..100. The
+                    # walker took the key and the position and threw the four
+                    # doubles away, so every row lifted as a bare value and
+                    # the screen drew as a flat label/number list where INPA
+                    # draws bars.
+                    #
+                    # Only when the numbers are actually there: a formatting
+                    # helper with no bounds keeps its old meaning.
+                    if el["t"] == "value":
+                        rng = num_args_after_coords(args)
+                        # ...and the bounds have to be an instrument scale.
+                        # These helpers are also handed raw counter and
+                        # bitfield widths -- 0..536870911 (2^29) on MSD87's
+                        # NOx page, 0..42949672.95 (2^32/100) on S63 -- which
+                        # are field capacities, not something a bar can show.
+                        # A real INPA scale is a plain readable number.
+                        if len(rng) >= 2 and abs(rng[1]) > 1e6:
+                            rng = []
+                        if len(rng) >= 2 and rng[0] != rng[1]:
+                            el["t"] = "gauge"
+                            el["min"], el["max"] = rng[0], rng[1]
+                            if len(rng) >= 4 and (rng[2], rng[3]) != (rng[0], rng[1]):
+                                el["okMin"], el["okMax"] = rng[2], rng[3]
                     if lab:
                         el["s"] = lab
                     else:
@@ -1446,6 +1496,125 @@ def _menu_ir(toks, id2name, name=None):
     return out
 
 
+# ---- INPA's OTHER gauge dialect -------------------------------------------
+#
+# analogout declares a bar outright, and the walker above turns it into
+# {"t": "gauge", min, max}. But INPA also draws bars from a screen that only
+# PRINTS -- caption, "[unit]", the key, then four doubles -- which lifts as
+# {"t": "value"} with no unit and no range. BMS46's "analog values 1" is the
+# whole screen in that dialect: on the car INPA fills it with labelled bars,
+# and the app drew a bare label/value list, because irIsCard sends a screen
+# whose rows are all plain values to the identity renderer.
+#
+# tools/ipo_gauges.py already mines that dialect (505 KB, 268 ECUs, 3955
+# readouts). This joins it back onto the IR, which is the ONE source the app
+# reads for a screen -- the older ecu._layout.gaugeSpecs route died with the
+# "IR is the only source" refactor and nothing has written _layout since.
+#
+# A ZERO-WIDTH RANGE IS A 0..1 SCALE. INPA declares some readouts with all
+# four bounds identical -- lambda-integrator as (80,80,80,80), the mixture
+# adaptations as (10,10) and (40,40) -- and still draws a normal bar with a
+# 0..1 axis. Photographed on a real car: integrator 1.00 and multiplicative
+# 1.00 sit FULL while additive 0.26 sits at about a quarter. Only 0..1
+# predicts all three; on the 0..80 the bytes appear to say they would be
+# slivers of 1-3%. They are normalised factors -- the SGBD calls the first
+# "Lambdaregelfaktor" -- which is why one scale fits regardless of the unit
+# printed beside them.
+#
+# These were held back at first for a good reason: the numbers look like
+# maximums, and reading (80,80) as "0..80" would have drawn Short Term Fuel
+# Trim, centred on zero and going negative, against a floor of 0. The car
+# is what settles it, not the bytes.
+#
+# STILL NOT PROMOTED:
+#   * descending (96). ipo_gauges flags min > max, the signature of a range
+#     whose floor is really negative: the bytes say 45.0 for a -45 °C floor
+#     and nothing distinguishes them. Guessing the sign would draw a bar that
+#     is confidently wrong, which is worse than the number alone.
+# It keeps its unit if one was mined: a unit is a fact even when the range
+# is not usable.
+_GAUGES_JSON = os.path.join(L1.OUT, "_gauges.json")
+_GAUGES_CACHE = None
+
+
+def _mined_gauges(ecu):
+    """{result key -> mined gauge} for one ECU, or {} when none was mined."""
+    global _GAUGES_CACHE
+    if _GAUGES_CACHE is None:
+        try:
+            with open(_GAUGES_JSON, encoding="utf-8") as f:
+                raw = json.load(f)
+        except (OSError, ValueError):
+            raw = {}
+        # CASE-FOLDED. _gauges.json is keyed as INPA names the ECU (BMS46),
+        # and the corpus walk builds from the .IPO stem, which is whatever
+        # casing BMW shipped -- 763 files are *.IPO and 1025 *.ipo. Keying on
+        # the raw name matched when run as `ipo_ir.py BMS46` and missed every
+        # ECU under --write, which is a silent no-op across the whole corpus.
+        _GAUGES_CACHE = {k.lower(): v for k, v in raw.items()}
+    out = {}
+    for g in _GAUGES_CACHE.get((ecu or "").lower(), []):
+        key = g.get("key") or ""
+        # mined entries are keyed by the JOB (STATUS_MOTORDREHZAHL); the IR's
+        # elements carry the RESULT it fills (STAT_MOTORDREHZAHL_WERT)
+        if key.startswith("STATUS_"):
+            out[f"STAT_{key[len('STATUS_'):]}_WERT"] = g
+        out[key] = g
+    return out
+
+
+def _apply_mined_gauges(ir, ecu):
+    """Promote printed readouts to gauges where INPA declared a real range."""
+    mined = _mined_gauges(ecu)
+    if not mined:
+        return 0
+    n = 0
+    for scr in ir.get("screens", {}).values():
+        for ln in scr.get("lines", []):
+            for el in ln.get("elements", []):
+                if el.get("t") != "value":
+                    continue
+                g = mined.get(el.get("key"))
+                if not g:
+                    continue
+                if not el.get("unit") and g.get("unit"):
+                    el["unit"] = g["unit"]
+                lo, hi = g.get("min"), g.get("max")
+                if (el.get("min") is None and el.get("max") is None
+                        and lo is not None and hi is not None
+                        and not g.get("descending")):
+                    el["t"] = "gauge"
+                    el["gaugeSource"] = "mined"
+                    if lo == hi:
+                        # A DEGENERATE DECLARATION IS A SYMMETRIC -N..+N SCALE.
+                        # INPA passes ONE number four times when the scale is
+                        # centred on zero, and draws it as -N..+N.
+                        #
+                        # Photographed on a car, MS42's "patrol adaption" page
+                        # declares (80,80,80,80) / (130,130,130,130) /
+                        # (50,50,50,50) and INPA labels those axes -80..80,
+                        # -130..130 and -50..50. The clincher is the "!" on
+                        # that page: INPA marks a reading that falls OUTSIDE
+                        # the scale, and it prints "!-131.07" on the -130..130
+                        # row. -131.07 is only out of range if the floor is
+                        # -130, so the negative half of the axis is real.
+                        #
+                        # This first shipped as 0..1, from three readings on
+                        # BMS46's analog-3 page where the values happened to
+                        # sit near 1.0. That fit those three and nothing else;
+                        # MS42 is the counter-example. Mixture adaptation,
+                        # lambda integrators and trims are all signed
+                        # corrections, so a floor of 0 hides exactly the half
+                        # of the range that says the ECU is compensating
+                        # downwards.
+                        el["min"], el["max"] = -abs(lo), abs(lo)
+                        el["gaugeSource"] = "mined-symmetric"
+                    else:
+                        el["min"], el["max"] = lo, hi
+                    n += 1
+    return n
+
+
 def build(ecu):
     data, ps, pool, decls = D.load(ecu)
     if ps is None or len(decls) < 3:
@@ -1858,6 +2027,8 @@ def build(ecu):
         "menu": "m_main" if "m_main" in ir["menus"]
         else next(iter(ir["menus"]), None),
     }
+    # last, so it sees every screen the walk produced
+    _apply_mined_gauges(ir, ecu)
     return ir
 
 
