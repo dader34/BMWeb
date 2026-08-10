@@ -399,15 +399,15 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 
 /* chassis series filter chips */
 .chassis-filter-row {
-  display: flex; gap: 8px; margin-bottom: 16px;
+  display: flex; gap: 6px; margin-bottom: 12px;
   overflow-x: auto; scrollbar-width: none;
   -webkit-overflow-scrolling: touch; padding-bottom: 2px;
 }
 .chassis-filter-row::-webkit-scrollbar { display: none; }
 .chassis-filter-chip {
   background: var(--panel); border: 1px solid var(--line);
-  color: var(--ink-dim); padding: 7px 14px; border-radius: 20px;
-  font-size: 13px; font-weight: 600; font-family: inherit;
+  color: var(--ink-dim); padding: 4px 11px; border-radius: 14px;
+  font-size: 11.5px; font-weight: 600; font-family: inherit;
   cursor: pointer; white-space: nowrap; flex: 0 0 auto;
   transition: all .15s ease;
 }
@@ -2261,30 +2261,29 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .fkey-num { display: none; }
 
   /* THE SPLIT VIEW: HORIZONTAL SCROLLING PILL TABS + 2-COLUMN MODULES */
-  .split { grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
+  .split { grid-template-columns: 1fr; gap: 8px; margin-top: 2px; }
   .split-nav {
-    display: flex; flex-direction: row; gap: 8px;
+    display: flex; flex-direction: row; gap: 6px;
     overflow-x: auto; overflow-y: hidden;
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    padding: 2px 2px 8px;
+    padding: 2px 2px 6px;
   }
   .split-nav::-webkit-scrollbar { display: none; }
   .sys-item {
-    flex: 0 0 auto; min-height: 38px; padding: 7px 12px;
-    border-radius: 20px; background: var(--panel);
-    border: 1px solid var(--line); display: flex; align-items: center; gap: 6px;
-    font-size: 13px; font-weight: 600;
+    flex: 0 0 auto; min-height: 28px; padding: 4px 10px;
+    border-radius: 14px; background: var(--panel);
+    border: 1px solid var(--line); display: flex; align-items: center; gap: 5px;
+    font-size: 11.5px; font-weight: 600;
   }
   .sys-item.active {
     background: rgba(255, 158, 44, 0.15);
     border-color: var(--amber);
     color: var(--amber);
   }
-  .sys-item .nav-icon { font-size: 14px; }
   .sys-item .nav-count {
-    font-size: 10px; background: var(--panel-2);
-    border: 1px solid var(--line); border-radius: 10px;
-    padding: 1px 6px; color: var(--ink-faint);
+    font-size: 9.5px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 1px 5px; color: var(--ink-faint);
   }
   .split-content { min-width: 0; }
   .ecu-grid {
