@@ -1612,17 +1612,30 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   } else {
     container.className = 'group-grid stagger';
     container.innerHTML = '';
+    function getGroupCat(label) {
+      if (/fault|error|fehlerspeicher|fs_/i.test(label)) return { icon: '🔴', cls: 'gt-fault' };
+      if (/status|analog|digital|live|messwert/i.test(label)) return { icon: '📊', cls: 'gt-live' };
+      if (/actuat|ansteuer|test|component|active/i.test(label)) return { icon: '⚡', cls: 'gt-act' };
+      if (/ident|sgbd|info|aif|user info/i.test(label)) return { icon: '📑', cls: 'gt-info' };
+      if (/cod|adapt|reset|abgleich/i.test(label)) return { icon: '🛠️', cls: 'gt-code' };
+      return { icon: '⚙️', cls: 'gt-default' };
+    }
     items.forEach((it) => {
+      const cat = getGroupCat(it.label);
       const tile = document.createElement('div');
-      tile.className = 'group-tile';
+      tile.className = `group-tile ${cat.cls}`;
       tile.innerHTML = `
+        <div class="group-header-row">
+          <span class="group-icon">${cat.icon}</span>
+          <span class="group-fkey">${it.shift ? 'Shift+' : ''}F${it.nr > 10 ? it.nr - 10 : it.nr}</span>
+        </div>
         <div class="group-name">${esc(it.label)}</div>
         <div class="group-count">${esc(count(it))}</div>
         <div class="group-arrow">→</div>`;
       tile.onclick = () => open(it);
       container.appendChild(tile);
     });
-    stagger(container, 30);
+    stagger(container, 20);
   }
 
   setActions([...keys(), {

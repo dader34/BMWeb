@@ -860,6 +860,17 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
   transition: transform .16s, border-color .16s, box-shadow .16s;
 }
 .group-tile:hover { transform: translateY(-2px); border-color: var(--amber); box-shadow: var(--shadow); }
+.group-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.group-icon { font-size: 18px; line-height: 1; }
+.group-fkey { font-family: var(--mono); font-size: 10px; color: var(--amber-soft); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
+.group-tile.gt-fault { border-color: rgba(239, 68, 68, 0.35); }
+.group-tile.gt-fault:hover { border-color: #ef4444; box-shadow: 0 0 16px rgba(239, 68, 68, 0.2); }
+.group-tile.gt-live { border-color: rgba(59, 130, 246, 0.35); }
+.group-tile.gt-live:hover { border-color: #3b82f6; box-shadow: 0 0 16px rgba(59, 130, 246, 0.2); }
+.group-tile.gt-act { border-color: rgba(255, 158, 44, 0.35); }
+.group-tile.gt-act:hover { border-color: #ff9e2c; box-shadow: 0 0 16px rgba(255, 158, 44, 0.2); }
+.group-tile.gt-code { border-color: rgba(168, 85, 247, 0.35); }
+.group-tile.gt-code:hover { border-color: #a855f7; box-shadow: 0 0 16px rgba(168, 85, 247, 0.2); }
 .group-name { font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
 .group-count { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
 .group-arrow { position: absolute; right: 16px; bottom: 14px; color: var(--amber);
@@ -2191,7 +2202,28 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .chassis-code { font-size: 20px; font-weight: 800; }
   .chassis-tag { font-size: 10px; color: var(--amber); font-weight: 600; }
   .chassis-arrow { display: none; }          /* hover-only affordance */
-  .group-grid { grid-template-columns: 1fr; gap: 8px; }
+  /* MODERN TOUCH-FRIENDLY 2-COLUMN GROUP/JOB GRID */
+  .group-grid {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .group-tile {
+    padding: 12px 14px;
+    min-height: 82px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    transition: transform .12s, border-color .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .group-tile:active {
+    transform: scale(0.96);
+    border-color: var(--amber);
+  }
+  .group-name { font-size: 14px; font-weight: 700; line-height: 1.25; }
+  .group-count { font-size: 10px; }
+  .group-arrow { display: none; }
 
   /* TOUCH F-KEYS & BOTTOM ACTION BAR */
   .fkeybar {
@@ -2227,23 +2259,55 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .fkey-label { font-size: 12px; font-weight: 700; white-space: nowrap; }
   .fkey-num { display: none; }
 
-  /* THE SPLIT VIEW MUST STACK. `230px 1fr` leaves 38px of content at
-     320px wide, which is why module cards were clipped mid-word. The
-     system rail becomes a horizontal strip above its modules instead --
-     same information, same order, one column. */
+  /* THE SPLIT VIEW: HORIZONTAL SCROLLING PILL TABS + 2-COLUMN MODULES */
   .split { grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
   .split-nav {
-    flex-direction: row; gap: 6px;
+    display: flex; flex-direction: row; gap: 8px;
     overflow-x: auto; overflow-y: hidden;
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
-    padding-bottom: 2px;
+    padding: 2px 2px 8px;
   }
   .split-nav::-webkit-scrollbar { display: none; }
-  .sys-item { flex: 0 0 auto; min-height: 40px; padding: 8px 12px; }
-  .sys-item .nav-count { display: none; }    /* the number, not the tally */
+  .sys-item {
+    flex: 0 0 auto; min-height: 38px; padding: 7px 12px;
+    border-radius: 20px; background: var(--panel);
+    border: 1px solid var(--line); display: flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600;
+  }
+  .sys-item.active {
+    background: rgba(255, 158, 44, 0.15);
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+  .sys-item .nav-icon { font-size: 14px; }
+  .sys-item .nav-count {
+    font-size: 10px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 1px 6px; color: var(--ink-faint);
+  }
   .split-content { min-width: 0; }
-  .ecu-card { padding: 10px 12px; }
-  .ecu-grid { grid-template-columns: 1fr; }
+  .ecu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+    gap: 10px;
+  }
+  .ecu-card {
+    padding: 12px 14px;
+    min-height: 78px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    display: flex; flex-direction: column; justify-content: space-between;
+    transition: transform .12s, border-color .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ecu-card:active {
+    transform: scale(0.96);
+    border-color: var(--amber);
+    background: rgba(255, 158, 44, 0.08);
+  }
+  .ecu-code { font-size: 10px; font-weight: 800; color: var(--amber); }
+  .ecu-name { font-size: 13.5px; font-weight: 700; line-height: 1.25; }
+  .ecu-prg { font-size: 9.5px; color: var(--ink-faint); }
 
   /* SETTINGS. Fifteen rows at ~140px each is 2,700px of scrolling on a
      320px screen, so the stacking is right but the padding is not. Tighten
