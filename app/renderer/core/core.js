@@ -470,6 +470,14 @@ function tipify(root) {
   root.querySelectorAll('[title]:not([data-tip])').forEach((el) => {
     const text = el.getAttribute('title');
     if (!text) return;
+    // NOT THE TRAFFIC LIGHTS. They are 12px dots at the very top of the
+    // window, so the tooltip flips below them (tip-below) and lands as a
+    // dark #1a2129 pill sitting right beside the dots -- wider than the
+    // whole group, so hovering one paints what looks like a black bar
+    // across all three. macOS does not caption its own traffic lights
+    // either; the glyph that appears inside the dot on hover is the whole
+    // affordance. The title stays for screen readers.
+    if (el.classList.contains('win-dot')) return;
     el.dataset.tip = text;
     // measured once on first hover: layout is settled by then
     el.addEventListener('pointerenter', () => {
