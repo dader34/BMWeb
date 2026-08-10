@@ -387,16 +387,8 @@
     href: targetAppUrl,
   };
 
-  // ON MOBILE: Show ONLY the Launch BMWeb App card!
-  // ON DESKTOP: Show macOS App and Web options.
-  var order;
-  if (isMobile) {
-    order = [WEB_PWA];
-  } else if (isMac) {
-    order = [APP, WEB_PWA];
-  } else {
-    order = [WEB_PWA, APP];
-  }
+  // BMWeb is always the main/primary option, BMacW is second on desktop
+  var order = isMobile ? [WEB_PWA] : [WEB_PWA, APP];
 
   var cards = document.getElementById('cards');
   order.forEach(function (o, i) {
@@ -450,7 +442,7 @@
 
   document.getElementById('other').textContent = isMobile
     ? 'Tap Launch BMWeb App to begin diagnostics.'
-    : (isMac ? 'Detected macOS. On a phone or PC, take BMWeb.' : 'BMWeb needs no install.');
+    : 'BMWeb runs in any browser with no install. BMacW is also available as a native macOS app for K+DCAN USB cables.';
 }());
 </script>
 </body>
