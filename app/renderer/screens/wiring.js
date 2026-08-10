@@ -762,28 +762,6 @@ function fitAndPan(svg, stage, bar, classic = false) {
     if (mouseDrag) {
       mouseDrag = null;
       stage.classList.remove('grabbing');
-    }
-  });
-
-  // Floating touch zoom controls directly on the stage (always reachable on mobile)
-  const floatControls = document.createElement('div');
-  floatControls.className = 'wiring-zoom-floating';
-  [['+', () => zoomBy(1 / 1.35)],
-   ['−', () => zoomBy(1.35)],
-   ['⊡', fit]]
-    .forEach(([label, fn]) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = label;
-      b.onclick = (e) => {
-        e.stopPropagation();
-        fn();
-      };
-      b.ontouchstart = (e) => e.stopPropagation();
-      floatControls.appendChild(b);
-    });
-  stage.appendChild(floatControls);
-
   // on-screen zoom controls, mirroring the F-keys in toolbar
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';

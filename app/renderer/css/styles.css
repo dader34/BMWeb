@@ -1787,22 +1787,6 @@ select.modal-input { appearance: none; cursor: pointer; }
   width: 100%; height: 100%; display: block;
   pointer-events: none; touch-action: none;
 }
-.wiring-zoom-floating {
-  position: absolute; right: 12px; bottom: 12px;
-  display: flex; flex-direction: column; gap: 8px; z-index: 20;
-}
-.wiring-zoom-floating button {
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(13, 18, 23, 0.88); backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--amber); color: var(--amber);
-  font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.5); cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.wiring-zoom-floating button:active {
-  background: var(--amber); color: #111; transform: scale(0.92);
-}
 .wiring-doc {
   flex: 1; min-height: 0; overflow-y: auto; padding: 18px 22px;
   font-size: 13.5px; line-height: 1.55; max-width: 80ch;
