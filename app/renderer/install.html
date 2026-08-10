@@ -302,6 +302,13 @@
   // The app URL resolves to app.html on published Pages, or index.html locally
   var targetAppUrl = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
 
+  // If launched from Home Screen as standalone PWA, go straight to the diagnostics app!
+  var isStandalone = (window.navigator.standalone === true) || (window.matchMedia('(display-mode: standalone)').matches);
+  if (isStandalone) {
+    window.location.replace(targetAppUrl);
+    return;
+  }
+
   function showIosTutorialModal(e) {
     if (e) e.preventDefault();
     if (document.getElementById('tutorial-overlay')) return;

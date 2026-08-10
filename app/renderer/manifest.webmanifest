@@ -2,7 +2,7 @@
   "name": "BMWeb - BMW Diagnostics",
   "short_name": "BMWeb",
   "description": "BMW diagnostics in your browser. Read fault codes, watch live sensor data, and run actuator tests over WiFi.",
-  "start_url": "./index.html",
+  "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
