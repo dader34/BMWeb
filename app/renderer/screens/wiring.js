@@ -670,30 +670,104 @@ function fitAndPan(svg, stage, bar, classic = false) {
     zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
   }, { passive: false });
 
-  let drag = null;
+  // Multi-touch pinch zoom & smooth panning for mobile/touch
+  const pointers = new Map();
+  let pinchStart = null;
+  let dragStart = null;
+
+  const getMidpoint = (p1, p2) => ({
+    x: (p1.x + p2.x) / 2,
+    y: (p1.y + p2.y) / 2
+  });
+  const getDistance = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
+
   stage.addEventListener('pointerdown', (e) => {
-    drag = { x: e.clientX, y: e.clientY, vx: cur.x, vy: cur.y };
-    stage.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { stage.setPointerCapture(e.pointerId); } catch (_) {}
     stage.classList.add('grabbing');
+
+    if (pointers.size === 1) {
+      dragStart = { x: e.clientX, y: e.clientY, vx: cur.x, vy: cur.y };
+      pinchStart = null;
+    } else if (pointers.size === 2) {
+      const [p1, p2] = Array.from(pointers.values());
+      const dist = getDistance(p1, p2);
+      const mid = getMidpoint(p1, p2);
+      const r = stage.getBoundingClientRect();
+      const k = unitsPerPixel(r);
+      const fx = ((mid.x - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
+      const fy = ((mid.y - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
+
+      pinchStart = {
+        dist: Math.max(dist, 10),
+        mid,
+        fx,
+        fy,
+        curW: cur.w,
+        curH: cur.h,
+        curX: cur.x,
+        curY: cur.y
+      };
+      dragStart = null;
+    }
   });
-  // ONE scale for both axes. preserveAspectRatio="meet" fits the viewBox
-  // inside the pane at a single factor and letterboxes the remainder, so a
-  // pixel is the same number of user units horizontally and vertically.
-  // Dividing each axis by its own pane dimension assumed a stretch that does
-  // not happen, and on BMW's very wide diagrams that made a left/right drag
-  // crawl while up/down felt right.
-  const unitsPerPixel = (r) => Math.max(cur.w / r.width, cur.h / r.height);
+
   stage.addEventListener('pointermove', (e) => {
-    if (!drag) return;
-    touched = true;               // panned by hand: keep this view on a re-fit
-    const k = unitsPerPixel(stage.getBoundingClientRect());
-    cur.x = drag.vx - (e.clientX - drag.x) * k;
-    cur.y = drag.vy - (e.clientY - drag.y) * k;
-    apply();
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    touched = true;
+
+    if (pointers.size >= 2 && pinchStart) {
+      const [p1, p2] = Array.from(pointers.values());
+      const currentDist = Math.max(getDistance(p1, p2), 10);
+      const currentMid = getMidpoint(p1, p2);
+      const r = stage.getBoundingClientRect();
+      const k = unitsPerPixel(r);
+
+      // Pinch zoom scale
+      const zoomRatio = pinchStart.dist / currentDist;
+      const newW = Math.min(home.w * 8, Math.max(home.w / 80, pinchStart.curW * zoomRatio));
+      const newH = newW * (pinchStart.curH / pinchStart.curW);
+
+      // Midpoint pan delta
+      const dx = (currentMid.x - pinchStart.mid.x) * k;
+      const dy = (currentMid.y - pinchStart.mid.y) * k;
+
+      cur.x = pinchStart.curX + (pinchStart.curW - newW) * pinchStart.fx - dx;
+      cur.y = pinchStart.curY + (pinchStart.curH - newH) * pinchStart.fy - dy;
+      cur.w = newW;
+      cur.h = newH;
+      apply();
+    } else if (pointers.size === 1 && dragStart) {
+      const k = unitsPerPixel(stage.getBoundingClientRect());
+      cur.x = dragStart.vx - (e.clientX - dragStart.x) * k;
+      cur.y = dragStart.vy - (e.clientY - dragStart.y) * k;
+      apply();
+    }
   });
-  const end = () => { drag = null; stage.classList.remove('grabbing'); };
-  stage.addEventListener('pointerup', end);
-  stage.addEventListener('pointercancel', end);
+
+  const onPointerEnd = (e) => {
+    pointers.delete(e.pointerId);
+    try { stage.releasePointerCapture(e.pointerId); } catch (_) {}
+
+    if (pointers.size === 1) {
+      const [remaining] = Array.from(pointers.values());
+      dragStart = { x: remaining.x, y: remaining.y, vx: cur.x, vy: cur.y };
+      pinchStart = null;
+    } else if (pointers.size === 0) {
+      dragStart = null;
+      pinchStart = null;
+      stage.classList.remove('grabbing');
+    }
+  };
+
+  stage.addEventListener('pointerup', onPointerEnd);
+  stage.addEventListener('pointercancel', onPointerEnd);
+
+  // Prevent iOS Safari page-level pinch gestures on the diagram
+  stage.addEventListener('gesturestart', (e) => e.preventDefault());
+  stage.addEventListener('gesturechange', (e) => e.preventDefault());
+  stage.addEventListener('gestureend', (e) => e.preventDefault());
 
   // on-screen zoom controls, mirroring the F-keys. WDS drew these as raised
   // grey buttons with magnifier glyphs; the modern layout labels them.
