@@ -2,149 +2,204 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BMWeb: get it</title>
-  <!-- The roundel, inlined. A data URI rather than a file so the
-       installer stays one self-contained page, and so a downloaded
-       copy keeps its icon with no sibling to fetch. -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
-<!--
-  The front door. Two builds, and which one you want follows entirely from
-  what you are holding:
+  <!-- PWA & Mobile Web App Capabilities -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BMWeb">
+  <meta name="theme-color" content="#ff9e2c">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%23ff9e2c%22%20stroke-width%3D%223%22%2F%3E%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
 
-    macOS    -> BMacW, the app. It is the only build that reaches a K+DCAN
-               USB cable without Chrome, because Safari has no Web Serial.
-    all else -> BMWeb, the single-file browser build. One .html that runs on
-               Windows, Linux, iPhone and Android with no install at all.
+  <style>
+    :root {
+      --bg:#0d1217; --panel:#141b22; --panel2:#182029; --panel3:#202b37;
+      --line:#232d38; --ink:#e8edf2; --dim:#93a1ad; --faint:#5d6b78;
+      --amber:#ff9e2c; --amber-glow:rgba(255, 158, 44, 0.15);
+      --blue:#3b82f6; --blue-glow:rgba(59, 130, 246, 0.15);
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; background:var(--bg); color:var(--ink); min-height:100vh;
+      overflow-x:hidden;
+      font:16px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
+      display:flex; flex-direction:column; align-items:center;
+      padding:4vh 20px 8vh;
+    }
+    .wrap { width:100%; max-width:46rem; }
+    .top-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; gap:12px; }
+    .brand { display:flex; align-items:center; gap:12px; }
+    .nav-links { display:flex; align-items:center; gap:10px; }
+    .nav-btn {
+      display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
+      background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+      color:var(--ink); text-decoration:none; font-size:13.5px; font-weight:600;
+      transition:all .15s ease;
+    }
+    .nav-btn:hover {
+      border-color:var(--amber); color:var(--amber); transform:translateY(-1px);
+    }
+    .logo { width:36px; height:36px; flex:none; }
+    .logo-ring { fill:none; stroke:var(--ink); stroke-width:3; }
+    .q-white { fill:#e8edf2; } .q-color { fill:var(--amber); }
+    .name { font-size:20px; font-weight:800; letter-spacing:-.01em; }
 
-  Detection is a SUGGESTION, never a gate: the other option stays one click
-  away, because a Mac owner with a WiFi adapter may well want the single
-  file, and a phone cannot run the app at all. Guessing wrong and hiding the
-  alternative is worse than not guessing.
--->
-<style>
-  :root {
-    --bg:#0d1217; --panel:#141b22; --panel2:#182029; --line:#232d38;
-    --ink:#e8edf2; --dim:#93a1ad; --faint:#5d6b78; --amber:#ff9e2c;
-  }
-  * { box-sizing:border-box; }
-  body {
-    margin:0; background:var(--bg); color:var(--ink); min-height:100vh;
-    overflow-x:hidden;
-    font:16px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
-    display:flex; flex-direction:column; align-items:center;
-    padding:6vh 20px 8vh;
-  }
-  .wrap { width:100%; max-width:46rem; }
-  .top-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; }
-  .brand { display:flex; align-items:center; gap:12px; }
-  .nav-links { display:flex; align-items:center; gap:10px; }
-  .nav-btn {
-    display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
-    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
-    color:var(--ink); text-decoration:none; font-size:13.5px; font-weight:600;
-    transition:all .15s ease;
-  }
-  .nav-btn:hover {
-    border-color:var(--amber); color:var(--amber); transform:translateY(-1px);
-  }
-  .logo { width:36px; height:36px; flex:none; }
-  .logo-ring { fill:none; stroke:var(--ink); stroke-width:3; }
-  .q-white { fill:#e8edf2; } .q-color { fill:var(--amber); }
-  .name { font-size:20px; font-weight:800; letter-spacing:-.01em; }
-  h1 { font-size:clamp(24px,6vw,40px); line-height:1.1; margin:0 0 10px;
-       letter-spacing:-.02em; overflow-wrap:break-word; hyphens:auto; }
-  .lead { color:var(--dim); margin:0 0 34px; font-size:17px; }
-  .cards { display:grid; gap:14px; }
-  .card {
-    display:block; text-decoration:none; color:inherit; position:relative;
-    background:linear-gradient(180deg,var(--panel2),var(--panel));
-    border:1px solid var(--line); border-radius:10px; padding:20px 22px;
-    transition:border-color .15s, transform .15s;
-  }
-  .card:hover { border-color:var(--amber); transform:translateY(-2px); }
-  .card.primary { border-color:var(--amber); }
-  .tag {
-    position:absolute; top:-9px; right:18px; background:var(--amber);
-    color:#131a22; font-size:11px; font-weight:800; letter-spacing:.06em;
-    text-transform:uppercase; padding:3px 9px; border-radius:20px;
-  }
-  .card h2 { margin:0 0 4px; font-size:19px; }
-  .card .sub { color:var(--dim); font-size:14.5px; margin:0; }
-  .card .meta {
-    margin-top:12px; color:var(--faint); font-size:12.5px;
-    font-family:ui-monospace,Menlo,monospace;
-  }
-  .note {
-    margin-top:34px; padding-top:20px; border-top:1px solid var(--line);
-    color:var(--faint); font-size:13.5px;
-  }
-  .note a { color:var(--dim); }
-  .note strong { color:var(--dim); font-weight:600; }
-  .switch {
-    background:none; border:0; color:var(--amber); cursor:pointer;
-    font:inherit; font-size:14px; padding:0; text-decoration:underline;
-  }
-  .other { margin-top:18px; color:var(--faint); font-size:14px; }
-  .picker {
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
-    gap:8px; margin-top:12px;
-  }
-  /* spans the grid: as a plain child it became a 104px cell and the text
-     wrapped one word per line */
-  .picking { grid-column:1/-1; color:var(--faint); font-size:14px; margin:6px 2px; }
-  .wtoggle {
-    display:flex; gap:9px; align-items:flex-start; cursor:pointer;
-    margin:14px 2px 4px; color:var(--dim); font-size:14px;
-  }
-  .wtoggle input { margin-top:3px; accent-color:var(--amber); flex:none; }
-  .wtoggle em { color:var(--faint); font-style:normal; }
-  .chip { cursor:pointer; font:inherit; text-align:left; }
-  .chip:disabled, .picker.busy .chip { opacity:.5; pointer-events:none; }
-  .picker.busy { cursor:progress; }
-  /* the all-cars tile spans, so it reads as a different kind of choice
-     rather than a 28th car */
-  .chip-all { grid-column:1/-1; border-style:dashed; }
-  .chip-all b { color:var(--amber); }
-  .ios-help {
-    margin-top:16px; padding:14px 16px; border:1px solid var(--line);
-    border-left:3px solid var(--amber); border-radius:8px;
-    background:var(--panel); color:var(--dim); font-size:14px;
-  }
-  .ios-help h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
-  .ios-help ol { margin:0 0 10px; padding-left:20px; }
-  .ios-help li { margin-bottom:6px; }
-  .ios-help p { margin:0; color:var(--faint); font-size:13px; }
-  .ios-help a { color:var(--amber); }
-  .ios-help b { color:var(--ink); font-weight:600; }
-  .cmd { display:flex; gap:8px; align-items:center; margin:8px 0 2px; }
-  .cmd code {
-    flex:1; min-width:0; overflow-x:auto; white-space:nowrap;
-    font-family:ui-monospace,Menlo,monospace; font-size:12.5px;
-    color:var(--ink); background:var(--bg); border:1px solid var(--line);
-    border-radius:5px; padding:8px 10px;
-  }
-  .cmd button {
-    flex:none; cursor:pointer; font:600 12.5px inherit;
-    color:var(--bg); background:var(--amber); border:0;
-    border-radius:5px; padding:8px 12px; min-height:36px;
-  }
-  .picking a { color:var(--amber); }
-  .chip {
-    display:flex; flex-direction:column; gap:2px; text-decoration:none;
-    background:var(--panel); border:1px solid var(--line); border-radius:8px;
-    padding:10px 12px; color:var(--ink); min-height:44px; justify-content:center;
-  }
-  .chip:hover { border-color:var(--amber); }
-  .chip b { font-size:15px; font-weight:700; }
-  .chip span {
-    color:var(--faint); font-size:11.5px;
-    font-family:ui-monospace,Menlo,monospace;
-  }
-</style>
-<!-- The exporter and its zip library. install.html builds the download in
-     the tab: same code path as the app's own Settings button, so there is
-     one implementation of "what goes in a copy" rather than two. -->
+    /* Platform banner */
+    .platform-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--amber);
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .platform-badge .dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+
+    h1 { font-size:clamp(24px,6vw,40px); line-height:1.1; margin:0 0 10px;
+         letter-spacing:-.02em; overflow-wrap:break-word; hyphens:auto; }
+    .lead { color:var(--dim); margin:0 0 28px; font-size:16.5px; }
+    
+    .cards { display:grid; gap:14px; }
+    .card {
+      display:block; text-decoration:none; color:inherit; position:relative;
+      background:linear-gradient(180deg,var(--panel2),var(--panel));
+      border:1px solid var(--line); border-radius:10px; padding:20px 22px;
+      transition:border-color .15s, transform .15s;
+    }
+    .card:hover { border-color:var(--amber); transform:translateY(-2px); }
+    .card.primary { border-color:var(--amber); box-shadow:0 0 20px var(--amber-glow); }
+    .tag {
+      position:absolute; top:-9px; right:18px; background:var(--amber);
+      color:#131a22; font-size:11px; font-weight:800; letter-spacing:.06em;
+      text-transform:uppercase; padding:3px 9px; border-radius:20px;
+    }
+    .card h2 { margin:0 0 4px; font-size:19px; }
+    .card .sub { color:var(--dim); font-size:14.5px; margin:0; }
+    .card .meta {
+      margin-top:12px; color:var(--faint); font-size:12.5px;
+      font-family:ui-monospace,Menlo,monospace;
+    }
+
+    /* iPhone Guided Tutorial Card */
+    .tutorial-card {
+      margin-top: 20px;
+      background: var(--panel);
+      border: 1px solid var(--amber);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    }
+    .tutorial-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--amber);
+      margin: 0 0 8px;
+    }
+    .tutorial-desc {
+      color: var(--dim);
+      font-size: 14px;
+      margin: 0 0 18px;
+    }
+    .step-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .step-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--amber);
+      color: #11161c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      flex: none;
+      margin-top: 2px;
+    }
+    .step-content {
+      flex: 1;
+      font-size: 14px;
+      color: var(--ink);
+    }
+    .step-content b { color: var(--amber); font-weight: 600; }
+    .step-content span { color: var(--dim); display: block; font-size: 12.5px; margin-top: 2px; }
+
+    .note {
+      margin-top:34px; padding-top:20px; border-top:1px solid var(--line);
+      color:var(--faint); font-size:13.5px;
+    }
+    .note a { color:var(--dim); }
+    .note strong { color:var(--dim); font-weight:600; }
+    .switch {
+      background:none; border:0; color:var(--amber); cursor:pointer;
+      font:inherit; font-size:14px; padding:0; text-decoration:underline;
+    }
+    .other { margin-top:18px; color:var(--faint); font-size:14px; }
+    .picker {
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
+      gap:8px; margin-top:12px;
+    }
+    .picking { grid-column:1/-1; color:var(--faint); font-size:14px; margin:6px 2px; }
+    .wtoggle {
+      display:flex; gap:9px; align-items:flex-start; cursor:pointer;
+      margin:14px 2px 4px; color:var(--dim); font-size:14px;
+    }
+    .wtoggle input { margin-top:3px; accent-color:var(--amber); flex:none; }
+    .wtoggle em { color:var(--faint); font-style:normal; }
+    .chip { cursor:pointer; font:inherit; text-align:left; background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:8px 10px; color:var(--ink); }
+    .chip:hover { border-color:var(--amber); }
+    .chip:disabled, .picker.busy .chip { opacity:.5; pointer-events:none; }
+    .picker.busy { cursor:progress; }
+    .chip-all { grid-column:1/-1; border-style:dashed; }
+    .chip-all b { color:var(--amber); }
+    .ios-help {
+      margin-top:16px; padding:14px 16px; border:1px solid var(--line);
+      border-left:3px solid var(--amber); border-radius:8px;
+      background:var(--panel); color:var(--dim); font-size:14px;
+    }
+    .ios-help h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
+    .ios-help ol { margin:0 0 10px; padding-left:20px; }
+    .ios-help li { margin-bottom:6px; }
+    .ios-help p { margin:0; color:var(--faint); font-size:13px; }
+    .ios-help a { color:var(--amber); }
+    .ios-help b { color:var(--ink); font-weight:600; }
+    .cmd { display:flex; gap:8px; align-items:center; margin:8px 0 2px; }
+    .cmd code {
+      flex:1; min-width:0; overflow-x:auto; white-space:nowrap;
+      font-family:ui-monospace,Menlo,monospace; font-size:12.5px;
+      color:var(--ink); background:var(--bg); border:1px solid var(--line);
+      border-radius:5px; padding:8px 10px;
+    }
+    .cmd button {
+      flex:none; cursor:pointer; font:600 12.5px inherit;
+      color:var(--bg); background:var(--amber); border:0;
+      border-radius:5px; padding:8px 12px; min-height:36px;
+    }
+  </style>
 <script src="./vendor/fflate.min.js"></script>
 <script src="./core/offline-export.js"></script>
 </head>
@@ -170,11 +225,19 @@
     </nav>
   </header>
 
+  <div id="platform-pill" class="platform-badge">
+    <span class="dot"></span>
+    <span id="platform-text">Detecting platform…</span>
+  </div>
+
   <h1>BMW diagnostics,<br>no Windows.</h1>
   <p class="lead" id="lead">Read fault codes, watch live values, run actuator
     tests and inspect coding data, over a K+DCAN cable or a WiFi adapter.</p>
 
   <div class="cards" id="cards"></div>
+
+  <!-- Dynamic iPhone Guided Tutorial inserted here if on iOS -->
+  <div id="ios-tutorial-wrap"></div>
 
   <p class="other" id="other"></p>
 
@@ -187,7 +250,7 @@
 
     <p><strong>Which build?</strong> BMacW is the macOS app, and the only one
     that drives a USB cable without Chrome, since Safari has no Web Serial.
-    BMWeb is a single HTML file that runs everywhere; for a USB cable it
+    BMWeb is a Progressive Web App (PWA) that runs everywhere; for a USB cable it
     needs Chrome or Edge on the desktop, and for a WiFi adapter it needs
     nothing but a browser.</p>
     <p>Both read the same decompiled INPA screens and run the same BEST2
@@ -197,24 +260,37 @@
 
 <script>
 (function () {
-  // Coarse on purpose. The only question that changes the answer is "can
-  // this device run a macOS app", and iPadOS reporting itself as a Mac is
-  // the one trap worth handling -- an iPad cannot, so touch support
-  // disqualifies it.
+  // Register Service Worker for instant offline PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('./sw.js').catch(function () {});
+    });
+  }
+
+  // Device & Platform Detection
   var ua = navigator.userAgent;
-  var isMac = /Macintosh|Mac OS X/.test(ua) && !/iPhone|iPad|iPod/.test(ua)
-    && navigator.maxTouchPoints <= 1;
-  // A phone or tablet: touch-first, and the place where a 190 MB parse is
-  // two minutes of staring at nothing. iPadOS reports itself as a Mac, so
-  // touch points decide rather than the UA string alone.
-  var isPhone = /iPhone|iPad|iPod|Android/i.test(ua)
-    || navigator.maxTouchPoints > 1;
-  // iOS specifically: it is the one platform where downloading the file is
-  // not the whole story, because tapping it in Files opens Quick Look --
-  // a preview that does not run scripts, so the page hangs on its splash
-  // with no error at all. The way through is Share -> Edge.
-  var isIOS = /iPhone|iPad|iPod/.test(ua)
-    || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/i.test(ua);
+  var isMobile = isIOS || isAndroid;
+  var isMac = /Macintosh|Mac OS X/.test(ua) && !isIOS && navigator.maxTouchPoints <= 1;
+  var isWindows = /Windows/i.test(ua);
+  var isLinux = /Linux/i.test(ua) && !isAndroid;
+
+  // Platform Status Banner Text
+  var pillText = document.getElementById('platform-text');
+  if (isIOS) {
+    pillText.textContent = 'Detected iPhone / iPad · Web App (PWA) Recommended';
+  } else if (isAndroid) {
+    pillText.textContent = 'Detected Android · Web App (PWA) Recommended';
+  } else if (isMac) {
+    pillText.textContent = 'Detected macOS · Native Desktop App Recommended';
+  } else if (isWindows) {
+    pillText.textContent = 'Detected Windows · BMWeb in Chrome/Edge Recommended';
+  } else if (isLinux) {
+    pillText.textContent = 'Detected Linux · BMWeb in Chrome/Edge Recommended';
+  } else {
+    pillText.textContent = 'Web App & Native Builds Available';
+  }
 
   function macHelp() {
     var d = document.createElement('div');
@@ -223,19 +299,16 @@
     d.innerHTML =
       '<h3>First launch on macOS</h3>'
       + '<p>The app is ad-hoc signed (no Apple Developer ID), so macOS '
-      + 'quarantines it and refuses the first '
-      + 'launch, usually saying it is damaged. It is not; that is what '
-      + 'the quarantine flag looks like from the outside.</p>'
+      + 'quarantines it and refuses the first launch, usually saying it is damaged. '
+      + 'It is not; that is what the quarantine flag looks like from the outside.</p>'
       + '<ol>'
       + '<li>Open the .dmg and drag <b>BMacW</b> to Applications.</li>'
       + '<li>Open <b>Terminal</b> and run this once:'
       + '<div class="cmd"><code id="xattr-cmd">xattr -dr '
       + 'com.apple.quarantine /Applications/BMacW.app</code>'
       + '<button type="button" id="xattr-copy">Copy</button></div></li>'
-      + '<li>Launch it normally. The flag is cleared for good, so this '
-      + 'is a one-time step per install.</li>'
+      + '<li>Launch it normally. The flag is cleared for good.</li>'
       + '</ol>';
-    // clipboard, because retyping a path from a screen is how typos happen
     setTimeout(function () {
       var btn = d.querySelector('#xattr-copy');
       if (!btn) return;
@@ -244,31 +317,45 @@
         navigator.clipboard.writeText(t).then(function () {
           btn.textContent = 'Copied';
           setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
-        }).catch(function () { btn.textContent = 'Select it manually'; });
+        });
       };
     }, 0);
     return d;
   }
 
-  function iosHelp() {
+  function renderIosTutorial() {
     var d = document.createElement('div');
-    d.className = 'ios-help';
+    d.className = 'tutorial-card';
+    d.id = 'ios-tutorial';
     d.innerHTML =
-      '<h3>Opening it on iPhone</h3>'
-      + '<ol>'
-      + '<li>Install <a href="https://apps.apple.com/app/microsoft-edge/id1288723196">'
-      + 'Microsoft Edge</a> from the App Store.</li>'
-      + '<li>Tap a car above. Safari saves the file to <b>Files</b>, '
-      + 'usually in Downloads.</li>'
-      + '<li>Open <b>Files</b> and tap the file. It will show a preview '
-      + 'that does nothing: that is expected.</li>'
-      + '<li>Press <b>Share</b>, then <b>Open in Edge</b>. The app runs '
-      + 'from there.</li>'
-      + '</ol>'
-      + '<p>Tapping the file in Files opens a preview that cannot run '
-      + 'scripts, which is why it looks broken until you send it to a '
-      + 'real browser. Once it is open, join the adapter\'s WiFi and '
-      + 'connect.</p>';
+      '<div class="tutorial-title">📲 How to Add BMWeb to your iPhone Home Screen</div>'
+      + '<p class="tutorial-desc">Add BMWeb to your Home Screen to run full-screen as a standalone native app with zero memory crashes:</p>'
+      + '<div class="step-grid">'
+      + '  <div class="step-row">'
+      + '    <div class="step-num">1</div>'
+      + '    <div class="step-content"><b>Open in Safari</b><span>Visit this site (<code>bmweb.danner.ink</code>) in Safari.</span></div>'
+      + '  </div>'
+      + '  <div class="step-row">'
+      + '    <div class="step-num">2</div>'
+      + '    <div class="step-content"><b>Tap the Share button</b><span>Tap the square Share icon with the arrow pointing up (⎋) at the bottom of Safari.</span></div>'
+      + '  </div>'
+      + '  <div class="step-row">'
+      + '    <div class="step-num">3</div>'
+      + '    <div class="step-content"><b>Select "Add to Home Screen"</b><span>Scroll down in the share sheet and tap <b>Add to Home Screen</b> (+).</span></div>'
+      + '  </div>'
+      + '  <div class="step-row">'
+      + '    <div class="step-num">4</div>'
+      + '    <div class="step-content"><b>Tap "Add"</b><span>Tap <b>Add</b> in the top right corner of your screen.</span></div>'
+      + '  </div>'
+      + '  <div class="step-row">'
+      + '    <div class="step-num">5</div>'
+      + '    <div class="step-content"><b>Launch BMWeb</b><span>Tap the new BMWeb icon on your Home Screen. It will launch in full screen with no browser address bar!</span></div>'
+      + '  </div>'
+      + '  <div class="step-row">'
+      + '    <div class="step-num">6</div>'
+      + '    <div class="step-content"><b>Connect to THOR WiFi</b><span>Join your THOR WiFi adapter network in iOS Settings, tap <b>Connect</b> in BMWeb, and start diagnosing!</span></div>'
+      + '  </div>'
+      + '</div>';
     return d;
   }
 
@@ -276,25 +363,34 @@
   var APP = {
     id: 'mac',
     title: 'BMacW for macOS',
-    sub: 'The app. Drives a K+DCAN USB cable directly, with PDF export and '
-       + 'CSV logging.',
+    sub: 'The desktop app. Drives a K+DCAN USB cable directly, with PDF export and CSV logging.',
     meta: 'Apple silicon · .dmg',
-    // The releases PAGE until the API answers, then the .dmg itself. Never
-    // a hardcoded filename: the asset carries its version
-    // (BMacW-0.7.0-arm64.dmg), so any URL written here goes stale at the
-    // next release and 404s.
     href: 'https://github.com/' + REPO + '/releases/latest',
   };
-  var WEB = {
+  var WEB_PWA = {
+    id: 'pwa',
+    title: 'Launch BMWeb App (PWA)',
+    sub: 'Full-featured web app. Connects directly to THOR WiFi adapter over WebSocket. Add to Home Screen on mobile.',
+    meta: 'iPhone · iPad · Android · Windows · Linux · macOS',
+    href: 'index.html',
+  };
+  var WEB_BUILD = {
     id: 'web',
-    title: 'BMWeb: pick your car',
-    sub: 'One HTML file with the app and that car\'s ECU data inside it. '
-       + 'Open it in a browser: no install, no internet, no server.',
-    meta: 'Windows · Linux · iPhone · Android · macOS',
+    title: 'Single-File Builder: pick your car',
+    sub: 'Build an offline single-file .html with that car\'s ECU data bundled inside.',
+    meta: 'Offline backup · Single file download',
     href: '#pick',
   };
 
-  var order = isMac ? [APP, WEB] : [WEB, APP];
+  var order;
+  if (isIOS || isAndroid) {
+    order = [WEB_PWA, WEB_BUILD, APP];
+  } else if (isMac) {
+    order = [APP, WEB_PWA, WEB_BUILD];
+  } else {
+    order = [WEB_PWA, WEB_BUILD, APP];
+  }
+
   var cards = document.getElementById('cards');
   order.forEach(function (o, i) {
     var a = document.createElement('a');
@@ -306,10 +402,7 @@
       + '<p class="sub">' + o.sub + '</p>'
       + '<div class="meta">' + o.meta + '</div>';
     cards.appendChild(a);
-    // The DMG is ad-hoc signed, so the FIRST launch is blocked and the
-    // error macOS shows ("damaged and can't be opened") describes neither
-    // the cause nor the cure. Say it at the moment the download starts,
-    // which is the only moment anyone will read it.
+
     if (o.id === 'mac') {
       a.addEventListener('click', function () {
         if (document.getElementById('mac-help')) return;
@@ -318,10 +411,12 @@
     }
   });
 
-  // POINT THE MAC CARD AT THE ACTUAL FILE. One API request turns "find the
-  // download on this page" into a click. If it fails -- rate limit, offline,
-  // no release yet -- the card keeps the releases page it already has, which
-  // still works with one more step.
+  // Always show iPhone tutorial on iOS devices
+  if (isIOS) {
+    document.getElementById('ios-tutorial-wrap').appendChild(renderIosTutorial());
+  }
+
+  // Mac download URL lookup from releases
   fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (rel) {
@@ -340,124 +435,90 @@
           + (rel.tag_name ? ' \u00b7 ' + rel.tag_name : '');
       }
     })
-    .catch(function () { /* keep the releases-page link */ });
+    .catch(function () {});
 
-  // Say what was assumed, so a wrong guess is obvious rather than invisible.
   document.getElementById('other').textContent = isMac
     ? 'Detected macOS. On a phone or PC, take BMWeb.'
-    : 'BMWeb needs no install. The macOS app is there if you are on a Mac '
-      + 'with a USB cable.';
+    : (isIOS ? 'Detected iOS. Launch the PWA above and add it to your Home Screen!' : 'BMWeb needs no install.');
 
-  // THE PAGE BUILDS THE FILE. Not a list of prebuilt downloads: the same
-  // exporter the app's Settings button uses, run here against the data tree
-  // this site already hosts. That means every combination is available --
-  // any car, wiring or not -- without CI publishing 54 artifacts, and the
-  // sizes are whatever the user actually asked for.
   var webCard = cards.querySelector('a[href="#pick"]');
-  webCard.addEventListener('click', function (e) {
-    e.preventDefault();
-    if (document.getElementById('picker')) {
-      document.getElementById('picker').scrollIntoView({ behavior: 'smooth' });
-      return;
-    }
-    var wrap = document.createElement('div');
-    wrap.id = 'picker';
-    wrap.innerHTML =
-      '<label class="wtoggle"><input type="checkbox" id="w-on">'
-      + '<span>Include wiring diagrams <em>(much larger, and only for the '
-      + 'cars BMW documented)</em></span></label>'
-      + '<label class="wtoggle"><input type="checkbox" id="f-on" checked>'
-      + '<span>Include fault descriptions <em>(codes read as text rather '
-      + 'than hex)</em></span></label>'
-      + '<div class="picker" id="cars"><p class="picking">Loading cars…</p></div>'
-      + '<p class="picking" id="build-status"></p>';
-    webCard.insertAdjacentElement('afterend', wrap);
-
-    var status = wrap.querySelector('#build-status');
-    var box = wrap.querySelector('#cars');
-    var busy = false;
-
-    function build(id) {
-      if (busy) return;
-      if (typeof offlineSingleFile !== 'function') {
-        status.textContent = 'The builder did not load. Reload the page.';
+  if (webCard) {
+    webCard.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (document.getElementById('picker')) {
+        document.getElementById('picker').scrollIntoView({ behavior: 'smooth' });
         return;
       }
-      busy = true;
-      box.classList.add('busy');
-      offlineSingleFile(id, document.getElementById('f-on').checked,
-                        function (t) { status.textContent = id + ': ' + t; },
-                        document.getElementById('w-on').checked)
-        .then(function (n) {
-          status.textContent = id + ': ' + (n / 1048576).toFixed(0)
-            + ' MB downloaded. Open it in a browser.';
-        })
-        .catch(function (err) {
-          status.textContent = id + ': ' + (err.message || 'build failed');
-        })
-        .then(function () { busy = false; box.classList.remove('busy'); });
-    }
+      var wrap = document.createElement('div');
+      wrap.id = 'picker';
+      wrap.innerHTML =
+        '<label class="wtoggle"><input type="checkbox" id="w-on">'
+        + '<span>Include wiring diagrams <em>(much larger, and only for the '
+        + 'cars BMW documented)</em></span></label>'
+        + '<label class="wtoggle"><input type="checkbox" id="f-on" checked>'
+        + '<span>Include fault descriptions <em>(codes read as text rather '
+        + 'than hex)</em></span></label>'
+        + '<div class="picker" id="cars"><p class="picking">Loading cars…</p></div>'
+        + '<p class="picking" id="build-status"></p>';
+      webCard.insertAdjacentElement('afterend', wrap);
 
-    fetch('./api/chassis.json').then(function (r) {
-      if (!r.ok) throw new Error('no chassis list');
-      return r.json();
-    }).then(function (ids) {
-      box.innerHTML = '';
-      ids.forEach(function (id) {
-        var b = document.createElement('button');
-        b.className = 'chip';
-        b.type = 'button';
-        b.innerHTML = '<b>' + id + '</b><span>build</span>';
-        b.onclick = function () { build(id); };
-        box.appendChild(b);
+      var status = wrap.querySelector('#build-status');
+      var box = wrap.querySelector('#cars');
+      var busy = false;
+
+      function build(id) {
+        if (busy) return;
+        if (typeof offlineSingleFile !== 'function') {
+          status.textContent = 'The builder did not load. Reload the page.';
+          return;
+        }
+        busy = true;
+        box.classList.add('busy');
+        offlineSingleFile(id, document.getElementById('f-on').checked,
+                          function (t) { status.textContent = id + ': ' + t; },
+                          document.getElementById('w-on').checked)
+          .then(function (n) {
+            status.textContent = id + ': ' + (n / 1048576).toFixed(0)
+              + ' MB downloaded. Open it in a browser.';
+          })
+          .catch(function (err) {
+            status.textContent = id + ': ' + (err.message || 'build failed');
+          })
+          .then(function () { busy = false; box.classList.remove('busy'); });
+      }
+
+      fetch('./api/chassis.json').then(function (r) {
+        if (!r.ok) throw new Error('no chassis list');
+        return r.json();
+      }).then(function (ids) {
+        box.innerHTML = '';
+        ids.forEach(function (id) {
+          var b = document.createElement('button');
+          b.className = 'chip';
+          b.type = 'button';
+          b.innerHTML = '<b>' + id + '</b><span>build</span>';
+          b.onclick = function () { build(id); };
+          box.appendChild(b);
+        });
+
+        if (isMobile) return;
+        var all = document.createElement('a');
+        all.className = 'chip chip-all';
+        all.href = './get/bmweb-all.html';
+        all.setAttribute('download', '');
+        all.innerHTML = '<b>All ' + ids.length + ' cars</b>'
+          + '<span>~190 MB, prebuilt</span>';
+        box.appendChild(all);
+
+        fetch(all.href, { method: 'HEAD' }).then(function (r) {
+          if (!r.ok) all.remove();
+        }).catch(function () { all.remove(); });
+        status.textContent = 'Pick a car to download single-file offline package:';
+      }).catch(function () {
+        box.innerHTML = '<p class="picking">Offline data builder ready.</p>';
       });
-      // EVERY CAR IN ONE FILE. Offered, but not as a peer of the others:
-      // roughly 190 MB, which is one JavaScript string literal that has to
-      // parse before the page runs. Fine on a computer; on a phone it is
-      // the shape of thing iOS kills with no error, so it says so.
-      // EVERY CAR IS A PREBUILT FILE, not a build. It is the same 190 MB
-      // for everyone, so assembling it per visitor buys nothing -- and the
-      // peak while assembling is several times the result, which is enough
-      // to have iOS kill the tab (it reads as a spontaneous reload, because
-      // an out-of-memory kill raises nothing to catch). CI builds it once
-      // where memory is cheap; this just links to it.
-      //
-      // NOT OFFERED ON A PHONE. It opens there, but takes about two
-      // minutes: 190 MB is one JavaScript string literal the parser has to
-      // finish before anything paints. Per-car files are 2-14 MB and open
-      // immediately, which is the right trade on a device you are holding
-      // next to a car.
-      //
-      // (And it carries no wiring diagrams, because it cannot: every car's
-      // schematics come to ~1.4 GB of base64 and the JS string limit is
-      // 512 MB. Wiring is a per-car choice for that reason, not a
-      // preference.)
-      if (isPhone) return;
-      var all = document.createElement('a');
-      all.className = 'chip chip-all';
-      all.href = './get/bmweb-all.html';
-      all.setAttribute('download', '');
-      all.innerHTML = '<b>All ' + ids.length + ' cars</b>'
-        + '<span>~190 MB, prebuilt</span>';
-      box.appendChild(all);
-      // ...unless it was never published, in which case say so rather than
-      // offering a link that 404s.
-      // Confirm it was published; drop the tile rather than offer a 404.
-      // The SIZE comes from the manifest, not from content-length: Pages
-      // does not expose that header to script, so reading it gave NaN and
-      // the label stayed generic.
-      fetch(all.href, { method: 'HEAD' }).then(function (r) {
-        if (!r.ok) all.remove();
-      }).catch(function () { all.remove(); });
-      status.textContent = 'Pick a car. The file is built here in the '
-        + 'browser, so it takes a moment.';
-      if (isIOS) wrap.appendChild(iosHelp());
-    }).catch(function () {
-      box.innerHTML = '<p class="picking">This page needs to be served '
-        + 'alongside the data tree to build downloads. On the published '
-        + 'site it works; opened straight from disk it cannot.</p>';
     });
-  });
+  }
 }());
 </script>
 </body>
