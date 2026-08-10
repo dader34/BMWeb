@@ -846,6 +846,9 @@ function fitAndPan(svg, stage, bar, classic = false) {
     if (mouseDrag) {
       mouseDrag = null;
       stage.classList.remove('grabbing');
+    }
+  });
+
   // on-screen zoom controls, mirroring the F-keys in toolbar
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
