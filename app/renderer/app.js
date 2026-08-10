@@ -286,54 +286,7 @@ function showSettings() {
     };
     wrap.appendChild(combo.el);
 
-    // ONE FILE, for a phone. The folder above is right for a computer; a
-    // phone cannot usefully unzip it and open one page out of it. A single
-    // .html AirDrops, sits in Files, and opens in a browser on iOS, Android,
-    // Windows and macOS alike -- which, paired with the adapter's own
-    // WebSocket, is the whole app at a car with no laptop.
-    //
-    // Wiring is excluded: 72 MB against 7 MB for the rest of an E46, and a
-    // phone download is where that difference bites hardest.
-    if (typeof offlineSingleFile === 'function') {
-      let solo = 'E46';
-      const soloCombo = settingCombo(
-        'Download single file (phone)',
-        'One .html with everything inside. Open it in a browser, not the '
-        + 'Files preview - iOS restricts scripts there. No wiring diagrams.',
-        [{ val: 'E46', label: 'E46' }], solo, (v) => { solo = v; });
-      const faultsLabel = document.createElement('label');
-      faultsLabel.className = 'setting-check';
-      faultsLabel.title = 'Include English fault descriptions (adds a few MB)';
-      faultsLabel.innerHTML = '<input type="checkbox" id="solo-faults" checked>'
-        + '<span>Fault text</span>';
-      const faultsBox = faultsLabel.querySelector('input');
-      const soloBtn = document.createElement('button');
-      soloBtn.className = 'btn';
-      soloBtn.textContent = 'Download';
-      const soloPicker = soloCombo.el.querySelector('.combo');
-      const soloControls = document.createElement('div');
-      soloControls.className = 'setting-controls';
-      soloPicker.replaceWith(soloControls);
-      soloControls.append(soloPicker, faultsLabel, soloBtn);
-      tipify(soloControls);
-      api('/api/chassis').then((ids) => {
-        soloCombo.setOptions(ids.map(id => ({ val: id, label: id })), solo);
-      }).catch(() => { soloBtn.disabled = true; });
-      soloBtn.onclick = async () => {
-        const was = soloBtn.textContent;
-        soloBtn.disabled = true;
-        try {
-          const n = await offlineSingleFile(solo, faultsBox.checked,
-                                            (t) => { soloBtn.textContent = t; });
-          soloBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
-        } catch (e) {
-          soloBtn.textContent = `failed: ${e.message}`;
-        }
-        setTimeout(() => { soloBtn.textContent = was; soloBtn.disabled = false; },
-                   5000);
-      };
-      wrap.appendChild(soloCombo.el);
-    }
+
   }
 
   view.appendChild(wrap);

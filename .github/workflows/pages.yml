@@ -115,46 +115,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Build the all-cars file
-        run: |
-          set -euo pipefail
-          # THE ONE FILE THAT IS THE SAME FOR EVERYONE. Per-car copies are
-          # built in the visitor's browser, which is cheap and covers every
-          # combination -- but "all cars" is ~190 MB and identical for
-          # every visitor, and assembling it peaks at several times that.
-          # A phone does not survive it. Build it once, here.
-          mkdir -p dist-web/get
-          # Node sizes its heap from the machine's RAM, and a runner has
-          # less than a laptop. The peak here is several times the 190 MB
-          # result, so say the number rather than inherit one: an OOM would
-          # abort the deploy, and this is the one step that can hit it.
-          node --max-old-space-size=6144 \
-            tools/export/build_single.js all-in-one dist-web/get --faults
-          # A truncated or missing file must fail HERE, not be published as
-          # a download that opens to nothing.
-          test -s dist-web/get/bmweb-all.html
-          python3 -c "
-          import os, sys
-          n = os.path.getsize('dist-web/get/bmweb-all.html') / 1048576
-          print(f'all-cars file: {n:.0f} MB')
-          sys.exit(0 if n > 100 else f'suspiciously small: {n:.0f} MB')"
-
-
       - name: Put the installer at the root
         run: |
           set -euo pipefail
-          # THE PAGE BUILDS THE DOWNLOAD, so nothing is prebuilt here. The
-          # site is the data tree plus install.html, and the exporter runs
-          # in the visitor's browser against that tree -- any car, wiring or
-          # not, fault text or not, without CI publishing every combination.
-          #
-          # index.html (the app) moves aside: an https page cannot open the
-          # ws:// connection an adapter needs, so running the app from here
-          # could never talk to a car. Downloading the file is the point.
           mv dist-web/index.html dist-web/app.html
           mv dist-web/install.html dist-web/index.html
           test -s dist-web/index.html
-          grep -q offlineSingleFile dist-web/index.html
 
       - name: Report what is being published
         run: |

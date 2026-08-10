@@ -206,23 +206,6 @@
     .note a { color:var(--dim); }
     .note strong { color:var(--dim); font-weight:600; }
     .other { margin-top:18px; color:var(--faint); font-size:14px; }
-    .picker {
-      display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr));
-      gap:8px; margin-top:12px;
-    }
-    .picking { grid-column:1/-1; color:var(--faint); font-size:14px; margin:6px 2px; }
-    .wtoggle {
-      display:flex; gap:9px; align-items:flex-start; cursor:pointer;
-      margin:14px 2px 4px; color:var(--dim); font-size:14px;
-    }
-    .wtoggle input { margin-top:3px; accent-color:var(--amber); flex:none; }
-    .wtoggle em { color:var(--faint); font-style:normal; }
-    .chip { cursor:pointer; font:inherit; text-align:left; background:var(--panel2); border:1px solid var(--line); border-radius:6px; padding:8px 10px; color:var(--ink); }
-    .chip:hover { border-color:var(--amber); }
-    .chip:disabled, .picker.busy .chip { opacity:.5; pointer-events:none; }
-    .picker.busy { cursor:progress; }
-    .chip-all { grid-column:1/-1; border-style:dashed; }
-    .chip-all b { color:var(--amber); }
     .ios-help {
       margin-top:16px; padding:14px 16px; border:1px solid var(--line);
       border-left:3px solid var(--amber); border-radius:8px;
@@ -244,8 +227,6 @@
       border-radius:5px; padding:8px 12px; min-height:36px;
     }
   </style>
-<script src="./vendor/fflate.min.js"></script>
-<script src="./core/offline-export.js"></script>
 </head>
 <body>
 <main class="wrap">
@@ -312,13 +293,6 @@
   // The app URL resolves to app.html on published Pages, or index.html locally
   var targetAppUrl = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
 
-  // If launched from Home Screen as standalone PWA, go straight to the diagnostics app!
-  var isStandalone = (window.navigator.standalone === true) || (window.matchMedia('(display-mode: standalone)').matches);
-  if (isStandalone) {
-    window.location.replace(targetAppUrl);
-    return;
-  }
-
   function showIosTutorialModal(e) {
     if (e) e.preventDefault();
     if (document.getElementById('tutorial-overlay')) return;
@@ -378,7 +352,8 @@
       + '<ol>'
       + '<li>Open the .dmg and drag <b>BMacW</b> to Applications.</li>'
       + '<li>Open <b>Terminal</b> and run this once:'
-      + '<div class="cmd"><code id="xattr-cmd">xattr -dr com.apple.quarantine /Applications/BMacW.app</code>'
+      + '<div class="cmd"><code id="xattr-cmd">xattr -dr '
+      + 'com.apple.quarantine /Applications/BMacW.app</code>'
       + '<button type="button" id="xattr-copy">Copy</button></div></li>'
       + '<li>Launch it normally.</li>'
       + '</ol>';
@@ -407,18 +382,9 @@
   var WEB_PWA = {
     id: 'pwa',
     title: 'Launch BMWeb App',
-    sub: isIOS
-      ? 'Progressive Web App. Tap for Home Screen installation guide & instant launch.'
-      : 'Connects directly to THOR WiFi adapter over WebSocket.',
+    sub: 'Progressive Web App. Connects directly to THOR WiFi adapter over WebSocket.',
     meta: isIOS ? 'iPhone · iPad · Full-screen PWA' : 'All platforms · Browser app',
     href: targetAppUrl,
-  };
-  var WEB_BUILD = {
-    id: 'web',
-    title: 'Single-File Builder: pick your car',
-    sub: 'Build an offline single-file .html with that car\'s ECU data bundled inside.',
-    meta: 'Offline backup · Single file download',
-    href: '#pick',
   };
 
   // ON MOBILE: Show ONLY the Launch BMWeb App card!
@@ -427,9 +393,9 @@
   if (isMobile) {
     order = [WEB_PWA];
   } else if (isMac) {
-    order = [APP, WEB_PWA, WEB_BUILD];
+    order = [APP, WEB_PWA];
   } else {
-    order = [WEB_PWA, WEB_BUILD, APP];
+    order = [WEB_PWA, APP];
   }
 
   var cards = document.getElementById('cards');
@@ -485,84 +451,6 @@
   document.getElementById('other').textContent = isMobile
     ? 'Tap Launch BMWeb App to begin diagnostics.'
     : (isMac ? 'Detected macOS. On a phone or PC, take BMWeb.' : 'BMWeb needs no install.');
-
-  var webCard = cards.querySelector('a[href="#pick"]');
-  if (webCard) {
-    webCard.addEventListener('click', function (e) {
-      e.preventDefault();
-      if (document.getElementById('picker')) {
-        document.getElementById('picker').scrollIntoView({ behavior: 'smooth' });
-        return;
-      }
-      var wrap = document.createElement('div');
-      wrap.id = 'picker';
-      wrap.innerHTML =
-        '<label class="wtoggle"><input type="checkbox" id="w-on">'
-        + '<span>Include wiring diagrams <em>(much larger, and only for the '
-        + 'cars BMW documented)</em></span></label>'
-        + '<label class="wtoggle"><input type="checkbox" id="f-on" checked>'
-        + '<span>Include fault descriptions <em>(codes read as text rather '
-        + 'than hex)</em></span></label>'
-        + '<div class="picker" id="cars"><p class="picking">Loading cars…</p></div>'
-        + '<p class="picking" id="build-status"></p>';
-      webCard.insertAdjacentElement('afterend', wrap);
-
-      var status = wrap.querySelector('#build-status');
-      var box = wrap.querySelector('#cars');
-      var busy = false;
-
-      function build(id) {
-        if (busy) return;
-        if (typeof offlineSingleFile !== 'function') {
-          status.textContent = 'The builder did not load. Reload the page.';
-          return;
-        }
-        busy = true;
-        box.classList.add('busy');
-        offlineSingleFile(id, document.getElementById('f-on').checked,
-                          function (t) { status.textContent = id + ': ' + t; },
-                          document.getElementById('w-on').checked)
-          .then(function (n) {
-            status.textContent = id + ': ' + (n / 1048576).toFixed(0)
-              + ' MB downloaded. Open it in a browser.';
-          })
-          .catch(function (err) {
-            status.textContent = id + ': ' + (err.message || 'build failed');
-          })
-          .then(function () { busy = false; box.classList.remove('busy'); });
-      }
-
-      fetch('./api/chassis.json').then(function (r) {
-        if (!r.ok) throw new Error('no chassis list');
-        return r.json();
-      }).then(function (ids) {
-        box.innerHTML = '';
-        ids.forEach(function (id) {
-          var b = document.createElement('button');
-          b.className = 'chip';
-          b.type = 'button';
-          b.innerHTML = '<b>' + id + '</b><span>build</span>';
-          b.onclick = function () { build(id); };
-          box.appendChild(b);
-        });
-
-        var all = document.createElement('a');
-        all.className = 'chip chip-all';
-        all.href = './get/bmweb-all.html';
-        all.setAttribute('download', '');
-        all.innerHTML = '<b>All ' + ids.length + ' cars</b>'
-          + '<span>~190 MB, prebuilt</span>';
-        box.appendChild(all);
-
-        fetch(all.href, { method: 'HEAD' }).then(function (r) {
-          if (!r.ok) all.remove();
-        }).catch(function () { all.remove(); });
-        status.textContent = 'Pick a car to download single-file offline package:';
-      }).catch(function () {
-        box.innerHTML = '<p class="picking">Offline data builder ready.</p>';
-      });
-    });
-  }
 }());
 </script>
 </body>
