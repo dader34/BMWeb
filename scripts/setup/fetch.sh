@@ -161,6 +161,24 @@ do_coding() {
   get "$HF/coding/all.coding.tar.gz" "$tgz" "coding descriptions"
   say "unpacking into $dest"
   tar xzf "$tgz" -C "$dest"
+
+  # NCS Dummy's Translations.csv: daten_map.py reads it for English labels.
+  # The archive is NCS Dummy 0.6.10 exactly as distributed (7z, password
+  # 'binunlock.com' from its distributor); only the CSV is taken from it.
+  # Optional: without 7z, or without the archive, the build still runs and
+  # daten_map.py says what is missing.
+  local SEVEN; SEVEN=$(command -v 7z || command -v 7zz || true)
+  if [ -n "$SEVEN" ] && [ ! -f vendor/NCSDummy/Translations.csv ]; then
+    local nd=.cache/NCS-Dummy-0.6.10.7z
+    get "$HF/coding/NCS-Dummy-0.6.10.7z" "$nd" "NCS Dummy (translations)"
+    mkdir -p vendor/NCSDummy
+    "$SEVEN" e -y -p'binunlock.com' -ovendor/NCSDummy \
+      "$nd" 'NCSDummy 0.6.10/Translations.csv' >/dev/null \
+      && say "vendor/NCSDummy/Translations.csv in place" \
+      || warn "could not extract Translations.csv from $nd"
+  elif [ -z "$SEVEN" ]; then
+    warn "7z not found: skipping NCS Dummy translations (brew install sevenzip)"
+  fi
   say "coding data in place"
 }
 

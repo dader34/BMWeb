@@ -408,6 +408,25 @@ async function datenFor(sgbd) {
   return map[String(sgbd).toLowerCase()] || null;
 }
 
+// NCS Dummy's community translations (Translations.csv, revtor et al.),
+// generated into datenmap.js beside the map itself and keyed by lowercased
+// keyword. Returned as written: it is already plain English, and codTidy's
+// case repair exists to undo German noun capitalisation -- run on real
+// English it turns "(Japan)" into "(japan)". EDIABAS-faithful mode shows
+// BMW's keyword untouched, the same rule every translation here follows.
+function datI18n(name) {
+  if (typeof lang === 'function' && lang() === 'orig') return '';
+  const t = (typeof window !== 'undefined' && window.BMW_DATEN_I18N) || null;
+  return (t && name && t[String(name).toLowerCase()]) || '';
+}
+
+// The label for a DATEN keyword: the community translation where one
+// exists, else the coding dictionary's word-by-word attempt, else the
+// keyword itself.
+function datLabel(name) {
+  return datI18n(name) || codTidy(codTranslate(name, true), name);
+}
+
 // TURNED OFF. Flip to true to put the Coding map back on the ECU menu.
 //
 // The screen and its data are intact -- this is the one gate every entry
@@ -455,7 +474,7 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
     const q = filter.trim().toLowerCase();
     const fields = q
       ? all.filter(f => f.name.toLowerCase().includes(q)
-          || codTidy(codTranslate(f.name, true), f.name).toLowerCase().includes(q))
+          || datLabel(f.name).toLowerCase().includes(q))
       : all;
 
     // DROPDOWNS, not one-at-a-time cycling. This module may describe nine
@@ -535,17 +554,18 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
               return vals.map(([n, v]) => {
                 const big = typeof v === 'string' && v.length > 4;
                 return `<span class="dat-val"${big ? ` title="${esc(v)}"` : ''}>`
-                  + `<span class="dat-val-n">${esc(codTranslate(n, true))}</span>`
+                  + `<span class="dat-val-n">${esc(datI18n(n) || codTranslate(n, true))}</span>`
                   + `<span class="dat-val-v mono">`
                   + `${big ? `${v.length / 2} bytes` : esc(v)}</span></span>`;
               }).join('');
             })();
       // BMW's keyword under the English label, but only when translating
-      // actually said something. This vocabulary is far wider than the
-      // dictionary built for E39/E46, so 99% of these come back as the
-      // keyword with underscores swapped for spaces -- and a second line
-      // repeating the first is noise, not context.
-      const label = codTidy(codTranslate(f.name, true), f.name);
+      // actually said something. Two thirds of these now come from NCS
+      // Dummy's community translations; the rest fall back to the coding
+      // dictionary, which mostly returns the keyword with underscores
+      // swapped for spaces -- and a second line repeating the first is
+      // noise, not context.
+      const label = datLabel(f.name);
       const same = label.toUpperCase().replace(/ /g, '_') === f.name.toUpperCase();
       row.innerHTML = `
         <span class="cod-name">${esc(same ? f.name : label)}

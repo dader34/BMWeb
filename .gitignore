@@ -110,6 +110,10 @@ vendor/EC-APPS
 # BMW's WDS, same deal: 259 MB of wiring documents that only the importer
 # reads. scripts/setup/fetch-wds.sh installs it.
 vendor/WDS
+# NCS Dummy's community Translations.csv (revtor et al.): a build input for
+# daten_map.py's English labels. Crowdsourced work distributed with the
+# freeware, so it stays out of the repo. fetch.sh --coding installs it.
+vendor/NCSDummy
 
 # Per-car view of the generated data: data/chassis/<CHASSIS>/<ECU>/.
 # Everything about one ECU in one folder, which means a shared SGBD is stored
