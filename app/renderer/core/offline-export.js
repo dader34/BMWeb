@@ -20,7 +20,7 @@ const OFFLINE_SHELL = [
   'screens/identity.js',
   'screens/special.js', 'screens/measurements.js',
   'screens/live.js', 'screens/faults.js', 'screens/lookup.js',
-  'screens/tutorial.js', 'screens/wiring.js',
+  'screens/tutorial.js', 'screens/wiring.js', 'screens/apps.js',
   // coding-value meanings (small, so they travel with the shell not opt-in)
   'data/codingmap.js',
   // ...and BMW's own coding map for modules whose SGBD says nothing

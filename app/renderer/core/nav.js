@@ -32,7 +32,7 @@ async function showChassis() {
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
           <button class="inpa-fn inpa-fn-lookup" id="vsel-lookup"><span class="inpa-fn-key">⌕</span><span class="inpa-fn-label">Fault Lookup …</span></button>
-          <button class="inpa-fn inpa-fn-lookup" id="vsel-wiring"><span class="inpa-fn-key">⌁</span><span class="inpa-fn-label">Wiring Diagrams …</span></button>
+          <button class="inpa-fn inpa-fn-lookup" id="vsel-apps"><span class="inpa-fn-key">▦</span><span class="inpa-fn-label">Apps …</span></button>
         </div>
       </div>`;
     view.appendChild(panel);
@@ -40,12 +40,12 @@ async function showChassis() {
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
     panel.querySelector('#vsel-lookup').onclick = () => showLookup();
-    panel.querySelector('#vsel-wiring').onclick = () => showWiringChassis();
+    panel.querySelector('#vsel-apps').onclick = () => showApps();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
     const acts = main.slice(0, 8).map((id, i) => ({ key: String(i + 1), label: dispChassis(id), fn: () => showScriptSelection(id) }));
     if (old.length) acts.push({ key: '9', label: 'Other models', fn: () => showOtherModels(old) });
-    acts.push({ key: '0', label: 'Wiring', fn: () => showWiringChassis() });
+    acts.push({ key: '0', label: 'Apps', fn: () => showApps() });
     setActions(acts);
     return;
   }
@@ -118,23 +118,25 @@ async function showChassis() {
   lookupCard.onclick = () => showLookup();
   view.appendChild(lookupCard);
 
-  // Wiring diagrams (BMW's WDS): a reference section like the lookup, no cable or chassis needed
-  const wiringCard = document.createElement('button');
-  wiringCard.className = 'lookup-entry';
-  wiringCard.innerHTML = `
-    <span class="lookup-entry-icon">⌁</span>
+  // Apps: reference tools ported from BMW's dealer software (WDS wiring, ETK
+  // parts catalogue, ...). One hub card rather than one card per tool, so the
+  // home screen doesn't grow a row every time a new app is ported.
+  const appsCard = document.createElement('button');
+  appsCard.className = 'lookup-entry';
+  appsCard.innerHTML = `
+    <span class="lookup-entry-icon">▦</span>
     <span class="lookup-entry-text">
-      <span class="lookup-entry-title">Wiring Diagrams</span>
-      <span class="lookup-entry-desc">BMW's own schematics, component locations and connector views</span>
+      <span class="lookup-entry-title">Apps</span>
+      <span class="lookup-entry-desc">Wiring diagrams, parts catalogue and more, ported from BMW's own software</span>
     </span>
     <span class="lookup-entry-arrow">→</span>`;
-  wiringCard.onclick = () => showWiringChassis();
-  view.appendChild(wiringCard);
+  appsCard.onclick = () => showApps();
+  view.appendChild(appsCard);
 
   const quick = ['E46', 'E60', 'E90'].filter(id => ids.includes(id));
   const acts = quick.map((id, i) => ({ key: String(i + 1), label: id, fn: () => showSections(id) }));
   acts.push({ key: String(quick.length + 1), label: 'Fault Lookup', fn: () => showLookup() });
-  acts.push({ key: String(quick.length + 2), label: 'Wiring', fn: () => showWiringChassis() });
+  acts.push({ key: String(quick.length + 2), label: 'Apps', fn: () => showApps() });
   setActions(acts);
 }
 

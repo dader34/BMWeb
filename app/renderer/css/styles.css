@@ -464,6 +464,17 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   opacity: 0; transform: translateX(-6px); transition: all .2s; }
 .chassis-card:hover .chassis-arrow { opacity: 1; transform: none; }
 
+/* Apps hub: the ported-app cards reuse .lookup-entry; these add the version/
+   source tag and the greyed-out state for an app whose data isn't in the build */
+.apps-list { display: grid; gap: 12px; }
+.app-tag {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  color: var(--ink-faint); text-transform: uppercase; margin-left: 8px;
+  border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px;
+  vertical-align: middle;
+}
+.app-entry.app-absent { opacity: .5; cursor: default; }
+
 /* sections */
 .section-stack { display: grid; gap: 16px; }
 .section {
@@ -3076,6 +3087,9 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .lookup-entry-arrow {
     flex: 0 0 auto; color: var(--ios-faint); font-size: 18px; font-weight: 600;
   }
+  /* the Apps hub reuses the grouped-list rows; the tweaks below apply in both
+     the mobile grouped list and the desktop stacked buttons */
+  .apps-list .app-entry.app-absent { opacity: .5; }
 
   /* ---- SYSTEMS + MODULES AS STACKED LISTS (the drill-down continues) -----
      A chassis pushes to its systems, a system to its modules -- same grammar
