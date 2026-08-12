@@ -1,28 +1,18 @@
-// Wiring diagrams, from BMW's own WDS.
-//
-// tools/wds_import.py packs one .wiring archive per car: BMW's document tree
-// plus the documents it references -- schematics as .svgz (gzipped SVG) and
-// functional descriptions as HTML. Both come straight out of WDS, so a
-// diagram here is the diagram the dealer traced circuits on.
-//
-// SVG, NOT IMAGES. The schematics are vector: they zoom without pixelating,
-// their text is real text, and the browser draws them with no viewer
-// library. Inflating is fflate, already shipped for the chassis archives.
+// Wiring diagrams, from BMW's own WDS. tools/wds_import.py packs one .wiring
+// archive per car: schematics as .svgz (gzipped SVG, vector) and functional
+// descriptions as HTML, straight out of WDS. Inflating is fflate.
 
 const WIRING_CACHE = new Map();   // chassis -> { tree, files: Map(name -> u8) }
 
-// WDS's pane buttons, drawn as it drew them: a frame with the divider pushed
-// one way or the other. The filled block is the pane that gets the room.
+// WDS's pane buttons: a frame with the divider pushed one way; the filled block
+// is the pane that gets the room. doc=document, split=both, tree=tree.
 const WDS_PANE_GLYPH = {
-  // divider hard left: the document takes the window
   doc: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
     <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
     <rect x="1" y="1" width="3.5" height="12" fill="currentColor"/></svg>`,
-  // divider centred: both panes
   split: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
     <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
     <rect x="6.5" y="1" width="3" height="12" fill="currentColor"/></svg>`,
-  // divider hard right: the tree takes the window
   tree: `<svg viewBox="0 0 16 14" width="16" height="14" aria-hidden="true">
     <rect x="1" y="1" width="14" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
     <rect x="11.5" y="1" width="3.5" height="12" fill="currentColor"/></svg>`,
@@ -45,8 +35,7 @@ const WIRING_KIND_LABEL = {
 async function loadWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return WIRING_CACHE.get(id);
-  // the offline export inlines archives as base64; use that when present,
-  // exactly like the chassis loader does
+  // the offline export inlines archives as base64; use that when present
   let bytes;
   const inline = (typeof BMACW_WIRING === 'object' && BMACW_WIRING)
     ? BMACW_WIRING[id] : null;
@@ -70,8 +59,7 @@ async function loadWiring(chassisId) {
   return data;
 }
 
-// A document, ready to put on screen. Schematics inflate to SVG source;
-// descriptions are already HTML.
+// A document ready for screen: schematics inflate to SVG, descriptions are HTML.
 function wiringDoc(data, docId) {
   const svgz = data.files.get(`svg/${docId}.svgz`);
   if (svgz) {
@@ -82,25 +70,18 @@ function wiringDoc(data, docId) {
   return null;
 }
 
-// Photographs the .wiring archive does not carry. App and offline copies hold
-// them inline; the hosted site cannot (878 MB, over the 1 GB GitHub Pages cap),
-// so it fetches them from a CDN.
-//
-// jsDelivr, not a release asset: release downloads send no
-// access-control-allow-origin so a page cannot fetch them, while jsDelivr is
-// CORS-open and edge-cached.
-// PINNED TO A COMMIT, not @main: jsDelivr serves whatever the ref points at, so
-// a moving branch means a later reorg of that repo retroactively breaks the
-// photos in every export ever shipped. Bump this SHA deliberately on a change.
+// Photographs the .wiring archive doesn't carry (878 MB, over the GitHub Pages
+// cap), fetched from a CDN on the hosted site. jsDelivr, not a release asset:
+// release downloads send no access-control-allow-origin, jsDelivr is CORS-open.
+// PINNED TO A COMMIT, not @main: a moving branch means a later repo reorg
+// retroactively breaks the photos in every export ever shipped. Bump the SHA
+// deliberately.
 const WIRING_IMG_CDN =
   'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@55cad337b4787326cfcacbea220fa4787aaa74e4/img/';
-// bumped with the URL: the old cache holds entries keyed by the previous
-// URLs, which nothing asks for any more -- dead weight, not stale hits
-const WIRING_IMG_CACHE = 'bmacw-wiring-images-v3';
+const WIRING_IMG_CACHE = 'bmacw-wiring-images-v3';  // bump with the CDN URL
 
 // A blob URL per image, made once and kept: the same photo appears on many
-// documents (one wheel-hub shot serves every sensor mounted there), and
-// minting a URL per view would leak one each time.
+// documents, and minting a URL per view would leak one each time.
 function wiringImageUrl(data, path, bytesOrBlob) {
   if (!data.imgUrls) data.imgUrls = new Map();
   let url = data.imgUrls.get(path);
@@ -114,10 +95,8 @@ function wiringImageUrl(data, path, bytesOrBlob) {
   return url;
 }
 
-// Fetch a photograph the archive does not hold, and keep it. The Cache API
-// survives reloads, so a car browsed once keeps its pictures offline
-// afterwards; the browser may evict under pressure, and a miss just fetches
-// again.
+// Fetch a photograph the archive doesn't hold, and cache it (Cache API survives
+// reloads, so a car browsed once keeps its pictures offline). A miss re-fetches.
 async function wiringFetchImage(name) {
   const url = WIRING_IMG_CDN + name;
   try {
@@ -149,23 +128,20 @@ function wiringIndex(tree) {
   return out;
 }
 
-// Which cars WDS covers. Asked once and remembered: the picker draws only
-// what can actually open, rather than offering dead cards.
+// Which cars WDS covers, asked once and remembered so the picker draws only
+// what can actually open.
 let WIRING_CHASSIS = null;
 
 async function wiringChassisList() {
   if (WIRING_CHASSIS) return WIRING_CHASSIS;
   const ids = await api('/api/chassis').catch(() => []);
-  // ALL AT ONCE, not one after another. This asks whether each of 21 cars has
-  // an archive, and in a browser that is 21 network round trips: serially it
-  // was seconds of blank screen, in parallel it is one round trip's worth.
+  // all 21 probes in parallel: serially it was seconds of blank screen
   const have = await Promise.all(ids.map((id) => hasWiring(id)));
   WIRING_CHASSIS = ids.filter((_, i) => have[i]);
   return WIRING_CHASSIS;
 }
 
-// Wiring as its own section, like Fault Lookup: pick the car here rather
-// than arriving through a chassis.
+// Wiring as its own section: pick the car here rather than arriving via chassis.
 async function showWiringChassis() {
   lastScreen = showWiringChassis;
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Wiring' }]);
@@ -179,8 +155,7 @@ async function showWiringChassis() {
   const grid = document.createElement('div');
   grid.className = classic ? 'inpa-vlist' : 'chassis-grid stagger';
 
-  // Say something while the list is worked out: on a hosted site the archive
-  // probes are 21 network requests, several seconds of otherwise-blank page.
+  // fill the page while the 21 probes run (several seconds on a hosted site)
   const wait = document.createElement('div');
   wait.className = 'wiring-loading';
   wait.innerHTML = `<span class="wiring-spinner"></span>`
@@ -191,9 +166,8 @@ async function showWiringChassis() {
   const ids = await wiringChassisList();
   wait.remove();
   if (!ids.length) {
-    // NOT an error (so no errorBlock, whose cable/ignition advice is
-    // irrelevant): the hosted site simply cannot carry these -- 1.1 GB of
-    // diagrams over a 1 GB GitHub Pages cap. Say that, and where they do work.
+    // NOT an error (errorBlock's cable/ignition advice would be irrelevant):
+    // the hosted site just can't carry 1.1 GB over the GitHub Pages cap.
     const note = document.createElement('div');
     note.className = 'empty wiring-absent';
     note.innerHTML = `
@@ -210,7 +184,7 @@ async function showWiringChassis() {
     const tag = (typeof CHASSIS_TAG === 'object' && CHASSIS_TAG[id]) || 'BMW';
     const card = document.createElement('button');
     if (classic) {
-      // the vehicle select's own idiom: an F-key list, not cards
+      // INPA idiom: an F-key list, not cards
       card.className = 'inpa-fn';
       card.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
         + `<span class="inpa-fn-label">${esc(dispChassis(id))} · ${esc(tag)}</span>`;
@@ -242,18 +216,15 @@ function showWiring(chassisId, openDoc = null) {
     { label: dispChassis(chassisId) },
   ]);
   sbLeft.textContent = 'loading wiring…';
-  // No page heading here: a schematic wants every pixel of height, and the
-  // crumbs already say where you are. The browse screens keep theirs.
+  // no page heading: a schematic wants every pixel of height, crumbs say where
+  // you are
   view.innerHTML = '';
 
-  // INPA mode wears WDS's own chrome, the way the ECU screens wear INPA's:
-  // grey toolbar of raised buttons, blue title strip, the tree in a sunken
-  // white pane, and a footer holding the search box and the zoom controls.
-  // Same code underneath -- only the frame around it changes.
+  // INPA mode wears WDS's own chrome; same code underneath, only the frame
+  // changes.
   const classic = typeof inpaMode === 'function' && inpaMode();
-  // No F-key bar here, either mode: both layouts already carry Back/print/
-  // help/paging on their own chrome, and the bar would only cost the diagram
-  // 52px of the height it never has enough of. setCrumbs restores it on leave.
+  // no F-key bar either mode: both layouts carry Back/print/help on their own
+  // chrome, and the bar would cost the diagram 52px. setCrumbs restores it.
   document.body.classList.add('wds-nofkeys');
   const split = document.createElement('div');
   split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
@@ -338,50 +309,45 @@ function showWiring(chassisId, openDoc = null) {
   view.appendChild(split);
 
   const treeEl = split.querySelector('#wiring-tree');
-  // the archive is 2 to 24 MB, so on a hosted site there is a real wait
-  // between opening a car and its tree appearing. Fill it.
+  // the archive is 2-24 MB: real wait before the tree appears, so fill it
   treeEl.innerHTML = `<div class="wiring-loading">`
     + `<span class="wiring-spinner"></span>`
     + `<span>Loading ${esc(dispChassis(chassisId))} diagrams…</span></div>`;
   const viewEl = split.querySelector('#wiring-view');
   const searchEl = split.querySelector('#wiring-search');
 
-  // Both layouts carry the same controls; only their dress differs. WDS's
-  // toolbar has a few extra (Series, Exit, Start) that the modern layout
-  // reaches through its crumbs instead.
+  // Both layouts carry the same controls; WDS's toolbar has a few extra
+  // (Series, Exit, Start) the modern layout reaches through its crumbs.
   const on = (sel, fn) => {
     const el = split.querySelector(sel);
     if (el) el.onclick = fn;
   };
   on('#wds-series', showWiringChassis);
   on('#wds-exit', showChassis);
-  // modern mode's own Back: the F-key bar is hidden on this screen, so the
-  // route out has to be on the toolbar (Esc still works, as it always did)
+  // modern Back: the F-key bar is hidden here, so the route out is on the
+  // toolbar (Esc still works)
   on('#wds-back', showWiringChassis);
   on('#wds-start', () => showWiring(chassisId));
   on('#wds-help', () => showWiringHelp(chassisId));
   on('#wds-print', () => printWiring(chassisId));
-  // "New"/"Clear" empties the search and brings the whole tree back
   on('#wds-new', () => {
     searchEl.value = '';
     searchEl.dispatchEvent(new Event('input'));
   });
   on('#wds-find', () => searchEl.dispatchEvent(new Event('input')));
 
-  // The pane buttons: give the window to the tree, to the document, or share
-  // it. A schematic is very wide, so "document only" is the one that earns
-  // its place -- and the setting sticks, the way WDS remembered it.
+  // The pane buttons: tree, document, or split. The setting sticks the way WDS
+  // remembered it.
   const body = split.querySelector('.wiring-body');
   const setPane = (mode, remember = true) => {
     body.dataset.pane = mode;
     split.querySelectorAll('.wds-pane').forEach((b) =>
       b.classList.toggle('active', b.id === `wds-pane-${mode}`));
-    // An automatic switch (the phone opening a diagram) must not rewrite
-    // the choice the user made on a desktop -- it is the same setting.
+    // an automatic switch (phone opening a diagram) must not overwrite the
+    // choice the user made on desktop -- same setting
     if (remember) Settings.set('wdsPane', mode);
-    // No re-fit here: fitAndPan watches the stage and re-fits on any box
-    // change (pane switch or resize), and unlike fit() from here it leaves a
-    // hand-zoomed view alone instead of snapping it back.
+    // no re-fit here: fitAndPan watches the stage and re-fits on any box change,
+    // leaving a hand-zoomed view alone instead of snapping it back
   };
   on('#wds-pane-doc', () => setPane('doc'));
   on('#wds-pane-split', () => setPane('split'));
@@ -389,9 +355,8 @@ function showWiring(chassisId, openDoc = null) {
   setPane(Settings.get('wdsPane', 'split'));
   tipify(split);
 
-  // Back from the tree leaves wiring; back from a DIAGRAM on a phone returns
-  // to the tree first -- the panes are exclusive there, so leaving outright
-  // would skip a level the user can see they are inside of.
+  // Back from the tree leaves wiring; back from a DIAGRAM on a phone returns to
+  // the tree first -- panes are exclusive there, so leaving would skip a level.
   const leaveWiring = () => {
     if (window.matchMedia('(max-width: 760px)').matches
         && body.dataset.pane === 'doc') {
@@ -409,8 +374,8 @@ function showWiring(chassisId, openDoc = null) {
     sbLeft.textContent = 'wiring';
     sbRight.textContent = `${index.length} documents`;
 
-    // prev/next step through the documents in tree order, which is what they
-    // did in WDS: the flat index IS that order.
+    // prev/next step through documents in tree order (the flat index IS that
+    // order)
     let atIndex = -1;
     const step = (d) => {
       if (!index.length) return;
@@ -420,7 +385,7 @@ function showWiring(chassisId, openDoc = null) {
     on('#wds-prev', () => step(-1));
     on('#wds-next', () => step(1));
 
-    // ---- the tree: folders collapse, leaves open
+    // the tree: folders collapse, leaves open
     const renderTree = (node, parent, depth) => {
       for (const c of node.children || []) {
         if (c.doc) {
@@ -469,7 +434,7 @@ function showWiring(chassisId, openDoc = null) {
     treeEl.innerHTML = '';           // drop the "loading" placeholder
     renderTree(data.tree, treeEl, 0);
 
-    // ---- search: flat results across the whole car, tree hidden while typing
+    // search: flat results across the whole car, tree hidden while typing
     let searchWrap = null;
     searchEl.oninput = () => {
       const q = searchEl.value.trim().toLowerCase();
@@ -495,7 +460,7 @@ function showWiring(chassisId, openDoc = null) {
       sbRight.textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
     };
 
-    // ---- the glossary / signal definition viewer
+    // the glossary / signal definition viewer
     function openGlossary(entry) {
       if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
       viewEl.innerHTML = '';
@@ -569,12 +534,12 @@ function showWiring(chassisId, openDoc = null) {
       setActions(browseActions);
     }
 
-    // ---- the document pane
+    // the document pane
     function openDocument(entry) {
       atIndex = index.findIndex(e => e.doc === entry.doc);
-      // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the
-      // unselected pane, so loading into it means a 0x0 stage and nothing
-      // visible. Switch to it. No-op on desktop (both panes already showing).
+      // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the unselected
+      // pane, so loading into it means a 0x0 stage. Switch to it; no-op on
+      // desktop.
       if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
       const doc = wiringDoc(data, entry.doc);
       viewEl.innerHTML = '';
@@ -595,10 +560,8 @@ function showWiring(chassisId, openDoc = null) {
         const art = document.createElement('article');
         art.className = 'wiring-doc';
         art.innerHTML = doc.text;
-        // The pictures live in the archive, not on a server, so an <img src>
-        // pointing at "img/x.png" resolves to nothing. Hand each one its
-        // bytes as a blob URL instead. Component locations are mostly
-        // photographs, so this is most of what those pages are.
+        // pictures live in the archive, not on a server, so an <img src> of
+        // "img/x.png" resolves to nothing -- hand each one its bytes as a blob
         art.querySelectorAll('img[src^="img/"]').forEach((im) => {
           const path = im.getAttribute('src');
           const bytes = data.files.get(path);
@@ -625,28 +588,26 @@ function showWiring(chassisId, openDoc = null) {
         return;
       }
 
-      // a schematic: drop the SVG in and let it fill the pane, then pan/zoom
+      // a schematic: drop the SVG in, then pan/zoom
       const stage = document.createElement('div');
       stage.className = 'wiring-stage';
       stage.innerHTML = doc.text;
       viewEl.appendChild(stage);
       const svg = stage.querySelector('svg');
       if (svg) {
-        // BMW's per-drawing <title> ("Schaltplan Viewer - Copyright BMW AG
-        // 2004") is an SVG element's tooltip, so hovering popped a copyright
-        // notice. The name is already in the bar, so drop it.
+        // drop BMW's per-drawing <title> ("...Copyright BMW AG 2004"): it's an
+        // SVG tooltip, so hovering popped a copyright notice. Name's in the bar.
         svg.querySelectorAll(':scope > title').forEach((t) => t.remove());
-        // WDS kept zoom buttons in the footer; the modern layout on the bar.
+        // WDS kept zoom buttons in the footer; the modern layout on the bar
         const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
         const zoom = fitAndPan(svg, stage, zoomHost, classic);
-        // zoom keys on the bar, not only the wheel (a trackpad-less machine)
+        // zoom keys on the bar too (a trackpad-less machine)
         setActions([
           { key: '+', keyLabel: '+', label: 'Zoom in', fn: () => zoom.by(1 / 1.3) },
           { key: '-', keyLabel: '-', label: 'Zoom out', fn: () => zoom.by(1.3) },
           { key: '0', keyLabel: '0', label: 'Fit', fn: () => zoom.fit() },
-          // leaveWiring, not showWiringChassis: on a phone the panes are
-          // exclusive, so back from an open diagram returns to the tree
-          // first. On a desktop the two are identical.
+          // leaveWiring, not showWiringChassis: on a phone back from a diagram
+          // returns to the tree first (identical on desktop)
           { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
             fn: leaveWiring },
         ]);
@@ -671,8 +632,7 @@ function showWiring(chassisId, openDoc = null) {
   });
 }
 
-// Zoom and pan by rewriting the viewBox: the SVG stays vector at every
-// scale, and nothing re-renders but the attribute.
+// Zoom and pan by rewriting the viewBox: nothing re-renders but the attribute.
 function fitAndPan(svg, stage, bar, classic = false) {
   let rawVb = svg.getAttribute('viewBox') || svg.getAttribute('viewbox');
   let vb = rawVb ? rawVb.trim().split(/[\s,]+/).map(Number) : [];
@@ -762,8 +722,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
         const fy = Math.max(0, Math.min(1, ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h));
 
         zoomBy(factor, fx, fy);        // around the touch centre
-        // pan with the midpoint's movement
-        const dx = (lastTouchMidX - midX) * k;
+        const dx = (lastTouchMidX - midX) * k;  // pan with the midpoint
         const dy = (lastTouchMidY - midY) * k;
         cur.x += dx;
         cur.y += dy;
@@ -825,7 +784,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
     }
   });
 
-  // on-screen zoom controls, mirroring the F-keys in toolbar
+  // on-screen zoom controls, mirroring the F-keys
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
   [[classic ? '⊕' : '+', 'Zoom in (+ key, or scroll the wheel)', () => zoomBy(1 / 1.3)],
@@ -857,12 +816,10 @@ function fitAndPan(svg, stage, bar, classic = false) {
   return { by: zoomBy, fit };
 }
 
-// Print the DOCUMENT, not the app around it. The print stylesheet hides the
-// chrome; this fills in the caption header the screen itself does not need
-// (the title bar already says it).
-//
-// The zoomed viewBox is deliberately NOT printed: a printout wants the whole
-// circuit. The full drawing is restored for the print and put back after.
+// Print the DOCUMENT, not the app around it (the print stylesheet hides the
+// chrome; this adds the caption header). The zoomed viewBox is NOT printed: a
+// printout wants the whole circuit, so the full drawing is restored then put
+// back after.
 function printWiring(chassisId) {
   const stage = document.querySelector('.wiring-stage');
   const svg = stage && stage.querySelector('svg');
@@ -887,8 +844,8 @@ function printWiring(chassisId) {
     svg.setAttribute('viewBox', svg.dataset.homeViewbox);
   }
   // Clean up ONCE, whichever route gets there first (promise, afterprint, or
-  // the timer for a WKWebView that fires neither). Removing the header while
-  // the print is still laying out the page would corrupt it.
+  // the timer for a WKWebView that fires neither). Removing the header mid-print
+  // would corrupt the page.
   let done = false;
   const cleanup = () => {
     if (done) return;
@@ -902,10 +859,9 @@ function printWiring(chassisId) {
   setTimeout(cleanup, 20000);   // last resort if nothing ever settles
 }
 
-// PRINT THE WEB VIEW, not a re-render of it. window.print() is a no-op inside
-// a WKWebView (no dialog behind it), so the Mac app runs an NSPrintOperation
-// over the live view instead; the browser build's dialog is real. The promise
-// resolves when the panel closes, so the caller can restore header + viewBox.
+// GOTCHA: window.print() is a no-op inside a WKWebView (no dialog behind it), so
+// the Mac app runs an NSPrintOperation over the live view; the browser build's
+// dialog is real. The promise resolves when the panel closes.
 function triggerPrint() {
   if (window.bmacw && typeof window.bmacw.printPage === 'function') {
     return window.bmacw.printPage().catch(() => {});
@@ -914,9 +870,7 @@ function triggerPrint() {
   return Promise.resolve();
 }
 
-// WDS's own Help page, in the terms that apply here: the controls are ours
-// (a wheel and a drag, not Strg+click), but the tree, the search and the
-// document kinds are BMW's and worth explaining once.
+// WDS's own Help page, with our controls (a wheel and a drag, not Strg+click).
 function showWiringHelp(chassisId) {
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
@@ -971,8 +925,7 @@ function showWiringHelp(chassisId) {
                 fn: () => showWiring(chassisId) }]);
 }
 
-// Does this car have wiring data? Cheap enough to ask before drawing a
-// button that would only fail.
+// Does this car have wiring data? Asked before drawing a button that'd fail.
 async function hasWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return true;

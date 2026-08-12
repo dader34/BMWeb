@@ -8,7 +8,6 @@ const JOB_ARGS = {
   DIAGNOSE_MODE:         { fixed: 'DEFAULT' },
   FS_SPERREN:            { prompt: 'Lock fault memory? JA (yes) / NEIN (no)', placeholder: 'NEIN' },
   DIAGNOSEPROTOKOLL_SETZEN: { fixed: 'BMW-FAST' },
-  // CBS reset service codes: br_h=brake fluid, oel=oil, mik=microfilter, zb=plugs
   CBS_RESET:             { prompt: 'CBS service to reset (br_h=brake fluid, oel=oil, mik=microfilter)', placeholder: 'oel', suffix: ';100;1;0;0;0x8000;1;0;0' },
 };
 
@@ -39,15 +38,13 @@ function promptDialog({ title, body, placeholder = '', value = '' }) {
   });
 }
 
-// fetch a job's declared arguments from the SGBD (_ARGUMENTS). returns the list
-// of {ARG, ARGTYPE, ARGCOMMENT0..} rows, or [] if the job takes none / on error.
+// fetch a job's declared _ARGUMENTS from the SGBD; [] if none / on error.
 async function fetchJobArgs(ecu, job) {
   try {
     const d = await api(`/api/ecu/${ecu.sgbd}/arguments/${encodeURIComponent(job)}`);
     const specs = (d.arguments || []).filter(a => a.ARG); // header row has no ARG
-    // An argument documented "table BITS NAME TEXT" takes its legal values from
-    // that SGBD table (NAME to send, TEXT the label) — the SGBD's own
-    // convention, so it resolves for any ECU.
+    // an arg documented "table BITS NAME TEXT" draws its values from that SGBD
+    // table (NAME to send, TEXT the label)
     await Promise.all(specs.map(async (a) => {
       const ref = Object.keys(a).filter(k => /^ARGCOMMENT\d+$/.test(k))
         .map(k => /\btable\s+(\w+)\s+(\w+)\s+(\w+)/i.exec(a[k] || ''))
@@ -64,9 +61,8 @@ async function fetchJobArgs(ecu, job) {
   } catch { return []; }
 }
 
-// group table-backed options by the first word of their label, the way INPA
-// groups its Activate screen. Groups of one collapse into an "Other" bucket so
-// the list does not become a run of single-item headings.
+// group table-backed options by the first word of their label (INPA's Activate
+// layout). Groups of one collapse into an "Other" bucket.
 function optGroupHtml(options, tr) {
   const groups = new Map();
   options.forEach(o => {
@@ -102,19 +98,15 @@ function argsDialog(job, argSpecs) {
       // enumerated values: ARGCOMMENT0/1/2 each a quoted token
       const enumVals = Object.keys(a).filter(k => /^ARGCOMMENT\d+$/.test(k))
         .map(k => a[k]).filter(v => /^'.*'$/.test(v)).map(v => v.replace(/^'|'$/g, ''));
-      // values the SGBD spelled out in a table beat guessing from comments
+      // a value the SGBD spelled out in a table beats guessing from comments
       const tableOpts = a._options || [];
       const isEnum = tableOpts.length > 0 || (enumVals.length >= 2 && a.ARGTYPE === 'string');
       const isBinary = a.ARGTYPE === 'binary';
-      // arg name comes from the SGBD in German (ZEIT, DAUER); humanize + translate
       const argName = tr(humanizeKey(a.ARG));
       const label = `${esc(argName)} <span class="arg-type">(${esc(a.ARGTYPE || 'string')})</span>`;
       let note = !isEnum && hint ? `<div class="arg-hint">${esc(hint)}</div>` : '';
       if (isBinary) note += `<div class="arg-warn">Binary argument: enter raw hex (e.g. <span class="mono">01 00 0A ...</span>). Must be a valid pre-built buffer for this job, or it may fail or harm the ECU.</div>`;
       const placeholder = isBinary ? 'hex bytes, e.g. 01 00 0A' : (a.ARGTYPE === 'int' ? '0' : '');
-      // group by the label's leading noun, matching the grouping the ECU's own
-      // wording implies (Schalter, Motor, Tuerkontakt) — same shape as INPA's
-      // Activate screen, without inventing a taxonomy.
       const optHtml = tableOpts.length
         ? optGroupHtml(tableOpts, tr)
         : enumVals.map(v => `<option>${esc(v)}</option>`).join('');
@@ -143,7 +135,7 @@ function argsDialog(job, argSpecs) {
     const fields = [...overlay.querySelectorAll('.arg-field')];
     const collect = () => fields.map(f => {
       let v = f.value.trim();
-      // binary args: normalize hex to a compact "0xAABBCC" form EDIABAS accepts
+      // binary args: normalize hex to the "0xAABBCC" form EDIABAS accepts
       if (f.dataset.binary === '1' && v) {
         const hex = v.replace(/0x/gi, '').replace(/[^0-9a-fA-F]/g, '');
         v = hex ? '0x' + hex.toUpperCase() : '';
@@ -156,19 +148,11 @@ function argsDialog(job, argSpecs) {
   });
 }
 
-// THE ECU'S SECOND FAULT STORE. Shadow memory holds entries that have not
-// (yet) met the criteria to become an active fault, and it survives a clear
-// of the main memory -- which is exactly what makes it worth reading: it is
-// the store that is still there after someone clears codes before a sale.
-//
-// Three job names for the one thing, which is why looking for a single name
-// finds less than half of them: FS_SHADOW_LESEN (17 SGBDs -- BMS43/46,
-// MS41x/42x/43x, MSS52, DME 5.2x, DDE22/40, SMG2), FS_LESEN_SHADOW (11 --
-// the newer DDEs) and READ_SHADOW (4 -- E65 tailgate modules).
-//
-// EDIABAS decodes it with decode_shadow_memory_kwp2000, which emits the same
-// eleven F_* results as the normal decoder (B2BMW.CHM), so renderFaults
-// handles it unchanged.
+// The ECU's second fault store: shadow memory survives a clear of the main
+// memory, so it's what's still there after someone clears codes before a sale.
+// Three job names for the one thing (a single-name search misses most):
+// FS_SHADOW_LESEN, FS_LESEN_SHADOW (newer DDEs), READ_SHADOW (E65 tailgate).
+// Decodes to the same F_* results as a normal read, so renderFaults handles it.
 const SHADOW_JOB_RE = /^(FS_SHADOW_LESEN|FS_LESEN_SHADOW|READ_SHADOW)$/i;
 const isShadowJob = (job) => SHADOW_JOB_RE.test(String(job || ''));
 
@@ -178,8 +162,8 @@ async function runJob(ecu, job, container, danger, presetArg) {
   if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL' || isShadowJob(job)) {
     loadFaultDb(); // warm the name db
   }
-  // resolve a required argument first. hand-tuned JOB_ARGS overrides win (they
-  // encode special encodings like CBS_RESET's tail); otherwise ask the SGBD.
+  // hand-tuned JOB_ARGS overrides win (they encode specials like CBS_RESET's
+  // tail); otherwise ask the SGBD.
   let arg = presetArg;
   const spec = JOB_ARGS[job];
   if (arg == null && spec) {
@@ -198,9 +182,8 @@ async function runJob(ecu, job, container, danger, presetArg) {
   }
   if (danger) {
     const isClear = job === 'FS_LOESCHEN';
-    // describe what the job actually does — not everything flagged is a write.
-    // flash-session reads are cautioned because they can disrupt a programming
-    // sequence, not because they change anything.
+    // describe what the job actually does — not everything flagged is a write
+    // (a flash-session read is cautioned for disrupting a sequence, not writing).
     const j = job.toUpperCase();
     let effect;
     if (/LESEN/.test(j) && /FLASH|AUTHENTIS|SIGNATUR|CRC|PRUEF/.test(j))
@@ -229,10 +212,8 @@ async function runJob(ecu, job, container, danger, presetArg) {
   try {
     let q = arg != null && arg !== '' ? `?arg=${encodeURIComponent(arg)}` : '';
     // fault jobs load via the diagnostic-address group so EDIABAS picks the exact
-    // variant (see server LoadForJob); other jobs stay on the concrete SGBD.
-    // ...and a shadow read is a fault read: READ_SHADOW does not start FS_,
-    // so without this the E65 tailgate modules would miss the group routing
-    // every other fault job gets.
+    // variant (see server LoadForJob). isShadowJob too: READ_SHADOW is a fault
+    // read but does not start FS_, so it needs the same routing.
     if (ecu.group && (/^FS_/.test(job) || isShadowJob(job))) {
       q += `${q ? '&' : '?'}group=${encodeURIComponent(ecu.group)}`;
     }
@@ -241,16 +222,14 @@ async function runJob(ecu, job, container, danger, presetArg) {
       const codes = data.sets.slice(1); // set 0 = system summary
       await loadFaultDb(); // names resolve synchronously in the render
       renderFaults(codes, container, ecu);
-      // say WHICH store this was: a shadow read showing 0 is a different
-      // statement from the main memory showing 0, and the two are easy to
-      // confuse once the cards look identical.
+      // say WHICH store: a shadow read showing 0 is a different statement from
+      // the main memory showing 0, easy to confuse once the cards look identical.
       sbLeft.textContent = isShadowJob(job)
         ? `shadow memory · ${codes.length} entr${codes.length === 1 ? 'y' : 'ies'}`
         : `${codes.length} fault(s)`;
     } else if (job === 'FS_LOESCHEN') {
-      // INPA reruns the read after a clear; do the same rather than asking
-      // the user to. A fault that re-set the moment the ECU saw it again
-      // shows immediately instead of hiding behind "cleared".
+      // INPA re-reads after a clear; do the same, so a fault that re-set
+      // immediately shows instead of hiding behind "cleared".
       container.innerHTML = `<div class="empty"><span class="loader"></span><span>Cleared · re-reading…</span></div>`;
       try {
         const rq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
@@ -275,10 +254,8 @@ async function runJob(ecu, job, container, danger, presetArg) {
   }
 }
 
-// INPA displays a fixed window of 10 values per screen page (2 columns x 5
-// rows). When a screen holds more, INPA shows a single green scroll arrow in the
-// bottom-right: it points DOWN while more rows lie below, and flips to UP once
-// you reach the last page (then pages back up). This mirrors that exactly.
+// INPA shows 10 values per page (2 cols x 5 rows) with a single scroll arrow
+// bottom-right: DOWN while more rows lie below, flips to UP on the last page.
 const INPA_PAGE_ROWS = 10;
 
 // attach an INPA page-arrow to a live gauge grid. `orderedKeys()` returns the
@@ -291,20 +268,16 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
   panel.appendChild(arrow);
   let page = 0;
 
-  // how many cells fit the visible area. INPA's 10 is the ceiling, but a short
-  // window (or tall rows) must page sooner rather than scroll.
+  // how many cells fit the visible area (INPA's 10 is the ceiling; short/tall
+  // windows page sooner rather than scroll).
   function perPage() {
     const cells = orderedKeys().map(cellFor).filter(Boolean);
     if (!cells.length) return INPA_PAGE_ROWS;
-    // measure the TALLEST cell, not the first: a row carrying a [unit] line and
-    // a bar is taller than a text-only one, and sizing off a short cell
-    // overfills the page
+    // measure the TALLEST cell: sizing off a short one overfills the page
     const h = Math.max(...cells.map(c => c.offsetHeight || 0));
     if (!h) return INPA_PAGE_ROWS;
     const cols = grid.classList.contains('two-col') ? 2 : 1;
-    // measure the real footer rather than assuming its height: the F-key bar is
-    // 52px and the pager arrow needs ~34 more, so a fixed 70 clips the last row
-    // on pages that cannot scroll
+    // measure the real footer: a fixed 70 clips the last row on unscrollable pages
     const bar = document.querySelector('.fkeybar');
     const footer = (bar ? bar.getBoundingClientRect().height : 52) + 40;
     const avail = grid.getBoundingClientRect
@@ -312,8 +285,8 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
     if (avail <= 0) return INPA_PAGE_ROWS;
     const rows = Math.max(1, Math.floor(avail / h));
     let per = Math.max(cols, Math.min(INPA_PAGE_ROWS, rows * cols));
-    // avoid a last page holding one or two stragglers: spread the values evenly
-    // across the pages they need instead (17 over 3 pages -> 6+6+5, not 8+8+1)
+    // spread evenly rather than leaving stragglers on the last page
+    // (17 over 3 pages -> 6+6+5, not 8+8+1)
     const total = cells.length;
     if (total > per) {
       const pageCount = Math.ceil(total / per);
@@ -343,8 +316,7 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
       atBottom ? 'Previous page' : 'Next page');
     arrow.title = `Page ${page + 1} / ${n}`;
   }
-  // the arrow flips direction at the last page, so a click always advances then
-  // walks back up — matching INPA's single-arrow pager
+  // click advances, then walks back up from the last page (INPA's single arrow)
   arrow.onclick = () => {
     const n = pages();
     page = (page >= n - 1) ? Math.max(0, page - 1) : page + 1;
@@ -352,8 +324,7 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
     grid.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   };
 
-  // arrow keys page too. Up/Down move absolutely (not the arrow's flip
-  // behaviour), which is what a keyboard user expects.
+  // arrow keys page too, moving absolutely (not the click's flip behaviour)
   const onKey = (e) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     if (!panel.isConnected) { window.removeEventListener('keydown', onKey); return; }
@@ -370,14 +341,11 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
     arrow.classList.remove('flash'); void arrow.offsetWidth; arrow.classList.add('flash');
   };
   window.addEventListener('keydown', onKey);
-  // perPage() measures rendered cell height, which is 0 until the browser has
-  // laid the cells out — and cells keep arriving, since each job answers on its
-  // own tick. Re-measure on the next frame so the page size (and whether the
-  // arrow is needed at all) reflects what is actually on screen.
+  // perPage() reads cell height, which is 0 until layout; cells also keep
+  // arriving. Re-measure next frame so the page size reflects the real screen.
   const remeasure = () => requestAnimationFrame(() => {
     if (panel.isConnected) relayout();
   });
-  // a resize changes how many rows fit, so re-page rather than start scrolling
   const onResize = () => {
     if (!panel.isConnected) { window.removeEventListener('resize', onResize); return; }
     relayout();
@@ -392,17 +360,14 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
   };
 }
 
-// INPA F-key status category: the screens behind one F-key, merged into a
-// single paged grid. The statusTree gives every block its own F-key, so there
-// is no second on-screen tab strip — the footer keys are the only selector,
-// exactly like INPA.
+// INPA F-key status category: the screens behind one F-key, merged into one
+// paged grid.
 function showInpaCategory(ecu, screens, container, title) {
   showInpaScreens(ecu, screens, container, title);
 }
 
-// Fill a row's missing unit/range from INPA's own gauge declaration. Rows that
-// already carry one keep it: a hand-verified layout outranks a decode, and the
-// specs deliberately omit gauges whose sign the bytecode does not record.
+// Fill a row's missing unit/range from INPA's gauge declaration. A row that
+// already carries one keeps it: a hand-verified layout outranks a decode.
 function applyGaugeSpecs(ecu, screens) {
   const specs = (ecu._layout && ecu._layout.gaugeSpecs) || [];
   if (!specs.length) return screens;
@@ -424,15 +389,10 @@ function applyGaugeSpecs(ecu, screens) {
   }));
 }
 
-// One INPA screen that is genuinely a TABLE: a header row, then one row per
-// pass of the same job. RDC's WE-Telegramm is five wheels x seven values, and
-// INPA prints it as a grid with the columns lined up -- which is how you read
-// four wheels against each other at a glance. Flattening it into 35 stacked
-// readouts loses exactly the thing the layout is for.
-//
-// Each row is its own read (the job takes the index as its argument), so the
-// poller walks `polls` and fills that row. A pass that fails leaves its row
-// showing the last value rather than blanking the table.
+// An INPA screen that is genuinely a TABLE: a header row, then one row per pass
+// of the same job (RDC's WE-Telegramm, 5 wheels x 7 values). Each row is its own
+// read keyed by index arg, so the poller walks `polls`; a failed pass keeps its
+// last value rather than blanking the row.
 async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
   const t = scr.table;
   const polls = scr.polls || [{ job: scr.job, args: scr.args || '' }];
@@ -472,9 +432,8 @@ async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
         const cell = cellAt(r, c);
         if (!cell || !key || !vals.has(key)) return;
         const raw = vals.get(key);
-        // The unit belongs to the column (the heading), not the cell: a bare
-        // `${key}_EINH` lookup returned the neighbouring row's "%" for RDC's
-        // pressures.
+        // the unit belongs to the column heading, not the cell: a bare
+        // `${key}_EINH` lookup returned the neighbouring row's "%" for RDC pressures
         const shown = String(raw);
         if (cell.textContent !== shown) { cell.textContent = shown; flash(cell); }
       });
@@ -499,18 +458,16 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
   title = title || (screens.length === 1
     ? (deGerman(screens[0].group) || jobLabel(screens[0].job))
     : `${screens.length} readouts`);
-  // a merged category always pairs off into two columns; a lone screen honours
-  // its own layout (columns:2 = Bank 1 / Bank 2). Also go two-wide when one
-  // screen has more rows than fit a page, so values aren't paged away while
-  // half the screen sits empty.
+  // merged category -> two columns; a lone screen honours its own layout
+  // (columns:2 = Bank 1 / Bank 2). Go two-wide too when one screen overflows a
+  // page, so values aren't paged away while half the screen sits empty.
   const rowCount = screens.reduce((n, s) => n + ((s.rows || []).length), 0);
   const twoCol = screens.length > 1
     || (screens[0] && screens[0].columns === 2)
     || rowCount > INPA_PAGE_ROWS / 2;
 
-  // no live dot, no Stop button in either mode — leaving the screen stops the
-  // polling (setActions -> stopLive), like INPA. INPA mode draws values straight
-  // on the window (bare); modern mode keeps the panel.
+  // no Stop button: leaving the screen stops polling (setActions -> stopLive),
+  // like INPA. INPA mode draws bare on the window; modern mode keeps the panel.
   container.className = 'live-panel inpa-screen' + (inpaMode() ? ' bare' : '');
   container.innerHTML = `
     <div class="live-head">
@@ -525,13 +482,9 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
 
   const cellEls = new Map();  // "job:key" -> cell
   const keyOrder = [];
-  // A SCREEN INPA DRAWS AS A TABLE renders as one, not as N stacked pages.
-  // RDC's WE-Telegramm reads the same seven values once per wheel; the IR
-  // carries the column layout, so draw the grid and fill it per pass.
-  //
-  // BEFORE THE PAGER, deliberately. That pages `cellEls`, which a table never
-  // fills, so attaching it first left an empty green box with no arrow in it
-  // and nothing to scroll.
+  // A table screen renders as a grid, not N stacked pages. BEFORE THE PAGER,
+  // deliberately: the pager pages `cellEls`, which a table never fills, so
+  // attaching it first left an empty box with no arrow and nothing to scroll.
   const tableScr = screens.find(s => s.table);
   if (tableScr && screens.length === 1) {
     return showInpaTable(ecu, tableScr, container, title, meta, grid, liveTok);
@@ -558,27 +511,19 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
       for (const r of gridOrder(scr)) {
         ri++;
         if (!vals.has(r.key)) continue;
-        // A cell is one drawn ROW, not one job's answer. INPA draws the same
-        // result under several captions on one screen (KOMBI prints
-        // STAT_U_BATT_WERT as clamp 30, 58g HIGH and 58g LOW), so the caption
-        // is part of the identity -- but the screen's jobs are NOT: every job
-        // carries the whole row list and answers its own subset, so keying by
-        // job would draw one cell per job that happens to return the key.
+        // A cell is one drawn ROW, not one job's answer: INPA draws the same
+        // result under several captions (KOMBI shows STAT_U_BATT_WERT as clamp
+        // 30, 58g HIGH, 58g LOW), so the caption is part of the identity. Keying
+        // by job would draw one cell per job that returns the key.
         const ck = `${r.key}:${r.arg || ''}:${r.label || ''}:${ri}`;
-        // INPA lets the ECU word some captions itself via a _TEXT result;
-        // prefer that over our own label. But the same _TEXT can carry a STATE
-        // word ("aktiv", "aus"), which is not a caption -- letting it win put
-        // "AKTIV" where INPA prints "Muster SchubAbschaltung" -- so keep ours
-        // for state words and when the read is empty.
+        // prefer an ECU-worded _TEXT caption, but a _TEXT can carry a STATE word
+        // ("aktiv") that is not a caption — keep ours for state words and empties.
         const live = r.captionKey ? String(vals.get(r.captionKey) ?? '').trim() : '';
         const caption = (live && !IR_STATE_WORD.test(live) ? deGerman(live) : '')
           || deGerman(r.label) || r.key;
-        // The ECU ships the unit beside the value: EDIABAS pairs every
-        // STAT_x_WERT with a STAT_x_EINH holding its unit ("°CRK", "%"). r.unit
-        // only carries the .IPO's literal "[rpm]" text, which most screens omit
-        // (MSD80's whole VANOS page declares none), so fall back to the ECU's
-        // own answer. A LAMP HAS NO UNIT -- it is on/off, so a "[%]" over it is
-        // nonsense whatever _EINH says (MSD80's REAL VALUE read "[%] ● on").
+        // unit: r.unit is the .IPO's literal "[rpm]", which most screens omit, so
+        // fall back to the ECU's STAT_x_EINH. A LAMP has NO unit — it's on/off,
+        // so "[%]" over it is nonsense whatever _EINH says.
         const unit = r.kind === 'lamp'
           ? null : (r.unit || irUnitFor(r.key, vals));
         let cell = cellEls.get(ck);
@@ -597,40 +542,34 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
     if (added) pager.relayout();
     if (alive) {
-      // Only what is actually on screen. The "of N" half was a prediction --
-      // rows the ECU never answers, or one page counted once per job -- and
-      // reporting a number the screen then contradicts is worse than none.
+      // count only what is on screen: an "of N" prediction the screen then
+      // contradicts is worse than none.
       meta.textContent = (demoMode() ? 'DEMO · ' : 'live · ')
         + `${cellEls.size} value${cellEls.size === 1 ? '' : 's'}`;
       meta.classList.toggle('demo', demoMode());
       sbLeft.textContent = `${screens.map(s => s.job).join(', ').slice(0, 60)} · live`;
     } else if (cellEls.size === 0) {
-      // nothing ever rendered (e.g. no cable): show the error instead of
-      // spinning on "connecting…" forever
+      // nothing ever rendered (e.g. no cable): show the error, don't spin forever
       stopLive(); container.className = 'results-panel';
       container.innerHTML = errorBlock(lastErr && lastErr.message); sbLeft.textContent = 'failed';
     } else {
-      // had values, now every screen fails: keep the last reading on screen but
-      // stop claiming it's live
+      // had values, now every screen fails: keep the last reading, stop claiming live
       meta.textContent = 'no response';
       sbLeft.textContent = 'no response';
     }
   }
   await tick();
-  // THE DOM IS THE STALENESS TEST, NOT THE TOKEN. Callers start the live view
-  // then call setActions (for Back), which begins with stopLive() and bumps the
-  // token -- while this first tick is still awaiting its first api() call. So a
-  // liveTok===_liveToken guard here would never hold and the screen would paint
-  // once and freeze. The DOM check is safe: if the user navigated away this
-  // container no longer holds the grid, and scheduleLive re-reads the token for
-  // every later tick, so a real stopLive() during steady-state still stops it.
+  // THE DOM IS THE STALENESS TEST, NOT THE TOKEN. setActions (for Back) calls
+  // stopLive() and bumps the token while this first tick still awaits api(), so
+  // a liveTok===_liveToken guard would never hold and the screen would freeze.
+  // The DOM check is safe: navigating away removes the grid, and scheduleLive
+  // re-reads the token every later tick so a steady-state stopLive() still stops.
   if (container.querySelector('.inpa-grid')) scheduleLive(tick);
 }
 
-// Screen rows in the order INPA actually draws them. When the .IPO decode gave
-// us a grid, it carries the true row/column of every value,
-// so reading-order becomes row-major — which is what makes bank 1 / bank 2 line
-// up as pairs. Without a grid, or outside INPA mode, the layout order stands.
+// Screen rows in INPA's draw order. A decoded grid carries each value's true
+// row/col, so ordering goes row-major (this is what pairs bank 1 / bank 2).
+// Without a grid, or outside INPA mode, the layout order stands.
 function gridOrder(scr) {
   const rows = scr.rows || [];
   if (!inpaMode() || !scr.grid || !Array.isArray(scr.grid.cells)) return rows;
@@ -650,28 +589,22 @@ const BOOL_ON = /^(ein|on|aktiv|active|ja|yes|1|betaetigt|gedrueckt|vorhanden)$/
 const BOOL_OFF = /^(aus|off|nicht aktiv|not active|inaktiv|nein|no|0|nicht betaetigt|nicht vorhanden|not present)$/i;
 function boolGlyph(raw) {
   const s = String(raw == null ? '' : raw).trim();
-  // a bare 0/1 IS the state, not a word for it: printing the digit beside the
-  // glyph gave "○ 0" where every neighbouring row read "○ off"
+  // a bare 0/1 IS the state: printing the digit gave "○ 0" beside rows of "○ off"
   if (/^[01]$/.test(s)) return { on: s === '1', text: s === '1' ? 'on' : 'off' };
   if (BOOL_ON.test(s)) return { on: true, text: deGerman(s) || s };
   if (BOOL_OFF.test(s)) return { on: false, text: deGerman(s) || s };
   return null;
 }
 
-// render a boolean as INPA's lamp, in BOTH themes. It was INPA-mode-only, and
-// the modern layout then showed the raw value instead -- fine for a word
-// ("aktiv") but not for the bare 0/1 an OBD readiness flag returns, which
-// reads as a measurement. Returns false if the value isn't a boolean, so the
-// caller falls back to plain text.
+// render a boolean as INPA's lamp, in BOTH themes (a bare 0/1 OBD readiness
+// flag reads as a measurement otherwise). Returns false if not a boolean.
 function setBoolCell(cellEl, valEl, raw, rowSpec) {
   const b = boolGlyph(raw);
   if (!b) { cellEl.classList.remove('bool'); return false; }
   cellEl.classList.add('bool');
   cellEl.classList.remove('text-only');
-  // INPA prints its OWN words for a lamp, declared beside it in the .IPO:
-  // MS450's cruise-control buttons say EIN/AUS. Showing whatever word the ECU
-  // returned instead left one screen reading "ready", "active" and "not
-  // active" for four rows that INPA renders identically.
+  // prefer the lamp's OWN .IPO word (MS450's CC buttons say EIN/AUS) over the
+  // ECU's return, else four identical rows read "ready"/"active"/"not active".
   const own = rowSpec && (b.on ? rowSpec.on : rowSpec.off);
   const text = own ? (deGerman(own) || own) : b.text;
   const shown = `${b.on ? '●' : '○'} ${text}`;
@@ -685,35 +618,29 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   const p = parseMeasurement(raw);
   const valEl = cellEl.querySelector('.gauge-val');
   if (p.num === null) {
-    // a state word, not a number: the ECU says "ein"/"nicht aktiv", so it needs
-    // the same translation the labels get (deGerman is a no-op in EDIABAS mode)
+    // a state word ("ein"/"nicht aktiv"): translate it like a label
     if (setBoolCell(cellEl, valEl, p.raw, rowSpec)) return;
     const text = deGerman(p.raw) || p.raw;
     cellEl.classList.add('text-only');
     if (valEl.textContent !== text) { valEl.textContent = text; flash(valEl); }
     return;
   }
-  // a row INPA prints as text stays text even when the value parses as a
-  // number: coding counts, gear positions and part numbers are not
-  // measurements, and a bar with an invented 0..50 range implies a scale the
-  // ECU never declared. `kind` comes from the decoded screen -- INPA drew it
-  // with textout, not analogout.
+  // a row INPA drew with textout stays text even when the value parses numeric:
+  // coding counts, gears and part numbers aren't measurements, and a bar implies
+  // a scale the ECU never declared.
   if (rowSpec.kind === 'value' || rowSpec.kind === 'text') {
     cellEl.classList.add('text-only');
     const t = String(p.raw).trim();
     if (valEl.textContent !== t) { valEl.textContent = t; flash(valEl); }
     return;
   }
-  // A LAMP is an indicator, never a measurement: INPA drew it with digitalout,
-  // which has no scale. Falling through invented a 0..100 range and drew DWA4's
-  // "with tilt alarm sensor" -- a yes/no coding flag -- as a bar sitting at 34.
+  // A LAMP is an indicator, never a measurement (INPA drew it with digitalout,
+  // no scale): falling through drew DWA4's yes/no tilt flag as a bar at 34.
   if (rowSpec.kind === 'lamp') {
     if (setBoolCell(cellEl, valEl, p.raw, rowSpec)) return;
-    // A number here means an unmapped state; showing it bare ("HOOD / RADIO 94")
-    // reads as a measurement, which a lamp never is. Non-zero = on (what
-    // digitalout tests). NOT gated on inpaMode(): the theme decides how a lamp
-    // LOOKS, never whether it is a lamp -- gating it made the modern theme draw
-    // MSD80's OBD readiness page as "48 / 46 / 44" instead of on/off.
+    // an unmapped numeric state: non-zero = on (what digitalout tests). NOT
+    // gated on inpaMode() — the theme decides how a lamp looks, not whether it
+    // is one; gating drew MSD80's readiness page as "48 / 46 / 44".
     if (p.num !== null) {
       cellEl.classList.add('bool');
       cellEl.classList.remove('text-only');
@@ -727,11 +654,9 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     return;
   }
   cellEl.classList.remove('text-only');
-  // A range INPA DECLARED is the instrument's scale, not a hint: analogout
-  // carries it, and INPA keeps the scale fixed and lets the bar sit full when
-  // a reading runs past it. Widening to fit turned MS450's rough-running bars
-  // (0..8, warning at 5) into 0..24 and 0..27 -- every bar pinned, and the
-  // number that matters, how far past 8 the cylinder is, invisible.
+  // A range INPA DECLARED (analogout) is the fixed scale, not a hint: widening
+  // it turned MS450's rough-running bars (0..8, warn at 5) into 0..24, every bar
+  // pinned and the number that matters — how far past 8 — invisible.
   const declared = rowSpec.min != null && rowSpec.max != null;
   let min = rowSpec.min, max = rowSpec.max;
   if (min == null || max == null) {
@@ -739,17 +664,14 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     if (min == null) min = r[0];
     if (max == null) max = r[1];
   }
-  // ...but a GUESSED range is only a guess, so it still grows to fit rather
-  // than clipping a reading it never anticipated.
+  // a GUESSED range still grows to fit rather than clip an unanticipated reading
   if (!declared) {
     if (p.num < min) min = p.num;
     if (p.num > max) max = p.num;
   }
-  // DEMO values are synthesized from the result's UNIT (the server can't see
-  // the IR's declared scale), so an unmatched unit gets a generic `i % 100`
-  // that lands off its own axis. Fold it into the declared span so the bar
-  // demonstrates the real scale. Never touches a live reading -- a real value
-  // past its scale is a fact worth seeing pinned.
+  // demo values are synthesized from the UNIT alone, so an unmatched unit lands
+  // off-axis; fold it into the declared span. Never touches a live reading — a
+  // real value past its scale is worth seeing pinned.
   if (declared && demoMode() && (p.num < min || p.num > max)) {
     const span0 = (max - min) || 1;
     p.num = +(min + span0 * (((Math.abs(p.num) % 70) + 15) / 100)).toFixed(1);
@@ -758,11 +680,9 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   const pct = Math.max(0, Math.min(100, ((p.num - min) / span) * 100));
   const track = cellEl.querySelector('.gauge-track');
   cellEl.querySelector('.gauge-fill').style.width = pct.toFixed(1) + '%';
-  // INPA's bar is two-toned: the band analogout declares good is green, the
-  // rest of the scale red. That boundary IS the reading -- MS450's rough
-  // running is green to 5 and red on to 8, so a cylinder's misfire count
-  // means nothing without knowing where 5 falls. Painted on the track, so
-  // the fill drawn over it is unaffected.
+  // INPA's bar is two-toned: analogout's "good" band green, the rest red. That
+  // boundary IS the reading (MS450 green to 5, red to 8). Painted on the track
+  // so the fill over it is unaffected.
   if (rowSpec.okMin != null && rowSpec.okMax != null) {
     const at = (v) => Math.max(0, Math.min(100, ((v - min) / span) * 100));
     const a = at(rowSpec.okMin), b = at(rowSpec.okMax);
@@ -771,14 +691,12 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
       + `${r} 0 ${a.toFixed(1)}%, ${g} ${a.toFixed(1)}% ${b.toFixed(1)}%,`
       + `${r} ${b.toFixed(1)}% 100%)`;
     track.classList.add('zoned');
-    // INPA prints every colour boundary on the axis, not just one (its VANOS
-    // gauge reads "110 111 ... 135 140": scale ends plus both band edges).
+    // INPA prints every colour boundary on the axis, not just one
     setEdge(cellEl, '.gauge-ok-lo', rowSpec.okMin, min, max, at);
     setEdge(cellEl, '.gauge-ok-hi', rowSpec.okMax, min, max, at);
   } else if (declared) {
-    // A declared scale with no band is a plain INPA bar: all green, no
-    // threshold. It still must not draw the solid fill, which read as a
-    // black bar sitting over half the gauge.
+    // declared scale, no band: plain all-green bar. Still must not draw the
+    // solid fill, which read as a black bar over half the gauge.
     track.style.background = 'var(--gauge-ok)';
     track.classList.add('zoned');
     clearEdges(cellEl);
@@ -789,16 +707,15 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   }
   cellEl.querySelector('.gauge-min').textContent = fmtRange(min);
   cellEl.querySelector('.gauge-max').textContent = fmtRange(max);
-  // the unit already has its own "[V]" line, so the value stays a bare number
-  // (INPA prints "0.73", not "0.73 V"); only an unmapped runtime unit is appended
+  // unit already has its own "[V]" line, so keep a bare number; only an
+  // unmapped runtime unit is appended
   const shown = rowSpec.unit ? String(p.num) : `${p.num}${p.unit ? ' ' + p.unit : ''}`;
   if (valEl.textContent !== shown) { valEl.textContent = shown; flash(valEl); }
 }
 
-// self-scheduling live loop: each tick runs to completion (a real K-line
-// transaction) before the next is queued ~1s later, so slow reads never pile up
-// the way setInterval ticks did. stopLive() bumps the token, which also stops
-// any in-flight tick from rescheduling.
+// self-scheduling live loop: each tick completes before the next is queued ~1s
+// later, so slow reads never pile up. stopLive() bumps the token, which also
+// stops any in-flight tick from rescheduling.
 let liveTimer = null;   // pending setTimeout handle for the next tick
 let _liveToken = 0;
 function stopLive() { _liveToken++; if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; } }
@@ -831,8 +748,7 @@ function highlightWatched(view, jobs) {
   if (jobs) jobs.forEach((j) => map.get(j)?.classList.add('watching'));
 }
 
-// INPA's measurement row: the label, the unit in brackets on its own line, then
-// the bar with the value to its RIGHT and the scale ends tucked beneath it.
+// INPA's measurement row: label, unit in brackets, bar with value to the right.
 function gaugeCellHTML(key, unit) {
   return `
     <div class="live-k" title="${esc(key)}">${esc(key)}</div>
@@ -851,14 +767,12 @@ function gaugeCellHTML(key, unit) {
     </div>`;
 }
 
-// one band edge on the axis, positioned where the colours meet. An edge that
-// coincides with a scale end is left blank -- that number is already printed.
+// one band edge on the axis, where the colours meet. An edge within ~8% of a
+// scale end collides with the number printed there (MS450's band starts at 111
+// on 110..140), so leave it unlabelled — the colour change still shows it.
 function setEdge(cellEl, sel, v, min, max, at) {
   const el = cellEl.querySelector(sel);
   if (!el) return;
-  // An edge within ~8% of a scale end collides with the number printed there
-  // (MS450's band starts at 111 on a 110..140 scale), so leave it unlabelled --
-  // the band is still visible as the colour change. INPA has the same collision.
   const p = v == null ? null : at(v);
   const show = v != null && v > min && v < max && p > 8 && p < 92;
   const t = show ? fmtRange(v) : '';
@@ -877,8 +791,7 @@ function clearEdges(cellEl) {
 function updateGauge(cellEl, key, raw) {
   const p = parseMeasurement(raw);
   const valEl = cellEl.querySelector('.gauge-val');
-  // non-numeric: a state word ("ein", "nicht aktiv") — translate it like a
-  // label, hide the bar
+  // non-numeric state word ("ein", "nicht aktiv"): translate, hide the bar
   if (p.num === null) {
     if (setBoolCell(cellEl, valEl, p.raw)) return;
     const text = deGerman(p.raw) || p.raw;
@@ -900,7 +813,7 @@ function updateGauge(cellEl, key, raw) {
   fill.style.width = pct.toFixed(1) + '%';
   cellEl.querySelector('.gauge-min').textContent = fmtRange(min);
   cellEl.querySelector('.gauge-max').textContent = fmtRange(max);
-  // round long decimals for display (e.g. 8.969696969 -> 8.97), keep the unit
+  // round long decimals (8.969696 -> 8.97), keep the unit
   const numStr = Number.isInteger(p.num) ? String(p.num)
     : (Math.abs(p.num) >= 100 ? p.num.toFixed(1) : p.num.toFixed(2));
   const shown = p.unit ? `${numStr} ${p.unit}` : numStr;
@@ -920,7 +833,6 @@ async function watchMulti(ecu, jobs, container, view) {
   const liveTok = _liveToken;
   highlightWatched(view, jobs);
 
-  // INPA mode pages the watch grid 10-at-a-time like a real INPA screen
   const paged = typeof inpaMode === 'function' && inpaMode();
 
   // build the panel once; ticks only update value cells (no flicker)
@@ -989,7 +901,7 @@ async function watchMulti(ecu, jobs, container, view) {
       meta.textContent = 'read failed';
       return;
     }
-    // pair value+unit (STAT_x_WERT + STAT_x_EINH -> one reading), humanize key
+    // pair value+unit (STAT_x_WERT + STAT_x_EINH -> one reading)
     const entries = pairWertEinh(merged);
     let added = false;
     for (const e of entries) {
@@ -1025,8 +937,7 @@ function renderResultSets(sets, container, job) {
   }
   container.className = 'results-panel stagger';
   container.innerHTML = '';
-  // skip set 0 (system summary) when real sets follow
-  const real = dataSets(sets);
+  const real = dataSets(sets); // skip set 0 (system summary)
   real.forEach((set, idx) => {
     const card = document.createElement('div');
     card.className = 'result-card';

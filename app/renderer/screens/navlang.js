@@ -1,32 +1,25 @@
 // Navigation voice languages: choose three, see what INPA would send.
 //
-// INPA's "languages load" key runs on the PC, not the car: it reads a table
-// off a Windows filesystem and only the NEXT key (SPEICHER_SCHREIBEN) sends
-// anything. Decompiling NAVI.IPO shows that job takes three plain integers:
-//     SPEICHER_SCHREIBEN  SPRACHE_1, SPRACHE_2, SPRACHE_3   (int, int, int)
-// so "load a file" really means "choose three language codes" -- a picker
-// does what the file did.
+// INPA's "languages load" key runs on the PC; only the NEXT key
+// (SPEICHER_SCHREIBEN) sends anything. Decompiling NAVI.IPO shows that job takes
+// three plain integers -- SPEICHER_SCHREIBEN SPRACHE_1, SPRACHE_2, SPRACHE_3 --
+// so "load a file" is really "choose three language codes".
 //
-// Codes come from BMW's own CODESPRACHEN table (navmk4.prg); bit 7 is voice
-// gender (0x01 English UK male, 0x81 the same female). Extras like 0x09 are
-// beyond the stock table, which is why BMW hardcodes those keys.
+// Codes come from BMW's CODESPRACHEN table (navmk4.prg); bit 7 is voice gender
+// (0x01 English UK male, 0x81 female). Extras like 0x09 are beyond the table.
 //
-// THE SEND IS BLOCKED, like the coding writes: SPEICHER_SCHREIBEN makes the
-// nav reload its voice data, and wrong codes leave it with no working language,
+// THE SEND IS BLOCKED, like the coding writes: SPEICHER_SCHREIBEN makes the nav
+// reload its voice data, and wrong codes leave it with no working language,
 // recovered only by writing again through the nav you just broke. This stages
-// the change and shows the exact job and arguments -- and does only this (the
-// current-languages read is a different key, F1 of the same INPA menu).
+// the change and shows the exact job and arguments -- and does only this.
 
-// Languages beyond the stock table, from the keys BMW hardcodes in NAVI.IPO
-// because CODESPRACHEN does not list them.
+// Languages beyond the stock table, from the keys BMW hardcodes in NAVI.IPO.
 const NAV_LANG_EXTRA = { 0x09: 'dutch', 0x0a: 'russian' };
 
-// One entry per language, from the ECU's own CODESPRACHEN table.
-//
-// The table lists each language twice, male and female, and several codes
-// repeat a language (0x01, 0x05 and 0x08 are all English UK). Both facts are
-// preserved rather than tidied away: the code is what goes on the wire, and
-// two codes for one language are not interchangeable to the module.
+// One entry per language, from the ECU's own CODESPRACHEN table. GOTCHA: the
+// table lists each language twice (male/female) and several codes repeat one
+// language (0x01, 0x05, 0x08 are all English UK) -- both preserved, since the
+// code is what goes on the wire and two codes are not interchangeable.
 async function navLanguages(sgbd) {
   let rows = [];
   try {
@@ -60,7 +53,7 @@ const NAV_LANG_WORDS = {
 function navLangLabel(s) {
   const parts = String(s || '').split(/\s+/).filter(Boolean);
   const words = parts.map(p => NAV_LANG_WORDS[p.toLowerCase()] || p);
-  // the gender is the last word; set it off with a comma so the language reads
+  // the gender is the last word; set it off with a comma
   const last = words[words.length - 1];
   if (last === 'male' || last === 'female') {
     return `${words.slice(0, -1).join(' ')}, ${last}`;

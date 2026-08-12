@@ -1,18 +1,11 @@
-// Package what is loaded into a folder you can open with no server. The app is
-// already static (renderer + .chassis archives + webshim standing in for the
-// API), so an offline copy is just the same files zipped, done in the browser.
-//
-// SCOPED TO ONE CAR ON PURPOSE: the whole site is 203 MB (80 MB of it fault DB),
-// too much to hold in a tab; one chassis is 2-13 MB. The result opens over
-// file:// except that fetch() is blocked there (opaque origin), so the README
-// says to serve it with one command rather than pretending otherwise.
+// Package the loaded app into a folder that opens with no server: the app is
+// already static, so an offline copy is the same files zipped in the browser.
+// Scoped to one car (the whole site is 203 MB; one chassis is 2-13 MB).
 
 // Files the renderer needs whatever car you picked.
-//
-// THIS LIST MUST MIRROR index.html. Every <script src> and stylesheet
-// <link> the page carries has to appear here (or in the deliberate OMIT set
-// in offlineSingleFile) -- the single-file build FAILS LOUDLY on a tag it
-// cannot inline, because a silently dropped script is a copy that boots
+// THIS LIST MUST MIRROR index.html: every <script src> and <link> the page
+// carries appears here (or in offlineSingleFile's OMIT set). The single-file
+// build FAILS LOUDLY on a tag it can't inline — a silently dropped script boots
 // broken in the field with nothing to say why.
 const OFFLINE_SHELL = [
   'index.html', 'app.js', 'logo.svg',
@@ -28,31 +21,22 @@ const OFFLINE_SHELL = [
   'screens/special.js', 'screens/measurements.js',
   'screens/live.js', 'screens/faults.js', 'screens/lookup.js',
   'screens/tutorial.js', 'screens/wiring.js',
-  // what an ECU's coding values mean. 73 KB, unlike the fault tables, so it
-  // travels with the shell rather than being opt-in.
+  // coding-value meanings (small, so they travel with the shell not opt-in)
   'data/codingmap.js',
-  // ...and BMW's own coding map for the modules whose SGBD says nothing.
-  // 1.5 MB raw but ~140 KB over the wire, and it is the only description
-  // those ECUs have, so it travels too.
+  // ...and BMW's own coding map for modules whose SGBD says nothing
   'data/datenmap.js',
 ];
 
-// The fault tables. Lazy-loaded by the app and 80 MB together, so they are
-// opt-in: without them fault CODES still read off the car, they just show
-// without their English text.
+// The fault tables, 80 MB together, so opt-in: without them CODES still read,
+// they just show without English text.
 const OFFLINE_FAULTS = [
   'data/faultdb.js', 'data/faultindex.js', 'data/pcodes.js',
   'data/faultmeta.js', 'data/faultinfo.js',
 ];
 
-// THE SINGLE FILE CANNOT CARRY ALL OF THAT. faultinfo.js is 60 MB and
-// faultmeta.js another 14 -- ISTA's extended descriptions and metadata,
-// which turn a 7 MB download into 82 MB. In a zip you keep on a computer
-// that is a fair trade; as one .html on a phone it is not.
-//
-// So the single file ships the names and the P-codes (5 MB), which is what
-// makes a code read as "Oil level sensor" instead of bare hex. The extra
-// prose is what you lose, not the identification.
+// The single file drops faultinfo (60 MB) + faultmeta (14 MB) and ships only
+// the names and P-codes (5 MB) — a code still reads "Oil level sensor" not hex;
+// only the extended prose is lost. 82 MB is too much for one .html on a phone.
 const SINGLE_FAULTS = [
   'data/faultdb.js', 'data/faultindex.js', 'data/pcodes.js',
 ];
@@ -62,10 +46,8 @@ function offlineBase() {
   return p.replace(/\/$/, '');
 }
 
-// Who built this copy, and when. Stamped into every export (README, inline
-// data header, console at boot) because a field file with no version is
-// undebuggable: "the export is broken" means nothing without knowing WHICH
-// export it is.
+// Who built this copy, and when. Stamped into every export because a field file
+// with no version is undebuggable.
 function offlineStamp() {
   const app = (typeof APP_NAME === 'string') ? APP_NAME : 'BMWeb';
   const ver = (window.bmacw && window.bmacw.version)
@@ -73,11 +55,10 @@ function offlineStamp() {
   return `${app} ${ver} · exported ${new Date().toISOString()}`;
 }
 
-// A DROPPED PIECE MUST BE SAID. Both exporters catch per-item failures and
-// press on -- which is right for a car WDS never covered, but a fetch that
-// fails for any other reason used to ship an export silently missing pieces
-// while the button read "saved". Failures collect in a list and surface
-// here: the caller only ever prints success, so the warning draws itself.
+// A DROPPED PIECE MUST BE SAID. Exporters catch per-item failures and press on
+// (right for a car WDS never covered), but other failures used to ship a copy
+// silently missing pieces while the button read "saved". They collect here and
+// this surfaces them, since the caller only prints success.
 function offlineWarn(warnings) {
   if (!warnings.length) return;
   warnings.forEach((w) => console.warn('offline export:', w));
@@ -107,13 +88,10 @@ function offlineWarn(warnings) {
   document.body.appendChild(box);
 }
 
-// The ECU index maps sgbd -> chassis so webshim can find the car a module
-// belongs to. In an offline copy a chassis that is NOT inlined cannot be
-// fetched (file:// blocks it), so an entry pointing elsewhere dead-ends --
-// including "SONDER", which ecu-index.json contains but which has no
-// archive at all. Keep only what this copy can resolve; in an all-cars
-// export every entry SHOULD have matched, so anything dropped there is
-// worth a warning by name.
+// The ECU index maps sgbd -> chassis. An entry pointing at a chassis not inlined
+// here dead-ends (file:// blocks the fetch), including "SONDER", which has no
+// archive at all. Keep only what this copy can resolve; in an all-cars export
+// every entry should have matched, so a drop there is worth a warning by name.
 function offlineFilterIndex(idx, ids, allCars, warnings) {
   const have = new Set(ids.map((i) => String(i).toUpperCase()));
   const out = {};
@@ -133,10 +111,8 @@ function offlineFilterIndex(idx, ids, allCars, warnings) {
 }
 
 // FETCH THE FILE, NOT THE ROUTE. webshim.js installs over window.fetch and
-// answers /api/... from inside the .chassis archives, so asking it for
-// "api/chassis/E46.chassis" gets the shim's interpretation rather than the
-// bytes on disk. Keep a reference to the real fetch from before the shim ran
-// -- the shim stores it, so ask it for one.
+// answers /api/... from the archives, so use the real pre-shim fetch (which
+// the shim stores) to read the bytes on disk.
 const OFFLINE_FETCH = (typeof webRealFetch === 'function')
   ? webRealFetch : window.fetch.bind(window);
 
@@ -147,7 +123,6 @@ async function offlineGet(path) {
 }
 
 // README for the folder, so it is obvious how to open it a year from now.
-// Always branded BMWeb: the copy runs in a browser no matter who exported it.
 function offlineReadme(chassis, withFaults, withWiring) {
   return `BMWeb offline copy - ${chassis}
 ${'='.repeat(21 + chassis.length)}
@@ -201,8 +176,7 @@ Other chassis are not included. Export them separately from Settings.
 `;
 }
 
-// Build the zip. onProgress(text) is called as it goes; the whole thing runs
-// in the tab, so the caller should keep the UI responsive.
+// Build the zip. onProgress(text) is called as it goes; runs in the tab.
 async function offlineExport(chassis, withFaults, onProgress, withWiring = true) {
   if (typeof fflate === 'undefined') {
     throw new Error('fflate is not loaded');
@@ -228,8 +202,7 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
     files['index.html'] = enc0.encode(html);
   }
 
-  // "*" means every car: read the real list and take them all. This is the
-  // whole site in one Blob, so it is offered but not the default.
+  // "*" means every car (the whole site in one Blob): offered, not the default.
   let ids;
   if (chassis === '*') {
     const r = await OFFLINE_FETCH(`${offlineBase()}/api/chassis.json`);
@@ -237,15 +210,10 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   } else {
     ids = [chassis];
   }
-  // INLINE, NOT FETCHED. A file:// page gets an opaque origin where fetch()
-  // is blocked, so an offline copy that keeps its data in separate files
-  // needs a web server to read them -- which meant shipping a launcher
-  // script, which macOS then refuses to run (Archive Utility drops the
-  // executable bit, and the download carries com.apple.quarantine).
-  //
-  // A <script> tag has no such restriction. Base64 costs 33% over the raw
-  // archive and removes the server, the launcher and both macOS problems, so
-  // the folder genuinely opens by double-clicking index.html.
+  // INLINE, NOT FETCHED. file:// gets an opaque origin where fetch() is blocked,
+  // so data in separate files needs a server (or a launcher script macOS then
+  // refuses to run). A <script> tag has no such restriction; base64 costs 33%
+  // and lets the folder open by double-clicking index.html.
   const b64 = (u8) => {
     let str = '';
     const CH = 0x8000;
@@ -267,16 +235,14 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
     // only used for a cross-chassis lookup, but its absence must be said
     warnings.push(`ECU index (cross-chassis lookup): ${e.message}`);
   }
-  // the stamp rides in the data file and prints at boot, so a field copy
-  // can always say which build made it
+  // the stamp rides in the data file and prints at boot
   files['data/inline.js'] = enc0.encode(
     `// ${stamp}\n`
     + `console.log(${JSON.stringify(`offline copy: ${stamp}`)});\n`
     + `window.BMACW_INLINE=${JSON.stringify(inline)};`);
 
-  // Wiring diagrams, inlined the same way and for the same reason. Absent
-  // for a car WDS never covered, which is not an error: the Wiring entry
-  // simply does not appear. Opt-out, because it is 2 to 24 MB per car.
+  // Wiring diagrams, inlined the same way. Absent for a car WDS never covered
+  // (not an error). Opt-out, 2 to 24 MB per car.
   const wiring = {};
   if (withWiring) {
     for (const id of ids) {
@@ -284,8 +250,8 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
         say(`collecting ${id} wiring`);
         wiring[id] = b64(await offlineGet(`data/wiring/${id}.wiring`));
       } catch (e) {
-        // a car WDS never covered is normal ("missing ..." from offlineGet);
-        // any OTHER failure means wiring the user asked for was dropped
+        // "missing ..." = WDS never covered it (normal); any other failure
+        // dropped wiring the user asked for
         if (!/^missing /.test(e.message)) warnings.push(`${id} wiring: ${e.message}`);
       }
     }
@@ -298,8 +264,7 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   if (withFaults) {
     for (const f of OFFLINE_FAULTS) {
       say(`collecting ${f.split('/').pop()}`);
-      // not fatal, but the user asked for fault text: a missing table means
-      // codes read as bare hex, and that has to be said rather than shipped
+      // not fatal, but a missing table means codes read as bare hex — say it
       try { files[f] = await offlineGet(f); }
       catch (e) { warnings.push(`fault table ${f.split('/').pop()}: ${e.message}`); }
     }
@@ -310,16 +275,10 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
     offlineReadme(chassis === '*' ? ids.join(', ') : chassis, withFaults,
                   Object.keys(wiring).length > 0));
 
-  // NO RELAY LAUNCHER. An offline copy used to ship .command/.bat starters
-  // for thor_bridge.js, because a browser cannot open the raw TCP socket a
-  // stock esp-link adapter listens on. That is "install node and run a
-  // script first" -- the thing this app exists to avoid, and impossible on
-  // a phone. Flash the adapter instead (vendor/esp-link-ws) and it serves
-  // the WebSocket itself; the copy's README says how.
+  // No relay launcher: flash the adapter (vendor/esp-link-ws) to serve the
+  // WebSocket instead of shipping a node script; the README says how.
 
   say('compressing');
-  // level 0 on the .chassis entry: it is already a zip of deflated members,
-  // and recompressing it costs time for nothing.
   const opts = { level: 6 };
   const zipped = fflate.zipSync(files, opts);
 
@@ -327,10 +286,9 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}`
     + '-offline.zip';
 
-  // ASK WHERE, when the host can. In the macOS app a browser download lands
-  // wherever WKWebView decides, which is neither visible nor chosen; the
-  // shell opens a real Save panel instead. On the web there is no such thing,
-  // so fall back to the download the browser does know how to do.
+  // ASK WHERE, when the host can: the macOS shell opens a real Save panel
+  // (a WKWebView download lands somewhere unchosen); the web falls back to a
+  // browser download.
   if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
     const r = await window.bmacw.saveFile(name, zipped);
     if (r && r.cancelled) throw new Error('cancelled');
@@ -351,12 +309,9 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   return zipped.length;
 }
 
-// ONE FILE, EVERY PLATFORM. The zip suits a computer but a phone can't unpack
-// it and open one page (Safari especially). A single .html downloads and opens
-// by tapping on every OS, and pairs with the adapter's own WebSocket -- no
-// server, relay or internet. Everything (scripts/styles too) is inlined because
-// a file:// page has an opaque origin where fetch() is blocked. Wiring is opt-in
-// and expensive (72 MB for E46 vs 13 MB for the rest), so the caller chooses.
+// ONE FILE, EVERY PLATFORM. A phone can't unpack a zip and open one page, but a
+// single .html taps open on every OS. Everything is inlined (file:// blocks
+// fetch). Wiring is opt-in and expensive (72 MB for E46), so the caller chooses.
 async function offlineSingleFile(chassis, withFaults, onProgress,
                                  withWiring = false) {
   const say = (t) => { if (onProgress) onProgress(t); };
@@ -372,11 +327,9 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
     if (f === 'index.html') continue;         // fetched by name below
     shell[f] = await offlineGet(f);
   }
-  // THE APP IS NOT ALWAYS index.html. On the published site the INSTALLER
-  // holds that name and the app is app.html, so fetching "index.html"
-  // blind got the installer -- which has no <script src> tags at all, and
-  // tripped the "no webshim.js tag" guard. Ask for both, in the order that
-  // puts the real app first.
+  // THE APP IS NOT ALWAYS index.html: on the published site the installer holds
+  // that name and the app is app.html. Ask for both, real app first, and pick
+  // the one that actually has the webshim.js tag.
   for (const name of ['app.html', 'index.html']) {
     try {
       const doc = await offlineGet(name);
@@ -390,16 +343,10 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
 
   let html = dec.decode(shell['index.html']);
 
-  // REPORT FAILURES WHERE THEY CAN BE SEEN. A phone has no console you can
-  // open, and the restricted origins a local file gets on iOS
-  // (edge://external-file, Quick Look) hide console output entirely -- so a
-  // script that throws during boot leaves the splash on "starting engine"
-  // forever with nothing to go on.
-  //
-  // alert() survives all of that, so errors go there as well as to the
-  // splash. And because a hang is not an error, the boot leaves CHECKPOINTS:
-  // if it stalls, the splash names the last stage reached, which is what
-  // turns "it does not work" into a line number.
+  // REPORT FAILURES WHERE THEY CAN BE SEEN. A phone has no console (iOS local
+  // origins hide it), so a boot error would leave the splash stuck silently.
+  // Errors go to alert() and the splash; and because a hang is not an error,
+  // the boot leaves CHECKPOINTS naming the last stage reached.
   html = html.replace('</head>',
     `  <!-- ${stamp} -->
   <script>
@@ -426,8 +373,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
     window.addEventListener('unhandledrejection', function (e) {
       show('' + ((e.reason && e.reason.message) || e.reason || 'promise rejected'));
     });
-    // Nothing has thrown and nothing has finished: that is a HANG, and it
-    // needs its own report or the page just sits there.
+    // nothing thrown, nothing finished = a HANG; report it or the page just sits
     setTimeout(function () {
       if (!reported && !window.__bmwebBooted) {
         show('stuck after 12s');
@@ -438,8 +384,8 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   </script>
 </head>`);
 
-  // styles first, in the order the document had them. A sheet the shell
-  // list does not carry is a BROKEN EXPORT, not a tag to drop quietly.
+  // styles first, in document order. A sheet the shell list lacks is a BROKEN
+  // EXPORT, not a tag to drop quietly.
   html = html.replace(/[ \t]*<link rel="stylesheet" href="([^"]+)"[^>]*>\n?/g,
     (m, href) => {
       if (!shell[href]) {
@@ -448,32 +394,25 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
       return `  <style>\n${dec.decode(shell[href])}\n  </style>\n`;
     });
 
-  // Then the scripts, each in place, so load order is preserved exactly.
-  // The car's data has to be defined BEFORE webshim.js runs (it reads
-  // BMACW_INLINE as it loads), so that script tag is the anchor: emit the
-  // data immediately ahead of it. Doing it here rather than with a second
-  // pass avoids matching against text this pass has already rewritten.
-  // A sentinel that cannot appear in source or prose: " DATA " could --
-  // bestvm.js has "0-based over DATA rows" in a comment, and a marker that
-  // collides with the payload it marks corrupts the output silently.
+  // Then the scripts, each in place, preserving load order. The car's data must
+  // be defined BEFORE webshim.js runs (it reads BMACW_INLINE as it loads), so
+  // that tag is the anchor; a MARK sentinel reserves the spot. The sentinel must
+  // not appear in source or prose or it corrupts the output silently.
   const MARK = '<!--BMWEB_DATA_HERE-->';
-  // tags the page carries that a single file deliberately leaves out: a page
-  // cannot run node, and a copy does not offer copies of itself
+  // tags a single file leaves out: no node, and no copies of itself
   const OMIT = new Set(['thor_bridge.js', 'core/offline-export.js']);
   let sawWebshim = false;
   html = html.replace(/[ \t]*<script src="([^"]+)"><\/script>\n?/g,
     (m, src) => {
       if (OMIT.has(src)) return '';
       if (!shell[src]) {
-        // a silently dropped script is a copy that boots broken with
-        // nothing to say why; fail the export instead
+        // fail the export: a silently dropped script boots broken with no clue why
         throw new Error(`OFFLINE_SHELL is missing ${src} (the list must mirror index.html)`);
       }
       // </script> inside a string literal would end the tag early
       const js = dec.decode(shell[src]).replace(/<\/script>/gi, '<\\/script>');
-      // A checkpoint before each file: a script that hangs or throws leaves
-      // the PREVIOUS mark on screen, which names it. Cheap, and the only
-      // way to localise a failure on an origin with no console.
+      // a checkpoint before each file: a hang/throw leaves the PREVIOUS mark on
+      // screen, naming it — the only way to localise a failure with no console
       const tag = `  <script>window.__bmwebMark&&window.__bmwebMark('loading ${src}');</script>\n`
         + `  <script>\n${js}\n  </script>\n`;
       if (src === 'core/webshim.js') { sawWebshim = true; return MARK + tag; }
@@ -497,16 +436,10 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   } else {
     ids = [chassis];
   }
-  // ONE COPY AT A TIME. Building an object of every car's base64 and then
-  // JSON.stringify-ing it holds the whole payload TWICE, and "all cars" is
-  // 184 MB of base64 -- so the peak ran to roughly 700 MB for a 190 MB
-  // file and iOS killed the tab (which looks like a spontaneous reload,
-  // since an out-of-memory kill raises nothing to catch).
-  //
-  // Emit the object literal as fragments instead: each car is encoded,
-  // appended, and dropped before the next is fetched. JSON.stringify on
-  // one string at a time still escapes it correctly; base64 has nothing
-  // needing escapes anyway, but this stays honest about that.
+  // ONE COPY AT A TIME. Building an object of all cars then JSON.stringify-ing
+  // it holds the payload TWICE; "all cars" is 184 MB, so the peak hit ~700 MB
+  // and iOS killed the tab (an OOM kill raises nothing to catch). Emit the
+  // object literal as fragments: encode, append and drop each car before the next.
   const dataParts = ['window.BMACW_INLINE={'];
   let first = true;
   for (const id of ids) {
@@ -516,11 +449,9 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
     first = false;
   }
   try {
-    // PARSED, NOT SPLICED RAW. The bytes used to be pasted straight into
-    // the object literal, so a truncated ecu-index.json corrupted the whole
-    // data script silently. JSON.parse makes a bad file fail HERE, where it
-    // can be reported, and the filter drops entries no offline copy can
-    // resolve (see offlineFilterIndex).
+    // PARSED, NOT SPLICED RAW: a truncated ecu-index.json spliced straight in
+    // used to corrupt the data script silently. JSON.parse fails HERE where it
+    // can be reported (and the filter drops unresolvable entries).
     const idx = JSON.parse(dec.decode(await offlineGet('api/ecu-index.json')));
     dataParts.push(`,"_index":${JSON.stringify(
       offlineFilterIndex(idx, ids, chassis === '*', warnings))}`);
@@ -539,8 +470,8 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
         parts.push(`${wfirst ? '' : ','}${JSON.stringify(id)}:${JSON.stringify(w)}`);
         wfirst = false;
       } catch (e) {
-        // a car WDS never covered stays absent ("missing ..." from
-        // offlineGet); any other failure dropped wiring the user asked for
+        // "missing ..." = WDS never covered it; any other failure dropped
+        // wiring the user asked for
         if (!/^missing /.test(e.message)) warnings.push(`${id} wiring: ${e.message}`);
       }
     }
@@ -551,19 +482,16 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   if (withFaults) {
     for (const f of SINGLE_FAULTS) {
       say(`collecting ${f.split('/').pop()}`);
-      // not fatal, but the user asked for fault text: a missing table means
-      // codes read as bare hex, and that has to be said rather than shipped
+      // not fatal, but a missing table means codes read as bare hex — say it
       try { dataParts.push('\n', dec.decode(await offlineGet(f))); }
       catch (e) { warnings.push(`fault table ${f.split('/').pop()}: ${e.message}`); }
     }
   }
-  // codingmap.js and datenmap.js have NO <script src> tag -- translate.js
-  // lazy-loads them on demand -- so the tag inliner above never carries
-  // them, and a single file has no sibling for the lazy <script src> to
-  // find: every coding label was silently lost. Inline them with the data
-  // instead; loadCodingMap()/loadDatenMap() check window.BMW_CODING_MAP /
-  // window.BMW_DATEN_MAP before fetching, so the inlined copy makes the
-  // lazy path a no-op. ~6 MB together, which the coding screens are worth.
+  // codingmap.js / datenmap.js have NO <script src> tag (translate.js lazy-loads
+  // them), so the tag inliner never carries them and a single file has no
+  // sibling to fetch — coding labels were silently lost. Inline them with the
+  // data; loadCodingMap()/loadDatenMap() check the globals first, so the lazy
+  // path becomes a no-op.
   for (const f of ['data/codingmap.js', 'data/datenmap.js']) {
     if (shell[f]) dataParts.push('\n', dec.decode(shell[f]));
     else warnings.push(`${f}: not in the app shell, coding labels will be missing`);
@@ -571,9 +499,8 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   const dataJs = dataParts.join('');
   dataParts.length = 0;
 
-  // The data is the biggest single script by far -- a 6 MB string literal
-  // for an E46. If a parser or a memory limit is going to give out, it is
-  // most likely here, so bracket it with its own marks.
+  // the biggest single script by far, so bracket it with its own marks: a
+  // parser or memory limit is most likely to give out here.
   html = html.replace(MARK,
     '  <script>window.__bmwebMark&&window.__bmwebMark(\'parsing car data\');</script>\n'
     + `  <script>\n${dataJs.replace(/<\/script>/gi, '<\\/script>')}\n  </script>\n`
@@ -586,8 +513,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   say('saving');
   const name = `bmweb-${chassis === '*' ? 'all' : chassis.toLowerCase()}.html`;
 
-  // The native shell wants bytes; a browser does not. enc.encode() makes
-  // one more full-size copy, so only pay for it where it is used.
+  // native shell wants bytes (one more full-size copy), so only encode when used
   if (window.bmacw && typeof window.bmacw.saveFile === 'function') {
     const bytes = enc.encode(html);
     const r = await window.bmacw.saveFile(name, bytes);
@@ -595,8 +521,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
     offlineWarn(warnings);
     return bytes.length;
   }
-  // A Blob takes PARTS, so the document never has to exist as one string
-  // AND one byte array at the same time. html is dropped straight after.
+  // a Blob takes PARTS, so the doc never exists as string AND bytes at once
   const size = html.length;
   const blob = new Blob([html], { type: 'text/html' });
   html = '';
