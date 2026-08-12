@@ -82,6 +82,10 @@ echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
 
 echo
+echo "== write gate: staged changes never reach the wire (safety) =="
+node tools/verify/test_write_gate.js || exit 1
+
+echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="
 node tools/verify/test_vmbridge.js || exit 1
 
