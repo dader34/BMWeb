@@ -1,22 +1,21 @@
-// whole-vehicle sweep engine (INPA "Functional Jobs" / "Special tests"):
-// quickErrorSweep reads fault memory on every chassis ECU, quickIdentSweep reads
-// IDENT. variant-group + priority tables let the sweep claim each shared-address
-// group early and skip its dead siblings, and fault-signature dedup drops echoes.
-// fillFaultDetail lives in autoscan.js; exportFaultPdf in fault-report.js.
+// whole-vehicle sweep engine (INPA "Functional Jobs"): quickErrorSweep reads
+// fault memory on every chassis ECU, quickIdentSweep reads IDENT. variant-group
+// + priority tables claim each shared-address group early and skip dead
+// siblings; fault-signature dedup drops echoes. fillFaultDetail lives in
+// autoscan.js; exportFaultPdf in fault-report.js.
 
-// variant groups: ECUs sharing one diagnostic address, only one installed. once a
-// member responds the rest are absent (or echoes), so the sweep skips them. keyed
-// by chassis since the variant sets differ. the engine group is the big win: E46
-// has ~11 mutually-exclusive DMEs, E36 ~14, each ~7s whether it answers or not.
+// variant groups: ECUs sharing one diagnostic address, only one installed. Once
+// a member responds the rest are absent, so the sweep skips them. Keyed by
+// chassis. Engine is the big win: E46 has ~11 mutually-exclusive DMEs, E36 ~14,
+// each ~7s whether it answers or not.
 const VARIANT_GROUPS = {
   E46: {
     engine: ['DDE40', 'D50M47', 'D50M57', 'BMS46', 'ME9_4N', 'ME9NG4TU', 'MS420', 'MS430', 'MS450', 'MSS54M3', 'CARB'],
     trans:  ['gsds2', 'gs30', 'smg2'],
     dsc:    ['ascdsc46', 'absasc5', 'dscmk60'],
   },
-  // E36: one DME (VNC/CARB excluded - VNC is the S50 VANOS box that coexists with
-  // a DME, CARB is a dealer interface, neither shares the DME address). one
-  // gearbox; one ABS/ASC/DSC brake controller (Mk4..Mk60).
+  // E36: VNC/CARB excluded - VNC is the S50 VANOS box that coexists with a DME,
+  // CARB a dealer interface; neither shares the DME address.
   E36: {
     engine: ['DDE21', 'DME17', 'BMS43', 'BMS46', 'DME338K2', 'MSS50', 'MSS54M3',
              'DME331', 'DME524', 'MS401', 'MS410', 'MS411', 'MS420', 'MS430'],
@@ -24,12 +23,11 @@ const VARIANT_GROUPS = {
     dsc:    ['absasc4', 'absasc4g', 'ascdsc46', 'absasc5', 'dscmk60'],
   },
 };
-// build a code -> group lookup for one chassis: the server derives groups from
-// the entries' .IPO address references (works for every chassis), and the
-// hand-curated tables above fill the gaps where an .IPO carries no usable
-// token (MS450, dscmk60, ...). hand entries join a derived group when they
-// share a member, else they form their own. unknown codes -> null (scanned
-// normally), which is safe, just slower.
+// code -> group lookup for one chassis: the server derives groups from the
+// entries' .IPO address references; the hand tables above fill gaps where an
+// .IPO carries no usable token (MS450, dscmk60). Hand entries join a derived
+// group when they share a member, else form their own. unknown code -> null
+// (scanned normally: safe, just slower).
 function buildGroupLookup(ch) {
   const groups = (ch.variantGroups || []).map(g => new Set(g.map(c => String(c).toLowerCase())));
   const hand = VARIANT_GROUPS[(ch.id || '').toUpperCase()];
@@ -46,18 +44,17 @@ function buildGroupLookup(ch) {
   groups.forEach((g, i) => g.forEach(c => byCode.set(c, `g${i}`)));
   return (code) => byCode.get(String(code || '').toLowerCase()) || null;
 }
-// stable fault signature for echo dedup. F_HEX_CODE is globally unique (BMW DTC);
-// F_ORT_NR is only an ECU-local index, so fall back to it only if hex is absent.
+// stable fault signature for echo dedup. F_HEX_CODE is globally unique (BMW
+// DTC); F_ORT_NR is only an ECU-local index, so fall back to it only when hex
+// is absent.
 const _faultSig = (codes) =>
   (codes || []).map(c => c.F_HEX_CODE || `nr:${c.F_ORT_NR}`).join(',');
 
-// airbag is special: the E46 menu resolves "Airbag" to zae (the E36-era SGBD),
-// but the car may carry any MRS generation. the wrong-generation SGBDs still
-// ANSWER the K-line and decode a *false* 0 faults, so a first-responder-wins
-// group claim (as used for engine/dsc) picks zae and hides real MRS faults.
-// instead, read every airbag variant and keep the richest result: a lit airbag
-// lamp never truly reads 0, so max fault count identifies the right SGBD. one
-// extra read each for ~5 rarely-installed variants, only on the airbag row.
+// GOTCHA: the E46 menu resolves "Airbag" to zae, but the car may carry any MRS
+// generation, and a wrong-generation SGBD still ANSWERS and decodes a FALSE 0
+// faults -- so a first-responder-wins claim would pick zae and hide real MRS
+// faults. Instead read every variant and keep the richest: a lit airbag lamp
+// never truly reads 0, so max fault count identifies the right SGBD.
 const AIRBAG_VARIANTS = ['mrs4', 'mrs4rd', 'mrs3', 'zae2', 'mrs2', 'zae'];
 async function probeAirbag(resolvedSgbd, alive) {
   const tried = new Set();
@@ -76,18 +73,17 @@ async function probeAirbag(resolvedSgbd, alive) {
   return best;
 }
 
-// a sweep ties up the K-line for a while. each sweep takes a token; navigating
-// away (or starting another sweep) bumps it, and the running loop bails on its
-// next iteration so we stop hammering the bus after the user leaves.
+// each sweep takes a token; navigating away or starting another bumps it, and
+// the running loop bails on its next iteration -- stops hammering the K-line
+// once the user leaves.
 let _sweepToken = 0;
 const cancelSweep = () => { _sweepToken++; };
 
-// quick error memory test (INPA FSQUICK): read fault memory on every chassis ECU,
-// combined report of which modules have stored faults.
+// quick error memory test (INPA FSQUICK): read fault memory on every chassis
+// ECU, report which modules have stored faults.
 async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
-  // scanning every module holds the bus for a while; make sure that's wanted
-  // before touching the screen or the K-line
+  // scanning every module holds the bus; confirm before touching the K-line
   const ok = await confirmDialog({
     title: 'Scan all modules?',
     body: `Reads the fault memory of every module on the ${esc(dispChassis(id))}. `
@@ -119,30 +115,26 @@ async function quickErrorSweep(chassisId) {
   const rows = out.querySelector('#quick-rows');
   const headEl = out.querySelector('.quick-head');
   let withFaults = 0, scanned = 0, dupes = 0, skipped = 0;
-  // once a variant group's ECU responds skip the rest (each read costs ~7s
-  // whether it answers or not); dedup by fault signature catches echoes.
   const seen = new Map();          // fault-signature -> first ECU label
   const groupDone = new Set();     // variant-group key that already responded
-  const faulty = [];               // modules that reported faults, for the deep pass
+  const faulty = [];               // modules with faults, for the deep pass
   for (const ecu of ecus) {
     if (!alive()) return;          // user left the sweep; stop reading the bus
     const grp = groupOf(ecu.code);
     const row = addSweepRow(rows, ecu.label);
 
     if (grp && groupDone.has(grp)) {
-      // another variant in this group answered, so this one not installed
+      // another variant in this group answered, so this one isn't installed
       skipped++; row.classList.add('noresp');
       row.querySelector('.quick-status').textContent = 'skipped (variant)';
       continue;
     }
     try {
-      // airbag: probe every MRS/ZAE generation and keep the richest read, since
-      // a wrong-generation SGBD answers with a false 0 (see probeAirbag). the
+      // airbag: probe every generation, keep the richest (see probeAirbag). the
       // winning SGBD replaces ecu.sgbd so the deep read and Clear target it.
       const isAirbag = String(ecu.code || '').toLowerCase() === 'airbag';
-      // prefer the diagnostic-address group so EDIABAS identifies the exact variant
-      // (correct fault text, and no wasted sibling-variant reads); server falls back
-      // to the concrete SGBD if the group can't identify.
+      // prefer the diagnostic-address group so EDIABAS identifies the exact
+      // variant; server falls back to the concrete SGBD if it can't.
       const gq = groupQuery(ecu);
       const data = isAirbag
         ? (await probeAirbag(ecu.sgbd, alive)) || { count: 0, codes: [] }
@@ -171,8 +163,8 @@ async function quickErrorSweep(chassisId) {
     headEl.textContent = `${scanned} read · ${skipped} skipped · ${withFaults} with faults`;
   }
 
-  // deep pass: every module that reported faults gets a detailed read for the
-  // specific DTCs (FS_LESEN_DETAIL), shown inline under its row.
+  // deep pass: each faulty module gets a detailed read (FS_LESEN_DETAIL), shown
+  // inline under its row.
   if (faulty.length) {
     await loadFaultDb(); // names resolve synchronously in the detail rows
     headEl.textContent =
@@ -193,7 +185,7 @@ async function quickErrorSweep(chassisId) {
     }
   }
 
-  // wire up Clear all (clears every faulty module in turn) once we know them.
+  // Clear all: clears every faulty module in turn
   const clearAllBtn = out.querySelector('#quick-clear-all');
   if (faulty.length) {
     clearAllBtn.disabled = false;
@@ -210,8 +202,7 @@ async function quickErrorSweep(chassisId) {
     };
   }
 
-  // Export PDF: a clean per-module fault report. available even with no faults
-  // (records a clean bill of health).
+  // Export PDF: per-module fault report, available even with no faults
   const pdfBtn = out.querySelector('#quick-pdf');
   if (pdfBtn && window.bmacw && window.bmacw.savePdf) {
     pdfBtn.disabled = false;
@@ -233,10 +224,9 @@ function setRowFaultStatus(f) {
   st.querySelector('.quick-clear').onclick = () => clearModule(f);
 }
 
-// erase one module's fault memory (FS_LOESCHEN): confirm, clear, then
-// RE-READ to prove it -- INPA reruns the read after a clear, and "cleared"
-// without evidence hides a fault that immediately re-set (a live fault
-// re-enters the memory the moment the ECU sees it again).
+// erase one module's fault memory (FS_LOESCHEN): confirm, clear, then RE-READ
+// to prove it -- "cleared" without evidence hides a live fault that re-enters
+// the memory the moment the ECU sees it again.
 async function clearModule(f) {
   const n = f.codes.length;
   const ok = await confirmDialog({
@@ -284,9 +274,8 @@ async function clearModule(f) {
   }
 }
 
-// render the specific DTCs for one faulty module beneath its sweep row, using
-// the shared faultFields projection (faults.js) so the rows and the PDF report
-// read the same.
+// render the DTCs for one faulty module beneath its sweep row, via the shared
+// faultFields projection (faults.js) so rows and PDF read the same.
 function appendFaultDetailRows(row, codes, sgbd) {
   const wrap = document.createElement('div');
   wrap.className = 'quick-detail';
@@ -347,8 +336,8 @@ function dedupEcus(ch) {
   ch.sections.forEach(s => s.ecus.forEach(e => { if (!ecus.find(x => x.sgbd === e.sgbd)) ecus.push(e); }));
   return ecus;
 }
-// likeliest-installed variant first, so the sweep claims each group early and
-// skips its dead siblings. per chassis; unknown chassis -> original order.
+// likeliest-installed variant first, so the sweep claims each group early. per
+// chassis; unknown chassis -> original order.
 const SWEEP_PRIORITY = {
   E46: ['MS450', 'MS430', 'MS420', 'ME9_4N', 'MSS54M3', 'BMS46', 'gsds2', 'smg2', 'ascdsc46', 'absasc5'],
   E36: ['MS420', 'MS430', 'MS410', 'MS411', 'DME331', 'MSS54M3', 'MSS50', 'DME338K2', 'DME524', 'DME17',

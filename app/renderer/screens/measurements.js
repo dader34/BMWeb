@@ -1,13 +1,11 @@
 // measurement parsing, formatting, and gauge-range logic — the DOM-less layer
-// behind the live value gauges (consumed by updateGauge/updateGaugeSpec in
-// live.js). The [min,max] range is INPA's own presentation choice from its .ips
-// scripts, not in the protocol, so we reproduce common ranges by unit and
-// auto-scale the rest.
+// behind the live gauges (consumed by updateGauge in live.js). The [min,max]
+// range is INPA's presentation choice, not in the protocol, so we reproduce
+// common ranges by unit and auto-scale the rest.
 
-// split "38.67", "-5.7", "1.02 V", "98 %" into { num, unit, raw }
+// split "38.67", "1.02 V", "98 %" into { num, unit, raw }
 function parseMeasurement(raw) {
   const s = String(raw).trim();
-  // number (optional sign/decimal/exponent) then optional unit token
   const m = s.match(/^(-?\d+(?:[.,]\d+)?(?:[eE][-+]?\d+)?)\s*(.*)$/);
   if (!m) return { num: null, unit: '', raw: s };
   const num = parseFloat(m[1].replace(',', '.'));
@@ -17,12 +15,11 @@ function parseMeasurement(raw) {
   return { num, unit, raw: s };
 }
 
-// pick [min,max] for a measurement, by unit first (INPA's ranges), then by the
-// value's magnitude as a fallback for uncatalogued units
+// pick [min,max] for a measurement, by unit first, then by magnitude as a
+// fallback for uncatalogued units
 function rangeFor(unit, num, key) {
   const u = (unit || '').toLowerCase();
   const k = (key || '').toLowerCase();
-  // unit-based ranges cover most MSD/MSV/MEVD status screens
   if (u === '%') {
     // correction factors (adaption/trim) are symmetric about 0
     if (/(adaption|adaptionsfaktor|korrektur|integrator|trim|gemischadaption|einspritzzeit)/.test(k))
@@ -67,8 +64,8 @@ function fmtRange(n) {
   return n.toFixed(Math.abs(n) < 10 ? 1 : 0);
 }
 
-// German measurement-key tokens -> English, for humanizing raw STAT_*_WERT keys
-// on ECUs with no mined layout (e.g. GSDS2 transmission)
+// German measurement-key tokens -> English, for STAT_*_WERT keys on ECUs with
+// no mined layout (e.g. GSDS2 transmission)
 const KEY_TOKENS = {
   MOTOR: 'engine', MOTORDREHZAHL: 'engine RPM', DREHZAHL: 'RPM', ABTRIEBSDREHZAHL: 'output speed',
   STEGDREHZAHL: 'planetary speed', RADDREHZAHL: 'wheel speed', GETRIEBE: 'gearbox',
@@ -90,21 +87,17 @@ function normUnit(u) {
   if (/^grad$/i.test(s)) return '°';
   if (/^1\/min$/i.test(s) || /^u\/min$/i.test(s)) return '1/min';
   if (/^volt$/i.test(s)) return 'V';
-  // CRANK/CAM ANGLE. BMW spells the same unit four ways across SGBDs --
-  // "°CRK", "degreeCRK", "degree_KW", "Grad KW" -- and the raw token reads as
-  // a variable name rather than a unit. INPA prints degrees, so normalise to
-  // the symbol and keep the reference (KW = Kurbelwelle = crankshaft).
+  // CRANK/CAM ANGLE: BMW spells it four ways ("°CRK", "degreeCRK", "degree_KW",
+  // "Grad KW"); normalise to the symbol (KW = Kurbelwelle = crankshaft).
   if (/^(°|deg(ree)?)[\s_]*(crk|kw)$/i.test(s)) return '°KW';
   if (/^grad[\s_]*kw$/i.test(s)) return '°KW';
-  // WHOLE WORDS FIRST. "percent" contains "per" and the rate pattern below
-  // would split it into 1/cent, which is not a unit of anything.
+  // WHOLE WORDS FIRST: "percent" contains "per" and the rate pattern below would
+  // split it into 1/cent.
   if (/^percent$/i.test(s)) return '%';
   if (/^ampere$/i.test(s)) return 'A';
-  // "kgperh" -> "kg/h". BMW writes rate units as words (the .prg description
-  // block is plain ASCII with no '/'), and the corpus ships many -- kgperh,
-  // mgperstk, gpers, kmperh, perMinute -- so translate the "per" generally
-  // rather than listing pairs. Both sides must be a known UNIT (or empty, for
-  // "perMinute"), so the pattern doesn't eat an ordinary word containing "per".
+  // rate units written as words ("kgperh" -> "kg/h"): the corpus ships many
+  // (kgperh, mgperstk, gpers, perMinute), so translate "per" generally. Both
+  // sides must be a known UNIT (or empty), so it doesn't eat an ordinary word.
   const per = /^(|1|[munkcdhKMG]?(?:g|m|l|s|A|V|W|J|N|Pa|bar|Hz|U|km|mg|kg))per([a-z]+?)_?$/i
     .exec(s);
   if (per) {
@@ -127,11 +120,9 @@ function humanizeKey(key) {
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : key;
 }
 
-// The unit the ECU shipped beside ONE value, for the IR screen path. An IR
-// screen draws the rows its .IPO declared and looks each key up by name, so it
-// needs a single-key _WERT -> _EINH hop (pairWertEinh below does the same by
-// walking every result). Without it, a layout omitting the literal "[unit]"
-// text -- MSD80's whole VANOS page -- printed cam angles as bare numbers,
+// The unit the ECU shipped beside ONE value, for the IR screen path: a single-
+// key _WERT -> _EINH hop. GOTCHA: without it, a layout omitting the literal
+// "[unit]" text (MSD80's whole VANOS page) printed cam angles as bare numbers,
 // dropping the °CRK the ECU already sent.
 function irUnitFor(key, vals) {
   const m = String(key || '').match(/^(.*)_WERT$/);
@@ -139,13 +130,12 @@ function irUnitFor(key, vals) {
   const u = vals.get(m[1] + '_EINH');
   if (u == null) return null;
   const t = normUnit(String(u).trim());
-  // a blank or placeholder _EINH means the ECU declined to name a unit
+  // blank/placeholder _EINH means the ECU declined to name a unit
   return t && t !== '-' && t !== '--' ? t : null;
 }
 
-// pair STAT_X_WERT with STAT_X_EINH and humanize the key: one entry per
-// measurement, unit merged in ("13" + "Grad C" -> "13 °C"). keys without the
-// _WERT/_EINH structure pass through unchanged.
+// pair STAT_X_WERT with STAT_X_EINH and humanize the key, merging the unit ("13"
+// + "Grad C" -> "13 °C"). keys without the _WERT/_EINH structure pass through.
 function pairWertEinh(merged) {
   const out = [];
   const seen = new Set();

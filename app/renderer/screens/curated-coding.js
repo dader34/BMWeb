@@ -1,18 +1,15 @@
-// Curated feature-toggle coding, the friendly tier over the expert tree
-// (showDatenReference / expertModuleScreen). A hand-picked shortlist of
-// owner-facing E46 coding options, grouped by what they do, with labels from
-// BMW_DATEN_I18N (NCS Dummy's community translations).
+// Curated feature-toggle coding: a hand-picked shortlist of owner-facing E46
+// options, the friendly tier over the expert tree (showDatenReference).
 //
-// WHAT THIS IS NOT: a write tool. It reads the module, shows each option as a
-// toggle set to the car's current value, and stages changes -- the send path
-// still does not exist (see coding-edit.js's header and the four write gates).
+// NOT a write tool. It reads the module, shows each option as a toggle at the
+// car's current value, and stages changes -- the send path still does not exist
+// (see coding-edit.js's header and the four write gates).
 //
-// E46-first (zke5/GM5 body, lsz lighting, kombi46 cluster). Each entry names
-// the SGBD, DATEN keyword and group; values come from the DATEN map at runtime,
-// so an entry only shows when the car's module actually carries it.
+// E46-first. Values come from the DATEN map at runtime, so an entry only shows
+// when the car's module actually carries it.
 
-// group -> ordered [sgbd, FSW keyword] the curated view offers. Keywords are
-// verified present in BMW_DATEN_MAP for E46; a missing one is simply skipped.
+// group -> ordered [sgbd, FSW keyword]. Keywords verified present in
+// BMW_DATEN_MAP for E46; a missing one is skipped.
 const CURATED_E46 = {
   'Mirrors': [
     ['zke5', 'BEIKLAPPEN_GM'],              // folding outside mirrors
@@ -57,10 +54,9 @@ function hasCurated(chassisId) {
   return !!CURATED[String(chassisId || '').toUpperCase()];
 }
 
-// Resolve one curated entry against the DATEN map: returns
-// {sgbd, name, label, on, off} or null if the module/function/values are not
-// all present. `on`/`off` are the mask-normalised numbers for the two states,
-// read from DATEN so a flipped enum (LICHTWARNUNG is aktiv=00) is handled.
+// Resolve one curated entry against the DATEN map: {sgbd, name, label, on, off}
+// or null if not all present. on/off are the mask-normalised numbers, read from
+// DATEN so a flipped enum (LICHTWARNUNG is aktiv=00) is handled.
 async function curatedResolve(sgbd, kw) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
   if (!daten) return null;
@@ -70,16 +66,14 @@ async function curatedResolve(sgbd, kw) {
   for (const variant of Object.values(ch)) {
     const f = variant.find(x => x.name.toUpperCase() === kw.toUpperCase());
     if (!f) continue;
-    // find the aktiv / nicht_aktiv pair by name, value is the mask-normalised
-    // number (hex string in DATEN). Handles both value polarities.
+    // find the aktiv / nicht_aktiv pair by name (value is the mask-normalised
+    // hex in DATEN), handling both polarities
     let on = null, off = null;
     for (const [n, v] of f.values || []) {
       const num = parseInt(v, 16);
       if (Number.isNaN(num)) continue;
       const nl = String(n).toLowerCase();
-      // OFF first: "nicht_aktiv" also ends in "aktiv", so an on-check that
-      // matched a trailing "aktiv" would wrongly claim it. Rule out the
-      // negatives, THEN the positives.
+      // OFF first: "nicht_aktiv" also ends in "aktiv", so match negatives first
       if (/nicht_aktiv|^inaktiv$|^aus$|^nein$|^nicht_|^ohne_/.test(nl)) {
         off = num;
       } else if (/^aktiv$|^ein$|^ja$|^mit_/.test(nl)) {
@@ -112,9 +106,8 @@ async function curatedFeatures(chassisId) {
   return out;
 }
 
-// The curated feature screen. Reads each involved module once, shows every
-// option as a toggle at the car's current value, and stages changes -- nothing
-// is sent. `back` returns to whatever opened it.
+// The curated feature screen: reads each module once, shows every option as a
+// toggle at the car's current value, and stages changes -- nothing is sent.
 async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const cont = container || view;
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
@@ -131,7 +124,6 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
     return;
   }
 
-  // which SGBDs we need to read, and the per-field current values once read
   const sgbds = [...new Set(groups.flatMap(g => g.items.map(i => i.sgbd)))];
   const readJobFor = (sgbd) =>
     (typeof codingFor === 'function' ? codingFor(sgbd) : null);
@@ -144,11 +136,10 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
 
   const demo = typeof demoMode === 'function' && demoMode();
 
-  // Map the car's coding onto our features from the hub's up-front scan (no
-  // per-module re-read); fall back to reading here if opened standalone.
-  // Most curated functions live only in the DATEN blob and are NOT named in the
-  // SGBD's coding read (BEIKLAPPEN_GM vs COD_MIT_*), so the round-trip resolves
-  // only a few. In demo mode, fill the rest with a deterministic on/off.
+  // Map the car's coding onto our features from the hub's scan (or read here if
+  // opened standalone). Most curated functions live only in the DATEN blob and
+  // are NOT named in the SGBD's coding read (BEIKLAPPEN_GM vs COD_MIT_*), so the
+  // round-trip resolves only a few. Demo mode fills the rest deterministically.
   const applyScan = (cache) => {
     for (const g of groups) for (const it of g.items) {
       const got = cache && cache.get(it.sgbd);
@@ -242,9 +233,8 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
 
   const setKeys = () => {
     const acts = [];
-    // Re-read: re-scan the whole car (hub-level) if the hub provided it, else
-    // re-read just these modules. kind:'navAction' surfaces it top-right on
-    // mobile the way Back sits top-left.
+    // Re-read: re-scan the whole car if the hub provided it, else just these
+    // modules. kind:'navAction' surfaces it top-right on mobile.
     acts.push({ key: '1', keyLabel: 'F1', kind: 'navAction',
       label: readOk ? 'Re-read' : 'Read',
       fn: reScan ? reScan
@@ -268,8 +258,7 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
 }
 
 // Pair a DATEN keyword to a value in the SGBD's coding read, which names the
-// same setting differently, so match on shared tokens. Booleans may be words
-// (aktiv/1) -- reduce to the on/off number space the curated entry uses.
+// setting differently -- match on shared tokens, reduce to the on/off numbers.
 function curatedMatchResult(kw, got) {
   const toks = (s) => new Set(String(s)
     .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase()
@@ -291,8 +280,8 @@ function curatedMatchResult(kw, got) {
   return null;
 }
 
-// The staged-changes review: what WOULD be sent, as readable rows. Demo mode
-// says the write is simulated; on a real car it says it is not sent.
+// The staged-changes review: what WOULD be sent. Demo mode says the write is
+// simulated; on a real car it says it is not sent.
 function curatedReview(chassisId, groups, staged, current) {
   const rows = [];
   for (const g of groups) for (const it of g.items) {
@@ -307,8 +296,7 @@ function curatedReview(chassisId, groups, staged, current) {
   confirmDialog(codingReviewDialog('Staged features', rows));
 }
 
-// One review row: label on top, keyword + from->to beneath. Shared by the
-// curated and expert reviews.
+// One review row: label, keyword + from->to. Shared by curated + expert reviews.
 function codingReviewRow(label, sub, from, to) {
   return `<div class="cod-rev-row">`
     + `<div class="cod-rev-label">${esc(label)}</div>`
@@ -317,8 +305,8 @@ function codingReviewRow(label, sub, from, to) {
     + `<span class="cod-rev-arrow">→</span> <b>${esc(to)}</b></div></div>`;
 }
 
-// The dialog body, demo-aware. In demo mode a "send" is simulated, so say so
-// and offer to run it; on a real car the write is refused (unverified).
+// The dialog body, demo-aware: demo mode simulates a "send", a real car refuses
+// the write (unverified). Keep the "not sent" / EEPROM rationale below.
 function codingReviewDialog(title, rows) {
   const demo = typeof demoMode === 'function' && demoMode();
   const foot = demo

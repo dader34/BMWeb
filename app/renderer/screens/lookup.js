@@ -1,12 +1,12 @@
 // Fault Lookup screen: offline search across the whole fault database, filtered
-// by chassis and by ECU/module. Data comes from the generated structured index
-// (faultindex.js -> window.BMW_FAULT_INDEX), loaded lazily the same way the flat
-// faultdb is, so the large literal isn't parsed before first paint.
+// by chassis and module. Data is the generated index (faultindex.js ->
+// window.BMW_FAULT_INDEX), lazy-loaded so the large literal isn't parsed before
+// first paint.
 //
-// Each index entry is { chassis, module, sgbd, scheme, faults: [[key, english, code]] }.
-// scheme "code": key IS the hex DTC (code === key). scheme "text": key is the SGBD
-// German fault text; code is the ORT hex from the FORTTEXTE table ("" if unknown).
-// Searching matches the key, the English text, AND the code.
+// Each entry is { chassis, module, sgbd, scheme, faults: [[key, english, code]] }.
+// scheme "code": key IS the hex DTC (code === key). scheme "text": key is the
+// SGBD German fault text, code the ORT hex from FORTTEXTE ("" if unknown).
+// Search matches the key, the English text, AND the code.
 
 // lazy-load window.BMW_FAULT_INDEX by injecting faultindex.js once.
 function loadFaultIndex() {
@@ -27,19 +27,16 @@ const lookupState = { q: '', chassis: '', module: '' };
 const LOOKUP_MAX = 400; // cap rendered rows; the count line reports the true total
 
 // prettified module labels harvested from the live chassis config, per chassis:
-// { chassisId: { indexModuleValue: "Nice ECU Label" } }. Some fault files carry
-// only a slug module name (e.g. E46 "bms46"); the config's ECU label ("BMS46 for
-// M43") is the same name the chassis->sections screen shows, so prefer it for
-// display. Filtering still uses the raw index module value.
+// { chassisId: { indexModuleValue: "Nice ECU Label" } }. Fault files carry only
+// a slug ("bms46"); the config's label ("BMS46 for M43") is prettier. Filtering
+// still uses the raw index module value.
 const lookupLabels = {};
-// display name for an index module value on a given chassis: config label if known.
 function lookupModuleLabel(chassis, moduleValue) {
   const m = lookupLabels[chassis];
   return (m && m[moduleValue]) || moduleValue;
 }
 
 // custom dropdown for the Lookup screen. options: [{ val, label, meta, count }].
-// onChange(val) fires on pick.
 function lookupDropdown(placeholder, options, current, onChange) {
   const root = document.createElement('div');
   root.className = 'lkd';
@@ -97,9 +94,9 @@ function lookupDropdown(placeholder, options, current, onChange) {
       const below = window.innerHeight - r.bottom;
       const up = below < need && r.top > below;
       root.classList.toggle('drop-up', up);
-      // cap the list to the real space on the chosen side: down to the footer
-      // F-key bar's actual top (not a guess), up to the viewport top, less the
-      // pinned search box + margin, so the popup fits without scrolling the page.
+      // cap the list to the real space on the chosen side (down to the F-key
+      // bar's actual top, up to the viewport top) so the popup never scrolls
+      // the page
       const bar = document.getElementById('fkeybar');
       const floor = bar ? bar.getBoundingClientRect().top : window.innerHeight;
       const MARGIN = 12;
@@ -146,9 +143,9 @@ async function showLookup() {
   loading.innerHTML = '<span class="loader"></span><span>Loading fault database…</span>';
   view.appendChild(loading);
 
-  if (typeof loadPcodes === 'function') loadPcodes();     // warm P-code map for search + stacked display
-  // warm ISTA metadata (per-variant names, P-codes, and the full fleet incl. 6-digit
-  // codes searched via matchIsta). Re-render when it lands so a pending query updates.
+  if (typeof loadPcodes === 'function') loadPcodes();     // warm P-code map
+  // warm ISTA metadata (per-variant names, P-codes, 6-digit fleet codes for
+  // matchIsta); re-render when it lands so a pending query updates
   if (typeof loadFaultMeta === 'function') loadFaultMeta().then(() => {
     if (typeof render === 'function' && (lookupState.q || lookupState.chassis || lookupState.module)) render();
   });
@@ -159,14 +156,13 @@ async function showLookup() {
   const index = window.BMW_FAULT_INDEX || [];
   const inpa = typeof inpaMode === 'function' && inpaMode();
 
-  // prefetch the live config for every chassis in the index (once) to harvest the
-  // prettified ECU labels the chassis->sections screen uses, so results/dropdowns
-  // show "BMS46 for M43" instead of the raw "bms46" slug. best-effort: on failure
-  // (engine offline) the raw module value is used. cached per chassis in lookupLabels.
+  // prefetch each chassis config once to harvest prettified ECU labels, so
+  // results/dropdowns show "BMS46 for M43" not the raw "bms46" slug.
+  // best-effort: on failure (engine offline) the raw value is used.
   async function ensureLabels(chassisIds) {
     await Promise.all(chassisIds.map(async (id) => {
       if (lookupLabels[id]) return;
-      lookupLabels[id] = {}; // mark attempted so we don't refetch on every render
+      lookupLabels[id] = {}; // mark attempted so we don't refetch every render
       try {
         const ch = await api(`/api/chassis/${id}`);
         const sgbdToModule = {};
@@ -179,7 +175,7 @@ async function showLookup() {
     }));
   }
 
-  // ---- controls: search box + chassis filter + module filter ----
+  // controls: search box + chassis filter + module filter
   const controls = document.createElement('div');
   controls.className = 'lookup-controls';
   controls.innerHTML = `
@@ -213,7 +209,7 @@ async function showLookup() {
   results.className = 'lookup-results';
   view.appendChild(results);
 
-  // ---- chassis dropdown (custom, rich rows) ----
+  // chassis dropdown
   const chassisIds = [...new Set(index.map(e => e.chassis))].sort();
   const chassisCounts = {};
   index.forEach(e => { chassisCounts[e.chassis] = (chassisCounts[e.chassis] || 0) + e.faults.length; });
@@ -233,16 +229,15 @@ async function showLookup() {
   });
   controls.querySelector('#slot-chassis').appendChild(chassisDd.el);
 
-  // ---- module control: custom dropdown (modern) OR INPA two-pane popup ----
-  // module options for the current chassis scope, with per-module fault counts.
-  // label uses the prettified config name; value stays the raw index module.
+  // module control: dropdown (modern) or INPA two-pane popup. options for the
+  // current chassis scope; label uses the config name, value the raw module.
   function moduleOptsForScope() {
     const pool = lookupState.chassis ? index.filter(e => e.chassis === lookupState.chassis) : index;
-    const byName = new Map();       // module value -> fault count (max across variant entries)
-    const chassisOf = new Map();    // module value -> Set of chassis it appears on
+    const byName = new Map();       // module value -> fault count
+    const chassisOf = new Map();    // module value -> Set of chassis
     for (const e of pool) {
-      // a module can span several variant entries (same name, different sgbd); they
-      // share most faults, so show the largest variant's count, not the sum.
+      // a module spans several variant entries sharing most faults, so show the
+      // largest variant's count, not the sum
       byName.set(e.module, Math.max(byName.get(e.module) || 0, e.faults.length));
       if (!chassisOf.has(e.module)) chassisOf.set(e.module, new Set());
       chassisOf.get(e.module).add(e.chassis);
@@ -253,21 +248,21 @@ async function showLookup() {
       [...byName.keys()].sort((a, b) => label(a).localeCompare(label(b)))
         .map(n => ({
           val: n, label: label(n), count: byName.get(n),
-          // in "All chassis" mode the same module name can appear on several chassis;
-          // tag it so duplicates are distinguishable (e.g. "E60 · E90").
+          // "All chassis": the same module name can appear on several chassis;
+          // tag it so duplicates are distinguishable
           meta: lookupState.chassis ? '' : [...chassisOf.get(n)].sort().join(' · '),
         })));
   }
 
-  let moduleDd = null;        // modern: the custom dropdown
+  let moduleDd = null;        // modern: the dropdown
   let moduleBtn = null;       // inpa: the button that opens the two-pane popup
   const moduleSlot = controls.querySelector('#slot-module');
 
   function rebuildModuleControl() {
     moduleSlot.innerHTML = '';
     if (inpa) {
-      // INPA mode: a button that opens the two-pane (sections | modules) popup,
-      // built from the live chassis config so it groups modules by INPA section.
+      // INPA: a button opening the two-pane (sections | modules) popup, grouped
+      // by INPA section from the live config
       moduleBtn = document.createElement('button');
       moduleBtn.type = 'button';
       moduleBtn.className = 'lkd-btn lkd-inpa-btn';
@@ -284,12 +279,11 @@ async function showLookup() {
   }
   rebuildModuleControl();
 
-  // INPA two-pane module picker: left pane = the chassis's INPA sections, right
-  // pane = that section's modules (only those present in the fault index). needs a
-  // chassis selected; if "All chassis", nudge the user to pick one first.
+  // INPA two-pane module picker: left = the chassis's INPA sections, right =
+  // that section's modules present in the index. Needs a chassis first.
   async function openInpaModulePicker() {
     if (!lookupState.chassis) {
-      // no chassis chosen: open the chassis dropdown instead, that must come first
+      // no chassis: open the chassis dropdown, that must come first
       chassisDd.el.querySelector('.lkd-btn').click();
       return;
     }
@@ -298,18 +292,15 @@ async function showLookup() {
     try { ch = await api(`/api/chassis/${chId}`); }
     catch { ch = null; }
 
-    // index entries for this chassis, keyed by sgbd, so we can attach the config's
-    // prettified ECU label (same names shown on the chassis->sections screen) to each
-    // indexed module while still filtering by the index's own module value.
+    // index entries for this chassis keyed by sgbd, to attach the config's
+    // prettified label to each module while still filtering by module value
     const chEntries = index.filter(e => e.chassis === chId);
     const sgbdToModule = {};
     chEntries.forEach(e => { if (e.sgbd) sgbdToModule[e.sgbd.toLowerCase()] = e.module; });
-    // display label for a module value: the config ECU label if we have one, else
-    // the module value itself. built below from the live config.
     const labelForModule = {};
 
-    // build sections: prefer the live config's grouping + labels. each module entry
-    // is { label (prettified, for display), module (index value, for filtering) }.
+    // build sections from the live config's grouping + labels; each entry is
+    // { label (display), module (index value, for filtering) }
     let sections;
     if (ch && ch.sections) {
       sections = ch.sections.map(s => {
@@ -317,7 +308,7 @@ async function showLookup() {
         const modules = [];
         for (const ecu of s.ecus) {
           const mod = sgbdToModule[(ecu.sgbd || '').toLowerCase()];
-          if (!mod || seen.has(mod)) continue; // not indexed, or already listed
+          if (!mod || seen.has(mod)) continue;
           seen.add(mod);
           const label = ecu.label || mod;
           labelForModule[mod] = label;
@@ -332,15 +323,14 @@ async function showLookup() {
           .map(m => ({ label: m, module: m })),
       }];
     }
-    // anything indexed but not matched into a config section goes under "Other",
-    // labelled by its index module value (no config label available).
+    // indexed modules not matched into a config section go under "Other"
     const placed = new Set(sections.flatMap(s => s.modules.map(m => m.module)));
     const orphan = [...new Set(chEntries.map(e => e.module))]
       .filter(m => !placed.has(m)).sort()
       .map(m => ({ label: m, module: m }));
     if (orphan.length) sections.push({ name: 'Other', modules: orphan });
 
-    // expose the config labels so render()/rebuildModuleControl show pretty names too
+    // expose the config labels so render() shows pretty names too
     lookupLabels[chId] = labelForModule;
 
     const modalOpts = {
@@ -389,20 +379,18 @@ async function showLookup() {
     showAll();
   }
 
-  // the location byte a stored text-scheme code represents, as a 2-hex string:
-  // "0x0B" -> "0b", "0x1F" -> "1f". Returns null for codes that aren't a single
-  // location byte (real 4-hex DTCs from code-scheme ECUs), so the high-byte fallback
-  // only ever matches text-scheme location entries.
+  // the location byte a text-scheme code represents, as 2 hex ("0x0B" -> "0b").
+  // null for anything that isn't a single location byte (real 4-hex DTCs), so
+  // the high-byte fallback only ever matches text-scheme location entries.
   function codeLocByte(code) {
     const c = (code || '').replace(/^0x/i, '').toLowerCase();
     return /^[0-9a-f]{1,2}$/.test(c) ? c.padStart(2, '0') : null;
   }
 
-  // parse a raw search string into terms. a full 4-hex-digit DTC (e.g. "0B3F",
-  // "0x0B3F") records its HIGH BYTE ("0b"): text-scheme ECUs report a 16-bit
-  // F_ORT_NR at read time (0B3F) but the offline FORTTEXTE table only holds the
-  // high-byte location (0B -> "LWS-ID wrong"). The high byte is used ONLY as a
-  // fallback (see render) so it doesn't flood results with every ECU's location 0B.
+  // parse a search string into terms. GOTCHA: text-scheme ECUs report a 16-bit
+  // F_ORT_NR (0B3F) but FORTTEXTE only holds the high-byte location (0B ->
+  // "LWS-ID wrong"), so a full 4-hex term records its HIGH BYTE ("0b") for the
+  // fallback -- used ONLY when the exact code isn't found, else it floods.
   function parseTerms(q) {
     return q.trim().toLowerCase().split(/\s+/).filter(Boolean).map(t => {
       // a P-code term resolves to its BMW hex ("p2563" -> also match "27c3")
@@ -413,28 +401,26 @@ async function showLookup() {
     });
   }
 
-  // ---- filtering ----
-  // useHiByte: enable the high-byte fallback for full-hex terms. Kept off unless the
-  // exact code wasn't found anywhere (decided once per render), so a normal full-DTC
-  // search stays precise and only widens when it would otherwise return nothing.
+  // useHiByte: the high-byte fallback, kept off unless the exact code wasn't
+  // found anywhere, so a full-DTC search stays precise and only widens when it
+  // would otherwise return nothing.
   function matches(entry, terms, useHiByte) {
     if (lookupState.chassis && entry.chassis !== lookupState.chassis) return null;
     if (lookupState.module && entry.module !== lookupState.module) return null;
     if (!terms.length) return entry.faults;
     return entry.faults.filter(([k, en, code]) => {
       const hay = (k + ' ' + en + ' ' + (code || '')).toLowerCase();
-      const loc = codeLocByte(code); // this row's location byte, or null
+      const loc = codeLocByte(code);
       return terms.every(t =>
         hay.includes(t.text) ||
-        (t.alt && hay.includes(t.alt)) ||            // P-code term -> its BMW hex
-        (useHiByte && t.hi && loc && loc === t.hi)); // fallback: full DTC -> location-byte entry
+        (t.alt && hay.includes(t.alt)) ||            // P-code term -> BMW hex
+        (useHiByte && t.hi && loc && loc === t.hi)); // fallback: DTC -> location
     });
   }
 
-  // search BMW_FAULT_META (the full ISTA fleet: hex -> {pcodes, variants}) for
-  // codes matching all terms, returning lookup groups (one per ISTA sgbd). Codes
-  // already in `seenCodes` (shown by the curated index) are skipped. Terms match
-  // the hex code, the variant English name, or a P-code (via t.alt / term text).
+  // search BMW_FAULT_META (the ISTA fleet: hex -> {pcodes, variants}) for codes
+  // matching all terms, one group per ISTA sgbd. Skips codes in seenCodes (shown
+  // by the curated index).
   const ISTA_META_MAX = 400; // cap synthesized rows so a broad term can't flood
   function matchIsta(meta, terms, seenCodes) {
     const bySgbd = new Map(); // sgbd -> rows[[hex, name, hex]]
@@ -461,8 +447,7 @@ async function showLookup() {
     }));
   }
 
-  // does any entry contain a literal match for every full-hex term? (i.e. the exact
-  // code is present) - if so we don't need the high-byte fallback.
+  // is the exact code present anywhere? if so, skip the high-byte fallback.
   function hasExactCodeHit(terms) {
     const hexTerms = terms.filter(t => t.hi);
     if (!hexTerms.length) return true; // no code terms -> nothing to fall back for
@@ -476,8 +461,7 @@ async function showLookup() {
     const terms = parseTerms(lookupState.q);
     clearBtn.hidden = !lookupState.q;
 
-    // nothing to search yet: no query and no chassis/module filter -> prompt the
-    // user rather than dumping the entire fault database.
+    // no query and no filter -> prompt rather than dump the whole database
     if (!terms.length && !lookupState.chassis && !lookupState.module) {
       results.innerHTML = '';
       countLine.textContent = 'Search a fault code or description, or select a chassis / module to get started.';
@@ -485,16 +469,14 @@ async function showLookup() {
       return;
     }
 
-    // widen a full-DTC search to its high byte ("0B3F"/"7411" -> location "0B"/"74")
-    // whenever the exact code isn't found anywhere. A read-out code's low byte is
-    // runtime-only and not in the offline tables, so its high byte is all we can match
-    // - across every module (each may have a "74"), so several rows can come back; the
-    // module chip on each identifies which one is yours.
+    // widen a full-DTC search to its high byte ("0B3F" -> "0B") when the exact
+    // code isn't found: the low byte is runtime-only and not in the offline
+    // tables, so several modules can match and each row's module chip says which
     const useHiByte = !hasExactCodeHit(terms);
 
     const groups = [];
     let total = 0;
-    const seenCodes = new Set(); // hex codes the curated index already covered
+    const seenCodes = new Set(); // codes the curated index already covered
     for (const entry of index) {
       const rows = matches(entry, terms, useHiByte);
       if (!rows || !rows.length) continue;
@@ -503,10 +485,9 @@ async function showLookup() {
       groups.push({ chassis: entry.chassis, module: entry.module, sgbd: entry.sgbd, scheme: entry.scheme, rows });
     }
 
-    // ISTA fleet fallback, ONLY for 6-digit F/G-series codes (the ones the curated
-    // E-series index doesn't carry). A 6-hex-digit search term triggers it; 4-digit
-    // searches stay on the curated data. Skipped when a chassis/module filter is
-    // active (meta has no chassis attribution) or no query is typed.
+    // ISTA fleet fallback, ONLY for 6-digit F/G-series codes the curated
+    // E-series index doesn't carry. Skipped under a chassis/module filter (meta
+    // has no chassis attribution).
     const meta = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
     const wants6 = terms.some(t => /^[0-9a-f]{6}$/i.test(t.text));
     if (meta && wants6 && !lookupState.chassis && !lookupState.module) {
@@ -519,8 +500,7 @@ async function showLookup() {
     } else {
       const scope = lookupState.chassis || 'all chassis';
       const capped = total > LOOKUP_MAX;
-      // note when results came from the high-byte fallback (a full read-out code
-      // matched by its location byte across modules), so the extra rows make sense.
+      // note when results came from the high-byte fallback, so extra rows make sense
       const byLoc = useHiByte && terms.some(t => t.hi);
       countLine.textContent = `${total.toLocaleString()} fault${total === 1 ? '' : 's'} across ${groups.length} module${groups.length === 1 ? '' : 's'} · ${scope}`
         + (byLoc ? ' · matched by location byte' : '')
@@ -549,8 +529,7 @@ async function showLookup() {
       for (const [k, en, code] of rowsToShow) {
         const row = document.createElement('div');
         row.className = 'lookup-row';
-        // code column: the hex/P-code (code === key for code-scheme, ORT for
-        // text-scheme). "text" scheme also shows its German source phrase.
+        // code column: hex/P-code (code===key for code-scheme, ORT for text).
         // where the BMW hex has a known SAE P-code, stack P-code over hex.
         const pc = code && typeof pcodeForHex === 'function' ? pcodeForHex(code) : null;
         const codeCell = code
@@ -561,8 +540,7 @@ async function showLookup() {
         const keyCell = g.scheme === 'text'
           ? `<span class="lookup-key lookup-key-text">${esc(k)}</span>`
           : '';
-        // when ISTA has richer data for this hex (per-variant descriptions or a
-        // service document), mark the row expandable and open a detail panel on click.
+        // when ISTA has richer data for this hex, make the row expandable
         const hasDetail = code && typeof variantsForHex === 'function'
           && variantsForHex(code).length > 0;
         row.innerHTML = `${codeCell}${keyCell}<span class="lookup-en">${esc(en)}</span>`
@@ -580,9 +558,8 @@ async function showLookup() {
     results.appendChild(frag);
   }
 
-  // ---- fault detail modal (ISTA variants + service document) ----
-  // a hex code's ISTA service document (conditions, monitoring, service
-  // measure, notes). The big info file is loaded on demand on first open.
+  // fault detail modal (ISTA variants + service document). The big info file is
+  // loaded on demand on first open.
   const _infoFields = [
     ['description', 'Description'], ['setCondition', 'Set condition'],
     ['monitoring', 'Monitoring'], ['timeCondition', 'Time condition'],
@@ -601,10 +578,8 @@ async function showLookup() {
     return rows ? `<div class="fi-grid">${rows}</div>` : '';
   }
 
-  // Show ISTA detail for the ONE clicked entry. The search page already lists every
-  // ECU variant as its own row, so the modal is just that row's code, name, P-codes,
-  // and (if present) its service document. `clickedName` is the exact English text
-  // the row displayed - we use it to pick the matching ISTA variant record.
+  // Show ISTA detail for the ONE clicked entry (the search page already lists
+  // every variant as its own row). clickedName picks the matching variant record.
   async function openFaultModal(code, clickedName, sgbd) {
     const hex = String(code).toUpperCase();
     const meta = (window.BMW_FAULT_META && window.BMW_FAULT_META[hex]) || {};
@@ -612,11 +587,9 @@ async function showLookup() {
     const variants = (typeof variantsForHex === 'function' ? variantsForHex(code) : []) || [];
     const wantName = (clickedName || '').trim().toLowerCase();
     const wantSgbd = (sgbd || '').toLowerCase();
-    // pick the ISTA variant record for the clicked module. BMacW's row text/sgbd
-    // don't always equal ISTA's, so try in order: exact sgbd, sgbd-family prefix
-    // (ms_s65 -> ms_s65_2), exact name, else the first variant. We only ever show
-    // ONE - the module the user clicked - never a fan-out (the search list already
-    // shows every variant as its own row).
+    // pick the variant record for the clicked module, in order: exact sgbd,
+    // sgbd-family prefix (ms_s65 -> ms_s65_2), exact name, else first. Only ever
+    // ONE -- never a fan-out.
     const famKey = wantSgbd.replace(/[^a-z0-9]/g, '');
     const picked =
       variants.find(v => (v.sgbd || '').toLowerCase() === wantSgbd) ||
@@ -624,7 +597,7 @@ async function showLookup() {
                            return famKey && (s.startsWith(famKey) || famKey.startsWith(s)); }) ||
       variants.find(v => (v.name || '').trim().toLowerCase() === wantName) ||
       variants[0] || null;
-    // the row's own text is authoritative for the title (it's what the user clicked)
+    // the row's own text wins the title (it's what the user clicked)
     const title = clickedName || picked?.name || '';
 
     const pcodeBar = pcodes.length

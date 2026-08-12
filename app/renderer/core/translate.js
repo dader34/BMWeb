@@ -1,7 +1,6 @@
-// German → English translation tables and helpers, shared across the renderer
-// (faults.js rendering, ecu.js job labels, live.js measurement keys). Pure
-// lookup/rewrite logic — no DOM. All translation is gated on the Settings
-// language (lang() === 'orig' keeps the raw German for EDIABAS-faithful mode).
+// German → English translation tables and helpers, shared across the renderer.
+// Pure lookup/rewrite, no DOM. Gated on Settings language (lang()==='orig'
+// keeps raw German for EDIABAS-faithful mode).
 const FAULT_PHRASES = [
   // symptom (F_SYMPTOM_TEXT)
   ['kein Signal oder Wert', 'No signal or value'],
@@ -30,9 +29,8 @@ const FAULT_PHRASES = [
   ['Testbedingungen erfüllt', 'Test conditions met'],
   ['Testbedingungen nicht erfüllt', 'Test conditions not met'],
 ];
-// INPA's softkey captions are cut to fit a narrow F-key bar. Expanded here
-// as whole labels (anchored), so only an exact caption is rewritten -- a
-// substring rule would corrupt longer text that happens to contain one.
+// INPA's softkey captions, cut to fit the F-key bar. Matched as WHOLE labels
+// (anchored): a substring rule would corrupt longer text containing one.
 const INPA_CAPTIONS = new Map(Object.entries({
   // fault memories: EM/IM/HM are Fehler-/Info-/Historienspeicher
   'Read EM': 'Read fault memory', 'Clear EM': 'Clear fault memory',
@@ -56,17 +54,14 @@ const INPA_CAPTIONS = new Map(Object.entries({
   // common softkeys
   'I/O state': 'I/O status', 'Seat pos.': 'Seat position',
   'km reset': 'Reset kilometres', 'Commtest': 'Communication test',
-  // Only genuine abbreviations belong here. Plain English words that happen
-  // to be short -- Display, Unit, Flap, Sensors, Actuators, Prog, Valves --
-  // are real captions on other ECUs' status menus (BMBT46RN's "Display" is a
-  // monitor readout, not a display test), and expanding them would invent
-  // meaning rather than translate it.
+  // Only genuine abbreviations belong here: short English words (Display, Flap,
+  // Sensors) are real captions on other ECUs and expanding them invents meaning.
 }));
 
 // token-level German -> English, applied IN ORDER: longer compounds and
 // multi-word phrases first so they win before their fragments rewrite a piece.
 const DE_TOKENS = [
-  // ---- captions INPA leaves in German ----
+  // captions INPA leaves in German
   [/^Zurück\/control beenden$/i, 'Back / end control'],
   [/^Sitzhzg\.?$/i, 'Seat heating'],
   [/^Eingänge$/i, 'Inputs'],
@@ -80,9 +75,7 @@ const DE_TOKENS = [
   [/^Alle$/i, 'All'],
   [/^Ausw\.?$/i, 'Select'],
   [/^Variante$/i, 'Variant'],
-  // ---- RDC (tire pressure) result descriptions ----
-  // SGBD descs like "Anzahl 'Sensor-defekt'-Ereignisse"; compounds first,
-  // same ordering rule as everywhere else in this table.
+  // RDC (tire pressure) result descriptions. compounds first.
   [/Anzahl '([^']+)'-Ereignisse/gi, "'$1' event count"],
   [/Anzahl '([^']+)'-Meldungen/gi, "'$1' messages"],
   [/\bReifenpannen?\b/gi, 'flat tire'],
@@ -107,16 +100,14 @@ const DE_TOKENS = [
   [/\bin Monaten\b/gi, 'in months'],
   [/\bGrad Celsius\b/gi, '°C'],
   [/\baktueller?\b/gi, 'current'],
-  // wheel positions, German -> English. Case-sensitive on purpose: VL/HL as
-  // two-letter fragments appear inside ordinary words under /i.
+  // wheel positions. Case-sensitive on purpose: VL/HL match inside words under /i.
   [/\bVL\b/g, 'FL'], [/\bVR\b/g, 'FR'],
   [/\bHL\b/g, 'RL'], [/\bHR\b/g, 'RR'],
   [/\bKalibrierung\b/gi, 'calibration'],
   [/\babgebrochen\b/gi, 'aborted'],
   [/\bbestaetigt\b/gi, 'confirmed'],
-  // ---- climate actuator names (IHKA STEUERN_* job labels) ----
-  // Compounds ahead of the single-word rules: "Heizspannung" must not become
-  // the hybrid "Heizvoltage", nor "Standheizung" become "Standheater".
+  // climate actuator names (IHKA STEUERN_*). compounds first, else "Heizspannung"
+  // -> the hybrid "Heizvoltage".
   [/\bHeizspannung\b/gi, 'Heater voltage'],
   [/\bStandheizung\b/gi, 'Auxiliary heater'],
   [/\bZusatzheizung\b/gi, 'Supplementary heater'],
@@ -130,24 +121,17 @@ const DE_TOKENS = [
   [/\bKlappenposition\b/gi, 'Flap position'],
   [/\bHeckscheibe\b/gi, 'Rear window'],
   [/\bFrontscheibe\b/gi, 'Windscreen'],
-  // INPA captions this one "Compr." beside STEUERN_KLIMAKOMPRESSOR: KO is
-  // Kompressor, the A/C compressor request to the DME
+  // KO = Kompressor, the A/C compressor request to the DME
   [/\bDME[\s_]KO\b/gi, 'A/C compressor request (DME)'],
   [/\bDME[\s_]AC\b/gi, 'A/C enable (DME)'],
 
-  // ---- climate/body jargon INPA prints in its own English ----
-  // These are not German, so nothing above touches them, but they are terms
-  // only a BMW manual explains. Stratification is the flap that layers airflow
-  // between face-level and footwell outlets ("Schichtung" = layering); AUC is
-  // the Automatische Umluft-Control air-quality sensor; Clamp 30 is BMW's
-  // terminal-30 permanent battery feed.
+  // climate/body jargon INPA prints in its own English (not German, so nothing
+  // above touches it). Stratification = airflow layering; AUC = air-quality sensor.
   [/Stratification potentiometer/gi, 'Air layering flap position'],
   [/Stratification flap/gi, 'Air layering flap'],
   [/\bStratification\b/gi, 'Air layering'],
-  // the compounds first: a bare-token rule turns "AUC sensor" into
-  // "AUC (air-quality sensor) sensor"
-  // The replacements must not contain "AUC" themselves: the bare-token rule
-  // below runs afterwards and would rewrite it again, nesting the parenthetical.
+  // compounds first; and the replacements must not contain "AUC" or the bare
+  // rule below nests the parenthetical.
   [/\bAUC\s+sensor\b/gi, 'Air-quality sensor'],
   [/\bAUC\s+heating\b/gi, 'Air-quality sensor heating'],
   [/\bAUC\s+supply\b/gi, 'Air-quality sensor supply'],
@@ -159,12 +143,10 @@ const DE_TOKENS = [
   [/\bPhototransistor\b/gi, 'Sun sensor (phototransistor)'],
   [/degrees C\b/gi, '°C'],
 
-  // ---- INPA root-menu captions (tools/ipo_rootmenu.py) ----
-  // Whole captions, ahead of every word-level rule: "Fehlerspeicher" must not
-  // become "faultspeicher" and "Status lesen" must not become "Status Read".
+  // INPA root-menu captions. Whole captions ahead of every word rule, else
+  // "Fehlerspeicher" -> "faultspeicher"; and a word table can't reorder
+  // verb-last German ("Fehlerspeicher lesen"), so translate as units.
   [/^Fehlerspeicher$/i, 'Error memory'],
-  // Whole phrases first: a word table cannot reorder German ("Fehlerspeicher
-  // lesen" is verb-last), so the common menu captions are translated as units.
   [/^Fehlerspeicher lesen$/i, 'Read error memory'],
   [/^Fehlerspeicher lesen Detail$/i, 'Read error memory (detail)'],
   [/^Fehlerspeicher l(ö|oe)schen$/i, 'Clear error memory'],
@@ -185,16 +167,13 @@ const DE_TOKENS = [
   [/\bAdaption\b/gi, 'adaptation'],
   [/^Bildschirm drucken$/i, 'Print screen'],
   [/^INPA beenden$/i, 'Exit INPA'],
-  // the two verbs the word table still leaves German -- after the phrases
-  // above, which would otherwise be half-translated ("Bildschirm print")
+  // these verbs must come after the phrases above, else "Bildschirm print"
   [/\bdrucken\b/gi, 'print'], [/\bspeichern\b/gi, 'save'],
   [/^Historienspeicher lesen$/i, 'Read history memory'],
   [/^Anpassungswerte selektiv l(ö|oe)schen$/i,
    'Clear selected adaptation values'],
   [/^Speicher lesen erweitert$/i, 'Read memory (extended)'],
-  // ...and the compounds INPA builds from it. Without these the bare /Fehler/
-  // rule fires and leaves "faultspeicher lesen" -- German grammar with an
-  // English stem, which is worse than either language alone.
+  // compounds before the bare /Fehler/ rule, else "faultspeicher lesen"
   [/\bFehlerspeicher(s|n)?\b/gi, 'error memory'],
   [/\bInfospeicher(s|n)?\b/gi, 'info memory'],
   [/\bHistorienspeicher(s|n)?\b/gi, 'history memory'],
@@ -215,16 +194,15 @@ const DE_TOKENS = [
   [/^Ansteuern$/i, 'Activate'],
   [/^Informationen?$/i, 'Information'],
 
-  // ---- job-name verbs/nouns (humanized SGBD job names, e.g. "Flash Crc Pruefen") ----
+  // job-name verbs/nouns (humanized SGBD job names)
   [/\bPruefen\b|\bPrüfen\b/gi, 'Check'], [/\bLesen\b/gi, 'Read'],
   [/\bSchreiben\b/gi, 'Write'], [/\bSetzen\b/gi, 'Set'], [/\bLoeschen\b|\bLöschen\b/gi, 'Clear'],
   [/\bSteuern\b/gi, 'Activate'], [/\bSignatur\b/gi, 'Signature'],
   [/\bBlocklaenge\b|\bBlocklänge\b/gi, 'Block length'], [/\bZeiten\b/gi, 'Times'],
-  // ---- job-argument dialog terms (from the SGBD _ARGUMENTS schema) ----
+  // job-argument dialog terms (SGBD _ARGUMENTS schema)
   [/Datum der SG-Programmierung/gi, 'date of ECU programming'],
-  // ---- SGBD result descriptions on the generated Service/Special/Other cards ----
-  // Full sentences first: these are whole ARGCOMMENT strings, and letting the
-  // single-word rules reach them first produces half-German hybrids.
+  // SGBD result descriptions (Service/Special/Other cards). Full ARGCOMMENT
+  // sentences first, else the single-word rules make half-German hybrids.
   [/Gibt das aktuelle gew(ä|ae)hlte Protokoll aus/gi, 'currently selected protocol'],
   [/Anzahl der Diagnoseprotokolle/gi, 'number of diagnostic protocols'],
   [/f(ü|ue)r Pr(ü|ue)fablauf Bandende/gi, 'for end-of-line test'],
@@ -257,7 +235,7 @@ const DE_TOKENS = [
   [/ausgelesene Daten/gi, 'data read'],
   [/OKAY,? wenn fehlerfrei/gi, 'OKAY when no error'],
 
-  // ---- flash/programming argument terms (Flash Parameter Set, AIF dialogs) ----
+  // flash/programming argument terms (Flash Parameter Set, AIF dialogs)
   [/Steuerger(ä|ae)te?-?adresse/gi, 'ECU address'],
   [/Steuerger(ä|ae)te?/gi, 'ECU'],
   [/Anzahl der Anwender-?Infofelder/gi, 'number of user info fields'],
@@ -268,14 +246,10 @@ const DE_TOKENS = [
   [/Endekennung/gi, 'end marker'], [/Maxanzahl/gi, 'max count'],
   [/\bAnzahl\b/gi, 'count'], [/\bAdresse\b/gi, 'address'],
   [/Gr(ö|oe)(ß|ss)e/gi, 'size'], [/\bletztes?\b/gi, 'last'],
-  // "Aif" mid-prose expands; the uppercase acronym is INPA's own name for the
-  // screen (root key F3) and stays as written, like any other proper name
+  // lowercase "Aif" mid-prose expands; the uppercase acronym is INPA's screen name
   [/\bf(ü|ue)r\b/gi, 'for'], [/\bSg\b/g, 'ECU'], [/\bAif\b/g, 'info field'],
-  // ---- identity-card labels from SGBD result descriptions ----
-  // These come from the generated screens (tools/ipo_enrich.py), where a field
-  // INPA does not caption falls back to the SGBD's own German description.
-  // Compound nouns first: "Lieferanten-Nummer" must not become the hybrid
-  // "Lieferanten-number" by matching the bare Nummer rule below.
+  // identity-card labels from SGBD result descriptions. compound nouns first,
+  // else "Lieferanten-Nummer" -> hybrid "Lieferanten-number".
   [/Herstelldatum\s*KW/gi, 'manufacture date (week)'],
   [/Herstelldatum\s*Jahr/gi, 'manufacture date (year)'],
   [/Herstelldatum\s*Monat/gi, 'manufacture date (month)'],
@@ -288,9 +262,8 @@ const DE_TOKENS = [
   [/Diagnose-?index/gi, 'diagnostic index'],
   [/Codier-?index/gi, 'coding index'],
   [/Bus-?index/gi, 'bus index'],
-  // ---- body-module component names (BITS tables: switches, motors, relays) ----
-  // Compound and multi-word forms first, so "Schalter FH Fahrer auf" does not
-  // get chewed into "switch FH driver auf" by the single-word rules below.
+  // body-module component names (BITS tables). compound/multi-word first, else
+  // "Schalter FH Fahrer auf" -> "switch FH driver auf".
   [/Schalter\s+FH\s+Fahrer\s+auf/gi, 'window switch, driver — up'],
   [/Schalter\s+FH\s+Fahrer\s+zu/gi, 'window switch, driver — down'],
   [/Schalter\s+FH\s+Beifahrer\s+auf/gi, 'window switch, passenger — up'],
@@ -315,7 +288,7 @@ const DE_TOKENS = [
   [/\bVersorgung\b/gi, 'supply'], [/\bStufe\b/gi, 'stage'],
   [/\bSender\b/gi, 'transmitter'], [/\bSchluessel\b|\bSchlüssel\b/gi, 'key'],
   [/\bReserve\b/gi, 'spare'], [/\bEingang\b/gi, 'input'],
-  // direction words: only as standalone tokens, never inside another word
+  // direction words: standalone tokens only (case-sensitive), never inside a word
   [/\bauf\b/g, 'up'], [/\bzu\b/g, 'down'],
   [/\bAnsteuern\b/gi, 'Activate'],
   [/BMW-?Hardwarenummer/gi, 'BMW hardware number'],
@@ -339,9 +312,7 @@ const DE_TOKENS = [
   [/Einschaltzeit/gi, 'on-time'], [/Periodendauer/gi, 'period'],
   [/Tastverhältnis|Tastverhaeltnis/gi, 'duty cycle'],
   [/Abgleichs?wert/gi, 'adjustment value'], [/rueckwaerts|rückwärts/gi, 'backwards'],
-  // ---- diesel injector-adjustment (IMA) + calibration/programming terms ----
-  // ---- second mining pass: ARG names + comments across the whole fleet,
-  // ranked by frequency. compounds precede fragments. ----
+  // fleet-wide ARG names + comments, by frequency. compounds precede fragments.
   [/Zusatzfunktion/gi, 'additional function'], [/Funktionale?r?/gi, 'functional'],
   [/Funktionen/gi, 'functions'], [/Funktion/gi, 'function'],
   [/Abgleichmenge/gi, 'adjustment quantity'], [/Abgleichflag/gi, 'adjustment flag'],
@@ -350,14 +321,13 @@ const DE_TOKENS = [
   [/Querbeschleunigung/gi, 'lateral acceleration'], [/Drehzahl/gi, 'RPM'],
   [/Sollspannung/gi, 'target voltage'], [/Sensespannung/gi, 'sense voltage'],
   [/Sensorversorgung/gi, 'sensor supply'], [/Programmierspannung/gi, 'programming voltage'],
-  // compound *spannung terms must precede the generic Spannung->voltage below,
-  // else that fragment fires first and strips the prefix (Versorgungsvoltage).
+  // compound *spannung before the generic Spannung->voltage, else "...voltage"
   [/Batteriespannung/gi, 'battery voltage'],
   [/Versorgungsspannung/gi, 'supply voltage'], [/Unterspannung/gi, 'undervoltage'],
   [/(Ü|Ue)berspannung/gi, 'overvoltage'],
   [/Geblaesesteuerspannung|Gebläsesteuerspannung/gi, 'blower control voltage'],
   [/Spannung/gi, 'voltage'],
-  // compound *temperatur* terms before the generic temperatur->temperature (line ~399)
+  // compound *temperatur* before the generic temperatur->temperature
   [/Umgebungstemperatursensor/gi, 'ambient temperature sensor'],
   [/Verstellwinkel/gi, 'adjustment angle'], [/Zuendwinkel|Zündwinkel/gi, 'ignition angle'],
   [/Drosselklappenwinkel/gi, 'throttle angle'], [/Motorlagewinkel/gi, 'engine position angle'],
@@ -381,14 +351,12 @@ const DE_TOKENS = [
   [/Messung/gi, 'measurement'], [/Ergebnis/gi, 'result'], [/Beschreibung/gi, 'description'],
   [/einschl(ä|ae)ft/gi, 'sleeps'], [/m(ö|oe)gliche/gi, 'possible'],
   [/optional/gi, 'optional'], [/Zahl\b/gi, 'number'],
-  // compound with -index must precede the bare Aenderung rule (else it leaves
-  // "changesindex")
+  // -index compound before the bare Aenderung rule, else "changesindex"
   [/(Ä|Ae|ä|ae)nderungsindex/gi, 'change index'],
   [/(\d+)-?stellig/gi, '$1-digit'], [/\bstellig/gi, 'digit'],
   [/\bZiffern?\b/gi, 'digits'], [/\binkl\.?/gi, 'incl.'], [/\bexkl\.?/gi, 'excl.'],
   [/\bAei\b/gi, 'AEI'], [/\bAe\b/gi, 'AE'],  // INPA arg-code fragments, keep as-is
-  // BMW field-code abbreviations in ID/write args (Fg=Fahrgestell, Zb=Zusammenbau,
-  // Sw=Software, Ds=Datensatz) + Datum
+  // BMW field-code abbreviations (Fg=Fahrgestell, Zb=Zusammenbau, Sw=Software, Ds=Datensatz)
   [/\bDatum\b/gi, 'date'], [/\bFg\s*Nr\b/gi, 'chassis no.'], [/\bZb\s*Nr\b/gi, 'assembly no.'],
   [/\bSw\s*Nr\b/gi, 'software no.'], [/\bDs\s*Nr\b/gi, 'dataset no.'], [/\bHw\s*Nr\b/gi, 'hardware no.'],
   [/\bNr\b/gi, 'no.'],
@@ -396,8 +364,7 @@ const DE_TOKENS = [
   [/\bBereich\b/gi, 'area'], [/\bProgramm\b/gi, 'Program'],
   [/vorgefuellter|vorgefüllter/gi, 'pre-filled'], [/Binaer\s?buffer|Binärbuffer/gi, 'binary buffer'],
   [/\bBinaer\b|\bBinär\b/gi, 'binary'], [/\bAls\b/gi, 'as'],
-  // headlight beam-aim / xenon leveling (SPU): Dejustagewinkel = misalignment
-  // angle; the ARG names abbreviate hor/ver + Wink(el)/Plaus(ibilitaet)
+  // xenon leveling (SPU): ARG names abbreviate hor/ver + Wink(el)/Plaus(ibilitaet)
   [/Dejustagewinkels?/gi, 'misalignment angle'],
   [/Dejuhor\b/gi, 'horizontal misalignment'], [/Dejuver\b/gi, 'vertical misalignment'],
   [/Plausibilit(ä|ae)t/gi, 'plausibility'], [/\bPlaus\b/gi, 'plausibility'],
@@ -406,18 +373,16 @@ const DE_TOKENS = [
   [/Pruefstempel|Pr(ü|ue)fstempel|Pruefstemp\b/gi, 'inspection stamp'],
   [/Pruefcode|Pr(ü|ue)fcode/gi, 'test code'], [/Pruefflag|Pr(ü|ue)fflag/gi, 'test flag'],
   [/Auswahlbyte/gi, 'selection byte'],
-  // numbered value/byte suffixes: "Wert1" -> "value 1", "Byte 3" -> "byte 3"
+  // numbered value/byte suffixes before the bare forms
   [/\bWert\s*(\d+)/gi, 'value $1'], [/\bByte\s*(\d+)/gi, 'byte $1'],
   [/\bWert\b/gi, 'value'], [/\bByte\b/gi, 'byte'],
   [/Injektor-?Mengenabgleich/gi, 'injector quantity adjustment (IMA)'],
-  [/\bIma\b/gi, 'IMA'],  // Injektor-Mengenabgleich (injector quantity code)
+  [/\bIma\b/gi, 'IMA'],
   [/Verstellwert/gi, 'adjustment value'], [/Verstellung/gi, 'adjustment'], [/Verstellen/gi, 'adjust'],
   [/\bAbgleich\b/gi, 'adjustment'], [/Programmieren/gi, 'programming'],
   [/\bZyl(?:inder)?\s*(\d+)/gi, 'cylinder $1'], [/\bZyl(?:inder)?\b/gi, 'cylinder'],
   [/Kennfeld/gi, 'map'], [/Ansteuerung/gi, 'control'],
-  // ---- comprehensive job-argument vocabulary (mined from every SGBD's
-  // _ARGUMENTS across the fleet; compounds precede their fragments) ----
-  // compound nouns first
+  // fleet-wide job-argument vocabulary. compounds precede fragments.
   [/Codierdaten/gi, 'coding data'], [/Codierwert/gi, 'coding value'],
   [/Programmdaten/gi, 'program data'], [/Herstellerdaten/gi, 'manufacturer data'],
   [/Abgleichdaten/gi, 'adjustment data'], [/Ident[_ ]?Daten/gi, 'ident data'],
@@ -429,7 +394,7 @@ const DE_TOKENS = [
   [/Abgleichspannung/gi, 'adjustment voltage'],
   [/Lambdasondenheizung/gi, 'lambda sensor heater'],
   [/Drehzahlanhebung/gi, 'idle speed increase'], [/Solldrehzahl/gi, 'target RPM'],
-  // fuel pump (EKP) delivery rate; Soll- compound before the bare noun
+  // Soll- compound before the bare noun
   [/Soll-?F(ö|oe)rdermenge/gi, 'target delivery quantity'],
   [/F(ö|oe)rdermenge/gi, 'delivery quantity'], [/F(ö|oe)rderbeginn/gi, 'delivery start'],
   [/Enddrehzahl/gi, 'end RPM'], [/Drehrichtung/gi, 'rotation direction'],
@@ -442,7 +407,7 @@ const DE_TOKENS = [
   [/Motorlagersteuerung/gi, 'engine mount control'], [/Sendeleistung/gi, 'transmit power'],
   [/Behoerden(daten)?/gi, 'authority data'], [/Vindaten/gi, 'VIN data'],
   [/Klangzeichen/gi, 'chime'], [/Heimleuchten/gi, 'welcome light'],
-  // verbs (infinitive + inflected forms seen in comments)
+  // verbs (infinitive + inflected)
   [/einschalten/gi, 'switch on'], [/ausschalten/gi, 'switch off'],
   [/aktivieren/gi, 'activate'], [/deaktivieren/gi, 'deactivate'],
   [/eingeben/gi, 'enter'], [/vorgeben/gi, 'specify'], [/vorzugebenden?/gi, 'to be specified'],
@@ -469,12 +434,8 @@ const DE_TOKENS = [
   [/Kennlinien?/gi, 'characteristic curve'], [/Serien\b/gi, 'series'],
   [/Grenz\b/gi, 'limit'], [/Steigung/gi, 'slope'], [/Spreizung/gi, 'spread'],
   [/Abweichung/gi, 'deviation'], [/Aenderung|Änderung/gi, 'change'],
-  // DWS/RDC wheel-speed vocabulary. These reach the screen as SGBD result
-  // DESCRIPTIONS, not .IPO captions: INPA prints one heading over ten keys
-  // ("ABS primary signals [pulses/sec]"), so each row falls back to the SGBD's
-  // own German. Placed AHEAD of the generic /Geschwindigkeit/ and /Signal/
-  // rules -- the token pass is ordered, and either would shred these compounds
-  // ("Radgeschwindigkeit" -> "Radspeed", "Rohsignal" -> "Rohsignal").
+  // DWS/RDC wheel-speed vocabulary, AHEAD of the generic /Geschwindigkeit/ and
+  // /Signal/ rules, else they shred these compounds ("Radgeschwindigkeit" -> "Radspeed").
   [/Standardisierungsfortschritt/gi, 'standardisation progress'],
   [/\bStandardisierung\b/gi, 'standardisation'],
   [/\bRohsignal\s+vom\b/gi, 'raw signal from'],
@@ -482,9 +443,7 @@ const DE_TOKENS = [
   [/geschwindigkeitsabh(ä|ae)ngige?r?/gi, 'speed-dependent'],
   [/Speeds?abh\./gi, 'speed-dep.'],
   [/\bRadgeschwindigkeit(en)?\b/gi, 'wheel speed'],
-  // Only the unit form. Bare "Impulse" is spelled the same in English and
-  // already reads correctly ("Closing impulses left"), so translating it just
-  // mangles strings BMW already shipped in English.
+  // unit form only: bare "Impulse" already reads right in English, don't mangle it
   [/\bImpulse\s*\/\s*sec\b/g, 'pulses/sec'],
   [/Pannenmeldung/gi, 'deflation warning'],
   [/Bandmode/gi, 'plant mode'],
@@ -497,9 +456,8 @@ const DE_TOKENS = [
   [/\bwerden\b/gi, 'are'], [/\balten\b/gi, 'old'], [/\bfolgenden\b/gi, 'following'],
   [/\bzwischen\b/gi, 'between'], [/\büber\b|\buebe?r\b/gi, 'via'], [/ACHTUNG/gi, 'ATTENTION'],
   [/\bVvten\b/gi, 'VANOS'], [/freibrennen|freebrennen/gi, 'burn-off'],
-  // multi-word glue only (safe: these can't split a single compound or a
-  // result key). bare articles/prepositions are deliberately NOT rewritten —
-  // they'd mangle result keys and English output for marginal readability.
+  // multi-word glue only. bare articles/prepositions are deliberately NOT
+  // rewritten — they'd mangle result keys for marginal readability.
   [/\bder zu\b/gi, 'to be'], [/\bder zum\b/gi, 'for'],
   [/Sollwert/gi, 'target value'],
   [/ohne Argument/gi, 'without argument'], [/Wechsel/gi, 'toggle'],
@@ -507,15 +465,14 @@ const DE_TOKENS = [
   [/mit Klimaanlage/gi, 'with A/C'], [/mit Fahrstufe/gi, 'with gear engaged'],
   [/niedriger UBatt/gi, 'low battery voltage'],
   [/Ein=1 Aus=0|1=Ein 0=Aus|1=Ein, 0=Aus/gi, '1=on 0=off'],
-  // ECU state words: these arrive as VALUES, not just labels (a digital status
-  // screen reads "nicht aktiv"), so the negated forms must win over the plain ones
+  // ECU state words (arrive as VALUES too): negated forms must win over plain ones
   [/\bnicht aktiv\b/gi, 'not active'], [/\bnicht bereit\b/gi, 'not ready'],
   [/\bnicht vorhanden\b/gi, 'not present'], [/\bnicht erkannt\b/gi, 'not detected'],
   [/\baktiv\b/gi, 'active'], [/\bbereit\b/gi, 'ready'], [/\bgesperrt\b/gi, 'locked'],
   [/\bja\b/gi, 'yes'], [/\bnein\b/gi, 'no'], [/\bfehlerfrei\b/gi, 'no fault'],
   [/\bEin\b/gi, 'on'], [/\bAus\b/gi, 'off'], [/\bZeit\b/gi, 'time'],
   [/\bDauer\b/gi, 'duration'], [/\bFaktor\b/gi, 'factor'], [/\bbis\b/gi, 'to'],
-  // ---- multi-word phrases (must precede their component words) ----
+  // multi-word phrases, before their component words
   [/Drehzahlfühler Impulsrad/gi, 'speed sensor reluctor ring'],
   [/periodische Überwachung/gi, 'periodic monitoring'],
   [/CAN Timeout/gi, 'CAN timeout'],
@@ -538,7 +495,7 @@ const DE_TOKENS = [
   [/unbekannter faultort/gi, 'unknown fault location'],
   [/unbekannter Fehlerort/gi, 'unknown fault location'],
   [/unbekannter Fehler/gi, 'unknown fault'],
-  // ---- component nouns ----
+  // component nouns
   [/Drehzahlfühler/gi, 'speed sensor'], [/Drehzahlsensor/gi, 'speed sensor'],
   [/Lenkwinkel ?[Ss]ensor/gi, 'steering angle sensor'], [/Lenkwinkel/gi, 'steering angle'],
   [/Drucksensor/gi, 'pressure sensor'], [/Druck ?[Ss]ensor/gi, 'pressure sensor'],
@@ -555,14 +512,14 @@ const DE_TOKENS = [
   [/Spritzdüse|Spritzduese/gi, 'washer jet'],
   [/Linke\b/gi, 'left'], [/Rechte\b/gi, 'right'], [/Linker\b/gi, 'left'], [/Rechter\b/gi, 'right'],
   [/Gebläse/gi, 'blower'],
-  // ---- airbag / SRS (MRS module) ----
+  // airbag / SRS (MRS module)
   [/Z(ü|ue)ndkreis/gi, 'squib circuit'], [/Gurtstrammer|Gurtstraffer/gi, 'belt tensioner'],
   [/Seitenairbag/gi, 'side airbag'], [/Kopfairbag/gi, 'head airbag'],
   [/Beifahrerairbag/gi, 'passenger airbag'], [/Fahrerairbag/gi, 'driver airbag'],
   [/\bStufe\b/gi, 'stage'], [/Crashsensor/gi, 'crash sensor'],
   [/Sitzbelegungserkennung/gi, 'seat occupancy detection'],
   [/Fehlerlampe/gi, 'warning lamp'], [/\bAirbag\b/gi, 'airbag'],
-  // ---- supply / communication (common across modules) ----
+  // supply / communication
   [/Kommunikation/gi, 'communication'], [/Masse-?Schluss/gi, 'short to ground'],
   [/Widerstand zu gro(ß|ss)/gi, 'resistance too high'],
   [/Widerstand zu klein/gi, 'resistance too low'],
@@ -579,7 +536,7 @@ const DE_TOKENS = [
   [/Kraftstoffsystem/gi, 'fuel system'], [/Zündsystem/gi, 'ignition system'],
   [/Generator/gi, 'alternator'], [/Lichtmaschine/gi, 'alternator'],
   [/Botschaft/gi, 'message'], [/Antwort/gi, 'response'],
-  // ---- generic tokens ----
+  // generic tokens
   [/Übertemperatur/gi, 'over-temperature'], [/Untertemperatur/gi, 'under-temperature'],
   [/Leitungsunterbrechung/gi, 'open circuit'], [/Unterbrechung/gi, 'open circuit'],
   [/Kurzschluss/gi, 'short circuit'],
@@ -592,9 +549,8 @@ const DE_TOKENS = [
   [/unplausibel/gi, 'implausible'], [/erkannt/gi, 'detected'],
   [/Signal/gi, 'signal'], [/Fehler/gi, 'fault'], [/frei/gi, 'free'],
 ];
-// Exact full-sentence overrides for job-argument comments. A word table can't
-// reorder German syntax, so the common whole sentences are translated as units,
-// matched before the token pass. Keyed on the trimmed comment verbatim.
+// Exact full-sentence overrides for job-argument comments, matched before the
+// token pass (a word table can't reorder German syntax). Keyed on trimmed text.
 const ARG_PHRASES = {
   'Als Argument wird ein vorgefuellter Binaerbuffer uebergeben':
     'Pass a pre-built binary buffer as the argument',
@@ -650,8 +606,7 @@ function deGerman(text) {
   const trimmed = text.trim();
   if (INPA_CAPTIONS.has(trimmed)) out = INPA_CAPTIONS.get(trimmed);
   if (out === null && ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];
-  // per-ECU fault-location text -> English, generated from the SGBD FORTTEXTE tables
-  // (faultdb.js). keyed on the trimmed German text, so it is variant-agnostic.
+  // per-ECU fault-location text (SGBD FORTTEXTE tables, faultdb.js), variant-agnostic
   if (out === null && typeof window !== 'undefined' && window.BMW_FAULT_PHRASES)
     out = window.BMW_FAULT_PHRASES[trimmed] || null;
   if (out === null) for (const [de, en] of FAULT_PHRASES) if (trimmed === de) { out = en; break; }
@@ -659,17 +614,14 @@ function deGerman(text) {
     // token-level fallback for partial/unlisted phrases (P-code text, etc.)
     out = text;
     for (const [re, en] of DE_TOKENS) out = out.replace(re, en);
-    // German capitalises every noun, so a token rule has to be lowercase to
-    // read right mid-sentence ("Ende Systemdiagnose SLS" -> "End system
-    // diagnostics"). That left the 74 captions where the noun comes FIRST
-    // starting lowercase next to Title-Case siblings -- MS45's root menu
-    // showed "actuator activation" under "Read error memory". Restore the
-    // case the source had, and only where the source had it.
+    // token rules are lowercase (German capitalises nouns), so restore the
+    // source's leading case where it had one, else "actuator activation" under
+    // "Read error memory".
     if (/^[A-ZÄÖÜ]/.test(text) && /^[a-z]/.test(out))
       out = out.charAt(0).toUpperCase() + out.slice(1);
   }
-  // don't cache token-fallback results taken before the phrase map has loaded,
-  // or they'd shadow the better BMW_FAULT_PHRASES translation once it arrives.
+  // don't cache a token-fallback taken before the phrase map loads, or it
+  // shadows the better BMW_FAULT_PHRASES translation once it arrives.
   if (typeof window === 'undefined' || window.BMW_FAULT_PHRASES) {
     if (_deCache.size > 5000) _deCache.clear();
     _deCache.set(text, out);
@@ -677,8 +629,7 @@ function deGerman(text) {
   return out;
 }
 
-// environment-measurement labels (F_UW*_TEXT) German -> English. skipped when
-// Original (EDIABAS) labels are set.
+// environment-measurement labels (F_UW*_TEXT). skipped in Original mode.
 const ENV_LABELS = {
   'Motordrehzahl': 'Engine RPM',
   'Lichtmaschine Sollspannung': 'Alternator target voltage',
@@ -716,7 +667,7 @@ const ENV_VALUE_PHRASES = [
   [/Z[üu]ndung aus/gi, 'ignition off'],
   [/^(\d+)\s+[EI]S\s*-\s*/, '$1 '],  // strip the "N ES -" / "N IS -" state-code prefix
 ];
-// German measurement-word tokens, for compound labels not in the exact map
+// token fallback for compound env labels not in the exact map
 const ENV_TOKENS = [
   [/Motortemperatur/gi, 'engine temp'], [/Öltemperatur/gi, 'oil temp'],
   [/temperatur/gi, 'temperature'], [/Spannung/gi, 'voltage'], [/Drehzahl/gi, 'RPM'],
@@ -745,9 +696,8 @@ function envLabel(text) {
   return text;
 }
 
-// BMW hex DTC and location text carry BMW's own fault number (e.g. 27DA, 2761).
-// map the common ones to OBD-II P-codes; only show a P-code with a real mapping
-// (no fabricated codes).
+// BMW hex fault number (e.g. 27DA) -> OBD-II P-code. only real mappings; no
+// fabricated codes.
 const PCODE_MAP = {
   '2761': 'P0410',  // secondary air system
   '27C3': 'P2563',  // oil level sensor (thermal)
@@ -762,13 +712,10 @@ function bmwCode(loc, hex) {
   return null;
 }
 
-// F_ORT_NR is the ECU-local fault-location number (BMW "Fehlerort"). We show the
-// LOCATION BYTE - the value a plain code reader displays and the key the SGBD
-// FORTTEXTE table uses (IHKA 0x1F -> Drucksensor, LWS 0x0B -> LWS-ID). For a 16-bit
-// F_ORT_NR (e.g. LWS 0x0B3F) the location is the HIGH byte (0x0B); the low byte is a
-// symptom/status detail we don't surface here. Single-byte values pass through as-is.
-// Returned as two hex digits ("1F", "0B"). EDIABAS gives F_ORT_NR as a decimal string
-// ("2879" for 0x0B3F); an already-hex value ("0x0B3F"/"1F") is accepted too.
+// F_ORT_NR (BMW "Fehlerort") -> the LOCATION BYTE the SGBD FORTTEXTE table keys
+// on (IHKA 0x1F, LWS 0x0B). For a 16-bit value (LWS 0x0B3F) the location is the
+// HIGH byte; the low byte is symptom detail. EDIABAS gives it decimal ("2879");
+// hex ("0x0B3F"/"1F") is accepted too. Returns two hex digits.
 function ortNrCode(nr) {
   if (nr == null) return null;
   const s = String(nr).trim();
@@ -778,8 +725,7 @@ function ortNrCode(nr) {
   if (m) val = parseInt(m[1], 16);
   else if (/^\d+$/.test(s)) val = parseInt(s, 10);
   if (val == null || Number.isNaN(val)) return s; // unknown format: show as-is
-  // location byte: high byte for a 16-bit value, the value itself for a single byte
-  const loc = val > 0xFF ? (val >> 8) & 0xFF : val;
+  const loc = val > 0xFF ? (val >> 8) & 0xFF : val;  // high byte if 16-bit
   return loc.toString(16).toUpperCase().padStart(2, '0');
 }
 function pCode(loc, hex) {
@@ -787,10 +733,9 @@ function pCode(loc, hex) {
   return code && PCODE_MAP[code] ? PCODE_MAP[code] : null;
 }
 
-// full 16-bit F_ORT_NR as a 4-hex code ("24002" -> "5DC2"), or null for
-// single-byte values. Used with the fault DB to tell a real 2-byte DTC
-// (DSC 5DC2, known in the DB -> show whole code) from a text-scheme ECU's
-// location+detail word (LWS 0B3F, unknown -> show the location byte).
+// full 16-bit F_ORT_NR as 4-hex ("24002" -> "5DC2"), or null for single bytes.
+// Lets the caller tell a real 2-byte DTC (DSC 5DC2, in the DB) from a text-scheme
+// location+detail word (LWS 0B3F, not in the DB -> show the location byte).
 function ortNrFull(nr) {
   if (nr == null) return null;
   const s = String(nr).trim();
@@ -803,10 +748,8 @@ function ortNrFull(nr) {
   return val.toString(16).toUpperCase().padStart(4, '0');
 }
 
-// P-code lookup, backed by window.BMW_PCODES (generated from BMW ISTA's
-// XEP_PCODERULES: BMW hex fault code -> [SAE P-codes], primary first). The tiny
-// PCODE_MAP stays as a fallback. Injected lazily like the fault DB so the big
-// literal isn't parsed before first paint; fault screens warm it via loadPcodes().
+// P-code lookup backed by window.BMW_PCODES (BMW hex -> [SAE P-codes], primary
+// first); PCODE_MAP is the fallback. Lazy-injected; fault screens warm it.
 let _pcodesPromise = null;
 function loadPcodes() {
   if (typeof window === 'undefined') return Promise.resolve();
@@ -822,10 +765,9 @@ function loadPcodes() {
   return _pcodesPromise;
 }
 
-// --- rich ISTA fault metadata (per-ECU-variant names + P-codes) and the
-// service-info documents, both generated from the decrypted BMW ISTA DiagDocDb.
-// Lazy-loaded like the fault DB: meta (14MB) warms with the fault screens; info
-// (60MB) only loads when a fault detail panel is opened. ---
+// rich ISTA fault metadata + service-info documents (decrypted DiagDocDb).
+// Lazy-loaded: meta (14MB) warms with the fault screens; info (60MB) only on a
+// fault detail panel.
 function _lazyScript(src, ready, holder) {
   return function () {
     if (typeof window === 'undefined') return Promise.resolve();
@@ -844,14 +786,13 @@ function _lazyScript(src, ready, holder) {
 const _metaHolder = {}, _infoHolder = {}, _codingHolder = {}, _datenHolder = {};
 const loadFaultMeta = _lazyScript('data/faultmeta.js', 'BMW_FAULT_META', _metaHolder);
 const loadFaultInfo = _lazyScript('data/faultinfo.js', 'BMW_FAULT_INFO', _infoHolder);
-// what an ECU's coding values MEAN, for the 32 SGBDs that name their own
+// what an ECU's coding values MEAN, for the SGBDs that name their own
 const loadCodingMap = _lazyScript('data/codingmap.js', 'BMW_CODING_MAP', _codingHolder);
-// ...and from BMW's DATEN files, for the ECUs whose SGBD says nothing: the
-// address, mask and value list behind each function in the coding blob
+// ...and from BMW's DATEN, for ECUs whose SGBD says nothing
 const loadDatenMap = _lazyScript('data/datenmap.js', 'BMW_DATEN_MAP', _datenHolder);
 
-// per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. The
-// `info` field indexes into BMW_FAULT_INFO[hex] (the service document).
+// per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. `info`
+// indexes into BMW_FAULT_INFO[hex].
 function variantsForHex(code) {
   if (!code) return [];
   const c = String(code).replace(/^0x/i, '').toUpperCase();
@@ -869,7 +810,7 @@ function faultInfoFor(code, infoIdx) {
 }
 
 // all SAE P-codes for a BMW hex code ("27C3" -> ["P0456"], primary first), or [].
-// Prefers the rich ISTA meta, then the standalone pcodes map, then the tiny fallback.
+// Prefers ISTA meta, then the pcodes map, then the fallback.
 function pcodesForHex(code) {
   if (!code) return [];
   const c = String(code).replace(/^0x/i, '').toUpperCase();
@@ -882,11 +823,9 @@ function pcodesForHex(code) {
 }
 
 // UNAMBIGUOUS offline P-code for a hex code, or null. Many BMW codes map to
-// SEVERAL SAE P-codes gated by ECU variant (the ISTA RULE blob we don't evaluate),
-// e.g. 2761 -> {P0021,P0346,P0411,...}. Guessing the first would be misleading, so
-// offline we ONLY return a P-code when the code has exactly ONE (e.g. 27C3->P0456).
-// A live read's own F_PCODE_STRING is always preferred over this and is exact.
-// `sgbd` is accepted for API symmetry / future per-variant rules.
+// SEVERAL SAE P-codes gated by ECU variant; guessing the first misleads, so
+// offline we return one ONLY when the code has exactly one. A live read's own
+// F_PCODE_STRING is exact and always preferred.
 function pcodeForHexSgbd(code, sgbd) {
   if (!code) return null;
   const list = pcodesForHex(code);
@@ -899,9 +838,8 @@ function pcodeForHex(code) {
   return list.length ? list[0] : null;
 }
 
-// reverse lookup for search: "P0456" -> "27C3" (case-insensitive), null if
-// unknown. Built once from the richest source available: BMW_FAULT_META (has
-// pcodes per hex), then BMW_PCODES, then the tiny fallback map.
+// reverse lookup for search: "P0456" -> "27C3", null if unknown. Built once from
+// the richest source available (BMW_FAULT_META, then BMW_PCODES, then fallback).
 let _PCODE_REV = null, _PCODE_REV_SRC = null;
 function hexForPcode(p) {
   const meta = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;

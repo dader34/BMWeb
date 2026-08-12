@@ -1,19 +1,14 @@
-// BMWeb Service Worker for Offline PWA Support
+// BMWeb Service Worker (offline PWA). CACHING STRATEGY, the split that matters:
 //
-// CACHING STRATEGY -- the split that matters:
+//   App shell (HTML/CSS/JS/manifest): NETWORK-FIRST. They change every deploy,
+//   and cache-first meant an update never showed until a second reload -- the
+//   "it never refreshed" loop. Cache is now only the offline fallback.
 //
-//   App shell (HTML, CSS, JS, the manifest): NETWORK-FIRST. These change on
-//   every deploy, so serving them from cache first meant an update never
-//   showed until a second reload -- the "it never refreshed" loop. Now the
-//   network wins when reachable and the cache is only the offline fallback,
-//   so a fresh deploy shows on the next load.
+//   Big data (.chassis / .wiring archives, fault DBs, data/ JSON): CACHE-FIRST.
+//   Large and effectively immutable per release.
 //
-//   Big data (the per-chassis .chassis archives, .wiring diagrams, the fault
-//   databases, generated data/ JSON): CACHE-FIRST. These are large and
-//   effectively immutable per release -- exactly what offline caching is for.
-//
-// Bumping CACHE_NAME still drops the old cache on activate; combined with
-// skipWaiting + clients.claim, a new worker takes over immediately.
+// Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
+// clients.claim a new worker takes over immediately.
 const CACHE_NAME = 'bmweb-v23';
 const CORE_ASSETS = [
   './',
@@ -21,14 +16,13 @@ const CORE_ASSETS = [
   './manifest.webmanifest',
 ];
 
-// Requests that must always try the network first (the app shell). Matched on
-// the URL, so it covers the navigation itself and every script/style/font.
+// Shell requests: the navigation itself and every script/style/font.
 function isShellRequest(request, url) {
   if (request.mode === 'navigate') return true;
   return /\.(?:html|css|js|mjs|webmanifest|woff2?|ttf)(?:\?|$)/i.test(url.pathname);
 }
 
-// Requests worth caching hard: the heavy, per-release data payloads.
+// The heavy, per-release data payloads worth caching hard.
 function isDataRequest(url) {
   return /\.(?:chassis|wiring)$/i.test(url.pathname)
     || url.pathname.includes('/api/chassis/')
@@ -54,8 +48,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// let the page tell a waiting worker to take over immediately (belt and
-// braces alongside skipWaiting in install)
+// let the page tell a waiting worker to take over immediately
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });

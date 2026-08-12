@@ -1,26 +1,21 @@
-// Synthetic readings, so the UI can be walked with no car attached. Reads each
-// job's declared results from the metadata we ship (data/job-meta/<sgbd>.json)
-// and invents a plausible number per unit; every declared result appears, so
-// screens populate as they would on a real read.
+// Synthetic readings so the UI can be walked with no car attached: reads each
+// job's declared results from the shipped metadata and invents a plausible
+// number per unit.
 //
-// OPT-IN ONLY. Without demo mode a missing cable fails as it should. A
-// diagnostic tool must never invent values that could be mistaken for the
-// car's -- also why the response is badged demo:true and fault jobs are
-// special-cased below.
+// OPT-IN ONLY. A diagnostic tool must never invent values mistakable for the
+// car's — hence demo:true badging and the fault-job special-case below.
 
 const WEB_DEMO_STATES = ['ein', 'aus', 'aktiv', 'bereit', 'nicht aktiv'];
 
-// i mod n, FOLDED so it never snaps. Plain `i % n` jumps n-1 back to 0 as the
-// seed crosses a multiple of n -- on a drifting seed, a gauge falling off a
-// cliff once every n reads. Folding walks 0..n-1..0 so each shape wanders
-// inside its band whatever its modulus.
+// i mod n, FOLDED so it never snaps: plain `i % n` jumps n-1 back to 0 on a
+// drifting seed (a gauge falling off a cliff every n reads). Fold walks
+// 0..n-1..0 so each shape wanders inside its band.
 function tri(i, n) {
   const t = ((i % (n * 2)) + (n * 2)) % (n * 2);
   return t < n ? t : (n * 2) - 1 - t;
 }
 
-// unit -> a believable idling-engine value, so gauges sit mid-scale rather
-// than pinned at either end
+// unit -> a believable idling-engine value, so gauges sit mid-scale
 const WEB_DEMO_SHAPES = [
   [/\bU\/min|1\/min|rpm\b/i, (i) => String(760 + tri(i, 40))],
   [/°C/i, (i) => String(82 + tri(i, 8))],
@@ -44,27 +39,22 @@ function webDemoEcho(arg) {
   return /^-?\d+$/.test(s) ? String(parseInt(s, 10)) : s;
 }
 
-// `i` drifts once a second so gauges animate; `steady` is the same seed with
-// the drift removed. ANYTHING DISCRETE USES steady: a lamp or coding flag that
-// flips every second reads as a fault in the tool, not a moving measurement.
-// Numbers drift; words and flags hold.
+// `i` drifts once a second so gauges animate; `steady` removes the drift.
+// ANYTHING DISCRETE USES steady: a lamp or coding flag that flips every second
+// reads as a fault, not a moving measurement. Numbers drift; words and flags hold.
 function webDemoValue(name, desc, i, steady) {
   if (steady == null) steady = i;
   // _TEXT / _EINH carriers read as words, not numbers
   if (/_TEXT\d*$/i.test(name)) {
     return WEB_DEMO_STATES[steady % WEB_DEMO_STATES.length];
   }
-  // A UNIT CARRIER ALREADY KNOWS ITS UNIT (BMW writes it as the result's own
-  // comment), so answering a flat "%" mislabels every gauge on MSD80's VANOS
-  // page, cam angles included.
+  // a _EINH carrier ALREADY KNOWS ITS UNIT (BMW writes it as the comment); a
+  // flat "%" mislabels every gauge on MSD80's VANOS page.
   if (/_EINH\d*$/i.test(name)) {
     const u = (desc || '').trim();
-    // ...but a SHORT word is not automatically a unit: these German
-    // placeholders (MS45 comments every result "Messwert") have no unit to
-    // show, and sailed through the length test as "[Messwert]".
+    // ...but a short German placeholder (MS45's "Messwert") is not a unit
     if (/^(messwert|wert|text|einheit|status|kein[e]?)$/i.test(u)) return '';
-    // the comment is the unit only when SHORT and not prose ("Text von
-    // CAM_IN[1]" describes the carrier, it is not a unit)
+    // the comment is a unit only when short and not prose ("Text von CAM_IN[1]")
     if (u.length > 0 && u.length <= 12 && !u.includes(' ')) return u;
     return '%';
   }
@@ -75,14 +65,13 @@ function webDemoValue(name, desc, i, steady) {
   if (/\b0=|1=|Statusbit|aktiv|bereit\b/i.test(desc)) {
     return WEB_DEMO_STATES[steady % WEB_DEMO_STATES.length];
   }
-  // ...and so does one the NAME declares boolean (DWA4's NEIGUNGSGEBER_VERBAUT
-  // came back 34 and drew a bar, its description saying nothing).
+  // ...and so does one the NAME declares boolean (DWA4's _VERBAUT came back 34
+  // and drew a bar)
   if (/(_VERBAUT|_EIN|_AUS|_AKTIV|_INAKTIV|_MOEGLICH|_VORHANDEN|_OFFEN|_GESCHLOSSEN|_GEDRUECKT|_BETAETIGT|_GELOEST|_ERKANNT|_OK)\d*$/i
       .test(name)) {
     return (steady % 2) === 0 ? 'ja' : 'nein';
   }
-  // the description often states the valid span ("Werte -48 bis 48"): sit
-  // inside it so the gauge lands mid-scale instead of at 0
+  // the description often states the valid span ("Werte -48 bis 48"): sit inside it
   const span = /(-?\d+)\s*bis\s*(-?\d+)/.exec(desc || '');
   if (span) {
     let lo = parseInt(span[1], 10);
@@ -90,30 +79,27 @@ function webDemoValue(name, desc, i, steady) {
     if (lo > hi) [lo, hi] = [hi, lo];
     return String(Math.round(lo + ((hi - lo) * (30 + tri(i, 40))) / 100));
   }
-  // LAST RESORT: a result whose unit nothing recognises. A bare `i % 100`
-  // walked in lockstep with the seed (2, 5, 8, 11 …), an arithmetic ladder
-  // that reads as corrupt data. Hash the NAME so each row sits differently,
-  // and let the drift move it.
+  // LAST RESORT (unrecognised unit): a bare `i % 100` walked in lockstep with
+  // the seed and read as corrupt data. Hash the NAME so each row sits differently.
   let h = 0;
   for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) % 997;
   return String(20 + tri(h + i, 60));
 }
 
-// How far the demo has drifted, in seed steps. One step per second (matching
-// the pollers' 1 Hz tick), taken from the clock rather than a counter so every
-// job on a screen advances together and a reload does not restart the animation.
+// How far the demo has drifted, in seed steps (1/sec). From the clock not a
+// counter, so every job advances together and a reload doesn't restart it.
 function webDemoPhase() {
   return Math.floor(Date.now() / 1000);
 }
 
-// One result set for a job, from the metadata we ship. Returns null when the
+// One result set for a job, from the shipped metadata. Returns null when the
 // job has no declared schema, so the caller can answer honestly.
 function webDemoSets(meta, job, arg) {
   const name = String(job).toUpperCase();
 
   // A FABRICATED FAULT IS WORSE THAN A FABRICATED GAUGE READING: it names a
-  // component and reads exactly like a real DTC. Answer fault jobs with a CLEAN
-  // memory instead -- the honest thing to show with no car attached.
+  // component and reads like a real DTC. Answer fault jobs with a CLEAN memory —
+  // the honest thing with no car attached.
   if (/^FS_/i.test(name)) return [{ JOB_STATUS: 'OKAY', F_ANZAHL: '0' }];
 
   const j = meta && meta.jobs
@@ -121,16 +107,12 @@ function webDemoSets(meta, job, arg) {
   const row = { JOB_STATUS: 'OKAY' };
   if (!j || !Array.isArray(j.results)) return [row];
 
-  // Seed from the job NAME so two jobs sharing a schema do not return identical
-  // values (intake vs exhaust); summed chars, so the same job shows the same
-  // numbers every load. Then DRIFT it (via webDemoPhase) so a polled screen
-  // looks alive rather than frozen.
+  // Seed from the job NAME (summed chars) so jobs sharing a schema differ but
+  // each is stable per load; then DRIFT it so a polled screen looks alive.
   let base = 0;
   for (const ch of name) base = (base + ch.charCodeAt(0)) % 101;
-  // NOT re-reduced mod 101: that would snap the seed back every 101 seconds and
-  // undo the fold. tri() bounds each shape itself.
-  // A coding read answers what the module IS CODED TO, not a measurement: it
-  // must return the same values on every Re-read, so the drift stays off it.
+  // NOT re-reduced mod 101, which would snap the seed back and undo the fold.
+  // A coding read must return the same values on every re-read, so no drift.
   const codingJob = /CODIER|^COD_/i.test(name);
   let i = base + (codingJob ? 0 : webDemoPhase());
   let steady = base;
@@ -148,11 +130,9 @@ function webDemoSets(meta, job, arg) {
   return [row];
 }
 
-// Overlay a coding read's results with values the module could actually hold:
-// where BMW's DATEN lists this field's legal values (codDatEnums), replace the
-// invented number with one -- picked by a hash of the result name, so it is
-// stable across reads and differs between fields. Guarded, because the offline
-// bundle may load this file without the coding screen.
+// Overlay a coding read with legal values from BMW's DATEN (codDatEnums),
+// picked by a hash of the result name so they're stable and differ per field.
+// Guarded, since the offline bundle may load this without the coding screen.
 async function webDemoCoding(sgbd, job, sets) {
   if (!/CODIER|^COD_/i.test(String(job))) return;
   if (typeof codDatEnums !== 'function'
