@@ -221,27 +221,11 @@ function showSettings() {
   hiwRow.appendChild(hiwBtn);
   wrap.appendChild(hiwRow);
 
-  // Offline copy: zip the app plus a car's data, in the browser.
-  //
-  // Fault text is always included: without it a code reads as a bare hex
-  // number, which is the one thing an offline copy is least able to look up.
-  // "All chassis" is offered but warned about -- it is the whole ~200 MB site
-  // held in a tab as one Blob, which not every machine will manage.
-  // A COPY DOES NOT OFFER COPIES. Both exporters fetch the app's own files
-  // from beside the page (offlineGet), which exists on the hosted site and
-  // nowhere else: in a downloaded single file there are no sibling files, so
-  // the buttons would fail on the first fetch. window.BMACW_INLINE is the
-  // marker that this IS such a copy.
+  // "Download offline copy": hidden in an offline copy (BMACW_INLINE marks one
+  // -- exporters fetch sibling files that a single-file copy doesn't have) and
+  // in the native app (window.bmacw marks it -- you already have it installed).
   const isOfflineCopy = typeof window.BMACW_INLINE === 'object'
     && window.BMACW_INLINE !== null;
-  // NOT IN THE MAC APP EITHER. Both exporters build a copy of the *site* --
-  // they fetch the app's own files from beside the page and zip them up. The
-  // Mac app is already the installed thing those copies exist to stand in
-  // for, and it serves the renderer from a local static host rather than as
-  // sibling files on a web server, so the buttons offered a download of
-  // something the user had by definition already installed. The installer
-  // lives online; the app is not where you get it. window.bmacw is defined
-  // only by the native shell's shim, so its presence is the marker.
   const isNativeApp = typeof window.bmacw === 'object' && window.bmacw !== null;
   if (!isOfflineCopy && !isNativeApp && typeof offlineExport === 'function') {
     let pickVal = 'E46';
