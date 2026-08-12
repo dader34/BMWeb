@@ -277,10 +277,27 @@
 
 <script>
 (function () {
-  // Service Worker for offline PWA
+  // Service Worker for offline PWA, with the same auto-update handshake the
+  // app page uses so a new deploy never gets stuck behind a stale cache.
   if ('serviceWorker' in navigator) {
+    var reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (reloading) return; reloading = true; location.reload();
+    });
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('./sw.js').catch(function () {});
+      navigator.serviceWorker.register('./sw.js').then(function (reg) {
+        reg.update().catch(function () {});
+        function promote(w) {
+          if (w && w.state === 'installed' && navigator.serviceWorker.controller) {
+            w.postMessage('SKIP_WAITING');
+          }
+        }
+        if (reg.waiting) promote(reg.waiting);
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing;
+          if (nw) nw.addEventListener('statechange', function () { promote(nw); });
+        });
+      }).catch(function () {});
     });
   }
 

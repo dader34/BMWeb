@@ -247,5 +247,35 @@
   <script src="screens/wiring.js"></script>
   <script src="screens/tutorial.js"></script>
   <script src="app.js"></script>
+  <script>
+    // Service worker: register, and AUTO-UPDATE. A cache-first worker used to
+    // serve stale HTML/CSS until you force-quit the installed PWA twice --
+    // "it never refreshed". Now the worker is network-first for the app shell
+    // (see sw.js), and this drives the update handshake: when a new worker is
+    // found, tell it to activate immediately, and reload ONCE when it takes
+    // control so the fresh UI shows without any manual restart.
+    if ('serviceWorker' in navigator) {
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloading) return;
+        reloading = true;
+        location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').then((reg) => {
+          // check for an update on every launch
+          reg.update().catch(() => {});
+          const promote = (w) => w && w.state === 'installed'
+            && navigator.serviceWorker.controller
+            && w.postMessage('SKIP_WAITING');
+          if (reg.waiting) promote(reg.waiting);
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            if (nw) nw.addEventListener('statechange', () => promote(nw));
+          });
+        }).catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
