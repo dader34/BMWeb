@@ -1,59 +1,38 @@
 // Run the app with no server: static JSON for data, Web Serial for the bus.
-//
-// The macOS build answers the renderer from a local C# server. On the web
-// there is nothing to answer, so this replaces the two things the server did:
-//
-//   GET  /api/...        -> a file in the frozen api/ tree (tools/web_export.py)
-//   POST /api/.../run/X  -> our own BEST2 VM, talking to the cable over
-//                           Web Serial instead of EDIABAS
-//
-// Loaded by EVERY build since the VM migration: the web build pairs it with
-// Web Serial, the app shells pair it with their serial bridge. The C# hosts
-// only move bytes now; framing, checksums and port settings live here.
-//
-// The VM is the whole reason this is possible: bestvm.js already executes a
-// job against a `send(bytes) -> bytes` callback, which is exactly what a
-// serial port is. Nothing here re-implements EDIABAS -- it supplies a
-// transport and lets the VM do what it already does at 100% agreement with
-// the engine on 3730 results.
+// Replaces the two things the C# server did:
+//   GET  /api/...        -> a frozen file in api/ (tools/web_export.py)
+//   POST /api/.../run/X  -> the BEST2 VM (bestvm.js), talking to the cable
+// The VM already runs a job against a `send(bytes)->bytes` callback, which is
+// exactly a serial port; this only supplies the transport (framing, checksums,
+// port settings). Loaded by every build; the C# hosts now only move bytes.
 
 const WEB_API_BASE = 'api';
 
 // ---------------------------------------------------------------- transport
 
-// K+DCAN over Web Serial. Default wire settings, used until a job's SGBD
-// declares its own via xsetpar: BMW-FAST at 115200 8N1 (what EdInterfaceObd
-// uses for a USB cable in that concept).
+// K+DCAN over Web Serial. Default until a job's SGBD declares its own via
+// xsetpar: BMW-FAST 115200 8N1 (EdInterfaceObd's USB-cable concept).
 const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
 
 // ---- concept-aware framing.
 //
-// The SGBD's telegram EXCLUDES its trailing checksum: appending it is the
-// interface handler's job, and so is knowing what the answer looks like.
-// That was learned the hard way -- every request used to leave here one
-// byte short, which a real ECU silently discards. The VM surfaces each
-// job's xsetpar CommParameter as {concept, baud, timeout}; the framing per
-// concept, verified against data/sim-captures:
+// The SGBD's telegram EXCLUDES its trailing checksum -- appending it is the
+// interface's job (learned the hard way: a request one byte short is silently
+// discarded by a real ECU). Framing per concept, from each job's xsetpar
+// CommParameter {concept, baud, timeout}, verified against data/sim-captures:
 //
 //   1/5/6   DS2 family   9600 8E1   XOR checksum   answer[1] = total length
 //   0x10D   KWP2000*     9600 8E1   sum8           answer[3] + 5 = total
 //   0x10F   BMW-FAST   115200 8N1   sum8           header short/long form
-//   0x110   D-CAN      115200 8N1   sum8           (the cable talks CAN;
-//                                                   its serial side stays
-//                                                   BMW-FAST at 115200)
-//   0x10C   ISO 9141: needs a 5-baud slow init this transport cannot do
-//           yet, so it refuses loudly instead of timing out mysteriously.
-//
-// DS2 checksum is XOR (aic capture: E8 11 A0 ... 48), KWP2000* and BMW-FAST
-// are additive sum8 (obd.sim: 9B F1 12 42 ... AA).
+//   0x110   D-CAN      115200 8N1   sum8           (CAN cable, BMW-FAST serial)
+//   0x10C   ISO 9141: needs a 5-baud slow init this transport cannot do yet,
+//           so it refuses loudly rather than timing out mysteriously.
 const conceptOf = (comm) => (comm && comm.concept) || 0x10f;
 const isDs2 = (c) => c === 1 || c === 5 || c === 6;
 
-// Interface-level failures carry their EDIABAS IFH identity, the way INPA
-// reports them: IFH-0009 no answer, IFH-0003 line/echo trouble, IFH-0019
-// a truncated telegram. The renderer's explainError matches on these, and
-// a user comparing against real INPA sees the same code for the same
-// fault. SGBD-level errors (ERROR_ECU_*) stay the jobs' own business.
+// Interface failures carry their EDIABAS IFH identity so explainError and a
+// user comparing to real INPA see the same code (IFH-0009 no answer, -0003
+// line/echo, -0019 truncated). SGBD-level ERROR_ECU_* stay the jobs' business.
 function ifhError(code, message) {
   const e = new Error(`${code}: ${message}`);
   e.ifh = code;
@@ -909,21 +888,14 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
     ? { shared: opts.shared, inited: true, comm: opts.comm || null }
     : sessionFor(sgbd);
 
-  // The VM's send() is synchronous, so the exchange has to be resolved before
-  // run() needs it. Jobs are request/response with a small, fixed set of
-  // telegrams, so drive the VM repeatedly: each pass either completes or
-  // stops at a send whose answer we do not have yet, which we then fetch and
-  // memoise before trying again.
-  //
-  // The memo is PER JOB RUN, and counts repeats: a job that legitimately
-  // sends the same telegram twice (clear-then-verify, status polling) must
-  // get the second answer, not the first one again. Keyed by request bytes
-  // AND occurrence index, which is stable across the replay passes because
-  // the VM is deterministic.
+  // send() is synchronous but the wire is async, so drive the VM in passes:
+  // each pass runs until a send whose answer we lack, which we fetch, memoise,
+  // then retry from the top (the VM is deterministic, so replay is safe).
+  // Memo keyed by request bytes AND occurrence index: a job that sends the same
+  // telegram twice (clear-then-verify) must get the second answer, not a replay.
   const answers = new Map();
-  // one clock for every pass: a date/time that ticked between passes would
-  // change the request bytes, miss the memo, and re-transmit a telegram
-  // that already went out
+  // one clock for all passes -- a time that ticked between passes would change
+  // the request bytes, miss the memo, and re-transmit an already-sent telegram
   const jobNow = new Date();
   let sendSeq = 0;
   for (let attempt = 0; attempt < 64; attempt++) {
