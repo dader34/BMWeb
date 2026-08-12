@@ -1621,6 +1621,8 @@ select.modal-input { appearance: none; cursor: pointer; }
   background: linear-gradient(180deg, #0e141a, #090d11);
   border-top: 1px solid var(--line);
 }
+/* the mobile bottom bar is a phone-only element; the media query shows it */
+.mobile-tabbar { display: none; }
 .fkeys {
   display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0;
   position: static; padding-top: 15px;
@@ -2314,14 +2316,28 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .group-count { font-size: 10px; }
   .group-arrow { display: none; }
 
-  /* HIDE BOTTOM F-KEY BAR ON MOBILE FOR SECTIONS & ECU JOB GRIDS */
+  /* HIDE THE BOTTOM F-KEY BAR WHEREVER THE ACTIONS ARE ALREADY ON SCREEN.
+     The bar is INPA's desktop softkey strip; on a phone it duplicates the
+     tappable cards below it (the vehicle picker's F-keys ARE the chassis
+     cards; a section's F-keys ARE its system tabs) and only steals the
+     bottom third of the screen -- which is the whole "crammed" feeling.
+     So the bar shows ONLY on screens where it is the sole way to act
+     (INPA menus, the ident/coding forms, results panels). Card-grid
+     screens get the full height and navigate by tapping. */
+  body:has(.chassis-grid) .fkeybar,
+  body:has(.inpa-vsel) .fkeybar,
   body:has(.split) .fkeybar,
   body:has(.group-grid) .fkeybar {
     display: none !important;
   }
+  /* card/list screens: view stops at the persistent bottom bar (58pt), the
+     only bottom chrome there. The iOS block below sets the same value; this
+     !important keeps it winning over the desktop base inset. */
+  body:has(.chassis-grid) .view,
+  body:has(.inpa-vsel) .view,
   body:has(.split) .view,
   body:has(.group-grid) .view {
-    bottom: var(--safe-bottom) !important;
+    bottom: calc(58px + var(--safe-bottom)) !important;
   }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */
@@ -2469,4 +2485,382 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
 @media (hover: none) {
   .fkey:hover { border-color: var(--line); background: var(--panel); }
   .chassis-card:hover, .group-tile:hover { border-color: var(--line); }
+}
+
+/* ============================================================================
+   iOS-NATIVE MOBILE PASS
+   Below 760px BMWeb always runs the modern renderer (inpaMode() is forced off
+   in app.js). This block reshapes that renderer into the grammar of an Apple
+   system app -- large-title navigation, a lit instrument-cluster status
+   element, grouped inset lists, and the SF type ramp -- so the phone screen
+   reads as a native BMW app rather than a dark card website. Appended last so
+   it wins on specificity ties without !important gymnastics.
+   ========================================================================= */
+@media (max-width: 760px) {
+  :root {
+    /* instrument-panel palette, mobile-scoped */
+    --ios-bg: #0a0c0f;
+    --ios-surface: #16191e;
+    --ios-surface-2: #1e2228;
+    --ios-hair: rgba(255, 255, 255, 0.08);
+    --ios-text: #f5f7fa;
+    --ios-dim: rgba(235, 240, 245, 0.55);
+    --ios-faint: rgba(235, 240, 245, 0.30);
+    --ios-amber: #ff9e2c;
+    --nav-h: 44px;
+  }
+
+  /* SF is the system face on iOS; naming it explicitly makes the ramp read as
+     native rather than inheriting the app's Bahnschrift display face. */
+  body {
+    background: var(--ios-bg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+      "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- NAV BAR ----------------------------------------------------------
+     44pt translucent bar: back chevron | collapsing title | status cluster.
+     The big title lives in the scroll area and its collapsed form appears
+     here once scrolled past (JS toggles body.nav-collapsed). */
+  .topbar {
+    height: calc(var(--nav-h) + var(--safe-top));
+    padding: var(--safe-top) calc(12px + var(--safe-right)) 0
+             calc(8px + var(--safe-left));
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    background: rgba(10, 12, 15, 0.72);
+    backdrop-filter: saturate(1.6) blur(22px);
+    -webkit-backdrop-filter: saturate(1.6) blur(22px);
+    border-bottom: 0.5px solid var(--ios-hair);
+  }
+  /* NAV BAR CONTENT, iOS pattern. At the top of a screen the large title
+     below carries the identity, so the bar stays quiet: just the logo on the
+     left and the status cluster on the right. Once the large title scrolls
+     away, the bar's centre fills in with the compact title -- the standard
+     large-title collapse. */
+  .brand { grid-column: 1; justify-self: start; gap: 0; }
+  .brand-logo { width: 26px; height: 26px; transition: opacity .2s; }
+  /* once collapsed, the compact title carries the identity, so the logo steps
+     aside (iOS hides the large-title screen's own chrome the same way) --
+     this also removes any chance of the centred title overlapping it. */
+  body.nav-collapsed .brand-logo { opacity: 0; }
+  /* the brand NAME becomes the collapsed centre title: hidden at the top,
+     revealed centred once collapsed. */
+  .brand-name { display: none; }
+  body.nav-collapsed .brand-name {
+    display: block; position: absolute;
+    left: 50%; top: calc(var(--safe-top) + var(--nav-h) / 2);
+    transform: translate(-50%, -50%);
+    font-size: 0; color: var(--ios-text);
+    max-width: 58vw; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+  }
+  body.nav-collapsed .brand-name::after {
+    content: attr(data-nav-title);
+    font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+  }
+  .breadcrumbs, .win-controls { display: none; }
+
+  /* back chevron: iOS blue-equivalent is our amber here, big tap target */
+  .nav-back {
+    display: flex; grid-column: 1; justify-self: start;
+    width: 44px; height: 36px; font-size: 30px; line-height: 1;
+    color: var(--ios-amber); background: none; border: none;
+    align-items: center; padding: 0 4px;
+  }
+  /* the nav bar is now just back-chevron + centred title. The status cluster
+     and Settings moved to the bottom bar (car · voltage · gear), so the top
+     bar stays quiet the way an iOS large-title screen does. */
+  .topbar-right { display: none; }
+
+  /* ---- BOTTOM BAR: car · battery voltage · gear -------------------------
+     The app's persistent chrome, replacing INPA's F-key strip. Car returns to
+     the vehicle list; the centre shows live battery voltage (green when the
+     car answers); the gear opens Settings. The battery/ign/cable nodes are
+     relocated into .mtab-status (app.js), so their updaters keep running. */
+  .mobile-tabbar {
+    display: flex; align-items: center; justify-content: space-between;
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
+    height: calc(58px + var(--safe-bottom));
+    padding: 0 calc(18px + var(--safe-right))
+             var(--safe-bottom) calc(18px + var(--safe-left));
+    background: rgba(10, 12, 15, 0.8);
+    backdrop-filter: saturate(1.6) blur(22px);
+    -webkit-backdrop-filter: saturate(1.6) blur(22px);
+    border-top: 0.5px solid var(--ios-hair);
+  }
+  .mtab {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ios-surface); border: 0.5px solid var(--ios-hair);
+    color: var(--ios-text); font-size: 19px; padding: 0;
+  }
+  .mtab:active { background: var(--ios-surface-2); }
+  .mtab-glyph { line-height: 1; filter: saturate(0) brightness(1.4); }
+  /* the centre status: voltage large + green, ignition/cable as small lamps */
+  .mtab-status {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    gap: 10px; min-width: 0;
+  }
+  .mtab-status .kl-state {
+    display: flex; align-items: center; gap: 8px;
+    background: none; border: 0; padding: 0;
+  }
+  .mtab-status .kl-lbl { display: none; }
+  .mtab-status .kl { display: flex; align-items: center; gap: 5px; }
+  .mtab-status .kl-led {
+    width: 8px; height: 8px; border-radius: 50%; background: #3a3f47;
+    transition: box-shadow .2s, background .2s;
+  }
+  /* battery LED green + glow when live (matches the reference's green volts) */
+  #bat-led.on {
+    background: #34c759; box-shadow: 0 0 7px 1px rgba(52, 199, 89, 0.7);
+  }
+  #ign-led.on {
+    background: var(--ios-amber);
+    box-shadow: 0 0 6px 1px rgba(255, 158, 44, 0.7);
+  }
+  /* the voltage reading is the centrepiece: bold, green when a value is in */
+  #bat-val {
+    font-size: 16px; font-weight: 700; color: var(--ios-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .kl:has(#bat-led.on) #bat-val { color: #34c759; }
+  .mtab-status .kl-val:not(#bat-val) {
+    font-size: 13px; font-weight: 600; color: var(--ios-dim);
+  }
+  .mtab-status .status { display: flex; align-items: center; padding: 0;
+    background: none; border: 0; }
+  .mtab-status .status #link-text { display: none; }
+  .mtab-status .status .led { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* the bottom bar is always shown on mobile; the old F-key strip is only
+     for INPA menu/form screens, which sit ABOVE it, so give it room */
+  .mobile-tabbar { display: flex; }
+  /* on card/list screens (no F-key bar) the tabbar is the only bottom chrome;
+     on menu/form screens the F-key bar sits just above it */
+  body:has(.chassis-grid) .fkeybar,
+  body:has(.inpa-vsel) .fkeybar,
+  body:has(.split) .fkeybar,
+  body:has(.group-grid) .fkeybar { display: none !important; }
+  .fkeybar {
+    bottom: calc(58px + var(--safe-bottom));
+    padding-bottom: 4px; height: 54px;
+  }
+
+  /* ---- CONTENT AREA -----------------------------------------------------*/
+  .view {
+    inset: calc(var(--nav-h) + var(--safe-top)) 0
+           calc(58px + var(--safe-bottom)) 0;
+    padding: 8px calc(20px + var(--safe-left)) 24px
+             calc(20px + var(--safe-right));
+    background: var(--ios-bg);
+  }
+
+  /* ---- LARGE TITLE ------------------------------------------------------
+     34pt bold title that scrolls with the content, iOS large-title style.
+     The eyebrow is dropped -- iOS large titles carry no kicker label. */
+  .screen-head { margin: 8px 0 18px; }
+  .eyebrow { display: none; }
+  /* iOS large title: bold but not so large it eats the screen on a narrow
+     phone. Balanced so a two-word title ("Control units") sits on one line
+     and a three-word one wraps to at most two. */
+  .title {
+    font-size: 30px; font-weight: 800; line-height: 1.08;
+    letter-spacing: -0.02em; color: var(--ios-text);
+    text-wrap: balance;
+  }
+  .subtitle {
+    font-size: 15px; font-weight: 400; line-height: 1.35;
+    color: var(--ios-dim); margin-top: 6px; max-width: 40ch;
+  }
+
+  /* ---- FILTER CHIPS (iOS pill row) --------------------------------------*/
+  .chassis-filter-row {
+    gap: 8px; margin: 0 -20px 18px; padding: 0 20px 2px;
+  }
+  .chassis-filter-chip {
+    padding: 7px 15px; border-radius: 100px; font-size: 14px; font-weight: 600;
+    background: var(--ios-surface); border: 0.5px solid var(--ios-hair);
+    color: var(--ios-dim);
+  }
+  .chassis-filter-chip.active {
+    background: var(--ios-amber); border-color: var(--ios-amber);
+    color: #1a1206;
+  }
+
+  /* ---- CHASSIS LIST (iOS grouped VStack, drills down like Settings) ------
+     Not a card grid. One inset rounded container, a row per chassis with the
+     code as the row title, its model line as secondary text, and a chevron --
+     tapping pushes to that chassis's systems, which are another list, and so
+     on down. This is the navigation grammar for the whole app. */
+  .chassis-grid {
+    display: block; margin-bottom: 24px;
+    border-radius: 14px; overflow: hidden;
+    background: var(--ios-surface); border: 0.5px solid var(--ios-hair);
+  }
+  /* Row = title over subtitle (VStack), chevron trailing -- the iOS list
+     cell. Code is the title, model line the subtitle beneath it, so nothing
+     wraps sideways and every row is the same tidy height regardless of how
+     long the model name is. */
+  .chassis-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto; align-items: center;
+    min-height: 68px; padding: 14px 16px; gap: 3px 12px;
+    background: none; border: 0; border-radius: 0;
+    transition: background .12s;
+  }
+  .chassis-card:not(:last-child)::after {
+    content: ""; position: absolute; left: 16px; right: 0; bottom: 0;
+    height: 0.5px; background: var(--ios-hair);
+  }
+  .chassis-card:active { background: var(--ios-surface-2); }
+  .chassis-code {
+    grid-column: 1; grid-row: 1; padding-left: 0;
+    font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+    color: var(--ios-text);
+  }
+  .chassis-tag {
+    grid-column: 1; grid-row: 2;
+    font-size: 14px; font-weight: 400; letter-spacing: 0;
+    color: var(--ios-dim); text-transform: none;
+  }
+  /* the → becomes an iOS disclosure chevron, centred over both rows */
+  .chassis-arrow {
+    display: block; grid-column: 2; grid-row: 1 / 3; align-self: center;
+    font-size: 0; color: var(--ios-faint);
+  }
+  .chassis-arrow::after {
+    content: "\203A"; font-size: 20px; font-weight: 600; line-height: 1;
+  }
+
+  /* ---- GROUPED INSET LIST (Fault Lookup / Wiring = iOS Settings rows) ----
+     Consecutive .lookup-entry buttons read as one grouped card with hairline
+     separators, a leading glyph in a rounded tile, and a chevron. */
+  /* Grouping keys off the CLASS, not :first/:last-of-type -- those resolve
+     against the element TYPE (button), and the filter chips are buttons too,
+     so a type selector grouped the wrong elements. A lookup-entry NOT preceded
+     by one is the group's top; one NOT followed by one is its bottom. */
+  .lookup-entry {
+    position: relative;
+    display: flex; align-items: center; gap: 14px; width: 100%;
+    padding: 14px 16px; margin: 0; text-align: left;
+    background: var(--ios-surface); border: 0.5px solid var(--ios-hair);
+    border-bottom-width: 0; border-radius: 0;
+  }
+  :not(.lookup-entry) + .lookup-entry {
+    border-top-left-radius: 14px; border-top-right-radius: 14px;
+  }
+  .lookup-entry:not(:has(+ .lookup-entry)) {
+    border-bottom-width: 0.5px;
+    border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;
+  }
+  /* hairline separator that stops short of the glyph, the iOS inset rule */
+  .lookup-entry:has(+ .lookup-entry)::after {
+    content: ""; position: absolute; left: 62px; right: 0; bottom: 0;
+    height: 0.5px; background: var(--ios-hair);
+  }
+  .lookup-entry:active { background: var(--ios-surface-2); }
+  .lookup-entry-icon {
+    flex: 0 0 auto; width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; color: #1a1206;
+    background: linear-gradient(180deg, #ffb95a, var(--ios-amber));
+  }
+  .lookup-entry-text { flex: 1; min-width: 0; }
+  .lookup-entry-title {
+    font-size: 17px; font-weight: 500; color: var(--ios-text); display: block;
+  }
+  .lookup-entry-desc {
+    font-size: 13px; color: var(--ios-dim); display: block; margin-top: 1px;
+    white-space: normal;
+  }
+  .lookup-entry-arrow {
+    flex: 0 0 auto; color: var(--ios-faint); font-size: 18px; font-weight: 600;
+  }
+
+  /* ---- SYSTEMS + MODULES AS STACKED LISTS (the drill-down continues) -----
+     A chassis pushes to its systems, a system to its modules -- same grammar
+     the whole way down. The desktop two-pane split becomes two stacked
+     grouped lists: pick a system, its modules appear below it as a list. */
+  .split { display: block; margin-top: 0; }
+  .split-nav {
+    display: block; overflow: visible; padding: 0; margin-bottom: 22px;
+    border-radius: 14px; overflow: hidden;
+    background: var(--ios-surface); border: 0.5px solid var(--ios-hair);
+  }
+  .split-nav::-webkit-scrollbar { display: none; }
+  .sys-item {
+    position: relative; width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 52px; padding: 13px 16px; gap: 10px;
+    border: 0; border-radius: 0; background: none;
+    font-size: 17px; font-weight: 400; color: var(--ios-text);
+  }
+  .sys-item:not(:last-child)::after {
+    content: ""; position: absolute; left: 16px; right: 0; bottom: 0;
+    height: 0.5px; background: var(--ios-hair);
+  }
+  .sys-item:active { background: var(--ios-surface-2); }
+  .sys-item.active {
+    background: none; color: var(--ios-amber); font-weight: 600;
+  }
+  .sys-item .nav-name { font-weight: inherit; font-size: inherit; }
+  .sys-item .nav-count {
+    font-size: 15px; font-weight: 400; color: var(--ios-faint);
+    background: none; border: 0; padding: 0;
+  }
+  /* modules under the selected system: a second grouped list */
+  .split-content { min-width: 0; }
+  .ecu-grid {
+    display: block; border-radius: 14px; overflow: hidden;
+    background: var(--ios-surface); border: 0.5px solid var(--ios-hair);
+  }
+  /* Module row = name over code (VStack) + trailing chevron, like the
+     reference's Control-units list. The .prg part number is developer
+     metadata, not something an owner reads, so it is dropped on mobile --
+     that also stops it squeezing the name into a word-per-line wrap. A
+     trailing chevron (added via ::after) signals the row pushes deeper. */
+  .ecu-card {
+    position: relative;
+    display: grid; grid-template-columns: 1fr 16px;
+    grid-template-rows: auto auto; align-items: center;
+    min-height: 68px; padding: 14px 16px; gap: 3px 10px;
+    background: none; border: 0; border-radius: 0;
+  }
+  .ecu-card::before {
+    content: "\203A"; grid-column: 2; grid-row: 1 / 3; align-self: center;
+    color: var(--ios-faint); font-size: 20px; font-weight: 600; line-height: 1;
+  }
+  .ecu-card:not(:last-child)::after {
+    content: ""; position: absolute; left: 16px; right: 0; bottom: 0;
+    height: 0.5px; background: var(--ios-hair);
+  }
+  .ecu-card:active { background: var(--ios-surface-2); }
+  .ecu-name {
+    grid-column: 1; grid-row: 1;
+    font-size: 17px; font-weight: 400; line-height: 1.2; color: var(--ios-text);
+  }
+  .ecu-code {
+    grid-column: 1; grid-row: 2;
+    font-size: 13px; font-weight: 500; letter-spacing: 0.02em;
+    color: var(--ios-dim);
+  }
+  .ecu-prg { display: none; }
+
+  /* the F-key bar stays hidden on these list screens (rule earlier in the
+     file); nothing here re-shows it. */
+
+  /* motion + a11y floor */
+  @media (prefers-reduced-motion: reduce) {
+    .chassis-card, .chassis-card::before { transition: none; }
+  }
+  .chassis-card:focus-visible, .lookup-entry:focus-visible,
+  .sys-item:focus-visible, .ecu-card:focus-visible,
+  .chassis-filter-chip:focus-visible {
+    outline: 2px solid var(--ios-amber); outline-offset: -2px;
+  }
 }

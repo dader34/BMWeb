@@ -558,9 +558,72 @@ function bootFail(e) {
   sbLeft.textContent = 'boot failed';
 }
 
+// iOS large-title collapse (mobile only). The screen's big title scrolls with
+// the content; once it leaves the top, the nav bar shows the same title in its
+// compact slot -- Apple's large-title behaviour. Re-armed on every view render
+// because each screen replaces its own .title node.
+function armNavCollapse() {
+  if (!window.matchMedia || !window.matchMedia('(max-width: 760px)').matches) {
+    document.body.classList.remove('nav-collapsed');
+    return;
+  }
+  const view = document.getElementById('view');
+  const nameEl = document.querySelector('.brand-name');
+  const titleEl = view && view.querySelector('.screen-head .title');
+  if (nameEl) nameEl.dataset.navTitle = titleEl ? titleEl.textContent : 'BMWeb';
+  document.body.classList.remove('nav-collapsed');
+  if (window._navCollapseObs) window._navCollapseObs.disconnect();
+  if (!titleEl || !('IntersectionObserver' in window)) return;
+  // the title is "collapsed" once its bottom scrolls under the nav bar
+  window._navCollapseObs = new IntersectionObserver(([e]) => {
+    document.body.classList.toggle('nav-collapsed', !e.isIntersecting);
+  }, { rootMargin: '-6px 0px 0px 0px', threshold: 0 });
+  window._navCollapseObs.observe(titleEl);
+}
+
+// Mobile bottom bar (car · voltage · gear). The battery/ignition/cable
+// indicators are MOVED here from the top bar, not duplicated, so app.js's
+// existing updaters (batVal, ignLed, led, all grabbed by id) keep driving
+// them. Ran once at boot; the media check keeps it a no-op on desktop.
+function setupMobileTabbar() {
+  const isMobile = window.matchMedia
+    && window.matchMedia('(max-width: 760px)').matches;
+  const host = document.getElementById('mtab-status');
+  if (!host) return;
+  const cars = document.getElementById('mtab-cars');
+  const gear = document.getElementById('mtab-settings');
+  if (cars) cars.onclick = () => (typeof showChassis === 'function'
+    ? showChassis() : null);
+  if (gear) gear.onclick = () => (typeof showSettings === 'function'
+    ? showSettings() : null);
+  const kl = document.getElementById('kl-state');
+  const cable = document.getElementById('link-status');
+  if (isMobile) {
+    // move the live nodes into the bottom bar (idempotent: appendChild moves)
+    if (kl && kl.parentElement !== host) host.appendChild(kl);
+    if (cable && cable.parentElement !== host) host.appendChild(cable);
+  } else {
+    // restore to the top bar if the viewport grew past the breakpoint
+    const right = document.querySelector('.topbar-right');
+    if (right && kl && kl.parentElement === host) right.prepend(kl);
+    if (right && cable && cable.parentElement === host) {
+      const btn = document.getElementById('settings-btn');
+      right.insertBefore(cable, btn);
+    }
+  }
+}
+
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
   tipify(document.querySelector('.topbar'));   // instant tooltips up top
+  setupMobileTabbar();
+  window.addEventListener('resize', setupMobileTabbar);
+  // re-arm the large-title collapse whenever a screen swaps its content
+  const _view = document.getElementById('view');
+  if (_view && 'MutationObserver' in window) {
+    new MutationObserver(() => armNavCollapse())
+      .observe(_view, { childList: true });
+  }
   // custom window controls (frameless window for Aero; removed by index.html
   // on the web, where they drive nothing)
   // ...and by index.html in any host that keeps the window's OWN titlebar,

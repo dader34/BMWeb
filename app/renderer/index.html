@@ -145,6 +145,20 @@
     <div class="fkeybar-status"><span id="sb-left">ready</span><span id="sb-right"></span></div>
   </footer>
 
+  <!-- Mobile persistent bottom bar: Vehicles (car) · live battery voltage ·
+       Settings (gear). Hidden above 760px, where the F-key bar and top-bar
+       status do the job. The status pieces are RELOCATED here from the top
+       bar on mobile (app.js), so their live updaters keep working. -->
+  <nav class="mobile-tabbar" id="mobile-tabbar" aria-label="App">
+    <button class="mtab mtab-cars" id="mtab-cars" aria-label="Vehicles">
+      <span class="mtab-glyph" aria-hidden="true">&#128663;</span>
+    </button>
+    <div class="mtab-status" id="mtab-status"></div>
+    <button class="mtab mtab-settings" id="mtab-settings" aria-label="Settings">
+      <span class="mtab-glyph" aria-hidden="true">&#9881;</span>
+    </button>
+  </nav>
+
   <!-- Name the product BEFORE the browser's first paint. The native shell
        injects window.bmacw at document start, so its absence means the web
        build. This cannot wait for app.js: the parser stalls for seconds on
