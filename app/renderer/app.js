@@ -8,14 +8,10 @@ function showSettings() {
   view.innerHTML = head('Preferences', 'Settings', `Configure how ${APP_NAME} displays diagnostics.`);
 
   const wrap = document.createElement('div');
-  // INPA laid its options out the same way it laid out everything else: a
-  // monospace list, one per line, no cards. The rows are identical either
-  // way; only the presentation changes, so this is a class rather than a
-  // second copy of the screen.
+  // same rows in both layouts; only the class (presentation) changes
   wrap.className = inpaMode() ? 'settings-list inpa-settings'
                              : 'settings-list stagger';
 
-  // skin picker: swatch grid
   const themeRow = document.createElement('div');
   themeRow.className = 'setting-row theme-row';
   themeRow.innerHTML = `
@@ -44,7 +40,6 @@ function showSettings() {
   wrap.appendChild(themeRow);
 
 
-  // language / labels toggle
   wrap.appendChild(settingRow(
     'Function labels',
     'Show translated English names, or the original EDIABAS job names.',
@@ -56,10 +51,7 @@ function showSettings() {
     (v) => Settings.set('lang', v),
   ));
 
-  // INPA-style screens toggle: render ECU menu and fault list like the original
-  // INPA frontend (Hauptmenue F-key list + labeled error-memory view).
-  // DESKTOP ONLY. inpaMode() reports off below 760px regardless, so the
-  // control would be a switch that does nothing -- worse than absent.
+  // desktop only: inpaMode() forces off below 760px, so the toggle would do nothing there
   if (!window.matchMedia('(max-width: 760px)').matches) {
     wrap.appendChild(settingRow(
       'INPA-style screens',
@@ -69,13 +61,12 @@ function showSettings() {
         { val: 'off', label: 'Modern' },
       ],
       Settings.get('inpaScreens', 'off'),
-      // re-render in place: this screen is itself laid out differently per mode
+      // re-render: this screen is itself laid out differently per mode
       (v) => { Settings.set('inpaScreens', v); showSettings(); },
     ));
   }
 
-  // which hardware moves the bytes. The bus is chosen at page load, so
-  // switching reloads.
+  // bus is chosen at page load, so switching adapters reloads
   const adapterRow = settingRow(
     'Adapter',
     'K+DCAN over serial, or THOR WiFi adapter.',
@@ -86,16 +77,13 @@ function showSettings() {
     Settings.get('adapter', 'kdcan'),
     async (v) => {
       Settings.set('adapter', v);
-      // native: get the machine onto the adapter's network before the reload
-      // auto-connects; the shell opens the system Wi-Fi picker if it cannot
+      // join the adapter's network before the reload auto-connects; shell opens the Wi-Fi picker if it can't
       if (v === 'thor' && window.bmacw && window.bmacw.wifiJoin) {
         sbLeft.textContent = 'joining Thor_Wifi…';
         try { await window.bmacw.wifiJoin('Thor_Wifi'); }
         catch { /* the picker is open; the chip retries the connect */ }
       }
-      // Settings.set fires the shell's durable save without awaiting it, and
-      // a reload that wins that race boots from the OLD injected settings --
-      // the choice appeared not to stick. Let the save land first.
+      // await the durable save: Settings.set fires it un-awaited, and a reload that wins the race boots from OLD settings
       if (window.bmacw && window.bmacw.saveSettings) {
         try { await window.bmacw.saveSettings(JSON.stringify(Settings.data)); }
         catch { /* localStorage still carries it for this session */ }
@@ -116,8 +104,7 @@ function showSettings() {
     (v) => Settings.set('autoScan', v),
   ));
 
-  // demo mode: walk the screens with no car attached. values are synthesized
-  // from each job's declared results and badged, never presented as real.
+  // demo values are synthesized and badged, never presented as real
   wrap.appendChild(settingRow(
     'Demo mode (no cable)',
     'Fill live screens with sample values when no cable is connected, so the layouts can be explored. Readings are simulated, not from a car.',
@@ -129,10 +116,7 @@ function showSettings() {
     (v) => Settings.set('demo', v),
   ));
 
-  // actuator tests decoded from the .IPO. Off by default: these drive real
-  // components, and unlike a read there is no safe way to try one and see.
-  // INPA itself asks for no confirmation -- pressing the key sends the job --
-  // so when this is on the app behaves the same way.
+  // actuator tests drive real components; confirm defaults ON. Off = INPA behavior (key press sends the job, no prompt).
   wrap.appendChild(settingRow(
     'Confirm actuator tests',
     'Ask before firing activations',
@@ -144,8 +128,6 @@ function showSettings() {
     (v) => Settings.set('confirmActuators', v),
   ));
 
-  // startup chassis: load a chosen chassis straight to its modules on launch.
-  // searchable combo of all chassis the config knows, plus "Ask each time".
   const startRow = settingCombo(
     'Startup vehicle',
     'Skip the chassis picker and open this vehicle when the app starts.',
@@ -155,8 +137,6 @@ function showSettings() {
   );
   wrap.appendChild(startRow.el);
 
-  // startup module: optionally open straight into one ECU of the startup vehicle,
-  // preloading its menu/layout. options depend on the chosen chassis.
   const ecuRow = settingCombo(
     'Startup module',
     'Also open this module of the startup vehicle, preloading it. Needs a startup vehicle.',
@@ -166,8 +146,7 @@ function showSettings() {
   );
   wrap.appendChild(ecuRow.el);
 
-  // repopulate the module combo for a chassis. value encodes sgbd|code|label so
-  // boot can open the ECU without re-fetching.
+  // value encodes sgbd|code|label so boot can open the ECU without re-fetching
   async function loadStartEcus(chassisId) {
     if (!chassisId) { ecuRow.setOptions([{ val: '', label: 'None' }], ''); Settings.set('startEcu', ''); return; }
     try {
@@ -190,7 +169,6 @@ function showSettings() {
     loadStartEcus(Settings.get('startChassis', ''));
   }).catch(() => {});
 
-  // re-run the first-launch tour
   const tourRow = document.createElement('div');
   tourRow.className = 'setting-row tour-setting';
   tourRow.innerHTML = `
@@ -205,8 +183,6 @@ function showSettings() {
   tourRow.appendChild(tourBtn);
   wrap.appendChild(tourRow);
 
-  // "How it works", explainer of what the app does and which BMW software/data
-  // it draws from (EDIABAS, SGBDs, INPA screens, the ISTA fault database).
   const hiwRow = document.createElement('div');
   hiwRow.className = 'setting-row tour-setting';
   hiwRow.innerHTML = `
@@ -221,27 +197,9 @@ function showSettings() {
   hiwRow.appendChild(hiwBtn);
   wrap.appendChild(hiwRow);
 
-  // Offline copy: zip the app plus a car's data, in the browser.
-  //
-  // Fault text is always included: without it a code reads as a bare hex
-  // number, which is the one thing an offline copy is least able to look up.
-  // "All chassis" is offered but warned about -- it is the whole ~200 MB site
-  // held in a tab as one Blob, which not every machine will manage.
-  // A COPY DOES NOT OFFER COPIES. Both exporters fetch the app's own files
-  // from beside the page (offlineGet), which exists on the hosted site and
-  // nowhere else: in a downloaded single file there are no sibling files, so
-  // the buttons would fail on the first fetch. window.BMACW_INLINE is the
-  // marker that this IS such a copy.
+  // hidden in an offline copy (exporters need sibling files a single-file copy lacks) and in the native app (already installed)
   const isOfflineCopy = typeof window.BMACW_INLINE === 'object'
     && window.BMACW_INLINE !== null;
-  // NOT IN THE MAC APP EITHER. Both exporters build a copy of the *site* --
-  // they fetch the app's own files from beside the page and zip them up. The
-  // Mac app is already the installed thing those copies exist to stand in
-  // for, and it serves the renderer from a local static host rather than as
-  // sibling files on a web server, so the buttons offered a download of
-  // something the user had by definition already installed. The installer
-  // lives online; the app is not where you get it. window.bmacw is defined
-  // only by the native shell's shim, so its presence is the marker.
   const isNativeApp = typeof window.bmacw === 'object' && window.bmacw !== null;
   if (!isOfflineCopy && !isNativeApp && typeof offlineExport === 'function') {
     let pickVal = 'E46';
@@ -250,9 +208,7 @@ function showSettings() {
       'Download offline copy',
       'A folder that runs with no internet. Includes fault descriptions.',
       opts, pickVal, (v) => { pickVal = v; });
-    // Wiring is opt-in: it is 2 to 24 MB per car on top of the copy, and only
-    // some cars have it at all. Checked by default because an offline copy
-    // that can trace a circuit is the one worth having.
+    // wiring adds 2-24 MB/car and not every car has it; checked by default
     const wireLabel = document.createElement('label');
     wireLabel.className = 'setting-check';
     wireLabel.title = 'Include BMW’s wiring diagrams for the selected vehicle';
@@ -264,9 +220,7 @@ function showSettings() {
     goBtn.className = 'btn';
     goBtn.textContent = 'Download';
 
-    // ONE cell, not three. The INPA layout gives a settings row a fixed set
-    // of columns, so a third control spilled the button onto its own line;
-    // grouping them keeps the row a row in both layouts.
+    // group into ONE cell: the INPA layout's fixed columns spilled a third control onto its own line
     const picker = combo.el.querySelector('.combo');
     const controls = document.createElement('div');
     controls.className = 'setting-controls';
@@ -300,7 +254,6 @@ function showSettings() {
 
   view.appendChild(wrap);
 
-  // version footer
   const ver = document.createElement('div');
   ver.className = 'settings-version';
   ver.textContent = `${APP_NAME} ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : ''}`.trim();
@@ -308,11 +261,8 @@ function showSettings() {
 
   stagger(wrap, 40);
 
-  // INPA mode: the rows as the Hauptmenue draws its keys -- a vertical
-  // < F n > list down the left edge, shift-spelled past nine, the way every
-  // ECU home screen reads. The whole row presses like a key: toggles cycle
-  // to their next option, the Skin row cycles themes, pickers open, buttons
-  // fire. Clicks on the controls themselves keep their own behavior.
+  // INPA mode: prefix each row with a < Fn > key (shift-spelled past nine) and make
+  // the whole row press like one -- toggles/themes cycle, pickers open, buttons fire; clicks on controls keep their own behavior
   if (inpaMode()) {
     const activate = (row) => {
       const seg = [...row.querySelectorAll('.seg-btn')];
@@ -347,8 +297,7 @@ function showSettings() {
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => lastScreen() }]);
 }
 
-// searchable custom dropdown for long option lists (chassis picker). returns
-// { el, setOptions(options, current) }. options: [{val,label}].
+// searchable dropdown for long option lists; returns { el, setOptions(options, current) }
 function settingCombo(title, desc, options, current, onChange) {
   const row = document.createElement('div');
   row.className = 'setting-row';
@@ -447,20 +396,14 @@ function settingRow(title, desc, options, current, onChange) {
 }
 
 // ---------- connection status ----------
-// Battery (KL30) + Ignition (KL15) indicators, INPA-style. DOM refs kept at
-// module scope because nav.js (syncVselState) mirrors them into its own KL
-// display; only meaningful with a car on the cable.
+// Battery (KL30) + Ignition (KL15) refs at module scope: nav.js syncVselState mirrors them into its own KL display
 const batLed = document.getElementById('bat-led');
 const batVal = document.getElementById('bat-val');
 const ignLed = document.getElementById('ign-led');
 const ignVal = document.getElementById('ign-val');
 
-// The connection-status poller, as one object. It owns engineUp, the slow-poll
-// clock, and the fast timer, and paints three indicators:
-//   #led   cable/host: off (host down) / ok (cable present) / idle (no cable)
-//   KL30/KL15  battery + ignition, a real DME transaction so polled slowly.
-// boot and the visibility handler drive it through statusPoller.refresh()/
-// .start(), so nothing else in the app changed.
+// Connection-status poller. Paints #led (host/cable) fast, and KL30/KL15
+// (battery+ignition, a real DME transaction) slowly. Driven via refresh()/start().
 class StatusPoller {
   constructor() {
     this.engineUp = false;
@@ -513,9 +456,7 @@ class StatusPoller {
     }
   }
 
-  // battery/ignition is a real DME transaction: poll slowly (~12s) and only
-  // with a cable present -- hammering it collides with other reads and can
-  // wake/sleep the bus. Cable/engine status stays on the fast timer.
+  // poll battery/ignition slowly (~12s) and only with a cable: hammering the DME collides with other reads and can wake/sleep the bus
   async refresh() {
     await this._pollEngine();
     const port = await this._pollCable();
@@ -530,8 +471,6 @@ class StatusPoller {
     }
   }
 
-  // paused while the window is hidden -- no point hitting the sidecar for LED
-  // updates nobody sees.
   start() {
     if (this.timer == null) this.timer = setInterval(() => this.refresh(), 3000);
   }
@@ -553,15 +492,13 @@ function splashStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-// status polling pauses while the window is hidden (no point hitting the
-// sidecar for LED updates nobody sees)
+// pause polling while the window is hidden
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) statusPoller.stop();
   else { statusPoller.refresh(); statusPoller.start(); }
 });
 
-// the main process opens the window immediately; the renderer waits here for
-// the sidecar health endpoint (300ms poll, up to 30s) behind the boot splash
+// wait for the sidecar health endpoint (300ms poll, up to 30s) behind the boot splash
 async function waitForEngine() {
   for (let i = 0; i < 100; i++) {
     await statusPoller._pollEngine();
@@ -572,18 +509,15 @@ async function waitForEngine() {
   return false;
 }
 
-// a boot throw must not leave the splash on "starting engine" forever: drop
-// the splash and show the error instead
+// a boot throw must drop the splash and show the error, not hang on "starting engine"
 function bootFail(e) {
   dismissSplash();
   view.innerHTML = errorBlock((e && e.message) || String(e), 'red');
   sbLeft.textContent = 'boot failed';
 }
 
-// iOS large-title collapse (mobile only). The screen's big title scrolls with
-// the content; once it leaves the top, the nav bar shows the same title in its
-// compact slot -- Apple's large-title behaviour. Re-armed on every view render
-// because each screen replaces its own .title node.
+// iOS large-title collapse (mobile only): show the title in the nav bar once it scrolls off.
+// Re-armed on every render because each screen replaces its own .title node.
 function armNavCollapse() {
   if (!window.matchMedia || !window.matchMedia('(max-width: 760px)').matches) {
     document.body.classList.remove('nav-collapsed');
@@ -596,17 +530,13 @@ function armNavCollapse() {
   document.body.classList.remove('nav-collapsed');
   if (window._navCollapseObs) window._navCollapseObs.disconnect();
   if (!titleEl || !('IntersectionObserver' in window)) return;
-  // the title is "collapsed" once its bottom scrolls under the nav bar
   window._navCollapseObs = new IntersectionObserver(([e]) => {
     document.body.classList.toggle('nav-collapsed', !e.isIntersecting);
   }, { rootMargin: '-6px 0px 0px 0px', threshold: 0 });
   window._navCollapseObs.observe(titleEl);
 }
 
-// Mobile bottom bar (car · voltage · gear). The battery/ignition/cable
-// indicators are MOVED here from the top bar, not duplicated, so app.js's
-// existing updaters (batVal, ignLed, led, all grabbed by id) keep driving
-// them. Ran once at boot; the media check keeps it a no-op on desktop.
+// Mobile bottom bar: the KL/cable nodes are MOVED here (not duplicated) so the by-id updaters keep driving them. No-op on desktop.
 function setupMobileTabbar() {
   const isMobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
@@ -621,7 +551,6 @@ function setupMobileTabbar() {
   const kl = document.getElementById('kl-state');
   const cable = document.getElementById('link-status');
   if (isMobile) {
-    // move the live nodes into the bottom bar (idempotent: appendChild moves)
     if (kl && kl.parentElement !== host) host.appendChild(kl);
     if (cable && cable.parentElement !== host) host.appendChild(cable);
   } else {
@@ -637,7 +566,7 @@ function setupMobileTabbar() {
 
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
-  tipify(document.querySelector('.topbar'));   // instant tooltips up top
+  tipify(document.querySelector('.topbar'));
   setupMobileTabbar();
   window.addEventListener('resize', setupMobileTabbar);
   // re-arm the large-title collapse whenever a screen swaps its content
@@ -646,12 +575,8 @@ function setupMobileTabbar() {
     new MutationObserver(() => armNavCollapse())
       .observe(_view, { childList: true });
   }
-  // custom window controls (frameless window for Aero; removed by index.html
-  // on the web, where they drive nothing)
-  // ...and by index.html in any host that keeps the window's OWN titlebar,
-  // which the Windows/Linux build does. Having a bridge is not the same as
-  // having these buttons: checking only for window.bmacw threw on a null
-  // element there and killed boot behind the splash.
+  // custom window controls: absent on web and on Win/Linux (their own titlebar), so
+  // guard on the element too -- checking only window.bmacw threw on null and killed boot behind the splash
   const winClose = document.getElementById('win-close');
   if (window.bmacw && winClose) {
     winClose.onclick = () => window.bmacw.winClose();
@@ -659,10 +584,7 @@ function setupMobileTabbar() {
     document.getElementById('win-zoom').onclick = () => window.bmacw.winZoom();
   }
 
-  // The status chip IS the connect control, in both hosts. Web Serial
-  // refuses to show its port picker outside a user gesture, so a click has
-  // to start it; the same click toggles the THOR WiFi bus (native TCP in
-  // the app, the local bridge in a browser) or the app's own serial port.
+  // the status chip IS the connect control: Web Serial refuses its port picker outside a user gesture, so a click must start it
   if (window.webBus) {
     const chip = document.getElementById('link-status');
     chip.style.cursor = 'pointer';
@@ -672,7 +594,7 @@ function setupMobileTabbar() {
         if (webBus.connected) {
           await webBus.disconnect();
         } else {
-          // THOR in the app: make sure we are on its network first
+          // THOR: join its network first
           if (webBus.readState && window.bmacw && window.bmacw.wifiJoin) {
             linkText.textContent = 'joining Thor_Wifi…';
             try { await window.bmacw.wifiJoin('Thor_Wifi'); }
@@ -690,8 +612,7 @@ function setupMobileTabbar() {
       await statusPoller.refresh();
     };
 
-    // THOR needs no user gesture (a socket, not a port picker), so a page
-    // that loads with it selected connects on its own; the chip retries.
+    // THOR needs no user gesture (a socket, not a port picker), so connect on load
     if (webBus.readState && !webBus.connected) {
       linkText.textContent = 'connecting…';
       webBus.connect()
@@ -707,7 +628,6 @@ function setupMobileTabbar() {
     if (startChassis) {
       const ids = await api('/api/chassis').catch(() => []);
       if (ids.includes(startChassis)) {
-        // preselected module: open straight into that ECU (preloads menu/layout)
         if (startEcu) {
           const [sgbd, code, label] = startEcu.split('|');
           if (sgbd) { await showEcu(startChassis, dispChassis(startChassis), { sgbd, code, label }); return; }
@@ -719,7 +639,6 @@ function setupMobileTabbar() {
     await showChassis();
   };
 
-  // splash stays up until the engine answers (or the wait gives up)
   const start = async () => {
     const splashStart = Date.now();
     splashStatus('starting engine');

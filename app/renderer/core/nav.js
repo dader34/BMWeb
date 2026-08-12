@@ -1,8 +1,7 @@
 // navigation: chassis select, INPA script picker, functional-jobs menu, sections.
-// the whole-vehicle sweeps live in sweep.js, the background E46 auto-scan +
-// attention popup in autoscan.js, and the PDF fault report in fault-report.js.
+// sweeps live in sweep.js, E46 auto-scan in autoscan.js, PDF report in fault-report.js.
 async function showChassis() {
-  cancelSweep();                 // leaving for the chassis list stops any sweep (sweep.js)
+  cancelSweep();                 // leaving the chassis list stops any sweep (sweep.js)
   lastScreen = showChassis;
   setCrumbs([{ label: 'Vehicles' }]);
   sbLeft.textContent = 'select chassis';
@@ -10,12 +9,10 @@ async function showChassis() {
   if (!ids) return;
 
   if (inpaMode()) {
-    // INPA vehicle select: Battery/Ignition row + chassis F-key list. main list shows
-    // common chassis (F1-F8); the rest sit under "Other models" (F9). keep COMMON at
-    // 8 so F9 stays free for the "Other models" entry.
+    // INPA vehicle select: common chassis on F1-F8, rest under "Other models" (F9). Keep COMMON at 8 so F9 stays free.
     const COMMON = ['E46', 'E39', 'E60', 'E65', 'E83', 'E85', 'E90', 'E70'];
     const main = COMMON.filter(id => ids.includes(id));
-    const old = ids.filter(id => !main.includes(id)); // everything else
+    const old = ids.filter(id => !main.includes(id));
 
     view.innerHTML = head('Vehicles', '', 'Select your vehicle.');
     const panel = document.createElement('div');
@@ -39,7 +36,6 @@ async function showChassis() {
         </div>
       </div>`;
     view.appendChild(panel);
-    // Picking a chassis opens the Script-selection popup.
     panel.querySelectorAll('.inpa-fn[data-id]').forEach(b => b.onclick = () => showScriptSelection(b.dataset.id));
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
@@ -59,10 +55,7 @@ async function showChassis() {
 
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
-  // The chassis tag (core.js CHASSIS_TAG) is lower-case ("3-series 98-06"),
-  // so match against it case-insensitively -- an earlier `.includes('3-SERIES')`
-  // compared upper- vs lower-case and never matched, leaving the tag clause dead
-  // and only the hard-coded id list doing any work.
+  // CHASSIS_TAG is lower-case, so match case-insensitively: an earlier .includes('3-SERIES') never matched and left the tag clause dead
   const tag = (id) => (CHASSIS_TAG[id] || '').toLowerCase();
   const filters = [
     { label: 'All', match: () => true },
@@ -112,8 +105,7 @@ async function showChassis() {
   view.appendChild(grid);
   renderGrid();
 
-  // Fault Lookup: reference search across the whole fault database, no cable
-  // needed. Sits below the chassis grid as a full-width entry.
+  // Fault Lookup: reference search across the whole fault database, no cable needed
   const lookupCard = document.createElement('button');
   lookupCard.className = 'lookup-entry';
   lookupCard.innerHTML = `
@@ -126,8 +118,7 @@ async function showChassis() {
   lookupCard.onclick = () => showLookup();
   view.appendChild(lookupCard);
 
-  // Wiring diagrams: BMW's WDS, its own reference section like the lookup.
-  // Needs no cable and no chassis chosen first, so it belongs beside it.
+  // Wiring diagrams (BMW's WDS): a reference section like the lookup, no cable or chassis needed
   const wiringCard = document.createElement('button');
   wiringCard.className = 'lookup-entry';
   wiringCard.innerHTML = `
@@ -140,7 +131,6 @@ async function showChassis() {
   wiringCard.onclick = () => showWiringChassis();
   view.appendChild(wiringCard);
 
-  // Root screen: quick-pick common chassis + the two reference sections.
   const quick = ['E46', 'E60', 'E90'].filter(id => ids.includes(id));
   const acts = quick.map((id, i) => ({ key: String(i + 1), label: id, fn: () => showSections(id) }));
   acts.push({ key: String(quick.length + 1), label: 'Fault Lookup', fn: () => showLookup() });
@@ -148,8 +138,7 @@ async function showChassis() {
   setActions(acts);
 }
 
-// INPA script-selection popup, opened on chassis pick. two panes: left lists
-// section categories, right shows the section's ECUs. Esc aborts.
+// INPA script-selection popup: left lists section categories, right shows the section's ECUs
 async function showScriptSelection(chassisId) {
   setStateSgbd(chassisId);       // retarget the battery/ignition poll (autoscan.js)
   if (chassisId.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
@@ -157,9 +146,7 @@ async function showScriptSelection(chassisId) {
   try { ch = await api(`/api/chassis/${chassisId}`); }
   catch (e) { showSections(chassisId); return; } // fall back to the full screen
 
-  // INPA semantics: <ESC> aborts script selection back to the vehicle-select
-  // screen (not to whatever screen the popup covered). picking an ECU or the
-  // functional-jobs entry closes with no value, so those paths don't navigate.
+  // INPA semantics: <ESC> aborts to the vehicle-select screen (not whatever the popup covered); picking an ECU closes with no value so it doesn't navigate
   const modalOpts = {
     onKey: (e, c) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); c('abort'); } },
     onClose: (val) => { if (val === 'abort') showChassis(); },
@@ -184,12 +171,10 @@ async function showScriptSelection(chassisId) {
   const jobsPane = overlay.querySelector('#ss-jobs');
   const headEl = overlay.querySelector('#ss-head');
   const items = overlay.querySelectorAll('.inpa-ss-item');
-  // Functional Jobs (whole-vehicle Identify/Fault sweep). enabled for chassis with
-  // variant-group + sweep-priority tables (sweep.js), so the sweep skips dead variants.
+  // Functional Jobs enabled only for chassis with variant-group tables (sweep.js), so the sweep skips dead variants
   const allowFunc = !!VARIANT_GROUPS[chassisId.toUpperCase()];
 
-  // chassis row selected: the single "Functional jobs" header is the entry,
-  // clickable, with nothing listed beneath it.
+  // chassis row selected: the "Functional jobs" header itself is the clickable entry
   const showChassisJobs = () => {
     items.forEach(it => it.classList.toggle('active', it.dataset.i === '-1'));
     headEl.hidden = false;
@@ -199,8 +184,7 @@ async function showScriptSelection(chassisId) {
     headEl.onclick = allowFunc ? () => { close(); showFunctionalJobs(chassisId); } : null;
   };
 
-  // section row selected: right pane is just that section's ECU modules. no
-  // header (it would only repeat the section name already selected on the left).
+  // section row selected: right pane is just that section's ECU modules, no header
   const showSection = (i) => {
     items.forEach(it => it.classList.toggle('active', it.dataset.i === String(i)));
     const sec = ch.sections[i];
@@ -215,9 +199,7 @@ async function showScriptSelection(chassisId) {
     });
   };
 
-  // Coding row selected: close the popup and open the Coding hub (Features +
-  // Expert). The hub is the single home for coding now -- the per-module
-  // browsing that used to live here is its Expert tab.
+  // Coding row: open the Coding hub (Features + Expert)
   const openCoding = () => { close(); showCodingHub(chassisId); };
 
   items.forEach(it => {
@@ -228,8 +210,7 @@ async function showScriptSelection(chassisId) {
   showChassisJobs(); // open on the chassis row: Functional Jobs only
 }
 
-// INPA "Functional Jobs" menu: F2 Identification (quickIdentSweep), F4 Fault
-// Memory (quickErrorSweep). the sweeps themselves live in sweep.js.
+// INPA "Functional Jobs" menu: F2 Identification, F4 Fault Memory (sweeps in sweep.js)
 function showFunctionalJobs(chassisId) {
   const id = chassisId || 'E46';
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }, { label: 'Functional Jobs' }]);
@@ -303,8 +284,7 @@ async function showSections(id, selectIndex = 0) {
   if (id.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }]);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
-  // "on the left" is a desktop instruction: below 760px the system rail
-  // sits ABOVE its modules as a horizontal strip, so name neither side.
+  // name neither side: below 760px the system rail sits ABOVE its modules, not left
   view.innerHTML = head('Control modules', dispChassis(id),
                        'Pick a system, then a module.');
 
@@ -314,9 +294,7 @@ async function showSections(id, selectIndex = 0) {
                      <div class="split-content" id="split-content"></div>`;
   view.appendChild(split);
 
-  // Fill both panes with shimmering placeholders while the chassis archive
-  // loads -- on a phone that first fetch is a real download, and a blank
-  // pane read as a broken screen. The real lists replace these on arrival.
+  // placeholders while the chassis archive loads: on a phone that fetch is a real download, and a blank pane reads as broken
   split.querySelector('#split-nav').innerHTML = skeletonList(6, false);
   split.querySelector('#split-content').innerHTML = skeletonList(7, true);
 
@@ -333,8 +311,7 @@ async function showSections(id, selectIndex = 0) {
     const listWrap = document.createElement('div');
     listWrap.className = 'ecu-grid stagger';
     sec.ecus.forEach(ecu => {
-      // module card, read like the ECU's housing label: designation stamp,
-      // application name, part number
+      // module card laid out like the ECU housing label: designation, application name, part number
       const card = document.createElement('div');
       card.className = 'ecu-card';
       card.innerHTML = `
@@ -349,7 +326,7 @@ async function showSections(id, selectIndex = 0) {
     sbRight.textContent = `${sec.ecus.length} module${sec.ecus.length === 1 ? '' : 's'}`;
   }
 
-  nav.innerHTML = '';           // drop the loading skeleton
+  nav.innerHTML = '';
   ch.sections.forEach((sec, idx) => {
     const item = document.createElement('button');
     item.className = 'sys-item';
@@ -359,8 +336,7 @@ async function showSections(id, selectIndex = 0) {
     nav.appendChild(item);
   });
 
-  // Coding, a first-class destination like Wiring: opens the Coding hub
-  // (Features + Expert). Shown only when the chassis has codeable modules.
+  // Coding hub entry, shown only when the chassis has codeable modules
   if (typeof chassisHasCoding === 'function' && await chassisHasCoding(id)) {
     const code = document.createElement('button');
     code.className = 'sys-item sys-coding';
@@ -370,8 +346,7 @@ async function showSections(id, selectIndex = 0) {
     nav.appendChild(code);
   }
 
-  // whole-vehicle fault scan (the classic Functional Jobs F4), reachable from
-  // the modern layout too: scans every module's fault memory in one pass
+  // whole-vehicle fault scan (Functional Jobs F4), reachable from the modern layout too
   const scan = document.createElement('button');
   scan.className = 'sys-item sys-scan';
   scan.innerHTML = `<span class="nav-name">Error scan</span>
@@ -379,8 +354,7 @@ async function showSections(id, selectIndex = 0) {
   scan.onclick = () => quickErrorSweep(id);
   nav.appendChild(scan);
 
-  // Wiring lives on its own page (like Fault Lookup), but a car that is
-  // already open should not have to go back out to reach its diagrams.
+  // Wiring shortcut so an already-open car doesn't have to go back out to reach its diagrams
   if (typeof hasWiring === 'function' && await hasWiring(id)) {
     const wire = document.createElement('button');
     wire.className = 'sys-item sys-wiring';
@@ -394,7 +368,6 @@ async function showSections(id, selectIndex = 0) {
   sbLeft.textContent = ch.description;
   selectSection(Math.min(selectIndex, ch.sections.length - 1));
 
-  // number keys select a system, Esc goes back
   const actions = ch.sections.slice(0, 8).map((s, i) => ({
     key: String(i + 1), label: s.name, fn: () => selectSection(i),
   }));

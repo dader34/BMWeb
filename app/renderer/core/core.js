@@ -1,16 +1,11 @@
-// core: API client, theme, util, dialogs, error formatting
-// renderer. chassis -> section -> ECU -> fault flow against the local .NET
-// sidecar (EDIABAS engine).
+// core: API client, theme, util, dialogs, error formatting.
+// chassis -> section -> ECU -> fault flow against the local .NET sidecar (EDIABAS engine).
 
 const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8777';
-// IS_WEB / APP_NAME are declared inline in index.html: the name has to land
-// before first paint, which is earlier than any external script runs.
+// IS_WEB / APP_NAME are declared inline in index.html so the name lands before first paint
 
-// persisted settings
 const Settings = {
-  // the native shell injects the durable copy (window.__bmacwSettings) at
-  // document start: localStorage is origin-scoped and the app's port is
-  // ephemeral, so localStorage alone would reset every launch.
+  // native shell injects the durable copy at document start; localStorage alone resets every launch (ephemeral port, origin-scoped)
   data: (typeof window !== 'undefined' && window.__bmacwSettings) ||
         JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
   get(key, def) { return key in this.data ? this.data[key] : def; },
@@ -21,7 +16,6 @@ const Settings = {
     if (window.bmacw && window.bmacw.saveSettings) window.bmacw.saveSettings(json);
   },
 };
-// skins / themes
 const THEMES = [
   { id: 'instrument', name: 'Instrument' },
   { id: 'inpa',       name: 'INPA' },
@@ -31,10 +25,7 @@ const THEMES = [
 function applyTheme(id) {
   if (!id || id === 'instrument') document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', id);
-  // Repaint the F-key bar: its chrome (the RUNNING block) is theme-dependent,
-  // so a live swap has to redraw rather than wait for the next screen.
-  // (guarded: applyTheme is DECLARED above the ActionBar, so a call made before
-  // it is constructed would hit the temporal dead zone)
+  // repaint the F-key bar (its chrome is theme-dependent). Guarded: applyTheme is declared above ActionBar, so an early call hits the TDZ
   try { actionBar.paint(actionBar.current); } catch { /* bar not built yet */ }
   // aero only: frameless + transparent window
   if (window.bmacw && window.bmacw.setTranslucent) {
@@ -46,7 +37,7 @@ function applyTheme(id) {
 function applyAeroOpacity() {
   document.documentElement.style.setProperty('--aero-opacity', '0.82');
 }
-// swap the tab icon in place; the page ships no <link rel="icon">, so make one
+// the page ships no <link rel="icon">, so make one
 function setFavicon(dataUrl) {
   let link = document.querySelector('link[rel="icon"]');
   if (!link) {
@@ -57,8 +48,7 @@ function setFavicon(dataUrl) {
   link.type = 'image/png';
   link.href = dataUrl;
 }
-// render logo SVG to a 256x256 canvas with theme colors, send PNG to the
-// dock -- or, on the web, to the favicon. Same icon, different sink.
+// render the logo SVG to a 256px PNG in theme colors; sink is the dock, or the favicon on web
 function updateDockIcon() {
   const dock = window.bmacw && window.bmacw.setDockIcon;
   if (!dock && !IS_WEB) return;
@@ -108,7 +98,7 @@ applyTheme(Settings.get('theme', 'instrument'));
 
 // 'en' = translated English, 'orig' = raw EDIABAS job names
 const lang = () => Settings.get('lang', 'en');
-// translated label (deGerman is memoized; mined layout labels arrive in German)
+// mined layout labels arrive in German (deGerman is memoized)
 const itemLabel = (it) => lang() === 'orig' ? it.job : deGerman(it.label);
 
 const view = document.getElementById('view');
@@ -138,9 +128,7 @@ let crumbs = []; // [{label, fn}]
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
-// Demo mode: with no cable, job runs return synthesized values so the screens
-// can be walked. Opt-in via Settings or ?demo=1 in the window URL, and every
-// such response is badged (see the live panel) so it can't pass for real data.
+// demo mode: synthesized job values so screens can be walked with no cable. Every response is badged so it can't pass for real. Opt-in via Settings or ?demo=1.
 const demoMode = () => Settings.get('demo', 'off') === 'on'
   || new URLSearchParams(location.search).get('demo') === '1';
 
@@ -154,8 +142,7 @@ async function api(path, opts) {
   return data;
 }
 
-// api call with shared failure rendering: on error, errorBlock into container
-// and mark the status line. returns null on failure.
+// api() with shared failure rendering: errorBlock into container, mark status line, return null on failure
 async function tryApi(path, opts, container, msg = 'failed') {
   try { return await api(path, opts); }
   catch (e) {
@@ -165,8 +152,7 @@ async function tryApi(path, opts, container, msg = 'failed') {
   }
 }
 
-// ?group= for a fault read: the diagnostic-address group SGBD, so the server
-// lets EDIABAS pick the exact installed variant (see server LoadForJob)
+// ?group= is the diagnostic-address group SGBD, so the server (LoadForJob) lets EDIABAS pick the installed variant
 const groupQuery = (o) => (o && o.group) ? `?group=${encodeURIComponent(o.group)}` : '';
 
 // result sets minus the set-0 system summary (kept when it's the only set)
@@ -184,8 +170,7 @@ function flatResults(sets) {
   return out;
 }
 
-// set while a flash read/backup holds the bus. the status poll skips its DME read
-// during this window so it doesn't queue behind the multi-minute flash on busLock.
+// true while a flash/backup holds the bus; the status poll skips its DME read so it doesn't queue behind the multi-minute flash on busLock
 let flashing = false;
 
 // map terse engine/flash errors to { title, detail, fix }
@@ -193,11 +178,7 @@ function explainError(raw) {
   const m = (raw || '').toString();
   const lower = m.toLowerCase();
 
-  // VM / app-side errors (bestvm.js VmError, vmbridge): the job interpreter
-  // refused or broke BEFORE anything reached the wire. Checked first, so a
-  // VM message mentioning e.g. a checksum cannot fall into a wire branch —
-  // "check the cable" for these sends the user chasing a hardware fault that
-  // does not exist.
+  // VM / app-side errors: the interpreter broke BEFORE the wire. Checked first so a VM checksum message can't fall into a wire branch and send the user chasing a non-existent hardware fault.
   if (/vm ?error|unimplemented opcode|refusing to (run|transmit)|step limit at op|unknown register|operand mode|unresolved (jump|etag)|no telegram sink|raised error via eerr/i.test(m))
     return { title: 'App error — not the car', detail: m || 'The job interpreter failed.',
       fix: `This is a bug in ${APP_NAME}, not the cable or the car — nothing needs checking on the vehicle. Please report this exact message.` };
@@ -218,8 +199,7 @@ function explainError(raw) {
     return { title: 'ECU rejected the request', detail: 'The DME is not in a state that allows this, often the engine is running or ignition is not fully on.',
       fix: 'Set ignition to position 2 with the engine OFF and try again.' };
 
-  // IFH-0009: the ECU said nothing at all. INPA's most common error, and
-  // the one people compare against, so it keeps its identity here.
+  // IFH-0009: the ECU said nothing at all (INPA's most common error)
   if (lower.includes('ifh-0009'))
     return { title: 'No response from the ECU (IFH-0009)', detail: 'The request went out and nothing came back.',
       fix: 'Ignition on (engine off), cable seated at both ends. If other modules answer, this one may not be fitted to the car.' };
@@ -265,8 +245,7 @@ function errorBlock(raw, accent = 'amber') {
 }
 
 function setCrumbs(items) {
-  // the WDS wiring screen hides the F-key bar (it has its own footer); any
-  // other screen drawing itself is the signal to put it back
+  // the WDS wiring screen hides the F-key bar; any other screen drawing itself restores it
   document.body.classList.remove('wds-nofkeys');
   crumbs = items;
   crumbsEl.innerHTML = '';
@@ -284,14 +263,9 @@ function setCrumbs(items) {
   });
 }
 
-// INPA function-key bar. screens declare actions; bind number keys 1..9,0.
-// The footer F-key bar, as one object. It owns the action rows and the slot
-// painting that used to live in five module globals + a cluster of functions;
-// screens still call the global setActions()/fireAction() (thin delegators
-// below), and activations.js still reads currentActions, so no call site
-// changed. INPA's bar is TEN FIXED SLOTS, F1..F10, drawn whether or not a key
-// is bound: the empty ones show at a glance that F4 does nothing here. Shift
-// swaps to a screen's second row for as long as it is held.
+// INPA function-key bar: screens declare actions bound to number keys 1..9,0.
+// TEN FIXED SLOTS F1..F10, drawn bound or not (empty ones show F4 does nothing here).
+// Shift swaps to a screen's second row while held. Screens still call global setActions()/fireAction().
 const INPA_SLOTS = 10;
 
 class ActionBar {
@@ -304,13 +278,10 @@ class ActionBar {
     this._wireKeys();
   }
 
-  // Which fixed slot an action wants: '1'..'9'/'0' are INPA's F1..F10 (0 IS
-  // F10, where back lands); back is always F10; anything else spills to the
-  // next free slot.
+  // fixed slot for an action: '1'..'9'/'0' are F1..F10 (0 IS F10, where back lands); else spills to next free slot
   _slot(a) {
     if (a.kind === 'back') return INPA_SLOTS - 1;
-    // `key` is the binding; keyLabel is only its caption ('Esc','F3'). Read the
-    // binding first so a decorative label cannot move a key out of its slot.
+    // read `key` (the binding) first, not keyLabel (caption): a decorative label must not move a key out of its slot
     const m = /^F?(\d+)$/.exec(String(a.key || a.keyLabel || '').toUpperCase());
     if (!m) return null;
     const n = Number(m[1]);
@@ -321,15 +292,14 @@ class ActionBar {
   _paintInpa(actions) {
     const slots = new Array(INPA_SLOTS).fill(null);
     const spill = [];
-    // Back claims F10 FIRST, before a screen's own '0' can take it in passing.
+    // sort back first so it claims F10 before a screen's own '0' can take it
     const ordered = [...actions].sort((x, y) =>
       (y.kind === 'back') - (x.kind === 'back'));
     ordered.forEach(a => {
       const i = this._slot(a);
       if (i !== null && !slots[i]) slots[i] = a; else spill.push(a);
     });
-    // letter-keyed actions (and collisions) fill the first empty slot, so they
-    // stay mouse-reachable and still line up under a printed F-number
+    // letter-keyed actions and collisions fill the first empty slot
     spill.forEach(a => {
       const i = slots.indexOf(null);
       if (i >= 0) slots[i] = a;
@@ -360,8 +330,7 @@ class ActionBar {
     fkeysEl.appendChild(btns);
   }
 
-  // The bar keeps the same shape in every theme -- it is INPA's bar, not a
-  // decoration -- and mirrors its back/nav-action into the mobile nav bar.
+  // same shape in every theme; mirrors back/nav-action into the mobile nav bar
   paint(actions) {
     fkeysEl.classList.add('inpa-bar');
     this._paintInpa(actions);
@@ -370,8 +339,7 @@ class ActionBar {
     this._syncNavAction(actions);
   }
 
-  // The touch back arrow tracks whatever the screen registered as `back`, so it
-  // does exactly what Esc does; a screen with no back action hides it.
+  // touch back arrow tracks the screen's `back` action (does what Esc does); hidden if none
   _syncNavBack(actions) {
     const el = document.getElementById('nav-back');
     if (!el) return;
@@ -380,8 +348,7 @@ class ActionBar {
     el.onclick = back ? () => this.fire(back) : null;
   }
 
-  // The top-right nav action mirrors the back arrow on mobile (where the F-key
-  // bar is hidden): a screen opts in by marking one action kind:'navAction'.
+  // top-right nav action on mobile (F-key bar hidden): a screen opts in via kind:'navAction'
   _syncNavAction(actions) {
     const el = document.getElementById('nav-action');
     if (!el) return;
@@ -395,7 +362,6 @@ class ActionBar {
     }
   }
 
-  // Swap the bar to the row Shift selects, keeping the keys bound to it.
   applyShift(on) {
     if (!this.shift || on === this.shiftHeld) return;
     this.shiftHeld = on;
@@ -404,9 +370,7 @@ class ActionBar {
     if (this.shiftRepaint) this.shiftRepaint();
   }
 
-  // A screen change: stop polling/logging, drop the shift row and fault badge,
-  // kill active actuator tests (unless a same-screen redraw is held open by
-  // keepActivationsDuring), then draw the new row.
+  // screen change: stop polling/logging, drop the shift row/badge, and kill active actuator tests unless activationsHeld() (keepActivationsDuring holds a same-screen redraw open)
   set(actions, shifted) {
     stopLive(); stopLogging();
     if (typeof dismissAttention === 'function') dismissAttention();
@@ -427,9 +391,7 @@ class ActionBar {
     a.fn();
   }
 
-  // Shift holds the second row; released or window-blurred puts the first row
-  // back, so the bar can never show keys the next keypress will not fire. A
-  // second keydown handler runs the F-key bindings.
+  // Shift holds the second row; release/blur restores the first, so the bar never shows keys the next press won't fire
   _wireKeys() {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Shift') this.applyShift(true);
@@ -441,8 +403,7 @@ class ActionBar {
 
     window.addEventListener('keydown', (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      // an open modal owns the keyboard (openModal wires its own handler), or
-      // Backspace behind a popup would re-fire the screen's back and stack it
+      // an open modal owns the keyboard; else Backspace behind a popup re-fires back and stacks it
       if (document.querySelector('.modal-overlay')) return;
       const t = e.target;
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
@@ -453,8 +414,7 @@ class ActionBar {
         if (back) { e.preventDefault(); this.fire(back); }
         return;
       }
-      // Shift makes the browser report "!" for 1, so match the physical digit
-      // (e.code) too; "=" / "_" alias the +/- caps for zoom.
+      // Shift makes the browser report "!" for 1, so match the physical digit (e.code); "="/"_" alias +/- for zoom
       const digit = /^Digit(\d)$/.exec(e.code || '');
       const alias = { '=': '+', '_': '-' }[key];
       const match = this.current.find(a => a.key === key)
@@ -467,28 +427,17 @@ class ActionBar {
 
 const actionBar = new ActionBar();
 
-// Global delegators kept for the call sites the app already has: setActions is
-// called from ~14 screens; activations.js reads currentActions to find the
-// back action. Nothing else in the app touched the old bar internals.
+// global delegators for existing call sites (setActions from ~14 screens; activations.js reads currentActions)
 function setActions(actions, shifted) { actionBar.set(actions, shifted); }
 function fireAction(a) { actionBar.fire(a); }
 Object.defineProperty(this, 'currentActions', { get: () => actionBar.current });
 
-// Turn title= into an instant tooltip. The browser's own waits about a second
-// and a half, which is long enough that nobody sees it; this shows on hover.
-// The title stays for accessibility and as a fallback, and the tip is anchored
-// to whichever edge keeps it on screen.
+// turn title= into an instant tooltip (the browser's own is ~1.5s, too slow to be seen); title stays for a11y
 function tipify(root) {
   root.querySelectorAll('[title]:not([data-tip])').forEach((el) => {
     const text = el.getAttribute('title');
     if (!text) return;
-    // NOT THE TRAFFIC LIGHTS. They are 12px dots at the very top of the
-    // window, so the tooltip flips below them (tip-below) and lands as a
-    // dark #1a2129 pill sitting right beside the dots -- wider than the
-    // whole group, so hovering one paints what looks like a black bar
-    // across all three. macOS does not caption its own traffic lights
-    // either; the glyph that appears inside the dot on hover is the whole
-    // affordance. The title stays for screen readers.
+    // skip the traffic-light dots: a tip flips below them and paints a bar across all three; macOS doesn't caption them either
     if (el.classList.contains('win-dot')) return;
     el.dataset.tip = text;
     // measured once on first hover: layout is settled by then
@@ -515,9 +464,7 @@ function stagger(container, step = 35) {
   [...container.children].forEach((c, i) => { c.style.animationDelay = `${i * step}ms`; });
 }
 
-// A shimmering placeholder list, shown in the spot a fetched list will fill.
-// `rows` sets how many; `sub` adds a second, shorter bar per row for the
-// two-line list cells (module name + code). Returns the HTML string.
+// shimmering placeholder list; `sub` adds a second bar per row for two-line cells
 function skeletonList(rows = 6, sub = true) {
   const row = `<div class="sk-row" aria-hidden="true">`
     + `<div class="sk-bar sk-title"></div>`
@@ -527,11 +474,8 @@ function skeletonList(rows = 6, sub = true) {
     + row.repeat(rows) + `</div>`;
 }
 
-// shared modal lifecycle: builds the overlay, animates it in, wires a capture
-// keydown handler + backdrop click, and tears both down on close (160ms fade).
-// onKey(e, close) replaces the default Esc-to-close handling. close(val)
-// forwards val to onClose (promise dialogs resolve with it); a backdrop click
-// closes with backdropValue.
+// shared modal lifecycle (overlay, capture keydown, backdrop click, 160ms fade-out).
+// onKey(e, close) overrides Esc-to-close; close(val) forwards to onClose; backdrop closes with backdropValue.
 function openModal(html, { onKey, onClose, backdropValue } = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -578,8 +522,7 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
   });
 }
 
-// value-input modal for INPA functions (throttle command, measurement-block index,
-// service comment, raw telegram). returns string or null. Enter submits, Esc cancels.
+// value-input modal for INPA functions; returns string or null. Enter submits, Esc cancels.
 function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 'Run', danger = false }) {
   return new Promise((resolve) => {
     const htmlType = kind === 'number' ? 'number' : 'text';
@@ -624,8 +567,7 @@ async function runInputFunction(ecu, input, container) {
     (input.field || '') + ' ' + (input.job || ''));
   const val = await inputDialog({
     title: esc(typeof jobLabel === 'function' ? jobLabel(input.job) : input.job),
-    // the field text is the entry instruction ("Enter as LABEL;VALUE1"); show it
-    // as the prompt, with the raw job name underneath for reference
+    // input.field is the entry instruction ("Enter as LABEL;VALUE1"), shown as the prompt
     body: `${input.field ? `<div>${esc(input.field)}</div>` : ''}`
       + `${input.args_template ? `<span class="muted">${esc(input.args_template)}</span><br>` : ''}`
       + `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
