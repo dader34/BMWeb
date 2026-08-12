@@ -1,18 +1,11 @@
-// Package what is loaded into a folder you can open with no server.
+// Package what is loaded into a folder you can open with no server. The app is
+// already static (renderer + .chassis archives + webshim standing in for the
+// API), so an offline copy is just the same files zipped, done in the browser.
 //
-// The app is already static: the renderer plus a tree of .chassis archives,
-// with webshim.js standing in for the API. So an offline copy is not a new
-// build, it is the same files zipped -- which means the browser can do it
-// with no help from us.
-//
-// SCOPED TO ONE CAR ON PURPOSE. The whole site is 203 MB and the fault
-// database alone is 80 MB; zipping that in a tab means holding it all in
-// memory and most machines will not. One chassis is 2 to 13 MB, which is the
-// difference between "works" and "the tab dies".
-//
-// The result opens over file:// with no server, EXCEPT that a file:// page
-// gets an opaque origin where fetch() is blocked. The README written into the
-// zip says to serve it with one command instead of pretending otherwise.
+// SCOPED TO ONE CAR ON PURPOSE: the whole site is 203 MB (80 MB of it fault DB),
+// too much to hold in a tab; one chassis is 2-13 MB. The result opens over
+// file:// except that fetch() is blocked there (opaque origin), so the README
+// says to serve it with one command rather than pretending otherwise.
 
 // Files the renderer needs whatever car you picked.
 //
@@ -358,27 +351,12 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   return zipped.length;
 }
 
-// ONE FILE, EVERY PLATFORM.
-//
-// The zip above is right for a computer: a folder you keep, with the bridge
-// launcher beside it. It is wrong for a phone. iOS and Android will happily
-// download a zip and then give you no good way to unpack it and open one
-// page out of it in a browser -- Safari in particular cannot.
-//
-// A single .html has no such problem. Downloads, sits in Files or Downloads,
-// opens by tapping it, on Windows, macOS, iPhone and Android alike. Which
-// makes it the only artifact that covers all four, and the one that pairs
-// with the adapter's own WebSocket: tap the file, join the adapter's WiFi,
-// and the whole app is running with no server, no relay and no internet.
-//
-// Everything is inlined because a file:// page gets an opaque origin where
-// fetch() is blocked -- the same reason the zip inlines its data. Here it
-// extends to the scripts and styles too, since there is nowhere else to put
-// them.
-//
-// Wiring is OPT-IN and expensive: 72 MB for an E46 against 13 MB for the
-// whole rest of the car. Worth it on a laptop, rarely on a phone -- so the
-// caller chooses rather than the format deciding.
+// ONE FILE, EVERY PLATFORM. The zip suits a computer but a phone can't unpack
+// it and open one page (Safari especially). A single .html downloads and opens
+// by tapping on every OS, and pairs with the adapter's own WebSocket -- no
+// server, relay or internet. Everything (scripts/styles too) is inlined because
+// a file:// page has an opaque origin where fetch() is blocked. Wiring is opt-in
+// and expensive (72 MB for E46 vs 13 MB for the rest), so the caller chooses.
 async function offlineSingleFile(chassis, withFaults, onProgress,
                                  withWiring = false) {
   const say = (t) => { if (onProgress) onProgress(t); };

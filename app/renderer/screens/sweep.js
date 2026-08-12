@@ -119,10 +119,8 @@ async function quickErrorSweep(chassisId) {
   const rows = out.querySelector('#quick-rows');
   const headEl = out.querySelector('.quick-head');
   let withFaults = 0, scanned = 0, dupes = 0, skipped = 0;
-  // each read costs ~7s (K-line wake-up) whether the ECU answers or not. variant
-  // groups share one address, only one installed, so once a group's ECU responds
-  // skip the rest. dedup by fault signature catches echoes. cuts the 12 engine
-  // variants to ~1-2 reads.
+  // once a variant group's ECU responds skip the rest (each read costs ~7s
+  // whether it answers or not); dedup by fault signature catches echoes.
   const seen = new Map();          // fault-signature -> first ECU label
   const groupDone = new Set();     // variant-group key that already responded
   const faulty = [];               // modules that reported faults, for the deep pass
@@ -287,7 +285,7 @@ async function clearModule(f) {
 }
 
 // render the specific DTCs for one faulty module beneath its sweep row, using
-// the shared faultFields projection (translate.js) so the rows and the PDF report
+// the shared faultFields projection (faults.js) so the rows and the PDF report
 // read the same.
 function appendFaultDetailRows(row, codes, sgbd) {
   const wrap = document.createElement('div');

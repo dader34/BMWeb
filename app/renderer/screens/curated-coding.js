@@ -1,19 +1,14 @@
-// Curated feature-toggle coding, the BimmerCode-style tier over the raw
-// expert tree (showDatenReference / showCoding). A hand-picked shortlist of
-// the owner-facing E46 coding options, grouped by what they do, with the
-// friendly labels pulled from BMW_DATEN_I18N (NCS Dummy's community
-// translations) rather than hand-authored -- those already read exactly like
-// BimmerCode's ("Folding outside mirrors", "Comfort opening with remote").
+// Curated feature-toggle coding, the friendly tier over the expert tree
+// (showDatenReference / expertModuleScreen). A hand-picked shortlist of
+// owner-facing E46 coding options, grouped by what they do, with labels from
+// BMW_DATEN_I18N (NCS Dummy's community translations).
 //
-// WHAT THIS IS NOT: a write tool. Like the rest of coding here it reads the
-// module, shows each option as a toggle set to the car's current value, and
-// stages changes -- the send path still does not exist (see coding-edit.js's
-// header and the four write gates). This is the friendly FACE of the same
-// read/stage surface, so the enthusiast does not have to hunt the raw tree.
+// WHAT THIS IS NOT: a write tool. It reads the module, shows each option as a
+// toggle set to the car's current value, and stages changes -- the send path
+// still does not exist (see coding-edit.js's header and the four write gates).
 //
-// The shortlist is E46-first (the analysed useful modules: zke5/GM5 body,
-// lsz lighting, kombi46 cluster). Each entry names the SGBD, the DATEN
-// function keyword, and the group. Values come from the DATEN map at runtime,
+// E46-first (zke5/GM5 body, lsz lighting, kombi46 cluster). Each entry names
+// the SGBD, DATEN keyword and group; values come from the DATEN map at runtime,
 // so an entry only shows when the car's module actually carries it.
 
 // group -> ordered [sgbd, FSW keyword] the curated view offers. Keywords are
@@ -118,8 +113,8 @@ async function curatedFeatures(chassisId) {
 }
 
 // The curated feature screen. Reads each involved module once, shows every
-// option as a toggle set to the car's current value, and stages changes --
-// nothing is sent. `back` returns to whatever opened it.
+// option as a toggle at the car's current value, and stages changes -- nothing
+// is sent. `back` returns to whatever opened it.
 async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const cont = container || view;
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
@@ -149,16 +144,11 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
 
   const demo = typeof demoMode === 'function' && demoMode();
 
-  // Map the car's coding onto our features. The whole car was already read by
-  // the hub's up-front scan (a cache of sgbd -> read results), so pair each
-  // feature to its module's answer -- no per-module re-read. If the hub did
-  // not pass a scan (opened standalone), fall back to reading here.
-  //
-  // Most curated functions live only in the DATEN blob and are NOT named in
-  // the SGBD's coding read (BEIKLAPPEN_GM vs the read's COD_MIT_* fields), so
-  // the round-trip resolves only a few. In demo mode -- no real car -- fill
-  // the rest with a deterministic on/off per feature so every toggle starts at
-  // a plausible, varied state (the same demo-fill the Expert tree uses).
+  // Map the car's coding onto our features from the hub's up-front scan (no
+  // per-module re-read); fall back to reading here if opened standalone.
+  // Most curated functions live only in the DATEN blob and are NOT named in the
+  // SGBD's coding read (BEIKLAPPEN_GM vs COD_MIT_*), so the round-trip resolves
+  // only a few. In demo mode, fill the rest with a deterministic on/off.
   const applyScan = (cache) => {
     for (const g of groups) for (const it of g.items) {
       const got = cache && cache.get(it.sgbd);
@@ -277,10 +267,9 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   draw();
 }
 
-// Pair a DATEN function keyword to a value in the SGBD's coding read. The two
-// name the same setting differently, so match on shared tokens; returns the
-// numeric value or null. Booleans in the read may be words (aktiv/1) -- reduce
-// to the on/off number space the curated entry uses.
+// Pair a DATEN keyword to a value in the SGBD's coding read, which names the
+// same setting differently, so match on shared tokens. Booleans may be words
+// (aktiv/1) -- reduce to the on/off number space the curated entry uses.
 function curatedMatchResult(kw, got) {
   const toks = (s) => new Set(String(s)
     .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase()
@@ -302,10 +291,8 @@ function curatedMatchResult(kw, got) {
   return null;
 }
 
-// The staged-changes review: what WOULD be sent, laid out as readable rows
-// (friendly name, then keyword and from->to on their own line) rather than one
-// long mono string crammed into a narrow column. In demo mode it says the
-// write is simulated; on a real car it says it is not sent.
+// The staged-changes review: what WOULD be sent, as readable rows. Demo mode
+// says the write is simulated; on a real car it says it is not sent.
 function curatedReview(chassisId, groups, staged, current) {
   const rows = [];
   for (const g of groups) for (const it of g.items) {
@@ -320,8 +307,8 @@ function curatedReview(chassisId, groups, staged, current) {
   confirmDialog(codingReviewDialog('Staged features', rows));
 }
 
-// One review row: label on top, keyword + from->to beneath, so nothing wraps
-// awkwardly. Shared by the curated and expert reviews.
+// One review row: label on top, keyword + from->to beneath. Shared by the
+// curated and expert reviews.
 function codingReviewRow(label, sub, from, to) {
   return `<div class="cod-rev-row">`
     + `<div class="cod-rev-label">${esc(label)}</div>`

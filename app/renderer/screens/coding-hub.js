@@ -1,15 +1,10 @@
-// The Coding hub: the one place coding lives, reached from a Coding tile on
-// the chassis screen. Two tabs, BimmerCode-style:
-//
-//   Features  -- the curated owner-facing toggles (showCuratedCoding), shown
-//                only where a chassis has a curated map.
-//   Expert    -- every codeable module's raw coding, the adopted "Coding map".
-//                Desktop: one searchable nested tree (Module > Function >
-//                Values, expand in place), BimmerUtility-style. Mobile: a
-//                touch-friendly module list that drills into showCoding.
-//
-// This replaces the scattered old entry points (the Script-selection Coding
-// row, the ECU screen's C key / "Coding map" tile). Everything routes here.
+// The Coding hub: the one place coding lives, reached from the chassis Coding
+// tile. Two tabs:
+//   Features  -- curated owner-facing toggles (showCuratedCoding), only where a
+//                chassis has a curated map.
+//   Expert    -- every codeable module's raw coding. Desktop: one searchable
+//                nested tree (Module > Function > Values). Mobile: a module list
+//                that drills into expertModuleScreen.
 
 // Every module of a chassis whose coding the app can show, with its kind:
 // 'values' (SGBD names its coding -- editable read) or 'map' (BMW's DATEN
@@ -64,10 +59,8 @@ async function showCodingHub(chassisId, initialTab) {
     'Change how the car is configured. Nothing is sent — changes are staged '
     + 'for review.');
 
-  // Read the whole car up front -- one scan across every codeable module --
-  // and both tabs work off the result, so their toggles start at the car's
-  // current values without per-module Read buttons. Without a cable this is a
-  // demo scan (webDemoCoding fills plausible values).
+  // Read the whole car up front so both tabs' toggles start at the car's
+  // current values without per-module Read buttons. No cable -> demo scan.
   const scanHost = document.createElement('div');
   view.appendChild(scanHost);
   let scan = await scanCoding(chassisId, scanHost);
@@ -83,15 +76,13 @@ async function showCodingHub(chassisId, initialTab) {
   panel.className = 'coding-panel';
   view.appendChild(panel);
 
-  // Re-read the whole car and redraw the active tab. This is the single
-  // Re-read control, surfaced top-right on mobile (kind:'navAction') the way
-  // Back sits top-left; each tab includes it in its action list.
+  // Re-read the whole car and redraw the active tab. The single Re-read
+  // control, surfaced top-right on mobile (kind:'navAction') like Back top-left.
   const reScan = async () => {
     const host = document.createElement('div');
     panel.replaceWith(host);
     host.id = 'coding-panel'; host.className = 'coding-panel';
     scan = await scanCoding(chassisId, host);
-    // put the panel back and re-render the current tab
     host.replaceWith(panel);
     panel.innerHTML = '';
     select(tab);
@@ -112,11 +103,9 @@ async function showCodingHub(chassisId, initialTab) {
   select(tab);
 }
 
-// Scan the car's coding: read every codeable module's coding job once and
-// return a cache { sgbd -> Map(resultName -> value) }. Shown with progress.
-// Demo mode fills each read with plausible values (webDemoCoding), so the
-// whole car "reads" without a cable. A module that fails to read is simply
-// absent from the cache -- its toggles then show unknown.
+// Scan the car's coding: read every codeable module's coding job once, return
+// a cache { sgbd -> Map(resultName -> value) }, with progress. A module that
+// fails to read is absent from the cache -- its toggles then show unknown.
 async function scanCoding(chassisId, host) {
   const mods = await codeableModules(chassisId);
   const cache = new Map();
@@ -147,10 +136,9 @@ async function scanCoding(chassisId, host) {
   return cache;
 }
 
-// Expert tab. Desktop gets the nested tree; mobile the drill-down list.
-// Both are built from the SAME source -- BMW's DATEN description (datenFor,
-// i.e. SP-DATEN's .C0x maps) fused with the up-front scan's current values --
-// so a module reads identically whichever device you are on.
+// Expert tab. Desktop gets the nested tree, mobile the drill-down list, both
+// from the SAME source (DATEN description fused with the scan's current
+// values) so a module reads identically on either.
 async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   const mobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
@@ -199,10 +187,9 @@ function seedState(state, sgbd, fns, read) {
   }
 }
 
-// MOBILE: a grouped list of modules; tapping one opens THAT MODULE'S coding as
-// the same DATEN function list the desktop tree shows -- the possible values
-// (SP-DATEN options) with the scanned current value ticked and the others
-// selectable. One source of truth, so a module matches its desktop view.
+// MOBILE: a list of modules; tapping one opens that module's coding as the
+// same DATEN function list the desktop tree shows, so a module matches its
+// desktop view.
 function expertModuleList(chassisId, mods, cont, back, scan, reScan) {
   cont.className = 'coding-panel';
   cont.innerHTML = `<div class="cur-list" id="exp-list"></div>`;
@@ -224,9 +211,8 @@ function expertModuleList(chassisId, mods, cont, back, scan, reScan) {
   setActions(acts);
 }
 
-// MOBILE per-module screen: one module's DATEN functions as a flat list of
-// selectable value groups. Identical data and rules to a single expanded
-// module in the desktop tree (moduleFunctions + seedState + treeValues).
+// MOBILE per-module screen: one module's DATEN functions as selectable value
+// groups. Identical data and rules to an expanded module in the desktop tree.
 async function expertModuleScreen(chassisId, m, back, scan) {
   const reopen = () => showCodingHub(chassisId, 'expert');
   setCrumbs([
@@ -259,9 +245,8 @@ async function expertModuleScreen(chassisId, m, back, scan) {
   const stagedCount = () =>
     [...state.values()].filter(s => s.staged != null).length;
 
-  // which functions the user has expanded, preserved across the redraw a value
-  // tap triggers. Start collapsed: the list opens as a scannable index of
-  // function names, and a tap reveals that one function's options.
+  // expanded functions, preserved across the redraw a value tap triggers.
+  // Start collapsed: the list opens as a scannable index of function names.
   const openFns = new Set();
 
   const draw = () => {
@@ -300,9 +285,8 @@ async function expertModuleScreen(chassisId, m, back, scan) {
   });
 
   const built = [{ ...m, fns: rows }];
-  // Coding screens carry no F-key bar on mobile (CSS hides it for .coding-panel);
-  // the controls live in the nav bar instead -- Back top-left, and once a change
-  // is staged an Apply (Review) button top-right, mirroring the back chevron.
+  // No F-key bar on mobile (CSS hides it for .coding-panel); controls live in
+  // the nav bar -- Back top-left, and once staged an Apply (Review) top-right.
   const updateBar = () => {
     const n = stagedCount();
     const acts = [];
@@ -374,11 +358,9 @@ function treeMatchRead(kw, opts, read) {
   return opts.some(([, v]) => String(v).toLowerCase() === hex) ? hex : null;
 }
 
-// Render a function's value list the way DATEN actually means it. When the
-// function is a real multiple-choice AND a value has been read (state has a
-// current), the options render as SELECTABLE chips (the friendly tier over the
-// tree): the current one is marked, and picking another stages it. Otherwise
-// it is the static reference: numeric field, default, or buffer.
+// Render a function's value list as DATEN means it. A real multiple-choice with
+// a read current renders as SELECTABLE chips (current marked, picking another
+// stages it); otherwise static reference (numeric field, default, or buffer).
 function treeValues(vals, label, fkey, state) {
   if (!vals.length) return '<span class="ink-faint">—</span>';
   const opts = treeOptions(vals);
@@ -423,9 +405,8 @@ function treeValues(vals, label, fkey, state) {
 }
 
 // DESKTOP: one searchable nested tree, Module > Function > Values, expand in
-// place -- BimmerUtility's layout. The function/value data is BMW's DATEN
-// description (datenFor); modules that only name values in the SGBD still
-// list under their read job. A filter box narrows across every level.
+// place. Data is BMW's DATEN description (datenFor); a filter narrows across
+// every level.
 async function expertTree(chassisId, mods, cont, back, scan, reScan) {
   cont.className = 'coding-panel coding-tree-wrap';
   cont.innerHTML = `
@@ -449,8 +430,7 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
     ? datLabel(name) : name);
 
   // Per-function state: fkey "sgbd:name" -> {current, staged}, seeded from the
-  // up-front scan the same way the mobile per-module screen does (seedState),
-  // so a function shows the same current + options wherever it is rendered.
+  // scan (seedState), so a function shows the same current + options everywhere.
   const state = new Map();
   const fkeyOf = (sgbd, name) => `${sgbd}:${name}`;
   for (const m of built) {

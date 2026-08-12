@@ -1,9 +1,6 @@
-// Special: INPA's Speicher (memory dump) and EWS/CAS start-value alignment.
-//
-// Both are real INPA screens. Memory is root F7 ("MS45 Read memory") and reads
-// through SPEICHER_LESEN_ASCII with a "<REGION>;0x<addr>;<n>" argument. The
-// immobilizer sync is Shift+F6 / Shift+F7 and is a SEQUENCE — ordered jobs with
-// a wait between the request and the answer, exactly as INPA runs it.
+// Special: INPA's Speicher (memory dump). A real INPA screen, root F7 ("MS45
+// Read memory"), reading through SPEICHER_LESEN_ASCII with a
+// "<REGION>;0x<addr>;<n>" argument. Read-only.
 
 // how many bytes one dump row shows, matching INPA's hex layout
 const MEM_ROW = 16;

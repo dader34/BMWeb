@@ -82,23 +82,16 @@ function wiringDoc(data, docId) {
   return null;
 }
 
-// WHERE THE PHOTOGRAPHS COME FROM WHEN THEY ARE NOT IN THE ARCHIVE.
+// Photographs the .wiring archive does not carry. App and offline copies hold
+// them inline; the hosted site cannot (878 MB, over the 1 GB GitHub Pages cap),
+// so it fetches them from a CDN.
 //
-// The app and offline copies carry them inside the .wiring file, so they
-// need no network. The hosted site cannot: they are 878 MB across the
-// chassis and a GitHub Pages site may hold 1 GB in total, so that build
-// ships the diagrams (144 MB) and fetches the pictures from a CDN.
-//
-// jsDelivr rather than a release asset: release downloads send no
-// access-control-allow-origin, so a page cannot fetch them at all, while
-// jsDelivr is CORS-open and edge-cached. Verified both from the live site.
-// The photographs sit under img/ in that repository: GitHub truncates a
-// directory listing at 1,000 files, and there are 11,549 of them, so at the
-// root the repo could not be browsed at all.
-// PINNED TO A COMMIT, not @main. jsDelivr serves whatever the ref points at,
-// so a moving branch means a later reorganisation of that repo retroactively
-// breaks the photos in every export ever distributed. Bump this SHA
-// deliberately when the image repo changes.
+// jsDelivr, not a release asset: release downloads send no
+// access-control-allow-origin so a page cannot fetch them, while jsDelivr is
+// CORS-open and edge-cached.
+// PINNED TO A COMMIT, not @main: jsDelivr serves whatever the ref points at, so
+// a moving branch means a later reorg of that repo retroactively breaks the
+// photos in every export ever shipped. Bump this SHA deliberately on a change.
 const WIRING_IMG_CDN =
   'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@55cad337b4787326cfcacbea220fa4787aaa74e4/img/';
 // bumped with the URL: the old cache holds entries keyed by the previous
@@ -186,10 +179,8 @@ async function showWiringChassis() {
   const grid = document.createElement('div');
   grid.className = classic ? 'inpa-vlist' : 'chassis-grid stagger';
 
-  // Say something while the list is worked out. Finding which cars have
-  // diagrams means asking for each archive in turn, which on a hosted site
-  // is 21 requests over the network -- several seconds of blank page
-  // otherwise, with nothing to say it was doing anything.
+  // Say something while the list is worked out: on a hosted site the archive
+  // probes are 21 network requests, several seconds of otherwise-blank page.
   const wait = document.createElement('div');
   wait.className = 'wiring-loading';
   wait.innerHTML = `<span class="wiring-spinner"></span>`
@@ -200,11 +191,9 @@ async function showWiringChassis() {
   const ids = await wiringChassisList();
   wait.remove();
   if (!ids.length) {
-    // NOT AN ERROR, and errorBlock said one had occurred ("Something went
-    // wrong", then advice about the cable and ignition, which has nothing to
-    // do with it). The hosted site simply cannot carry these: the diagrams
-    // are 1.1 GB and a GitHub Pages site may be no larger than 1 GB. Say
-    // that, and say where they do work.
+    // NOT an error (so no errorBlock, whose cable/ignition advice is
+    // irrelevant): the hosted site simply cannot carry these -- 1.1 GB of
+    // diagrams over a 1 GB GitHub Pages cap. Say that, and where they do work.
     const note = document.createElement('div');
     note.className = 'empty wiring-absent';
     note.innerHTML = `
@@ -262,12 +251,9 @@ function showWiring(chassisId, openDoc = null) {
   // white pane, and a footer holding the search box and the zoom controls.
   // Same code underneath -- only the frame around it changes.
   const classic = typeof inpaMode === 'function' && inpaMode();
-  // No F-key bar on this screen, in either mode. WDS carries its own footer,
-  // and the modern layout puts the same things on its toolbar -- Back, print,
-  // help, paging -- with the zoom controls sitting on the diagram itself. A
-  // bar repeating them only cost the diagram 52px of height, which is the one
-  // thing this screen never has enough of. setCrumbs clears this for every
-  // other screen, so leaving by any route puts the bar back.
+  // No F-key bar here, either mode: both layouts already carry Back/print/
+  // help/paging on their own chrome, and the bar would only cost the diagram
+  // 52px of the height it never has enough of. setCrumbs restores it on leave.
   document.body.classList.add('wds-nofkeys');
   const split = document.createElement('div');
   split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
@@ -360,9 +346,6 @@ function showWiring(chassisId, openDoc = null) {
   const viewEl = split.querySelector('#wiring-view');
   const searchEl = split.querySelector('#wiring-search');
 
-  // the open diagram's "fit", so a pane change can re-fit it. Declared here
-  // because setPane below closes over it, and set when a schematic opens.
-
   // Both layouts carry the same controls; only their dress differs. WDS's
   // toolbar has a few extra (Series, Exit, Start) that the modern layout
   // reaches through its crumbs instead.
@@ -396,10 +379,9 @@ function showWiring(chassisId, openDoc = null) {
     // An automatic switch (the phone opening a diagram) must not rewrite
     // the choice the user made on a desktop -- it is the same setting.
     if (remember) Settings.set('wdsPane', mode);
-    // The re-fit is the diagram's own business now: fitAndPan watches the
-    // stage and re-fits whenever its box changes, which covers a pane switch
-    // and a window resize alike -- and, unlike calling fit() from here,
-    // leaves a hand-zoomed view alone instead of snapping it back.
+    // No re-fit here: fitAndPan watches the stage and re-fits on any box
+    // change (pane switch or resize), and unlike fit() from here it leaves a
+    // hand-zoomed view alone instead of snapping it back.
   };
   on('#wds-pane-doc', () => setPane('doc'));
   on('#wds-pane-split', () => setPane('split'));
@@ -407,10 +389,9 @@ function showWiring(chassisId, openDoc = null) {
   setPane(Settings.get('wdsPane', 'split'));
   tipify(split);
 
-  // the bar while nothing is open; a diagram replaces it with its zoom keys
-  // Back from the tree leaves wiring. Back from a DIAGRAM on a phone
-  // returns to the tree first -- the panes are exclusive there, so leaving
-  // outright would skip a level the user can see they are inside of.
+  // Back from the tree leaves wiring; back from a DIAGRAM on a phone returns
+  // to the tree first -- the panes are exclusive there, so leaving outright
+  // would skip a level the user can see they are inside of.
   const leaveWiring = () => {
     if (window.matchMedia('(max-width: 760px)').matches
         && body.dataset.pane === 'doc') {
@@ -591,11 +572,9 @@ function showWiring(chassisId, openDoc = null) {
     // ---- the document pane
     function openDocument(entry) {
       atIndex = index.findIndex(e => e.doc === entry.doc);
-      // ONE PANE AT A TIME ON A PHONE. Below 760px the CSS hides whichever
-      // pane is not selected, so a tap on a leaf would load the diagram
-      // into a hidden box (a 0x0 stage) and look like nothing happened.
-      // Switch to it. The topbar's back arrow returns to the tree, and on
-      // a desktop this is a no-op because both panes are already showing.
+      // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the
+      // unselected pane, so loading into it means a 0x0 stage and nothing
+      // visible. Switch to it. No-op on desktop (both panes already showing).
       if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
       const doc = wiringDoc(data, entry.doc);
       viewEl.innerHTML = '';
@@ -653,19 +632,14 @@ function showWiring(chassisId, openDoc = null) {
       viewEl.appendChild(stage);
       const svg = stage.querySelector('svg');
       if (svg) {
-        // BMW left a <title> in every drawing ("Schaltplan Viewer -
-        // Copyright BMW AG 2004"), and a <title> child of an SVG element is
-        // that element's tooltip. So hovering anywhere over a diagram popped
-        // a copyright notice. The document's own name is already in the bar
-        // above it, so the element goes.
+        // BMW's per-drawing <title> ("Schaltplan Viewer - Copyright BMW AG
+        // 2004") is an SVG element's tooltip, so hovering popped a copyright
+        // notice. The name is already in the bar, so drop it.
         svg.querySelectorAll(':scope > title').forEach((t) => t.remove());
-        // WDS kept its zoom buttons in the footer; the modern layout keeps
-        // them on the document's own bar.
+        // WDS kept zoom buttons in the footer; the modern layout on the bar.
         const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
         const zoom = fitAndPan(svg, stage, zoomHost, classic);
-        // INPA's own idiom: the bar carries what the screen can do. A
-        // diagram can zoom, so the keys are there rather than only on a
-        // wheel a trackpad-less machine may not have.
+        // zoom keys on the bar, not only the wheel (a trackpad-less machine)
         setActions([
           { key: '+', keyLabel: '+', label: 'Zoom in', fn: () => zoom.by(1 / 1.3) },
           { key: '-', keyLabel: '-', label: 'Zoom out', fn: () => zoom.by(1.3) },
@@ -750,7 +724,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
     zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
   }, { passive: false });
 
-  // DEDICATED CONTINUOUS TOUCH ENGINE FOR IOS / MOBILE (PINCH-ZOOM + PAN)
+  // touch: pinch-zoom + one-finger pan (iOS / mobile)
   let lastTouchDist = 0;
   let lastTouchMidX = 0;
   let lastTouchMidY = 0;
@@ -787,10 +761,8 @@ function fitAndPan(svg, stage, bar, classic = false) {
         const fx = Math.max(0, Math.min(1, ((midX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w));
         const fy = Math.max(0, Math.min(1, ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h));
 
-        // 1. Zoom smoothly around touch center point
-        zoomBy(factor, fx, fy);
-
-        // 2. Pan with midpoint movement
+        zoomBy(factor, fx, fy);        // around the touch centre
+        // pan with the midpoint's movement
         const dx = (lastTouchMidX - midX) * k;
         const dy = (lastTouchMidY - midY) * k;
         cur.x += dx;
@@ -830,7 +802,7 @@ function fitAndPan(svg, stage, bar, classic = false) {
   stage.addEventListener('touchend', onTouchEnd, { passive: false });
   stage.addEventListener('touchcancel', onTouchEnd, { passive: false });
 
-  // MOUSE DRAG FOR DESKTOP
+  // mouse drag to pan (desktop)
   let mouseDrag = null;
   stage.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
@@ -885,18 +857,12 @@ function fitAndPan(svg, stage, bar, classic = false) {
   return { by: zoomBy, fit };
 }
 
-// Print the DOCUMENT, not the app around it.
+// Print the DOCUMENT, not the app around it. The print stylesheet hides the
+// chrome; this fills in the caption header the screen itself does not need
+// (the title bar already says it).
 //
-// The screen is a tool: toolbar, tree, footer, and the diagram in whatever
-// corner is left. On paper none of that is wanted -- a printed wiring
-// diagram is the diagram, as large as the sheet allows, with enough of a
-// caption to know what it is a year from now. So the print stylesheet hides
-// the chrome, and this fills in a header the screen does not need because
-// the title bar already says it.
-//
-// The zoomed viewBox is deliberately NOT printed: you zoom to read on
-// screen, but a printout wants the whole circuit. The full drawing is
-// restored for the print and put back afterwards.
+// The zoomed viewBox is deliberately NOT printed: a printout wants the whole
+// circuit. The full drawing is restored for the print and put back after.
 function printWiring(chassisId) {
   const stage = document.querySelector('.wiring-stage');
   const svg = stage && stage.querySelector('svg');
@@ -920,10 +886,9 @@ function printWiring(chassisId) {
   if (svg && svg.dataset.homeViewbox) {
     svg.setAttribute('viewBox', svg.dataset.homeViewbox);
   }
-  // ONCE, whichever route gets there first: the native print settles a
-  // promise, the browser fires afterprint, and the timer covers the WKWebView
-  // that does neither. Restoring the zoom twice would be harmless; removing
-  // the header while the print operation is still laying out the page is not.
+  // Clean up ONCE, whichever route gets there first (promise, afterprint, or
+  // the timer for a WKWebView that fires neither). Removing the header while
+  // the print is still laying out the page would corrupt it.
   let done = false;
   const cleanup = () => {
     if (done) return;
@@ -937,16 +902,10 @@ function printWiring(chassisId) {
   setTimeout(cleanup, 20000);   // last resort if nothing ever settles
 }
 
-// PRINT THE WEB VIEW, not a re-render of it.
-//
-// window.print() is a no-op inside a WKWebView -- there is no print dialog
-// behind it, so the toolbar's Print button did nothing at all in the Mac app
-// (it works in the browser build, which is why the print stylesheet was
-// right all along). The shell runs an NSPrintOperation over the live view
-// instead, which lays out the page through that same @media print CSS.
-//
-// The promise resolves when the print panel closes, so the caller can put
-// the header and the zoomed viewBox back afterwards.
+// PRINT THE WEB VIEW, not a re-render of it. window.print() is a no-op inside
+// a WKWebView (no dialog behind it), so the Mac app runs an NSPrintOperation
+// over the live view instead; the browser build's dialog is real. The promise
+// resolves when the panel closes, so the caller can restore header + viewBox.
 function triggerPrint() {
   if (window.bmacw && typeof window.bmacw.printPage === 'function') {
     return window.bmacw.printPage().catch(() => {});

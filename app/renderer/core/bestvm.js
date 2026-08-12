@@ -1,24 +1,17 @@
 // BEST2 virtual machine: EXECUTE ECU job programs in the browser.
 //
-// The lifted specs (specwalk.js) summarise what a job does; this runs it.
-// That difference is the whole point: summarising tops out near 71% of
-// results because the tail is structural -- layouts chosen by a branch,
-// multi-telegram streaming, strings assembled a byte at a time in a loop.
-// INPA is flawless because EDIABAS executes; so do we.
+// Lifting a job to a declarative spec tops out near 71% of results (the tail is
+// structural: branch-chosen layouts, multi-telegram streaming, byte-by-byte
+// strings); executing the program handles all of it, which is why EDIABAS is
+// flawless. Input is tools/sgbd_code.py output (ops array, jumps as indices);
+// telegram I/O is a callback, so one VM runs live cable / .sim / fixture.
+// Semantics ported from vendored EdiabasLib (EdOperations.cs, EdiabasNet.cs),
+// the engine tools/sgbd_bulk_verify.py diffs against and test_bestvm.js checks.
 //
-// Input is tools/sgbd_code.py output: one ops array per SGBD, jump operands
-// already rewritten to ops indices. Telegram I/O is a callback, so the same
-// VM runs against a live cable, a captured .sim, or a synthetic fixture.
-//
-// Semantics are ported from the vendored EdiabasLib (EdOperations.cs,
-// EdiabasNet.cs) -- the same engine tools/sgbd_bulk_verify.py diffs against,
-// so every claim here is checkable and tools/test_bestvm.js checks it.
-//
-// THE REGISTER MODEL, which nothing else in this file makes sense without:
-// B/I/L/A are VIEWS over one 32-byte array, LITTLE-endian within a view
-// (Register.GetValueData: reg[off] + reg[off+1]<<8 + ...), so writing B0
-// changes what L0 reads. S registers are separate byte buffers (telegrams
-// and text alike -- raw bytes that may contain NULs). F are doubles.
+// THE REGISTER MODEL, which nothing else here makes sense without:
+// B/I/L/A are VIEWS over one 32-byte array, LITTLE-endian within a view, so
+// writing B0 changes what L0 reads. S registers are separate byte buffers
+// (raw bytes that may contain NULs). F are doubles.
 
 // The register file is 32 bytes, overlaid THREE ways (EdiabasNet
 // RegisterList): B0..BF = bytes 0..15 and A0..AF = bytes 16..31; I0..I7

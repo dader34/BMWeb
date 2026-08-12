@@ -46,9 +46,8 @@ async function fetchJobArgs(ecu, job) {
     const d = await api(`/api/ecu/${ecu.sgbd}/arguments/${encodeURIComponent(job)}`);
     const specs = (d.arguments || []).filter(a => a.ARG); // header row has no ARG
     // An argument documented "table BITS NAME TEXT" takes its legal values from
-    // that SGBD table: NAME is what to send, TEXT is the human label. This is
-    // the SGBD's own convention, so it resolves for any ECU — the caller gets a
-    // real component list instead of a free-text box it cannot fill correctly.
+    // that SGBD table (NAME to send, TEXT the label) — the SGBD's own
+    // convention, so it resolves for any ECU.
     await Promise.all(specs.map(async (a) => {
       const ref = Object.keys(a).filter(k => /^ARGCOMMENT\d+$/.test(k))
         .map(k => /\btable\s+(\w+)\s+(\w+)\s+(\w+)/i.exec(a[k] || ''))
@@ -93,10 +92,8 @@ function optGroupHtml(options, tr) {
   return parts.join('');
 }
 
-// multi-field argument dialog built from the _ARGUMENTS schema. one input per arg,
-// the German ARGCOMMENT as a hint, and a <select> when comments enumerate values
-// (ARGCOMMENT0/1 like 'Programm'/'Daten'). resolves to the ';'-joined arg string
-// EDIABAS expects, or null if cancelled.
+// multi-field argument dialog built from the _ARGUMENTS schema. resolves to the
+// ';'-joined arg string EDIABAS expects, or null if cancelled.
 function argsDialog(job, argSpecs) {
   return new Promise((resolve) => {
     const tr = (s) => (typeof deGerman === 'function' ? deGerman(s) : s) || s;
@@ -115,11 +112,9 @@ function argsDialog(job, argSpecs) {
       let note = !isEnum && hint ? `<div class="arg-hint">${esc(hint)}</div>` : '';
       if (isBinary) note += `<div class="arg-warn">Binary argument: enter raw hex (e.g. <span class="mono">01 00 0A ...</span>). Must be a valid pre-built buffer for this job, or it may fail or harm the ECU.</div>`;
       const placeholder = isBinary ? 'hex bytes, e.g. 01 00 0A' : (a.ARGTYPE === 'int' ? '0' : '');
-      // INPA groups this list rather than showing one flat run of components
-      // (its Activate screen splits into PW / C.Lock / WiWa / A-Theft /
-      // Others). The label's leading noun is the same grouping the ECU's own
-      // wording implies — Schalter, Motor, Tuerkontakt — so <optgroup> on that
-      // reproduces the shape without inventing a taxonomy.
+      // group by the label's leading noun, matching the grouping the ECU's own
+      // wording implies (Schalter, Motor, Tuerkontakt) — same shape as INPA's
+      // Activate screen, without inventing a taxonomy.
       const optHtml = tableOpts.length
         ? optGroupHtml(tableOpts, tr)
         : enumVals.map(v => `<option>${esc(v)}</option>`).join('');
@@ -184,8 +179,7 @@ async function runJob(ecu, job, container, danger, presetArg) {
     loadFaultDb(); // warm the name db
   }
   // resolve a required argument first. hand-tuned JOB_ARGS overrides win (they
-  // encode special encodings like CBS_RESET's tail); otherwise ask the SGBD what
-  // the job declares and build a dialog from that.
+  // encode special encodings like CBS_RESET's tail); otherwise ask the SGBD.
   let arg = presetArg;
   const spec = JOB_ARGS[job];
   if (arg == null && spec) {
@@ -281,9 +275,6 @@ async function runJob(ecu, job, container, danger, presetArg) {
   }
 }
 
-// render one mined layout screen as a refreshing gauge-bar panel using the screen's
-// own labels/units/ranges, polling its job/args. two-column when the layout marks
-// columns:2 (Bank 1 / Bank 2).
 // INPA displays a fixed window of 10 values per screen page (2 columns x 5
 // rows). When a screen holds more, INPA shows a single green scroll arrow in the
 // bottom-right: it points DOWN while more rows lie below, and flips to UP once
@@ -301,7 +292,7 @@ function attachInpaPager(panel, grid, orderedKeys, cellFor) {
   let page = 0;
 
   // how many cells fit the visible area. INPA's 10 is the ceiling, but a short
-// window (or tall rows) must page sooner rather than scroll.
+  // window (or tall rows) must page sooner rather than scroll.
   function perPage() {
     const cells = orderedKeys().map(cellFor).filter(Boolean);
     if (!cells.length) return INPA_PAGE_ROWS;
@@ -409,10 +400,6 @@ function showInpaCategory(ecu, screens, container, title) {
   showInpaScreens(ecu, screens, container, title);
 }
 
-// poll one or more layout screens into a single paged gauge grid. With one
-// screen this is the classic mined-screen view; with several (a merged
-// category) each tick reads every screen's job and lays rows out in screen
-// order, so Bank 1 / Bank 2 pairs stay side by side.
 // Fill a row's missing unit/range from INPA's own gauge declaration. Rows that
 // already carry one keep it: a hand-verified layout outranks a decode, and the
 // specs deliberately omit gauges whose sign the bytecode does not record.
@@ -485,12 +472,9 @@ async function showInpaTable(ecu, scr, container, title, meta, grid, liveTok) {
         const cell = cellAt(r, c);
         if (!cell || !key || !vals.has(key)) return;
         const raw = vals.get(key);
-        // THE UNIT BELONGS TO THE COLUMN, NOT THE CELL. A table's heading
-        // already says what the column is ("press.", "temp."), so repeating a
-        // unit in every cell only adds noise -- and reading it per key was
-        // wrong anyway: irUnitFor knows EDIABAS's own STAT_x_WERT/_EINH
-        // pairing, where a bare `${key}_EINH` lookup returned the neighbouring
-        // row's "%" for RDC's pressures.
+        // The unit belongs to the column (the heading), not the cell: a bare
+        // `${key}_EINH` lookup returned the neighbouring row's "%" for RDC's
+        // pressures.
         const shown = String(raw);
         if (cell.textContent !== shown) { cell.textContent = shown; flash(cell); }
       });
@@ -516,19 +500,17 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     ? (deGerman(screens[0].group) || jobLabel(screens[0].job))
     : `${screens.length} readouts`);
   // a merged category always pairs off into two columns; a lone screen honours
-  // its own layout (columns:2 = Bank 1 / Bank 2). Also go two-wide when a
-  // single screen has more rows than fit a page: the window is wide enough for
-  // a second column, and one tall column would page values away while half the
-  // screen sits empty. INPA's own two-column screens keep their pairing because
-  // `columns: 2` still forces it.
+  // its own layout (columns:2 = Bank 1 / Bank 2). Also go two-wide when one
+  // screen has more rows than fit a page, so values aren't paged away while
+  // half the screen sits empty.
   const rowCount = screens.reduce((n, s) => n + ((s.rows || []).length), 0);
   const twoCol = screens.length > 1
     || (screens[0] && screens[0].columns === 2)
     || rowCount > INPA_PAGE_ROWS / 2;
 
   // no live dot, no Stop button in either mode — leaving the screen stops the
-  // polling (setActions -> stopLive), like INPA
-  // INPA draws values straight on the window; modern mode keeps the panel
+  // polling (setActions -> stopLive), like INPA. INPA mode draws values straight
+  // on the window (bare); modern mode keeps the panel.
   container.className = 'live-panel inpa-screen' + (inpaMode() ? ' bare' : '');
   container.innerHTML = `
     <div class="live-head">
@@ -583,26 +565,20 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
         // carries the whole row list and answers its own subset, so keying by
         // job would draw one cell per job that happens to return the key.
         const ck = `${r.key}:${r.arg || ''}:${r.label || ''}:${ri}`;
-        // INPA lets the ECU word some captions itself, reading a _TEXT result
-        // and printing it above the bar. Prefer that over our own label --
-        // it is what INPA shows -- and fall back when the read comes up empty.
-        // ...but only when the ECU actually answered with a caption. The same
-        // _TEXT result carries a STATE word on some screens ("aktiv", "aus"),
-        // and letting that win put "AKTIV" where INPA prints "Muster
-        // SchubAbschaltung". A state word is not a caption, so keep ours.
+        // INPA lets the ECU word some captions itself via a _TEXT result;
+        // prefer that over our own label. But the same _TEXT can carry a STATE
+        // word ("aktiv", "aus"), which is not a caption -- letting it win put
+        // "AKTIV" where INPA prints "Muster SchubAbschaltung" -- so keep ours
+        // for state words and when the read is empty.
         const live = r.captionKey ? String(vals.get(r.captionKey) ?? '').trim() : '';
         const caption = (live && !IR_STATE_WORD.test(live) ? deGerman(live) : '')
           || deGerman(r.label) || r.key;
-        // THE ECU SHIPS THE UNIT BESIDE THE VALUE. EDIABAS pairs every
-        // STAT_x_WERT with a STAT_x_EINH holding its unit ("°CRK", "degreeCRK",
-        // "%"), and INPA prints it. r.unit only carries what the .IPO wrote as
-        // a literal "[rpm]" above the gauge, which most screens omit -- MSD80's
-        // whole VANOS page declares none, so every cam-angle read as a bare
-        // number with no indication it was degrees. Fall back to the ECU's own
-        // answer when INPA's layout gave us nothing.
-        // A LAMP HAS NO UNIT. It is an on/off indicator, so a "[%]" over it is
-        // nonsense whatever the ECU's _EINH says -- MSD80's REAL VALUE is a
-        // lamp and read "[%] ● on".
+        // The ECU ships the unit beside the value: EDIABAS pairs every
+        // STAT_x_WERT with a STAT_x_EINH holding its unit ("°CRK", "%"). r.unit
+        // only carries the .IPO's literal "[rpm]" text, which most screens omit
+        // (MSD80's whole VANOS page declares none), so fall back to the ECU's
+        // own answer. A LAMP HAS NO UNIT -- it is on/off, so a "[%]" over it is
+        // nonsense whatever _EINH says (MSD80's REAL VALUE read "[%] ● on").
         const unit = r.kind === 'lamp'
           ? null : (r.unit || irUnitFor(r.key, vals));
         let cell = cellEls.get(ck);
@@ -641,19 +617,13 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
     }
   }
   await tick();
-  // THE DOM IS THE STALENESS TEST, NOT THE TOKEN. Every caller starts the
-  // live view and THEN calls setActions for its Back key -- and setActions
-  // begins with stopLive(), which bumps the token. That happens while this
-  // first tick is still awaiting its first api() call, so by the time we get
-  // here liveTok never equals _liveToken and scheduleLive was never reached:
-  // the screen painted one read, said "live · N values", and froze. Only
-  // ecu.js called setActions first, which is why the classic Status page was
-  // the one screen that kept updating.
-  //
-  // Still guarded: if the user has navigated away, this container no longer
-  // holds this screen's grid, so nothing is rescheduled. scheduleLive
-  // re-reads the token itself for every later tick, so a real stopLive()
-  // during steady-state polling still stops it.
+  // THE DOM IS THE STALENESS TEST, NOT THE TOKEN. Callers start the live view
+  // then call setActions (for Back), which begins with stopLive() and bumps the
+  // token -- while this first tick is still awaiting its first api() call. So a
+  // liveTok===_liveToken guard here would never hold and the screen would paint
+  // once and freeze. The DOM check is safe: if the user navigated away this
+  // container no longer holds the grid, and scheduleLive re-reads the token for
+  // every later tick, so a real stopLive() during steady-state still stops it.
   if (container.querySelector('.inpa-grid')) scheduleLive(tick);
 }
 
@@ -735,20 +705,15 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     return;
   }
   // A LAMP is an indicator, never a measurement: INPA drew it with digitalout,
-  // which has no scale at all. Falling through here invented a 0..100 range
-  // and drew DWA4's "with tilt alarm sensor" -- a yes/no coding flag -- as a
-  // bar sitting at 34.
+  // which has no scale. Falling through invented a 0..100 range and drew DWA4's
+  // "with tilt alarm sensor" -- a yes/no coding flag -- as a bar sitting at 34.
   if (rowSpec.kind === 'lamp') {
     if (setBoolCell(cellEl, valEl, p.raw, rowSpec)) return;
-    // INPA drew this with digitalout, so it IS a boolean whatever word the
-    // ECU chose. A number here means an unmapped state, and showing it bare
-    // ("HOOD / RADIO  94") reads as a measurement -- the one thing a lamp
-    // never is. Anything non-zero is on, which is what digitalout tests.
-    //
-    // NOT gated on inpaMode(). It used to be, and in the modern theme every
-    // lamp fell through to the raw number: MSD80's OBD readiness page drew
-    // "48 / 46 / 44" where INPA shows on/off indicators. The theme decides
-    // how a lamp LOOKS, never whether a lamp is a lamp.
+    // A number here means an unmapped state; showing it bare ("HOOD / RADIO 94")
+    // reads as a measurement, which a lamp never is. Non-zero = on (what
+    // digitalout tests). NOT gated on inpaMode(): the theme decides how a lamp
+    // LOOKS, never whether it is a lamp -- gating it made the modern theme draw
+    // MSD80's OBD readiness page as "48 / 46 / 44" instead of on/off.
     if (p.num !== null) {
       cellEl.classList.add('bool');
       cellEl.classList.remove('text-only');
@@ -780,14 +745,11 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
     if (p.num < min) min = p.num;
     if (p.num > max) max = p.num;
   }
-  // DEMO values are synthesized from the result's UNIT, and the server cannot
-  // see the IR's declared scale -- so a gauge whose unit matches no shape gets
-  // the generic `i % 100`, which lands outside its own axis: MSV80's exhaust
-  // spread read 58 on a -135..-40 scale, pinning the bar full with the number
-  // beside it contradicting both end labels. With no car attached that is
-  // noise, not data. Fold it into the declared span so the bar demonstrates
-  // the real scale. Never touches a live reading -- a real value that leaves
-  // its scale is a fact worth seeing pinned.
+  // DEMO values are synthesized from the result's UNIT (the server can't see
+  // the IR's declared scale), so an unmatched unit gets a generic `i % 100`
+  // that lands off its own axis. Fold it into the declared span so the bar
+  // demonstrates the real scale. Never touches a live reading -- a real value
+  // past its scale is a fact worth seeing pinned.
   if (declared && demoMode() && (p.num < min || p.num > max)) {
     const span0 = (max - min) || 1;
     p.num = +(min + span0 * (((Math.abs(p.num) % 70) + 15) / 100)).toFixed(1);
@@ -809,9 +771,8 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
       + `${r} 0 ${a.toFixed(1)}%, ${g} ${a.toFixed(1)}% ${b.toFixed(1)}%,`
       + `${r} ${b.toFixed(1)}% 100%)`;
     track.classList.add('zoned');
-    // INPA prints EVERY colour boundary on the axis, not just one: its VANOS
-    // reference gauge reads "110 111 ... 135 140", the scale ends plus both
-    // band edges. An edge sitting on a scale end is already labelled there.
+    // INPA prints every colour boundary on the axis, not just one (its VANOS
+    // gauge reads "110 111 ... 135 140": scale ends plus both band edges).
     setEdge(cellEl, '.gauge-ok-lo', rowSpec.okMin, min, max, at);
     setEdge(cellEl, '.gauge-ok-hi', rowSpec.okMax, min, max, at);
   } else if (declared) {
@@ -834,8 +795,6 @@ function updateGaugeSpec(cellEl, rowSpec, raw) {
   if (valEl.textContent !== shown) { valEl.textContent = shown; flash(valEl); }
 }
 
-// live Status view: poll a measurement job into a refreshing value table. stops
-// on leave or Stop.
 // self-scheduling live loop: each tick runs to completion (a real K-line
 // transaction) before the next is queued ~1s later, so slow reads never pile up
 // the way setInterval ticks did. stopLive() bumps the token, which also stops
@@ -872,10 +831,6 @@ function highlightWatched(view, jobs) {
   if (jobs) jobs.forEach((j) => map.get(j)?.classList.add('watching'));
 }
 
-// INPA-style gauge bars. EDIABAS gives a value (sometimes a unit); the min/max
-// range and value/unit parsing come from measurements.js. non-numeric values
-// render as plain text.
-
 // INPA's measurement row: the label, the unit in brackets on its own line, then
 // the bar with the value to its RIGHT and the scale ends tucked beneath it.
 function gaugeCellHTML(key, unit) {
@@ -901,11 +856,9 @@ function gaugeCellHTML(key, unit) {
 function setEdge(cellEl, sel, v, min, max, at) {
   const el = cellEl.querySelector(sel);
   if (!el) return;
-  // An edge close enough to a scale end collides with the number already
-  // printed there: MS450's VANOS reference band starts at 111 on a 110..140
-  // scale, 3% along, and the two labels drew on top of each other. INPA has
-  // the same collision and shows "11 111"; the band is still visible as the
-  // colour change, so the legible thing is to leave the edge unlabelled.
+  // An edge within ~8% of a scale end collides with the number printed there
+  // (MS450's band starts at 111 on a 110..140 scale), so leave it unlabelled --
+  // the band is still visible as the colour change. INPA has the same collision.
   const p = v == null ? null : at(v);
   const show = v != null && v > min && v < max && p > 8 && p < 92;
   const t = show ? fmtRange(v) : '';
@@ -1036,8 +989,7 @@ async function watchMulti(ecu, jobs, container, view) {
       meta.textContent = 'read failed';
       return;
     }
-    // pair value+unit (STAT_x_WERT + STAT_x_EINH -> one reading), humanize key to
-    // English, update each gauge cell in place
+    // pair value+unit (STAT_x_WERT + STAT_x_EINH -> one reading), humanize key
     const entries = pairWertEinh(merged);
     let added = false;
     for (const e of entries) {
@@ -1051,7 +1003,6 @@ async function watchMulti(ecu, jobs, container, view) {
         keyOrder.push(e.key);
         added = true;
       }
-      // feed value + merged unit so the gauge shows "13 °C" and scales by unit
       updateGauge(cell, e.label, e.unit ? `${e.value} ${e.unit}` : e.value);
     }
     if (added && pager) pager.relayout();

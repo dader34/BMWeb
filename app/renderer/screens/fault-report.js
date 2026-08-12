@@ -1,11 +1,7 @@
 // self-contained fault-report PDF generation, saved via the Electron bridge
-// (window.bmacw.savePdf). shared by the whole-car quick sweep (sweep.js) and the
-// single-ECU export (faults.js) so both reports look identical. uses the shared
-// faultFields projection (translate.js) so codes/names/state match the on-screen
-// rows.
-
-// shared fault-report styling. one <style> block used by both the whole-car quick
-// sweep and the single-ECU export so they look identical.
+// (window.bmacw.savePdf). Shared by the whole-car quick sweep (sweep.js) and the
+// single-ECU export (faults.js) so both reports look identical, via the shared
+// faultFields projection (faults.js) so codes/names/state match the on-screen rows.
 const FAULT_REPORT_CSS = `
     * { box-sizing: border-box; }
     body { font: 13px -apple-system, "Helvetica Neue", Arial, sans-serif; color: #14181d; margin: 0; padding: 0 4px; }

@@ -1,46 +1,22 @@
-// Coding: read what a module is coded to, and stage changes to it.
+// Coding: read what a module is coded to, and stage changes to it. For the
+// SGBDs that name their own coding values, CODIERUNG_LESEN returns named
+// results (not a blob); tools/decompile/coding_map.py mines those into
+// data/codingmap.js and this draws them.
 //
-// BMW's own coding tool needs the DATEN files to make sense of a module: the
-// ECU hands back a binary blob and DATEN says which bit at which address is
-// "fold the mirrors on lock". For 32 of the ECUs we ship, none of that is
-// needed -- the SGBD names its own coding values. LSZ's CODIERUNG_LESEN does
-// not return a blob, it returns 42 named results:
-//
-//     COD_BL_LI_RE_KALTUEBERWACHUNG_EIN  int  "Kaltueberwachung fuer Bremslicht"
-//
-// which is the whole map, shipped in the .prg. tools/decompile/coding_map.py
-// mines it into data/codingmap.js; this draws it.
-//
-// WRITES ARE BLOCKED. Eight of those ECUs expose a coding write whose argument
-// list can be assembled from the values we can read, so the editor stages a
-// change and shows exactly what would be sent -- and stops there. A coding
-// write is an EEPROM write: get it wrong on a module that gates the immobiliser
-// or the airbags and the car does not start, or worse. Arming this needs a
-// verified round-trip on a car that can be recovered, which has not happened,
-// so the send path deliberately does not exist rather than sitting behind a
-// confirm dialog that a wrong keypress could clear.
+// WRITES ARE BLOCKED. The editor stages a change and shows exactly what would
+// be sent -- and stops there. A coding write is an EEPROM write; get it wrong
+// on a module that gates the immobiliser or airbags and the car does not
+// start, or worse. Arming needs a verified round-trip on a recoverable car,
+// which has not happened, so the send path deliberately does not exist rather
+// than sitting behind a confirm dialog a wrong keypress could clear.
 
-// ---------------------------------------------------------------------------
-// Coding vocabulary: ONE dictionary, both directions in.
-//
-// A coding value arrives labelled two ways and both are German: the result
-// NAME (COD_FH_DEAKTIV_NACH_TUER_AUF_EIN) and, 65% of the time, BMW's own
-// comment ("Kaltueberwachung fuer Bremslicht"). 35% carry no comment at all --
-// ZKE4 and LCM name 89 flags and describe none -- so the name has to be
-// readable on its own.
-//
-// This path does NOT use deGerman(). That table is tuned for fault text and
-// prose captions, and on this vocabulary it half-translates: "Kaltueberwachung
-// fuer Bremslicht" came out "Kaltmonitoring for Bremslicht", and "Offset auf
-// Mindestdruck" became "Offset up Mindestdruck" because `auf` is "up" in
-// prose and "on/at" here. A dictionary that knows THIS vocabulary translates
-// names and comments alike, so a word learned once reads correctly in both.
-//
-// Compounds come first: German glues nouns together (KALTUEBERWACHUNG is one
-// word, not KALT + UEBERWACHUNG), so the longest match has to win or the parts
-// translate separately into nonsense.
+// Coding vocabulary: ONE dictionary translating both the result NAME and BMW's
+// German comment. Deliberately NOT deGerman() -- that table is tuned for fault
+// prose and half-translates this vocabulary ("Offset auf Mindestdruck" ->
+// "Offset up Mindestdruck", because `auf` is "up" in prose, "on" here).
+// Longest match must win: German glues nouns together (KALTUEBERWACHUNG is one
+// word, not KALT + UEBERWACHUNG) or the parts translate into nonsense.
 const COD_VOCAB = {
-  // --- systems, as BMW abbreviates them in result names ---
   FH: 'windows', FENSTERHEBER: 'windows', SHD: 'sunroof', ZV: 'central locking',
   ZAV: 'central locking', DWA: 'alarm', BC: 'on-board computer',
   KOMBI: 'instrument cluster', DME: 'engine ECU', EGS: 'transmission ECU',
@@ -48,7 +24,6 @@ const COD_VOCAB = {
   RLS: 'rain sensor', LWR: 'headlight aim', ASP: 'mirror', FB: 'remote',
   FERNBEDIENUNG: 'remote', SITZHEIZUNG: 'seat heating', GURTWARNUNG: 'belt warning',
   NEIGUNGSGEBER: 'tilt sensor', BLS: 'brake light switch', IB: 'interior light',
-  // --- lights ---
   STANDLICHT: 'side light', SL: 'side light', ABBLENDLICHT: 'low beam',
   AL: 'low beam', FERNLICHT: 'high beam', FL: 'high beam',
   BREMSLICHT: 'brake light', BL: 'brake light', BREMSLICHTSCHALTER: 'brake light switch',
@@ -58,7 +33,6 @@ const COD_VOCAB = {
   RUECKLICHT: 'tail light', RUECKFAHRSCHEINWERFER: 'reversing light',
   RFS: 'reversing light', BLINKER: 'indicator', WARNBLINKER: 'hazards',
   INNENLICHT: 'interior light', LICHT: 'light',
-  // --- parts of the car ---
   TUER: 'door', FAHRERTUER: 'driver door', BEIFAHRERTUER: 'passenger door',
   SCHEIBE: 'window', SCHEIBEN: 'windows', FENSTER: 'window',
   HECKSCHEIBE: 'rear window', HECK: 'tailgate', KOFFERRAUM: 'boot',
@@ -72,7 +46,6 @@ const COD_VOCAB = {
   BATT: 'battery', SENSOR: 'sensor', DIFF: 'difference', RES: 'reserve',
   STANDHEIZUNG: 'auxiliary heating', KOMPRESSORAUSTAKTUNG: 'compressor cut-out',
   FILTER: 'filter',
-  // the tail: everything a corpus pass over all 567 labels still left German
   WISCHER: 'wiper', SCHEIBENWISCHER: 'wiper', OPTISCHEM: 'visual',
   SCHIEF: 'skewed', HOEHE: 'height', AUSWERTUNG: 'evaluation',
   VERSCHLEISSFAKTOR: 'wear factor', DERZEIT: 'currently',
@@ -113,8 +86,6 @@ const COD_VOCAB = {
   ANSCHALTUNG: 'activation', ABSCHALTSCHWELLE: 'switch-off threshold',
   EINSCHALTSCHWELLE: 'switch-on threshold', MOTORTYP: 'engine type',
   GETRIEBE: 'gearbox', ACHSE: 'axle', HINTERACHSE: 'rear axle',
-  // --- the long tail, from a pass over every word in all 567 labels ---
-  // instrument cluster / on-board computer
   TEILENUMMER: 'part number', FAHRGESTELLNUMMER: 'chassis number',
   TYPENCODE: 'type code', HARDWARESTAND: 'hardware level',
   AENDERUNGSINDEX: 'revision index', LAENDERCODE: 'country code',
@@ -141,7 +112,6 @@ const COD_VOCAB = {
   VERSIONSNUMMERNSCHLUESSEL: 'version-number key',
   AUSSTAUSCHKOMBI: 'replacement cluster', EEPROM: 'EEPROM',
   DATUM: 'date', JAHR: 'year', TAGE: 'days', UHR: 'clock',
-  // body / locking / alarm
   INNENBELEUCHTUNG: 'interior light', GESAMTWEG: 'total travel',
   EMPFINDLICHKEIT: 'sensitivity', ENTSICHERN: 'unlock',
   SCHEIBENUEBERWACHUNG: 'window monitoring', SCHUTZ: 'protection',
@@ -157,7 +127,6 @@ const COD_VOCAB = {
   GESCHAERFT: 'armed', FESTCODE: 'fixed code', WECHSELCODE: 'rolling code',
   CODIERTES: 'coded', STATISCHES: 'static', SCHNITTSTELLE: 'interface',
   DUMMYERGEBNIS: 'dummy result', IMMER: 'always',
-  // lighting
   ANHAENGER: 'trailer', ANHAENGERLICHT: 'trailer light',
   PARKLICHT: 'parking light', STANDLICHTAUSFALL: 'side-light failure',
   ERSATZFUNKTION: 'substitute function', BEDIMMTE: 'dimmed',
@@ -165,7 +134,6 @@ const COD_VOCAB = {
   LAMPENWECHSEL: 'bulb change', WARNBLINKEN: 'hazard flashing',
   MITTE: 'centre', BLK: 'indicator', ZYKLUSZEIT: 'cycle time',
   ABSCHALTET: 'switches off', VOLT: 'volt',
-  // seats / mirrors / roof
   ABKLAPP: 'fold', ABKLAPPEN: 'fold', SPIEGELHEIZEN: 'mirror heating',
   PERMANENTES: 'permanent', INVERTIERT: 'inverted', INVERTIERTER: 'inverted',
   LENKSAEULENVERSTELLSCHALTER: 'steering-column adjust switch',
@@ -173,7 +141,6 @@ const COD_VOCAB = {
   AKTIVSITZ: 'active seat', SONNENROLLO: 'sun blind',
   UMKEHRZEIT: 'reversal time', VERDECKMOTOR: 'roof motor',
   KLAPPE: 'flap', MOTORHAUBENKONTAKTE: 'bonnet contacts',
-  // chassis / engine
   REIFENTOLERANZABGLEICH: 'tyre tolerance calibration',
   BREMSWARNLEUCHTE: 'brake warning lamp', AUSGABE: 'output',
   AKTIVER: 'active', PASSIVER: 'passive', BENZIN: 'petrol',
@@ -198,7 +165,6 @@ const COD_VOCAB = {
   STEUERGERAET: 'control unit', ALLGEMEIN: 'general',
   UNTERSPANNUNG: 'undervoltage', VARIABEL: 'variable',
   FUSS: 'footwell', FOND: 'rear', UNABHAENGIGER: 'independent',
-  // wipers / misc
   REGENSENSOR: 'rain sensor', POTI: 'potentiometer',
   RUECKSCHALTEN: 'switch back', ANTENNEN: 'antennas',
   ANGESCHLOSSENER: 'connected', VERBAUTER: 'fitted',
@@ -214,13 +180,11 @@ const COD_VOCAB = {
   FAHRZEUGSPEZ: 'vehicle-specific', EINS: 'one',
   // Left as BMW wrote them on purpose: ASC, DSC, EWS, MFL, NIV, AUC, IRS,
   // CCM, SBC, KVA, ECE, CDN and the EHC channel tags (VDD, SIKO, PLAUSI,
-  // ABREGEL, ...) are BMW's own abbreviations, and a "translation" would
-  // only invent a long form nobody uses. Same for the units (MPH, MPG).
-  // --- position ---
+  // ABREGEL, ...) are BMW's own abbreviations; a "translation" would only
+  // invent a long form nobody uses. Same for the units (MPH, MPG).
   VORN: 'front', VORNE: 'front', HINTEN: 'rear', LINKS: 'left',
   RECHTS: 'right', LI: 'left', RE: 'right', OBEN: 'upper', UNTEN: 'lower',
   LINKSLENKER: 'left-hand drive', RECHTSLENKER: 'right-hand drive',
-  // --- states and verbs ---
   EIN: 'on', AUS: 'off', AKTIV: 'active', AKTIVIERT: 'active',
   INAKTIV: 'inactive', DEAKTIV: 'deactivate', DEAKTIVIERT: 'deactivated',
   ZU: 'closed', OFFEN: 'open', GESCHLOSSEN: 'closed',
@@ -237,7 +201,6 @@ const COD_VOCAB = {
   ROLLENBETRIEB: 'dyno mode', DAUERTON: 'continuous tone',
   OPTISCHER: 'visual', OPTISCHE: 'visual', AKUSTISCHE: 'audible',
   AKUSTISCHER: 'audible', CODIERT: 'coded', MOEGLICH: 'possible',
-  // --- measurement ---
   WERT: 'value', EINH: 'unit', EINHEIT: 'unit', TYP: 'type', STUFE: 'level',
   PRUEFSTROM: 'test current', SCHWELLE: 'threshold', ZEIT: 'time',
   EINSCHALTZEIT: 'switch-on time', AUSSCHALTZEIT: 'switch-off time',
@@ -263,16 +226,14 @@ const COD_VOCAB = {
   VON: 'from', ZUM: 'to the', ZUR: 'to the', AM: 'at the', IM: 'in the',
 };
 
-// Longest-first, so KALTUEBERWACHUNG wins over KALT and UEBERWACHUNG.
-// Built after the context-sensitive words below, which it also has to match.
+// Longest-first (KALTUEBERWACHUNG over KALT + UEBERWACHUNG); built after the
+// context-sensitive words below, which it also has to match.
 let COD_VOCAB_RE;
 
-// A few words mean different things in a NAME than in a SENTENCE, and getting
-// this wrong is exactly the failure that made the general translator unusable
-// here ("Offset auf Mindestdruck" -> "Offset up Mindestdruck"). AUF after a
+// A few words mean different things in a NAME than in a SENTENCE: AUF after a
 // part of the car is that part standing open (TUER_AUF, "door open"); in prose
-// it is the preposition. So the sense is chosen by context rather than by one
-// global entry that has to be wrong half the time.
+// it is the preposition. Sense is chosen by context, not one global entry that
+// would be wrong half the time.
 const COD_VOCAB_NAME = { AUF: 'open', ZU: 'closed' };
 const COD_VOCAB_TEXT = { AUF: 'on', ZU: 'to' };
 COD_VOCAB_RE = new RegExp(
@@ -305,38 +266,30 @@ function codLabelFromName(name) {
   const parts = bare.split('_').filter(Boolean);
   // a trailing _EIN/_AKTIV on a switch is the boolean marker, not the word
   if (parts.length > 1 && /^(EIN|AKTIV)$/i.test(parts[parts.length - 1])) parts.pop();
-  // the SGBD's COD_ names and DATEN's FSW keywords share a vocabulary, so
-  // NCS Dummy's translations often know the stripped name outright -- try
-  // it whole (and without the boolean marker) before going word by word
+  // COD_ names and DATEN FSW keywords share a vocabulary, so NCS Dummy's
+  // translations often know the stripped name whole -- try that before word-by-word
   return datI18n(bare) || datI18n(parts.join('_'))
     || codTidy(codTranslate(parts.join(' '), true), name);
 }
 
-// sentence case, and never return an empty label.
-//
-// A word this dictionary does not know survives as BMW wrote it, which in a
-// result name means SHOUTING ("Type SCHLOSS SIGNALE"). Lower-casing those puts
-// them back in the sentence, but only when they are ordinary words: E36, IRS,
-// K15 and the like are genuine abbreviations and stay as they are.
+// Sentence-case, never empty. An unknown word survives as BMW wrote it, which
+// in a result name means SHOUTING ("Type SCHLOSS SIGNALE"); lower-case those,
+// but leave genuine abbreviations (E36, IRS, K15) alone.
 function codTidy(s, fallback) {
-  // EDIABAS-faithful mode shows BMW's text exactly as BMW wrote it, so the
-  // case repair -- which exists only to undo German noun capitalisation after
-  // translation -- must not run.
+  // EDIABAS-faithful mode shows BMW's text verbatim, so the case repair (which
+  // only exists to undo German noun capitalisation) must not run.
   if (typeof lang === 'function' && lang() === 'orig') {
     return String(s || '').trim() || fallback;
   }
   const t = String(s || '').replace(/\s+/g, ' ').trim()
     .replace(/\b[A-ZÄÖÜ]{4,}\b/g, w => (/\d/.test(w) ? w : w.toLowerCase()))
-    // German capitalises every noun and the translation inherits it, leaving
-    // "Unit for Offset of the minimum pressure" mid-sentence. Only plain
-    // Capitalised words are lowered -- an all-caps abbreviation (AC, KO, IRS)
-    // and anything with a digit (E36, K15) are left exactly as BMW wrote them,
-    // as are the proper nouns this dictionary itself produces (Switzerland).
+    // Lower only plain Capitalised words (German noun caps the translation
+    // inherited); leave all-caps abbreviations (AC, IRS), digit words (E36,
+    // K15) and this dictionary's own proper nouns (Switzerland) alone.
     .replace(/(?!^)\b[A-ZÄÖÜ][a-zäöüß]{2,}\b/g,
              w => (COD_PROPER.has(w) ? w : w.toLowerCase()))
-    // German puts a bare article where English needs a genitive: "Schwelle
-    // DER Geschwindigkeitswarnung" translates word-for-word to "threshold the
-    // speed warning". Between two nouns, that article is "of the".
+    // German's bare article between two nouns is an English genitive:
+    // "Schwelle DER Geschwindigkeitswarnung" -> "threshold of the speed warning".
     .replace(/\b(\w+) the (\w+)/g,
              (m0, a, b) => (/^(is|not|on|in|to|for|or|and|if|of)$/i.test(a)
                             ? m0 : `${a} of the ${b}`));
@@ -372,10 +325,9 @@ function codHint(f) {
   return c && codIsEnumComment(c) ? c : '';
 }
 
-// Is this value on? The ECU answers 1/0, but demo mode and some SGBDs answer
-// in words, and a coding flag reads "ja"/"aktiv"/"ein" just as readily.
-// both spellings travel: SGBD result text says "nicht aktiv", DATEN's PSW
-// keywords say "nicht_aktiv", and IHKA38 answers the former
+// Is this value on? The ECU answers 1/0, but demo mode and some SGBDs answer in
+// words ("ja"/"aktiv"/"ein"). Both spellings of the negatives travel: SGBD text
+// says "nicht aktiv", DATEN's PSW keywords say "nicht_aktiv".
 const COD_TRUE = new Set(['1', 'ja', 'ein', 'aktiv', 'vorhanden', 'yes', 'on', 'true']);
 const COD_FALSE = new Set(['0', 'nein', 'aus', 'inaktiv', 'nicht aktiv', 'nicht_aktiv',
                            'nicht vorhanden', 'nicht_vorhanden', 'no', 'off', 'false']);
@@ -398,15 +350,11 @@ async function codingFor(sgbd) {
   return map[String(sgbd).toLowerCase()] || null;
 }
 
-// BMW's DATEN description of the same module, for the ECUs whose SGBD
-// names nothing. Where the SGBD hands back one opaque CODIER_DATA buffer,
-// this says which bit at which address is which function -- and, unlike the
-// SGBD, what the settings are actually CALLED (aktiv / nicht_aktiv).
-//
-// One module ships several coding variants and nothing on the bench says
-// which a given car wants: that comes from the module's own coding index,
-// which is only knowable with the car connected. So the reference lists
-// every variant rather than picking one.
+// BMW's DATEN description of a module, for the ECUs whose SGBD names nothing:
+// which bit at which address is which function, and what the settings are
+// CALLED (aktiv / nicht_aktiv). A module ships several coding variants and
+// only the car's own coding index (car-connected) says which it wants, so the
+// reference lists every variant rather than picking one.
 async function datenFor(sgbd) {
   if (typeof loadDatenMap !== 'function') return null;
   await loadDatenMap();
@@ -415,12 +363,9 @@ async function datenFor(sgbd) {
   return map[String(sgbd).toLowerCase()] || null;
 }
 
-// NCS Dummy's community translations (Translations.csv, revtor et al.),
-// generated into datenmap.js beside the map itself and keyed by lowercased
-// keyword. Returned as written: it is already plain English, and codTidy's
-// case repair exists to undo German noun capitalisation -- run on real
-// English it turns "(Japan)" into "(japan)". EDIABAS-faithful mode shows
-// BMW's keyword untouched, the same rule every translation here follows.
+// NCS Dummy's community translations, keyed by lowercased keyword. Returned as
+// written -- already plain English, and codTidy's case repair would turn
+// "(Japan)" into "(japan)". EDIABAS-faithful mode shows BMW's keyword untouched.
 function datI18n(name) {
   if (typeof lang === 'function' && lang() === 'orig') return '';
   const t = (typeof window !== 'undefined' && window.BMW_DATEN_I18N) || null;
@@ -434,12 +379,9 @@ function datLabel(name) {
   return datI18n(name) || codTidy(codTranslate(name, true), name);
 }
 
-// FSW stem -> the module's legal values, merged across every chassis and
-// coding variant BMW ships for it: [[psw, value], ...] sorted by value.
-// Only real choices travel -- a single wert_NN default is a number, not an
-// option list, and a hex buffer is not a pick list at all. Modules reach
-// this map only through an exact SGBD name match or an evidence-checked
-// alias (daten_map.py), so an enum here belongs to this module.
+// FSW stem -> the module's legal values, merged across every chassis/variant:
+// [[psw, value], ...] sorted by value. Only real choices travel -- a single
+// wert_NN default is a number, a hex buffer is not a pick list.
 async function codDatEnums(sgbd) {
   const daten = await datenFor(sgbd);
   if (!daten) return null;
@@ -469,18 +411,17 @@ async function codDatEnums(sgbd) {
   return Object.keys(out).length ? out : null;
 }
 
-// Pair DATEN's function names to a module's own result names. The two
-// spell the same thing differently -- LSZ's SGBD says
-// COD_BL_LI_RE_KALTUEBERWACHUNG_EIN where DATEN says KALTUEBERWACHUNG_BL
-// -- so equality alone finds almost nothing. Two rules, in order:
+// Pair DATEN's function names to a module's result names, which spell the same
+// thing differently (COD_BL_LI_RE_KALTUEBERWACHUNG_EIN vs KALTUEBERWACHUNG_BL),
+// so equality alone finds almost nothing. Two rules, in order:
 //
 //   1. exact stem equality (prefix and boolean-marker stripped) -- wins
 //   2. every DATEN token appears in the field's tokens, the DATEN name has
-//      at least two tokens (one-token names like "BC" claim half a module),
-//      and the pairing is UNIQUE in both directions
+//      >=2 tokens (one-token names like "BC" claim half a module), and the
+//      pairing is UNIQUE both ways
 //
-// An ambiguous claim matches nothing: a guess here would put another
-// function's value list on a field, which is worse than no list.
+// An ambiguous claim matches nothing: a wrong pairing puts another function's
+// value list on a field, worse than no list.
 function codEnumMatch(names, enums) {
   const strip = (n) => String(n)
     .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase();
@@ -508,15 +449,10 @@ function codEnumMatch(names, enums) {
 
 // BMW's DATEN coding sheet for a module, as a reference.
 //
-// A READING, NOT A READOUT. Everything here comes off the disk: this is
-// what the module's coding memory MEANS, not what this car currently holds.
-// Turning it into live values needs the coding blob off the car and the
-// module's own coding index to pick the variant, neither of which the app
-// reads yet -- so the screen says so rather than implying otherwise.
-//
-// The address is shown because it is the useful part: block, word, byte and
-// mask are exactly what another coding tool wants, and what makes a value
-// checkable against a known-good car.
+// A READING, NOT A READOUT: everything here is off the disk -- what the coding
+// memory MEANS, not what this car holds. The screen says so. The address
+// (block/word/byte/mask) is shown because it is what another coding tool wants
+// and what makes a value checkable against a known-good car.
 function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
   const chassis = Object.keys(daten.chassis);
   // open on the car being worked on, not on whichever chassis sorts first
@@ -530,20 +466,17 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
     if (!variants.includes(vname)) vname = variants[0];
     const all = daten.chassis[ch][vname];
 
-    // SEARCH, because these lists got long. LCM carries 10,415 functions
-    // across its variants and scrolling that to find one is not reading, it
-    // is hunting. Matches BMW's own keyword as well as the English label,
-    // since the keyword is what another coding tool will show you.
+    // SEARCH, because these lists got long (LCM: 10,415 functions). Matches
+    // BMW's keyword as well as the English label -- the keyword is what
+    // another coding tool shows.
     const q = filter.trim().toLowerCase();
     const fields = q
       ? all.filter(f => f.name.toLowerCase().includes(q)
           || datLabel(f.name).toLowerCase().includes(q))
       : all;
 
-    // DROPDOWNS, not one-at-a-time cycling. This module may describe nine
-    // chassis and thirty-three coding indices; a softkey that steps through
-    // them one press at a time is unusable at that size, and the earlier
-    // version had exactly that because the data was two chassis deep.
+    // DROPDOWNS, not one-at-a-time cycling: a module may describe nine chassis
+    // and thirty-three coding indices, unusable via a stepping softkey.
     const opt = (v, sel) =>
       `<option value="${esc(v)}"${v === sel ? ' selected' : ''}>${esc(v)}</option>`;
 
@@ -578,19 +511,13 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
     fields.forEach(f => {
       const row = document.createElement('div');
       row.className = 'cod-row dat-row';
-      // WHAT BMW ACTUALLY LISTS, which is three different things:
-      //
+      // BMW lists three different things:
       //   several named settings   aktiv=00 / nicht_aktiv=01, a real choice
-      //   one wert_NN entry        not a choice at all: a numeric field, and
-      //                            the byte is its DEFAULT. 5,562 rows are
-      //                            this, and printing "value" threw the
-      //                            number away.
-      //   a long hex value         a buffer, usually a characteristic curve
-      //                            or a country parameter block. Showing it
-      //                            whole is unreadable and dropping it lost
-      //                            PROGRAMMPARAMETER_LCM's seven country
-      //                            variants entirely, so the NAMES show and
-      //                            the bytes are a tooltip.
+      //   one wert_NN entry        a numeric field, byte is its DEFAULT (not a
+      //                            choice); 5,562 rows are this
+      //   a long hex value         a buffer (curve or country block): show the
+      //                            NAMES, bytes as a tooltip -- whole is
+      //                            unreadable, dropping lost variants entirely
       const vals = f.values || [];
       const isDefault = vals.length === 1 && /^wert_\d+$/i.test(vals[0][0]);
       const shown = !vals.length
@@ -599,11 +526,9 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
           ? `<span class="dat-val"><span class="dat-val-n">default</span>`
             + `<span class="dat-val-v mono">0x${esc(vals[0][1])}</span></span>`
           : (() => {
-              // A BUFFER PARAMETER IS NOT A PICK LIST. LWS5's KENNFELD rows
-              // carry the same 16-byte characteristic curve once per chassis
-              // (e38, e39, e46 ...), and rendering nine "16 bytes" chips wraps
-              // over four lines and says nothing. Summarise those and let the
-              // row stay one line; a real choice still lists its settings.
+              // A buffer parameter is not a pick list: LWS5's KENNFELD carries
+              // the same curve once per chassis, so nine "16 bytes" chips say
+              // nothing. Summarise those; a real choice still lists its settings.
               const long = vals.filter(([, v]) =>
                 typeof v === 'string' && v.length > 4);
               if (long.length === vals.length && vals.length > 2) {
@@ -622,12 +547,8 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
                   + `${big ? `${v.length / 2} bytes` : esc(v)}</span></span>`;
               }).join('');
             })();
-      // BMW's keyword under the English label, but only when translating
-      // actually said something. Two thirds of these now come from NCS
-      // Dummy's community translations; the rest fall back to the coding
-      // dictionary, which mostly returns the keyword with underscores
-      // swapped for spaces -- and a second line repeating the first is
-      // noise, not context.
+      // BMW's keyword under the English label, but only when translating said
+      // something -- a second line repeating the first is noise, not context.
       const label = datLabel(f.name);
       const same = label.toUpperCase().replace(/ /g, '_') === f.name.toUpperCase();
       row.innerHTML = `
@@ -644,8 +565,8 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
     const vSel = cont.querySelector('#dat-var');
     if (vSel) vSel.onchange = () => { vname = vSel.value; draw(); };
 
-    // redraw on input, keeping the caret where it was: the whole panel is
-    // rebuilt, so the field would otherwise lose focus on every keystroke
+    // redraw on input, restoring the caret: the panel rebuild would otherwise
+    // drop focus on every keystroke
     const qEl = cont.querySelector('#dat-q');
     if (qEl) {
       qEl.oninput = () => {

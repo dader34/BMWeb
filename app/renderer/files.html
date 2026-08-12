@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BMWeb: BMW Files & SP-Daten Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
   <style>
     :root {
@@ -24,6 +27,22 @@
       --folder: #f59e0b;
     }
     * { box-sizing: border-box; }
+    .icon {
+      font-family: 'Material Symbols Rounded';
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      user-select: none;
+      vertical-align: middle;
+    }
     body {
       margin: 0;
       background: var(--bg);
@@ -450,6 +469,80 @@
     }
     .code-btn:hover { color: var(--ink); border-color: var(--amber); }
 
+    /* Mirrors */
+    .mirror-list {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .mirror-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+    .mirror-row:last-child { border-bottom: none; }
+    .mirror-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .mirror-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .mirror-tag {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--faint);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1px 6px;
+    }
+    .mirror-url {
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--faint);
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .mirror-url:hover { color: var(--dim); text-decoration: underline; }
+    .mirror-use-btn {
+      flex: none;
+      background: none;
+      border: 1px solid var(--line);
+      color: var(--dim);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .mirror-use-btn:hover {
+      border-color: var(--line-hover);
+      color: var(--ink);
+    }
+    .mirror-active {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--amber);
+      padding: 5px 2px;
+    }
+    .mirror-active .icon { font-size: 16px; }
+
     /* Toast */
     .toast {
       position: fixed;
@@ -506,7 +599,7 @@
     <div class="controls">
       <div class="search-row">
         <div class="search-box">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon icon" style="font-size:18px;">search</span>
           <input type="text" id="search-input" class="search-input" placeholder="Search across all folders by chassis (e.g. E46, E90, F10), file name, or extension..." />
         </div>
       </div>
@@ -538,9 +631,20 @@
       </table>
     </div>
 
+    <!-- Download mirrors -->
+    <div class="cli-box">
+      <div class="cli-title"><span class="icon" style="font-size:18px;">dns</span> Download Mirrors</div>
+      <p class="cli-desc">
+        Every file is hosted on three identical Hugging Face repos, verified by
+        <code>manifest.json</code> checksums. If a download is slow or a repo is
+        unavailable, switch here and every download link on the page follows.
+      </p>
+      <div id="mirror-list" class="mirror-list"></div>
+    </div>
+
     <!-- Quick Terminal Helper -->
     <div class="cli-box">
-      <div class="cli-title">💻 Unpack & Restore Archives</div>
+      <div class="cli-title"><span class="icon" style="font-size:18px;">terminal</span> Unpack & Restore Archives</div>
       <p class="cli-desc">To extract all SP-Daten and EC-Apps packages once downloaded to your machine:</p>
       <div class="code-block" id="cli-code">
 # Decompress all SP-Daten and EC-Apps archives:
@@ -553,8 +657,59 @@ python3 restore.py --extract
   <div class="toast" id="toast">Copied to clipboard!</div>
 
   <script>
-    const HF_BASE_URL = "https://huggingface.co/datasets/CraigFf/bmw-files/resolve/main";
-    const TREE_URL = "https://huggingface.co/api/datasets/CraigFf/bmw-files/tree/main?recursive=1";
+    // Three identical Hugging Face repos hold every file. The first is the
+    // primary; the others exist so a slow or unavailable repo never blocks a
+    // download. update_mirrors.py in the backup folder keeps them in sync.
+    const MIRRORS = [
+      { user: "CraigFf", tag: "Primary" },
+      { user: "HarryG8", tag: "Mirror" },
+      { user: "VerilP0", tag: "Mirror" },
+    ];
+    const MIRROR_STORE_KEY = "bmweb-files-mirror";
+
+    let mirrorIdx = MIRRORS.findIndex(m => {
+      try { return m.user === localStorage.getItem(MIRROR_STORE_KEY); }
+      catch (e) { return false; }
+    });
+    if (mirrorIdx < 0) mirrorIdx = 0;
+
+    function mirrorRepoUrl(m) {
+      return `https://huggingface.co/datasets/${m.user}/bmw-files`;
+    }
+    function mirrorBaseUrl(m) {
+      return `${mirrorRepoUrl(m)}/resolve/main`;
+    }
+    function mirrorTreeUrl(m) {
+      return `https://huggingface.co/api/datasets/${m.user}/bmw-files/tree/main?recursive=1`;
+    }
+
+    function setMirror(idx) {
+      if (idx === mirrorIdx) return;
+      mirrorIdx = idx;
+      try { localStorage.setItem(MIRROR_STORE_KEY, MIRRORS[idx].user); }
+      catch (e) { /* private mode: selection just won't persist */ }
+      renderMirrors();
+      render();
+      const toast = document.getElementById('toast');
+      toast.textContent = `Downloads now served from ${MIRRORS[idx].user}`;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function renderMirrors() {
+      const box = document.getElementById('mirror-list');
+      box.innerHTML = MIRRORS.map((m, i) => `
+        <div class="mirror-row">
+          <div class="mirror-info">
+            <span class="mirror-name">${m.user} <span class="mirror-tag">${m.tag}</span></span>
+            <a class="mirror-url" href="${mirrorRepoUrl(m)}" target="_blank" rel="noopener">${mirrorRepoUrl(m)}</a>
+          </div>
+          ${i === mirrorIdx
+            ? '<span class="mirror-active"><span class="icon">check_circle</span>Active</span>'
+            : `<button class="mirror-use-btn" onclick="setMirror(${i})">Use</button>`}
+        </div>
+      `).join('');
+    }
 
     // THE REPOSITORY IS THE CATALOG. This page used to carry a hand-copied
     // list of every file, which drifted the moment anything was added or
@@ -576,16 +731,15 @@ python3 restore.py --extract
     }
 
     function getFileIcon(path) {
-      if (path.endsWith('.tar.zst') || path.endsWith('.tar.gz')) return '📦';
-      if (path.endsWith('.iso')) return '💿';
-      if (path.endsWith('.sqlite')) return '🗄️';
-      if (path.endsWith('.zip') || path.endsWith('.7z') || path.endsWith('.rar')) return '🗜️';
-      if (path.endsWith('.wiring')) return '⚡';
-      if (path.endsWith('.py')) return '🐍';
-      if (path.endsWith('.json') || path.endsWith('.txt') || path.endsWith('.md')) return '📄';
-      if (path.endsWith('.pdf')) return '📕';
-      if (path.endsWith('.msi') || path.endsWith('.exe') || path.endsWith('.reg')) return '⚙️';
-      return '📄';
+      if (path.endsWith('.tar.zst') || path.endsWith('.tar.gz')) return 'inventory_2';
+      if (path.endsWith('.iso')) return 'album';
+      if (path.endsWith('.sqlite')) return 'database';
+      if (path.endsWith('.zip') || path.endsWith('.7z') || path.endsWith('.rar')) return 'folder_zip';
+      if (path.endsWith('.wiring')) return 'cable';
+      if (path.endsWith('.py')) return 'terminal';
+      if (path.endsWith('.pdf')) return 'picture_as_pdf';
+      if (path.endsWith('.msi') || path.endsWith('.exe') || path.endsWith('.reg')) return 'settings';
+      return 'description';
     }
 
     function getFileTypeBadge(path) {
@@ -600,7 +754,7 @@ python3 restore.py --extract
 
     function getDownloadUrl(path) {
       const encoded = path.split('/').map(encodeURIComponent).join('/');
-      return `${HF_BASE_URL}/${encoded}?download=true`;
+      return `${mirrorBaseUrl(MIRRORS[mirrorIdx])}/${encoded}?download=true`;
     }
 
     function parseCatalog(data) {
@@ -638,7 +792,7 @@ python3 restore.py --extract
         return;
       }
 
-      let html = `<button class="crumb-btn ${currentFolder === '' ? 'active' : ''}" onclick="navigateToFolder('')">📁 Root</button>`;
+      let html = `<button class="crumb-btn ${currentFolder === '' ? 'active' : ''}" onclick="navigateToFolder('')"><span class="icon" style="font-size:15px;">folder_open</span> Root</button>`;
       
       if (currentFolder) {
         const parts = currentFolder.split('/');
@@ -684,7 +838,7 @@ python3 restore.py --extract
           tr.innerHTML = `
             <td>
               <div class="file-name-cell">
-                <span class="file-icon">${icon}</span>
+                <span class="file-icon icon">${icon}</span>
                 <div class="file-info">
                   <a href="${dlUrl}" class="file-title" download>${f.name}</a>
                   <span class="file-path-sub">${f.path}</span>
@@ -694,8 +848,8 @@ python3 restore.py --extract
             <td><span class="size-badge">${sizeStr}</span></td>
             <td>${badge}</td>
             <td class="actions-cell">
-              <a href="${dlUrl}" class="dl-btn" download>Download ⬇</a>
-              <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
+              <a href="${dlUrl}" class="dl-btn" download>Download <span class="icon" style="font-size:15px;">download</span></a>
+              <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link"><span class="icon" style="font-size:15px;">link</span></button>
             </td>
           `;
           tbody.appendChild(tr);
@@ -747,7 +901,7 @@ python3 restore.py --extract
         trParent.innerHTML = `
           <td>
             <div class="file-name-cell">
-              <span class="file-icon" style="color:var(--folder);">📁</span>
+              <span class="file-icon icon" style="color:var(--folder);">folder</span>
               <div class="file-info">
                 <span class="folder-title" style="color:var(--amber);">.. (Parent Directory)</span>
               </div>
@@ -756,7 +910,7 @@ python3 restore.py --extract
           <td><span class="size-badge">--</span></td>
           <td><span class="category-badge cat-folder">Folder</span></td>
           <td class="actions-cell">
-            <button class="folder-enter-btn">Up ⬆</button>
+            <button class="folder-enter-btn"><span class="icon" style="font-size:15px;">arrow_upward</span> Up</button>
           </td>
         `;
         tbody.appendChild(trParent);
@@ -773,7 +927,7 @@ python3 restore.py --extract
         tr.innerHTML = `
           <td>
             <div class="file-name-cell">
-              <span class="file-icon" style="color:var(--folder);">📁</span>
+              <span class="file-icon icon" style="color:var(--folder);">folder</span>
               <div class="file-info">
                 <span class="folder-title">${dirName}/</span>
                 <span class="file-path-sub">${info.count} items</span>
@@ -783,7 +937,7 @@ python3 restore.py --extract
           <td><span class="size-badge">${formatBytes(info.size)}</span></td>
           <td><span class="category-badge cat-folder">Directory</span></td>
           <td class="actions-cell">
-            <button class="folder-enter-btn">Open ➔</button>
+            <button class="folder-enter-btn">Open <span class="icon" style="font-size:15px;">chevron_right</span></button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -802,7 +956,7 @@ python3 restore.py --extract
         tr.innerHTML = `
           <td>
             <div class="file-name-cell">
-              <span class="file-icon">${icon}</span>
+              <span class="file-icon icon">${icon}</span>
               <div class="file-info">
                 <a href="${dlUrl}" class="file-title" download>${f.name}</a>
               </div>
@@ -811,8 +965,8 @@ python3 restore.py --extract
           <td><span class="size-badge">${sizeStr}</span></td>
           <td>${badge}</td>
           <td class="actions-cell">
-            <a href="${dlUrl}" class="dl-btn" download>Download ⬇</a>
-            <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
+            <a href="${dlUrl}" class="dl-btn" download>Download <span class="icon" style="font-size:15px;">download</span></a>
+            <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link"><span class="icon" style="font-size:15px;">link</span></button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -839,29 +993,41 @@ python3 restore.py --extract
       render();
     });
 
-    // Initialize with static fallback catalog
-    // one call, every file, sizes included. LFS entries report the real
-    // size under .lfs.size -- .size on those is the pointer, which would
-    // show a 4.7 GB ISO as 133 bytes.
-    fetch(TREE_URL)
-      .then(res => res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)))
-      .then(tree => {
-        const files = {};
-        for (const e of tree) {
-          if (e.type !== 'file') continue;
-          if (e.path.startsWith('.')) continue;   // .gitattributes, .gitignore
-          files[e.path] = { size_bytes: (e.lfs && e.lfs.size) || e.size || 0 };
+    renderMirrors();
+
+    // Load the catalog from the tree API: one call, every file, sizes
+    // included. LFS entries report the real size under .lfs.size -- .size on
+    // those is the pointer, which would show a 4.7 GB ISO as 133 bytes.
+    // The selected mirror is asked first; if it's down, the others are tried
+    // in turn, so the index loads as long as any mirror is alive.
+    async function loadCatalog() {
+      const order = MIRRORS.map((_, i) => (mirrorIdx + i) % MIRRORS.length);
+      let lastErr = null;
+      for (const i of order) {
+        try {
+          const res = await fetch(mirrorTreeUrl(MIRRORS[i]));
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const tree = await res.json();
+          const files = {};
+          for (const e of tree) {
+            if (e.type !== 'file') continue;
+            if (e.path.startsWith('.')) continue;   // .gitattributes, .gitignore
+            files[e.path] = { size_bytes: (e.lfs && e.lfs.size) || e.size || 0 };
+          }
+          parseCatalog(files);
+          return;
+        } catch (err) {
+          lastErr = err;
         }
-        parseCatalog(files);
-      })
-      .catch(err => {
-        const tb = document.getElementById('file-tbody');
-        if (tb) {
-          tb.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;'
-            + 'opacity:.7">Could not reach the file index.<br>'
-            + '<small>' + String(err) + '</small></td></tr>';
-        }
-      });
+      }
+      const tb = document.getElementById('file-tbody');
+      if (tb) {
+        tb.innerHTML = '<tr><td colspan="4" style="padding:40px;text-align:center;'
+          + 'opacity:.7">Could not reach the file index on any mirror.<br>'
+          + '<small>' + String(lastErr) + '</small></td></tr>';
+      }
+    }
+    loadCatalog();
   </script>
 </body>
 </html>

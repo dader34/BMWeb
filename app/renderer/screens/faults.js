@@ -30,10 +30,9 @@ function scopedFaultDb(sgbd) {
   return (s && sgbd && s[String(sgbd).toLowerCase()]) || null;
 }
 
-// fault name: look up the BMW code in the fault DB for the English component name
-// (27DA -> "Alternator BSD fault"). The reading ECU's scoped codespace wins over
-// the flat cross-ECU DB. falls back to translating F_ORT_TEXT. Original
-// (EDIABAS) mode keeps the raw German. keeps the "27DA " code prefix.
+// fault name: look up the BMW code for the English component name (27DA ->
+// "Alternator BSD fault"), the scoped codespace winning over the flat DB.
+// Falls back to translating F_ORT_TEXT; orig (EDIABAS) mode keeps raw German.
 function faultName(loc, hex, sgbd) {
   if (lang() === 'orig') return loc || '';
   const code = bmwCode(loc, hex);
@@ -85,13 +84,11 @@ function faultFields(c, sgbd) {
            name: faultName(c.F_ORT_TEXT, hex, sgbd), present, ftype, count };
 }
 
-// INPA LAYOUT IS A DESKTOP MODE, and off on a phone whatever the setting
-// says. It reproduces a keyboard-driven Windows UI: ten fixed F-key slots,
-// printed key numbers, Shift for the second row, dense tables sized for a
-// mouse. The mobile stylesheet already strips the parts that make it
-// itself -- the number row, the ten-across bar -- so honouring the setting
-// below 760px would ship the awkward half of INPA with none of the point
-// of it. One reader, so every screen follows.
+// INPA LAYOUT IS A DESKTOP MODE, off on a phone whatever the setting says. It
+// reproduces a keyboard-driven Windows UI (ten F-key slots, Shift row, dense
+// mouse-sized tables); the mobile stylesheet already strips the parts that make
+// it itself, so honouring the setting below 760px would ship the awkward half
+// with none of the point. One reader, so every screen follows.
 const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
   && !window.matchMedia('(max-width: 760px)').matches;
 
@@ -116,10 +113,8 @@ async function addFaultComment(ecu, container) {
 }
 let faultComment = '';
 
-// INPA "Printing" (F9): export faults as CSV, one fault per row, fields in their
-// own columns. includes detailed fields + environment values when present.
-// single-ECU fault report, styled like the whole-car quick-sweep PDF but for just
-// this module (e.g. the DME). uses the last fault read.
+// INPA "Printing" (F9): single-ECU fault report PDF from the last fault read,
+// styled like the whole-car quick-sweep but for just this module (e.g. the DME).
 async function exportFaults(ecu, view) {
   const faults = lastFaultRead || [];
   if (!faults.length) { sbLeft.textContent = 'read codes first'; return; }

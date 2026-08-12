@@ -3,20 +3,12 @@
 //
 //   node thor_bridge.js [adapter-host] [adapter-port]
 //
-// Lives in the renderer tree ON PURPOSE: every build that ships the app
-// (dist-web, GitHub Pages, the offline zip) then carries its own copy of
-// the one server-side piece the THOR needs, next to the index.html it
-// serves.
-//
-// A browser page cannot open a TCP socket, and the THOR (a Deep-OBD-style
-// EdiabasLib custom adapter behind an ESP-Link bridge) only listens on TCP
-// 192.168.4.1:23. This bridges the gap for the web build: the renderer's
-// ThorWifiBus connects to ws://127.0.0.1:8124 and every binary frame is
-// piped through verbatim, both directions. No protocol knowledge here at
-// all -- framing, checksums and meaning live in the renderer.
-//
-// Hand-rolled WebSocket server (handshake + frame codec) so this runs with
-// nothing but node itself.
+// A browser can't open a TCP socket, and the THOR (a Deep-OBD-style EdiabasLib
+// adapter behind an ESP-Link bridge) only listens on 192.168.4.1:23. This pipes
+// every binary frame verbatim between ws://127.0.0.1:8124 and that socket -- no
+// protocol knowledge here; framing/checksums live in the renderer. Retained for
+// anyone who still runs it by hand (?relay=1); shipped builds use the adapter's
+// own WebSocket firmware instead. Hand-rolled WS server so it needs only node.
 
 const http = require('http');
 const net = require('net');

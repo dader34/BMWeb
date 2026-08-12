@@ -30,11 +30,6 @@ const FAULT_PHRASES = [
   ['Testbedingungen erfüllt', 'Test conditions met'],
   ['Testbedingungen nicht erfüllt', 'Test conditions not met'],
 ];
-// German fault/P-code-text word tokens -> English, for phrases not in the exact
-// table (e.g. "Luftsystem - Durchsatzfehler erkannt"). order matters: longer
-// compounds first so they win before their fragments.
-// token-level German -> English, applied in order. multi-word phrases first so
-// they win before the single-word tokens below them rewrite a piece.
 // INPA's softkey captions are cut to fit a narrow F-key bar. Expanded here
 // as whole labels (anchored), so only an exact caption is rewritten -- a
 // substring rule would corrupt longer text that happens to contain one.
@@ -68,6 +63,8 @@ const INPA_CAPTIONS = new Map(Object.entries({
   // meaning rather than translate it.
 }));
 
+// token-level German -> English, applied IN ORDER: longer compounds and
+// multi-word phrases first so they win before their fragments rewrite a piece.
 const DE_TOKENS = [
   // ---- captions INPA leaves in German ----
   [/^Zurück\/control beenden$/i, 'Back / end control'],
@@ -595,11 +592,8 @@ const DE_TOKENS = [
   [/unplausibel/gi, 'implausible'], [/erkannt/gi, 'detected'],
   [/Signal/gi, 'signal'], [/Fehler/gi, 'fault'], [/frei/gi, 'free'],
 ];
-// memoized: the token pass runs ~120 regexes per string and fault renders /
-// sweeps hit the same strings repeatedly. capped to bound memory.
 // Exact full-sentence overrides for job-argument comments. A word table can't
-// reorder German syntax, so the common whole sentences (the top few cover
-// thousands of arg occurrences across the fleet) are translated as units,
+// reorder German syntax, so the common whole sentences are translated as units,
 // matched before the token pass. Keyed on the trimmed comment verbatim.
 const ARG_PHRASES = {
   'Als Argument wird ein vorgefuellter Binaerbuffer uebergeben':

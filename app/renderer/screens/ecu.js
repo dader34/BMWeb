@@ -1,5 +1,4 @@
-// ECU menu: job labels, layout merge, showEcu, Hauptmenue
-// English labels for common EDIABAS jobs.
+// ECU menu: job labels, variant resolution, showEcu.
 const JOB_LABELS = {
   FS_LESEN: 'Read fault codes',
   FS_LESEN_DETAIL: 'Read fault codes (detail)',
