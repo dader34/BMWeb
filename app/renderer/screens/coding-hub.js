@@ -148,6 +148,9 @@ async function scanCoding(chassisId, host) {
 }
 
 // Expert tab. Desktop gets the nested tree; mobile the drill-down list.
+// Both are built from the SAME source -- BMW's DATEN description (datenFor,
+// i.e. SP-DATEN's .C0x maps) fused with the up-front scan's current values --
+// so a module reads identically whichever device you are on.
 async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   const mobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
@@ -156,13 +159,51 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
     return;
   }
-  if (mobile) expertModuleList(chassisId, mods, cont, back, reScan);
+  if (mobile) expertModuleList(chassisId, mods, cont, back, scan, reScan);
   else expertTree(chassisId, mods, cont, back, scan, reScan);
 }
 
-// MOBILE: a grouped list of modules; tapping one opens its coding screen
-// (showCoding handles both the editable read and the DATEN reference).
-function expertModuleList(chassisId, mods, cont, back, reScan) {
+// Load a module's DATEN functions for a chassis: union the functions across
+// variants (dedupe by name), preferring the chassis's own variant set. Returns
+// [] when the module has no DATEN map. Shared by desktop tree and mobile list.
+async function moduleFunctions(chassisId, sgbd) {
+  const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
+  if (!daten) return [];
+  const chId = String(chassisId || '').toUpperCase();
+  const chassis = daten.chassis[chId]
+    || daten.chassis[Object.keys(daten.chassis)[0]];
+  if (!chassis) return [];
+  const byName = new Map();
+  for (const variant of Object.values(chassis)) {
+    for (const f of variant) if (!byName.has(f.name)) byName.set(f.name, f);
+  }
+  return [...byName.values()];
+}
+
+// Seed per-function state {current, staged} for one module's functions from
+// the scan. Every choosable function gets a current (the read value where the
+// scan named it, else a stable deterministic pick) so options render selected
+// from the first frame -- no Read buttons, same rule on desktop and mobile.
+function seedState(state, sgbd, fns, read) {
+  for (const f of fns) {
+    const opts = treeOptions(f.values || []);
+    if (!opts.length) continue;
+    const fkey = `${sgbd}:${f.name}`;
+    let cur = read ? treeMatchRead(f.name, opts, read) : null;
+    if (cur == null) {
+      let h = 0;
+      for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+      cur = opts[h % opts.length][1];
+    }
+    state.set(fkey, { current: cur, staged: null });
+  }
+}
+
+// MOBILE: a grouped list of modules; tapping one opens THAT MODULE'S coding as
+// the same DATEN function list the desktop tree shows -- the possible values
+// (SP-DATEN options) with the scanned current value ticked and the others
+// selectable. One source of truth, so a module matches its desktop view.
+function expertModuleList(chassisId, mods, cont, back, scan, reScan) {
   cont.className = 'coding-panel';
   cont.innerHTML = `<div class="cur-list" id="exp-list"></div>`;
   const list = cont.querySelector('#exp-list');
@@ -171,22 +212,8 @@ function expertModuleList(chassisId, mods, cont, back, reScan) {
     row.className = 'cur-row exp-row'; row.type = 'button';
     row.innerHTML = `<span class="cur-label">${esc(m.label)}`
       + `<span class="exp-sgbd mono">${esc(m.sgbd)}.prg</span></span>`
-      + `<span class="exp-kind">${m.kind}</span>`
       + `<span class="exp-arrow">›</span>`;
-    row.onclick = () => {
-      const reopen = () => showCodingHub(chassisId, 'expert');
-      setCrumbs([
-        { label: 'Vehicles', fn: showChassis },
-        { label: dispChassis(chassisId), fn: back },
-        { label: 'Coding', fn: reopen },
-        { label: m.label },
-      ]);
-      view.innerHTML = head('Coding', m.label, `SGBD ${m.sgbd}.prg`);
-      const grid = document.createElement('div');
-      view.appendChild(grid);
-      showCoding({ sgbd: m.sgbd, code: m.code, label: m.label },
-                 grid, reopen, chassisId);
-    };
+    row.onclick = () => expertModuleScreen(chassisId, m, back, scan);
     list.appendChild(row);
   });
   const acts = [];
@@ -195,6 +222,95 @@ function expertModuleList(chassisId, mods, cont, back, reScan) {
   acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
               fn: back });
   setActions(acts);
+}
+
+// MOBILE per-module screen: one module's DATEN functions as a flat list of
+// selectable value groups. Identical data and rules to a single expanded
+// module in the desktop tree (moduleFunctions + seedState + treeValues).
+async function expertModuleScreen(chassisId, m, back, scan) {
+  const reopen = () => showCodingHub(chassisId, 'expert');
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: dispChassis(chassisId), fn: back },
+    { label: 'Coding', fn: reopen },
+    { label: m.label },
+  ]);
+  lastScreen = () => expertModuleScreen(chassisId, m, back, scan);
+  view.innerHTML = head('Coding', m.label, `${m.sgbd}.prg`);
+  const host = document.createElement('div');
+  host.className = 'coding-panel coding-tree-wrap';
+  view.appendChild(host);
+  host.innerHTML = skeletonList ? skeletonList(6) : '';
+
+  const fns = await moduleFunctions(chassisId, m.sgbd);
+  const label = (name) => (typeof datLabel === 'function' ? datLabel(name) : name);
+  const state = new Map();
+  const read = scan && scan.get(m.sgbd);
+  seedState(state, m.sgbd, fns, read);
+
+  // only functions that are a real multiple-choice show as editable groups;
+  // the rest (numeric fields, buffers, defaults) render as static reference.
+  const rows = fns.filter(f => (f.values || []).length);
+  if (!rows.length) {
+    host.innerHTML = errorBlock('No coding functions in this module.');
+    return;
+  }
+
+  const stagedCount = () =>
+    [...state.values()].filter(s => s.staged != null).length;
+
+  const draw = () => {
+    host.innerHTML = '<div class="coding-tree" id="m-tree"></div>';
+    const tree = host.querySelector('#m-tree');
+    for (const f of rows) {
+      const fkey = `${m.sgbd}:${f.name}`;
+      const valsHtml = treeValues(f.values || [], label, fkey, state);
+      const fl = document.createElement('details');
+      fl.className = 'tree-fn'; fl.dataset.fkey = fkey;
+      fl.open = state.has(fkey);            // editable ones open so the choice shows
+      fl.innerHTML = `<summary class="tree-fn-h">`
+        + `<span class="tree-name">${esc(label(f.name))}`
+        + `${state.has(fkey) && state.get(fkey).staged != null
+            ? '<span class="tree-staged-dot"></span>' : ''}</span>`
+        + `<span class="tree-key mono">blk ${f.block} · byte ${f.byte} · `
+        + `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>`
+        + `<div class="tree-vals">${valsHtml}</div>`;
+      tree.appendChild(fl);
+    }
+    updateBar();
+  };
+
+  host.addEventListener('click', (e) => {
+    const opt = e.target.closest('.tree-opt');
+    if (!opt) return;
+    const wrap = opt.closest('.tree-opts');
+    const fkey = wrap && wrap.dataset.fkey;
+    const s = fkey && state.get(fkey);
+    if (!s) return;
+    const v = opt.dataset.v;
+    s.staged = (String(v).toLowerCase() === String(s.current).toLowerCase())
+      ? null : v;
+    draw();
+  });
+
+  const built = [{ ...m, fns: rows }];
+  const updateBar = () => {
+    const n = stagedCount();
+    const acts = [];
+    if (n) {
+      acts.push({ key: '2', keyLabel: 'F2', label: `Review (${n})`,
+        fn: () => treeReview(built, state, label) });
+      acts.push({ key: '3', keyLabel: 'F3', label: 'Discard',
+        fn: () => { for (const s of state.values()) s.staged = null; draw(); } });
+    }
+    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: reopen });
+    setActions(acts);
+    sbLeft.textContent = `${dispChassis(chassisId)} · ${m.label}`
+      + `${n ? ` · ${n} staged` : ''}`;
+  };
+
+  draw();
 }
 
 // A value NAME that is a bare number (or wert_NN) is not a real setting name
@@ -312,55 +428,24 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
   const treeEl = cont.querySelector('#coding-tree');
   const filterEl = cont.querySelector('#tree-filter');
 
-  // pull each module's DATEN functions (first E46 variant, else first) once
-  const chId = String(chassisId || '').toUpperCase();
+  // pull each module's DATEN functions (chassis variant union) once; skip
+  // modules with no functions -- a 0-function row is a dead expand.
   const built = [];
   for (const m of mods) {
-    const daten = typeof datenFor === 'function' ? await datenFor(m.sgbd) : null;
-    let fns = [];
-    if (daten) {
-      const chassis = daten.chassis[chId]
-        || daten.chassis[Object.keys(daten.chassis)[0]];
-      if (chassis) {
-        // union the functions across variants (dedupe by name)
-        const byName = new Map();
-        for (const variant of Object.values(chassis)) {
-          for (const f of variant) if (!byName.has(f.name)) byName.set(f.name, f);
-        }
-        fns = [...byName.values()];
-      }
-    }
-    // skip modules with no functions to show -- a 0-function row is a dead
-    // expand that only clutters the tree
+    const fns = await moduleFunctions(chassisId, m.sgbd);
     if (fns.length) built.push({ ...m, fns });
   }
 
   const label = (name) => (typeof datLabel === 'function'
     ? datLabel(name) : name);
 
-  // Per-function state: fkey "sgbd:name" -> {current, staged}. The current
-  // value comes from the up-front scan (the module's coding read, demo-filled
-  // without a cable). Every choosable function is pre-populated, so the tree
-  // shows the car's current setting from the first frame -- no Read buttons.
+  // Per-function state: fkey "sgbd:name" -> {current, staged}, seeded from the
+  // up-front scan the same way the mobile per-module screen does (seedState),
+  // so a function shows the same current + options wherever it is rendered.
   const state = new Map();
   const fkeyOf = (sgbd, name) => `${sgbd}:${name}`;
-  for (const m of mods) {
-    const read = scan && scan.get(m.sgbd);
-    const fns = (built.find(b => b.sgbd === m.sgbd) || {}).fns || [];
-    for (const f of fns) {
-      const opts = treeOptions(f.values || []);
-      if (!opts.length) continue;
-      const fkey = fkeyOf(m.sgbd, f.name);
-      let cur = read ? treeMatchRead(f.name, opts, read) : null;
-      if (cur == null) {
-        // no cable / unmatched: a deterministic pick so there is still a
-        // current to select against (stable per load)
-        let h = 0;
-        for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-        cur = opts[h % opts.length][1];
-      }
-      state.set(fkey, { current: cur, staged: null });
-    }
+  for (const m of built) {
+    seedState(state, m.sgbd, m.fns, scan && scan.get(m.sgbd));
   }
 
   // which modules/functions are expanded, preserved across redraws
