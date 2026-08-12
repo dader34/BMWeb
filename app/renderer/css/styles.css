@@ -2615,10 +2615,20 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
      the vehicle list; the centre shows live battery voltage (green when the
      car answers); the gear opens Settings. The battery/ign/cable nodes are
      relocated into .mtab-status (app.js), so their updaters keep running. */
+  /* The bar is a fixed 58pt row of chrome PLUS the home-indicator inset
+     below it. Content is centred in the 58pt ROW only (via padding-top vs
+     padding-bottom), not in the full height -- otherwise in standalone PWA
+     mode, where safe-bottom is a real ~34pt, the icons floated up and left
+     a dead band beneath them. In a browser tab safe-bottom is ~0 so it was
+     invisible there. box-sizing keeps the row height honest. */
   .mobile-tabbar {
+    box-sizing: border-box;
     display: flex; align-items: center; justify-content: space-between;
-    position: absolute; left: 0; right: 0; bottom: 0; z-index: 40;
-    height: calc(58px + var(--safe-bottom));
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    /* the 58pt chrome row sits ABOVE the home indicator; padding-bottom
+       reserves the inset, and align-items:center then centres the icons in
+       the content box (the 58pt row) rather than the padded whole. */
+    height: auto; min-height: 58px;
     padding: 0 calc(18px + var(--safe-right))
              var(--safe-bottom) calc(18px + var(--safe-left));
     background: rgba(10, 12, 15, 0.8);
@@ -2626,6 +2636,9 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     -webkit-backdrop-filter: saturate(1.6) blur(22px);
     border-top: 0.5px solid var(--ios-hair);
   }
+  /* keep a consistent 58pt tall content row regardless of the icon heights */
+  .mobile-tabbar > * { min-height: 58px; display: flex; align-items: center; }
+  .mobile-tabbar > .mtab { min-height: 0; }
   .mtab {
     width: 44px; height: 44px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
