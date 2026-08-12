@@ -1,38 +1,21 @@
-// Navigation voice languages: read what is loaded, choose three, see what
-// INPA would send.
+// Navigation voice languages: choose three, see what INPA would send.
 //
-// WHY THIS EXISTS. NAVI's "languages load" key is one of the handful that
-// INPA runs on the PC rather than on the car: it reads a language table off
-// a Windows filesystem, holds it in memory, and only the NEXT key
-// (SPEICHER_SCHREIBEN) sends anything. That assembly lives in INPA's own
-// runtime, not in the .IPO, so the key decompiles to a label and nothing
-// else and the app honestly said "not decoded".
-//
-// But the FILE is not the interesting part. Hand-decompiling NAVI.IPO shows
-// the job it feeds takes three plain integers:
-//
+// INPA's "languages load" key runs on the PC, not the car: it reads a table
+// off a Windows filesystem and only the NEXT key (SPEICHER_SCHREIBEN) sends
+// anything. Decompiling NAVI.IPO shows that job takes three plain integers:
 //     SPEICHER_SCHREIBEN  SPRACHE_1, SPRACHE_2, SPRACHE_3   (int, int, int)
+// so "load a file" really means "choose three language codes" -- a picker
+// does what the file did.
 //
-// so "load a file" really means "choose three language codes". No
-// proprietary format, nothing to reverse: a picker does what the file did.
+// Codes come from BMW's own CODESPRACHEN table (navmk4.prg); bit 7 is voice
+// gender (0x01 English UK male, 0x81 the same female). Extras like 0x09 are
+// beyond the stock table, which is why BMW hardcodes those keys.
 //
-// THE CODES COME FROM BMW'S OWN TABLE (CODESPRACHEN in navmk4.prg), and bit 7
-// is the voice gender: 0x01 is English UK male, 0x81 the same language female.
-// BMW's own hardcoded "dutch" key sends 0x89;0x81;0x86 and prints "dutch,
-// English UK and French" -- 0x81 and 0x86 match the table exactly, which is
-// what validates this reading. 0x89 is 0x09|0x80, a language beyond the stock
-// table, which is precisely why that key is hardcoded.
-//
-// THE SEND IS BLOCKED, like the coding writes. SPEICHER_SCHREIBEN makes the
-// nav reload its voice data; wrong codes leave it without a working language,
-// and recovering means writing again through the nav you just broke. This
-// stages the change and shows the exact job and arguments.
-//
-// AND IT DOES ONLY THIS. An earlier version also ran SPEICHER_LESEN and
-// printed the module's current languages, software-load state and codes at
-// the top. That is a different key -- "Current languages read" is F1 of the
-// same INPA menu -- and putting it here made a one-job screen look like a
-// status page. This key loads languages, so this screen picks languages.
+// THE SEND IS BLOCKED, like the coding writes: SPEICHER_SCHREIBEN makes the
+// nav reload its voice data, and wrong codes leave it with no working language,
+// recovered only by writing again through the nav you just broke. This stages
+// the change and shows the exact job and arguments -- and does only this (the
+// current-languages read is a different key, F1 of the same INPA menu).
 
 // Languages beyond the stock table, from the keys BMW hardcodes in NAVI.IPO
 // because CODESPRACHEN does not list them.

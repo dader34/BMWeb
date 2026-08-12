@@ -39,8 +39,7 @@ function lookupModuleLabel(chassis, moduleValue) {
 }
 
 // custom dropdown for the Lookup screen. options: [{ val, label, meta, count }].
-// renders a rich row (label + optional meta tag + optional count). returns
-// { el, setOptions(opts, cur), value(), set(v) }. onChange(val) fires on pick.
+// onChange(val) fires on pick.
 function lookupDropdown(placeholder, options, current, onChange) {
   const root = document.createElement('div');
   root.className = 'lkd';
@@ -98,10 +97,9 @@ function lookupDropdown(placeholder, options, current, onChange) {
       const below = window.innerHeight - r.bottom;
       const up = below < need && r.top > below;
       root.classList.toggle('drop-up', up);
-      // cap the scrolling list to the real space available on the chosen side. The
-      // downward limit is the footer F-key bar's actual top (not a guess); the
-      // upward limit is the top of the viewport. Reserve the pinned search box + a
-      // small margin so the popup always fits and the page never scrolls to hold it.
+      // cap the list to the real space on the chosen side: down to the footer
+      // F-key bar's actual top (not a guess), up to the viewport top, less the
+      // pinned search box + margin, so the popup fits without scrolling the page.
       const bar = document.getElementById('fkeybar');
       const floor = bar ? bar.getBoundingClientRect().top : window.innerHeight;
       const MARGIN = 12;
@@ -583,10 +581,8 @@ async function showLookup() {
   }
 
   // ---- fault detail modal (ISTA variants + service document) ----
-  // opens a large modal for a hex code showing every ECU variant that reports it
-  // (each with its own English text + info doc) and, per variant, the ISTA
-  // service document (conditions, monitoring, service measure, notes). The big
-  // info file is loaded on demand the first time a modal is opened.
+  // a hex code's ISTA service document (conditions, monitoring, service
+  // measure, notes). The big info file is loaded on demand on first open.
   const _infoFields = [
     ['description', 'Description'], ['setCondition', 'Set condition'],
     ['monitoring', 'Monitoring'], ['timeCondition', 'Time condition'],
@@ -656,7 +652,7 @@ async function showLookup() {
       || '<div class="fm-noinfo">No service document for this fault.</div>';
   }
 
-  // ---- wiring ----
+  // debounce the search input
   let debounce = null;
   input.oninput = () => {
     lookupState.q = input.value;

@@ -1,9 +1,8 @@
 // measurement parsing, formatting, and gauge-range logic — the DOM-less layer
-// behind the live value gauges. INPA-style gauge bars need a numeric value, a
-// unit, and a [min,max] range: EDIABAS gives value (sometimes a unit), the range
-// is INPA's own presentation choice from its .ips scripts (not in the protocol),
-// so we reproduce common ranges by unit and auto-scale the rest. The DOM cells
-// that consume these live in live.js (updateGauge/updateGaugeSpec).
+// behind the live value gauges (consumed by updateGauge/updateGaugeSpec in
+// live.js). The [min,max] range is INPA's own presentation choice from its .ips
+// scripts, not in the protocol, so we reproduce common ranges by unit and
+// auto-scale the rest.
 
 // split "38.67", "-5.7", "1.02 V", "98 %" into { num, unit, raw }
 function parseMeasurement(raw) {
@@ -101,15 +100,11 @@ function normUnit(u) {
   // would split it into 1/cent, which is not a unit of anything.
   if (/^percent$/i.test(s)) return '%';
   if (/^ampere$/i.test(s)) return 'A';
-  // "kgperh" -> "kg/h". BMW writes rate units as words because the .prg
-  // description block is plain ASCII with no '/' convention, so the token
-  // reaches the UI looking like an identifier. This is a general spelling, not
-  // one unit: the corpus ships kgperh, mgperstk, gpers, kmperh, mgperStroke,
-  // perMinute -- so translate the "per" rather than listing every pair.
-  //
-  // Both sides must be a UNIT, not any letters: requiring a known numerator
-  // (or none, for "perMinute") stops the pattern eating an ordinary word that
-  // happens to contain "per".
+  // "kgperh" -> "kg/h". BMW writes rate units as words (the .prg description
+  // block is plain ASCII with no '/'), and the corpus ships many -- kgperh,
+  // mgperstk, gpers, kmperh, perMinute -- so translate the "per" generally
+  // rather than listing pairs. Both sides must be a known UNIT (or empty, for
+  // "perMinute"), so the pattern doesn't eat an ordinary word containing "per".
   const per = /^(|1|[munkcdhKMG]?(?:g|m|l|s|A|V|W|J|N|Pa|bar|Hz|U|km|mg|kg))per([a-z]+?)_?$/i
     .exec(s);
   if (per) {
@@ -132,17 +127,12 @@ function humanizeKey(key) {
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : key;
 }
 
-// pair STAT_X_WERT with STAT_X_EINH and humanize the key. one entry per
-// measurement, unit merged in ("13" + "Grad C" -> "13 °C"). keys without
-// _WERT/_EINH structure pass through unchanged.
-// The unit the ECU shipped beside ONE value, for the IR screen path.
-//
-// pairWertEinh below does this for the generic poller by walking every result;
-// an IR screen instead draws the rows its .IPO declared and looks each key up
-// by name, so it needs the same _WERT -> _EINH hop for a single key. Without
-// it a screen whose layout omits the literal "[unit]" text -- MSD80's entire
-// VANOS page -- printed cam angles as bare numbers, dropping the °CRK the ECU
-// had already sent.
+// The unit the ECU shipped beside ONE value, for the IR screen path. An IR
+// screen draws the rows its .IPO declared and looks each key up by name, so it
+// needs a single-key _WERT -> _EINH hop (pairWertEinh below does the same by
+// walking every result). Without it, a layout omitting the literal "[unit]"
+// text -- MSD80's whole VANOS page -- printed cam angles as bare numbers,
+// dropping the °CRK the ECU already sent.
 function irUnitFor(key, vals) {
   const m = String(key || '').match(/^(.*)_WERT$/);
   if (!m || !vals) return null;
@@ -153,6 +143,9 @@ function irUnitFor(key, vals) {
   return t && t !== '-' && t !== '--' ? t : null;
 }
 
+// pair STAT_X_WERT with STAT_X_EINH and humanize the key: one entry per
+// measurement, unit merged in ("13" + "Grad C" -> "13 °C"). keys without the
+// _WERT/_EINH structure pass through unchanged.
 function pairWertEinh(merged) {
   const out = [];
   const seen = new Set();

@@ -24,7 +24,7 @@ const TOUR_SCREENS = {
 };
 
 // steps are built at start time so they match the active layout mode (classic
-// F-key list vs modern cards) and only reference elements that exist.
+// F-key list vs modern cards).
 function tourSteps() {
   const classic = typeof inpaMode === 'function' && inpaMode();
   const steps = [
