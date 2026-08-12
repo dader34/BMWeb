@@ -1,34 +1,8 @@
-// NOT LOADED BY THE APP. Kept as the fixture tools/verify/test_vmbridge.js
-// runs: it replays telegrams the C# engine captured and checks the VM decodes
-// them to the same results, which is still the best evidence the VM is right
-// about real bytes. There is no engine in the app any more, so there is
-// nothing to shadow at runtime and index.html no longer includes this.
-//
-// Run jobs through OUR BEST2 VM instead of the C# EDIABAS engine.
-//
-// This is the switch-over seam. The VM matches the engine on 100% of 3730
-// results across 460 jobs (tools/test_bestvm.js) -- but every one of those
-// was a SYNTHETIC response built to exercise the lifter. Real ECU bytes are
-// the one thing it has never seen, so this ships in a mode that proves
-// itself on the car before anything depends on it.
-//
-// THE TRICK THAT MAKES THAT CHEAP: EDIABAS publishes the telegrams it
-// exchanged as results of the job itself -- _TEL_AUFTRAG is the request it
-// sent, _TEL_ANTWORT the answer it got. So a normal engine run already
-// carries the exact bytes off the wire, and the VM can replay THOSE. No new
-// transport, no second conversation with the ECU, no risk of two clients on
-// one bus. The comparison is against real data because the engine did the
-// talking.
-//
-// Modes (Settings 'vm'):
-//   off     the engine's results are used; the VM never runs   (default)
-//   shadow  both run, the ENGINE's results are displayed, and any
-//           disagreement is reported. This is the mode to drive the car in.
-//   on      the VM's results are displayed. Only worth doing once shadow
-//           has been quiet on your own vehicle.
-//
-// The VM cannot reach the bus from here in any mode: its send() callback
-// replays a captured answer and has nowhere else to go.
+// NOT LOADED BY THE APP -- only tools/verify/test_vmbridge.js uses it. Replays
+// telegrams the C# engine captured (_TEL_AUFTRAG = request, _TEL_ANTWORT =
+// answer, both published as job results) back through the VM and checks it
+// decodes real wire bytes to the same values. The VM's send() only replays a
+// captured answer, so it never reaches a bus.
 
 const VM_CODE_CACHE = new Map();
 const VM_TABLE_CACHE = new Map();
@@ -53,12 +27,9 @@ async function vmFetchJson(path) {
   return res.json().catch(() => null);
 }
 
-// Which SGBDs have code shipped at all. Job code is exported for E46 only --
-// the app can browse ten other chassis, and asking for code that was never
-// generated is a guaranteed 404. Fetching anyway "works" (vmFetchJson returns
-// null and the job skips), but DevTools logs every failed request in red, so
-// opening an E65 screen paints the console with errors that look like a fault
-// and are not one. Consult the manifest first and skip without the request.
+// Which SGBDs have code shipped (E46 only). Consult the manifest first so a
+// browse of another chassis skips silently instead of painting DevTools red
+// with guaranteed 404s that look like faults.
 let VM_INDEX = null;
 async function vmHasCode(key) {
   if (VM_INDEX === null) {
