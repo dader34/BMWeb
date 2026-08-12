@@ -259,6 +259,11 @@ async function expertModuleScreen(chassisId, m, back, scan) {
   const stagedCount = () =>
     [...state.values()].filter(s => s.staged != null).length;
 
+  // which functions the user has expanded, preserved across the redraw a value
+  // tap triggers. Start collapsed: the list opens as a scannable index of
+  // function names, and a tap reveals that one function's options.
+  const openFns = new Set();
+
   const draw = () => {
     host.innerHTML = '<div class="coding-tree" id="m-tree"></div>';
     const tree = host.querySelector('#m-tree');
@@ -267,7 +272,8 @@ async function expertModuleScreen(chassisId, m, back, scan) {
       const valsHtml = treeValues(f.values || [], label, fkey, state);
       const fl = document.createElement('details');
       fl.className = 'tree-fn'; fl.dataset.fkey = fkey;
-      fl.open = state.has(fkey);            // editable ones open so the choice shows
+      fl.open = openFns.has(fkey);
+      fl.ontoggle = () => fl.open ? openFns.add(fkey) : openFns.delete(fkey);
       fl.innerHTML = `<summary class="tree-fn-h">`
         + `<span class="tree-name">${esc(label(f.name))}`
         + `${state.has(fkey) && state.get(fkey).staged != null
@@ -294,12 +300,15 @@ async function expertModuleScreen(chassisId, m, back, scan) {
   });
 
   const built = [{ ...m, fns: rows }];
+  // Coding screens carry no F-key bar on mobile (CSS hides it for .coding-panel);
+  // the controls live in the nav bar instead -- Back top-left, and once a change
+  // is staged an Apply (Review) button top-right, mirroring the back chevron.
   const updateBar = () => {
     const n = stagedCount();
     const acts = [];
     if (n) {
-      acts.push({ key: '2', keyLabel: 'F2', label: `Review (${n})`,
-        fn: () => treeReview(built, state, label) });
+      acts.push({ key: '2', keyLabel: 'F2', kind: 'navAction',
+        label: `Apply (${n})`, fn: () => treeReview(built, state, label) });
       acts.push({ key: '3', keyLabel: 'F3', label: 'Discard',
         fn: () => { for (const s of state.values()) s.staged = null; draw(); } });
     }
