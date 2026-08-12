@@ -20,7 +20,6 @@
 #   ipo_actmenus.py     -> _actmenus.json  \
 #   ipo_coding.py       -> _coding.json     > all consumed by ipo_enrich.py
 #   ipo_submenus.py     -> _submenus.json  /
-#   dump_specs.py       -> specdump.json   (input to test_specwalk.js)
 #   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
 # (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
