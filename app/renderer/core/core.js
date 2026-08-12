@@ -33,9 +33,9 @@ function applyTheme(id) {
   else document.documentElement.setAttribute('data-theme', id);
   // Repaint the F-key bar: its chrome (the RUNNING block) is theme-dependent,
   // so a live swap has to redraw rather than wait for the next screen.
-  // (guarded: applyTheme is DECLARED above the bar's state, so a call made
-  // before it initialises would hit the temporal dead zone)
-  try { paintActions(currentActions); } catch { /* bar not built yet */ }
+  // (guarded: applyTheme is DECLARED above the ActionBar, so a call made before
+  // it is constructed would hit the temporal dead zone)
+  try { actionBar.paint(actionBar.current); } catch { /* bar not built yet */ }
   // aero only: frameless + transparent window
   if (window.bmacw && window.bmacw.setTranslucent) {
     window.bmacw.setTranslucent(id === 'aero');
@@ -285,211 +285,194 @@ function setCrumbs(items) {
 }
 
 // INPA function-key bar. screens declare actions; bind number keys 1..9,0.
-// Esc fires the `back` action.
-let currentActions = []; // [{ key:'1', label, fn, kind }]
-// INPA's bar has two rows and Shift swaps between them: F3 is "inclination +"
-// and Shift+F3 its opposite. `shiftActions` is the second row when a screen
-// has one; the bar shows one row at a time, exactly as INPA does.
-let shiftActions = null;
-let baseActions = [];
-let shiftHeld = false;
-
-// The bar is TEN FIXED SLOTS, F1..F10, drawn whether or not a key is bound --
-// INPA's layout, kept in every skin. The empty ones are part of it: they are
-// how you see at a glance that F4 does nothing on this screen. The F-number is
-// printed on its own row ABOVE the buttons rather than inside them.
-//
-// So a screen's actions have to be placed into slots rather than listed. A key
-// says which slot it wants: '1'..'9' and '0' are INPA's own F1..F10 (0 IS F10,
-// which is why Escape/back lands there), and anything else -- the letter keys
-// some screens use -- takes the next free slot.
+// The footer F-key bar, as one object. It owns the action rows and the slot
+// painting that used to live in five module globals + a cluster of functions;
+// screens still call the global setActions()/fireAction() (thin delegators
+// below), and activations.js still reads currentActions, so no call site
+// changed. INPA's bar is TEN FIXED SLOTS, F1..F10, drawn whether or not a key
+// is bound: the empty ones show at a glance that F4 does nothing here. Shift
+// swaps to a screen's second row for as long as it is held.
 const INPA_SLOTS = 10;
 
-function inpaSlot(a) {
-  // Back is F10, always -- that is where INPA puts End/Exit on every screen.
-  // Checked before the number, because these carry keyLabel:'Esc' and would
-  // otherwise fail to parse and land in whatever slot happened to be free.
-  if (a.kind === 'back') return INPA_SLOTS - 1;
-  // `key` is the binding; keyLabel is only its caption ('Esc', 'F3'). Read the
-  // binding first so a decorative label cannot move a key out of its slot.
-  const m = /^F?(\d+)$/.exec(String(a.key || a.keyLabel || '').toUpperCase());
-  if (!m) return null;
-  const n = Number(m[1]);
-  if (n === 0) return INPA_SLOTS - 1;    // INPA's F10 is the '0' key
-  return n >= 1 && n <= INPA_SLOTS ? n - 1 : null;
-}
+class ActionBar {
+  constructor() {
+    this.current = [];      // the row shown now [{ key:'1', label, fn, kind }]
+    this.base = [];         // the primary row
+    this.shift = null;      // the second row, when a screen has one
+    this.shiftHeld = false;
+    this.shiftRepaint = null;  // a screen's body-repaint when the row swaps
+    this._wireKeys();
+  }
 
-function paintActionsInpa(actions) {
-  const slots = new Array(INPA_SLOTS).fill(null);
-  const spill = [];
-  // Back claims F10 FIRST. A screen that also binds '0' would otherwise take
-  // the slot on its way past and push End into a random gap.
-  const ordered = [...actions].sort((x, y) =>
-    (y.kind === 'back') - (x.kind === 'back'));
-  ordered.forEach(a => {
-    const i = inpaSlot(a);
-    if (i !== null && !slots[i]) slots[i] = a; else spill.push(a);
-  });
-  // a letter-keyed action (or a collision) fills the first empty slot, so it is
-  // still reachable by mouse and still lines up under a printed F-number
-  spill.forEach(a => {
-    const i = slots.indexOf(null);
-    if (i >= 0) slots[i] = a;
-  });
+  // Which fixed slot an action wants: '1'..'9'/'0' are INPA's F1..F10 (0 IS
+  // F10, where back lands); back is always F10; anything else spills to the
+  // next free slot.
+  _slot(a) {
+    if (a.kind === 'back') return INPA_SLOTS - 1;
+    // `key` is the binding; keyLabel is only its caption ('Esc','F3'). Read the
+    // binding first so a decorative label cannot move a key out of its slot.
+    const m = /^F?(\d+)$/.exec(String(a.key || a.keyLabel || '').toUpperCase());
+    if (!m) return null;
+    const n = Number(m[1]);
+    if (n === 0) return INPA_SLOTS - 1;
+    return n >= 1 && n <= INPA_SLOTS ? n - 1 : null;
+  }
 
-  fkeysEl.innerHTML = '';
-  const keys = document.createElement('div');
-  keys.className = 'fkey-nums';
-  const btns = document.createElement('div');
-  btns.className = 'fkey-btns';
-  slots.forEach((a, i) => {
-    const num = document.createElement('span');
-    num.className = 'fkey-num';
-    num.textContent = `F${i + 1}`;
-    keys.appendChild(num);
+  _paintInpa(actions) {
+    const slots = new Array(INPA_SLOTS).fill(null);
+    const spill = [];
+    // Back claims F10 FIRST, before a screen's own '0' can take it in passing.
+    const ordered = [...actions].sort((x, y) =>
+      (y.kind === 'back') - (x.kind === 'back'));
+    ordered.forEach(a => {
+      const i = this._slot(a);
+      if (i !== null && !slots[i]) slots[i] = a; else spill.push(a);
+    });
+    // letter-keyed actions (and collisions) fill the first empty slot, so they
+    // stay mouse-reachable and still line up under a printed F-number
+    spill.forEach(a => {
+      const i = slots.indexOf(null);
+      if (i >= 0) slots[i] = a;
+    });
 
-    const el = document.createElement('div');
-    el.className = 'fkey' + (a && a.kind ? ' ' + a.kind : '')
-                 + (a ? '' : ' empty');
-    if (a) {
-      el.innerHTML = `<span class="fkey-label">${esc(a.label)}</span>`;
-      el.onclick = () => fireAction(a);
-      a._el = el;
+    fkeysEl.innerHTML = '';
+    const keys = document.createElement('div');
+    keys.className = 'fkey-nums';
+    const btns = document.createElement('div');
+    btns.className = 'fkey-btns';
+    slots.forEach((a, i) => {
+      const num = document.createElement('span');
+      num.className = 'fkey-num';
+      num.textContent = `F${i + 1}`;
+      keys.appendChild(num);
+
+      const el = document.createElement('div');
+      el.className = 'fkey' + (a && a.kind ? ' ' + a.kind : '')
+                   + (a ? '' : ' empty');
+      if (a) {
+        el.innerHTML = `<span class="fkey-label">${esc(a.label)}</span>`;
+        el.onclick = () => this.fire(a);
+        a._el = el;
+      }
+      btns.appendChild(el);
+    });
+    fkeysEl.appendChild(keys);
+    fkeysEl.appendChild(btns);
+  }
+
+  // The bar keeps the same shape in every theme -- it is INPA's bar, not a
+  // decoration -- and mirrors its back/nav-action into the mobile nav bar.
+  paint(actions) {
+    fkeysEl.classList.add('inpa-bar');
+    this._paintInpa(actions);
+    fkeysEl.classList.toggle('shifted', actions === this.shift);
+    this._syncNavBack(actions);
+    this._syncNavAction(actions);
+  }
+
+  // The touch back arrow tracks whatever the screen registered as `back`, so it
+  // does exactly what Esc does; a screen with no back action hides it.
+  _syncNavBack(actions) {
+    const el = document.getElementById('nav-back');
+    if (!el) return;
+    const back = (actions || []).find(a => a.kind === 'back');
+    el.hidden = !back;
+    el.onclick = back ? () => this.fire(back) : null;
+  }
+
+  // The top-right nav action mirrors the back arrow on mobile (where the F-key
+  // bar is hidden): a screen opts in by marking one action kind:'navAction'.
+  _syncNavAction(actions) {
+    const el = document.getElementById('nav-action');
+    if (!el) return;
+    const act = (actions || []).find(a => a.kind === 'navAction');
+    el.hidden = !act;
+    if (act) {
+      el.textContent = act.label || '';
+      el.onclick = () => this.fire(act);
+    } else {
+      el.onclick = null;
     }
-    btns.appendChild(el);
-  });
-  fkeysEl.appendChild(keys);
-  fkeysEl.appendChild(btns);
-}
+  }
 
-// The bar is the same SHAPE in every theme -- ten fixed slots, numbers above
-// the keys -- because it is INPA's bar, not a decoration. Themes restyle it;
-// they do not rearrange it.
-function paintActions(actions) {
-  fkeysEl.classList.add('inpa-bar');
-  paintActionsInpa(actions);
-  fkeysEl.classList.toggle('shifted', actions === shiftActions);
-  syncNavBack(actions);
-  syncNavAction(actions);
-}
+  // Swap the bar to the row Shift selects, keeping the keys bound to it.
+  applyShift(on) {
+    if (!this.shift || on === this.shiftHeld) return;
+    this.shiftHeld = on;
+    this.current = on ? this.shift : this.base;
+    this.paint(this.current);
+    if (this.shiftRepaint) this.shiftRepaint();
+  }
 
-// The touch back arrow tracks whatever the current screen registered as its
-// `back` action, so it does exactly what Esc does -- no second notion of
-// "back" to keep in step. A screen with no back action (the vehicle picker)
-// hides it rather than showing a dead control.
-function syncNavBack(actions) {
-  const el = document.getElementById('nav-back');
-  if (!el) return;
-  const back = (actions || []).find(a => a.kind === 'back');
-  el.hidden = !back;
-  el.onclick = back ? () => fireAction(back) : null;
-}
+  // A screen change: stop polling/logging, drop the shift row and fault badge,
+  // kill active actuator tests (unless a same-screen redraw is held open by
+  // keepActivationsDuring), then draw the new row.
+  set(actions, shifted) {
+    stopLive(); stopLogging();
+    if (typeof dismissAttention === 'function') dismissAttention();
+    if (activationEcu && activeTests.size && !activationsHeld()) {
+      stopAllActivations(activationEcu);
+    }
+    this.base = actions;
+    this.shift = (shifted && shifted.length) ? shifted : null;
+    this.shiftHeld = false;
+    this.shiftRepaint = null;
+    this.current = actions;
+    this.paint(actions);
+  }
 
-// The top-right nav action mirrors the top-left back arrow: a screen's primary
-// action (the coding screen's Re-read) shown in the nav bar on mobile, where
-// the F-key bar is hidden. A screen opts in by marking one action
-// kind:'navAction'; its label becomes the button text.
-function syncNavAction(actions) {
-  const el = document.getElementById('nav-action');
-  if (!el) return;
-  const act = (actions || []).find(a => a.kind === 'navAction');
-  el.hidden = !act;
-  if (act) {
-    el.textContent = act.label || '';
-    el.onclick = () => fireAction(act);
-  } else {
-    el.onclick = null;
+  fire(a) {
+    if (!a || !a.fn) return;
+    if (a._el) { a._el.classList.remove('flash'); void a._el.offsetWidth; a._el.classList.add('flash'); }
+    a.fn();
+  }
+
+  // Shift holds the second row; released or window-blurred puts the first row
+  // back, so the bar can never show keys the next keypress will not fire. A
+  // second keydown handler runs the F-key bindings.
+  _wireKeys() {
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Shift') this.applyShift(true);
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.key === 'Shift') this.applyShift(false);
+    });
+    window.addEventListener('blur', () => this.applyShift(false));
+
+    window.addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // an open modal owns the keyboard (openModal wires its own handler), or
+      // Backspace behind a popup would re-fire the screen's back and stack it
+      if (document.querySelector('.modal-overlay')) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+      const key = e.key;
+      // Esc and Backspace both act as back (F10)
+      if (key === 'Escape' || key === 'Backspace') {
+        const back = this.current.find(a => a.kind === 'back');
+        if (back) { e.preventDefault(); this.fire(back); }
+        return;
+      }
+      // Shift makes the browser report "!" for 1, so match the physical digit
+      // (e.code) too; "=" / "_" alias the +/- caps for zoom.
+      const digit = /^Digit(\d)$/.exec(e.code || '');
+      const alias = { '=': '+', '_': '-' }[key];
+      const match = this.current.find(a => a.key === key)
+        || (alias && this.current.find(a => a.key === alias))
+        || (digit && this.current.find(a => a.key === digit[1]));
+      if (match) { e.preventDefault(); this.fire(match); }
+    });
   }
 }
 
-// a screen may also want its BODY repainted when the row swaps, so the list
-// and the bar always show the same half
-let shiftRepaint = null;
-function onShiftRepaint(fn, enabled) { shiftRepaint = enabled ? fn : null; }
-const shiftHeldNow = () => shiftHeld;
+const actionBar = new ActionBar();
 
-// swap the bar to the row Shift selects, keeping the keys bound to it
-function applyShift(on) {
-  if (!shiftActions || on === shiftHeld) return;
-  shiftHeld = on;
-  currentActions = on ? shiftActions : baseActions;
-  paintActions(currentActions);
-  if (shiftRepaint) shiftRepaint();
-}
-
-function setActions(actions, shifted) {
-  stopLive(); stopLogging(); // leaving a screen halts polling + logging
-  if (typeof dismissAttention === 'function') dismissAttention(); // drop the fault badge on screen change
-  // kill active actuator tests -- unless this is a same-screen redraw held
-  // open by keepActivationsDuring (activations.js), which is not a leave
-  if (activationEcu && activeTests.size && !activationsHeld()) { stopAllActivations(activationEcu); }
-  baseActions = actions;
-  shiftActions = (shifted && shifted.length) ? shifted : null;
-  shiftHeld = false;
-  shiftRepaint = null;          // the previous screen's list is gone
-  currentActions = actions;
-  paintActions(actions);
-}
-
-// Add one key to the bar a screen has already set.
-//
-// setActions() is a screen change: it stops polling, drops the shift row, and
-// clears the fault badge. A key ADDED to a menu that is already drawn -- the
-// app's own Coding entry on an ECU root -- must do none of that, so it slots
-// into the current row in front of Back and repaints just the bar.
-function addAction(a) {
-  if (!a || baseActions.some(x => x.key === a.key)) return;
-  const at = baseActions.findIndex(x => x.kind === 'back');
-  if (at >= 0) baseActions.splice(at, 0, a); else baseActions.push(a);
-  if (!shiftHeld) { currentActions = baseActions; paintActions(baseActions); }
-}
-
-function fireAction(a) {
-  if (!a || !a.fn) return;
-  if (a._el) { a._el.classList.remove('flash'); void a._el.offsetWidth; a._el.classList.add('flash'); }
-  a.fn();
-}
-
-// Shift swaps the bar to its second row for as long as it is held, the way
-// INPA's own keyboard works. Released -- or the window losing focus mid-hold
-// -- puts the first row back, so the bar can never be left showing keys the
-// next keypress will not fire.
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'Shift') applyShift(true);
-});
-window.addEventListener('keyup', (e) => {
-  if (e.key === 'Shift') applyShift(false);
-});
-window.addEventListener('blur', () => applyShift(false));
-
-window.addEventListener('keydown', (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  // an open modal owns the keyboard (openModal wires its own handler).
-  // without this, Backspace behind the INPA Script-selection popup fired the
-  // screen's "back" action again and stacked another popup per press.
-  if (document.querySelector('.modal-overlay')) return;
-  // typing in an input/select must never trigger screen actions
-  const t = e.target;
-  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
-  let key = e.key;
-  // Esc and Backspace both act as back (F10)
-  if (key === 'Escape' || key === 'Backspace') {
-    const back = currentActions.find(a => a.kind === 'back');
-    if (back) { e.preventDefault(); fireAction(back); }
-    return;
-  }
-  // With Shift held the browser reports "!" for the 1 key, so match on the
-  // physical digit (e.code) as well -- the shifted row is reached by holding
-  // Shift and pressing the same number.
-  const digit = /^Digit(\d)$/.exec(e.code || '');
-  // "+" needs Shift on most layouts, so the bare key on the same cap counts
-  // too: = for zoom in, _ for zoom out. Both read as the key they are next to.
-  const alias = { '=': '+', '_': '-' }[key];
-  const match = currentActions.find(a => a.key === key)
-    || (alias && currentActions.find(a => a.key === alias))
-    || (digit && currentActions.find(a => a.key === digit[1]));
-  if (match) { e.preventDefault(); fireAction(match); }
-});
+// Global delegators kept for the call sites the app already has: setActions is
+// called from ~14 screens; activations.js reads currentActions to find the
+// back action. Nothing else in the app touched the old bar internals.
+function setActions(actions, shifted) { actionBar.set(actions, shifted); }
+function fireAction(a) { actionBar.fire(a); }
+Object.defineProperty(this, 'currentActions', { get: () => actionBar.current });
 
 // Turn title= into an instant tooltip. The browser's own waits about a second
 // and a half, which is long enough that nobody sees it; this shows on hover.

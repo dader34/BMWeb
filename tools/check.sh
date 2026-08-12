@@ -20,7 +20,6 @@
 #   ipo_actmenus.py     -> _actmenus.json  \
 #   ipo_coding.py       -> _coding.json     > all consumed by ipo_enrich.py
 #   ipo_submenus.py     -> _submenus.json  /
-#   dump_specs.py       -> specdump.json   (input to test_specwalk.js)
 #   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
 # (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
@@ -80,6 +79,10 @@ fi
 echo
 echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
+
+echo
+echo "== write gate: staged changes never reach the wire (safety) =="
+node tools/verify/test_write_gate.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

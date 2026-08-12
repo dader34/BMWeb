@@ -447,74 +447,100 @@ function settingRow(title, desc, options, current, onChange) {
 }
 
 // ---------- connection status ----------
-// LED reflects cable connectivity (K+DCAN serial port present), not the .NET
-// engine. green = cable detected; amber = engine up but no cable; red = engine
-// unreachable.
-let engineUp = false;
-async function pollEngine() {
-  try { await api('/api/health'); engineUp = true; }
-  catch { engineUp = false; }
-}
-async function pollCable() {
-  if (!engineUp) {
-    led.className = 'led off'; linkText.textContent = 'engine offline';
-    return null;
-  }
-  try {
-    const { port } = await api('/api/port');
-    if (port) {
-      led.className = 'led ok';
-      linkText.textContent = 'cable: ' + port.replace('/dev/', '');
-    } else {
-      led.className = 'led idle';
-      linkText.textContent = 'no cable';
-    }
-    return port;
-  } catch {
-    led.className = 'led idle'; linkText.textContent = 'no cable';
-    return null;
-  }
-}
-// Battery (KL30) + Ignition (KL15) indicators, INPA-style. only meaningful with a
-// car on the cable; shows "off/-" otherwise. cheap, best-effort.
+// Battery (KL30) + Ignition (KL15) indicators, INPA-style. DOM refs kept at
+// module scope because nav.js (syncVselState) mirrors them into its own KL
+// display; only meaningful with a car on the cable.
 const batLed = document.getElementById('bat-led');
 const batVal = document.getElementById('bat-val');
 const ignLed = document.getElementById('ign-led');
 const ignVal = document.getElementById('ign-val');
-async function pollState(port) {
-  if (!engineUp || !port || flashing) {
-    if (!flashing) { batLed.className = 'kl-led off'; batVal.textContent = '-'; ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
-    return; // during a flash, leave the last reading and skip the bus
+
+// The connection-status poller, as one object. It owns engineUp, the slow-poll
+// clock, and the fast timer, and paints three indicators:
+//   #led   cable/host: off (host down) / ok (cable present) / idle (no cable)
+//   KL30/KL15  battery + ignition, a real DME transaction so polled slowly.
+// boot and the visibility handler drive it through statusPoller.refresh()/
+// .start(), so nothing else in the app changed.
+class StatusPoller {
+  constructor() {
+    this.engineUp = false;
+    this.lastStatePoll = 0;
+    this.timer = null;
   }
-  try {
-    const s = await api('/api/state' + (stateSgbd ? `?sgbd=${encodeURIComponent(stateSgbd)}` : ''));
-    if (s.battery != null) { batLed.className = 'kl-led on'; batVal.textContent = s.battery.toFixed(1) + ' V'; }
-    else { batLed.className = 'kl-led off'; batVal.textContent = 'off'; }
-    if (s.ignition === true) { ignLed.className = 'kl-led on'; ignVal.textContent = 'on'; }
-    else if (s.ignition === false) { ignLed.className = 'kl-led off'; ignVal.textContent = 'off'; }
-    else { ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
-  } catch {
-    batLed.className = 'kl-led off'; batVal.textContent = '-';
-    ignLed.className = 'kl-led off'; ignVal.textContent = '-';
+
+  async _pollEngine() {
+    try { await api('/api/health'); this.engineUp = true; }
+    catch { this.engineUp = false; }
+  }
+
+  async _pollCable() {
+    if (!this.engineUp) {
+      led.className = 'led off'; linkText.textContent = 'engine offline';
+      return null;
+    }
+    try {
+      const { port } = await api('/api/port');
+      if (port) {
+        led.className = 'led ok';
+        linkText.textContent = 'cable: ' + port.replace('/dev/', '');
+      } else {
+        led.className = 'led idle';
+        linkText.textContent = 'no cable';
+      }
+      return port;
+    } catch {
+      led.className = 'led idle'; linkText.textContent = 'no cable';
+      return null;
+    }
+  }
+
+  async _pollState(port) {
+    if (!this.engineUp || !port || flashing) {
+      // during a flash, leave the last reading and skip the bus
+      if (!flashing) { batLed.className = 'kl-led off'; batVal.textContent = '-'; ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
+      return;
+    }
+    try {
+      const s = await api('/api/state' + (stateSgbd ? `?sgbd=${encodeURIComponent(stateSgbd)}` : ''));
+      if (s.battery != null) { batLed.className = 'kl-led on'; batVal.textContent = s.battery.toFixed(1) + ' V'; }
+      else { batLed.className = 'kl-led off'; batVal.textContent = 'off'; }
+      if (s.ignition === true) { ignLed.className = 'kl-led on'; ignVal.textContent = 'on'; }
+      else if (s.ignition === false) { ignLed.className = 'kl-led off'; ignVal.textContent = 'off'; }
+      else { ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
+    } catch {
+      batLed.className = 'kl-led off'; batVal.textContent = '-';
+      ignLed.className = 'kl-led off'; ignVal.textContent = '-';
+    }
+  }
+
+  // battery/ignition is a real DME transaction: poll slowly (~12s) and only
+  // with a cable present -- hammering it collides with other reads and can
+  // wake/sleep the bus. Cable/engine status stays on the fast timer.
+  async refresh() {
+    await this._pollEngine();
+    const port = await this._pollCable();
+    const now = Date.now();
+    if (port && now - this.lastStatePoll > 12000) {
+      this.lastStatePoll = now;
+      await this._pollState(port);
+      if (typeof syncVselState === 'function') syncVselState();
+    } else if (!port) {
+      await this._pollState(null); // clear the indicators when unplugged
+      if (typeof syncVselState === 'function') syncVselState();
+    }
+  }
+
+  // paused while the window is hidden -- no point hitting the sidecar for LED
+  // updates nobody sees.
+  start() {
+    if (this.timer == null) this.timer = setInterval(() => this.refresh(), 3000);
+  }
+  stop() {
+    if (this.timer != null) { clearInterval(this.timer); this.timer = null; }
   }
 }
-// battery/ignition is a real DME transaction: poll slowly (~12s) and only with a
-// cable present. hammering it collides with other reads and can wake/sleep the
-// bus. cable/engine status stays on the fast timer (free local checks).
-let lastStatePoll = 0;
-async function refreshStatus() {
-  await pollEngine();
-  const port = await pollCable();
-  const now = Date.now();
-  if (port && now - lastStatePoll > 12000) {
-    lastStatePoll = now;
-    await pollState(port);
-    if (typeof syncVselState === 'function') syncVselState();
-  } else if (!port) {
-    await pollState(null); // clear the indicators when unplugged
-    if (typeof syncVselState === 'function') syncVselState();
-  }
-}
+
+const statusPoller = new StatusPoller();
 
 function dismissSplash() {
   const s = document.getElementById('splash');
@@ -527,23 +553,19 @@ function splashStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-// status polling, paused while the window is hidden (no point hitting the
+// status polling pauses while the window is hidden (no point hitting the
 // sidecar for LED updates nobody sees)
-let statusTimer = null;
-function startStatusPolling() {
-  if (statusTimer == null) statusTimer = setInterval(refreshStatus, 3000);
-}
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { if (statusTimer != null) { clearInterval(statusTimer); statusTimer = null; } }
-  else { refreshStatus(); startStatusPolling(); }
+  if (document.hidden) statusPoller.stop();
+  else { statusPoller.refresh(); statusPoller.start(); }
 });
 
 // the main process opens the window immediately; the renderer waits here for
 // the sidecar health endpoint (300ms poll, up to 30s) behind the boot splash
 async function waitForEngine() {
   for (let i = 0; i < 100; i++) {
-    await pollEngine();
-    if (engineUp) return true;
+    await statusPoller._pollEngine();
+    if (statusPoller.engineUp) return true;
     if (i === 8) splashStatus('warming up the engine');
     await new Promise(r => setTimeout(r, 300));
   }
@@ -664,8 +686,8 @@ function setupMobileTabbar() {
         linkText.textContent = e.message;
         return;
       }
-      lastStatePoll = 0;         // show battery/ignition now, not in 12 s
-      await refreshStatus();
+      statusPoller.lastStatePoll = 0;   // show battery/ignition now, not in 12 s
+      await statusPoller.refresh();
     };
 
     // THOR needs no user gesture (a socket, not a port picker), so a page
@@ -673,7 +695,7 @@ function setupMobileTabbar() {
     if (webBus.readState && !webBus.connected) {
       linkText.textContent = 'connecting…';
       webBus.connect()
-        .then(() => { lastStatePoll = 0; return refreshStatus(); })
+        .then(() => { statusPoller.lastStatePoll = 0; return statusPoller.refresh(); })
         .catch((e) => { led.className = 'led off'; linkText.textContent = e.message; });
     }
   }
@@ -704,7 +726,7 @@ function setupMobileTabbar() {
     if (!(await waitForEngine())) {
       splashStatus('engine did not start');
       dismissSplash();
-      startStatusPolling(); // keeps the LED honest and notices a late engine
+      statusPoller.start(); // keeps the LED honest and notices a late engine
       view.innerHTML = errorBlock('engine failed to start', 'red') +
         `<div style="text-align:center"><button class="btn primary" id="boot-retry">Retry</button></div>`;
       sbLeft.textContent = 'engine offline';
@@ -717,8 +739,8 @@ function setupMobileTabbar() {
       return;
     }
     splashStatus('connecting to interface');
-    await pollCable();
-    startStatusPolling();
+    await statusPoller._pollCable();
+    statusPoller.start();
     // hold the splash briefly so it never just flickers
     const minMs = 1100;
     const wait = Math.max(0, minMs - (Date.now() - splashStart));
