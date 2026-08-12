@@ -167,7 +167,7 @@ async function showScriptSelection(chassisId) {
         <div class="inpa-ss-left" id="ss-left">
           <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${esc(dispChassis(chassisId))}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${esc(s.name)}</button>`).join('')}
-          ${typeof showEcuCoding === 'function' ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
+          ${typeof showCodingHub === 'function' ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
         </div>
         <div class="inpa-ss-right" id="ss-right">
           <div class="inpa-ss-head" id="ss-head">Functional jobs</div>
@@ -216,66 +216,15 @@ async function showScriptSelection(chassisId) {
     });
   };
 
-  // Coding row selected: every module of this chassis whose coding the app
-  // can label -- named values in the SGBD (an editable read) or BMW's DATEN
-  // description of the blob (a reference map). Opens straight into the
-  // coding screen, skipping the module's own menu.
-  const showCodingList = async () => {
-    const seq = ++paneSeq;
-    items.forEach(it => it.classList.toggle('active', it.dataset.i === '-2'));
-    headEl.hidden = true;
-    headEl.classList.remove('func');
-    headEl.onclick = null;
-    jobsPane.innerHTML = '<div class="inpa-ss-empty">checking modules…</div>';
-
-    // one entry per module even when it appears in several sections; the
-    // first section wins so Back lands somewhere it actually lives
-    const seen = new Set(); const all = [];
-    for (const s of ch.sections) {
-      for (const e of s.ecus) {
-        if (seen.has(e.sgbd)) continue;
-        seen.add(e.sgbd);
-        all.push({ ...e, section: s.name });
-      }
-    }
-    const kinds = await Promise.all(all.map(async (e) => {
-      if (await codingFor(e.sgbd)) return 'values';
-      if (await datenFor(e.sgbd)) return 'map';
-      return null;
-    }));
-    if (seq !== paneSeq) return;
-
-    const codeable = all.map((e, i) => ({ ...e, kind: kinds[i] }))
-      .filter(e => e.kind);
-    // The curated feature list leads: friendly, grouped owner-facing options
-    // (BimmerCode-style) above the raw per-module coding. Only where a chassis
-    // has a curated map. The per-module rows follow as the expert tier.
-    const curated = typeof hasCurated === 'function' && hasCurated(chassisId);
-    jobsPane.innerHTML =
-      (curated ? `<button class="inpa-ss-job inpa-ss-featured" data-feat="1">`
-        + `Features<span class="inpa-ss-kind">easy</span></button>` : '')
-      + (codeable.length
-        ? codeable.map((e, i) => `<button class="inpa-ss-job" data-i="${i}">${esc(e.label)}<span class="inpa-ss-kind">${e.kind}</span></button>`).join('')
-        : (curated ? '' : '<div class="inpa-ss-empty">No codeable modules</div>'));
-    const feat = jobsPane.querySelector('[data-feat]');
-    if (feat) feat.onclick = () => {
-      close();
-      const back = () => showScriptSelection(chassisId);
-      setCrumbs([{ label: 'Vehicles', fn: showChassis },
-                 { label: dispChassis(chassisId), fn: back },
-                 { label: 'Features' }]);
-      showCuratedCoding(chassisId, view, back);
-    };
-    jobsPane.querySelectorAll('.inpa-ss-job[data-i]').forEach(b => {
-      const e = codeable[Number(b.dataset.i)];
-      b.onclick = () => { close(); showEcuCoding(chassisId, e.section, { sgbd: e.sgbd, code: e.code, label: e.label }); };
-    });
-  };
+  // Coding row selected: close the popup and open the Coding hub (Features +
+  // Expert). The hub is the single home for coding now -- the per-module
+  // browsing that used to live here is its Expert tab.
+  const openCoding = () => { close(); showCodingHub(chassisId); };
 
   items.forEach(it => {
     const i = Number(it.dataset.i);
     it.onclick = () => (i === -1 ? showChassisJobs()
-      : i === -2 ? showCodingList() : showSection(i));
+      : i === -2 ? openCoding() : showSection(i));
   });
   showChassisJobs(); // open on the chassis row: Functional Jobs only
 }
@@ -410,6 +359,17 @@ async function showSections(id, selectIndex = 0) {
     item.onclick = () => selectSection(idx);
     nav.appendChild(item);
   });
+
+  // Coding, a first-class destination like Wiring: opens the Coding hub
+  // (Features + Expert). Shown only when the chassis has codeable modules.
+  if (typeof chassisHasCoding === 'function' && await chassisHasCoding(id)) {
+    const code = document.createElement('button');
+    code.className = 'sys-item sys-coding';
+    code.innerHTML = `<span class="nav-name">Coding</span>
+                      <span class="nav-count">edit</span>`;
+    code.onclick = () => showCodingHub(id);
+    nav.appendChild(code);
+  }
 
   // whole-vehicle fault scan (the classic Functional Jobs F4), reachable from
   // the modern layout too: scans every module's fault memory in one pass

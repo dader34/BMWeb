@@ -1079,6 +1079,67 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 /* Coding editor: one row per named coding value. The label reads as English,
    the SGBD's own result name sits beside it in mono (that name is what you
    check against a coding table), then the value as a toggle or a number. */
+/* ---- CODING HUB: Features / Expert tabs --------------------------------- */
+.coding-tabs {
+  display: inline-flex; gap: 2px; padding: 3px; margin: 4px 0 14px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.coding-tab {
+  padding: 7px 20px; border: 0; border-radius: 8px; background: none;
+  color: var(--ink-dim); font: inherit; font-weight: 600; font-size: 14px;
+  cursor: pointer;
+}
+.coding-tab:hover { color: var(--ink); }
+.coding-tab.active { background: var(--amber); color: #1a1206; }
+html[data-theme="inpa"] .coding-tab.active { background: #0a246a; color: #fff; }
+.coding-panel { min-width: 0; }
+
+/* Expert nested tree (desktop, BimmerUtility-style) */
+.coding-tree-wrap { display: flex; flex-direction: column; min-height: 0; }
+.tree-bar { margin-bottom: 10px; }
+.tree-filter { width: 100%; max-width: 520px; }
+.coding-tree { display: grid; gap: 6px; max-width: 860px; }
+.tree-mod {
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  background: var(--panel);
+}
+.tree-mod-h, .tree-fn-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 11px 14px; cursor: pointer; list-style: none; user-select: none;
+}
+.tree-mod-h::-webkit-details-marker, .tree-fn-h::-webkit-details-marker { display: none; }
+.tree-mod-h::before, .tree-fn-h::before {
+  content: "▸"; color: var(--ink-faint); margin-right: 8px;
+  transition: transform .12s; display: inline-block; flex: 0 0 auto;
+}
+.tree-mod[open] > .tree-mod-h::before, .tree-fn[open] > .tree-fn-h::before {
+  transform: rotate(90deg);
+}
+.tree-mod-h { font-weight: 700; }
+.tree-mod-h:hover, .tree-fn-h:hover { background: rgba(127,127,127,.06); }
+.tree-name { flex: 1; min-width: 0; }
+.tree-meta, .tree-key { font-size: 11px; color: var(--ink-faint); flex: 0 0 auto; }
+.tree-fns { border-top: 1px solid var(--line); padding: 2px 0 2px 18px; }
+.tree-fn { border-bottom: 1px solid rgba(127,127,127,.08); }
+.tree-fn:last-child { border-bottom: 0; }
+.tree-fn-h { padding: 9px 14px; font-weight: 500; }
+.tree-vals {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 14px 12px 40px;
+}
+.tree-val {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px;
+  font-size: 12px; color: var(--ink-dim);
+}
+.tree-val-v { color: var(--amber); }
+.tree-more { padding: 8px 14px 12px 40px; font-size: 12px; color: var(--ink-faint); }
+/* Expert module list (mobile) row metadata */
+.exp-row { align-items: center; }
+.exp-sgbd { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+.exp-kind { font-size: 11px; color: var(--ink-faint); margin-right: 8px; }
+.exp-arrow { color: var(--ink-faint); font-size: 18px; font-weight: 600; }
+.sys-item.sys-coding .nav-count { color: var(--amber); }
+
 /* ---- CURATED FEATURE-TOGGLE CODING (the friendly tier) ------------------ */
 .cur-menu { max-width: 720px; }
 .cur-groups { display: grid; gap: 22px; margin-top: 10px; }
