@@ -301,11 +301,15 @@ function codTranslate(text, asName) {
 
 // COD_FH_DEAKTIV_NACH_TUER_AUF_EIN -> "Windows deactivate after door open"
 function codLabelFromName(name) {
-  const parts = String(name).replace(/^(COD|STAT|STATUS|CODIER)_/i, '')
-    .split('_').filter(Boolean);
+  const bare = String(name).replace(/^(COD|STAT|STATUS|CODIER)_/i, '');
+  const parts = bare.split('_').filter(Boolean);
   // a trailing _EIN/_AKTIV on a switch is the boolean marker, not the word
   if (parts.length > 1 && /^(EIN|AKTIV)$/i.test(parts[parts.length - 1])) parts.pop();
-  return codTidy(codTranslate(parts.join(' '), true), name);
+  // the SGBD's COD_ names and DATEN's FSW keywords share a vocabulary, so
+  // NCS Dummy's translations often know the stripped name outright -- try
+  // it whole (and without the boolean marker) before going word by word
+  return datI18n(bare) || datI18n(parts.join('_'))
+    || codTidy(codTranslate(parts.join(' '), true), name);
 }
 
 // sentence case, and never return an empty label.
@@ -370,8 +374,11 @@ function codHint(f) {
 
 // Is this value on? The ECU answers 1/0, but demo mode and some SGBDs answer
 // in words, and a coding flag reads "ja"/"aktiv"/"ein" just as readily.
+// both spellings travel: SGBD result text says "nicht aktiv", DATEN's PSW
+// keywords say "nicht_aktiv", and IHKA38 answers the former
 const COD_TRUE = new Set(['1', 'ja', 'ein', 'aktiv', 'vorhanden', 'yes', 'on', 'true']);
-const COD_FALSE = new Set(['0', 'nein', 'aus', 'inaktiv', 'nicht vorhanden', 'no', 'off', 'false']);
+const COD_FALSE = new Set(['0', 'nein', 'aus', 'inaktiv', 'nicht aktiv', 'nicht_aktiv',
+                           'nicht vorhanden', 'nicht_vorhanden', 'no', 'off', 'false']);
 function codIsOn(raw) {
   return COD_TRUE.has(String(raw ?? '').trim().toLowerCase());
 }
@@ -427,13 +434,84 @@ function datLabel(name) {
   return datI18n(name) || codTidy(codTranslate(name, true), name);
 }
 
-// TURNED OFF. Flip to true to put the Coding map back on the ECU menu.
+// FSW stem -> the module's legal values, merged across every chassis and
+// coding variant BMW ships for it: [[psw, value], ...] sorted by value.
+// Only real choices travel -- a single wert_NN default is a number, not an
+// option list, and a hex buffer is not a pick list at all. Modules reach
+// this map only through an exact SGBD name match or an evidence-checked
+// alias (daten_map.py), so an enum here belongs to this module.
+async function codDatEnums(sgbd) {
+  const daten = await datenFor(sgbd);
+  if (!daten) return null;
+  const acc = {};
+  for (const variants of Object.values(daten.chassis)) {
+    for (const fields of Object.values(variants)) {
+      for (const f of fields) {
+        // plain settings carry the mask-normalised byte as a short hex
+        // string ("00", "01"); anything longer is a buffer, not a choice
+        const vals = (f.values || [])
+          .filter(([, v]) => typeof v === 'string' && /^[0-9a-f]{1,4}$/i.test(v))
+          .map(([n, v]) => [n, parseInt(v, 16)]);
+        if (vals.length < 2) continue;
+        const m = acc[f.name.toUpperCase()]
+          || (acc[f.name.toUpperCase()] = new Map());
+        for (const [n, v] of vals) {
+          const k = `${String(n).toLowerCase()}=${v}`;
+          if (!m.has(k)) m.set(k, [n, v]);
+        }
+      }
+    }
+  }
+  const out = {};
+  for (const [k, m] of Object.entries(acc)) {
+    out[k] = [...m.values()].sort((a, b) => a[1] - b[1]);
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// Pair DATEN's function names to a module's own result names. The two
+// spell the same thing differently -- LSZ's SGBD says
+// COD_BL_LI_RE_KALTUEBERWACHUNG_EIN where DATEN says KALTUEBERWACHUNG_BL
+// -- so equality alone finds almost nothing. Two rules, in order:
 //
-// The screen and its data are intact -- this is the one gate every entry
-// point runs through (the tile, the INPA row, the C key, and the hook that
-// survives a submenu redraw), so switching it here removes all of them
-// without disturbing the code that draws them.
-const CODING_MAP_ENABLED = false;
+//   1. exact stem equality (prefix and boolean-marker stripped) -- wins
+//   2. every DATEN token appears in the field's tokens, the DATEN name has
+//      at least two tokens (one-token names like "BC" claim half a module),
+//      and the pairing is UNIQUE in both directions
+//
+// An ambiguous claim matches nothing: a guess here would put another
+// function's value list on a field, which is worse than no list.
+function codEnumMatch(names, enums) {
+  const strip = (n) => String(n)
+    .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase();
+  const toks = (n) => new Set(
+    strip(n).split('_').filter(t => t && !/^(EIN|AKTIV)$/.test(t)));
+  const out = new Map();
+  const fields = names.map(n => ({ n, stem: strip(n), t: toks(n) }));
+  const claims = new Map();          // field name -> [enum, enum...]
+  for (const [dn, en] of Object.entries(enums)) {
+    const exact = fields.filter(x => x.stem === dn);
+    if (exact.length === 1) { out.set(exact[0].n, en); continue; }
+    const dt = toks(dn);
+    if (dt.size < 2) continue;
+    const cands = fields.filter(x => [...dt].every(t => x.t.has(t)));
+    if (cands.length !== 1) continue;
+    const a = claims.get(cands[0].n) || [];
+    a.push(en);
+    claims.set(cands[0].n, a);
+  }
+  for (const [fname, list] of claims) {
+    if (list.length === 1 && !out.has(fname)) out.set(fname, list[0]);
+  }
+  return out;
+}
+
+// ON, as a read-only map: the screen reads and stages, and the send path
+// still does not exist (see the header). This is the one gate every entry
+// point runs through -- the ECU tile, the INPA row, the C key, the hook
+// that survives a submenu redraw, and the Script-selection Coding list --
+// so flipping it here adds or removes all of them at once.
+const CODING_MAP_ENABLED = true;
 
 // Does this ECU have a coding page worth offering? Used by the ECU menu to
 // decide whether to show the key at all. Either source will do: the SGBD's
@@ -618,6 +696,10 @@ async function showCoding(ecu, container, back, chassisId) {
   // the window edge and the list cannot be scrolled past the fold. Screens
   // normally render into a CHILD of .view, so restyle only when this is one.
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
+  // the English labels (BMW_DATEN_I18N) travel inside datenmap.js, which the
+  // editor path never touches otherwise -- load it up front so the field
+  // labels drawn below can use them
+  if (typeof loadDatenMap === 'function') await loadDatenMap();
   const entry = await codingFor(ecu.sgbd);
   if (!entry) {
     // No named values in the SGBD. BMW's DATEN files may still describe
@@ -637,6 +719,18 @@ async function showCoding(ecu, container, back, chassisId) {
   const staged = new Map();
   let current = new Map();     // what the ECU last answered
   let readOk = false;
+
+  // BMW's DATEN value lists for this module, where its description is
+  // confidently paired to this SGBD and the function name pairs to the
+  // field (codEnumMatch). A field only becomes a dropdown when the value
+  // the module ANSWERED also matches one of the listed options -- that
+  // match is the proof the SGBD reports this field in the same numeric
+  // space DATEN describes. Without it the options still show, but as a
+  // hint on the input rather than as choices that stage a value.
+  const enums = await codDatEnums(ecu.sgbd);
+  const enumBy = enums
+    ? codEnumMatch(entry.fields.map(f => f.name), enums) : new Map();
+  const enumFor = (f) => enumBy.get(f.name) || null;
 
   const write = entry.write && entry.write.supported ? entry.write : null;
   // which staged values the write could actually carry: an argument is only
@@ -698,8 +792,24 @@ async function showCoding(ecu, container, back, chassisId) {
           + `<span class="cod-state">${on ? 'on' : 'off'}</span></button>`;
       } else {
         const shown = isStaged ? staged.get(f.name) : cur;
-        valueHtml = `<button class="cod-num" data-f="${esc(f.name)}">`
-          + `${esc(shown)}</button>`;
+        const en = enumFor(f);
+        const match = en && /^-?\d+$/.test(String(shown).trim())
+          ? en.find(([, v]) => v === Number(String(shown).trim())) : null;
+        if (match) {
+          valueHtml = `<select class="cod-sel" data-f="${esc(f.name)}">`
+            + en.map(([n, v]) =>
+              `<option value="${v}"${v === match[1] ? ' selected' : ''}>`
+              + `${esc(datI18n(n) || n)} · ${v}</option>`).join('')
+            + `</select>`;
+        } else {
+          // the option list rides along as a tooltip even when the answer
+          // matches none of it: still useful, but not safe to stage from
+          const optHint = en
+            ? en.map(([n, v]) => `${v} = ${datI18n(n) || n}`).join('\n') : '';
+          valueHtml = `<button class="cod-num" data-f="${esc(f.name)}"`
+            + `${optHint ? ` title="${esc(optHint)}"` : ''}>`
+            + `${esc(shown)}</button>`;
+        }
       }
 
       const hint = codHint(f);
@@ -713,7 +823,15 @@ async function showCoding(ecu, container, back, chassisId) {
       list.appendChild(row);
     });
 
-    // A switch flips; a number is typed. Neither sends anything.
+    // A switch flips, a listed value is picked, a number is typed. Neither
+    // sends anything.
+    list.querySelectorAll('.cod-sel').forEach(s => s.onchange = () => {
+      const name = s.dataset.f;
+      const picked = String(Number(s.value));
+      if (picked === String(current.get(name) ?? '').trim()) staged.delete(name);
+      else staged.set(name, picked);
+      draw();
+    });
     list.querySelectorAll('.cod-toggle').forEach(b => b.onclick = () => {
       const name = b.dataset.f;
       const cur = codIsOn(current.get(name)) ? 1 : 0;
@@ -725,12 +843,18 @@ async function showCoding(ecu, container, back, chassisId) {
     list.querySelectorAll('.cod-num').forEach(b => b.onclick = async () => {
       const name = b.dataset.f;
       const field = entry.fields.find(f => f.name === name);
+      const en = enumFor(field);
       const val = await inputDialog({
         title: codLabel(field),
         body: `<span class="mono">${esc(name)}</span>`
           // BMW's own comment, but only when it says something the title does
           // not already say -- the title IS the translated comment
           + (codHint(field) ? `<br>Valid values: ${esc(codHint(field))}` : '')
+          // DATEN's value list for the same stem, when it has one. Shown as
+          // reference, capped so a country table does not swallow the dialog
+          + (en ? `<br>DATEN lists:<span class="mono">${en.slice(0, 12)
+              .map(([n, v]) => `<br>&nbsp;&nbsp;${v} = ${esc(datI18n(n) || n)}`)
+              .join('')}${en.length > 12 ? `<br>&nbsp;&nbsp;… ${en.length - 12} more` : ''}</span>` : '')
           + `<br><br>The module currently reports `
           + `<b>${esc(current.get(name))}</b>. Changing this stages the value; `
           + `nothing is sent to the car.`,
@@ -826,4 +950,22 @@ async function showCoding(ecu, container, back, chassisId) {
 
   draw();
   doRead();
+}
+
+// Open a module's coding screen directly -- the Script-selection Coding list
+// lands here, skipping the ECU's root menu. Back returns to the module list
+// (the Script-selection popup in INPA mode, the sections screen otherwise),
+// which is where the user came from.
+function showEcuCoding(chassisId, sectionName, ecu) {
+  const back = () => backToModules(chassisId);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: dispChassis(chassisId), fn: back },
+    { label: ecu.label, fn: () => showEcu(chassisId, sectionName, ecu) },
+    { label: 'Coding map' },
+  ]);
+  view.innerHTML = head('Coding', ecu.label, `SGBD ${ecu.sgbd}.prg`);
+  const grid = document.createElement('div');
+  view.appendChild(grid);
+  showCoding(ecu, grid, back, chassisId);
 }

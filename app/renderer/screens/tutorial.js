@@ -92,14 +92,6 @@ function tourSteps() {
     },
     {
       screen: 'module',
-      sel: '#flash-btn',
-      title: 'Flashing',
-      body: 'Identify the DME, then read or back up its flash regions over '
-          + 'the cable. The current stages are read-only, so nothing is '
-          + 'ever written to the ECU.',
-    },
-    {
-      screen: 'module',
       sel: '#settings-btn',
       title: 'Make it yours',
       body: 'Pick a theme, switch between classic and modern screen '

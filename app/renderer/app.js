@@ -560,7 +560,6 @@ function bootFail(e) {
 
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
-  document.getElementById('flash-btn').onclick = showFlashing;
   tipify(document.querySelector('.topbar'));   // instant tooltips up top
   // custom window controls (frameless window for Aero; removed by index.html
   // on the web, where they drive nothing)

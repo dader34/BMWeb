@@ -268,6 +268,25 @@ ok(!irIsCard(g.screens['s_analog_1']),
   const idw = lw3.menus.m_id_schreiben.items.find(i => i.nr === 8);
   ok(idw && idw.job === 'IDENT_SCHREIBEN' && idw.stateJob && idw.writeJob,
      `ident write not surfaced: ${idw && idw.job}`);
+  // ...and its state procedure is now DECODED into a form: eight fields in
+  // the ;-joined send order, each named by the Change proc that fills it.
+  ok(idw.stateForm && idw.stateForm.fields.length === 8,
+     `ident write form: ${idw.stateForm && idw.stateForm.fields.length} fields`);
+  ok(idw.stateForm.fields[0].caption === 'BMW part number'
+     && idw.stateForm.fields[7].caption === 'Supplier'
+     && idw.stateForm.sep === ';',
+     'ident write form fields/order wrong');
+  // the "Change: Indices" key edits three fields (Coding/Diagnostic/Bus)
+  const chIdx = lw3.menus.m_id_schreiben.items.find(i => i.nr === 5);
+  ok(chIdx && chIdx.stateEdit && chIdx.stateEdit.fields.length === 3
+     && chIdx.stateEdit.fields[0].caption === 'Coding index',
+     'Change: Indices should edit 3 named fields');
+  ok(!chIdx.job && !chIdx.stateJob,
+     'a Change key edits the buffer and must name no job');
+  // "Set default values" copies the eight read-back slots into edit slots
+  const dflt = lw3.menus.m_id_schreiben.items.find(i => i.nr === 1);
+  ok(dflt && Array.isArray(dflt.stateCopy) && dflt.stateCopy.length === 8,
+     `Set default should copy 8 slot pairs, got ${dflt && (dflt.stateCopy || []).length}`);
   // so the key opens its MENU again, rather than an empty screen
   const ex = irMenuItems(lw3, 'm_entwickler_5_0');
   const wc = ex.find(i => /^Write Coding Data$/i.test(i.label));

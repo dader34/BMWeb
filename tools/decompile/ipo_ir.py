@@ -1009,6 +1009,156 @@ def _seq_jobs(name, all_toks, id2name, seen=None):
     return out
 
 
+# the hex/int entry dialogs a "Change:" state proc opens. Each takes a run
+# of caption/limit strings and commits its answer(s) into a global slot with
+# a `var tmp -> store slot` right after the call. inputhex is one field,
+# input2hex is two; input2hexnum/inputint round out the family.
+_INPUT_DIALOGS = {
+    0x41: ("inputhex", 1),      # (out, title, caption, min, max)
+    0x45: ("input2hex", 2),     # (out, out, title, caption, c1, c2, mn1, mx1, mn2, mx2)
+    0x44: ("input2hexnum", 2),
+    0x46: ("inputint", 1),
+    0x42: ("inputdigital", 1),  # (out bool, title, caption, falseStr, trueStr)
+}
+
+
+def _state_proc(body):
+    """What a "Change: ..." / "Write ... into ECU" state proc actually does.
+
+    These procs carry no job (the Change keys) or one write job (the final
+    key), and INPA drops both without this. Every one is the same shape --
+    load a global into a dialog var, open an input dialog, commit the answer
+    back to the global -- so the proc is really a little form. Returns:
+
+        {"fields": [{"slot", "title", "caption", "min", "max", "dialog"}],
+         "copy":   [[src_slot, dst_slot], ...],   # "Set default values"
+         "writeSlot": N,                          # global the job arg reads
+         "argOrder": [slot, slot, ...],           # the ;-joined send order
+         "sep": ";"}
+
+    Only the parts present for a given proc appear. `fields` binds each
+    dialog to the slot it writes by the commit `store` that follows the
+    input call -- the reliable anchor, since the caption strings sit in the
+    call frame just before it.
+    """
+    out = {"fields": []}
+    # captions seen since the last frame, and the input call awaiting commit
+    frame_strs = []
+    pending = None                       # (dialog_name, n_outs, [captions])
+    committed = 0                        # commit stores seen for `pending`
+    copy_src = None                      # a bare `var slot` with nothing else
+
+    # the argument add-chain: alternating `var slot` and separator const.
+    arg_vars = []                        # slots in the order they concatenate
+    arg_sep = None
+    building_arg = False
+
+    for i, t in enumerate(body):
+        op = t["op"]
+        if op == "frame":
+            frame_strs = []
+            continue
+        if op == "const":
+            if t.get("t") == "s":
+                frame_strs.append(t["v"])
+                # a separator in an add-chain of vars (";", " ")
+                if building_arg and t["v"] in (";", " ", ",", "/"):
+                    arg_sep = arg_sep or t["v"]
+            continue
+        if op == "call":
+            nm = t.get("name")
+            d = _INPUT_DIALOGS.get(t["n"])
+            if d:
+                pending = (d[0], d[1], list(frame_strs))
+                committed = 0
+                frame_strs = []
+            elif nm in ("setstatemachine", "getinputstate"):
+                pass
+            else:
+                pending = None           # any other call ends a form step
+            building_arg = False
+            arg_vars = []
+            continue
+        if op == "binop":
+            if t.get("name") == "add":
+                building_arg = True
+            else:
+                building_arg = False
+                arg_vars = []
+            continue
+        if op == "var":
+            # a var feeding an add-chain is part of the argument assembly
+            if building_arg or not arg_vars:
+                arg_vars.append(t["n"])
+            copy_src = t["n"] if t.get("sc", 0) == 0 else None
+            continue
+        if op == "store":
+            slot = t["n"]
+            # commit of a dialog answer: the store right after an input call
+            if pending and committed < pending[1]:
+                caps = pending[2]
+                # inputhex: [title, caption, min, max]
+                # input2hex: [title, caption, cap1, cap2, mn1, mx1, mn2, mx2]
+                if pending[0] in ("input2hex", "input2hexnum"):
+                    cap = caps[2 + committed] if len(caps) > 3 + committed else ""
+                    mn = caps[4 + committed * 2] if len(caps) > 5 + committed * 2 else ""
+                    mx = caps[5 + committed * 2] if len(caps) > 5 + committed * 2 else ""
+                    title = caps[0] if caps else ""
+                else:
+                    title = caps[0] if caps else ""
+                    cap = caps[1] if len(caps) > 1 else ""
+                    mn = caps[2] if len(caps) > 2 else ""
+                    mx = caps[3] if len(caps) > 3 else ""
+                out["fields"].append({
+                    "slot": slot, "title": title, "caption": cap,
+                    "min": mn, "max": mx, "dialog": pending[0]})
+                committed += 1
+                if committed >= pending[1]:
+                    pending = None
+                copy_src = None
+                continue
+            # the assembled argument stored into the slot the job reads
+            if building_arg and len(arg_vars) >= 2:
+                if "writeSlot" not in out or arg_sep == ";":
+                    out["writeSlot"] = slot
+                    out["argOrder"] = list(arg_vars)
+                    out["sep"] = arg_sep or ";"
+                building_arg = False
+                arg_vars = []
+                copy_src = None
+                continue
+            copy_src = None
+            arg_vars = []
+            continue
+
+    # nothing worth carrying if it neither prompts nor assembles. The
+    # load-into-dialog-var copy (`var slot -> store tmp`) is NOT recorded as
+    # a copy: it is plumbing, and only the plain read-slot -> edit-slot run
+    # in the menu's own "Set default" body is a real one (_inline_copy).
+    if not out["fields"] and "argOrder" not in out:
+        return None
+    if not out["fields"]:
+        del out["fields"]
+    return out
+
+
+def _inline_copy(item_body):
+    """A menu ITEM whose whole body is `var a -> store b` pairs, no dialog
+    and no call: INPA's "Set default values" reloads the edit buffer from
+    the read-back slots. Returns [[src, dst], ...] or None."""
+    pairs, src = [], None
+    for t in item_body:
+        op = t["op"]
+        if op == "var" and t.get("sc", 0) == 0:
+            src = t["n"]
+        elif op == "store" and src is not None and t.get("sc", 0) == 0:
+            pairs.append([src, t["n"]])
+            src = None
+        elif op in ("call", "calluser", "binop", "const", "procref"):
+            return None                  # anything else: not a plain copy
+    return pairs if len(pairs) >= 2 else None
+
+
 def _field_values(all_toks, order):
     """{slot: {"init": v, "values": [...]}} across the whole file."""
     out = {s: {"init": None, "values": set()} for s in order}
@@ -1793,8 +1943,45 @@ def build(ecu):
     # body is "prompt for a path, open it 'w', write the coding data" -- INPA
     # offers no coding readout for this ECU at all. Resolved here because the
     # evidence is in the state proc, not in the menu item.
-    for menu in ir["menus"].values():
+    # slot -> the caption/limits the proc that EDITS it declared, gathered
+    # across every state proc in the file. The write proc names its argument
+    # slots but not what they mean; the Change proc that fills each slot does.
+    slot_field = {}
+    for body in all_toks.values():
+        form = _state_proc(body)
+        for f in (form or {}).get("fields", []):
+            slot_field.setdefault(f["slot"], f)
+
+    # per-menu, per-item "Set default" copies: those live in the menu ITEM
+    # body itself, not a state proc, so they are sliced out here by nr.
+    inline_copies = {}                   # menu_name -> {nr: [[src, dst], ...]}
+    for menu_name, toks in all_toks.items():
+        if not any(t["op"] == "ITEM" for t in toks):
+            continue
+        cur, start = None, None
+        by_nr = {}
+        for i, t in enumerate(toks):
+            if t["op"] == "ITEM":
+                if cur is not None:
+                    cp = _inline_copy(toks[start:i])
+                    if cp:
+                        by_nr[cur] = cp
+                cur, start = t.get("nr"), i + 1
+        if cur is not None:
+            cp = _inline_copy(toks[start:])
+            if cp:
+                by_nr[cur] = cp
+        if by_nr:
+            inline_copies[menu_name] = by_nr
+
+    for menu_name, menu in ir["menus"].items():
+        copies = inline_copies.get(menu_name, {})
         for it in menu["items"]:
+            # "Set default values": the copy lives in the item body, not a
+            # state proc, so it is applied whether or not the item has _state.
+            cp = copies.get(it.get("nr"))
+            if cp and "job" not in it:
+                it["stateCopy"] = cp
             st = it.pop("_state", None)
             if not st or st not in all_toks:
                 continue
@@ -1803,6 +1990,7 @@ def build(ecu):
             if (calls & {0x5c, 0x79}) and not (calls & {0x62, 0x6f}):
                 it["fileAction"] = True     # writes a file, never asks the ECU
                 continue
+            form = _state_proc(body)
             # ...but a state machine that CALLS A JOB is a real ECU function,
             # and the job is the only evidence of what the key does: LWS5's
             # "Write Data into ECU" runs CODIERUNG_SCHREIBEN_DATEI, and its
@@ -1822,6 +2010,16 @@ def build(ecu):
                     if _PERSISTENT_WRITE.search(nm):
                         it["writeJob"] = True
                     break
+            # THE ARGUMENT THE WRITE ASSEMBLES, spelled out. The proc joins
+            # the edit-buffer slots with ";" in a fixed order and hands that
+            # to the job. Each slot is named by the Change proc that fills it
+            # (slot_field), so the write key becomes a real form: every field
+            # editable, the exact argument shown, still never sent (the app's
+            # write policy holds -- writeJob stays set).
+            if form and form.get("argOrder"):
+                fields = [dict(slot_field.get(s, {"slot": s}), slot=s)
+                          for s in form["argOrder"]]
+                it["stateForm"] = {"fields": fields, "sep": form.get("sep", ";")}
             # ...and when the state proc calls no job ITSELF, follow where it
             # goes. INPA's special tests are built this way: S_ABSASC's entry
             # state prints "press brake pedal" and transitions through
@@ -1839,6 +2037,13 @@ def build(ecu):
                     it["stateJobs"] = reached
                     if any(_PERSISTENT_WRITE.search(j) for j in reached):
                         it["writeJob"] = True
+            # A "Change: ..." key: no job of its own, it only edits the
+            # buffer the write key later sends. INPA drops these entirely,
+            # which is why they read as "not decoded". Emit the one field
+            # (or two) it edits so the key opens its dialog and stages a
+            # value -- exactly what INPA does, minus the send.
+            if "job" not in it and form and form.get("fields"):
+                it["stateEdit"] = {"fields": form["fields"]}
 
     # A KEY THAT CALLS `start` LAUNCHES THE SCRIPT'S OWN MACHINE. INPA's
     # special tests (ABS/ASC bleeding, RDC antenna check) are whole programs

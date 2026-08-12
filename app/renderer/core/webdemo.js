@@ -157,7 +157,11 @@ function webDemoSets(meta, job, arg) {
   // does not restart the animation.
   // NOT re-reduced mod 101: that would snap the seed back once every 101
   // seconds and undo the fold. tri() bounds each shape itself.
-  let i = base + webDemoPhase();
+  // A coding read answers what the module IS CODED TO, not a measurement:
+  // it must return the same values on every press of Re-read, so the drift
+  // stays off it entirely. Everything else animates as before.
+  const codingJob = /CODIER|^COD_/i.test(name);
+  let i = base + (codingJob ? 0 : webDemoPhase());
   let steady = base;
 
   for (const r of j.results) {
@@ -173,10 +177,36 @@ function webDemoSets(meta, job, arg) {
   return [row];
 }
 
+// Overlay a coding read's results with values the module could actually
+// hold: where BMW's DATEN description lists this field's legal values
+// (codDatEnums, coding-edit.js), the invented number is replaced by one of
+// them -- picked by a hash of the result name, so it is stable across
+// reads and differs between fields. Fields DATEN does not describe keep
+// their synthetic value. Guarded, because the offline bundle may load this
+// file without the coding screen.
+async function webDemoCoding(sgbd, job, sets) {
+  if (!/CODIER|^COD_/i.test(String(job))) return;
+  if (typeof codDatEnums !== 'function'
+      || typeof codEnumMatch !== 'function') return;
+  let enums = null;
+  try { enums = await codDatEnums(String(sgbd).toLowerCase()); } catch { return; }
+  if (!enums) return;
+  for (const row of sets || []) {
+    const matched = codEnumMatch(Object.keys(row), enums);
+    for (const [rn, en] of matched) {
+      if (!en.length) continue;
+      let h = 0;
+      for (const c of rn) h = (h * 31 + c.charCodeAt(0)) % 997;
+      row[rn] = String(en[h % en.length][1]);
+    }
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.webDemoSets = webDemoSets;
   window.webDemoValue = webDemoValue;
+  window.webDemoCoding = webDemoCoding;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { webDemoSets, webDemoValue, webDemoEcho };
+  module.exports = { webDemoSets, webDemoValue, webDemoEcho, webDemoCoding };
 }

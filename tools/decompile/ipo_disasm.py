@@ -272,6 +272,11 @@ BUILTINS = {
     0x02: "setitem",         # setitem(nr, caption, enabled)
     0x03: "settitle",
     0x04: "setscreen", 0x0c: "exit",
+    # state-machine control. 0x05 takes one STATE decl (kind 0x42), 0x06 one
+    # STATEMACHINE decl (kind 0x43); named by argument shape, corpus-wide (66
+    # and 319 sites) and against Inpa.h's setstate/setstatemachine. These are
+    # how a "Change: ..." key's scripted sequence steps between its own states.
+    0x05: "setstate", 0x06: "setstatemachine",
     0x0f: "scriptchange",    # loads another .IPO entirely (empirical)
     0x10: "select", 0x11: "deselect", 0x13: "start", 0x17: "printscreen",
     0x18: "printfile",
@@ -289,8 +294,17 @@ BUILTINS = {
     # input dialogs. getinputstate reports how the LAST dialog closed
     # (== input_ok means the user pressed OK, and the answer slots are live).
     0x3e: "getinputstate",
+    # single- and double-field hex entry, and the yes/no box. Named by
+    # argument shape (7, 7 and many sites in LWS5's ident-write procs) against
+    # Inpa.h's inputhex/input2hex/inputdigital: 0x41 is (out hexstr, title,
+    # caption, min, max); 0x45 is (out a, out b, title, caption, cap1, cap2,
+    # min1, max1, min2, max2); 0x42 is (out bool, title, caption, falseStr,
+    # trueStr). These are the dialogs the "Change: ..." keys open.
+    0x41: "inputhex",        # (ref hexstr, title, caption, minhex, maxhex)
+    0x42: "inputdigital",    # (ref bool, title, caption, falseStr, trueStr)
     0x43: "input2text",      # (ref a, ref b, title, help, cap1, cap2)
     0x44: "input2hexnum",    # (ref hexstr, ref int, title, help, ...)
+    0x45: "input2hex",       # (ref a, ref b, title, cap, c1, c2, mn1, mx1, mn2, mx2)
     0x46: "inputint",        # (ref n, title, range, min, max)
     # display statements
     0x48: "text",            # text(row, col, str)

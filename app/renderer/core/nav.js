@@ -167,6 +167,7 @@ async function showScriptSelection(chassisId) {
         <div class="inpa-ss-left" id="ss-left">
           <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${esc(dispChassis(chassisId))}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${esc(s.name)}</button>`).join('')}
+          ${typeof showEcuCoding === 'function' ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
         </div>
         <div class="inpa-ss-right" id="ss-right">
           <div class="inpa-ss-head" id="ss-head">Functional jobs</div>
@@ -182,9 +183,14 @@ async function showScriptSelection(chassisId) {
   // variant-group + sweep-priority tables (sweep.js), so the sweep skips dead variants.
   const allowFunc = !!VARIANT_GROUPS[chassisId.toUpperCase()];
 
+  // the Coding pane fills in asynchronously; if another row was picked while
+  // its checks ran, the late answer must not overwrite the newer pane
+  let paneSeq = 0;
+
   // chassis row selected: the single "Functional jobs" header is the entry,
   // clickable, with nothing listed beneath it.
   const showChassisJobs = () => {
+    paneSeq++;
     items.forEach(it => it.classList.toggle('active', it.dataset.i === '-1'));
     headEl.hidden = false;
     headEl.textContent = 'Functional jobs';
@@ -196,6 +202,7 @@ async function showScriptSelection(chassisId) {
   // section row selected: right pane is just that section's ECU modules. no
   // header (it would only repeat the section name already selected on the left).
   const showSection = (i) => {
+    paneSeq++;
     items.forEach(it => it.classList.toggle('active', it.dataset.i === String(i)));
     const sec = ch.sections[i];
     headEl.hidden = true;
@@ -209,9 +216,50 @@ async function showScriptSelection(chassisId) {
     });
   };
 
+  // Coding row selected: every module of this chassis whose coding the app
+  // can label -- named values in the SGBD (an editable read) or BMW's DATEN
+  // description of the blob (a reference map). Opens straight into the
+  // coding screen, skipping the module's own menu.
+  const showCodingList = async () => {
+    const seq = ++paneSeq;
+    items.forEach(it => it.classList.toggle('active', it.dataset.i === '-2'));
+    headEl.hidden = true;
+    headEl.classList.remove('func');
+    headEl.onclick = null;
+    jobsPane.innerHTML = '<div class="inpa-ss-empty">checking modules…</div>';
+
+    // one entry per module even when it appears in several sections; the
+    // first section wins so Back lands somewhere it actually lives
+    const seen = new Set(); const all = [];
+    for (const s of ch.sections) {
+      for (const e of s.ecus) {
+        if (seen.has(e.sgbd)) continue;
+        seen.add(e.sgbd);
+        all.push({ ...e, section: s.name });
+      }
+    }
+    const kinds = await Promise.all(all.map(async (e) => {
+      if (await codingFor(e.sgbd)) return 'values';
+      if (await datenFor(e.sgbd)) return 'map';
+      return null;
+    }));
+    if (seq !== paneSeq) return;
+
+    const codeable = all.map((e, i) => ({ ...e, kind: kinds[i] }))
+      .filter(e => e.kind);
+    jobsPane.innerHTML = codeable.length
+      ? codeable.map((e, i) => `<button class="inpa-ss-job" data-i="${i}">${esc(e.label)}<span class="inpa-ss-kind">${e.kind}</span></button>`).join('')
+      : '<div class="inpa-ss-empty">No codeable modules</div>';
+    jobsPane.querySelectorAll('.inpa-ss-job').forEach(b => {
+      const e = codeable[Number(b.dataset.i)];
+      b.onclick = () => { close(); showEcuCoding(chassisId, e.section, { sgbd: e.sgbd, code: e.code, label: e.label }); };
+    });
+  };
+
   items.forEach(it => {
     const i = Number(it.dataset.i);
-    it.onclick = () => (i === -1 ? showChassisJobs() : showSection(i));
+    it.onclick = () => (i === -1 ? showChassisJobs()
+      : i === -2 ? showCodingList() : showSection(i));
   });
   showChassisJobs(); // open on the chassis row: Functional Jobs only
 }

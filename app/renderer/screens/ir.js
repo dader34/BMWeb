@@ -860,6 +860,13 @@ function irMenuItems(ir, menuName, variant) {
       // the job came from a state machine, whose argument assembly is not
       // decoded -- listed, never sent
       stateJob: !!it.stateJob,
+      // a decoded state procedure: INPA's ident-write form. stateForm is the
+      // write key (every field + the ;-joined send order); stateEdit is a
+      // "Change: X" key (the one or two fields it edits); stateCopy is "Set
+      // default values" (read-slot -> edit-slot pairs). See ipo_ir.py.
+      stateForm: it.stateForm || null,
+      stateEdit: it.stateEdit || null,
+      stateCopy: it.stateCopy || null,
       // INPA asks the user for a value and builds the job argument from it
       // (KLIMA_5B's flap positions: "Fresh air flap", "Position (0-100 %)")
       prompt: it.prompt || null,
@@ -1348,6 +1355,256 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
   return true;
 }
 
+// A decoded ident-write form: INPA's "Only for the developer" ident page,
+// reproduced as one editable card. The write key (stateForm) is the whole
+// form; a "Change: X" key (stateEdit) is the same form with its one or two
+// fields highlighted. Reads the module to pre-fill, stages edits, and shows
+// the exact semicolon-joined argument the write WOULD send -- and stops
+// there, the same contract the coding editor keeps: an ident write is an
+// EEPROM write behind INPA's developer gate.
+//
+// Field pre-fill: the read job whose results line up with the form's
+// captions. LWS5's IDENT_E answers ID_BMW_NR/ID_HW_NR/... in the same order
+// the form edits, so the current column is real; where no such read exists
+// the fields simply start blank and the form still works as a builder.
+// normalise a caption for matching: strip trailing colon/padding, lower-case,
+// so "BMW part number :" and "BMW part number" pair, and "Coding index"
+// matches whichever side spells it with a trailing space.
+function irCapKey(s) {
+  return String(s || '').replace(/[:\s]+$/, '').trim().toLowerCase();
+}
+
+function irStateReadJob(ir) {
+  // the module's own ident READ: a *_LESEN / IDENT* job on a card screen
+  // whose result keys outnumber the noise. Prefer IDENT-named jobs. Also
+  // return the screen's caption->key pairing (INPA draws "caption : value"
+  // per line), so the form can fill each field by MEANING rather than by
+  // position -- the read's key order and the form's field order differ.
+  let best = null;
+  for (const scr of Object.values(ir.screens || {})) {
+    const keys = [];
+    const byCaption = {};
+    for (const ln of scr.lines || []) {
+      let lastCap = null;
+      for (const e of ln.elements || []) {
+        if (e.t === 'text' && e.s && !/^[:=|\- ]+$/.test(e.s)) lastCap = e.s;
+        if (e.key) {
+          keys.push(e.key);
+          if (lastCap) byCaption[irCapKey(lastCap)] = e.key;
+        }
+      }
+    }
+    if (!keys.length) continue;
+    const job = (scr.jobs || [])[0];
+    if (!job) continue;
+    const score = keys.length + (/IDENT/i.test(job.name) ? 100 : 0)
+      + Object.keys(byCaption).length;
+    if (!best || score > best.score)
+      best = { job: job.name, keys, byCaption, score };
+  }
+  return best;
+}
+
+// The read screen that shows the same fields a buffer-only "actual values"
+// screen only captions. INPA fills the actual-values page from its edit
+// buffer (no job); the module answers the same fields through its ident read
+// (IDENT/IDENT_E on a card screen). Returns that screen's name, or null when
+// there is no confident match -- redirecting the wrong screen would show
+// unrelated data, so the bar is: this item's screen has captions but no job
+// or result rows, its menu carries a write form, and exactly one other
+// screen is an ident-shaped read with at least as many value bindings as
+// this page has captions.
+function irIdentReadScreen(ir, menuName, it) {
+  const menu = ir.menus[menuName];
+  if (!menu || !menu.items.some(x => x.stateForm)) return null;
+  const scr = it.screen && (ir.screens || {})[it.screen];
+  if (!scr) return null;
+  const keysOf = (s) => {
+    const out = [];
+    for (const ln of s.lines || [])
+      for (const e of ln.elements || []) if (e.key) out.push(e.key);
+    return out;
+  };
+  const capsOf = (s) => (typeof irCaptions === 'function' ? irCaptions(s) : [])
+    .filter(c => !/^[:=|\- ]+$/.test(c));
+  // this item's screen must be captions-only: no job, no value rows
+  if ((scr.jobs || []).length || keysOf(scr).length) return null;
+  const wantCaps = capsOf(scr).length;
+  if (wantCaps < 2) return null;
+  // the ident read: a card screen whose job identifies the ECU and whose
+  // value bindings cover the captions. Prefer IDENT-named jobs.
+  let best = null;
+  for (const [name, s] of Object.entries(ir.screens || {})) {
+    if (name === it.screen) continue;
+    const ks = keysOf(s);
+    if (ks.length < wantCaps) continue;
+    const identJob = (s.jobs || []).some(j => /IDENT/i.test(j.name));
+    const idKeys = ks.filter(k => /^ID[_A-Z]/i.test(k)).length;
+    if (!identJob && idKeys < wantCaps) continue;
+    const score = ks.length + (identJob ? 100 : 0) + idKeys;
+    if (!best || score > best.score) best = { name, score };
+  }
+  return best ? best.name : null;
+}
+
+async function showStateForm(ecu, ir, menuName, it, container, back, trail) {
+  // the full field set is on the write key; a Change key edits a subset, so
+  // find the sibling write item to get every field and the send order
+  let form = it.stateForm;
+  let sendOrder = form ? form.fields.map(f => f.slot) : null;
+  let sep = form ? (form.sep || ';') : ';';
+  let job = it.job || null;
+  const focus = new Set((it.stateEdit ? it.stateEdit.fields : []).map(f => f.slot));
+  if (!form) {
+    // a Change or Set-default key: pull the full field set and send order
+    // from the sibling write key so the whole form is here, not just the
+    // one field this key touches
+    const items = irMenuItems(ir, menuName);
+    const wr = items.find(x => x.stateForm);
+    if (wr) { form = wr.stateForm; sendOrder = form.fields.map(f => f.slot);
+              sep = form.sep || ';'; job = wr.job || job; }
+  }
+  const fields = form ? form.fields
+    : (it.stateEdit ? it.stateEdit.fields : []);
+  if (!fields.length) { back(); return; }
+
+  // value per slot, staged; starts from the module read
+  const val = new Map();
+  const read = irStateReadJob(ir);
+
+  const prefill = async () => {
+    if (!read) return;
+    try {
+      const out = await api(`/api/ecu/${ecu.sgbd}/run/${read.job}`,
+                            { method: 'POST' });
+      const got = flatResults(out.sets);
+      const byKey = new Map(got);
+      // pair each form field to a read result BY CAPTION first: the read's
+      // "Coding index" line fills the form's "Coding index" field regardless
+      // of order. Fall back to position only for a field whose caption the
+      // read screen does not label -- and never onto a key already claimed,
+      // so a positional guess cannot land the supplier text on an index.
+      const used = new Set();
+      const claim = (f, k) => {
+        if (k != null && byKey.has(k) && !used.has(k)) {
+          val.set(f.slot, String(byKey.get(k))); used.add(k); return true;
+        }
+        return false;
+      };
+      const unmatched = [];
+      fields.forEach((f) => {
+        const k = (read.byCaption || {})[irCapKey(f.caption)];
+        if (!claim(f, k)) unmatched.push(f);
+      });
+      // leftover fields take leftover keys in order -- a best effort for a
+      // field the read screen did not caption, without stealing a matched one
+      let ki = 0;
+      unmatched.forEach((f) => {
+        while (ki < read.keys.length && used.has(read.keys[ki])) ki++;
+        if (ki < read.keys.length) claim(f, read.keys[ki]);
+      });
+    } catch { /* no cable / demo off: fields stay blank */ }
+  };
+
+  // the write order, or just the fields shown if this key has no sibling
+  // write (a lone Change key in a menu with no assembled send)
+  const order = sendOrder || fields.map(f => f.slot);
+  const argString = () => order.map(s => val.get(s) ?? '').join(sep);
+
+  // Edit one field: the same dialog whether it is reached by clicking the
+  // row or pressing its F-key. Hex by default; a field whose dialog is an
+  // int/num variant takes a number.
+  const editField = async (f) => {
+    const v = await inputDialog({
+      title: irLabel(f.caption) || `slot ${f.slot}`,
+      body: `<span class="mono">${esc(f.dialog || 'inputhex')}</span>`
+        + (f.min || f.max ? `<br>Range ${esc(f.min)}`
+            + `${f.max ? ' … ' + esc(f.max) : ''}` : '')
+        + `<br><br>Editing this stages the value; nothing is sent.`,
+      kind: /int|num/i.test(f.dialog || '') ? 'number' : 'hex',
+      example: val.get(f.slot) || f.min || '',
+      confirmLabel: 'Set' });
+    if (v != null && v !== '') { val.set(f.slot, String(v).trim()); draw(); }
+  };
+
+  const draw = () => {
+    container.className = 'results-panel';
+    // each field is a full-width clickable row: the caption, the current
+    // value, its legal range, and an edit affordance. Clicking anywhere on
+    // the row opens the same dialog the F-key does, so the form is usable
+    // with the mouse the way BimmerCode is, not only from the softkey bar.
+    const row = (f, i) => {
+      const v = val.get(f.slot);
+      const on = focus.size && focus.has(f.slot);
+      return `<button class="state-row${on ? ' state-focus' : ''}" `
+        + `data-i="${i}" type="button">`
+        + `<span class="state-row-k">${esc(irLabel(f.caption) || f.caption
+            || ('slot ' + f.slot))}</span>`
+        + `<span class="state-row-v mono">${v != null && v !== ''
+            ? esc(v) : '<span class="ink-faint">—</span>'}</span>`
+        + `<span class="state-range mono">${esc(f.min || '')}`
+        + `${f.max ? '…' + esc(f.max) : ''}</span>`
+        + `<span class="state-row-edit">edit ✎</span></button>`;
+    };
+    container.innerHTML = `
+      <div class="act-menu">
+        <div class="act-menu-title">${esc(irLabel(it.label) || 'Write ident')}</div>
+        <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg`
+      + `${job ? ' · ' + esc(job) : ''}</div>
+        <div class="cod-note" id="state-note"></div>
+        <div class="state-list">${fields.map(row).join('')}</div>
+        <div class="state-arg mono" id="state-arg"></div>
+      </div>`;
+    container.querySelectorAll('.state-row').forEach(b =>
+      b.onclick = () => editField(fields[Number(b.dataset.i)]));
+    const note = container.querySelector('#state-note');
+    note.innerHTML = read
+      ? `<span class="cod-note-dim">Read from the module, then edit any field. `
+        + `Nothing is sent.</span>`
+      : `<span class="cod-note-dim">Edit any field to build the argument. `
+        + `Nothing is sent.</span>`;
+    const argEl = container.querySelector('#state-arg');
+    argEl.innerHTML = `<span class="ink-faint">would send</span> `
+      + `${job ? esc(job) + ' ' : ''}${esc(argString())}`;
+
+    // one F-key per field (up to nine), each opening its own hex/int dialog,
+    // then Read (re-fill from the module) and the disabled Write
+    const acts = [];
+    fields.slice(0, 8).forEach((f, i) => {
+      acts.push({ key: String(i + 1), keyLabel: `F${i + 1}`,
+        label: irLabel(f.caption) || `slot ${f.slot}`,
+        fn: () => editField(f) });
+    });
+    if (read) {
+      acts.push({ key: 'r', keyLabel: 'R', label: 'Read',
+        fn: async () => { sbLeft.textContent = `${read.job}…`;
+          await prefill(); draw();
+          sbLeft.textContent = `${ecu.sgbd}.prg · ${read.job} · read`; } });
+    }
+    // the write is shown, explained, and refused -- exactly like the coding
+    // editor's F2 Review. An ident write is a permanent EEPROM change.
+    acts.push({ key: 'w', keyLabel: 'W', label: 'Write…',
+      fn: () => confirmDialog({
+        title: 'Write ident data',
+        body: `This would send <span class="mono">${esc(job || 'the write job')}`
+          + `</span> to <b>${esc(ecu.label)}</b> with:<br><br>`
+          + `<span class="mono">${esc(argString())}</span><br><br>`
+          + `<b>Not sent.</b> An ident write is an EEPROM write behind INPA's `
+          + `own "Only for the developer" gate, and this app has not verified `
+          + `a round-trip on a recoverable module. Use this to check the `
+          + `values, not to apply them.`,
+        confirmLabel: 'OK', cancelLabel: 'Close' }) });
+    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: back });
+    setActions(acts);
+    sbLeft.textContent = `${ecu.sgbd}.prg · ${trail.join(' · ')}`;
+  };
+
+  draw();
+  await prefill();
+  draw();
+}
+
 // Walk the IR from a menu: list its entries, open a screen, descend into a
 // submenu, Esc back up one level -- INPA's own navigation, and ours.
 function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
@@ -1356,6 +1613,32 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    // A DECODED STATE PROCEDURE: INPA's ident-write form. The write key
+    // carries every field and the send order (stateForm); each "Change: X"
+    // key edits one or two of the same fields (stateEdit); "Set default
+    // values" reloads the buffer (stateCopy). All three land on one form,
+    // which reads the module, lets each field be edited, and shows the exact
+    // argument that WOULD be sent -- never sending it (writeJob policy).
+    if ((it.stateForm || it.stateEdit || it.stateCopy)
+        && typeof showStateForm === 'function') {
+      const reopen = () =>
+        renderIrMenu(ecu, ir, menuName, container, back, trail);
+      showStateForm(ecu, ir, menuName, it, container, reopen,
+                    [...trail, it.label]);
+      return;
+    }
+
+    // "Display actual values" beside a write form. INPA draws this from its
+    // own edit buffer -- a screen with the ident captions but NO job and no
+    // result bindings, so it decodes to a page with nothing to poll. The
+    // module reads the same fields through its ident job (s_ident_e /
+    // IDENT_E), so redirect to that read: real values, and demo mode fills
+    // them like any other read.
+    const idRead = irIdentReadScreen(ir, menuName, it);
+    if (idRead) {
+      it = { ...it, screen: idRead };
+    }
+
     // Fault memory is read through INPA's own library helper, not a job the
     // screen names: F1 calls INPAapiFsLesen_neu and writes na_fs.tmp, so the
     // decode has a caption and nothing to run. The app's fault view already
@@ -1756,6 +2039,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   const shiftKeys = () => shifted.slice(0, FKEY_SLOTS).map(asAction);
 
   const count = (it) => {
+    // a decoded ident-write form: the write key builds, a Change key edits,
+    // and both open a working screen -- so neither is "not decoded"
+    if (it.stateForm) return 'build';
+    if (it.stateEdit) return 'edit';
+    if (it.stateCopy) return 'default';
     // reflects the setting, not a property of the item: with actuator tests
     // enabled these DO run, so a fixed "not runnable" would be a lie. Once
     // running, the row shows its own armed state the way INPA's menu does.

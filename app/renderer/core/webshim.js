@@ -1175,8 +1175,12 @@ function installWebShim() {
           const ecu = await loadEcu(sgbd, real);
           const meta = ecu.get('meta.json');
           if (!meta) return err(`Metadata not found for ${sgbd}`, 404);
-          return ok({ job: run[2], demo: true,
-                      sets: webDemoSets(meta, decodeURIComponent(run[2]), arg) });
+          const sets = webDemoSets(meta, decodeURIComponent(run[2]), arg);
+          // coding reads answer with the module's own legal values (DATEN)
+          if (typeof webDemoCoding === 'function') {
+            await webDemoCoding(sgbd, decodeURIComponent(run[2]), sets);
+          }
+          return ok({ job: run[2], demo: true, sets });
         } catch (e) {
           return err(e.message, 404);
         }
