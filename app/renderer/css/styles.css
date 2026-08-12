@@ -2202,7 +2202,11 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
      them, with a fallback for browsers that report 0 (no notch). */
   :root {
     --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    /* CLAMPED. On some installed-PWA configs (black-translucent status bar +
+       viewport-fit=cover) iOS reports a bottom inset far larger than the real
+       ~34pt home-indicator height, which left a big dead band under the tab
+       bar. The indicator is never taller than 34pt, so cap it. */
+    --safe-bottom: min(env(safe-area-inset-bottom, 0px), 34px);
     --safe-left: env(safe-area-inset-left, 0px);
     --safe-right: env(safe-area-inset-right, 0px);
     --bar-h: 50px;
@@ -2214,7 +2218,7 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .view {
     inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
            calc(var(--safe-bottom) + var(--fkey-h)) var(--safe-left);
-    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 16px calc(18px + var(--safe-bottom));
     scroll-padding-bottom: 24px;
   }
   body.wds-nofkeys .view {
@@ -2372,7 +2376,7 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.group-grid) .view,
   body:has(.settings-list) .view,
   body:has(.lookup-controls) .view {
-    bottom: calc(58px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(58px + var(--safe-bottom)) !important;
   }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */
@@ -2651,8 +2655,10 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     display: flex; align-items: center; justify-content: space-between;
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     height: 58px;
+    /* padding-bottom is the CLAMPED --safe-bottom (max 34pt): the 58pt row
+       sits above the home indicator and never inherits an inflated inset. */
     padding: 0 calc(18px + env(safe-area-inset-right, 0px))
-             env(safe-area-inset-bottom, 0px)
+             var(--safe-bottom)
              calc(18px + env(safe-area-inset-left, 0px));
     background: var(--ios-bar-bg);
     backdrop-filter: saturate(1.6) blur(22px);
@@ -2729,14 +2735,14 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.settings-list) .fkeybar,
   body:has(.lookup-controls) .fkeybar { display: none !important; }
   .fkeybar {
-    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(58px + var(--safe-bottom));
     padding-bottom: 4px; height: 54px;
   }
 
   /* ---- CONTENT AREA -----------------------------------------------------*/
   .view {
     inset: calc(var(--nav-h) + var(--safe-top)) 0
-           calc(58px + env(safe-area-inset-bottom, 0px)) 0;
+           calc(58px + var(--safe-bottom)) 0;
     padding: 8px calc(20px + var(--safe-left)) 12px
              calc(20px + var(--safe-right));
     /* transparent: let the themed body (its --bg + gradient) show through
