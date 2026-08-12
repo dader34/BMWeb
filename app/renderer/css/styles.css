@@ -2619,6 +2619,11 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     color: var(--ios-amber); background: none; border: none;
     align-items: center; padding: 0 4px;
   }
+  /* On a sub-screen the back chevron owns column 1, so the brand logo must
+     step out of it -- otherwise the two stack and the logo lands on top of
+     the large title. iOS shows either the back button OR the root logo,
+     never both; the centred title carries identity here. */
+  .topbar:has(.nav-back:not([hidden])) .brand { display: none; }
   /* the nav bar is now just back-chevron + centred title. The status cluster
      and Settings moved to the bottom bar (car · voltage · gear), so the top
      bar stays quiet the way an iOS large-title screen does. */
