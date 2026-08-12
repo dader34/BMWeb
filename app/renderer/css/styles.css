@@ -2359,7 +2359,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.inpa-vsel) .fkeybar,
   body:has(.split) .fkeybar,
   body:has(.group-grid) .fkeybar,
-  body:has(.settings-list) .fkeybar {
+  body:has(.settings-list) .fkeybar,
+  body:has(.lookup-controls) .fkeybar {
     display: none !important;
   }
   /* card/list screens: view stops at the persistent bottom bar (58pt), the
@@ -2369,7 +2370,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.inpa-vsel) .view,
   body:has(.split) .view,
   body:has(.group-grid) .view,
-  body:has(.settings-list) .view {
+  body:has(.settings-list) .view,
+  body:has(.lookup-controls) .view {
     bottom: calc(58px + var(--safe-bottom)) !important;
   }
   .fkeys { padding-top: 0; }
@@ -2724,7 +2726,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.inpa-vsel) .fkeybar,
   body:has(.split) .fkeybar,
   body:has(.group-grid) .fkeybar,
-  body:has(.settings-list) .fkeybar { display: none !important; }
+  body:has(.settings-list) .fkeybar,
+  body:has(.lookup-controls) .fkeybar { display: none !important; }
   .fkeybar {
     bottom: calc(58px + var(--safe-bottom));
     padding-bottom: 4px; height: 54px;
