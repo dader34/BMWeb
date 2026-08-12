@@ -1,20 +1,15 @@
 // The IR interpreter: draw an ECU's screens from data/inpa-ir/<ECU>.json
-// instead of from hand-written or per-section layout code.
+// (emitted by tools/ipo_ir.py -- the whole INPA UI per ECU: menus with INPA's
+// ITEM numbers, screens as ordered LINEs of positioned elements with the row
+// and column INPA draws them at, and the jobs each screen runs).
 //
-// tools/ipo_ir.py emits the whole INPA UI per ECU -- menus with INPA's own
-// ITEM numbers, screens as ordered LINEs of positioned elements (text / value
-// / gauge / lamp) with the row and column INPA itself draws them at, and the
-// jobs each screen runs. This walks that structure.
+// Nothing here is ECU-specific. The only per-ECU knowledge is translation,
+// applied at render time because each .IPO's strings are frozen in whatever
+// language BMW compiled it with (`language` in the IR says which).
 //
-// Nothing here knows anything about any particular ECU. The only per-ECU
-// knowledge in the app after this is translation, which is applied at render
-// time because each .IPO's strings are frozen in whatever language BMW
-// compiled it with (`language` in the IR says which).
-//
-// Values still come from the existing live poller: an IR screen converts to
-// the {job, rows, grid} shape showInpaScreens already consumes, so paging,
-// gauge cells, lamp glyphs and the demo mode all work unchanged. The IR's
-// contribution is WHICH rows, in WHAT order, with WHICH captions and ranges.
+// An IR screen converts to the {job, rows, grid} shape showInpaScreens already
+// consumes, so the existing live poller, paging, gauge cells, lamp glyphs and
+// demo mode all work unchanged.
 
 // screens whose elements are all static text have nothing to poll
 function irReadable(scr) {
@@ -22,17 +17,14 @@ function irReadable(scr) {
     (ln.elements || []).some(e => e.key && e.t !== 'text'));
 }
 
-// Pair captions to values by WHERE INPA drew them, for the lines where reading
-// order alone cannot: it may print a whole row of captions and then the whole
-// row of values beneath ("Clamp R / Clamp 15 / Clamp 61" on row 4, their three
-// lamps on row 6), so "nearest preceding text" hands all three the last
-// caption and leaves two showing a bare result name.
+// Pair captions to values by WHERE INPA drew them, for the lines reading order
+// alone cannot: it may print a whole row of captions and then a row of values
+// beneath ("Clamp R / Clamp 15 / Clamp 61" on row 4, their three lamps on row
+// 6), so "nearest preceding text" hands all three the last caption.
 //
-// Returns a Map(element -> caption) only when the pairing is unambiguous, and
-// null otherwise. Every condition here was added because dropping it damaged
-// rows the reading-order rule already had right -- measured across the corpus,
-// not assumed:
-//
+// Returns Map(element -> caption) only when the pairing is unambiguous, else
+// null. Each condition was added because dropping it damaged rows reading order
+// had right -- measured across the corpus:
 //   - one caption per value, each used once. A shared heading ("clamps" over
 //     three lamps) is a group title, not a label.
 //   - a caption labels what is drawn to its RIGHT or BELOW, never its left.
@@ -124,46 +116,30 @@ function irRows(scr) {
         const s = String(e.s || '').trim();
         // "[rpm]" printed above a gauge is its UNIT, not its caption
         let m = /^\[(.+)\]$/.exec(s);
-        // ...and INPA sometimes loses the OPENING bracket. BMS46's analog
-        // page prints "degree KW]" for the ignition angle -- one unmatched
-        // "]" where every other row has "[...]". Unmatched, it read as a
-        // caption, so the row was titled "DEGREE KW]" and the real caption
-        // ("ignition angle") was overwritten. Only a trailing "]" with no
-        // "[" anywhere qualifies, so a genuine caption that happens to end
-        // in a bracket ("Kennfeld [neu]") still reads as a caption.
+        // INPA sometimes loses the OPENING bracket: BMS46's analog page prints
+        // "degree KW]" for the ignition angle. Only a trailing "]" with no "["
+        // anywhere qualifies, so a genuine caption ending in a bracket
+        // ("Kennfeld [neu]") still reads as a caption.
         if (!m && /\]$/.test(s) && !s.includes('[')) {
           m = [s, s.slice(0, -1)];
         }
-        // ...and sometimes INPA prints the unit with no brackets at all.
-        // BMS46's load is captioned "load" then "mg/As/Zyl" then the value,
-        // where every neighbouring row uses "[kgh]" / "[Volt]". Read as a
-        // caption it overwrote "load", so the row drew as "MG/AS/ZYL".
-        //
-        // No text SHAPE can settle this -- the same slot legitimately holds
-        // "Fahrerseite", "backrest", "AM/FM" -- so the test is corroboration
-        // instead: the element it labels already carries a unit, mined
-        // independently from INPA's gauge declaration, and the printed text
-        // is exactly that unit. Corpus-wide this matches 36 times and every
-        // one is a real unit (bar, Nm, 1/min, mg/As/Zyl).
+        // ...and sometimes the unit has no brackets at all (BMS46's load:
+        // "load", "mg/As/Zyl", value). No text SHAPE can settle this -- the
+        // same slot legitimately holds "Fahrerseite", "AM/FM" -- so the test
+        // is corroboration: the element it labels already carries a unit mined
+        // from INPA's gauge declaration, and the printed text is exactly it.
         if (!m) {
           const nxt = els[ei + 1];
           const u = nxt && nxt.t !== 'text' && nxt.col === e.col
             && nxt.unit ? String(nxt.unit).trim() : null;
           if (u && u === s) m = [s, s];
         }
-        // A BRACKETED RESULT NAME IS NOT A UNIT. INPA's FASTA developer
-        // pages print THREE columns per row -- caption, value, unit, and
-        // then the ECU's internal variable name in brackets at the far
-        // right: "PWG-Spannung  0.71  [V]  [upwg]". The variable name reads
-        // as "[...]" exactly like a unit does, so it was being taken as one
-        // and ME9N45's whole CO-Poti page showed "[copot]", "[minhub]",
-        // "[ftbr]" where INPA shows [V], [mm] and [].
-        //
-        // The tell is that it repeats the result it labels: [upwg] sits
-        // beside STAT_UPWG_WERT. Corpus-wide that holds 412 times and every
-        // one is a variable name, never a unit. Dropping it lets the row
-        // fall through to irUnitFor, which reads the REAL unit live from the
-        // ECU's own STAT_x_EINH -- which is where INPA gets it too.
+        // A BRACKETED RESULT NAME IS NOT A UNIT. INPA's FASTA developer pages
+        // print four columns -- caption, value, unit, then the ECU's internal
+        // variable name in brackets: "PWG-Spannung  0.71  [V]  [upwg]". The
+        // name reads as "[...]" like a unit. The tell is that it repeats the
+        // result it labels ([upwg] beside STAT_UPWG_WERT); dropping it lets the
+        // row fall through to the REAL unit read live from STAT_x_EINH.
         if (m) {
           const nxt = els[ei + 1];
           const stem = nxt && nxt.key
@@ -173,13 +149,10 @@ function irRows(scr) {
           if (stem && m[1].trim().toUpperCase() === stem.toUpperCase()) continue;
         }
         if (m) { unitAhead = m[1].trim(); continue; }
-        // INPA lays a labelled row out as three prints: the caption, a bare
-        // ":" separator at a fixed column, then the value. The separator is
-        // punctuation, not a label -- taking "nearest preceding text"
-        // literally turned every coding row's caption into ":".
-        // "/" joins two halves of ONE reading (date of manufacture prints as
-        // week "/" year), so it is punctuation too and the caption before it
-        // still belongs to both.
+        // A bare ":" / "/" print is punctuation, not a label: INPA draws a
+        // labelled row as caption, ":" separator, value, and "/" joins two
+        // halves of one reading (date of manufacture: week "/" year). Taking
+        // it literally turned every coding row's caption into ":".
         if (/^[:=|/-]+$/.test(s)) continue;
         // ...and a caption may carry the separator itself ("Monitor pot. :"),
         // where the renderer adds its own and the row reads ": -12"
@@ -194,30 +167,26 @@ function irRows(scr) {
       if (!label && caps.length > 1 && valued.length === caps.length)
         label = caps[nth];
       // ...and when the line draws a whole GROUP per caption. INPA pairs a
-      // _TEXT with a _WERT for one reading (the text is the state, the value
-      // the number), so "Lambda Heizung UP1, Lambda Heizung UP2" names two
-      // banks across four elements. Requiring an exact count left all eight
-      // of MS450's mixture-adaptation rows falling back to their raw keys.
+      // _TEXT with a _WERT for one reading, so "Lambda Heizung UP1, Lambda
+      // Heizung UP2" names two banks across four elements. An exact-count
+      // requirement left MS450's eight mixture-adaptation rows on raw keys.
       if (!label && caps.length > 1 && valued.length > caps.length
           && valued.length % caps.length === 0) {
-        // ...and the grouping may be by COLUMN rather than in sequence. MS450's
-        // VANOS page prints "Einlass, Auslass" over two columns of two gauges
-        // each -- actual above setpoint -- so chunking sequentially gave both
-        // intake rows "Einlass" and both exhaust rows "Auslass" one row too
-        // late. Where the values sit in as many distinct columns as there are
-        // caption parts, the column decides.
+        // ...and the grouping may be by COLUMN rather than in sequence: MS450's
+        // VANOS prints "Einlass, Auslass" over two columns of two gauges each
+        // (actual above setpoint), so chunking sequentially mislabelled them.
+        // Where the values sit in as many distinct columns as caption parts,
+        // the column decides.
         const cols = [...new Set(valued.map(v => v.col))].sort((a, b) => a - b);
         label = (cols.length === caps.length && typeof e.col === 'number')
           ? caps[cols.indexOf(e.col)]
           : caps[Math.floor(nth / (valued.length / caps.length))];
       }
       if (!label && capForAll) label = caps[0];
-      // The geometric pairing. It fills a row the reading-order rules left
-      // bare, and it also CORRECTS one they got wrong -- but only on a line
-      // whose captions were all printed before its values, where reading
-      // order is guaranteed to hand every value the last caption. DWA4 draws
-      // "Clamp R / Clamp 15 / Clamp 61" then three lamps: without this the
-      // first lamp reads "Clamp 61" and the other two read nothing.
+      // The geometric pairing fills a bare row and also CORRECTS a wrong one --
+      // but only when all captions were printed before the values (capsFirst),
+      // where reading order is guaranteed to hand every value the last caption.
+      // DWA4 draws "Clamp R / Clamp 15 / Clamp 61" then three lamps.
       if (byPos && (!label || capsFirst)) label = byPos.get(e) || label;
       const row = {
         key: e.key,
@@ -256,18 +225,13 @@ function irRows(scr) {
   return { rows, cells };
 }
 
-// A SCREEN INPA DRAWS AS A TABLE, or null.
+// A SCREEN INPA DRAWS AS A TABLE, or null. RDC's WE-Telegramm reads the same
+// seven values once per wheel: a header line then one row per index, which the
+// row builder would flatten into 35 stacked readouts. 195 screens across 63
+// ECUs have this shape (wheels, cylinders, ignition circuits, banks).
 //
-// RDC's WE-Telegramm reads the same seven values once per wheel and prints
-// them as a grid: a header line, then one row per index. The IR keeps that
-// exactly -- every element carries its character row and column -- but the
-// row builder flattens it, so five wheels x seven values arrived as 35
-// unrelated readouts stacked vertically. 195 screens across 63 ECUs have this
-// shape (wheels, cylinders, ignition circuits, banks).
-//
-// The test is that the DATA LINES all put their values in the same columns.
-// That is what makes them a table rather than a list that happens to be long,
-// and it is structural: no caption wording is consulted.
+// The test is structural, no wording consulted: the DATA LINES all put their
+// values in the same columns -- a table, not a list that happens to be long.
 function irTable(scr) {
   const lines = scr.lines || [];
   if (lines.length < 3) return null;
@@ -345,11 +309,8 @@ function irScreens(scr) {
   // the rows read in that pass -- otherwise all five wheels share one read
   // and show identical values
   if (rows.some(r => r.arg)) {
-    // ...but when INPA draws those passes as a TABLE -- one row per wheel,
-    // the same columns each time -- it stays ONE screen. Splitting it per
-    // argument turned RDC's WE-Telegramm into five pages of seven stacked
-    // readouts, where INPA shows a five-row grid. Every job still polls; the
-    // table just says where each answer belongs.
+    // ...but when INPA draws those passes as a TABLE it stays ONE screen.
+    // Every job still polls; the table just says where each answer belongs.
     const table = irTable(scr);
     if (table) {
       return [{
@@ -369,18 +330,12 @@ function irScreens(scr) {
       grid: null,
     })).filter(s => s.rows.length);
   }
-  // Several jobs can fill ONE page, each feeding its own block of rows.
-  // MS450's mixture adaptation reads seven -- STATUS_ADAPTION_GEMISCH for the
-  // PWM/ADD/FAC pairs, then STATUS_INT, STATUS_L_SONDE and their bank-2
-  // partners, one per LINE -- and INPA draws the result as a single screen.
-  // Paging per job instead showed that screen seven times, every copy holding
-  // every row. Distinguished by the line each job was read on: when the jobs
-  // sit on different lines they are filling one page between them, not
-  // offering alternative pages of the same rows.
-  // Each still polls separately -- every job has to be sent -- but it carries
-  // only the rows it answers, so the page is drawn once instead of once per
-  // job. A job owns its own line plus any following line that declared no job
-  // of its own (INPA leaves those to the read before them).
+  // Several jobs can fill ONE page, each feeding its own block of rows (MS450's
+  // mixture adaptation reads seven, one per LINE, drawn as a single screen).
+  // Distinguished by the line each job was read on: jobs on different lines are
+  // filling one page between them, not offering alternative pages of it. Each
+  // still polls, but carries only the rows it answers, so the page is drawn
+  // once. A job owns its own line plus any following line that declared no job.
   const lined = jobs.filter(j => typeof j.line === 'number');
   if (lined.length === jobs.length
       && new Set(lined.map(j => j.line)).size > 1) {
@@ -396,19 +351,16 @@ function irScreens(scr) {
       if (owner.has(l)) last = owner.get(l);
       lineJob.set(l, last);
     }
-    // TWO JOBS ON ONE LINE ARE TWO COLUMNS, NOT ALTERNATES. INPA writes a
-    // two-column page as one line per ROW of the page, so a line carries a
-    // reading from the left job and one from the right -- BMS46's analog page
-    // puts battery voltage beside Speed, air mass beside load, coolant beside
-    // cooling-water-leave. Giving the whole line to whichever job was
-    // declared first handed that job BOTH rows and left the other with none;
-    // the poller then dropped the orphaned row (it only keeps keys the job it
-    // polled actually answered), so four of ten readouts silently vanished.
+    // TWO JOBS ON ONE LINE ARE TWO COLUMNS, NOT ALTERNATES: a line carries a
+    // reading from the left job and one from the right (BMS46's analog page
+    // puts battery voltage beside Speed). Giving the whole line to whichever
+    // job was declared first left the other job's rows orphaned, and the poller
+    // drops keys the job it polled did not answer -- so readouts vanished.
     //
-    // A result name is the reliable link back: STATUS_GESCHWINDIGKEIT answers
+    // The result name is the reliable link back: STATUS_GESCHWINDIGKEIT answers
     // STAT_GESCHWINDIGKEIT_WERT. Where that match is unambiguous it wins over
-    // the line, and the line rule still covers every row it cannot resolve
-    // (an alternates page, where the keys do not echo the job name).
+    // the line; the line rule covers rows it cannot resolve (alternates pages,
+    // where the keys do not echo the job name).
     const stem = (s) => String(s || '').replace(/^(STATUS|STAT)_/, '')
       .replace(/_(WERT|EINH|TEXT)$/, '');
     const byStem = new Map();
@@ -437,17 +389,15 @@ function irScreens(scr) {
   }));
 }
 
-// The IR carries its own translations, resolved once by tools/ipo_i18n.js
-// from the shared vocabulary plus data/inpa-i18n/<ECU>.json. Looking them up
-// here rather than translating at draw time means a caption BMW worded oddly
-// for one ECU can be corrected for that ECU alone: "Gesteuerte LuftFuehrung
-// GLF" is MS450's phrase, and a word rule general enough to translate it
-// mangles others.
+// The IR carries its own translations (resolved by tools/ipo_i18n.js from the
+// shared vocabulary plus data/inpa-i18n/<ECU>.json). Per-ECU rather than at
+// draw time so a caption BMW worded oddly for one ECU can be corrected for that
+// ECU alone ("Gesteuerte LuftFuehrung GLF" is MS450's phrase; a word rule
+// general enough to translate it mangles others).
 //
-// The map is set per render by irUseTranslations, because irLabel is called
-// from 24 places that have no ECU in scope. deGerman remains the fallback for
-// an IR emitted before this step ran, and for strings that arrive at runtime
-// from the SGBD rather than the .IPO.
+// Set per render by irUseTranslations, because irLabel is called from many
+// places with no ECU in scope. deGerman is the fallback for an IR emitted
+// before this step ran, and for strings arriving at runtime from the SGBD.
 let _irI18n = null;
 function irUseTranslations(ir) {
   _irI18n = (ir && ir.i18n) || null;
@@ -462,21 +412,11 @@ function irLabel(s) {
 }
 
 // A RESULTCOMMENT is DOCUMENTATION, not a display name. BMW writes the
-// description, then pads with two-plus spaces and appends the value legend
-// and the storage slot:
-//
-//   "Ueberwachung Kraftstoffsystem  Test abgeschlossen oder nicht anwendbar
-//    = 0  Test nicht abgeschlossen = 1 "        -> STATE_READY_OBD_1[5]
-//
-// Used whole, that becomes a 90-character column header ("FUEL SYSTEM
-// MONITORING: TEST NOT SUPPORTED BY THIS MODULE = 0, SUPPORTED = 1") for a
-// cell showing "46". INPA never does this -- its own screen says "misfire /
-// MONITOR / READINESS" -- and the label only reaches the UI at all for rows
-// INPA drew without a caption.
-//
-// The padding is the author's own separator between name and legend, so cut
-// at the first run of two spaces. Median comment is 21 chars and p99 is 72;
-// this only bites the 2.3% that carry a documentation tail.
+// description, then pads with two-plus spaces and appends the value legend and
+// storage slot ("Ueberwachung Kraftstoffsystem  Test abgeschlossen ... = 0
+// ..."). Used whole it becomes a 90-char column header for a cell showing "46".
+// The padding is the author's separator between name and legend, so cut at the
+// first run of two spaces. Only reaches the UI for rows INPA drew uncaptioned.
 function irDescLabel(s) {
   if (!s) return s;
   let t = String(s).trim().split(/\s{2,}/)[0].trim();
@@ -512,12 +452,10 @@ const IR_LOOP_CAPTION = /^(\(\d+\)|\?+|Index \d+|Rad \d+|Position (FL|FR|RL|RR|V
 
 function irRowsTranslated(scr, descs) {
   return irScreens(scr).map(s => {
-    // A LINE caption that lands on more than one row of a page does not
-    // identify any of them. MS450's VANOS prints "Einlass, Auslass" over two
-    // columns of two gauges, actual above setpoint, so both intake rows read
-    // "Intake" and both exhaust rows "Exhaust"; the SGBD calls them Istwert
-    // and Sollwert and says which is which. Where the caption repeats and the
-    // description does not, the description identifies the row.
+    // A LINE caption landing on more than one row identifies none of them:
+    // MS450's VANOS "Einlass, Auslass" over two columns makes both intake rows
+    // read "Intake". Where the caption repeats and the SGBD description
+    // (Istwert/Sollwert) does not, the description identifies the row.
     const seen = new Map();
     for (const r of s.rows) if (r.label) seen.set(r.label, (seen.get(r.label) || 0) + 1);
     const ambiguous = (r) => r.label && seen.get(r.label) > 1
@@ -528,12 +466,10 @@ function irRowsTranslated(scr, descs) {
     group: irLabel(s.group),
     rows: s.rows.map(r => ({
       ...r,
-      // INPA's own caption first; for rows it draws without one -- loop
-      // screens print a heading once at a computed position -- the SGBD's
-      // result description, and only then the bare key.
-      // A caption INPA itself computes per iteration ("Position RR", "(1)",
-      // "??") is left over from the last pass of a loop and describes no
-      // particular row, so the SGBD description wins over it.
+      // INPA's own caption first; then the SGBD result description, then the
+      // bare key. A caption INPA computes per iteration ("Position RR", "(1)",
+      // "??") is left over from a loop pass and describes no particular row, so
+      // the SGBD description wins over it.
       label: (r.pos ? `${irLabel(r.pos)} · ` : '') + irLabel(
         (IR_LOOP_CAPTION.test(r.label || '') || ambiguous(r) ? null : r.label)
         || irDescLabel(descs && descs.get(r.key)) || r.label || r.key),
@@ -577,17 +513,13 @@ async function irDescs(ecu, scr) {
 // those natively, and Back is the Esc key.
 const IR_CHROME = /^(Back|Exit|Print|Zur(ü|ue)ck|Ende|End|Select|Deselect|Auswahl|Abwahl|Druck|Drucken|Gesamt)$/i;
 
-// "Read"/"FS lesen" in a fault menu: INPA runs this through its own library
-// (INPAapiFsLesen_neu, which writes na_fs.tmp), so the decoded item names no
-// job. Handed to the app's fault reader instead.
 // A fault-memory read. INPA runs these through its own library
-// (INPAapiFsLesen_neu), so the decoded item names no job -- the memory it
-// reads is in the caption. BMW ships three: Fehlerspeicher (EM/FS),
-// Infospeicher (IM/IS) and Historienspeicher (HM/HS), each with its own
-// read, clear, print and save.
-// Word order varies by build: "Read EM", "EM Read", "FS lesen", plain "Read".
-// A menu item may also carry the screen's own softkey help, which spells the
-// memory out ("Read error memory", "Fehlerspeicher loeschen").
+// (INPAapiFsLesen_neu, which writes na_fs.tmp), so the decoded item names no
+// job -- the memory it reads is in the caption, handed to the app's fault
+// reader. BMW ships three: Fehlerspeicher (EM/FS), Infospeicher (IM/IS) and
+// Historienspeicher (HM/HS), each with its own read, clear, print and save.
+// Word order varies by build ("Read EM", "EM Read", "FS lesen", plain "Read"),
+// and an item may carry the screen's softkey help ("Read error memory").
 const IR_MEM_WORD =
   '(EM|IM|HM|FS|IS|HS|(error|fault|info(rmation)?|history)\\s+memory'
   + '|(Fehler|Info|Historien)speicher)';
@@ -604,14 +536,11 @@ const IR_FAULT_JOB = [
   [/\b(HM|HS|Historienspeicher|history\s+memory)\b/i, 'HS_LESEN'],
   [/\b(EM|FS|Fehlerspeicher|(error|fault)\s+memory)\b/i, 'FS_LESEN'],
 ];
-// "Shadow" means two different things depending on the ECU, so the caption
-// alone cannot decide. TOENS labels its INFO memory "Shadow" and answers
-// IS_LESEN -- it has no shadow job at all. 32 other SGBDs have a real second
-// fault store under one of three names, and 25 of those have NO IS_LESEN, so
-// sending IS_LESEN there asks for a job the ECU does not have.
-//
-// Resolve against what the ECU actually declares: a real shadow job wins,
-// otherwise the old IS_LESEN reading stands.
+// "Shadow" means two things by ECU, so the caption alone cannot decide. TOENS
+// labels its INFO memory "Shadow" and answers IS_LESEN (no shadow job at all);
+// 32 other SGBDs have a real second fault store, 25 of them with NO IS_LESEN,
+// so sending IS_LESEN there asks for a job the ECU does not have. Resolve
+// against what the ECU declares: a real shadow job wins, else IS_LESEN stands.
 const IR_SHADOW_JOBS = ['FS_SHADOW_LESEN', 'FS_LESEN_SHADOW', 'READ_SHADOW'];
 
 // Async because it may have to ask the ECU archive which jobs exist. The
@@ -652,16 +581,13 @@ function irMenuFitsVariant(name, variant) {
 
 // Is `menu` just the softkey bar `from` already shows, rather than a submenu?
 // INPA keeps the bar and swaps the SCREEN: KOMBI's Ident, Code and Memory all
-// install m_info_ident_code_36_38_39_46_52_85, which lists the same keys as
-// the root -- opening it re-lists Info/Ident/Code one level deeper and never
-// shows the screen the key actually selects. Compared by CONTENT: Activate's
-// menu happens to have the same number of items but entirely different ones
-// (km reset, SII oil, test), and is a real submenu.
-// Compared by what the keys DO, not what they are called: an item takes the
-// screen's softkey help when that says more, so the root may read
-// "Information/Identification/Coding" where the bar it installs still reads
-// "Info/Ident/Code". Same keys, different words -- comparing captions stopped
-// recognising the bar and Coding opened a copy of the root one level down.
+// install m_info_ident_code_36_38_39_46_52_85, which lists the root's keys --
+// opening it re-lists Info/Ident/Code a level deeper and never shows the screen
+// the key selects. Compared by CONTENT (Activate's menu has the same item count
+// but different items and is a real submenu), and by what the keys DO not what
+// they are called (an item may take the screen's softkey help, so captions
+// differ while the keys match -- comparing captions stopped recognising the
+// bar and Coding opened a copy of the root a level down).
 function irSameBar(ir, menu, from) {
   if (!menu || !from || menu === from) return true;
   // The SCREEN each key selects, not the menu it also installs: the bar and
@@ -669,11 +595,10 @@ function irSameBar(ir, menu, from) {
   // s_code_...); they differ only in that the root's first keys re-install
   // the bar, which is how INPA stays on it.
   //
-  // Keys parked on the family placeholder are ignored. INPA narrows the bar
-  // while a page is up -- m_status_38_39 keeps five such keys where its
-  // m_status_sub_38_39 drops them -- and counting those made two bars with
-  // identical real keys look only 50% alike, so Analog and Digital each
-  // re-listed the menu instead of opening the page.
+  // Keys parked on the family placeholder are ignored: INPA narrows the bar
+  // while a page is up (m_status_38_39 keeps five such keys, m_status_sub_38_39
+  // drops them), and counting those made two bars with identical real keys look
+  // only 50% alike -- Analog and Digital re-listed the menu instead of opening.
   const dead = new Set(Object.entries(ir.screens || {})
     .filter(([n, s]) => irHasVariantSuffix(n) && !irRows(s).rows.length)
     .map(([n]) => n));
@@ -687,10 +612,9 @@ function irSameBar(ir, menu, from) {
   return shared / Math.max(A.size, B.size) > 0.8;
 }
 
-// INPA's menu IS a screen, and most of them print live values above the
-// softkey list: 444 of 542 ECUs show part number, VIN or date of manufacture
-// there. Reads them once (not polled -- INPA doesn't either; they are identity
-// facts, not gauges) and renders a compact strip above the keys.
+// INPA's menu IS a screen, and 444 of 542 ECUs print live values (part number,
+// VIN, date of manufacture) above the softkey list. Read once, not polled --
+// INPA doesn't either; they are identity facts, not gauges.
 async function irMenuHeader(ecu, ir, menuName, el) {
   if (!el) return;
   const name = ((ir.menus || {})[menuName] || {}).screen
@@ -720,12 +644,11 @@ async function irMenuHeader(ecu, ir, menuName, el) {
 }
 
 // Does pressing this key open a MENU, or the screen it also names? A key can
-// install both. The menu loses when it is merely the softkey bar this level
-// already shows, and when it holds nothing runnable -- LWS5's Coding key
-// installs m_code, whose single entry dumps the coding data to a .COD file on
-// the PC, while the screen it also names holds the seven data blocks and the
-// checksum. Shared by both open paths: renderIrMenu's own click handler and
-// irOpenItem, which fixing one and not the other left disagreeing.
+// install both. The menu loses when it is merely the bar this level shows, or
+// holds nothing runnable -- LWS5's Coding key installs m_code (whose entry
+// dumps to a .COD file on the PC) while the screen it names holds the seven
+// data blocks and the checksum. Shared by both open paths (renderIrMenu's click
+// handler and irOpenItem), which fixing only one left disagreeing.
 function irOpensMenu(ir, it, from) {
   return !!it.menu && !irSameBar(ir, it.menu, from)
     && (_irHasRunnable(ir, it.menu) || !it.screen);
@@ -738,16 +661,12 @@ function _irHasRunnable(ir, menuName) {
   return (((ir.menus || {})[menuName] || {}).items || []).some(
     it => (it.label || '').trim() && !it.fileAction && !it.appTool
           && !IR_CHROME.test(it.label.trim())
-          // a key back to the ROOT is Back whatever it is called. MS450's
-          // ident menu is Back/Print/End and nothing else, but deGerman had
-          // rendered two of them "Folder" and "Printing", which no chrome
-          // word list matches -- so the menu looked runnable and won over
-          // s_ident, the screen holding the 23 identification fields.
+          // a key back to the ROOT is Back whatever it is called (detected
+          // structurally), and INPA's chrome ACTIONS are chrome whatever they
+          // end up called. MS450's ident menu is Back/Print/End, but deGerman
+          // rendered them "Folder"/"Printing"/"END" -- no caption list catches
+          // that -- so it looked runnable and won over s_ident (23 ID fields).
           && !(it.menu === root && !it.job && menuName !== root)
-          // INPA's own chrome ACTIONS, whatever they end up called: MS450's
-          // ident menu is Back/Print/End but deGerman rendered them "Folder"/
-          // "Printing"/"END", so no caption list would catch them. The action
-          // is what the item does and does not translate.
           && !['printscreen', 'exit', 'select', 'deselect'].includes(it.action)
           && (it.job || it.screen || it.menu || it.action)
           && (it.job || it.screen || it.menu || it.action));
@@ -775,62 +694,51 @@ function irMenuItems(ir, menuName, variant) {
   const seen = new Set();
   return (menu.items || [])
     .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
-    // The key back to the root IS Back, whatever it is called: 1437 ECUs label
-    // it "Back" and IR_CHROME catches those, but a handful say "Main menu" or
-    // "to the main menu" and were listed as a function. Detected structurally
-    // -- from a submenu, a key whose target is the root menu -- so no wording
-    // needs to be enumerated. The app has Esc for this.
+    // The key back to the root IS Back, whatever it is called: IR_CHROME
+    // catches "Back", but a handful say "Main menu" and were listed as a
+    // function. Detected structurally (from a submenu, a key targeting the root
+    // menu), so no wording is enumerated. The app has Esc for this.
     .filter(it => !(menuName !== (ir.entry || {}).menu
                     && it.menu === (ir.entry || {}).menu && !it.job))
     // drives INPA rather than the car: loads another script, opens the KVP
     // editor. Flagged by the emitter from what the item does, not its name.
     .filter(it => !it.appTool)
-    // writes the fault list to a file, like Print -- an INPA function, not an
-    // ECU one, and it names no job because there is nothing to send.
-    // fileAction is the same thing read from the bytecode rather than the
-    // caption: the item only shows or truncates a file on the diagnostic PC
-    // (LWS5's "Read protocol file" / "Delete Protocol file" on na_fs_pr.tmp),
-    // which no wording pattern would have caught.
-    // ...but a FAULT read is INPA's own library doing exactly this: it writes
-    // na_fs.tmp and displays it, so it looks like pure file I/O while being
-    // the realest function on the menu. The app's fault view handles those.
+    // A file action -- writes/shows/truncates a file on the diagnostic PC, like
+    // Print, an INPA function not an ECU one (LWS5's "Read protocol file" on
+    // na_fs_pr.tmp). fileAction reads that from the bytecode, catching what no
+    // wording would. EXCEPT a FAULT read: INPA's own library writes na_fs.tmp
+    // and displays it, so it looks like file I/O while being the realest
+    // function on the menu -- the app's fault view handles those.
     .filter(it => !(it.fileAction && !IR_FAULT_READ.test(it.label.trim())))
     .filter(it => !(IR_FILE_ACTION.test(it.label.trim()) && !it.job
                     && !it.screen && !it.menu))
     // a key whose only effect is to redraw the menu's own screen does
     // nothing here -- INPA needs it because the screen IS the window
     .filter(it => !(it.screen === (ir.entry || {}).screen && !it.menu))
-    // ...and neither does one that re-installs THIS menu and the screen it is
-    // already drawn on. That is how INPA returns from an action it performed
-    // on the PC: MS450's fault menu ends with "save all faults to a file" and
-    // "insert comment", which name no job, go nowhere, and were listed beside
-    // the five real fault reads as though they were ECU functions.
+    // ...nor one that re-installs THIS menu and the screen it is already drawn
+    // on -- how INPA returns from a PC-side action. MS450's fault menu ends with
+    // "save all faults to a file" and "insert comment", which name no job and
+    // were listed beside the five real fault reads as ECU functions.
     .filter(it => !(it.menu === menuName && !it.job && !it.action
                     && (!it.screen || it.screen === menuScreen
                         // INPA names the menu's screen after the menu itself
                         // (m_fehlersp -> s_fehlersp); a key pointing at both
                         // is redrawing where it already is
                         || it.screen === 's' + menuName.slice(1))))
-    // an item with no navigation target is an ACTION INPA performs in place:
-    // its actuator items only flip state flags and let the screen send the
-    // job. Those are listed (the caption is INPA's own, joined from the
-    // screen's softkey help by F-number) but never runnable here -- firing an
-    // actuator is gated on car verification, and the arming semantics are
-    // not decoded.
-    // ...but an item that also names a JOB is a real function: CDC's "Trpmode
-    // ON"/"OFF" carry action "start" beside ENERGIESPARMODE, and dropping them
-    // hid the only two activations that ECU has.
+    // an item with no navigation target is an ACTION INPA performs in place.
+    // Actuator items only flip state flags and let the screen send the job:
+    // listed but never runnable here -- firing an actuator is gated on car
+    // verification and the arming semantics are not decoded. But an item that
+    // also names a JOB is a real function (CDC's "Trpmode ON"/"OFF" carry action
+    // "start" beside ENERGIESPARMODE; dropping them hid its two activations).
     .filter(it => it.screen || it.menu || it.job || !it.action)
-    // a write entry that opens the same SCREEN as a read entry (RDC's
-    // "MV write" reuses s_abgleichwert_lesen): INPA's difference is an input
-    // dialog and a write job in the ITEM body, neither of which we run until
-    // verified on a car, so what remains is a duplicate of the read page
-    // ...but only when the write cannot RUN. RDC's "MV write" needs a typed
-    // value we do not collect, so with the input dialog gone it is nothing but
-    // the read page again. MS450's "reset status" sends RESET_CRU_OFF on the
-    // keypress exactly as INPA does and merely redraws the same screen after
-    // -- dropping that hid a function the ECU really offers. The difference is
-    // the prompt, not the caption.
+    // a write entry that opens the same SCREEN as a read entry (RDC's "MV write"
+    // reuses s_abgleichwert_lesen) is a duplicate of the read page -- but ONLY
+    // when the write cannot RUN. "MV write" needs a typed value we do not
+    // collect, so with the input dialog gone it is just the read page again.
+    // MS450's "reset status" sends RESET_CRU_OFF on the keypress and redraws the
+    // same screen, a real function -- dropping it would hide one. The difference
+    // is the prompt, not the caption.
     .filter(it => {
       const dup = it.screen && seen.has(it.screen)
         && (!it.job || it.prompt)
@@ -875,17 +783,14 @@ function irMenuItems(ir, menuName, variant) {
       // INPA asks the user for a value and builds the job argument from it
       // (KLIMA_5B's flap positions: "Fresh air flap", "Position (0-100 %)")
       prompt: it.prompt || null,
-      // A menu named for other chassis is dropped ONLY when the item also
-      // names a screen that does serve this one: KOMBI's Status key installs
-      // m_status_38_39, whose pages are all _38 screens, and its own screen
-      // is the right one. Where the menu is all there is -- Activate's
-      // m_steuern_36C_38_39_39C_52, the only actuator menu this root has --
-      // dropping it would leave the key dead.
+      // A menu named for other chassis is dropped ONLY when the item also names
+      // a screen that serves this one (KOMBI's Status installs m_status_38_39
+      // but its own screen is right). Where the menu is all there is -- the only
+      // actuator menu this root has -- dropping it would leave the key dead.
       menu: (() => {
-        // INPA ships one Status/Activate menu PER VARIANT and lists the rest
-        // as alternatives (m_status_38_39 + m_status_46, m_status_85, ...).
-        // Taking it.menu blind gave KOMBI46 the _38 pages and hid its own
-        // TÖNS I/O and CAN keys.
+        // INPA ships one Status/Activate menu PER VARIANT and lists the rest as
+        // alternatives; taking it.menu blind gave KOMBI46 the _38 pages and hid
+        // its own TÖNS I/O and CAN keys.
         const m = pickMenu(it);
         return (m && it.screen
                 && !irMenuFitsVariant(m, variant || ir._variant)
@@ -900,26 +805,23 @@ function irMenuItems(ir, menuName, variant) {
     // every screen this key names belongs to another variant, and it opens no
     // menu: INPA does not offer this key on this ECU, so neither do we
     .filter(it => it.screen || it.menu || it.job || it.inPlace)
-    // ...and a key whose menu turns out to hold nothing we can run is the same
-    // thing one level down. LWS5's only Coding key dumps the coding data to a
-    // .COD file on the PC -- INPA ships no coding readout for that ECU -- so
-    // the key led to an empty list. INPA's menus reference each other freely
-    // (every bar links Back to its parent), so the check is depth-limited
-    // rather than recursive: look at the target's own items only.
+    // ...and a key whose menu holds nothing we can run is the same thing a level
+    // down (LWS5's only Coding key dumps to a .COD file on the PC, leading to an
+    // empty list). Depth-limited not recursive -- INPA's bars link Back to their
+    // parent -- so look at the target's own items only.
     .filter(it => !it.menu || it.screen || it.menu === menuName
                   || _irHasRunnable(ir, it.menu));
 }
 
 // Actuator keys always run -- INPA sends on the keypress. The setting only
-// decides whether we ask first; defaulting to asking, since unlike INPA this
-// app can be pointed at a car by someone who did not choose the test.
+// decides whether we ask first, and defaults to asking: unlike INPA this app
+// can be pointed at a car by someone who did not choose the test.
 const confirmActuators = () => Settings.get('confirmActuators', 'on') !== 'off';
 
 // Live actuator state per menu, mirroring INPA's own: the menu holds the
 // argument word between presses, each key toggles its own pair, and the whole
-// word is sent every time. Starting from composite.baseline -- the value
-// INPA's startup initialises the fields to -- means our first send is
-// byte-identical to INPA's.
+// word is sent every time. Starting from composite.baseline (what INPA's
+// startup initialises the fields to) makes our first send byte-identical.
 const _compState = new Map();
 
 function compWord(ir, menuName) {
@@ -935,11 +837,10 @@ function compWord(ir, menuName) {
   return _compState.get(ck);
 }
 
-// Mode-flag state per menu: slot -> the value last picked. Two keys writing
-// the same slot with different values are a radio group -- ZKE5's "with /
-// without Quitting" set flag 29 to 1/0, which the actuator run reads. The
-// keys look dead (they only store a variable) so INPA showed no state; here
-// they behave like a real toggle, and the group's first value is the default.
+// Mode-flag state per menu: slot -> the value last picked. Two keys writing the
+// same slot with different values are a radio group (ZKE5's "with/without
+// Quitting" sets flag 29 to 1/0, which the actuator run reads). The keys look
+// dead (they only store a variable); here they behave like a real toggle.
 const _modeState = new Map();
 
 // The other items in this menu that write the SAME slot as `it`. A non-empty
@@ -1031,33 +932,24 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
 // starts from baseline rather than showing flags nobody is driving.
 function irResetCompositeState() { _compState.clear(); }
 
-// A screen with no gauges and no lamps is a labelled READ -- coding data,
-// identification, references. INPA draws those as a colon-aligned list, not
-// as bars, and they do not change while the car sits there, so they get the
-// ID-data card (identity.js) rather than the polling gauge grid: same
-// presentation as the Info tab, in both UI modes, read once with F1 to
-// re-read.
+// A screen with no gauges and no lamps is a labelled READ (coding data,
+// identification, references). INPA draws those as a colon-aligned list, not
+// bars, and they do not change while the car sits, so they get the ID-data
+// card (identity.js) rather than the polling gauge grid.
 function irIsCard(scr) {
   if (irIsMemory(scr)) return false;
   const rows = irRows(scr).rows;
-  // A CODING page is a list of labelled answers, some of them yes/no flags:
-  // DWA4 reads four values ("alarm variant") beside four digitalout flags
-  // ("with tilt alarm sensor"), and INPA prints all eight as "label : value".
-  // The card renders exactly that and translates ja/nein, so a screen that is
-  // ALL labelled readings qualifies whether or not some are flags.
-  //
-  // A lamp only counts when INPA gave it no on/off caption AND the screen is
-  // not predominantly lamps: BC_V's 18 clamp indicators and BZMF_E65's button
-  // panels are digitalout too, and their at-a-glance state is the point of
-  // them -- turning those into a text list would lose it.
+  // A CODING page is labelled answers, some yes/no flags: DWA4 reads four values
+  // beside four digitalout flags, all printed "label : value". So a screen that
+  // is ALL labelled readings qualifies whether or not some are flags -- but a
+  // lamp only counts as one when INPA gave it no on/off caption AND lamps do not
+  // dominate (BC_V's 18 clamp indicators are an at-a-glance panel, not a list).
   const lamps = rows.filter(r => r.kind === 'lamp');
   const captioned = lamps.some(r => r.on || r.off);
-  // A screen whose lamps outnumber its NON-IDENT values is an indicator
-  // panel, not a list of answers. SBSR reads eight live occupancy flags and
-  // then nine identification fields (part number, supplier, date) -- the ident
-  // block says nothing about the flags, and their glyphs are the point. DWA4's
-  // coding page is the other way round: four flags beside four values that
-  // answer the same kind of question ("alarm variant", "lock signals").
+  // Lamps outnumbering NON-IDENT values means an indicator panel, not a list of
+  // answers: SBSR reads eight occupancy flags then nine ident fields (the ident
+  // block says nothing about the flags). DWA4's coding page is the reverse --
+  // four flags beside four values answering the same kind of question.
   const identish = (r) => /^ID_|_NR$|^SN_/.test(r.key || '');
   const answers = rows.filter(r => r.kind !== 'lamp' && !identish(r)).length;
   const mostlyLamps = lamps.length > answers;
@@ -1068,12 +960,10 @@ function irIsCard(scr) {
   // card keyed by result name would show the last pass five times. Those go to
   // the poller, which reads each argument separately.
   //
-  // Distinct captions make it a card again: LWS5's coding page calls
-  // CODIERUNG_LESEN once per block and labels each "Data Block 0..6", which is
-  // a list of labelled reads like any ident page -- the argument distinguishes
-  // the passes, and the caption already says which is which.
-  // ...and it must actually be LABELLED. CAS's DME ringbuffer has three rows
-  // and no captions at all, so a card would list bare result names.
+  // Distinct captions make it a card again (LWS5's coding calls CODIERUNG_LESEN
+  // per block, labelled "Data Block 0..6") -- but it must actually be LABELLED:
+  // CAS's DME ringbuffer has three rows and no captions, so a card would list
+  // bare result names.
   if (lamps.length && !rows.every(r => (r.label || '').trim())) return false;
   const args = rows.filter(r => r.arg != null);
   if (!args.length) return true;
@@ -1174,12 +1064,10 @@ async function renderIrMemory(ecu, scr, container, back, keys) {
 const IR_INFO_KEYS = ['TITLE', 'VERSION', 'ORIGIN', 'PACKAGE', 'ECU',
                       'REVISION', 'AUTHOR', 'SPRACHE', 'COMMENT'];
 
-// Deliberately narrow. "No result rows plus some captions" also describes a
-// screen whose values this decoder failed to extract -- ACC's s_id_aktuell
-// prints BMW part number and serial number that way -- and pairing those with
-// the INFO job would invent data. The information screen is identified by the
-// name INPA gives it (`s_info`, the script-info page in BMW's own template,
-// on 452 ECUs' Info key) plus the absence of softkey help, which is what
+// Deliberately narrow: "no result rows plus captions" also describes a screen
+// whose values this decoder failed to extract (ACC's s_id_aktuell), and pairing
+// those with the INFO job would INVENT data. So identify it by INPA's own name
+// (`s_info`, on 452 ECUs' Info key) plus the absence of softkey help, which
 // distinguishes it from a screen that merely hosts a menu.
 function irIsInfo(scr, name) {
   if (name !== 's_info') return false;
@@ -1238,19 +1126,9 @@ function irAsCard(scr, descs) {
   };
 }
 
-// Which of an item's variant screens to use. INPA names them for the chassis
-// they serve (s_code_46, s_status_36) and picks by the ECU's own VARIANTE, so
-// the digits in the name are matched against the digits in the variant --
-// KOMBI46 -> s_code_46, which has 37 rows where the default first target has
-// 13. A screen with no rows never wins: s_status_36_38_39_46_52_85 lists the
-// chassis but holds nothing, and taking it left Status empty.
-// Which variants a name is tagged for. INPA suffixes a screen with the chassis
-// numbers it serves (s_status_36, s_status_digital_36c,
-// m_main_36_38_39_46_52_85); the variant names themselves are in rootVariants,
-// so a tag matches a variant when the variant's name ENDS with it. That handles
-// KOMBI361 matching "361" over "36", and leaves IKE/IKI -- which carry no
-// number -- untagged rather than falsely matching every numbered screen.
-// Does this name end in one or more variant suffixes (_36, _38_39, _36c)?
+// Does this name end in one or more variant suffixes (_36, _38_39, _36c)? INPA
+// suffixes a screen with the chassis numbers it serves (s_status_36); the
+// variant names are in rootVariants, matched by irScreenTags below.
 const irHasVariantSuffix = (n) => /_\d+[a-zA-Z]?(_\d+[a-zA-Z]?)*$/.test(String(n));
 
 // Is this variant one the screen suffixes can address at all? KOMBI31..KOMBI85
@@ -1274,19 +1152,13 @@ function irScreenTags(ir, name) {
   const tags = [];
   for (const t of String(name).match(/\d+[a-zA-Z]?(?=_|$)/g) || []) {
     const T = t.toUpperCase();
-    // A variant matches a tag when its name ends with the tag, or continues
-    // with digits (so "36" covers KOMBI36 and KOMBI361, which share
-    // s_status_36 and both answer STATUS_LESEN). It must NOT swallow a
-    // lettered sibling: "36" is not KOMBI36C, whose screens are _36c and
-    // whose jobs differ. A more specific name still wins -- irPickTagged
-    // prefers the shortest tag list.
     // A lettered tag (39C, 46R, 36c) names ONE variant and must match it
-    // exactly. A bare number matches the variants whose name continues with
-    // digits or a body letter -- "36" covers KOMBI36 and KOMBI361, "46" covers
-    // KOMBI46 and KOMBI46R, which share m_steuern_46 because INPA ships no
-    // _46r actuator menu. That deliberately makes "39" match KOMBI39C too;
-    // where a _39C name also exists it is the more specific tag and
-    // irPickTagged prefers it, so the loose match only applies as a fallback.
+    // exactly. A bare number matches variants whose name continues with digits
+    // or a body letter -- "36" covers KOMBI36 and KOMBI361 (share s_status_36),
+    // "46" covers KOMBI46 and KOMBI46R (share m_steuern_46, no _46r menu). It
+    // must NOT swallow a lettered sibling with differing jobs (36 is not 36C).
+    // "39" does match KOMBI39C, but where a _39C name also exists irPickTagged
+    // prefers the more specific tag, so the loose match is only a fallback.
     const re = /[a-zA-Z]$/.test(T) ? new RegExp(`${T}$`)
                                    : new RegExp(`${T}\\d*[a-zA-Z]?$`);
     for (const v of names) if (re.test(v) && !tags.includes(v)) tags.push(v);
@@ -1357,12 +1229,8 @@ function irPickScreen(ir, it, variant, via) {
 // caller can fall back.
 function irOpenItem(ecu, ir, menuName, it, container, back) {
   irUseTranslations(ir);
-  // A key can install a menu AND a screen. Often the menu is just the bar it
-  // keeps: KOMBI's Ident, Code and Memory all install
-  // m_info_ident_code_36_38_39_46_52_85, which IS the root menu -- opening it
-  // re-lists Info/Ident/Code/... one level deeper while the screen the key
-  // actually selects never renders. The screen wins whenever the menu is not
-  // a narrower list than the one we came from.
+  // A key can install a menu AND a screen; the screen wins unless the menu is a
+  // narrower list than the one we came from (see irOpensMenu / irSameBar).
   if (irOpensMenu(ir, it, menuName)) {
     return renderIrMenu(ecu, ir, it.menu, container, back);
   }
@@ -1391,21 +1259,19 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
   return true;
 }
 
-// A decoded ident-write form: INPA's "Only for the developer" ident page,
-// reproduced as one editable card. The write key (stateForm) is the whole
-// form; a "Change: X" key (stateEdit) is the same form with its one or two
-// fields highlighted. Reads the module to pre-fill, stages edits, and shows
-// the exact semicolon-joined argument the write WOULD send -- and stops
-// there, the same contract the coding editor keeps: an ident write is an
-// EEPROM write behind INPA's developer gate.
+// A decoded ident-write form: INPA's "Only for the developer" ident page as one
+// editable card. The write key (stateForm) is the whole form; a "Change: X" key
+// (stateEdit) highlights its one or two fields. Reads the module to pre-fill,
+// stages edits, and shows the exact semicolon-joined argument the write WOULD
+// send -- and STOPS there: an ident write is an EEPROM write behind INPA's
+// developer gate (same contract as the coding editor).
 //
-// Field pre-fill: the read job whose results line up with the form's
-// captions. LWS5's IDENT_E answers ID_BMW_NR/ID_HW_NR/... in the same order
-// the form edits, so the current column is real; where no such read exists
-// the fields simply start blank and the form still works as a builder.
+// Pre-fill comes from the read job whose results line up with the form's
+// captions (LWS5's IDENT_E answers ID_BMW_NR/... in the form's order); with no
+// such read the fields start blank and the form still works as a builder.
+
 // normalise a caption for matching: strip trailing colon/padding, lower-case,
-// so "BMW part number :" and "BMW part number" pair, and "Coding index"
-// matches whichever side spells it with a trailing space.
+// so "BMW part number :" and "BMW part number" pair.
 function irCapKey(s) {
   return String(s || '').replace(/[:\s]+$/, '').trim().toLowerCase();
 }
@@ -1441,15 +1307,13 @@ function irStateReadJob(ir) {
   return best;
 }
 
-// The read screen that shows the same fields a buffer-only "actual values"
-// screen only captions. INPA fills the actual-values page from its edit
-// buffer (no job); the module answers the same fields through its ident read
-// (IDENT/IDENT_E on a card screen). Returns that screen's name, or null when
-// there is no confident match -- redirecting the wrong screen would show
-// unrelated data, so the bar is: this item's screen has captions but no job
-// or result rows, its menu carries a write form, and exactly one other
-// screen is an ident-shaped read with at least as many value bindings as
-// this page has captions.
+// The read screen showing the same fields a buffer-only "actual values" screen
+// only captions. INPA fills that page from its edit buffer (no job); the module
+// answers the same fields through its ident read (IDENT/IDENT_E on a card
+// screen). Returns its name, or null when there is no confident match --
+// redirecting the wrong screen would show unrelated data. The bar: this item's
+// screen has captions but no job or rows, its menu carries a write form, and
+// exactly one other screen is an ident read with >= as many value bindings.
 function irIdentReadScreen(ir, menuName, it) {
   const menu = ir.menus[menuName];
   if (!menu || !menu.items.some(x => x.stateForm)) return null;
@@ -1565,10 +1429,8 @@ async function showStateForm(ecu, ir, menuName, it, container, back, trail) {
 
   const draw = () => {
     container.className = 'results-panel';
-    // each field is a full-width clickable row: the caption, the current
-    // value, its legal range, and an edit affordance. Clicking anywhere on
-    // the row opens the same dialog the F-key does, so the form is usable
-    // with the mouse the way BimmerCode is, not only from the softkey bar.
+    // each field is a full-width clickable row; clicking it opens the same
+    // dialog the F-key does, so the form is usable with the mouse too.
     const row = (f, i) => {
       const v = val.get(f.slot);
       const on = focus.size && focus.has(f.slot);
@@ -1686,24 +1548,17 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       it = { ...it, screen: idRead };
     }
 
-    // Fault memory is read through INPA's own library helper, not a job the
-    // screen names: F1 calls INPAapiFsLesen_neu and writes na_fs.tmp, so the
-    // decode has a caption and nothing to run. The app's fault view already
-    // does this properly -- FS_LESEN plus code lookup and freeze frames --
-    // so the menu is INPA's but this one entry hands off to it.
-    // A fault read may still name a job: LWS5's "Read" calls ABGLEICH_LESEN
-    // first (its adjustment VIN) and then reads the memory through INPA's own
-    // library. Running only the named job showed adjustment data under a
-    // "Read error memory" caption, so route on what the key IS -- unless the
-    // job it names is itself the fault read.
-    // A fault read may also name a SCREEN rather than running in place --
-    // MS450's fault menu is five such keys -- but that screen has no rows:
-    // INPA formats the fault list in code, so there is nothing to poll and it
-    // rendered as an empty page. The app's own fault view is what this is for.
-    // A key whose SCREEN carries the job, with no rows to show for it: INPA
-    // runs it and prints its own confirmation. MS450's "Clear error memory"
-    // is FS_LOESCHEN on s_fs_loesch, so the key opened a blank page and did
-    // nothing. Hand it to the same confirm-and-run path as any other write.
+    // Fault memory is read through INPA's own library (F1 calls
+    // INPAapiFsLesen_neu, writing na_fs.tmp), so the decode has a caption and
+    // nothing to run -- the app's fault view (FS_LESEN + code lookup + freeze
+    // frames) takes over. The key may present three ways, all handled below:
+    //   - it names a job first (LWS5's "Read" runs ABGLEICH_LESEN, its
+    //     adjustment VIN, before reading memory) -- route on what the key IS,
+    //     unless the named job is itself the fault read;
+    //   - it names a SCREEN with no rows (MS450's five fault keys: INPA formats
+    //     the list in code), which would render as an empty page;
+    //   - its SCREEN carries the job (MS450's "Clear error memory" is
+    //     FS_LOESCHEN on s_fs_loesch), handed to the confirm-and-run path.
     const jobScreen = it.screen && (ir.screens || {})[it.screen];
     if (!it.job && jobScreen && !irReadable(jobScreen)
         && (jobScreen.jobs || []).length === 1
@@ -1758,20 +1613,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }], shiftKeys());
         return;
       }
-      // A SCREEN THAT DID NOT DECODE IS NOT AN ACTION. !irReadable means "no
-      // rows to show", and that is true both of a key INPA really does just
-      // run and of a screen this decompiler failed to lift. Arming the
-      // second kind turned BMS46's rough-measuring -- four per-cylinder
-      // readouts INPA draws as gauges -- into an "Activate on BMS46?"
-      // confirm, because its gauges lift as captions with no values (INPA
-      // batches all four result keys ahead of the captions, a layout the
-      // walker does not model yet).
-      //
-      // So the job has to LOOK like an action as well as be write-free.
-      // STATUS_* reads a value: whatever else is wrong, it is never
-      // something to offer to run on a car. That alone is 1307 of the jobs
-      // this shortcut was arming; START/STOP/DIAGNOSE/INITIALISIERUNG and
-      // the memory clears are the ones that belong here.
+      // A SCREEN THAT DID NOT DECODE IS NOT AN ACTION. !irReadable ("no rows to
+      // show") is true both of a key INPA really just runs and of a screen this
+      // decompiler failed to lift -- arming the second kind turned BMS46's
+      // rough-measuring gauges into an "Activate on BMS46?" confirm. So the job
+      // must LOOK like an action too: STATUS_* only reads a value and is never
+      // offered to run on a car (1307 of the jobs this shortcut was arming);
+      // START/STOP/DIAGNOSE/INITIALISIERUNG and the memory clears belong here.
       const acts = /^(START|STOP|DIAGNOSE|DIAGNOSEMODE|INITIALISIERUNG|INIT|ENDE|SLEEP|RESET)[_A-Z0-9]*$/i
         .test(only.name);
       if ((!only.write && acts) || clears) {
@@ -1802,14 +1650,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       }], shiftKeys());
       return;
     }
-    // A key that installs a MENU opens that menu, whatever else it does.
-    // INPA's root keys set the screen AND the softkey menu together (Status
-    // -> s_status + m_rdc_status), and s_status is only the window the menu
-    // is drawn in -- it has no rows of its own. Checking the screen first
-    // sent Status and Activate to the "no readout" message instead of their
-    // submenus.
-    // a menu no narrower than this one is the same softkey bar being kept,
-    // not a submenu: opening it just re-lists these keys a level deeper
+    // A key that installs a MENU opens it, whatever else it does. INPA's root
+    // keys set screen AND menu together (Status -> s_status + m_rdc_status),
+    // where s_status is only the window with no rows of its own -- checking the
+    // screen first sent Status/Activate to "no readout" instead of the submenu.
+    // (irOpensMenu excludes a menu no narrower than this one: same bar kept.)
     if (irOpensMenu(ir, it, menuName)) {
       renderIrMenu(ecu, ir, it.menu, container,
                    () => renderIrMenu(ecu, ir, menuName, container, back, trail),
@@ -1945,13 +1790,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return;
     }
     if (it.inPlace) {
-      // A KEY INPA RUNS ON THE PC, NOT ON THE CAR. NAVI's "languages load"
-      // reads a language table off a Windows filesystem and holds it for the
-      // next key to send, so it decompiles to a label and nothing else --
-      // there is genuinely no job in the .IPO, verified by hand against the
-      // bytecode. The file is not the interesting part though: the job it
-      // feeds takes three plain language codes, so a picker does what the
-      // file did. navlang.js draws that.
+      // A KEY INPA RUNS ON THE PC, NOT THE CAR. NAVI's "languages load" reads a
+      // language table off a Windows filesystem for the next key to send, so it
+      // decompiles to a label with genuinely no job in the .IPO (verified by
+      // hand against the bytecode). The job it feeds takes three plain language
+      // codes, so a picker (navlang.js) does what the file did.
       if (/sprach|language/i.test(it.label) && /lad|load/i.test(it.label)
           && typeof showNavLanguages === 'function') {
         const reopen = () =>
@@ -1959,15 +1802,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         showNavLanguages(ecu, container, reopen);
         return;
       }
-      // INPA runs this from the menu: each key sets its own REQ/VAL pair in
-      // ONE argument string, and a single job re-commands every actuator on
-      // the ECU at once. The pairing is decoded (comp.items) -- what is not
-      // established is the neutral word: whether all-REQ-zero is a true
-      // no-op. Until that is confirmed on a car, pressing one key would be
-      // asserting a value for six actuators nobody chose.
-      // reached only when this menu has NO decoded composite: INPA runs the
-      // key in place but we cannot tell what it sends, so there is nothing
-      // to fire and saying so beats guessing.
+      // Reached only when this menu has NO decoded composite. INPA runs the key
+      // in place -- each key sets its REQ/VAL pair in one word, one job commands
+      // every actuator at once -- but with the word undecoded we cannot tell
+      // what it sends, so saying so beats guessing.
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
         + `<strong>${esc(it.label)}</strong></div>`
@@ -2027,10 +1865,9 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       container.innerHTML = `<div class="empty"><div>`
         + (scr && !irReadable(scr)
           ? ((scr.jobs || []).some(j => /^(STATUS|LESEN|MESSWERT)/i.test(j.name))
-            // a READ whose layout did not lift. Saying "performs an action"
-            // would be a plain lie about a job that only reads values, and
-            // this is the wording someone sees when the decompiler has a gap
-            // rather than when INPA really has no readout.
+            // a READ whose layout did not lift: saying "performs an action"
+            // would lie about a job that only reads values, so distinguish a
+            // decompiler gap from INPA genuinely having no readout.
             ? `INPA draws readouts here that this build could not decode from `
               + `the .IPO yet, so there is nothing to show.`
             : `In INPA this entry performs an action, not a readout — it is `
@@ -2092,7 +1929,6 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       const comp = (ir.menus[menuName] || {}).composite;
       const pair = comp && comp.items && comp.items[String(it.nr)];
       const word = pair && compWord(ir, menuName);
-      // the row shows its own armed state, the way INPA's menu does
       if (word) return word[pair[0]] === '1' ? 'ON' : 'off';
       // sends the assembled word without owning a field (RDC F8 "write data
       // into ECU"), or calls its own job (F18 Sleep -> SLEEP_MODE)
@@ -2110,12 +1946,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     }
     if (!it.menu && !it.screen) return '';
     const scr = (ir.screens || {})[it.screen];
-    // a real submenu counts its entries; a key that merely keeps this bar
-    // counts the rows of the screen it selects, which is what opening it shows
-    // No count for a screen or submenu. It would be a prediction made before
-    // the job runs -- rows the ECU never answers still counted, one page
-    // counted once per job -- and it was wrong often enough to be worth less
-    // than the space. Opening it shows the truth.
+    // No count for a screen or submenu: it would be a prediction made before the
+    // job runs (rows the ECU never answers still counted, a page counted once
+    // per job), wrong often enough to be worth less than the space. Opening it
+    // shows the truth.
     return '';
   };
 
@@ -2123,16 +1957,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     container.className = 'results-panel';
     container.innerHTML = `<div class="ir-menu-head" id="ir-head"></div>`
       + `<div class="act-key-list" id="ir-list"></div>`;
-    // INPA's menu screen is a screen: 444 of 542 ECUs print live values on it
-    // -- part number, VIN, date of manufacture -- above the softkey list. The
-    // menu is drawn from the same screen the keys are drawn on, so read it.
+    // the menu is drawn from the same screen the keys are, which often prints
+    // live identity values above the list (see irMenuHeader)
     irMenuHeader(ecu, ir, menuName, container.querySelector('#ir-head'));
     const list = container.querySelector('#ir-list');
-    // Only the BAR swaps. INPA prints the shifted keys permanently in a
-    // second column on the right of the screen body -- MS45's root shows
-    // "< Shift > + < F6 >  EWS - Startwertabgleich" beside the plain list at
-    // all times -- and swaps only the F-key row along the bottom. So the body
-    // lists both halves and never repaints.
+    // Only the BAR swaps. INPA prints the shifted keys permanently in a second
+    // column on the right of the body ("< Shift > + < F6 >  EWS - ...") and
+    // swaps only the F-key row along the bottom, so the body lists both halves
+    // and never repaints.
     const rowsOf = (shownItems, into) => shownItems.forEach((it) => {
       const row = document.createElement('button');
       row.className = 'inpa-fn act-key-row';
@@ -2208,19 +2040,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
 let irRootExtras = null;
 function setIrRootExtras(fn) { irRootExtras = fn; }
 
-// The ECU's own root menu, rendered as INPA draws it.
-//
-// There is deliberately NO table mapping INPA's labels to app sections. That
-// approach needs a regex per label per language, silently drops every key
-// nobody anticipated, and made "Information" and "Read status" collide when
-// two keys happened to map to one section. The IR already holds INPA's root
-// menu with its real F-key numbers and targets, so the general answer is to
-// render that and let each key open whatever it opens -- exactly what
-// renderIrMenu already does for every nested menu.
-//
-// The only judgement left is presentation, and that is decided by the decoded
-// screen (irIsCard: all-value rows are a labelled read, anything with a gauge
-// or lamp is a live panel), not by what the key is called.
+// The ECU's own root menu, rendered as INPA draws it. Deliberately NO table
+// mapping INPA's labels to app sections -- that needs a regex per label per
+// language, drops every unanticipated key, and collided "Information" with
+// "Read status". Instead render the IR's root (real F-key numbers and targets)
+// and let each key open whatever it opens, as renderIrMenu does for nested
+// menus. Presentation is decided by the decoded screen (irIsCard), not the key.
 function irRootMenu(ir, variant) {
   // several roots, one per ECU variant: INPA runs the variant job and matches
   // its result against each root's name list. With no answer yet, prefer the
