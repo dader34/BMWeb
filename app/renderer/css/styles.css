@@ -2633,65 +2633,55 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     color: var(--ios-text); font-size: 19px; padding: 0;
   }
   .mtab:active { background: var(--ios-surface-2); }
-  .mtab-icon { width: 22px; height: 22px; color: var(--ios-text); display: block; }
-  /* the centre status: three labelled readouts (BATT / IGN / LINK). Each is
-     a caption over its value or lamp, so the dots are never anonymous. */
+  .mtab-icon { width: 24px; height: 24px; color: var(--ios-text); display: block; }
+  /* the centre status: three labelled readouts (BATTERY / IGNITION / LINK).
+     Every column is a fixed two-row grid -- caption on top, indicator on a
+     shared bottom baseline -- so a number, a lamp and a lamp all line up
+     across the three regardless of their differing content. */
   .mtab-status {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    gap: 20px; min-width: 0;
+    flex: 1; display: flex; align-items: stretch; justify-content: center;
+    gap: 22px; min-width: 0;
   }
   .mtab-status .kl-state {
-    display: flex; align-items: flex-start; gap: 20px;
+    display: flex; align-items: stretch; gap: 22px;
     background: none; border: 0; padding: 0;
   }
-  /* each reading stacks its caption above the value/lamp */
-  .mtab-status .kl {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  .mtab-status .kl, .mtab-status .status {
+    display: grid; grid-template-rows: 12px 18px; row-gap: 4px;
+    justify-items: center; align-content: center;
+    background: none; border: 0; padding: 0;
   }
   .mtab-status .kl-lbl {
-    display: block; order: -1;
+    grid-row: 1; display: block;
     font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
-    text-transform: uppercase; color: var(--ios-faint);
+    line-height: 12px; text-transform: uppercase; color: var(--ios-faint);
   }
-  .mtab-status .kl-led {
+  /* the indicator row: a lamp OR a value, always vertically centred in an
+     18px band so all three baselines match */
+  .mtab-status .kl-led, .mtab-status .status .led {
+    grid-row: 2; align-self: center;
     width: 9px; height: 9px; border-radius: 50%; background: #3a3f47;
     transition: box-shadow .2s, background .2s;
   }
-  /* battery LED green + glow when live (matches the reference's green volts) */
-  #bat-led.on {
-    background: #34c759; box-shadow: 0 0 7px 1px rgba(52, 199, 89, 0.7);
+  .mtab-status .kl-val {
+    grid-row: 2; align-self: center;
+    font-size: 14px; font-weight: 700; color: var(--ios-dim);
+    font-variant-numeric: tabular-nums; line-height: 18px;
   }
-  #ign-led.on {
-    background: var(--ios-amber);
-    box-shadow: 0 0 6px 1px rgba(255, 158, 44, 0.7);
-  }
-  /* battery shows its voltage as the value; the LED is redundant, so hide it
-     and let the number carry the state (green when a reading is in) */
+  /* battery: the voltage IS the readout, so drop its lamp */
   .kl:has(#bat-val) .kl-led { display: none; }
-  #bat-val {
-    font-size: 15px; font-weight: 700; color: var(--ios-dim);
-    font-variant-numeric: tabular-nums;
-  }
+  #bat-led.on { background: #34c759; box-shadow: 0 0 7px 1px rgba(52,199,89,.7); }
   .kl:has(#bat-led.on) #bat-val { color: #34c759; }
-  /* ignition shows on/off text, not a dot value */
-  #ign-val {
-    font-size: 13px; font-weight: 600; color: var(--ios-dim);
-    text-transform: uppercase; letter-spacing: 0.02em;
-  }
-  .kl:has(#ign-led.on) #ign-val { color: var(--ios-amber); }
-  /* cable link: a LINK-labelled lamp, wrapped so it matches the kl stack */
-  .mtab-status .status {
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 0; background: none; border: 0;
-  }
+  /* ignition: a single lamp, no text value doubling it up */
+  #ign-led.on { background: var(--ios-amber); box-shadow: 0 0 6px 1px rgba(255,158,44,.7); }
+  #ign-val { display: none; }
+  /* cable link: a LINK-labelled lamp in the same two-row grid */
   .mtab-status .status::before {
-    content: "LINK"; order: -1;
-    font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--ios-faint);
+    content: "LINK"; grid-row: 1;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+    line-height: 12px; color: var(--ios-faint);
   }
   .mtab-status .status #link-text { display: none; }
-  .mtab-status .status .led {
-    width: 9px; height: 9px; border-radius: 50%; margin-top: 5px;
-  }
 
   /* the bottom bar is always shown on mobile; the old F-key strip is only
      for INPA menu/form screens, which sit ABOVE it, so give it room */
