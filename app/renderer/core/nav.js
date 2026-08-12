@@ -247,10 +247,26 @@ async function showScriptSelection(chassisId) {
 
     const codeable = all.map((e, i) => ({ ...e, kind: kinds[i] }))
       .filter(e => e.kind);
-    jobsPane.innerHTML = codeable.length
-      ? codeable.map((e, i) => `<button class="inpa-ss-job" data-i="${i}">${esc(e.label)}<span class="inpa-ss-kind">${e.kind}</span></button>`).join('')
-      : '<div class="inpa-ss-empty">No codeable modules</div>';
-    jobsPane.querySelectorAll('.inpa-ss-job').forEach(b => {
+    // The curated feature list leads: friendly, grouped owner-facing options
+    // (BimmerCode-style) above the raw per-module coding. Only where a chassis
+    // has a curated map. The per-module rows follow as the expert tier.
+    const curated = typeof hasCurated === 'function' && hasCurated(chassisId);
+    jobsPane.innerHTML =
+      (curated ? `<button class="inpa-ss-job inpa-ss-featured" data-feat="1">`
+        + `Features<span class="inpa-ss-kind">easy</span></button>` : '')
+      + (codeable.length
+        ? codeable.map((e, i) => `<button class="inpa-ss-job" data-i="${i}">${esc(e.label)}<span class="inpa-ss-kind">${e.kind}</span></button>`).join('')
+        : (curated ? '' : '<div class="inpa-ss-empty">No codeable modules</div>'));
+    const feat = jobsPane.querySelector('[data-feat]');
+    if (feat) feat.onclick = () => {
+      close();
+      const back = () => showScriptSelection(chassisId);
+      setCrumbs([{ label: 'Vehicles', fn: showChassis },
+                 { label: dispChassis(chassisId), fn: back },
+                 { label: 'Features' }]);
+      showCuratedCoding(chassisId, view, back);
+    };
+    jobsPane.querySelectorAll('.inpa-ss-job[data-i]').forEach(b => {
       const e = codeable[Number(b.dataset.i)];
       b.onclick = () => { close(); showEcuCoding(chassisId, e.section, { sgbd: e.sgbd, code: e.code, label: e.label }); };
     });

@@ -1079,6 +1079,45 @@ html[data-theme="inpa"] .inpa-fault-name { color: #000; }
 /* Coding editor: one row per named coding value. The label reads as English,
    the SGBD's own result name sits beside it in mono (that name is what you
    check against a coding table), then the value as a toggle or a number. */
+/* ---- CURATED FEATURE-TOGGLE CODING (the friendly tier) ------------------ */
+.cur-menu { max-width: 720px; }
+.cur-groups { display: grid; gap: 22px; margin-top: 10px; }
+.cur-group-h {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ink-faint); margin: 0 4px 8px;
+}
+.cur-list {
+  display: grid; gap: 0; border: 1px solid var(--line); border-radius: 12px;
+  overflow: hidden; background: var(--panel);
+}
+.cur-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  width: 100%; text-align: left; padding: 14px 16px; min-height: 54px;
+  background: none; border: 0; color: var(--ink); font: inherit; cursor: pointer;
+  border-bottom: 1px solid var(--line);
+}
+.cur-row:last-child { border-bottom: 0; }
+.cur-row:hover { background: rgba(127, 127, 127, 0.06); }
+.cur-row.staged { background: rgba(255, 158, 44, 0.08); }
+.cur-label { font-size: 15px; line-height: 1.3; }
+/* an iOS-style switch: green when on, dimmed when the car's value is unknown */
+.cur-toggle {
+  flex: 0 0 auto; position: relative; width: 46px; height: 28px;
+  border-radius: 100px; background: var(--panel-2);
+  border: 1px solid var(--line); transition: background .15s, border-color .15s;
+}
+.cur-toggle.on { background: #34c759; border-color: #34c759; }
+.cur-toggle.unknown { opacity: 0.4; }
+.cur-knob {
+  position: absolute; top: 2px; left: 2px; width: 22px; height: 22px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.35);
+  transition: transform .15s cubic-bezier(.2,.8,.2,1);
+}
+.cur-toggle.on .cur-knob { transform: translateX(18px); }
+/* the "Features" entry in the Script-selection coding list, set apart */
+.inpa-ss-featured { color: var(--amber); font-weight: 700; }
+html[data-theme="inpa"] .inpa-ss-featured { color: #000080; }
+
 .cod-list { display: grid; gap: 1px; max-width: 860px; margin-top: 6px; }
 .cod-row {
   display: grid; grid-template-columns: 1fr 260px 92px 84px;

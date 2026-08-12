@@ -30,7 +30,7 @@ const OFFLINE_SHELL = [
   'screens/autoscan.js', 'screens/sweep.js', 'screens/fault-report.js',
   'screens/ir.js', 'screens/ecu.js', 'screens/flashing.js',
   'screens/activations.js', 'screens/syscheck.js', 'screens/coding.js',
-  'screens/coding-edit.js', 'screens/navlang.js',
+  'screens/coding-edit.js', 'screens/curated-coding.js', 'screens/navlang.js',
   'screens/identity.js', 'screens/aif.js', 'screens/adaption.js',
   'screens/service.js', 'screens/special.js', 'screens/measurements.js',
   'screens/live.js', 'screens/faults.js', 'screens/lookup.js',
