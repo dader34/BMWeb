@@ -136,6 +136,47 @@ function expertModuleList(chassisId, mods, cont, back) {
                 fn: back }]);
 }
 
+// Render a function's value list the way DATEN actually means it -- the same
+// three shapes the coding editor handles, so a numeric field is not printed as
+// a fake pick list:
+//   named settings   [["aktiv","00"],["nicht_aktiv","01"]]  -> name = value
+//   numeric field    [[94,"04"],[101,"06"]]  the "name" is a raw number from
+//                    another variant, NOT an enum label. Show the values only.
+//   wert_NN default  [["wert_01","0a"]]  a single numeric default.
+//   buffer           long hex strings (a curve/country block). Byte count.
+function treeValues(vals, label) {
+  if (!vals.length) return '<span class="ink-faint">—</span>';
+  // a value NAME that is a bare number (or wert_NN) is not a real setting name
+  const isNumericName = (n) => typeof n === 'number'
+    || /^-?\d+$/.test(String(n)) || /^wert_\d+$/i.test(String(n));
+  // buffers: value is a long hex string
+  const long = vals.filter(([, v]) => typeof v === 'string' && v.length > 4);
+  if (long.length === vals.length && vals.length > 1) {
+    const bytes = String(vals[0][1]).length / 2;
+    return `<span class="tree-val" title="${esc(
+      vals.map(([n, v]) => `${n}: ${v}`).join('\n'))}">`
+      + `<span class="tree-val-n">${vals.length} variants</span>`
+      + `<span class="tree-val-v mono">${bytes} bytes each</span></span>`;
+  }
+  // all names are numbers -> a numeric field: show the hex values as the
+  // options it can hold, no fake name column
+  if (vals.every(([n]) => isNumericName(n))) {
+    const uniq = [...new Set(vals.map(([, v]) => String(v)))];
+    const tag = vals.length === 1 ? 'default' : 'value';
+    return `<span class="tree-val"><span class="tree-val-n">${tag}</span>`
+      + uniq.map(v => `<span class="tree-val-v mono">0x${esc(v)}</span>`).join('')
+      + `</span>`;
+  }
+  // real named settings: friendly name = value
+  return vals.map(([n, v]) => {
+    const big = typeof v === 'string' && v.length > 4;
+    return `<span class="tree-val"${big ? ` title="${esc(v)}"` : ''}>`
+      + `<span class="tree-val-n">${esc(label(n))}</span>`
+      + `<span class="tree-val-v mono">`
+      + `${big ? `${String(v).length / 2} bytes` : '0x' + esc(v)}</span></span>`;
+  }).join('');
+}
+
 // DESKTOP: one searchable nested tree, Module > Function > Values, expand in
 // place -- BimmerUtility's layout. The function/value data is BMW's DATEN
 // description (datenFor); modules that only name values in the SGBD still
@@ -202,12 +243,7 @@ async function expertTree(chassisId, mods, cont, back) {
       const cap = q ? shownFns.length : Math.min(shownFns.length, 400);
       for (let i = 0; i < cap; i++) {
         const f = shownFns[i];
-        const vals = (f.values || []);
-        const valsHtml = vals.length
-          ? vals.map(([n, v]) => `<span class="tree-val">`
-              + `<span class="tree-val-n">${esc(label(n))}</span>`
-              + `<span class="tree-val-v mono">${esc(v)}</span></span>`).join('')
-          : '<span class="ink-faint">—</span>';
+        const valsHtml = treeValues(f.values || [], label);
         const fl = document.createElement('details');
         fl.className = 'tree-fn';
         fl.innerHTML = `<summary class="tree-fn-h">`
