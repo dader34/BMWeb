@@ -312,7 +312,9 @@ async function expertTree(chassisId, mods, cont, back, scan) {
         fns = [...byName.values()];
       }
     }
-    built.push({ ...m, fns });
+    // skip modules with no functions to show -- a 0-function row is a dead
+    // expand that only clutters the tree
+    if (fns.length) built.push({ ...m, fns });
   }
 
   const label = (name) => (typeof datLabel === 'function'
