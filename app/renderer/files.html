@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BMWeb: BMW Files & SP-Daten Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
   <style>
     :root {
@@ -24,6 +27,22 @@
       --folder: #f59e0b;
     }
     * { box-sizing: border-box; }
+    .icon {
+      font-family: 'Material Symbols Rounded';
+      font-weight: normal;
+      font-style: normal;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-smoothing: antialiased;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      user-select: none;
+      vertical-align: middle;
+    }
     body {
       margin: 0;
       background: var(--bg);
@@ -451,23 +470,20 @@
     .code-btn:hover { color: var(--ink); border-color: var(--amber); }
 
     /* Mirrors */
+    .mirror-list {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
     .mirror-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 10px 12px;
-      background: var(--panel2);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      margin-bottom: 8px;
-      transition: border-color .15s;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
     }
-    .mirror-row:last-child { margin-bottom: 0; }
-    .mirror-row.active {
-      border-color: var(--amber);
-      background: var(--amber-glow);
-    }
+    .mirror-row:last-child { border-bottom: none; }
     .mirror-info {
       display: flex;
       flex-direction: column;
@@ -478,8 +494,20 @@
       font-weight: 600;
       font-size: 14px;
       color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .mirror-row.active .mirror-name { color: var(--amber); }
+    .mirror-tag {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--faint);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 1px 6px;
+    }
     .mirror-url {
       font-family: ui-monospace, Menlo, monospace;
       font-size: 11.5px;
@@ -487,29 +515,33 @@
       text-decoration: none;
       word-break: break-all;
     }
-    .mirror-url:hover { color: var(--amber); }
+    .mirror-url:hover { color: var(--dim); text-decoration: underline; }
     .mirror-use-btn {
       flex: none;
-      background: var(--panel3);
+      background: none;
       border: 1px solid var(--line);
       color: var(--dim);
       font-size: 12.5px;
       font-weight: 600;
-      padding: 6px 14px;
+      padding: 5px 14px;
       border-radius: 6px;
       cursor: pointer;
-      transition: all .15s;
     }
     .mirror-use-btn:hover {
-      border-color: var(--amber);
+      border-color: var(--line-hover);
       color: var(--ink);
     }
-    .mirror-row.active .mirror-use-btn {
-      background: var(--amber);
-      border-color: var(--amber);
-      color: #11161c;
-      cursor: default;
+    .mirror-active {
+      flex: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--amber);
+      padding: 5px 2px;
     }
+    .mirror-active .icon { font-size: 16px; }
 
     /* Toast */
     .toast {
@@ -567,7 +599,7 @@
     <div class="controls">
       <div class="search-row">
         <div class="search-box">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon icon" style="font-size:18px;">search</span>
           <input type="text" id="search-input" class="search-input" placeholder="Search across all folders by chassis (e.g. E46, E90, F10), file name, or extension..." />
         </div>
       </div>
@@ -601,19 +633,18 @@
 
     <!-- Download mirrors -->
     <div class="cli-box">
-      <div class="cli-title">🪞 Download Mirrors</div>
+      <div class="cli-title"><span class="icon" style="font-size:18px;">dns</span> Download Mirrors</div>
       <p class="cli-desc">
-        Every file is hosted on three identical Hugging Face repos (same content,
-        verified by <code>manifest.json</code> checksums). If a download is slow or a
-        repo is unavailable, switch mirrors — all download buttons on this page
-        update instantly.
+        Every file is hosted on three identical Hugging Face repos, verified by
+        <code>manifest.json</code> checksums. If a download is slow or a repo is
+        unavailable, switch here and every download link on the page follows.
       </p>
-      <div id="mirror-list"></div>
+      <div id="mirror-list" class="mirror-list"></div>
     </div>
 
     <!-- Quick Terminal Helper -->
     <div class="cli-box">
-      <div class="cli-title">💻 Unpack & Restore Archives</div>
+      <div class="cli-title"><span class="icon" style="font-size:18px;">terminal</span> Unpack & Restore Archives</div>
       <p class="cli-desc">To extract all SP-Daten and EC-Apps packages once downloaded to your machine:</p>
       <div class="code-block" id="cli-code">
 # Decompress all SP-Daten and EC-Apps archives:
@@ -630,9 +661,9 @@ python3 restore.py --extract
     // primary; the others exist so a slow or unavailable repo never blocks a
     // download. update_mirrors.py in the backup folder keeps them in sync.
     const MIRRORS = [
-      { user: "CraigFf", label: "Primary" },
-      { user: "HarryG8", label: "Mirror 2" },
-      { user: "VerilP0", label: "Mirror 3" },
+      { user: "CraigFf", tag: "Primary" },
+      { user: "HarryG8", tag: "Mirror" },
+      { user: "VerilP0", tag: "Mirror" },
     ];
     const MIRROR_STORE_KEY = "bmweb-files-mirror";
 
@@ -668,12 +699,14 @@ python3 restore.py --extract
     function renderMirrors() {
       const box = document.getElementById('mirror-list');
       box.innerHTML = MIRRORS.map((m, i) => `
-        <div class="mirror-row ${i === mirrorIdx ? 'active' : ''}">
+        <div class="mirror-row">
           <div class="mirror-info">
-            <span class="mirror-name">${m.label} — ${m.user}</span>
+            <span class="mirror-name">${m.user} <span class="mirror-tag">${m.tag}</span></span>
             <a class="mirror-url" href="${mirrorRepoUrl(m)}" target="_blank" rel="noopener">${mirrorRepoUrl(m)}</a>
           </div>
-          <button class="mirror-use-btn" onclick="setMirror(${i})">${i === mirrorIdx ? 'In use ✓' : 'Use'}</button>
+          ${i === mirrorIdx
+            ? '<span class="mirror-active"><span class="icon">check_circle</span>Active</span>'
+            : `<button class="mirror-use-btn" onclick="setMirror(${i})">Use</button>`}
         </div>
       `).join('');
     }
@@ -698,16 +731,15 @@ python3 restore.py --extract
     }
 
     function getFileIcon(path) {
-      if (path.endsWith('.tar.zst') || path.endsWith('.tar.gz')) return '📦';
-      if (path.endsWith('.iso')) return '💿';
-      if (path.endsWith('.sqlite')) return '🗄️';
-      if (path.endsWith('.zip') || path.endsWith('.7z') || path.endsWith('.rar')) return '🗜️';
-      if (path.endsWith('.wiring')) return '⚡';
-      if (path.endsWith('.py')) return '🐍';
-      if (path.endsWith('.json') || path.endsWith('.txt') || path.endsWith('.md')) return '📄';
-      if (path.endsWith('.pdf')) return '📕';
-      if (path.endsWith('.msi') || path.endsWith('.exe') || path.endsWith('.reg')) return '⚙️';
-      return '📄';
+      if (path.endsWith('.tar.zst') || path.endsWith('.tar.gz')) return 'inventory_2';
+      if (path.endsWith('.iso')) return 'album';
+      if (path.endsWith('.sqlite')) return 'database';
+      if (path.endsWith('.zip') || path.endsWith('.7z') || path.endsWith('.rar')) return 'folder_zip';
+      if (path.endsWith('.wiring')) return 'cable';
+      if (path.endsWith('.py')) return 'terminal';
+      if (path.endsWith('.pdf')) return 'picture_as_pdf';
+      if (path.endsWith('.msi') || path.endsWith('.exe') || path.endsWith('.reg')) return 'settings';
+      return 'description';
     }
 
     function getFileTypeBadge(path) {
@@ -760,7 +792,7 @@ python3 restore.py --extract
         return;
       }
 
-      let html = `<button class="crumb-btn ${currentFolder === '' ? 'active' : ''}" onclick="navigateToFolder('')">📁 Root</button>`;
+      let html = `<button class="crumb-btn ${currentFolder === '' ? 'active' : ''}" onclick="navigateToFolder('')"><span class="icon" style="font-size:15px;">folder_open</span> Root</button>`;
       
       if (currentFolder) {
         const parts = currentFolder.split('/');
@@ -806,7 +838,7 @@ python3 restore.py --extract
           tr.innerHTML = `
             <td>
               <div class="file-name-cell">
-                <span class="file-icon">${icon}</span>
+                <span class="file-icon icon">${icon}</span>
                 <div class="file-info">
                   <a href="${dlUrl}" class="file-title" download>${f.name}</a>
                   <span class="file-path-sub">${f.path}</span>
@@ -816,8 +848,8 @@ python3 restore.py --extract
             <td><span class="size-badge">${sizeStr}</span></td>
             <td>${badge}</td>
             <td class="actions-cell">
-              <a href="${dlUrl}" class="dl-btn" download>Download ⬇</a>
-              <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
+              <a href="${dlUrl}" class="dl-btn" download>Download <span class="icon" style="font-size:15px;">download</span></a>
+              <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link"><span class="icon" style="font-size:15px;">link</span></button>
             </td>
           `;
           tbody.appendChild(tr);
@@ -869,7 +901,7 @@ python3 restore.py --extract
         trParent.innerHTML = `
           <td>
             <div class="file-name-cell">
-              <span class="file-icon" style="color:var(--folder);">📁</span>
+              <span class="file-icon icon" style="color:var(--folder);">folder</span>
               <div class="file-info">
                 <span class="folder-title" style="color:var(--amber);">.. (Parent Directory)</span>
               </div>
@@ -878,7 +910,7 @@ python3 restore.py --extract
           <td><span class="size-badge">--</span></td>
           <td><span class="category-badge cat-folder">Folder</span></td>
           <td class="actions-cell">
-            <button class="folder-enter-btn">Up ⬆</button>
+            <button class="folder-enter-btn"><span class="icon" style="font-size:15px;">arrow_upward</span> Up</button>
           </td>
         `;
         tbody.appendChild(trParent);
@@ -895,7 +927,7 @@ python3 restore.py --extract
         tr.innerHTML = `
           <td>
             <div class="file-name-cell">
-              <span class="file-icon" style="color:var(--folder);">📁</span>
+              <span class="file-icon icon" style="color:var(--folder);">folder</span>
               <div class="file-info">
                 <span class="folder-title">${dirName}/</span>
                 <span class="file-path-sub">${info.count} items</span>
@@ -905,7 +937,7 @@ python3 restore.py --extract
           <td><span class="size-badge">${formatBytes(info.size)}</span></td>
           <td><span class="category-badge cat-folder">Directory</span></td>
           <td class="actions-cell">
-            <button class="folder-enter-btn">Open ➔</button>
+            <button class="folder-enter-btn">Open <span class="icon" style="font-size:15px;">chevron_right</span></button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -924,7 +956,7 @@ python3 restore.py --extract
         tr.innerHTML = `
           <td>
             <div class="file-name-cell">
-              <span class="file-icon">${icon}</span>
+              <span class="file-icon icon">${icon}</span>
               <div class="file-info">
                 <a href="${dlUrl}" class="file-title" download>${f.name}</a>
               </div>
@@ -933,8 +965,8 @@ python3 restore.py --extract
           <td><span class="size-badge">${sizeStr}</span></td>
           <td>${badge}</td>
           <td class="actions-cell">
-            <a href="${dlUrl}" class="dl-btn" download>Download ⬇</a>
-            <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link">🔗</button>
+            <a href="${dlUrl}" class="dl-btn" download>Download <span class="icon" style="font-size:15px;">download</span></a>
+            <button class="copy-btn" onclick="copyToClipboard('${dlUrl}', 'Download link copied!')" title="Copy Link"><span class="icon" style="font-size:15px;">link</span></button>
           </td>
         `;
         tbody.appendChild(tr);
