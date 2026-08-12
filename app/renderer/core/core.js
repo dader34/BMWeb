@@ -370,6 +370,7 @@ function paintActions(actions) {
   paintActionsInpa(actions);
   fkeysEl.classList.toggle('shifted', actions === shiftActions);
   syncNavBack(actions);
+  syncNavAction(actions);
 }
 
 // The touch back arrow tracks whatever the current screen registered as its
@@ -382,6 +383,23 @@ function syncNavBack(actions) {
   const back = (actions || []).find(a => a.kind === 'back');
   el.hidden = !back;
   el.onclick = back ? () => fireAction(back) : null;
+}
+
+// The top-right nav action mirrors the top-left back arrow: a screen's primary
+// action (the coding screen's Re-read) shown in the nav bar on mobile, where
+// the F-key bar is hidden. A screen opts in by marking one action
+// kind:'navAction'; its label becomes the button text.
+function syncNavAction(actions) {
+  const el = document.getElementById('nav-action');
+  if (!el) return;
+  const act = (actions || []).find(a => a.kind === 'navAction');
+  el.hidden = !act;
+  if (act) {
+    el.textContent = act.label || '';
+    el.onclick = () => fireAction(act);
+  } else {
+    el.onclick = null;
+  }
 }
 
 // a screen may also want its BODY repainted when the row swaps, so the list

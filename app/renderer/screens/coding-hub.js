@@ -70,7 +70,7 @@ async function showCodingHub(chassisId, initialTab) {
   // demo scan (webDemoCoding fills plausible values).
   const scanHost = document.createElement('div');
   view.appendChild(scanHost);
-  const scan = await scanCoding(chassisId, scanHost);
+  let scan = await scanCoding(chassisId, scanHost);
   scanHost.remove();
 
   const tabs = document.createElement('div');
@@ -83,14 +83,28 @@ async function showCodingHub(chassisId, initialTab) {
   panel.className = 'coding-panel';
   view.appendChild(panel);
 
+  // Re-read the whole car and redraw the active tab. This is the single
+  // Re-read control, surfaced top-right on mobile (kind:'navAction') the way
+  // Back sits top-left; each tab includes it in its action list.
+  const reScan = async () => {
+    const host = document.createElement('div');
+    panel.replaceWith(host);
+    host.id = 'coding-panel'; host.className = 'coding-panel';
+    scan = await scanCoding(chassisId, host);
+    // put the panel back and re-render the current tab
+    host.replaceWith(panel);
+    panel.innerHTML = '';
+    select(tab);
+  };
+
   const select = (t) => {
     tab = t;
     tabs.querySelectorAll('.coding-tab').forEach(b =>
       b.classList.toggle('active', b.dataset.tab === t));
     if (t === 'features' && typeof showCuratedCoding === 'function') {
-      showCuratedCoding(chassisId, panel, back, scan);
+      showCuratedCoding(chassisId, panel, back, scan, reScan);
     } else {
-      showExpertCoding(chassisId, panel, back, scan);
+      showExpertCoding(chassisId, panel, back, scan, reScan);
     }
   };
   tabs.querySelectorAll('.coding-tab').forEach(b =>
@@ -134,7 +148,7 @@ async function scanCoding(chassisId, host) {
 }
 
 // Expert tab. Desktop gets the nested tree; mobile the drill-down list.
-async function showExpertCoding(chassisId, cont, back, scan) {
+async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   const mobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
   const mods = await codeableModules(chassisId);
@@ -142,13 +156,13 @@ async function showExpertCoding(chassisId, cont, back, scan) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
     return;
   }
-  if (mobile) expertModuleList(chassisId, mods, cont, back);
-  else expertTree(chassisId, mods, cont, back, scan);
+  if (mobile) expertModuleList(chassisId, mods, cont, back, reScan);
+  else expertTree(chassisId, mods, cont, back, scan, reScan);
 }
 
 // MOBILE: a grouped list of modules; tapping one opens its coding screen
 // (showCoding handles both the editable read and the DATEN reference).
-function expertModuleList(chassisId, mods, cont, back) {
+function expertModuleList(chassisId, mods, cont, back, reScan) {
   cont.className = 'coding-panel';
   cont.innerHTML = `<div class="cur-list" id="exp-list"></div>`;
   const list = cont.querySelector('#exp-list');
@@ -175,8 +189,12 @@ function expertModuleList(chassisId, mods, cont, back) {
     };
     list.appendChild(row);
   });
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: back }]);
+  const acts = [];
+  if (reScan) acts.push({ key: '1', keyLabel: 'F1', kind: 'navAction',
+    label: 'Re-read', fn: reScan });
+  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+              fn: back });
+  setActions(acts);
 }
 
 // A value NAME that is a bare number (or wert_NN) is not a real setting name
@@ -283,7 +301,7 @@ function treeValues(vals, label, fkey, state) {
 // place -- BimmerUtility's layout. The function/value data is BMW's DATEN
 // description (datenFor); modules that only name values in the SGBD still
 // list under their read job. A filter box narrows across every level.
-async function expertTree(chassisId, mods, cont, back, scan) {
+async function expertTree(chassisId, mods, cont, back, scan, reScan) {
   cont.className = 'coding-panel coding-tree-wrap';
   cont.innerHTML = `
     <div class="tree-bar">
@@ -440,6 +458,8 @@ async function expertTree(chassisId, mods, cont, back, scan) {
   const updateBar = () => {
     const n = stagedCount();
     const acts = [];
+    if (reScan) acts.push({ key: '1', keyLabel: 'F1', kind: 'navAction',
+      label: 'Re-read', fn: reScan });
     if (n) {
       acts.push({ key: '2', keyLabel: 'F2', label: `Review (${n})`,
         fn: () => treeReview(built, state, label) });

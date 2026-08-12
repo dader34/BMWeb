@@ -120,7 +120,7 @@ async function curatedFeatures(chassisId) {
 // The curated feature screen. Reads each involved module once, shows every
 // option as a toggle set to the car's current value, and stages changes --
 // nothing is sent. `back` returns to whatever opened it.
-async function showCuratedCoding(chassisId, container, back, scan) {
+async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const cont = container || view;
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
   if (typeof loadDatenMap === 'function') await loadDatenMap();
@@ -252,8 +252,13 @@ async function showCuratedCoding(chassisId, container, back, scan) {
 
   const setKeys = () => {
     const acts = [];
-    acts.push({ key: '1', keyLabel: 'F1', label: readOk ? 'Re-read' : 'Read',
-      fn: async () => { readOk = false; draw(); await readAll(); draw(); } });
+    // Re-read: re-scan the whole car (hub-level) if the hub provided it, else
+    // re-read just these modules. kind:'navAction' surfaces it top-right on
+    // mobile the way Back sits top-left.
+    acts.push({ key: '1', keyLabel: 'F1', kind: 'navAction',
+      label: readOk ? 'Re-read' : 'Read',
+      fn: reScan ? reScan
+        : async () => { readOk = false; draw(); await readAll(); draw(); } });
     if (staged.size) {
       acts.push({ key: '2', keyLabel: 'F2', label: `Review (${staged.size})`,
         fn: () => curatedReview(chassisId, groups, staged, current) });

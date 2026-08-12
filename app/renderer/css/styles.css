@@ -199,6 +199,17 @@ html.no-chrome .topbar { grid-template-columns: auto 1fr auto; }
   border: 1px solid var(--line); border-radius: 4px; padding: 0 0 3px;
 }
 .nav-back:active { background: var(--raised); }
+/* the top-right nav action mirrors nav-back: desktop hides it (the F-key bar
+   carries the action there); the mobile block shows it. */
+.nav-action {
+  display: none; -webkit-app-region: no-drag; cursor: pointer;
+  align-items: center; justify-content: center; padding: 0 12px; height: 34px;
+  font-family: var(--display); font-size: 13px; font-weight: 700;
+  color: var(--amber); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; white-space: nowrap;
+}
+.nav-action:active { background: var(--raised); }
+.nav-action[hidden] { display: none !important; }
 /* Topbar buttons carry a word on the desktop and a glyph on a phone: the
    two labels together are 148px of a 320px bar, which is what pushed
    Flashing and Settings off the edge entirely. */
@@ -2521,7 +2532,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.split) .fkeybar,
   body:has(.group-grid) .fkeybar,
   body:has(.settings-list) .fkeybar,
-  body:has(.lookup-controls) .fkeybar {
+  body:has(.lookup-controls) .fkeybar,
+  body:has(.coding-tabs) .fkeybar {
     display: none !important;
   }
   /* card/list screens: view stops at the persistent bottom bar (58pt), the
@@ -2532,7 +2544,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.split) .view,
   body:has(.group-grid) .view,
   body:has(.settings-list) .view,
-  body:has(.lookup-controls) .view {
+  body:has(.lookup-controls) .view,
+  body:has(.coding-tabs) .view {
     bottom: calc(58px + var(--safe-bottom)) !important;
   }
   .fkeys { padding-top: 0; }
@@ -2794,6 +2807,14 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
      and Settings moved to the bottom bar (car · voltage · gear), so the top
      bar stays quiet the way an iOS large-title screen does. */
   .topbar-right { display: none; }
+  /* a screen's Re-read (etc.) sits top-right, mirroring the back chevron,
+     styled as an iOS text button */
+  .nav-action:not([hidden]) {
+    display: inline-flex; grid-column: 3; justify-self: end;
+    background: none; border: 0; color: var(--ios-amber);
+    font-size: 16px; font-weight: 600; padding: 0 4px; height: 36px;
+  }
+  .nav-action:active { background: none; opacity: .6; }
 
   /* ---- BOTTOM BAR: car · battery voltage · gear -------------------------
      The app's persistent chrome, replacing INPA's F-key strip. Car returns to
@@ -2901,7 +2922,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   body:has(.split) .fkeybar,
   body:has(.group-grid) .fkeybar,
   body:has(.settings-list) .fkeybar,
-  body:has(.lookup-controls) .fkeybar { display: none !important; }
+  body:has(.lookup-controls) .fkeybar,
+  body:has(.coding-tabs) .fkeybar { display: none !important; }
   .fkeybar {
     bottom: calc(58px + var(--safe-bottom));
     padding-bottom: 4px; height: 54px;

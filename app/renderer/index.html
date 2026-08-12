@@ -120,6 +120,12 @@
       <span class="brand-name">BMacW</span>
     </div>
     <nav class="breadcrumbs" id="crumbs"></nav>
+    <!-- A screen's primary action, shown top-right on mobile the way the back
+         arrow sits top-left. A screen registers it as an action with
+         kind:'navAction' (e.g. the coding screen's Re-read); hidden when none.
+         A direct topbar child so it survives .topbar-right being hidden on
+         mobile. -->
+    <button class="nav-action" id="nav-action" hidden></button>
     <div class="topbar-right">
       <!-- Battery (KL30) + Ignition (KL15) state, INPA top indicators -->
       <div class="kl-state" id="kl-state" title="Battery voltage (KL30) and ignition state (KL15), read from the car">
