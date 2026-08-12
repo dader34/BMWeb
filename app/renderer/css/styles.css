@@ -2658,8 +2658,6 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     display: flex; align-items: center; justify-content: space-between;
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     height: 58px;
-    /* padding-bottom is the CLAMPED --safe-bottom (max 34pt): the 58pt row
-       sits above the home indicator and never inherits an inflated inset. */
     padding: 0 calc(18px + env(safe-area-inset-right, 0px))
              var(--safe-bottom)
              calc(18px + env(safe-area-inset-left, 0px));
@@ -2672,7 +2670,13 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.04),
                 0 -8px 20px rgba(0, 0, 0, 0.28);
   }
-  .mobile-tabbar > * { display: flex; align-items: center; }
+  /* The content row is centred in the 58pt height, which sits ABOVE the
+     home-indicator inset -- so the icons hug the top of the visible bar. Shift
+     them down by half the inset to centre them in the WHOLE visible bar. */
+  .mobile-tabbar > * {
+    display: flex; align-items: center;
+    transform: translateY(calc(var(--safe-bottom) / 2));
+  }
   .mtab {
     width: 44px; height: 44px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
