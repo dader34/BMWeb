@@ -2706,12 +2706,19 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
      long the model name is. */
   .chassis-card {
     position: relative;
+    /* width:100% is load-bearing: the diagnostics list builds rows as <div>
+       (block, fills the container) but the WIRING list builds them as
+       <button> (shrinks to content). Without this the wiring rows spanned
+       only half the width. text-align:left keeps a button's centred text
+       left where a div's already is. */
+    width: 100%; text-align: left;
     display: grid;
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto; align-items: center;
     min-height: 68px; padding: 14px 16px; gap: 3px 12px;
     background: none; border: 0; border-radius: 0;
     transition: background .12s;
+    font: inherit; color: inherit;
   }
   .chassis-card:not(:last-child)::after {
     content: ""; position: absolute; left: 16px; right: 0; bottom: 0;
