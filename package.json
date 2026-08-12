@@ -1,0 +1,12 @@
+{
+  "name": "bmweb-renderer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BMWeb renderer — ES modules bundled to a single IIFE by esbuild",
+  "scripts": {
+    "build": "bash scripts/build/build-bundle.sh"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
