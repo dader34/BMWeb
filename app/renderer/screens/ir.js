@@ -857,6 +857,11 @@ function irMenuItems(ir, menuName, variant) {
       // the index this key selects before opening its screen, when several
       // keys share one screen and differ only by record (MS450's 15 AIF keys)
       sel: Array.isArray(it._sel) ? it._sel[1] : null,
+      // ...and the slot it stores into. Two keys writing the same slot with
+      // different values are a MODE toggle -- ZKE5's "with/without Quitting"
+      // set flag 29 to 1/0, which the actuator run then reads. Kept so the
+      // renderer can show which is active instead of "not decoded".
+      selSlot: Array.isArray(it._sel) ? it._sel[0] : null,
       // the job came from a state machine, whose argument assembly is not
       // decoded -- listed, never sent
       stateJob: !!it.stateJob,
@@ -928,6 +933,37 @@ function compWord(ir, menuName) {
     _compState.set(ck, base);
   }
   return _compState.get(ck);
+}
+
+// Mode-flag state per menu: slot -> the value last picked. Two keys writing
+// the same slot with different values are a radio group -- ZKE5's "with /
+// without Quitting" set flag 29 to 1/0, which the actuator run reads. The
+// keys look dead (they only store a variable) so INPA showed no state; here
+// they behave like a real toggle, and the group's first value is the default.
+const _modeState = new Map();
+
+// The other items in this menu that write the SAME slot as `it`. A non-empty
+// result means `it` is one option of a mode toggle, not a lone dead key.
+function irModeGroup(ir, menuName, it) {
+  if (it.selSlot == null) return null;
+  const peers = irMenuItems(ir, menuName)
+    .filter(x => x.selSlot === it.selSlot);
+  return peers.length > 1 ? peers : null;
+}
+
+// Which value of a mode slot is active: what the user last picked, else the
+// group's lowest value as the default INPA boots with.
+function irModeValue(ir, menuName, group) {
+  const ck = `${ir.ecu}:${menuName}:${group[0].selSlot}`;
+  if (!_modeState.has(ck)) {
+    const def = Math.min(...group.map(x => Number(x.sel)));
+    _modeState.set(ck, def);
+  }
+  return _modeState.get(ck);
+}
+
+function irSetMode(ir, menuName, slot, value) {
+  _modeState.set(`${ir.ecu}:${menuName}:${slot}`, Number(value));
 }
 
 // Send one actuator key: set its REQ/VAL pair in the shared word, post the
@@ -1613,6 +1649,17 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (!items.length) return false;
 
   const open = async (it) => {
+    // A MODE TOGGLE: one option of a radio group that sets a shared flag the
+    // actuator run reads (ZKE5's with/without Quitting). It calls no job and
+    // navigates nowhere, so INPA left it looking dead -- here, picking it
+    // just records the choice and redraws so the menu shows which is active.
+    const modeGroup = irModeGroup(ir, menuName, it);
+    if (modeGroup) {
+      irSetMode(ir, menuName, it.selSlot, it.sel);
+      renderIrMenu(ecu, ir, menuName, container, back, trail);
+      return;
+    }
+
     // A DECODED STATE PROCEDURE: INPA's ident-write form. The write key
     // carries every field and the send order (stateForm); each "Change: X"
     // key edits one or two of the same fields (stateEdit); "Set default
@@ -2044,6 +2091,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     if (it.stateForm) return 'build';
     if (it.stateEdit) return 'edit';
     if (it.stateCopy) return 'default';
+    // a mode toggle (with/without Quitting): the row shows a lamp for the
+    // currently-selected option, the way a radio button reads
+    const modeGroup = irModeGroup(ir, menuName, it);
+    if (modeGroup) {
+      return Number(it.sel) === irModeValue(ir, menuName, modeGroup)
+        ? '● on' : '○';
+    }
     // reflects the setting, not a property of the item: with actuator tests
     // enabled these DO run, so a fixed "not runnable" would be a lie. Once
     // running, the row shows its own armed state the way INPA's menu does.

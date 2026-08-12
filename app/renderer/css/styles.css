@@ -2161,16 +2161,45 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
    wants ~44px of height (Apple's HIG figure, and about right for a
    thumb in a cold garage). */
 @media (max-width: 760px) {
-  /* The chrome eats a phone screen. Give the content its room back. */
-  .view { inset: 50px 0 60px 0; padding: 14px 12px; }
-  body.wds-nofkeys .view { inset: 50px 0 0 0; }
+  /* SAFE AREAS FIRST. black-translucent status bar means the page renders
+     UNDER the notch/Dynamic Island and the home indicator; without env()
+     insets the topbar hides behind the clock and the bottom bar sits under
+     the home bar -- which is exactly what makes it read as a cramped web
+     page rather than an app. Named as vars so every fixed edge can reuse
+     them, with a fallback for browsers that report 0 (no notch). */
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --bar-h: 50px;
+    --fkey-h: 58px;
+  }
+
+  /* The chrome eats a phone screen. Give the content its room back, and
+     inset it past the notch corners so cards never touch the screen edge. */
+  .view {
+    inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
+           calc(var(--safe-bottom) + var(--fkey-h)) var(--safe-left);
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: 24px;
+  }
+  body.wds-nofkeys .view {
+    inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
+           var(--safe-bottom) var(--safe-left);
+  }
 
   /* TOPBAR: four items do not fit beside the logo at 390px -- Settings fell
      off the right edge entirely. Let the status cluster scroll instead of
-     overflowing, and shrink the pieces that are decoration. */
+     overflowing, and shrink the pieces that are decoration. The bar grows to
+     cover the status-bar area and pads its content down past the notch, the
+     way a native nav bar does. */
   .topbar {
-    height: 50px; padding: 0 6px;
+    height: calc(50px + var(--safe-top));
+    padding: var(--safe-top) calc(6px + var(--safe-right)) 0
+             calc(6px + var(--safe-left));
     grid-template-columns: auto auto 1fr; gap: 6px;
+    align-items: center;
   }
   /* THE ARROW COSTS A COLUMN, so something has to give it back. The word
      "BMWeb" beside the logo is the least useful thing in the bar on a
@@ -2208,30 +2237,47 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .btn-text { display: none; }
   .btn-icon { display: inline; }
   .topbar .btn, .topbar .icon-btn {
-    padding: 0; width: 34px; height: 34px;
+    padding: 0; width: 36px; height: 36px; border-radius: 10px;
     display: inline-flex; align-items: center; justify-content: center;
   }
+  .brand-name { font-size: 19px; letter-spacing: -0.01em; }
 
-  .screen-head { margin-bottom: 12px; }
-  .title { font-size: 24px; }
-  .subtitle { font-size: 13px; }
-  .eyebrow { font-size: 10px; }
+  /* Header breathing room: an app title sits well below the nav bar with
+     air around it, not jammed against the chrome the way a dense web page
+     packs it. */
+  .screen-head { margin-bottom: 20px; margin-top: 4px; }
+  .title { font-size: 28px; line-height: 1.12; letter-spacing: -0.02em; }
+  .subtitle { font-size: 14px; margin-top: 6px; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.14em; margin-bottom: 8px; }
+
+  /* BOTTOM BAR AS A NATIVE TAB BAR. The F-key strip is the app's bottom
+     chrome on a phone; it must clear the home indicator and float above it
+     with a translucent, blurred backing rather than butting into it. */
+  .fkeybar {
+    height: calc(var(--fkey-h) + var(--safe-bottom));
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left); padding-right: var(--safe-right);
+    background: rgba(13, 18, 23, 0.86);
+    backdrop-filter: saturate(1.4) blur(18px);
+    -webkit-backdrop-filter: saturate(1.4) blur(18px);
+    border-top: 1px solid var(--line);
+  }
 
   /* MODERN TOUCH-FRIENDLY 2-COLUMN CHASSIS GRID */
   .chassis-grid {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 10px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
   }
   .chassis-card {
     aspect-ratio: auto;
-    min-height: 74px;
-    padding: 12px 14px;
+    min-height: 84px;
+    padding: 16px;
     flex-direction: column;
     align-items: flex-start;
     justify-content: center;
-    gap: 4px;
-    border-radius: 8px;
+    gap: 5px;
+    border-radius: 14px;
     background: linear-gradient(180deg, var(--panel-2), var(--panel));
     border: 1px solid var(--line);
     transition: transform .12s, border-color .12s;
@@ -2275,13 +2321,13 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   }
   body:has(.split) .view,
   body:has(.group-grid) .view {
-    bottom: 0 !important;
+    bottom: var(--safe-bottom) !important;
   }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */
   .fkey-nums { display: none; }
   .fkey-btns {
-    display: flex; gap: 6px; padding: 6px 8px;
+    display: flex; gap: 8px; padding: 9px 12px;
     overflow-x: auto; overflow-y: hidden;
     -webkit-overflow-scrolling: touch; scrollbar-width: none;
     justify-content: flex-start;
