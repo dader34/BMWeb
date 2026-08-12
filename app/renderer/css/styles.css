@@ -2550,13 +2550,16 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     --ios-faint: var(--ink-faint);
     --ios-amber: var(--amber);
     --nav-h: 44px;
-    /* a translucent wash of the theme's own background for the blurred
-       nav/tab bars, so a light theme gets a light bar, not a black one.
-       color-mix degrades to the plain bg where unsupported. */
-    --ios-bar-bg: color-mix(in srgb, var(--bg) 78%, transparent);
+    /* The bars sit ABOVE the content and must read as their own surface --
+       a near-transparent wash of --bg vanished against a dark list, which is
+       what made the (correctly sized) bottom bar look like empty void. Use the
+       elevated panel colour at high opacity so the bar is visibly a bar, with
+       the blur still softening what scrolls behind it. Falls back to the solid
+       panel where color-mix is unsupported. */
+    --ios-bar-bg: color-mix(in srgb, var(--panel-2) 92%, transparent);
   }
   @supports not (background: color-mix(in srgb, red, blue)) {
-    :root { --ios-bar-bg: var(--bg); }
+    :root { --ios-bar-bg: var(--panel-2); }
   }
 
   /* SF is the system face on iOS; naming it explicitly makes the ramp read as
@@ -2663,7 +2666,11 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     background: var(--ios-bar-bg);
     backdrop-filter: saturate(1.6) blur(22px);
     -webkit-backdrop-filter: saturate(1.6) blur(22px);
+    /* a clear edge so the bar reads as a distinct surface over the list, not
+       an extension of the dark background */
     border-top: 0.5px solid var(--ios-hair);
+    box-shadow: 0 -0.5px 0 rgba(255, 255, 255, 0.04),
+                0 -8px 20px rgba(0, 0, 0, 0.28);
   }
   .mobile-tabbar > * { display: flex; align-items: center; }
   .mtab {
