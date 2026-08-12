@@ -1885,25 +1885,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       }
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.job} · sending`;
       try {
-        // the ARGUMENT is often the only thing separating two keys: RADIO's
-        // entertainment sources all call STEUERN_NEXT_ENTSOURCE and differ
-        // only in "FM"/"CDC"/"AM", and CDC's transport mode in "0;1;0" vs
-        // "0;0;0". Sending the job bare would fire the wrong command.
+        // arg often distinguishes two keys (RADIO sources all call
+        // STEUERN_NEXT_ENTSOURCE, differ only in "FM"/"CDC"/"AM")
         const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
-        // REGISTER BEFORE SENDING, or "released when you leave" is a lie --
-        // which is exactly what the confirm above promises. activations.js
-        // owns the registry and core.js calls stopAllActivations from
-        // setActions, so a drive started here is released on the next screen
-        // change like any other. Registered before the await: if the POST
-        // times out the output may still be energized, and an unreleased
-        // drive is worse than a redundant stop.
-        //
-        // Not for a permanent write (nothing to release, and _ENDE on an
-        // EEPROM job is meaningless) and not for a read that only reached
-        // this path because its screen failed to decode.
-        // ...and an OFF form is the release, not a drive: registering
-        // STEUERN_EV_1_AUS would have cleanup re-send a stop for something
-        // already stopped.
+        // REGISTER BEFORE SEND: an unreleased drive outlives the screen, and
+        // the confirm above promises release on leave (activations.js owns the
+        // registry; core.js releases it from setActions). Not for a permanent
+        // write (nothing to release) or an OFF form (already a stop).
         const drives = !permanent
           && /^(STEUERN|START)/i.test(it.job)
           && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
@@ -1915,9 +1903,8 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
-        // the confirm above promises release on leaving the screen; keep it
-        // (activations.js:9-11 invariant). A permanent write is set-and-stay
-        // by design and must NOT be replayed with arg=0 on leave.
+        // a permanent write is set-and-stay and must NOT be replayed with
+        // arg=0 on leave
         if (!permanent) {
           activationEcu = ecu;
           activeTests.add(it.job);
