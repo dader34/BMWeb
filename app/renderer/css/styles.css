@@ -1133,12 +1133,69 @@ html[data-theme="inpa"] .coding-tab.active { background: #0a246a; color: #fff; }
 }
 .tree-val-v { color: var(--amber); }
 .tree-more { padding: 8px 14px 12px 40px; font-size: 12px; color: var(--ink-faint); }
+/* Read button on a choosable module */
+.tree-read {
+  flex: 0 0 auto; margin: 0 12px; padding: 4px 12px; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  color: var(--ink-dim); font: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+}
+.tree-read:hover { border-color: var(--amber); color: var(--amber); }
+/* selectable value options (once the module is read) */
+.tree-opts { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 14px 12px 40px; }
+.tree-opt {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: none; color: var(--ink-dim); font: inherit; cursor: pointer;
+}
+.tree-opt:hover { border-color: var(--ink-faint); color: var(--ink); }
+.tree-opt.sel { border-color: var(--amber); background: rgba(255,158,44,.10); color: var(--ink); }
+.tree-opt-v { color: var(--amber); font-size: 12px; }
+.tree-opt-cur {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #34c759; border: 1px solid rgba(52,199,89,.4); border-radius: 4px;
+  padding: 1px 5px;
+}
+.tree-staged-dot {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--amber); margin-left: 8px; vertical-align: middle;
+}
 /* Expert module list (mobile) row metadata */
 .exp-row { align-items: center; }
 .exp-sgbd { display: block; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 .exp-kind { font-size: 11px; color: var(--ink-faint); margin-right: 8px; }
 .exp-arrow { color: var(--ink-faint); font-size: 18px; font-weight: 600; }
 .sys-item.sys-coding .nav-count { color: var(--amber); }
+
+/* ---- CODING SCAN (up-front read of the whole car) ----------------------- */
+.coding-scan { max-width: 480px; margin: 40px auto; text-align: center; }
+.coding-scan-title { font-size: 15px; font-weight: 600; color: var(--ink); }
+.coding-scan-bar {
+  height: 6px; border-radius: 3px; background: var(--panel-2);
+  margin: 14px 0 8px; overflow: hidden;
+}
+.coding-scan-bar span {
+  display: block; height: 100%; background: var(--amber);
+  transition: width .2s ease;
+}
+.coding-scan-mod { font-size: 12px; color: var(--ink-faint); }
+
+/* ---- CODING REVIEW DIALOG (staged changes) ------------------------------ */
+.cod-rev-list {
+  display: grid; gap: 8px; max-height: 46vh; overflow-y: auto;
+  margin-bottom: 16px;
+}
+.cod-rev-row {
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel);
+}
+.cod-rev-label { font-size: 14px; font-weight: 600; color: var(--ink); }
+.cod-rev-sub { font-size: 11px; color: var(--ink-faint); margin-top: 2px;
+  word-break: break-all; }
+.cod-rev-change { font-size: 12.5px; color: var(--ink-dim); margin-top: 4px; }
+.cod-rev-change b { color: var(--amber); }
+.cod-rev-arrow { color: var(--ink-faint); margin: 0 2px; }
+.cod-rev-foot { font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
 
 /* ---- CURATED FEATURE-TOGGLE CODING (the friendly tier) ------------------ */
 .cur-menu { max-width: 720px; }

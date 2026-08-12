@@ -120,7 +120,7 @@ async function curatedFeatures(chassisId) {
 // The curated feature screen. Reads each involved module once, shows every
 // option as a toggle set to the car's current value, and stages changes --
 // nothing is sent. `back` returns to whatever opened it.
-async function showCuratedCoding(chassisId, container, back) {
+async function showCuratedCoding(chassisId, container, back, scan) {
   const cont = container || view;
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
   if (typeof loadDatenMap === 'function') await loadDatenMap();
@@ -147,10 +147,33 @@ async function showCuratedCoding(chassisId, container, back) {
   const key = (it) => `${it.sgbd}:${it.name}`;
   let readOk = false;
 
-  // read every involved module's coding once; map its answers onto our items
-  // by matching the DATEN function to the SGBD's own result name. Best-effort:
-  // where the SGBD names nothing readable, the toggle shows "unknown".
+  const demo = typeof demoMode === 'function' && demoMode();
+
+  // Map the car's coding onto our features. The whole car was already read by
+  // the hub's up-front scan (a cache of sgbd -> read results), so pair each
+  // feature to its module's answer -- no per-module re-read. If the hub did
+  // not pass a scan (opened standalone), fall back to reading here.
+  //
+  // Most curated functions live only in the DATEN blob and are NOT named in
+  // the SGBD's coding read (BEIKLAPPEN_GM vs the read's COD_MIT_* fields), so
+  // the round-trip resolves only a few. In demo mode -- no real car -- fill
+  // the rest with a deterministic on/off per feature so every toggle starts at
+  // a plausible, varied state (the same demo-fill the Expert tree uses).
+  const applyScan = (cache) => {
+    for (const g of groups) for (const it of g.items) {
+      const got = cache && cache.get(it.sgbd);
+      const hit = got ? curatedMatchResult(it.name, got) : null;
+      if (hit != null) { current.set(key(it), hit); continue; }
+      if (demo) {
+        let h = 0;
+        for (const c of it.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+        current.set(key(it), (h % 2) === 0 ? it.on : it.off);
+      }
+    }
+  };
   const readAll = async () => {
+    if (scan) { applyScan(scan); readOk = true; return; }
+    const cache = new Map();
     for (const sgbd of sgbds) {
       let entry = null;
       try { entry = await readJobFor(sgbd); } catch { entry = null; }
@@ -158,15 +181,10 @@ async function showCuratedCoding(chassisId, container, back) {
       try {
         const d = await api(`/api/ecu/${sgbd}/run/${entry.read}`,
                             { method: 'POST' });
-        const got = new Map(flatResults(d.sets));
-        // pair by token overlap: the DATEN keyword vs the SGBD result names
-        for (const g of groups) for (const it of g.items) {
-          if (it.sgbd !== sgbd) continue;
-          const hit = curatedMatchResult(it.name, got);
-          if (hit != null) current.set(key(it), hit);
-        }
+        cache.set(sgbd, new Map(flatResults(d.sets)));
       } catch { /* module unreadable now: leave unknown */ }
     }
+    applyScan(cache);
     readOk = true;
   };
 
@@ -279,8 +297,10 @@ function curatedMatchResult(kw, got) {
   return null;
 }
 
-// The staged-changes review: exactly what WOULD be sent, and the refusal --
-// the same contract the expert editor keeps.
+// The staged-changes review: what WOULD be sent, laid out as readable rows
+// (friendly name, then keyword and from->to on their own line) rather than one
+// long mono string crammed into a narrow column. In demo mode it says the
+// write is simulated; on a real car it says it is not sent.
 function curatedReview(chassisId, groups, staged, current) {
   const rows = [];
   for (const g of groups) for (const it of g.items) {
@@ -289,22 +309,44 @@ function curatedReview(chassisId, groups, staged, current) {
     const to = staged.get(k) === it.on ? 'on' : 'off';
     const from = current.has(k)
       ? (current.get(k) === it.on ? 'on' : 'off') : 'unknown';
-    rows.push(`<div class="ident-line"><span class="ident-lk">`
-      + `${esc(it.label)}</span><span class="ident-lv mono">`
-      + `${esc(it.sgbd)}.prg · ${esc(it.name)} : ${from} → ${to}</span></div>`);
+    rows.push(codingReviewRow(it.label, `${it.sgbd}.prg · ${it.name}`,
+      from, to));
   }
-  confirmDialog({
-    title: 'Staged features',
-    body: `<div class="ident-card">${rows.join('')}</div><br>`
-      + `<b>Not sent.</b> These map onto each module's coding write, but `
-      + `sending is disabled: a coding write is an EEPROM write, and this app `
-      + `has not verified a round-trip on a car that can be recovered. Use `
-      + `this to check the change, not to apply it.`,
-    confirmLabel: 'OK', cancelLabel: 'Close',
-  });
+  confirmDialog(codingReviewDialog('Staged features', rows));
+}
+
+// One review row: label on top, keyword + from->to beneath, so nothing wraps
+// awkwardly. Shared by the curated and expert reviews.
+function codingReviewRow(label, sub, from, to) {
+  return `<div class="cod-rev-row">`
+    + `<div class="cod-rev-label">${esc(label)}</div>`
+    + `<div class="cod-rev-sub mono">${esc(sub)}</div>`
+    + `<div class="cod-rev-change mono">${esc(from)} `
+    + `<span class="cod-rev-arrow">→</span> <b>${esc(to)}</b></div></div>`;
+}
+
+// The dialog body, demo-aware. In demo mode a "send" is simulated, so say so
+// and offer to run it; on a real car the write is refused (unverified).
+function codingReviewDialog(title, rows) {
+  const demo = typeof demoMode === 'function' && demoMode();
+  const foot = demo
+    ? `<b>Demo mode.</b> No car is connected, so “Send” only simulates the `
+      + `coding write — nothing leaves the app and no ECU is touched.`
+    : `<b>Not sent.</b> These map onto each module's coding write, but sending `
+      + `is disabled: a coding write is an EEPROM write, and this app has not `
+      + `verified a round-trip on a car that can be recovered.`;
+  return {
+    title,
+    body: `<div class="cod-rev-list">${rows.join('')}</div>`
+      + `<div class="cod-rev-foot">${foot}</div>`,
+    confirmLabel: demo ? 'Send (demo)' : 'OK',
+    cancelLabel: 'Close',
+  };
 }
 
 if (typeof window !== 'undefined') {
   window.showCuratedCoding = showCuratedCoding;
   window.hasCurated = hasCurated;
+  window.codingReviewRow = codingReviewRow;
+  window.codingReviewDialog = codingReviewDialog;
 }

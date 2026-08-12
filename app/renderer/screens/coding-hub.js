@@ -63,6 +63,16 @@ async function showCodingHub(chassisId, initialTab) {
   view.innerHTML = head('Coding', dispChassis(chassisId),
     'Change how the car is configured. Nothing is sent — changes are staged '
     + 'for review.');
+
+  // Read the whole car up front -- one scan across every codeable module --
+  // and both tabs work off the result, so their toggles start at the car's
+  // current values without per-module Read buttons. Without a cable this is a
+  // demo scan (webDemoCoding fills plausible values).
+  const scanHost = document.createElement('div');
+  view.appendChild(scanHost);
+  const scan = await scanCoding(chassisId, scanHost);
+  scanHost.remove();
+
   const tabs = document.createElement('div');
   tabs.className = 'coding-tabs';
   tabs.innerHTML =
@@ -78,9 +88,9 @@ async function showCodingHub(chassisId, initialTab) {
     tabs.querySelectorAll('.coding-tab').forEach(b =>
       b.classList.toggle('active', b.dataset.tab === t));
     if (t === 'features' && typeof showCuratedCoding === 'function') {
-      showCuratedCoding(chassisId, panel, back);
+      showCuratedCoding(chassisId, panel, back, scan);
     } else {
-      showExpertCoding(chassisId, panel, back);
+      showExpertCoding(chassisId, panel, back, scan);
     }
   };
   tabs.querySelectorAll('.coding-tab').forEach(b =>
@@ -88,19 +98,52 @@ async function showCodingHub(chassisId, initialTab) {
   select(tab);
 }
 
+// Scan the car's coding: read every codeable module's coding job once and
+// return a cache { sgbd -> Map(resultName -> value) }. Shown with progress.
+// Demo mode fills each read with plausible values (webDemoCoding), so the
+// whole car "reads" without a cable. A module that fails to read is simply
+// absent from the cache -- its toggles then show unknown.
+async function scanCoding(chassisId, host) {
+  const mods = await codeableModules(chassisId);
+  const cache = new Map();
+  const total = mods.length;
+  const paint = (done, name) => {
+    host.innerHTML = `<div class="coding-scan">`
+      + `<div class="coding-scan-title">Reading the car…</div>`
+      + `<div class="coding-scan-bar"><span style="width:`
+      + `${Math.round(100 * done / Math.max(1, total))}%"></span></div>`
+      + `<div class="coding-scan-mod mono">${esc(name || '')}`
+      + ` · ${done}/${total} modules</div></div>`;
+  };
+  paint(0, '');
+  for (let i = 0; i < mods.length; i++) {
+    const m = mods[i];
+    paint(i, m.label);
+    const entry = typeof codingFor === 'function'
+      ? await codingFor(m.sgbd) : null;
+    if (entry && entry.read) {
+      try {
+        const d = await api(`/api/ecu/${m.sgbd}/run/${entry.read}`,
+                            { method: 'POST' });
+        cache.set(m.sgbd, new Map(flatResults(d.sets)));
+      } catch { /* unreadable: leave absent */ }
+    }
+  }
+  paint(total, '');
+  return cache;
+}
+
 // Expert tab. Desktop gets the nested tree; mobile the drill-down list.
-async function showExpertCoding(chassisId, cont, back) {
+async function showExpertCoding(chassisId, cont, back, scan) {
   const mobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
-  cont.innerHTML = `<div class="empty"><span class="loader"></span>`
-    + `<span>Finding codeable modules…</span></div>`;
   const mods = await codeableModules(chassisId);
   if (!mods.length) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
     return;
   }
   if (mobile) expertModuleList(chassisId, mods, cont, back);
-  else expertTree(chassisId, mods, cont, back);
+  else expertTree(chassisId, mods, cont, back, scan);
 }
 
 // MOBILE: a grouped list of modules; tapping one opens its coding screen
@@ -136,20 +179,82 @@ function expertModuleList(chassisId, mods, cont, back) {
                 fn: back }]);
 }
 
-// Render a function's value list the way DATEN actually means it -- the same
-// three shapes the coding editor handles, so a numeric field is not printed as
-// a fake pick list:
-//   named settings   [["aktiv","00"],["nicht_aktiv","01"]]  -> name = value
-//   numeric field    [[94,"04"],[101,"06"]]  the "name" is a raw number from
-//                    another variant, NOT an enum label. Show the values only.
-//   wert_NN default  [["wert_01","0a"]]  a single numeric default.
-//   buffer           long hex strings (a curve/country block). Byte count.
-function treeValues(vals, label) {
-  if (!vals.length) return '<span class="ink-faint">—</span>';
-  // a value NAME that is a bare number (or wert_NN) is not a real setting name
-  const isNumericName = (n) => typeof n === 'number'
+// A value NAME that is a bare number (or wert_NN) is not a real setting name
+// -- it is a numeric field's raw byte from another variant, not an enum label.
+function treeIsNumericName(n) {
+  return typeof n === 'number'
     || /^-?\d+$/.test(String(n)) || /^wert_\d+$/i.test(String(n));
-  // buffers: value is a long hex string
+}
+
+// The pickable named options of a function: [[name, hexValue], ...] with real
+// setting names (aktiv/nicht_aktiv/automatik...), excluding numeric fields and
+// buffers. Empty when the function is not a simple multiple-choice.
+function treeOptions(vals) {
+  if (!vals.length) return [];
+  if (vals.some(([, v]) => typeof v === 'string' && v.length > 4)) return [];
+  if (vals.some(([n]) => treeIsNumericName(n))) return [];
+  // dedupe by hex value; need at least two to be a choice
+  const seen = new Set(); const out = [];
+  for (const [n, v] of vals) {
+    const key = String(v).toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key); out.push([n, String(v)]);
+  }
+  return out.length >= 2 ? out : [];
+}
+
+// Pair a DATEN function to its value in a module's coding read. The read names
+// results differently (COD_* / STAT_*), so match on shared tokens, then reduce
+// the answer to one of the function's known option hex values. Returns the
+// matched hex value string, or null.
+function treeMatchRead(kw, opts, read) {
+  const toks = (s) => new Set(String(s)
+    .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase()
+    .split('_').filter(t => t.length > 2));
+  const kt = toks(kw);
+  let best = null, bestOverlap = 0;
+  for (const [name, val] of read) {
+    const nt = toks(name);
+    const ov = [...kt].filter(t => nt.has(t)).length;
+    if (ov > bestOverlap && ov >= Math.min(2, kt.size)) { bestOverlap = ov; best = val; }
+  }
+  if (best == null) return null;
+  const s = String(best).trim().toLowerCase();
+  // numeric answer -> hex; boolean word -> 0/1
+  let num = null;
+  if (/^-?\d+$/.test(s)) num = parseInt(s, 10);
+  else if (typeof codIsOn === 'function' && typeof codKnown === 'function'
+           && codKnown(s)) num = codIsOn(s) ? 1 : 0;
+  if (num == null) return null;
+  const hex = num.toString(16).padStart(2, '0');
+  // only accept if it is actually one of this function's options
+  return opts.some(([, v]) => String(v).toLowerCase() === hex) ? hex : null;
+}
+
+// Render a function's value list the way DATEN actually means it. When the
+// function is a real multiple-choice AND a value has been read (state has a
+// current), the options render as SELECTABLE chips (the friendly tier over the
+// tree): the current one is marked, and picking another stages it. Otherwise
+// it is the static reference: numeric field, default, or buffer.
+function treeValues(vals, label, fkey, state) {
+  if (!vals.length) return '<span class="ink-faint">—</span>';
+  const opts = treeOptions(vals);
+  if (opts.length && state && state.has(fkey)) {
+    const s = state.get(fkey);                 // {current, staged}
+    const sel = s.staged != null ? s.staged : s.current;
+    return `<div class="tree-opts" data-fkey="${esc(fkey)}">`
+      + opts.map(([n, v]) => {
+        const on = String(v).toLowerCase() === String(sel).toLowerCase();
+        const isCur = String(v).toLowerCase() === String(s.current).toLowerCase();
+        return `<button class="tree-opt${on ? ' sel' : ''}" `
+          + `data-v="${esc(v)}" type="button">`
+          + `<span class="tree-opt-n">${esc(label(n))}</span>`
+          + `<span class="tree-opt-v mono">0x${esc(v)}</span>`
+          + `${isCur ? '<span class="tree-opt-cur">current</span>' : ''}`
+          + `</button>`;
+      }).join('') + `</div>`;
+  }
+  // ---- static reference (numeric / default / buffer / unread) ----
   const long = vals.filter(([, v]) => typeof v === 'string' && v.length > 4);
   if (long.length === vals.length && vals.length > 1) {
     const bytes = String(vals[0][1]).length / 2;
@@ -158,16 +263,13 @@ function treeValues(vals, label) {
       + `<span class="tree-val-n">${vals.length} variants</span>`
       + `<span class="tree-val-v mono">${bytes} bytes each</span></span>`;
   }
-  // all names are numbers -> a numeric field: show the hex values as the
-  // options it can hold, no fake name column
-  if (vals.every(([n]) => isNumericName(n))) {
+  if (vals.every(([n]) => treeIsNumericName(n))) {
     const uniq = [...new Set(vals.map(([, v]) => String(v)))];
     const tag = vals.length === 1 ? 'default' : 'value';
     return `<span class="tree-val"><span class="tree-val-n">${tag}</span>`
       + uniq.map(v => `<span class="tree-val-v mono">0x${esc(v)}</span>`).join('')
       + `</span>`;
   }
-  // real named settings: friendly name = value
   return vals.map(([n, v]) => {
     const big = typeof v === 'string' && v.length > 4;
     return `<span class="tree-val"${big ? ` title="${esc(v)}"` : ''}>`
@@ -181,7 +283,7 @@ function treeValues(vals, label) {
 // place -- BimmerUtility's layout. The function/value data is BMW's DATEN
 // description (datenFor); modules that only name values in the SGBD still
 // list under their read job. A filter box narrows across every level.
-async function expertTree(chassisId, mods, cont, back) {
+async function expertTree(chassisId, mods, cont, back, scan) {
   cont.className = 'coding-panel coding-tree-wrap';
   cont.innerHTML = `
     <div class="tree-bar">
@@ -216,6 +318,37 @@ async function expertTree(chassisId, mods, cont, back) {
   const label = (name) => (typeof datLabel === 'function'
     ? datLabel(name) : name);
 
+  // Per-function state: fkey "sgbd:name" -> {current, staged}. The current
+  // value comes from the up-front scan (the module's coding read, demo-filled
+  // without a cable). Every choosable function is pre-populated, so the tree
+  // shows the car's current setting from the first frame -- no Read buttons.
+  const state = new Map();
+  const fkeyOf = (sgbd, name) => `${sgbd}:${name}`;
+  for (const m of mods) {
+    const read = scan && scan.get(m.sgbd);
+    const fns = (built.find(b => b.sgbd === m.sgbd) || {}).fns || [];
+    for (const f of fns) {
+      const opts = treeOptions(f.values || []);
+      if (!opts.length) continue;
+      const fkey = fkeyOf(m.sgbd, f.name);
+      let cur = read ? treeMatchRead(f.name, opts, read) : null;
+      if (cur == null) {
+        // no cable / unmatched: a deterministic pick so there is still a
+        // current to select against (stable per load)
+        let h = 0;
+        for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+        cur = opts[h % opts.length][1];
+      }
+      state.set(fkey, { current: cur, staged: null });
+    }
+  }
+
+  // which modules/functions are expanded, preserved across redraws
+  const openMods = new Set();
+  const openFns = new Set();
+  const stagedCount = () =>
+    [...state.values()].filter(s => s.staged != null).length;
+
   const draw = () => {
     const q = filterEl.value.trim().toLowerCase();
     treeEl.innerHTML = '';
@@ -230,7 +363,10 @@ async function expertTree(chassisId, mods, cont, back) {
 
       const node = document.createElement('details');
       node.className = 'tree-mod';
-      if (q) node.open = true;                    // filtering expands hits
+      node.dataset.sgbd = m.sgbd;
+      // keep whatever was open across a redraw; a filter also expands hits
+      if (q || openMods.has(m.sgbd)) node.open = true;
+      node.ontoggle = () => node.open ? openMods.add(m.sgbd) : openMods.delete(m.sgbd);
       const shownFns = fns.length ? fns : m.fns;
       node.innerHTML = `<summary class="tree-mod-h">`
         + `<span class="tree-name">${esc(m.label)}</span>`
@@ -243,11 +379,17 @@ async function expertTree(chassisId, mods, cont, back) {
       const cap = q ? shownFns.length : Math.min(shownFns.length, 400);
       for (let i = 0; i < cap; i++) {
         const f = shownFns[i];
-        const valsHtml = treeValues(f.values || [], label);
+        const fkey = fkeyOf(m.sgbd, f.name);
+        const valsHtml = treeValues(f.values || [], label, fkey, state);
         const fl = document.createElement('details');
         fl.className = 'tree-fn';
+        fl.dataset.fkey = fkey;
+        if (openFns.has(fkey)) fl.open = true;
+        fl.ontoggle = () => fl.open ? openFns.add(fkey) : openFns.delete(fkey);
         fl.innerHTML = `<summary class="tree-fn-h">`
-          + `<span class="tree-name">${esc(label(f.name))}</span>`
+          + `<span class="tree-name">${esc(label(f.name))}`
+          + `${state.has(fkey) && state.get(fkey).staged != null
+              ? '<span class="tree-staged-dot"></span>' : ''}</span>`
           + `<span class="tree-key mono">blk ${f.block} · byte ${f.byte} · `
           + `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>`
           + `<div class="tree-vals">${valsHtml}</div>`;
@@ -266,7 +408,23 @@ async function expertTree(chassisId, mods, cont, back) {
       treeEl.innerHTML = `<div class="empty"><div>Nothing matches `
         + `“${esc(filterEl.value)}”.</div></div>`;
     }
+    updateBar();
   };
+
+  // pick a value option: stage it (values were read up front by the scan)
+  treeEl.addEventListener('click', (e) => {
+    const opt = e.target.closest('.tree-opt');
+    if (opt) {
+      const wrap = opt.closest('.tree-opts');
+      const fkey = wrap && wrap.dataset.fkey;
+      const s = fkey && state.get(fkey);
+      if (!s) return;
+      const v = opt.dataset.v;
+      s.staged = (String(v).toLowerCase()
+        === String(s.current).toLowerCase()) ? null : v;
+      draw();
+    }
+  });
 
   filterEl.oninput = () => {
     const at = filterEl.selectionStart;
@@ -274,9 +432,41 @@ async function expertTree(chassisId, mods, cont, back) {
     const again = cont.querySelector('#tree-filter');
     if (again) { again.focus(); again.setSelectionRange(at, at); }
   };
+
+  // the softkey bar reflects the staged count: Review / Discard appear once
+  // something is changed, the same shape the coding editor keeps.
+  const updateBar = () => {
+    const n = stagedCount();
+    const acts = [];
+    if (n) {
+      acts.push({ key: '2', keyLabel: 'F2', label: `Review (${n})`,
+        fn: () => treeReview(built, state, label) });
+      acts.push({ key: '3', keyLabel: 'F3', label: 'Discard',
+        fn: () => { for (const s of state.values()) s.staged = null; draw(); } });
+    }
+    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: back });
+    setActions(acts);
+    sbLeft.textContent = `${dispChassis(chassisId)} · coding`
+      + `${n ? ` · ${n} staged` : ''}`;
+  };
+
   draw();
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: back }]);
+}
+
+// The staged-changes review for the Expert tree, sharing the curated review's
+// readable row + demo-aware footer.
+function treeReview(built, state, label) {
+  const rows = [];
+  for (const m of built) {
+    for (const f of m.fns) {
+      const s = state.get(`${m.sgbd}:${f.name}`);
+      if (!s || s.staged == null) continue;
+      rows.push(codingReviewRow(label(f.name), `${m.sgbd}.prg · ${f.name}`,
+        `0x${s.current}`, `0x${s.staged}`));
+    }
+  }
+  confirmDialog(codingReviewDialog('Staged coding changes', rows));
 }
 
 if (typeof window !== 'undefined') {
