@@ -59,13 +59,18 @@ async function showChassis() {
 
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
+  // The chassis tag (core.js CHASSIS_TAG) is lower-case ("3-series 98-06"),
+  // so match against it case-insensitively -- an earlier `.includes('3-SERIES')`
+  // compared upper- vs lower-case and never matched, leaving the tag clause dead
+  // and only the hard-coded id list doing any work.
+  const tag = (id) => (CHASSIS_TAG[id] || '').toLowerCase();
   const filters = [
     { label: 'All', match: () => true },
-    { label: '3-Series', match: (id) => ['E30', 'E36', 'E46', 'E90', 'F030'].includes(id) || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('3-SERIES')) },
-    { label: '5-Series', match: (id) => ['E34', 'E39', 'E60', 'F010'].includes(id) || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('5-SERIES')) },
-    { label: '7-Series', match: (id) => ['E32', 'E38', 'E65', 'F001', 'F01'].includes(id) || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('7-SERIES')) },
-    { label: 'X-Series', match: (id) => id.startsWith('E53') || id.startsWith('E70') || id.startsWith('E83') || (CHASSIS_TAG[id] && CHASSIS_TAG[id].includes('X')) },
-    { label: 'Z / Mini', match: (id) => id.startsWith('E52') || id.startsWith('E85') || id.startsWith('E89') || id.startsWith('R5') }
+    { label: '3-Series', match: (id) => ['E30', 'E36', 'E46', 'E90', 'F030'].includes(id) || tag(id).includes('3-series') },
+    { label: '5-Series', match: (id) => ['E34', 'E39', 'E60', 'F010'].includes(id) || tag(id).includes('5-series') || tag(id).includes('5 gt') },
+    { label: '7-Series', match: (id) => ['E32', 'E38', 'E65', 'F001', 'F01'].includes(id) || tag(id).includes('7-series') },
+    { label: 'X-Series', match: (id) => id.startsWith('E53') || id.startsWith('E70') || id.startsWith('E83') || /^x\d/.test(tag(id)) },
+    { label: 'Z / Mini', match: (id) => id.startsWith('E52') || id.startsWith('E85') || id.startsWith('E89') || id.startsWith('R5') || tag(id).startsWith('z') || tag(id).includes('mini') }
   ];
 
   let activeFilter = filters[0];
@@ -183,14 +188,9 @@ async function showScriptSelection(chassisId) {
   // variant-group + sweep-priority tables (sweep.js), so the sweep skips dead variants.
   const allowFunc = !!VARIANT_GROUPS[chassisId.toUpperCase()];
 
-  // the Coding pane fills in asynchronously; if another row was picked while
-  // its checks ran, the late answer must not overwrite the newer pane
-  let paneSeq = 0;
-
   // chassis row selected: the single "Functional jobs" header is the entry,
   // clickable, with nothing listed beneath it.
   const showChassisJobs = () => {
-    paneSeq++;
     items.forEach(it => it.classList.toggle('active', it.dataset.i === '-1'));
     headEl.hidden = false;
     headEl.textContent = 'Functional jobs';
@@ -202,7 +202,6 @@ async function showScriptSelection(chassisId) {
   // section row selected: right pane is just that section's ECU modules. no
   // header (it would only repeat the section name already selected on the left).
   const showSection = (i) => {
-    paneSeq++;
     items.forEach(it => it.classList.toggle('active', it.dataset.i === String(i)));
     const sec = ch.sections[i];
     headEl.hidden = true;

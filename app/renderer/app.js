@@ -448,8 +448,10 @@ function settingRow(title, desc, options, current, onChange) {
 
 // ---------- connection status ----------
 // LED reflects cable connectivity (K+DCAN serial port present), not the .NET
-// engine. green = cable detected; amber = engine up but no cable; red = engine
-// unreachable.
+// engine, in three states via CSS classes on #led:
+//   led off  -- engine/host offline (health check failed)
+//   led ok   -- a cable/port is present ("cable: <port>")
+//   led idle -- host up but no cable ("no cable")
 let engineUp = false;
 async function pollEngine() {
   try { await api('/api/health'); engineUp = true; }

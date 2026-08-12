@@ -760,9 +760,11 @@ class ThorWifiBus {
 
 // Whichever transport this host can actually do. THOR is an explicit choice
 // (?thor=1 or the Adapter setting) and works in both hosts: shell-owned TCP
-// inside the macOS app, the local WebSocket relay in a browser. Otherwise
-// the native serial bridge wins when present: inside the macOS app there is
-// no Web Serial to fall back to, and outside it there is no bridge.
+// inside the macOS app, and in a browser a direct WebSocket to the adapter's
+// own esp-link-ws firmware (the hand-run thor_bridge relay is ?relay=1 only --
+// see "THE RELAY IS GONE FROM THE SHIPPED BUILDS" above). Otherwise the native
+// serial bridge wins when present: inside the macOS app there is no Web Serial
+// to fall back to, and outside it there is no bridge.
 // Settings as the page sees them at load. localStorage over the injected
 // copy: it is written synchronously the moment a setting changes, while
 // the shell's injected settings are one reload behind when the page
