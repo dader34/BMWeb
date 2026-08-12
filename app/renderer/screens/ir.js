@@ -1945,7 +1945,6 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return 'not decoded';
     }
     if (!it.menu && !it.screen) return '';
-    const scr = (ir.screens || {})[it.screen];
     // No count for a screen or submenu: it would be a prediction made before the
     // job runs (rows the ECU never answers still counted, a page counted once
     // per job), wrong often enough to be worth less than the space. Opening it
