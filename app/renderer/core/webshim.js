@@ -322,17 +322,12 @@ class WebSerialBus {
   }
 }
 
-// The THOR WiFi adapter: a Deep-OBD-style custom adapter (EdiabasLib's
-// DEEPOBDWIFI protocol) behind an ESP-Link WiFi bridge at 192.168.4.1:23.
-// NOT an ELM327: it carries BMW-FAST-framed telegrams, which is exactly what
-// the VM sends. A browser has no TCP, so the adapter is reflashed to serve a
-// WebSocket itself (vendor/esp-link-ws) -- that is what makes this reachable
-// from a phone. Telegram framing and meaning stay here.
-//
-// The F1 -> F1 "special" telegrams are answered by the adapter MCU itself
-// (ident, ignition sense, battery voltage off the OBD pin), so connecting
-// and the topbar indicators work against ANY car. Wrapping job telegrams for
-// the K-line/D-CAN side is BMW-specific and still to come.
+// The THOR WiFi adapter (EdiabasLib DEEPOBDWIFI behind an ESP-Link bridge at
+// 192.168.4.1:23). NOT an ELM327 -- it carries BMW-FAST telegrams, what the VM
+// sends. A browser has no TCP, so the adapter is reflashed to serve a WebSocket
+// itself (vendor/esp-link-ws). Its F1->F1 "special" telegrams (ident, ignition,
+// battery) are answered by the adapter MCU, so connect + topbar indicators work
+// against any car; wrapping K-line/D-CAN job telegrams is still to come.
 const THOR_BRIDGE = 'ws://127.0.0.1:8124';
 const THOR_HOST = '192.168.4.1';
 const THOR_PORT = 23;
@@ -737,17 +732,11 @@ class ThorWifiBus {
   }
 }
 
-// Whichever transport this host can actually do. THOR is an explicit choice
-// (?thor=1 or the Adapter setting) and works in both hosts: shell-owned TCP
-// inside the macOS app, and in a browser a direct WebSocket to the adapter's
-// own esp-link-ws firmware (the hand-run thor_bridge relay is ?relay=1 only --
-// see "THE RELAY IS GONE FROM THE SHIPPED BUILDS" above). Otherwise the native
-// serial bridge wins when present: inside the macOS app there is no Web Serial
-// to fall back to, and outside it there is no bridge.
-// Settings as the page sees them at load. localStorage over the injected
-// copy: it is written synchronously the moment a setting changes, while
-// the shell's injected settings are one reload behind when the page
-// reloads right after a change.
+// Which transport this host can do. THOR is an explicit choice (?thor=1 or the
+// Adapter setting): shell TCP in the macOS app, a direct WebSocket to the
+// adapter's esp-link-ws firmware in a browser (relay is ?relay=1 only). Else the
+// native serial bridge when present. Settings read from localStorage over the
+// shell's injected copy, which is a reload behind right after a change.
 const bootSettings = (() => {
   try {
     return { ...(window.__bmacwSettings || {}),
@@ -764,22 +753,12 @@ const wantThor = (() => {
   return bootSettings.adapter === 'thor';
 })();
 
-// The adapter's own address, when it serves the WebSocket itself. Typing
-// one is what turns the relay off:
-//
-//   ?ws=192.168.4.1          the URL wins, for a one-off
-//   Settings > THOR address  the durable choice
-//
-// Empty means "use the relay / the shell's socket", which is the old
-// behavior and stays the default -- stock esp-link has no WebSocket, so
-// direct mode only works on a reflashed adapter.
-// THE ADDRESS IS 192.168.4.1 AND THERE IS NO SETTING FOR IT. That is the
-// ESP's own soft-AP address, fixed by the SDK, and the adapter is its own
-// access point -- so when you are joined to it, it is always there. A field
-// asking for something that never varies is a field that only ever gets
-// typed wrong. Change it in esp-link's WiFi Soft-AP page (or put the
-// adapter on your LAN with Station mode), then pass ?ws=<host> -- the
-// README explains both.
+// The adapter's own WebSocket address; setting one turns the relay off
+// (?ws=<host> for a one-off, Settings > THOR address for durable). Empty keeps
+// the relay default -- stock esp-link has no WebSocket, so direct mode needs a
+// reflashed adapter. No setting for the address itself: 192.168.4.1 is the
+// ESP's fixed soft-AP address (a field for something that never varies only
+// gets typed wrong); change it in esp-link's Soft-AP page if you must.
 const thorDirect = (() => {
   const q = bootQuery.get('ws');
   if (q) return thorDirectUrl(q === '1' ? THOR_DEFAULT_IP : q);
