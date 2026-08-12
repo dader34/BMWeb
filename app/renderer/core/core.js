@@ -514,6 +514,18 @@ function stagger(container, step = 35) {
   [...container.children].forEach((c, i) => { c.style.animationDelay = `${i * step}ms`; });
 }
 
+// A shimmering placeholder list, shown in the spot a fetched list will fill.
+// `rows` sets how many; `sub` adds a second, shorter bar per row for the
+// two-line list cells (module name + code). Returns the HTML string.
+function skeletonList(rows = 6, sub = true) {
+  const row = `<div class="sk-row" aria-hidden="true">`
+    + `<div class="sk-bar sk-title"></div>`
+    + (sub ? `<div class="sk-bar sk-sub"></div>` : '')
+    + `</div>`;
+  return `<div class="skeleton sk-list" role="status" aria-label="Loading">`
+    + row.repeat(rows) + `</div>`;
+}
+
 // shared modal lifecycle: builds the overlay, animates it in, wires a capture
 // keydown handler + backdrop click, and tears both down on close (160ms fade).
 // onKey(e, close) replaces the default Esc-to-close handling. close(val)

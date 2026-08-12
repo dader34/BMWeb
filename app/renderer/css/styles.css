@@ -1607,6 +1607,37 @@ select.modal-input { appearance: none; cursor: pointer; }
   animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* SKELETON PLACEHOLDERS. While a screen's list is fetched, it shows rows of
+   the right shape with a shimmer sweeping across them, so the layout is
+   present the moment you arrive and the real rows swap in without a jump --
+   instead of a blank pane and a spinner. Reused by the section, module and
+   ECU-menu loads. */
+.skeleton { --sk-base: var(--panel); --sk-hi: var(--panel-2); }
+.sk-list {
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.sk-row {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 14px 16px; min-height: 60px; justify-content: center;
+}
+.sk-row + .sk-row { border-top: 1px solid var(--line); }
+.sk-bar {
+  height: 12px; border-radius: 6px;
+  background: linear-gradient(100deg,
+    var(--sk-base) 30%, var(--sk-hi) 50%, var(--sk-base) 70%);
+  background-size: 200% 100%;
+  animation: sk-shimmer 1.3s ease-in-out infinite;
+}
+.sk-bar.sk-title { width: 42%; height: 15px; }
+.sk-bar.sk-sub { width: 66%; height: 11px; opacity: .7; }
+@keyframes sk-shimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sk-bar { animation: none; opacity: .5; }
+}
+
 /* INPA-style function-key bar */
 /* INPA'S BAR, IN EVERY SKIN. Ten fixed slots F1..F10, drawn whether or not a
    key is bound -- the empty ones are the point, because they show at a glance
@@ -2539,22 +2570,27 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
      left and the status cluster on the right. Once the large title scrolls
      away, the bar's centre fills in with the compact title -- the standard
      large-title collapse. */
-  .brand { grid-column: 1; justify-self: start; gap: 0; }
-  .brand-logo { width: 26px; height: 26px; transition: opacity .2s; }
-  /* once collapsed, the compact title carries the identity, so the logo steps
-     aside (iOS hides the large-title screen's own chrome the same way) --
-     this also removes any chance of the centred title overlapping it. */
+  .brand { grid-column: 1; justify-self: start; gap: 9px; align-items: center; }
+  .brand-logo { width: 30px; height: 30px; transition: opacity .2s; flex: 0 0 auto; }
+  /* the wordmark rides beside the logo as the app's identity -- a bare logo
+     read as an afterthought. Hidden only once the large title collapses in,
+     when that centred title carries the identity instead. */
+  .brand-name {
+    display: block; font-size: 21px; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--ios-text);
+  }
   body.nav-collapsed .brand-logo { opacity: 0; }
-  /* the brand NAME becomes the collapsed centre title: hidden at the top,
-     revealed centred once collapsed. */
-  .brand-name { display: none; }
+  /* collapsed: the wordmark yields to the current screen's title, centred */
   body.nav-collapsed .brand-name {
-    display: block; position: absolute;
+    position: absolute;
     left: 50%; top: calc(var(--safe-top) + var(--nav-h) / 2);
     transform: translate(-50%, -50%);
-    font-size: 0; color: var(--ios-text);
-    max-width: 58vw; white-space: nowrap;
+    font-size: 0; max-width: 58vw; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+  }
+  body.nav-collapsed .brand-name::after {
+    content: attr(data-nav-title); font-size: 17px; font-weight: 600;
+    letter-spacing: -0.01em; color: var(--ios-text);
   }
   body.nav-collapsed .brand-name::after {
     content: attr(data-nav-title);
@@ -2597,20 +2633,28 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     color: var(--ios-text); font-size: 19px; padding: 0;
   }
   .mtab:active { background: var(--ios-surface-2); }
-  .mtab-glyph { line-height: 1; filter: saturate(0) brightness(1.4); }
-  /* the centre status: voltage large + green, ignition/cable as small lamps */
+  .mtab-icon { width: 22px; height: 22px; color: var(--ios-text); display: block; }
+  /* the centre status: three labelled readouts (BATT / IGN / LINK). Each is
+     a caption over its value or lamp, so the dots are never anonymous. */
   .mtab-status {
     flex: 1; display: flex; align-items: center; justify-content: center;
-    gap: 10px; min-width: 0;
+    gap: 20px; min-width: 0;
   }
   .mtab-status .kl-state {
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: flex-start; gap: 20px;
     background: none; border: 0; padding: 0;
   }
-  .mtab-status .kl-lbl { display: none; }
-  .mtab-status .kl { display: flex; align-items: center; gap: 5px; }
+  /* each reading stacks its caption above the value/lamp */
+  .mtab-status .kl {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .mtab-status .kl-lbl {
+    display: block; order: -1;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ios-faint);
+  }
   .mtab-status .kl-led {
-    width: 8px; height: 8px; border-radius: 50%; background: #3a3f47;
+    width: 9px; height: 9px; border-radius: 50%; background: #3a3f47;
     transition: box-shadow .2s, background .2s;
   }
   /* battery LED green + glow when live (matches the reference's green volts) */
@@ -2621,19 +2665,33 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     background: var(--ios-amber);
     box-shadow: 0 0 6px 1px rgba(255, 158, 44, 0.7);
   }
-  /* the voltage reading is the centrepiece: bold, green when a value is in */
+  /* battery shows its voltage as the value; the LED is redundant, so hide it
+     and let the number carry the state (green when a reading is in) */
+  .kl:has(#bat-val) .kl-led { display: none; }
   #bat-val {
-    font-size: 16px; font-weight: 700; color: var(--ios-dim);
+    font-size: 15px; font-weight: 700; color: var(--ios-dim);
     font-variant-numeric: tabular-nums;
   }
   .kl:has(#bat-led.on) #bat-val { color: #34c759; }
-  .mtab-status .kl-val:not(#bat-val) {
+  /* ignition shows on/off text, not a dot value */
+  #ign-val {
     font-size: 13px; font-weight: 600; color: var(--ios-dim);
+    text-transform: uppercase; letter-spacing: 0.02em;
   }
-  .mtab-status .status { display: flex; align-items: center; padding: 0;
-    background: none; border: 0; }
+  .kl:has(#ign-led.on) #ign-val { color: var(--ios-amber); }
+  /* cable link: a LINK-labelled lamp, wrapped so it matches the kl stack */
+  .mtab-status .status {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 0; background: none; border: 0;
+  }
+  .mtab-status .status::before {
+    content: "LINK"; order: -1;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--ios-faint);
+  }
   .mtab-status .status #link-text { display: none; }
-  .mtab-status .status .led { width: 8px; height: 8px; border-radius: 50%; }
+  .mtab-status .status .led {
+    width: 9px; height: 9px; border-radius: 50%; margin-top: 5px;
+  }
 
   /* the bottom bar is always shown on mobile; the old F-key strip is only
      for INPA menu/form screens, which sit ABOVE it, so give it room */
@@ -2653,10 +2711,13 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .view {
     inset: calc(var(--nav-h) + var(--safe-top)) 0
            calc(58px + var(--safe-bottom)) 0;
-    padding: 8px calc(20px + var(--safe-left)) 24px
+    padding: 8px calc(20px + var(--safe-left)) 12px
              calc(20px + var(--safe-right));
     background: var(--ios-bg);
   }
+  /* the last list in a screen should not trail a big gap before the tab bar */
+  .chassis-grid, .split-nav, .ecu-grid { margin-bottom: 12px; }
+  .view > *:last-child { margin-bottom: 0; }
 
   /* ---- LARGE TITLE ------------------------------------------------------
      34pt bold title that scrolls with the content, iOS large-title style.
@@ -2857,6 +2918,16 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
     color: var(--ios-dim);
   }
   .ecu-prg { display: none; }
+
+  /* skeletons wear the list surface on mobile so they match the rows they
+     stand in for */
+  .skeleton { --sk-base: var(--ios-surface); --sk-hi: #262b32; }
+  .sk-list {
+    border: 0.5px solid var(--ios-hair); border-radius: 14px;
+    background: var(--ios-surface);
+  }
+  .sk-row { min-height: 68px; padding: 14px 16px; }
+  .sk-row + .sk-row { border-top: 0.5px solid var(--ios-hair); }
 
   /* the F-key bar stays hidden on these list screens (rule earlier in the
      file); nothing here re-shows it. */

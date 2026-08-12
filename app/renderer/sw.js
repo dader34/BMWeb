@@ -1,5 +1,5 @@
 // BMWeb Service Worker for Offline PWA Support
-const CACHE_NAME = 'bmweb-v1';
+const CACHE_NAME = 'bmweb-v2';
 const CORE_ASSETS = [
   './',
   './index.html',

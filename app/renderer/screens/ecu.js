@@ -109,6 +109,10 @@ async function showEcu(chassisId, sectionName, ecu) {
   grid.className = 'group-grid stagger';
   view.appendChild(grid);
 
+  // shimmer placeholders while the IR loads, so the function list has shape
+  // from the first frame rather than a blank pane behind "loading…"
+  grid.innerHTML = skeletonList(6, false);
+
   api('/api/port').then(p => {
     document.getElementById('port-pill').textContent =
       p.port ? `cable: ${p.port.replace('/dev/', '')}` : 'no cable';

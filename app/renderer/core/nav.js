@@ -350,6 +350,12 @@ async function showSections(id, selectIndex = 0) {
                      <div class="split-content" id="split-content"></div>`;
   view.appendChild(split);
 
+  // Fill both panes with shimmering placeholders while the chassis archive
+  // loads -- on a phone that first fetch is a real download, and a blank
+  // pane read as a broken screen. The real lists replace these on arrival.
+  split.querySelector('#split-nav').innerHTML = skeletonList(6, false);
+  split.querySelector('#split-content').innerHTML = skeletonList(7, true);
+
   const ch = await tryApi(`/api/chassis/${id}`, null, view, `failed to load ${dispChassis(id)}`);
   if (!ch) return;
   const nav = split.querySelector('#split-nav');
@@ -379,6 +385,7 @@ async function showSections(id, selectIndex = 0) {
     sbRight.textContent = `${sec.ecus.length} module${sec.ecus.length === 1 ? '' : 's'}`;
   }
 
+  nav.innerHTML = '';           // drop the loading skeleton
   ch.sections.forEach((sec, idx) => {
     const item = document.createElement('button');
     item.className = 'sys-item';
