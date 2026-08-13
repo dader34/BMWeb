@@ -601,6 +601,13 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   padding: 18px; max-width: 640px;
 }
 .etk-vin-hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 10px; }
+/* the VIN-decoder entry card sits above the chassis grid; give it a gap and
+   its own rounded card look (lookup-entry has none standalone on desktop) */
+.etk-vin-entry {
+  margin-bottom: 20px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); padding: 16px;
+}
+.etk-vin-entry:hover { border-color: var(--amber); }
 .etk-vin-entry .lookup-entry-icon { font-size: 18px; }
 .etk-vin-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .etk-vin-input {
@@ -628,6 +635,39 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   background: var(--amber-glow); border: 1px solid var(--amber); border-radius: 8px; padding: 9px 14px;
 }
 .etk-vin-open:hover { background: rgba(255,158,44,.28); }
+
+/* ETK-style "identify by attributes" drill-down */
+.etk-idsep {
+  display: flex; align-items: center; gap: 14px; max-width: 640px;
+  margin: 22px 0 14px; color: var(--ink-faint); font-size: 12.5px;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.etk-idsep::before, .etk-idsep::after {
+  content: ''; flex: 1; height: 1px; background: var(--line);
+}
+.etk-idcard {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 18px; max-width: 640px;
+}
+.etk-idgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.etk-idgrid + .etk-idgrid { margin-top: 12px; }
+.etk-idcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.etk-idlabel { font-size: 12px; color: var(--ink-dim); }
+.etk-idsel {
+  font-size: 13px; color: var(--ink); font-family: var(--mono);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  width: 100%; min-width: 0;
+}
+.etk-idsel:focus { outline: none; border-color: var(--amber); }
+.etk-idsel:disabled { opacity: .5; }
+.etk-idfoot {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 16px; flex-wrap: wrap;
+}
+.etk-idhint { font-size: 13px; color: var(--ink-dim); }
+@media (max-width: 760px) {
+  .etk-idgrid { grid-template-columns: 1fr; }
+}
 
 /* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
    thumbnail, and the group name. */

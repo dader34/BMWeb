@@ -303,6 +303,28 @@ def build_vin_index(con, out_dir):
           f"{os.path.getsize(path)/1e6:.1f} MB)")
 
 
+def build_vehicle_index(con, out_dir):
+    """Write vehicles.json: the attribute drill-down tree, chassis -> body ->
+    model -> [[steer, gear, year, mospid], ...]. Small enough (~30 KB gzipped,
+    ~200 KB raw) to ship in the repo. Drives ETK's Series/Body/Model selectors.
+    """
+    rows = con.execute(
+        "SELECT fztyp_baureihe, fztyp_karosserie, fztyp_erwvbez, fztyp_lenkung, "
+        "       fztyp_getriebe, fztyp_einsatz, fztyp_mospid "
+        "FROM w_fztyp "
+        "ORDER BY fztyp_baureihe, fztyp_karosserie, fztyp_erwvbez").fetchall()
+    tree = {}
+    for ch, body, model, steer, gear, year, mospid in rows:
+        (tree.setdefault(ch, {}).setdefault(body or '', {})
+             .setdefault(model or '', []).append([steer or '', gear or '', year or '', mospid]))
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, 'vehicles.json')
+    with open(path, 'w') as f:
+        json.dump(tree, f, separators=(',', ':'))
+    print(f"wrote {path} ({len(tree)} chassis, {len(rows)} variants, "
+          f"{os.path.getsize(path)/1e6:.2f} MB)")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Pack ETK into per-chassis .etk bundles")
     ap.add_argument('--db', required=True, help='etk.sqlite (the dumped catalogue)')
@@ -313,6 +335,8 @@ def main():
                     help='also write vin-index.json.gz (the VIN decoder data)')
     ap.add_argument('--vin-index-only', action='store_true',
                     help='write only vin-index.json.gz and exit')
+    ap.add_argument('--vehicles-only', action='store_true',
+                    help='write only vehicles.json (the attribute drill-down) and exit')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
@@ -322,6 +346,9 @@ def main():
 
     if args.vin_index_only:
         build_vin_index(con, args.out)
+        return
+    if args.vehicles_only:
+        build_vehicle_index(con, args.out)
         return
 
     if not HAVE_PIL:
@@ -357,6 +384,7 @@ def main():
 
     if args.vin_index:
         build_vin_index(con, args.out)
+    build_vehicle_index(con, args.out)   # tiny; always ship the drill-down tree
 
 
 if __name__ == '__main__':

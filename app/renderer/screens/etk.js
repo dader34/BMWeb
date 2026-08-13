@@ -117,6 +117,22 @@ async function etkChassisList() {
   return etkChassisIds;
 }
 
+// ---- vehicle attribute tree (the ETK-style drill-down) --------------------
+// vehicles.json: chassis -> body -> model -> [[steer,gear,year,mospid], ...].
+// Small (~200 KB), ships in the repo (local), with an HF fallback.
+let etkVehicles = null;
+async function loadVehicles() {
+  if (etkVehicles) return etkVehicles;
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const urls = [`${base}/data/etk/vehicles.json`, `${ETK_HF_BASE}vehicles.json`];
+  let r = null;
+  for (const u of urls) { r = await real(u).catch(() => null); if (r && r.ok) break; }
+  if (!r || !r.ok) throw new Error('vehicle data not available');
+  etkVehicles = await r.json();
+  return etkVehicles;
+}
+
 // ---- VIN decoder ----------------------------------------------------------
 // A BMW VIN's last 7 characters are the sequential production number. vin-index
 // maps each production-number range to a vehicle, so we can resolve a VIN to
@@ -250,8 +266,8 @@ function showVinDecoder() {
              { label: 'Parts', fn: showEtk }, { label: 'VIN Decoder' }]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'vin decoder';
-  view.innerHTML = head('ETK', 'VIN Decoder',
-    'Enter your VIN and jump straight to the exact vehicle in the catalogue.');
+  view.innerHTML = head('ETK', 'Vehicle Identification',
+    'Enter your VIN, or identify your vehicle by series, body and model.');
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk }]);
 
   const card = document.createElement('div');
@@ -263,7 +279,7 @@ function showVinDecoder() {
       <button class="etk-vin-go" type="button">Decode →</button>
     </div>
     <div class="etk-vin-hint">A BMW VIN's last 7 characters are the production
-      number — paste the full VIN or just those 7.</div>
+      number. Paste the full VIN or just those 7.</div>
     <div class="etk-vin-result" hidden></div>`;
   view.appendChild(card);
 
@@ -317,19 +333,168 @@ function showVinDecoder() {
 
   go.onclick = decode;
   input.onkeydown = (e) => { if (e.key === 'Enter') decode(); };
+
+  // ---- attribute drill-down (ETK's Series -> Body -> Model + Steering/etc) --
+  const divider = document.createElement('div');
+  divider.className = 'etk-idsep';
+  divider.innerHTML = `<span>or identify by attributes</span>`;
+  view.appendChild(divider);
+
+  const idCard = document.createElement('div');
+  idCard.className = 'etk-idcard';
+  idCard.innerHTML = `
+    <div class="etk-idgrid">
+      <label class="etk-idcol"><span class="etk-idlabel">Series</span>
+        <select class="etk-idsel" id="id-series"></select></label>
+      <label class="etk-idcol"><span class="etk-idlabel">Body</span>
+        <select class="etk-idsel" id="id-body" disabled></select></label>
+      <label class="etk-idcol"><span class="etk-idlabel">Model</span>
+        <select class="etk-idsel" id="id-model" disabled></select></label>
+    </div>
+    <div class="etk-idgrid etk-idgrid-3">
+      <label class="etk-idcol"><span class="etk-idlabel">Steering</span>
+        <select class="etk-idsel" id="id-steer" disabled></select></label>
+      <label class="etk-idcol"><span class="etk-idlabel">Transmission</span>
+        <select class="etk-idsel" id="id-gear" disabled></select></label>
+      <label class="etk-idcol"><span class="etk-idlabel">Production</span>
+        <select class="etk-idsel" id="id-year" disabled></select></label>
+    </div>
+    <div class="etk-idfoot">
+      <span class="etk-idhint" id="id-hint">Pick a series to begin.</span>
+      <button class="etk-vin-open" id="id-open" hidden type="button">Open parts →</button>
+    </div>`;
+  view.appendChild(idCard);
+
+  const $ = (s) => idCard.querySelector(s);
+  const selSeries = $('#id-series'), selBody = $('#id-body'), selModel = $('#id-model');
+  const selSteer = $('#id-steer'), selGear = $('#id-gear'), selYear = $('#id-year');
+  const idHint = $('#id-hint'), idOpen = $('#id-open');
+  let veh = null;                 // the loaded vehicles.json
+  let picked = null;              // { chassis, mospid, ... }
+
+  const opt = (sel, items, ph) => {
+    sel.innerHTML = `<option value="">${ph}</option>` +
+      items.map((t, i) => `<option value="${i}">${esc(t)}</option>`).join('');
+  };
+  const reset = (...sels) => sels.forEach(s => { s.innerHTML = ''; s.disabled = true; });
+
+  const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: 'n/a' }[g] || g || 'n/a');
+  const steerLabel = (s) => ({ L: 'Left-hand drive', R: 'Right-hand drive' }[s] || s);
+  const yearLabel = (y) => (y && String(y).length >= 6)
+    ? `${String(y).slice(0, 4)}-${String(y).slice(4, 6)}` : (y || '');
+
+  // load the tree lazily on first interaction with the drill-down
+  selSeries.addEventListener('mousedown', async function once() {
+    selSeries.removeEventListener('mousedown', once);
+    if (veh) return;
+    idHint.textContent = 'Loading vehicles…';
+    try {
+      veh = await loadVehicles();
+      const chassis = Object.keys(veh).sort();
+      opt(selSeries, chassis.map(dispChassis), 'Select series…');
+      selSeries._ids = chassis;
+      idHint.textContent = 'Pick a series to begin.';
+    } catch (e) { idHint.textContent = String(e.message || e); }
+  });
+
+  function clearFrom(level) {
+    picked = null; idOpen.hidden = true;
+    if (level <= 1) reset(selBody, selModel, selSteer, selGear, selYear);
+    else if (level === 2) reset(selModel, selSteer, selGear, selYear);
+    else if (level === 3) reset(selSteer, selGear, selYear);
+  }
+
+  selSeries.onchange = () => {
+    clearFrom(1);
+    if (!selSeries.value) return;
+    const ch = selSeries._ids[+selSeries.value];
+    const bodies = Object.keys(veh[ch]);
+    opt(selBody, bodies.map(bodyLabel), 'Select body…');
+    selBody._ch = ch; selBody._bodies = bodies; selBody.disabled = false;
+    idHint.textContent = 'Pick a body style.';
+  };
+  selBody.onchange = () => {
+    clearFrom(2);
+    if (!selBody.value) return;
+    const body = selBody._bodies[+selBody.value];
+    const models = Object.keys(veh[selBody._ch][body]);
+    opt(selModel, models, 'Select model…');
+    selModel._body = body; selModel._models = models; selModel.disabled = false;
+    idHint.textContent = 'Pick a model.';
+  };
+  selModel.onchange = () => {
+    clearFrom(3);
+    if (!selModel.value) return;
+    const model = selModel._models[+selModel.value];
+    const variants = veh[selBody._ch][selModel._body][model];   // [[steer,gear,year,mospid]]
+    selModel._variants = variants;
+    // steering options (distinct)
+    const steers = [...new Set(variants.map(v => v[0]))].filter(Boolean);
+    opt(selSteer, steers.map(steerLabel), steers.length > 1 ? 'Select steering…' : '');
+    selSteer._vals = steers; selSteer.disabled = false;
+    if (steers.length === 1) { selSteer.selectedIndex = 1; selSteer.onchange(); }
+    else idHint.textContent = 'Pick steering.';
+  };
+  selSteer.onchange = () => {
+    reset(selGear, selYear); idOpen.hidden = true; picked = null;
+    if (!selSteer.value && selSteer._vals.length > 1) return;
+    const steer = selSteer._vals[selSteer.value ? +selSteer.value : 0];
+    const vs = selModel._variants.filter(v => v[0] === steer);
+    const gears = [...new Set(vs.map(v => v[1]))].filter(Boolean);
+    opt(selGear, gears.map(gearLabel), gears.length > 1 ? 'Select transmission…' : '');
+    selGear._vs = vs; selGear._steer = steer; selGear._vals = gears; selGear.disabled = false;
+    if (gears.length <= 1) { selGear.selectedIndex = gears.length; selGear.onchange(); }
+    else idHint.textContent = 'Pick transmission.';
+  };
+  selGear.onchange = () => {
+    reset(selYear); idOpen.hidden = true; picked = null;
+    if (!selGear.value && selGear._vals.length > 1) return;
+    const gear = selGear._vals.length ? selGear._vals[selGear.value ? +selGear.value : 0] : '';
+    const vs = selGear._vs.filter(v => !gear || v[1] === gear);
+    const years = [...new Set(vs.map(v => v[2]))].filter(Boolean).sort();
+    opt(selYear, years.map(yearLabel), years.length > 1 ? 'Select production date…' : '');
+    selYear._vs = vs; selYear._vals = years; selYear.disabled = false;
+    if (years.length <= 1) { selYear.selectedIndex = years.length; finalize(); }
+    else idHint.textContent = 'Pick a production date.';
+  };
+  selYear.onchange = finalize;
+
+  function finalize() {
+    const vs = selYear._vs || [];
+    const year = selYear._vals && selYear._vals.length
+      ? selYear._vals[selYear.value ? +selYear.value : 0] : null;
+    const v = (year ? vs.filter(x => x[2] === year) : vs)[0];
+    if (!v) { idOpen.hidden = true; return; }
+    picked = { chassis: selBody._ch, mospid: v[3],
+               model: selModel._models[+selModel.value],
+               body: selBody._bodies[+selBody.value],
+               steer: v[0], gear: v[1], prod: v[2] };
+    idHint.textContent = `${dispChassis(picked.chassis)} · ${picked.model} · `
+      + `${bodyLabel(picked.body)} · ${steerLabel(picked.steer)}`;
+    idOpen.hidden = false;
+  }
+
+  idOpen.onclick = () => { if (picked) openDecoded(picked); };
 }
 
 // After a VIN resolves, open its chassis and pre-select the matching variant.
 async function openDecoded(hit) {
   await showEtkChassis(hit.chassis);
-  // find the variant in the loaded chassis whose mospid+attrs match, select it
+  // find the variant in the loaded chassis whose attrs match, select it. The
+  // VIN hit and the drill-down pick share model/body/steer; motor is present
+  // only on the VIN path, so match progressively from most to least specific.
   try {
     const data = await loadEtk(hit.chassis);
     const vs = data.tree.variants || [];
-    let match = vs.findIndex(v =>
-      (v.model || '') === (hit.model || '') && (v.body || '') === (hit.body || '') &&
-      (v.motor || '') === (hit.motor || '') && (v.steer || '') === (hit.steer || ''));
-    if (match < 0) match = vs.findIndex(v => (v.model || '') === (hit.model || ''));
+    const eq = (a, b) => (a || '') === (b || '');
+    let match = -1;
+    if (hit.motor) {   // VIN path: model+body+motor+steer
+      match = vs.findIndex(v => eq(v.model, hit.model) && eq(v.body, hit.body) &&
+                                eq(v.motor, hit.motor) && eq(v.steer, hit.steer));
+    }
+    if (match < 0) match = vs.findIndex(v => eq(v.model, hit.model) &&
+                                             eq(v.body, hit.body) && eq(v.steer, hit.steer));
+    if (match < 0) match = vs.findIndex(v => eq(v.model, hit.model));
     if (match >= 0) {
       ETK_STATE.variant = match;
       const cur = document.querySelector('.etk-vdd-cur');
@@ -514,7 +679,7 @@ function variantLabel(v) {
   if (v.body) parts.push(v.body);
   if (v.motor) parts.push(v.motor);
   if (v.steer) parts.push(v.steer === 'R' ? 'RHD' : v.steer === 'L' ? 'LHD' : v.steer);
-  if (v.gear) parts.push({ A: 'auto', M: 'man.', N: '—' }[v.gear] || v.gear);
+  if (v.gear) { const g = { A: 'auto', M: 'man.', N: '' }[v.gear]; if (g) parts.push(g); }
   if (v.date) {
     const d = String(v.date);
     if (d.length === 8) parts.push(`${d.slice(0, 4)}-${d.slice(4, 6)}`);
