@@ -426,7 +426,11 @@ function showEtkGroup(data, chassisId, mg) {
   if (firstLeaf) firstLeaf.click();
 
   sbLeft.textContent = mg.name;
-  setActions([]);
+  // a back action so the mobile top-left chevron appears (and Esc works),
+  // returning to this chassis's main-group grid. The F-key bar itself is
+  // hidden here (wds-nofkeys), but the chevron/Esc still fire this.
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: () => showEtkChassis(id) }]);
 }
 
 // parts count honouring the active variant filter
