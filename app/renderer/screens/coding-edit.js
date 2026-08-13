@@ -321,6 +321,27 @@ function codKnown(raw) {
   return COD_TRUE.has(s) || COD_FALSE.has(s);
 }
 
+// Match a DATEN keyword to a value in an SGBD's coding read. The read names
+// results differently (COD_*/STAT_*), so match on shared tokens and reduce the
+// best hit to a number (numeric -> itself, boolean word -> 1/0). Returns null
+// when nothing overlaps enough. Shared by the Expert tree and curated toggles.
+function codMatchRead(kw, pairs) {
+  const toks = (s) => new Set(String(s)
+    .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase()
+    .split('_').filter(t => t.length > 2));
+  const kt = toks(kw);
+  let best = null, bestOverlap = 0;
+  for (const [name, val] of pairs) {
+    const ov = [...kt].filter(t => toks(name).has(t)).length;
+    if (ov > bestOverlap && ov >= Math.min(2, kt.size)) { bestOverlap = ov; best = val; }
+  }
+  if (best == null) return null;
+  const s = String(best).trim().toLowerCase();
+  if (/^-?\d+$/.test(s)) return parseInt(s, 10);
+  if (codKnown(s)) return codIsOn(s) ? 1 : 0;
+  return null;
+}
+
 // The coding map, once. Returns the entry for an SGBD or null.
 async function codingFor(sgbd) {
   if (typeof loadCodingMap !== 'function') return null;

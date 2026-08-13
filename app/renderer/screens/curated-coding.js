@@ -259,25 +259,9 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
 
 // Pair a DATEN keyword to a value in the SGBD's coding read, which names the
 // setting differently -- match on shared tokens, reduce to the on/off numbers.
+// thin wrapper over the shared coding-edit.js matcher (returns the raw number)
 function curatedMatchResult(kw, got) {
-  const toks = (s) => new Set(String(s)
-    .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase()
-    .split('_').filter(t => t.length > 2));
-  const kt = toks(kw);
-  let best = null, bestOverlap = 0;
-  for (const [name, val] of got) {
-    const nt = toks(name);
-    const overlap = [...kt].filter(t => nt.has(t)).length;
-    if (overlap > bestOverlap && overlap >= Math.min(2, kt.size)) {
-      bestOverlap = overlap; best = val;
-    }
-  }
-  if (best == null) return null;
-  const s = String(best).trim().toLowerCase();
-  if (/^-?\d+$/.test(s)) return parseInt(s, 10);
-  if (typeof codIsOn === 'function' && typeof codKnown === 'function'
-      && codKnown(s)) return codIsOn(s) ? 1 : 0;
-  return null;
+  return typeof codMatchRead === 'function' ? codMatchRead(kw, got) : null;
 }
 
 // The staged-changes review: what WOULD be sent. Demo mode says the write is
