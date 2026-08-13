@@ -187,8 +187,19 @@ async function showEtk() {
     "BMW's own parts diagrams. Pick a vehicle to browse its catalogue.");
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps }]);
 
-  // VIN decoder card: type a VIN, jump straight to that exact vehicle's parts.
-  view.appendChild(buildVinCard());
+  // VIN decoder entry: a card (like the Apps hub cards) that opens the decoder
+  // page -- enter a VIN there and jump to that exact vehicle's parts.
+  const vinCard = document.createElement('button');
+  vinCard.className = 'lookup-entry etk-vin-entry';
+  vinCard.innerHTML = `
+    <span class="lookup-entry-icon">⌗</span>
+    <span class="lookup-entry-text">
+      <span class="lookup-entry-title">VIN Decoder</span>
+      <span class="lookup-entry-desc">Enter a VIN to jump straight to your exact vehicle</span>
+    </span>
+    <span class="lookup-entry-arrow">→</span>`;
+  vinCard.onclick = () => showVinDecoder();
+  view.appendChild(vinCard);
 
   const grid = document.createElement('div');
   grid.className = 'chassis-grid stagger';
@@ -230,25 +241,36 @@ async function showEtk() {
   ]);
 }
 
-// The VIN decoder card on the Parts landing: enter a VIN (or its last 7), and
-// it resolves to the exact vehicle and opens that catalogue pre-filtered.
-function buildVinCard() {
+// The VIN Decoder page: enter a VIN (or its last 7) and it resolves to the
+// exact vehicle, then opens that catalogue pre-filtered.
+function showVinDecoder() {
+  lastScreen = showVinDecoder;
+  setCrumbs([{ label: 'Vehicles', fn: showChassis },
+             { label: 'Apps', fn: showApps },
+             { label: 'Parts', fn: showEtk }, { label: 'VIN Decoder' }]);
+  document.body.classList.add('apps-section');
+  sbLeft.textContent = 'vin decoder';
+  view.innerHTML = head('ETK', 'VIN Decoder',
+    'Enter your VIN and jump straight to the exact vehicle in the catalogue.');
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk }]);
+
   const card = document.createElement('div');
   card.className = 'etk-vin-card';
   card.innerHTML = `
-    <div class="etk-vin-head">
-      <span class="etk-vin-title">VIN Decoder</span>
-      <span class="etk-vin-sub">Enter a VIN to jump straight to your vehicle</span>
-    </div>
     <div class="etk-vin-row">
       <input class="etk-vin-input" type="text" maxlength="17" spellcheck="false"
              autocapitalize="characters" placeholder="WBA… or last 7 chars">
       <button class="etk-vin-go" type="button">Decode →</button>
     </div>
+    <div class="etk-vin-hint">A BMW VIN's last 7 characters are the production
+      number — paste the full VIN or just those 7.</div>
     <div class="etk-vin-result" hidden></div>`;
+  view.appendChild(card);
+
   const input = card.querySelector('.etk-vin-input');
   const go = card.querySelector('.etk-vin-go');
   const result = card.querySelector('.etk-vin-result');
+  input.focus();
 
   async function decode() {
     const vin = input.value.trim();
@@ -273,10 +295,9 @@ function buildVinCard() {
       go.disabled = false;
       if (!hit) {
         result.className = 'etk-vin-result etk-vin-err';
-        result.textContent = `No vehicle found for “${vin.toUpperCase()}”. Check the VIN, or pick a chassis below.`;
+        result.textContent = `No vehicle found for “${vin.toUpperCase()}”. Check the VIN, or pick a chassis on the previous screen.`;
         return;
       }
-      // build a readable summary and an "open" action
       const bits = [hit.model, bodyLabel(hit.body), hit.motor,
                     hit.steer === 'R' ? 'RHD' : hit.steer === 'L' ? 'LHD' : '']
                    .filter(Boolean).join(' · ');
@@ -296,7 +317,6 @@ function buildVinCard() {
 
   go.onclick = decode;
   input.onkeydown = (e) => { if (e.key === 'Enter') decode(); };
-  return card;
 }
 
 // After a VIN resolves, open its chassis and pre-select the matching variant.

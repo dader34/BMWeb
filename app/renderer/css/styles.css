@@ -595,14 +595,13 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   0% { margin-left: -35%; } 100% { margin-left: 100%; }
 }
 
-/* VIN decoder card on the Parts landing */
+/* VIN decoder page card */
 .etk-vin-card {
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-  padding: 16px; margin-bottom: 18px;
+  padding: 18px; max-width: 640px;
 }
-.etk-vin-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
-.etk-vin-title { font-size: 15px; font-weight: 700; color: var(--ink); }
-.etk-vin-sub { font-size: 12.5px; color: var(--ink-dim); }
+.etk-vin-hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 10px; }
+.etk-vin-entry .lookup-entry-icon { font-size: 18px; }
 .etk-vin-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .etk-vin-input {
   flex: 1; min-width: 200px; font-family: var(--mono); font-size: 14px;
