@@ -131,7 +131,8 @@ function lookupDropdown(placeholder, options, current, onChange) {
 async function showLookup() {
   cancelSweep();
   lastScreen = showLookup;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Fault Lookup' }]);
+  setCrumbs([{ label: 'Vehicles', fn: showChassis },
+             { label: 'Apps', fn: showApps }, { label: 'Fault Lookup' }]);
   sbLeft.textContent = 'fault lookup';
 
   view.innerHTML = head('Reference', 'Fault Lookup',

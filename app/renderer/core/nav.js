@@ -31,7 +31,6 @@ async function showChassis() {
         <div class="inpa-vlist">${main.map((id, i) => fnRow(i + 1, id, `${dispChassis(id)}${CHASSIS_TAG[id] ? ` · ${CHASSIS_TAG[id]}` : ''}`)).join('')}</div>
         <div class="inpa-vlist inpa-vlist-right">
           ${old.length ? `<button class="inpa-fn inpa-fn-more" id="vsel-old"><span class="inpa-fn-key">&lt; F9 &gt;</span><span class="inpa-fn-label">Other models …</span></button>` : ''}
-          <button class="inpa-fn inpa-fn-lookup" id="vsel-lookup"><span class="inpa-fn-key">⌕</span><span class="inpa-fn-label">Fault Lookup …</span></button>
           <button class="inpa-fn inpa-fn-lookup" id="vsel-apps"><span class="inpa-fn-key">▦</span><span class="inpa-fn-label">Apps …</span></button>
         </div>
       </div>`;
@@ -39,7 +38,6 @@ async function showChassis() {
     panel.querySelectorAll('.inpa-fn[data-id]').forEach(b => b.onclick = () => showScriptSelection(b.dataset.id));
     const oldBtn = panel.querySelector('#vsel-old');
     if (oldBtn) oldBtn.onclick = () => showOtherModels(old);
-    panel.querySelector('#vsel-lookup').onclick = () => showLookup();
     panel.querySelector('#vsel-apps').onclick = () => showApps();
     sbRight.textContent = `${main.length} common · ${old.length} more`;
     syncVselState();
@@ -105,29 +103,16 @@ async function showChassis() {
   view.appendChild(grid);
   renderGrid();
 
-  // Fault Lookup: reference search across the whole fault database, no cable needed
-  const lookupCard = document.createElement('button');
-  lookupCard.className = 'lookup-entry';
-  lookupCard.innerHTML = `
-    <span class="lookup-entry-icon">⌕</span>
-    <span class="lookup-entry-text">
-      <span class="lookup-entry-title">Fault Lookup</span>
-      <span class="lookup-entry-desc">Search fault codes and descriptions across every chassis, offline</span>
-    </span>
-    <span class="lookup-entry-arrow">→</span>`;
-  lookupCard.onclick = () => showLookup();
-  view.appendChild(lookupCard);
-
-  // Apps: reference tools ported from BMW's dealer software (WDS wiring, ETK
-  // parts catalogue, ...). One hub card rather than one card per tool, so the
-  // home screen doesn't grow a row every time a new app is ported.
+  // Apps: reference tools, offline. Fault Lookup and the ported dealer-software
+  // apps (WDS wiring, ETK parts catalogue, ...) all live under one hub card, so
+  // the home screen stays a vehicle grid plus a single door to everything else.
   const appsCard = document.createElement('button');
   appsCard.className = 'lookup-entry';
   appsCard.innerHTML = `
     <span class="lookup-entry-icon">▦</span>
     <span class="lookup-entry-text">
       <span class="lookup-entry-title">Apps</span>
-      <span class="lookup-entry-desc">Wiring diagrams, parts catalogue and more, ported from BMW's own software</span>
+      <span class="lookup-entry-desc">Fault lookup, wiring diagrams, parts catalogue and more</span>
     </span>
     <span class="lookup-entry-arrow">→</span>`;
   appsCard.onclick = () => showApps();
@@ -135,8 +120,7 @@ async function showChassis() {
 
   const quick = ['E46', 'E60', 'E90'].filter(id => ids.includes(id));
   const acts = quick.map((id, i) => ({ key: String(i + 1), label: id, fn: () => showSections(id) }));
-  acts.push({ key: String(quick.length + 1), label: 'Fault Lookup', fn: () => showLookup() });
-  acts.push({ key: String(quick.length + 2), label: 'Apps', fn: () => showApps() });
+  acts.push({ key: String(quick.length + 1), label: 'Apps', fn: () => showApps() });
   setActions(acts);
 }
 

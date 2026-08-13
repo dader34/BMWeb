@@ -12,6 +12,16 @@
 
 const APP_REGISTRY = [
   {
+    id: 'lookup',
+    icon: '⌕',
+    title: 'Fault Lookup',
+    desc: 'Search fault codes and descriptions across every chassis',
+    tag: 'DTC',
+    open: () => showLookup(),
+    // always available: the fault database ships with the app shell
+    hasData: async () => true,
+  },
+  {
     id: 'wiring',
     icon: '⌁',
     title: 'Wiring Diagrams',
