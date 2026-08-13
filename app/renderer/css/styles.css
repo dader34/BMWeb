@@ -2748,9 +2748,14 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */
   /* the ETK app is touch-driven (icon grid, tree); the F-key bar is wasted
-     space on a phone, so drop it there and give the view the height back */
+     space on a phone, so drop it and give the view the bottom height back --
+     but keep the safe-area + topbar top offset (a hardcoded top rode the
+     heading up under the back chevron). Mirrors the wds-nofkeys inset. */
   body.etk-screen .fkeybar { display: none; }
-  body.etk-screen .view { inset: 56px 0 0 0; }
+  body.etk-screen .view {
+    inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
+           var(--safe-bottom) var(--safe-left);
+  }
   .fkey-nums { display: none; }
   .fkey-btns {
     display: flex; gap: 8px; padding: 9px 12px;
