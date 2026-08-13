@@ -625,6 +625,9 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   box-shadow: 0 10px 30px rgba(0,0,0,.4); overflow: hidden;
   display: flex; flex-direction: column; max-height: 340px;
 }
+/* the [hidden] attribute must win over the display:flex above, or the menu
+   stays open forever (display:flex overrides the UA hidden -> display:none). */
+.etk-vdd-menu[hidden] { display: none; }
 .etk-vdd-search {
   margin: 8px; font-size: 13px; color: var(--ink); font-family: var(--mono);
   background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
