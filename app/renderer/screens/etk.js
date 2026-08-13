@@ -172,9 +172,18 @@ async function showEtkChassis(chassisId) {
   view.innerHTML = head('ETK', dispChassis(id), 'Pick a variant to filter, then a main group.');
   document.body.classList.remove('wds-nofkeys');
 
+  // the bundle streams from Hugging Face (~20 MB) -- a real wait, so show a
+  // spinner instead of a blank pane while it loads.
+  const loading = document.createElement('div');
+  loading.className = 'wiring-loading etk-loading';
+  loading.innerHTML = `<span class="wiring-spinner"></span>`
+    + `<span>Loading ${esc(dispChassis(id))} parts catalogue…</span>`;
+  view.appendChild(loading);
+
   let data;
   try { data = await loadEtk(id); }
-  catch (e) { view.appendChild(errorBlock(String(e.message || e))); return; }
+  catch (e) { loading.remove(); view.appendChild(errorBlock(String(e.message || e))); return; }
+  loading.remove();
   ETK_STATE.variant = null;   // reset filter when entering a chassis
 
   // --- variant selector (custom searchable dropdown) ---

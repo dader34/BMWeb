@@ -572,6 +572,12 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   .etk-body { grid-template-columns: 1fr; }
 }
 
+/* while the ~20 MB bundle streams from HF, a centred spinner instead of blank */
+.etk-loading {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 60px 20px; color: var(--ink-dim); font-size: 14px;
+}
+
 /* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
    thumbnail, and the group name. */
 .etk-grid {
