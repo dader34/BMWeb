@@ -66,6 +66,13 @@ async function showApps() {
   list.className = 'apps-list stagger';
   view.appendChild(list);
 
+  // availability checks may hit the network (ETK probes Hugging Face), so show
+  // a spinner instead of a blank pane while they resolve.
+  const loading = document.createElement('div');
+  loading.className = 'wiring-loading etk-loading';
+  loading.innerHTML = `<span class="wiring-spinner"></span><span>Loading apps…</span>`;
+  view.appendChild(loading);
+
   // resolve availability once, in parallel; a card renders as soon as we know
   const states = await Promise.all(APP_REGISTRY.map(async (a) => {
     let ready = true;
@@ -74,6 +81,7 @@ async function showApps() {
     }
     return { app: a, ready };
   }));
+  loading.remove();
 
   const openable = [];
   states.forEach(({ app, ready }) => {

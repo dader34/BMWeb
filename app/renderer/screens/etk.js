@@ -249,7 +249,8 @@ function buildVariantDropdown(variants) {
 
   const cur = btn.querySelector('.etk-vdd-cur');
 
-  function choose(idx, text) {
+  function choose(idx, text, ev) {
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
     ETK_STATE.variant = idx;
     cur.textContent = text;
     cur.classList.toggle('etk-vdd-filtered', idx != null);
@@ -260,32 +261,43 @@ function buildVariantDropdown(variants) {
     list.innerHTML = '';
     const ql = (q || '').toLowerCase();
     const all = document.createElement('button');
+    all.type = 'button';
     all.className = 'etk-vdd-opt' + (ETK_STATE.variant == null ? ' active' : '');
     all.textContent = `All variants (${variants.length})`;
-    all.onclick = () => choose(null, `All variants (${variants.length})`);
+    all.onclick = (e) => choose(null, `All variants (${variants.length})`, e);
     if (!ql) list.appendChild(all);
     let shown = 0;
     for (const o of order) {
       if (ql && !o.text.toLowerCase().includes(ql)) continue;
       if (++shown > 200) break;   // cap the DOM; search narrows it
       const el = document.createElement('button');
+      el.type = 'button';
       el.className = 'etk-vdd-opt' + (ETK_STATE.variant === o.i ? ' active' : '');
       el.textContent = o.text;
-      el.onclick = () => choose(o.i, o.text);
+      el.onclick = (e) => choose(o.i, o.text, e);
       list.appendChild(el);
     }
   }
 
-  function open() { menu.hidden = false; search.value = ''; renderList(''); search.focus(); }
-  function close() { menu.hidden = true; }
+  let outside = null;
+  function open() {
+    menu.hidden = false; search.value = ''; renderList(''); search.focus();
+    // arm the outside-click closer on the NEXT tick so this same click that
+    // opened the menu doesn't immediately close it.
+    setTimeout(() => {
+      outside = (e) => { if (!root.contains(e.target)) close(); };
+      document.addEventListener('click', outside);
+    }, 0);
+  }
+  function close() {
+    menu.hidden = true;
+    if (outside) { document.removeEventListener('click', outside); outside = null; }
+  }
 
-  btn.onclick = () => (menu.hidden ? open() : close());
+  btn.type = 'button';
+  btn.onclick = (e) => { e.stopPropagation(); menu.hidden ? open() : close(); };
   search.oninput = () => renderList(search.value);
   search.onclick = (e) => e.stopPropagation();
-  // close on outside click
-  document.addEventListener('click', (e) => {
-    if (!root.contains(e.target)) close();
-  });
 
   return root;
 }
