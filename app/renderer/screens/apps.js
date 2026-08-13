@@ -44,8 +44,12 @@ const APP_REGISTRY = [
     desc: "BMW's ETK: part numbers, diagrams and supersessions by chassis",
     tag: 'ETK',
     open: () => (typeof showEtk === 'function' ? showEtk() : null),
-    hasData: async () => typeof showEtk === 'function'
-      && typeof etkHasData === 'function' && etkHasData(),
+    // present only if at least one chassis actually has an .etk bundle in this build
+    hasData: async () => {
+      if (typeof showEtk !== 'function' || typeof etkChassisList !== 'function') return false;
+      try { return (await etkChassisList()).length > 0; }
+      catch (e) { return false; }
+    },
   },
 ];
 
