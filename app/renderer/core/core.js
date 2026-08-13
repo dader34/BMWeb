@@ -128,6 +128,9 @@ let crumbs = []; // [{label, fn}]
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
 
+// "0x"-prefixed uppercase hex, zero-padded to `width` nibbles (default 2).
+const hex = (n, width = 2) => '0x' + (n >>> 0).toString(16).toUpperCase().padStart(width, '0');
+
 // demo mode: synthesized job values so screens can be walked with no cable. Every response is badged so it can't pass for real. Opt-in via Settings or ?demo=1.
 const demoMode = () => Settings.get('demo', 'off') === 'on'
   || new URLSearchParams(location.search).get('demo') === '1';
