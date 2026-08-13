@@ -139,17 +139,23 @@ def build(con, chassis, names, out_dir, quiet=False):
         callouts[(btnr, pos)] = callout
 
     # 5. part names: sachnr -> textcode -> English
+    # The FULL 11-digit BMW part number is main-group + subgroup + the 7-digit
+    # sachnr: teil_hauptgr(2) + teil_untergrup(2) + teil_sachnr(7). We keep the
+    # prefix so the viewer can show "11 13 7 791 531" instead of just "7791531".
     all_sachnr = {s for rows in part_rows.values() for (_, s) in rows.keys()}
     part_name = {}
+    part_prefix = {}   # sachnr -> "1113" (hauptgr+untergrup)
     if all_sachnr:
         sn = list(all_sachnr)
         for i in range(0, len(sn), 900):
             chunk = sn[i:i + 900]
             q = ','.join('?' * len(chunk))
-            for sachnr, tc in con.execute(
-                    "SELECT teil_sachnr, teil_textcode FROM w_teil "
-                    "WHERE teil_sachnr IN (%s)" % q, chunk):
+            for sachnr, tc, hg, ug in con.execute(
+                    "SELECT teil_sachnr, teil_textcode, teil_hauptgr, teil_untergrup "
+                    "FROM w_teil WHERE teil_sachnr IN (%s)" % q, chunk):
                 part_name[sachnr] = names.get(tc, '')
+                if hg and ug:
+                    part_prefix[sachnr] = f"{hg}{ug}"
 
     # 6. group names. ETK's browse is two levels: a MAIN group (HG, "11 Engine")
     # shown as an icon grid, then function groups (FG) under it. We keep both:
@@ -189,12 +195,16 @@ def build(con, chassis, names, out_dir, quiet=False):
         })
         parts = []
         for (pos, sachnr), fit in sorted(part_rows.get(btnr, {}).items()):
-            parts.append({
+            p = {
                 'pos': callouts.get((btnr, pos), pos),
                 'sachnr': sachnr,
                 'name': part_name.get(sachnr, ''),
                 'fit': sorted(fit),
-            })
+            }
+            pre = part_prefix.get(sachnr)
+            if pre:
+                p['pre'] = pre   # 4-digit group prefix for the full 11-digit number
+            parts.append(p)
         img_ref = None
         gid = d['grafikid']
         if gid:
@@ -278,12 +288,27 @@ def main():
 
     targets = [args.chassis] if args.chassis else chassis_list(con)
     print(f"building {len(targets)} chassis...")
-    ok = 0
+    built = []
     for ch in targets:
         r = build(con, ch, names, args.out, quiet=False)
         if r:
-            ok += 1
-    print(f"done: {ok}/{len(targets)} chassis packed into {args.out}/")
+            built.append(ch)
+    print(f"done: {len(built)}/{len(targets)} chassis packed into {args.out}/")
+
+    # index.json: the list of chassis that actually have a bundle, so the viewer
+    # reads ONE file instead of HEAD-probing every car (a full build would be
+    # ~250 requests to the data host otherwise). Merge with any existing index
+    # when building a single chassis, so a partial run doesn't wipe the list.
+    idx_path = os.path.join(args.out, 'index.json')
+    have = set(built)
+    if args.chassis and os.path.exists(idx_path):
+        try:
+            have |= set(json.load(open(idx_path)))
+        except Exception:
+            pass
+    with open(idx_path, 'w') as f:
+        json.dump(sorted(have), f)
+    print(f"wrote {idx_path} ({len(have)} chassis)")
 
 
 if __name__ == '__main__':

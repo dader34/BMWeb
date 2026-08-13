@@ -6,6 +6,22 @@
 const ETK_CACHE = new Map();       // chassis -> { tree, files: Map(name -> u8) }
 let etkChassisIds = null;          // memoised probe of which cars have data
 
+// The .etk bundles are 6.4 GB across 246 cars -- too big to ship in the Pages
+// repo. They live in a Hugging Face dataset and stream in at runtime (HF's
+// resolve URLs reflect the request Origin, so cross-origin fetch from
+// bmweb.danner.ink is CORS-clean -- verified). Local data/etk/ wins when
+// present (dev + the offline single-file export), else fall back to HF.
+const ETK_HF_BASE =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/';
+
+function etkBundleUrl(id, local) {
+  if (local) {
+    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+    return `${base}/data/etk/${id}.etk`;
+  }
+  return `${ETK_HF_BASE}${id}.etk`;
+}
+
 async function loadEtk(chassisId) {
   const id = chassisId.toUpperCase();
   if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
@@ -16,10 +32,11 @@ async function loadEtk(chassisId) {
     bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   } else {
-    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
     const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-    const r = await real(`${base}/data/etk/${id}.etk`);
-    if (!r.ok) throw new Error(`no parts data shipped for ${dispChassis(id)}`);
+    // try local first, then HF
+    let r = await real(etkBundleUrl(id, true)).catch(() => null);
+    if (!r || !r.ok) r = await real(etkBundleUrl(id, false)).catch(() => null);
+    if (!r || !r.ok) throw new Error(`no parts data for ${dispChassis(id)}`);
     bytes = new Uint8Array(await r.arrayBuffer());
   }
   const unzipped = fflate.unzipSync(bytes);
@@ -30,17 +47,19 @@ async function loadEtk(chassisId) {
   return data;
 }
 
-// Does this chassis have an .etk bundle? HEAD probe (or inline check), same as
-// hasWiring. Cheap enough to run per car when building the picker.
+// Does this chassis have an .etk bundle? HEAD probe (local then HF), or the
+// inline check. Cheap enough to run per car when building the picker.
 async function hasEtk(chassisId) {
   const id = chassisId.toUpperCase();
   if (typeof BMACW_ETK === 'object' && BMACW_ETK) return !!BMACW_ETK[id];
-  try {
-    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
-    const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-    const r = await real(`${base}/data/etk/${id}.etk`, { method: 'HEAD' });
-    return r.ok;
-  } catch (e) { return false; }
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const probe = async (local) => {
+    try {
+      const r = await real(etkBundleUrl(id, local), { method: 'HEAD' });
+      return r.ok;
+    } catch (e) { return false; }
+  };
+  return (await probe(true)) || (await probe(false));
 }
 
 // The Apps hub asks these two: is ETK in this build at all, and open it.
@@ -51,10 +70,23 @@ function etkHasData() {
 
 async function etkChassisList() {
   if (etkChassisIds) return etkChassisIds;
-  const all = (typeof CHASSIS_TAG === 'object') ? Object.keys(CHASSIS_TAG) : [];
-  const ids = [];
-  await Promise.all(all.map(async (id) => { if (await hasEtk(id)) ids.push(id); }));
-  etkChassisIds = ids.sort();
+  // one index.json lists every chassis that has a bundle -- read it instead of
+  // HEAD-probing all ~135 cars (that would be hundreds of requests to HF).
+  if (typeof BMACW_ETK === 'object' && BMACW_ETK) {
+    etkChassisIds = Object.keys(BMACW_ETK).sort();
+    return etkChassisIds;
+  }
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const tryIndex = async (local) => {
+    try {
+      const url = local ? etkBundleUrl('index', true).replace('.etk', '.json')
+                        : `${ETK_HF_BASE}index.json`;
+      const r = await real(url);
+      return r.ok ? await r.json() : null;
+    } catch (e) { return null; }
+  };
+  const idx = (await tryIndex(true)) || (await tryIndex(false));
+  etkChassisIds = Array.isArray(idx) ? idx.slice().sort() : [];
   return etkChassisIds;
 }
 
@@ -377,7 +409,7 @@ function renderDiagram(data, chassisId, d, viewEl) {
   parts.forEach((p) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="etk-pos">${esc(p.pos)}</td>
-                    <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr))}</td>
+                    <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr, p.pre))}</td>
                     <td class="etk-name">${esc(p.name)}</td>`;
     tb.appendChild(tr);
   });
@@ -390,9 +422,18 @@ function renderDiagram(data, chassisId, d, viewEl) {
     + (filtered ? ` (of ${d.parts.length})` : '');
 }
 
-// BMW part numbers print grouped 00 00 000 (7 digits) for readability.
-function fmtSachnr(s) {
+// BMW part numbers print as the full 11-digit number when we have the group
+// prefix: main-group + subgroup + 7-digit sachnr, grouped "11 13 7 791 531".
+// Without a prefix, fall back to grouping the 7-digit number alone.
+function fmtSachnr(s, prefix) {
   const d = String(s).replace(/\D/g, '');
+  if (prefix && d.length === 7) {
+    const p = String(prefix).replace(/\D/g, '');
+    if (p.length === 4) {
+      // HG(2) UG(2) X(1) XXX(3) XXX(3)
+      return `${p.slice(0, 2)} ${p.slice(2, 4)} ${d.slice(0, 1)} ${d.slice(1, 4)} ${d.slice(4)}`;
+    }
+  }
   if (d.length === 7) return `${d.slice(0, 2)} ${d.slice(2, 4)} ${d.slice(4)}`;
   return s;
 }
