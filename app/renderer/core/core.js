@@ -257,7 +257,7 @@ function setCrumbs(items) {
   document.body.classList.remove('wds-nofkeys');
   // ETK screens tag the body so CSS can drop the F-key bar on mobile; cleared
   // here so it only applies while an ETK screen is up
-  document.body.classList.remove('etk-screen');
+  document.body.classList.remove('apps-section');
   crumbs = items;
   crumbsEl.innerHTML = '';
   items.forEach((c, i) => {

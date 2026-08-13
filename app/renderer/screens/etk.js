@@ -136,7 +136,7 @@ async function showEtk() {
   lastScreen = showEtk;
   setCrumbs([{ label: 'Vehicles', fn: showChassis },
              { label: 'Apps', fn: showApps }, { label: 'Parts Catalogue' }]);
-  document.body.classList.add('etk-screen');
+  document.body.classList.add('apps-section');
   sbLeft.textContent = 'parts';
   view.innerHTML = head('ETK', 'Parts Catalogue',
     "BMW's own parts diagrams. Pick a vehicle to browse its catalogue.");
@@ -199,7 +199,7 @@ async function showEtkChassis(chassisId) {
   sbLeft.textContent = 'loading parts…';
   view.innerHTML = head('ETK', dispChassis(id), 'Pick a variant to filter, then a main group.');
   document.body.classList.remove('wds-nofkeys');
-  document.body.classList.add('etk-screen');
+  document.body.classList.add('apps-section');
 
   // the bundle streams from Hugging Face (~20 MB) -- a real wait, so show a
   // download progress bar instead of a blank pane while it loads.

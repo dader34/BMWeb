@@ -2751,8 +2751,8 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
      space on a phone, so drop it and give the view the bottom height back --
      but keep the safe-area + topbar top offset (a hardcoded top rode the
      heading up under the back chevron). Mirrors the wds-nofkeys inset. */
-  body.etk-screen .fkeybar { display: none; }
-  body.etk-screen .view {
+  body.apps-section .fkeybar { display: none; }
+  body.apps-section .view {
     inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
            var(--safe-bottom) var(--safe-left);
   }
