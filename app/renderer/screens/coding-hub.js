@@ -335,23 +335,7 @@ function treeOptions(vals) {
 // the answer to one of the function's known option hex values. Returns the
 // matched hex value string, or null.
 function treeMatchRead(kw, opts, read) {
-  const toks = (s) => new Set(String(s)
-    .replace(/^(COD|STAT|STATUS|CODIER)_/i, '').toUpperCase()
-    .split('_').filter(t => t.length > 2));
-  const kt = toks(kw);
-  let best = null, bestOverlap = 0;
-  for (const [name, val] of read) {
-    const nt = toks(name);
-    const ov = [...kt].filter(t => nt.has(t)).length;
-    if (ov > bestOverlap && ov >= Math.min(2, kt.size)) { bestOverlap = ov; best = val; }
-  }
-  if (best == null) return null;
-  const s = String(best).trim().toLowerCase();
-  // numeric answer -> hex; boolean word -> 0/1
-  let num = null;
-  if (/^-?\d+$/.test(s)) num = parseInt(s, 10);
-  else if (typeof codIsOn === 'function' && typeof codKnown === 'function'
-           && codKnown(s)) num = codIsOn(s) ? 1 : 0;
+  const num = typeof codMatchRead === 'function' ? codMatchRead(kw, read) : null;
   if (num == null) return null;
   const hex = num.toString(16).padStart(2, '0');
   // only accept if it is actually one of this function's options

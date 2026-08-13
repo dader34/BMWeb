@@ -76,7 +76,6 @@ async function showNavLanguages(ecu, container, back) {
   let picked = [null, null, null];
 
   const byCode = (c) => langs.find(l => l.code === c);
-  const hex = (c) => `0x${c.toString(16).toUpperCase().padStart(2, '0')}`;
 
   const draw = () => {
     setPanel();

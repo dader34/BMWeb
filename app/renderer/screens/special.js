@@ -5,7 +5,6 @@
 // how many bytes one dump row shows, matching INPA's hex layout
 const MEM_ROW = 16;
 
-const hex = (n, w) => '0x' + (n >>> 0).toString(16).toUpperCase().padStart(w, '0');
 const parseAddr = (s) => {
   const n = parseInt(String(s).replace(/^0x/i, ''), 16);
   return Number.isFinite(n) && n >= 0 ? n : null;
