@@ -255,6 +255,9 @@ function errorBlock(raw, accent = 'amber') {
 function setCrumbs(items) {
   // the WDS wiring screen hides the F-key bar; any other screen drawing itself restores it
   document.body.classList.remove('wds-nofkeys');
+  // ETK screens tag the body so CSS can drop the F-key bar on mobile; cleared
+  // here so it only applies while an ETK screen is up
+  document.body.classList.remove('etk-screen');
   crumbs = items;
   crumbsEl.innerHTML = '';
   items.forEach((c, i) => {

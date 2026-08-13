@@ -572,10 +572,27 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   .etk-body { grid-template-columns: 1fr; }
 }
 
-/* while the ~20 MB bundle streams from HF, a centred spinner instead of blank */
+/* while the ~20 MB bundle streams from HF, a centred spinner + progress bar */
 .etk-loading {
-  display: flex; align-items: center; justify-content: center; gap: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
   padding: 60px 20px; color: var(--ink-dim); font-size: 14px;
+}
+.etk-progress-wrap { display: flex; flex-direction: column; gap: 8px; width: min(360px, 70vw); }
+.etk-progress-label { font-size: 13px; color: var(--ink-dim); }
+.etk-progress-track {
+  height: 6px; border-radius: 3px; background: var(--line); overflow: hidden;
+}
+.etk-progress-bar {
+  height: 100%; width: 0%; border-radius: 3px;
+  background: linear-gradient(90deg, #ffb95a, var(--amber));
+  transition: width .15s ease;
+}
+/* when the server sends no Content-Length, sweep a chip across instead */
+.etk-progress-bar.etk-progress-indeterminate {
+  width: 35%; animation: etk-indet 1.1s ease-in-out infinite;
+}
+@keyframes etk-indet {
+  0% { margin-left: -35%; } 100% { margin-left: 100%; }
 }
 
 /* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
@@ -2730,6 +2747,10 @@ body.wds-nofkeys .view { inset: 56px 0 0 0; }
   }
   .fkeys { padding-top: 0; }
   .fkeys::before { display: none; }          /* "Select menu" caption */
+  /* the ETK app is touch-driven (icon grid, tree); the F-key bar is wasted
+     space on a phone, so drop it there and give the view the height back */
+  body.etk-screen .fkeybar { display: none; }
+  body.etk-screen .view { inset: 56px 0 0 0; }
   .fkey-nums { display: none; }
   .fkey-btns {
     display: flex; gap: 8px; padding: 9px 12px;

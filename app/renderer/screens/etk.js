@@ -22,7 +22,9 @@ function etkBundleUrl(id, local) {
   return `${ETK_HF_BASE}${id}.etk`;
 }
 
-async function loadEtk(chassisId) {
+// onProgress(loaded, total) is called as the bundle downloads; total is 0 when
+// the server sends no Content-Length (then the caller shows an indeterminate bar).
+async function loadEtk(chassisId, onProgress) {
   const id = chassisId.toUpperCase();
   if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
   let bytes;
@@ -37,7 +39,7 @@ async function loadEtk(chassisId) {
     let r = await real(etkBundleUrl(id, true)).catch(() => null);
     if (!r || !r.ok) r = await real(etkBundleUrl(id, false)).catch(() => null);
     if (!r || !r.ok) throw new Error(`no parts data for ${dispChassis(id)}`);
-    bytes = new Uint8Array(await r.arrayBuffer());
+    bytes = await readWithProgress(r, onProgress);
   }
   const unzipped = fflate.unzipSync(bytes);
   const tree = JSON.parse(new TextDecoder().decode(unzipped['tree.json']));
@@ -45,6 +47,31 @@ async function loadEtk(chassisId) {
   const data = { tree, files };
   ETK_CACHE.set(id, data);
   return data;
+}
+
+// Stream a fetch Response into a Uint8Array, calling onProgress(loaded,total).
+// Falls back to arrayBuffer() when the body isn't a readable stream.
+async function readWithProgress(resp, onProgress) {
+  const total = Number(resp.headers.get('content-length')) || 0;
+  if (!resp.body || !resp.body.getReader || !onProgress) {
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    if (onProgress) onProgress(buf.length, buf.length);
+    return buf;
+  }
+  const reader = resp.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.length;
+    onProgress(loaded, total);
+  }
+  const out = new Uint8Array(loaded);
+  let off = 0;
+  for (const c of chunks) { out.set(c, off); off += c.length; }
+  return out;
 }
 
 // Does this chassis have an .etk bundle? HEAD probe (local then HF), or the
@@ -109,6 +136,7 @@ async function showEtk() {
   lastScreen = showEtk;
   setCrumbs([{ label: 'Vehicles', fn: showChassis },
              { label: 'Apps', fn: showApps }, { label: 'Parts Catalogue' }]);
+  document.body.classList.add('etk-screen');
   sbLeft.textContent = 'parts';
   view.innerHTML = head('ETK', 'Parts Catalogue',
     "BMW's own parts diagrams. Pick a vehicle to browse its catalogue.");
@@ -171,17 +199,33 @@ async function showEtkChassis(chassisId) {
   sbLeft.textContent = 'loading parts…';
   view.innerHTML = head('ETK', dispChassis(id), 'Pick a variant to filter, then a main group.');
   document.body.classList.remove('wds-nofkeys');
+  document.body.classList.add('etk-screen');
 
   // the bundle streams from Hugging Face (~20 MB) -- a real wait, so show a
-  // spinner instead of a blank pane while it loads.
+  // download progress bar instead of a blank pane while it loads.
   const loading = document.createElement('div');
-  loading.className = 'wiring-loading etk-loading';
-  loading.innerHTML = `<span class="wiring-spinner"></span>`
-    + `<span>Loading ${esc(dispChassis(id))} parts catalogue…</span>`;
+  loading.className = 'etk-loading';
+  loading.innerHTML = `
+    <span class="wiring-spinner"></span>
+    <div class="etk-progress-wrap">
+      <div class="etk-progress-label">Loading ${esc(dispChassis(id))} parts catalogue…</div>
+      <div class="etk-progress-track"><div class="etk-progress-bar" id="etk-progress"></div></div>
+    </div>`;
   view.appendChild(loading);
+  const bar = loading.querySelector('#etk-progress');
+  const onProgress = (loaded, total) => {
+    if (total > 0) {
+      const pct = Math.min(100, Math.round((loaded / total) * 100));
+      bar.style.width = pct + '%';
+      loading.querySelector('.etk-progress-label').textContent =
+        `Loading ${dispChassis(id)} parts catalogue… ${pct}%`;
+    } else {
+      bar.classList.add('etk-progress-indeterminate');   // no length -> animate
+    }
+  };
 
   let data;
-  try { data = await loadEtk(id); }
+  try { data = await loadEtk(id, onProgress); }
   catch (e) { loading.remove(); view.appendChild(errorBlock(String(e.message || e))); return; }
   loading.remove();
   ETK_STATE.variant = null;   // reset filter when entering a chassis
