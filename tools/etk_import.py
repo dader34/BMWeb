@@ -85,21 +85,40 @@ def to_png(blob, fmt):
 def build(con, chassis, names, out_dir, quiet=False):
     """Pack one chassis into <chassis>.etk. Returns (diagrams, parts, bytes)
     or None if the chassis has no data."""
-    # 1. the vehicle variants (mospids) of this chassis
-    mospids = [r[0] for r in con.execute(
-        "SELECT DISTINCT fztyp_mospid FROM w_fztyp WHERE fztyp_baureihe=?", (chassis,))]
+    # 1. the vehicle variants of this chassis, with their attributes. Each is a
+    # mospid+type-key row in w_fztyp: model name, body, engine, steering, gearbox,
+    # date. This drives the variant picker (ETK's Series->Body->Model drill-down).
+    variants = []          # [{mospid, key, model, body, motor, steer, gear, date}]
+    mospid_vidx = {}       # mospid -> list of variant indices (a mospid can have
+                           #           several type-keys = several variants)
+    for mospid, key, model, body, motor, steer, gear, date in con.execute(
+            "SELECT fztyp_mospid, fztyp_typschl, fztyp_erwvbez, fztyp_karosserie, "
+            "fztyp_motor, fztyp_lenkung, fztyp_getriebe, fztyp_einsatz "
+            "FROM w_fztyp WHERE fztyp_baureihe=?", (chassis,)):
+        vi = len(variants)
+        variants.append({
+            'key': key, 'model': model or '', 'body': body or '',
+            'motor': motor or '', 'steer': steer or '', 'gear': gear or '',
+            'date': date or '',
+        })
+        mospid_vidx.setdefault(mospid, []).append(vi)
+    mospids = list(mospid_vidx.keys())
     if not mospids:
         return None
     qmarks = ','.join('?' * len(mospids))
 
-    # 2. which diagrams (btnr) this chassis's parts appear on, via fitment
+    # 2. which diagrams (btnr) this chassis's parts appear on, via fitment. Keep
+    # the mospids per (btnr,pos,sachnr) so the viewer can filter to one variant.
     btnrs = set()
-    part_rows = {}   # btnr -> list of (pos, callout, sachnr)
-    for btnr, pos, sachnr in con.execute(
-            "SELECT DISTINCT btzeilenv_btnr, btzeilenv_pos, btzeilenv_sachnr "
+    part_rows = {}   # btnr -> { (pos, sachnr): set(variant indices) }
+    for btnr, pos, sachnr, mospid in con.execute(
+            "SELECT btzeilenv_btnr, btzeilenv_pos, btzeilenv_sachnr, btzeilenv_mospid "
             "FROM w_btzeilen_verbauung WHERE btzeilenv_mospid IN (%s)" % qmarks, mospids):
         btnrs.add(btnr)
-        part_rows.setdefault(btnr, []).append((pos, sachnr))
+        d = part_rows.setdefault(btnr, {})
+        s = d.setdefault((pos, sachnr), set())
+        for vi in mospid_vidx.get(mospid, ()):
+            s.add(vi)
     if not btnrs:
         return None
 
@@ -120,7 +139,7 @@ def build(con, chassis, names, out_dir, quiet=False):
         callouts[(btnr, pos)] = callout
 
     # 5. part names: sachnr -> textcode -> English
-    all_sachnr = {s for rows in part_rows.values() for (_, s) in rows}
+    all_sachnr = {s for rows in part_rows.values() for (_, s) in rows.keys()}
     part_name = {}
     if all_sachnr:
         sn = list(all_sachnr)
@@ -132,57 +151,93 @@ def build(con, chassis, names, out_dir, quiet=False):
                     "WHERE teil_sachnr IN (%s)" % q, chunk):
                 part_name[sachnr] = names.get(tc, '')
 
-    # 6. assembly-group names (hg/fg -> English), from w_hgfg
-    group_name = {}
+    # 6. group names. ETK's browse is two levels: a MAIN group (HG, "11 Engine")
+    # shown as an icon grid, then function groups (FG) under it. We keep both:
+    # the HG for the grid + icon, the FG for the sub-list.
+    hg_name, fg_name = {}, {}
     for hg, fg, tc in con.execute("SELECT hgfg_hg, hgfg_fg, hgfg_textcode FROM w_hgfg"):
-        group_name[(hg, fg)] = names.get(tc, '')
+        fg_name[(hg, fg)] = names.get(tc, '')
+        if fg in ('00', '', None):   # the HG-level row carries the main-group name
+            hg_name[hg] = names.get(tc, '')
 
-    # ---- assemble the navigation tree: HG group -> diagrams -> parts ----
-    # tree = { groups: [ {hg, fg, name, diagrams: [ {btnr, name, img, parts:[...] } ] } ] }
-    used_gids = {}   # grafikid -> (bytes, ext)  (only images we actually reference)
-    groups = {}
+    def load_grafik(gid):
+        """Fetch one grafikid as (bytes, ext), preferring the Z (full) variant."""
+        row = con.execute(
+            "SELECT grafik_format, grafik_blob FROM w_grafik WHERE grafik_grafikid=? "
+            "ORDER BY (grafik_art='Z') DESC, length(grafik_blob) DESC LIMIT 1",
+            (gid,)).fetchone()
+        if not row:
+            return None, None
+        return to_png(row[1], row[0])
+
+    # ---- assemble the tree, grouped by MAIN group (HG) for the icon grid ----
+    # tree = { chassis, variants:[...], maingroups:[ {hg, name, icon,
+    #            groups:[ {fg, name, diagrams:[ {btnr,name,img,parts:[{pos,sachnr,name,fit}]} ]} ] } ] }
+    # part 'fit' is the sorted list of variant indices it applies to (for filtering).
+    used_gids = {}   # grafikid -> (bytes, ext)  (diagram images we reference)
+    icons = {}       # hg -> icon ref  (main-group tile thumbnails)
+    maingroups = {}
     for btnr in sorted(diagrams):
         d = diagrams[btnr]
-        key = (d['hg'], d['fg'])
-        g = groups.setdefault(key, {
-            'hg': d['hg'], 'fg': d['fg'],
-            'name': group_name.get(key) or f"{d['hg']}/{d['fg']}",
-            'diagrams': [],
+        hg = d['hg']
+        mg = maingroups.setdefault(hg, {
+            'hg': hg, 'name': hg_name.get(hg) or hg, 'icon': None, 'groups': {},
         })
-        # parts on this diagram
+        fgkey = d['fg']
+        fg = mg['groups'].setdefault(fgkey, {
+            'fg': fgkey, 'name': fg_name.get((hg, fgkey)) or f"{hg}/{fgkey}", 'diagrams': [],
+        })
         parts = []
-        for pos, sachnr in sorted(part_rows.get(btnr, [])):
+        for (pos, sachnr), fit in sorted(part_rows.get(btnr, {}).items()):
             parts.append({
                 'pos': callouts.get((btnr, pos), pos),
                 'sachnr': sachnr,
                 'name': part_name.get(sachnr, ''),
+                'fit': sorted(fit),
             })
         img_ref = None
         gid = d['grafikid']
-        if gid and gid not in used_gids:
-            # each diagram has two variants: 'T' (thumbnail ~10KB) and 'Z' (the
-            # full zoom image ~30KB). Always take Z -- the thumbnail is a blurry
-            # mess when shown at any real size. Fall back to whatever exists.
-            row = con.execute(
-                "SELECT grafik_format, grafik_blob FROM w_grafik "
-                "WHERE grafik_grafikid=? ORDER BY (grafik_art='Z') DESC, "
-                "length(grafik_blob) DESC LIMIT 1", (gid,)).fetchone()
-            if row:
-                data, ext = to_png(row[1], row[0])
+        if gid:
+            if gid not in used_gids:
+                data, ext = load_grafik(gid)
                 if data:
                     used_gids[gid] = (data, ext)
-        if gid in used_gids:
-            img_ref = f"{gid}.{used_gids[gid][1]}"
-        g['diagrams'].append({
+            if gid in used_gids:
+                img_ref = f"{gid}.{used_gids[gid][1]}"
+        fg['diagrams'].append({
             'btnr': btnr,
             'name': names.get(d['textcode'], '') or btnr,
             'img': img_ref,
             'parts': parts,
         })
 
+    # main-group icons (the 44 BMW-car tile thumbnails), one per HG we use
+    for hg in maingroups:
+        row = con.execute(
+            "SELECT hgthb_grafikid FROM w_hg_thumbnail "
+            "WHERE hgthb_hg=? AND hgthb_produktart='P' LIMIT 1", (hg,)).fetchone()
+        if row and row[0]:
+            gid = 'icon_' + str(row[0])
+            if gid not in used_gids:
+                data, ext = load_grafik(row[0])
+                if data:
+                    used_gids[gid] = (data, ext)
+            if gid in used_gids:
+                maingroups[hg]['icon'] = f"{gid}.{used_gids[gid][1]}"
+
+    # flatten maingroups' fg dict to a sorted list
+    mg_list = []
+    for hg in sorted(maingroups):
+        mg = maingroups[hg]
+        mg['groups'] = sorted(mg['groups'].values(), key=lambda x: x['fg'])
+        mg_list.append(mg)
+
     tree = {
         'chassis': chassis,
-        'groups': sorted(groups.values(), key=lambda g: (g['hg'], g['fg'])),
+        'variants': variants,
+        'maingroups': mg_list,
+        # keep flat groups too for backward-compat with the current viewer
+        'groups': [g for mg in mg_list for g in mg['groups']],
     }
 
     # ---- pack the .etk archive: tree.json + img/<gid>.<ext> ----

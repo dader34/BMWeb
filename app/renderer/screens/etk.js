@@ -122,7 +122,12 @@ async function showEtk() {
   ]);
 }
 
-async function showEtkChassis(chassisId, openBtnr = null) {
+// The chassis landing: ETK's "Search by Main Group" -- an icon grid of the HG
+// groups, plus a variant selector so parts can be filtered to one exact vehicle.
+// The selected variant is remembered across the whole chassis (module-level).
+const ETK_STATE = { variant: null };   // chosen variant index, or null = all
+
+async function showEtkChassis(chassisId) {
   const id = chassisId.toUpperCase();
   lastScreen = () => showEtkChassis(id);
   setCrumbs([
@@ -132,18 +137,148 @@ async function showEtkChassis(chassisId, openBtnr = null) {
     { label: dispChassis(id) },
   ]);
   sbLeft.textContent = 'loading parts…';
-  view.innerHTML = '';   // no page heading: the diagram wants the height, crumbs say where
+  view.innerHTML = head('ETK', dispChassis(id), 'Pick a variant to filter, then a main group.');
+  document.body.classList.remove('wds-nofkeys');
 
   let data;
   try { data = await loadEtk(id); }
   catch (e) { view.appendChild(errorBlock(String(e.message || e))); return; }
+  ETK_STATE.variant = null;   // reset filter when entering a chassis
 
-  // this is a full-window split like wiring; the F-key bar isn't useful here
+  // --- variant selector (custom searchable dropdown) ---
+  const vbar = document.createElement('div');
+  vbar.className = 'etk-variant-bar';
+  const label = document.createElement('span');
+  label.className = 'etk-variant-label';
+  label.textContent = 'Vehicle:';
+  vbar.appendChild(label);
+  vbar.appendChild(buildVariantDropdown(data.tree.variants || []));
+  view.appendChild(vbar);
+
+  // --- main-group icon grid ---
+  const grid = document.createElement('div');
+  grid.className = 'etk-grid stagger';
+  view.appendChild(grid);
+
+  (data.tree.maingroups || []).forEach((mg) => {
+    const card = document.createElement('button');
+    card.className = 'etk-gcard';
+    const iconUrl = etkImageUrl(data, mg.icon);
+    card.innerHTML = `
+      <span class="etk-gnum">${esc(mg.hg)}</span>
+      <span class="etk-gicon">${iconUrl ? `<img src="${iconUrl}" alt="">` : ''}</span>
+      <span class="etk-gname">${esc(mg.name)}</span>`;
+    card.onclick = () => showEtkGroup(data, id, mg);
+    grid.appendChild(card);
+  });
+  stagger(grid, 16);
+
+  sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
+  sbRight.textContent = `${(data.tree.variants || []).length} variants`;
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk }]);
+}
+
+// A custom searchable dropdown for the 297 variants -- the native <select> is
+// unstyleable and unsearchable. Options: "All variants" plus one per variant,
+// sorted by model+date, filterable by a search box. Sets ETK_STATE.variant.
+function buildVariantDropdown(variants) {
+  const order = variants.map((v, i) => ({ i, v, text: variantLabel(v) }))
+    .sort((a, b) => (a.v.model || '').localeCompare(b.v.model || '') ||
+                    String(a.v.date).localeCompare(String(b.v.date)));
+
+  const root = document.createElement('div');
+  root.className = 'etk-vdd';
+  const btn = document.createElement('button');
+  btn.className = 'etk-vdd-btn';
+  btn.innerHTML = `<span class="etk-vdd-cur">All variants (${variants.length})</span>
+                   <span class="etk-vdd-caret">▾</span>`;
+  const menu = document.createElement('div');
+  menu.className = 'etk-vdd-menu';
+  menu.hidden = true;
+  const search = document.createElement('input');
+  search.className = 'etk-vdd-search';
+  search.type = 'search';
+  search.placeholder = 'Search 316i, LHD, N42, 2003…';
+  const list = document.createElement('div');
+  list.className = 'etk-vdd-list';
+  menu.appendChild(search);
+  menu.appendChild(list);
+  root.appendChild(btn);
+  root.appendChild(menu);
+
+  const cur = btn.querySelector('.etk-vdd-cur');
+
+  function choose(idx, text) {
+    ETK_STATE.variant = idx;
+    cur.textContent = text;
+    cur.classList.toggle('etk-vdd-filtered', idx != null);
+    close();
+  }
+
+  function renderList(q) {
+    list.innerHTML = '';
+    const ql = (q || '').toLowerCase();
+    const all = document.createElement('button');
+    all.className = 'etk-vdd-opt' + (ETK_STATE.variant == null ? ' active' : '');
+    all.textContent = `All variants (${variants.length})`;
+    all.onclick = () => choose(null, `All variants (${variants.length})`);
+    if (!ql) list.appendChild(all);
+    let shown = 0;
+    for (const o of order) {
+      if (ql && !o.text.toLowerCase().includes(ql)) continue;
+      if (++shown > 200) break;   // cap the DOM; search narrows it
+      const el = document.createElement('button');
+      el.className = 'etk-vdd-opt' + (ETK_STATE.variant === o.i ? ' active' : '');
+      el.textContent = o.text;
+      el.onclick = () => choose(o.i, o.text);
+      list.appendChild(el);
+    }
+  }
+
+  function open() { menu.hidden = false; search.value = ''; renderList(''); search.focus(); }
+  function close() { menu.hidden = true; }
+
+  btn.onclick = () => (menu.hidden ? open() : close());
+  search.oninput = () => renderList(search.value);
+  search.onclick = (e) => e.stopPropagation();
+  // close on outside click
+  document.addEventListener('click', (e) => {
+    if (!root.contains(e.target)) close();
+  });
+
+  return root;
+}
+
+function variantLabel(v) {
+  const parts = [];
+  if (v.model) parts.push(v.model);
+  if (v.body) parts.push(v.body);
+  if (v.motor) parts.push(v.motor);
+  if (v.steer) parts.push(v.steer === 'R' ? 'RHD' : v.steer === 'L' ? 'LHD' : v.steer);
+  if (v.gear) parts.push({ A: 'auto', M: 'man.', N: '—' }[v.gear] || v.gear);
+  if (v.date) {
+    const d = String(v.date);
+    if (d.length === 8) parts.push(`${d.slice(0, 4)}-${d.slice(4, 6)}`);
+  }
+  return parts.join(' · ');
+}
+
+// A main group opened: the wiring-style split -- its function-group tree of
+// diagrams on the left, the selected diagram on the right, all honouring the
+// active variant filter.
+function showEtkGroup(data, chassisId, mg) {
+  const id = chassisId.toUpperCase();
+  lastScreen = () => showEtkGroup(data, id, mg);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
+    { label: 'Parts', fn: showEtk },
+    { label: dispChassis(id), fn: () => showEtkChassis(id) },
+    { label: `${mg.hg} ${mg.name}` },
+  ]);
+  view.innerHTML = '';
   document.body.classList.add('wds-nofkeys');
 
-  // Same split shape as wiring: a persistent tree on the left, the selected
-  // diagram (image + parts) on the right. The tree is assembly groups that
-  // expand to their diagrams.
   const split = document.createElement('div');
   split.className = 'etk-split';
   split.innerHTML = `
@@ -155,19 +290,17 @@ async function showEtkChassis(chassisId, openBtnr = null) {
   const treeEl = split.querySelector('#etk-tree');
   const viewEl = split.querySelector('#etk-view');
 
-  // build the tree: group headers that toggle their diagram leaves
   let selectedLeaf = null;
-  data.tree.groups.forEach((g, gi) => {
+  mg.groups.forEach((g) => {
     const grp = document.createElement('div');
     grp.className = 'etk-tgroup';
     const hdr = document.createElement('button');
     hdr.className = 'etk-tgroup-hdr';
-    hdr.innerHTML = `<span class="etk-tw">▸</span>
+    hdr.innerHTML = `<span class="etk-tw">▾</span>
                      <span class="etk-tname">${esc(g.name)}</span>
                      <span class="etk-tcount">${g.diagrams.length}</span>`;
     const kids = document.createElement('div');
     kids.className = 'etk-tkids';
-    kids.style.display = 'none';
     hdr.onclick = () => {
       const open = kids.style.display !== 'none';
       kids.style.display = open ? 'none' : 'block';
@@ -177,7 +310,7 @@ async function showEtkChassis(chassisId, openBtnr = null) {
       const leaf = document.createElement('button');
       leaf.className = 'etk-tleaf';
       leaf.innerHTML = `<span class="etk-lname">${esc(d.name)}</span>
-                        <span class="etk-lcount">${d.parts.length}</span>`;
+                        <span class="etk-lcount">${countFit(d.parts)}</span>`;
       leaf.onclick = () => {
         if (selectedLeaf) selectedLeaf.classList.remove('active');
         leaf.classList.add('active');
@@ -191,20 +324,22 @@ async function showEtkChassis(chassisId, openBtnr = null) {
     treeEl.appendChild(grp);
   });
 
-  // open the first group + its first diagram so the right pane isn't empty
-  const firstGrp = treeEl.querySelector('.etk-tgroup');
-  if (firstGrp) {
-    firstGrp.querySelector('.etk-tgroup-hdr').click();
-    const firstLeaf = firstGrp.querySelector('.etk-tleaf');
-    if (firstLeaf) firstLeaf.click();
-  }
+  // open the first diagram so the pane isn't empty
+  const firstLeaf = treeEl.querySelector('.etk-tleaf');
+  if (firstLeaf) firstLeaf.click();
 
-  sbLeft.textContent = `${data.tree.groups.length} assembly groups`;
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Vehicles', kind: 'back', fn: showEtk }]);
+  sbLeft.textContent = mg.name;
+  setActions([]);
+}
+
+// parts count honouring the active variant filter
+function countFit(parts) {
+  if (ETK_STATE.variant == null) return parts.length;
+  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant)).length;
 }
 
 // Render one diagram into the right pane: exploded-view image on top, its
-// numbered parts list below.
+// numbered parts list below, filtered to the chosen variant.
 function renderDiagram(data, chassisId, d, viewEl) {
   viewEl.innerHTML = '';
   const wrap = document.createElement('div');
@@ -222,8 +357,6 @@ function renderDiagram(data, chassisId, d, viewEl) {
     const img = document.createElement('img');
     img.alt = d.name;
     img.loading = 'lazy';
-    // small scans (the old microfiche ~230px) look lost at native size in a wide
-    // pane; show them at ~2x, capped, so they read like a diagram not a stamp.
     img.onload = () => {
       const w = img.naturalWidth;
       if (w && w < 500) img.style.width = Math.min(w * 2, 700) + 'px';
@@ -233,11 +366,15 @@ function renderDiagram(data, chassisId, d, viewEl) {
     wrap.appendChild(fig);
   }
 
+  // filter parts to the active variant (parts with no fit data always show)
+  const parts = d.parts.filter((p) =>
+    ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant));
+
   const table = document.createElement('table');
   table.className = 'etk-parts';
   table.innerHTML = `<thead><tr><th>No.</th><th>Part number</th><th>Description</th></tr></thead>`;
   const tb = document.createElement('tbody');
-  d.parts.forEach((p) => {
+  parts.forEach((p) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td class="etk-pos">${esc(p.pos)}</td>
                     <td class="etk-sachnr">${esc(fmtSachnr(p.sachnr))}</td>
@@ -248,10 +385,9 @@ function renderDiagram(data, chassisId, d, viewEl) {
   wrap.appendChild(table);
   viewEl.appendChild(wrap);
   viewEl.scrollTop = 0;
-  sbRight.textContent = `${d.parts.length} part${d.parts.length === 1 ? '' : 's'}`;
-  // a diagram is a detail view inside the split -- no F-key action bar (just Esc
-  // to leave the whole chassis, which the crumbs already offer).
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Vehicles', kind: 'back', fn: showEtk }]);
+  const filtered = ETK_STATE.variant != null && parts.length < d.parts.length;
+  sbRight.textContent = `${parts.length} part${parts.length === 1 ? '' : 's'}`
+    + (filtered ? ` (of ${d.parts.length})` : '');
 }
 
 // BMW part numbers print grouped 00 00 000 (7 digits) for readability.

@@ -492,7 +492,19 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
   background: var(--panel);
 }
-.etk-tree { overflow-y: auto; flex: 1; min-height: 0; padding: 4px; }
+.etk-tree {
+  overflow-y: auto; flex: 1; min-height: 0; padding: 4px;
+  scrollbar-width: thin; scrollbar-color: var(--line-hover) transparent;
+}
+.etk-tree::-webkit-scrollbar { width: 8px; }
+.etk-tree::-webkit-scrollbar-track { background: transparent; }
+.etk-tree::-webkit-scrollbar-thumb {
+  background: var(--line-hover); border-radius: 4px;
+  border: 2px solid transparent; background-clip: content-box;
+}
+.etk-tree::-webkit-scrollbar-thumb:hover { background: var(--dim); background-clip: content-box; }
+/* keep the count clear of the scrollbar */
+.etk-tcount, .etk-lcount { padding-right: 2px; }
 .etk-tgroup-hdr {
   display: flex; align-items: baseline; gap: 8px; width: 100%; text-align: left;
   cursor: pointer; background: none; border: none; color: var(--ink);
@@ -537,7 +549,12 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 }
 .etk-parts {
   width: 100%; border-collapse: collapse; font-size: 13.5px;
+  /* part numbers and names must be selectable to copy -- the app sets
+     user-select:none globally for the kiosk feel; re-enable it here. */
+  user-select: text; -webkit-user-select: text;
 }
+.etk-parts td, .etk-dtitle { user-select: text; -webkit-user-select: text; cursor: text; }
+.etk-sachnr, .etk-name { user-select: text; -webkit-user-select: text; }
 .etk-parts th {
   text-align: left; padding: 9px 16px; font-size: 11px; text-transform: uppercase;
   letter-spacing: .05em; color: var(--ink-faint);
@@ -554,6 +571,67 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 @media (max-width: 760px) {
   .etk-body { grid-template-columns: 1fr; }
 }
+
+/* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
+   thumbnail, and the group name. */
+.etk-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px; margin-top: 4px;
+}
+.etk-gcard {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  text-align: left; cursor: pointer; padding: 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  transition: border-color .15s, transform .1s;
+}
+.etk-gcard:hover { border-color: var(--amber); transform: translateY(-1px); }
+.etk-gnum { font-family: var(--mono); font-size: 12px; color: var(--amber); font-weight: 700; }
+.etk-gicon {
+  width: 100%; height: 84px; display: flex; align-items: center; justify-content: center;
+  background: #fff; border-radius: 6px; overflow: hidden;
+}
+.etk-gicon img { max-width: 100%; max-height: 84px; object-fit: contain; }
+.etk-gname { font-size: 12.5px; color: var(--ink); line-height: 1.3; }
+
+/* variant selector bar */
+.etk-variant-bar {
+  display: flex; align-items: center; gap: 10px; margin: 4px 0 16px;
+  padding: 10px 12px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.etk-variant-label { font-size: 12.5px; color: var(--ink-dim); flex: none; }
+
+/* custom searchable variant dropdown (replaces the unstyleable native select) */
+.etk-vdd { position: relative; flex: 1; max-width: 520px; }
+.etk-vdd-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; font-size: 13px; color: var(--ink); cursor: pointer;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  padding: 8px 11px; font-family: var(--mono); text-align: left;
+}
+.etk-vdd-btn:hover { border-color: var(--line-hover); }
+.etk-vdd-cur { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.etk-vdd-cur.etk-vdd-filtered { color: var(--amber); }
+.etk-vdd-caret { color: var(--ink-faint); flex: none; font-size: 10px; }
+.etk-vdd-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 50;
+  background: var(--panel); border: 1px solid var(--line-hover); border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4); overflow: hidden;
+  display: flex; flex-direction: column; max-height: 340px;
+}
+.etk-vdd-search {
+  margin: 8px; font-size: 13px; color: var(--ink); font-family: var(--mono);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
+}
+.etk-vdd-search:focus { outline: none; border-color: var(--amber); }
+.etk-vdd-list { overflow-y: auto; flex: 1; padding: 0 4px 4px; scrollbar-width: thin; }
+.etk-vdd-opt {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: none; border: none; color: var(--ink); font-family: var(--mono);
+  font-size: 12.5px; padding: 7px 9px; border-radius: 5px; line-height: 1.3;
+}
+.etk-vdd-opt:hover { background: rgba(127,127,127,.12); }
+.etk-vdd-opt.active { background: var(--amber-glow); color: var(--amber); }
 
 /* sections */
 .section-stack { display: grid; gap: 16px; }
