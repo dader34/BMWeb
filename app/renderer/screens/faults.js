@@ -81,11 +81,6 @@ function faultFields(c, sgbd) {
 }
 
 // INPA layout is a desktop mode: it reproduces a keyboard-driven Windows UI, and
-// the mobile stylesheet strips the parts that make it itself, so it's forced off
-// below 760px whatever the setting says. One reader, so every screen follows.
-const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
-  && !window.matchMedia('(max-width: 760px)').matches;
-
 // INPA "Comment" (F7): attach a free-text note to the current fault read, stored
 // locally so it shows in the export/print.
 async function addFaultComment(ecu, container) {

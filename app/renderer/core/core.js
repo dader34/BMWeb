@@ -132,6 +132,11 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
 const demoMode = () => Settings.get('demo', 'off') === 'on'
   || new URLSearchParams(location.search).get('demo') === '1';
 
+// INPA-style layout. Forced off below 760px (the mobile stylesheet strips what
+// makes it itself), so every screen follows one reader.
+const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
+  && !window.matchMedia('(max-width: 760px)').matches;
+
 async function api(path, opts) {
   let url = `${API}${path}`;
   if (demoMode() && path.includes('/run/'))
