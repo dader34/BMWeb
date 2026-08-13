@@ -267,21 +267,66 @@ def build(con, chassis, names, out_dir, quiet=False):
     return (ndiag, nparts, size)
 
 
+def build_vin_index(con, out_dir):
+    """Write vin-index.json.gz: every BMW production-number range mapped to the
+    vehicle it identifies, so the viewer can decode a VIN.
+
+    A BMW VIN's last 7 characters are the sequential production number. ETK's
+    w_fgstnr stores which range each vehicle covers; joined to w_fztyp it yields
+    the exact variant. Ranges are sorted by `von` for binary search; variants
+    are deduped into a lookup table to keep the file small (~10 MB gzipped).
+    """
+    import gzip
+    rows = con.execute(
+        "SELECT f.fgstnr_von, f.fgstnr_bis, t.fztyp_baureihe, f.fgstnr_mospid, "
+        "       f.fgstnr_prod, t.fztyp_erwvbez, t.fztyp_karosserie, "
+        "       t.fztyp_motor, t.fztyp_lenkung "
+        "FROM w_fgstnr f "
+        "JOIN w_fztyp t ON t.fztyp_typschl=f.fgstnr_typschl "
+        "              AND t.fztyp_mospid=f.fgstnr_mospid "
+        "ORDER BY f.fgstnr_von").fetchall()
+    variants = {}          # (chassis,mospid,model,body,motor,steer) -> index
+    def vidx(r):
+        key = (r[2], r[3], r[5] or '', r[6] or '', r[7] or '', r[8] or '')
+        if key not in variants:
+            variants[key] = len(variants)
+        return variants[key]
+    ranges = [[r[0], r[1], vidx(r), r[4]] for r in rows]   # [von,bis,vidx,proddate]
+    vlist = [list(k) for k, _ in sorted(variants.items(), key=lambda kv: kv[1])]
+    payload = json.dumps({'variants': vlist, 'ranges': ranges},
+                         separators=(',', ':')).encode()
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, 'vin-index.json.gz')
+    with open(path, 'wb') as f:
+        f.write(gzip.compress(payload, 6))
+    print(f"wrote {path} ({len(ranges):,} ranges, {len(vlist)} variants, "
+          f"{os.path.getsize(path)/1e6:.1f} MB)")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Pack ETK into per-chassis .etk bundles")
     ap.add_argument('--db', required=True, help='etk.sqlite (the dumped catalogue)')
     ap.add_argument('--chassis', help='one chassis id (default: all)')
     ap.add_argument('--out', default='data/etk', help='output dir for .etk archives')
     ap.add_argument('--iso', default='en', help='language for names (default en)')
+    ap.add_argument('--vin-index', action='store_true',
+                    help='also write vin-index.json.gz (the VIN decoder data)')
+    ap.add_argument('--vin-index-only', action='store_true',
+                    help='write only vin-index.json.gz and exit')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
         print(f"no {args.db}", file=sys.stderr); sys.exit(1)
+
+    con = sqlite3.connect(args.db)
+
+    if args.vin_index_only:
+        build_vin_index(con, args.out)
+        return
+
     if not HAVE_PIL:
         print("note: Pillow not installed -- TIF diagrams will be skipped "
               "(pip install Pillow to include them)", file=sys.stderr)
-
-    con = sqlite3.connect(args.db)
     print("resolving names...")
     names = resolve_names(con, args.iso)
     print(f"  {len(names)} names ({args.iso})")
@@ -309,6 +354,9 @@ def main():
     with open(idx_path, 'w') as f:
         json.dump(sorted(have), f)
     print(f"wrote {idx_path} ({len(have)} chassis)")
+
+    if args.vin_index:
+        build_vin_index(con, args.out)
 
 
 if __name__ == '__main__':

@@ -117,6 +117,51 @@ async function etkChassisList() {
   return etkChassisIds;
 }
 
+// ---- VIN decoder ----------------------------------------------------------
+// A BMW VIN's last 7 characters are the sequential production number. vin-index
+// maps each production-number range to a vehicle, so we can resolve a VIN to
+// its exact chassis + variant, then jump into that catalogue pre-filtered.
+let etkVinIndex = null;   // { variants:[[chassis,mospid,model,body,motor,steer]], ranges:[[von,bis,vidx,prod]] }
+
+async function loadVinIndex(onProgress) {
+  if (etkVinIndex) return etkVinIndex;
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const urls = [`${base}/data/etk/vin-index.json.gz`, `${ETK_HF_BASE}vin-index.json.gz`];
+  let r = null;
+  for (const u of urls) { r = await real(u).catch(() => null); if (r && r.ok) break; }
+  if (!r || !r.ok) throw new Error('VIN data not available');
+  const bytes = await readWithProgress(r, onProgress);
+  // the file is gzip; fflate ungzips it
+  const json = fflate.strFromU8(fflate.gunzipSync(bytes));
+  etkVinIndex = JSON.parse(json);
+  return etkVinIndex;
+}
+
+// Resolve a VIN (or bare 7-char production number) -> { chassis, mospidIdx info }.
+// Returns null if not found. The ranges are sorted by `von`, so binary-search.
+function decodeVin(idx, vinRaw) {
+  const vin = String(vinRaw || '').trim().toUpperCase().replace(/\s/g, '');
+  // last 7 chars are the production number; a bare 7-char code is accepted too
+  const pn = vin.length >= 7 ? vin.slice(-7) : vin.padStart(7, '0');
+  const R = idx.ranges;
+  let lo = 0, hi = R.length - 1, hit = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const [von, bis] = R[mid];
+    if (pn < von) hi = mid - 1;
+    else if (pn > bis) lo = mid + 1;
+    else { hit = mid; break; }
+  }
+  if (hit < 0) return null;
+  const [von, bis, vi, prod] = R[hit];
+  const v = idx.variants[vi];   // [chassis,mospid,model,body,motor,steer]
+  return {
+    pn, chassis: v[0], mospid: v[1],
+    model: v[2], body: v[3], motor: v[4], steer: v[5], prod,
+  };
+}
+
 // An image ref in the tree ("319345.jpg") -> a blob URL the <img> can show.
 const ETK_IMG_URLS = new Map();
 function etkImageUrl(data, ref) {
@@ -141,6 +186,9 @@ async function showEtk() {
   view.innerHTML = head('ETK', 'Parts Catalogue',
     "BMW's own parts diagrams. Pick a vehicle to browse its catalogue.");
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps }]);
+
+  // VIN decoder card: type a VIN, jump straight to that exact vehicle's parts.
+  view.appendChild(buildVinCard());
 
   const grid = document.createElement('div');
   grid.className = 'chassis-grid stagger';
@@ -180,6 +228,100 @@ async function showEtk() {
     ...ids.slice(0, 9).map((id, i) => ({ key: String(i + 1), label: dispChassis(id), fn: () => showEtkChassis(id) })),
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps },
   ]);
+}
+
+// The VIN decoder card on the Parts landing: enter a VIN (or its last 7), and
+// it resolves to the exact vehicle and opens that catalogue pre-filtered.
+function buildVinCard() {
+  const card = document.createElement('div');
+  card.className = 'etk-vin-card';
+  card.innerHTML = `
+    <div class="etk-vin-head">
+      <span class="etk-vin-title">VIN Decoder</span>
+      <span class="etk-vin-sub">Enter a VIN to jump straight to your vehicle</span>
+    </div>
+    <div class="etk-vin-row">
+      <input class="etk-vin-input" type="text" maxlength="17" spellcheck="false"
+             autocapitalize="characters" placeholder="WBA… or last 7 chars">
+      <button class="etk-vin-go" type="button">Decode →</button>
+    </div>
+    <div class="etk-vin-result" hidden></div>`;
+  const input = card.querySelector('.etk-vin-input');
+  const go = card.querySelector('.etk-vin-go');
+  const result = card.querySelector('.etk-vin-result');
+
+  async function decode() {
+    const vin = input.value.trim();
+    if (vin.length < 7) {
+      result.hidden = false;
+      result.className = 'etk-vin-result etk-vin-err';
+      result.textContent = 'Enter at least the 7-character production number (or a full VIN).';
+      return;
+    }
+    result.hidden = false;
+    result.className = 'etk-vin-result';
+    result.innerHTML = `<span class="wiring-spinner"></span> Looking up ${esc(vin.toUpperCase())}…`;
+    go.disabled = true;
+    try {
+      const idx = await loadVinIndex((loaded, total) => {
+        if (total > 0) {
+          const pct = Math.round((loaded / total) * 100);
+          result.innerHTML = `<span class="wiring-spinner"></span> Loading VIN data… ${pct}%`;
+        }
+      });
+      const hit = decodeVin(idx, vin);
+      go.disabled = false;
+      if (!hit) {
+        result.className = 'etk-vin-result etk-vin-err';
+        result.textContent = `No vehicle found for “${vin.toUpperCase()}”. Check the VIN, or pick a chassis below.`;
+        return;
+      }
+      // build a readable summary and an "open" action
+      const bits = [hit.model, bodyLabel(hit.body), hit.motor,
+                    hit.steer === 'R' ? 'RHD' : hit.steer === 'L' ? 'LHD' : '']
+                   .filter(Boolean).join(' · ');
+      const dateStr = hit.prod && String(hit.prod).length >= 6
+        ? ` · ${String(hit.prod).slice(0, 4)}-${String(hit.prod).slice(4, 6)}` : '';
+      result.className = 'etk-vin-result etk-vin-ok';
+      result.innerHTML = `
+        <div class="etk-vin-veh"><b>${esc(dispChassis(hit.chassis))}</b> ${esc(bits)}${esc(dateStr)}</div>
+        <button class="etk-vin-open" type="button">Open ${esc(dispChassis(hit.chassis))} parts →</button>`;
+      result.querySelector('.etk-vin-open').onclick = () => openDecoded(hit);
+    } catch (e) {
+      go.disabled = false;
+      result.className = 'etk-vin-result etk-vin-err';
+      result.textContent = String(e.message || e);
+    }
+  }
+
+  go.onclick = decode;
+  input.onkeydown = (e) => { if (e.key === 'Enter') decode(); };
+  return card;
+}
+
+// After a VIN resolves, open its chassis and pre-select the matching variant.
+async function openDecoded(hit) {
+  await showEtkChassis(hit.chassis);
+  // find the variant in the loaded chassis whose mospid+attrs match, select it
+  try {
+    const data = await loadEtk(hit.chassis);
+    const vs = data.tree.variants || [];
+    let match = vs.findIndex(v =>
+      (v.model || '') === (hit.model || '') && (v.body || '') === (hit.body || '') &&
+      (v.motor || '') === (hit.motor || '') && (v.steer || '') === (hit.steer || ''));
+    if (match < 0) match = vs.findIndex(v => (v.model || '') === (hit.model || ''));
+    if (match >= 0) {
+      ETK_STATE.variant = match;
+      const cur = document.querySelector('.etk-vdd-cur');
+      if (cur) { cur.textContent = variantLabel(vs[match]); cur.classList.add('etk-vdd-filtered'); }
+    }
+  } catch (e) { /* the chassis still opened; just unfiltered */ }
+}
+
+// body-code -> readable (Lim=Sedan, Tou=Touring, Cou=Coupé, Cab=Convertible…)
+function bodyLabel(b) {
+  return ({ Lim: 'Sedan', Tou: 'Touring', Cou: 'Coupé', Cab: 'Convertible',
+            com: 'Compact', Cabrio: 'Convertible' }[b]) || b || '';
 }
 
 // The chassis landing: ETK's "Search by Main Group" -- an icon grid of the HG
