@@ -51,6 +51,22 @@ async function showChassis() {
   view.innerHTML = head('Vehicles', 'Select your vehicle',
     'Choose a chassis to load its diagnostic modules.');
 
+  // Apps: reference tools, offline. Fault lookup and the ported dealer-software
+  // apps (WDS wiring, ETK parts catalogue, ...) all live under one hub card. It
+  // sits at the TOP of the home screen (like the VIN Decoder card atop the
+  // parts page) so the door to everything is the first thing in reach.
+  const appsCard = document.createElement('button');
+  appsCard.className = 'lookup-entry etk-vin-entry';
+  appsCard.innerHTML = `
+    <span class="lookup-entry-icon">▦</span>
+    <span class="lookup-entry-text">
+      <span class="lookup-entry-title">Apps</span>
+      <span class="lookup-entry-desc">Fault lookup, wiring diagrams, parts catalogue and more</span>
+    </span>
+    <span class="lookup-entry-arrow">→</span>`;
+  appsCard.onclick = () => showApps();
+  view.appendChild(appsCard);
+
   const filterRow = document.createElement('div');
   filterRow.className = 'chassis-filter-row';
   // CHASSIS_TAG is lower-case, so match case-insensitively: an earlier .includes('3-SERIES') never matched and left the tag clause dead
@@ -102,21 +118,6 @@ async function showChassis() {
   view.appendChild(filterRow);
   view.appendChild(grid);
   renderGrid();
-
-  // Apps: reference tools, offline. Fault Lookup and the ported dealer-software
-  // apps (WDS wiring, ETK parts catalogue, ...) all live under one hub card, so
-  // the home screen stays a vehicle grid plus a single door to everything else.
-  const appsCard = document.createElement('button');
-  appsCard.className = 'lookup-entry';
-  appsCard.innerHTML = `
-    <span class="lookup-entry-icon">▦</span>
-    <span class="lookup-entry-text">
-      <span class="lookup-entry-title">Apps</span>
-      <span class="lookup-entry-desc">Fault lookup, wiring diagrams, parts catalogue and more</span>
-    </span>
-    <span class="lookup-entry-arrow">→</span>`;
-  appsCard.onclick = () => showApps();
-  view.appendChild(appsCard);
 
   const quick = ['E46', 'E60', 'E90'].filter(id => ids.includes(id));
   const acts = quick.map((id, i) => ({ key: String(i + 1), label: id, fn: () => showSections(id) }));
