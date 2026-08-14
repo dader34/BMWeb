@@ -192,6 +192,7 @@ function makeSelect(placeholder) {
     items = arr.slice(); value = ''; paint(); close();
   };
   root.setDisabledEmpty = () => { items = []; value = ''; paint(); };
+  root.openMenu = () => open();
   paint();
   return root;
 }
@@ -471,6 +472,9 @@ function showVinDecoder() {
       opt(selSeries, chassis.map(dispChassis), 'Select series…');
       selSeries._ids = chassis;
       idHint.textContent = 'Pick a series to begin.';
+      // the click that triggered this load opened an empty menu (setOptions
+      // closed it); now that options exist, reopen so one click is enough.
+      selSeries.openMenu();
     } catch (e) { idHint.textContent = String(e.message || e); }
   });
 
