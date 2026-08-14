@@ -51,6 +51,20 @@ const APP_REGISTRY = [
       catch (e) { return false; }
     },
   },
+  {
+    id: 'tool32',
+    icon: '⌗',
+    title: 'Tool32',
+    desc: 'Run any SGBD job directly and read its raw result registers',
+    tag: 'SGBD',
+    open: () => (typeof showTool32 === 'function' ? showTool32() : null),
+    // present if the ECU index shipped (its keys are the runnable SGBDs)
+    hasData: async () => {
+      if (typeof showTool32 !== 'function' || typeof tool32SgbdList !== 'function') return false;
+      try { return (await tool32SgbdList()).length > 0; }
+      catch (e) { return false; }
+    },
+  },
 ];
 
 async function showApps() {

@@ -770,6 +770,80 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   .etk-idmid { flex-direction: column; }
 }
 
+/* Tool32: SGBD | Job | Run three-pane raw job runner (reuses .etk-lb panes) */
+.t32-card { max-width: 1040px; }
+.t32-cols {
+  display: grid; grid-template-columns: 0.9fr 1fr 1.4fr; gap: 16px; align-items: start;
+}
+.t32-col { gap: 8px; }
+.t32-filter {
+  width: 100%; font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px;
+}
+.t32-filter:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+.t32-filter:disabled { opacity: .5; }
+.t32-lb { height: 360px; }
+/* write-shaped jobs carry a small marker so the raw list still warns */
+.etk-lb-row.t32-row-write { color: var(--red); }
+.etk-lb-row.t32-row-write.active { color: var(--red); background: rgba(255,66,66,.12); }
+.t32-rowtag {
+  float: right; font-size: 9px; font-weight: 700; color: var(--red);
+  border: 1px solid var(--red); border-radius: 3px; padding: 0 4px; margin-left: 6px;
+  line-height: 1.4;
+}
+/* run pane */
+.t32-runcol { min-width: 0; }
+.t32-runhead {
+  font-size: 13px; color: var(--ink-dim); min-height: 20px; line-height: 1.5;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+}
+.t32-jobname { font-family: var(--mono); font-size: 14px; color: var(--ink); font-weight: 600; }
+.t32-writetag {
+  font-size: 10px; font-weight: 700; color: var(--red);
+  border: 1px solid var(--red); border-radius: 3px; padding: 1px 5px;
+}
+.t32-comment { flex-basis: 100%; font-size: 12px; color: var(--ink-faint); }
+.t32-argrow { display: flex; gap: 8px; margin-top: 12px; }
+.t32-arg {
+  flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
+}
+.t32-arg:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+.t32-run { padding: 9px 22px; }
+.t32-run:disabled { opacity: .5; cursor: default; }
+.t32-out { margin-top: 14px; }
+.t32-outhead {
+  font-size: 11px; color: var(--ink-faint); text-transform: uppercase;
+  letter-spacing: .05em; margin-bottom: 8px;
+}
+.t32-running, .t32-err { font-size: 13px; color: var(--ink-dim); display: flex; align-items: center; gap: 8px; }
+.t32-err { color: var(--red); }
+.t32-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12.5px; }
+.t32-table td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.t32-table tr:last-child td { border-bottom: none; }
+.t32-k { color: var(--ink-dim); white-space: nowrap; }
+.t32-v { color: var(--ink); text-align: right; word-break: break-all; }
+.t32-unit { color: var(--ink-faint); }
+.t32-pending .t32-v { color: var(--ink-faint); }
+.t32-demobadge {
+  font-size: 9px; font-weight: 700; color: var(--amber-ink); background: var(--amber);
+  border-radius: 3px; padding: 1px 5px; margin-right: 8px; letter-spacing: .04em;
+}
+.t32-table.t32-demo .t32-v { color: var(--amber); }
+@media (max-width: 900px) {
+  .t32-cols { grid-template-columns: 1fr 1fr; }
+  .t32-runcol { grid-column: 1 / -1; }
+  .t32-lb { height: 240px; }
+}
+@media (max-width: 560px) {
+  .t32-cols { grid-template-columns: 1fr; }
+}
+html[data-theme="inpa"] .t32-filter,
+html[data-theme="inpa"] .t32-arg,
+html[data-theme="inpa"] .t32-run,
+html[data-theme="inpa"] .t32-lb { border-radius: 0; }
+
 /* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
    thumbnail, and the group name. */
 .etk-grid {
