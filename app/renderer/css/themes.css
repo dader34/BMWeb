@@ -16,6 +16,8 @@ html[data-theme="aero"] {
   --ink-faint: #a9cdef;
   --amber: #aaff00;        /* lime accent */
   --amber-soft: #7fd400;
+  --amber-glow: rgba(170,255,0,.18);
+  --amber-ink: #0b3b6f;    /* deep blue text on the lime fill */
   --red: #ff5a7a;
   --green: #5dffb0;
   --cyan: #36d1ff;
@@ -108,6 +110,8 @@ html[data-theme="metal"] {
   --ink-faint: #74797f;
   --amber: #2f6fd6;        /* aqua-blue accent */
   --amber-soft: #2257ac;
+  --amber-glow: rgba(47,111,214,.16);
+  --amber-ink: #ffffff;    /* white text on the blue fill */
   --red: #c0392b;
   --green: #2e8b57;
   --cyan: #2f6fd6;
@@ -178,6 +182,8 @@ html[data-theme="inpa"] {
   --ink-faint: #555555;
   --amber: #000080;        /* navy accents/headings */
   --amber-soft: #000060;
+  --amber-glow: #dbe6ff;   /* the pale selection blue Win9x lists use */
+  --amber-ink: #ffffff;    /* white text on the navy fill */
   --red: #c00000;
   --green: #00a000;
   --cyan: #000080;
@@ -204,6 +210,16 @@ html[data-theme="inpa"] {
 }
 html[data-theme="inpa"] .gauge-track { border-radius: 0 !important; border: 1px solid #000 !important; }
 html[data-theme="inpa"] .gauge-val { color: #000 !important; }
+/* ETK Vehicle Identification: square Win9x chrome to match the skin */
+html[data-theme="inpa"] .etk-fs,
+html[data-theme="inpa"] .etk-vin-go,
+html[data-theme="inpa"] .etk-vin-input,
+html[data-theme="inpa"] .etk-lb,
+html[data-theme="inpa"] .etk-lb-row,
+html[data-theme="inpa"] .etk-sel-btn,
+html[data-theme="inpa"] .etk-sel-menu,
+html[data-theme="inpa"] .etk-sel-opt,
+html[data-theme="inpa"] .etk-idthumb { border-radius: 0; }
 html[data-theme="inpa"] .view::-webkit-scrollbar-thumb,
 html[data-theme="inpa"] .modal::-webkit-scrollbar-thumb,
 html[data-theme="inpa"] .live-panel::-webkit-scrollbar-thumb,

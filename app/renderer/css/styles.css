@@ -14,6 +14,8 @@
   --ink-faint: #5b6772;
   --amber: #ff9e2c;       /* caution */
   --amber-soft: #c9831f;
+  --amber-glow: rgba(255,158,44,.16);   /* accent-tinted fill (active rows, focus rings) */
+  --amber-ink: #11161c;   /* text ON a solid --amber fill (themes override) */
   --red: #ff4242;         /* FAIL */
   --green: #38e08a;       /* OK */
   --cyan: #4fd2ff;        /* live data */
@@ -625,13 +627,14 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
 }
 .etk-vin-input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
-/* the go-arrow buttons (ETK's wide flat arrow buttons) */
+/* the go-arrow buttons (ETK's wide flat arrow buttons). Text and hover ride
+   the theme vars: INPA remaps --amber to navy, so the ink must follow. */
 .etk-vin-go {
   flex: none; font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer;
-  color: #11161c; background: var(--amber); border: none; border-radius: 8px;
+  color: var(--amber-ink); background: var(--amber); border: none; border-radius: 8px;
   padding: 10px 26px;
 }
-.etk-vin-go:hover { background: #ffb152; }
+.etk-vin-go:hover { filter: brightness(1.15); }
 .etk-vin-go:disabled { opacity: .5; cursor: default; }
 .etk-vin-result {
   margin-top: 12px; font-size: 13.5px; color: var(--ink-dim);
