@@ -209,6 +209,55 @@ html[data-theme="inpa"] .fm-showall { color: #000080; }
 .fi-k { font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
   color: var(--ink-faint); text-align: right; padding-top: 1px; }
 .fi-v { font-size: 13px; color: var(--ink-dim); line-height: 1.5; }
+/* ISTA diagnostic procedure: a collapsible section under the service fields */
+.fm-tp { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.fm-tp-sum {
+  cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  font-weight: 700; color: var(--amber); list-style: none; user-select: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.fm-tp-sum::-webkit-details-marker { display: none; }
+.fm-tp-sum::before { content: '▸'; font-size: 9px; transition: transform .15s; }
+.fm-tp[open] .fm-tp-sum::before { transform: rotate(90deg); }
+.fm-tp-body { margin-top: 14px; }
+/* each chapter is a titled block with a subtle left rule, so headings and their
+   text read as grouped units instead of an undifferentiated wall */
+.fm-tp-chap { margin: 0 0 16px; }
+.fm-tp-chap:last-child { margin-bottom: 4px; }
+.fm-tp-h {
+  font-size: 12.5px; font-weight: 700; color: var(--ink); margin: 0 0 6px;
+  letter-spacing: .01em;
+}
+.fm-tp-p {
+  font-size: 13px; color: var(--ink-dim); line-height: 1.6; margin: 0 0 7px;
+}
+.fm-tp-p:last-child { margin-bottom: 0; }
+/* a coalesced legend line ("1 — Throttle valve sensor") hangs its label under
+   a fixed key column so a run of them lines up like the ISTA legend table */
+.fm-tp-leg {
+  display: grid; grid-template-columns: 42px 1fr; gap: 2px 10px;
+  font-size: 12.5px; color: var(--ink-dim); line-height: 1.5; margin: 0 0 2px;
+}
+.fm-tp-leg-k {
+  color: var(--amber); font-weight: 700; font-family: var(--mono); font-size: 11.5px;
+  text-align: right;
+}
+/* a genuine data table (label | value rows), sized to its column count */
+.fm-tp-table {
+  display: grid; grid-template-columns: repeat(var(--cols, 2), auto);
+  gap: 0; margin: 6px 0 10px; font-size: 12.5px;
+  border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+  width: fit-content; max-width: 100%;
+}
+.fm-tp-tr { display: contents; }
+.fm-tp-td {
+  padding: 5px 12px; color: var(--ink-dim); line-height: 1.4;
+  border-bottom: 1px solid var(--line);
+}
+.fm-tp-table .fm-tp-tr:last-child .fm-tp-td { border-bottom: none; }
+.fm-tp-th { font-weight: 700; color: var(--ink); background: var(--panel-2); }
+/* bulleted list item */
+.fm-tp-p.fm-tp-bullet { padding-left: 14px; text-indent: -14px; }
 html[data-theme="inpa"] .fm-vsgbd { color: #000080; }
 html[data-theme="inpa"] .fm-pcode { background: #00a000; color: #fff; }
 /* code column: hex/P-code, monospace, amber, fixed-width for alignment */

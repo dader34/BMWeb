@@ -28,7 +28,8 @@ in the diagnosis tree, reached via XEP_REFINFOOBJECTS, and are added on top.
 Output (mirrors the shape lookup.js already consumes):
     data/ista/faultinfo.json   hexOrCode -> {docIdx -> {description, setCondition,
                                monitoring, serviceMeasure, ...}}     (Tier 1: FKB)
-    data/ista/faulttests.json  ecuGroup  -> [{title, chapters:[{heading, paras}]}]
+    data/ista/faulttests.json  slug -> {title, chapters:[{heading, blocks:[...]}]}
+                               block = {t:"p"|"bullet", s} | {t:"table", rows}
                                the DIAGNOSISDOCUMENT functional descriptions (Tier 2)
 
 Usage:
@@ -100,33 +101,75 @@ def parse_fkb(xml):
 
 
 # ---- ISTA DIAGNOSISDOCUMENT (guided procedure) XML -> chapters --------------
-def _collect_paras(el):
-    """Walk a chapter/section subtree in document order, pulling PARAGRAPHs and
-    list items (bulleted) as flat strings. Handles the nested SUBSECTION2 /
-    GENERALLIST / LISTELEMENT / LIST forms ISTA mixes into a CHAPTER."""
-    paras = []
+# Content is emitted as a list of typed BLOCKS so a real <TABLE> stays a table
+# instead of being flattened into orphaned cell paragraphs:
+#   {"t": "p",     "s": "prose text"}
+#   {"t": "bullet","s": "list item"}
+#   {"t": "table", "rows": [["cell", "cell"], ...]}   # first row may be a header
+
+
+def _cell_text(entry):
+    """All PARAGRAPH text inside one <ENTRY>, space-joined."""
+    parts = [p.text.strip() for p in entry.iter("PARAGRAPH")
+             if p.text and p.text.strip()]
+    if not parts and entry.text and entry.text.strip():
+        parts = [entry.text.strip()]
+    return " ".join(parts)
+
+
+def _parse_table(tbl):
+    """<TABLE><TGROUP><THEAD?/><TBODY><ROW><ENTRY>..  -> rows of cells, ordered
+    by ENTRY COLNAME so columns line up even when the source omits empties."""
+    rows = []
+    for grp in tbl.iter("TGROUP"):
+        for section in grp:
+            if section.tag not in ("THEAD", "TBODY"):
+                continue
+            for row in section.findall("ROW"):
+                cells = []
+                for entry in row.findall("ENTRY"):
+                    cells.append(_cell_text(entry))
+                if any(c for c in cells):
+                    rows.append(cells)
+    # a table with a single column is really a list; caller flattens it
+    return rows
+
+
+def _collect_blocks(el):
+    """Walk a chapter/section subtree in document order into typed blocks.
+    Handles nested SUBSECTION2 / LIST / GENERALLIST and real TABLEs."""
+    blocks = []
 
     def walk(node):
         for child in node:
             tag = child.tag
             if tag == "HEADING":
-                continue                    # headings are handled by the caller
-            if tag in ("PARAGRAPH",):
+                continue
+            if tag == "PARAGRAPH":
                 if child.text and child.text.strip():
-                    paras.append(child.text.strip())
+                    blocks.append({"t": "p", "s": child.text.strip()})
             elif tag in ("LISTENTRY", "LISTELEMENT"):
                 t = _text_of(child)
                 if t:
-                    paras.append("• " + t)
+                    blocks.append({"t": "bullet", "s": t})
+            elif tag == "TABLE":
+                rows = _parse_table(child)
+                if not rows:
+                    continue
+                if max(len(r) for r in rows) == 1:      # 1-col table == list
+                    for r in rows:
+                        blocks.append({"t": "bullet", "s": r[0]})
+                else:
+                    blocks.append({"t": "table", "rows": rows})
             else:
                 walk(child)                 # SUBSECTION2, LIST, GENERALLIST, ...
 
     walk(el)
-    return paras
+    return blocks
 
 
 def parse_diagnosis_doc(xml):
-    """<DIAGNOSISDOCUMENT> -> {title, chapters:[{heading, paras:[...]}]}."""
+    """<DIAGNOSISDOCUMENT> -> {title, chapters:[{heading, blocks:[...]}]}."""
     try:
         root = ET.fromstring(xml)
     except ET.ParseError:
@@ -141,44 +184,52 @@ def parse_diagnosis_doc(xml):
     # an introductory paragraph block sits outside the CHAPTERs
     intro = fd.find("FUNCDESCINTRODUCTORY")
     if intro is not None:
-        p = _collect_paras(intro)
-        if p:
-            chapters.append({"heading": "", "paras": p})
+        b = _collect_blocks(intro)
+        if b:
+            chapters.append({"heading": "", "blocks": b})
     for ch in fd.findall("CHAPTER"):
         heading = (ch.findtext("HEADING") or "").strip()
         # a chapter may itself be split into SUBSECTION2s, each with a heading
         subs = ch.findall("SUBSECTION2")
         if subs:
-            direct = _collect_paras_shallow(ch)
+            direct = _collect_blocks_shallow(ch)
             if direct:
-                chapters.append({"heading": heading, "paras": direct})
+                chapters.append({"heading": heading, "blocks": direct})
             for sub in subs:
                 sh = (sub.findtext("HEADING") or "").strip()
-                sp = _collect_paras(sub)
-                if sp:
-                    chapters.append({"heading": sh or heading, "paras": sp})
+                sb = _collect_blocks(sub)
+                if sb:
+                    chapters.append({"heading": sh or heading, "blocks": sb})
         else:
-            paras = _collect_paras(ch)
-            if paras:
-                chapters.append({"heading": heading, "paras": paras})
+            blocks = _collect_blocks(ch)
+            if blocks:
+                chapters.append({"heading": heading, "blocks": blocks})
     if not chapters:                       # nothing worth showing
         return None
     return {"title": title, "chapters": chapters}
 
 
-def _collect_paras_shallow(ch):
-    """Direct PARAGRAPH/LIST children of a chapter, not descending into
+def _collect_blocks_shallow(ch):
+    """Direct PARAGRAPH/LIST/TABLE children of a chapter, not descending into
     SUBSECTION2 (those are collected separately with their own heading)."""
-    paras = []
+    blocks = []
     for node in ch:
         if node.tag == "PARAGRAPH" and node.text and node.text.strip():
-            paras.append(node.text.strip())
+            blocks.append({"t": "p", "s": node.text.strip()})
+        elif node.tag == "TABLE":
+            rows = _parse_table(node)
+            if rows:
+                if max(len(r) for r in rows) == 1:
+                    for r in rows:
+                        blocks.append({"t": "bullet", "s": r[0]})
+                else:
+                    blocks.append({"t": "table", "rows": rows})
         elif node.tag == "LIST":
             for le in node.iter("LISTENTRY"):
                 t = _text_of(le)
                 if t:
-                    paras.append("• " + t)
-    return paras
+                    blocks.append({"t": "bullet", "s": t})
+    return blocks
 
 
 # ---- content-store access ---------------------------------------------------
@@ -270,7 +321,13 @@ def extract_diagnosis_docs(diag, content, limit=None):
             continue
         # on a title collision keep the RICHER doc (more paragraph text): the
         # store carries many empty stubs sharing a title with the real one
-        weight = sum(len(p) for ch in doc["chapters"] for p in ch["paras"])
+        weight = 0
+        for ch in doc["chapters"]:
+            for b in ch["blocks"]:
+                if b["t"] in ("p", "bullet"):
+                    weight += len(b["s"])
+                elif b["t"] == "table":
+                    weight += sum(len(c) for r in b["rows"] for c in r)
         prev = out.get(slug)
         if prev is None or weight > prev[1]:
             out[slug] = (doc, weight)

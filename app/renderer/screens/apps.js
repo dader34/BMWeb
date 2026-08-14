@@ -14,8 +14,8 @@ const APP_REGISTRY = [
   {
     id: 'lookup',
     icon: '⌕',
-    title: 'Fault Lookup',
-    desc: 'Search fault codes and descriptions across every chassis',
+    title: 'Diagnostic Plans and Trouble Codes',
+    desc: 'Search fault codes, read ISTA service data and diagnostic procedures',
     tag: 'DTC',
     open: () => showLookup(),
     // always available: the fault database ships with the app shell

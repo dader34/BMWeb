@@ -22,6 +22,64 @@ function loadFaultIndex() {
   return window.__faultIndexLoading;
 }
 
+// ISTA guided-diagnostic component procedures (tools/ista_extract.py from the
+// decrypted DiagDocDb). slug -> { title, chapters:[{heading, paras}] }. ~12 MB,
+// hosted on the same Hugging Face dataset as the ETK data, so it loads lazily
+// the first time a fault detail is opened and never for a plain DTC search.
+const ISTA_TESTS_URL =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/ista/faulttests.json';
+let _istaTests = null;
+function loadIstaTests() {
+  if (_istaTests) return Promise.resolve(_istaTests);
+  if (window.__istaTestsLoading) return window.__istaTestsLoading;
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  window.__istaTestsLoading = (async () => {
+    // local copy first (if a build ever ships one), then Hugging Face
+    for (const u of [`${base}/data/ista/faulttests.json`, ISTA_TESTS_URL]) {
+      try {
+        const r = await real(u);
+        if (r && r.ok) { _istaTests = await r.json(); return _istaTests; }
+      } catch (e) { /* try next */ }
+    }
+    _istaTests = {};                          // give up quietly; modal still works
+    return _istaTests;
+  })();
+  return window.__istaTestsLoading;
+}
+
+// Match a fault's English text to an ISTA component procedure. Fault text names
+// its component up front ("Throttle valve, sensor 1, signal: Short circuit"),
+// so try the leading noun phrase (before the first comma/colon), then looser
+// contains matches, against the slug set.
+function istaTestFor(faultText) {
+  if (!_istaTests || !faultText) return null;
+  const t = String(faultText).trim();
+  const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // the component is the phrase before the first comma or colon
+  const lead = t.split(/[,:]/)[0].trim();
+  const candidates = [lead, t];
+  for (const c of candidates) {
+    const slug = slugify(c);
+    if (slug && _istaTests[slug]) return _istaTests[slug];
+  }
+  // loosen: a slug that starts with the lead component, or vice versa, taking
+  // the shortest (most general) match so "throttle valve" doesn't grab a long
+  // unrelated slug that merely contains the words
+  const leadSlug = slugify(lead);
+  if (leadSlug.length >= 4) {
+    let best = null;
+    for (const slug in _istaTests) {
+      if (slug === leadSlug || slug.startsWith(leadSlug + '-')
+          || leadSlug.startsWith(slug + '-')) {
+        if (!best || slug.length < best.length) best = slug;
+      }
+    }
+    if (best) return _istaTests[best];
+  }
+  return null;
+}
+
 // lookup screen state persists within a visit so filters survive re-render
 const lookupState = { q: '', chassis: '', module: '' };
 const LOOKUP_MAX = 400; // cap rendered rows; the count line reports the true total
@@ -132,11 +190,12 @@ async function showLookup() {
   cancelSweep();
   lastScreen = showLookup;
   setCrumbs([{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps }, { label: 'Fault Lookup' }]);
-  sbLeft.textContent = 'fault lookup';
+             { label: 'Apps', fn: showApps }, { label: 'Diagnostics' }]);
+  sbLeft.textContent = 'diagnostics';
 
-  view.innerHTML = head('Reference', 'Fault Lookup',
-    'Search the fault database across every chassis and module. Works offline, no cable needed.');
+  view.innerHTML = head('Reference', 'Diagnostic Plans and Trouble Codes',
+    'Search fault codes across every chassis; open one for its ISTA service '
+    + 'data and diagnostic procedure. Works offline, no cable needed.');
 
   // loading state while the index literal is injected + parsed
   const loading = document.createElement('div');
@@ -579,6 +638,68 @@ async function showLookup() {
     return rows ? `<div class="fi-grid">${rows}</div>` : '';
   }
 
+  // ISTA guided-diagnostic document for the component this fault names: how the
+  // system works and how to test it. Rendered as a collapsible section below
+  // the service fields so it never crowds the fault description.
+  const _isLegendKey = (s) => /^([0-9]{1,2}|[A-Z]{1,4}\s?[0-9]{0,2})$/.test(String(s).trim());
+
+  // A block is prose, a bullet, or a table. ISTA "legend" tables pack several
+  // key→label pairs per row (1|Pedal|2|Sensor); flatten those to a key/label
+  // list. A genuine data table (label|value rows) renders as a small grid.
+  function _tpBlock(b) {
+    if (b.t === 'p') return `<p class="fm-tp-p">${esc(b.s)}</p>`;
+    if (b.t === 'bullet') return `<p class="fm-tp-p fm-tp-bullet">${esc(b.s)}</p>`;
+    if (b.t !== 'table' || !b.rows || !b.rows.length) return '';
+    const cols = Math.max(...b.rows.map((r) => r.length));
+    // a legend table: even columns are keys, odd are their labels, repeating
+    const looksLegend = cols >= 2 && cols % 2 === 0 && b.rows.every((r) => {
+      for (let i = 0; i < r.length; i += 2) {
+        if (r[i] && !_isLegendKey(r[i])) return false;
+      }
+      return true;
+    });
+    if (looksLegend) {
+      const pairs = [];
+      for (const r of b.rows) {
+        for (let i = 0; i + 1 < r.length; i += 2) {
+          if (r[i] || r[i + 1]) pairs.push([r[i], r[i + 1]]);
+        }
+      }
+      return pairs.map(([k, v]) => `<div class="fm-tp-leg">`
+        + `<span class="fm-tp-leg-k">${esc(k)}</span>`
+        + `<span>${esc(v)}</span></div>`).join('');
+    }
+    // otherwise a plain grid, sized to the widest row
+    const rows = b.rows.map((r, ri) => {
+      const cells = [];
+      for (let i = 0; i < cols; i++) {
+        cells.push(`<span class="fm-tp-td${ri === 0 ? ' fm-tp-th' : ''}">`
+          + `${esc(r[i] || '')}</span>`);
+      }
+      return `<div class="fm-tp-tr">${cells.join('')}</div>`;
+    }).join('');
+    return `<div class="fm-tp-table" style="--cols:${cols}">${rows}</div>`;
+  }
+
+  function testPlanSection(doc) {
+    if (!doc || !doc.chapters || !doc.chapters.length) return '';
+    const chapters = doc.chapters.map((ch) => {
+      const head = ch.heading
+        ? `<div class="fm-tp-h">${esc(ch.heading)}</div>` : '';
+      // support both the block shape and the older flat paras (defensive)
+      const items = ch.blocks
+        || (ch.paras || []).map((p) => (p.startsWith('• ')
+          ? { t: 'bullet', s: p.slice(2) } : { t: 'p', s: p }));
+      const body = items.map(_tpBlock).join('');
+      return `<div class="fm-tp-chap">${head}${body}</div>`;
+    }).join('');
+    return `<details class="fm-tp" open>
+        <summary class="fm-tp-sum">Diagnostic procedure${
+          doc.title ? ` · ${esc(doc.title)}` : ''}</summary>
+        <div class="fm-tp-body">${chapters}</div>
+      </details>`;
+  }
+
   // Show ISTA detail for the ONE clicked entry (the search page already lists
   // every variant as its own row). clickedName picks the matching variant record.
   async function openFaultModal(code, clickedName, sgbd) {
@@ -624,6 +745,18 @@ async function showLookup() {
     const body = overlay.querySelector('#fm-body');
     body.innerHTML = infoTable(info)
       || '<div class="fm-noinfo">No service document for this fault.</div>';
+
+    // then bring in the ISTA diagnostic procedure for this component, if any.
+    // Loaded lazily (12 MB from Hugging Face on first open); the modal is
+    // already usable from the service fields above while it fetches.
+    const tpSlot = document.createElement('div');
+    tpSlot.className = 'fm-tp-slot';
+    body.appendChild(tpSlot);
+    loadIstaTests().then(() => {
+      if (!document.body.contains(overlay)) return;   // closed while loading
+      const doc = istaTestFor(title);
+      if (doc) tpSlot.innerHTML = testPlanSection(doc);
+    });
   }
 
   // debounce the search input
