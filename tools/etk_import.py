@@ -325,6 +325,57 @@ def build_vehicle_index(con, out_dir):
           f"{os.path.getsize(path)/1e6:.2f} MB)")
 
 
+def build_vehicle_thumbs(con, out_dir):
+    """Write thumbs/<chassis>_<body>.jpg|png: the little car photos ETK shows
+    on the Vehicle Identification screen (w_baureihe_kar_thb -> w_grafik).
+    211 images, ~3 KB each -- small enough to ship in the repo. thumbs.json
+    indexes what exists so the viewer never has to 404-probe.
+    """
+    tdir = os.path.join(out_dir, 'thumbs')
+    os.makedirs(tdir, exist_ok=True)
+    rows = con.execute(
+        "SELECT t.baureihekar_baureihe, t.baureihekar_karosserie, "
+        "       g.grafik_format, g.grafik_laenge, g.grafik_blob "
+        "FROM w_baureihe_kar_thb t "
+        "JOIN w_grafik g ON g.grafik_grafikid = t.baureihekar_grafikid").fetchall()
+    index = {}
+    total = 0
+    for ch, body, fmt, laenge, blob in rows:
+        if not blob:
+            continue
+        data = bytes(blob)
+        if laenge and laenge < len(data):     # blobs are stored 4 KB-padded
+            data = data[:laenge]
+        # classics ship 3 KB 150x75 thumbs but modern chassis carry multi-MB
+        # full-res press photos; normalise everything to a <=400px JPEG so the
+        # whole set stays ~1 MB (the viewer box is ~90px tall)
+        if HAVE_PIL:
+            try:
+                img = Image.open(io.BytesIO(data))
+                if img.width > 400:
+                    img = img.resize((400, round(img.height * 400 / img.width)),
+                                     Image.LANCZOS)
+                if img.mode in ('RGBA', 'P', 'LA'):
+                    bg = Image.new('RGB', img.size, (255, 255, 255))
+                    bg.paste(img.convert('RGBA'), mask=img.convert('RGBA').split()[-1])
+                    img = bg
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                buf = io.BytesIO()
+                img.save(buf, 'JPEG', quality=82)
+                data = buf.getvalue()
+            except Exception:
+                pass                            # keep the original bytes
+        name = f"{ch}_{body}.jpg"
+        with open(os.path.join(tdir, name), 'wb') as f:
+            f.write(data)
+        index[f"{ch}_{body}"] = name
+        total += len(data)
+    with open(os.path.join(tdir, 'thumbs.json'), 'w') as f:
+        json.dump(index, f, separators=(',', ':'))
+    print(f"wrote {tdir}/ ({len(index)} car photos, {total/1e3:.0f} KB) + thumbs.json")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Pack ETK into per-chassis .etk bundles")
     ap.add_argument('--db', required=True, help='etk.sqlite (the dumped catalogue)')
@@ -337,6 +388,8 @@ def main():
                     help='write only vin-index.json.gz and exit')
     ap.add_argument('--vehicles-only', action='store_true',
                     help='write only vehicles.json (the attribute drill-down) and exit')
+    ap.add_argument('--thumbs-only', action='store_true',
+                    help='write only thumbs/ (the car photos) and exit')
     args = ap.parse_args()
 
     if not os.path.exists(args.db):
@@ -349,6 +402,9 @@ def main():
         return
     if args.vehicles_only:
         build_vehicle_index(con, args.out)
+        return
+    if args.thumbs_only:
+        build_vehicle_thumbs(con, args.out)
         return
 
     if not HAVE_PIL:

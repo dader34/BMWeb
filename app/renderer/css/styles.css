@@ -709,6 +709,12 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
     center/auto 44px no-repeat;
   opacity: .8;
 }
+/* real car photo swapped in (background set inline); the photos are dark cars
+   on white, so give them a white plate like the terminal's */
+.etk-idthumb-photo {
+  opacity: 1; background-color: #fff !important;
+  background-origin: content-box !important; padding: 6px;
+}
 /* the 2x2 dropdown block under Model: Steering | Gearbox / Year | Month */
 .etk-iddrops { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* custom select (matches the variant dropdown; replaces native <select>) */

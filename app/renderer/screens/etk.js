@@ -213,6 +213,25 @@ async function loadVehicles() {
   return etkVehicles;
 }
 
+// thumbs.json: which <chassis>_<body> car photos shipped (ETK's Vehicle
+// Identification images, extracted from w_baureihe_kar_thb). Local first,
+// then the Hugging Face dataset (where the rest of the ETK data lives).
+// Non-fatal: the drill-down just keeps its silhouette if the set isn't there.
+let etkThumbs = null;
+let etkThumbsBase = '';   // the base URL thumbs.json resolved from
+async function loadEtkThumbs() {
+  if (etkThumbs) return etkThumbs;
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const bases = [`${base}/data/etk/thumbs/`, `${ETK_HF_BASE}thumbs/`];
+  for (const b of bases) {
+    const r = await real(`${b}thumbs.json`).catch(() => null);
+    if (r && r.ok) { etkThumbs = await r.json(); etkThumbsBase = b; return etkThumbs; }
+  }
+  etkThumbs = {};
+  return etkThumbs;
+}
+
 // ---- VIN decoder ----------------------------------------------------------
 // A BMW VIN's last 7 characters are the sequential production number. vin-index
 // maps each production-number range to a vehicle, so we can resolve a VIN to
@@ -700,17 +719,32 @@ function showVinDecoder() {
     lbChassis.setItems(state.codesBySeries[series].map(c => ({ key: c, label: dispChassis(c) })));
     idHint.textContent = 'Pick a chassis.';
   };
+  // swap the placeholder silhouette for the real ETK car photo when we have
+  // one for this chassis+body (thumbs.json indexes what shipped)
+  function setThumb(ch, body) {
+    const name = etkThumbs && ch && body ? etkThumbs[`${ch}_${body}`] : null;
+    if (name) {
+      thumb.style.background =
+        `var(--bg) url("${etkThumbsBase}${name}") center/contain no-repeat`;
+      thumb.classList.add('etk-idthumb-photo');
+    } else {
+      thumb.style.background = '';
+      thumb.classList.remove('etk-idthumb-photo');
+    }
+  }
+
   // Chassis picked -> fill Body
   lbChassis._onpick = (ch) => {
     state.chassis = ch; state.body = state.model = null;
-    lbModel.clear(); resetDrops(); thumb.hidden = false;
+    lbModel.clear(); resetDrops(); thumb.hidden = false; setThumb(null, null);
     const bodies = Object.keys(veh[ch]);
     lbBody.setItems(bodies.map(b => ({ key: b, label: bodyLabel(b) })));
     idHint.textContent = 'Pick a body style.';
   };
-  // Body picked -> fill Model
+  // Body picked -> fill Model (and show that body's car photo)
   lbBody._onpick = (body) => {
     state.body = body; state.model = null; resetDrops();
+    setThumb(state.chassis, body);
     const models = Object.keys(veh[state.chassis][body]);
     lbModel.setItems(models.map(m => ({ key: m, label: m })));
     idHint.textContent = 'Pick a model.';
@@ -783,9 +817,11 @@ function showVinDecoder() {
 
   idOpen.onclick = () => { if (picked) openDecoded(picked); };
 
-  // populate the Series pane once vehicles.json is in hand
+  // populate the Series pane once vehicles.json is in hand (car photos load
+  // alongside; missing thumbs just leave the silhouette)
   (async () => {
     try {
+      loadEtkThumbs();
       veh = await loadVehicles();
       grouped = groupBySeries(veh);
       refreshSeries();
