@@ -117,6 +117,85 @@ async function etkChassisList() {
   return etkChassisIds;
 }
 
+// A styled dropdown that mimics the <select> interface the drill-down uses:
+// exposes .value (option index as string, '' for none), .selectedIndex,
+// .disabled, .options-like via setOptions(), and fires 'change'. Keeps the
+// cascade code unchanged while ditching the unstyleable native list.
+function makeSelect(placeholder) {
+  const root = document.createElement('div');
+  root.className = 'etk-sel';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'etk-sel-btn';
+  btn.innerHTML = `<span class="etk-sel-cur"></span><span class="etk-sel-caret">▾</span>`;
+  const menu = document.createElement('div');
+  menu.className = 'etk-sel-menu';
+  menu.hidden = true;
+  root.appendChild(btn);
+  root.appendChild(menu);
+  const cur = btn.querySelector('.etk-sel-cur');
+
+  let items = [];        // display strings
+  let value = '';        // '' (placeholder) or a 0-based index string of an item
+  let ph = placeholder || 'Select…';
+  let disabled = false;
+  let outside = null;
+
+  function label() { return value === '' ? ph : items[+value]; }
+  function paint() { cur.textContent = label(); cur.classList.toggle('etk-sel-ph', value === ''); }
+  function renderMenu() {
+    menu.innerHTML = '';
+    items.forEach((t, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'etk-sel-opt' + (value === String(i) ? ' active' : '');
+      b.textContent = t;
+      b.onclick = (e) => { e.stopPropagation(); value = String(i); paint(); close(); fire(); };
+      menu.appendChild(b);
+    });
+  }
+  function open() {
+    if (disabled || !items.length) return;
+    renderMenu(); menu.hidden = false; root.classList.add('etk-sel-open');
+    setTimeout(() => { outside = (e) => { if (!root.contains(e.target)) close(); };
+                       document.addEventListener('click', outside); }, 0);
+  }
+  function close() {
+    menu.hidden = true; root.classList.remove('etk-sel-open');
+    if (outside) { document.removeEventListener('click', outside); outside = null; }
+  }
+  // fire both the event (for addEventListener) and the .onchange property the
+  // cascade sets, since a div's onchange isn't auto-wired like a <select>'s.
+  function fire() {
+    root.dispatchEvent(new Event('change'));
+    if (typeof root.onchange === 'function') root.onchange(new Event('change'));
+  }
+
+  btn.onclick = (e) => { e.stopPropagation(); menu.hidden ? open() : close(); };
+
+  // the <select>-ish surface the cascade code uses. Values are 0-based item
+  // indices ('' = none). selectedIndex mirrors native semantics (0 = the
+  // placeholder, 1..N = items) so the cascade's `sel.selectedIndex = 1` lines
+  // still auto-pick the first real item.
+  Object.defineProperties(root, {
+    value: { get: () => value, set: (v) => { value = v === '' ? '' : String(v); paint(); } },
+    disabled: { get: () => disabled, set: (d) => { disabled = !!d; root.classList.toggle('etk-sel-disabled', disabled); if (d) close(); } },
+    selectedIndex: {
+      get: () => value === '' ? 0 : +value + 1,
+      set: (i) => { value = (i && i >= 1) ? String(i - 1) : ''; paint(); },
+    },
+    options: { get: () => [{ textContent: ph }, ...items.map(t => ({ textContent: t }))] },
+  });
+  // setOptions replaces the innerHTML-style population the cascade did via opt()
+  root.setOptions = (arr, placeholderText) => {
+    if (placeholderText != null) ph = placeholderText;
+    items = arr.slice(); value = ''; paint(); close();
+  };
+  root.setDisabledEmpty = () => { items = []; value = ''; paint(); };
+  paint();
+  return root;
+}
+
 // ---- vehicle attribute tree (the ETK-style drill-down) --------------------
 // vehicles.json: chassis -> body -> model -> [[steer,gear,year,mospid], ...].
 // Small (~200 KB), ships in the repo (local), with an HF fallback.
@@ -342,50 +421,48 @@ function showVinDecoder() {
 
   const idCard = document.createElement('div');
   idCard.className = 'etk-idcard';
-  idCard.innerHTML = `
-    <div class="etk-idgrid">
-      <label class="etk-idcol"><span class="etk-idlabel">Series</span>
-        <select class="etk-idsel" id="id-series"></select></label>
-      <label class="etk-idcol"><span class="etk-idlabel">Body</span>
-        <select class="etk-idsel" id="id-body" disabled></select></label>
-      <label class="etk-idcol"><span class="etk-idlabel">Model</span>
-        <select class="etk-idsel" id="id-model" disabled></select></label>
-    </div>
-    <div class="etk-idgrid etk-idgrid-3">
-      <label class="etk-idcol"><span class="etk-idlabel">Steering</span>
-        <select class="etk-idsel" id="id-steer" disabled></select></label>
-      <label class="etk-idcol"><span class="etk-idlabel">Transmission</span>
-        <select class="etk-idsel" id="id-gear" disabled></select></label>
-      <label class="etk-idcol"><span class="etk-idlabel">Production</span>
-        <select class="etk-idsel" id="id-year" disabled></select></label>
-    </div>
-    <div class="etk-idfoot">
-      <span class="etk-idhint" id="id-hint">Pick a series to begin.</span>
-      <button class="etk-vin-open" id="id-open" hidden type="button">Open parts →</button>
-    </div>`;
+  // build the six custom selects and lay them out
+  const selSeries = makeSelect('Select series…');
+  const selBody = makeSelect('Select body…');
+  const selModel = makeSelect('Select model…');
+  const selSteer = makeSelect('Select steering…');
+  const selGear = makeSelect('Select transmission…');
+  const selYear = makeSelect('Select production date…');
+  [selBody, selModel, selSteer, selGear, selYear].forEach(s => { s.disabled = true; });
+  const col = (labelText, sel) => {
+    const c = document.createElement('label');
+    c.className = 'etk-idcol';
+    const l = document.createElement('span'); l.className = 'etk-idlabel'; l.textContent = labelText;
+    c.appendChild(l); c.appendChild(sel); return c;
+  };
+  const g1 = document.createElement('div'); g1.className = 'etk-idgrid';
+  g1.append(col('Series', selSeries), col('Body', selBody), col('Model', selModel));
+  const g2 = document.createElement('div'); g2.className = 'etk-idgrid';
+  g2.append(col('Steering', selSteer), col('Transmission', selGear), col('Production', selYear));
+  const foot = document.createElement('div'); foot.className = 'etk-idfoot';
+  const idHint = document.createElement('span'); idHint.className = 'etk-idhint';
+  idHint.textContent = 'Pick a series to begin.';
+  const idOpen = document.createElement('button');
+  idOpen.type = 'button'; idOpen.className = 'etk-vin-open'; idOpen.hidden = true;
+  idOpen.textContent = 'Open parts →';
+  foot.append(idHint, idOpen);
+  idCard.append(g1, g2, foot);
   view.appendChild(idCard);
 
-  const $ = (s) => idCard.querySelector(s);
-  const selSeries = $('#id-series'), selBody = $('#id-body'), selModel = $('#id-model');
-  const selSteer = $('#id-steer'), selGear = $('#id-gear'), selYear = $('#id-year');
-  const idHint = $('#id-hint'), idOpen = $('#id-open');
   let veh = null;                 // the loaded vehicles.json
   let picked = null;              // { chassis, mospid, ... }
 
-  const opt = (sel, items, ph) => {
-    sel.innerHTML = `<option value="">${ph}</option>` +
-      items.map((t, i) => `<option value="${i}">${esc(t)}</option>`).join('');
-  };
-  const reset = (...sels) => sels.forEach(s => { s.innerHTML = ''; s.disabled = true; });
+  const opt = (sel, items, ph) => sel.setOptions(items, ph);
+  const reset = (...sels) => sels.forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
 
   const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: 'n/a' }[g] || g || 'n/a');
   const steerLabel = (s) => ({ L: 'Left-hand drive', R: 'Right-hand drive' }[s] || s);
   const yearLabel = (y) => (y && String(y).length >= 6)
     ? `${String(y).slice(0, 4)}-${String(y).slice(4, 6)}` : (y || '');
 
-  // load the tree lazily on first interaction with the drill-down
-  selSeries.addEventListener('mousedown', async function once() {
-    selSeries.removeEventListener('mousedown', once);
+  // load the tree lazily on first click of the series dropdown
+  selSeries.querySelector('.etk-sel-btn').addEventListener('click', async function once() {
+    selSeries.querySelector('.etk-sel-btn').removeEventListener('click', once);
     if (veh) return;
     idHint.textContent = 'Loading vehicles…';
     try {
