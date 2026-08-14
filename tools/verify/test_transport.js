@@ -152,7 +152,8 @@ check('an unknown concept falls back to BMW-FAST, not to nothing',
     strings: [blob, [0x12, 0x34]],
   };
   let seen = null;
-  const v = new Best2Vm(code, { send: (out, comm) => { seen = comm; return []; } });
+  const v = new Best2Vm(code, { send: (out, comm) => { seen = comm; return []; },
+                              allowWrites: true });  // testing the wire, not the write gate
   try { v.run('T', ''); } catch { /* eoj/decode is not the point */ }
   check('xsetpar reaches send() as the concept',
         seen && seen.concept === 6);
@@ -171,7 +172,8 @@ check('an unknown concept falls back to BMW-FAST, not to nothing',
     strings: [blob, [0x12, 0x34]],
   };
   let seen = null;
-  const v = new Best2Vm(code, { send: (out, comm) => { seen = comm; return []; } });
+  const v = new Best2Vm(code, { send: (out, comm) => { seen = comm; return []; },
+                              allowWrites: true });  // testing the wire, not the write gate
   try { v.run('T', ''); } catch { /* not the point */ }
   check('a dword CommParameter decodes as KWP2000* at 9600',
         seen && seen.concept === 0x10d && seen.baud === 9600);
@@ -186,7 +188,8 @@ check('an unknown concept falls back to BMW-FAST, not to nothing',
     strings: [[0x12, 0x34]],
   };
   let seen = null;
-  const v = new Best2Vm(code, { send: (out, comm) => { seen = comm; return []; } });
+  const v = new Best2Vm(code, { send: (out, comm) => { seen = comm; return []; },
+                              allowWrites: true });  // testing the wire, not the write gate
   try { v.run('T', ''); } catch { /* not the point */ }
   check('wait is carried to the transport as waitMs',
         seen && seen.waitMs === 50);
