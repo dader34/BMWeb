@@ -58,10 +58,32 @@ import sgbd_value_diff as V                                   # noqa: E402
 WORK = os.path.join(ROOT, "data", "sim-captures", "bulk")
 CLI = os.path.join(ROOT, "src", "InpaMac.Cli")
 
-# never send these, even in simulation -- see module docstring
-WRITE_JOB = re.compile(
-    r"^(STEUERN|SCHREIBEN|.*_SCHREIBEN|.*_LOESCHEN|FS_LOESCHEN|.*_SETZEN"
-    r"|FLASH.*|PROGRAMMIER.*|.*_RESET|RESET.*|CODIER.*_SCHREIB.*)", re.I)
+# Is a job a WRITE (changes the ECU) or a READ? Kept IDENTICAL to isWriteJob in
+# app/renderer/core/bestvm.js -- see the long note there. The old leading-verb
+# regex missed ~1100 writes (START_/STOP_SYSTEMCHECK, ABGLEICH_, SET_, ...), so
+# this is token-based with read-wins and default-deny for the unknown tail.
+READ_TOKEN = re.compile(
+    r"(LESEN|_LES\b|\bLES_|READ|STATUS|IDENT|\bINFO|ANZEIGE|ABFRAG"
+    r"|ANZAHL|ZUSTAND|GET_)", re.I)
+WRITE_TOKEN = re.compile(
+    r"(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|\bSTART|\bSTOP"
+    r"|RESET|CODIER|WRITE|\bSET\b|DOWNLOAD|UPLOAD|ABGLEICH|ADAPTION|SLEEP"
+    r"|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL|AKTIVIER|DEAKTIVIER"
+    r"|TILGUNG|ANLERN|TEACH|CLEAR)", re.I)
+
+
+class _WriteJob:
+    """Matches like the old compiled regex (.match(name)) but with the
+    read-wins / default-deny classifier, so `WRITE_JOB.match(name)` callers
+    keep working unchanged."""
+    def match(self, name):
+        n = name or ""
+        if READ_TOKEN.search(n):
+            return None                       # a read of anything is a read
+        return True                           # write verb, or unknown => guarded
+
+
+WRITE_JOB = _WriteJob()
 
 # Write jobs are excluded by default -- see the module docstring. `--writes`
 # opts in, and ONLY the simulated interface can honour it: EdInterfaceObd is

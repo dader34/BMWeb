@@ -11,15 +11,31 @@
 // so this file is a screen, not an engine.
 
 // ecu-index.json keys ARE the runnable SGBDs (each maps to the chassis whose
-// archive carries it). Cached once.
+// archive carries it). It's a STATIC FILE the webshim doesn't route (the shim
+// only handles /api/ecu/…), so fetch it raw — via webRealFetch in the web
+// build (bypassing the fetch override), or api() on desktop where it's a real
+// route. In the web build an inlined index may also be present.
 let TOOL32_SGBDS = null;
 async function tool32SgbdList() {
   if (TOOL32_SGBDS) return TOOL32_SGBDS;
-  try {
-    const idx = await api('/api/ecu-index.json');
-    TOOL32_SGBDS = Object.keys(idx || {}).sort();
-  } catch (e) { TOOL32_SGBDS = []; }
-  return TOOL32_SGBDS;
+  const fromIndex = (idx) => { TOOL32_SGBDS = Object.keys(idx || {}).sort(); return TOOL32_SGBDS; };
+  // 1) inlined offline index, if the single-file export baked one in
+  if (typeof BMACW_INLINE === 'object' && BMACW_INLINE && BMACW_INLINE._index) {
+    return fromIndex(BMACW_INLINE._index);
+  }
+  // 2) the static file — raw fetch so the shim's /api catch-all doesn't 404 it
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const apiBase = (typeof WEB_API_BASE === 'string') ? WEB_API_BASE : 'api';
+  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  for (const u of [`${base}/${apiBase}/ecu-index.json`, '/api/ecu-index.json']) {
+    try {
+      const r = await real(u);
+      if (r && r.ok) return fromIndex(await r.json());
+    } catch (e) { /* try next */ }
+  }
+  // 3) desktop: it's a real server route
+  try { return fromIndex(await api('/api/ecu-index.json')); }
+  catch (e) { TOOL32_SGBDS = []; return TOOL32_SGBDS; }
 }
 
 // a job entry may arrive as a bare name or as {name, args, results, comment}
@@ -187,9 +203,10 @@ function showTool32() {
       const okGo = typeof confirmDialog === 'function'
         ? await confirmDialog({
             title: `${name} changes the ECU`,
-            body: 'Write-shaped jobs (STEUERN_/_SCHREIBEN/…) are blocked in this '
-                + 'build for safety. Running it will return an error, not modify '
-                + 'the module. Continue anyway?',
+            body: 'This job is classified as a write (it commands or changes the '
+                + 'ECU rather than reading it) and is blocked in this build for '
+                + 'safety. Running it will return an error, not modify the '
+                + 'module. Continue anyway?',
             confirmLabel: 'Run (will be refused)', danger: true })
         : false;
       if (!okGo) return;

@@ -21,22 +21,42 @@ const REG_BYTES = 32;
 
 class VmError extends Error {}
 
-// Jobs that CHANGE the ECU rather than read it. Kept deliberately identical
-// to WRITE_JOB in tools/sgbd_bulk_verify.py -- two different answers to
-// "is this a write?" is worse than either answer alone.
+// Is a job a WRITE (changes the ECU) or a READ (queries it)? BEST2 gives us no
+// flag -- the bytecode builds the telegram dynamically, so the service byte
+// isn't statically knowable, and the old prefix regex (^STEUERN|^FLASH|...) was
+// leaky: it missed START_/STOP_SYSTEMCHECK actuator jobs, ABGLEICH_/ADAPTION
+// calibrations, SET_/AUTHENTIS/SLEEP, ~1100 writes in all.
 //
-// The list is by NAME because that is what BEST2 gives us: the bytecode has
-// no flag saying "this telegram writes", and the service byte varies per
-// protocol. Naming is the SGBD authors' own convention (STEUERN_ = actuate,
-// _LOESCHEN = clear, _SCHREIBEN = write) and it is what INPA's own screens
-// are marked with.
-const WRITE_JOB = new RegExp(
-  '^(STEUERN|SCHREIBEN|.*_SCHREIBEN|.*_LOESCHEN|FS_LOESCHEN|.*_SETZEN'
-  + '|FLASH.*|PROGRAMMIER.*|.*_RESET|RESET.*|CODIER.*_SCHREIB.*)', 'i');
+// The systematic signal is still the SGBD authors' NAMING CONTRACT, applied
+// correctly rather than by leading verb, over a corpus of 27k jobs:
+//   1. A READ TOKEN anywhere (LESEN/READ/STATUS/IDENT/INFO/ABFRAGE/ANZEIGE/
+//      ZUSTAND/ANZAHL) means read -- so ABGLEICH_LESEN_HFM ("read the calibr-
+//      ation") is a read despite the write-ish ABGLEICH_ prefix. Read wins.
+//   2. Otherwise a WRITE TOKEN (STEUERN/SCHREIB/SETZEN/LOESCH/FLASH/START/STOP/
+//      RESET/CODIER/ABGLEICH/ADAPTION/AUTHENTIS/SET/...) means write.
+//   3. Otherwise DEFAULT-DENY: an unrecognised job is treated as a write, so a
+//      new or oddly-named job is guarded, never silently run.
+// Kept identical to WRITE_JOB in tools/sgbd_bulk_verify.py -- two different
+// answers to "is this a write?" is worse than either alone.
+const READ_TOKEN = new RegExp(
+  '(LESEN|_LES\\b|\\bLES_|READ|STATUS|IDENT|\\bINFO|ANZEIGE|ABFRAG'
+  + '|ANZAHL|ZUSTAND|GET_)', 'i');
+const WRITE_TOKEN = new RegExp(
+  '(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|\\bSTART|\\bSTOP'
+  + '|RESET|CODIER|WRITE|\\bSET\\b|DOWNLOAD|UPLOAD|ABGLEICH|ADAPTION|SLEEP'
+  + '|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL|AKTIVIER|DEAKTIVIER'
+  + '|TILGUNG|ANLERN|TEACH|CLEAR)', 'i');
 
 function isWriteJob(name) {
-  return WRITE_JOB.test(String(name || ''));
+  const n = String(name || '');
+  if (READ_TOKEN.test(n)) return false;     // a read of anything is a read
+  if (WRITE_TOKEN.test(n)) return true;      // a named write verb
+  return true;                               // default-deny: unknown => guarded
 }
+
+// kept for callers that referenced the old constant; the classifier is the
+// real contract now.
+const WRITE_JOB = WRITE_TOKEN;
 
 // Which flag combination each conditional jump tests (EdOperations' jump
 // handlers). Named exactly as the disassembler emits them.
