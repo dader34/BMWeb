@@ -597,8 +597,17 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 
 /* VIN decoder page card */
 .etk-vin-card {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-  padding: 18px; max-width: 640px;
+  position: relative; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 20px; max-width: 640px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.02) inset;
+}
+/* a faint amber wash along the top edge marks the VIN card as the primary path */
+.etk-vin-card::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  opacity: .5;
 }
 .etk-vin-hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 10px; }
 /* the VIN-decoder entry card sits above the chassis grid; give it a gap and
@@ -646,13 +655,45 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   content: ''; flex: 1; height: 1px; background: var(--line);
 }
 .etk-idcard {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-  padding: 18px; max-width: 640px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 20px; max-width: 640px;
 }
-.etk-idgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.etk-idgrid + .etk-idgrid { margin-top: 12px; }
+/* the attribute panel is the ETK-style list-box layout: it wants room, so it
+   grows to a full-width working area rather than the 640px card cap */
+.etk-idcard-wide { max-width: 960px; }
 .etk-idcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.etk-idlabel { font-size: 12px; color: var(--ink-dim); }
+.etk-idlabel {
+  font-size: 11px; color: var(--ink-faint); text-transform: uppercase;
+  letter-spacing: .05em; font-weight: 600;
+}
+
+/* Series | Chassis | Body | Model list boxes, side by side (ETK's panes) */
+.etk-idlists {
+  display: grid; gap: 12px;
+  grid-template-columns: 0.8fr 1fr 1fr 1.3fr;
+}
+.etk-lb {
+  height: 240px; overflow-y: auto; scrollbar-width: thin;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 4px;
+}
+.etk-lb:focus { outline: none; border-color: var(--line-hover); }
+.etk-lb-row {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: none; border: none; color: var(--ink); font-family: var(--mono);
+  font-size: 12.5px; padding: 6px 8px; border-radius: 5px; line-height: 1.25;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.etk-lb-row:hover { background: rgba(127,127,127,.12); }
+.etk-lb-row.active { background: var(--amber-glow); color: var(--amber); font-weight: 600; }
+.etk-lb-empty {
+  color: var(--ink-faint); font-size: 12px; padding: 8px; text-align: center;
+}
+/* the Steering / Transmission / Year dropdowns beneath the lists */
+.etk-iddrops {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  margin-top: 16px;
+}
 /* custom select (matches the variant dropdown; replaces native <select>) */
 .etk-sel { position: relative; width: 100%; min-width: 0; }
 .etk-sel-btn {
@@ -686,8 +727,14 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   margin-top: 16px; flex-wrap: wrap;
 }
 .etk-idhint { font-size: 13px; color: var(--ink-dim); }
-@media (max-width: 760px) {
-  .etk-idgrid { grid-template-columns: 1fr; }
+@media (max-width: 860px) {
+  /* stack the four list boxes 2-up, then the dropdowns 1-up, on narrow screens */
+  .etk-idlists { grid-template-columns: 1fr 1fr; }
+  .etk-lb { height: 180px; }
+  .etk-iddrops { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .etk-idlists { grid-template-columns: 1fr; }
 }
 
 /* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
@@ -2458,6 +2505,11 @@ select.modal-input { appearance: none; cursor: pointer; }
    aside and the frame takes the height it leaves */
 body.wds-nofkeys .fkeybar { display: none; }
 body.wds-nofkeys .view { inset: 56px 0 0 0; }
+/* the Apps hub and its ported screens are point-and-click; the F-key bar
+   (only ever "Back", already in the breadcrumb) is dead chrome, so drop it
+   on desktop too and give the view the height back. Mirrors wds-nofkeys. */
+body.apps-section .fkeybar { display: none; }
+body.apps-section .view { inset: 56px 0 0 0; }
 /* This screen sizes itself to the window, so the page must not scroll: the
    panes scroll their own contents instead.
    .view's generous page padding is for reading text, and this screen is not

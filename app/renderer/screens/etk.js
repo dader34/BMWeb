@@ -337,6 +337,101 @@ async function showEtk() {
   ]);
 }
 
+// vehicles.json keys are BMW's internal ETK series codes. Most are the
+// familiar chassis E-numbers (E46, F30, G20), but a tail of them are raw
+// internal codes for motorcycles (K/R bikes), the classic '02 range and a few
+// oddments (114, 2471, R56, MOSP...). Alphabetical sort buries the cars the
+// user is actually after under those codes, so we bucket by kind: modern cars
+// first (E/F/G/I/U + digits), then Minis (R5x/F5x/F6x), then everything else.
+function seriesRank(code) {
+  if (/^[EFGIU]\d/.test(code)) {          // BMW car chassis: E46, F30, G20...
+    const era = { E: 0, F: 1, G: 2, I: 3, U: 4 }[code[0]];
+    const num = parseInt(code.slice(1), 10) || 0;
+    return [0, era, num, code];
+  }
+  if (/^(R5|F5|F6)/.test(code)) return [1, 0, 0, code];   // MINI
+  return [2, 0, 0, code];                 // bikes / classics / internal codes
+}
+function seriesSort(codes) {
+  return codes.slice().sort((a, b) => {
+    const ra = seriesRank(a), rb = seriesRank(b);
+    for (let i = 0; i < ra.length; i++) {
+      if (ra[i] < rb[i]) return -1;
+      if (ra[i] > rb[i]) return 1;
+    }
+    return 0;
+  });
+}
+
+// ETK's Vehicle Identification lists a top-level marketing series ("5'", "X3",
+// "MINI"...) which expands to the chassis under it (E60, E61, F10, F18...).
+// The internal series codes in vehicles.json don't carry that grouping, so we
+// derive it from each chassis's model names: the dominant model prefix names
+// the series (5xx -> 5', X3 xx -> X3, "R 1200" -> Moto). This mirrors what a
+// user sees on the dealer terminal without needing a hand-kept 296-row table.
+function chassisSeries(code, models) {
+  // hard overrides where the model prefix is ambiguous or the chassis predates
+  // the numbering scheme
+  const HARD = { E52: 'Z', E26: 'M', E72: 'X6', E169: 'Moto',
+                 E3: 'Classic', E9: 'Classic' };
+  if (HARD[code]) return HARD[code];
+  if (/^I\d/.test(code)) return 'i';                 // i3 / i8
+  if (/^(R5|R13|R56|R57|R58|R59|F5|F6)/.test(code)) return 'MINI';
+  const list = [...models];
+  const joined = list.join(' ');
+  // motorcycles: R-/K-/F-/G-/C-prefixed engine names, or classic 3-digit bikes
+  const bike = list.filter(m => /^[RKC]\s?\d/.test(m.trim()) ||
+                                /^F \d{3}/.test(m.trim()) ||
+                                /^G \d{3}/.test(m.trim())).length;
+  if (bike > list.length / 2) return 'Moto';
+  const tally = {};
+  for (const m of list) {
+    const t = m.trim();
+    let key = null;
+    const x = t.match(/^(X\d)/);              // X3, X5
+    const z = /^Z\d/.test(t);                 // Z3, Z4 -> one "Z" series
+    const mm = t.match(/^M(\d)\b/);           // M3, M5
+    if (x) key = x[1];
+    else if (z) key = 'Z';
+    else if (mm) key = 'M';
+    else if (/^\d/.test(t)) key = t[0] + "'"; // 5xx -> 5'
+    if (key) tally[key] = (tally[key] || 0) + 1;
+  }
+  let best = null, n = -1;
+  for (const k in tally) if (tally[k] > n) { n = tally[k]; best = k; }
+  return best || 'Other';
+}
+
+// order the marketing-series buckets the way ETK does: number series, then X,
+// then Z, M, i, MINI, motorcycles, classics/other.
+function seriesGroupRank(s) {
+  if (/^\d'$/.test(s)) return [0, parseInt(s, 10)];
+  if (/^X\d$/.test(s)) return [1, parseInt(s.slice(1), 10)];
+  if (s === 'Z') return [2, 0];
+  if (s === 'M') return [3, 0];
+  if (s === 'i') return [4, 0];
+  if (s === 'MINI') return [5, 0];
+  if (s === 'Moto') return [6, 0];
+  return [7, 0];
+}
+
+// group a set of chassis codes into { series -> [chassis...] }, each sorted
+function groupBySeries(veh) {
+  const groups = {};
+  for (const code of Object.keys(veh)) {
+    const models = new Set();
+    for (const body in veh[code]) for (const m in veh[code][body]) models.add(m);
+    const s = chassisSeries(code, models);
+    (groups[s] = groups[s] || []).push(code);
+  }
+  const order = Object.keys(groups).sort((a, b) => {
+    const ra = seriesGroupRank(a), rb = seriesGroupRank(b);
+    return ra[0] - rb[0] || ra[1] - rb[1] || (a < b ? -1 : 1);
+  });
+  for (const s of order) groups[s] = seriesSort(groups[s]);
+  return { order, groups };
+}
+
 // The VIN Decoder page: enter a VIN (or its last 7) and it resolves to the
 // exact vehicle, then opens that catalogue pre-filtered.
 function showVinDecoder() {
@@ -414,148 +509,197 @@ function showVinDecoder() {
   go.onclick = decode;
   input.onkeydown = (e) => { if (e.key === 'Enter') decode(); };
 
-  // ---- attribute drill-down (ETK's Series -> Body -> Model + Steering/etc) --
+  // ---- identify by attributes: ETK's side-by-side list boxes ---------------
+  // Series (marketing) -> Chassis -> Body -> Model list boxes, then Steering /
+  // Transmission / Year dropdowns, exactly like the dealer terminal's Vehicle
+  // Identification tab. All lazily fed from vehicles.json on first render.
   const divider = document.createElement('div');
   divider.className = 'etk-idsep';
-  divider.innerHTML = `<span>or identify by attributes</span>`;
+  divider.innerHTML = `<span>Identify by attributes</span>`;
   view.appendChild(divider);
 
   const idCard = document.createElement('div');
-  idCard.className = 'etk-idcard';
-  // build the six custom selects and lay them out
-  const selSeries = makeSelect('Select series…');
-  const selBody = makeSelect('Select body…');
-  const selModel = makeSelect('Select model…');
-  const selSteer = makeSelect('Select steering…');
-  const selGear = makeSelect('Select transmission…');
-  const selYear = makeSelect('Select production date…');
-  [selBody, selModel, selSteer, selGear, selYear].forEach(s => { s.disabled = true; });
-  const col = (labelText, sel) => {
-    const c = document.createElement('label');
-    c.className = 'etk-idcol';
-    const l = document.createElement('span'); l.className = 'etk-idlabel'; l.textContent = labelText;
-    c.appendChild(l); c.appendChild(sel); return c;
+  idCard.className = 'etk-idcard etk-idcard-wide';
+
+  // a scrolling single-select list box (ETK's <select size=N> panes)
+  function listBox() {
+    const box = document.createElement('div');
+    box.className = 'etk-lb';
+    box.tabIndex = 0;
+    let items = [], value = -1;   // value = selected index, -1 = none
+    box._onpick = null;
+    function render() {
+      box.innerHTML = '';
+      items.forEach((it, i) => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'etk-lb-row' + (i === value ? ' active' : '');
+        row.textContent = it.label;
+        row.onclick = () => {
+          value = i; render();
+          if (i === value) row.scrollIntoView({ block: 'nearest' });
+          if (box._onpick) box._onpick(items[i].key, items[i].label);
+        };
+        box.appendChild(row);
+      });
+      if (!items.length) {
+        const e = document.createElement('div');
+        e.className = 'etk-lb-empty'; e.textContent = '—';
+        box.appendChild(e);
+      }
+    }
+    box.setItems = (arr) => { items = arr; value = -1; render(); };
+    box.clear = () => { items = []; value = -1; render(); };
+    box.selected = () => value >= 0 ? items[value] : null;
+    render();
+    return box;
+  }
+
+  const lbSeries  = listBox();
+  const lbChassis = listBox();
+  const lbBody    = listBox();
+  const lbModel   = listBox();
+  const selSteer = makeSelect('Any');
+  const selGear  = makeSelect('Any');
+  const selYear  = makeSelect('Any');
+  [selSteer, selGear, selYear].forEach(s => { s.disabled = true; });
+
+  // labelled column wrapper (a heading over a list box or dropdown)
+  const col = (labelText, el, cls) => {
+    const c = document.createElement('div');
+    c.className = 'etk-idcol' + (cls ? ' ' + cls : '');
+    const l = document.createElement('span');
+    l.className = 'etk-idlabel'; l.textContent = labelText;
+    c.append(l, el); return c;
   };
-  const g1 = document.createElement('div'); g1.className = 'etk-idgrid';
-  g1.append(col('Series', selSeries), col('Body', selBody), col('Model', selModel));
-  const g2 = document.createElement('div'); g2.className = 'etk-idgrid';
-  g2.append(col('Steering', selSteer), col('Transmission', selGear), col('Production', selYear));
+
+  const lists = document.createElement('div');
+  lists.className = 'etk-idlists';
+  lists.append(
+    col('Series', lbSeries, 'etk-idcol-series'),
+    col('Chassis', lbChassis, 'etk-idcol-chassis'),
+    col('Body', lbBody),
+    col('Model', lbModel),
+  );
+
+  const drops = document.createElement('div');
+  drops.className = 'etk-iddrops';
+  drops.append(col('Steering', selSteer), col('Transmission', selGear),
+               col('Year', selYear));
+
   const foot = document.createElement('div'); foot.className = 'etk-idfoot';
   const idHint = document.createElement('span'); idHint.className = 'etk-idhint';
-  idHint.textContent = 'Pick a series to begin.';
+  idHint.textContent = 'Loading vehicles…';
   const idOpen = document.createElement('button');
   idOpen.type = 'button'; idOpen.className = 'etk-vin-open'; idOpen.hidden = true;
   idOpen.textContent = 'Open parts →';
   foot.append(idHint, idOpen);
-  idCard.append(g1, g2, foot);
+
+  idCard.append(lists, drops, foot);
   view.appendChild(idCard);
 
   let veh = null;                 // the loaded vehicles.json
+  let grouped = null;             // { order, groups } from groupBySeries
   let picked = null;              // { chassis, mospid, ... }
+  const state = { series: null, chassis: null, body: null, model: null };
 
   const opt = (sel, items, ph) => sel.setOptions(items, ph);
-  const reset = (...sels) => sels.forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
-
-  const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: 'n/a' }[g] || g || 'n/a');
+  const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: '—' }[g] || g || '—');
   const steerLabel = (s) => ({ L: 'Left-hand drive', R: 'Right-hand drive' }[s] || s);
   const yearLabel = (y) => (y && String(y).length >= 6)
     ? `${String(y).slice(0, 4)}-${String(y).slice(4, 6)}` : (y || '');
 
-  // load the tree lazily on first click of the series dropdown
-  selSeries.querySelector('.etk-sel-btn').addEventListener('click', async function once() {
-    selSeries.querySelector('.etk-sel-btn').removeEventListener('click', once);
-    if (veh) return;
-    idHint.textContent = 'Loading vehicles…';
-    try {
-      veh = await loadVehicles();
-      const chassis = Object.keys(veh).sort();
-      opt(selSeries, chassis.map(dispChassis), 'Select series…');
-      selSeries._ids = chassis;
-      idHint.textContent = 'Pick a series to begin.';
-      // the click that triggered this load opened an empty menu (setOptions
-      // closed it); now that options exist, reopen so one click is enough.
-      selSeries.openMenu();
-    } catch (e) { idHint.textContent = String(e.message || e); }
-  });
-
-  function clearFrom(level) {
+  function resetDrops() {
     picked = null; idOpen.hidden = true;
-    if (level <= 1) reset(selBody, selModel, selSteer, selGear, selYear);
-    else if (level === 2) reset(selModel, selSteer, selGear, selYear);
-    else if (level === 3) reset(selSteer, selGear, selYear);
+    [selSteer, selGear, selYear].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
   }
 
-  selSeries.onchange = () => {
-    clearFrom(1);
-    if (!selSeries.value) return;
-    const ch = selSeries._ids[+selSeries.value];
+  // Series picked -> fill Chassis
+  lbSeries._onpick = (series) => {
+    state.series = series; state.chassis = state.body = state.model = null;
+    lbBody.clear(); lbModel.clear(); resetDrops();
+    lbChassis.setItems(grouped.groups[series].map(c => ({ key: c, label: dispChassis(c) })));
+    idHint.textContent = 'Pick a chassis.';
+  };
+  // Chassis picked -> fill Body
+  lbChassis._onpick = (ch) => {
+    state.chassis = ch; state.body = state.model = null;
+    lbModel.clear(); resetDrops();
     const bodies = Object.keys(veh[ch]);
-    opt(selBody, bodies.map(bodyLabel), 'Select body…');
-    selBody._ch = ch; selBody._bodies = bodies; selBody.disabled = false;
+    lbBody.setItems(bodies.map(b => ({ key: b, label: bodyLabel(b) })));
     idHint.textContent = 'Pick a body style.';
   };
-  selBody.onchange = () => {
-    clearFrom(2);
-    if (!selBody.value) return;
-    const body = selBody._bodies[+selBody.value];
-    const models = Object.keys(veh[selBody._ch][body]);
-    opt(selModel, models, 'Select model…');
-    selModel._body = body; selModel._models = models; selModel.disabled = false;
+  // Body picked -> fill Model
+  lbBody._onpick = (body) => {
+    state.body = body; state.model = null; resetDrops();
+    const models = Object.keys(veh[state.chassis][body]);
+    lbModel.setItems(models.map(m => ({ key: m, label: m })));
     idHint.textContent = 'Pick a model.';
   };
-  selModel.onchange = () => {
-    clearFrom(3);
-    if (!selModel.value) return;
-    const model = selModel._models[+selModel.value];
-    const variants = veh[selBody._ch][selModel._body][model];   // [[steer,gear,year,mospid]]
-    selModel._variants = variants;
-    // steering options (distinct)
+  // Model picked -> fill the Steering/Transmission/Year dropdowns
+  lbModel._onpick = (model) => {
+    state.model = model; resetDrops();
+    const variants = veh[state.chassis][state.body][model];   // [[steer,gear,year,mospid]]
+    state.variants = variants;
     const steers = [...new Set(variants.map(v => v[0]))].filter(Boolean);
-    opt(selSteer, steers.map(steerLabel), steers.length > 1 ? 'Select steering…' : '');
+    opt(selSteer, steers.map(steerLabel), steers.length > 1 ? 'Any' : '');
     selSteer._vals = steers; selSteer.disabled = false;
     if (steers.length === 1) { selSteer.selectedIndex = 1; selSteer.onchange(); }
-    else idHint.textContent = 'Pick steering.';
+    else { idHint.textContent = 'Pick steering (or leave as Any).'; recompute(); }
   };
+
   selSteer.onchange = () => {
-    reset(selGear, selYear); idOpen.hidden = true; picked = null;
-    if (!selSteer.value && selSteer._vals.length > 1) return;
-    const steer = selSteer._vals[selSteer.value ? +selSteer.value : 0];
-    const vs = selModel._variants.filter(v => v[0] === steer);
+    [selGear, selYear].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
+    const steer = selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
+    const vs = state.variants.filter(v => !steer || v[0] === steer);
     const gears = [...new Set(vs.map(v => v[1]))].filter(Boolean);
-    opt(selGear, gears.map(gearLabel), gears.length > 1 ? 'Select transmission…' : '');
-    selGear._vs = vs; selGear._steer = steer; selGear._vals = gears; selGear.disabled = false;
-    if (gears.length <= 1) { selGear.selectedIndex = gears.length; selGear.onchange(); }
-    else idHint.textContent = 'Pick transmission.';
+    opt(selGear, gears.map(gearLabel), gears.length > 1 ? 'Any' : '');
+    selGear._vs = vs; selGear._vals = gears; selGear.disabled = false;
+    if (gears.length === 1) { selGear.selectedIndex = 1; selGear.onchange(); }
+    else recompute();
   };
   selGear.onchange = () => {
-    reset(selYear); idOpen.hidden = true; picked = null;
-    if (!selGear.value && selGear._vals.length > 1) return;
-    const gear = selGear._vals.length ? selGear._vals[selGear.value ? +selGear.value : 0] : '';
+    selYear.setDisabledEmpty(); selYear.disabled = true;
+    const gear = selGear.value !== '' ? selGear._vals[+selGear.value] : null;
     const vs = selGear._vs.filter(v => !gear || v[1] === gear);
     const years = [...new Set(vs.map(v => v[2]))].filter(Boolean).sort();
-    opt(selYear, years.map(yearLabel), years.length > 1 ? 'Select production date…' : '');
+    opt(selYear, years.map(yearLabel), years.length > 1 ? 'Any' : '');
     selYear._vs = vs; selYear._vals = years; selYear.disabled = false;
-    if (years.length <= 1) { selYear.selectedIndex = years.length; finalize(); }
-    else idHint.textContent = 'Pick a production date.';
+    if (years.length === 1) selYear.selectedIndex = 1;
+    recompute();
   };
-  selYear.onchange = finalize;
+  selYear.onchange = recompute;
 
-  function finalize() {
-    const vs = selYear._vs || [];
-    const year = selYear._vals && selYear._vals.length
-      ? selYear._vals[selYear.value ? +selYear.value : 0] : null;
-    const v = (year ? vs.filter(x => x[2] === year) : vs)[0];
-    if (!v) { idOpen.hidden = true; return; }
-    picked = { chassis: selBody._ch, mospid: v[3],
-               model: selModel._models[+selModel.value],
-               body: selBody._bodies[+selBody.value],
-               steer: v[0], gear: v[1], prod: v[2] };
+  // pick the most specific variant the current filters allow; enable Open once
+  // a single vehicle is resolved (ETK opens as soon as the attributes are set).
+  function recompute() {
+    let vs = state.variants || [];
+    const steer = selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
+    if (steer) vs = vs.filter(v => v[0] === steer);
+    const gear = (selGear._vals && selGear.value !== '') ? selGear._vals[+selGear.value] : null;
+    if (gear) vs = vs.filter(v => v[1] === gear);
+    const year = (selYear._vals && selYear.value !== '') ? selYear._vals[+selYear.value] : null;
+    if (year) vs = vs.filter(v => v[2] === year);
+    const v = vs[0];
+    if (!v || !state.model) { picked = null; idOpen.hidden = true; return; }
+    picked = { chassis: state.chassis, mospid: v[3], model: state.model,
+               body: state.body, steer: v[0], gear: v[1], prod: v[2] };
     idHint.textContent = `${dispChassis(picked.chassis)} · ${picked.model} · `
       + `${bodyLabel(picked.body)} · ${steerLabel(picked.steer)}`;
     idOpen.hidden = false;
   }
 
   idOpen.onclick = () => { if (picked) openDecoded(picked); };
+
+  // populate the Series list once vehicles.json is in hand
+  (async () => {
+    try {
+      veh = await loadVehicles();
+      grouped = groupBySeries(veh);
+      lbSeries.setItems(grouped.order.map(s => ({ key: s, label: s })));
+      idHint.textContent = 'Pick a series to begin.';
+    } catch (e) { idHint.textContent = String(e.message || e); }
+  })();
 }
 
 // After a VIN resolves, open its chassis and pre-select the matching variant.
