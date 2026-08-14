@@ -573,19 +573,35 @@ function showVinDecoder() {
     c.append(l, el); return c;
   };
 
+  // ETK's positioning: [Series | Chassis] paired on the left, then Body (with a
+  // vehicle thumbnail beneath it), then Model on the right with the Steering /
+  // Transmission / Year dropdowns tucked underneath the Model column.
   const lists = document.createElement('div');
   lists.className = 'etk-idlists';
-  lists.append(
-    col('Series', lbSeries, 'etk-idcol-series'),
-    col('Chassis', lbChassis, 'etk-idcol-chassis'),
-    col('Body', lbBody),
-    col('Model', lbModel),
-  );
 
+  // left block: Series + Chassis sitting flush together under one region
+  const leftBlock = document.createElement('div');
+  leftBlock.className = 'etk-idpair';
+  leftBlock.append(col('Series', lbSeries, 'etk-idcol-series'),
+                   col('Chassis', lbChassis, 'etk-idcol-chassis'));
+
+  // middle block: Body, with a car thumbnail beneath it
+  const midBlock = document.createElement('div');
+  midBlock.className = 'etk-idmid';
+  const thumb = document.createElement('div');
+  thumb.className = 'etk-idthumb'; thumb.hidden = true;
+  midBlock.append(col('Body', lbBody), thumb);
+
+  // right block: Model on top, then the three dropdowns beneath it
+  const rightBlock = document.createElement('div');
+  rightBlock.className = 'etk-idright';
   const drops = document.createElement('div');
   drops.className = 'etk-iddrops';
   drops.append(col('Steering', selSteer), col('Transmission', selGear),
                col('Year', selYear));
+  rightBlock.append(col('Model', lbModel), drops);
+
+  lists.append(leftBlock, midBlock, rightBlock);
 
   const foot = document.createElement('div'); foot.className = 'etk-idfoot';
   const idHint = document.createElement('span'); idHint.className = 'etk-idhint';
@@ -595,7 +611,7 @@ function showVinDecoder() {
   idOpen.textContent = 'Open parts →';
   foot.append(idHint, idOpen);
 
-  idCard.append(lists, drops, foot);
+  idCard.append(lists, foot);
   view.appendChild(idCard);
 
   let veh = null;                 // the loaded vehicles.json
@@ -617,14 +633,14 @@ function showVinDecoder() {
   // Series picked -> fill Chassis
   lbSeries._onpick = (series) => {
     state.series = series; state.chassis = state.body = state.model = null;
-    lbBody.clear(); lbModel.clear(); resetDrops();
+    lbBody.clear(); lbModel.clear(); resetDrops(); thumb.hidden = true;
     lbChassis.setItems(grouped.groups[series].map(c => ({ key: c, label: dispChassis(c) })));
     idHint.textContent = 'Pick a chassis.';
   };
   // Chassis picked -> fill Body
   lbChassis._onpick = (ch) => {
     state.chassis = ch; state.body = state.model = null;
-    lbModel.clear(); resetDrops();
+    lbModel.clear(); resetDrops(); thumb.hidden = false;
     const bodies = Object.keys(veh[ch]);
     lbBody.setItems(bodies.map(b => ({ key: b, label: bodyLabel(b) })));
     idHint.textContent = 'Pick a body style.';

@@ -667,13 +667,20 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   letter-spacing: .05em; font-weight: 600;
 }
 
-/* Series | Chassis | Body | Model list boxes, side by side (ETK's panes) */
+/* ETK positioning: [Series+Chassis] | [Body + thumbnail] | [Model + dropdowns].
+   Three blocks across the top; the right block stacks Model over the dropdowns
+   so they tuck under Model exactly as the dealer terminal lays them out. */
 .etk-idlists {
-  display: grid; gap: 12px;
-  grid-template-columns: 0.8fr 1fr 1fr 1.3fr;
+  display: grid; gap: 18px;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(150px, 0.8fr) minmax(220px, 1.2fr);
+  align-items: start;
 }
+.etk-idpair { display: grid; grid-template-columns: 0.75fr 1fr; gap: 10px; }
+.etk-idmid { display: flex; flex-direction: column; gap: 12px; }
+.etk-idright { display: flex; flex-direction: column; gap: 14px; }
+
 .etk-lb {
-  height: 240px; overflow-y: auto; scrollbar-width: thin;
+  height: 236px; overflow-y: auto; scrollbar-width: thin;
   background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
   padding: 4px;
 }
@@ -689,11 +696,16 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 .etk-lb-empty {
   color: var(--ink-faint); font-size: 12px; padding: 8px; text-align: center;
 }
-/* the Steering / Transmission / Year dropdowns beneath the lists */
-.etk-iddrops {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
-  margin-top: 16px;
+/* a placeholder car silhouette beneath the Body list (ETK shows a photo here) */
+.etk-idthumb {
+  height: 92px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='52' viewBox='0 0 120 52' fill='none' stroke='%23667' stroke-width='2'%3E%3Cpath d='M12 38h96M22 38a7 7 0 1 0 14 0 7 7 0 1 0-14 0M84 38a7 7 0 1 0 14 0 7 7 0 1 0-14 0M18 38l6-16a6 6 0 0 1 6-4h40a8 8 0 0 1 6 3l10 12M40 18v17M70 20v15'/%3E%3C/svg%3E")
+    center/auto 44px no-repeat;
+  opacity: .8;
 }
+/* the Steering / Transmission / Year dropdowns, stacked under Model */
+.etk-iddrops { display: flex; flex-direction: column; gap: 12px; }
 /* custom select (matches the variant dropdown; replaces native <select>) */
 .etk-sel { position: relative; width: 100%; min-width: 0; }
 .etk-sel-btn {
@@ -726,15 +738,21 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin-top: 16px; flex-wrap: wrap;
 }
+/* the Model pane on the right is shorter so the stacked dropdowns beneath it
+   bring the right block to about the same height as the left list boxes */
+.etk-idright .etk-lb { height: 116px; }
 .etk-idhint { font-size: 13px; color: var(--ink-dim); }
-@media (max-width: 860px) {
-  /* stack the four list boxes 2-up, then the dropdowns 1-up, on narrow screens */
-  .etk-idlists { grid-template-columns: 1fr 1fr; }
-  .etk-lb { height: 180px; }
-  .etk-iddrops { grid-template-columns: 1fr; }
+@media (max-width: 900px) {
+  /* stack the three blocks; each keeps its internal layout */
+  .etk-idlists { grid-template-columns: 1fr; }
+  .etk-idright .etk-lb { height: 160px; }
+  .etk-idmid { flex-direction: row; align-items: flex-end; }
+  .etk-idmid > .etk-idcol { flex: 1; }
+  .etk-idthumb { flex: 1; }
 }
 @media (max-width: 520px) {
-  .etk-idlists { grid-template-columns: 1fr; }
+  .etk-idpair { grid-template-columns: 0.75fr 1fr; }
+  .etk-idmid { flex-direction: column; }
 }
 
 /* ETK main-group icon grid -- ETK's "Search by Main Group" tiles: a number, a
