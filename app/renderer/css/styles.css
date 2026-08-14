@@ -596,19 +596,19 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 }
 
 /* VIN decoder page card */
-.etk-vin-card {
-  position: relative; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 14px;
-  padding: 20px; max-width: 640px;
-  box-shadow: 0 1px 0 rgba(255,255,255,.02) inset;
+/* ETK-style etched group boxes: a fieldset with its legend riding the border,
+   like the terminal's "Identification by..." frames */
+.etk-fs {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 14px 18px 18px; margin: 0; max-width: 1040px; min-width: 0;
 }
-/* a faint amber wash along the top edge marks the VIN card as the primary path */
-.etk-vin-card::before {
-  content: ''; position: absolute; inset: 0 0 auto 0; height: 2px;
-  border-radius: 14px 14px 0 0;
-  background: linear-gradient(90deg, transparent, var(--amber), transparent);
-  opacity: .5;
+.etk-fs + .etk-fs { margin-top: 18px; }
+.etk-fs > legend {
+  padding: 0 8px; margin-left: -2px; font-size: 11px; font-weight: 700;
+  color: var(--ink-dim); text-transform: uppercase; letter-spacing: .06em;
 }
+.etk-fs-attr { margin-top: 18px; }
+.etk-vin-label { font-size: 13px; color: var(--ink-dim); align-self: center; flex: none; }
 .etk-vin-hint { font-size: 12.5px; color: var(--ink-faint); margin-top: 10px; }
 /* the VIN-decoder entry card sits above the chassis grid; give it a gap and
    its own rounded card look (lookup-entry has none standalone on desktop) */
@@ -625,9 +625,11 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
 }
 .etk-vin-input:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+/* the go-arrow buttons (ETK's wide flat arrow buttons) */
 .etk-vin-go {
-  flex: none; font-size: 13.5px; font-weight: 700; cursor: pointer;
-  color: #11161c; background: var(--amber); border: none; border-radius: 8px; padding: 10px 16px;
+  flex: none; font-size: 16px; font-weight: 700; line-height: 1; cursor: pointer;
+  color: #11161c; background: var(--amber); border: none; border-radius: 8px;
+  padding: 10px 26px;
 }
 .etk-vin-go:hover { background: #ffb152; }
 .etk-vin-go:disabled { opacity: .5; cursor: default; }
@@ -645,22 +647,25 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 }
 .etk-vin-open:hover { background: rgba(255,158,44,.28); }
 
-/* ETK-style "identify by attributes" drill-down */
-.etk-idsep {
-  display: flex; align-items: center; gap: 14px; max-width: 640px;
-  margin: 22px 0 14px; color: var(--ink-faint); font-size: 12.5px;
-  text-transform: uppercase; letter-spacing: .06em;
+/* ETK-style "identify by attributes" group box */
+/* filter row: Brand dropdown + Auto/Moto + Main/Classic radios, like the
+   terminal's brand / product-type / catalogue-scope strip */
+.etk-idfilters {
+  display: flex; align-items: center; gap: 26px; flex-wrap: wrap;
+  padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--line);
 }
-.etk-idsep::before, .etk-idsep::after {
-  content: ''; flex: 1; height: 1px; background: var(--line);
+.etk-idfilter { display: flex; align-items: center; gap: 10px; }
+.etk-idfilter-brand .etk-sel { width: 110px; }
+.etk-idflabel {
+  font-size: 11px; color: var(--ink-faint); text-transform: uppercase;
+  letter-spacing: .05em; font-weight: 600;
 }
-.etk-idcard {
-  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-  padding: 20px; max-width: 640px;
+.etk-idradio {
+  display: flex; align-items: center; gap: 6px; font-size: 13px;
+  color: var(--ink); cursor: pointer; white-space: nowrap;
 }
-/* the attribute panel is the ETK-style list-box layout: it wants room, so it
-   grows to a full-width working area rather than the 640px card cap */
-.etk-idcard-wide { max-width: 960px; }
+.etk-idradio input { accent-color: var(--amber); margin: 0; }
+.etk-idreq { margin-left: auto; font-size: 11px; color: var(--ink-faint); }
 .etk-idcol { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .etk-idlabel {
   font-size: 11px; color: var(--ink-faint); text-transform: uppercase;
@@ -704,8 +709,8 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
     center/auto 44px no-repeat;
   opacity: .8;
 }
-/* the Steering / Transmission / Year dropdowns, stacked under Model */
-.etk-iddrops { display: flex; flex-direction: column; gap: 12px; }
+/* the 2x2 dropdown block under Model: Steering | Gearbox / Year | Month */
+.etk-iddrops { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 /* custom select (matches the variant dropdown; replaces native <select>) */
 .etk-sel { position: relative; width: 100%; min-width: 0; }
 .etk-sel-btn {
@@ -738,8 +743,9 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   margin-top: 16px; flex-wrap: wrap;
 }
-/* the Model pane on the right is shorter so the stacked dropdowns beneath it
-   bring the right block to about the same height as the left list boxes */
+/* the Body and Model panes are shorter than Series/chassis (ETK's proportions):
+   the car image fills out the Body column, the 2x2 dropdowns the Model column */
+.etk-idmid .etk-lb { height: 128px; }
 .etk-idright .etk-lb { height: 116px; }
 .etk-idhint { font-size: 13px; color: var(--ink-dim); }
 @media (max-width: 900px) {

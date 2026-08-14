@@ -445,13 +445,17 @@ function showVinDecoder() {
     'Enter your VIN, or identify your vehicle by series, body and model.');
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk }]);
 
-  const card = document.createElement('div');
-  card.className = 'etk-vin-card';
+  // ETK's top group box: "Identification by VIN number" — a labelled input
+  // with the go-arrow at the right, inside an etched fieldset.
+  const card = document.createElement('fieldset');
+  card.className = 'etk-fs etk-fs-vin';
   card.innerHTML = `
+    <legend>Identification by VIN number</legend>
     <div class="etk-vin-row">
+      <span class="etk-vin-label">VIN number:</span>
       <input class="etk-vin-input" type="text" maxlength="17" spellcheck="false"
              autocapitalize="characters" placeholder="WBA… or last 7 chars">
-      <button class="etk-vin-go" type="button">Decode →</button>
+      <button class="etk-vin-go" type="button" aria-label="Decode VIN">→</button>
     </div>
     <div class="etk-vin-hint">A BMW VIN's last 7 characters are the production
       number. Paste the full VIN or just those 7.</div>
@@ -509,17 +513,36 @@ function showVinDecoder() {
   go.onclick = decode;
   input.onkeydown = (e) => { if (e.key === 'Enter') decode(); };
 
-  // ---- identify by attributes: ETK's side-by-side list boxes ---------------
-  // Series (marketing) -> Chassis -> Body -> Model list boxes, then Steering /
-  // Transmission / Year dropdowns, exactly like the dealer terminal's Vehicle
-  // Identification tab. All lazily fed from vehicles.json on first render.
-  const divider = document.createElement('div');
-  divider.className = 'etk-idsep';
-  divider.innerHTML = `<span>Identify by attributes</span>`;
-  view.appendChild(divider);
+  // ---- identify by attributes: ETK's Vehicle Identification, 1:1 -----------
+  // The terminal's lower group box: a Brand / Prod. type / Catalogue filter
+  // row, then [Series* | chassis] [Body* + car image] [Model* with Steering /
+  // Gearbox / Year / Month in a 2x2 beneath it], go-arrow bottom right.
+  const idCard = document.createElement('fieldset');
+  idCard.className = 'etk-fs etk-fs-attr';
+  const idLegend = document.createElement('legend');
+  idLegend.textContent = 'Identification by attributes';
+  idCard.appendChild(idLegend);
 
-  const idCard = document.createElement('div');
-  idCard.className = 'etk-idcard etk-idcard-wide';
+  // filter row: Brand dropdown + Auto/Moto radios + Main/Classic radios.
+  // These narrow which series show, same as the terminal's selectors.
+  const filters = document.createElement('div');
+  filters.className = 'etk-idfilters';
+  filters.innerHTML = `
+    <div class="etk-idfilter etk-idfilter-brand"><span class="etk-idflabel">Brand</span></div>
+    <div class="etk-idfilter"><span class="etk-idflabel">Prod. type</span>
+      <label class="etk-idradio"><input type="radio" name="etk-ptype" value="auto" checked> Auto</label>
+      <label class="etk-idradio"><input type="radio" name="etk-ptype" value="moto"> Moto</label>
+    </div>
+    <div class="etk-idfilter"><span class="etk-idflabel">Catalogue</span>
+      <label class="etk-idradio"><input type="radio" name="etk-scope" value="main" checked> Main catalogue</label>
+      <label class="etk-idradio"><input type="radio" name="etk-scope" value="classic"> BMW Classic</label>
+    </div>
+    <span class="etk-idreq">* required attributes</span>`;
+  const selBrand = makeSelect('BMW');
+  selBrand.setOptions(['BMW', 'MINI'], 'BMW');
+  selBrand.selectedIndex = 1;   // BMW preselected
+  filters.querySelector('.etk-idfilter-brand').appendChild(selBrand);
+  idCard.appendChild(filters);
 
   // a scrolling single-select list box (ETK's <select size=N> panes)
   function listBox() {
@@ -559,10 +582,11 @@ function showVinDecoder() {
   const lbChassis = listBox();
   const lbBody    = listBox();
   const lbModel   = listBox();
-  const selSteer = makeSelect('Any');
-  const selGear  = makeSelect('Any');
-  const selYear  = makeSelect('Any');
-  [selSteer, selGear, selYear].forEach(s => { s.disabled = true; });
+  const selSteer = makeSelect('All values');
+  const selGear  = makeSelect('All values');
+  const selYear  = makeSelect('All values');
+  const selMonth = makeSelect('All values');
+  [selSteer, selGear, selYear, selMonth].forEach(s => { s.disabled = true; });
 
   // labelled column wrapper (a heading over a list box or dropdown)
   const col = (labelText, el, cls) => {
@@ -579,27 +603,29 @@ function showVinDecoder() {
   const lists = document.createElement('div');
   lists.className = 'etk-idlists';
 
-  // left block: Series + Chassis sitting flush together under one region
+  // left block: Series + chassis sitting flush together (ETK labels only the
+  // Series pane; the chassis pane is its unlabelled expansion)
   const leftBlock = document.createElement('div');
   leftBlock.className = 'etk-idpair';
-  leftBlock.append(col('Series', lbSeries, 'etk-idcol-series'),
-                   col('Chassis', lbChassis, 'etk-idcol-chassis'));
+  leftBlock.append(col('Series*', lbSeries, 'etk-idcol-series'),
+                   col(' ', lbChassis, 'etk-idcol-chassis'));
 
-  // middle block: Body, with a car thumbnail beneath it
+  // middle block: Body, with the car image beneath it
   const midBlock = document.createElement('div');
   midBlock.className = 'etk-idmid';
   const thumb = document.createElement('div');
   thumb.className = 'etk-idthumb'; thumb.hidden = true;
-  midBlock.append(col('Body', lbBody), thumb);
+  midBlock.append(col('Body*', lbBody), thumb);
 
-  // right block: Model on top, then the three dropdowns beneath it
+  // right block: Model on top, the 2x2 dropdowns beneath it (ETK's Steering |
+  // Gearbox on the first row, Year | Month on the second)
   const rightBlock = document.createElement('div');
   rightBlock.className = 'etk-idright';
   const drops = document.createElement('div');
   drops.className = 'etk-iddrops';
-  drops.append(col('Steering', selSteer), col('Transmission', selGear),
-               col('Year', selYear));
-  rightBlock.append(col('Model', lbModel), drops);
+  drops.append(col('Steering', selSteer), col('Gearbox', selGear),
+               col('Year', selYear), col('Month', selMonth));
+  rightBlock.append(col('Model*', lbModel), drops);
 
   lists.append(leftBlock, midBlock, rightBlock);
 
@@ -607,8 +633,9 @@ function showVinDecoder() {
   const idHint = document.createElement('span'); idHint.className = 'etk-idhint';
   idHint.textContent = 'Loading vehicles…';
   const idOpen = document.createElement('button');
-  idOpen.type = 'button'; idOpen.className = 'etk-vin-open'; idOpen.hidden = true;
-  idOpen.textContent = 'Open parts →';
+  idOpen.type = 'button'; idOpen.className = 'etk-vin-go etk-idgo'; idOpen.hidden = true;
+  idOpen.setAttribute('aria-label', 'Open parts catalogue');
+  idOpen.textContent = '→';
   foot.append(idHint, idOpen);
 
   idCard.append(lists, foot);
@@ -620,21 +647,57 @@ function showVinDecoder() {
   const state = { series: null, chassis: null, body: null, model: null };
 
   const opt = (sel, items, ph) => sel.setOptions(items, ph);
-  const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: '—' }[g] || g || '—');
+  // ETK stores gearbox N = "Neutral" on chassis whose catalogue isn't split by
+  // transmission (the terminal shows "Neutral" there too, not a blank).
+  const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: 'Neutral' }[g] || g || 'Neutral');
   const steerLabel = (s) => ({ L: 'Left-hand drive', R: 'Right-hand drive' }[s] || s);
-  const yearLabel = (y) => (y && String(y).length >= 6)
-    ? `${String(y).slice(0, 4)}-${String(y).slice(4, 6)}` : (y || '');
+  const yearOf  = (d) => String(d).slice(0, 4);
+  const monthOf = (d) => String(d).slice(4, 6);
 
   function resetDrops() {
     picked = null; idOpen.hidden = true;
-    [selSteer, selGear, selYear].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
+    [selSteer, selGear, selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
   }
+
+  // ---- the Brand / Prod. type / Catalogue filters narrow the Series pane ----
+  // A code is "classic" when it isn't a modern car chassis code (E/F/G/I/U +
+  // digits): the raw numeric and letter codes (114, 700, NK, V8...) are the
+  // old-timers BMW Classic covers, plus the hard-bucketed Classic group.
+  const isClassicCode = (c, s) => s === 'Classic' || s === 'Other'
+    || !/^[EFGIUZ]\d/.test(c);   // Z covers the literal Z1/Z3 chassis codes
+  function refreshSeries() {
+    if (!grouped) return;
+    const type  = filters.querySelector('input[name="etk-ptype"]:checked').value;
+    const scope = filters.querySelector('input[name="etk-scope"]:checked').value;
+    const brand = selBrand.value === '1' ? 'MINI' : 'BMW';
+    const out = [];
+    for (const s of grouped.order) {
+      let codes = grouped.groups[s];
+      if (type === 'moto') { if (s !== 'Moto') continue; }
+      else {
+        if (s === 'Moto') continue;
+        if (brand === 'MINI') { if (s !== 'MINI') continue; }
+        else {
+          if (s === 'MINI') continue;
+          codes = codes.filter(c => isClassicCode(c, s) === (scope === 'classic'));
+        }
+      }
+      if (codes.length) out.push({ series: s, codes });
+    }
+    state.series = state.chassis = state.body = state.model = null;
+    state.codesBySeries = Object.fromEntries(out.map(o => [o.series, o.codes]));
+    lbChassis.clear(); lbBody.clear(); lbModel.clear(); resetDrops(); thumb.hidden = true;
+    lbSeries.setItems(out.map(o => ({ key: o.series, label: o.series })));
+    idHint.textContent = 'Pick a series to begin.';
+  }
+  filters.querySelectorAll('input[type="radio"]').forEach(r => { r.onchange = refreshSeries; });
+  selBrand.onchange = refreshSeries;
 
   // Series picked -> fill Chassis
   lbSeries._onpick = (series) => {
     state.series = series; state.chassis = state.body = state.model = null;
     lbBody.clear(); lbModel.clear(); resetDrops(); thumb.hidden = true;
-    lbChassis.setItems(grouped.groups[series].map(c => ({ key: c, label: dispChassis(c) })));
+    lbChassis.setItems(state.codesBySeries[series].map(c => ({ key: c, label: dispChassis(c) })));
     idHint.textContent = 'Pick a chassis.';
   };
   // Chassis picked -> fill Body
@@ -652,42 +715,53 @@ function showVinDecoder() {
     lbModel.setItems(models.map(m => ({ key: m, label: m })));
     idHint.textContent = 'Pick a model.';
   };
-  // Model picked -> fill the Steering/Transmission/Year dropdowns
+  // Model picked -> fill the Steering / Gearbox / Year / Month dropdowns
   lbModel._onpick = (model) => {
     state.model = model; resetDrops();
-    const variants = veh[state.chassis][state.body][model];   // [[steer,gear,year,mospid]]
+    const variants = veh[state.chassis][state.body][model];   // [[steer,gear,date,mospid]]
     state.variants = variants;
     const steers = [...new Set(variants.map(v => v[0]))].filter(Boolean);
-    opt(selSteer, steers.map(steerLabel), steers.length > 1 ? 'Any' : '');
+    opt(selSteer, steers.map(steerLabel), steers.length > 1 ? 'All values' : '');
     selSteer._vals = steers; selSteer.disabled = false;
-    if (steers.length === 1) { selSteer.selectedIndex = 1; selSteer.onchange(); }
-    else { idHint.textContent = 'Pick steering (or leave as Any).'; recompute(); }
+    if (steers.length === 1) { selSteer.selectedIndex = 1; }
+    selSteer.onchange();
   };
 
   selSteer.onchange = () => {
-    [selGear, selYear].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
+    [selGear, selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
     const steer = selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
     const vs = state.variants.filter(v => !steer || v[0] === steer);
     const gears = [...new Set(vs.map(v => v[1]))].filter(Boolean);
-    opt(selGear, gears.map(gearLabel), gears.length > 1 ? 'Any' : '');
+    opt(selGear, gears.map(gearLabel), gears.length > 1 ? 'All values' : '');
     selGear._vs = vs; selGear._vals = gears; selGear.disabled = false;
-    if (gears.length === 1) { selGear.selectedIndex = 1; selGear.onchange(); }
-    else recompute();
+    if (gears.length === 1) { selGear.selectedIndex = 1; }
+    selGear.onchange();
   };
   selGear.onchange = () => {
-    selYear.setDisabledEmpty(); selYear.disabled = true;
+    [selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
     const gear = selGear.value !== '' ? selGear._vals[+selGear.value] : null;
     const vs = selGear._vs.filter(v => !gear || v[1] === gear);
-    const years = [...new Set(vs.map(v => v[2]))].filter(Boolean).sort();
-    opt(selYear, years.map(yearLabel), years.length > 1 ? 'Any' : '');
+    const years = [...new Set(vs.map(v => yearOf(v[2])))].filter(Boolean).sort();
+    opt(selYear, years, years.length > 1 ? 'All values' : '');
     selYear._vs = vs; selYear._vals = years; selYear.disabled = false;
-    if (years.length === 1) selYear.selectedIndex = 1;
+    if (years.length === 1) { selYear.selectedIndex = 1; }
+    selYear.onchange();
+  };
+  selYear.onchange = () => {
+    selMonth.setDisabledEmpty(); selMonth.disabled = true;
+    const year = selYear.value !== '' ? selYear._vals[+selYear.value] : null;
+    const vs = selYear._vs.filter(v => !year || yearOf(v[2]) === year);
+    const months = [...new Set(vs.map(v => monthOf(v[2])))].filter(Boolean).sort();
+    opt(selMonth, months, months.length > 1 ? 'All values' : '');
+    selMonth._vs = vs; selMonth._vals = months; selMonth.disabled = false;
+    if (months.length === 1) { selMonth.selectedIndex = 1; }
     recompute();
   };
-  selYear.onchange = recompute;
+  selMonth.onchange = recompute;
 
-  // pick the most specific variant the current filters allow; enable Open once
-  // a single vehicle is resolved (ETK opens as soon as the attributes are set).
+  // pick the most specific variant the current filters allow; show the go
+  // arrow once a vehicle resolves (with "All values" left alone it takes the
+  // first match, same as the terminal's behaviour).
   function recompute() {
     let vs = state.variants || [];
     const steer = selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
@@ -695,7 +769,9 @@ function showVinDecoder() {
     const gear = (selGear._vals && selGear.value !== '') ? selGear._vals[+selGear.value] : null;
     if (gear) vs = vs.filter(v => v[1] === gear);
     const year = (selYear._vals && selYear.value !== '') ? selYear._vals[+selYear.value] : null;
-    if (year) vs = vs.filter(v => v[2] === year);
+    if (year) vs = vs.filter(v => yearOf(v[2]) === year);
+    const month = (selMonth._vals && selMonth.value !== '') ? selMonth._vals[+selMonth.value] : null;
+    if (month) vs = vs.filter(v => monthOf(v[2]) === month);
     const v = vs[0];
     if (!v || !state.model) { picked = null; idOpen.hidden = true; return; }
     picked = { chassis: state.chassis, mospid: v[3], model: state.model,
@@ -707,13 +783,12 @@ function showVinDecoder() {
 
   idOpen.onclick = () => { if (picked) openDecoded(picked); };
 
-  // populate the Series list once vehicles.json is in hand
+  // populate the Series pane once vehicles.json is in hand
   (async () => {
     try {
       veh = await loadVehicles();
       grouped = groupBySeries(veh);
-      lbSeries.setItems(grouped.order.map(s => ({ key: s, label: s })));
-      idHint.textContent = 'Pick a series to begin.';
+      refreshSeries();
     } catch (e) { idHint.textContent = String(e.message || e); }
   })();
 }
