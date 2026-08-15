@@ -436,6 +436,51 @@ function showWiring(chassisId, openDoc = null) {
     treeEl.innerHTML = '';           // drop the "loading" placeholder
     renderTree(data.tree, treeEl, 0);
 
+    // Expand the tree down to a specific document and highlight/scroll to it.
+    // Used by the deep-link path so a shared #apps/wiring/<CHASSIS>/<DOC> link
+    // lands the reader IN CONTEXT, not on a diagram with a collapsed tree. The
+    // tree is lazy (folders build children only when opened), so walk the doc's
+    // path in the data and click each folder open in order, then find the leaf.
+    function docPathIn(node, doc, trail = []) {
+      for (const c of node.children || []) {
+        if (c.doc === doc) return trail.concat(c);
+        if (c.children && c.children.length) {
+          const r = docPathIn(c, doc, trail.concat(c));
+          if (r) return r;
+        }
+      }
+      return null;
+    }
+    // a folder button is "<caret>▸</caret><span>Name</span>" -- match on the
+    // label span, not textContent (which includes the caret glyph).
+    const folderLabel = (b) => {
+      const span = b.querySelector('span:not(.wiring-caret)');
+      return (span ? span.textContent : b.textContent).trim();
+    };
+    function expandTreeToDoc(doc) {
+      const path = docPathIn(data.tree, doc);
+      if (!path) return;
+      let container = treeEl;
+      // every path element except the last is a folder to open
+      for (let i = 0; i < path.length - 1; i++) {
+        const name = path[i].name;
+        const folder = [...container.querySelectorAll(':scope > div > .wiring-folder, :scope > .wiring-folder')]
+          .find(b => folderLabel(b) === name);
+        if (!folder) return;
+        if (!folder.classList.contains('open')) folder.click();  // builds+shows kids
+        container = folder.parentElement.querySelector('.wiring-kids') || container;
+      }
+      // highlight + scroll the leaf
+      const leaf = [...container.querySelectorAll(':scope > .wiring-leaf')]
+        .find(b => (b.querySelector('.wiring-leaf-name') || {}).textContent
+                   === path[path.length - 1].name);
+      if (leaf) {
+        treeEl.querySelectorAll('.wiring-leaf.active').forEach(a => a.classList.remove('active'));
+        leaf.classList.add('active');
+        leaf.scrollIntoView({ block: 'center' });
+      }
+    }
+
     // search: flat results across the whole car, tree hidden while typing
     let searchWrap = null;
     searchEl.oninput = () => {
@@ -539,6 +584,11 @@ function showWiring(chassisId, openDoc = null) {
     // the document pane
     function openDocument(entry) {
       atIndex = index.findIndex(e => e.doc === entry.doc);
+      // reflect the open diagram in the URL so it's a shareable deep link
+      // (#apps/wiring/<CHASSIS>/<DOC>). Best-effort; the viewer works without it.
+      if (typeof routeSetWiringDoc === 'function' && entry && entry.doc) {
+        routeSetWiringDoc(chassisId, entry.doc);
+      }
       // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the unselected
       // pane, so loading into it means a 0x0 stage. Switch to it; no-op on
       // desktop.
@@ -617,11 +667,11 @@ function showWiring(chassisId, openDoc = null) {
       sbLeft.textContent = entry.name;
     }
 
-    // open straight to a document when asked (ECU deep-link)
+    // open straight to a document when asked (ECU / shared-link deep-link)
     if (openDoc) {
       const hit = index.find(e => e.doc === openDoc)
         || index.find(e => e.name === openDoc);
-      if (hit) openDocument(hit);
+      if (hit) { openDocument(hit); expandTreeToDoc(hit.doc); }
     } else {
       viewEl.innerHTML = `<div class="empty"><div>`
         + `<strong>${index.length} documents</strong></div>`

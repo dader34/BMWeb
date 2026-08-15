@@ -2502,9 +2502,16 @@ select.modal-input { appearance: none; cursor: pointer; }
      pull the edges out, and the matching extra width is taken back so the
      box still measures exactly the container. Getting this wrong is what let
      the page scroll right and down. */
-  margin: -38px -44px; width: calc(100% + 88px); height: calc(100% + 76px);
-  box-sizing: border-box;
+  /* fill the whole view. The negative-margin breakout was fragile: .view's
+     padding differs by mode (38/44 on desktop, 12/16 in INPA/mobile), so a
+     hardcoded margin over- or under-shot and spilled past the viewport. Instead
+     the view drops its padding entirely when a WDS frame is present (rule
+     below), so the frame is just 100% x 100% with no maths. */
+  width: 100%; height: 100%; box-sizing: border-box;
 }
+/* a WDS frame wants the whole view; kill the padding that the frame used to
+   fight with negative margins. :has() is supported everywhere the app runs. */
+.view:has(> .wiring-split.wds-frame) { padding: 0; }
 .wiring-split.wds-frame .wiring-body {
   display: grid; grid-template-columns: 300px 1fr; gap: 0;
   flex: 1; min-height: 0; background: #808080;

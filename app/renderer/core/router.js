@@ -34,6 +34,22 @@ const ROUTE_FOR_SCREEN = {
   showTool32: 'apps/tool32',
 };
 
+// Some routes carry parameters (a chassis, a specific diagram) so a single
+// schematic is shareable. Resolve a route string to an opener, exact table
+// first then these patterns. `#apps/wiring/E46` opens the E46 diagrams;
+// `#apps/wiring/E46/SP0000014337` opens that exact document.
+function resolveRoute(route) {
+  const exact = APPS_ROUTES[route];
+  if (exact) return exact;
+  const m = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
+  if (m && typeof showWiring === 'function') {
+    const chassis = m[1].toUpperCase();
+    const doc = m[2] ? decodeURIComponent(m[2]) : null;
+    return () => showWiring(chassis, doc);
+  }
+  return null;
+}
+
 // Screens that mean "left the Apps section" -- reaching one clears the apps
 // hash. Deeper un-named sub-screens (chassis grid inside Parts, a single wiring
 // diagram) are NOT here: they keep the section's hash rather than clearing it.
@@ -96,7 +112,7 @@ function routeSyncFromScreen(fn) {
 // On a deep link into a sub-app, seed the hub behind it so Back reaches it.
 function routeApplyHash() {
   const route = currentRoute();
-  const open = APPS_ROUTES[route];
+  const open = resolveRoute(route);
   if (!open) return false;
   _routing = true;
   try {
@@ -118,7 +134,7 @@ function _onLocationChange() {
   if (_routing) return;                        // our own hash write; ignore
   const route = currentRoute();
   if (route === _openRoute) return;            // already on this screen; no-op
-  const open = APPS_ROUTES[route];
+  const open = resolveRoute(route);
   if (open) {
     _routing = true; _openRoute = route;
     try { open(); } finally { _routing = false; }
@@ -135,8 +151,23 @@ function installRouter() {
   window.addEventListener('popstate', _onLocationChange);
 }
 
+// Called by the wiring viewer when a specific document opens, so the URL
+// becomes a shareable deep link (#apps/wiring/<CHASSIS>/<DOC>). replaceState,
+// not a hash push: browsing diagram-to-diagram shouldn't stack history, and
+// Back should still leave the wiring section, not step through every schematic
+// viewed. Marks _openRoute so the resulting no-op location check stays quiet.
+function routeSetWiringDoc(chassis, doc) {
+  if (_routing || !chassis || !doc) return;
+  const route = `apps/wiring/${String(chassis).toUpperCase()}/${encodeURIComponent(doc)}`;
+  if (currentRoute() === route) return;
+  _routing = true;
+  try { history.replaceState(null, '', '#' + route); _openRoute = route; }
+  finally { _routing = false; }
+}
+
 if (typeof window !== 'undefined') {
   window.installRouter = installRouter;
   window.routeApplyHash = routeApplyHash;
   window.routeSyncFromScreen = routeSyncFromScreen;
+  window.routeSetWiringDoc = routeSetWiringDoc;
 }
