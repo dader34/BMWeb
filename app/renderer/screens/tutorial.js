@@ -103,10 +103,26 @@ function tourSteps() {
   return steps;
 }
 
+// Did the user arrive on a deep link (a shared #apps/... route or a ?dtc=
+// fault link)? Then they came to view one specific thing -- the tour would be
+// noise. Bare '#' / '#apps' don't count; only an actual sub-destination does.
+function bootedIntoDeepLink() {
+  try {
+    const h = (location.hash || '').replace(/^#\/?/, '').replace(/\/$/, '');
+    if (h && h !== 'apps' && /^apps\//.test(h)) return true;   // #apps/<something>
+    if (new URLSearchParams(location.search).get('dtc')) return true;
+    return false;
+  } catch (e) { return false; }
+}
+
 // one-time offer on first boot. whatever the answer, never ask again
 // (re-runnable from Settings). easily dismissed: Esc / Not now / backdrop.
 async function maybeOfferTutorial() {
   if (Settings.get('tutorialSeen', 'no') === 'yes') return;
+  // A first-timer who followed a deep link is here for that one page, not a
+  // tour. Skip the offer WITHOUT marking it seen, so a later normal visit
+  // (landing on the home screen) still gets the tour.
+  if (bootedIntoDeepLink()) return;
   Settings.set('tutorialSeen', 'yes');
   const go = await confirmDialog({
     title: `Welcome to ${APP_NAME}`,
