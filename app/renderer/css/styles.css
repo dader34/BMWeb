@@ -2750,6 +2750,22 @@ body.apps-section .view { inset: 56px 0 0 0; }
 .setting-check:hover { color: var(--ink); }
 .inpa-settings .setting-check { font-family: var(--mono); font-size: 12px; }
 
+/* full-dataset download links: name on the left, size badge on the right */
+.offline-bundles-row { align-items: flex-start; }
+.offline-bundles { display: flex; flex-direction: column; gap: 8px; min-width: 260px; }
+.offline-bundle {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); text-decoration: none; cursor: pointer;
+}
+.offline-bundle:hover { border-color: var(--amber); }
+.offline-bundle-name { font-size: 12.5px; color: var(--ink); line-height: 1.3; }
+.offline-bundle-size {
+  flex: none; font-size: 11.5px; font-weight: 700; color: var(--amber);
+  font-family: var(--mono); letter-spacing: .02em;
+}
+.inpa-settings .offline-bundle { border-radius: 0; }
+
 /* several controls in one settings cell (the offline copy's picker, its
    wiring checkbox and its button), so a row stays one row */
 .setting-controls {

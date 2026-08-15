@@ -249,7 +249,37 @@ function showSettings() {
     };
     wrap.appendChild(combo.el);
 
-
+    // Full-dataset bundles: too big to zip in the browser like the per-car copy
+    // above, so these are pre-built .tar.zst archives hosted on Hugging Face.
+    // Each is the same dist-web/ tree (drop it behind any static server, or
+    // open index.html); sizes are shown so the choice is informed. The full
+    // catalogue is the whole thing; ETK / WDS are the two heavy datasets alone.
+    const BUNDLE_BASE =
+      'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/bundles/';
+    const bundles = [
+      { file: 'bmweb-full-catalogue.tar.zst', name: 'Full catalogue',
+        size: '6.5 GB', desc: 'The whole app offline: every chassis, parts, wiring, faults, diagnostics.' },
+      { file: 'bmweb-etk-all.tar.zst', name: 'Parts catalogue (ETK), all chassis',
+        size: '5.4 GB', desc: 'Every chassis’ part diagrams and numbers.' },
+      { file: 'bmweb-wds-all.tar.zst', name: 'Wiring diagrams (WDS), all chassis',
+        size: '1.0 GB', desc: 'BMW’s schematics for every covered chassis.' },
+    ];
+    const bRow = document.createElement('div');
+    bRow.className = 'setting-row offline-bundles-row';
+    bRow.innerHTML = `
+      <div class="setting-text">
+        <div class="setting-title">Full offline datasets</div>
+        <div class="setting-desc">Pre-built archives (drop the folder behind any
+          static server, or open index.html). Large — pick by size.</div>
+      </div>
+      <div class="offline-bundles">${bundles.map((b) => `
+        <a class="offline-bundle" href="${BUNDLE_BASE}${b.file}" download
+           title="${b.desc}">
+          <span class="offline-bundle-name">${b.name}</span>
+          <span class="offline-bundle-size">${b.size}</span>
+        </a>`).join('')}</div>`;
+    wrap.appendChild(bRow);
+    tipify(bRow);
   }
 
   view.appendChild(wrap);
