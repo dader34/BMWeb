@@ -258,11 +258,11 @@ function showSettings() {
       'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/bundles/';
     const bundles = [
       { file: 'bmweb-full-catalogue.tar.zst', name: 'Full catalogue',
-        size: '6.5 GB', desc: 'The whole app offline: every chassis, parts, wiring, faults, diagnostics.' },
+        size: '7.0 GB', desc: 'The whole app offline: every chassis, parts, wiring, faults, diagnostics.' },
       { file: 'bmweb-etk-all.tar.zst', name: 'Parts catalogue (ETK), all chassis',
-        size: '5.4 GB', desc: 'Every chassis’ part diagrams and numbers.' },
+        size: '5.8 GB', desc: 'Every chassis’ part diagrams and numbers.' },
       { file: 'bmweb-wds-all.tar.zst', name: 'Wiring diagrams (WDS), all chassis',
-        size: '1.0 GB', desc: 'BMW’s schematics for every covered chassis.' },
+        size: '1.1 GB', desc: 'BMW’s schematics for every covered chassis.' },
     ];
     const bRow = document.createElement('div');
     bRow.className = 'setting-row offline-bundles-row';
