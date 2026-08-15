@@ -194,13 +194,27 @@ html.no-chrome .topbar { grid-template-columns: auto 1fr auto; }
    mobile breakpoint reveals it. */
 .nav-back {
   display: none; -webkit-app-region: no-drag; cursor: pointer;
-  align-items: center; justify-content: center;
-  width: 38px; height: 38px; flex: none;
-  font-family: var(--display); font-size: 24px; line-height: 1;
+  align-items: center; justify-content: center; gap: 5px;
+  height: 38px; padding: 0 12px 0 9px; flex: none;
+  font-family: var(--display); font-size: 15px; font-weight: 700; line-height: 1;
   color: var(--ink); background: var(--panel);
-  border: 1px solid var(--line); border-radius: 4px; padding: 0 0 3px;
+  border: 1px solid var(--line); border-radius: 6px;
 }
+.nav-back::before { content: '‹'; font-size: 22px; margin-top: -2px; }
+/* the word is hidden on the narrow mobile bar (glyph only); shown on desktop */
+.nav-back .nav-back-label { display: none; }
+.nav-back:hover { border-color: var(--amber); }
 .nav-back:active { background: var(--raised); }
+/* On the ETK/WDS screens the F-key bar is hidden, so it can't carry Back --
+   surface a clearly labelled Back button in the topbar on desktop too. It is a
+   grid child; grid items stretch by default, so pin it to its content width and
+   the start of its cell (otherwise it spans the whole auto column). */
+body.apps-section .nav-back:not([hidden]),
+body.wds-nofkeys .nav-back:not([hidden]) {
+  display: inline-flex; width: auto; justify-self: start;
+}
+body.apps-section .nav-back .nav-back-label,
+body.wds-nofkeys .nav-back .nav-back-label { display: inline; }
 /* the top-right nav action mirrors nav-back: desktop hides it (the F-key bar
    carries the action there); the mobile block shows it. */
 .nav-action {
@@ -2889,6 +2903,10 @@ body.apps-section .view { inset: 56px 0 0 0; }
      right end of a scrolling F-key strip. Fires the screen's own `back`
      action, so it inherits whatever each screen already does. */
   .nav-back { display: flex; }
+  /* glyph-only on the narrow bar: the word costs room the phone doesn't have,
+     and the ‹ chevron reads as Back on its own (overrides the desktop label
+     reveal on apps-section/wds-nofkeys screens). */
+  .nav-back .nav-back-label { display: none !important; }
   /* MIN-WIDTH:0 IS THE WHOLE FIX. A grid child defaults to min-width:auto,
      which refuses to shrink below its content -- so the status cluster
      overflowed the bar and clipped FLASHING/SETTINGS instead of scrolling.

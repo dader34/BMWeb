@@ -41,11 +41,21 @@ const ROUTE_FOR_SCREEN = {
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
-  const m = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
-  if (m && typeof showWiring === 'function') {
-    const chassis = m[1].toUpperCase();
-    const doc = m[2] ? decodeURIComponent(m[2]) : null;
+  // #apps/wiring/<CHASSIS>[/<DOC>]
+  const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
+  if (w && typeof showWiring === 'function') {
+    const chassis = w[1].toUpperCase();
+    const doc = w[2] ? decodeURIComponent(w[2]) : null;
     return () => showWiring(chassis, doc);
+  }
+  // #apps/parts/<CHASSIS>[/<HG>[/<BTNR>]]  (vin is an exact route, handled above)
+  const p = /^apps\/parts\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(route);
+  if (p && p[1].toLowerCase() !== 'vin') {
+    const chassis = p[1].toUpperCase();
+    const hg = p[2] ? decodeURIComponent(p[2]) : null;
+    const btnr = p[3] ? decodeURIComponent(p[3]) : null;
+    if (hg && typeof showEtkDeep === 'function') return () => showEtkDeep(chassis, hg, btnr);
+    if (typeof showEtkChassis === 'function') return () => showEtkChassis(chassis);
   }
   return null;
 }
@@ -165,9 +175,21 @@ function routeSetWiringDoc(chassis, doc) {
   finally { _routing = false; }
 }
 
+// Same, for an open ETK diagram: #apps/parts/<CHASSIS>/<HG>/<BTNR>.
+function routeSetEtkDiagram(chassis, hg, btnr) {
+  if (_routing || !chassis || !hg || !btnr) return;
+  const route = `apps/parts/${String(chassis).toUpperCase()}/`
+    + `${encodeURIComponent(hg)}/${encodeURIComponent(btnr)}`;
+  if (currentRoute() === route) return;
+  _routing = true;
+  try { history.replaceState(null, '', '#' + route); _openRoute = route; }
+  finally { _routing = false; }
+}
+
 if (typeof window !== 'undefined') {
   window.installRouter = installRouter;
   window.routeApplyHash = routeApplyHash;
   window.routeSyncFromScreen = routeSyncFromScreen;
   window.routeSetWiringDoc = routeSetWiringDoc;
+  window.routeSetEtkDiagram = routeSetEtkDiagram;
 }

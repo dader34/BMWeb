@@ -1042,7 +1042,7 @@ function variantLabel(v) {
 // A main group opened: the wiring-style split -- its function-group tree of
 // diagrams on the left, the selected diagram on the right, all honouring the
 // active variant filter.
-function showEtkGroup(data, chassisId, mg) {
+function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   const id = chassisId.toUpperCase();
   lastScreen = () => showEtkGroup(data, id, mg);
   setCrumbs([
@@ -1087,11 +1087,16 @@ function showEtkGroup(data, chassisId, mg) {
       leaf.className = 'etk-tleaf';
       leaf.innerHTML = `<span class="etk-lname">${esc(d.name)}</span>
                         <span class="etk-lcount">${countFit(d.parts)}</span>`;
+      leaf._btnr = d.btnr;
       leaf.onclick = () => {
         if (selectedLeaf) selectedLeaf.classList.remove('active');
         leaf.classList.add('active');
         selectedLeaf = leaf;
         renderDiagram(data, id, d, viewEl);
+        // reflect the open diagram in the URL so it's a shareable deep link
+        if (typeof routeSetEtkDiagram === 'function') {
+          routeSetEtkDiagram(id, mg.hg, d.btnr);
+        }
       };
       kids.appendChild(leaf);
     });
@@ -1100,9 +1105,21 @@ function showEtkGroup(data, chassisId, mg) {
     treeEl.appendChild(grp);
   });
 
-  // open the first diagram so the pane isn't empty
-  const firstLeaf = treeEl.querySelector('.etk-tleaf');
-  if (firstLeaf) firstLeaf.click();
+  // open the requested diagram (deep link), else the first so the pane isn't
+  // empty. A deep-linked leaf may sit in a collapsed group -- open it first.
+  let target = null;
+  if (openBtnr) {
+    target = [...treeEl.querySelectorAll('.etk-tleaf')].find(l => l._btnr === openBtnr);
+    if (target) {
+      const kids = target.closest('.etk-tkids');
+      if (kids && kids.style.display === 'none') {
+        const hdr = kids.previousElementSibling;
+        if (hdr) hdr.click();                 // expand the group
+      }
+      target.scrollIntoView({ block: 'center' });
+    }
+  }
+  (target || treeEl.querySelector('.etk-tleaf'))?.click();
 
   sbLeft.textContent = mg.name;
   // a back action so the mobile top-left chevron appears (and Esc works),
@@ -1110,6 +1127,24 @@ function showEtkGroup(data, chassisId, mg) {
   // hidden here (wds-nofkeys), but the chevron/Esc still fire this.
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
                 fn: () => showEtkChassis(id) }]);
+}
+
+// Deep-link entry: open a chassis's main group (and optionally a specific
+// diagram) directly from a URL like #apps/parts/E46/11 or
+// #apps/parts/E46/11/11_0100. Loads the bundle, finds the main group by its
+// HG number, and hands off to showEtkGroup. Falls back to the chassis grid.
+async function showEtkDeep(chassisId, hg, btnr) {
+  const id = String(chassisId || '').toUpperCase();
+  if (!hg) { return showEtkChassis(id); }
+  // render the chassis screen first so a slow load still shows something and
+  // Back has somewhere to go, then swap to the group once data is in hand.
+  await showEtkChassis(id);
+  try {
+    const data = await loadEtk(id);
+    const mg = (data.tree.maingroups || [])
+      .find(m => String(m.hg) === String(hg));
+    if (mg) showEtkGroup(data, id, mg, btnr || null);
+  } catch (e) { /* the chassis grid is already up */ }
 }
 
 // parts count honouring the active variant filter
