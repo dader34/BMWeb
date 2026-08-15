@@ -205,16 +205,22 @@ html.no-chrome .topbar { grid-template-columns: auto 1fr auto; }
 .nav-back .nav-back-label { display: none; }
 .nav-back:hover { border-color: var(--amber); }
 .nav-back:active { background: var(--raised); }
-/* On the ETK/WDS screens the F-key bar is hidden, so it can't carry Back --
-   surface a clearly labelled Back button in the topbar on desktop too. It is a
-   grid child; grid items stretch by default, so pin it to its content width and
-   the start of its cell (otherwise it spans the whole auto column). */
-body.apps-section .nav-back:not([hidden]),
-body.wds-nofkeys .nav-back:not([hidden]) {
+/* On the apps-section screens (ETK parts, etc.) the F-key bar is hidden and the
+   screen has no toolbar of its own, so surface a clearly labelled Back button
+   in the topbar on desktop. NOT on wds-nofkeys: the WDS viewer already carries
+   its own Back in its toolbar, so a topbar one would double up. It is a grid
+   child; grid items stretch by default, so pin it to content width and the
+   start of its cell (otherwise it spans the whole auto column). */
+body.apps-section .nav-back:not([hidden]) {
   display: inline-flex; width: auto; justify-self: start;
 }
-body.apps-section .nav-back .nav-back-label,
-body.wds-nofkeys .nav-back .nav-back-label { display: inline; }
+body.apps-section .nav-back .nav-back-label { display: inline; }
+/* Revealing nav-back adds a 4th visible cell to the topbar, but the browser
+   build (html.no-chrome) only lays out 3 columns [brand | breadcrumbs | right],
+   so the extra child wrapped and shoved the breadcrumbs off the right edge.
+   When Back is showing, restore the 4-column shape [back | brand | crumbs | right]
+   so the breadcrumbs keep the 1fr slack and topbar-right stays pinned right. */
+html.no-chrome body.apps-section .topbar { grid-template-columns: auto auto 1fr auto; }
 /* the top-right nav action mirrors nav-back: desktop hides it (the F-key bar
    carries the action there); the mobile block shows it. */
 .nav-action {

@@ -1053,7 +1053,11 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
     { label: `${mg.hg} ${mg.name}` },
   ]);
   view.innerHTML = '';
+  // wds-nofkeys hides the F-key bar; apps-section reveals the topbar Back button
+  // (the ETK diagram screen has no toolbar Back of its own, unlike the WDS
+  // viewer -- so it needs the topbar one).
   document.body.classList.add('wds-nofkeys');
+  document.body.classList.add('apps-section');
 
   const split = document.createElement('div');
   split.className = 'etk-split';
