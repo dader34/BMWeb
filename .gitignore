@@ -132,3 +132,12 @@ data/ecu-src/*
 # the same deal as the BMW originals above. 151 MB of derived data that the
 # importer reproduces in a minute, so it is a build input, not a commit.
 app/renderer/data/wiring/
+
+# Large BMW-derived fault data (ISTA/EDIABAS copyrighted text). NOT shipped in
+# the repo -- hosted on Hugging Face (CraigFf/bmweb-etk/faults/) and loaded at
+# runtime, with the authoritative backup in ../BMWFILES/faults-backup/. See the
+# _lazyScript loader in translate.js.
+app/renderer/data/faultinfo.js
+app/renderer/data/faultmeta.js
+app/renderer/data/faultdb.js
+app/renderer/data/faultindex.js

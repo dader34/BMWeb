@@ -8,16 +8,27 @@
 // SGBD German fault text, code the ORT hex from FORTTEXTE ("" if unknown).
 // Search matches the key, the English text, AND the code.
 
-// lazy-load window.BMW_FAULT_INDEX by injecting faultindex.js once.
+// lazy-load window.BMW_FAULT_INDEX by injecting faultindex.js once. Like the
+// other large BMW-derived fault data it isn't shipped in the repo -- try a
+// local build copy first, then fall back to the Hugging Face dataset.
+const FAULT_INDEX_HF =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/faultindex.js';
 function loadFaultIndex() {
   if (window.BMW_FAULT_INDEX) return Promise.resolve();
   if (window.__faultIndexLoading) return window.__faultIndexLoading;
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const urls = [`${base}/data/faultindex.js`, FAULT_INDEX_HF];
   window.__faultIndexLoading = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'data/faultindex.js';
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('failed to load fault index'));
-    document.head.appendChild(s);
+    let i = 0;
+    const tryNext = () => {
+      if (i >= urls.length) { reject(new Error('failed to load fault index')); return; }
+      const s = document.createElement('script');
+      s.src = urls[i++];
+      s.onload = () => resolve();
+      s.onerror = () => { s.remove(); tryNext(); };   // local missing -> HF
+      document.head.appendChild(s);
+    };
+    tryNext();
   });
   return window.__faultIndexLoading;
 }

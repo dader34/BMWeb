@@ -6,17 +6,28 @@
 // resolves once window.BMW_FAULT_DB is set. Screens kick this off before
 // rendering so faultName lookups stay synchronous.
 let _faultDbPromise = null;
+// faultdb.js (BMW_FAULT_DB / BMW_FAULT_PHRASES) is large BMW-derived data, not
+// shipped in the repo: local build copy first, then the Hugging Face dataset.
+const FAULT_DB_HF =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/faultdb.js';
 function loadFaultDb() {
   if (typeof loadPcodes === 'function') loadPcodes();
   if (typeof loadFaultMeta === 'function') loadFaultMeta();
   if (window.BMW_FAULT_DB) return Promise.resolve();
   if (_faultDbPromise) return _faultDbPromise;
+  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const urls = [`${base}/data/faultdb.js`, FAULT_DB_HF];
   _faultDbPromise = new Promise((resolve) => {
-    const s = document.createElement('script');
-    s.src = 'data/faultdb.js';
-    s.onload = () => resolve();
-    s.onerror = () => { _faultDbPromise = null; resolve(); }; // lookups fall back to deGerman
-    document.head.appendChild(s);
+    let i = 0;
+    const tryNext = () => {
+      if (i >= urls.length) { _faultDbPromise = null; resolve(); return; } // fall back to deGerman
+      const s = document.createElement('script');
+      s.src = urls[i++];
+      s.onload = () => resolve();
+      s.onerror = () => { s.remove(); tryNext(); };
+      document.head.appendChild(s);
+    };
+    tryNext();
   });
   return _faultDbPromise;
 }

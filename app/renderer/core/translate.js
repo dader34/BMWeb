@@ -768,17 +768,36 @@ function loadPcodes() {
 // rich ISTA fault metadata + service-info documents (decrypted DiagDocDb).
 // Lazy-loaded: meta (14MB) warms with the fault screens; info (60MB) only on a
 // fault detail panel.
+//
+// The large BMW-derived fault data (faultinfo/faultmeta/faultdb/faultindex) is
+// NOT shipped in the repo -- it is BMW's copyrighted ISTA/EDIABAS text. It is
+// hosted on the same Hugging Face dataset as the ETK data and loaded from there
+// at runtime, with a local `data/` copy taking precedence when a build ships
+// one (offline/desktop). Loading is a plain <script src> that sets a window
+// global; cross-origin classic scripts load fine from HF.
+const FAULT_HF_BASE =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
+
 function _lazyScript(src, ready, holder) {
   return function () {
     if (typeof window === 'undefined') return Promise.resolve();
     if (window[ready]) return Promise.resolve();
     if (holder.p) return holder.p;
+    // basename for the HF fallback (src is like 'data/faultinfo.js')
+    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+    const file = src.split('/').pop();
+    const urls = [`${base}/${src}`, `${FAULT_HF_BASE}${file}`];
     holder.p = new Promise((resolve) => {
-      const s = document.createElement('script');
-      s.src = src;
-      s.onload = () => resolve();
-      s.onerror = () => { holder.p = null; resolve(); };
-      document.head.appendChild(s);
+      let i = 0;
+      const tryNext = () => {
+        if (i >= urls.length) { holder.p = null; resolve(); return; }
+        const s = document.createElement('script');
+        s.src = urls[i++];
+        s.onload = () => resolve();
+        s.onerror = () => { s.remove(); tryNext(); };  // local missing -> HF
+        document.head.appendChild(s);
+      };
+      tryNext();
     });
     return holder.p;
   };
