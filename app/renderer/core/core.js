@@ -272,6 +272,9 @@ function setCrumbs(items) {
     if (c.fn) el.onclick = c.fn;
     crumbsEl.appendChild(el);
   });
+  // reflect the current screen in the URL so Apps pages are linkable and Back
+  // works. lastScreen is set at the top of every screen fn before it renders.
+  if (typeof routeSyncFromScreen === 'function') routeSyncFromScreen(lastScreen);
 }
 
 // INPA function-key bar: screens declare actions bound to number keys 1..9,0.

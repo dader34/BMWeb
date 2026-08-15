@@ -621,10 +621,15 @@ function setupMobileTabbar() {
     }
   }
 
+  // enable hash routing for the Apps section (linkable pages + Back button)
+  if (typeof installRouter === 'function') installRouter();
+
   // jump straight to a preselected startup vehicle (and module), else the picker
   const startChassis = Settings.get('startChassis', '');
   const startEcu = Settings.get('startEcu', '');
   const openStart = async () => {
+    // a deep link (#apps, #apps/parts, ...) wins over the startup-vehicle pref
+    if (typeof routeApplyHash === 'function' && routeApplyHash()) return;
     if (startChassis) {
       const ids = await api('/api/chassis').catch(() => []);
       if (ids.includes(startChassis)) {

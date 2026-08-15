@@ -144,12 +144,13 @@ async function wiringChassisList() {
 // Wiring as its own section: pick the car here rather than arriving via chassis.
 async function showWiringChassis() {
   lastScreen = showWiringChassis;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Wiring' }]);
+  setCrumbs([{ label: 'Vehicles', fn: showChassis },
+             { label: 'Apps', fn: showApps }, { label: 'Wiring' }]);
   sbLeft.textContent = 'wiring';
   view.innerHTML = head('WDS', 'Wiring Diagrams',
     'BMW’s own schematics. Pick a vehicle to browse its diagrams.');
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: showChassis }]);
+                fn: showApps }]);
 
   const classic = typeof inpaMode === 'function' && inpaMode();
   const grid = document.createElement('div');
@@ -204,7 +205,7 @@ async function showWiringChassis() {
     ...ids.slice(0, 9).map((id, i) => ({
       key: String(i + 1), label: dispChassis(id), fn: () => showWiring(id),
     })),
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showChassis },
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps },
   ]);
 }
 
@@ -212,6 +213,7 @@ function showWiring(chassisId, openDoc = null) {
   lastScreen = () => showWiring(chassisId);
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
     { label: 'Wiring', fn: showWiringChassis },
     { label: dispChassis(chassisId) },
   ]);

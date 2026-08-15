@@ -779,7 +779,7 @@ async function showLookup() {
   });
 
   setActions([
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showChassis() },
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showApps() },
     { key: '1', label: 'Clear filters', fn: () => {
         lookupState.q = ''; lookupState.chassis = ''; lookupState.module = '';
         input.value = '';
