@@ -1336,8 +1336,10 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   const open = async (it) => {
     // a MODE TOGGLE: one option of a radio group setting a shared flag the
     // actuator run reads. Calls no job and navigates nowhere, so picking it just
-    // records the choice and redraws to show which is active.
-    const modeGroup = irModeGroup(ir, menuName, it);
+    // records the choice and redraws to show which is active. A card that
+    // navigates (menu/screen) is never one of these, even if it shares a
+    // selSlot -- treat it as navigation so clicking opens the page.
+    const modeGroup = !it.menu && !it.screen && irModeGroup(ir, menuName, it);
     if (modeGroup) {
       irSetMode(ir, menuName, it.selSlot, it.sel);
       renderIrMenu(ecu, ir, menuName, container, back, trail);
@@ -1693,6 +1695,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     if (it.stateForm) return 'build';
     if (it.stateEdit) return 'edit';
     if (it.stateCopy) return 'default';
+    // A navigation card (opens a submenu or screen) is NOT a mode option, even
+    // if the IR happens to give it a selSlot: the ●on/○ lamp is for the
+    // mutually-exclusive VALUE rows inside a mode-select screen, not for the
+    // function-group tiles on a root menu. Showing it there reads as a toggle
+    // the user can flip, which these are not.
+    if (it.menu || it.screen) return '';
     // a mode toggle: the row shows a lamp for the currently-selected option
     const modeGroup = irModeGroup(ir, menuName, it);
     if (modeGroup) {
