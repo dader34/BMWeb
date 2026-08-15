@@ -82,6 +82,30 @@ function istaTestFor(faultText) {
 
 // lookup screen state persists within a visit so filters survive re-render
 const lookupState = { q: '', chassis: '', module: '' };
+
+// Shareable fault link: an open fault detail puts ?dtc=HEX (and optionally
+// &sgbd=) in the URL, preserving the #apps/diagnostics hash. replaceState keeps
+// it out of the history stack (browsing faults shouldn't spam Back).
+function setDtcParam(hex, sgbd) {
+  try {
+    const u = new URL(location.href);
+    if (hex) {
+      u.searchParams.set('dtc', String(hex).toUpperCase());
+      if (sgbd) u.searchParams.set('sgbd', String(sgbd)); else u.searchParams.delete('sgbd');
+    } else {
+      u.searchParams.delete('dtc');
+      u.searchParams.delete('sgbd');
+    }
+    history.replaceState(history.state, '', u.href);
+  } catch (e) { /* URL API missing: shareable link is best-effort */ }
+}
+function getDtcParam() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const dtc = p.get('dtc');
+    return dtc ? { hex: dtc.toUpperCase(), sgbd: p.get('sgbd') || '' } : null;
+  } catch (e) { return null; }
+}
 const LOOKUP_MAX = 400; // cap rendered rows; the count line reports the true total
 
 // prettified module labels harvested from the live chassis config, per chassis:
@@ -725,6 +749,10 @@ async function showLookup() {
     const pcodeBar = pcodes.length
       ? `<div class="fm-pcodes">${pcodes.map(p => `<span class="fm-pcode">${esc(p)}</span>`).join('')}</div>`
       : '';
+    // reflect the open fault in the URL (?dtc=HEX) so it's shareable; strip it
+    // when the modal closes. Uses replaceState so it doesn't stack history
+    // entries as you browse faults.
+    setDtcParam(hex, sgbd);
     const { overlay, close } = openModal(`
       <div class="modal fault-modal" role="dialog" aria-modal="true">
         <div class="fm-head">
@@ -734,7 +762,7 @@ async function showLookup() {
         </div>
         ${pcodeBar}
         <div class="fm-body" id="fm-body"><div class="fm-loading">Loading service data…</div></div>
-      </div>`, { backdropValue: null });
+      </div>`, { backdropValue: null, onClose: () => setDtcParam(null) });
     overlay.querySelector('.fm-close').onclick = () => close();
 
     if (typeof loadFaultInfo === 'function') await loadFaultInfo();
@@ -788,4 +816,17 @@ async function showLookup() {
         render(); input.focus();
       } },
   ]);
+
+  // shared link (?dtc=HEX): open that fault's detail. Guard on a modal not
+  // already being up, so a re-render (labels loading, etc.) doesn't stack a
+  // second copy, and closing the modal (which strips ?dtc) doesn't reopen it.
+  const dtc = getDtcParam();
+  if (dtc && !document.querySelector('.fault-modal')) {
+    (async () => {
+      if (typeof loadFaultMeta === 'function') await loadFaultMeta();
+      if (!getDtcParam()) return;               // closed/navigated before load
+      const v = (typeof variantsForHex === 'function' ? variantsForHex(dtc.hex) : [])[0];
+      openFaultModal(dtc.hex, v ? v.name : '', dtc.sgbd || (v ? v.sgbd : ''));
+    })();
+  }
 }

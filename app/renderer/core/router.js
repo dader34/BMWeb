@@ -42,6 +42,11 @@ const EXIT_APPS_SCREEN = new Set(['showChassis', 'showSettings']);
 // true while the router itself is driving navigation, so the hashchange it
 // causes doesn't loop back into another navigation.
 let _routing = false;
+// the route we last actually opened, so a redundant hashchange/popstate (e.g.
+// the ones our own replaceState+pushState seeding can emit) doesn't re-render
+// the same screen -- which, for an async screen like showLookup, double-appends
+// its body and shows the search UI twice.
+let _openRoute = null;
 
 function currentRoute() {
   const h = (location.hash || '').replace(/^#\/?/, '').replace(/\/$/, '');
@@ -63,13 +68,13 @@ function routeSyncFromScreen(fn) {
     // #apps route. Un-named sub-screens (chassis grid, a wiring diagram) leave
     // the hash as-is -- they live under an app but aren't top-level routes.
     if (EXIT_APPS_SCREEN.has(name) && currentRoute().startsWith('apps')) {
-      _routing = true;
+      _routing = true; _openRoute = null;
       try { history.replaceState(null, '', location.pathname + location.search); }
       finally { _routing = false; }
     }
     return;
   }
-  if (currentRoute() === route) return;        // already there, nothing to do
+  if (currentRoute() === route) { _openRoute = route; return; }  // already there
   _routing = true;
   try {
     // Backing out of any app should land on the hub, not skip past it to the
@@ -82,6 +87,7 @@ function routeSyncFromScreen(fn) {
       location.hash = '#apps';
     }
     location.hash = '#' + route;               // pushes a history entry
+    _openRoute = route;
   } finally { _routing = false; }
 }
 
@@ -100,6 +106,7 @@ function routeApplyHash() {
       history.replaceState(null, '', '#apps');
       history.pushState(null, '', '#' + route);
     }
+    _openRoute = route;
     open();
   } finally { _routing = false; }
   return true;
@@ -110,13 +117,14 @@ function routeApplyHash() {
 function _onLocationChange() {
   if (_routing) return;                        // our own hash write; ignore
   const route = currentRoute();
+  if (route === _openRoute) return;            // already on this screen; no-op
   const open = APPS_ROUTES[route];
   if (open) {
-    _routing = true;
+    _routing = true; _openRoute = route;
     try { open(); } finally { _routing = false; }
   } else if (route === '' && typeof showChassis === 'function') {
     // hash cleared (Back out of the Apps section) -> home
-    _routing = true;
+    _routing = true; _openRoute = null;
     try { showChassis(); } finally { _routing = false; }
   }
 }
