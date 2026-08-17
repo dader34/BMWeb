@@ -2660,66 +2660,11 @@ body.apps-section .view { inset: 56px 0 0 0; }
 .view:has(.wiring-split) .wiring-split { height: calc(100% - 12px); }
 
 /* ---- print ----------------------------------------------------------------
-   On screen this is a tool: toolbar, tree, footer, status bars. On paper the
-   document is the only thing wanted, as large as the sheet allows. */
-@media print {
-  @page { size: landscape; margin: 12mm; }
-  html, body {
-    background: #fff !important; color: #000 !important;
-    height: auto; overflow: visible;
-  }
-  /* every piece of app chrome. .wiring-toolbar and .wiring-zoom are the
-     modern layout's own -- the toolbar carries the Print button that started
-     the job, and the zoom controls sit on top of the diagram, so both would
-     otherwise be printed onto the sheet. */
-  .topbar, .fkeybar, .grain, .splash, .modal-overlay,
-  .wds-toolbar, .wds-titlebar, .wds-footer, .wiring-nav,
-  .wiring-toolbar, .wiring-zoom,
-  .screen-head, .crumbs, .breadcrumbs { display: none !important; }
-
-  /* the view stops being a scrolling pane and becomes the page */
-  .view {
-    position: static !important; inset: auto !important;
-    padding: 0 !important; overflow: visible !important;
-  }
-  .wiring-split, .wiring-split.wds-frame {
-    display: block !important; height: auto !important; margin: 0 !important;
-    border: none !important; background: #fff !important;
-  }
-  .wiring-body { display: block !important; }
-  .wiring-view {
-    display: block !important; border: none !important;
-    background: #fff !important; overflow: visible !important;
-  }
-  /* the diagram fills the sheet; SVG scales, so this is lossless */
-  .wiring-stage {
-    height: 16cm !important; overflow: visible !important;
-    background: #fff !important; border: 1px solid #999;
-  }
-  .wiring-stage svg { width: 100% !important; height: 100% !important; }
-  /* the on-screen title bar is replaced by the print header */
-  .wiring-bar { display: none !important; }
-  .print-head { display: block !important; margin-bottom: 6mm; }
-  .print-title {
-    font-family: Arial, Helvetica, sans-serif; font-size: 15pt;
-    font-weight: 700; color: #000; margin-bottom: 2mm;
-  }
-  .print-meta {
-    display: flex; gap: 6mm; font-family: Arial, Helvetica, sans-serif;
-    font-size: 9pt; color: #444;
-    border-bottom: 1px solid #999; padding-bottom: 2mm;
-  }
-  /* a description prints as a document, not a diagram */
-  .wiring-doc {
-    max-width: none !important; overflow: visible !important;
-    padding: 0 !important; color: #000 !important; font-size: 11pt;
-  }
-  .wiring-doc h1, .wiring-doc h2, .wiring-doc h3 { color: #000 !important; }
-  .wiring-doc h2 { page-break-after: avoid; }
-  .wiring-doc table, .wiring-doc tr { page-break-inside: avoid; }
-}
-/* the header exists only for printing */
-.print-head { display: none; }
+   Printing is handled entirely by core/print.js: it renders a self-contained,
+   theme-agnostic .print-root document and its @media print rule hides the live
+   app (body > *:not(#pr-root)). No per-screen print CSS lives here, so a theme
+   or layout change can never leak onto paper. Screens build their print content
+   via printDoc({...}) rather than relying on the on-screen DOM being print-safe. */
 
 /* Tooltips that appear at once. The browser's own take about a second and a
    half, which is long enough to give up on; these use the same title text so

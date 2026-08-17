@@ -66,6 +66,54 @@ function faultReportHtml(sub, metaPairs, bodyHtml) {
   </body></html>`;
 }
 
+// Web build: the same whole-car report, printed via the shared theme-agnostic
+// helper (core/print.js) instead of the Electron savePdf bridge. One section per
+// faulty module; a clean bill if none. Same faultFields projection as on screen.
+async function printFaultReport(chassisId, faulty, stats) {
+  if (typeof loadFaultMeta === 'function') await loadFaultMeta();
+  if (typeof loadPcodes === 'function') await loadPcodes();
+  const totalFaults = faulty.reduce((n, f) => n + f.codes.length, 0);
+  const sections = [];
+  if (!faulty.length) {
+    sections.push(printHtml(`<p class="pr-p">No stored faults. `
+      + `${stats.scanned} module${stats.scanned === 1 ? '' : 's'} read, ${stats.skipped} skipped.</p>`));
+  } else {
+    for (const f of faulty) {
+      const fields = f.codes.map((c) => faultFields(c, f.ecu.sgbd));
+      const hasDetail = fields.some((x) => x.ftype || x.count);
+      const headers = hasDetail
+        ? ['Code', 'Description', 'Type', 'Count', 'State']
+        : ['Code', 'Description', 'State'];
+      const rows = fields.map((x) => {
+        const code = x.pcode ? `${x.pcode}  (${x.code})` : x.code;
+        const state = x.present ? 'PRESENT' : 'stored';
+        return hasDetail
+          ? [code, x.name, x.ftype || '—', x.count || '—', state]
+          : [code, x.name, state];
+      });
+      const cols = hasDetail
+        ? ['pr-mono', '', '', 'pr-num', 'pr-num']
+        : ['pr-mono', '', 'pr-num'];
+      sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
+        + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
+      const t = printTable(headers, rows, cols); t.avoidBreak = false;
+      sections.push(t);
+    }
+  }
+  printDoc({
+    title: `${APP_NAME} Fault Report`,
+    subtitle: `${dispChassis(chassisId)} · fault memory across all modules`,
+    meta: [
+      ['Generated', new Date().toLocaleString()],
+      ['Modules with faults', String(faulty.length)],
+      ['Total faults', String(totalFaults)],
+      ['Read', `${stats.scanned} · skipped ${stats.skipped}`],
+    ],
+    sections,
+    footer: `${APP_NAME} · codes read over K+DCAN; descriptions are best-effort translations.`,
+  });
+}
+
 // whole-car quick-sweep export: one module block per faulty ECU (or a clean-bill
 // note), saved as a PDF. driven from the sweep screen's Export PDF button.
 async function exportFaultPdf(chassisId, faulty, stats) {

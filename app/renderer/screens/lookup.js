@@ -769,6 +769,7 @@ async function showLookup() {
         <div class="fm-head">
           <div class="fm-code">${esc(hex)}</div>
           <div class="fm-title">${esc(title)}</div>
+          <button class="fm-print" aria-label="Print" title="Print this fault and its diagnostic plan">Print</button>
           <button class="fm-close" aria-label="Close">✕</button>
         </div>
         ${pcodeBar}
@@ -785,6 +786,13 @@ async function showLookup() {
     body.innerHTML = infoTable(info)
       || '<div class="fm-noinfo">No service document for this fault.</div>';
 
+    // Print builds a clean sheet from the data (hex, name, P-codes, service
+    // fields, ISTA plan) -- not the modal DOM -- so it's theme-agnostic. The
+    // test plan arrives async; print with whatever is loaded at the time.
+    let istaDoc = null;
+    overlay.querySelector('.fm-print').onclick = () =>
+      printFaultDetail(hex, title, pcodes, info, istaDoc);
+
     // then bring in the ISTA diagnostic procedure for this component, if any.
     // Loaded lazily (12 MB from Hugging Face on first open); the modal is
     // already usable from the service fields above while it fetches.
@@ -794,7 +802,39 @@ async function showLookup() {
     loadIstaTests().then(() => {
       if (!document.body.contains(overlay)) return;   // closed while loading
       const doc = istaTestFor(title);
-      if (doc) tpSlot.innerHTML = testPlanSection(doc);
+      if (doc) { istaDoc = doc; tpSlot.innerHTML = testPlanSection(doc); }
+    });
+  }
+
+  // A fault and its diagnostic plan as a clean, theme-agnostic printout. Built
+  // from the data directly (not the modal DOM): the DTC, P-codes, the service
+  // fields, then the ISTA procedure chapters as typed blocks.
+  function printFaultDetail(hex, title, pcodes, info, doc) {
+    const sections = [];
+    // service fields -> a two-column table
+    if (info) {
+      const rows = _infoFields
+        .filter(([k]) => info[k] && String(info[k]).trim())
+        .map(([k, label]) => [label, String(info[k])]);
+      if (rows.length) sections.push(printTable(['Field', 'Detail'], rows, ['pr-mono', '']));
+    }
+    // ISTA diagnostic procedure -> heading + typed blocks per chapter
+    if (doc && doc.chapters && doc.chapters.length) {
+      sections.push(printHeading('Diagnostic procedure'
+        + (doc.title ? ` · ${doc.title}` : '')));
+      for (const ch of doc.chapters) {
+        if (ch.heading) sections.push(printHeading(ch.heading));
+        const blocks = ch.blocks || (ch.paras || []).map((p) =>
+          p.startsWith('• ') ? { t: 'bullet', s: p.slice(2) } : { t: 'p', s: p });
+        sections.push(printBlocks(blocks));
+      }
+    }
+    if (!sections.length) sections.push(printHtml('<p class="pr-p">No service document for this fault.</p>'));
+    printDoc({
+      title: `${hex} · ${title}`,
+      subtitle: pcodes && pcodes.length ? `P-codes: ${pcodes.join(', ')}` : '',
+      sections,
+      footer: `${APP_NAME} · Diagnostic Plans and Trouble Codes · printed ${new Date().toLocaleDateString()}`,
     });
   }
 

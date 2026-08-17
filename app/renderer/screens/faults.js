@@ -117,7 +117,16 @@ let faultComment = '';
 async function exportFaults(ecu, view) {
   const faults = lastFaultRead || [];
   if (!faults.length) { sbLeft.textContent = 'read codes first'; return; }
-  if (!(window.bmacw && window.bmacw.savePdf)) { sbLeft.textContent = 'export unavailable'; return; }
+  // Web build has no savePdf bridge: print a clean sheet for this one module
+  // through the shared helper instead (reuses the whole-car report builder).
+  if (!(window.bmacw && window.bmacw.savePdf)) {
+    if (typeof printFaultReport === 'function') {
+      const present = faults.filter(c => faultFields(c, ecu.sgbd).present).length;
+      printFaultReport(ecu.chassis || '', [{ ecu, codes: faults }],
+        { scanned: 1, skipped: 0, withFaults: 1, present });
+    } else { sbLeft.textContent = 'export unavailable'; }
+    return;
+  }
 
   // load ISTA P-code / name data so the report shows P-codes
   if (typeof loadFaultMeta === 'function') await loadFaultMeta();

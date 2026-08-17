@@ -202,13 +202,16 @@ async function quickErrorSweep(chassisId) {
     };
   }
 
-  // Export PDF: per-module fault report, available even with no faults
+  // Fault report, available even with no faults. Native saves a PDF via the
+  // Electron bridge; the web build prints a clean sheet via the shared helper.
   const pdfBtn = out.querySelector('#quick-pdf');
   if (pdfBtn && window.bmacw && window.bmacw.savePdf) {
     pdfBtn.disabled = false;
     pdfBtn.onclick = () => exportFaultPdf(id, faulty, { scanned, skipped, withFaults });
   } else if (pdfBtn) {
-    pdfBtn.remove(); // PDF export needs the Electron bridge
+    pdfBtn.textContent = 'Print report';
+    pdfBtn.disabled = false;
+    pdfBtn.onclick = () => printFaultReport(id, faulty, { scanned, skipped, withFaults });
   }
 
   headEl.textContent =

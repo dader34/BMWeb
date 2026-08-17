@@ -868,58 +868,40 @@ function fitAndPan(svg, stage, bar, classic = false) {
   return { by: zoomBy, fit };
 }
 
-// Print the DOCUMENT, not the app around it (the print stylesheet hides the
-// chrome; this adds the caption header). The zoomed viewBox is NOT printed: a
-// printout wants the whole circuit, so the full drawing is restored then put
-// back after.
+// Print the DOCUMENT via the shared theme-agnostic helper (core/print.js): a
+// clean sheet built from the diagram/description, not the styled app. A wiring
+// diagram prints as its inlined SVG (whole circuit, not the zoomed view); a
+// description prints as its HTML. Either way the printout ignores the current
+// theme and layout entirely.
 function printWiring(chassisId) {
   const stage = document.querySelector('.wiring-stage');
   const svg = stage && stage.querySelector('svg');
+  const doc = document.querySelector('.wiring-doc');
   const title = document.querySelector('.wiring-title');
   const kind = document.querySelector('.wiring-kind');
-  if (!title) { triggerPrint(); return; }   // a description prints as it is
+  const titleText = (title && title.textContent) || 'Wiring diagram';
+  const kindText = (kind && kind.textContent) || 'Wiring diagram';
 
-  const head = document.createElement('div');
-  head.className = 'print-head';
-  head.innerHTML = `
-    <div class="print-title">${esc(title.textContent)}</div>
-    <div class="print-meta">
-      <span>${esc(dispChassis(chassisId))}</span>
-      <span>${esc((kind && kind.textContent) || 'Wiring diagram')}</span>
-      <span>BMW WDS · printed ${new Date().toLocaleDateString()}</span>
-    </div>`;
-  document.body.appendChild(head);
-
-  // show the whole drawing, not the part currently zoomed to
-  const zoomed = svg && svg.getAttribute('viewBox');
-  if (svg && svg.dataset.homeViewbox) {
-    svg.setAttribute('viewBox', svg.dataset.homeViewbox);
+  let section;
+  if (svg) {
+    // clone so restoring the home viewBox for print doesn't disturb the live one
+    const clone = svg.cloneNode(true);
+    if (clone.dataset.homeViewbox) clone.setAttribute('viewBox', clone.dataset.homeViewbox);
+    clone.removeAttribute('style');   // drop any on-screen zoom transform
+    section = printSvg(clone.outerHTML);
+  } else if (doc) {
+    section = printHtml(doc.innerHTML);   // a description document
+  } else {
+    section = printHtml('');
   }
-  // Clean up ONCE, whichever route gets there first (promise, afterprint, or
-  // the timer for a WKWebView that fires neither). Removing the header mid-print
-  // would corrupt the page.
-  let done = false;
-  const cleanup = () => {
-    if (done) return;
-    done = true;
-    head.remove();
-    if (svg && zoomed) svg.setAttribute('viewBox', zoomed);
-    window.removeEventListener('afterprint', cleanup);
-  };
-  window.addEventListener('afterprint', cleanup);
-  triggerPrint().then(cleanup, cleanup);
-  setTimeout(cleanup, 20000);   // last resort if nothing ever settles
-}
 
-// GOTCHA: window.print() is a no-op inside a WKWebView (no dialog behind it), so
-// the Mac app runs an NSPrintOperation over the live view; the browser build's
-// dialog is real. The promise resolves when the panel closes.
-function triggerPrint() {
-  if (window.bmacw && typeof window.bmacw.printPage === 'function') {
-    return window.bmacw.printPage().catch(() => {});
-  }
-  window.print();          // browser build: the dialog is real
-  return Promise.resolve();
+  printDoc({
+    title: titleText,
+    meta: [['Vehicle', dispChassis(chassisId)], ['Type', kindText]],
+    sections: [section],
+    landscape: !!svg,   // a diagram wants landscape; a description reads portrait
+    footer: `BMW WDS · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
+  });
 }
 
 // WDS's own Help page, with our controls (a wheel and a drag, not Strg+click).

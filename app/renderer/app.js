@@ -653,6 +653,8 @@ function setupMobileTabbar() {
 
   // enable hash routing for the Apps section (linkable pages + Back button)
   if (typeof installRouter === 'function') installRouter();
+  // route Cmd/Ctrl+P to the active screen's clean print (see core/print.js)
+  if (typeof installPrintHotkey === 'function') installPrintHotkey();
 
   // jump straight to a preselected startup vehicle (and module), else the picker
   const startChassis = Settings.get('startChassis', '');

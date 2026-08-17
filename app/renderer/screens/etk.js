@@ -943,7 +943,7 @@ async function showEtkChassis(chassisId) {
   try { data = await loadEtk(id, onProgress); }
   catch (e) { loading.remove(); view.appendChild(errorBlock(String(e.message || e))); return; }
   loading.remove();
-  ETK_STATE.variant = null;   // reset filter when entering a chassis
+  ETK_STATE.variant = null; ETK_STATE.variantLabel = null;   // reset filter when entering a chassis
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');
@@ -975,7 +975,26 @@ async function showEtkChassis(chassisId) {
 
   sbLeft.textContent = `${(data.tree.maingroups || []).length} main groups`;
   sbRight.textContent = `${(data.tree.variants || []).length} variants`;
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk }]);
+  // Print here isn't the icon grid (a navigation menu) -- it's a clean catalogue
+  // index: the vehicle and its list of main groups.
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk },
+    { key: 'p', keyLabel: 'P', label: 'Print', fn: () => printEtkIndex(data, id) },
+  ]);
+}
+
+// The main-group index for a vehicle as a clean printout (not the icon grid).
+function printEtkIndex(data, chassisId) {
+  const mgs = data.tree.maingroups || [];
+  const rows = mgs.map((mg) => [mg.hg, mg.name]);
+  printDoc({
+    title: `${dispChassis(chassisId)} · parts catalogue`,
+    subtitle: ETK_STATE.variantLabel || '',
+    meta: [['Main groups', String(mgs.length)],
+           ['Variants', String((data.tree.variants || []).length)]],
+    sections: [printTable(['Group', 'Name'], rows, ['pr-mono', ''])],
+    footer: `${APP_NAME} · BMW ETK · printed ${new Date().toLocaleDateString()}`,
+  });
 }
 
 // A custom searchable dropdown for the 297 variants -- the native <select> is
@@ -1011,6 +1030,9 @@ function buildVariantDropdown(variants) {
   function choose(idx, text, ev) {
     if (ev) { ev.preventDefault(); ev.stopPropagation(); }
     ETK_STATE.variant = idx;
+    // the exact variant string ("325i · Lim · M54 · LHD · 2003-03"), so a
+    // printed diagram names the vehicle it was filtered to; null = all variants
+    ETK_STATE.variantLabel = idx != null ? text : null;
     cur.textContent = text;
     cur.classList.toggle('etk-vdd-filtered', idx != null);
     close();
@@ -1107,6 +1129,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   const viewEl = split.querySelector('#etk-view');
 
   let selectedLeaf = null;
+  let shownDiagram = null;                       // the diagram currently on screen
   mg.groups.forEach((g) => {
     const grp = document.createElement('div');
     grp.className = 'etk-tgroup';
@@ -1132,6 +1155,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
         if (selectedLeaf) selectedLeaf.classList.remove('active');
         leaf.classList.add('active');
         selectedLeaf = leaf;
+        shownDiagram = d;                       // remember it for Print
         renderDiagram(data, id, d, viewEl);
         // reflect the open diagram in the URL so it's a shareable deep link
         if (typeof routeSetEtkDiagram === 'function') {
@@ -1164,9 +1188,37 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   sbLeft.textContent = mg.name;
   // a back action so the mobile top-left chevron appears (and Esc works),
   // returning to this chassis's main-group grid. The F-key bar itself is
-  // hidden here (wds-nofkeys), but the chevron/Esc still fire this.
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: () => showEtkChassis(id) }]);
+  // hidden here (wds-nofkeys), but the chevron/Esc still fire this. Print emits
+  // a clean, theme-agnostic sheet of the diagram currently open.
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+      fn: () => showEtkChassis(id) },
+    { key: 'p', keyLabel: 'P', label: 'Print',
+      fn: () => { if (shownDiagram) printEtkDiagram(data, id, mg, shownDiagram); } },
+  ]);
+}
+
+// A single ETK diagram as a clean printout: exploded-view image on top, the
+// numbered parts list below (filtered to the active variant, same as on screen).
+function printEtkDiagram(data, chassisId, mg, d) {
+  const parts = d.parts.filter((p) =>
+    ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant));
+  const rows = parts.map((p) => [p.pos, fmtSachnr(p.sachnr, p.pre), p.name]);
+  const veh = ETK_STATE.variantLabel || dispChassis(chassisId);
+  printDoc({
+    title: d.name,
+    subtitle: veh,
+    meta: [
+      ['Main group', `${mg.hg} ${mg.name}`],
+      ['Parts', String(parts.length)],
+    ],
+    sections: [
+      printImage(etkImageUrl(data, d.img), d.name),
+      printTable(['No.', 'Part number', 'Description'], rows,
+                 ['pr-num', 'pr-mono', '']),
+    ],
+    footer: `${APP_NAME} · BMW ETK · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
+  });
 }
 
 // Deep-link entry: open a chassis's main group (and optionally a specific
