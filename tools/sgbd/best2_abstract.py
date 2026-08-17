@@ -27,13 +27,9 @@ and their offsets differ by the stride.
 
     python3 tools/best2_abstract.py ms450ds0 STATUS_MESSWERTBLOCK_0
 """
-import os
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
-sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
-                for d in ("decompile", "sgbd", "export", "verify")]
+import _engine                            # noqa: E402,F401  sys.path setup
 import sgbd_survey as S                                       # noqa: E402
 
 
@@ -418,19 +414,14 @@ class Machine:
             self.setreg(a0["r"], UNKNOWN)
 
 
-def trace_job(data, addr, limit=200_000):
-    """Run the machine over a job; return (machine, per-op snapshots)."""
-    m = Machine()
-    snaps = []
-    for i, (start, name, args) in enumerate(S.walk(data, addr, limit=limit)):
-        m.step(name, args)
-        snaps.append((start, name, args, dict(m.slots)))
-    return m, snaps
-
-
-def _linear_scan(data, addr):
+def _linear_scan(data, addr, ops=None):
     """Yield a job's instructions in LAYOUT order, skipping short branch
     bodies -- the traversal every verified resolution was built on.
+
+    `ops` may carry a pre-decoded list(S.walk(data, addr)) so a caller that
+    already decoded the job (sgbd_spec.extract runs several passes over one
+    job) does not pay for the decode again; without it the scan decodes for
+    itself, unchanged.
 
     The walk is linear, so it would otherwise run both sides of every
     branch, and the sign-extension idiom that follows nearly every signed
@@ -449,7 +440,8 @@ def _linear_scan(data, addr):
     silent. Revisit only with per-job regression coverage in place.
     """
     skip_until = None
-    for start, name, args in S.walk(data, addr):
+    for start, name, args in (ops if ops is not None
+                              else S.walk(data, addr)):
         # resume exactly AT the branch target -- the instruction there is
         # the join point and belongs to both paths
         if skip_until is not None and start >= skip_until:
@@ -464,17 +456,17 @@ def _linear_scan(data, addr):
         yield start, name, args
 
 
-def resolve_result_bytes(data, addr, want_consts=False):
+def resolve_result_bytes(data, addr, want_consts=False, ops=None):
     """{result_name: [byte offsets]} for results the direct lifter misses.
 
-    Runs the abstract machine over the job (see _linear_scan), and when an
-    `erg*` stores from a register, reports the response bytes that
-    register's value came from.
+    Runs the abstract machine over the job (see _linear_scan, including the
+    optional pre-decoded `ops`), and when an `erg*` stores from a register,
+    reports the response bytes that register's value came from.
     """
     m = Machine()
     out = {}
     consts = {}
-    for start, name, args in _linear_scan(data, addr):
+    for start, name, args in _linear_scan(data, addr, ops):
         if name.startswith("erg") and args and "s" in args[0]:
             nm = args[0]["s"]
             src = args[1] if len(args) > 1 else None
@@ -510,8 +502,9 @@ def resolve_result_bytes(data, addr, want_consts=False):
     return (out, consts) if want_consts else out
 
 
-def resolve_transforms(data, addr):
+def resolve_transforms(data, addr, ops=None):
     """{result: {mask, addend}} -- transformations applied before the store.
+    `ops` as in _linear_scan: an optional pre-decoded instruction list.
 
     A raw byte is rarely stored as-is. BM_WIDE masks a bit out of it
     (`and L0, L1` where L1 holds 1: the engine returns 1, the unmasked byte is
@@ -528,7 +521,7 @@ def resolve_transforms(data, addr):
     m = Machine()
     out = {}
     mask = add = shift = None
-    for start, name, args in _linear_scan(data, addr):
+    for start, name, args in _linear_scan(data, addr, ops):
         if name in ("lsr", "asr") and len(args) == 2 and m.seen_send:
             operand = m.get(args[1])
             target = m.get(args[0])
@@ -598,8 +591,9 @@ def resolve_transforms(data, addr):
     return out
 
 
-def detect_loop(data, addr):
+def detect_loop(data, addr, ops=None):
     """Describe a per-iteration read loop, or None.
+    `ops` as in _linear_scan: an optional pre-decoded instruction list.
 
     The measurement-block jobs read one record per pass: a scratch slot holds
     a byte CURSOR that is advanced by a second slot (the record width) each
@@ -616,9 +610,11 @@ def detect_loop(data, addr):
     # each result (SMG2's ADAPTIONSWERTE_LESEN refills S0[2] 100+ times with no
     # branch at all), and calling that a loop invented a cursor and stride for
     # a job that simply reads consecutive bytes.
+    if ops is None:
+        ops = list(S.walk(data, addr))
     has_back_branch = any(
         n in S.JUMPS and a and "v" in a[0] and addr <= a[0]["v"] < st
-        for st, n, a in S.walk(data, addr))
+        for st, n, a in ops)
     if not has_back_branch:
         return None
 
@@ -633,7 +629,7 @@ def detect_loop(data, addr):
     # semantics matter here), so ask it.
     m = Machine()
     cursor = counter = stride_slot = stride_const = None
-    for start, name, args in _linear_scan(data, addr):
+    for start, name, args in _linear_scan(data, addr, ops):
         if name == "move" and len(args) == 2 and args[0].get("m") == 9 \
                 and args[0].get("r") == "S0":
             dst = args[0].get("i")

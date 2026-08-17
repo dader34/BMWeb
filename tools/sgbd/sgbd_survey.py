@@ -42,10 +42,14 @@ CFG = os.path.join(ROOT, "vendor", "EC-APPS", "INPA", "CFGDAT", "E46.ENG")
 # opcode number -> name, transcribed from EdiabasNet.cs OcList (184 entries)
 # The opcode tables live in tools/, one level up from this file since the
 # reorg. Falling back to None here made every decode silently produce
-# nothing instead of failing, so resolve properly and let a genuine absence
-# be loud.
+# nothing instead of failing -- and OPS = None merely deferred the failure
+# to an obscure AttributeError at the first walk(). Loud means AT LOAD TIME,
+# with the missing file named.
 _OPS_PATH = os.path.join(os.path.dirname(HERE), "best2_ops.json")
-OPS = json.load(open(_OPS_PATH)) if os.path.exists(_OPS_PATH) else None
+if not os.path.exists(_OPS_PATH):
+    raise SystemExit(f"{_OPS_PATH} missing -- required opcode table "
+                     "(best2_ops.json, transcribed from EdiabasNet.cs)")
+OPS = json.load(open(_OPS_PATH))
 
 # operand byte counts per addressing mode (EdiabasNet.GetOpArg). ImmStr is
 # 2-byte length + payload, handled inline.
@@ -69,12 +73,42 @@ EXTCALL = {"pcall", "plink", "plinkv", "pjtsr"}
 JUMPS = {"jump", "ja", "jae", "jbe", "jc", "jg", "jge", "jl", "jle",
          "jmi", "jnt", "jnv", "jnz", "jpl", "jt", "jv", "jz"}
 
-WRITEISH = re.compile(
-    r"SCHREIBEN|LOESCHEN|STEUERN|RESET|PROGRAMMIER|FLASH|CODIER|SETZEN"
-    r"|LOGIN|AUTHENT|_WRITE|_CLEAR", re.I)
+# Result names that are protocol bookkeeping rather than ECU data.
+#
+# Only the _TEL_ prefixed tags belong here. The bare _AUFTRAG1 / _ANTWORT1
+# (ASCMK20) and _ANTWORT (LSZ, CVM_II) LOOK like the same internal telegrams,
+# but the engine declares them as genuine results for those SGBDs -- filtering
+# them cost 8 jobs their schema agreement. What a job publishes is the SGBD's
+# decision, not a naming convention we get to infer.
+#
+# Defined ONCE, here, and imported by both sgbd_spec (the producer) and
+# sgbd_diff (the checker). They used to carry separate copies that had
+# drifted: the diff anchored SAETZE$ where the spec filtered the SAETZE
+# prefix, so a SAETZE_<X> result was dropped by the spec but kept by the
+# diff -- a spurious "under-lifted" verdict about a result neither side
+# should count. The spec's prefix semantics win because the spec is the
+# producer; the diff must judge by the same rule.
+INTERNAL = re.compile(r"^(_TEL_|JOB_|SAETZE|VARIANTE$)")
 
 
-_PRG_STEMS = None
+# stem -> path caches for the Ecu dir. One directory scan, ever: resolving
+# per-SGBD with two glob.glob calls in the --all loop cost ~13,000 scans of
+# a ~6,500-entry directory for zero new information.
+_PRG_PATHS = None      # *.prg / *.PRG only
+_GRP_PATHS = None      # *.grp / *.GRP only
+
+
+def _scan_ecu_dir():
+    global _PRG_PATHS, _GRP_PATHS
+    if _PRG_PATHS is not None:
+        return
+    _PRG_PATHS, _GRP_PATHS = {}, {}
+    for p in glob.glob(os.path.join(ECU_DIR, "*")):
+        ext = p[-4:].lower()
+        if ext == ".prg":
+            _PRG_PATHS.setdefault(os.path.basename(p)[:-4].lower(), p)
+        elif ext == ".grp":
+            _GRP_PATHS.setdefault(os.path.basename(p)[:-4].lower(), p)
 
 
 def have_prg(stem):
@@ -85,20 +119,44 @@ def have_prg(stem):
     ship). An exact-case glob here silently dropped every ECU whose file
     was the other spelling on a case-sensitive filesystem.
     """
-    global _PRG_STEMS
-    if _PRG_STEMS is None:
-        _PRG_STEMS = {os.path.basename(p)[:-4].lower()
-                      for p in glob.glob(os.path.join(ECU_DIR, "*"))
-                      if p.lower().endswith(".prg")}
-    return stem.lower() in _PRG_STEMS
+    _scan_ecu_dir()
+    return stem.lower() in _PRG_PATHS
+
+
+def sgbd_path(stem):
+    """Path of the SGBD container for this stem, or None.
+
+    THE resolution helper: .prg first, then .grp -- group files share the
+    .prg container (same XOR 0xF7 stream, same job table at *0x88; see
+    sgbd_spec.load). This used to be answered three different ways:
+    sgbd_spec.load and --dump below included .grp while the survey's main
+    loop did not, so surveying a group file silently produced no rows while
+    dumping one of its jobs worked.
+    """
+    _scan_ecu_dir()
+    s = stem.lower()
+    return _PRG_PATHS.get(s) or _GRP_PATHS.get(s)
 
 
 def read_jobs(path):
-    """[(name, address)] from a .prg -- EdiabasNet.GetJobList."""
+    """[(name, address)] from a .prg -- EdiabasNet.GetJobList.
+
+    Raises ValueError (naming the file) on a truncated container instead of
+    letting struct.unpack_from throw: one clipped .prg in the vendor tree
+    used to kill sgbd_survey --all, sgbd_meta --all-chassis and
+    sgbd_code --all-chassis mid-sweep with a bare struct.error. Same
+    bounds-check shape as sgbd_meta.read_descriptions.
+    """
     data = open(path, "rb").read()
+    if len(data) < 0x8C:
+        raise ValueError(f"{path}: truncated .prg "
+                         f"({len(data)} bytes; header needs 0x8C)")
     (job_off,) = struct.unpack_from("<i", data, 0x88)
     if job_off < 0 or job_off >= len(data):
         return data, []
+    if job_off + 4 > len(data):
+        raise ValueError(f"{path}: job table at 0x{job_off:x} runs past "
+                         f"EOF ({len(data)} bytes)")
     (n,) = struct.unpack_from("<i", data, job_off)
     jobs, pos = [], job_off + 4
     for _ in range(max(0, n)):
@@ -179,6 +237,20 @@ def walk(data, addr, limit=250_000):
             elif mode == 10:                             # reg[reg]
                 args.append({"m": mode, "r": _reg(raw[0]),
                              "ir": _reg(raw[1])})
+            elif mode == 11:                             # reg[idxreg+#imm]
+                # IdxRegImm: register byte, index-register byte, 16-bit
+                # immediate offset -- exactly the 4 bytes MODE_LEN says.
+                # Provenance: the shipped VM (app/renderer/core/bestvm.js)
+                # decodes operand [11, reg, idxReg, imm] as
+                # `i = getReg(idxReg) + imm`, matching EdiabasNet's
+                # OpAddrMode ordering (IdxReg=10, IdxRegImm=11, then the
+                # four Len forms). Before this branch existed mode 11 fell
+                # into the else below labelled 15 and read the operand as
+                # reg[idxreg]lenreg -- three of the four bytes, all
+                # mislabelled (MS450 carries 72 of these, MSD80 321).
+                args.append({"m": mode, "r": _reg(raw[0]),
+                             "ir": _reg(raw[1]),
+                             "i": int.from_bytes(raw[2:4], "little")})
             elif mode == 12:                             # reg[#idx]#len
                 args.append({"m": mode, "r": _reg(raw[0]),
                              "i": int.from_bytes(raw[1:3], "little"),
@@ -223,6 +295,8 @@ def fmt_arg(opname, a):
         if opname in JUMPS:
             return f'L{a["v"]:06x}'
         return f'#${a["v"]:x}'
+    if m == 11:      # reg[idxreg+#imm]: both an index register and an offset
+        return f'{a["r"]}[{a["ir"]}+#${a["i"]:x}]'
     idx = (f'#${a["i"]:x}' if "i" in a else a["ir"]) if ("i" in a or "ir" in a) \
         else None
     ln = (f'#${a["len"]:x}' if "len" in a else a.get("lenr"))
@@ -231,12 +305,18 @@ def fmt_arg(opname, a):
     return a.get("r", "?")
 
 
-def classify(data, addr):
-    """(archetype, features) for one job's bytecode."""
+def classify(data, addr, ops=None):
+    """(archetype, features) for one job's bytecode.
+
+    `ops` may carry a pre-decoded list(walk(data, addr)) -- sgbd_spec.extract
+    decodes each job once and shares the list across its passes; callers
+    without one get their own decode, unchanged.
+    """
     f = collections.Counter()
     back_branch = loop_with_erg = False
     ops_seen = []
-    ops = list(walk(data, addr))
+    if ops is None:
+        ops = list(walk(data, addr))
     # loop bodies: the span of every backward branch that stays inside the job
     loops = [(a[0]["v"], st) for st, n, a in ops
              if n in JUMPS and a and "v" in a[0] and addr <= a[0]["v"] < st]
@@ -416,10 +496,9 @@ def main():
 
     if "--dump" in sys.argv:
         sgbd, want = args[0].lower(), args[1].upper()
-        # .grp group files share the .prg container (see sgbd_spec.load)
-        path = next(p for pat in ("*.prg", "*.PRG", "*.grp", "*.GRP")
-                    for p in glob.glob(os.path.join(ECU_DIR, pat))
-                    if os.path.basename(p)[:-4].lower() == sgbd)
+        path = sgbd_path(sgbd)
+        if not path:
+            raise SystemExit(f"no such SGBD: {sgbd}")
         data, jobs = read_jobs(path)
         addr = next(a for n, a in jobs if n.upper() == want)
         # label every branch target so loop structure is visible in the listing
@@ -433,9 +512,8 @@ def main():
 
     if "--all" in sys.argv:
         # either extension case, deduped by lowered stem (see have_prg)
-        targets = sorted({os.path.basename(p)[:-4].lower()
-                          for p in glob.glob(os.path.join(ECU_DIR, "*"))
-                          if p.lower().endswith(".prg")})
+        _scan_ecu_dir()
+        targets = sorted(_PRG_PATHS)
     elif args:
         targets = [a.lower() for a in args]
     else:
@@ -447,13 +525,20 @@ def main():
     ir_total = collections.Counter()
     per_ecu = []
     examples = collections.defaultdict(list)
+    # A malformed .prg must not kill an --all sweep, and must not vanish
+    # either: collect per-file parse failures, report them at the end, and
+    # exit nonzero so a scripted run cannot mistake a partial sweep for a
+    # complete one.
+    failed = []
     for sgbd in targets:
-        path = next((p for p in glob.glob(os.path.join(ECU_DIR, "*.prg"))
-                     + glob.glob(os.path.join(ECU_DIR, "*.PRG"))
-                     if os.path.basename(p)[:-4].lower() == sgbd), None)
+        path = sgbd_path(sgbd)
         if not path:
             continue
-        data, jobs = read_jobs(path)
+        try:
+            data, jobs = read_jobs(path)
+        except (ValueError, struct.error) as ex:
+            failed.append((sgbd, f"{type(ex).__name__}: {ex}"))
+            continue
         counts = collections.Counter()
         ir_ref = ir_jobs_for(sgbd)
         ir_counts = collections.Counter()
@@ -497,6 +582,11 @@ def main():
     for k in order:
         if examples[k]:
             print(f"  {k:12} {', '.join(examples[k])}")
+    if failed:
+        print(f"\n{len(failed)} SGBD(s) failed to parse:", file=sys.stderr)
+        for s, msg in failed:
+            print(f"  {s}: {msg}", file=sys.stderr)
+        return 1
     return 0
 
 

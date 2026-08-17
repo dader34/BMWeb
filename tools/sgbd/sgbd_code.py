@@ -42,11 +42,10 @@ silently clamped.
 import os
 import sys
 import json
+import struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
-sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
-                for d in ("decompile", "sgbd", "export", "verify")]
+import _engine                            # noqa: E402,F401  sys.path setup
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
@@ -104,6 +103,12 @@ def encode(data, addr_list):
             return [m, r, a.get("i")]
         if m == 10:
             return [m, r, a.get("ir")]
+        if m == 11:
+            # reg[idxreg+#imm] -- the [11, reg, idxReg, imm] shape bestvm.js
+            # already evaluates (`i = getReg(b) + c`). Before the survey
+            # decoded mode 11 properly this fell through to the bare [m, r]
+            # tail below, so the VM saw the register with no index at all.
+            return [m, r, a.get("ir"), a.get("i")]
         if m in (12, 13, 14, 15):
             return [m, r,
                     a.get("i") if a.get("i") is not None else a.get("ir"),
@@ -126,7 +131,7 @@ def encode(data, addr_list):
     return ops, index, strings
 
 
-def relocate(ops, index, data):
+def relocate(ops, index):
     """Rewrite jump operands from byte offsets to ops indices."""
     unresolved = 0
     for i, (name, args) in enumerate(ops):
@@ -168,7 +173,7 @@ def export(sgbd, write=True, all_jobs=False, dest=None):
     if not wanted:
         return None
     ops, index, strings = encode(data, [a for _, a in wanted])
-    unresolved = relocate(ops, index, data)
+    unresolved = relocate(ops, index)
     out = {"format": 1, "sgbd": sgbd,
            "jobs": {n: index[a] for n, a in wanted if a in index},
            "ops": ops, "strings": strings}
@@ -206,10 +211,18 @@ def main():
     else:
         targets = args or S.e46_sgbds()
     tot_ops = tot_bytes = tot_unres = 0
+    # One malformed .prg must not kill an --all-chassis sweep -- and must not
+    # vanish either. Parse failures are collected, summarised after the
+    # totals, and make the exit nonzero so a scripted run cannot mistake a
+    # partial export for a complete one.
+    failed = []
     for sgbd in targets:
         try:
             r = export(sgbd, all_jobs=all_jobs)
         except SystemExit:
+            continue
+        except (ValueError, struct.error) as ex:
+            failed.append((sgbd, f"{type(ex).__name__}: {ex}"))
             continue
         if not r:
             continue
@@ -223,6 +236,11 @@ def main():
     print(f"code: {tot_ops} ops, {tot_bytes//1024} KB, "
           f"{tot_unres} unresolved jumps")
     write_index()
+    if failed:
+        print(f"\n{len(failed)} SGBD(s) failed to parse:", file=sys.stderr)
+        for s, msg in failed:
+            print(f"  {s}: {msg}", file=sys.stderr)
+        return 1
     return 0
 
 

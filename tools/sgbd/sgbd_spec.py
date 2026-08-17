@@ -35,12 +35,9 @@ import os
 import re
 import sys
 import json
-import glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
-sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
-                for d in ("decompile", "sgbd", "export", "verify")]
+import _engine                            # noqa: E402,F401  sys.path setup
 import sgbd_survey as S                                       # noqa: E402
 import best2_abstract as BA                                   # noqa: E402
 
@@ -61,15 +58,10 @@ ERG_TYPE = {"ergb": "byte", "ergw": "word", "ergd": "dword", "ergi": "int",
             "ergl": "long", "ergr": "real", "ergs": "string", "ergy": "binary",
             "ergc": "char"}
 
-# results that are protocol bookkeeping rather than ECU data
-# Protocol bookkeeping rather than ECU data.
-#
-# Only the _TEL_ prefixed tags belong here. The bare _AUFTRAG1 / _ANTWORT1
-# (ASCMK20) and _ANTWORT (LSZ, CVM_II) LOOK like the same internal telegrams,
-# but the engine declares them as genuine results for those SGBDs -- filtering
-# them cost 8 jobs their schema agreement. What a job publishes is the SGBD's
-# decision, not a naming convention we get to infer.
-INTERNAL = re.compile(r"^(_TEL_|JOB_|SAETZE|VARIANTE$)")
+# Results that are protocol bookkeeping rather than ECU data. Defined once
+# in sgbd_survey (see the comment there) and shared with sgbd_diff, so the
+# producer and the checker can never disagree about what counts as internal.
+INTERNAL = S.INTERNAL
 
 
 def _num(s):
@@ -81,8 +73,13 @@ def _num(s):
 
 
 def extract(data, addr, sgbd, job):
+    # Decode the bytecode ONCE and hand the list to every pass that used to
+    # walk for itself (classify, resolve_transforms, resolve_result_bytes,
+    # detect_loop): the decode dominated extraction time, and each job was
+    # being re-decoded ~6x for identical results. The list is never mutated
+    # by any consumer, so sharing it is safe.
     ops = list(S.walk(data, addr))
-    arch, feats = S.classify(data, addr)
+    arch, feats = S.classify(data, addr, ops)
     spec = {"spec": SPEC_VERSION, "sgbd": sgbd, "job": job,
             "archetype": arch, "confidence": "partial"}
     gaps = []
@@ -151,7 +148,7 @@ def extract(data, addr, sgbd, job):
     # reaches the operand register through push/pop, so neither an immediate
     # match nor a register tracker can see it.
     try:
-        _xform = BA.resolve_transforms(data, addr)
+        _xform = BA.resolve_transforms(data, addr, ops)
     except Exception:                                       # noqa: BLE001
         _xform = {}
 
@@ -166,7 +163,6 @@ def extract(data, addr, sgbd, job):
     last_float_const = None
     freg_const = {}   # float register -> the constant a2flt put there
     fapplied = {}     # float register -> [scale, offset] applied to it
-    pending_mask = pending_add = None
     reg_num = {}                 # register -> last integer constant moved in
     # registers holding the response telegram. The bytecode routinely aliases
     # it (`xsend S3, ...` then `move S1, S3`) and reads through the copy, so
@@ -569,10 +565,8 @@ def extract(data, addr, sgbd, job):
                 # into the scale would misplace the addend
                 r["mult"] = r_mult
             results.append(r)
-            pending_mask = pending_add = None
             pending_scale = pending_off = None
             pending_index = staged_index = None
-    pending_bytes, pending_shift = [], False
     # attach units to their value results (STAT_UBATT_WERT <- STAT_UBATT_EINH)
     for r in results:
         stem = r["name"][:-5] if r["name"].endswith("_WERT") else r["name"]
@@ -720,7 +714,8 @@ def extract(data, addr, sgbd, job):
     # interpreter wins, and the direct answer is kept only when it matches or
     # the interpreter has nothing.
     try:
-        _flow, _consts = BA.resolve_result_bytes(data, addr, want_consts=True)
+        _flow, _consts = BA.resolve_result_bytes(data, addr, want_consts=True,
+                                                 ops=ops)
     except Exception:                                       # noqa: BLE001
         _flow, _consts = {}, {}
     for r in results:
@@ -856,7 +851,7 @@ def extract(data, addr, sgbd, job):
     # spec names the slot rather than inventing a constant.
     loop = None
     try:
-        loop = BA.detect_loop(data, addr)
+        loop = BA.detect_loop(data, addr, ops)
     except Exception:                                       # noqa: BLE001
         loop = None
     if loop:
@@ -998,10 +993,9 @@ def load(sgbd):
     # EDIABAS resolves "which variant is this ECU?": the group runs an
     # identification job and picks a concrete variant SGBD from the answer.
     # Loading only .prg meant variant detection had no code to run at all.
-    pats = ["*.prg", "*.PRG", "*.grp", "*.GRP"]
-    path = next((p for pat in pats
-                 for p in glob.glob(os.path.join(S.ECU_DIR, pat))
-                 if os.path.basename(p)[:-4].lower() == sgbd.lower()), None)
+    # Resolution (case-insensitive, .prg before .grp, one cached directory
+    # scan) is shared with the survey: see sgbd_survey.sgbd_path.
+    path = S.sgbd_path(sgbd)
     if not path:
         raise SystemExit(f"no such SGBD: {sgbd}")
     return S.read_jobs(path)

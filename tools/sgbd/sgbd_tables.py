@@ -28,13 +28,14 @@ import sys
 import json
 import glob
 import time
+import urllib.parse
 import urllib.request
+
+import _engine                            # noqa: E402  engine discovery
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ECU_DIR = os.path.join(HERE, "..", "..", "vendor", "EDIABAS", "Ecu")
 OUT = os.path.join(HERE, "..", "..", "data", "inpa-screens")
-
-API = os.environ.get("BMACW_API")
 
 # "table BITS NAME TEXT" in a job's argument comment: which table, which column
 # holds the value to send, which holds the label
@@ -45,17 +46,13 @@ LOCATION = re.compile(r"ORTTEXTE?$|^ORTE?$", re.I)
 
 
 def _base():
-    if API:
-        return API
-    import subprocess
-    try:
-        out = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-a",
-                              "-c", "InpaMac.A"], capture_output=True,
-                             text=True, timeout=15).stdout
-        m = re.search(r"127\.0\.0\.1:(\d+)", out)
-        return f"http://127.0.0.1:{m.group(1)}" if m else None
-    except Exception:                       # noqa: BLE001
-        return None
+    """Base URL of the running engine, or None -- see _engine.find_base.
+
+    Discovery is shared with sgbd_diff and sgbd_harvest now; this copy had
+    already drifted from theirs (BMACW_API vs BMACW_PORT, lsof-only vs
+    pgrep). Both env vars are honoured.
+    """
+    return _engine.find_base()
 
 
 def _get(base, path, timeout=60):
@@ -68,7 +65,10 @@ def referenced_tables(base, sgbd, jobs):
     refs = {}
     for job in jobs:
         try:
-            d = _get(base, f"/api/ecu/{sgbd}/arguments/{job}")
+            # job names come from the SGBD and can carry characters that are
+            # not URL-safe; quote so they cannot mangle the path
+            d = _get(base, f"/api/ecu/{sgbd}/arguments/"
+                           f"{urllib.parse.quote(job, safe='')}")
         except Exception:                   # noqa: BLE001
             continue
         for spec in d.get("arguments", []):
@@ -106,7 +106,9 @@ def harvest(base, sgbd):
     tables = {}
     for name in names:
         try:
-            rows = _get(base, f"/api/ecu/{sgbd}/table/{name}")
+            # table names likewise arrive from the SGBD; quote them too
+            rows = _get(base, f"/api/ecu/{sgbd}/table/"
+                              f"{urllib.parse.quote(name, safe='')}")
         except Exception:                   # noqa: BLE001 - unreadable table
             continue
         if not rows:
@@ -129,7 +131,8 @@ def main():
     base = _base()
     if not base:
         print("the app is not running — start it so the EDIABAS engine can\n"
-              "answer _TABLES/_TABLE offline, or set BMACW_API.", file=sys.stderr)
+              "answer _TABLES/_TABLE offline, or set BMACW_PORT (or "
+              "BMACW_API).", file=sys.stderr)
         return 2
 
     if args:

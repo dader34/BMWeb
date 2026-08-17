@@ -58,13 +58,21 @@ def owners():
             continue
         for sec in cfg.get("sections", []):
             for e in sec.get("ecus", []):
+                # a config entry without a code has no folder to live in;
+                # skip it LOUDLY -- e["code"] used to raise KeyError here and
+                # kill every generator funnelling through write_ecu
+                code = e.get("code")
+                if not code:
+                    print(f"  ecu_tree: SKIPPED {cid} entry without a code "
+                          f"(sgbd={e.get('sgbd')!r})", file=sys.stderr)
+                    continue
                 # the entry's own SGBD and its sibling dsN builds alike: all
                 # of them serve this car, and without the siblings write_ecu
                 # dropped them ("no chassis-config entry names this SGBD")
                 for sgbd in [e.get("sgbd")] + list(e.get("variants") or []):
                     sgbd = (sgbd or "").lower()
                     if sgbd:
-                        out.setdefault(sgbd, []).append((cid, e["code"]))
+                        out.setdefault(sgbd, []).append((cid, code))
     _OWNERS = out
     return out
 
@@ -73,6 +81,15 @@ def ecu_dirs(sgbd):
     """Every folder this SGBD's output belongs in. Empty if no car uses it."""
     return [os.path.join(TREE, cid, code)
             for cid, code in owners().get(str(sgbd).lower(), [])]
+
+
+def _folder_sgbd(d):
+    """The SGBD a folder's ecu.json declares as its own, or None."""
+    try:
+        with open(os.path.join(d, "ecu.json")) as f:
+            return (json.load(f).get("sgbd") or "").lower() or None
+    except (OSError, ValueError):
+        return None
 
 
 def write_ecu(sgbd, name, obj, raw=None):
@@ -84,9 +101,32 @@ def write_ecu(sgbd, name, obj, raw=None):
     each caller: several generators funnel through this function and most of
     them ignored the return value, so exports for unclaimed SGBDs vanished
     without a trace.
+
+    A folder is only written when its own ecu.json names THIS sgbd (or has
+    no ecu.json yet -- a tree being bootstrapped). owners() maps the sibling
+    dsN variants of an ECU onto the SAME folder, so a batch export used to
+    write bms46ds0's job-code into E46/BMS46 and then OVERWRITE it with
+    bms46ds1's, alphabetically last sibling winning -- and the VM then
+    replayed bms46ds0's engine fixture against bms46ds1's program, whose
+    injection-time offset constant is "0" where ds0's is "0.8"
+    (test_bestvm: STATUS_EINSPRITZZEIT 1.06 vs the engine's 1.86; same
+    silent clobber in 7 folders tree-wide, ms410/ms411/dm528 included).
+    One folder, one file name: it must carry the SGBD its ecu.json declares.
     """
-    dirs = ecu_dirs(sgbd)
-    if not dirs:
+    dirs = []
+    skipped = []
+    for d in ecu_dirs(sgbd):
+        own = _folder_sgbd(d)
+        if own is None or own == str(sgbd).lower():
+            dirs.append(d)
+        else:
+            skipped.append((d, own))
+    if skipped and not dirs:
+        where = ", ".join(f"{os.path.relpath(d, TREE)} (owned by {o})"
+                          for d, o in skipped[:4])
+        print(f"  ecu_tree: DROPPED {name} for {sgbd}: its folders belong "
+              f"to a sibling variant -- {where}", file=sys.stderr)
+    elif not dirs:
         print(f"  ecu_tree: DROPPED {name} for {sgbd}: "
               f"no chassis-config entry names this SGBD", file=sys.stderr)
     payload = raw if raw is not None else json.dumps(

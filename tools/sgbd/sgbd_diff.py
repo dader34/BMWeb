@@ -28,22 +28,21 @@ misses one, or gets its type wrong cannot be trusted to decode bytes either.
 Needs the app (or InpaMac.Server) running for the offline engine; set
 BMACW_PORT, or it probes 8777 and the running app's port.
 """
-import os
-import re
 import sys
 import json
-import glob
 import urllib.error
+import urllib.parse
 import urllib.request
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
-sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
-                for d in ("decompile", "sgbd", "export", "verify")]
+import _engine                            # noqa: E402  sys.path setup
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
-INTERNAL = re.compile(r"^(_TEL_|JOB_|SAETZE$|VARIANTE$)")
+# The SAME internal-result filter the spec extractor applies (defined once,
+# in sgbd_survey). This used to be a local copy that anchored SAETZE$ where
+# the spec filtered the SAETZE prefix, so a SAETZE_<X> result was dropped by
+# the spec but kept by the diff -- a guaranteed spurious "under-lifted".
+INTERNAL = S.INTERNAL
 
 # EDIABAS result types the engine reports, mapped onto the spec's vocabulary.
 # The engine's _RESULTS comments do not carry types, so schema-level checking
@@ -58,37 +57,23 @@ def api(port, path):
 
 
 def find_port():
-    if os.environ.get("BMACW_PORT"):
-        return os.environ["BMACW_PORT"]
-    for p in (8777,):
-        try:
-            api(p, "/api/health")
-            return p
-        except Exception:
-            pass
-    # the packaged app uses an ephemeral port; find it via lsof
-    try:
-        import subprocess
-        pid = subprocess.run(["pgrep", "-f", "BMacW"], capture_output=True,
-                             text=True).stdout.split()
-        if pid:
-            out = subprocess.run(["lsof", "-aPi", "-p", pid[0]],
-                                 capture_output=True, text=True).stdout
-            for line in out.splitlines():
-                if "LISTEN" in line:
-                    m = re.search(r":(\d+) \(LISTEN\)", line)
-                    if m:
-                        return m.group(1)
-    except Exception:
-        pass
-    raise SystemExit("no running engine: start BMacW or InpaMac.Server, "
-                     "or set BMACW_PORT")
+    # discovery (env vars, 8777 probe, lsof/pgrep) lives in _engine, shared
+    # with sgbd_harvest and sgbd_tables -- the three used to carry drifted
+    # copies of this
+    port = _engine.find_port()
+    if port is None:
+        raise SystemExit("no running engine: start the app or InpaMac.Server, "
+                         "or set BMACW_PORT")
+    return port
 
 
 def engine_results(port, sgbd, job):
     """Result names the SGBD declares for a job, from the engine's _RESULTS."""
     try:
-        rows = api(port, f"/api/ecu/{sgbd}/results/{job}")
+        # job names come out of the .prg decode and can carry characters that
+        # are not URL-safe; quote so they cannot mangle the path
+        rows = api(port, f"/api/ecu/{sgbd}/results/"
+                         f"{urllib.parse.quote(job, safe='')}")
     except urllib.error.HTTPError:
         return None
     names = []

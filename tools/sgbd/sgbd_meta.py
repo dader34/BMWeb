@@ -30,9 +30,7 @@ import json
 import struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
-sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
-                for d in ("decompile", "sgbd", "export", "verify")]
+import _engine                            # noqa: E402,F401  sys.path setup
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
@@ -150,10 +148,17 @@ def main():
     else:
         targets = args or S.e46_sgbds()
     tot_j = tot_r = tot_b = 0
+    # One malformed .prg must not kill an --all-chassis sweep -- and must not
+    # vanish either. Collected, summarised, and the exit made nonzero so a
+    # scripted run cannot mistake a partial export for a complete one.
+    failed = []
     for sgbd in targets:
         try:
             r = export(sgbd)
         except SystemExit:
+            continue
+        except (ValueError, struct.error) as ex:
+            failed.append((sgbd, f"{type(ex).__name__}: {ex}"))
             continue
         if not r:
             continue
@@ -164,6 +169,11 @@ def main():
         print(f"  {name:12} {nj:4} jobs {nr:5} results {na:4} args "
               f"{size // 1024:5} KB")
     print(f"meta: {tot_j} jobs, {tot_r} results, {tot_b // 1024} KB")
+    if failed:
+        print(f"\n{len(failed)} SGBD(s) failed to parse:", file=sys.stderr)
+        for s, msg in failed:
+            print(f"  {s}: {msg}", file=sys.stderr)
+        return 1
     return 0
 
 

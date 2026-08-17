@@ -25,13 +25,14 @@ import json
 import glob
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+
+import _engine                            # noqa: E402  engine discovery
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ECU_DIR = os.path.join(HERE, "..", "..", "vendor", "EDIABAS", "Ecu")
 OUT = os.path.join(HERE, "..", "..", "data", "inpa-screens")
-
-API = os.environ.get("BMACW_API")
 
 # jobs worth harvesting result schemas for. Harvesting all 267 jobs of every
 # SGBD would be mostly noise; these are the read jobs whose results end up on
@@ -49,20 +50,13 @@ _RESULT = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
 
 
 def _port():
-    """The app binds an ephemeral port; find whoever is listening."""
-    if API:
-        return API
-    import subprocess
-    try:
-        out = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-a",
-                              "-c", "InpaMac.A"], capture_output=True,
-                             text=True, timeout=15).stdout
-        m = re.search(r"127\.0\.0\.1:(\d+)", out)
-        if m:
-            return f"http://127.0.0.1:{m.group(1)}"
-    except Exception:                       # noqa: BLE001
-        pass
-    return None
+    """Base URL of the running engine, or None -- see _engine.find_base.
+
+    Discovery is shared with sgbd_diff and sgbd_tables now; this copy had
+    already drifted from theirs (BMACW_API vs BMACW_PORT, lsof-only vs
+    pgrep). Both env vars are honoured.
+    """
+    return _engine.find_base()
 
 
 def _get(base, path, timeout=90):
@@ -86,7 +80,10 @@ def harvest(base, sgbd):
     out = {}
     for job in wanted:
         try:
-            rows = _get(base, f"/api/ecu/{sgbd}/results/{job}")
+            # job names come from the SGBD and can carry characters that are
+            # not URL-safe; quote so they cannot mangle the path
+            rows = _get(base, f"/api/ecu/{sgbd}/results/"
+                              f"{urllib.parse.quote(job, safe='')}")
         except Exception:                   # noqa: BLE001 - job has no schema
             continue
         fields = []
@@ -111,7 +108,7 @@ def main():
     base = _port()
     if not base:
         print("the app is not running — start it so the EDIABAS engine can\n"
-              "answer _JOBS/_RESULTS offline, or set BMACW_API.",
+              "answer _JOBS/_RESULTS offline, or set BMACW_PORT (or BMACW_API).",
               file=sys.stderr)
         return 2
 
