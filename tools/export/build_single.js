@@ -34,9 +34,18 @@ if (!fs.existsSync(ROOT)) {
 }
 
 // The exporter asks for paths relative to the page. Serve them off disk.
+// A browser would resolve these against the page origin, so nothing the
+// exporter asks for can leave the site root -- hold this stub to the same
+// rule: normalize, then require the result to still be under ROOT. A path
+// that escapes ('../...', absolute) answers 404 exactly as the browser's
+// fetch would have.
+const BASE = path.resolve(ROOT);
 const get = async (u) => {
   const rel = String(u).replace(/^FILEBASE\//, '').replace(/^\//, '');
-  const p = path.join(ROOT, rel);
+  const p = path.resolve(BASE, path.normalize(rel));
+  if (p !== BASE && !p.startsWith(BASE + path.sep)) {
+    return { ok: false, status: 404 };
+  }
   if (!fs.existsSync(p)) return { ok: false, status: 404 };
   const b = fs.readFileSync(p);
   return {

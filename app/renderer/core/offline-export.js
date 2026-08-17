@@ -12,7 +12,7 @@ const OFFLINE_SHELL = [
   'css/styles.css', 'css/themes.css', 'css/lookup.css',
   'vendor/fflate.min.js',
   'core/webdemo.js', 'core/webshim.js', 'core/bestvm.js',
-  'core/core.js', 'core/translate.js', 'core/nav.js',
+  'core/core.js', 'core/print.js', 'core/router.js', 'core/translate.js', 'core/nav.js',
   'screens/autoscan.js', 'screens/sweep.js', 'screens/fault-report.js',
   'screens/ir.js', 'screens/ecu.js',
   'screens/activations.js',

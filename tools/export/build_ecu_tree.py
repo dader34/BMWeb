@@ -105,8 +105,19 @@ def main():
         try:
             with open(p) as f:
                 faults[(json.load(f).get("sgbd") or "").lower()] = p
-        except (OSError, ValueError):
-            pass
+        except (OSError, ValueError) as e:
+            # a corrupt fault map used to vanish here without a trace --
+            # its ECU folders simply had no faults.json and nothing said why
+            print(f"  WARNING: fault map {p} unreadable "
+                  f"({type(e).__name__}: {e}) -- skipped")
+
+    # per-kind accounting. load() returning None is normal for ONE ecu (not
+    # every SGBD has specs or tables), but a kind that loads for NOBODY
+    # means its source folder is gone -- the state that once wrote a whole
+    # tree of hollow folders with exit 0.
+    kind_hit = {kind: 0 for _, kind in SOURCES}
+    kind_miss = {kind: 0 for _, kind in SOURCES}
+    empty_dirs = []
 
     n_ecu = n_file = 0
     for cid, ecus in sorted(_by_chassis().items()):
@@ -120,10 +131,15 @@ def main():
             put("ecu.json", json.dumps(meta, ensure_ascii=False,
                                        separators=(",", ":")).encode())
             n_file += 1
+            n_content = 0        # files besides ecu.json (which is derived
+            #                      from the config, so it proves nothing)
             for name, kind in SOURCES:
                 b = load(kind, sgbd)
                 if not b:
+                    kind_miss[kind] += 1
                     continue
+                kind_hit[kind] += 1
+                n_content += 1
                 # job-code is BEST2 bytecode as JSON: 1.26 GB across the tree
                 # raw, 4% of that gzipped, and it is read by machines rather
                 # than by eye. Everything else stays plain text so the folder
@@ -139,12 +155,18 @@ def main():
                      else open(p, "rb")).read()
                 put("screens.json", b)
                 n_file += 1
+                n_content += 1
             for src, name in ((i18n, "i18n.json"), (faults, "faults.json")):
                 q = src.get(code.lower()) or src.get(sgbd)
                 if q:
                     with open(q, "rb") as f:
                         put(name, f.read())
                     n_file += 1
+                    n_content += 1
+            if not n_content:
+                # a folder holding only ecu.json says "this ECU exists" and
+                # nothing else -- every source failed to resolve for it
+                empty_dirs.append(f"{cid}/{code}")
             n_ecu += 1
         print(f"  {cid:6} {len(ecus):3} ecus")
 
@@ -200,6 +222,7 @@ def main():
                 raw = load(kind, stem)
                 if not raw:
                     continue
+                kind_hit[kind] += 1
                 if name == "job-code.json":
                     _write(d, name + ".gz", gzip.compress(raw, 6))
                 else:
@@ -216,6 +239,30 @@ def main():
             n_ecu += n_other
 
     print(f"\n{n_ecu} ecu folders, {n_file} files -> data/chassis/")
+
+    # -- honesty check -------------------------------------------------------
+    # The old exit was 0 no matter what: load() returning None for EVERY
+    # kind still wrote a tree of ecu.json-only folders and CI deployed it.
+    # Two states are unambiguously broken and fail the build:
+    #   - a source kind that loaded for zero ECUs (its input folder is gone
+    #     or empty -- run the generator, or data-cache.sh expand)
+    #   - an ECU folder with nothing in it but ecu.json
+    bad = False
+    for _, kind in SOURCES:
+        h, m = kind_hit[kind], kind_miss[kind]
+        tag = ""
+        if h == 0:
+            tag = "  MISSING ENTIRELY (is data/ecu-src populated?)"
+            bad = True
+        print(f"  {kind:12} {h:4} loaded, {m:4} absent{tag}")
+    if empty_dirs:
+        bad = True
+        print(f"  {len(empty_dirs)} ECU folders got NO data at all: "
+              f"{', '.join(empty_dirs[:10])}"
+              + (" ..." if len(empty_dirs) > 10 else ""))
+    if bad:
+        print("TREE INCOMPLETE: exiting 1")
+        return 1
     return 0
 
 

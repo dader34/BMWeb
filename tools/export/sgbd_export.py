@@ -23,6 +23,12 @@ resolve runtime-keyed scales without the engine.
 KEYS the IR screens actually display, how many does some job spec on that
 screen decode? This is the user-facing number -- a result no screen shows
 does not gate the web app, however interesting its bytecode is.
+
+Every mode runs its work to completion even when pieces fail, then exits
+NONZERO with an "EXPORT INCOMPLETE" summary if anything did. That is the
+lesson of dist-web and the wiring shipping broken: a WARNING that scrolls
+past an exit 0 is invisible to CI. --allow-partial downgrades the summary
+back to exit 0 for a caller that has decided partial output is acceptable.
 """
 import os
 import sys
@@ -145,6 +151,9 @@ def export_specs(targets):
         print(f"WARNING: connection discovery FAILED (not merely absent) for "
               f"{len(conn_failed)} SGBDs: {', '.join(conn_failed[:10])}"
               + (" ..." if len(conn_failed) > 10 else ""))
+    # main() turns these into a nonzero exit: a WARNING that scrolls past
+    # and an exit 0 is how partial spec sets shipped before
+    return conn_failed
 
 
 def export_tables(targets):
@@ -166,6 +175,10 @@ def export_tables(targets):
     if dropped:
         print(f"WARNING: {dropped} declared tables failed to fetch "
               f"and were dropped")
+    # returned so main() can FAIL the run: these two warnings describe the
+    # exact regression that shipped a third of MS450's lookup text missing,
+    # and an exit 0 is what let it ship
+    return no_listing, dropped
 
 
 def _export_tables_one(sgbd):
@@ -338,7 +351,7 @@ def export_groups(chassis=None):
     if failed:
         print(f"  {len(failed)} FAILED: {', '.join(failed[:10])}"
               + (" ..." if len(failed) > 10 else ""))
-    return made
+    return made, failed
 
 
 def audit_tables(targets):
@@ -507,11 +520,15 @@ def ship(chassis="E46"):
                                     chassis.lower(), "*.json")):
         try:
             faults_by_sgbd[json.load(open(p)).get("sgbd", "").lower()] = p
-        except Exception:                                   # noqa: BLE001
-            pass
+        except Exception as e:                              # noqa: BLE001
+            # a corrupt fault map silently vanishing from ecus/ is data
+            # loss with no witness -- name the file so someone can fix it
+            print(f"  WARNING: fault map {p} unreadable "
+                  f"({type(e).__name__}: {e}) -- skipped")
     root = os.path.join(ROOT, "ecus", chassis)
     os.makedirs(root, exist_ok=True)
     index = {"chassis": chassis, "sections": []}
+    no_jobs = []                # ECUs shipped with NO job data at all
     for sec in cfg.get("sections", []):
         entry = {"name": sec["name"], "ecus": []}
         for e in sec.get("ecus", []):
@@ -578,47 +595,104 @@ def ship(chassis="E46"):
             missing = [k for k in ("screens", "jobs") if k not in parts]
             note = f"  MISSING {','.join(missing)}" if missing else ""
             print(f"  {code:12} {' '.join(sorted(parts))}{note}")
+            # missing SCREENS can be BMW's own doing (the ScreenCount=0
+            # ECUs above never had a UI); missing JOBS after the job-meta
+            # fallback means neither specs nor metadata exist -- that ECU
+            # shipped as an empty shell, which is a failure to aggregate,
+            # not a line to scroll past
+            if "jobs" in missing:
+                no_jobs.append(f"{chassis}/{code}")
         index["sections"].append(entry)
     with open(os.path.join(root, "index.json"), "w") as f:
         json.dump(index, f, ensure_ascii=False, indent=1)
     total = sum(os.path.getsize(os.path.join(dp, fn))
                 for dp, _, fns in os.walk(root) for fn in fns)
     print(f"shipped {root}: {total//1024} KB")
+    return no_jobs
 
 
 def main():
-    targets = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
+    argv = sys.argv[1:]
+    allow_partial = "--allow-partial" in argv
+    # --ship's chassis names are ARGUMENTS TO --SHIP, not SGBDs. They used
+    # to fall through into the target list too, so `--ship E46 --specs`
+    # also tried to extract an SGBD called "e46" -- carve them out before
+    # any mode reads targets. (The heuristic matches ship()'s old one: all
+    # caps, four chars or fewer, which no SGBD name on disk is.)
+    ship_chassis = []
+    if "--ship" in argv:
+        ship_chassis = [a for a in argv if not a.startswith("--")
+                        and a.upper() == a and len(a) <= 4]
+    targets = [a.lower() for a in argv
+               if not a.startswith("--") and a not in ship_chassis]
     if not targets:
-        if "--all-chassis" in sys.argv:
+        if "--all-chassis" in argv:
             targets = sorted({g for ch in all_chassis()
                               for g in chassis_sgbds(ch)})
-            if "--force" not in sys.argv:
+            if "--force" not in argv:
                 # keep what an earlier run already extracted
                 targets = [t for t in targets if not os.path.exists(
                     os.path.join(SPEC_DIR, f"{t}.json"))]
         else:
             targets = S.e46_sgbds()
-    if "--specs" in sys.argv:
-        export_specs(targets)
-    if "--tables" in sys.argv:
-        export_tables(targets)
-    if "--coverage" in sys.argv:
-        coverage(targets)
-    if "--groups" in sys.argv:
-        export_groups()
-    if "--audit" in sys.argv:
+    # every mode runs to completion and REPORTS here rather than aborting:
+    # a partial artifact you know about beats one you find in production.
+    # (dist-web and the wiring both shipped broken from exporters that
+    # printed WARNING and exited 0 -- this list is what ends that.)
+    failures = []
+    if "--specs" in argv:
+        conn_failed = export_specs(targets)
+        if conn_failed:
+            failures.append("specs: connection discovery FAILED for "
+                            f"{len(conn_failed)} SGBDs "
+                            f"({', '.join(conn_failed[:10])}"
+                            + (" ...)" if len(conn_failed) > 10 else ")"))
+    if "--tables" in argv:
+        no_listing, dropped = export_tables(targets)
+        if no_listing:
+            failures.append(f"tables: listing failed for {len(no_listing)} "
+                            "SGBDs, only spec-referenced tables exported "
+                            f"({', '.join(no_listing[:10])}"
+                            + (" ...)" if len(no_listing) > 10 else ")"))
+        if dropped:
+            failures.append(f"tables: {dropped} declared tables failed to "
+                            "fetch and were dropped")
+    if "--coverage" in argv:
+        coverage(targets)          # a measurement, not an artifact
+    if "--groups" in argv:
+        _, grp_failed = export_groups()
+        if grp_failed:
+            failures.append(f"groups: {len(grp_failed)} groups failed to "
+                            f"export ({', '.join(grp_failed[:10])}"
+                            + (" ...)" if len(grp_failed) > 10 else ")"))
+    if "--audit" in argv:
         return audit_tables(targets)
-    if "--ship" in sys.argv:
-        chs = [a for a in sys.argv[1:]
-               if not a.startswith("--") and a.upper() == a and len(a) <= 4]
-        for ch in (chs or all_chassis()):
+    if "--ship" in argv:
+        for ch in (ship_chassis or all_chassis()):
             print(f"[{ch}]")
             try:
-                ship(ch)
+                no_jobs = ship(ch)
             except Exception as e:                          # noqa: BLE001
-                print(f"  {ch}: {e}")
+                # keep shipping the OTHER chassis -- but a chassis that
+                # died half-written is a failed export, not a log line
+                print(f"  {ch}: FAILED {type(e).__name__}: {e}")
+                failures.append(f"ship: {ch} FAILED ({type(e).__name__}: {e})")
+                continue
+            if no_jobs:
+                failures.append(f"ship: {len(no_jobs)} ECUs shipped with no "
+                                f"job data ({', '.join(no_jobs[:10])}"
+                                + (" ...)" if len(no_jobs) > 10 else ")"))
     if len(sys.argv) < 2:
         print(__doc__)
+    if failures:
+        print("\nEXPORT INCOMPLETE:")
+        for f in failures:
+            print(f"  - {f}")
+        if allow_partial:
+            print("continuing anyway (--allow-partial)")
+            return 0
+        print("exiting 1; pass --allow-partial to accept a partial export")
+        return 1
     return 0
 
 

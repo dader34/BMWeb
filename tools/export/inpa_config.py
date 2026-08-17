@@ -556,7 +556,11 @@ def main():
     check = "--check" in sys.argv
     out_dir = OUT
     if "--out" in sys.argv:
-        out_dir = sys.argv[sys.argv.index("--out") + 1]
+        i = sys.argv.index("--out")
+        if i + 1 >= len(sys.argv):
+            # a trailing --out used to die with a bare IndexError
+            sys.exit("--out needs a directory argument")
+        out_dir = sys.argv[i + 1]
 
     ids, chassis = build(legacy=legacy)
 

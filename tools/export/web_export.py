@@ -85,7 +85,11 @@ def main():
         print("  (no BMACW_PORT: using cached chassis config)")
     out = os.path.join(ROOT, "dist-web")
     if "--out" in sys.argv:
-        out = sys.argv[sys.argv.index("--out") + 1]
+        i = sys.argv.index("--out")
+        if i + 1 >= len(sys.argv):
+            # a trailing --out used to die with a bare IndexError
+            raise SystemExit("--out needs a directory argument")
+        out = sys.argv[i + 1]
     api = os.path.join(out, "api")
     os.makedirs(api, exist_ok=True)
 
@@ -256,6 +260,16 @@ def main():
         print(f"  WARNING: {len(FALLBACKS)} request(s) fell back to the "
               f"committed cache: {', '.join(FALLBACKS[:8])}"
               + (" ..." if len(FALLBACKS) > 8 else ""))
+        # the app WAS running and some requests still came from the cache:
+        # the api tree now mixes fresh and stale configs, which is the
+        # dist-web regression this warning was written about. A WARNING
+        # that exits 0 is how it shipped -- fail instead. (A run with no
+        # BMACW_PORT at all reads the cache uniformly and records no
+        # fallbacks, so the offline CI path is untouched.)
+        if "--allow-stale" not in sys.argv:
+            print("  exiting 1; pass --allow-stale to accept the mixed tree")
+            return 1
+        print("  continuing anyway (--allow-stale)")
     return 0
 
 
