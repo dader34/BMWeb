@@ -59,9 +59,11 @@ async function ident(cmd, respLen, timeoutMs = 3000) {
 (async () => {
   console.log(`connecting to ${HOST}:${PORT} ...`);
   await new Promise((res, rej) => {
+    sock.setTimeout(10000, () => rej(new Error(`connect to ${HOST}:${PORT} timed out`)));
     sock.once('error', rej);
     sock.connect(PORT, HOST, res);
   });
+  sock.setTimeout(0);           // connected; ident() owns per-telegram timeouts
   sock.on('error', (e) => { console.error('socket:', e.message); process.exit(1); });
   await wait(300);                  // let the bridge say anything it wants
   if (rx.length) console.log('bridge banner:', hex(rx));

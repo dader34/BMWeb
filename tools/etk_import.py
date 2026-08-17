@@ -46,6 +46,19 @@ except ImportError:
     HAVE_PIL = False
 
 
+def chunked_in(con, sql, ids, chunk=900):
+    """Run an IN-list query in chunks of <=900 ids and yield the rows.
+
+    SQLite caps bound parameters (999 by default), and an E-chassis easily
+    references thousands of mospids/btnrs/sachnrs. `sql` carries one %s where
+    the placeholder list goes."""
+    ids = list(ids)
+    for i in range(0, len(ids), chunk):
+        part = ids[i:i + chunk]
+        q = ','.join('?' * len(part))
+        yield from con.execute(sql % q, part)
+
+
 def resolve_names(con, iso='en'):
     """textcode -> display text, in one dict. w_ben_gk is the text store; every
     name in the catalogue is a code resolved here. English by default."""
@@ -105,15 +118,14 @@ def build(con, chassis, names, out_dir, quiet=False):
     mospids = list(mospid_vidx.keys())
     if not mospids:
         return None
-    qmarks = ','.join('?' * len(mospids))
 
     # 2. which diagrams (btnr) this chassis's parts appear on, via fitment. Keep
     # the mospids per (btnr,pos,sachnr) so the viewer can filter to one variant.
     btnrs = set()
     part_rows = {}   # btnr -> { (pos, sachnr): set(variant indices) }
-    for btnr, pos, sachnr, mospid in con.execute(
+    for btnr, pos, sachnr, mospid in chunked_in(con,
             "SELECT btzeilenv_btnr, btzeilenv_pos, btzeilenv_sachnr, btzeilenv_mospid "
-            "FROM w_btzeilen_verbauung WHERE btzeilenv_mospid IN (%s)" % qmarks, mospids):
+            "FROM w_btzeilen_verbauung WHERE btzeilenv_mospid IN (%s)", mospids):
         btnrs.add(btnr)
         d = part_rows.setdefault(btnr, {})
         s = d.setdefault((pos, sachnr), set())
@@ -123,19 +135,18 @@ def build(con, chassis, names, out_dir, quiet=False):
         return None
 
     # 3. diagram metadata: group (hg/fg) + image id, per btnr
-    bt_qmarks = ','.join('?' * len(btnrs))
     btnr_list = list(btnrs)
     diagrams = {}   # btnr -> {hg, fg, grafikid, textcode}
-    for btnr, hg, fg, gid, tc in con.execute(
+    for btnr, hg, fg, gid, tc in chunked_in(con,
             "SELECT bildtaf_btnr, bildtaf_hg, bildtaf_fg, bildtaf_grafikid, bildtaf_textc "
-            "FROM w_bildtaf WHERE bildtaf_btnr IN (%s)" % bt_qmarks, btnr_list):
+            "FROM w_bildtaf WHERE bildtaf_btnr IN (%s)", btnr_list):
         diagrams[btnr] = {'hg': hg, 'fg': fg, 'grafikid': gid, 'textcode': tc}
 
     # 4. callout numbers per part-line (btnr,pos -> bildposnr)
     callouts = {}
-    for btnr, pos, callout in con.execute(
+    for btnr, pos, callout in chunked_in(con,
             "SELECT btzeilen_btnr, btzeilen_pos, btzeilen_bildposnr "
-            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)" % bt_qmarks, btnr_list):
+            "FROM w_btzeilen WHERE btzeilen_btnr IN (%s)", btnr_list):
         callouts[(btnr, pos)] = callout
 
     # 5. part names: sachnr -> textcode -> English
@@ -146,16 +157,12 @@ def build(con, chassis, names, out_dir, quiet=False):
     part_name = {}
     part_prefix = {}   # sachnr -> "1113" (hauptgr+untergrup)
     if all_sachnr:
-        sn = list(all_sachnr)
-        for i in range(0, len(sn), 900):
-            chunk = sn[i:i + 900]
-            q = ','.join('?' * len(chunk))
-            for sachnr, tc, hg, ug in con.execute(
-                    "SELECT teil_sachnr, teil_textcode, teil_hauptgr, teil_untergrup "
-                    "FROM w_teil WHERE teil_sachnr IN (%s)" % q, chunk):
-                part_name[sachnr] = names.get(tc, '')
-                if hg and ug:
-                    part_prefix[sachnr] = f"{hg}{ug}"
+        for sachnr, tc, hg, ug in chunked_in(con,
+                "SELECT teil_sachnr, teil_textcode, teil_hauptgr, teil_untergrup "
+                "FROM w_teil WHERE teil_sachnr IN (%s)", all_sachnr):
+            part_name[sachnr] = names.get(tc, '')
+            if hg and ug:
+                part_prefix[sachnr] = f"{hg}{ug}"
 
     # 6. group names. ETK's browse is two levels: a MAIN group (HG, "11 Engine")
     # shown as an icon grid, then function groups (FG) under it. We keep both:
@@ -181,6 +188,7 @@ def build(con, chassis, names, out_dir, quiet=False):
     #            groups:[ {fg, name, diagrams:[ {btnr,name,img,parts:[{pos,sachnr,name,fit}]} ]} ] } ] }
     # part 'fit' is the sorted list of variant indices it applies to (for filtering).
     used_gids = {}   # grafikid -> (bytes, ext)  (diagram images we reference)
+    failed_gids = set()  # referenced but unusable (no blob / TIF w/o PIL / bad data)
     icons = {}       # hg -> icon ref  (main-group tile thumbnails)
     maingroups = {}
     for btnr in sorted(diagrams):
@@ -208,10 +216,12 @@ def build(con, chassis, names, out_dir, quiet=False):
         img_ref = None
         gid = d['grafikid']
         if gid:
-            if gid not in used_gids:
+            if gid not in used_gids and gid not in failed_gids:
                 data, ext = load_grafik(gid)
                 if data:
                     used_gids[gid] = (data, ext)
+                else:
+                    failed_gids.add(gid)   # ships with img:null; counted below
             if gid in used_gids:
                 img_ref = f"{gid}.{used_gids[gid][1]}"
         fg['diagrams'].append({
@@ -255,15 +265,28 @@ def build(con, chassis, names, out_dir, quiet=False):
     out_path = os.path.join(out_dir, f'{chassis}.etk')
     ndiag = sum(len(g['diagrams']) for g in tree['groups'])
     nparts = sum(len(dg['parts']) for g in tree['groups'] for dg in g['diagrams'])
-    with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
-        z.writestr('tree.json', json.dumps(tree, ensure_ascii=False, separators=(',', ':')))
-        for gid, (data, ext) in used_gids.items():
-            # images are already compressed (jpg/png) -> store, don't re-deflate
-            z.writestr(f'img/{gid}.{ext}', data, zipfile.ZIP_STORED)
+    # write to a temp name and os.replace() into place: an interrupted build
+    # must not leave a truncated .etk that a later index-merge lists as valid
+    tmp_path = out_path + '.tmp'
+    try:
+        with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+            z.writestr('tree.json', json.dumps(tree, ensure_ascii=False, separators=(',', ':')))
+            for gid, (data, ext) in used_gids.items():
+                # images are already compressed (jpg/png) -> store, don't re-deflate
+                z.writestr(f'img/{gid}.{ext}', data, zipfile.ZIP_STORED)
+    except BaseException:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_path, out_path)
     size = os.path.getsize(out_path)
     if not quiet:
         print(f"  {chassis}: {ndiag} diagrams, {nparts} part-lines, "
-              f"{len(used_gids)} images -> {size/1e6:.1f} MB")
+              f"{len(used_gids)} images -> {size/1e6:.1f} MB"
+              + (f"  ({len(failed_gids)} diagram images missing/unconvertible)"
+                 if failed_gids else ""))
     return (ndiag, nparts, size)
 
 
@@ -364,9 +387,13 @@ def build_vehicle_thumbs(con, out_dir):
                 buf = io.BytesIO()
                 img.save(buf, 'JPEG', quality=82)
                 data = buf.getvalue()
-            except Exception:
-                pass                            # keep the original bytes
-        name = f"{ch}_{body}.jpg"
+            except Exception as e:              # keep the original bytes
+                print(f"  note: could not re-encode thumb {ch}_{body}: {e}",
+                      file=sys.stderr)
+        # ch/body are DB columns used in a filename: strip path separators so
+        # a stray value cannot write outside thumbs/
+        safe = ''.join(c for c in f"{ch}_{body}" if c not in '/\\')
+        name = f"{safe}.jpg"
         with open(os.path.join(tdir, name), 'wb') as f:
             f.write(data)
         index[f"{ch}_{body}"] = name
@@ -403,6 +430,20 @@ def main():
     if args.vehicles_only:
         build_vehicle_index(con, args.out)
         return
+
+    # Everything past here fetches image blobs by grafikid. The dumped
+    # etk.sqlite ships without an index on that column, and load_grafik is one
+    # query per diagram (ordered by blob length!) -- unindexed, a full build
+    # scans w_grafik per image and takes days instead of minutes.
+    try:
+        con.execute("CREATE INDEX IF NOT EXISTS idx_grafik_grafikid "
+                    "ON w_grafik(grafik_grafikid)")
+        con.commit()
+    except Exception as e:
+        print(f"warning: could not create idx_grafik_grafikid on "
+              f"w_grafik(grafik_grafikid) ({e}) -- image lookups will be "
+              f"slow (read-only database?)", file=sys.stderr)
+
     if args.thumbs_only:
         build_vehicle_thumbs(con, args.out)
         return
@@ -432,8 +473,11 @@ def main():
     if args.chassis and os.path.exists(idx_path):
         try:
             have |= set(json.load(open(idx_path)))
-        except Exception:
-            pass
+        except Exception as e:
+            # fall through with this run's chassis only (a bad index would
+            # otherwise silently drop every other chassis from the list)
+            print(f"warning: could not merge existing {idx_path}: {e}",
+                  file=sys.stderr)
     with open(idx_path, 'w') as f:
         json.dump(sorted(have), f)
     print(f"wrote {idx_path} ({len(have)} chassis)")

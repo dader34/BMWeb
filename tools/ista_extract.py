@@ -65,16 +65,47 @@ FKB_FIELDS = {
 }
 
 
+_BLOCK_TAGS = ("PARAGRAPH", "LISTENTRY")
+
+
+def _flat(el):
+    """Full text of ONE element, inline children included, space-normalised.
+
+    ISTA paragraphs carry inline markup -- <SUB>, <SUP>, emphasis, xrefs --
+    and .text stops at the first such child ("voltage above 9V for 2 s"
+    would ship as "voltage above"). itertext() walks the whole subtree,
+    picking up child text and tails in document order."""
+    return re.sub(r"\s+", " ", "".join(el.itertext())).strip()
+
+
 def _text_of(el):
-    """All PARAGRAPH/text under an element, joined, whitespace-normalised."""
+    """All PARAGRAPH/LISTENTRY text under an element, joined, whitespace-
+    normalised. Each block keeps its inline-child text (see _flat)."""
     parts = []
-    for p in el.iter():
-        if p.tag in ("PARAGRAPH", "LISTENTRY") and p.text and p.text.strip():
-            parts.append(p.text.strip())
-    if not parts and el.text and el.text.strip():
-        parts.append(el.text.strip())
-    out = "\n".join(parts)
-    return re.sub(r"[ \t]+", " ", out).strip()
+
+    def walk(node):
+        for child in node:
+            if child.tag in _BLOCK_TAGS:
+                # a LISTENTRY may itself wrap PARAGRAPHs: take its direct
+                # text, then recurse so nested blocks stay separate lines
+                if any(g.tag in _BLOCK_TAGS for g in child.iter()
+                       if g is not child):
+                    if child.text and child.text.strip():
+                        parts.append(re.sub(r"\s+", " ", child.text).strip())
+                    walk(child)
+                else:
+                    t = _flat(child)
+                    if t:
+                        parts.append(t)
+            else:
+                walk(child)
+
+    walk(el)
+    if not parts:
+        t = _flat(el)
+        if t:
+            parts.append(t)
+    return "\n".join(parts)
 
 
 def parse_fkb(xml):
@@ -109,11 +140,12 @@ def parse_fkb(xml):
 
 
 def _cell_text(entry):
-    """All PARAGRAPH text inside one <ENTRY>, space-joined."""
-    parts = [p.text.strip() for p in entry.iter("PARAGRAPH")
-             if p.text and p.text.strip()]
-    if not parts and entry.text and entry.text.strip():
-        parts = [entry.text.strip()]
+    """All PARAGRAPH text inside one <ENTRY>, space-joined (inline children
+    included -- table cells are where the <SUB>/<SUP> units live)."""
+    parts = [t for t in (_flat(p) for p in entry.iter("PARAGRAPH")) if t]
+    if not parts:
+        t = _flat(entry)
+        parts = [t] if t else []
     return " ".join(parts)
 
 
@@ -146,8 +178,9 @@ def _collect_blocks(el):
             if tag == "HEADING":
                 continue
             if tag == "PARAGRAPH":
-                if child.text and child.text.strip():
-                    blocks.append({"t": "p", "s": child.text.strip()})
+                t = _flat(child)
+                if t:
+                    blocks.append({"t": "p", "s": t})
             elif tag in ("LISTENTRY", "LISTELEMENT"):
                 t = _text_of(child)
                 if t:
@@ -214,8 +247,10 @@ def _collect_blocks_shallow(ch):
     SUBSECTION2 (those are collected separately with their own heading)."""
     blocks = []
     for node in ch:
-        if node.tag == "PARAGRAPH" and node.text and node.text.strip():
-            blocks.append({"t": "p", "s": node.text.strip()})
+        if node.tag == "PARAGRAPH":
+            t = _flat(node)
+            if t:
+                blocks.append({"t": "p", "s": t})
         elif node.tag == "TABLE":
             rows = _parse_table(node)
             if rows:
@@ -247,7 +282,14 @@ class Content:
         row = self.con.execute(
             "SELECT data FROM xmlvalueprimitive WHERE id=? AND deleted=0 "
             "ORDER BY modified DESC LIMIT 1", (cid,)).fetchone()
-        return row[0] if row else None
+        if row is None:
+            return None
+        data = row[0]
+        # the column has no declared text affinity, so sqlite3 may hand back
+        # bytes; callers substring-match and parse, so give them str
+        if isinstance(data, bytes):
+            data = data.decode("utf-8", "replace")
+        return data
 
 
 # ---- extraction passes ------------------------------------------------------

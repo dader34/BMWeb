@@ -38,8 +38,15 @@ sock.on('data', (d) => {
 
 function send(cmd, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
+    // Anything still buffered is a stale answer: either a reply that arrived
+    // after its send() timed out, or unsolicited chatter. If it survived here,
+    // the data handler would hand the PREVIOUS command's answer to THIS
+    // command (buf is sliced at the first '>'), and every readout after one
+    // slow command would silently shift one answer back.
+    buf = '';
     const t = setTimeout(() => {
       pending = null;
+      buf = '';                 // a late reply must not answer the next command
       reject(new Error(`no prompt after "${cmd}" in ${timeoutMs} ms`));
     }, timeoutMs);
     pending = { resolve: (a) => { clearTimeout(t); resolve(a); } };
@@ -82,9 +89,11 @@ const toCodes = (bytes) => {
 (async () => {
   console.log(`connecting to ${HOST}:${PORT} ...`);
   await new Promise((res, rej) => {
+    sock.setTimeout(10000, () => rej(new Error(`connect to ${HOST}:${PORT} timed out`)));
     sock.once('error', rej);
     sock.connect(PORT, HOST, res);
   });
+  sock.setTimeout(0);           // connected; send() owns per-command timeouts
   sock.on('error', (e) => { console.error('socket:', e.message); process.exit(1); });
   console.log('connected\n');
 
@@ -114,7 +123,7 @@ const toCodes = (bytes) => {
   const vin = payload(await send('0902', 15000), '49 02')
     .map((h) => parseInt(h, 16))
     .filter((c) => c >= 0x20 && c < 0x7f)
-    .map((c) => String.fromCharCode(c)).join('').replace(/^\x01|[0-9]?$/, (m) => m);
+    .map((c) => String.fromCharCode(c)).join('');
   console.log('VIN:         ', vin || '(not reported)');
 
   // a few live values, decoded per J1979

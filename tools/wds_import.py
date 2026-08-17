@@ -138,7 +138,7 @@ def collect_docs(node, out):
         collect_docs(c, out)
 
 
-def clean_description(html, images=None):
+def clean_description(html, images=None, unsafe=None):
     """Keep the document, drop the frame plumbing.
 
     WDS descriptions are XHTML pages with BMW's stylesheet and a script
@@ -160,6 +160,13 @@ def clean_description(html, images=None):
     # ../../zi_images/B030024C.png -> img/B030024C.png, and remember the name
     def take(m):
         name = m.group(1)
+        # The name becomes a zip entry AND (with --images-out) a filesystem
+        # write path, so a crafted "../..."-style src would escape the output
+        # directory. Real WDS names are bare files; reject anything else.
+        if '/' in name or '\\' in name or '..' in name:
+            if unsafe is not None:
+                unsafe.add(name)
+            return m.group(0)           # leave the src untouched, pack nothing
         if images is not None:
             images.add(name)
         return f'src="img/{name}"'
@@ -202,6 +209,7 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
     kinds = {}
     missing = 0
     images = set()
+    unsafe = set()
     with zipfile.ZipFile(out_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
         for did in sorted(wanted):
             svgz = os.path.join(wds_root, 'svg', 'sp', f'{did}.svgz')
@@ -213,7 +221,7 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
                 kinds['svg'] = kinds.get('svg', 0) + 1
             elif os.path.exists(zinfo):
                 html = open(zinfo, encoding='utf-8', errors='replace').read()
-                z.writestr(f'doc/{did}.html', clean_description(html, images))
+                z.writestr(f'doc/{did}.html', clean_description(html, images, unsafe))
                 kinds['doc'] = kinds.get('doc', 0) + 1
             else:
                 missing += 1
@@ -249,7 +257,8 @@ def build(wds_root, app_chassis, wds_dirs, out_dir, quiet=False,
         print(f'{app_chassis:6} {size:6.1f} MB  '
               f'{kinds.get("svg", 0):5} diagrams  {kinds.get("doc", 0):5} documents'
               f'  {kinds.get("img", 0):5} images'
-              + (f'  ({missing} not in this release)' if missing else ''))
+              + (f'  ({missing} not in this release)' if missing else '')
+              + (f'  ({len(unsafe)} unsafe image names rejected)' if unsafe else ''))
     return out_path
 
 

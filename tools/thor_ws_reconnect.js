@@ -38,6 +38,8 @@ function session(how) {
     let buf = Buffer.alloc(0);
     let status = null;
     let ident = null;
+    let req = null;              // the ident telegram we sent (echo detection)
+    let pay = [];                // ws-frame payloads accumulated so far
     const done = (r) => {
       try { how === 'destroy' ? sock.destroy() : sock.end(); } catch { /* gone */ }
       resolve({ status, ident, ...r });
@@ -54,20 +56,27 @@ function session(how) {
         buf = buf.slice(end + 4);
         phase = 'frames';
         if (!/101/.test(status)) return done({});
-        const tel = [0x82, 0xF1, 0xF1, 0xFD, 0xFD];
-        tel.push(sum8(tel));
-        sock.write(frame(tel));
+        req = [0x82, 0xF1, 0xF1, 0xFD, 0xFD];
+        req.push(sum8(req));
+        sock.write(frame(req));
       }
-      if (phase === 'frames' && buf.length >= 2) {
+      while (phase === 'frames' && buf.length >= 2) {
         const len = buf[1] & 0x7f;
-        if (buf.length >= 2 + len) {
-          const p = [...buf.slice(2, 2 + len)];
-          const ans = p.length >= 15 ? p.slice(6, 15) : null;
-          if (ans && sum8(ans.slice(0, 8)) === ans[8]) {
-            ident = `type 0x${((ans[4] << 8) | ans[5]).toString(16)} `
-                  + `v${ans[6]}.${ans[7]}`;
-          }
-          done({});
+        if (buf.length < 2 + len) break;
+        pay = pay.concat([...buf.slice(2, 2 + len)]);
+        buf = buf.slice(2 + len);
+        // The 9-byte answer may follow an echo of the request, or arrive
+        // BARE on echo-suppressing firmware -- the same two shapes
+        // thor_ws_probe.js handles. And echo + answer may land in separate
+        // frames, so accumulate until something checksums; a session that
+        // never does ends on the 6 s socket timeout with ident NONE.
+        const ans = pay.length >= req.length + 9
+                  ? pay.slice(req.length, req.length + 9)
+                  : pay.length >= 9 ? pay.slice(0, 9) : null;
+        if (ans && sum8(ans.slice(0, 8)) === ans[8]) {
+          ident = `type 0x${((ans[4] << 8) | ans[5]).toString(16)} `
+                + `v${ans[6]}.${ans[7]}`;
+          return done({});
         }
       }
     });
