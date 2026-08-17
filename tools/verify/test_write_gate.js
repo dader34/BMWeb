@@ -12,8 +12,10 @@
 // It asserts, against the ACTUAL source (not a copy):
 //   1. isWriteJob() classifies every known write/actuate/clear job name as write.
 //   2. The VM refuses to run a write job when allowWrites is false (both gates).
-//   3. The VM's WRITE_JOB regex is byte-identical to the Python one in
-//      tools/verify/sgbd_bulk_verify.py (the documented cross-language twin).
+//   3. The VM's classifier tokens (READ_TOKEN / WRITE_TOKEN / INFO_READ_TOKEN)
+//      are byte-identical to the Python ones in tools/verify/
+//      sgbd_bulk_verify.py, and the Python _WriteJob shim keeps the same tier
+//      order (the documented cross-language twin).
 //   4. isWriteJob is a SUPERSET of every pattern the per-screen "dangerous job"
 //      regexes flag as a write/clear -- so nothing a screen calls dangerous can
 //      slip past the VM gate.
@@ -31,7 +33,8 @@ const ok = (cond, msg) => {
   else { console.error(`  FAIL ${msg}`); failures++; }
 };
 
-const { Best2Vm, VmError, isWriteJob, WRITE_JOB } =
+const { Best2Vm, VmError, isWriteJob,
+        READ_TOKEN, WRITE_TOKEN, INFO_READ_TOKEN } =
   require(path.join(ROOT, 'app/renderer/core/bestvm.js'));
 
 // ---------------------------------------------------------------------------
@@ -42,13 +45,26 @@ const WRITES = [
   'C_FG_SCHREIBEN', 'FS_LOESCHEN', 'IS_LOESCHEN', 'HS_LOESCHEN', 'PARAMETER_SETZEN',
   'FLASH_PROGRAMMIEREN', 'PROGRAMMIERUNG_START', 'STEUERGERAET_RESET', 'RESET',
   'CODIERUNG_SCHREIBEN', 'EEPROM_SCHREIBEN', 'NM_SETZEN',
+  // INFO is a WEAK read token (checked after the write tokens): a name that
+  // carries a write verb must stay a write no matter where INFO sits in it.
+  // The old \bINFO in the strong read tier would have called the first two
+  // reads -- \b matches at the start of a string -- which is exactly the
+  // hazard the weak tier exists to close. No such job exists in the corpus
+  // today; these pins keep it that way.
+  'INFO_SCHREIBEN', 'INFOSPEICHER_LOESCHEN', 'INFO_RESET',
 ];
 for (const j of WRITES) ok(isWriteJob(j), `write: ${j}`);
 
 // And names that must NOT be misread as writes (reads / status).
 const READS = [
-  'CODIERUNG_LESEN', 'STATUS_LESEN', 'IDENT', 'FS_LESEN', 'STEUERGERAETE_INFO',
+  'CODIERUNG_LESEN', 'STATUS_LESEN', 'IDENT', 'FS_LESEN',
   'MESSWERTE_LESEN', 'HERSTELLDATEN_LESEN',
+  // *_INFO reads: `_` is a word character, so \bINFO never matched these and
+  // they used to fall to default-deny -- safe direction, but it blocked
+  // legitimate info reads in the UI. The (?:\b|_)INFO weak tier fixed that;
+  // the corpus diff (6147 names, 2026-08-17) flipped exactly CBS_INFO,
+  // MODUL_INFO and DEBUGGING_INFORMATION write->read, all true reads.
+  'STEUERGERAETE_INFO', 'CBS_INFO', 'MODUL_INFO', 'DEBUGGING_INFORMATION',
 ];
 for (const j of READS) ok(!isWriteJob(j), `read (not write): ${j}`);
 
@@ -72,8 +88,12 @@ function refuses(job, allowWrites) {
   const e = refuses('CODIERDATEN_SCHREIBEN', false);
   ok(e instanceof Error && /refus/i.test(e.message),
      'refuses write job with allowWrites:false');
-  ok(!(e && /allowWrites: true/.test(e.message) === false && !/refus/i.test(e.message)),
-     'the refusal is the write gate (mentions refusing to run/transmit)');
+  // The stub VM's default send() throws 'no telegram sink' -- if THAT were
+  // the error, bytecode ran far enough to attempt a transmit before any
+  // refusal. The gate must fire first, so the error must not be the sink's.
+  // (Replaces an assertion that was vacuously true whenever /refus/ matched.)
+  ok(e instanceof Error && !/no telegram sink/.test(e.message),
+     'refusal fires before any telegram is attempted (not the sink error)');
 }
 {
   // A read job must NOT be refused by the gate (it may fail later for other
@@ -84,20 +104,54 @@ function refuses(job, allowWrites) {
 }
 
 // ---------------------------------------------------------------------------
-console.log('3. JS and Python WRITE_JOB regexes are identical');
-// Extract the literal from each source and compare the assembled pattern.
-const jsPattern = WRITE_JOB.source;
+console.log('3. JS and Python classifier twins are identical');
+// The classifier is three token regexes plus a tier order (strong read ->
+// write -> weak INFO read -> default-deny). Commit d789117c replaced the old
+// single WRITE_JOB regex with this shape on the Python side, which this check
+// used to extract by name -- so the twin check went stale and check.sh was
+// red on every run. It now compares each token pattern byte-for-byte AND
+// pins the Python _WriteJob tier order, so drift on either side or in either
+// dimension fails loudly again.
 const pySrc = read('tools/verify/sgbd_bulk_verify.py');
-// pull the r"..." r"..." concatenation after `WRITE_JOB = re.compile(`
-const pyMatch = pySrc.match(/WRITE_JOB = re\.compile\(\s*((?:r"[^"]*"\s*)+)/);
-let pyPattern = null;
-if (pyMatch) {
-  pyPattern = (pyMatch[1].match(/r"([^"]*)"/g) || [])
-    .map(s => s.slice(2, -1)).join('');
+// pull the r"..." r"..." concatenation after `<NAME> = re.compile(`
+function pyPattern(name) {
+  const m = pySrc.match(new RegExp(
+    name + ' = re\\.compile\\(\\s*((?:r"[^"]*"\\s*)+)'));
+  if (!m) return null;
+  return (m[1].match(/r"([^"]*)"/g) || []).map(s => s.slice(2, -1)).join('');
 }
-ok(pyPattern !== null, 'found Python WRITE_JOB regex');
-ok(pyPattern === jsPattern,
-   `JS regex === Python regex\n       js: ${jsPattern}\n       py: ${pyPattern}`);
+for (const [name, jsRe] of [
+  ['READ_TOKEN', READ_TOKEN],
+  ['WRITE_TOKEN', WRITE_TOKEN],
+  ['INFO_READ_TOKEN', INFO_READ_TOKEN],
+]) {
+  const py = pyPattern(name);
+  ok(py !== null, `found Python ${name} regex`);
+  ok(py === jsRe.source,
+     `JS ${name} === Python ${name}\n       js: ${jsRe.source}\n       py: ${py}`);
+}
+// The patterns matching is necessary but not sufficient: the SHIM must also
+// consult them in the same order. Pin the exact three-tier body of
+// _WriteJob.match -- a reordering (e.g. INFO before WRITE) would reclassify
+// write jobs as reads on one side only.
+ok(/if READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?if WRITE_TOKEN\.search\(n\):\s*\n\s*return True[\s\S]*?if INFO_READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?return True/.test(pySrc),
+   'Python _WriteJob keeps the tier order: read -> write -> INFO -> deny');
+// And a behavioural cross-check: run the extracted Python patterns through
+// the same tier order and diff against isWriteJob over every name this file
+// exercises. Catches semantic drift the source-shape checks above miss.
+{
+  const pr = new RegExp(pyPattern('READ_TOKEN') || '$^', 'i');
+  const pw = new RegExp(pyPattern('WRITE_TOKEN') || '$^', 'i');
+  const pi = new RegExp(pyPattern('INFO_READ_TOKEN') || '$^', 'i');
+  const pyIsWrite = (n) => (pr.test(n) ? false : pw.test(n) ? true
+    : pi.test(n) ? false : true);
+  const probes = [...WRITES, ...READS,
+    'AUTHENTISIERUNG', 'BAUDRATE', 'LOESCHEN', 'UNBEKANNTER_JOB',
+    'STATUS_LDP_START', 'STEUERN_ROE_STOP', 'ABGLEICH_LESEN_HFM'];
+  const drift = probes.filter((n) => pyIsWrite(n) !== isWriteJob(n));
+  ok(drift.length === 0,
+     `twins agree on every probe${drift.length ? ` (drift: ${drift.join(', ')})` : ''}`);
+}
 
 // ---------------------------------------------------------------------------
 console.log('4. isWriteJob is a superset of the per-screen dangerous regexes');
@@ -117,19 +171,20 @@ for (const tok of SCREEN_DANGER_TOKENS) {
   ok(isWriteJob(tok), `isWriteJob covers screen-danger token: ${tok}`);
 }
 
-// KNOWN, DOCUMENTED GAPS -- jobs some per-screen regex flags dangerous that the
-// VM's isWriteJob does NOT classify as a write. These are asserted so the gap
-// stays a conscious decision, not a silent drift. If a future change should
-// close one, that is a deliberate edit to WRITE_JOB (a safety change, reviewed
-// on its own), which will flip the assertion and force the update here.
-//   - bare 'LOESCHEN' (no prefix): ecu.js /LOESCHEN/ flags it; WRITE_JOB needs
-//     `.*_LOESCHEN`. No real BMW job is named bare 'LOESCHEN'.
-//   - AUTHENTISIERUNG / BAUDRATE: ecu.js flags them; they are auth/comms, not
-//     EEPROM writes -- gated at the UI, intentionally not VM writes.
-const KNOWN_GAPS = ['LOESCHEN', 'AUTHENTISIERUNG', 'BAUDRATE'];
-for (const tok of KNOWN_GAPS) {
-  ok(!isWriteJob(tok),
-     `known gap (UI-gated, not a VM write): ${tok}`);
+// FORMER KNOWN GAPS, now CLOSED -- these three were asserted as NOT writes
+// while the old leading-verb WRITE_JOB regex couldn't catch them, with a note
+// that improving the classifier should flip the assertions. The token-based
+// default-deny classifier (bestvm.js isWriteJob) did exactly that:
+//   - bare 'LOESCHEN': the LOESCH token needs no prefix any more.
+//   - AUTHENTISIERUNG: AUTHENTIS is a write token now -- auth unlocks
+//     protected services, which is the write path, not a read.
+//   - BAUDRATE: no read token, no write token -> default-deny. An
+//     unrecognised comms job is guarded, never silently run.
+// So everything the per-screen regexes flag dangerous is now also a VM write.
+const CLOSED_GAPS = ['LOESCHEN', 'AUTHENTISIERUNG', 'BAUDRATE'];
+for (const tok of CLOSED_GAPS) {
+  ok(isWriteJob(tok),
+     `formerly UI-only, now caught by the VM gate too: ${tok}`);
 }
 
 // ---------------------------------------------------------------------------

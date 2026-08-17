@@ -36,17 +36,33 @@ for (const [name, want] of [
 }
 
 // ---- behaviour, against a real job with real captured telegrams
+//
+// This half is the reason the file exists ("throws having sent NOTHING") and
+// it needs generated fixtures that are gitignored. It used to skip SILENTLY
+// when they were absent -- a machine without data/ reported "write guard
+// holds" having tested only name classification. A safety test that can pass
+// without running is worse than none, so a missing fixture is now a FAILURE
+// naming what to regenerate, not a quiet green.
 const T = require('./ecu_tree.js');
 const code0 = T.readEcuJson('ms450ds0', 'job-code.json');
 const fixP = path.join(ROOT, 'data/sim-captures/vmfix.json');
-if (code0 && fs.existsSync(fixP)) {
+if (!code0) {
+  check('behavioural half ran (missing data/chassis/.../ms450ds0/job-code.json'
+    + ' -- regenerate with tools/sgbd/ecu_tree.py)', false);
+} else if (!fs.existsSync(fixP)) {
+  check('behavioural half ran (missing data/sim-captures/vmfix.json'
+    + ' -- regenerate with tools/vm_fixtures.py)', false);
+} else {
   const code = code0;
 
   const tables = T.readEcuJson('ms450ds0', 'tables.json') || {};
   const fix = JSON.parse(fs.readFileSync(fixP, 'utf8'));
   const c = fix.cases.find((x) => x.sgbd === 'ms450ds0'
     && x.job === 'FS_LOESCHEN');
-  if (c) {
+  if (!c) {
+    check('behavioural half ran (vmfix.json has no ms450ds0 FS_LOESCHEN case'
+      + ' -- regenerate with tools/vm_fixtures.py)', false);
+  } else {
     const byReq = new Map((c.telegrams || []).map(
       (t) => [String(t.request), t.response]));
     const lastResp = (c.telegrams || []).slice(-1)[0]?.response || [];

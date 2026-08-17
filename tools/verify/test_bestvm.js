@@ -206,6 +206,20 @@ for (const c of fix.cases) {
 }
 
 const checked = agree + knownDiff + disagree + missing;
+// A silent-skip floor. Every case is skipped when data/chassis is absent or
+// renamed (codeFor() returns null for each), and this file used to exit 0
+// with "jobs replayed : 0" -- a green run that verified nothing. The floor is
+// set well below the current healthy count (460 jobs on 2026-08-17) but far
+// above noise: dropping under it means the fixture bundle or the ECU tree is
+// gone/mislaid, not that the VM got worse.
+const MIN_JOBS = 100;
+if (!only && jobs < MIN_JOBS) {
+  console.error(`FAIL: only ${jobs} jobs replayed (< ${MIN_JOBS}).`);
+  console.error('data/chassis or vmfix.json is missing/mislaid -- the VM was'
+    + ' not actually exercised. Regenerate with tools/sgbd/ecu_tree.py and'
+    + ' tools/vm_fixtures.py.');
+  process.exit(1);
+}
 console.log(`jobs replayed : ${jobs}   (VM crashes: ${crashed})`);
 console.log(`results checked: ${checked}`);
 console.log(`  AGREE       : ${agree} (${(100 * agree / Math.max(checked, 1)).toFixed(1)}%)`);

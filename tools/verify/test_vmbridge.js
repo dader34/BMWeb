@@ -55,8 +55,12 @@ for (const f of ['app/renderer/core/bestvm.js', 'app/renderer/core/vmbridge.js']
 
 const fixP = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixP)) {
-  console.log('no vmfix.json; run tools/vm_fixtures.py first');
-  process.exit(0);
+  // This used to exit 0 -- a machine without the gitignored fixture reported
+  // the bridge fine having replayed nothing. A test that cannot run must say
+  // so and fail, like the rest of the suite.
+  console.error('FAIL: missing data/sim-captures/vmfix.json;'
+    + ' run tools/vm_fixtures.py first (nothing was verified)');
+  process.exit(1);
 }
 const fix = JSON.parse(fs.readFileSync(fixP, 'utf8'));
 

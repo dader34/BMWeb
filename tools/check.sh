@@ -17,9 +17,12 @@
 # is load-bearing. Do not delete them:
 #   sgbd_tables.py      -> data/inpa-screens/_tables.json  (NO readers today;
 #                          kept as a reference dump, not consumed by anything)
-#   ipo_actmenus.py     -> _actmenus.json  \
-#   ipo_coding.py       -> _coding.json     > all consumed by ipo_enrich.py
-#   ipo_submenus.py     -> _submenus.json  /
+#   ipo_actmenus.py     -> _actmenus.json  \  satellites of the DELETED
+#   ipo_coding.py       -> _coding.json     > ipo_enrich.py pipeline (the app
+#   ipo_submenus.py     -> _submenus.json  /  renders from the IR now), so
+#                          these outputs have NO reader -- reference dumps.
+#                          The one satellite output still live is
+#                          ipo_gauges.py -> _gauges.json (read by ipo_ir.py).
 #   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
 # (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
@@ -54,10 +57,6 @@ cd "$(dirname "$0")/.."
 # BMW originals are not in the repo; say so clearly before anything reads them
 scripts/setup/check-vendor.sh >/dev/null 2>&1 || { scripts/setup/check-vendor.sh; exit 1; }
 
-echo "== MS45 ground truth (recall, no invented fields, known gaps) =="
-
-
-echo
 echo "== .IPO decompiler vs ground truth =="
 python3 tools/verify/test_disasm.py
 
@@ -70,10 +69,22 @@ echo
 echo "== IR interpreter renders known screens =="
 node tools/verify/test_ir_render.js
 
+echo
+echo "== INPA config export matches the shipped chassis-config =="
+python3 tools/export/inpa_config.py --check || exit 1
+
 if [ -n "$BMACW_PORT" ]; then
   echo
   echo "== job metadata matches the engine =="
   python3 tools/verify/test_meta.py || exit 1
+  echo
+  echo "== lifted specs decode bytes the way the engine does =="
+  # needs the .NET engine (vendor/ediabaslib-src); returns 1 on disagreement
+  python3 tools/verify/sgbd_value_diff.py --selftest || exit 1
+else
+  echo
+  echo "SKIP (engine not running): test_meta.py, sgbd_value_diff.py --selftest"
+  echo "      set BMACW_PORT to run the engine-backed checks"
 fi
 
 echo
@@ -103,4 +114,7 @@ if [ -n "$BMACW_PORT" ] && [ -d data/sgbd-tables ]; then
   echo
   echo "== shipped tables cover what the SGBDs declare =="
   python3 tools/export/sgbd_export.py --audit || exit 1
+else
+  echo
+  echo "SKIP (engine not running): sgbd_export.py --audit (table completeness)"
 fi

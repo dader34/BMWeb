@@ -62,14 +62,24 @@ CLI = os.path.join(ROOT, "src", "InpaMac.Cli")
 # app/renderer/core/bestvm.js -- see the long note there. The old leading-verb
 # regex missed ~1100 writes (START_/STOP_SYSTEMCHECK, ABGLEICH_, SET_, ...), so
 # this is token-based with read-wins and default-deny for the unknown tail.
+# INFO is the one WEAK read token, checked AFTER the write tokens: `_` is a
+# word character, so the old \bINFO never matched STEUERGERAETE_INFO (every
+# *_INFO job fell to default-deny) yet DID match at the start of a name, where
+# read-wins would have called an INFO_SCHREIBEN-shaped write a read. Corpus
+# diff 2026-08-17 (6147 unique job names in data/chassis): 3 write->read flips
+# (CBS_INFO, MODUL_INFO, DEBUGGING_INFORMATION -- all true reads), 0 reverse.
+# test_write_gate.js check 3 compares these patterns and the tier order
+# against the JS twin, so an edit to one side alone fails the gate.
 READ_TOKEN = re.compile(
-    r"(LESEN|_LES\b|\bLES_|READ|STATUS|IDENT|\bINFO|ANZEIGE|ABFRAG"
+    r"(LESEN|_LES\b|\bLES_|READ|STATUS|IDENT|ANZEIGE|ABFRAG"
     r"|ANZAHL|ZUSTAND|GET_)", re.I)
 WRITE_TOKEN = re.compile(
-    r"(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|\bSTART|\bSTOP"
-    r"|RESET|CODIER|WRITE|\bSET\b|DOWNLOAD|UPLOAD|ABGLEICH|ADAPTION|SLEEP"
-    r"|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL|AKTIVIER|DEAKTIVIER"
-    r"|TILGUNG|ANLERN|TEACH|CLEAR)", re.I)
+    r"(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|(?:\b|_)START"
+    r"|(?:\b|_)STOP|RESET|CODIER|WRITE|\bSET\b|DOWNLOAD|UPLOAD|ABGLEICH"
+    r"|ADAPTION|SLEEP|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL"
+    r"|AKTIVIER|DEAKTIVIER|TILGUNG|ANLERN|TEACH|CLEAR)", re.I)
+INFO_READ_TOKEN = re.compile(
+    r"(?:\b|_)INFO", re.I)
 
 
 class _WriteJob:
@@ -80,7 +90,11 @@ class _WriteJob:
         n = name or ""
         if READ_TOKEN.search(n):
             return None                       # a read of anything is a read
-        return True                           # write verb, or unknown => guarded
+        if WRITE_TOKEN.search(n):
+            return True                       # a named write verb
+        if INFO_READ_TOKEN.search(n):
+            return None                       # *_INFO read, AFTER write check
+        return True                           # unknown => default-deny, guarded
 
 
 WRITE_JOB = _WriteJob()
@@ -268,7 +282,12 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     limit = None
     if "--limit" in sys.argv:
-        limit = int(sys.argv[sys.argv.index("--limit") + 1])
+        # index()+1 IndexErrors when the flag is last; say what is wrong
+        # instead of tracebacking.
+        i = sys.argv.index("--limit")
+        if i + 1 >= len(sys.argv):
+            sys.exit("--limit needs a number, e.g. --limit 40")
+        limit = int(sys.argv[i + 1])
 
     targets = [a.lower() for a in args] if args else S.e46_sgbds()
     os.makedirs(WORK, exist_ok=True)
@@ -382,7 +401,9 @@ def main():
                         "spec": str(m[3]), "engine": str(m[4])}
                        for m in mismatches], f, indent=1)
         print(f"\nfull list -> {os.path.relpath(os.path.join(WORK, 'mismatches.json'))}")
-    return 0
+    # A spec-vs-engine disagreement is the finding this harness exists to
+    # surface; returning 0 regardless made it invisible to CI and check.sh.
+    return 1 if stats["disagree"] else 0
 
 
 if __name__ == "__main__":

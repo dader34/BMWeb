@@ -29,28 +29,47 @@ class VmError extends Error {}
 //
 // The systematic signal is still the SGBD authors' NAMING CONTRACT, applied
 // correctly rather than by leading verb, over a corpus of 27k jobs:
-//   1. A READ TOKEN anywhere (LESEN/READ/STATUS/IDENT/INFO/ABFRAGE/ANZEIGE/
+//   1. A STRONG READ TOKEN anywhere (LESEN/READ/STATUS/IDENT/ABFRAGE/ANZEIGE/
 //      ZUSTAND/ANZAHL) means read -- so ABGLEICH_LESEN_HFM ("read the calibr-
 //      ation") is a read despite the write-ish ABGLEICH_ prefix. Read wins.
 //   2. Otherwise a WRITE TOKEN (STEUERN/SCHREIB/SETZEN/LOESCH/FLASH/START/STOP/
 //      RESET/CODIER/ABGLEICH/ADAPTION/AUTHENTIS/SET/...) means write.
-//   3. Otherwise DEFAULT-DENY: an unrecognised job is treated as a write, so a
+//   3. Otherwise INFO means read. INFO is a WEAK read token, checked AFTER the
+//      write tokens, because it earned demotion twice over: the old \bINFO
+//      never matched *_INFO at all (`_` is a word character, so there is no \b
+//      between STEUERGERAETE_ and INFO -- every *_INFO job fell to default-
+//      deny and legitimate info reads were blocked in the UI), while at the
+//      START of a name \b DID match, so an INFO_SCHREIBEN-shaped name would
+//      have been called a read by rule 1. Read-wins is only safe for tokens
+//      that cannot prefix a write verb; INFO can, so writes are checked first.
+//      Measured over the 6147 unique job names in data/chassis (2026-08-17):
+//      exactly 3 jobs flip write->read (CBS_INFO, MODUL_INFO,
+//      DEBUGGING_INFORMATION -- all true reads), 0 flip read->write.
+//   4. Otherwise DEFAULT-DENY: an unrecognised job is treated as a write, so a
 //      new or oddly-named job is guarded, never silently run.
-// Kept identical to WRITE_JOB in tools/sgbd_bulk_verify.py -- two different
-// answers to "is this a write?" is worse than either alone.
+// START/STOP match after `_` too ((?:\b|_)): \bSTOP missed STEUERN_ROE_STOP-
+// style names. Default-deny already guarded those, so nothing observable
+// changed in the corpus -- but with INFO checked after writes (rule 3), a
+// hypothetical SYSTEMCHECK_STOP_INFO must hit the write tier, not fall
+// through to the INFO tier. Relaxing a WRITE token is the safe direction.
+// Kept identical to the classifier in tools/verify/sgbd_bulk_verify.py --
+// two different answers to "is this a write?" is worse than either alone.
+// test_write_gate.js check 3 enforces the twin token-by-token.
 const READ_TOKEN = new RegExp(
-  '(LESEN|_LES\\b|\\bLES_|READ|STATUS|IDENT|\\bINFO|ANZEIGE|ABFRAG'
+  '(LESEN|_LES\\b|\\bLES_|READ|STATUS|IDENT|ANZEIGE|ABFRAG'
   + '|ANZAHL|ZUSTAND|GET_)', 'i');
 const WRITE_TOKEN = new RegExp(
-  '(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|\\bSTART|\\bSTOP'
-  + '|RESET|CODIER|WRITE|\\bSET\\b|DOWNLOAD|UPLOAD|ABGLEICH|ADAPTION|SLEEP'
-  + '|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL|AKTIVIER|DEAKTIVIER'
-  + '|TILGUNG|ANLERN|TEACH|CLEAR)', 'i');
+  '(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|(?:\\b|_)START'
+  + '|(?:\\b|_)STOP|RESET|CODIER|WRITE|\\bSET\\b|DOWNLOAD|UPLOAD|ABGLEICH'
+  + '|ADAPTION|SLEEP|WAKEUP|POWER_?DOWN|AUTHENTIS|INITIALISIER|EINSTELL'
+  + '|AKTIVIER|DEAKTIVIER|TILGUNG|ANLERN|TEACH|CLEAR)', 'i');
+const INFO_READ_TOKEN = new RegExp('(?:\\b|_)INFO', 'i');
 
 function isWriteJob(name) {
   const n = String(name || '');
-  if (READ_TOKEN.test(n)) return false;     // a read of anything is a read
+  if (READ_TOKEN.test(n)) return false;      // a read of anything is a read
   if (WRITE_TOKEN.test(n)) return true;      // a named write verb
+  if (INFO_READ_TOKEN.test(n)) return false; // *_INFO read, AFTER write check
   return true;                               // default-deny: unknown => guarded
 }
 
@@ -1769,5 +1788,9 @@ if (typeof window !== 'undefined') {
 }
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { Best2Vm, VmError, STOP, JUMP_TESTS, REG_BYTES,
-                     isWriteJob, WRITE_JOB };
+                     isWriteJob, WRITE_JOB,
+                     // the classifier's parts, exported so test_write_gate.js
+                     // can compare each against its Python twin in
+                     // tools/verify/sgbd_bulk_verify.py pattern-by-pattern
+                     READ_TOKEN, WRITE_TOKEN, INFO_READ_TOKEN };
 }
