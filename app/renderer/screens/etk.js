@@ -663,6 +663,9 @@ function showVinDecoder() {
   let veh = null;                 // the loaded vehicles.json
   let grouped = null;             // { order, groups } from groupBySeries
   let picked = null;              // { chassis, mospid, ... }
+  let chassisMaxYear = 0;         // newest intro-year anywhere in the chassis --
+                                  // a stand-in for end-of-build, so the Year list
+                                  // can run past the last per-model intro date
   const state = { series: null, chassis: null, body: null, model: null };
 
   const opt = (sel, items, ph) => sel.setOptions(items, ph);
@@ -737,6 +740,17 @@ function showVinDecoder() {
   lbChassis._onpick = (ch) => {
     state.chassis = ch; state.body = state.model = null;
     lbModel.clear(); resetDrops(); thumb.hidden = false; setThumb(null, null);
+    // newest intro-year across every body/model of this chassis -- the upper
+    // bound for the (expanded) Year dropdown, since no explicit end date exists
+    chassisMaxYear = 0;
+    for (const mods of Object.values(veh[ch])) {
+      for (const variants of Object.values(mods)) {
+        for (const v of variants) {
+          const y = +yearOf(v[2]);
+          if (y && y > chassisMaxYear) chassisMaxYear = y;
+        }
+      }
+    }
     const bodies = Object.keys(veh[ch]);
     lbBody.setItems(bodies.map(b => ({ key: b, label: bodyLabel(b) })));
     idHint.textContent = 'Pick a body style.';
@@ -775,16 +789,36 @@ function showVinDecoder() {
     [selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
     const gear = selGear.value !== '' ? selGear._vals[+selGear.value] : null;
     const vs = selGear._vs.filter(v => !gear || v[1] === gear);
-    const years = [...new Set(vs.map(v => yearOf(v[2])))].filter(Boolean).sort();
+    // The dates in the data are each variant's INTRODUCTION date, not the model
+    // years it was sold. So a car whose build year sits between two intro dates
+    // (a 2005 E46 325i, say) had no exact row and its year went missing from the
+    // list. List every year from the first intro to the chassis's end of build,
+    // and map each to the variant "in force" then (newest intro <= that year).
+    const introYears = [...new Set(vs.map(v => yearOf(v[2])))].filter(Boolean).sort();
+    let years = introYears, byYear = null;
+    if (introYears.length) {
+      const lo = +introYears[0];
+      const hi = Math.max(+introYears[introYears.length - 1], chassisMaxYear || 0);
+      years = []; byYear = {};
+      for (let y = lo; y <= hi; y++) {
+        const ys = String(y);
+        // the newest intro-year at or before y -- the variant valid that year
+        const inForce = introYears.filter(iy => +iy <= y).pop();
+        if (inForce) { years.push(ys); byYear[ys] = inForce; }
+      }
+    }
     opt(selYear, years, years.length > 1 ? 'All values' : '');
-    selYear._vs = vs; selYear._vals = years; selYear.disabled = false;
+    selYear._vs = vs; selYear._vals = years; selYear._byYear = byYear;
+    selYear.disabled = false;
     if (years.length === 1) { selYear.selectedIndex = 1; }
     selYear.onchange();
   };
   selYear.onchange = () => {
     selMonth.setDisabledEmpty(); selMonth.disabled = true;
-    const year = selYear.value !== '' ? selYear._vals[+selYear.value] : null;
-    const vs = selYear._vs.filter(v => !year || yearOf(v[2]) === year);
+    const picked = selYear.value !== '' ? selYear._vals[+selYear.value] : null;
+    // resolve the displayed year to the intro-year of the variant in force
+    const introYear = picked && selYear._byYear ? selYear._byYear[picked] : picked;
+    const vs = selYear._vs.filter(v => !introYear || yearOf(v[2]) === introYear);
     const months = [...new Set(vs.map(v => monthOf(v[2])))].filter(Boolean).sort();
     opt(selMonth, months, months.length > 1 ? 'All values' : '');
     selMonth._vs = vs; selMonth._vals = months; selMonth.disabled = false;
@@ -802,7 +836,9 @@ function showVinDecoder() {
     if (steer) vs = vs.filter(v => v[0] === steer);
     const gear = (selGear._vals && selGear.value !== '') ? selGear._vals[+selGear.value] : null;
     if (gear) vs = vs.filter(v => v[1] === gear);
-    const year = (selYear._vals && selYear.value !== '') ? selYear._vals[+selYear.value] : null;
+    const yearSel = (selYear._vals && selYear.value !== '') ? selYear._vals[+selYear.value] : null;
+    // displayed year -> the intro-year of the variant in force (see selGear.onchange)
+    const year = yearSel && selYear._byYear ? selYear._byYear[yearSel] : yearSel;
     if (year) vs = vs.filter(v => yearOf(v[2]) === year);
     const month = (selMonth._vals && selMonth.value !== '') ? selMonth._vals[+selMonth.value] : null;
     if (month) vs = vs.filter(v => monthOf(v[2]) === month);
