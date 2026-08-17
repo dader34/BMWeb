@@ -63,11 +63,6 @@ def main():
           f"s_code {'present' if 's_code' in g['screens'] else 'MISSING'} "
           f"({len(ck)} fields)")
 
-    # -- corpus floor --------------------------------------------------------
-    dec_path = os.path.join(ROOT, "data/inpa-screens/_decompiled.json")
-    dec = json.load(open(dec_path)) if os.path.exists(dec_path) else {}
-    fields = sum(len(s["fields"]) for r2 in dec.values()
-                 for s in r2["screens"].values())
     # long proc names: a 30-char cap once hid every longer declaration.
     # AFS_60 declares two that INPA's own .ini lists, and the fix recovered
     # 59 screens corpus-wide.
@@ -128,12 +123,30 @@ def main():
           f"(inline %STATE labels consumed)")
 
 
-    if len(dec) < 500:
-        failures.append(f"decompiled corpus shrank: {len(dec)} ECUs (< 500)")
-    if fields < 15000:
-        failures.append(f"decompiled fields shrank: {fields} (< 15000)")
-    print(f"  corpus     {len(dec)} ECUs, {fields} keyed fields "
-          f"(floors 500 / 15000)")
+    # -- corpus floor --------------------------------------------------------
+    # Counted from data/inpa-ir/*.json, the artifacts the app renders
+    # (app/renderer/screens/ir.js). The old floor read
+    # data/inpa-screens/_decompiled.json -- a snapshot frozen on Aug 2 that
+    # nothing regenerated -- so the guard passed forever and could never
+    # catch a shrunken rebuild. Measured 2026-08-17: 1124 ECUs, 21393
+    # screens, 105657 keyed elements; floors sit ~10% under that so a
+    # legitimate pruning pass has room but a broken corpus walk does not.
+    n_ecus = fields = 0
+    for p in glob.glob(os.path.join(ROOT, "data/inpa-ir/*.json")):
+        ir = json.load(open(p, encoding="utf-8"))
+        scrs = ir.get("screens") or {}
+        if not scrs:
+            continue
+        n_ecus += 1
+        fields += sum(1 for s in scrs.values()
+                      for ln in s.get("lines") or [] if ln
+                      for e in ln.get("elements") or [] if e.get("key"))
+    if n_ecus < 1000:
+        failures.append(f"IR corpus shrank: {n_ecus} ECUs (< 1000)")
+    if fields < 90000:
+        failures.append(f"IR keyed elements shrank: {fields} (< 90000)")
+    print(f"  corpus     {n_ecus} IR ECUs, {fields} keyed elements "
+          f"(floors 1000 / 90000)")
 
     # -- statusMenu pages: REMOVED -------------------------------------------
     # This counted layouts under data/inpa-layouts/generated that carried

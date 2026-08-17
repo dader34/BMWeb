@@ -22,13 +22,22 @@
 //   node tools/ipo_i18n.js --check    # report, write nothing
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 const R = path.join(__dirname, '..', '..');
 const IR_DIR = path.join(R, 'data/inpa-ir');
 const OVR_DIR = path.join(R, 'data/inpa-i18n');
 
-// the shared vocabulary, loaded the same way the guards load it
-const lang = () => 'en';
-eval(fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'));
+// the shared vocabulary. translate.js is a renderer script -- top-level
+// consts and function declarations, no module.exports -- so require() sees
+// nothing. It used to be eval'd into this module's scope; run it in its own
+// vm context instead, so nothing here leaks in and nothing but deGerman
+// leaks out. `lang` is its one free identifier (everything browser-only sits
+// behind `typeof window` guards, so an empty-global sandbox is enough).
+const _vocab = vm.createContext({ lang: () => 'en' });
+vm.runInContext(
+  fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'),
+  _vocab, { filename: 'translate.js' });
+const deGerman = _vocab.deGerman;
 
 // every caption an IR displays, for the check path (the emitter supplies the
 // same list as `strings` on a fresh build)

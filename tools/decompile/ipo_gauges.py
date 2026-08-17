@@ -95,10 +95,10 @@ _TAIL = 96
 def _doubles(data, pos):
     out = []
     for m in _DOUBLE.finditer(data, pos, pos + _TAIL):
-        try:
-            out.append(struct.unpack("<d", m.group(1))[0])
-        except struct.error:                # truncated tail
-            break
+        # _DOUBLE's group is exactly 8 bytes (`.{8}` with DOTALL), so the
+        # unpack cannot see a short buffer; a tail shorter than 8 bytes
+        # simply never matches
+        out.append(struct.unpack("<d", m.group(1))[0])
         if len(out) >= 2:
             break
     return out

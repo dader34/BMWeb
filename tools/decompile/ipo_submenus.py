@@ -112,7 +112,11 @@ def menus(data):
         # One block runs while the F-numbers ASCEND and the lines stay close.
         # A number going backwards is the next screen's help starting, not a
         # continuation -- without that check two adjacent menus merge into one.
-        items, seen, end, last = [], set(), m.start(), 0
+        # end starts at m.end(), not m.start(): a malformed first line
+        # (a "< F0 >" caption fails `num <= last` immediately) used to break
+        # the inner loop before any `end = k.end()` ran, so `i = end` re-found
+        # the same match forever and the tool hung on the file
+        items, seen, end, last = [], set(), m.end(), 0
         for k in _FKEY.finditer(data, m.start(), m.start() + 900):
             if k.start() > end + 120:       # a gap means a different block
                 break

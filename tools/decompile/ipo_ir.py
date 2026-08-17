@@ -1031,10 +1031,12 @@ def _state_proc(body):
     back to the global -- so the proc is really a little form. Returns:
 
         {"fields": [{"slot", "title", "caption", "min", "max", "dialog"}],
-         "copy":   [[src_slot, dst_slot], ...],   # "Set default values"
          "writeSlot": N,                          # global the job arg reads
          "argOrder": [slot, slot, ...],           # the ;-joined send order
          "sep": ";"}
+
+    "Set default values" copy pairs are NOT emitted here: they live in the
+    menu ITEM's own body, and _inline_copy() reads them there.
 
     Only the parts present for a given proc appear. `fields` binds each
     dialog to the slot it writes by the commit `store` that follows the
@@ -1046,7 +1048,6 @@ def _state_proc(body):
     frame_strs = []
     pending = None                       # (dialog_name, n_outs, [captions])
     committed = 0                        # commit stores seen for `pending`
-    copy_src = None                      # a bare `var slot` with nothing else
 
     # the argument add-chain: alternating `var slot` and separator const.
     arg_vars = []                        # slots in the order they concatenate
@@ -1090,7 +1091,6 @@ def _state_proc(body):
             # a var feeding an add-chain is part of the argument assembly
             if building_arg or not arg_vars:
                 arg_vars.append(t["n"])
-            copy_src = t["n"] if t.get("sc", 0) == 0 else None
             continue
         if op == "store":
             slot = t["n"]
@@ -1115,7 +1115,6 @@ def _state_proc(body):
                 committed += 1
                 if committed >= pending[1]:
                     pending = None
-                copy_src = None
                 continue
             # the assembled argument stored into the slot the job reads
             if building_arg and len(arg_vars) >= 2:
@@ -1125,9 +1124,7 @@ def _state_proc(body):
                     out["sep"] = arg_sep or ";"
                 building_arg = False
                 arg_vars = []
-                copy_src = None
                 continue
-            copy_src = None
             arg_vars = []
             continue
 

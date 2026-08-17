@@ -411,7 +411,9 @@ def walk(data, lo, hi, pool):
                 label = data[i + 6:j].decode("latin-1")
                 j2 = data.find(b"\n", j + 1, min(hi, j + 260))
                 second = data[j + 1:j2].decode("latin-1") if j2 >= 0 else ""
-                if j2 >= 0 and j2 + 3 <= hi:
+                # +4, not +3: the end-dword u16 occupies data[j2+2:j2+4], and
+                # a slice truncated at hi silently decoded to a 1-byte value
+                if j2 >= 0 and j2 + 4 <= hi:
                     dwords = int.from_bytes(data[j2 + 2:j2 + 4], "little")
                     t = {"op": "ITEM" if op == 0x24 else "LINE",
                          "nr": b, "label": label, "dwords": dwords,
@@ -622,8 +624,12 @@ def screen_fields(toks, id2name=None):
                     if not any(x.get("key") == key and x.get("kind") == "text"
                                for x in fields):
                         fields.append(f)
-            elif name in ("text", "textout"):
-                # text(row,col,str) / textout(str,row,col)
+            # only text() reaches here: textout is consumed by the branch
+            # above, so listing it in this elif was dead. Its unit-extraction
+            # intent stays unimplemented rather than newly enabled -- turning
+            # it on would change the legacy screen_fields output unverified.
+            elif name == "text":
+                # text(row,col,str)
                 s = strs[0] if strs else ""
                 if s.startswith("[") or (args and args[0]["op"] == "const"
                                          and args[0]["t"] == "s"
@@ -639,11 +645,8 @@ def screen_fields(toks, id2name=None):
                 if slot is not None and bind.get(slot, "").endswith("_EINH"):
                     last_unit = {"fromKey": bind[slot]}
             elif name in JOB_CALLS:
-                if len(strs) >= 2 and _KEYISH.match(strs[0] if not args or
-                                                    args[0]["op"] != "var"
-                                                    else strs[0]):
-                    jobs.append(strs[0])
-                elif strs:
+                # both arms of the old keyish-vs-not split appended strs[0]
+                if strs:
                     jobs.append(strs[0])
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
                           "INPAapiResultDigital"):
@@ -888,7 +891,11 @@ def main():
             if name != want:
                 continue
             lo = off + 1 + len(name) + 1 + 4 + 1
-            hi = decls[k + 1][0] if k + 1 < len(decls) else ps
+            # same fallback decompile() uses: the inline-string dialects
+            # (A_*, CH/CI/CM) have no pool, so ps is None and a bare `else
+            # ps` fed walk() a None bound (TypeError on every such file)
+            hi = decls[k + 1][0] if k + 1 < len(decls) else (
+                ps if ps is not None else code_end(data, None))
             toks, unk, ln = walk(data, lo, hi, pool)
             print(f"\n{typ} {name} (id {pid}) {off}..{hi} "
                   f"unknown {unk}/{ln} bytes")
@@ -898,7 +905,8 @@ def main():
         return 0
     for k, (off, typ, name, pid) in enumerate(decls):
         lo = off + 1 + len(name) + 1 + 4 + 1
-        hi = decls[k + 1][0] if k + 1 < len(decls) else ps
+        hi = decls[k + 1][0] if k + 1 < len(decls) else (
+            ps if ps is not None else code_end(data, None))
         toks, unk, ln = walk(data, lo, hi, pool)
         cs, items = calls_of(toks)
         print(f"  {typ:6} {name:26} id {pid:3}  {len(cs):3} calls  "
