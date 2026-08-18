@@ -183,17 +183,63 @@ async function moduleFunctions(chassisId, sgbd) {
 // from the first frame -- no Read buttons, same rule on desktop and mobile.
 function seedState(state, sgbd, fns, read) {
   for (const f of fns) {
-    const opts = treeOptions(f.values || []);
-    if (!opts.length) continue;
+    const vals = f.values || [];
+    const opts = treeOptions(vals);
+    // numeric fields are choosable too, even with ONE shipped value: expert
+    // mode lets any of them take a hand-typed byte (treeNumeric + the edit
+    // chip), so they need a current like every other choice
+    const numeric = treeNumericField(vals);
+    if (!opts.length && !numeric) continue;
     const fkey = `${sgbd}:${f.name}`;
     let cur = read ? treeMatchRead(f.name, opts, read) : null;
+    if (cur == null && numeric && read) {
+      // a numeric field accepts ANY byte the read names, not just shipped ones
+      const num = typeof codMatchRead === 'function' ? codMatchRead(f.name, read) : null;
+      const w = String(vals[0][1]).length;
+      if (num != null && num >= 0 && num <= parseInt('f'.repeat(w), 16)) {
+        cur = num.toString(16).padStart(w, '0');
+      }
+    }
     if (cur == null) {
-      let h = 0;
-      for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-      cur = opts[h % opts.length][1];
+      if (opts.length) {
+        let h = 0;
+        for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+        cur = opts[h % opts.length][1];
+      } else {
+        cur = String(vals[0][1]).toLowerCase();   // the factory default
+      }
     }
     state.set(fkey, { current: cur, staged: null });
   }
+}
+
+// all-numeric-named, byte-sized values: the shape that takes free entry
+function treeNumericField(vals) {
+  return vals.length > 0
+    && vals.every(([n]) => treeIsNumericName(n))
+    && vals.every(([, v]) => typeof v === 'string' && v.length <= 4);
+}
+
+// the ✎ chip tapped: prompt for a value (decimal, or 0x.. hex), bound it by
+// the field's mask, stage it like any picked option. Shared by the desktop
+// tree and the mobile module view so the two stay identical.
+function treeEditPrompt(opt, s, draw) {
+  const max = parseInt(opt.dataset.max || '255', 10);
+  const w = parseInt(opt.dataset.w || '2', 10);
+  inputDialog({
+    title: 'Set value',
+    body: `Any value 0–${max} can be staged. Only values BMW shipped are `
+      + `proven on real cars — a hand-typed one is on you.`,
+    kind: 'text', example: String(max), confirmLabel: 'Stage',
+  }).then((val) => {
+    if (val == null || String(val).trim() === '') return;
+    const t = String(val).trim().toLowerCase();
+    const n = t.startsWith('0x') ? parseInt(t.slice(2), 16) : parseInt(t, 10);
+    if (!Number.isFinite(n) || n < 0 || n > max) return;
+    const hex = n.toString(16).padStart(w, '0');
+    s.staged = hex === String(s.current).toLowerCase() ? null : hex;
+    draw();
+  });
 }
 
 // MOBILE: a list of modules; tapping one opens that module's coding as the
@@ -263,7 +309,7 @@ async function expertModuleScreen(chassisId, m, back, scan) {
     const tree = host.querySelector('#m-tree');
     for (const f of rows) {
       const fkey = `${m.sgbd}:${f.name}`;
-      const valsHtml = treeValues(f.values || [], label, fkey, state);
+      const valsHtml = treeValues(f.values || [], label, fkey, state, f);
       const fl = document.createElement('details');
       fl.className = 'tree-fn'; fl.dataset.fkey = fkey;
       fl.open = openFns.has(fkey);
@@ -287,6 +333,7 @@ async function expertModuleScreen(chassisId, m, back, scan) {
     const fkey = wrap && wrap.dataset.fkey;
     const s = fkey && state.get(fkey);
     if (!s) return;
+    if (opt.dataset.edit != null) { treeEditPrompt(opt, s, draw); return; }
     const v = opt.dataset.v;
     s.staged = (String(v).toLowerCase() === String(s.current).toLowerCase())
       ? null : v;
@@ -380,12 +427,32 @@ function treeMatchRead(kw, opts, read) {
 // Render a function's value list as DATEN means it. A real multiple-choice with
 // a read current renders as SELECTABLE chips (current marked, picking another
 // stages it); otherwise static reference (numeric field, default, or buffer).
-function treeValues(vals, label, fkey, state) {
+function treeValues(vals, label, fkey, state, f) {
   if (!vals.length) return '<span class="ink-faint">—</span>';
-  const opts = treeOptions(vals);
+  let opts = treeOptions(vals);
+  const numeric = treeNumericField(vals);
+  // a single-value numeric field is still choosable in expert mode: its one
+  // shipped default renders as a chip, and the ✎ chip takes any hand-typed
+  // byte -- full access, same staging as everything else
+  if (!opts.length && numeric && state && state.has(fkey)) {
+    opts = [...new Set(vals.map(([, v]) => String(v).toLowerCase()))]
+      .map(v => [String(parseInt(v, 16)), v, true]);
+  }
   if (opts.length && state && state.has(fkey)) {
     const s = state.get(fkey);                 // {current, staged}
     const sel = s.staged != null ? s.staged : s.current;
+    // a hand-typed value isn't among the shipped chips: show it as one
+    if (numeric && sel
+        && !opts.some(([, v]) => v.toLowerCase() === String(sel).toLowerCase())) {
+      opts = [...opts, [String(parseInt(sel, 16)), String(sel).toLowerCase(), true]]
+        .sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
+    }
+    const edit = numeric && f
+      ? `<button class="tree-opt tree-opt-editbtn" data-edit="1" type="button"
+           data-max="${String(vals[0][1]).length > 2 ? 65535 : ((f.mask || 255) >> (f.shift || 0))}"
+           data-w="${String(vals[0][1]).length}"
+           title="Stage any value (expert)">✎ set…</button>`
+      : '';
     return `<div class="tree-opts" data-fkey="${esc(fkey)}">`
       + opts.map(([n, v, final]) => {
         const on = String(v).toLowerCase() === String(sel).toLowerCase();
@@ -396,7 +463,7 @@ function treeValues(vals, label, fkey, state) {
           + `<span class="tree-opt-v mono">0x${esc(v)}</span>`
           + `${isCur ? '<span class="tree-opt-cur">current</span>' : ''}`
           + `</button>`;
-      }).join('') + `</div>`;
+      }).join('') + edit + `</div>`;
   }
   // ---- static reference (numeric / default / buffer / unread) ----
   const long = vals.filter(([, v]) => typeof v === 'string' && v.length > 4);
@@ -506,7 +573,7 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
       for (let i = 0; i < cap; i++) {
         const f = shownFns[i];
         const fkey = fkeyOf(m.sgbd, f.name);
-        const valsHtml = treeValues(f.values || [], label, fkey, state);
+        const valsHtml = treeValues(f.values || [], label, fkey, state, f);
         const fl = document.createElement('details');
         fl.className = 'tree-fn';
         fl.dataset.fkey = fkey;
@@ -545,6 +612,7 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
       const fkey = wrap && wrap.dataset.fkey;
       const s = fkey && state.get(fkey);
       if (!s) return;
+      if (opt.dataset.edit != null) { treeEditPrompt(opt, s, draw); return; }
       const v = opt.dataset.v;
       s.staged = (String(v).toLowerCase()
         === String(s.current).toLowerCase()) ? null : v;
