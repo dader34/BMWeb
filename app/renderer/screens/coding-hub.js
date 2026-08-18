@@ -151,10 +151,38 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   else expertTree(chassisId, mods, cont, back, scan, reScan);
 }
 
-// Load a module's DATEN functions for a chassis: union the functions across
-// variants (dedupe by name), preferring the chassis's own variant set. Returns
-// [] when the module has no DATEN map. Shared by desktop tree and mobile list.
-async function moduleFunctions(chassisId, sgbd) {
+// The ECU's coding index (Cxx), read from the scan. INPA returns it as
+// ID_COD_INDEX / CODIER_INDEX alongside the coding read; it's the number
+// after the "C" in the variant key (C06 -> 6). Returns null when the scan
+// didn't name it (offline, or a module that doesn't report it).
+function codingIndexFromScan(scan, sgbd) {
+  const res = scan && scan.get(String(sgbd).toLowerCase());
+  if (!res) return null;
+  for (const k of ['ID_COD_INDEX', 'CODIER_INDEX', 'CODIERINDEX',
+                   'COD_INDEX', 'ID_CODIERINDEX']) {
+    if (res.has(k)) {
+      const n = parseInt(String(res.get(k)).replace(/^0x/i, ''), 16);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return null;
+}
+
+// A variant key ("C06", or a folded "C06+C07") contains coding index n?
+function variantHasCI(key, n) {
+  return String(key).split('+').some(k => {
+    const m = /C0*(\d+)/i.exec(k);
+    return m && parseInt(m[1], 10) === n;
+  });
+}
+
+// One module's DATEN functions for a chassis. CI-AWARE: when the scan named
+// the ECU's coding index, use ONLY the variant that carries it -- addresses
+// move between indices (E46 KMB's ZCS region is word 104 on C02-C06 but 368
+// on C07-C08), so unioning would show a field twice and a write off the wrong
+// stamp lands in the wrong memory. Without a known index, fall back to the
+// union across variants (a reference, not a write target).
+async function moduleFunctions(chassisId, sgbd, ci = null) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
   const byKey = new Map();
 
@@ -163,8 +191,11 @@ async function moduleFunctions(chassisId, sgbd) {
     const chassis = daten.chassis[chId]
       || daten.chassis[Object.keys(daten.chassis)[0]];
     if (chassis) {
-      for (const variant of Object.values(chassis)) {
-        for (const f of variant) {
+      const keys = Object.keys(chassis);
+      const pick = (ci != null) ? keys.filter(k => variantHasCI(k, ci)) : [];
+      const use = pick.length ? pick : keys;   // matched index, else all
+      for (const vk of use) {
+        for (const f of chassis[vk]) {
           const key = `${f.block || 0}:${f.word || 0}:${f.byte || 0}:${f.mask || 0}`;
           if (!byKey.has(key)) {
             byKey.set(key, f);
@@ -283,7 +314,8 @@ async function expertModuleScreen(chassisId, m, back, scan) {
   view.appendChild(host);
   host.innerHTML = skeletonList ? skeletonList(6) : '';
 
-  const fns = await moduleFunctions(chassisId, m.sgbd);
+  const ci = codingIndexFromScan(scan, m.sgbd);
+  const fns = await moduleFunctions(chassisId, m.sgbd, ci);
   const label = (name) => (typeof datLabel === 'function' ? datLabel(name) : name);
   const state = new Map();
   const read = scan && scan.get(m.sgbd);
@@ -426,6 +458,25 @@ function treeMatchRead(kw, opts, read) {
 
 // Render a function's value list as DATEN means it. A real multiple-choice with
 // a read current renders as SELECTABLE chips (current marked, picking another
+// Render one coded byte as its DATEN unit says: 'd' decimal, 'a'/'A' the
+// ASCII character it stands for, 'b' binary, else hex. The raw 0x byte rides
+// along as a tooltip so it can still be cross-checked against another tool.
+// Ops-carrying (DIR "property") fields keep the raw byte -- the transform
+// needs the full field value, not a per-byte gloss, so we don't fake it.
+function treeFmt(hex, f) {
+  const raw = '0x' + hex;
+  const u = f && f.unit;
+  if (!u || u === 'h' || (f && f.ops && f.ops.length)) return { text: raw, tip: '' };
+  const n = parseInt(hex, 16);
+  if (u === 'd') return { text: String(n), tip: raw };
+  if (u === 'b') return { text: n.toString(2).padStart(hex.length * 4, '0'), tip: raw };
+  if (u === 'a' || u === 'A') {
+    const ch = (n >= 0x20 && n < 0x7f) ? String.fromCharCode(n) : '.';
+    return { text: `'${ch}'`, tip: raw };
+  }
+  return { text: raw, tip: '' };
+}
+
 // stages it); otherwise static reference (numeric field, default, or buffer).
 function treeValues(vals, label, fkey, state, f) {
   if (!vals.length) return '<span class="ink-faint">—</span>';
@@ -447,7 +498,9 @@ function treeValues(vals, label, fkey, state, f) {
       opts = [...opts, [String(parseInt(sel, 16)), String(sel).toLowerCase(), true]]
         .sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
     }
-    const edit = numeric && f
+    // DIR "property" fields (VIN, date, keys) are computed/read-only -- no
+    // free-entry chip; a raw hand-typed byte would bypass their transform
+    const edit = numeric && f && !f.dir
       ? `<button class="tree-opt tree-opt-editbtn" data-edit="1" type="button"
            data-max="${String(vals[0][1]).length > 2 ? 65535 : ((f.mask || 255) >> (f.shift || 0))}"
            data-w="${String(vals[0][1]).length}"
@@ -457,10 +510,15 @@ function treeValues(vals, label, fkey, state, f) {
       + opts.map(([n, v, final]) => {
         const on = String(v).toLowerCase() === String(sel).toLowerCase();
         const isCur = String(v).toLowerCase() === String(s.current).toLowerCase();
+        // a numeric chip shows its unit-formatted value; a named option keeps
+        // its label. The mono suffix is the raw byte either way.
+        const { text, tip } = numeric ? treeFmt(v, f) : { text: '0x' + v, tip: '' };
+        const nm = final ? n : (numeric ? text : label(n));
         return `<button class="tree-opt${on ? ' sel' : ''}" `
           + `data-v="${esc(v)}" type="button">`
-          + `<span class="tree-opt-n">${esc(final ? n : label(n))}</span>`
-          + `<span class="tree-opt-v mono">0x${esc(v)}</span>`
+          + `<span class="tree-opt-n">${esc(nm)}</span>`
+          + `<span class="tree-opt-v mono"${tip ? ` title="${tip}"` : ''}>`
+          + `0x${esc(v)}</span>`
           + `${isCur ? '<span class="tree-opt-cur">current</span>' : ''}`
           + `</button>`;
       }).join('') + edit + `</div>`;
@@ -475,14 +533,19 @@ function treeValues(vals, label, fkey, state, f) {
       + `<span class="tree-val-v mono">${bytes} bytes each</span></span>`;
   }
   if (vals.every(([n]) => treeIsNumericName(n))) {
-    // numeric quantities read as decimal (an RPM threshold is 10, not 0x0a);
-    // the raw byte stays a hover away for cross-checking other tools
+    // numeric quantities read in their DATEN unit -- decimal by default (an
+    // RPM threshold is 10, not 0x0a), the character for an ASCII field, the
+    // raw byte for hex. A DIR property field (VIN/date/key) is read-only.
     const uniq = [...new Set(vals.map(([, v]) => String(v)))]
       .sort((a, b) => parseInt(a, 16) - parseInt(b, 16));
-    const tag = uniq.length === 1 ? 'default' : 'value';
+    const tag = (f && f.dir) ? 'property'
+      : uniq.length === 1 ? 'default' : 'value';
     return `<span class="tree-val"><span class="tree-val-n">${tag}</span>`
-      + uniq.map(v => `<span class="tree-val-v mono" title="0x${esc(v)}">`
-        + `${parseInt(v, 16)}</span>`).join('')
+      + uniq.map(v => {
+        const { text, tip } = treeFmt(v, f);
+        return `<span class="tree-val-v mono"${tip ? ` title="${tip}"` : ''}>`
+          + `${esc(text)}</span>`;
+      }).join('')
       + `</span>`;
   }
   // named options that all hold the SAME byte are one fact, not a choice --
@@ -521,7 +584,8 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
   // modules with no functions -- a 0-function row is a dead expand.
   const built = [];
   for (const m of mods) {
-    const fns = await moduleFunctions(chassisId, m.sgbd);
+    const fns = await moduleFunctions(chassisId, m.sgbd,
+      codingIndexFromScan(scan, m.sgbd));
     if (fns.length) built.push({ ...m, fns });
   }
 

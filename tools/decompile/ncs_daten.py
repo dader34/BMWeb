@@ -227,7 +227,68 @@ def _take(code, p, i):
     if code == 'S':
         j = p.index(0, i)
         return p[i:j].decode('latin1'), j + 1
+    if code == 'A':
+        # The `A` field is a length-prefixed byte buffer: u8 total length,
+        # then that many content bytes. When the field holds a CABD OPERATION
+        # list, the content is FIXED 5-byte entries -- 1 ASCII op char + u32
+        # LE operand -- so the count is total/5. (Per BMW's own CBD_READ.C /
+        # GetDataFromOperation, docs match; empirically 6173 rows, 0 fails.)
+        # We return the parsed op list; the caller applies them, its inverse
+        # re-encodes for a write.
+        if i >= len(p):
+            raise ValueError('short A')
+        ln = p[i]
+        i += 1
+        if i + ln > len(p):
+            raise ValueError('bad A length')
+        content = p[i:i + ln]
+        ops = []
+        for j in range(0, len(content) - (len(content) % 5), 5):
+            op = chr(content[j])
+            operand = int.from_bytes(content[j + 1:j + 5], 'little')
+            ops.append((op, operand))
+        return ops, i + ln
     raise ValueError(f'unsupported code {code}')
+
+
+# The 9 CABD OPERATION operators and their effect on an assembled value, from
+# BMW's GetDataFromOperation (FUN_004575c0, CBD_READ.C) -- a fact, reusable.
+# NCS Dummy's public notes list only ! + - > (the ones that appear in shipped
+# DATEN); the rest are implemented for completeness. Applied left-to-right to
+# the value already folded from source bytes per EINHEIT.
+def _apply_ops(value, ops):
+    for op, n in ops:
+        if op == '!':
+            value ^= 0xFFFFFFFF
+        elif op == '&':
+            value &= n
+        elif op == '*':
+            value *= n
+        elif op == '+':
+            value += n
+        elif op == '-':
+            value -= n
+        elif op == '/':
+            value = value // n if n else value
+        elif op == '>':
+            value = (value >> n) & ((1 << (32 - n)) - 1) if 0 <= n < 32 else value
+        elif op == '^':
+            value ^= n
+        elif op == '|':
+            value |= n
+    return value & 0xFFFFFFFF
+
+
+# EINHEIT byte -> display format. 'h' hex (default), 'd' decimal, 'a'/'A' ASCII
+# text, 'b' binary. Governs how a coded value is shown and, inverted, encoded.
+_EINHEIT = {0x68: 'h', 0x64: 'd', 0x61: 'a', 0x41: 'A', 0x62: 'b'}
+
+
+def _unit(ein):
+    """One EINHEIT byte to its format char, defaulting to hex."""
+    if ein is None:
+        return 'h'
+    return _EINHEIT.get(ein, chr(ein) if 0x20 <= ein < 0x7f else 'h')
 
 
 def parse_payload(sig, p):
@@ -368,13 +429,26 @@ def rows(data, kw=None, chassis=None):
     psw_sec = secs.get('PARZUWEISUNG_PSW1')
     psw_seq = psw_sec['seq'] if psw_sec else None
     psw_sig = (psw_sec['sig'] or 'W(B)') if psw_sec else 'W(B)'
+    # PARZUWEISUNG_DIR ("direkt") is a SEPARATE set of coding fields -- BMW's
+    # directly-addressed diagnostic/manufacturer values (VIN across several
+    # words, hardware/date stamps) that never appear in the FSW option menu,
+    # so their ids live in their own namespace (no overlap with FSW). They
+    # carry an (A) OPERATION list -- the value transform, e.g. "- 0x30" to
+    # turn each ASCII digit byte into its value -- and a per-row EINHEIT. We
+    # surface them as read-only rows (they are not aktiv/nicht_aktiv choices)
+    # so the map is complete and a value renders correctly instead of as raw
+    # nibbles. Marked dir:True; PSW-less.
+    dir_sec = secs.get('PARZUWEISUNG_DIR')
+    dir_seq = dir_sec['seq'] if dir_sec else None
+    dir_sig = (dir_sec['sig'] or '{L}LWW{B}(B)(A)B') if dir_sec else None
 
     out = []
+    dir_out = []
     cur = None
     for seq, payload, at in records(data):
         if seq == fsw_seq:
             try:
-                blk, wort, byte, fsw, _idx, masks, _ein, _ind = \
+                blk, wort, byte, fsw, idx, masks, ein, _ind = \
                     parse_payload(fsw_sig, payload)
             except (ValueError, IndexError):
                 continue
@@ -382,9 +456,25 @@ def rows(data, kw=None, chassis=None):
             for m in (masks or []):
                 mask |= m
             cur = {'block': blk or 0, 'word': wort, 'byte': byte,
-                   'mask': mask, 'fsw': fsw, 'name': None, 'psw': [],
-                   'at': at}
+                   'mask': mask, 'fsw': fsw, 'index': idx, 'unit': _unit(ein),
+                   'ops': [], 'name': None, 'psw': [], 'at': at}
             out.append(cur)
+        elif dir_seq is not None and seq == dir_seq:
+            try:
+                blk, wort, byte, fsw, idx, masks, oplists, ein = \
+                    parse_payload(dir_sig, payload)
+            except (ValueError, IndexError):
+                continue
+            mask = 0
+            for m in (masks or []):
+                mask |= m
+            # (A) is a repeating field, so oplists is a list of A-buffers; a
+            # DIR row carries at most one, each already a [(op, operand)] list
+            ops = oplists[0] if oplists else []
+            dir_out.append({'block': blk or 0, 'word': wort, 'byte': byte,
+                            'mask': mask, 'fsw': fsw, 'index': idx,
+                            'unit': _unit(ein), 'ops': ops, 'dir': True,
+                            'name': None, 'psw': [], 'at': at})
         elif psw_seq is not None and seq == psw_seq and cur is not None:
             try:
                 psw, datum = parse_payload(psw_sig, payload)
@@ -420,6 +510,19 @@ def rows(data, kw=None, chassis=None):
         r['psw_table'] = ptable
         r['name'] = pick.get(r['fsw'])
         r['psw'] = [(ptab.get(p, p), d.hex()) for p, d in r['psw']]
+    # DIR fields carry their transform (ops + display unit) but their ids are
+    # a separate namespace that the FSW/PSW/ASW tables shipped with SP-Daten
+    # do not name. Emit only the ones that DO resolve (rare) so the map gains
+    # them without a wall of unnamed hex rows; the ops/unit ride along either
+    # way for the write encoder. Named DIR rows join the tail as read-only.
+    for r in dir_out:
+        nm = pick.get(r['fsw'])
+        if not nm:
+            continue
+        r['table'] = table
+        r['psw_table'] = ptable
+        r['name'] = nm
+        out.append(r)
     return out
 
 

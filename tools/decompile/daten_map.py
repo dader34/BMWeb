@@ -158,7 +158,7 @@ def read_module(paths):
         for r in rr:
             if not r['name']:
                 continue                       # unresolved id: nothing to show
-            fields.append({
+            field = {
                 'name': r['name'],
                 'block': r['block'],
                 'word': r['word'],
@@ -169,7 +169,22 @@ def read_module(paths):
                 # for a plain setting, or a hex string when the parameter
                 # is a whole buffer (a characteristic curve, say)
                 'values': [[n, v] for n, v in r['psw']],
-            })
+            }
+            # EINHEIT: how the value reads -- 'd' decimal, 'a'/'A' ASCII text,
+            # 'b' binary. Omitted when 'h' (hex, the default) to keep the map
+            # small. Governs display, and inverted, encoding.
+            if r.get('unit') and r['unit'] != 'h':
+                field['unit'] = r['unit']
+            # OPERATION list [[op, operand], ...] -- a value transform on the
+            # assembled bytes (e.g. [["-",48]] un-packs an ASCII digit). Only
+            # DIR "property" fields carry them; needed to render and to encode.
+            if r.get('ops'):
+                field['ops'] = [[op, n] for op, n in r['ops']]
+            # a DIR field is a computed property (VIN, date, key), read-only
+            # in the coding UI -- not an aktiv/nicht_aktiv choice
+            if r.get('dir'):
+                field['dir'] = True
+            fields.append(field)
         if fields:
             out[os.path.basename(p).split('.')[-1]] = fields
 
