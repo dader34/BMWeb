@@ -331,20 +331,37 @@ function treeIsNumericName(n) {
 // ids there). Empty when the function is not a choice at all -- including
 // named options that all collapse to ONE byte (E46 EWS codes gasoline and
 // diesel cut-off time identically: nothing to pick, so no buttons to show).
+// Entries are [label, hexValue, final] -- `final` marks a label that is
+// already display text (a decimal, or a merged "12 · Alpina") that must NOT
+// go through the keyword translator.
 function treeOptions(vals) {
   if (!vals.length) return [];
   if (vals.some(([, v]) => typeof v === 'string' && v.length > 4)) return [];
-  const numeric = vals.every(([n]) => treeIsNumericName(n));
-  if (!numeric && vals.some(([n]) => treeIsNumericName(n))) return [];
-  // dedupe by hex value; need at least two to be a choice
-  const seen = new Set(); const out = [];
+  const anyNumeric = vals.some(([n]) => treeIsNumericName(n));
+  // dedupe by hex value, MERGING what each value is called: CAS's
+  // ZYLINDER_ZAHL is [[179,'06'],[180,'08'],[181,'0c'],['alpina','0c']] --
+  // 179/180/181 are unresolved keyword ids (the VALUE is the cylinder
+  // count), and alpina shares 0x0c with plain 12-cylinder. That renders as
+  // 6 / 8 / "12 · Alpina", each pickable.
+  const byVal = new Map();                      // hex -> Set of real names
   for (const [n, v] of vals) {
     const key = String(v).toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key); out.push([numeric ? String(parseInt(v, 16)) : n, String(v)]);
+    if (!byVal.has(key)) byVal.set(key, new Set());
+    if (!treeIsNumericName(n)) byVal.get(key).add(String(n));
   }
-  if (out.length < 2) return [];
-  if (numeric) out.sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
+  if (byVal.size < 2) return [];
+  const out = [...byVal.entries()].map(([v, names]) => {
+    if (!anyNumeric && names.size) {
+      // pure named choice: single names keep the translator path
+      const list = [...names];
+      return list.length === 1 ? [list[0], v] : [list.join(' / '), v, true];
+    }
+    // numeric or mixed: the decimal IS the meaning; real names ride along
+    const dec = String(parseInt(v, 16));
+    const extra = [...names].map(n => datLabel ? datLabel(n) : n).join(' / ');
+    return [extra ? `${dec} · ${extra}` : dec, v, true];
+  });
+  if (anyNumeric) out.sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
   return out;
 }
 
@@ -370,12 +387,12 @@ function treeValues(vals, label, fkey, state) {
     const s = state.get(fkey);                 // {current, staged}
     const sel = s.staged != null ? s.staged : s.current;
     return `<div class="tree-opts" data-fkey="${esc(fkey)}">`
-      + opts.map(([n, v]) => {
+      + opts.map(([n, v, final]) => {
         const on = String(v).toLowerCase() === String(sel).toLowerCase();
         const isCur = String(v).toLowerCase() === String(s.current).toLowerCase();
         return `<button class="tree-opt${on ? ' sel' : ''}" `
           + `data-v="${esc(v)}" type="button">`
-          + `<span class="tree-opt-n">${esc(label(n))}</span>`
+          + `<span class="tree-opt-n">${esc(final ? n : label(n))}</span>`
           + `<span class="tree-opt-v mono">0x${esc(v)}</span>`
           + `${isCur ? '<span class="tree-opt-cur">current</span>' : ''}`
           + `</button>`;
