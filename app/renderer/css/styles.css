@@ -3390,23 +3390,30 @@ body.apps-section .view { inset: 56px 0 0 0; }
   }
   .mtab-status .status #link-text { display: none; }
 
-  /* the bottom bar is always shown on mobile; the old F-key strip is only
-     for INPA menu/form screens, which sit ABOVE it, so give it room */
+  /* the bottom bar is always shown on mobile */
   .mobile-tabbar { display: flex; }
-  /* on card/list screens (no F-key bar) the tabbar is the only bottom chrome;
-     on menu/form screens the F-key bar sits just above it */
-  body:has(.chassis-grid) .fkeybar,
-  body:has(.inpa-vsel) .fkeybar,
-  body:has(.split) .fkeybar,
-  body:has(.group-grid) .fkeybar,
-  body:has(.settings-list) .fkeybar,
-  body:has(.lookup-controls) .fkeybar,
-  body:has(.coding-tabs) .fkeybar,
-  body:has(.coding-panel) .fkeybar { display: none !important; }
-  .fkeybar {
-    bottom: calc(58px + var(--safe-bottom));
-    padding-bottom: 4px; height: 54px;
+  /* The F-key strip is gone on a phone entirely: the topbar's ƒ button lists
+     every screen action (base + shift rows) in a sheet, so the strip that
+     used to survive on INPA menu/form screens is redundant bottom chrome. */
+  .fkeybar { display: none !important; }
+
+  /* Empty/error states (No adapter connected, ...) read as an iOS empty
+     view, not a desktop dialog scaled down: no dashed frame, centred,
+     roomier type at phone sizes. */
+  .empty {
+    border: 0; background: none; padding: 64px 24px; gap: 10px;
+    text-align: center;
   }
+  .empty-big {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.01em;
+    color: var(--ios-text);
+  }
+  .empty > div:not(.empty-big) {
+    font-size: 15px; line-height: 1.5; color: var(--ios-dim); max-width: 36ch;
+  }
+  /* the fix hint carries inline 12px/faint from errorBlock(); phone-legible.
+     :not(.empty-big) -- the title ALSO has an inline style (its accent color) */
+  .empty > div[style]:not(.empty-big) { font-size: 13.5px !important; line-height: 1.5; }
 
   /* ---- CONTENT AREA -----------------------------------------------------*/
   .view {
