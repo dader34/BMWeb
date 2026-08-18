@@ -137,8 +137,13 @@ async function quickErrorSweep(chassisId) {
       // variant; server falls back to the concrete SGBD if it can't.
       const gq = groupQuery(ecu);
       const data = isAirbag
-        ? (await probeAirbag(ecu.sgbd, alive)) || { count: 0, codes: [] }
+        ? await probeAirbag(ecu.sgbd, alive)
         : await api(`/api/ecu/${ecu.sgbd}/read${gq}`, { method: 'POST' });
+      // probeAirbag returns null when NO variant answered (no cable, dead
+      // module). Coalescing that into {count:0} painted a clean OK on an
+      // unreachable AIRBAG -- the one row this screen must never fake.
+      // A genuine 0-fault read comes back as {count:0} from the probe itself.
+      if (isAirbag && !data) throw new Error('no airbag variant answered');
       if (isAirbag && data.sgbd) ecu.sgbd = data.sgbd;
       const n = data.count || 0;
       // any answer (even 0 faults) claims the variant group
