@@ -212,6 +212,15 @@ async function quickErrorSweep(chassisId) {
     pdfBtn.textContent = 'Print report';
     pdfBtn.disabled = false;
     pdfBtn.onclick = () => printFaultReport(id, faulty, { scanned, skipped, withFaults });
+    // register it as the screen's print action too: Cmd/Ctrl+P routes through
+    // the current action list (core/print.js), and the mobile functions sheet
+    // reads the same list -- without this, both print the live page instead
+    setActions([
+      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+        fn: () => { cancelSweep(); showSections(id); } },
+      { key: 'p', keyLabel: 'P', label: 'Print report', kind: 'print',
+        fn: () => printFaultReport(id, faulty, { scanned, skipped, withFaults }) },
+    ]);
   }
 
   headEl.textContent =

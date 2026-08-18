@@ -367,8 +367,16 @@ function showWiring(chassisId, openDoc = null) {
     }
     showWiringChassis();
   };
-  const browseActions = [{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                           kind: 'back', fn: leaveWiring }];
+  const browseActions = [
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leaveWiring },
+    // The visible Print control is the frame's own toolbar button, but the
+    // action must ALSO be registered here: the Cmd/Ctrl+P interceptor
+    // (core/print.js) looks up the current screen's print action, and without
+    // one it lets the native dialog print the live page -- toolbar, tab bar
+    // and all. The F-key bar is hidden on this screen, so no duplicate button.
+    { key: 'p', keyLabel: 'P', label: 'Print', kind: 'print',
+      fn: () => printWiring(chassisId) },
+  ];
   setActions(browseActions);
 
   loadWiring(chassisId).then((data) => {
@@ -658,6 +666,10 @@ function showWiring(chassisId, openDoc = null) {
           { key: '+', keyLabel: '+', label: 'Zoom in', fn: () => zoom.by(1 / 1.3) },
           { key: '-', keyLabel: '-', label: 'Zoom out', fn: () => zoom.by(1.3) },
           { key: '0', keyLabel: '0', label: 'Fit', fn: () => zoom.fit() },
+          // the schematic view replaces browseActions, so it must re-register
+          // Print too -- Cmd/Ctrl+P and the mobile ƒ sheet read THIS list
+          { key: 'p', keyLabel: 'P', label: 'Print', kind: 'print',
+            fn: () => printWiring(chassisId) },
           // leaveWiring, not showWiringChassis: on a phone back from a diagram
           // returns to the tree first (identical on desktop)
           { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
@@ -888,7 +900,29 @@ function printWiring(chassisId) {
     const clone = svg.cloneNode(true);
     if (clone.dataset.homeViewbox) clone.setAttribute('viewBox', clone.dataset.homeViewbox);
     clone.removeAttribute('style');   // drop any on-screen zoom transform
-    section = printSvg(clone.outerHTML);
+    // A WDS schematic is a wide strip (4:1 and wider). Width-fitted to one
+    // sheet -- even landscape -- it prints a few cm tall with the lower page
+    // empty. Slice a wide strip into stacked full-width segments, each with a
+    // little overlap so a component at a cut shows whole on one of the two
+    // sides; every segment then prints 2-3x larger.
+    const vb = (clone.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+    const aspect = (vb.length === 4 && vb[3] > 0) ? vb[2] / vb[3] : 1;
+    const slices = Math.min(3, Math.max(1, Math.round(aspect / 1.8)));
+    if (slices > 1) {
+      const w = vb[2] / slices, pad = w * 0.03;
+      const parts = [];
+      for (let i = 0; i < slices; i++) {
+        const s = clone.cloneNode(true);
+        const x0 = Math.max(vb[0], vb[0] + i * w - pad);
+        const x1 = Math.min(vb[0] + vb[2], vb[0] + (i + 1) * w + pad);
+        s.setAttribute('viewBox', `${x0} ${vb[1]} ${x1 - x0} ${vb[3]}`);
+        s.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+        parts.push(`<figure class="pr-fig pr-fig-svg">${s.outerHTML}</figure>`);
+      }
+      section = { html: parts.join('') };
+    } else {
+      section = printSvg(clone.outerHTML);
+    }
   } else if (doc) {
     section = printHtml(doc.innerHTML);   // a description document
   } else {

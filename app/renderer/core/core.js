@@ -351,6 +351,39 @@ class ActionBar {
     fkeysEl.classList.toggle('shifted', actions === this.shift);
     this._syncNavBack(actions);
     this._syncNavAction(actions);
+    this._syncNavFn();
+  }
+
+  // mobile ƒ button: the F-key strip is hidden on a phone, so every action
+  // that isn't the back chevron or the dedicated navAction lists in a modal
+  // sheet instead -- base row AND shift row (a phone has no Shift to hold).
+  _syncNavFn() {
+    const el = document.getElementById('nav-fn');
+    if (!el) return;
+    const list = [...(this.base || []), ...(this.shift || [])]
+      .filter(a => a && a.fn && a.kind !== 'back' && a.kind !== 'navAction');
+    el.hidden = !list.length;
+    el.onclick = list.length ? () => this._openFnSheet(list) : null;
+  }
+
+  _openFnSheet(list) {
+    const rows = list.map((a, i) =>
+      `<button class="btn fn-sheet-row" data-i="${i}">
+         <span class="fn-sheet-label">${esc(a.label || '')}</span>
+         ${a.keyLabel ? `<span class="fn-sheet-key">${esc(a.keyLabel)}</span>` : ''}
+       </button>`).join('');
+    const { overlay, close } = openModal(`
+      <div class="modal fn-sheet" role="dialog" aria-modal="true">
+        <div class="modal-title">Functions</div>
+        <div class="fn-sheet-rows">${rows}</div>
+        <div class="modal-actions">
+          <button class="btn modal-cancel">Close<span class="modal-key">Esc</span></button>
+        </div>
+      </div>`);
+    overlay.querySelectorAll('.fn-sheet-row').forEach((b) => {
+      b.onclick = () => { const a = list[+b.dataset.i]; close(); this.fire(a); };
+    });
+    overlay.querySelector('.modal-cancel').onclick = () => close();
   }
 
   // touch back arrow tracks the screen's `back` action (does what Esc does); hidden if none

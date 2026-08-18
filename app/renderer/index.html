@@ -126,6 +126,11 @@
          A direct topbar child so it survives .topbar-right being hidden on
          mobile. -->
     <button class="nav-action" id="nav-action" hidden></button>
+    <!-- Functions sheet, mobile only. The F-key strip is hidden on a phone,
+         so a screen's remaining actions (Print, Clear filters, the shift row)
+         had no home at all -- this lists them in a modal sheet. Back stays on
+         the chevron; kind:'navAction' keeps its own dedicated button. -->
+    <button class="nav-fn" id="nav-fn" hidden aria-label="Functions" title="Functions">&#402;</button>
     <div class="topbar-right">
       <!-- Battery (KL30) + Ignition (KL15) state, INPA top indicators -->
       <div class="kl-state" id="kl-state" title="Battery voltage (KL30) and ignition state (KL15), read from the car">
