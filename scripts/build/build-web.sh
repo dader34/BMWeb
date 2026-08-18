@@ -69,7 +69,7 @@ rm -f "$OUT/thor_bridge.js"
 echo "==> pre-compressing the large payloads"
 find "$OUT" -name "*.js" -size +1M -print0 \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {}
-find "$OUT/api" -name "*.json" -size +256k -print0 \
+find "$OUT/api" "$OUT/data" -name "*.json" -size +256k -print0 \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {}
 
 SIZE=$(du -sh "$OUT" | cut -f1)

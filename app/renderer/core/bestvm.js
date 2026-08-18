@@ -104,11 +104,16 @@ class Best2Vm {
   // code    parsed sgbd JSON from tools/sgbd_code.py
   // opts.send(bytes) -> Uint8Array|number[]   the ECU exchange
   // opts.tables {NAME: [row, ...]}            SGBD tables
+  // opts.extTables {SGBD: {NAME: [row, ...]}} tables in OTHER best files,
+  //                reached by `tabsetex "Name", "file"` -- group SGBDs pull
+  //                ZuordnungsTabelle from t_grtb this way (128 of the 249
+  //                groups in data/groups). Keyed by the bare file name.
   // opts.args string                          job arguments, ';' separated
   constructor(code, opts = {}) {
     this.code = code;
     this.send = opts.send || (() => { throw new VmError('no telegram sink'); });
     this.tables = opts.tables || {};
+    this.extTables = opts.extTables || {};
     this.argText = opts.args || '';
     this.maxSteps = opts.maxSteps || 2_000_000;
     // the job's declared array size (ArrayMaxBufSize); 1024 is EDIABAS's
@@ -600,6 +605,27 @@ class Best2Vm {
       }
     }
     return this._tabIndex.get(want) || null;
+  }
+
+  // A table in ANOTHER best file (`tabsetex "Name", "file"`). Both levels
+  // case-insensitive, like TableNameDict and the engine's file lookup.
+  // Per OpTabsetex (EdOperations.cs): a NON-empty file name switches the
+  // table stream to that file and looks the table up THERE -- there is no
+  // fallback to the current SGBD's own tables.
+  findExtTable(file, name) {
+    if (!file || !name) return null;
+    const wantFile = String(file).toUpperCase();
+    let group = null;
+    for (const k of Object.keys(this.extTables)) {
+      if (k.toUpperCase() === wantFile) { group = this.extTables[k]; break; }
+    }
+    if (!group) return null;
+    if (group[name]) return group[name];
+    const want = String(name).toUpperCase();
+    for (const k of Object.keys(group)) {
+      if (k.toUpperCase() === want) return group[k];
+    }
+    return null;
   }
 
   // Publish a result. The KEY IS UPPERCASED (SetResultData keys
@@ -1334,10 +1360,30 @@ class Best2Vm {
         // Table lookup is CASE-INSENSITIVE (TableNameDict is keyed on
         // ToUpper), and `tabsetex` names the table in arg0 with the SGBD
         // file in arg1 -- an empty file name keeps the current stream.
+        //
+        // The external file matters: every group SGBD in data/groups
+        // reaches the variant assignment table with `tabsetex
+        // "ZuordnungsTabelle", "t_grtb"` (or the Motorrad/UDS spelling),
+        // and OpTabsetex (EdOperations.cs) opens THAT file's table stream
+        // for a non-empty name -- a missing file is EDIABAS_SYS_0002 and a
+        // missing table EDIABAS_BIP_0010, and neither falls back to the
+        // current SGBD's tables. Both land in the trap register here
+        // (SYS_0002 folded onto bit 10: this VM's trap model has no
+        // system-error tier, and the observable effect -- the jz/jt guard
+        // after the tabset fires -- is the same).
         const nameOp = A;
         const t = nameOp[0] === 8 ? this.lit(nameOp[1])
           : Best2Vm.cstr(this.bytes(nameOp));
-        const rows = this.findTable(t);
+        let rows;
+        if (name === 'tabsetex') {
+          const fileOp = B;
+          const file = !fileOp ? ''
+            : fileOp[0] === 8 ? this.lit(fileOp[1])
+              : Best2Vm.cstr(this.bytes(fileOp));
+          rows = file ? this.findExtTable(file, t) : this.findTable(t);
+        } else {
+          rows = this.findTable(t);
+        }
         this.table = rows ? { name: t, rows, row: null } : null;
         // a missing table is EDIABAS_BIP_0010 (trap bit 10); a found one
         // must CLEAR the trap, or the SGBD's `jt err,#10` guard fires on a
@@ -1353,6 +1399,17 @@ class Best2Vm {
         // each cell as a NUMBER (StringToValue: 0x hex, 0y binary, else
         // decimal) and compares numerically -- which is what makes
         // JobResult's "0x10" style status bytes match a numeric key.
+        //
+        // DELIBERATELY NO WILDCARD MATCHING, group tables included. The
+        // ZuordnungsTabelle cells look like patterns ("32 .2M. 0550",
+        // "00 ---- 0100"), but the engine's SeekTable (EdiabasNet.cs) is a
+        // plain ToUpper dictionary -- first matching row, exact text -- and
+        // the wildcard walk lives IN the group bytecode: d_0032's
+        // IDENTIFIKATION writes the '.' characters into its seek key
+        // itself (`move L0,#$2e / move S5[L1],B0` at 0x9d6/0xabb) when the
+        // ident chars are in [0-9A-Z], so the key it seeks is byte-equal
+        // to the cell it must hit. A wildcard-aware seek here would match
+        // rows the engine never selects.
         const col = A[0] === 8 ? this.lit(A[1])
           : Best2Vm.cstr(this.bytes(A));
         const keyOp = B || A;

@@ -90,6 +90,13 @@ data/inpa-ir/*
 data/job-code/*
 !data/job-code/*.json.gz
 !data/job-code/index.json
+# group SGBD bytecode: the variant-resolution step ships with the web build
+# (same pattern as job-code -- CI has no vendor tree to regenerate from)
+!data/groups/
+data/groups/*
+!data/groups/*.json.gz
+!data/groups/variants.json
+!data/groups/index.json
 
 # local scratch notes
 /docs

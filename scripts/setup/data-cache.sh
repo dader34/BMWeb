@@ -16,7 +16,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-DIRS="job-code job-meta sgbd-tables inpa-ir"
+# groups ships/loads as .json.gz directly (bytecode + local tables +
+# variants); it is listed so tests that want a readable .json can expand it,
+# and clean keeps only ever removing a .json that has a .gz twin -- which
+# leaves variants.json and index.json (committed plain) alone.
+DIRS="job-code job-meta sgbd-tables inpa-ir groups"
 
 case "${1:-status}" in
   expand)

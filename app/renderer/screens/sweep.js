@@ -50,28 +50,13 @@ function buildGroupLookup(ch) {
 const _faultSig = (codes) =>
   (codes || []).map(c => c.F_HEX_CODE || `nr:${c.F_ORT_NR}`).join(',');
 
-// GOTCHA: the E46 menu resolves "Airbag" to zae, but the car may carry any MRS
-// generation, and a wrong-generation SGBD still ANSWERS and decodes a FALSE 0
-// faults -- so a first-responder-wins claim would pick zae and hide real MRS
-// faults. Instead read every variant and keep the richest: a lit airbag lamp
-// never truly reads 0, so max fault count identifies the right SGBD.
-const AIRBAG_VARIANTS = ['mrs4', 'mrs4rd', 'mrs3', 'zae2', 'mrs2', 'zae'];
-async function probeAirbag(resolvedSgbd, alive) {
-  const tried = new Set();
-  const order = [resolvedSgbd, ...AIRBAG_VARIANTS]
-    .filter(s => s && !tried.has(s) && tried.add(s));
-  let best = null;
-  for (const sgbd of order) {
-    if (!alive()) break;
-    try {
-      const data = await api(`/api/ecu/${sgbd}/read`, { method: 'POST' });
-      if (typeof data.count !== 'number') continue;
-      // richest valid read wins; ties keep the earliest (newest-gen) SGBD
-      if (!best || data.count > best.count) best = { sgbd, count: data.count, codes: data.codes || [] };
-    } catch { /* variant not present / no answer: skip */ }
-  }
-  return best;
-}
+// Variant resolution is INPA's own model, with no per-module lists: the
+// ecu's diagnostic-address group (D_00A4...) runs its IDENTIFIKATION in the
+// VM (webResolveVariant, available in web AND native builds -- both run jobs
+// through webshim/bestvm) and names the concrete SGBD from the ident bytes.
+// The probeAirbag richest-read hack and its AIRBAG_VARIANTS list are gone:
+// they existed because the configured zae ANSWERS an MRS module and decodes
+// a false 0 faults -- the group's ident chain makes that mixup impossible.
 
 // each sweep takes a token; navigating away or starting another bumps it, and
 // the running loop bails on its next iteration -- stops hammering the K-line
@@ -103,6 +88,25 @@ async function quickErrorSweep(chassisId) {
   if (!ch) return;
   const ecus = dedupEcus(ch); sortByPriority(ecus, id);
   const groupOf = buildGroupLookup(ch);
+  // The ecu's address group (D_00A4...) runs its own IDENTIFIKATION and
+  // names the concrete variant; the fault read then targets THAT SGBD.
+  // One resolution per group per run (webshim caches per session too).
+  // The shipped-groups index decides which ecus get the strict semantics:
+  // a group we CAN run is the presence test (no identification -> no read),
+  // a group we can't run leaves the legacy direct read in place.
+  const groupIndex = await fetch('data/groups/index.json')
+    .then(r => (r.ok ? r.json() : null)).catch(() => null);
+  const groupRunnable = (g) => !!(g && typeof webResolveVariant === 'function'
+    && groupIndex && (groupIndex.groups || []).includes(g));
+  const resolvedVariant = new Map();
+  const resolveVia = async (g) => {
+    if (!resolvedVariant.has(g)) {
+      let v = null;
+      try { v = await webResolveVariant(g); } catch { v = null; }
+      resolvedVariant.set(g, v);
+    }
+    return resolvedVariant.get(g);
+  };
   out.innerHTML = `<div class="quick-sweep">
     <div class="quick-bar">
       <div class="quick-head">${ecus.length} modules · scanning…</div>
@@ -130,21 +134,38 @@ async function quickErrorSweep(chassisId) {
       continue;
     }
     try {
-      // airbag: probe every generation, keep the richest (see probeAirbag). the
-      // winning SGBD replaces ecu.sgbd so the deep read and Clear target it.
-      const isAirbag = String(ecu.code || '').toLowerCase() === 'airbag';
-      // prefer the diagnostic-address group so EDIABAS identifies the exact
-      // variant; server falls back to the concrete SGBD if it can't.
+      // legacy hint for the no-group path only; the strict path below runs
+      // the group's own bytecode instead of hinting at a server
       const gq = groupQuery(ecu);
-      const data = isAirbag
-        ? await probeAirbag(ecu.sgbd, alive)
-        : await api(`/api/ecu/${ecu.sgbd}/read${gq}`, { method: 'POST' });
-      // probeAirbag returns null when NO variant answered (no cable, dead
-      // module). Coalescing that into {count:0} painted a clean OK on an
-      // unreachable AIRBAG -- the one row this screen must never fake.
-      // A genuine 0-fault read comes back as {count:0} from the probe itself.
-      if (isAirbag && !data) throw new Error('no airbag variant answered');
-      if (isAirbag && data.sgbd) ecu.sgbd = data.sgbd;
+      let data;
+      const g = String(ecu.group || '').toLowerCase();
+      if (groupRunnable(g)) {
+        // STRICT group semantics, exactly INPA's: the group's IDENTIFIKATION
+        // is the module-present test, and the fault read runs on the variant
+        // it names. NO fallback to the configured SGBD here -- a wrong-
+        // generation sibling (zae for an MRS airbag) happily answers with a
+        // false 0 faults, which is the exact trap this replaces.
+        const via = await resolveVia(g);
+        if (!via) throw new Error(`no identification from ${g}`);
+        try {
+          data = await api(`/api/ecu/${via}/read`, { method: 'POST' });
+          ecu.sgbd = via;                 // deep read and Clear target it
+        } catch (e) {
+          // identified, but this build can't read that variant ('xyz'
+          // catch-all or missing job-code): say so, don't mis-read a sibling
+          if (/404|not found|no job|unknown sgbd/i.test(String(e.message || e))) {
+            row.classList.add('noresp');
+            row.querySelector('.quick-status').textContent = `variant ${via} not in build`;
+            skipped++; scanned++;
+            headEl.textContent = `${scanned} read · ${skipped} skipped · ${withFaults} with faults`;
+            continue;
+          }
+          throw e;                        // real wire failure stays a failure
+        }
+      } else {
+        // no runnable group for this ecu: the configured direct read
+        data = await api(`/api/ecu/${ecu.sgbd}/read${gq}`, { method: 'POST' });
+      }
       const n = data.count || 0;
       // any answer (even 0 faults) claims the variant group
       if (grp && typeof data.count === 'number') groupDone.add(grp);

@@ -92,6 +92,10 @@ echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
 
 echo
+echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
+node tools/verify/test_groups.js || exit 1
+
+echo
 echo "== write gate: staged changes never reach the wire (safety) =="
 node tools/verify/test_write_gate.js || exit 1
 

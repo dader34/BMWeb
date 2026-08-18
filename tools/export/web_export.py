@@ -8,6 +8,7 @@ Instead of writing thousands of separate JSON files, this tool packages:
 import os
 import sys
 import json
+import glob
 import shutil
 import urllib.request
 import zipfile
@@ -250,12 +251,54 @@ def main():
         shutil.copyfile(src_idx, os.path.join(dst_dir, "index.json"))
         print("  copied data/job-code/index.json")
 
+    # 5. Ship the group SGBDs whole: data/groups/<g>.json.gz (VM bytecode +
+    #    group-local tables), variants.json (the t_grtb assignment table),
+    #    index.json (the fetch-gate manifest). This is how the renderer
+    #    resolves a diagnostic address to a concrete variant -- run the
+    #    group's IDENTIFIKATION in bestvm, look the answer up in variants --
+    #    so a build without them can only open an ECU it was already told
+    #    about. The renderer fetches these paths directly (they are already
+    #    gzipped), so they copy as-is rather than going through the .ecu
+    #    archives. Regenerate with: sgbd_export.py --groups.
+    problems = []
+    groups_src = os.path.join(ROOT, "data", "groups")
+    gfiles = sorted(glob.glob(os.path.join(groups_src, "*.json.gz")))
+    extras = [p for p in (os.path.join(groups_src, "variants.json"),
+                          os.path.join(groups_src, "index.json"))
+              if os.path.exists(p)]
+    if gfiles and len(extras) == 2:
+        gdst = os.path.join(out, "data", "groups")
+        os.makedirs(gdst, exist_ok=True)
+        for p in gfiles + extras:
+            shutil.copyfile(p, os.path.join(gdst, os.path.basename(p)))
+        print(f"  copied {len(gfiles)} group SGBDs + variants.json")
+    else:
+        # data/groups is generated (sgbd_export.py --groups) and currently
+        # GITIGNORED (data/* with no carve-out), so a checkout that never
+        # ran the exporter -- the Pages build -- has nothing to copy. That
+        # ships a build whose group resolution dead-ends on fetch, which is
+        # the broken-dist-web pattern again: fail, do not warn-and-exit-0.
+        problems.append(
+            f"data/groups incomplete ({len(gfiles)} .json.gz, "
+            f"{len(extras)}/2 of variants.json+index.json): run "
+            "sgbd_export.py --groups, and commit the outputs once "
+            ".gitignore carves data/groups out of data/*")
+
     total_size = sum(
         os.path.getsize(os.path.join(dirpath, filename))
         for dirpath, _, filenames in os.walk(api)
         for filename in filenames
     )
     print(f"api tree: {total_size // (1024 * 1024)} MB -> {out}")
+    if problems:
+        print("EXPORT INCOMPLETE:")
+        for p in problems:
+            print(f"  - {p}")
+        if "--allow-partial" not in sys.argv:
+            print("  exiting 1; pass --allow-partial to ship without "
+                  "group resolution")
+            return 1
+        print("  continuing anyway (--allow-partial)")
     if FALLBACKS:
         print(f"  WARNING: {len(FALLBACKS)} request(s) fell back to the "
               f"committed cache: {', '.join(FALLBACKS[:8])}"

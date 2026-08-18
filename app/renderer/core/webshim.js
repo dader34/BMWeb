@@ -797,6 +797,9 @@ function withBusLock(fn) {
   webBus.disconnect = async (...a) => {
     sessions.clear();
     loadedSgbd = null;
+    // resolved variants are facts about the CAR on the other end of this
+    // cable; the next connection may be a different one
+    groupVariantCache.clear();
     return withBusLock(() => raw.disconnect(...a));
   };
   webBus.exchange = (...a) => withBusLock(() => raw.exchange(...a));
@@ -919,6 +922,138 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
     }
   }
   throw new Error('job did not settle after 64 telegram exchanges');
+}
+
+// ---------------------------------------------------------------- groups
+//
+// Which SGBD is this ECU? EDIABAS answers with GROUP files: d_00a4 probes
+// diagnostic address 0xA4, decodes the ident answer, and reports VARIANTE
+// ("MRS4"), which IS the SGBD name to load. The groups in data/groups/ are
+// the same VM bytecode as any job (tools/export/sgbd_export.py); the newer
+// dialect additionally resolves through the t_grtb assignment table
+// (variants.json), reached by tabset/tabsetex "ZuordnungsTabelle".
+// ResolveSgbdFile in the reference engine does exactly this: run the
+// group's IDENTIFIKATION, read result VARIANTE from the first data set.
+
+// name -> Promise<code|null>; the PROMISE is cached so two concurrent
+// resolves of the same group fetch once.
+const groupCodeCache = new Map();
+let groupVariantsPromise = null;
+// group -> variant. Successful resolutions only, per session: an ECU that
+// did not answer may be a module that was busy, so a re-sweep asks again.
+const groupVariantCache = new Map();
+
+// data/groups files are gzipped JSON served as-is. A host that transparently
+// content-decodes hands us plain JSON; take either.
+async function webFetchGz(path) {
+  try {
+    const r = await fetch(path);
+    if (!r.ok) return null;
+    const buf = new Uint8Array(await r.arrayBuffer());
+    const isGz = buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+    if (isGz && typeof fflate === 'undefined') {
+      throw new Error('fflate decompression library not loaded');
+    }
+    const text = new TextDecoder('utf-8')
+      .decode(isGz ? fflate.gunzipSync(buf) : buf);
+    return JSON.parse(text);
+  } catch { return null; }
+}
+
+function loadGroupCode(name) {
+  const key = String(name).toLowerCase();
+  if (!groupCodeCache.has(key)) {
+    groupCodeCache.set(key, webFetchGz(`data/groups/${key}.json.gz`));
+  }
+  return groupCodeCache.get(key);
+}
+
+function loadGroupVariants() {
+  if (!groupVariantsPromise) {
+    groupVariantsPromise = webFetchJson('data/groups/variants.json');
+  }
+  return groupVariantsPromise;
+}
+
+// Resolve one group to a concrete variant over the live bus: run the
+// group's IDENTIFIKATION exactly the way webRunJob drives a job (passes
+// with memoised answers over webBus.exchange), and return the VARIANTE it
+// reports, LOWERCASED -- that is the SGBD name every loader here expects.
+// Returns null when nothing answered, the answer matched no variant, or
+// the group could not be loaded; never a made-up name. IDENTIFIKATION is a
+// read (IDENT is a strong read token), so no allowWrites is involved.
+async function webResolveVariant(groupName) {
+  const key = String(groupName).toLowerCase();
+  if (groupVariantCache.has(key)) return groupVariantCache.get(key);
+  const code = await loadGroupCode(key);
+  if (!code || !code.jobs || code.jobs.IDENTIFIKATION === undefined) {
+    return null;
+  }
+  const variants = await loadGroupVariants();
+
+  // The group's OWN tables (tabset dialect: d_0032 reaches its embedded
+  // ZuordnungsTabelle copy with a plain `tabset`), plus t_grtb for the
+  // `tabsetex "ZuordnungsTabelle", "t_grtb"` dialect. Each side also
+  // stands in for the other defensively: exports that predate local
+  // tables get the t_grtb master under the local name (its keys embed the
+  // address, so the same rows match), and a missing variants.json falls
+  // back to the group's local copies as t_grtb -- but where both exist,
+  // the real source wins (local copy for tabset, the t_grtb dump for
+  // tabsetex), which is what the engine reads in each case.
+  const tables = Object.assign({}, code.tables || {});
+  const extTables = { t_grtb: Object.assign({}, code.tables || {}) };
+  if (variants && Array.isArray(variants.rows)) {
+    const tname = variants.table || 'ZuordnungsTabelle';
+    extTables.t_grtb[tname] = variants.rows;
+    const hasLocal = Object.keys(tables)
+      .some((k) => k.toUpperCase() === tname.toUpperCase());
+    if (!hasLocal) tables[tname] = variants.rows;
+  }
+
+  const answers = new Map();
+  const jobNow = new Date();
+  let sets = null;
+  try {
+    for (let attempt = 0; attempt < 64; attempt++) {
+      let missing = null;
+      let sendSeq = 0;
+      const vm = new Best2Vm(code, {
+        tables,
+        extTables,
+        args: '',
+        allowWrites: false,
+        now: jobNow,
+        send: (out, comm) => {
+          const k = `${sendSeq++}:${Array.from(out)}`;
+          if (answers.has(k)) return answers.get(k);
+          missing = { key: k, out: Array.from(out), comm };
+          const need = new Error('__need_answer__');
+          need.needAnswer = true;
+          throw need;
+        },
+      });
+      try {
+        sets = vm.run('IDENTIFIKATION', '');
+        break;
+      } catch (e) {
+        if (!missing || !e.needAnswer) throw e;
+        answers.set(missing.key,
+                    await webBus.exchange(missing.out, missing.comm));
+      }
+    }
+  } catch {
+    // A silent address raises IFH-0009 out of the exchange; the engine's
+    // ExecuteIdentJob turns any job exception into "no variant". Same here.
+    return null;
+  }
+  for (const s of sets || []) {
+    if (typeof s.VARIANTE === 'string' && s.VARIANTE) {
+      const v = s.VARIANTE.toLowerCase();
+      groupVariantCache.set(key, v);
+      return v;
+    }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------- fetch shim
@@ -1219,5 +1354,8 @@ function installWebShim() {
 if (typeof window !== 'undefined') {
   window.webBus = webBus;
   window.installWebShim = installWebShim;
+  // group -> variant resolution, for the sweep screen: which SGBD answers
+  // at this diagnostic address? (lowercased SGBD name, or null)
+  window.webResolveVariant = webResolveVariant;
   installWebShim();
 }

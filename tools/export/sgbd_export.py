@@ -34,6 +34,7 @@ import os
 import sys
 import json
 import glob
+import struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
@@ -276,6 +277,82 @@ def _cli_dumptable(table, sgbd):
     return rows or None
 
 
+def _txt(raw):
+    """Table cell bytes -> text, the way the engine renders them.
+
+    The SGBD text encoding is CP1252 (0x96 is an en dash there, and the
+    engine-harvested ground truth shows the dash); latin-1 covers the five
+    code points CP1252 leaves undefined rather than mangling them to U+FFFD.
+    """
+    try:
+        return raw.decode("cp1252")
+    except UnicodeDecodeError:
+        return raw.decode("latin-1")
+
+
+def _prg_tables(path):
+    """Every table a .prg/.grp carries, read OFFLINE from the container.
+
+    The engine-backed harvest (sgbd_tables.py, /api/ecu/<s>/table/) needs the
+    app running; the tables it serves are sitting in the file all along.
+    Layout, validated cell-for-cell against the engine's output for all 826
+    E46 tables (823 exact, 2 en-dash encoding, 1 stale-harvest drift):
+
+        header +0x84        plaintext int32 -> table region
+        region              XOR-0xF7 int32 count, then count x 0x50 headers:
+                            name[0x40], dataOff int32, 0, colCount, rowCount
+        dataOff             (rowCount+1) x colCount NUL-terminated XOR'd
+                            strings, row-major; row 0 is the column names
+
+    Returns {name: [{col: cell, ...}, ...]} -- data rows only, keyed by the
+    column-name row, which is exactly the shape bestvm.js opts.tables eats
+    (tabseek scans data rows; tabrows reports len+1 for the header itself).
+    Raises ValueError on a malformed region rather than shipping a table
+    that silently stops short.
+    """
+    data = open(path, "rb").read()
+    if len(data) < 0x88:
+        return {}
+    (toff,) = struct.unpack_from("<i", data, 0x84)
+    if toff <= 0 or toff + 4 > len(data):
+        return {}
+
+    def xi(off):
+        return struct.unpack("<i",
+                             bytes(b ^ 0xF7 for b in data[off:off + 4]))[0]
+
+    n = xi(toff)
+    if n <= 0:
+        return {}
+    tables = {}
+    pos = toff + 4
+    for _ in range(n):
+        if pos + 0x50 > len(data):
+            raise ValueError(f"{path}: table header at 0x{pos:x} past EOF")
+        hdr = bytes(b ^ 0xF7 for b in data[pos:pos + 0x50])
+        name = _txt(hdr[:0x40].split(b"\0")[0])
+        doff, _z, ncol, nrow = struct.unpack_from("<iiii", hdr, 0x40)
+        pos += 0x50
+        if ncol <= 0 or nrow < 0 or doff <= 0 or doff >= len(data):
+            raise ValueError(f"{path}: table {name} bad header "
+                             f"doff=0x{doff:x} ncol={ncol} nrow={nrow}")
+        cells = []
+        p = doff
+        for _ in range((nrow + 1) * ncol):
+            e = p
+            while e < len(data) and data[e] != 0xF7:    # 0x00 ^ 0xF7
+                e += 1
+            if e >= len(data):
+                raise ValueError(f"{path}: table {name} cell at 0x{p:x} "
+                                 f"runs past EOF")
+            cells.append(_txt(bytes(b ^ 0xF7 for b in data[p:e])))
+            p = e + 1
+        cols = cells[:ncol]
+        tables[name] = [dict(zip(cols, cells[i * ncol:(i + 1) * ncol]))
+                        for i in range(1, nrow + 1)]
+    return tables
+
+
 def export_groups(chassis=None):
     """Export EVERY group SGBD and the variant assignment table.
 
@@ -299,38 +376,65 @@ def export_groups(chassis=None):
     # -> ME9N45, with '.' and '-' as wildcards; the group's IDENTIFIKATION
     # job assembles that key from the ECU's identification response and
     # looks up the concrete SGBD name.
+    # t_grtb's whole table set now also comes straight OFF THE DISK
+    # (_prg_tables): the offline parse of ZuordnungsTabelle is cell-for-cell
+    # identical to what the engine served, and it works with no app running
+    # -- the case that used to print SKIPPED and ship no mapping at all.
+    grtb_path = S.sgbd_path("t_grtb")
+    grtb_tables = None
+    if grtb_path:
+        try:
+            grtb_tables = _prg_tables(grtb_path)
+        except (ValueError, struct.error) as e:
+            print(f"  t_grtb tables offline parse FAILED: {e}")
     try:
         rows = V.sgbd_table("t_grtb", "ZuordnungsTabelle")
     except Exception:                                       # noqa: BLE001
         rows = None
+    if not rows and grtb_tables:
+        # keep the historical two-column row shape; the full five-column
+        # rows (GRUPPE, BAUREIHE, STEUERGERAET) ship under "tables" below
+        rows = [{"ADR_VAR_DIAG": r.get("ADR_VAR_DIAG", ""),
+                 "SGBD": r.get("SGBD", "")}
+                for r in grtb_tables.get("ZUORDNUNGSTABELLE", [])]
     if not rows:
         pairs = _cli_dumptable("ZUORDNUNGSTABELLE", "t_grtb")
         rows = [{"ADR_VAR_DIAG": k, "SGBD": v} for k, v in pairs or []]
     if rows:
+        out = {"table": "ZuordnungsTabelle",
+               "keyColumn": "ADR_VAR_DIAG", "sgbdColumn": "SGBD",
+               "rows": rows}
+        if grtb_tables:
+            # EVERY t_grtb table, full columns: the group jobs tabsetex into
+            # t_grtb by name (ZuordnungsTabelleUDS, ...Motorrad, ...Hybrid
+            # exist beside the classic one), and a VM that can only see the
+            # classic table dead-ends on those paths.
+            out["tables"] = grtb_tables
         with open(os.path.join(out_dir, "variants.json"), "w") as f:
-            json.dump({"table": "ZuordnungsTabelle",
-                       "keyColumn": "ADR_VAR_DIAG", "sgbdColumn": "SGBD",
-                       "rows": rows}, f, ensure_ascii=False,
-                      separators=(",", ":"))
-        print(f"  variants.json  {len(rows)} rows")
+            json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
+        extra = f" + {len(grtb_tables)} t_grtb tables" if grtb_tables else ""
+        print(f"  variants.json  {len(rows)} rows{extra}")
     else:
-        print("  variants.json  SKIPPED (no engine API and no CLI binary)")
+        print("  variants.json  SKIPPED (no engine API, no t_grtb.prg, "
+              "no CLI binary)")
     # the group programs themselves: every .grp in the vendor tree, either
     # extension case, deduped by lowered stem
+    import gzip as _gz
     import sgbd_code as C
-    seen, groups = set(), []
+    grp_path, groups = {}, []
     for pat in ("*.grp", "*.GRP"):
         for p in glob.glob(os.path.join(S.ECU_DIR, pat)):
             g = os.path.basename(p)[:-4].lower()
-            if g not in seen:
-                seen.add(g)
+            if g not in grp_path:
+                grp_path[g] = p
                 groups.append(g)
     made = []
     failed = []
+    n_tables = n_with = 0
     for g in sorted(groups):
+        dest = os.path.join(out_dir, f"{g}.json.gz")
         try:
-            r = C.export(g, all_jobs=True,
-                         dest=os.path.join(out_dir, f"{g}.json.gz"))
+            r = C.export(g, all_jobs=True, dest=dest)
         except SystemExit as e:
             # C.export bails with SystemExit for "no such SGBD" and friends;
             # swallowing it dropped the group without a trace
@@ -341,16 +445,54 @@ def export_groups(chassis=None):
             print(f"  {g:12} FAILED {type(e).__name__}: {e}")
             failed.append(g)
             continue
-        if r:
-            made.append(r)
+        if not r:
+            continue
+        # GROUP-LOCAL TABLES ride in the same file. The newer-dialect groups
+        # (d_0032, d_motor, ...) tabsetex their OWN tables -- D_0032 keeps a
+        # local SGBD lookup and its own ZuordnungsTabelle copy -- and a code
+        # export without them strands every one of those paths at the first
+        # tabseek. Read offline from the .grp (same container layout as .prg,
+        # see _prg_tables) and splice in as "tables", the exact rows-by-name
+        # shape bestvm.js opts.tables consumes for ECU tables.
+        try:
+            tables = _prg_tables(grp_path[g])
+        except (ValueError, struct.error) as e:
+            # a group whose bytecode shipped but whose tables did not is a
+            # half-exported group: count it as failed, not as done
+            print(f"  {g:12} FAILED table parse: {e}")
+            failed.append(g)
+            continue
+        if tables:
+            with _gz.open(dest, "rt", encoding="utf-8") as f:
+                out = json.load(f)
+            out["tables"] = tables
+            blob = _gz.compress(json.dumps(
+                out, ensure_ascii=False, separators=(",", ":")).encode(), 6)
+            with open(dest, "wb") as f:
+                f.write(blob)
+            r = (r[0], r[1], r[2], r[3], len(blob))
+            n_with += 1
+            n_tables += len(tables)
+        made.append(r)
     for r in made[:10]:
         print(f"  {r[0]:12} {r[1]:3} jobs {r[2]:6} ops {r[4]//1024:4} KB")
     if len(made) > 10:
         print(f"  ... and {len(made) - 10} more")
-    print(f"groups: {len(made)} of {len(groups)} in the vendor tree")
+    print(f"groups: {len(made)} of {len(groups)} in the vendor tree; "
+          f"{n_tables} local tables across {n_with} groups")
     if failed:
         print(f"  {len(failed)} FAILED: {', '.join(failed[:10])}"
               + (" ..." if len(failed) > 10 else ""))
+    # manifest, same reason job-code/index.json exists: the renderer checks
+    # it before fetching, so a group we never exported is a quiet skip
+    # instead of a 404 painting the console red
+    with open(os.path.join(out_dir, "index.json"), "w") as f:
+        json.dump({"format": 1, "groups": sorted(r[0] for r in made),
+                   "variants": bool(rows)}, f, separators=(",", ":"))
+    if not rows:
+        # no variant mapping means no group can NAME the SGBD it resolved:
+        # that is the feature, so its absence is a failure, not a log line
+        failed.append("variants.json")
     return made, failed
 
 
