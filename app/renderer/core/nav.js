@@ -1,5 +1,5 @@
 // navigation: chassis select, INPA script picker, functional-jobs menu, sections.
-// sweeps live in sweep.js, E46 auto-scan in autoscan.js, PDF report in fault-report.js.
+// sweeps live in sweep.js, chassis auto-scan in autoscan.js, PDF report in fault-report.js.
 async function showChassis() {
   cancelSweep();                 // leaving the chassis list stops any sweep (sweep.js)
   lastScreen = showChassis;
@@ -127,11 +127,12 @@ async function showChassis() {
 
 // INPA script-selection popup: left lists section categories, right shows the section's ECUs
 async function showScriptSelection(chassisId) {
-  setStateSgbd(chassisId);       // retarget the battery/ignition poll (autoscan.js)
-  if (chassisId.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
+  setStateSgbd(null);            // reset the battery/ignition poll target now, re-aim below (autoscan.js)
   let ch;
   try { ch = await api(`/api/chassis/${chassisId}`); }
   catch (e) { showSections(chassisId); return; } // fall back to the full screen
+  setStateSgbd(ch);              // retarget the battery/ignition poll at this chassis's DME (autoscan.js)
+  autoScan(chassisId, ch).catch(() => {}); // background engine/trans scan; no-ops when the config has no grouped targets
 
   // INPA semantics: <ESC> aborts to the vehicle-select screen (not whatever the popup covered); picking an ECU closes with no value so it doesn't navigate
   const modalOpts = {
@@ -267,8 +268,7 @@ async function showSections(id, selectIndex = 0) {
   let wiringKey = null;          // the F-key, added only if WDS data is here
   cancelSweep();                 // entering the section list stops any sweep (sweep.js)
   lastScreen = () => showSections(id, selectIndex);
-  setStateSgbd(id);              // retarget the battery/ignition poll (autoscan.js)
-  if (id.toUpperCase() === 'E46') autoScanE46().catch(() => {}); // background scan on E46 open
+  setStateSgbd(null);            // reset the battery/ignition poll target now, re-aim once the config is here (autoscan.js)
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }]);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
   // name neither side: below 760px the system rail sits ABOVE its modules, not left
@@ -287,6 +287,8 @@ async function showSections(id, selectIndex = 0) {
 
   const ch = await tryApi(`/api/chassis/${id}`, null, view, `failed to load ${dispChassis(id)}`);
   if (!ch) return;
+  setStateSgbd(ch);              // retarget the battery/ignition poll at this chassis's DME (autoscan.js)
+  autoScan(id, ch).catch(() => {}); // background engine/trans scan; no-ops when the config has no grouped targets
   const nav = split.querySelector('#split-nav');
   const content = split.querySelector('#split-content');
 

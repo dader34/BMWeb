@@ -47,6 +47,16 @@ Fixes over the legacy behaviour (each mirrored in InpaConfig.cs):
      (a-sitz -> A-SITZ_F), a _E<nn> -> _<nn> alias (KGM_E60 -> KGM_60) and
      the motorcycle menus' <SGBD>W3 naming (MRDWAW3 -> MRDWA), and every
      entry still dropped is PRINTED instead of silently lost.
+  6. Group derivation is validated against what the group can identify (see
+     group_file_for): T_GRTB.PRG first (BMW's own variant->group table), then
+     .IPO tokens -- numeric AND named (D_ZKE_GM, D_XEN_L...) -- and the _xx
+     address suffix, each accepted only when the group's decrypted string
+     pool names the resolved SGBD, then an ecucomment scan over all groups.
+     Legacy's first-existing-token-except-D_0080 rule mapped E46 kombi to
+     D_000D (the E30-era cluster group) and chassis-suffixed codes like
+     ALC_60/EKP_60/RDC_60 to whatever group had that hex address (D_0060 is
+     the PDC group), which makes strict variant resolution mark present
+     modules absent.
 """
 import os
 import re
@@ -92,6 +102,16 @@ SEC_RE_LEGACY = re.compile(r"^\[(ROOT_[A-Z0-9_]+)\]$")
 SEC_RE = re.compile(r"^\[(ROOT_[A-Z0-9_]+)\]$", re.IGNORECASE)
 TOKEN_RE = re.compile(r"\b([A-Z][A-Z0-9_]{2,12})\b")
 GROUP_TOKEN_RE = re.compile(r"D_00[0-9A-Fa-f]{2}")
+# named group references (D_ZKE_GM, D_MOTOR, ...): a full D_* identifier, so a
+# D_0072B-style stem is not clipped to its numeric prefix
+GROUP_NAME_RE = re.compile(r"D_[0-9A-Za-z_]+")
+# printable runs in a decrypted (XOR 0xF7) SGBD body -- the string pool
+POOL_RUN_RE = re.compile(rb"[ -~]{3,}")
+# a T_GRTB ZuordnungsTabelle row starts with its ident column: "01 ---- 0110"
+GRTB_ROW_RE = re.compile(r"^[0-9A-Fa-f]{2} [0-9A-Fa-f-]{4} [0-9A-Fa-f]{4}$")
+# a chassis code inside an ecucomment (D_EXX: "for E60 E65 E70 E89X R56 RR1")
+# describes applicability, not a member SGBD
+CHASSIS_WORD_RE = re.compile(r"^(e|f|g|r|rr|k)\d+x?$")
 
 
 class Resolver:
@@ -107,6 +127,11 @@ class Resolver:
                 self.prg[os.path.splitext(n)[0].lower()] = os.path.splitext(n)[0]
         self.grp = {os.path.splitext(n)[0].lower(): os.path.splitext(n)[0]
                     for n in ecu_names if n.lower().endswith(".grp")}
+        # stem (lower) -> on-disk FILENAME, to read the .grp body itself
+        self.grp_file = {os.path.splitext(n)[0].lower(): n
+                         for n in ecu_names if n.lower().endswith(".grp")}
+        self._pool_cache = {}   # grp stem (lower) -> (all names, ecucomment names)
+        self._grtb = None       # sgbd (lower) -> group name, from T_GRTB.PRG
         sg_names = sorted(os.listdir(SGDAT)) if os.path.isdir(SGDAT) else []
         self.ipo = {}
         for n in sg_names:
@@ -230,23 +255,186 @@ class Resolver:
                 out.append(m.group(0))
         return out
 
+    def ipo_named_group_tokens(self, code):
+        """Distinct non-numeric D_* tokens in the .IPO (D_ZKE_GM, D_MOTOR...).
+
+        The numeric D_00xx forms stay ipo_group_tokens' business; everything
+        else that names an existing .grp is a candidate. Most D_* matches are
+        job RESULT names (D_BMW_NR, D_SW_NR...), which never name a .grp and
+        are filtered out by the caller's find_grp.
+        """
+        n = self.ipo.get(code.lower())
+        if not n:
+            return []
+        out, seen = [], set()
+        for m in GROUP_NAME_RE.finditer(self._read_sgdat(n)):
+            t = m.group(0)
+            if GROUP_TOKEN_RE.fullmatch(t):
+                continue
+            if t.lower() not in seen:
+                seen.add(t.lower())
+                out.append(t)
+        return out
+
+    def grp_pool(self, name):
+        """(all printable names, ecucomment member names) of a .grp, lowercased.
+
+        Group SGBD strings are XOR 0xF7 in this dump. The 'ecucomment:' string
+        is the group's own member list ("ecucomment:bc1, zke3, zke4, zke5...")
+        and is the trustworthy signal; the full string set additionally holds
+        the members as standalone pool entries. The literal 't_grtb' is the
+        external ZuordnungsTabelle reference every newer group carries, never
+        a member, so it is dropped.
+        """
+        key = name.lower()
+        if key not in self._pool_cache:
+            names, members = set(), set()
+            fn = self.grp_file.get(key)
+            if fn:
+                try:
+                    with open(os.path.join(ECU, fn), "rb") as f:
+                        dec = bytes(b ^ 0xF7 for b in f.read())
+                except OSError:
+                    dec = b""
+                for m in POOL_RUN_RE.finditer(dec):
+                    run = m.group(0).decode("latin-1").lower()
+                    names.add(run)
+                    if run.startswith("ecucomment:"):
+                        for w in re.split(r"[,\s]+", run[len("ecucomment:"):]):
+                            if w and not CHASSIS_WORD_RE.fullmatch(w):
+                                members.add(w)
+                names |= members
+                names.discard("t_grtb")
+                members.discard("t_grtb")
+            self._pool_cache[key] = (names, members)
+        return self._pool_cache[key]
+
+    def pool_member(self, grp_name, sgbd):
+        """Does the group's string pool name this SGBD at all?"""
+        return (sgbd or "").lower() in self.grp_pool(grp_name)[0]
+
+    def ecucomment_scan(self, sgbd):
+        """The .grp whose ecucomment lists this SGBD: numeric groups first
+        (address order), then named groups, both sorted -- deterministic."""
+        want = (sgbd or "").lower()
+        if not want:
+            return None
+        stems = sorted(self.grp)
+        ordered = [s for s in stems if re.fullmatch(r"d_00[0-9a-f]{2}", s)] + \
+                  [s for s in stems if not re.fullmatch(r"d_00[0-9a-f]{2}", s)]
+        for stem in ordered:
+            if want in self.grp_pool(stem)[1]:
+                return self.grp[stem]
+        return None
+
+    def grtb_group(self, sgbd):
+        """BMW's own variant->group table: T_GRTB.PRG, the ZuordnungsTabelle
+        every newer D_* group delegates to. Rows are (ident, SGBD, GRUPPE,
+        BAUREIHE, description); across the whole table no SGBD maps to two
+        groups, so the lookup needs no chassis disambiguation."""
+        if self._grtb is None:
+            self._grtb = {}
+            path = None
+            if os.path.isdir(ECU):
+                for n in os.listdir(ECU):
+                    if n.lower() == "t_grtb.prg":
+                        path = os.path.join(ECU, n)
+                        break
+            if path:
+                try:
+                    with open(path, "rb") as f:
+                        dec = bytes(b ^ 0xF7 for b in f.read())
+                except OSError:
+                    dec = b""
+                runs = [m.group(0).decode("latin-1")
+                        for m in re.finditer(rb"[ -~]{2,}", dec)]
+                i = 0
+                while i < len(runs):
+                    if GRTB_ROW_RE.match(runs[i]) and i + 2 < len(runs) \
+                            and runs[i + 2].upper().startswith("D_"):
+                        self._grtb.setdefault(runs[i + 1].lower(), runs[i + 2])
+                        i += 3
+                    else:
+                        i += 1
+        return self._grtb.get((sgbd or "").lower())
+
     def find_grp(self, name):
         """FindGrpCaseInsensitive: returns the QUERY casing on a hit."""
         return name if name.lower() in self.grp else None
 
-    def group_file_for(self, code):
+    def group_file_for(self, code, sgbd):
+        """The diagnostic-address group SGBD for a module, or None.
+
+        Legacy took the first existing D_00xx token (except D_0080) and then
+        an address spelled as the code's _xx suffix. Both misfire: KOMBI.IPO
+        names D_000D (E30-era clusters) before D_0080 (where kombi46 really
+        lives), and ALC_60's "_60" is the chassis, not an address (D_0060 is
+        the E46 PDC group). fix 6 keeps the same candidate sources but only
+        accepts a candidate that can actually identify this SGBD:
+
+          1. T_GRTB.PRG, BMW's own variant->group table (KWP2000-era modules)
+          2. .IPO tokens, numeric then named, accepted when the group's string
+             pool names the resolved SGBD (this also retires the blanket
+             D_0080 ban: a spurious broadcast reference never validates, the
+             cluster's own reference does)
+          3. the _xx address suffix, same pool test
+          4. any group whose ecucomment member list has the SGBD
+          5. nothing validated: the legacy order (numeric minus D_0080, then
+             named tokens, then suffix) -- pools go stale (D_0012 never heard
+             of D50M57D0), so an unvalidated address-token beats no group
+        """
+        if self.legacy:
+            for token in self.ipo_group_tokens(code):
+                if token.lower() == "d_0080":
+                    continue  # functional broadcast, not a real ECU group
+                hit = self.find_grp(token)
+                if hit:
+                    return hit
+            m = re.search(r"_([0-9A-Fa-f]{2})$", code or "")
+            if m:
+                hit = self.find_grp("D_00" + m.group(1).upper())
+                if hit:
+                    return hit
+            return None
+        grtb = self.grtb_group(sgbd)
+        if grtb:
+            hit = self.find_grp(grtb)
+            if hit:
+                return hit
+        tokens = self.ipo_group_tokens(code) + self.ipo_named_group_tokens(code)
+        for token in tokens:
+            hit = self.find_grp(token)
+            if hit and self.pool_member(hit, sgbd):
+                return hit
+        m = re.search(r"_([0-9A-Fa-f]{2})$", code or "")
+        suffix_hit = self.find_grp("D_00" + m.group(1).upper()) if m else None
+        if suffix_hit and self.pool_member(suffix_hit, sgbd):
+            return suffix_hit
+        hit = self.ecucomment_scan(sgbd)
+        if hit:
+            return hit
         for token in self.ipo_group_tokens(code):
             if token.lower() == "d_0080":
-                continue  # functional broadcast, not a real ECU group
+                continue  # broadcast: unvalidated, the old rationale stands
             hit = self.find_grp(token)
             if hit:
                 return hit
-        m = re.search(r"_([0-9A-Fa-f]{2})$", code or "")
-        if m:
-            hit = self.find_grp("D_00" + m.group(1).upper())
-            if hit:
-                return hit
-        return None
+        # a media-box .IPO references every group on the MOST ring (NAV_60
+        # names 16); prefer the one whose stem matches the entry's own name
+        # (NAV_60 -> D_NAV), keeping .IPO order within a rank
+        malpha = re.match(r"[A-Za-z]+", code or "")
+        alpha = malpha.group(0).upper() if malpha else ""
+        named = [t for t in self.ipo_named_group_tokens(code)
+                 if self.find_grp(t)]
+
+        def named_rank(token):
+            stem = token[2:].upper()
+            return 0 if alpha and (stem.startswith(alpha)
+                                   or alpha.startswith(stem)) else 1
+
+        if named:
+            return self.find_grp(min(named, key=named_rank))
+        return suffix_hit
 
 
 def pretty(root_key):
@@ -307,7 +495,7 @@ def load_chassis(chassis_id, path, res, drops, legacy=False):
                 sgbd = res.resolve_sgbd(code, chassis_id)
                 if sgbd is not None:
                     entry = {"code": code, "label": label, "sgbd": sgbd,
-                             "group": res.group_file_for(code)}
+                             "group": res.group_file_for(code, sgbd)}
                     sibs = res.sibling_sgbds(code, sgbd)
                     if sibs:
                         entry["variants"] = sibs
@@ -426,7 +614,7 @@ def load_bmw_alt(res, drops):
                 if sgbd is not None:
                     cur_section["ecus"].append(
                         {"code": code, "label": label, "sgbd": sgbd,
-                         "group": res.group_file_for(code)})
+                         "group": res.group_file_for(code, sgbd)})
                 else:
                     drops.append((cur_chassis["id"] + " (BMW_ALT)",
                                   cur_section["key"], code, label))
@@ -469,7 +657,7 @@ def load_sonder(res, drops):
                 sgbd = res.resolve_sgbd(code, "SONDER")
                 if sgbd is not None:
                     ecus.append({"code": code, "label": label, "sgbd": sgbd,
-                                 "group": res.group_file_for(code)})
+                                 "group": res.group_file_for(code, sgbd)})
                 else:
                     drops.append(("SONDER", "ROOT", code, label))
     if not ecus:

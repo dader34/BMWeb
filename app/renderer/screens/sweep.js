@@ -1,26 +1,42 @@
 // whole-vehicle sweep engine (INPA "Functional Jobs"): quickErrorSweep reads
-// fault memory on every chassis ECU, quickIdentSweep reads IDENT. variant-group
-// + priority tables claim each shared-address group early and skip dead
-// siblings; fault-signature dedup drops echoes. fillFaultDetail lives in
-// autoscan.js; exportFaultPdf in fault-report.js.
+// fault memory on every chassis ECU, quickIdentSweep reads IDENT. Strict group
+// resolution (cfe86b07) is the presence test for every ecu with a runnable
+// D_xxxx group; server-derived variant groups skip dead siblings; the hand
+// table below only bridges the few group-less orphans in. fault-signature
+// dedup drops echoes. fillFaultDetail lives in autoscan.js; exportFaultPdf in
+// fault-report.js.
 
 // variant groups: ECUs sharing one diagnostic address, only one installed. Once
-// a member responds the rest are absent, so the sweep skips them. Keyed by
-// chassis. Engine is the big win: E46 has ~11 mutually-exclusive DMEs, E36 ~14,
-// each ~7s whether it answers or not.
+// a member responds the rest are absent, so the sweep skips them. The server
+// derives the groups from the entries' .IPO address references
+// (ch.variantGroups); the hand entries below now hold ONLY the ecus whose
+// chassis-config `group` is null (.IPO carried no usable token, so they have
+// no strict D_xxxx presence test either), each led by one anchor code that IS
+// in the derived group so buildGroupLookup merges the orphans into it and a
+// strict group answer eliminates them. Every code with a runnable `group` was
+// deleted 2026-08-18: strict resolution is its presence test and
+// ch.variantGroups already carries its sibling-skip (verified against
+// data/chassis-config/E46.json + E36.json vs data/groups/index.json). The old
+// E36 cross-address merges (D_0010+D_0012 engines, D_0032+D_006C boxes) went
+// with it; cost is one cached group-resolution timeout per absent address
+// family, not one per sibling.
 const VARIANT_GROUPS = {
   E46: {
-    engine: ['DDE40', 'D50M47', 'D50M57', 'BMS46', 'ME9_4N', 'ME9NG4TU', 'MS420', 'MS430', 'MS450', 'MSS54M3', 'CARB'],
-    trans:  ['gsds2', 'gs30', 'smg2'],
-    dsc:    ['ascdsc46', 'absasc5', 'dscmk60'],
+    // ME9NG4TU + MS450: `group:null` in E46.json, so they still scan by
+    // direct read; MS430 (D_0012, in the derived engine group) anchors them
+    // so an identified engine skips both. CARB (also group:null) is gone from
+    // the group on the old E36 note's own rationale: it's a dealer interface
+    // that coexists with the DME (like the S50 VANOS box VNC), so an engine
+    // answer must never mark it absent -- it just scans ungrouped now.
+    engine: ['MS430', 'ME9NG4TU', 'MS450'],
+    // dscmk60: `group:null` in E46.json; ascdsc46 (D_0056, in the derived
+    // DSC group) anchors it.
+    dsc: ['ascdsc46', 'dscmk60'],
   },
-  // E36: VNC/CARB excluded - VNC is the S50 VANOS box that coexists with a DME,
-  // CARB a dealer interface; neither shares the DME address.
   E36: {
-    engine: ['DDE21', 'DME17', 'BMS43', 'BMS46', 'DME338K2', 'MSS50', 'MSS54M3',
-             'DME331', 'DME524', 'MS401', 'MS410', 'MS411', 'MS420', 'MS430'],
-    trans:  ['gsds2', 'gs41x', 'gs7x_k', 'jatco', 'smg'],
-    dsc:    ['absasc4', 'absasc4g', 'ascdsc46', 'absasc5', 'dscmk60'],
+    // dscmk60: `group:null` in E36.json too (same MK60 box as E46); same
+    // ascdsc46 anchor (in the derived D_0056 group).
+    dsc: ['ascdsc46', 'dscmk60'],
   },
 };
 // code -> group lookup for one chassis: the server derives groups from the
@@ -86,7 +102,7 @@ async function quickErrorSweep(chassisId) {
   loadFaultDb(); // warm the name db before detail rows render
   const ch = await tryApi(`/api/chassis/${id}`, null, out);
   if (!ch) return;
-  const ecus = dedupEcus(ch); sortByPriority(ecus, id);
+  const ecus = dedupEcus(ch);      // config order: engine section first
   const groupOf = buildGroupLookup(ch);
   // The ecu's address group (D_00A4...) runs its own IDENTIFIKATION and
   // names the concrete variant; the fault read then targets THAT SGBD.
@@ -340,7 +356,7 @@ async function quickIdentSweep(chassisId) {
   let ch;
   try { ch = await api(`/api/chassis/${id}`); }
   catch (e) { out.innerHTML = errorBlock(e.message); return; }
-  const ecus = dedupEcus(ch); sortByPriority(ecus, id);
+  const ecus = dedupEcus(ch);      // config order: engine section first
   const groupOf = buildGroupLookup(ch);
   out.innerHTML = `<div class="quick-sweep"><div class="quick-head">${ecus.length} modules · identifying…</div><div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
@@ -369,22 +385,21 @@ async function quickIdentSweep(chassisId) {
 }
 
 // shared sweep helpers
+
+// sweep order IS chassis-config order: sections come engine-first in the
+// configs (INPA's own menu order), so the big mutually-exclusive engine group
+// is claimed before the long tail, and dedup keeps the first occurrence. The
+// hand-typed SWEEP_PRIORITY table + sortByPriority (deleted 2026-08-18) bet
+// on likeliest-installed variants per chassis; strict group resolution makes
+// that moot -- one cached IDENTIFIKATION per D_xxxx group names the installed
+// variant no matter which member row runs first -- and the bet was actively
+// wrong under it: it ran group-less legacy reads (MS450 first on E46) BEFORE
+// the strict members, letting a direct read claim the merged variant group
+// ahead of identification.
 function dedupEcus(ch) {
   const ecus = [];
   ch.sections.forEach(s => s.ecus.forEach(e => { if (!ecus.find(x => x.sgbd === e.sgbd)) ecus.push(e); }));
   return ecus;
-}
-// likeliest-installed variant first, so the sweep claims each group early. per
-// chassis; unknown chassis -> original order.
-const SWEEP_PRIORITY = {
-  E46: ['MS450', 'MS430', 'MS420', 'ME9_4N', 'MSS54M3', 'BMS46', 'gsds2', 'smg2', 'ascdsc46', 'absasc5'],
-  E36: ['MS420', 'MS430', 'MS410', 'MS411', 'DME331', 'MSS54M3', 'MSS50', 'DME338K2', 'DME524', 'DME17',
-        'gsds2', 'gs41x', 'smg', 'absasc4', 'absasc4g', 'ascdsc46', 'absasc5'],
-};
-function sortByPriority(ecus, chassisId) {
-  const order = SWEEP_PRIORITY[(chassisId || '').toUpperCase()] || [];
-  const prio = (e) => { const i = order.findIndex(p => p.toLowerCase() === (e.code || '').toLowerCase()); return i < 0 ? 99 : i; };
-  ecus.sort((a, b) => prio(a) - prio(b));
 }
 function addSweepRow(rows, label) {
   const row = document.createElement('div'); row.className = 'quick-row';

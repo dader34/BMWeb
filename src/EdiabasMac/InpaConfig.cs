@@ -161,7 +161,7 @@ public sealed class InpaConfig
 
                 string sgbd = ResolveSgbd(code, chassisId);
                 if (sgbd != null) // SGBD must exist on disk
-                    current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
+                    current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code, sgbd)));
                 else // never drop silently
                     Console.Error.WriteLine(
                         $"InpaConfig: {chassisId} {current.Key} drops {code} ({label}): no SGBD resolves");
@@ -233,7 +233,7 @@ public sealed class InpaConfig
                 if (code.Length == 0) continue;
                 string sgbd = ResolveSgbd(code, chassisId);
                 if (sgbd != null)
-                    current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
+                    current.Ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code, sgbd)));
                 else
                     Console.Error.WriteLine(
                         $"InpaConfig: {chassisId} (BMW_ALT) {current.Key} drops {code} ({label}): no SGBD resolves");
@@ -277,7 +277,7 @@ public sealed class InpaConfig
             if (code.Length == 0) continue;
             string sgbd = ResolveSgbd(code, "SONDER");
             if (sgbd != null)
-                ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code)));
+                ecus.Add(new EcuEntry(code, label, sgbd, GroupFileFor(code, sgbd)));
             else
                 Console.Error.WriteLine(
                     $"InpaConfig: SONDER ROOT drops {code} ({label}): no SGBD resolves");
@@ -288,26 +288,230 @@ public sealed class InpaConfig
         return new Chassis("SONDER", description, sections);
     }
 
-    // the diagnostic-address group SGBD (D_00xx.grp) for a module, or null if none.
-    // 1) a D_00xx token referenced by the module's compiled .IPO (the reliable source)
-    // 2) an address encoded as the code's "_xx" suffix (e.g. klima_5B -> D_005B); the
-    //    underscore guards against chassis digits (kombi46/ihka46 do NOT match).
-    private string GroupFileFor(string code)
+    // the diagnostic-address group SGBD (D_*.grp) for a module, or null if none.
+    // KEEP IN STEP with group_file_for in tools/export/inpa_config.py.
+    //
+    // The old rule -- first existing D_00xx token except D_0080, then the code's
+    // "_xx" hex suffix -- misfired: KOMBI.IPO names D_000D (E30-era clusters)
+    // before D_0080 (where kombi46 really lives), and ALC_60's "_60" is the
+    // chassis, not an address (D_0060 is the E46 PDC group). A wrong group makes
+    // strict variant resolution mark a present module absent. Candidates are now
+    // only accepted when the group can actually identify this SGBD:
+    //   1. T_GRTB.PRG, BMW's own variant->group table (KWP2000-era modules)
+    //   2. .IPO tokens, numeric then named (D_ZKE_GM, D_XEN_L...), accepted when
+    //      the group's decrypted string pool names the resolved SGBD (this also
+    //      retires the blanket D_0080 ban: a spurious broadcast reference never
+    //      validates, the cluster's own reference does)
+    //   3. the _xx address suffix, same pool test
+    //   4. any group whose ecucomment member list has the SGBD
+    //   5. nothing validated: the legacy order (numeric minus D_0080, then named
+    //      tokens ranked by name affinity, then suffix) -- pools go stale
+    //      (D_0012 never heard of D50M57D0), so an unvalidated address-token
+    //      beats no group
+    private string GroupFileFor(string code, string sgbd)
     {
+        string grtb = GrtbGroup(sgbd);
+        if (grtb != null)
+        {
+            string hit = FindGrpCaseInsensitive(grtb);
+            if (hit != null) return hit;
+        }
+        foreach (string token in IpoGroupTokens(code).Concat(IpoNamedGroupTokens(code)))
+        {
+            string hit = FindGrpCaseInsensitive(token);
+            if (hit != null && PoolMember(hit, sgbd)) return hit;
+        }
+        var m = Regex.Match(code ?? "", @"_([0-9A-Fa-f]{2})$");
+        string suffixHit = m.Success
+            ? FindGrpCaseInsensitive("D_00" + m.Groups[1].Value.ToUpperInvariant())
+            : null;
+        if (suffixHit != null && PoolMember(suffixHit, sgbd)) return suffixHit;
+        string scan = EcucommentScan(sgbd);
+        if (scan != null) return scan;
         foreach (string token in IpoGroupTokens(code))
         {
             if (string.Equals(token, "D_0080", StringComparison.OrdinalIgnoreCase))
-                continue; // functional broadcast, not a real ECU group
+                continue; // broadcast: unvalidated, the old rationale stands
             string hit = FindGrpCaseInsensitive(token);
             if (hit != null) return hit;
         }
-        var m = Regex.Match(code ?? "", @"_([0-9A-Fa-f]{2})$");
-        if (m.Success)
+        // a media-box .IPO references every group on the MOST ring (NAV_60
+        // names 16); prefer the one whose stem matches the entry's own name
+        // (NAV_60 -> D_NAV), keeping .IPO order within a rank
+        var alphaM = Regex.Match(code ?? "", "^[A-Za-z]+");
+        string alpha = alphaM.Success ? alphaM.Value.ToUpperInvariant() : "";
+        var named = IpoNamedGroupTokens(code)
+            .Where(t => FindGrpCaseInsensitive(t) != null)
+            .ToList();
+        if (named.Count > 0)
         {
-            string hit = FindGrpCaseInsensitive("D_00" + m.Groups[1].Value.ToUpperInvariant());
-            if (hit != null) return hit;
+            int NamedRank(string token)
+            {
+                string stem = token.Substring(2).ToUpperInvariant();
+                return alpha.Length > 0 &&
+                       (stem.StartsWith(alpha, StringComparison.Ordinal) ||
+                        alpha.StartsWith(stem, StringComparison.Ordinal)) ? 0 : 1;
+            }
+            return FindGrpCaseInsensitive(named.OrderBy(NamedRank).First()); // stable
         }
+        return suffixHit;
+    }
+
+    // ---- group-candidate validation: what can this .grp actually identify? ----
+
+    // named group references (D_ZKE_GM, D_MOTOR, ...): a full D_* identifier,
+    // so a D_0072B-style stem is not clipped to its numeric prefix. Most D_*
+    // matches are job RESULT names (D_BMW_NR...), filtered by FindGrp callers.
+    private static readonly Regex GroupNameToken = new(@"D_[0-9A-Za-z_]+", RegexOptions.Compiled);
+    // printable runs in a decrypted (XOR 0xF7) SGBD body -- the string pool
+    private static readonly Regex PoolRun = new(@"[ -~]{3,}", RegexOptions.Compiled);
+    // a T_GRTB ZuordnungsTabelle row starts with its ident column: "01 ---- 0110"
+    private static readonly Regex GrtbRow = new(@"^[0-9A-Fa-f]{2} [0-9A-Fa-f-]{4} [0-9A-Fa-f]{4}$", RegexOptions.Compiled);
+    // a chassis code inside an ecucomment (D_EXX: "for E60 E65 E70 E89X R56
+    // RR1") describes applicability, not a member SGBD
+    private static readonly Regex ChassisWord = new(@"^(e|f|g|r|rr|k)\d+x?$", RegexOptions.Compiled);
+
+    // distinct non-numeric D_* tokens in the .IPO; numeric D_00xx stays
+    // IpoGroupTokens' business
+    private IEnumerable<string> IpoNamedGroupTokens(string code)
+    {
+        if (!Directory.Exists(_sgDat)) yield break;
+        string ipo = Directory.EnumerateFiles(_sgDat, "*.IPO")
+            .FirstOrDefault(f => string.Equals(
+                Path.GetFileNameWithoutExtension(f), code, StringComparison.OrdinalIgnoreCase));
+        if (ipo == null) yield break;
+        string text = Encoding.Latin1.GetString(File.ReadAllBytes(ipo));
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match m in GroupNameToken.Matches(text))
+        {
+            if (Regex.IsMatch(m.Value, "^D_00[0-9A-Fa-f]{2}$")) continue;
+            if (seen.Add(m.Value)) yield return m.Value;
+        }
+    }
+
+    // group SGBD strings are XOR 0xF7 in this dump
+    private static string DecryptedText(string path)
+    {
+        byte[] data = File.ReadAllBytes(path);
+        for (int i = 0; i < data.Length; i++) data[i] ^= 0xF7;
+        return Encoding.Latin1.GetString(data);
+    }
+
+    // grp stem (lower) -> (on-disk stem, full path), one dir enumeration
+    private readonly object _grpLock = new();
+    private Dictionary<string, (string Stem, string Path)> _grpCache;
+    private Dictionary<string, (string Stem, string Path)> GrpCache()
+    {
+        lock (_grpLock)
+        {
+            if (_grpCache == null)
+            {
+                _grpCache = new Dictionary<string, (string, string)>(StringComparer.Ordinal);
+                if (Directory.Exists(_ecuPath))
+                    foreach (string f in Directory.EnumerateFiles(_ecuPath, "*.grp")
+                                 .Concat(Directory.EnumerateFiles(_ecuPath, "*.GRP")))
+                    {
+                        string stem = Path.GetFileNameWithoutExtension(f);
+                        _grpCache[stem.ToLowerInvariant()] = (stem, f);
+                    }
+            }
+            return _grpCache;
+        }
+    }
+
+    // (all printable names, ecucomment member names) of a .grp, lowercased.
+    // The 'ecucomment:' string is the group's own member list and is the
+    // trustworthy signal; the full set additionally holds the members as
+    // standalone pool entries. The literal 't_grtb' is the external
+    // ZuordnungsTabelle reference every newer group carries, never a member.
+    private readonly Dictionary<string, (HashSet<string> All, HashSet<string> Members)> _poolCache = new(StringComparer.Ordinal);
+    private (HashSet<string> All, HashSet<string> Members) GrpPool(string name)
+    {
+        string key = name.ToLowerInvariant();
+        lock (_grpLock)
+        {
+            if (_poolCache.TryGetValue(key, out var cached)) return cached;
+            var all = new HashSet<string>(StringComparer.Ordinal);
+            var members = new HashSet<string>(StringComparer.Ordinal);
+            if (GrpCache().TryGetValue(key, out var file))
+            {
+                string dec;
+                try { dec = DecryptedText(file.Path); } catch { dec = ""; }
+                foreach (Match m in PoolRun.Matches(dec))
+                {
+                    string run = m.Value.ToLowerInvariant();
+                    all.Add(run);
+                    if (run.StartsWith("ecucomment:", StringComparison.Ordinal))
+                        foreach (string w in Regex.Split(run.Substring("ecucomment:".Length), @"[,\s]+"))
+                            if (w.Length > 0 && !ChassisWord.IsMatch(w))
+                                members.Add(w);
+                }
+                all.UnionWith(members);
+                all.Remove("t_grtb");
+                members.Remove("t_grtb");
+            }
+            _poolCache[key] = (all, members);
+            return (all, members);
+        }
+    }
+
+    // does the group's string pool name this SGBD at all?
+    private bool PoolMember(string grpName, string sgbd) =>
+        GrpPool(grpName).All.Contains((sgbd ?? "").ToLowerInvariant());
+
+    // the .grp whose ecucomment lists this SGBD: numeric groups first (address
+    // order), then named groups, both sorted -- deterministic
+    private string EcucommentScan(string sgbd)
+    {
+        string want = (sgbd ?? "").ToLowerInvariant();
+        if (want.Length == 0) return null;
+        var stems = GrpCache().Keys.OrderBy(s => s, StringComparer.Ordinal).ToList();
+        foreach (bool numeric in new[] { true, false })
+            foreach (string stem in stems)
+                if (Regex.IsMatch(stem, "^d_00[0-9a-f]{2}$") == numeric &&
+                    GrpPool(stem).Members.Contains(want))
+                    return GrpCache()[stem].Stem;
         return null;
+    }
+
+    // BMW's own variant->group table: T_GRTB.PRG, the ZuordnungsTabelle every
+    // newer D_* group delegates to. Rows are (ident, SGBD, GRUPPE, BAUREIHE,
+    // description); across the whole table no SGBD maps to two groups, so the
+    // lookup needs no chassis disambiguation.
+    private Dictionary<string, string> _grtbCache;
+    private string GrtbGroup(string sgbd)
+    {
+        lock (_grpLock)
+        {
+            if (_grtbCache == null)
+            {
+                _grtbCache = new Dictionary<string, string>(StringComparer.Ordinal);
+                string path = Directory.Exists(_ecuPath)
+                    ? Directory.EnumerateFiles(_ecuPath).FirstOrDefault(
+                        f => string.Equals(Path.GetFileName(f), "t_grtb.prg",
+                                           StringComparison.OrdinalIgnoreCase))
+                    : null;
+                if (path != null)
+                {
+                    string dec;
+                    try { dec = DecryptedText(path); } catch { dec = ""; }
+                    var runs = Regex.Matches(dec, @"[ -~]{2,}").Select(m => m.Value).ToList();
+                    int i = 0;
+                    while (i < runs.Count)
+                    {
+                        if (GrtbRow.IsMatch(runs[i]) && i + 2 < runs.Count &&
+                            runs[i + 2].StartsWith("D_", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string key = runs[i + 1].ToLowerInvariant();
+                            if (!_grtbCache.ContainsKey(key)) _grtbCache[key] = runs[i + 2];
+                            i += 3;
+                        }
+                        else i++;
+                    }
+                }
+            }
+            return _grtbCache.TryGetValue((sgbd ?? "").ToLowerInvariant(), out string g) ? g : null;
+        }
     }
 
     // a group SGBD file (.grp) by name, case-insensitively; null if absent.
