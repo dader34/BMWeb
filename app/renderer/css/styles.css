@@ -1637,6 +1637,10 @@ html[data-theme="inpa"] .coding-tab.active { background: #0a246a; color: #fff; }
 .tree-read:hover { border-color: var(--amber); color: var(--amber); }
 /* selectable value options (once the module is read) */
 .tree-opts { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 14px 12px 40px; }
+/* treeValues renders .tree-opts INSIDE .tree-vals, which already carries the
+   same 40px indent -- unpadded here, or options start 40px right of the
+   static chips beside them */
+.tree-vals > .tree-opts { padding: 0; }
 .tree-opt {
   display: inline-flex; align-items: baseline; gap: 8px;
   padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px;
