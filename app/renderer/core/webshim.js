@@ -803,6 +803,10 @@ function withBusLock(fn) {
     return withBusLock(() => raw.disconnect(...a));
   };
   webBus.exchange = (...a) => withBusLock(() => raw.exchange(...a));
+  // The unlocked exchange, for a caller that ALREADY holds the bus lock and
+  // must not queue behind itself (webWriteCoding runs a whole sequence inside
+  // one lock). Assigned here so coding-write reaches the same raw wire reads do.
+  webBusRawExchange._raw = (...a) => raw.exchange(...a);
   webBus.connect = (...a) => withBusLock(() => raw.connect(...a));
   if (raw.readState) {
     webBus.readState = (...a) => withBusLock(() => raw.readState(...a));
@@ -1054,6 +1058,68 @@ async function webResolveVariant(groupName) {
     }
   }
   return null;
+}
+
+// ---------------------------------------------------------------- coding write
+//
+// The ONE explicitly-coding write path. Everything else in this shim runs the
+// VM with allowWrites:false (webRunJob) and the /clear|write|flash route 501s.
+// A coding write is different: it is the app's most safety-critical action, so
+// it gets its own gate, its own confirmation, and prove-by-re-read.
+//
+// The write permission itself lives in coding-write.js, NOT here: that module
+// is the only place that constructs the VM writeable, and it does so only
+// after this function has checked opts.confirmed. Keeping the write-enabling
+// VM construction out of this file is deliberate -- webRunJob and every
+// ordinary job run stay provably read-only (test_write_gate.js reads THIS file
+// and asserts it never builds the VM writeable).
+//
+// It runs over the SAME bus lock as reads (withBusLock), so a coding sequence
+// cannot interleave with the topbar state poll or any job on the wire.
+async function webWriteCoding(sgbd, nettoHex, opts = {}) {
+  if (typeof window.writeCoding !== 'function') {
+    throw new Error('coding-write.js is not loaded');
+  }
+  if (!opts.confirmed) {
+    throw new Error('coding write requires an explicit confirmation '
+      + '(opts.confirmed) from the UI before it can transmit');
+  }
+  if (!webBus.connected) throw new Error('no cable connected');
+
+  const key = String(sgbd).toLowerCase();
+  // The SGBD program, its tables, and its job list -- the same sources the
+  // read path uses, so the strategy sees exactly the jobs this module exposes.
+  const code = await webFetchJson(`data/job-code/${key}.json`);
+  if (!code) throw new Error(`no job code shipped for ${sgbd}`);
+  const tables = await webFetchJson(`data/sgbd-tables/${key}.json`) || {};
+
+  // One SGBD is loaded at a time, exactly like a read: end the previous
+  // session (its ENDE) before this one initialises, then run the whole write
+  // sequence under the bus lock so nothing else touches the wire mid-coding.
+  await switchSession(sgbd);
+  const session = sessionFor(sgbd);
+  return withBusLock(() => window.writeCoding(sgbd, nettoHex, {
+    confirmed: true,
+    code,
+    tables,
+    jobs: code.jobs,
+    // the bus-locked wire, called from inside the lock we already hold --
+    // webBus.exchange re-enters withBusLock, which the promise chain
+    // serialises, so pass the RAW exchange to avoid queuing behind ourselves
+    exchange: (out, comm) => webBusRawExchange(out, comm),
+    session,
+  }));
+}
+
+// The raw exchange, unwrapped from the bus lock. webWriteCoding already holds
+// the lock for the whole sequence; going through the locked webBus.exchange
+// again would deadlock (the sequence's next exchange waits on a chain the
+// sequence itself is blocking). Same pattern connect() uses for readState.
+// `_raw` is wired in the bus-lock installation block above (hoisted); it is
+// the SAME raw.exchange the locked webBus.exchange wraps.
+function webBusRawExchange(out, comm) {
+  if (!webBusRawExchange._raw) throw new Error('bus not initialised');
+  return webBusRawExchange._raw(out, comm);
 }
 
 // ---------------------------------------------------------------- fetch shim
@@ -1357,5 +1423,8 @@ if (typeof window !== 'undefined') {
   // group -> variant resolution, for the sweep screen: which SGBD answers
   // at this diagnostic address? (lowercased SGBD name, or null)
   window.webResolveVariant = webResolveVariant;
+  // The explicitly-confirmed coding write path (the UI's "code this module"
+  // action). Gated on opts.confirmed and its own re-read proof; see above.
+  window.webWriteCoding = webWriteCoding;
   installWebShim();
 }

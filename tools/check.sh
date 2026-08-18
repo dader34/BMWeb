@@ -96,8 +96,16 @@ echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
 node tools/verify/test_groups.js || exit 1
 
 echo
+echo "== coding encode is the exact inverse of decode (round-trip + Mod-36) =="
+node tools/verify/test_coding_encode.js || exit 1
+
+echo
 echo "== write gate: staged changes never reach the wire (safety) =="
 node tools/verify/test_write_gate.js || exit 1
+
+echo
+echo "== coding write dispatcher: per-family sequence, gate, prove-by-re-read =="
+node tools/verify/test_coding_write.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

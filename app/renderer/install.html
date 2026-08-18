@@ -25,68 +25,203 @@
 
   <style>
     :root {
-      --bg:#0d1217; --panel:#141b22; --panel2:#182029; --panel3:#202b37;
-      --line:#232d38; --ink:#e8edf2; --dim:#93a1ad; --faint:#5d6b78;
-      --amber:#ff9e2c; --amber-glow:rgba(255, 158, 44, 0.18);
+      --bg: #0d1217;
+      --panel: #141b22;
+      --panel2: #182029;
+      --panel3: #202b37;
+      --line: #232d38;
+      --ink: #e8edf2;
+      --dim: #93a1ad;
+      --faint: #5d6b78;
+      --amber: #ff9e2c; /* Original warm amber */
+      --amber-hover: #ffb152;
+      --amber-bg: rgba(255, 158, 44, 0.12);
+      --amber-border: #ff9e2c;
     }
-    * { box-sizing:border-box; }
+    * { box-sizing: border-box; }
     body {
-      margin:0; background:var(--bg); color:var(--ink); min-height:100vh;
-      overflow-x:hidden;
-      font:16px/1.55 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif;
-      display:flex; flex-direction:column; align-items:center;
-      padding:6vh 20px 8vh;
+      margin: 0; background: var(--bg); color: var(--ink); min-height: 100vh;
+      overflow-x: hidden;
+      font: 16px/1.55 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 8vh 24px 10vh;
     }
-    .wrap { width:100%; max-width:46rem; }
-    .top-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:28px; gap:12px; }
-    .brand { display:flex; align-items:center; gap:12px; }
-    .nav-links { display:flex; align-items:center; gap:10px; }
+    .wrap { width: 100%; max-width: 60rem; }
+    .top-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 48px; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .nav-links { display: flex; align-items: center; gap: 10px; }
     .nav-btn {
-      display:inline-flex; align-items:center; gap:6px; padding:7px 14px;
-      background:var(--panel2); border:1px solid var(--line); border-radius:8px;
-      color:var(--ink); text-decoration:none; font-size:13.5px; font-weight:600;
-      transition:all .15s ease;
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+      color: var(--ink); text-decoration: none; font-size: 13.5px; font-weight: 600;
+      transition: all .15s ease;
     }
     .nav-btn:hover {
-      border-color:var(--amber); color:var(--amber); transform:translateY(-1px);
+      border-color: var(--amber); color: var(--amber);
     }
-    .logo { width:36px; height:36px; flex:none; }
-    .logo-ring { fill:none; stroke:var(--ink); stroke-width:3; }
-    .q-white { fill:#e8edf2; } .q-color { fill:var(--amber); }
-    .name { font-size:20px; font-weight:800; letter-spacing:-.01em; }
+    .logo { width: 32px; height: 32px; flex: none; }
+    .logo-ring { fill: none; stroke: var(--ink); stroke-width: 3; }
+    .q-white { fill: #e8edf2; } .q-color { fill: var(--amber); }
+    .name { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
 
-    h1 { font-size:clamp(24px,6vw,40px); line-height:1.1; margin:0 0 10px;
-         letter-spacing:-.02em; overflow-wrap:break-word; hyphens:auto; }
-    .lead { color:var(--dim); margin:0 0 28px; font-size:16.5px; }
+    /* Spacious Centered Hero */
+    .hero {
+      text-align: center;
+      margin: 48px auto 56px;
+      max-width: 44rem;
+    }
+    .category {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 12px;
+    }
+    h1 { font-size: clamp(28px, 4.5vw, 42px); line-height: 1.15; margin: 0 0 16px;
+         letter-spacing: -.02em; font-weight: 800; }
+    .lead { color: var(--dim); margin: 0; font-size: 16.5px; line-height: 1.6; }
     
-    .cards { display:grid; gap:14px; }
+    /* Responsive Cards Grid */
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+      margin-bottom: 56px;
+    }
+    @media (min-width: 768px) {
+      .cards {
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+      }
+    }
     .card {
-      display:block; text-decoration:none; color:inherit; position:relative;
-      background:linear-gradient(180deg,var(--panel2),var(--panel));
-      border:1px solid var(--line); border-radius:12px; padding:22px 24px;
-      transition:border-color .15s, transform .15s, box-shadow .15s;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      background: var(--panel2);
+      border: 1px solid var(--line); border-radius: 12px; padding: 28px 28px 24px;
+      transition: border-color .15s, background-color .15s;
     }
-    .card:hover { border-color:var(--amber); transform:translateY(-2px); }
-    .card.primary { border-color:var(--amber); box-shadow:0 0 24px var(--amber-glow); }
-    .tag {
-      position:absolute; top:-9px; right:18px; background:var(--amber);
-      color:#131a22; font-size:11px; font-weight:800; letter-spacing:.06em;
-      text-transform:uppercase; padding:3px 9px; border-radius:20px;
+    .card:hover { border-color: var(--amber); background: var(--panel3); }
+    .card.primary { border-color: var(--line); }
+    .card.primary:hover { border-color: var(--amber); }
+    
+    .card-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 24px;
     }
-    .card h2 { margin:0 0 6px; font-size:20px; font-weight:700; }
-    .card .sub { color:var(--dim); font-size:14.5px; margin:0; }
+    
+    .badge {
+      display: inline-block;
+      vertical-align: middle;
+      background: var(--amber-bg);
+      color: var(--amber);
+      border: 1px solid var(--amber);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .card h2 { margin: 0 0 8px; font-size: 19px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; }
+    .card .sub { color: var(--dim); font-size: 14.5px; margin: 0 0 12px; line-height: 1.55; }
     .card .meta {
-      margin-top:14px; color:var(--faint); font-size:12.5px;
-      font-family:ui-monospace,Menlo,monospace;
+      margin-top: auto; color: var(--faint); font-size: 12.5px;
+      font-family: ui-monospace, Menlo, monospace;
+    }
+
+    /* CTA Buttons inside Cards */
+    .card-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 11px 18px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all .15s ease;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    
+    /* Primary Card Button (Solid Amber) */
+    .card.primary .card-btn {
+      background: var(--amber);
+      color: #11161c;
+      border: 1px solid var(--amber);
+    }
+    .card.primary:hover .card-btn {
+      background: var(--amber-hover);
+      border-color: var(--amber-hover);
+    }
+    
+    /* Secondary Card Button (Outline Slate) */
+    .card.secondary .card-btn {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .card.secondary:hover .card-btn {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .card.secondary .card-btn:hover {
+      background: var(--amber-bg);
+      color: var(--amber);
+      border-color: var(--amber);
+    }
+
+    /* Table Matrix */
+    .matrix-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 56px 0 16px;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .matrix-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      margin-bottom: 48px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+    th, td {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    th {
+      background: var(--panel2);
+      font-weight: 600;
+      color: var(--ink);
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    td strong {
+      color: var(--ink);
     }
 
     /* Modal Tutorial Overlay */
     .tutorial-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(3, 6, 10, 0.88);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       z-index: 99999;
       display: flex;
       align-items: center;
@@ -99,12 +234,12 @@
       to { opacity: 1; transform: scale(1); }
     }
     .tutorial-modal {
-      background: #131922;
-      border: 1px solid var(--amber);
-      border-radius: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
       width: 100%;
       max-width: 440px;
-      box-shadow: 0 16px 48px rgba(0,0,0,0.85), 0 0 30px var(--amber-glow);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -113,14 +248,14 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 18px 20px;
+      padding: 16px 20px;
       border-bottom: 1px solid var(--line);
-      background: #0d1217;
+      background: var(--panel2);
     }
     .tutorial-title {
-      font-size: 16.5px;
-      font-weight: 700;
-      color: var(--amber);
+      font-size: 15.5px;
+      font-weight: 600;
+      color: var(--ink);
       display: flex;
       align-items: center;
       gap: 8px;
@@ -152,28 +287,28 @@
       gap: 14px;
       background: var(--panel2);
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 8px;
       padding: 12px 14px;
       align-items: center;
     }
     .step-badge {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       border-radius: 50%;
       background: var(--amber);
       color: #11161c;
-      font-weight: 800;
+      font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 13px;
+      font-size: 12px;
       flex: none;
     }
     .step-text {
       font-size: 13.5px;
       color: var(--ink);
     }
-    .step-text b { color: var(--amber); }
+    .step-text b { color: var(--ink); }
     .step-text span { display: block; color: var(--dim); font-size: 12px; margin-top: 2px; }
     .tutorial-actions {
       display: flex;
@@ -185,47 +320,56 @@
       background: var(--amber);
       color: #11161c;
       border: none;
-      padding: 13px 18px;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 700;
+      padding: 12px 18px;
+      border-radius: 6px;
+      font-size: 14.5px;
+      font-weight: 600;
       cursor: pointer;
       text-decoration: none;
       text-align: center;
-      transition: all .15s;
+      transition: background-color .15s;
     }
     .launch-now-btn:hover {
-      background: #ffb152;
-      transform: translateY(-1px);
+      background: var(--amber-hover);
     }
 
     .note {
-      margin-top:34px; padding-top:20px; border-top:1px solid var(--line);
-      color:var(--faint); font-size:13.5px;
+      margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line);
+      color: var(--faint); font-size: 13.5px; line-height: 1.6;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 28px;
     }
-    .note a { color:var(--dim); }
-    .note strong { color:var(--dim); font-weight:600; }
-    .other { margin-top:18px; color:var(--faint); font-size:14px; }
+    @media (min-width: 768px) {
+      .note {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .note a { color: var(--dim); text-decoration: underline; }
+    .note a:hover { color: var(--ink); }
+    .note strong { color: var(--dim); font-weight: 600; }
+    .other { margin-top: 18px; color: var(--faint); font-size: 14px; text-align: center; }
     .ios-help {
-      margin-top:16px; padding:14px 16px; border:1px solid var(--line);
-      border-left:3px solid var(--amber); border-radius:8px;
-      background:var(--panel); color:var(--dim); font-size:14px;
+      margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line);
+      border-left: 3px solid var(--amber); border-radius: 8px;
+      background: var(--panel); color: var(--dim); font-size: 13.5px;
     }
-    .ios-help h3 { margin:0 0 8px; font-size:15px; color:var(--ink); }
-    .ios-help ol { margin:0 0 10px; padding-left:20px; }
-    .ios-help li { margin-bottom:6px; }
-    .cmd { display:flex; gap:8px; align-items:center; margin:8px 0 2px; }
+    .ios-help h3 { margin: 0 0 8px; font-size: 14.5px; color: var(--ink); }
+    .ios-help ol { margin: 0 0 10px; padding-left: 20px; }
+    .ios-help li { margin-bottom: 6px; }
+    .cmd { display: flex; gap: 8px; align-items: center; margin: 8px 0 2px; }
     .cmd code {
-      flex:1; min-width:0; overflow-x:auto; white-space:nowrap;
-      font-family:ui-monospace,Menlo,monospace; font-size:12.5px;
-      color:var(--ink); background:var(--bg); border:1px solid var(--line);
-      border-radius:5px; padding:8px 10px;
+      flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap;
+      font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+      color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+      border-radius: 5px; padding: 8px 10px;
     }
     .cmd button {
-      flex:none; cursor:pointer; font:600 12.5px inherit;
-      color:var(--bg); background:var(--amber); border:0;
-      border-radius:5px; padding:8px 12px; min-height:36px;
+      flex: none; cursor: pointer; font: 600 12px inherit;
+      color: #11161c; background: var(--amber); border: 0;
+      border-radius: 5px; padding: 8px 12px; min-height: 32px;
     }
+    .cmd button:hover { background: var(--amber-hover); }
   </style>
 </head>
 <body>
@@ -246,32 +390,72 @@
       <span class="name" id="brand-name">BMWeb</span>
     </div>
     <nav class="nav-links">
-      <a href="files.html" class="nav-btn"><span>📁 BMW Files & SP-Daten</span></a>
+      <a href="files.html" class="nav-btn"><span>BMW Files & SP-Daten</span></a>
     </nav>
   </header>
 
-  <h1>BMW diagnostics,<br>no Windows.</h1>
-  <p class="lead" id="lead">Read fault codes, watch live values, run actuator
-    tests and inspect coding data, over a K+DCAN cable or a WiFi adapter.</p>
+  <div class="hero">
+    <div class="category">Diagnostics & Coding for BMW</div>
+    <h1>BMW diagnostics, no Windows.</h1>
+    <p class="lead" id="lead">Read fault codes, watch live values, run actuator
+      tests and inspect coding data, over a K+DCAN cable or a WiFi adapter.</p>
+  </div>
 
   <div class="cards" id="cards"></div>
+
+  <h3 class="matrix-title">Platform & Connection Matrix</h3>
+  <div class="matrix-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Platform</th>
+          <th>App Version</th>
+          <th>Connection Type</th>
+          <th>Requirements</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>macOS</strong></td>
+          <td>BMacW (Native Desktop) or BMWeb (Web App)</td>
+          <td>K+DCAN USB or THOR WiFi</td>
+          <td>No setup for native; Chrome/Edge required for USB on Web</td>
+        </tr>
+        <tr>
+          <td><strong>Windows & Linux</strong></td>
+          <td>BMWeb (Web App)</td>
+          <td>K+DCAN USB or THOR WiFi</td>
+          <td>Chrome or Edge browser required for USB support</td>
+        </tr>
+        <tr>
+          <td><strong>iOS & Android</strong></td>
+          <td>BMWeb (PWA)</td>
+          <td>THOR WiFi only</td>
+          <td>Safari (iOS) or Chrome (Android)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
   <p class="other" id="other"></p>
 
   <div class="note">
-    <p><strong>Which cable?</strong> On a computer, either: Windows, macOS
-    and Linux can all use a <strong>K+DCAN USB cable</strong> or a
-    <a href="https://github.com/dader34/BMacW#thor-wifi-adapter">WiFi
-    adapter</a>. On a <strong>phone or tablet there is no USB option</strong>,
-    so iPhone and Android need the WiFi adapter.</p>
-
-    <p><strong>Which build?</strong> BMacW is the macOS app, and the only one
-    that drives a USB cable without Chrome, since Safari has no Web Serial.
-    BMWeb is a Progressive Web App (PWA) that runs everywhere; for a USB cable it
-    needs Chrome or Edge on the desktop, and for a WiFi adapter it needs
-    nothing but a browser.</p>
-    <p>Both read the same decompiled INPA screens and run the same BEST2
-    virtual machine. Neither needs EDIABAS installed.</p>
+    <div class="note-col">
+      <p><strong>Which cable?</strong> On a computer, either: Windows, macOS
+      and Linux can all use a <strong>K+DCAN USB cable</strong> or a
+      <a href="https://github.com/dader34/BMacW#thor-wifi-adapter">WiFi
+      adapter</a>. On a <strong>phone or tablet there is no USB option</strong>,
+      so iPhone and Android need the WiFi adapter.</p>
+    </div>
+    <div class="note-col">
+      <p><strong>Which build?</strong> BMacW is the macOS app, and the only one
+      that drives a USB cable without Chrome, since Safari has no Web Serial.
+      BMWeb is a Progressive Web App (PWA) that runs everywhere; for a USB cable it
+      needs Chrome or Edge on the desktop, and for a WiFi adapter it needs
+      nothing but a browser.</p>
+      <p>Both read the same decompiled INPA screens and run the same BEST2
+      virtual machine. Neither needs EDIABAS installed.</p>
+    </div>
   </div>
 </main>
 
@@ -320,7 +504,7 @@
     overlay.innerHTML =
       '<div class="tutorial-modal">'
       + '  <div class="tutorial-header">'
-      + '    <div class="tutorial-title">📲 Add to iPhone Home Screen</div>'
+      + '    <div class="tutorial-title">Add to iPhone Home Screen</div>'
       + '    <button class="close-btn" id="close-modal">✕</button>'
       + '  </div>'
       + '  <div class="tutorial-body">'
@@ -343,7 +527,7 @@
       + '      </div>'
       + '    </div>'
       + '    <div class="tutorial-actions">'
-      + '      <a href="' + targetAppUrl + '" class="launch-now-btn">Open in Browser Now ➔</a>'
+      + '      <a href="' + targetAppUrl + '" class="launch-now-btn">Open in Browser Now</a>'
       + '    </div>'
       + '  </div>'
       + '</div>';
@@ -409,20 +593,32 @@
 
   var cards = document.getElementById('cards');
   order.forEach(function (o, i) {
-    var a = document.createElement('a');
-    a.className = 'card' + (i === 0 ? ' primary' : '');
-    a.href = o.href;
-    if (o.id === 'mac') a.rel = 'noopener';
-    a.innerHTML = (i === 0 ? '<span class="tag">Recommended</span>' : '')
-      + '<h2>' + o.title + '</h2>'
+    var card = document.createElement('div');
+    card.className = 'card' + (i === 0 ? ' primary' : ' secondary');
+    
+    var body = document.createElement('div');
+    body.className = 'card-body';
+    body.innerHTML = '<h2>' + o.title + (i === 0 ? ' <span class="badge">Recommended</span>' : '') + '</h2>'
       + '<p class="sub">' + o.sub + '</p>'
       + '<div class="meta">' + o.meta + '</div>';
-    cards.appendChild(a);
+    card.appendChild(body);
+    
+    var btn = document.createElement('a');
+    btn.className = 'card-btn';
+    btn.href = o.href;
+    if (o.id === 'mac') {
+      btn.rel = 'noopener';
+      btn.textContent = 'Download macOS App';
+    } else {
+      btn.textContent = 'Launch Web App';
+    }
+    card.appendChild(btn);
+    cards.appendChild(card);
 
     if (o.id === 'mac') {
-      a.addEventListener('click', function () {
+      btn.addEventListener('click', function (e) {
         if (document.getElementById('mac-help')) return;
-        a.insertAdjacentElement('afterend', macHelp());
+        card.insertAdjacentElement('afterend', macHelp());
       });
     }
   });
@@ -431,7 +627,7 @@
     var guideP = document.createElement('p');
     guideP.className = 'other';
     guideP.style.marginTop = '14px';
-    guideP.innerHTML = '<a href="#" id="ios-guide-link" style="color:var(--amber);text-decoration:none;font-weight:600;">📲 How to add BMWeb to iPhone Home Screen</a>';
+    guideP.innerHTML = '<a href="#" id="ios-guide-link" style="color:var(--amber);text-decoration:none;font-weight:600;">How to add BMWeb to iPhone Home Screen</a>';
     cards.insertAdjacentElement('afterend', guideP);
     guideP.querySelector('#ios-guide-link').addEventListener('click', showIosTutorialModal);
   }
@@ -444,10 +640,11 @@
       var dmg = rel.assets.filter(function (a) {
         return /\.dmg$/i.test(a.name);
       })[0];
-      var card = cards.querySelector('a[href*="releases/latest"]');
-      if (!dmg || !card) return;
-      card.href = dmg.browser_download_url;
-      card.setAttribute('download', '');
+      var card = cards.querySelector('.card.secondary');
+      var btn = card ? card.querySelector('.card-btn') : null;
+      if (!dmg || !card || !btn) return;
+      btn.href = dmg.browser_download_url;
+      btn.setAttribute('download', '');
       var meta = card.querySelector('.meta');
       if (meta) {
         meta.textContent = 'Apple silicon \u00b7 .dmg \u00b7 '

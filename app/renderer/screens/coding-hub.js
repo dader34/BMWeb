@@ -716,7 +716,19 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
 
 // The staged-changes review for the Expert tree, sharing the curated review's
 // readable row + demo-aware footer.
-function treeReview(built, state, label) {
+async function treeReview(built, state, label) {
+  // Gather staged changes per module: sgbd -> [{rule, value}]
+  const byMod = new Map();
+  for (const m of built) {
+    for (const f of m.fns) {
+      const s = state.get(`${m.sgbd}:${f.name}`);
+      if (!s || s.staged == null) continue;
+      if (!byMod.has(m.sgbd)) byMod.set(m.sgbd, []);
+      byMod.get(m.sgbd).push({ rule: f, value: parseInt(s.staged, 16) });
+    }
+  }
+
+  // Build review rows for the dialog
   const rows = [];
   for (const m of built) {
     for (const f of m.fns) {
@@ -726,7 +738,100 @@ function treeReview(built, state, label) {
         `0x${s.current}`, `0x${s.staged}`));
     }
   }
-  confirmDialog(codingReviewDialog('Staged coding changes', rows));
+
+  const demo = typeof demoMode === 'function' && demoMode();
+  const foot = demo
+    ? `<b>Demo mode.</b> No car is connected, so "Write" only simulates the `
+      + `coding write — nothing leaves the app and no ECU is touched.`
+    : `<b>Ready to write.</b> This will send the changes to the car's ECUs. `
+      + `Each module is written, then re-read to verify the write succeeded.`;
+
+  const ok = await confirmDialog({
+    title: 'Review coding changes',
+    body: `<div class="cod-rev-list">${rows.join('')}</div>`
+      + `<div class="cod-rev-foot">${foot}</div>`,
+    confirmLabel: demo ? 'Write (demo)' : 'Write to car',
+    cancelLabel: 'Cancel',
+    danger: !demo,
+  });
+
+  if (!ok) return;
+
+  // Execute writes per module
+  const results = [];
+  for (const [sgbd, edits] of byMod.entries()) {
+    const mod = built.find(m => m.sgbd === sgbd);
+    if (!mod) continue;
+
+    try {
+      // Read current netto
+      const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;
+      if (!entry || !entry.read) {
+        results.push({ sgbd, ok: false, err: 'No read job defined' });
+        continue;
+      }
+
+      const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, { method: 'POST' });
+      const flatRes = new Map(flatResults(readRes.sets));
+      const nettoHex = flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
+      if (!nettoHex) {
+        results.push({ sgbd, ok: false, err: 'Read did not return netto' });
+        continue;
+      }
+
+      // Build the new netto by splicing edits onto the read image
+      const netto = [];
+      const hex = String(nettoHex).replace(/^0x/i, '').replace(/\s/g, '');
+      for (let i = 0; i + 1 < hex.length; i += 2) {
+        netto.push(parseInt(hex.substr(i, 2), 16));
+      }
+
+      const CodingEncode = typeof window !== 'undefined' && window.CodingEncode
+        ? window.CodingEncode
+        : require('../../core/coding-encode.js');
+      const modified = CodingEncode.spliceEdits(new Uint8Array(netto), edits);
+      const modHex = Array.from(modified, b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+
+      // Write via webWriteCoding
+      if (typeof webWriteCoding !== 'function') {
+        results.push({ sgbd, ok: false, err: 'webWriteCoding not available' });
+        continue;
+      }
+
+      await webWriteCoding(sgbd, modHex, { confirmed: true });
+      results.push({ sgbd, ok: true });
+
+      // Update state: staged becomes current
+      for (const f of mod.fns) {
+        const s = state.get(`${sgbd}:${f.name}`);
+        if (s && s.staged != null) {
+          s.current = s.staged;
+          s.staged = null;
+        }
+      }
+
+    } catch (err) {
+      results.push({ sgbd, ok: false, err: String(err.message || err) });
+    }
+  }
+
+  // Show results
+  const allOk = results.every(r => r.ok);
+  const body = results.map(r => {
+    const icon = r.ok ? '✓' : '✗';
+    const msg = r.ok ? 'Written and verified' : `Failed: ${r.err}`;
+    return `<div class="cod-result-row">`
+      + `<span class="cod-result-icon ${r.ok ? 'ok' : 'err'}">${icon}</span>`
+      + `<span class="cod-result-sgbd mono">${esc(r.sgbd)}.prg</span>`
+      + `<span class="cod-result-msg">${esc(msg)}</span></div>`;
+  }).join('');
+
+  await confirmDialog({
+    title: allOk ? 'Coding written' : 'Write completed with errors',
+    body: `<div class="cod-result-list">${body}</div>`,
+    confirmLabel: 'OK',
+    cancelLabel: null,
+  });
 }
 
 if (typeof window !== 'undefined') {
