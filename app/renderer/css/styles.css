@@ -3397,15 +3397,17 @@ body.apps-section .view { inset: 56px 0 0 0; }
      used to survive on INPA menu/form screens is redundant bottom chrome. */
   .fkeybar { display: none !important; }
 
-  /* Empty/error states (No adapter connected, ...) read as an iOS empty
-     view, not a desktop dialog scaled down: no dashed frame, centred,
-     roomier type at phone sizes. */
+  /* Empty/error states (No adapter connected, ...) read as an inset card in
+     the mobile design language -- same surface/radius as the grouped lists --
+     not as loose text floating in a dark panel, and not as the desktop's
+     dashed dialog scaled down. */
   .empty {
-    border: 0; background: none; padding: 64px 24px; gap: 10px;
+    border: 0.5px solid var(--ios-hair); background: var(--ios-surface);
+    border-radius: 14px; padding: 28px 20px; gap: 10px;
     text-align: center;
   }
   .empty-big {
-    font-size: 22px; font-weight: 700; letter-spacing: -0.01em;
+    font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
     color: var(--ios-text);
   }
   .empty > div:not(.empty-big) {
