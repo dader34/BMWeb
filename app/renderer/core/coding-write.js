@@ -2,9 +2,9 @@
 // BEST2 VM, over the live bus.
 //
 // We cannot run A_*.ipo (the coding dispatcher .ipo that INPA/ISTA execute
-// host-side); we replicate its job sequence the same way ncsx does -- by
-// driving the module's OWN SGBD jobs in the right order over our VM. The
-// sequence DIFFERS per ECU family, keyed off which jobs the SGBD exposes:
+// host-side); we replicate its job sequence by driving the module's OWN SGBD
+// jobs in the right order over our VM. The sequence DIFFERS per ECU family,
+// keyed off which jobs the SGBD exposes:
 //
 //   codierdaten   AUTHENTISIERUNG -> NORMALER_DATENVERKEHR "NEIN"
 //                 -> CODIERDATEN_SCHREIBEN <netto-hex>

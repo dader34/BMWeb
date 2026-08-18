@@ -176,13 +176,43 @@ function variantHasCI(key, n) {
   });
 }
 
+// Extract SA codes from scan results for FA/ZCS filtering. Looks for ZCS
+// read results (typically from KMB/IKE) and parses the SA key.
+function extractSaCodesFromScan(scan) {
+  if (!scan || typeof CodingZcs === 'undefined') return null;
+
+  // Common modules that hold ZCS: KMB (kombi), IKE (instrument cluster)
+  const zcsModules = ['kmb', 'ike', 'kombi', 'ih'];
+
+  for (const mod of zcsModules) {
+    const res = scan.get(mod) || scan.get(mod + '46');
+    if (!res) continue;
+
+    // Look for SA key result names
+    for (const k of ['SA_SCHLUESSEL', 'SA_WERT', 'ZCS_SA']) {
+      if (res.has(k)) {
+        const val = String(res.get(k)).replace(/^0x/i, '').replace(/\s/g, '');
+        // SA body is 16 hex chars; with check digit it's 17
+        const body = val.length >= 16 ? val.slice(0, 16) : null;
+        if (body && /^[0-9A-F]{16}$/i.test(body)) {
+          return CodingZcs.extractSaCodes(body);
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 // One module's DATEN functions for a chassis. CI-AWARE: when the scan named
 // the ECU's coding index, use ONLY the variant that carries it -- addresses
 // move between indices (E46 KMB's ZCS region is word 104 on C02-C06 but 368
 // on C07-C08), so unioning would show a field twice and a write off the wrong
 // stamp lands in the wrong memory. Without a known index, fall back to the
 // union across variants (a reference, not a write target).
-async function moduleFunctions(chassisId, sgbd, ci = null) {
+// FA/ZCS-AWARE: when saCodes is provided, filter out fields that don't match
+// the car's equipment (field.asw requirement).
+async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
   const byKey = new Map();
 
@@ -205,7 +235,14 @@ async function moduleFunctions(chassisId, sgbd, ci = null) {
     }
   }
 
-  return [...byKey.values()];
+  let fns = [...byKey.values()];
+
+  // Apply FA/ZCS filtering if we have SA codes
+  if (saCodes && typeof CodingZcs !== 'undefined' && CodingZcs.matchesAsw) {
+    fns = fns.filter(f => CodingZcs.matchesAsw(f, saCodes));
+  }
+
+  return fns;
 }
 
 // Seed per-function state {current, staged} for one module's functions from
@@ -580,12 +617,15 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
   const treeEl = cont.querySelector('#coding-tree');
   const filterEl = cont.querySelector('#tree-filter');
 
+  // Extract SA codes from ZCS for FA/ZCS filtering
+  const saCodes = extractSaCodesFromScan(scan);
+
   // pull each module's DATEN functions (chassis variant union) once; skip
   // modules with no functions -- a 0-function row is a dead expand.
   const built = [];
   for (const m of mods) {
     const fns = await moduleFunctions(chassisId, m.sgbd,
-      codingIndexFromScan(scan, m.sgbd));
+      codingIndexFromScan(scan, m.sgbd), saCodes);
     if (fns.length) built.push({ ...m, fns });
   }
 

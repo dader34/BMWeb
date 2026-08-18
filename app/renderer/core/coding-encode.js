@@ -2,11 +2,7 @@
 // FSW value back into the exact netto bytes the ECU expects, and the forward
 // decode that reads them, so a round-trip is provably lossless.
 //
-// Pure, offline, no hardware, no VM. Reference: emdzej/ncsx
-//   docs/coding-flow.md      §3 (ENCODE: invert OPS, invert EINHEIT, splice)
-//   docs/daten-format.md     §1.7 (OPERATION set) §1.8 (EINHEIT set)
-//   docs/zcs-write.md        §2-3 (Mod-36 per-key prefix, 20-byte ZCS layout)
-//   docs/ncsexper-fahrgestell-nr-format.md (VIN 18th char over "FP"+vin)
+// Pure, offline, no hardware, no VM.
 //
 // A `rule` is a datenmap.js field object:
 //   { name, block, word, byte, mask, shift,

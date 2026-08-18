@@ -108,6 +108,10 @@ echo "== coding write dispatcher: per-family sequence, gate, prove-by-re-read ==
 node tools/verify/test_coding_write.js || exit 1
 
 echo
+echo "== ZCS: validation, format, parse, SA code extraction, FA/ZCS filtering =="
+node tools/verify/test_coding_zcs.js || exit 1
+
+echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="
 node tools/verify/test_vmbridge.js || exit 1
 
