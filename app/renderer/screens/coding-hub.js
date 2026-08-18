@@ -156,16 +156,25 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
 // [] when the module has no DATEN map. Shared by desktop tree and mobile list.
 async function moduleFunctions(chassisId, sgbd) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
-  if (!daten) return [];
-  const chId = String(chassisId || '').toUpperCase();
-  const chassis = daten.chassis[chId]
-    || daten.chassis[Object.keys(daten.chassis)[0]];
-  if (!chassis) return [];
-  const byName = new Map();
-  for (const variant of Object.values(chassis)) {
-    for (const f of variant) if (!byName.has(f.name)) byName.set(f.name, f);
+  const byKey = new Map();
+
+  if (daten) {
+    const chId = String(chassisId || '').toUpperCase();
+    const chassis = daten.chassis[chId]
+      || daten.chassis[Object.keys(daten.chassis)[0]];
+    if (chassis) {
+      for (const variant of Object.values(chassis)) {
+        for (const f of variant) {
+          const key = `${f.block || 0}:${f.word || 0}:${f.byte || 0}:${f.mask || 0}`;
+          if (!byKey.has(key)) {
+            byKey.set(key, f);
+          }
+        }
+      }
+    }
   }
-  return [...byName.values()];
+
+  return [...byKey.values()];
 }
 
 // Seed per-function state {current, staged} for one module's functions from
@@ -313,21 +322,30 @@ function treeIsNumericName(n) {
     || /^-?\d+$/.test(String(n)) || /^wert_\d+$/i.test(String(n));
 }
 
-// The pickable named options of a function: [[name, hexValue], ...] with real
-// setting names (aktiv/nicht_aktiv/automatik...), excluding numeric fields and
-// buffers. Empty when the function is not a simple multiple-choice.
+// The pickable options of a function: [[name, hexValue], ...] excluding
+// buffers. Two shapes qualify: real setting names (aktiv/nicht_aktiv/
+// automatik...), and NUMERIC fields whose variants disagree -- EWS's
+// ABSCHALTDREHZAHL_ANLASSER ships 0a/0e/0b across engine fits, and those
+// bytes ARE the choice BMW's tool offers, so they render as picks labelled
+// by their decimal value (the names in the DATEN blob are meaningless line
+// ids there). Empty when the function is not a choice at all -- including
+// named options that all collapse to ONE byte (E46 EWS codes gasoline and
+// diesel cut-off time identically: nothing to pick, so no buttons to show).
 function treeOptions(vals) {
   if (!vals.length) return [];
   if (vals.some(([, v]) => typeof v === 'string' && v.length > 4)) return [];
-  if (vals.some(([n]) => treeIsNumericName(n))) return [];
+  const numeric = vals.every(([n]) => treeIsNumericName(n));
+  if (!numeric && vals.some(([n]) => treeIsNumericName(n))) return [];
   // dedupe by hex value; need at least two to be a choice
   const seen = new Set(); const out = [];
   for (const [n, v] of vals) {
     const key = String(v).toLowerCase();
     if (seen.has(key)) continue;
-    seen.add(key); out.push([n, String(v)]);
+    seen.add(key); out.push([numeric ? String(parseInt(v, 16)) : n, String(v)]);
   }
-  return out.length >= 2 ? out : [];
+  if (out.length < 2) return [];
+  if (numeric) out.sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
+  return out;
 }
 
 // Pair a DATEN function to its value in a module's coding read. The read names
@@ -373,11 +391,24 @@ function treeValues(vals, label, fkey, state) {
       + `<span class="tree-val-v mono">${bytes} bytes each</span></span>`;
   }
   if (vals.every(([n]) => treeIsNumericName(n))) {
-    const uniq = [...new Set(vals.map(([, v]) => String(v)))];
-    const tag = vals.length === 1 ? 'default' : 'value';
+    // numeric quantities read as decimal (an RPM threshold is 10, not 0x0a);
+    // the raw byte stays a hover away for cross-checking other tools
+    const uniq = [...new Set(vals.map(([, v]) => String(v)))]
+      .sort((a, b) => parseInt(a, 16) - parseInt(b, 16));
+    const tag = uniq.length === 1 ? 'default' : 'value';
     return `<span class="tree-val"><span class="tree-val-n">${tag}</span>`
-      + uniq.map(v => `<span class="tree-val-v mono">0x${esc(v)}</span>`).join('')
+      + uniq.map(v => `<span class="tree-val-v mono" title="0x${esc(v)}">`
+        + `${parseInt(v, 16)}</span>`).join('')
       + `</span>`;
+  }
+  // named options that all hold the SAME byte are one fact, not a choice --
+  // two chips read as broken buttons (E46 EWS: gasoline and diesel cut-off
+  // time both 0x01), so fold the names into a single reference chip
+  const uniqV = [...new Set(vals.map(([, v]) => String(v).toLowerCase()))];
+  if (uniqV.length === 1 && vals.length > 1 && String(vals[0][1]).length <= 4) {
+    return `<span class="tree-val">`
+      + `<span class="tree-val-n">${esc(vals.map(([n]) => label(n)).join(' / '))}</span>`
+      + `<span class="tree-val-v mono">0x${esc(vals[0][1])}</span></span>`;
   }
   return vals.map(([n, v]) => {
     const big = typeof v === 'string' && v.length > 4;

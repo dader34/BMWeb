@@ -505,12 +505,24 @@ function showDatenReference(ecu, daten, cont, setPanel, back, chassisId) {
       // one wert_NN entry (numeric field, byte is its DEFAULT); a long hex value
       // (buffer -- show the names, bytes as a tooltip)
       const vals = f.values || [];
-      const isDefault = vals.length === 1 && /^wert_\d+$/i.test(vals[0][0]);
+      // numeric option names (wert_NN or the DATEN blob's bare line ids) mean
+      // a numeric FIELD: show decimals, byte on hover -- same as the coding
+      // tree. One value = the default, several = the fits BMW ships.
+      const numName = (n) => /^wert_\d+$/i.test(String(n)) || /^-?\d+$/.test(String(n));
+      const allNum = vals.length > 0 && vals.every(([n]) => numName(n))
+        && vals.every(([, v]) => typeof v === 'string' && v.length <= 4);
+      const isDefault = allNum;
       const shown = !vals.length
         ? '<span class="ink-faint">—</span>'
         : isDefault
-          ? `<span class="dat-val"><span class="dat-val-n">default</span>`
-            + `<span class="dat-val-v mono">0x${esc(vals[0][1])}</span></span>`
+          ? (() => {
+              const uniq = [...new Set(vals.map(([, v]) => String(v)))]
+                .sort((a, b) => parseInt(a, 16) - parseInt(b, 16));
+              return `<span class="dat-val">`
+                + `<span class="dat-val-n">${uniq.length === 1 ? 'default' : 'value'}</span>`
+                + uniq.map(v => `<span class="dat-val-v mono" title="0x${esc(v)}">`
+                  + `${parseInt(v, 16)}</span>`).join('') + `</span>`;
+            })()
           : (() => {
               // A buffer isn't a pick list: LWS5's KENNFELD is the same curve
               // once per chassis, so nine "16 bytes" chips say nothing.
