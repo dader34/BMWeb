@@ -19,6 +19,37 @@ const jobLabel = (j) => {
 };
 
 
+// BEFORE the IR loads: let the ecu's diagnostic-address group name the real
+// variant, exactly like the scan does (and like INPA does on open). The
+// configured SGBD can be a wrong-generation sibling that happily answers --
+// the E46 config maps Airbag to zae while the car carries an MRS, and zae
+// decodes the MRS's answer as a false 0 faults. The group's IDENTIFIKATION
+// (D_00A4 bytecode in the VM) is immune to that mixup. One attempt per ecu
+// per screen entry; webResolveVariant caches per session underneath, so the
+// wire sees one ident exchange per group per connection.
+let _ecuGroupIndexP = null;
+const ecuGroupIndex = () => (_ecuGroupIndexP ??=
+  fetch('data/groups/index.json').then(r => (r.ok ? r.json() : null)).catch(() => null));
+async function irResolveGroupVariant(ecu) {
+  if (ecu._groupTried || demoMode()) return;
+  ecu._groupTried = true;
+  const g = String(ecu.group || '').toLowerCase();
+  if (!g || typeof webResolveVariant !== 'function') return;
+  const idx = await ecuGroupIndex();
+  if (!idx || !(idx.groups || []).includes(g)) return;
+  let v = null;
+  try { v = await webResolveVariant(g); } catch { /* silence = keep configured */ }
+  if (!v || v === String(ecu.sgbd).toLowerCase()) return;
+  // only retarget to a variant this build can actually load ('xyz' catch-all
+  // and exotic variants without job-code stay on the configured SGBD)
+  try {
+    const jobs = await api(`/api/ecu/${v}/jobs`);
+    if (!Array.isArray(jobs) || !jobs.length) return;
+  } catch { return; }
+  ecu._sgbdBase = ecu._sgbdBase || ecu.sgbd;
+  ecu.sgbd = v;
+}
+
 // Several root menus, one per ECU variant: INPA runs the variant job and
 // matches its VARIANTE result. Both showEcu and showEcuSection need this --
 // a section reached straight from the F-key bar never runs showEcu.
@@ -97,6 +128,9 @@ async function showEcu(chassisId, sectionName, ecu) {
   // root menu (verified 1000/1000 across all 21 chassis), so the fallbacks
   // were unreachable code that could only ever disagree with the interpreter.
   try {
+    // group first, so the IR fetched below already belongs to the variant
+    // the car actually carries (zae's IR is useless against an MRS4)
+    await irResolveGroupVariant(ecu);
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
     await irResolveVariant(ecu);
