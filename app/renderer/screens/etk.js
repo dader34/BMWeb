@@ -1127,6 +1127,12 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   view.appendChild(split);
   const treeEl = split.querySelector('#etk-tree');
   const viewEl = split.querySelector('#etk-view');
+  // On a phone the panes are exclusive, WDS-style: the tree OR the diagram,
+  // never both squeezed side by side. data-pane drives the CSS; desktop
+  // ignores it (the rules live in the mobile media block).
+  const bodyEl = split.querySelector('.etk-body');
+  const phone = () => window.matchMedia('(max-width: 760px)').matches;
+  bodyEl.dataset.pane = 'tree';
 
   let selectedLeaf = null;
   let shownDiagram = null;                       // the diagram currently on screen
@@ -1157,6 +1163,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
         selectedLeaf = leaf;
         shownDiagram = d;                       // remember it for Print
         renderDiagram(data, id, d, viewEl);
+        if (phone()) bodyEl.dataset.pane = 'doc';
         // reflect the open diagram in the URL so it's a shareable deep link
         if (typeof routeSetEtkDiagram === 'function') {
           routeSetEtkDiagram(id, mg.hg, d.btnr);
@@ -1184,15 +1191,27 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
     }
   }
   (target || treeEl.querySelector('.etk-tleaf'))?.click();
+  // the auto-opened FIRST diagram must not steal the screen on a phone --
+  // land on the tree so the group is navigable. A deep-linked diagram was
+  // asked for by name, so that one does take the screen.
+  if (!openBtnr) bodyEl.dataset.pane = 'tree';
 
   sbLeft.textContent = mg.name;
   // a back action so the mobile top-left chevron appears (and Esc works),
-  // returning to this chassis's main-group grid. The F-key bar itself is
-  // hidden here (wds-nofkeys), but the chevron/Esc still fire this. Print emits
+  // returning to this chassis's main-group grid. On a phone, Back from a
+  // DIAGRAM returns to the tree first (panes are exclusive there, so leaving
+  // outright would skip a level -- same rule as the WDS viewer). Print emits
   // a clean, theme-agnostic sheet of the diagram currently open.
+  const leaveGroup = () => {
+    if (phone() && bodyEl.dataset.pane === 'doc') {
+      bodyEl.dataset.pane = 'tree';
+      return;
+    }
+    showEtkChassis(id);
+  };
   setActions([
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-      fn: () => showEtkChassis(id) },
+      fn: leaveGroup },
     { key: 'p', keyLabel: 'P', label: 'Print',
       fn: () => { if (shownDiagram) printEtkDiagram(data, id, mg, shownDiagram); } },
   ]);

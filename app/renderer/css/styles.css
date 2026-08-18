@@ -232,6 +232,21 @@ html.no-chrome body.apps-section .topbar { grid-template-columns: auto auto 1fr 
 }
 .nav-action:active { background: var(--raised); }
 .nav-action[hidden] { display: none !important; }
+/* the mobile Functions (ƒ) button: hidden on desktop, where the F-key bar
+   already shows every action; the mobile block reveals it */
+.nav-fn { display: none; -webkit-app-region: no-drag; cursor: pointer; }
+.nav-fn[hidden] { display: none !important; }
+/* the Functions sheet rows (the modal itself reuses .modal) */
+.fn-sheet-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.fn-sheet-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; text-align: left; min-height: 46px; padding: 10px 14px;
+}
+.fn-sheet-label { font-weight: 600; }
+.fn-sheet-key {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; flex: none;
+}
 /* Topbar buttons carry a word on the desktop and a glyph on a phone: the
    two labels together are 148px of a 320px bar, which is what pushed
    Flashing and Settings off the edge entirely. */
@@ -3267,6 +3282,17 @@ body.apps-section .view { inset: 56px 0 0 0; }
     font-size: 16px; font-weight: 600; padding: 0 4px; height: 36px;
   }
   .nav-action:active { background: none; opacity: .6; }
+  /* the ƒ button sits at the topbar's right edge; a visible nav-action slides
+     left to make room (both live in grid column 3) */
+  .nav-fn:not([hidden]) {
+    display: inline-flex; align-items: center; justify-content: center;
+    grid-column: 3; justify-self: end;
+    background: none; border: 0; color: var(--ios-amber);
+    font-family: Georgia, 'Times New Roman', serif; font-style: italic;
+    font-size: 22px; font-weight: 600; width: 40px; height: 36px; padding: 0;
+  }
+  .nav-fn:active { opacity: .6; }
+  .topbar:has(.nav-fn:not([hidden])) .nav-action:not([hidden]) { margin-right: 44px; }
 
   /* ---- BOTTOM BAR: car · battery voltage · gear -------------------------
      The app's persistent chrome, replacing INPA's F-key strip. Car returns to
@@ -3502,6 +3528,9 @@ body.apps-section .view { inset: 56px 0 0 0; }
   .lookup-entry:not(:has(+ .lookup-entry)) {
     border-bottom-width: 0.5px;
     border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;
+    /* a group's last row (or a lone card like Apps / VIN Decoder) must not
+       sit flush against whatever follows -- filter chips, chassis list */
+    margin-bottom: 18px;
   }
   /* hairline separator that stops short of the glyph, the iOS inset rule */
   .lookup-entry:has(+ .lookup-entry)::after {
@@ -3611,6 +3640,51 @@ body.apps-section .view { inset: 56px 0 0 0; }
 
   /* the F-key bar stays hidden on these list screens (rule earlier in the
      file); nothing here re-shows it. */
+
+  /* ---- ETK PARTS VIEWER (tree + diagram) --------------------------------
+     Same grammar as the WDS viewer on mobile: the split fills the view
+     exactly (the section screen renders nothing above it), and the panes
+     are EXCLUSIVE -- the tree of diagrams OR the open diagram, never both
+     squeezed side by side. data-pane (set by etk.js) picks which one;
+     opening a diagram switches to it, Back returns to the tree. Without
+     the explicit 100% fill, the split's desktop height maths left the
+     diagram pane a few lines tall inside a letterbox. */
+  .view:has(> .etk-split) { padding: 8px 10px; }
+  .etk-split { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+  .etk-body {
+    display: grid; grid-template-columns: 1fr;
+    gap: 0; flex: 1; min-height: 0;
+  }
+  .etk-body:not([data-pane="doc"]) .etk-view { display: none; }
+  .etk-body[data-pane="doc"] .etk-nav { display: none; }
+  .etk-nav { min-height: 0; }
+  .etk-view { overflow-y: auto; min-height: 0; }
+  /* The modern (non-classic) wiring split needs the same treatment: the
+     mobile `.split { display:block }` reset dissolved its bounded flex
+     chain, so the tree grew to full content height inside the
+     overflow-hidden view and NOTHING could scroll. Rebuild the chain the
+     desktop has: split fills the view, panes bounded, tree scrolls. */
+  .wiring-split:not(.wds-frame) {
+    display: flex; flex-direction: column; height: 100%; min-height: 0;
+  }
+  .wiring-split:not(.wds-frame) .wiring-body { flex: 1; min-height: 0; }
+  .wiring-split:not(.wds-frame) .wiring-nav {
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  .wiring-split:not(.wds-frame) .wiring-tree {
+    flex: 1; min-height: 0; overflow-y: auto;
+  }
+  /* A three-column table cannot fit a ~180px pane, so each part becomes a
+     two-line row: position + part number on the first line, description
+     wrapped beneath. The header row goes -- the lines are self-describing. */
+  .etk-parts { font-size: 12px; }
+  .etk-parts thead { display: none; }
+  .etk-parts, .etk-parts tbody, .etk-parts tr, .etk-parts td { display: block; }
+  .etk-parts tr { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .etk-parts td { padding: 0; border: 0; }
+  .etk-parts td.etk-pos { display: inline; width: auto; margin-right: 8px; }
+  .etk-parts td.etk-sachnr { display: inline; font-size: 11.5px; }
+  .etk-name { margin-top: 2px; }
 
   /* motion + a11y floor */
   @media (prefers-reduced-motion: reduce) {
