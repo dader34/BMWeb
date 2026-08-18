@@ -824,6 +824,8 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   display: flex; align-items: center; gap: 10px; margin-top: 16px;
   font-size: 13px; color: var(--ink-dim);
 }
+/* display:flex above would defeat the hidden attribute's UA display:none */
+.ipolab-status[hidden] { display: none; }
 .ipolab-status::before {
   content: ""; width: 14px; height: 14px; border-radius: 50%;
   border: 2px solid var(--line-bright); border-top-color: var(--amber);
