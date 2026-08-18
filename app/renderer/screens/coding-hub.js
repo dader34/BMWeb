@@ -176,6 +176,107 @@ function variantHasCI(key, n) {
   });
 }
 
+// BMW's name for a coding block, e.g. block 12288 of alc_ds2 ->
+// "Grundkonfiguration_ALC-SG" / "Basic configuration adaptive headlights
+// (AHL) control unit". Returns {name, en} or null when the module ships no
+// block table (15 of 83 do not) -- the caller then simply omits the header
+// rather than showing a bare number, which is what we did before.
+//
+// Synchronous on purpose: it runs inside the tree's redraw loop, and the
+// datenmap is already resident by then (moduleFunctions awaited it).
+const _blockNameCache = new Map();
+function blockName(sgbd, block) {
+  if (block == null) return null;
+  const key = `${sgbd}:${block}`;
+  if (_blockNameCache.has(key)) return _blockNameCache.get(key);
+  const map = (typeof window !== 'undefined' && window.BMW_DATEN_MAP) || null;
+  const entry = map && map[String(sgbd).toLowerCase()];
+  const raw = entry && entry.blocks && entry.blocks[String(block)];
+  const out = raw
+    ? { name: raw, en: (typeof datI18n === 'function' ? datI18n(raw) : '') }
+    : null;
+  _blockNameCache.set(key, out);
+  return out;
+}
+
+// FA/ZCS MODULE FILTER. BMW's SGET rows say which ECUs a chassis CAN carry;
+// each row's AUFTRAGSAUSDRUCK is a boolean expression over the car's equipment
+// codes deciding whether THIS car carries it. Evaluating it is what turns
+// "every module an E46 could ever have" into "the modules in front of you".
+//
+// This filters MODULES, not fields. SGET is the ECU-selection table -- field
+// visibility is a different mechanism, and the old field-level `asw` matcher
+// never had data behind it (BMW's DATEN carries no asw column, so it passed
+// everything through and did nothing).
+//
+// FAIL OPEN, ALWAYS. No SGET for the chassis, no SA codes read from the car,
+// or a module SGET simply does not mention -> SHOW IT. A filter that hides a
+// module the car really has is worse than one that shows a spare: the user
+// loses access to real coding with no way to tell why. Only an explicit
+// predicate that evaluates FALSE against known codes hides anything.
+async function filterModulesByFa(chassisId, mods, saCodes) {
+  // DISABLED PENDING THE ASW MAPPING -- do not turn on without it.
+  //
+  // The predicates are real and the evaluator is verified (439 SGET rows,
+  // 508/508 parse; test_coding_auftrag.js). What is missing is the NUMBERING
+  // BRIDGE between the two sides:
+  //
+  //   CodingZcs.extractSaCodes() yields BIT INDICES of the 64-bit ZCS SA
+  //   field -- 0..63, and only ever 0..63.
+  //   SGET predicates reference BMW's SA CATALOG numbers -- observed 2..512
+  //   across the shipped corpus, 304 distinct.
+  //
+  // Those are different numbering systems. Comparing them directly is not a
+  // near-miss, it is a category error: measured on real E46 data it hid 37 of
+  // 44 modules, including DSC and airbag. Failing open here costs nothing
+  // (the user sees the same list as before); failing closed silently removes
+  // real coding from a real car.
+  //
+  // To finish: BMW resolves codes through the chassis dictionaries
+  // (<BR>AT.000 / AT.M00 / ZST.000, which we DO ship -- see E46AT.000,
+  // E46ZST.*) in coapiGetAswFromAuftrag, building the ASW bit-vector the
+  // predicates are actually written against. Parse those into a
+  // bit-index -> SA-code map, map extractSaCodes() through it, then delete
+  // this early return and re-run the measurement above: a correct mapping
+  // should hide few modules on a well-equipped car, not most of them.
+  return mods;
+
+  /* eslint-disable no-unreachable */
+  if (!saCodes || !saCodes.length) return mods;          // nothing to test against
+  if (typeof loadSget !== 'function'
+      || typeof CodingAuftrag === 'undefined') return mods;
+  try { await loadSget(); } catch { return mods; }
+  const all = (typeof window !== 'undefined' && window.BMW_SGET) || null;
+  const ch = all && all[String(chassisId || '').toUpperCase()];
+  if (!ch || !ch.rows || !ch.rows.length) return mods;
+
+  // sgbd -> its rows (a module can appear once per coding index)
+  const bySgbd = new Map();
+  for (const r of ch.rows) {
+    const k = String(r.SGBD || '').toLowerCase();
+    if (!k) continue;
+    if (!bySgbd.has(k)) bySgbd.set(k, []);
+    bySgbd.get(k).push(r);
+  }
+
+  return mods.filter((m) => {
+    const rows = bySgbd.get(String(m.sgbd || '').toLowerCase());
+    if (!rows || !rows.length) return true;     // not in SGET: fail open
+    // ANY row passing means the car can carry this module (rows are per
+    // coding index / build variant, and only one needs to apply).
+    return rows.some((r) => {
+      if (!r.exprHex) return true;
+      try {
+        const bytes = r.exprHex.match(/../g).map((h) => parseInt(h, 16));
+        return CodingAuftrag.matchesAuftrag(bytes, saCodes);
+      } catch {
+        return true;                            // unreadable predicate: fail open
+      }
+    });
+  });
+  /* eslint-enable no-unreachable */
+}
+
 // Extract SA codes from scan results for FA/ZCS filtering. Looks for ZCS
 // read results (typically from KMB/IKE) and parses the SA key.
 function extractSaCodesFromScan(scan) {
@@ -215,6 +316,8 @@ function extractSaCodesFromScan(scan) {
 async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
   const byKey = new Map();
+  let resolved = false;    // did ci pick exactly the variants carrying it?
+  let variants = [];       // which variant keys the fields came from
 
   if (daten) {
     const chId = String(chassisId || '').toUpperCase();
@@ -224,6 +327,11 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
       const keys = Object.keys(chassis);
       const pick = (ci != null) ? keys.filter(k => variantHasCI(k, ci)) : [];
       const use = pick.length ? pick : keys;   // matched index, else all
+      // Did the coding index actually resolve to ONE stamp? Only then are the
+      // addresses below provably this ECU's. codingIsResolved is what the
+      // write path gates on -- see assertResolvedForWrite().
+      resolved = pick.length > 0;
+      variants = use.slice();
       for (const vk of use) {
         for (const f of chassis[vk]) {
           const key = `${f.block || 0}:${f.word || 0}:${f.byte || 0}:${f.mask || 0}`;
@@ -237,12 +345,47 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
 
   let fns = [...byKey.values()];
 
+  // The user's own parameters, overlaid on BMW's description. Scoped to the
+  // variant actually in use, so a row defined against C04's layout never
+  // shows up on C07's. mergeCustom returns the input untouched when there is
+  // no overlay, so this costs nothing for the common case.
+  if (typeof CodingCustom !== 'undefined' && variants.length) {
+    fns = CodingCustom.mergeCustom(fns, sgbd, chassisId, variants.join('+'));
+  }
+
   // Apply FA/ZCS filtering if we have SA codes
   if (saCodes && typeof CodingZcs !== 'undefined' && CodingZcs.matchesAsw) {
     fns = fns.filter(f => CodingZcs.matchesAsw(f, saCodes));
   }
 
+  // Carry HOW this list was resolved alongside it. Non-enumerable so the
+  // array still serialises / spreads / maps exactly as before -- every
+  // existing caller keeps working, and the write path can ask.
+  Object.defineProperty(fns, 'codingIsResolved', { value: resolved });
+  Object.defineProperty(fns, 'codingIndex', { value: ci });
+  Object.defineProperty(fns, 'codingVariants', { value: variants });
   return fns;
+}
+
+// THE UNION IS NOT A WRITE TARGET. When the coding index did not resolve to a
+// single stamp, moduleFunctions unions every variant and de-dupes first-wins
+// by address -- so a field whose address MOVED between indices resolves to
+// whichever variant enumerated first. E46 KMB's ZCS region is word 104 on
+// C02-C06 but 368 on C07-C08: writing off the wrong stamp puts bytes into the
+// wrong ECU memory. Reading that view is fine; transmitting from it is not.
+// Throws with a message naming the ECU, so the caller's catch reports it.
+function assertResolvedForWrite(sgbd, fns) {
+  if (fns && fns.codingIsResolved) return;
+  const ci = fns ? fns.codingIndex : null;
+  const vs = (fns && fns.codingVariants) || [];
+  throw new Error(
+    `refusing to write ${sgbd}: coding index unresolved`
+    + (ci == null
+        ? ' (the scan did not report one)'
+        : ` (C${String(ci).padStart(2, '0')} matches no shipped variant)`)
+    + (vs.length > 1 ? `; showing a union of ${vs.join(', ')}` : '')
+    + '. Addresses move between coding indices, so this view is a reference '
+    + 'only -- re-scan with the ECU connected to resolve its index.');
 }
 
 // Seed per-function state {current, staged} for one module's functions from
@@ -454,29 +597,53 @@ function treeOptions(vals) {
   if (!vals.length) return [];
   if (vals.some(([, v]) => typeof v === 'string' && v.length > 4)) return [];
   const anyNumeric = vals.some(([n]) => treeIsNumericName(n));
-  // dedupe by hex value, MERGING what each value is called: CAS's
-  // ZYLINDER_ZAHL is [[179,'06'],[180,'08'],[181,'0c'],['alpina','0c']] --
-  // 179/180/181 are unresolved keyword ids (the VALUE is the cylinder
-  // count), and alpina shares 0x0c with plain 12-cylinder. That renders as
-  // 6 / 8 / "12 · Alpina", each pickable.
-  const byVal = new Map();                      // hex -> Set of real names
+
+  // ONE DATEN ROW, ONE OPTION. BMW's PARZUWEISUNG_PSW1 rows ARE the choices
+  // the tool offers, and several legitimately share a byte:
+  // ABSCHALTDREHZAHL_ANLASSER lists 4/6/8/12-cylinder gasoline all at 0x0A,
+  // because the engine variant is what the installer picks -- the byte just
+  // happens to be equal. NCS-Expert lists all nine; so do we.
+  //
+  // We used to dedupe by hex and merge the names into one chip
+  // ("4_zylinder_benziner / 6_zylinder_benziner / ..."), which collapsed
+  // nine real choices into three and read as data loss. Values that share a
+  // byte stay separate rows; picking any of them stages the same byte, which
+  // is correct and is what the ECU sees either way.
+  const named = vals.filter(([n]) => !treeIsNumericName(n));
+
+  // A purely numeric field (every "name" is an unresolved id) has no labels
+  // to show, so it collapses to its distinct VALUES -- there is nothing to
+  // tell two rows apart but the byte.
+  if (!named.length) {
+    const seen = new Map();
+    for (const [, v] of vals) seen.set(String(v).toLowerCase(), true);
+    if (seen.size < 2) return [];
+    return [...seen.keys()]
+      .map(v => [String(parseInt(v, 16)), v, true])
+      .sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
+  }
+
+  // Mixed (some rows named, some bare ids): keep the named rows as labelled
+  // options and fold the anonymous ids into whichever value they name, so a
+  // bare id never renders as a chip of its own next to a real label.
+  const out = [];
+  const emitted = new Set();
   for (const [n, v] of vals) {
     const key = String(v).toLowerCase();
-    if (!byVal.has(key)) byVal.set(key, new Set());
-    if (!treeIsNumericName(n)) byVal.get(key).add(String(n));
-  }
-  if (byVal.size < 2) return [];
-  const out = [...byVal.entries()].map(([v, names]) => {
-    if (!anyNumeric && names.size) {
-      // pure named choice: single names keep the translator path
-      const list = [...names];
-      return list.length === 1 ? [list[0], v] : [list.join(' / '), v, true];
+    if (treeIsNumericName(n)) {
+      // only surface an id-only value when NO named row shares that byte
+      if (named.some(([, nv]) => String(nv).toLowerCase() === key)) continue;
+      if (emitted.has('#' + key)) continue;
+      emitted.add('#' + key);
+      out.push([String(parseInt(key, 16)), key, true]);
+      continue;
     }
-    // numeric or mixed: the decimal IS the meaning; real names ride along
-    const dec = String(parseInt(v, 16));
-    const extra = [...names].map(n => datLabel ? datLabel(n) : n).join(' / ');
-    return [extra ? `${dec} · ${extra}` : dec, v, true];
-  });
+    const dedupe = n + '\u0000' + key;         // identical row twice: once
+    if (emitted.has(dedupe)) continue;
+    emitted.add(dedupe);
+    out.push([String(n), key]);                 // label(): keeps translation
+  }
+  if (out.length < 2) return [];
   if (anyNumeric) out.sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
   return out;
 }
@@ -543,10 +710,26 @@ function treeValues(vals, label, fkey, state, f) {
            data-w="${String(vals[0][1]).length}"
            title="Stage any value (expert)">✎ set…</button>`
       : '';
+    // FIRST MATCH WINS. Several options can share a byte -- 4/6/8/12-cylinder
+    // gasoline are all 0x0A -- and the ECU only ever tells us the byte, never
+    // which of them the installer meant. Marking every match lit four chips
+    // "current" at once, which reads as a bug. NCS-Expert resolves it the
+    // same way (decodeCurrentPsw returns the FIRST parameter whose bytes
+    // match), so the first option in BMW's file order carries the marker and
+    // the rest stay pickable.
+    const lc = (x) => String(x == null ? '' : x).toLowerCase();
+    const firstAt = (want) => {
+      const w = lc(want);
+      if (!w) return -1;
+      return opts.findIndex(([, v]) => lc(v) === w);
+    };
+    const selIdx = firstAt(sel);
+    const curIdx = firstAt(s.current);
+
     return `<div class="tree-opts" data-fkey="${esc(fkey)}">`
-      + opts.map(([n, v, final]) => {
-        const on = String(v).toLowerCase() === String(sel).toLowerCase();
-        const isCur = String(v).toLowerCase() === String(s.current).toLowerCase();
+      + opts.map(([n, v, final], oi) => {
+        const on = oi === selIdx;
+        const isCur = oi === curIdx;
         // a numeric chip shows its unit-formatted value; a named option keeps
         // its label. The mono suffix is the raw byte either way.
         const { text, tip } = numeric ? treeFmt(v, f) : { text: '0x' + v, tip: '' };
@@ -606,7 +789,7 @@ function treeValues(vals, label, fkey, state, f) {
 // DESKTOP: one searchable nested tree, Module > Function > Values, expand in
 // place. Data is BMW's DATEN description (datenFor); a filter narrows across
 // every level.
-async function expertTree(chassisId, mods, cont, back, scan, reScan) {
+async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   cont.className = 'coding-panel coding-tree-wrap';
   cont.innerHTML = `
     <div class="tree-bar">
@@ -619,14 +802,33 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
 
   // Extract SA codes from ZCS for FA/ZCS filtering
   const saCodes = extractSaCodesFromScan(scan);
+  // ...and drop modules this car's equipment codes say it does not carry.
+  const shown = showAll
+    ? mods
+    : await filterModulesByFa(chassisId, mods, saCodes);
+  const hidden = mods.length - shown.length;
 
   // pull each module's DATEN functions (chassis variant union) once; skip
   // modules with no functions -- a 0-function row is a dead expand.
   const built = [];
-  for (const m of mods) {
+  for (const m of shown) {
     const fns = await moduleFunctions(chassisId, m.sgbd,
       codingIndexFromScan(scan, m.sgbd), saCodes);
-    if (fns.length) built.push({ ...m, fns });
+    if (fns.length) built.push({ ...m, fns, chassisId });
+  }
+
+  // Never filter silently: say what the car's equipment codes hid, and offer
+  // the way back. A module missing with no explanation reads as a bug.
+  if (hidden > 0) {
+    const note = document.createElement('div');
+    note.className = 'cod-fa-note';
+    note.innerHTML = `${hidden} module${hidden === 1 ? '' : 's'} hidden — `
+      + `this car's equipment codes say it doesn't have `
+      + `${hidden === 1 ? 'it' : 'them'}. `
+      + `<button class="linklike" id="fa-show-all">Show all</button>`;
+    cont.querySelector('.tree-bar').insertAdjacentElement('afterend', note);
+    note.querySelector('#fa-show-all').onclick = () =>
+      expertTree(chassisId, mods, cont, back, scan, reScan, true);
   }
 
   const label = (name) => (typeof datLabel === 'function'
@@ -674,8 +876,26 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
       body.className = 'tree-fns';
       // cap very large modules for performance; a filter reveals the rest
       const cap = q ? shownFns.length : Math.min(shownFns.length, 400);
+      let lastBlock = null;   // emit a group header when the block changes
       for (let i = 0; i < cap; i++) {
         const f = shownFns[i];
+        // BMW names each coding block ("Grundkonfiguration_ALC-SG"). Heading
+        // the run of fields with it turns a flat list of 83 into the labelled
+        // sections NCS-Expert shows. Fields arrive grouped by address, so a
+        // simple change-detect is enough -- no re-sorting, which would break
+        // the address order the rest of the screen relies on.
+        if (f.block !== lastBlock) {
+          lastBlock = f.block;
+          const bn = blockName(m.sgbd, f.block);
+          if (bn) {
+            const h = document.createElement('div');
+            h.className = 'tree-blk-h';
+            h.innerHTML = `<span class="tree-blk-key mono">CODING</span>`
+              + `<span class="tree-blk-name">${esc(bn.name)}</span>`
+              + (bn.en ? `<span class="tree-blk-en">${esc(bn.en)}</span>` : '');
+            body.appendChild(h);
+          }
+        }
         const fkey = fkeyOf(m.sgbd, f.name);
         const valsHtml = treeValues(f.values || [], label, fkey, state, f);
         const fl = document.createElement('details');
@@ -687,7 +907,7 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan) {
           + `<span class="tree-name">${esc(label(f.name))}`
           + `${state.has(fkey) && state.get(fkey).staged != null
               ? '<span class="tree-staged-dot"></span>' : ''}</span>`
-          + `<span class="tree-key mono">blk ${f.block} · byte ${f.byte} · `
+          + `<span class="tree-key mono">len ${f.byte} · `
           + `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>`
           + `<div class="tree-vals">${valsHtml}</div>`;
         body.appendChild(fl);
@@ -804,6 +1024,10 @@ async function treeReview(built, state, label) {
     if (!mod) continue;
 
     try {
+      // The union view is a reference, not a write target -- refuse before
+      // anything touches the wire.
+      assertResolvedForWrite(sgbd, mod.fns);
+
       // Read current netto
       const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;
       if (!entry || !entry.read) {
@@ -838,8 +1062,19 @@ async function treeReview(built, state, label) {
         continue;
       }
 
+      // BACKUP BEFORE TRANSMIT. nettoHex is what the ECU holds right now;
+      // once the write lands it is unrecoverable. Persist it here, while it
+      // still exists. A failure to store is reported, never fatal.
+      const backup = (typeof saveCodingBackup === 'function')
+        ? saveCodingBackup(sgbd, nettoHex, {
+            chassis: mod.chassisId || null,
+            ci: mod.fns ? mod.fns.codingIndex : null,
+            note: 'pre-write (coding)',
+          })
+        : null;
+
       await webWriteCoding(sgbd, modHex, { confirmed: true });
-      results.push({ sgbd, ok: true });
+      results.push({ sgbd, ok: true, backup: !!backup });
 
       // Update state: staged becomes current
       for (const f of mod.fns) {
@@ -859,7 +1094,10 @@ async function treeReview(built, state, label) {
   const allOk = results.every(r => r.ok);
   const body = results.map(r => {
     const icon = r.ok ? '✓' : '✗';
-    const msg = r.ok ? 'Written and verified' : `Failed: ${r.err}`;
+    const msg = r.ok
+      ? (r.backup ? 'Written and verified (previous coding backed up)'
+                  : 'Written and verified — NO BACKUP SAVED')
+      : `Failed: ${r.err}`;
     return `<div class="cod-result-row">`
       + `<span class="cod-result-icon ${r.ok ? 'ok' : 'err'}">${icon}</span>`
       + `<span class="cod-result-sgbd mono">${esc(r.sgbd)}.prg</span>`

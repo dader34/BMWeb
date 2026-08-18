@@ -150,8 +150,16 @@ def read_module(paths):
     than showing several.
     """
     out = {}
+    # BLOCKNR -> BMW's designation for that region, unioned across the
+    # module's variants. Blocks are a property of the module's layout, not of
+    # one variant, and neighbouring indices name them identically -- so this
+    # rides once per module rather than being repeated on every field.
+    blocks = {}
     for p in sorted(paths):
-        rr = N.rows(open(p, "rb").read(), chassis=N.chassis_of(p))
+        raw = open(p, "rb").read()
+        for bnr, bez in N.block_names(raw).items():
+            blocks.setdefault(bnr, bez)
+        rr = N.rows(raw, chassis=N.chassis_of(p))
         if not rr:
             continue
         fields = []
@@ -197,7 +205,8 @@ def read_module(paths):
     for var, fields in out.items():
         key = json.dumps(fields, sort_keys=True)
         folded.setdefault(key, []).append(var)
-    return {'+'.join(sorted(v)): json.loads(k) for k, v in folded.items()}
+    variants = {'+'.join(sorted(v)): json.loads(k) for k, v in folded.items()}
+    return variants, blocks
 
 
 def main():
@@ -238,9 +247,14 @@ def main():
         entry = out.setdefault(target, {'sgbd': target, 'daten': mod,
                                         'chassis': {}})
         for ch, paths in by_ch.items():
-            variants = read_module(paths)
+            variants, blocks = read_module(paths)
             if variants:
                 entry['chassis'][ch] = variants
+                # names are per-module; merge across chassis (identical where
+                # they overlap, and a chassis-specific block simply adds one)
+                if blocks:
+                    entry.setdefault('blocks', {}).update(
+                        {str(k): v for k, v in blocks.items()})
 
     out = {k: v for k, v in out.items() if v['chassis']}
 
@@ -251,6 +265,11 @@ def main():
     trans = load_translations()
     fsw, psw = set(), set()
     for e in out.values():
+        # block designations are keywords too ("Grundkonfiguration_ALC-SG" ->
+        # "Basic configuration adaptive headlights (AHL) control unit"), so
+        # they ride in the same i18n table the field names use
+        for bez in (e.get('blocks') or {}).values():
+            fsw.add(str(bez).lower())
         for variants in e['chassis'].values():
             for fields in variants.values():
                 for r in fields:

@@ -246,11 +246,27 @@ async function showZcsEditor(chassisId, sgbd, back) {
         throw new Error('webWriteCoding not available');
       }
 
+      // BACKUP BEFORE TRANSMIT. nettoHex holds the ECU's current ZCS keys;
+      // after the write they are gone. Persist first -- a ZCS mistake takes
+      // the car's identity with it.
+      const backup = (typeof saveCodingBackup === 'function')
+        ? saveCodingBackup(sgbd, nettoHex, {
+            chassis: chassisId,
+            note: 'pre-write (ZCS)',
+          })
+        : null;
+
       await webWriteCoding(sgbd, modHex, { confirmed: true });
 
       await confirmDialog({
         title: 'ZCS written',
-        body: '<p>ZCS keys written and verified successfully.</p>',
+        body: '<p>ZCS keys written and verified successfully.</p>'
+          + (backup
+              ? '<p class="cod-note">The previous keys were saved to this '
+                + 'browser first, under Coding backups.</p>'
+              : '<p class="cod-note"><b>No backup was saved</b> (browser '
+                + 'storage unavailable) — the previous keys are not '
+                + 'recoverable from this app.</p>'),
         confirmLabel: 'OK',
         cancelLabel: null,
       });

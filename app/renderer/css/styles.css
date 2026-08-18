@@ -3714,3 +3714,31 @@ body.apps-section .view { inset: 56px 0 0 0; }
     outline: 2px solid var(--ios-amber); outline-offset: -2px;
   }
 }
+
+/* FA/ZCS module filter notice: says what the car's equipment codes hid, and
+   offers the way back. Never let a module vanish without an explanation. */
+.cod-fa-note {
+  margin: 8px 0 4px; padding: 8px 12px;
+  border: 1px solid var(--line); border-left: 2px solid var(--amber);
+  border-radius: 4px; background: var(--panel-2);
+  font-size: 12.5px; color: var(--ink-dim);
+}
+.cod-fa-note .linklike {
+  background: none; border: 0; padding: 0; font: inherit;
+  color: var(--amber); cursor: pointer; text-decoration: underline;
+}
+.cod-fa-note .linklike:hover { color: var(--ink); }
+
+/* Coding block header: BMW's name for a region of the netto, heading the run
+   of fields that live in it. Turns a flat list of 83 into labelled sections. */
+.tree-blk-h {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin: 14px 0 4px; padding: 4px 0 5px;
+  border-bottom: 1px solid var(--line);
+}
+.tree-blk-h:first-child { margin-top: 2px; }
+.tree-blk-key {
+  font-size: 10px; letter-spacing: .08em; color: var(--ink-faint, var(--ink-dim));
+}
+.tree-blk-name { font-size: 12px; font-weight: 600; color: var(--ink); }
+.tree-blk-en { font-size: 11.5px; color: var(--ink-dim); }

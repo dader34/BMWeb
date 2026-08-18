@@ -9,7 +9,7 @@
 //
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
-const CACHE_NAME = 'bmweb-v30';
+const CACHE_NAME = 'bmweb-v31';
 const CORE_ASSETS = [
   './',
   './index.html',

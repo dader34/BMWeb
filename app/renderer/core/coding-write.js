@@ -377,9 +377,70 @@
     return { ok: true, before, after, sequence, strategy };
   }
 
+  // ---- pre-write backup ----------------------------------------------------
+  //
+  // The bytes an ECU held before we wrote are the ONLY way back from a bad
+  // write, and they exist for exactly one moment: after the read, before the
+  // transmit. Persist them there or they are gone. Kept deliberately dumb --
+  // append-only, newest first, capped -- because the one job it has is to
+  // still be there after a write goes wrong.
+  const BACKUP_KEY = 'bmweb.coding.backups';
+  const BACKUP_MAX = 50;
+
+  function backupStore() {
+    try {
+      if (typeof localStorage !== 'undefined') return localStorage;
+    } catch (e) { /* private mode / disabled: fall through */ }
+    return null;
+  }
+
+  // saveCodingBackup(sgbd, nettoHex, meta) -> the stored record (or null when
+  // there is no storage). NEVER throws: a backup failure must not abort a
+  // write the user already confirmed, so it returns null and the caller
+  // decides. The caller is what surfaces "unbacked" to the user.
+  function saveCodingBackup(sgbd, nettoHex, meta = {}) {
+    const store = backupStore();
+    if (!store) return null;
+    const rec = {
+      sgbd: String(sgbd),
+      netto: String(nettoHex || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase(),
+      at: (meta.now instanceof Date ? meta.now : new Date()).toISOString(),
+      chassis: meta.chassis || null,
+      ci: (meta.ci == null ? null : meta.ci),
+      note: meta.note || null,
+    };
+    if (!rec.netto) return null;
+    try {
+      const prev = JSON.parse(store.getItem(BACKUP_KEY) || '[]');
+      const list = Array.isArray(prev) ? prev : [];
+      list.unshift(rec);
+      store.setItem(BACKUP_KEY, JSON.stringify(list.slice(0, BACKUP_MAX)));
+      return rec;
+    } catch (e) {
+      return null;   // quota, serialisation, whatever: never block the write
+    }
+  }
+
+  // Every stored backup, newest first.
+  function listCodingBackups(sgbd) {
+    const store = backupStore();
+    if (!store) return [];
+    try {
+      const list = JSON.parse(store.getItem(BACKUP_KEY) || '[]');
+      if (!Array.isArray(list)) return [];
+      return sgbd
+        ? list.filter((r) => r && String(r.sgbd) === String(sgbd))
+        : list;
+    } catch (e) {
+      return [];
+    }
+  }
+
   const api = {
     codingWriteStrategy,
     writeCoding,
+    saveCodingBackup,
+    listCodingBackups,
     // exposed for the UI/tests to introspect without running anything
     writeSteps,
     readJobFor,
@@ -392,6 +453,8 @@
   if (typeof root !== 'undefined') {
     root.codingWriteStrategy = codingWriteStrategy;
     root.writeCoding = writeCoding;
+    root.saveCodingBackup = saveCodingBackup;
+    root.listCodingBackups = listCodingBackups;
     root.codingWrite = api;
   }
   if (typeof module !== 'undefined' && module.exports) {

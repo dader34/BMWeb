@@ -112,6 +112,14 @@ echo "== ZCS: validation, format, parse, SA code extraction, FA/ZCS filtering ==
 node tools/verify/test_coding_zcs.js || exit 1
 
 echo
+echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
+node tools/verify/test_coding_auftrag.js || exit 1
+
+echo
+echo "== SGET rows extract and every predicate parses =="
+python3 tools/decompile/ncs_sget.py --check || exit 1
+
+echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="
 node tools/verify/test_vmbridge.js || exit 1
 

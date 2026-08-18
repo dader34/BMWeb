@@ -338,7 +338,12 @@ def _load_swt(path):
     out = {}
     head = data.find(b'KEYID,KEYWORD\x00')
     start = head + 14 if head >= 0 else 0
-    for m in re.finditer(rb'([A-Za-z][A-Za-z0-9_/]{1,60})\x00', data[start:]):
+    # A keyword may START WITH A DIGIT -- "4_zylinder_benziner",
+    # "12_zylinder_benziner", "8_zylinder_diesel". Requiring a leading letter
+    # silently dropped every one of them, which is what made EWS's
+    # ABSCHALTDREHZAHL_ANLASSER render as three raw hex values instead of the
+    # nine engine variants BMW actually names.
+    for m in re.finditer(rb'([A-Za-z0-9][A-Za-z0-9_/]{1,60})\x00', data[start:]):
         i = m.start() + start
         if i < 2:
             continue
@@ -404,6 +409,47 @@ def chassis_of(path):
     """The chassis directory a file sits in, which names its keyword table."""
     d = os.path.basename(os.path.dirname(os.path.abspath(path)))
     return d if re.fullmatch(r'[A-Z0-9]{3}', d) else None
+
+
+def block_names(data):
+    """BLOCKNR -> its BMW designation, from the file's own block sections.
+
+    A coding block is a named region of the netto ("Grundkonfiguration_ALC-SG",
+    "Konfig_ALC-FUNKTION_1"). Every PARZUWEISUNG_FSW row carries the BLOCKNR it
+    lives in, so this turns a flat list of 83 fields into the ~14 labelled
+    groups NCS-Expert shows -- the block ids were always in the map, only the
+    names were missing.
+
+    Three sections declare blocks, all with the same shape
+    ({L}LWS = BLOCKNR, WORTADR, BYTEADR, BEZEICHNUNG):
+      CODIERDATENBLOCK       the codeable regions (what the UI groups by)
+      HERSTELLERDATENBLOCK   manufacturer regions
+      RESERVIERTDATENBLOCK   reserved regions
+    All three are read: a field can sit in any of them, and an unnamed group
+    is exactly the gap this closes.
+    """
+    secs = schema(data)
+    out = {}
+    for name in ('CODIERDATENBLOCK', 'HERSTELLERDATENBLOCK',
+                 'RESERVIERTDATENBLOCK'):
+        sec = secs.get(name)
+        if not sec:
+            continue
+        sig = sec['sig'] or '{L}LWS'
+        for seq, pay, _off in records(data):
+            if seq != sec['seq']:
+                continue
+            try:
+                v = parse_payload(sig, pay)
+            except ValueError:
+                continue                    # a frame that verified by chance
+            if len(v) < 4:
+                continue
+            blk, bez = v[0], v[3]
+            if blk is None or not bez:
+                continue
+            out.setdefault(int(blk), str(bez))
+    return out
 
 
 def rows(data, kw=None, chassis=None):

@@ -809,6 +809,9 @@ const loadFaultInfo = _lazyScript('data/faultinfo.js', 'BMW_FAULT_INFO', _infoHo
 const loadCodingMap = _lazyScript('data/codingmap.js', 'BMW_CODING_MAP', _codingHolder);
 // ...and from BMW's DATEN, for ECUs whose SGBD says nothing
 const loadDatenMap = _lazyScript('data/datenmap.js', 'BMW_DATEN_MAP', _datenHolder);
+// which ECUs a car actually has: SGET rows + their AUFTRAGSAUSDRUCK predicate
+const _sgetHolder = {};
+const loadSget = _lazyScript('data/sget.js', 'BMW_SGET', _sgetHolder);
 
 // per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. `info`
 // indexes into BMW_FAULT_INFO[hex].

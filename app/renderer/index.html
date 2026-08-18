@@ -243,9 +243,19 @@
   <script src="screens/ir.js"></script>
   <script src="screens/ecu.js"></script>
   <script src="screens/activations.js"></script>
+  <!-- The coding codec/write stack. coding-encode defines CodingEncode, which
+       coding-zcs reads at load, so ORDER MATTERS: encode, then zcs, then the
+       write dispatcher, then the screens that call them. Without these the
+       write path is unreachable and webWriteCoding throws "not loaded". -->
+  <script src="core/coding-encode.js"></script>
+  <script src="core/coding-zcs.js"></script>
+  <script src="core/coding-auftrag.js"></script>
+  <script src="core/coding-custom.js"></script>
+  <script src="core/coding-write.js"></script>
   <script src="screens/coding-edit.js"></script>
   <script src="screens/curated-coding.js"></script>
   <script src="screens/coding-hub.js"></script>
+  <script src="screens/coding-zcs-editor.js"></script>
   <script src="screens/navlang.js"></script>
   <script src="screens/identity.js"></script>
   <script src="screens/special.js"></script>
