@@ -60,13 +60,6 @@ scripts/setup/check-vendor.sh >/dev/null 2>&1 || { scripts/setup/check-vendor.sh
 echo "== .IPO decompiler vs ground truth =="
 python3 tools/verify/test_disasm.py
 
-# the IPO Lab ships a COPY of the decompiler (it runs in-page via Pyodide);
-# a drifted copy would decompile uploads differently than the shipped IRs
-for f in ipo_screens.py ipo_disasm.py ipo_ir.py; do
-  cmp -s "tools/decompile/$f" "app/renderer/data/ipolab/$f" \
-    || { echo "IPO Lab copy of $f drifted -- re-run: cp tools/decompile/$f app/renderer/data/ipolab/"; exit 1; }
-done
-
 echo
 echo "== IR emitter invariants =="
 python3 tools/decompile/ipo_ir.py --check

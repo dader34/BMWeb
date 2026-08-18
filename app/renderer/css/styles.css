@@ -805,33 +805,6 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   .etk-idmid { flex-direction: column; }
 }
 
-/* IPO Lab: the drop target and its progress line */
-.ipolab-drop {
-  display: grid; place-items: center; gap: 8px; text-align: center;
-  padding: 44px 24px; cursor: pointer;
-  border: 2px dashed var(--line-bright); border-radius: 12px;
-  background: var(--panel); transition: border-color .15s, background .15s;
-}
-.ipolab-drop:hover, .ipolab-drop.ipolab-drag {
-  border-color: var(--amber); background: var(--amber-glow);
-}
-.ipolab-drop-icon { font-size: 30px; color: var(--amber); }
-.ipolab-drop-title { font-size: 17px; font-weight: 800; color: var(--ink); }
-.ipolab-drop-hint {
-  font-size: 12.5px; color: var(--ink-faint); max-width: 52ch; line-height: 1.5;
-}
-.ipolab-status {
-  display: flex; align-items: center; gap: 10px; margin-top: 16px;
-  font-size: 13px; color: var(--ink-dim);
-}
-/* display:flex above would defeat the hidden attribute's UA display:none */
-.ipolab-status[hidden] { display: none; }
-.ipolab-status::before {
-  content: ""; width: 14px; height: 14px; border-radius: 50%;
-  border: 2px solid var(--line-bright); border-top-color: var(--amber);
-  animation: spin .7s linear infinite;
-}
-
 /* Tool32: SGBD | Job | Run three-pane raw job runner (reuses .etk-lb panes) */
 .t32-card { max-width: 1040px; }
 .t32-cols {

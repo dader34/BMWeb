@@ -52,17 +52,6 @@ const APP_REGISTRY = [
     },
   },
   {
-    id: 'ipolab',
-    icon: '⚗',
-    title: 'IPO Lab',
-    desc: 'Drop any INPA .IPO script and run its decompiled screens live',
-    tag: 'IPO',
-    open: () => (typeof showIpoLab === 'function' ? showIpoLab() : null),
-    // no data dependency: the decompiler runs in-page (Pyodide); the page
-    // itself explains the one-time network fetch it needs
-    hasData: async () => typeof showIpoLab === 'function',
-  },
-  {
     id: 'tool32',
     icon: '⌗',
     title: 'Tool32',
