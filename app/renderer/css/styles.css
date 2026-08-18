@@ -1616,12 +1616,16 @@ html[data-theme="inpa"] .coding-tab.active { background: #0a246a; color: #fff; }
 .tree-vals {
   display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 14px 12px 40px;
 }
+/* value chips: ONE size for selectable options and static references --
+   halfway between the old big buttons (6px 12px, inherited text) and the
+   old small chips (3px 8px, 12px), so a mixed row doesn't read as two
+   different controls */
 .tree-val {
   display: inline-flex; align-items: baseline; gap: 6px;
-  padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px;
-  font-size: 12px; color: var(--ink-dim);
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px;
+  font-size: 13.5px; color: var(--ink-dim);
 }
-.tree-val-v { color: var(--amber); }
+.tree-val-v { color: var(--amber); font-size: 12px; }
 .tree-more { padding: 8px 14px 12px 40px; font-size: 12px; color: var(--ink-faint); }
 /* Read button on a choosable module */
 .tree-read {
@@ -1635,8 +1639,9 @@ html[data-theme="inpa"] .coding-tab.active { background: #0a246a; color: #fff; }
 .tree-opts { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 14px 12px 40px; }
 .tree-opt {
   display: inline-flex; align-items: baseline; gap: 8px;
-  padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px;
-  background: none; color: var(--ink-dim); font: inherit; cursor: pointer;
+  padding: 5px 10px; border: 1px solid var(--line); border-radius: 7px;
+  background: none; color: var(--ink-dim); font: inherit; font-size: 13.5px;
+  cursor: pointer;
 }
 .tree-opt:hover { border-color: var(--ink-faint); color: var(--ink); }
 .tree-opt.sel { border-color: var(--amber); background: rgba(255,158,44,.10); color: var(--ink); }
