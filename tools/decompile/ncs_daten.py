@@ -277,7 +277,7 @@ def _load_swt(path):
     out = {}
     head = data.find(b'KEYID,KEYWORD\x00')
     start = head + 14 if head >= 0 else 0
-    for m in re.finditer(rb'([A-Za-z][A-Za-z0-9_]{1,60})\x00', data[start:]):
+    for m in re.finditer(rb'([A-Za-z][A-Za-z0-9_/]{1,60})\x00', data[start:]):
         i = m.start() + start
         if i < 2:
             continue

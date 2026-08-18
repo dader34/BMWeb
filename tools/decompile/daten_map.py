@@ -101,9 +101,19 @@ def load_translations():
     no information and are dropped -- the fallback shows the keyword anyway.
     """
     out = {}
+    # NCS Dummy ships Translations.csv as CP1252 (`file` says ISO-8859) --
+    # reading it as UTF-8 with errors='replace' turned every accent into
+    # U+FFFD, so "Coupé" shipped as "Coup?" in the app. Try strict UTF-8
+    # first (a future re-export could legitimately be UTF-8; pure ASCII
+    # decodes identically either way), fall back to CP1252.
     try:
-        fh = open(TRANSLATIONS, newline='', encoding='utf-8',
-                  errors='replace')
+        enc = 'utf-8'
+        with open(TRANSLATIONS, 'rb') as probe:
+            try:
+                probe.read().decode('utf-8')
+            except UnicodeDecodeError:
+                enc = 'cp1252'
+        fh = open(TRANSLATIONS, newline='', encoding=enc)
     except OSError:
         print(f'WARNING: no {TRANSLATIONS} -- English labels will be '
               'absent; scripts/setup/fetch.sh --coding installs it',
