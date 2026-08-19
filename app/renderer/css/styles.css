@@ -3022,9 +3022,13 @@ body.apps-section .view { inset: 56px 0 0 0; }
      but keep the safe-area + topbar top offset (a hardcoded top rode the
      heading up under the back chevron). Mirrors the wds-nofkeys inset. */
   body.apps-section .fkeybar { display: none; }
+  /* The F-key bar is gone, but the persistent 58pt .mobile-tabbar still floats
+     over the bottom edge. Stop the scroll view ABOVE it (not just past the
+     safe-area) so the last card -- "Tuning" -- clears the bar and the list can
+     actually scroll to it, the same clearance every other card screen uses. */
   body.apps-section .view {
     inset: calc(var(--safe-top) + var(--bar-h)) var(--safe-right)
-           var(--safe-bottom) var(--safe-left);
+           calc(58px + var(--safe-bottom)) var(--safe-left);
   }
   .fkey-nums { display: none; }
   .fkey-btns {
@@ -3109,8 +3113,26 @@ body.apps-section .view { inset: 56px 0 0 0; }
   }
   .setting-title { font-size: 14px; }
   .setting-desc { font-size: 12px; max-width: none; margin-top: 3px; }
+  .setting-text { min-width: 0; }
   .setting-controls { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
   .setting-input, .combo { width: 100%; min-width: 0; }
+  /* NO HORIZONTAL PAN ON SETTINGS. Two things fought the narrow viewport.
+     (1) The real culprit: the offline-dataset anchors carry long title= text
+     ("The whole app offline: every chassis, parts, wiring…") which tipify turns
+     into a [data-tip]::after tooltip. That pseudo is white-space:nowrap and
+     ~415px wide, and it lives in layout (opacity:0, not display:none) centred
+     over its row -- so it spills past the right edge and drags the whole .view
+     into a 61px horizontal pan (title clipped to "ettings"). The edge-anchoring
+     .tip-left/.tip-right classes only attach on pointerenter, which never fires
+     on a touch screen, so nothing reins it in. Cap it to the viewport and let
+     it wrap. (2) Belt-and-braces: let the bundle widgets shrink/wrap too, so no
+     desktop minimum (the 260px .offline-bundles floor, non-wrapping names, the
+     nowrap wiring opt-out) can force the grid wider than the phone. */
+  [data-tip]::after { max-width: min(78vw, 300px); white-space: normal; }
+  .offline-bundles { width: 100%; min-width: 0; }
+  .offline-bundle { min-width: 0; }
+  .offline-bundle-name { min-width: 0; overflow-wrap: anywhere; }
+  .setting-check { white-space: normal; min-width: 0; }
   /* the segmented pickers stretch rather than sitting in a huddle */
   .seg { width: 100%; }
   /* A long label ("Original (EDIABAS)") outruns half of a ~320px row; without
@@ -3121,6 +3143,24 @@ body.apps-section .view { inset: 56px 0 0 0; }
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .settings-version { padding: 12px 0 20px; }
+
+  /* CODING / ADAPTION VALUE LIST. Each function header is a label plus an
+     address meta ("blk 0 · byte 1 · mask 0xff"). On desktop they share one row
+     (name left, meta right). On a phone a long single-token name -- a raw
+     EDIABAS keyword (SCHEIBENINTENSIVREINIGUNG, VERRIEGELN_AUT_AB_X_KM/H) or an
+     untranslated word -- cannot wrap, so it spills out of its shrunk column
+     and paints straight over the grey meta: the two overlap. Stack the meta
+     UNDER the label and let long tokens break, so name and meta occupy their
+     own rows and never collide, both fully readable. */
+  .tree-fn-h, .tree-mod-h {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "chev name" ".    meta";
+    align-items: baseline; column-gap: 8px; row-gap: 2px;
+  }
+  .tree-fn-h::before, .tree-mod-h::before { grid-area: chev; margin-right: 0; }
+  .tree-name { grid-area: name; overflow-wrap: anywhere; }
+  .tree-key, .tree-meta { grid-area: meta; }
 
   /* ---- WIRING DIAGRAMS ------------------------------------------------
      Eleven toolbar controls do not fit in 320px, and the two-pane
