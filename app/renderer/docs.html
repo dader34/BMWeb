@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BMWeb: Documentation</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%239aa6b2%22%20stroke-width%3D%223%22%2F%3E%20%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%20%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%20%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%20%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%20%3C%2Fg%3E%20%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%20%3C%2Fsvg%3E">
+  <meta name="theme-color" content="#0d1217">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
+  <style>
+    /* Page-specific: the two-column doc shell (sticky contents rail + prose)
+       and the prose rhythm. Shared chrome comes from site.css. */
+
+    .doc-grid { display: block; }
+    @media (min-width: 900px) {
+      .doc-grid {
+        display: grid;
+        grid-template-columns: 13rem minmax(0, 1fr);
+        gap: 56px;
+        align-items: start;
+      }
+    }
+
+    /* Contents rail */
+    .toc { display: none; }
+    @media (min-width: 900px) {
+      .toc {
+        display: block; position: sticky; top: 28px;
+        padding-bottom: 40px;
+      }
+    }
+    .toc-label {
+      font-size: 12px; font-weight: 600; color: var(--faint);
+      letter-spacing: .02em; margin: 0 0 12px; padding-left: 10px;
+    }
+    .toc a {
+      display: block; padding: 6px 10px; border-radius: 6px;
+      color: var(--dim); font-size: 13.5px; text-decoration: none;
+      transition: color .14s ease, background-color .14s ease;
+    }
+    .toc a:hover { color: var(--ink); background: var(--surface); }
+    .toc a.current { color: var(--amber); background: rgba(255,158,44,.08); }
+
+    /* Prose */
+    .doc { min-width: 0; padding-bottom: 40px; }
+    .doc section { padding-bottom: 44px; scroll-margin-top: 24px; }
+    .doc h2 {
+      margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -.022em;
+    }
+    .doc .section-note { margin: 0 0 20px; color: var(--faint); font-size: 14px; }
+    .doc h3 {
+      margin: 28px 0 10px; font-size: 15.5px; font-weight: 600; letter-spacing: -.012em;
+    }
+    .doc p { margin: 0 0 14px; color: var(--dim); font-size: 15px; line-height: 1.68; }
+    .doc p:last-child { margin-bottom: 0; }
+    .doc b, .doc strong { color: var(--ink); font-weight: 500; }
+    .doc a:not(.btn):not(.nav-btn) {
+      color: var(--dim); text-decoration: underline;
+      text-underline-offset: 3px; text-decoration-color: var(--faint);
+    }
+    .doc a:not(.btn):not(.nav-btn):hover { color: var(--amber); text-decoration-color: var(--amber); }
+    .doc code {
+      font-family: var(--mono); font-size: 13px; color: var(--ink);
+      background: var(--surface); border-radius: 5px; padding: 2px 6px;
+    }
+    .doc ul, .doc ol { margin: 0 0 14px; padding-left: 20px; color: var(--dim); font-size: 15px; line-height: 1.68; }
+    .doc li { margin-bottom: 7px; }
+    .doc li:last-child { margin-bottom: 0; }
+
+    /* Numbered setup steps */
+    .steps { margin: 0 0 16px; padding: 0; list-style: none; counter-reset: s; }
+    .steps li {
+      display: flex; gap: 14px; align-items: baseline;
+      padding: 11px 0; counter-increment: s;
+      border-bottom: 1px solid var(--line);
+    }
+    .steps li:last-child { border-bottom: 0; }
+    .steps li::before {
+      content: counter(s);
+      flex: none; width: 21px; height: 21px; border-radius: 50%;
+      background: rgba(255,255,255,.07); color: var(--dim);
+      font-size: 11.5px; font-weight: 500;
+      display: flex; align-items: center; justify-content: center;
+      align-self: flex-start;
+    }
+    .steps div { min-width: 0; }
+    .steps b { display: block; color: var(--ink); font-size: 14.5px; font-weight: 500; margin-bottom: 3px; }
+    .steps span { display: block; color: var(--dim); font-size: 14px; line-height: 1.6; }
+
+    /* Callout: one amber edge, used only where getting it wrong costs money. */
+    .callout {
+      background: var(--surface); border-radius: var(--r);
+      border-left: 2px solid var(--amber);
+      padding: 16px 20px; margin: 0 0 18px;
+    }
+    .callout.plain { border-left-color: var(--line); }
+    .callout h4 { margin: 0 0 6px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .callout p { margin: 0 0 10px; font-size: 14px; line-height: 1.62; }
+    .callout p:last-child { margin-bottom: 0; }
+
+    /* Feature list */
+    .feature-list { display: grid; grid-template-columns: 1fr; gap: 1px; background: var(--line);
+      border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
+    @media (min-width: 620px) { .feature-list { grid-template-columns: 1fr 1fr; } }
+    .feature {
+      background: var(--surface); padding: 16px 18px;
+    }
+    .feature h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .feature p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--dim); }
+
+    /* Chassis chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+    .chip {
+      background: var(--surface); border-radius: 6px;
+      padding: 5px 10px; font-family: var(--mono); font-size: 12.5px; color: var(--dim);
+    }
+
+    /* Troubleshooting */
+    .fault { border-bottom: 1px solid var(--line); padding: 16px 0; }
+    .fault:first-of-type { padding-top: 0; }
+    .fault:last-of-type { border-bottom: 0; }
+    .fault h4 { margin: 0 0 5px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
+    .fault p { margin: 0; font-size: 14px; line-height: 1.6; }
+    .fault .code {
+      font-family: var(--mono); font-size: 12px; color: var(--faint);
+      display: block; margin-bottom: 4px;
+    }
+  </style>
+
+<script>
+// The Pages build renames index.html -> app.html and install.html ->
+// index.html, so the same href cannot be right in both layouts. This page is
+// not renamed either way, so the path cannot tell us which layout we are in:
+// ask the server whether app.html exists instead. Links are written with the
+// local layout and rewritten only once app.html is confirmed, so a failed
+// probe leaves the working local hrefs untouched.
+(function () {
+  fetch('app.html', { method: 'HEAD' }).then(function (r) {
+    if (!r.ok) return;
+    function set(sel, url) {
+      Array.prototype.forEach.call(
+        document.querySelectorAll(sel), function (a) { a.href = url; });
+    }
+    set('[data-link="app"]', 'app.html');
+    set('[data-link="home"]', './');
+  }).catch(function () {});
+}());
+</script>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap wrap-wide masthead-in">
+    <a class="brand" href="index.html" data-link="app">
+      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
+        <circle class="logo-ring" cx="50" cy="50" r="48"/>
+        <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
+        <g clip-path="url(#d)">
+          <rect class="q-white" x="19" y="19" width="31" height="31"/>
+          <rect class="q-white" x="50" y="50" width="31" height="31"/>
+          <rect class="q-color" x="50" y="19" width="31" height="31"/>
+          <rect class="q-color" x="19" y="50" width="31" height="31"/>
+        </g>
+        <circle class="logo-ring" cx="50" cy="50" r="31"/>
+      </svg>
+      <span class="name">BMWeb <span style="color:var(--faint);font-weight:400">Docs</span></span>
+    </a>
+    <nav class="nav-links">
+      <a href="docs.html" class="nav-btn" aria-current="page">Docs</a>
+      <a href="files.html" class="nav-btn">Files</a>
+      <a href="index.html" class="nav-btn" data-link="app">Get the app</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap wrap-wide">
+  <div class="page-head">
+    <h1>Documentation</h1>
+    <p>How to connect a cable, what each screen does, and what the app will and
+      will not write to your car.</p>
+  </div>
+
+  <div class="doc-grid">
+    <aside class="toc">
+      <p class="toc-label">Contents</p>
+      <nav id="toc-nav">
+        <a href="#start">Getting connected</a>
+        <a href="#hardware">Cables and adapters</a>
+        <a href="#features">What you can do</a>
+        <a href="#coverage">Supported cars</a>
+        <a href="#safety">Writing and safety</a>
+        <a href="#offline">Working offline</a>
+        <a href="#trouble">Troubleshooting</a>
+        <a href="#limits">Limitations</a>
+      </nav>
+    </aside>
+
+    <article class="doc">
+
+      <section id="start">
+        <h2>Getting connected</h2>
+        <p class="section-note">Pick the path that matches your machine and your cable.</p>
+
+        <div class="callout plain">
+          <h4>Before you plug anything in</h4>
+          <p>Put the ignition in <b>position 2</b> with the <b>engine off</b>, and make sure
+            the battery is healthy. Most "the ECU rejected the request" errors are really a
+            car that is not in the right state, or a battery sagging under load.</p>
+        </div>
+
+        <h3>macOS, with the native app</h3>
+        <p>BMacW owns the serial port directly, so nothing else is needed. It is ad-hoc
+          signed with no Apple Developer ID, which means macOS quarantines the download
+          and blocks the first launch.</p>
+        <ol class="steps">
+          <li><div><b>Install it</b><span>Open the .dmg and drag BMacW to Applications.</span></div></li>
+          <li><div><b>Clear the quarantine flag, once</b><span>Run the command below in Terminal.</span></div></li>
+          <li><div><b>Launch from Applications</b><span>After the first run it opens normally.</span></div></li>
+        </ol>
+        <div class="cmd">
+          <code id="xattr-cmd">xattr -dr com.apple.quarantine /Applications/BMacW.app</code>
+          <button type="button" id="xattr-copy">Copy</button>
+        </div>
+
+        <h3>Any desktop, with a USB cable in the browser</h3>
+        <p>The web app drives a K+DCAN cable through Web Serial, which only
+          <b>Chrome and Edge on the desktop</b> implement. Safari has no Web Serial at all,
+          so on a Mac with a USB cable you want the native app instead.</p>
+        <ol class="steps">
+          <li><div><b>Plug the cable in directly</b><span>Into the car's OBD-II port and into the machine. Avoid USB hubs.</span></div></li>
+          <li><div><b>Set the adapter</b><span>Settings, then Adapter, then K+DCAN. This is the default.</span></div></li>
+          <li><div><b>Click the cable chip in the top bar</b><span>The chip is the connect control. Web Serial refuses to open its port picker unless a click asks for it, so there is no way to connect automatically.</span></div></li>
+          <li><div><b>Choose your port</b><span>On macOS it starts with cu.usbserial, cu.usbmodem, cu.SLAB or cu.wchusbserial. On Linux, ttyUSB or ttyACM.</span></div></li>
+        </ol>
+
+        <h3>Phone, tablet or any browser, over WiFi</h3>
+        <p>A phone has no USB path, so the THOR WiFi adapter is the only option there.
+          It also works on a desktop if you would rather not run a cable.</p>
+        <ol class="steps">
+          <li><div><b>Plug THOR into the OBD-II port</b><span>It powers itself from the car.</span></div></li>
+          <li><div><b>Join its network</b><span>The SSID is Thor_Wifi. Your phone will warn that the network has no internet, which is expected.</span></div></li>
+          <li><div><b>Set the adapter to THOR</b><span>Settings, then Adapter, then THOR. The page reloads, because the bus is chosen when the app loads.</span></div></li>
+          <li><div><b>Click the cable chip</b><span>THOR connects on its own once selected. The top bar then reads THOR with its firmware version and whether it connected directly or via relay.</span></div></li>
+        </ol>
+
+        <div class="callout">
+          <h4>The page has to be http, not https</h4>
+          <p>A page served over HTTPS cannot open a socket to a plain
+            <code>http</code> address on your local network, and a bare IP like
+            <code>192.168.4.1</code> cannot hold a certificate. If you loaded the app from
+            an <code>https://</code> URL, the adapter is unreachable no matter what else
+            is correct. Use the installed app, a local copy, or an <code>http://</code> URL.</p>
+        </div>
+
+        <div class="callout plain">
+          <h4>On iPhone, open it in a browser</h4>
+          <p>Opening the app from the Files app preview will hang on the splash screen
+            with no error. Quick Look restricts scripts. Open it in Safari, or add it to
+            the home screen and launch it from there.</p>
+        </div>
+      </section>
+
+      <section id="hardware">
+        <h2>Cables and adapters</h2>
+        <p class="section-note">Two are supported. An ELM327 is not one of them.</p>
+
+        <h3>K+DCAN USB cable</h3>
+        <p>The standard BMW cable. The app opens it at <code>115200 8N1</code> by default
+          and reopens the port at a different speed when a module needs one: DS2 and
+          KWP2000 modules run at <code>9600 8E1</code>, BMW-FAST and D-CAN at
+          <code>115200 8N1</code>. You do not have to configure any of this.</p>
+        <p>If your cable uses an FTDI chip, its <b>latency timer should be set to 1 ms</b>.
+          The app does not change this setting for you; it only tells you when the symptoms
+          look like a slow timer. On macOS the FTDI driver's default can be high enough
+          that the cable misses its own echo, which surfaces as
+          <code>IFH-0003</code>.</p>
+
+        <h3>THOR WiFi adapter</h3>
+        <p>An esp-link based adapter that carries BMW-FAST telegrams over WebSocket. The
+          app reaches it at <code>192.168.4.1</code> and proves the link with an identity
+          exchange before trusting it, so a network that merely answers is not mistaken for
+          a working adapter. It is <b>not an ELM327</b> and ELM327 adapters will not work.</p>
+
+        <h3>Which one do I need</h3>
+        <div class="matrix">
+          <div class="matrix-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Platform</th>
+                  <th scope="col">K+DCAN USB</th>
+                  <th scope="col">THOR WiFi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">macOS, native app</th>
+                  <td>Yes, no setup</td>
+                  <td>Yes</td>
+                </tr>
+                <tr>
+                  <th scope="row">Chrome or Edge, desktop</th>
+                  <td>Yes, via Web Serial</td>
+                  <td>Yes</td>
+                </tr>
+                <tr>
+                  <th scope="row">Safari</th>
+                  <td class="req">No, Safari has no Web Serial</td>
+                  <td>Yes</td>
+                </tr>
+                <tr>
+                  <th scope="row">iPhone and Android</th>
+                  <td class="req">No USB path on a phone</td>
+                  <td>Yes, the only option</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="features">
+        <h2>What you can do</h2>
+        <p class="section-note">Every module screen is BMW's own INPA screen, decompiled and
+          rendered as it was drawn. Modules BMW never drew a screen for say so rather than
+          guessing at a layout.</p>
+
+        <div class="feature-list">
+          <div class="feature">
+            <h4>Fault memory</h4>
+            <p>Read stored codes with their English text and detail, then clear them.</p>
+          </div>
+          <div class="feature">
+            <h4>Error scan</h4>
+            <p>Sweep every module in the car in one pass, and export the result as a PDF report.</p>
+          </div>
+          <div class="feature">
+            <h4>Live values</h4>
+            <p>Watch measurements update continuously as gauges, several at once, and log them to CSV with timestamps.</p>
+          </div>
+          <div class="feature">
+            <h4>Activations</h4>
+            <p>Drive real components for testing. Held actuators are released when you leave the screen.</p>
+          </div>
+          <div class="feature">
+            <h4>Coding</h4>
+            <p>Read and inspect coding data, stage changes, and see exactly what would be sent.</p>
+          </div>
+          <div class="feature">
+            <h4>Trouble codes and plans</h4>
+            <p>Search 51,484 fault codes offline, with P-codes and the matching ISTA service documents.</p>
+          </div>
+          <div class="feature">
+            <h4>Wiring diagrams</h4>
+            <p>BMW's WDS diagrams as vectors. Scroll to zoom, drag to pan.</p>
+          </div>
+          <div class="feature">
+            <h4>Parts catalogue</h4>
+            <p>ETK part numbers, diagrams, supersessions and VIN decoding.</p>
+          </div>
+          <div class="feature">
+            <h4>Tool32</h4>
+            <p>Run any SGBD job directly and read the raw result registers.</p>
+          </div>
+          <div class="feature">
+            <h4>Tuning</h4>
+            <p>Inspect ECU firmware images with a hex editor and TunerPro .xdf constants, flags and tables.</p>
+          </div>
+        </div>
+        <p>There is also a built-in tutorial: a seven step tour of the interface and five
+          slides on how the whole thing works, from the Apps hub.</p>
+      </section>
+
+      <section id="coverage">
+        <h2>Supported cars</h2>
+        <p class="section-note">26 chassis for diagnostics. The parts catalogue reaches much
+          further than that.</p>
+
+        <h3>Diagnostics</h3>
+        <div class="chips">
+          <span class="chip">E31</span><span class="chip">E34</span><span class="chip">E36</span>
+          <span class="chip">E38</span><span class="chip">E39</span><span class="chip">E46</span>
+          <span class="chip">E52</span><span class="chip">E53</span><span class="chip">E60</span>
+          <span class="chip">E65</span><span class="chip">E70</span><span class="chip">E83</span>
+          <span class="chip">E85</span><span class="chip">E87</span><span class="chip">E89</span>
+          <span class="chip">E90</span><span class="chip">F01</span><span class="chip">F10</span>
+          <span class="chip">F25</span><span class="chip">F07</span><span class="chip">F30</span>
+          <span class="chip">K25</span><span class="chip">K40</span><span class="chip">R50</span>
+          <span class="chip">R56</span><span class="chip">RR1</span>
+        </div>
+        <p>Coverage per chassis varies with how many modules the car has: an E65 carries 96
+          module definitions, an E60 91, an E90 61, an E46 55, an F30 19.</p>
+
+        <h3>Wiring diagrams</h3>
+        <p>15 chassis: E38, E39, E46, E52, E53, E60, E63, E65, E70, E83, E85, E87, E89, E90
+          and F01.</p>
+
+        <h3>Parts catalogue</h3>
+        <p>246 chassis bundles, from the E3, E9, E12 and E21 through the current G series,
+          plus the i models, the K series motorcycles and Rolls-Royce. This is far wider
+          than the diagnostic coverage, because a parts lookup needs no live connection to
+          the car.</p>
+      </section>
+
+      <section id="safety">
+        <h2>Writing and safety</h2>
+        <p class="section-note">The short version: reading is open, writing is closed by
+          default, and the app is built so that a refused write sends nothing at all.</p>
+
+        <div class="callout">
+          <h4>Writes are off by default, and unknown jobs are treated as writes</h4>
+          <p>Every job is classified before it runs. Anything the classifier does not
+            recognise is <b>assumed to be a write and refused</b>, rather than assumed safe.
+            When a write is blocked, it is blocked before a single byte reaches the car,
+            not caught partway through.</p>
+          <p>The browser build refuses write, clear and flash operations outright,
+            regardless of the setting.</p>
+        </div>
+
+        <h3>Coding</h3>
+        <p>The coding editor stages changes and shows you exactly what would be sent, but
+          <b>it has no send path at all</b>. That is deliberate rather than an oversight. A
+          coding write is an EEPROM write, and on a module that gates the immobiliser or the
+          airbags, getting it wrong means the car does not start, or worse. The send path
+          does not exist rather than sitting behind a confirmation dialog that a stray
+          keypress could clear.</p>
+        <p>Where a live coding write does exist, it takes a backup first, because once the
+          write lands it cannot be undone, and it re-reads the module afterwards to prove
+          the change actually took. A mismatch is reported as a verification error rather
+          than a success.</p>
+
+        <h3>Actuator tests</h3>
+        <p>Activations drive real components, so confirmation is <b>on by default</b>. The
+          dialog tells you which kind you are about to run:</p>
+        <ul>
+          <li>A test drive stays as set until you change it back or leave the screen.</li>
+          <li>A permanent write changes the module for good and does not undo itself when
+            you leave.</li>
+        </ul>
+        <p>Leaving an activation screen releases anything still being held, so you cannot
+          walk away from a running actuator by navigating elsewhere.</p>
+      </section>
+
+      <section id="offline">
+        <h2>Working offline</h2>
+        <p>The app installs to the home screen or the dock as a progressive web app and
+          keeps working without a connection. Everything it reads is a static file, so once
+          it is cached there is no server to be unreachable.</p>
+        <p>From Settings you can also take a full offline copy, either as a folder or a zip,
+          with wiring diagrams optional. Pre-built dataset archives are available too: the
+          full catalogue is about 7.0 GB, the parts catalogue for all chassis about 5.8 GB,
+          and the wiring diagrams for all chassis about 1.1 GB.</p>
+      </section>
+
+      <section id="trouble">
+        <h2>Troubleshooting</h2>
+        <p class="section-note">The errors people actually hit, and what each one means.</p>
+
+        <div class="fault">
+          <h4>No adapter connected</h4>
+          <p>Plug the cable directly into the machine rather than through a USB hub, and
+            check the OBD-II end is fully seated.</p>
+        </div>
+        <div class="fault">
+          <h4>Security access denied</h4>
+          <p>Engine off, ignition in position 2, healthy battery. The security seed is
+            random, so a retry sometimes succeeds where the first attempt did not.</p>
+        </div>
+        <div class="fault">
+          <h4>The ECU rejected the request</h4>
+          <p>Reported as <code>conditions_not_correct</code>. The module is refusing because
+            the car is not in the state the job requires. Ignition position 2, engine off.</p>
+        </div>
+        <div class="fault">
+          <span class="code">IFH-0003</span>
+          <h4>The cable is not hearing itself</h4>
+          <p>The K line is half duplex, so the cable should hear an echo of what it sends.
+            When it does not, either the connection is loose, or the FTDI latency timer is
+            too high. Reseat both ends first, then check the latency is 1 ms.</p>
+        </div>
+        <div class="fault">
+          <span class="code">IFH-0009 / IFH-0018</span>
+          <h4>No response from the ECU</h4>
+          <p>Nothing answered. Usually the module is not present on this car, is not powered
+            in the current ignition position, or is on a bus this cable does not reach.</p>
+        </div>
+        <div class="fault">
+          <span class="code">IFH-0019</span>
+          <h4>Damaged answer</h4>
+          <p>Something replied, but the reply did not survive the wire. This is nearly
+            always electrical: a marginal cable, a bad ground, or a low battery.</p>
+        </div>
+        <div class="fault">
+          <h4>App error, not the car</h4>
+          <p>When you see this, nothing needs checking on the vehicle. The fault is in the
+            software, not the car.</p>
+        </div>
+        <div class="fault">
+          <h4>THOR will not connect</h4>
+          <p>Three usual causes: the page was loaded over <code>https</code>, so it cannot
+            reach a local <code>http</code> address; the phone is not actually joined to
+            <code>Thor_Wifi</code>; or the adapter is not powered because the OBD-II port is
+            dead in the current ignition position.</p>
+        </div>
+      </section>
+
+      <section id="limits">
+        <h2>Limitations</h2>
+        <p class="section-note">What this does not do yet, stated plainly.</p>
+        <ul>
+          <li><b>Writing is not enabled.</b> Fault reading, live values, actuator tests and
+            coding readout work. Flashing exists for backup only.</li>
+          <li><b>ISO 9141 slow init is not implemented.</b> Very early modules that need a
+            5 baud initialisation will refuse to connect rather than half work.</li>
+          <li><b>A phone cannot use a USB cable</b>, and a site served over HTTPS cannot
+            talk to a car.</li>
+          <li>If the wrong coding keyword table is matched, it returns plausible but wrong
+            keywords rather than failing loudly. Treat unexpected coding readouts with
+            suspicion.</li>
+          <li>The macOS build is <b>Apple Silicon</b>.</li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap wrap-wide footer-in">
+    <span>BMWeb, BMW diagnostics without Windows</span>
+    <a href="https://github.com/dader34/BMacW">github.com/dader34/BMacW</a>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Copy the quarantine command.
+  var btn = document.getElementById('xattr-copy');
+  if (btn) {
+    btn.addEventListener('click', function () {
+      var t = document.getElementById('xattr-cmd').textContent;
+      navigator.clipboard.writeText(t).then(function () {
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
+      }).catch(function () {});
+    });
+  }
+
+  // Highlight the contents entry for whatever section is on screen. Uses an
+  // observer rather than a scroll handler so it costs nothing while idle.
+  var links = Array.prototype.slice.call(
+    document.querySelectorAll('#toc-nav a'));
+  var byId = {};
+  links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+
+  var sections = Array.prototype.slice.call(document.querySelectorAll('.doc section'));
+  if (!sections.length || !('IntersectionObserver' in window)) return;
+
+  var visible = {};
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { visible[e.target.id] = e.isIntersecting; });
+    // The topmost visible section wins, so scrolling up and down agree.
+    for (var i = 0; i < sections.length; i++) {
+      if (visible[sections[i].id]) {
+        links.forEach(function (a) { a.classList.remove('current'); });
+        if (byId[sections[i].id]) byId[sections[i].id].classList.add('current');
+        break;
+      }
+    }
+  }, { rootMargin: '-10% 0px -70% 0px' });
+
+  sections.forEach(function (s) { io.observe(s); });
+}());
+</script>
+</body>
+</html>
