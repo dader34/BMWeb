@@ -730,6 +730,14 @@
         default: break;                    // tolerate unknown children
       }
     }
+    // A STABLE PER-ITEM KEY. TunerPro's `uniqueid` is optional and real files
+    // routinely ship every item as uniqueid="0x0" -- the MS45.1 457LO02S
+    // definition does exactly that for all 5,705 items. The UI keys row
+    // selection off it, so without a fallback, selecting one row selects them
+    // all. `key` is the item's index in document order: stable for a given
+    // file, and unique by construction. uniqueid is left untouched for anyone
+    // who needs the raw value.
+    items.forEach((it, i) => { it.key = `${i}:${it.uniqueid}`; });
     return { header, items };
   }
 
@@ -811,6 +819,38 @@
     return { address: addr, bytes, raw };
   }
 
+  // Encode one AXIS point's engineering value -> { address, bytes } or null.
+  //
+  // An axis is a plain vector of scalars at `address + i * elementSize`, which
+  // is how axisLabels() already reads them back. Axes whose values come from
+  // <LABEL> text rather than the image carry no address and are not editable:
+  // there are no bytes to write.
+  function encodeAxisPoint(axis, header, index, engValue) {
+    if (!axis || !axis.embed || !axis.embed.address) return null;
+    const spec = resolveEmbedded(axis.embed, header.baseOffset, header.defaults);
+    const inv = invertLinear(axis.mathEquation);
+    if (!inv) return null;
+    const per = Math.max(1, Math.ceil(spec.sizeBits / 8));
+    const addr = spec.address + index * per;
+    const raw = Math.round(inv(engValue));
+    const bytes = encodeScalar(raw, { signed: spec.signed, lsbfirst: spec.lsbfirst, float: spec.float, sizeBits: spec.sizeBits, address: addr });
+    if (!bytes) return null;
+    return { address: addr, bytes, raw };
+  }
+
+  // Read one axis point back out, so the UI can show what the image really
+  // holds after quantisation rather than the text that was typed.
+  function decodeAxisPoint(axis, buffer, header, index) {
+    if (!axis || !axis.embed || !axis.embed.address) return null;
+    const spec = resolveEmbedded(axis.embed, header.baseOffset, header.defaults);
+    const per = Math.max(1, Math.ceil(spec.sizeBits / 8));
+    const raw = readScalar(buffer, Object.assign({}, spec, { address: spec.address + index * per }));
+    if (raw === null) return null;
+    let convert;
+    try { convert = compileMath(axis.mathEquation); } catch (e) { convert = (v) => v; }
+    return convert(raw);
+  }
+
   // ==========================================================================
   // exports (browser global, matching app/renderer/core/*.js style)
   // ==========================================================================
@@ -824,6 +864,7 @@
     tableCellAddress, patchEntryState, decodeHexBytes,
     // codec (high level)
     decodeConstant, encodeConstant, decodeTable, encodeTableCell,
+    encodeAxisPoint, decodeAxisPoint,
     // errors
     XdfParseError, MathParseError,
   };

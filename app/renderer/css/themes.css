@@ -563,3 +563,28 @@ html .fkey-nums .fkey-num::before {
   .theme-swatch { width: 28px; height: 28px; }
   .theme-name { font-size: 12px; }
 }
+
+/* Brackets: SQUARE EVERYTHING.
+   The theme's premise is a flat code-editor surface -- borders doing the
+   separating, no gradients, no shadows. Rounded corners fight that, and the
+   app has ~210 border-radius rules across four stylesheets, so enumerating
+   them would be endless and would drift the moment anything new is added.
+   One blanket override is the honest expression of "this theme is angular".
+
+   Deliberately EXEMPT (radius is load-bearing, not decorative):
+     - the roundel logo and any circular avatar/dot, which become squares
+     - gauge tracks/fills, whose pill shape reads as a meter
+     - toggle switches, where the pill IS the affordance */
+html[data-theme="brackets"] *:not(.logo-ring):not(.logo-inner-ring):not(circle) {
+  border-radius: 0 !important;
+}
+html[data-theme="brackets"] .gauge-track,
+html[data-theme="brackets"] .gauge-fill,
+html[data-theme="brackets"] .win-dot,
+html[data-theme="brackets"] .switch,
+html[data-theme="brackets"] .switch-knob,
+html[data-theme="brackets"] .brand-mark,
+html[data-theme="brackets"] .splash-logo,
+html[data-theme="brackets"] .brand-logo {
+  border-radius: 999px !important;
+}
