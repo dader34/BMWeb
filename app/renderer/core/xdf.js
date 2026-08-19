@@ -270,6 +270,24 @@
     throw new Error('bad expr node');
   }
 
+  // UNPARSEABLE MATH MUST NOT BE SILENT.
+  //
+  // Every decode path falls back to the raw byte when compileMath throws --
+  // which is the right behaviour (better a raw number than nothing), but done
+  // quietly it presents raw bytes AS engineering units, and nothing on screen
+  // says the conversion did not happen. TunerPro's V5 MATH supports
+  // multi-variable <MATH><VAR> forms we do not implement; a definition using
+  // one would render plausible-looking, wrong values.
+  //
+  // So every fallback records itself here. parseXdf attaches the tally to the
+  // returned file as `mathFailures`, and the UI can say so.
+  const mathMisses = new Map();     // equation -> count, for the current parse
+
+  function noteMathMiss(eq) {
+    const k = String(eq == null ? '(none)' : eq).slice(0, 120);
+    mathMisses.set(k, (mathMisses.get(k) || 0) + 1);
+  }
+
   function compileMath(src, varName) {
     varName = (varName || 'X').toUpperCase();
     const ast = parseMath(src);
@@ -380,8 +398,18 @@
   const FLAG_LSBFIRST = 0x02;
   const FLAG_FLOAT = 0x04;
 
+  // `el` is null for an axis with no EMBEDDEDDATA (label-only). Everything
+  // reads zeroes, and `addressed:false` marks it as not living in the BIN.
   function parseEmbeddedData(el, defaults) {
+    if (!el) {
+      return {
+        typeflags: 0, address: 0, elementsizebits: defaults.datasizeinbits,
+        rowcount: 0, colcount: 0, majorstridebits: 0, minorstridebits: 0,
+        addressed: false,
+      };
+    }
     return {
+      addressed: true,
       typeflags: parseNumber(getAttr(el, 'mmedtypeflags'), 0),
       address: parseNumber(getAttr(el, 'mmedaddress'), 0),
       elementsizebits: parseNumber(getAttr(el, 'mmedelementsizebits'), defaults.datasizeinbits),
@@ -647,9 +675,34 @@
     return Object.assign(common, { kind: 'patch', entries });
   }
 
+  // <XDFCHECKSUM> -- a region whose 16-bit sum is stored back into the image.
+  // Older DMEs refuse to run when it disagrees, so an edited BIN must have it
+  // recomputed before flashing.
+  function parseChecksum(el, defaults) {
+    const common = parseCommon(el);
+    const regions = [];
+    const list = el.getElementsByTagName('CHECKSUMREGION');
+    for (let k = 0; k < list.length; k++) {
+      const r = list.item(k);
+      if (!r) continue;
+      regions.push({
+        datastart: parseNumber(getAttr(r, 'datastart'), 0),
+        datasize: parseNumber(getAttr(r, 'datasize'), 0),
+        storeaddress: parseNumber(getAttr(r, 'storeaddress'), 0),
+        // calctype 0 is the only method seen in the wild: a plain 16-bit sum.
+        calctype: parseNumber(getAttr(r, 'calctype'), 0),
+        regionflags: parseNumber(getAttr(r, 'regionflags'), 0),
+      });
+    }
+    return Object.assign(common, { kind: 'checksum', regions });
+  }
+
   function parseAxis(el, defaults) {
+    // A label-only axis carries no EMBEDDEDDATA: its scale comes from <LABEL>
+    // elements, not from the BIN. TunerPro emits these routinely (in the v1.50
+    // files we ship, only ~half the axes have an EMBEDDEDDATA at all), so
+    // treat a missing one as an unaddressed axis rather than killing the file.
     const embedEl = el.getElementsByTagName('EMBEDDEDDATA').item(0);
-    if (!embedEl) throw new XdfParseError(`XDFAXIS id="${getAttr(el, 'id')}" missing EMBEDDEDDATA`);
     const id = (getAttr(el, 'id') || 'x').toLowerCase();
     if (id !== 'x' && id !== 'y' && id !== 'z') throw new XdfParseError(`XDFAXIS has unexpected id "${id}"`);
     const labels = [];
@@ -696,9 +749,251 @@
     return Object.assign(common, { kind: 'table', axes });
   }
 
+  // ==========================================================================
+  // Legacy format upconverters
+  // --------------------------------------------------------------------------
+  // TunerPro has shipped three .xdf spellings. Rather than teach the parser
+  // three dialects, the two older ones are rewritten into the v1.50 XML the
+  // parser already handles, so every downstream consumer (decode, encode, the
+  // Tuning screen) sees one shape.
+  //
+  //   flat text v1.1 -- pre-XML, line oriented. Dominant for pre-1996
+  //                     Motronic (M20/M30/S14/M50).
+  //   XDF XML v0.50  -- XML, but predates <EMBEDDEDDATA>: an axis carries
+  //                     <address>/<indexsizebits> as child elements.
+  //   XDF XML v1.50  -- current; parsed directly.
+  // ==========================================================================
+
+  const xmlEscape = (v) => String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+  // "(null)" is the flat format's empty marker, not a literal value.
+  const nullish = (v) => (v === '(null)' || v == null ? '' : v);
+
+  function legacyNum(v, dflt) {
+    if (v == null || v === '' || v === '(null)') return dflt;
+    const t = String(v).trim();
+    const n = /^-?0x/i.test(t)
+      ? parseInt(t.replace(/^-?0x/i, ''), 16) * (t.startsWith('-') ? -1 : 1)
+      : Number(t);
+    return Number.isFinite(n) ? n : dflt;
+  }
+
+  // Flat records are "%%SECTION%% .. %%END%%" blocks of "<code> <Name> =<value>".
+  function parseFlatRecords(text) {
+    const lines = text.replace(/\r\n?/g, '\n').split('\n');
+    const records = [];
+    let cur = null;
+    for (const line of lines) {
+      const marker = /^%%([A-Z]+)%%\s*$/.exec(line);
+      if (marker) {
+        if (marker[1] === 'END') { if (cur) { records.push(cur); cur = null; } }
+        else cur = { type: marker[1], fields: new Map() };
+        continue;
+      }
+      if (!cur) continue;
+      // The value runs to end-of-line: descriptions contain '=' and quotes.
+      const m = /^\s*(\d{6})\s+(\w+)\s*=(.*)$/.exec(line);
+      if (!m) continue;
+      let val = m[3].trim();
+      if (val.startsWith('"')) val = val.replace(/^"/, '').replace(/"$/, '');
+      cur.fields.set(m[2], val);
+    }
+    return records;
+  }
+
+  // Flat equations carry a ",TH|a|b|c|d|" tail -- TunerPro's table-hooks blob,
+  // not part of the maths. Strip it; the head is ordinary infix our parser
+  // already compiles.
+  function flatEquation(raw) {
+    const v = nullish(raw);
+    if (!v) return 'X';
+    const cut = v.indexOf(',TH|');
+    return ((cut === -1 ? v : v.slice(0, cut)).trim()) || 'X';
+  }
+
+  function embeddedTag(addr, sizeBits, rows, cols) {
+    const a = [`mmedaddress="0x${(addr >>> 0).toString(16).toUpperCase()}"`,
+               `mmedelementsizebits="${sizeBits}"`];
+    if (rows != null) a.push(`mmedrowcount="${rows}"`);
+    if (cols != null) a.push(`mmedcolcount="${cols}"`);
+    return `<EMBEDDEDDATA ${a.join(' ')} />`;
+  }
+
+  function flatToXml(text) {
+    const records = parseFlatRecords(text);
+    const headerRec = records.find((r) => r.type === 'HEADER');
+    const hf = headerRec ? headerRec.fields : new Map();
+    const out = ['<XDFFORMAT version="1.50">', '  <XDFHEADER>'];
+    out.push(`    <flags>0x${legacyNum(hf.get('GenFlags'), 0).toString(16)}</flags>`);
+    out.push(`    <deftitle>${xmlEscape(nullish(hf.get('DefTitle')))}</deftitle>`);
+    out.push(`    <description>${xmlEscape(nullish(hf.get('Desc')))}</description>`);
+    out.push(`    <author>${xmlEscape(nullish(hf.get('Author')))}</author>`);
+    out.push(`    <baseoffset>${legacyNum(hf.get('BaseOffset'), 0)}</baseoffset>`);
+    out.push('    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />');
+    const binSize = legacyNum(hf.get('BinSize'), 0);
+    if (binSize > 0) {
+      out.push(`    <REGION type="0xFFFFFFFF" startaddress="0x0" size="0x${binSize.toString(16).toUpperCase()}" regionflags="0x0" name="Binary File" desc="" />`);
+    }
+    for (let i = 0; i < 32; i++) {
+      const c = hf.get(`Category${i}`);
+      if (c != null) out.push(`    <CATEGORY index="0x${i.toString(16)}" name="${xmlEscape(c)}" />`);
+    }
+    out.push('  </XDFHEADER>');
+
+    for (const rec of records) {
+      const f = rec.fields;
+      const uid = nullish(f.get('UniqueID')) || '0x0';
+      const title = xmlEscape(nullish(f.get('Title')));
+      const desc = xmlEscape(nullish(f.get('Desc')));
+      const cats = [];
+      for (let i = 0; i < 8; i++) {
+        const ci = legacyNum(f.get(`Cat${i}ID`), 0);
+        // Cat*ID is 1-based here with 0 meaning "unset".
+        if (ci > 0) cats.push(`    <CATEGORYMEM index="${i}" category="${ci}" />`);
+      }
+
+      if (rec.type === 'CONSTANT') {
+        out.push(`  <XDFCONSTANT uniqueid="${uid}">`);
+        out.push(`    <title>${title}</title>`);
+        if (desc) out.push(`    <description>${desc}</description>`);
+        const units = xmlEscape(nullish(f.get('Units')));
+        if (units) out.push(`    <units>${units}</units>`);
+        out.push(...cats);
+        out.push(`    ${embeddedTag(legacyNum(f.get('Address'), 0), legacyNum(f.get('SizeInBits'), 8), null, null)}`);
+        out.push(`    <MATH equation="${xmlEscape(flatEquation(f.get('Equation')))}"><VAR id="X" /></MATH>`);
+        out.push('  </XDFCONSTANT>');
+      } else if (rec.type === 'FLAG') {
+        const addr = legacyNum(f.get('Address'), 0);
+        const bit = legacyNum(f.get('BitNumber'), 0);
+        out.push(`  <XDFFLAG uniqueid="${uid}">`);
+        out.push(`    <title>${title}</title>`);
+        if (desc) out.push(`    <description>${desc}</description>`);
+        out.push(...cats);
+        // v1.50 addresses the containing byte and masks the bit within it.
+        out.push(`    ${embeddedTag(addr + Math.floor(bit / 8), 8, null, null)}`);
+        out.push(`    <mask>0x${((1 << (bit % 8)) >>> 0).toString(16).toUpperCase()}</mask>`);
+        out.push('  </XDFFLAG>');
+      } else if (rec.type === 'TABLE') {
+        const rows = legacyNum(f.get('Rows'), 1);
+        const cols = legacyNum(f.get('Cols'), 1);
+        out.push(`  <XDFTABLE uniqueid="${uid}">`);
+        out.push(`    <title>${title}</title>`);
+        if (desc) out.push(`    <description>${desc}</description>`);
+        out.push(...cats);
+        for (const ax of ['x', 'y']) {
+          const A = ax.toUpperCase();
+          const aAddr = f.get(`${A}Address`);
+          const aBits = legacyNum(f.get(`${A}DataSize`), 8);
+          const units = xmlEscape(nullish(f.get(`${A}Units`)));
+          out.push(`    <XDFAXIS id="${ax}">`);
+          if (units) out.push(`      <units>${units}</units>`);
+          out.push(`      <indexcount>${ax === 'x' ? cols : rows}</indexcount>`);
+          if (nullish(aAddr) !== '') {
+            out.push(`      ${embeddedTag(legacyNum(aAddr, 0), aBits, null, null)}`);
+          }
+          const labels = nullish(f.get(`${A}Labels`));
+          if (labels) {
+            labels.split(/\s*,\s*/).forEach((lv, li) => {
+              out.push(`      <LABEL index="${li}" value="${xmlEscape(lv)}" />`);
+            });
+          }
+          out.push(`      <MATH equation="${xmlEscape(flatEquation(f.get(`${A}Eq`)))}"><VAR id="X" /></MATH>`);
+          out.push('    </XDFAXIS>');
+        }
+        out.push('    <XDFAXIS id="z">');
+        const zUnits = xmlEscape(nullish(f.get('ZUnits')));
+        if (zUnits) out.push(`      <units>${zUnits}</units>`);
+        out.push(`      ${embeddedTag(legacyNum(f.get('Address'), 0), legacyNum(f.get('SizeInBits'), 8), rows, cols)}`);
+        out.push(`      <MATH equation="${xmlEscape(flatEquation(f.get('ZEq')))}"><VAR id="X" /></MATH>`);
+        out.push('    </XDFAXIS>');
+        out.push('  </XDFTABLE>');
+      }
+      else if (rec.type === 'CHECKSUM') {
+        // v1.50 spells this <XDFCHECKSUM> with a <CHECKSUMREGION>. The flat
+        // fields map across one-for-one.
+        out.push(`  <XDFCHECKSUM uniqueid="${uid}">`);
+        out.push(`    <title>${title}</title>`);
+        out.push('    <CHECKSUMREGION '
+          + `datastart="0x${legacyNum(f.get('DataStart'), 0).toString(16).toUpperCase()}" `
+          + `datasize="0x${Math.max(0, legacyNum(f.get('DataEnd'), 0) - legacyNum(f.get('DataStart'), 0) + 1).toString(16).toUpperCase()}" `
+          + `storeaddress="0x${legacyNum(f.get('StoreAddr'), 0).toString(16).toUpperCase()}" `
+          + `calctype="0x${legacyNum(f.get('CalcMethod'), 0).toString(16)}" `
+          + `regionflags="0x${legacyNum(f.get('Flags'), 0).toString(16)}" />`);
+        out.push('  </XDFCHECKSUM>');
+      }
+    }
+    out.push('</XDFFORMAT>');
+    return out.join('\n');
+  }
+
+  // v0.50 -> v1.50: rewrite <address>/<indexsizebits> children as EMBEDDEDDATA.
+  function v050ToV150(xml) {
+    return xml
+      .replace(/<XDFTABLE\b[\s\S]*?<\/XDFTABLE>/g, (table) => {
+        // Row/col counts live on the x/y axes' <indexcount> in this dialect.
+        const counts = {};
+        for (const m of table.matchAll(/<XDFAXIS\s+id="([xy])"[^>]*>([\s\S]*?)<\/XDFAXIS>/g)) {
+          const ic = /<indexcount>\s*([0-9]+)\s*<\/indexcount>/.exec(m[2]);
+          counts[m[1]] = ic ? Number(ic[1]) : 1;
+        }
+        const cols = counts.x || 1;
+        const rows = counts.y || 1;
+        return table.replace(/<XDFAXIS\s+id="([xyz])"([^>]*)>([\s\S]*?)<\/XDFAXIS>/g,
+          (axis, id, attrs, body) => {
+            if (/<EMBEDDEDDATA/.test(body)) return axis;
+            const addr = /<address>\s*([^<]+?)\s*<\/address>/.exec(body);
+            const bits = /<indexsizebits>\s*([0-9]+)\s*<\/indexsizebits>/.exec(body);
+            const a = [`mmedelementsizebits="${bits ? Number(bits[1]) : 8}"`];
+            if (addr) a.push(`mmedaddress="${addr[1]}"`);
+            if (id === 'z') { a.push(`mmedrowcount="${rows}"`); a.push(`mmedcolcount="${cols}"`); }
+            const cleaned = body
+              .replace(/\s*<address>[^<]*<\/address>/g, '')
+              .replace(/\s*<indexsizebits>[^<]*<\/indexsizebits>/g, '');
+            return `<XDFAXIS id="${id}"${attrs}>\n      <EMBEDDEDDATA ${a.join(' ')} />${cleaned}</XDFAXIS>`;
+          });
+      })
+      .replace(/<XDF(CONSTANT|FLAG)\b([^>]*)>([\s\S]*?)<\/XDF\1>/g,
+        (item, kind, attrs, body) => {
+          if (/<EMBEDDEDDATA/.test(body)) return item;
+          const addr = /<address>\s*([^<]+?)\s*<\/address>/.exec(body);
+          if (!addr) return item;
+          const bits = /<sizeinbits>\s*([0-9]+)\s*<\/sizeinbits>/.exec(body);
+          const a = [`mmedaddress="${addr[1]}"`,
+                     `mmedelementsizebits="${bits ? Number(bits[1]) : 8}"`];
+          const cleaned = body
+            .replace(/\s*<address>[^<]*<\/address>/g, '')
+            .replace(/\s*<sizeinbits>[^<]*<\/sizeinbits>/g, '');
+          return `<XDF${kind}${attrs}>\n    <EMBEDDEDDATA ${a.join(' ')} />${cleaned}</XDF${kind}>`;
+        })
+      .replace(/<XDFFORMAT version="0\.50">/, '<XDFFORMAT version="1.50">');
+  }
+
+  // Which of the three spellings is this? Returns 'flat' | 'v050' | 'xml'.
+  function detectXdfFormat(text) {
+    const head = String(text).slice(0, 4096);
+    if (!/<XDFFORMAT/i.test(head)) {
+      if (/^\s*XDF\s*[\r\n]/.test(head)) return 'flat';
+      return 'xml';   // let the XML parser produce the real error
+    }
+    return /<XDFFORMAT\s+version="0\.\d+"/i.test(head) ? 'v050' : 'xml';
+  }
+
+  // Normalise any supported spelling to v1.50 XML.
+  function toV150Xml(text) {
+    switch (detectXdfFormat(text)) {
+      case 'flat': return flatToXml(text);
+      case 'v050': return v050ToV150(text);
+      default: return text;
+    }
+  }
+
   // Parse a .xdf XML string into { header, items }.
   function parseXdf(xml) {
-    const doc = parseXml(xml);
+    mathMisses.clear();          // per-parse: the tally belongs to THIS file
+    const format = detectXdfFormat(xml);
+    const doc = parseXml(toV150Xml(xml));
     const root = doc.documentElement;
     if (!root || root.tagName !== 'XDFFORMAT') {
       throw new XdfParseError(`expected <XDFFORMAT> root, got <${root ? root.tagName : 'nothing'}>`);
@@ -724,6 +1019,7 @@
       switch (child.tagName) {
         case 'XDFHEADER': break;
         case 'XDFCONSTANT': items.push(parseConstant(child, header.defaults)); break;
+        case 'XDFCHECKSUM': items.push(parseChecksum(child, header.defaults)); break;
         case 'XDFFLAG': items.push(parseFlag(child, header.defaults)); break;
         case 'XDFPATCH': items.push(parsePatch(child)); break;
         case 'XDFTABLE': items.push(parseTable(child, header.defaults)); break;
@@ -738,7 +1034,17 @@
     // file, and unique by construction. uniqueid is left untouched for anyone
     // who needs the raw value.
     items.forEach((it, i) => { it.key = `${i}:${it.uniqueid}`; });
-    return { header, items };
+
+    // What we could not compile. Note this counts equations seen DURING the
+    // parse; decode-time failures (a table's MATH is compiled lazily, when it
+    // is first decoded) accumulate here too, so read it after decoding rather
+    // than treating the parse-time number as final.
+    const mathFailures = [...mathMisses.entries()]
+      .map(([equation, count]) => ({ equation, count }))
+      .sort((a, b) => b.count - a.count);
+    // `format` records the spelling the file arrived in ('flat', 'v050' or
+    // 'xml'); everything above this line has already been normalised to v1.50.
+    return { header, items, mathFailures, mathMisses, format };
   }
 
   // ==========================================================================
@@ -753,7 +1059,7 @@
     const raw = readScalar(buffer, spec);
     if (raw === null) return null;
     try { return compileMath(item.mathEquation)(raw); }
-    catch (e) { return raw; }              // unparseable MATH -> show raw
+    catch (e) { noteMathMiss(item.mathEquation); return raw; }   // raw, and counted
   }
 
   // Engineering value -> the bytes to write, plus the absolute address, or null
@@ -783,7 +1089,8 @@
     if (cols < 1) cols = 1;
     const spec = resolveEmbedded(embed, header.baseOffset, header.defaults);
     let convert;
-    try { convert = compileMath(z.mathEquation); } catch (e) { convert = (v) => v; }
+    try { convert = compileMath(z.mathEquation); }
+    catch (e) { noteMathMiss(z.mathEquation); convert = (v) => v; }
     const cells = [];
     for (let r = 0; r < rows; r++) {
       const rowArr = [];
@@ -847,8 +1154,78 @@
     const raw = readScalar(buffer, Object.assign({}, spec, { address: spec.address + index * per }));
     if (raw === null) return null;
     let convert;
-    try { convert = compileMath(axis.mathEquation); } catch (e) { convert = (v) => v; }
+    try { convert = compileMath(axis.mathEquation); }
+    catch (e) { noteMathMiss(axis.mathEquation); convert = (v) => v; }
     return convert(raw);
+  }
+
+  // ==========================================================================
+  // Checksums
+  // --------------------------------------------------------------------------
+  // calctype 0 -- the only method present in the definitions we carry -- is a
+  // plain 16-bit sum of every byte in [datastart, datastart+datasize), stored
+  // big-endian at storeaddress. Verified against paired stock BINs across
+  // four independent definitions (DME 402/403/405, DME 413/M3), so this is
+  // measured behaviour rather than an assumption.
+  //
+  // Any other calctype is reported as unsupported rather than guessed at: a
+  // wrong checksum written into an image is a brick, not a cosmetic error.
+  // ==========================================================================
+
+  const CHECKSUM_SUM16 = 0;
+
+  // Sum a region and return { value, start, end } or null when out of range.
+  function computeChecksumRegion(region, buffer) {
+    const start = region.datastart;
+    const size = region.datasize;
+    if (!(size > 0)) return null;
+    const end = start + size;                    // exclusive
+    if (start < 0 || end > buffer.length) return null;
+    let sum = 0;
+    for (let i = start; i < end; i++) sum = (sum + buffer[i]) & 0xFFFF;
+    return { value: sum, start, end };
+  }
+
+  // Compare a region's stored checksum with the computed one. Returns
+  //   { supported, ok, stored, computed, storeaddress }
+  // `supported:false` means an unknown calctype -- the caller must NOT treat
+  // that as a pass.
+  function verifyChecksumRegion(region, buffer) {
+    const base = {
+      supported: region.calctype === CHECKSUM_SUM16,
+      storeaddress: region.storeaddress,
+      stored: null, computed: null, ok: false,
+    };
+    if (!base.supported) return base;
+    const c = computeChecksumRegion(region, buffer);
+    if (!c) return base;
+    const at = region.storeaddress;
+    if (at < 0 || at + 2 > buffer.length) return base;
+    base.computed = c.value;
+    base.stored = (buffer[at] << 8) | buffer[at + 1];   // big-endian
+    base.ok = base.stored === base.computed;
+    return base;
+  }
+
+  // Every region of a checksum item, in document order.
+  function verifyChecksum(item, buffer) {
+    return (item.regions || []).map((r) => verifyChecksumRegion(r, buffer));
+  }
+
+  // Write the computed checksum back. Mutates `buffer` in place and returns
+  // the same report shape; regions with an unsupported calctype are left
+  // untouched and reported as unsupported.
+  function applyChecksumRegion(region, buffer) {
+    const before = verifyChecksumRegion(region, buffer);
+    if (!before.supported || before.computed === null) return before;
+    const at = region.storeaddress;
+    buffer[at] = (before.computed >> 8) & 0xFF;
+    buffer[at + 1] = before.computed & 0xFF;
+    return Object.assign({}, before, { stored: before.computed, ok: true, written: true });
+  }
+
+  function applyChecksum(item, buffer) {
+    return (item.regions || []).map((r) => applyChecksumRegion(r, buffer));
   }
 
   // ==========================================================================
@@ -857,11 +1234,20 @@
   const api = {
     // parsing
     parseXdf, parseXml, resolveAddress,
+    // legacy formats (flat text v1.1, XDF XML v0.50) -> v1.50 XML
+    detectXdfFormat, toV150Xml, flatToXml, v050ToV150, parseFlatRecords,
+    // live tally of MATH the parser could not compile (see noteMathMiss)
+    mathMissReport: () => [...mathMisses.entries()]
+      .map(([equation, count]) => ({ equation, count }))
+      .sort((a, b) => b.count - a.count),
     // math
     parseMath, evalMath, compileMath, linearize, invertLinear,
     // codec (low level)
     resolveEmbedded, readScalar, encodeScalar, readFlag, applyFlag,
     tableCellAddress, patchEntryState, decodeHexBytes,
+    // checksums (calctype 0 = 16-bit big-endian sum)
+    computeChecksumRegion, verifyChecksumRegion, verifyChecksum,
+    applyChecksumRegion, applyChecksum, CHECKSUM_SUM16,
     // codec (high level)
     decodeConstant, encodeConstant, decodeTable, encodeTableCell,
     encodeAxisPoint, decodeAxisPoint,

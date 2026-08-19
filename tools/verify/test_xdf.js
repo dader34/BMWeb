@@ -307,6 +307,198 @@ ok(threw, 'encrypted .xdf should be refused');
   ok(d.header.deftitle === 'A & B <x>', `entity decode = ${d.header.deftitle}`);
 }
 
+// Axes are a list, matching how tuning.js reads them.
+const ax = (t, id) => t.axes.find((a) => a.id === id);
+
+// ============================================================================
+// (i) legacy formats: flat text v1.1 and XDF XML v0.50 upconvert to v1.50
+// ----------------------------------------------------------------------------
+// TunerPro has shipped three .xdf spellings; 19 of the 24 BMW definitions we
+// carry are the pre-XML flat format and 2 more are v0.50. Both are rewritten
+// into v1.50 before parsing, so a regression here silently drops whole eras
+// of definition (M20/M30/S14/M50) rather than failing loudly.
+// ============================================================================
+{
+  const flat = [
+    'XDF', '1.110000', '', '%%HEADER%%',
+    '\t001005 DefTitle         ="Flat Test"',
+    '\t001010 Author           ="tester"',
+    '\t001030 BinSize          =0x8000',
+    '\t001035 BaseOffset       =0',
+    '\t002000 Category0        ="FuelMaps"',
+    '%%END%%', '',
+    '%%TABLE%%',
+    '\t000002 UniqueID         =0x957',
+    '\t040005 Title            ="Rev Limit"',
+    '\t040100 Address          =0x10',
+    '\t040200 ZEq              =X*40,TH|0|0|0|0|',
+    '\t040300 Rows             =0x1',
+    '\t040305 Cols             =0x2',
+    '\t040350 XLabels          =(null)',
+    '\t040354 XEq              =X,TH|0|0|0|0|',
+    '%%END%%', '',
+    '%%CONSTANT%%',
+    '\t000002 UniqueID         =0x123',
+    '\t020005 Title            ="Injector"',
+    '\t020100 Address          =0x20',
+    '\t020050 SizeInBits       =0x8',
+    '\t020200 Equation         =X/2,TH|0|0|0|0|',
+    '%%END%%',
+  ].join('\r\n');
+
+  ok(XDF.detectXdfFormat(flat) === 'flat', 'flat text v1.1 is detected as flat');
+  const d = XDF.parseXdf(flat);
+  ok(d.format === 'flat', `parsed format = ${d.format}`);
+  ok(d.header.deftitle === 'Flat Test', `flat deftitle = ${d.header.deftitle}`);
+  ok(d.items.length === 2, `flat item count = ${d.items.length}`);
+  ok(d.mathFailures.length === 0, 'flat ",TH|..|" equations all compile');
+
+  const t = d.items.find((i) => i.kind === 'table');
+  ok(!!t, 'flat TABLE became an XDFTABLE');
+  ok(ax(t,'z').embed.address === 0x10, `flat table address = 0x${ax(t,'z').embed.address.toString(16)}`);
+  ok(ax(t,'z').embed.colcount === 2 && ax(t,'z').embed.rowcount === 1, 'flat table geometry survives');
+  // ",TH|0|0|0|0|" is TunerPro's table-hooks tail, not part of the maths.
+  ok(ax(t,'z').mathEquation === 'X*40', `flat ZEq stripped to "${ax(t,'z').mathEquation}"`);
+  // A label-only axis has no address and must not kill the parse.
+  ok(ax(t,'x').embed.addressed === false, 'flat label-only x axis is unaddressed');
+
+  const bin = new Uint8Array(0x8000);
+  bin[0x10] = 3; bin[0x11] = 4; bin[0x20] = 10;
+  const dec = XDF.decodeTable(t, bin, d.header);
+  ok(dec.cells[0][0] === 120 && dec.cells[0][1] === 160,
+    `flat table decodes through MATH = [${dec.cells[0]}]`);
+  const c = d.items.find((i) => i.kind === 'constant');
+  ok(XDF.decodeConstant(c, bin, d.header) === 5, 'flat constant decodes through MATH');
+}
+
+{
+  // v0.50 predates <EMBEDDEDDATA>: <address>/<indexsizebits> are children.
+  const v050 = [
+    '<XDFFORMAT version="0.50">',
+    '  <XDFHEADER><deftitle>V050 Test</deftitle><baseoffset>0</baseoffset>',
+    '    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />',
+    '  </XDFHEADER>',
+    '  <XDFTABLE uniqueid="0x1">',
+    '    <title>Map</title>',
+    '    <XDFAXIS id="x"><indexcount>2</indexcount><MATH equation="X"><VAR id="X" /></MATH></XDFAXIS>',
+    '    <XDFAXIS id="y"><indexcount>1</indexcount><MATH equation="X"><VAR id="X" /></MATH></XDFAXIS>',
+    '    <XDFAXIS id="z"><address>0x30</address><indexsizebits>8</indexsizebits>',
+    '      <MATH equation="X*2"><VAR id="X" /></MATH></XDFAXIS>',
+    '  </XDFTABLE>',
+    '  <XDFCONSTANT uniqueid="0x2"><title>K</title><address>0x40</address>',
+    '    <MATH equation="X+1"><VAR id="X" /></MATH></XDFCONSTANT>',
+    '</XDFFORMAT>',
+  ].join('\n');
+
+  ok(XDF.detectXdfFormat(v050) === 'v050', 'XDF XML v0.50 is detected as v050');
+  const d = XDF.parseXdf(v050);
+  ok(d.format === 'v050', `parsed format = ${d.format}`);
+  ok(d.items.length === 2, `v050 item count = ${d.items.length}`);
+  const t = d.items.find((i) => i.kind === 'table');
+  ok(ax(t,'z').embed.address === 0x30, `v050 <address> became mmedaddress 0x${ax(t,'z').embed.address.toString(16)}`);
+  // Row/col counts live on the x/y <indexcount> in this dialect.
+  ok(ax(t,'z').embed.colcount === 2 && ax(t,'z').embed.rowcount === 1, 'v050 geometry from x/y indexcount');
+
+  const bin = new Uint8Array(0x100);
+  bin[0x30] = 5; bin[0x31] = 6; bin[0x40] = 9;
+  const dec = XDF.decodeTable(t, bin, d.header);
+  ok(dec.cells[0][0] === 10 && dec.cells[0][1] === 12,
+    `v050 table decodes = [${dec.cells[0]}]`);
+  const c = d.items.find((i) => i.kind === 'constant');
+  ok(XDF.decodeConstant(c, bin, d.header) === 10, 'v050 constant decodes through MATH');
+}
+
+{
+  // A v1.50 axis with no EMBEDDEDDATA must degrade, not throw: in the real
+  // definitions only about half of all axes carry one.
+  const d = XDF.parseXdf([
+    '<XDFFORMAT version="1.50">',
+    '  <XDFHEADER><deftitle>T</deftitle>',
+    '    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />',
+    '  </XDFHEADER>',
+    '  <XDFTABLE uniqueid="0x1"><title>M</title>',
+    '    <XDFAXIS id="x"><indexcount>1</indexcount><LABEL index="0" value="600" /></XDFAXIS>',
+    '    <XDFAXIS id="y"><indexcount>1</indexcount></XDFAXIS>',
+    '    <XDFAXIS id="z"><EMBEDDEDDATA mmedaddress="0x0" mmedelementsizebits="8" ',
+    '      mmedrowcount="1" mmedcolcount="1" /><MATH equation="X"><VAR id="X" /></MATH></XDFAXIS>',
+    '  </XDFTABLE>',
+    '</XDFFORMAT>',
+  ].join('\n'));
+  ok(d.items.length === 1, 'label-only axis does not kill the file');
+  ok(ax(d.items[0],'x').embed.addressed === false, 'label-only axis marked unaddressed');
+  ok(ax(d.items[0],'x').labels.length === 1, 'label-only axis keeps its LABELs');
+}
+
+// ============================================================================
+// (j) checksums: 16-bit big-endian sum over a region, stored in the image
+// ----------------------------------------------------------------------------
+// Older DMEs refuse to start when the main checksum disagrees, so an edited
+// image must be repaired before flashing. calctype 0 was confirmed against
+// paired stock BINs for DME 402/403/506 and the E36 M3 413 -- a wrong
+// implementation here bricks an ECU, so it is pinned hard.
+// ============================================================================
+{
+  const flat = [
+    'XDF', '1.110000', '', '%%HEADER%%',
+    '\t001005 DefTitle         ="CK"',
+    '\t001030 BinSize          =0x100',
+    '%%END%%', '',
+    '%%CHECKSUM%%',
+    '\t000002 UniqueID         =0x4968',
+    '\t010005 Title            ="Main Checksum"',
+    '\t010010 DataStart        =0x10',
+    '\t010015 DataEnd          =0x13',
+    '\t010025 StoreAddr        =0x20',
+    '\t010030 CalcMethod       =0x0',
+    '%%END%%',
+  ].join('\r\n');
+
+  const d = XDF.parseXdf(flat);
+  const c = d.items.find((i) => i.kind === 'checksum');
+  ok(!!c, 'flat %%CHECKSUM%% becomes a checksum item');
+  ok(c.regions.length === 1, `checksum region count = ${c.regions.length}`);
+  const r = c.regions[0];
+  // DataEnd is INCLUSIVE in the flat format; datasize must cover it.
+  ok(r.datastart === 0x10 && r.datasize === 4,
+    `region = 0x${r.datastart.toString(16)} + ${r.datasize}`);
+  ok(r.storeaddress === 0x20, `store address = 0x${r.storeaddress.toString(16)}`);
+
+  const bin = new Uint8Array(0x100);
+  bin[0x10] = 0xFF; bin[0x11] = 0x02; bin[0x12] = 0x03; bin[0x13] = 0x04;
+  // 0xFF+2+3+4 = 0x108, and the sum is 16-bit so it does NOT truncate to a byte.
+  const comp = XDF.computeChecksumRegion(r, bin);
+  ok(comp.value === 0x108, `16-bit sum = 0x${comp.value.toString(16)}`);
+
+  let v = XDF.verifyChecksumRegion(r, bin);
+  ok(v.supported === true, 'calctype 0 is supported');
+  ok(v.ok === false, 'an unwritten checksum does not verify');
+
+  XDF.applyChecksumRegion(r, bin);
+  ok(bin[0x20] === 0x01 && bin[0x21] === 0x08, 'checksum stored big-endian');
+  v = XDF.verifyChecksumRegion(r, bin);
+  ok(v.ok === true && v.stored === 0x108, 'checksum verifies after apply');
+
+  // Editing a byte in the region must invalidate it, and apply must repair it.
+  bin[0x11] = 0x09;
+  ok(XDF.verifyChecksumRegion(r, bin).ok === false, 'an edit invalidates the checksum');
+  XDF.applyChecksumRegion(r, bin);
+  ok(XDF.verifyChecksumRegion(r, bin).ok === true, 'apply repairs the checksum');
+
+  // An unknown method must NEVER be reported as passing.
+  const unknown = Object.assign({}, r, { calctype: 3 });
+  const uv = XDF.verifyChecksumRegion(unknown, bin);
+  ok(uv.supported === false && uv.ok === false,
+    'an unsupported calctype reports unsupported, not ok');
+  const before = bin[0x20];
+  XDF.applyChecksumRegion(unknown, bin);
+  ok(bin[0x20] === before, 'an unsupported calctype writes nothing');
+
+  // A region running past the end of the image must not throw or wrap.
+  const oob = Object.assign({}, r, { datastart: 0xF0, datasize: 0x80 });
+  ok(XDF.computeChecksumRegion(oob, bin) === null, 'out-of-range region returns null');
+  ok(XDF.verifyChecksumRegion(oob, bin).ok === false, 'out-of-range region never passes');
+}
+
 // ============================================================================
 // report -- FAIL LOUDLY
 // ============================================================================
@@ -317,4 +509,5 @@ if (fails.length) {
 }
 console.log('xdf OK: parsed 6 items, header/defaults/categories, scaling decode, '
   + 'value round-trips (signed/unsigned/LE/BE/float), flags, 1D+2D tables & cell strides, '
-  + 'encrypted/entity guards');
+  + 'encrypted/entity guards, legacy flat-v1.1 + XML-v0.50 upconvert, label-only axes, '
+  + 'checksum sum16 verify/apply/repair');

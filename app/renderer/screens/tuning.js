@@ -353,6 +353,16 @@ function showTuning() {
     return out;
   }
 
+  // Some definitions carry no ASCII header block at all. The pre-1996 DME
+  // images instead store the BMW chip number as REVERSED ASCII digits (the
+  // definitions label it "read hex backwards"): 0xFE4F reads "3267537621",
+  // which reversed is the real part number 1267357623. An index entry opts
+  // into this with identityReversed:true.
+  function identityAtReversed(bin, offset, len = 10) {
+    const fwd = identityAt(bin, offset, len);
+    return fwd.split('').reverse().join('');
+  }
+
   function matchDefinitions(bin, defs) {
     const out = [];
     for (const d of defs) {
@@ -364,12 +374,31 @@ function showTuning() {
       // the offset explicitly and we fall back to baseOffset only for older
       // entries that predate the field.
       const at = (d.identityOffset != null) ? d.identityOffset : (d.baseOffset || 0);
-      const ident = identityAt(bin, at);
-      const confirmed = !!(d.software && ident.includes(d.software));
-      out.push({ def: d, ident: ident.trim(), confirmed });
+      const identLen = (typeof d.identityLength === 'number') ? d.identityLength : 24;
+      const ident = d.identityReversed
+        ? identityAtReversed(bin, at, identLen)
+        : identityAt(bin, at, identLen);
+      // Three ways an entry can prove itself, strongest first:
+      //   software       a fixed version string that must appear (MS43/MS45)
+      //   knownParts     this exact chip is one we have seen for this DME
+      //   identityPattern a well-formed BMW part number reads here at all --
+      //                  weaker, but it still rules out the wrong DME family,
+      //                  because the wrong offset yields obvious garbage.
+      const trimmed = ident.trim();
+      let confirmed = false;
+      let via = '';
+      if (d.software && ident.includes(d.software)) { confirmed = true; via = 'software'; }
+      else if (Array.isArray(d.knownParts) && d.knownParts.includes(trimmed)) {
+        confirmed = true; via = 'part';
+      } else if (d.identityPattern && new RegExp(d.identityPattern).test(trimmed)) {
+        confirmed = true; via = 'pattern';
+      }
+      out.push({ def: d, ident: trimmed, confirmed, via });
     }
-    // confirmed matches first
-    out.sort((a, b) => (b.confirmed ? 1 : 0) - (a.confirmed ? 1 : 0));
+    // Confirmed first, and among those the stronger evidence first: an exact
+    // known chip number beats "a part number reads here".
+    const rank = (h) => (h.confirmed ? (h.via === 'pattern' ? 1 : 2) : 0);
+    out.sort((a, b) => rank(b) - rank(a));
     return out;
   }
 
@@ -385,25 +414,45 @@ function showTuning() {
 
     const best = hits[0];
     const d = best.def;
-    const sizeKb = (d.bytes / 1048576).toFixed(1);
+    // The OBD1 definitions are tens of KB, not megabytes -- a fixed MB format
+    // renders every one of them as "0.0 MB".
+    const sizeKb = d.bytes >= 1048576
+      ? `${(d.bytes / 1048576).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(d.bytes / 1024))} KB`;
     const ok = await confirmDialog({
       title: 'Definition found',
       body: `<p>This image matches a definition in the shared library.</p>`
         + `<div class="tn-match">`
         + `<div><b>${esc(d.title || d.file)}</b></div>`
-        + `<div class="tn-match-row">${esc(d.ecu || '')} · software `
-        + `<code>${esc(d.software || '?')}</code> · ${sizeKb} MB</div>`
+        + `<div class="tn-match-row">${esc(d.ecu || '')} · `
+        + (d.software
+            ? `software <code>${esc(d.software)}</code>`
+            // Only name a chip when one actually validated. On a size-only
+            // hit `ident` is whatever bytes happened to sit at the offset --
+            // printing that as "chip" dresses up noise as identification.
+            : best.confirmed && best.ident
+              ? `chip <code>${esc(best.ident.slice(0, 20))}</code>`
+              : `${esc(d.items || '?')} items`)
+        + ` · ${sizeKb}</div>`
         + (best.confirmed
-            ? `<div class="tn-match-ok">✓ version confirmed in the image `
-              + `(<code>${esc(best.ident.slice(0, 20))}</code>)</div>`
+            ? (best.via === 'pattern'
+                ? `<div class="tn-match-warn">⚠ this looks like the right DME `
+                  + `family — part number <code>${esc(best.ident.slice(0, 20))}</code> `
+                  + `reads where this definition expects one, but it is not a chip `
+                  + `we have seen. The addresses may not line up; check the maps `
+                  + `look sane before editing.</div>`
+                : `<div class="tn-match-ok">✓ version confirmed in the image `
+                  + `(<code>${esc(best.ident.slice(0, 20))}</code>)</div>`)
             : `<div class="tn-match-warn">⚠ size matches but the software `
               + `version could not be confirmed in this image — the addresses `
               + `may not line up. Check before editing.</div>`)
         + `</div>`
-        + `<p class="tn-match-foot">Downloading ${sizeKb} MB. Nothing is uploaded.</p>`,
+        + `<p class="tn-match-foot">Downloading ${sizeKb}. Nothing is uploaded.</p>`,
       confirmLabel: 'Load definition',
       cancelLabel: 'Not now',
-      danger: !best.confirmed,
+      // A pattern-only hit is not a proven match -- keep the destructive
+      // styling so it reads as "probably right", not "confirmed".
+      danger: !best.confirmed || best.via === 'pattern',
     });
     if (!ok) return;
 
