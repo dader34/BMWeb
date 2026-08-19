@@ -320,6 +320,7 @@ html[data-theme="inpa"] .grain { display: none; }
 .sw-metal { background:
   repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 2px),
   linear-gradient(180deg, #e2e4e7, #b3b6bb); }
+.sw-brackets { background: linear-gradient(135deg, #1d1f21 50%, #f8de7e 50%); }
 
 /* PER-THEME KEY BADGES: the number chips on the f-key bar + sidebar. */
 
@@ -393,6 +394,129 @@ html .inpa-settings .setting-row {
 html[data-theme="inpa"] .inpa-settings .setting-row {
   border-bottom-color: #c9c9c9 !important;
 }
+
+/* ---------------------------------------------------------------------------
+   INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers
+   above the keys, the RUNNING block) is structural and lives in styles.css,
+   because it is INPA's bar in every skin. This block only skins it. */
+html[data-theme="inpa"] .fkeys.inpa-bar::before { color: #000; }
+html[data-theme="inpa"] .fkey-nums .fkey-num { color: #000 !important; }
+html[data-theme="inpa"] .fkey-btns .fkey .fkey-label { color: #000; }
+html[data-theme="inpa"] .fkey-btns .fkey.empty,
+html[data-theme="inpa"] .fkey-btns .fkey.empty:hover {
+  background: #e9e6e1 !important;
+}
+html[data-theme="inpa"] .fkeybar-run { display: block; }
+html[data-theme="inpa"] .fkeybar-run::before { background: #00ff00; color: #000; }
+
+/* BRACKETS: dark code editor theme inspired by Adobe Brackets
+   Charcoal background, subtle borders, clean flat design */
+html[data-theme="brackets"] {
+  --bg: #1d1f21;
+  --panel: #2a2d2e;
+  --panel-2: #323537;
+  --raised: #3a3d3f;
+  --line: #404447;
+  --line-bright: #5a5d5f;
+  --ink: #d4d7d9;
+  --ink-dim: #a0a3a5;
+  --ink-faint: #6c6f71;
+  --amber: #f8de7e;
+  --amber-soft: #e6cc6c;
+  --amber-glow: rgba(248,222,126,.15);
+  --amber-ink: #1d1f21;
+  --red: #f06c75;
+  --green: #89ca78;
+  --cyan: #5db0d7;
+  --shadow: none;
+  --display: 'Helvetica Neue', 'Segoe UI', sans-serif;
+  --mono: 'Source Code Pro', 'Consolas', ui-monospace, monospace;
+  /* logo */
+  --logo-bg: rgba(42, 45, 46, 0.95);
+  --logo-border: rgba(248, 222, 126, 0.6);
+  --logo-quad-1: #f8de7e;
+  --logo-quad-2: #5db0d7;
+  --logo-inner-border: rgba(248, 222, 126, 0.3);
+}
+html[data-theme="brackets"], html[data-theme="brackets"] body {
+  background: #1d1f21 !important;
+}
+html[data-theme="brackets"] {
+  --sb-size: 10px; --sb-radius: 0px; --sb-track: #2a2d2e;
+  --sb-thumb: #404447; --sb-thumb-hover: #5a5d5f;
+  --sb-thumb-border: none;
+  --gauge-track: #323537; --gauge-fill: #f8de7e;
+}
+/* flat panels with subtle borders */
+html[data-theme="brackets"] .section, html[data-theme="brackets"] .chassis-card,
+html[data-theme="brackets"] .group-tile, html[data-theme="brackets"] .menu-section,
+html[data-theme="brackets"] .fault, html[data-theme="brackets"] .live-panel,
+html[data-theme="brackets"] .modal, html[data-theme="brackets"] .result-card,
+html[data-theme="brackets"] .split-nav-item, html[data-theme="brackets"] .act-card,
+html[data-theme="brackets"] .setting-row, html[data-theme="brackets"] .theme-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+html[data-theme="brackets"] .btn, html[data-theme="brackets"] .fkey, html[data-theme="brackets"] .icon-btn {
+  border-radius: 0 !important;
+  background: var(--raised) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
+}
+html[data-theme="brackets"] .btn.primary {
+  background: var(--amber) !important;
+  color: var(--amber-ink) !important;
+  border-color: var(--amber-soft) !important;
+}
+html[data-theme="brackets"] .btn:hover {
+  background: var(--line-bright) !important;
+}
+html[data-theme="brackets"] .btn.primary:hover {
+  background: var(--amber-soft) !important;
+}
+html[data-theme="brackets"] .topbar, html[data-theme="brackets"] .fkeybar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+html[data-theme="brackets"] .sidebar {
+  background: var(--panel-2);
+  border-right: 1px solid var(--line);
+}
+/* clean flat inputs */
+html[data-theme="brackets"] input[type="text"],
+html[data-theme="brackets"] input[type="search"],
+html[data-theme="brackets"] select,
+html[data-theme="brackets"] textarea {
+  background: var(--bg) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  color: var(--ink) !important;
+}
+html[data-theme="brackets"] input[type="text"]:focus,
+html[data-theme="brackets"] input[type="search"]:focus,
+html[data-theme="brackets"] select:focus,
+html[data-theme="brackets"] textarea:focus {
+  border-color: var(--amber) !important;
+  outline: none !important;
+}
+/* flat gauge bars */
+html[data-theme="brackets"] .gauge-track {
+  border-radius: 0 !important;
+  border: 1px solid var(--line) !important;
+}
+html[data-theme="brackets"] .gauge-fill {
+  border-radius: 0 !important;
+  background: var(--amber) !important;
+}
+html[data-theme="brackets"] .splash {
+  background: #1d1f21;
+}
+html[data-theme="brackets"] .splash-name { color: #f8de7e; }
+html[data-theme="brackets"] .splash-tag { color: #a0a3a5; }
+html[data-theme="brackets"] .splash-bar { background: #404447; }
+html[data-theme="brackets"] .splash-status { color: #6c6f71; }
 
 /* ---------------------------------------------------------------------------
    INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers

@@ -21,6 +21,7 @@ const THEMES = [
   { id: 'inpa',       name: 'INPA' },
   { id: 'aero',       name: 'Frutiger' },
   { id: 'metal',      name: 'Brushed Metal' },
+  { id: 'brackets',   name: 'Brackets' },
 ];
 function applyTheme(id) {
   if (!id || id === 'instrument') document.documentElement.removeAttribute('data-theme');
