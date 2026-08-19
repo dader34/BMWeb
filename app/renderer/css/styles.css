@@ -3113,7 +3113,13 @@ body.apps-section .view { inset: 56px 0 0 0; }
   .setting-input, .combo { width: 100%; min-width: 0; }
   /* the segmented pickers stretch rather than sitting in a huddle */
   .seg { width: 100%; }
-  .seg-btn { flex: 1 1 0; min-width: 0; }
+  /* A long label ("Original (EDIABAS)") outruns half of a ~320px row; without
+     this it hard-clips at the segment edge. Ellipsis degrades it gracefully at
+     the narrowest widths while staying invisible at 390px, where it still fits. */
+  .seg-btn {
+    flex: 1 1 0; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
   .settings-version { padding: 12px 0 20px; }
 
   /* ---- WIRING DIAGRAMS ------------------------------------------------
