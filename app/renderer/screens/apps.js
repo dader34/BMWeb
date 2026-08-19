@@ -65,6 +65,16 @@ const APP_REGISTRY = [
       catch (e) { return false; }
     },
   },
+  {
+    id: 'tuning',
+    icon: '⛃',
+    title: 'Tuning',
+    desc: 'Edit ECU firmware BINs: raw hex plus TunerPro .xdf constants, flags and tables',
+    tag: 'XDF',
+    open: () => (typeof showTuning === 'function' ? showTuning() : null),
+    // pure client-side editor -- available whenever its code shipped (no data bundle)
+    hasData: async () => typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
+  },
 ];
 
 async function showApps() {

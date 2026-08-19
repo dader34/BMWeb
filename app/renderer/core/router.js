@@ -21,6 +21,7 @@ const APPS_ROUTES = {
   'apps/parts': () => (typeof showEtk === 'function' ? showEtk() : null),
   'apps/parts/vin': () => (typeof showVinDecoder === 'function' ? showVinDecoder() : null),
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
+  'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
 };
 
 // The reverse map: which route a given show*() belongs to, so navigating by
@@ -32,6 +33,7 @@ const ROUTE_FOR_SCREEN = {
   showEtk: 'apps/parts',
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
+  showTuning: 'apps/tuning',
 };
 
 // Some routes carry parameters (a chassis, a specific diagram) so a single
