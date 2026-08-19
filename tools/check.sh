@@ -54,6 +54,13 @@ set -e
 
 cd "$(dirname "$0")/.."
 
+# The .IPO compiler + constant editor round-trip against a committed corpus,
+# so this one runs BEFORE the vendor gate -- it needs no BMW originals. Point
+# BMACW_IPO_CORPUS at vendor/EC-APPS/INPA/SGDAT to run it over the real tree.
+echo "== .IPO compiler / editor round-trip =="
+python3 tools/verify/test_ipo_roundtrip.py
+echo
+
 # BMW originals are not in the repo; say so clearly before anything reads them
 scripts/setup/check-vendor.sh >/dev/null 2>&1 || { scripts/setup/check-vendor.sh; exit 1; }
 
