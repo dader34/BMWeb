@@ -65,8 +65,15 @@ function loadIstaTests() {
 // contains matches, against the slug set.
 function istaTestFor(faultText) {
   if (!_istaTests || !faultText) return null;
-  const t = String(faultText).trim();
+  let t = String(faultText).trim();
   const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // Drop a leading MODULE: prefix first. Fault names from the variant metadata
+  // are qualified by their ECU ("KOMBI: Outside-temperature sensor"), and the
+  // component is what follows -- without this, the phrase before the first
+  // colon is the module ("KOMBI"), which matches no component slug and loses
+  // the procedure entirely. Only strip a short all-caps token, so a real
+  // component name containing a colon is left alone.
+  t = t.replace(/^[A-Z][A-Z0-9_ -]{1,14}:\s*/, '').trim() || t;
   // the component is the phrase before the first comma or colon
   const lead = t.split(/[,:]/)[0].trim();
   const candidates = [lead, t];
@@ -94,18 +101,27 @@ function istaTestFor(faultText) {
 // lookup screen state persists within a visit so filters survive re-render
 const lookupState = { q: '', chassis: '', module: '' };
 
-// Shareable fault link: an open fault detail puts ?dtc=HEX (and optionally
-// &sgbd=) in the URL, preserving the #apps/diagnostics hash. replaceState keeps
-// it out of the history stack (browsing faults shouldn't spam Back).
-function setDtcParam(hex, sgbd) {
+// Shareable fault link: an open fault detail puts ?dtc=HEX (plus &sgbd= and
+// &n=, the module and the row's label) in the URL, preserving the
+// #apps/diagnostics hash. replaceState keeps it out of the history stack
+// (browsing faults shouldn't spam Back). Paste the URL to anyone and it
+// reopens the same fault, on the same module, under the same name.
+function setDtcParam(hex, sgbd, name) {
   try {
     const u = new URL(location.href);
     if (hex) {
       u.searchParams.set('dtc', String(hex).toUpperCase());
       if (sgbd) u.searchParams.set('sgbd', String(sgbd)); else u.searchParams.delete('sgbd');
+      // Carry the row's own label too. It comes from the per-chassis fault
+      // file ("Outside temperature"), not the ISTA variant metadata
+      // ("IHKA: Automatic heater - A/C system: fault stored"), so it cannot be
+      // recovered from dtc+sgbd alone -- without it a shared link opens the
+      // right fault under a different name than the sender saw.
+      if (name) u.searchParams.set('n', String(name)); else u.searchParams.delete('n');
     } else {
       u.searchParams.delete('dtc');
       u.searchParams.delete('sgbd');
+      u.searchParams.delete('n');
     }
     history.replaceState(history.state, '', u.href);
   } catch (e) { /* URL API missing: shareable link is best-effort */ }
@@ -114,7 +130,7 @@ function getDtcParam() {
   try {
     const p = new URLSearchParams(location.search);
     const dtc = p.get('dtc');
-    return dtc ? { hex: dtc.toUpperCase(), sgbd: p.get('sgbd') || '' } : null;
+    return dtc ? { hex: dtc.toUpperCase(), sgbd: p.get('sgbd') || '', name: p.get('n') || '' } : null;
   } catch (e) { return null; }
 }
 const LOOKUP_MAX = 400; // cap rendered rows; the count line reports the true total
@@ -763,7 +779,7 @@ async function showLookup() {
     // reflect the open fault in the URL (?dtc=HEX) so it's shareable; strip it
     // when the modal closes. Uses replaceState so it doesn't stack history
     // entries as you browse faults.
-    setDtcParam(hex, sgbd);
+    setDtcParam(hex, sgbd, title);
     const { overlay, close } = openModal(`
       <div class="modal fault-modal" role="dialog" aria-modal="true">
         <div class="fm-head">
@@ -876,8 +892,26 @@ async function showLookup() {
     (async () => {
       if (typeof loadFaultMeta === 'function') await loadFaultMeta();
       if (!getDtcParam()) return;               // closed/navigated before load
-      const v = (typeof variantsForHex === 'function' ? variantsForHex(dtc.hex) : [])[0];
-      openFaultModal(dtc.hex, v ? v.name : '', dtc.sgbd || (v ? v.sgbd : ''));
+      // Resolve the NAME from the shared link's sgbd, not variants[0]. A hex
+      // like 0XCE carries 18 variants across unrelated modules, so [0] is a
+      // different fault on a different ECU than the one that was shared
+      // (0XCE [0] is a DME knock-control fault; kombi46 is the outside-temp
+      // sensor). clickedName wins the modal title, so passing [0]'s name
+      // mislabels the fault even when the right sgbd is handed over. Match
+      // the sgbd the same way openFaultModal does: exact, then family prefix.
+      const vs = (typeof variantsForHex === 'function' ? variantsForHex(dtc.hex) : []) || [];
+      const want = (dtc.sgbd || '').toLowerCase();
+      const fam = want.replace(/[^a-z0-9]/g, '');
+      const v = (want && (
+          vs.find(x => (x.sgbd || '').toLowerCase() === want) ||
+          vs.find(x => { const t = (x.sgbd || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                         return fam && t && (t.startsWith(fam) || fam.startsWith(t)); })
+        )) || vs[0];
+      // ?n wins the title when present: it is the label the sender actually
+      // saw on the row. The sgbd is passed through even when nothing matched,
+      // so the modal reports the module that was shared rather than silently
+      // substituting another one.
+      openFaultModal(dtc.hex, dtc.name || (v ? v.name : ''), dtc.sgbd || (v ? v.sgbd : ''));
     })();
   }
 }
