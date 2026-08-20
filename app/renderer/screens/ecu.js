@@ -209,11 +209,23 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     if (typeof setIrRootExtras === 'function') setIrRootExtras(null);
     const toRoot = () =>
       renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
-    // a deep link naming a submenu opens it directly, with Back going to the
-    // root menu (not out to the module list) so the hierarchy still reads right
-    if (openMenu && openMenu !== irRoot
-        && irMenuItems(ecu._ir, openMenu).length
-        && renderIrMenu(ecu, ecu._ir, openMenu, grid, toRoot, [])) return;
+    // A deep link naming a submenu opens it directly, with Back going to the
+    // root menu (not out to the module list) so the hierarchy still reads
+    // right. But the URL is untrusted: it can name a menu belonging to another
+    // variant of this family (a link shared from a different car, or a stale
+    // bookmark). irResolveVariant has already run above, so check the link
+    // against INPA's own dispatch before honouring it -- otherwise the address
+    // bar walks straight past the variant guards.
+    if (openMenu && openMenu !== irRoot && irMenuItems(ecu._ir, openMenu).length) {
+      const okForVariant = typeof irMenuAllowedForVariant !== 'function'
+        || irMenuAllowedForVariant(ecu._ir, openMenu, ecu._variant);
+      if (okForVariant) {
+        if (renderIrMenu(ecu, ecu._ir, openMenu, grid, toRoot, [])) return;
+      } else {
+        // land on the root instead of another variant's page, and say why
+        sbLeft.textContent = `${openMenu} is not part of ${ecu._variant} — opened the main menu`;
+      }
+    }
     toRoot();
     return;
   }
