@@ -206,7 +206,9 @@ function showSettings() {
     const opts = [{ val: '*', label: 'All chassis (large)' }];
     const combo = settingCombo(
       'Download offline copy',
-      'A folder that runs with no internet. Includes fault descriptions.',
+      'Runs with no internet. \u201cFolder\u201d unzips to a folder \u2014 right for a computer. '
+      + '\u201cSingle file\u201d is one .html that taps open \u2014 the one to use on a phone, '
+      + 'and the only way to reach a THOR adapter from iOS.',
       opts, pickVal, (v) => { pickVal = v; });
     // wiring adds 2-24 MB/car and not every car has it; checked by default
     const wireLabel = document.createElement('label');
@@ -218,7 +220,7 @@ function showSettings() {
 
     const goBtn = document.createElement('button');
     goBtn.className = 'btn';
-    goBtn.textContent = 'Download';
+    goBtn.textContent = 'Folder (.zip)';
 
     // THE PHONE BUTTON. A zip is useless on iOS -- it cannot be unpacked and
     // its index.html opened -- so the single-file build exists for exactly this
@@ -228,7 +230,7 @@ function showSettings() {
     // file you AirDrop.
     const oneBtn = document.createElement('button');
     oneBtn.className = 'btn';
-    oneBtn.textContent = 'Single file';
+    oneBtn.textContent = 'Single file (.html)';
     oneBtn.title = 'One .html with everything inside — the one to use on a phone';
 
     // group into ONE cell: the INPA layout's fixed columns spilled a third control onto its own line
