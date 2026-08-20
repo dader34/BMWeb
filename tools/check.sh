@@ -135,6 +135,14 @@ echo "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallb
 node tools/verify/test_longform.js || exit 1
 
 echo
+echo "== prompted activations: INPA's own range, appended to the job argument =="
+node tools/verify/test_irprompt.js || exit 1
+
+echo
+echo "== fault-read entries that carry no job (INPA shows the list implicitly) =="
+node tools/verify/test_irfaultread.js || exit 1
+
+echo
 echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
 node tools/verify/test_coding_auftrag.js || exit 1
 

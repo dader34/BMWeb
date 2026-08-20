@@ -100,8 +100,13 @@ console.log('\nsession lifecycle');
      'reopening the port for a new concept clears the woken session');
   ok(/if \(framed && !this\.inited\)/.test(src),
      'the wake runs once per PORT session, not per telegram concept');
-  ok(/bus\.sessionConcept == null/.test(src),
-     'the session remembers the concept it opened on');
+  // The session no longer PINS the wire: every xsetpar reconfigures it, which
+  // is how the SGBD moves from 115200 to 9600 to send its second telegram.
+  // sessionConcept is kept only so the K-line wake knows the module's kind.
+  ok(/bus\.sessionConcept = conceptOf\(comm\);/.test(src),
+     'the session tracks the current concept, and every xsetpar updates it');
+  ok(/await bus\.ensureConfig\(portConfig\(comm\)\);/.test(src),
+     'and the wire follows the telegram\'s own concept, not a pinned one');
 }
 
 

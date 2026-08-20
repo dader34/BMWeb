@@ -72,15 +72,19 @@ if (!code0) {
       send: (r) => { sent++; return byReq.get(String(Array.from(r))) ?? lastResp; },
     }, opts));
 
+    // WRITES ARE ENABLED BY DEFAULT (owner's decision, 2026-08-19) so actuator
+    // tests reach the wire. The gate still EXISTS and still refuses when a
+    // caller asks it to -- that is what group probing relies on, and it is the
+    // one-line change back to refuse-everything.
     sent = 0;
     let threw = false;
-    try { mk({}).run('FS_LOESCHEN'); } catch (e) { threw = true; }
-    check('write job refused by default', threw);
-    check('NOTHING transmitted before the refusal', sent === 0);
+    try { mk({ allowWrites: false }).run('FS_LOESCHEN'); } catch (e) { threw = true; }
+    check('write job refused when allowWrites:false is passed', threw);
+    check('NOTHING transmitted before that refusal', sent === 0);
 
     sent = 0;
-    const sets = mk({ allowWrites: true }).run('FS_LOESCHEN');
-    check('write job runs when opted in', sent > 0
+    const sets = mk({}).run('FS_LOESCHEN');
+    check('write job runs by default now', sent > 0
       && Object.assign({}, ...sets).JOB_STATUS === 'OKAY');
 
     sent = 0;

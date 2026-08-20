@@ -43,6 +43,19 @@ const ROUTE_FOR_SCREEN = {
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
+  // #car/<CHASSIS>[/<SGBD>[/<MENU>]] -- the vehicle side. The module is keyed
+  // by SGBD (stable, unlike a display label) and the submenu by its IR menu
+  // name, which is the same key renderIrMenu already navigates by.
+  const c = /^car\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/(.+))?)?$/.exec(route);
+  if (c) {
+    const chassis = c[1].toUpperCase();
+    const sgbd = c[2] ? decodeURIComponent(c[2]).toLowerCase() : null;
+    const menu = c[3] ? decodeURIComponent(c[3]) : null;
+    if (sgbd && typeof showEcuDeep === 'function') {
+      return () => showEcuDeep(chassis, sgbd, menu);
+    }
+    if (typeof showSections === 'function') return () => showSections(chassis);
+  }
   // #apps/wiring/<CHASSIS>[/<DOC>]
   const w = /^apps\/wiring\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+))?$/.exec(route);
   if (w && typeof showWiring === 'function') {
@@ -95,7 +108,10 @@ function routeSyncFromScreen(fn) {
     // clear the apps hash so Back lands on a clean URL rather than a stale
     // #apps route. Un-named sub-screens (chassis grid, a wiring diagram) leave
     // the hash as-is -- they live under an app but aren't top-level routes.
-    if (EXIT_APPS_SCREEN.has(name) && currentRoute().startsWith('apps')) {
+    // showSections owns its own #car hash (routeSetCarList); don't clear it here
+    if (name === 'showSections') return;
+    const here = currentRoute();
+    if (EXIT_APPS_SCREEN.has(name) && (here.startsWith('apps') || here.startsWith('car'))) {
       _routing = true; _openRoute = null;
       try { history.replaceState(null, '', location.pathname + location.search); }
       finally { _routing = false; }
@@ -128,7 +144,11 @@ function routeApplyHash() {
   if (!open) return false;
   _routing = true;
   try {
-    if (route !== 'apps') {
+    // Apps sub-routes seed the hub behind them so Back reaches it. A #car route
+    // must NOT: its Back belongs to the vehicle hierarchy (the in-app Back key
+    // walks menu -> ECU -> modules), and seeding #apps would strand the user in
+    // the Apps hub on the first Back out of a shared module link.
+    if (route !== 'apps' && route.startsWith('apps')) {
       // rewrite history so the stack is [..., #apps, #<route>] even on a cold
       // deep link: replace current entry with the hub, push the target on top.
       history.replaceState(null, '', '#apps');
@@ -163,6 +183,37 @@ function installRouter() {
   window.addEventListener('popstate', _onLocationChange);
 }
 
+// Called by the vehicle screens as they navigate, so a module and the submenu
+// inside it become shareable links (#car/E46/kombi46/MENU_FS). replaceState:
+// walking a menu tree shouldn't stack a history entry per level -- Back should
+// leave the ECU, which is what the in-app Back key already does.
+// Pass menu = null for the ECU root, and call with chassis = null to clear.
+function routeSetCar(chassis, sgbd, menu) {
+  if (_routing) return;
+  if (!chassis || !sgbd) return;
+  const parts = ['car', String(chassis).toUpperCase(), encodeURIComponent(sgbd)];
+  if (menu) parts.push(encodeURIComponent(menu));
+  const route = parts.join('/');
+  if (currentRoute() === route) { _openRoute = route; return; }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally { _routing = false; }
+}
+
+// The chassis module list (#car/<CHASSIS>), so picking a car is linkable too.
+function routeSetCarList(chassis) {
+  if (_routing || !chassis) return;
+  const route = `car/${String(chassis).toUpperCase()}`;
+  if (currentRoute() === route) { _openRoute = route; return; }
+  _routing = true;
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally { _routing = false; }
+}
+
 // Called by the wiring viewer when a specific document opens, so the URL
 // becomes a shareable deep link (#apps/wiring/<CHASSIS>/<DOC>). replaceState,
 // not a hash push: browsing diagram-to-diagram shouldn't stack history, and
@@ -194,4 +245,6 @@ if (typeof window !== 'undefined') {
   window.routeSyncFromScreen = routeSyncFromScreen;
   window.routeSetWiringDoc = routeSetWiringDoc;
   window.routeSetEtkDiagram = routeSetEtkDiagram;
+  window.routeSetCar = routeSetCar;
+  window.routeSetCarList = routeSetCarList;
 }

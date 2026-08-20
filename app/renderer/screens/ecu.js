@@ -90,9 +90,32 @@ async function irUseVariantSgbd(ecu) {
   ecu.sgbd = v;
 }
 
-// ECU main menu: section categories on the F-key bar, each opens a sub-screen
-async function showEcu(chassisId, sectionName, ecu) {
-  lastScreen = () => showEcu(chassisId, sectionName, ecu);
+// Deep link (#car/<CHASSIS>/<SGBD>[/<MENU>]): the URL names an SGBD, not the
+// in-memory ECU object the card click would have passed, so look it up in the
+// chassis config first. Falls back to the module list when the SGBD isn't in
+// this chassis (a stale or hand-edited link).
+async function showEcuDeep(chassisId, sgbd, menuName) {
+  const ch = await tryApi(`/api/chassis/${chassisId}`, null, view,
+                          `failed to load ${dispChassis(chassisId)}`);
+  if (!ch) return;
+  const want = String(sgbd).toLowerCase();
+  for (const sec of (ch.sections || [])) {
+    const hit = (sec.ecus || []).find(e => String(e.sgbd).toLowerCase() === want);
+    if (hit) return showEcu(chassisId, sec.name, hit, menuName);
+  }
+  sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
+  return showSections(chassisId);
+}
+
+// ECU main menu: section categories on the F-key bar, each opens a sub-screen.
+// openMenu (optional) is an IR menu name to descend into once the IR is loaded,
+// so a deep link lands on the submenu rather than the root.
+async function showEcu(chassisId, sectionName, ecu, openMenu) {
+  lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu);
+  // the ECU object comes from the chassis config and doesn't know which chassis
+  // it came from; screens that build links/reports off it need that (exportFaults
+  // already read ecu.chassis, which was always undefined until now)
+  ecu.chassis = chassisId;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
@@ -149,7 +172,14 @@ async function showEcu(chassisId, sectionName, ecu) {
     // Coding no longer hangs off the per-ECU menu -- it is a chassis-level
     // destination (the Coding tile -> Coding hub). So no root-menu extras here.
     if (typeof setIrRootExtras === 'function') setIrRootExtras(null);
-    renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
+    const toRoot = () =>
+      renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
+    // a deep link naming a submenu opens it directly, with Back going to the
+    // root menu (not out to the module list) so the hierarchy still reads right
+    if (openMenu && openMenu !== irRoot
+        && irMenuItems(ecu._ir, openMenu).length
+        && renderIrMenu(ecu, ecu._ir, openMenu, grid, toRoot, [])) return;
+    toRoot();
     return;
   }
 

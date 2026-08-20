@@ -286,6 +286,19 @@ internal static class Program
                     return 0;
                 }
 
+                // Run ANY job against the live car, with an optional argument:
+                //   InpaMac.Cli run ms450ds0 STATUS_E_LUEFTER
+                //   InpaMac.Cli run ms450ds0 STEUERN_E_LUEFTER 0x0F
+                // The last positional is the SGBD (as everywhere else here), so
+                // the job -- and its argument -- come before it.
+                case "run":
+                    // `sgbd` is rest[^1] (set above), so the job is rest[0] and
+                    // an optional argument is rest[1] -- but only when it is not
+                    // itself the trailing SGBD.
+                    return LiveJob(diag, sgbd, port,
+                                   rest.Count > 0 ? rest[0] : null,
+                                   rest.Count > 2 ? rest[1] : null);
+
                 case "read":
                     return LiveFaultCodes(diag, sgbd, port, clear: false, new InpaConfig(inpaRoot, ecuPath));
 
@@ -293,7 +306,7 @@ internal static class Program
                     return LiveFaultCodes(diag, sgbd, port, clear: true, new InpaConfig(inpaRoot, ecuPath));
 
                 default:
-                    Console.WriteLine("commands: jobs | results <JOB> | read | clear   (options: --port DEV)");
+                    Console.WriteLine("commands: jobs | results <JOB> | run <JOB> [ARG] | read | clear   (options: --port DEV)");
                     return 0;
             }
         }
@@ -306,6 +319,42 @@ internal static class Program
 
     // live: connect over K+DCAN, read or clear fault memory. cfg resolves sibling
     // SGBD variants for the multi-variant fault-label merge.
+    // Run one named job against the car and print every result set. This is the
+    // ground truth the browser VM is checked against: same engine, same cable,
+    // one job. Writes are NOT specially gated here -- EDIABAS runs what it is
+    // asked, which is exactly why it is useful for confirming an actuator test.
+    private static int LiveJob(Diag diag, string sgbd, string port, string job, string arg)
+    {
+        if (string.IsNullOrWhiteSpace(job))
+        {
+            Console.Error.WriteLine("usage: run <JOB> [ARG] <SGBD>");
+            return 2;
+        }
+        port ??= Paths.AutoDetectPort();
+        if (port == null)
+        {
+            Console.Error.WriteLine("No cable found. Plug in the K+DCAN cable, or pass --port.");
+            return 4;
+        }
+        Console.WriteLine($"Port : {port}");
+        Console.WriteLine($"SGBD : {sgbd}");
+        Console.WriteLine($"Job  : {job}{(arg == null ? "" : " " + arg)}");
+        diag.AttachSerial(port);
+        diag.Load(sgbd);
+        var sets = arg == null ? diag.Run(job) : diag.Run(job, arg);
+        int n = 0;
+        foreach (var set in sets)
+        {
+            Console.WriteLine($"--- set {++n} ---");
+            foreach (var kv in set)
+            {
+                Console.WriteLine($"  {kv.Key,-24} = {kv.Value.OpData}");
+            }
+        }
+        if (n == 0) Console.WriteLine("(no result sets)");
+        return 0;
+    }
+
     private static int LiveFaultCodes(Diag diag, string sgbd, string port, bool clear, InpaConfig cfg)
     {
         port ??= Paths.AutoDetectPort();

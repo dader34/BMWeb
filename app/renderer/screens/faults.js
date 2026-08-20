@@ -56,14 +56,14 @@ function faultName(loc, hex, sgbd) {
 // shared fault projection: code, English name, present/stored. one home for the
 // "momentan vorhanden && !nicht vorhanden" logic.
 function faultFields(c, sgbd) {
-  const hex = c.F_HEX_CODE || '';
+  const hex = hexText(c.F_HEX_CODE);
   // a real 4-hex DTC only when the fault TEXT leads with one ("27DA
   // BSD-Generator"). NOT bmwCode's hex fallback -- that would surface the full
   // F_HEX_CODE and defeat the location-byte preference below.
   const textCode = bmwCode(c.F_ORT_TEXT, '');
   const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
     || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(bmwCode(c.F_ORT_TEXT, hex), sgbd) : null) || '';
-  const vt = (c.F_VORHANDEN_TEXT || '').toLowerCase();
+  const vt = String(c.F_VORHANDEN_TEXT || '').toLowerCase();
   const present = vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden');
   // F_ORT_NR: a 16-bit value is either a real 2-byte DTC (DSC 0x5DC2, in the DB
   // -- show the whole code) or a text-scheme location+detail word (LWS 0x0B3F,
@@ -87,7 +87,9 @@ function faultFields(c, sgbd) {
   const lookupHex = textCode || (knownFull ? ortFull : (ortNr && ortNr.length > 2 ? ortNr : null));
   const pcode = c.F_PCODE_STRING || c.F_PCODE7_STRING ||
     (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(lookupHex, sgbd) : null) || '';
-  return { code, pcode: pcode !== code ? pcode : '',
+  // `hex` is the ECU's raw fault word ("F6-88-A6"); `code` is the shorter
+  // location byte the DB keys on. The screen shows both, so the report can too.
+  return { code, hex: hex !== code ? hex : '', pcode: pcode !== code ? pcode : '',
            name: faultName(c.F_ORT_TEXT, hex, sgbd), present, ftype, count };
 }
 
@@ -159,21 +161,31 @@ async function exportFaults(ecu, view) {
 
 // environment snapshot the DME captured when the fault was logged (RPM,
 // voltages, engine state, mileage), only present after a detailed read (F_UW*).
-function envBlock(c) {
-  const rows = [];
+// [label, value] pairs for one fault's snapshot. Shared by the screen and the
+// printed report so both show the same environment, formatted the same way.
+function envPairs(c) {
+  const out = [];
   for (let i = 1; i <= 8; i++) {
     const t = c[`F_UW${i}_TEXT`];
     if (t == null) continue;
     const val = c[`F_UW${i}_WERT`];
     const unit = c[`F_UW${i}_EINH`];
     if (val == null) continue;
-    // round long decimals (13.1015625 -> 13.10)
-    let shown = val;
-    const n = parseFloat(val);
-    if (isFinite(n) && !Number.isInteger(n) && /^-?\d/.test(val)) shown = n.toFixed(2);
-    const u = unit && unit !== '0-n' ? ` ${unit}` : '';
-    rows.push(`<div class="inpa-uw"><span class="inpa-uw-k">${esc(envLabel(t))}</span><span class="inpa-uw-v">${esc(envLabel(String(shown)) + u)}</span></div>`);
+    // round long decimals (13.1015625 -> 13.10). String(): on web the VM hands
+    // back live numbers, and the leading-digit test needs a string.
+    const s = String(val);
+    let shown = s;
+    const n = parseFloat(s);
+    if (isFinite(n) && !Number.isInteger(n) && /^-?\d/.test(s)) shown = n.toFixed(2);
+    const u = unit && String(unit) !== '0-n' ? ` ${unit}` : '';
+    out.push([envLabel(t), envLabel(String(shown)) + u]);
   }
+  return out;
+}
+
+function envBlock(c) {
+  const rows = envPairs(c).map(([k, v]) =>
+    `<div class="inpa-uw"><span class="inpa-uw-k">${esc(k)}</span><span class="inpa-uw-v">${esc(v)}</span></div>`);
   if (!rows.length) return '';
   return `<div class="inpa-env"><div class="inpa-env-head">environment: values at code entry</div>${rows.join('')}</div>`;
 }
@@ -190,7 +202,7 @@ function renderFaultsInpa(codes, container, ecu) {
   }
   const total = faults.length;
   const blocks = faults.map((c, i) => {
-    const hex = c.F_HEX_CODE || '';
+    const hex = hexText(c.F_HEX_CODE);
     const code = bmwCode(c.F_ORT_TEXT, hex);
     // prefer the real P-code from the detailed read, else our map
     const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
@@ -208,7 +220,7 @@ function renderFaultsInpa(codes, container, ecu) {
         <div class="inpa-fault-head">
           <span class="inpa-fault-idx">Error: ${i + 1}(${total})</span>
           <span class="inpa-fault-nr">Nr: ${esc(c.F_ORT_NR || '-')}</span>
-          <span class="inpa-fault-name">${esc(faultName(c.F_ORT_TEXT, c.F_HEX_CODE, ecu && ecu.sgbd) || 'Unknown')}</span>
+          <span class="inpa-fault-name">${esc(faultName(c.F_ORT_TEXT, hexText(c.F_HEX_CODE), ecu && ecu.sgbd) || 'Unknown')}</span>
           ${present ? '<span class="inpa-fault-present">PRESENT</span>' : ''}
           ${freq ? `<span class="inpa-fault-freq">frequency: ${esc(freq)}</span>` : ''}
         </div>

@@ -270,6 +270,7 @@ async function showSections(id, selectIndex = 0) {
   lastScreen = () => showSections(id, selectIndex);
   setStateSgbd(null);            // reset the battery/ignition poll target now, re-aim once the config is here (autoscan.js)
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id) }]);
+  if (typeof routeSetCarList === 'function') routeSetCarList(id);
   sbLeft.textContent = `loading ${dispChassis(id)}…`;
   // name neither side: below 760px the system rail sits ABOVE its modules, not left
   view.innerHTML = head('Control modules', dispChassis(id),

@@ -58,6 +58,14 @@ class VmError extends Error {}
 const READ_TOKEN = new RegExp(
   '(LESEN|_LES\\b|\\bLES_|READ|STATUS|IDENT|ANZEIGE|ABFRAG'
   + '|ANZAHL|ZUSTAND|GET_)', 'i');
+// CONFIG names a read ONLY when nothing else in the name says otherwise. MS45
+// exposes ECU_CONFIG (83 12 F1 30 A8 01 -- a three-byte query for the
+// vehicle-equipment list) and ECU_CONFIG_RESET (9B 12 F1 30 A8 04 00 ... --
+// 27 bytes written back); they share service 0x30, so only the name separates
+// them. This is checked BEFORE the write token but requires the write token to
+// be absent, so read-wins ordering is preserved for everything else --
+// CODIERUNG_LESEN stays a read because READ_TOKEN still runs first.
+const CONFIG_READ_TOKEN = new RegExp('CONFIG', 'i');
 const WRITE_TOKEN = new RegExp(
   '(SCHREIB|STEUERN|_SETZEN|SETZEN|LOESCH|FLASH|PROGRAMMIER|(?:\\b|_)START'
   + '|(?:\\b|_)STOP|RESET|CODIER|WRITE|\\bSET\\b|DOWNLOAD|UPLOAD|ABGLEICH'
@@ -68,6 +76,8 @@ const INFO_READ_TOKEN = new RegExp('(?:\\b|_)INFO', 'i');
 function isWriteJob(name) {
   const n = String(name || '');
   if (READ_TOKEN.test(n)) return false;      // a read of anything is a read
+  // a *_CONFIG read, but only when no write verb rides along (_RESET etc.)
+  if (CONFIG_READ_TOKEN.test(n) && !WRITE_TOKEN.test(n)) return false;
   if (WRITE_TOKEN.test(n)) return true;      // a named write verb
   if (INFO_READ_TOKEN.test(n)) return false; // *_INFO read, AFTER write check
   return true;                               // default-deny: unknown => guarded
@@ -129,7 +139,18 @@ class Best2Vm {
     // Permission to transmit for a job that CHANGES the ECU. Off by
     // default: a caller has to say so, and saying so is the point where a
     // UI can put a confirmation in front of the user.
-    this.allowWrites = !!opts.allowWrites;
+    // WRITES ARE PERMITTED BY DEFAULT (owner's decision, 2026-08-19).
+    //
+    // This used to default to false, so actuator tests -- STEUERN_E_LUEFTER
+    // and friends -- never reached the wire: the fan screen's "Activate at
+    // 15%" appeared to do nothing while the readback sat at the DME's own 92.
+    // The classifier cannot tell a temporary actuator drive from a permanent
+    // EEPROM write (both are "write jobs"), so unblocking one unblocks both.
+    //
+    // What that means in practice: CODIERDATEN_SCHREIBEN, FS_LOESCHEN and the
+    // FLASH_* family now transmit. Those are unrecoverable on a real module.
+    // Pass {allowWrites: false} to restore the old refuse-everything behaviour.
+    this.allowWrites = opts.allowWrites !== false;
     // Wire parameters from xsetpar. Seeded from the SESSION: xsetpar lives
     // in INITIALISIERUNG, which runs once per session -- a fresh VM for a
     // later job never executes it, so the caller carries comm forward the
