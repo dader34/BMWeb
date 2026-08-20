@@ -587,8 +587,24 @@ function irMenuItems(ir, menuName, variant) {
   // told apart from one that opens a different page
   const menuScreen = (menu.screen)
     || (menuName === (ir.entry || {}).menu ? (ir.entry || {}).screen : null);
-  const pick = (it) => irPickScreen(ir, it, variant || ir._variant, via);
+  const pick = (it) => {
+    const v = variant || ir._variant;
+    // The guard is INPA's own answer, but only when the page it names has
+    // something to draw. INPA parks keys it has no page for on a family
+    // PLACEHOLDER (s_status_36_38_39_46_52_85 is listed for every variant and
+    // holds no rows), and taking that literally hid KOMBI46's real status page.
+    // irPickScreen already prefers a candidate with rows; let it.
+    const g = irGuardPick(it.screenFor, v);
+    if (g && irRows((ir.screens || {})[g] || {}).rows.length) return g;
+    return irPickScreen(ir, it, v, via);
+  };
   const pickMenu = (it) => {
+    // INPA's OWN answer first: each menu key is an if/else-if chain on the
+    // VARIANTE read at startup, and the decompiler now keeps which names guard
+    // which target (menuFor). An exact match is what INPA would have run, so
+    // nothing below needs to infer it from the name.
+    const g = irGuardPick(it.menuFor, variant || ir._variant);
+    if (g) return g;
     const m = irPickTagged(ir, [it.menu, ...(it.menuAlts || [])],
                            variant || ir._variant);
     return m === undefined ? (it.menu || null) : m;
@@ -1016,6 +1032,23 @@ function irAsCard(scr, descs) {
 // Does this name end in one or more variant suffixes (_36, _38_39, _36c)? INPA
 // suffixes a screen with the chassis numbers it serves (s_status_36).
 const irHasVariantSuffix = (n) => /_\d+[a-zA-Z]?(_\d+[a-zA-Z]?)*$/.test(String(n));
+
+// The target INPA's own dispatch would pick for this variant.
+//
+// `guards` is {target: [VARIANTE, ...]} lifted straight out of the bytecode --
+// each menu/screen key compiles to an if/else-if chain over the VARIANTE read
+// at startup, and this is that condition. An exact name match therefore IS
+// INPA's decision, not an inference from it. Returns null when the item is not
+// variant-guarded (most are not) or when no arm names this variant, in which
+// case the caller falls back to the name-tag heuristics.
+function irGuardPick(guards, variant) {
+  if (!guards || !variant) return null;
+  const V = String(variant).toUpperCase();
+  for (const [target, names] of Object.entries(guards)) {
+    if ((names || []).some(n => String(n).toUpperCase() === V)) return target;
+  }
+  return null;
+}
 
 // Is this variant one the screen suffixes can address at all? KOMBI31..KOMBI85
 // carry their number; IKE and IKI do not (INPA reaches them by name), so no
