@@ -140,10 +140,25 @@ const PRINT_CSS = `
     .pr-table td { padding: 4px 6px; border-bottom: 1px solid #e4e4e4; vertical-align: top; }
     .pr-table tr { page-break-inside: avoid; }
     .pr-mono { font: 600 11.5px "SF Mono", Menlo, Consolas, monospace; white-space: nowrap; }
+    /* a code cell carrying its raw fault word on a second line: pre-line keeps
+       the newline the caller put in, which plain .pr-mono would collapse */
+    .pr-code2 { font: 600 11.5px "SF Mono", Menlo, Consolas, monospace;
+                white-space: pre-line; line-height: 1.35; }
     .pr-num { text-align: right; white-space: nowrap; }
     .pr-table-grid { margin: 6px 0; border: 1px solid #ccc; }
     .pr-table-grid th, .pr-table-grid td { border: 1px solid #ddd; padding: 3px 6px; }
     .pr-table-grid th { background: #f3f3f3; }
+    /* freeze-frame snapshot under a fault table: a two-column key/value list
+       that flows into as many columns as the page width allows, so eight values
+       take a few lines instead of a full page of near-empty rows */
+    .pr-env { margin: 4px 0 10px; padding: 5px 8px; border-left: 3px solid #bbb;
+              background: #fafafa; page-break-inside: avoid; }
+    .pr-env-head { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em;
+                   color: #777; margin-bottom: 3px; }
+    .pr-env-row { display: inline-flex; gap: 6px; width: 32%; padding: 1px 0;
+                  font-size: 11px; vertical-align: top; }
+    .pr-env-k { color: #555; }
+    .pr-env-v { font: 600 11px "SF Mono", Menlo, Consolas, monospace; color: #14181d; }
     /* text blocks */
     .pr-p { margin: 0 0 6px; }
     .pr-bullet { padding-left: 16px; position: relative; }

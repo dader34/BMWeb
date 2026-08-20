@@ -13,6 +13,15 @@ const WEB_API_BASE = 'api';
 // K+DCAN over Web Serial. Default until a job's SGBD declares its own via
 // xsetpar: BMW-FAST 115200 8N1 (EdInterfaceObd's USB-cable concept).
 const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
+// UTILITY.PRG's own numbers, read out of its BEST/2 bytecode: STATUS_UBATT and
+// STATUS_ZUENDUNG both compare the adapter's sense reading against 10000 mV
+// (`comp L0, 10000` / `jae`), and UTILITY/INTERFACE substitutes 12000 mV when
+// the interface cannot measure at all.
+const UTILITY_UBATT_MIN_MV = 10000;
+const UTILITY_NOMINAL_MV = 12000;
+// STATUS_ZUENDUNG's IDBSS branch (`move L0, 10000`, op132): the value UTILITY
+// substitutes for an interface with no KL15 sense line, i.e. "report on".
+const UTILITY_IDBSS_IGN_MV = 10000;
 
 // ---- concept-aware framing.
 //
@@ -29,6 +38,19 @@ const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
 //           so it refuses loudly rather than timing out mysteriously.
 const conceptOf = (comm) => (comm && comm.concept) || 0x10f;
 const isDs2 = (c) => c === 1 || c === 5 || c === 6;
+// ISO 9141-2: the module sleeps until a 5-baud address byte wakes it.
+const isIso9141 = (c) => c === 0x10c;
+// Concepts that ride the K line and therefore need waking before they answer.
+// DS2 and KWP2000* are K-line; BMW-FAST/D-CAN (0x10F/0x110) are not.
+const isKline = (c) => isDs2(c) || c === 0x10d;
+// Verified on a real E46 (M54 / MS45): the DME answers the ISO 9141 generic
+// tester address at 10400 baud, NOT its own KWP address at 9600. Sending a
+// job to an unwoken module gets silence, which surfaced as IFH-0009 "no
+// response" and looked for all the world like a wiring fault.
+const ISO9141_INIT_ADDR = 0x33;
+const ISO9141_BAUD = 10400;
+// The rate an E46 K-line module actually answers on after the fast init.
+const KLINE_BAUD = 10400;
 
 // Interface failures carry their EDIABAS IFH identity so explainError and a
 // user comparing to real INPA see the same code (IFH-0009 no answer, -0003
@@ -39,14 +61,59 @@ function ifhError(code, message) {
   return e;
 }
 
+// Sentinel for a readSome() that ran out of time. A distinct object rather
+// than null, so "no bytes yet" can never be confused with a real empty read.
+const TIMED_OUT = Symbol('timed-out');
+
+// ---- wire tracing -----------------------------------------------------------
+// Off by default (zero cost: every call site is behind `busTrace.on`). Turn it
+// on from the console with `busTrace.start()`, run the failing action, then
+// `busTrace.dump()` to print what actually went over the wire. This exists
+// because a transport bug is invisible from the error text alone -- IFH-0003
+// says "the echo was wrong" without ever showing you the echo.
+const busTrace = {
+  on: false,
+  rows: [],
+  limit: 400,
+  start(limit) { this.on = true; this.rows = []; if (limit) this.limit = limit;
+    console.log('[bus] tracing ON — reproduce the failure, then busTrace.dump()');
+    return 'tracing'; },
+  stop() { this.on = false; return `tracing OFF (${this.rows.length} rows kept)`; },
+  add(tag, bytes, note) {
+    if (!this.on) return;
+    if (this.rows.length >= this.limit) return;
+    this.rows.push({ t: Date.now(), tag, hex: busTrace.hex(bytes), n: bytes ? bytes.length : 0, note });
+  },
+  hex(b) {
+    if (!b) return '';
+    return Array.from(b, (x) => (x & 0xff).toString(16).padStart(2, '0').toUpperCase()).join(' ');
+  },
+  dump() {
+    if (!this.rows.length) { console.log('[bus] nothing traced — busTrace.start() first'); return; }
+    const t0 = this.rows[0].t;
+    console.table(this.rows.map((r) => ({
+      'ms': r.t - t0, 'what': r.tag, 'len': r.n, 'bytes': r.hex, 'note': r.note || '',
+    })));
+    return `${this.rows.length} rows`;
+  },
+};
+if (typeof window !== 'undefined') window.busTrace = busTrace;
+
 function withChecksum(out, comm) {
   const c = conceptOf(comm);
-  if (c === 0x10c) {
-    throw ifhError('IFH-0018', 'this ECU speaks ISO 9141 (5-baud slow init), '
-      + 'which this transport does not implement');
-  }
+  // THE CHECKSUM FOLLOWS THE FRAME FORM. Straight from EDIABAS's own trace
+  // against this car:
+  //
+  //   Send: 82 12 F1 1A 80 1F            <- short form, sum8  (xor would be FB)
+  //   Send: B8 12 F1 02 1A 80 C3         <- long form,  XOR   (sum8 would be 57)
+  //   Send: B8 12 F1 04 18 02 FF FF 45   <- long form,  XOR
+  //
+  // So it is not the session's wire and not the telegram's declared concept --
+  // a 0xB8 frame is signed XOR, everything else follows its concept. Getting
+  // this wrong in either direction makes the ECU ignore the telegram in
+  // silence, which is indistinguishable from a dead cable.
   let sum = 0;
-  if (isDs2(c)) for (const b of out) sum ^= b;
+  if (isDs2(c) || out[0] === 0xb8) for (const b of out) sum ^= b;
   else for (const b of out) sum = (sum + b) & 0xff;
   return [...out, sum];
 }
@@ -54,9 +121,23 @@ function withChecksum(out, comm) {
 // Total answer length (checksum included), or null while undecidable.
 function frameTotal(buf, comm) {
   const c = conceptOf(comm);
+  // ISO 9141-2: [fmt, tgt, src, ...data, sum]. The low 6 bits of fmt are the
+  // data length, so the whole frame is 3 header + data + 1 checksum.
+  if (isIso9141(c)) {
+    if (!buf.length) return null;
+    const n = buf[0] & 0x3f;
+    return n ? n + 4 : (buf.length >= 4 ? buf[3] + 5 : null);
+  }
   if (isDs2(c)) return buf.length >= 2 ? buf[1] : null;
   if (c === 0x10d) return buf.length >= 4 ? buf[3] + 5 : null;
   if (buf.length < 4) return null;
+  // 0xB8 carries its length in BYTE 3 on this wire, not in the low 6 bits.
+  // MEASURED against the car: the ident reply "b8 f1 12 1f 5a 80 ..." is
+  // exactly 36 bytes = 4 + 31 + 1, and byte[3] is 0x1F = 31. Reading the low
+  // 6 bits instead (0xB8 & 0x3F = 56) would wait for 60 bytes and time out.
+  // EdInterfaceBase.TelLengthBmwFast reads the low bits first, but that is the
+  // generic BMW-FAST rule and does not hold for this DS2-session ECU.
+  if (buf[0] === 0xb8) return buf[3] + 5;
   const short = buf[0] & 0x3f;
   return short ? short + 4 : buf[3] + 5;
 }
@@ -64,8 +145,13 @@ function frameTotal(buf, comm) {
 function verifyChecksum(frame, comm) {
   let sum = 0;
   const body = frame.slice(0, -1);
-  if (isDs2(conceptOf(comm))) for (const b of body) sum ^= b;
-  else for (const b of body) sum = (sum + b) & 0xff;
+  // Same rule as withChecksum: a 0xB8 frame is XOR, everything else follows
+  // its concept.
+  if (isDs2(conceptOf(comm)) || frame[0] === 0xb8) {
+    for (const b of body) sum ^= b;
+  } else {
+    for (const b of body) sum = (sum + b) & 0xff;
+  }
   if (sum !== frame[frame.length - 1]) {
     throw ifhError('IFH-0019', 'answer checksum mismatch');
   }
@@ -75,7 +161,16 @@ function verifyChecksum(frame, comm) {
 // BMW-FAST family stays at the cable's 115200 8N1.
 function portConfig(comm) {
   const c = conceptOf(comm);
-  if (isDs2(c) || c === 0x10d) {
+  if (isIso9141(c)) {
+    // 8N1 after the handshake -- the init itself is bit-banged, not framed.
+    return { baudRate: (comm && comm.baud) || ISO9141_BAUD,
+             dataBits: 8, stopBits: 1, parity: 'none' };
+  }
+  if (isKline(c)) {
+    // DS2 and KWP2000* are 8E1 at the rate the SGBD names (EdInterfaceObd.cs
+    // case 0x0006: parity = Even, baudRate = CommParameter[1]). An earlier
+    // 10400 8N1 override here came from an ISO 9141 experiment and does not
+    // belong on these concepts.
     return { baudRate: (comm && comm.baud) || 9600,
              dataBits: 8, stopBits: 1, parity: 'even' };
   }
@@ -93,29 +188,45 @@ function portConfig(comm) {
 // frame, which has no echo of its own).
 async function readFrame(sent, timeoutMs, pump, comm) {
   const buf = [];
+  // A WIRED K LINE ALWAYS ECHOES. HasAdapterEcho in EdiabasLib refers to a
+  // REMOTE adapter (Bluetooth/WiFi) that strips the echo for you; an FTDI
+  // cable on a half-duplex wire does not, so the echo is always here and is
+  // always dropped by count.
   const echoLen = sent ? sent.length : 0;
   const deadline = Date.now() + timeoutMs;
-  while (buf.length < echoLen && Date.now() < deadline) {
+
+  // Where does `sent` start inside buf? -1 while it is not (yet) all here.
+  const findEcho = () => {
+    for (let start = 0; start + echoLen <= buf.length; start++) {
+      let ok = true;
+      for (let i = 0; i < echoLen; i++) {
+        if (buf[start + i] !== sent[i]) { ok = false; break; }
+      }
+      if (ok) return start;
+    }
+    return -1;
+  };
+
+  // READ UNTIL THE ECHO IS ACTUALLY THERE, not merely until enough bytes have
+  // arrived. A half-duplex K line delivers the echo split across reads and
+  // often with a leftover byte in front of it -- "12 04 00 16" came back as
+  // "00 12 04 00" then "16" on the next read. Stopping at buf.length >=
+  // echoLen left the echo one byte short, the compare failed, and a healthy
+  // exchange was reported as IFH-0003.
+  let at = -1;
+  while (Date.now() < deadline) {
+    if (echoLen && (at = findEcho()) >= 0) break;
+    if (!echoLen && buf.length) break;
     const got = await pump();
     if (got && got.length) buf.push(...got);
     else await new Promise((r) => setTimeout(r, 4));
   }
-  if (buf.length < echoLen) {
-    throw ifhError('IFH-0003', 'no echo from the cable (is it connected to the car?)');
+  if (echoLen && at < 0) {
+    throw ifhError('IFH-0003', buf.length
+      ? 'echo did not match the request (bus collision?)'
+      : 'no echo from the cable (is it connected to the car?)');
   }
-  if (sent) {
-    // Compare the echo, do not just count it. A mismatch means another
-    // device drove the line while we wrote (bus collision) or the cable is
-    // dropping bytes -- decoding what follows would be garbage, and
-    // EdiabasLib errors here for the same reason.
-    for (let i = 0; i < echoLen; i++) {
-      if (buf[i] !== sent[i]) {
-        throw ifhError('IFH-0003',
-                       'echo did not match the request (bus collision?)');
-      }
-    }
-  }
-  buf.splice(0, echoLen);
+  buf.splice(0, at >= 0 ? at + echoLen : 0);   // drop leading noise AND the echo
   while (Date.now() < deadline) {
     const total = frameTotal(buf, comm);
     if (total !== null && buf.length >= total) {
@@ -146,6 +257,7 @@ function isResponsePending(frame, comm) {
   let body;
   if (isDs2(c)) body = frame.slice(2);
   else if (c === 0x10d) body = frame.slice(4);
+  else if (frame[0] === 0xb8) body = frame.slice(4);
   else body = (frame[0] & 0x3f) ? frame.slice(3) : frame.slice(4);
   return body[0] === 0x7f && body[2] === 0x78;
 }
@@ -153,7 +265,34 @@ function isResponsePending(frame, comm) {
 // One request/answer exchange with per-concept retry. EDIABAS retransmits
 // on a bad or missing answer (xreps); one retry covers the single-glitch
 // case without hammering a dead bus.
+// The quiet gap an SGBD demands between an answer and the next request.
+// CommParameter dword 3 on the 0x1xx concepts (EdInterfaceObd.cs case 0x010D:
+// ParRegenTime = CommParameterProtected[3]); the DS2 case reads index 6 of its
+// own 16-bit layout. Clamped, because a bogus blob must not stall the bus.
+function regenTimeOf(comm) {
+  const p = comm && comm.params;
+  if (!Array.isArray(p) || p.length < 4) return 0;
+  const c = conceptOf(comm);
+  const raw = isDs2(c) ? (p[6] || 0) : (p[3] || 0);
+  return raw > 0 && raw <= 1000 ? raw : 0;
+}
+
 async function runExchange(bus, out, comm) {
+  // The FIRST concept a session uses is the one that describes the wire. An
+  // SGBD opens on it (ms450ds0: DS2) and then runs jobs that declare
+  // BMW-FAST; the module is still the same K-line module, so remember what we
+  // opened on and keep driving the wire that way.
+  // EVERY xsetpar RECONFIGURES THE WIRE. That is what the opcode is for, and
+  // EDIABAS honours each one: tracing this car showed it set concept 0x10F at
+  // 115200, send the short telegram, get silence, then set concept 0x10D at
+  // 9600 and send the long one -- which is answered. An earlier revision here
+  // pinned the wire to the FIRST concept of a session, so the second
+  // xsetpar was ignored, the B8 telegram went out at 115200 instead of 9600,
+  // and the DME never heard it. The VM had reached the right branch all along.
+  //
+  // sessionConcept is still tracked, but only so the K-line wake knows it is
+  // on a K-line module; it no longer overrides the telegram's own wire.
+  bus.sessionConcept = conceptOf(comm);
   await bus.ensureConfig(portConfig(comm));
   const framed = withChecksum(out, comm);
   const timeoutMs = (comm && comm.timeout) || 2000;
@@ -161,19 +300,45 @@ async function runExchange(bus, out, comm) {
   if (comm && comm.waitMs) {
     await new Promise((r) => setTimeout(r, Math.min(comm.waitMs, 5000)));
   }
+  // ParRegenTime: a MANDATORY quiet gap between the ECU's last answer and the
+  // next request, measured from the response (EdInterfaceObd.cs:4127). The
+  // SGBD names it in its CommParameter -- 25 ms for this MS45 on concept
+  // 0x10D. Without it a telegram sent immediately after a reply is ignored,
+  // which is exactly what made a repeated FS_LESEN come back empty while the
+  // identical first one was answered.
+  const regenMs = regenTimeOf(comm);
+  if (regenMs && bus.lastResponseAt) {
+    const since = Date.now() - bus.lastResponseAt;
+    if (since < regenMs) {
+      await new Promise((r) => setTimeout(r, regenMs - since));
+    }
+  }
+  // NO FRAMING FALLBACK HERE. The SGBD owns that: tracing EDIABAS showed
+  // ms450ds0's INITIALISIERUNG hold BOTH telegrams as constants and try them
+  // in turn -- xsend "82 12 F1 1A 80" gets IFH-0009, the bytecode carries on,
+  // and xsend "B8 12 F1 02 1A 80" is answered. So a timed-out exchange must be
+  // reported to the VM, not retried behind its back with a rewritten telegram.
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
+      busTrace.add('tx', framed, `attempt ${attempt + 1}/2 timeout=${timeoutMs}ms`);
       let frame = await bus.exchangeRaw(framed, timeoutMs, comm);
       // keep reading while the ECU says "still working" -- bounded, so a
       // stuck ECU still fails instead of hanging the screen
       for (let pending = 0; pending < 30 && isResponsePending(frame, comm); pending++) {
         frame = await bus.exchangeRaw(null, Math.max(timeoutMs, 5000), comm);
       }
+      busTrace.add('rx', frame, 'OK');
+      bus.lastResponseAt = Date.now();
       return frame;
     } catch (e) {
       lastErr = e;
+      busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
       if (!/timeout|checksum|incomplete|echo/.test(String(e.message))) throw e;
+      // A silent module may simply not have woken. Re-arm the wake so the
+      // retry is a genuinely different attempt -- repeating the identical
+      // telegram to a module that never woke can only time out again.
+      bus.inited = null;
     }
   }
   throw lastErr;
@@ -210,6 +375,10 @@ class NativeSerialBus {
   async ensureConfig(cfg) {
     if (this.config && this.config.baudRate === cfg.baudRate
         && this.config.parity === cfg.parity) return;
+    // Reopening the port drops the ECU session with it, so a woken module
+    // must be woken again. Without this a concept switch mid-job left
+    // `inited` set and every following request went to a sleeping ECU.
+    this.inited = null;
     const r = await window.bmacw.serialOpen(this.path === 'serial'
       ? null : this.path, cfg.baudRate, cfg.parity);
     this.path = (r && r.port) || this.path;
@@ -218,7 +387,26 @@ class NativeSerialBus {
 
   async exchange(out, comm) { return runExchange(this, out, comm); }
 
+  // ---- BMW K-line fast init ------------------------------------------------
+  // THE THING THAT WAS MISSING. An E46 K-line module ignores every telegram
+  // until it is woken, and the wake is NOT the 2-second 5-baud ISO 9141 init
+  // -- it is a 25 ms break. EdiabasLib does exactly this in SendWakeFastInit
+  // (EdInterfaceObd.cs:3506):
+  //
+  //     DTR on -> break 25 ms -> break off -> wait to 50 ms total -> DTR off
+  //
+  // Verified against a real E46 M54/MS45: with the wake the DME answers
+  // 82 12 F1 1A 80 with its ident string ("754472129001060300400..."), and
+  // without it every telegram at every baud and parity is met with silence.
+  // That silence is what surfaced as IFH-0009 and looked like a wiring fault.
+  //
+  // The wake runs at 10400 8N1, which is also where the answer comes back --
+  // 9600 (either parity) stays silent even after a successful wake.
   async exchangeRaw(framed, timeoutMs, comm) {
+    // NOTE: the K-line wake (fast init / slow init) lives on WebSerialBus,
+    // which owns the break and DTR lines. The native bridge (window.bmacw)
+    // exposes no setSignals equivalent yet, so a K-line ECU reached through
+    // the desktop app still relies on the host side doing the wake.
     if (framed) {
       // A stale partial frame from a timed-out job would be read as this
       // job's answer, so start clean.
@@ -250,6 +438,9 @@ class WebSerialBus {
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
+    this.inited = null;
+    this.pending = null;
+    this.sessionConcept = null;
     return this.portLabel();
   }
 
@@ -279,6 +470,60 @@ class WebSerialBus {
     try { if (this.writer) this.writer.releaseLock(); } catch { /* closing */ }
     try { if (this.port) await this.port.close(); } catch { /* closing */ }
     this.port = this.reader = this.writer = null;
+    this.inited = null;
+    this.pending = null;
+    this.sessionConcept = null;
+  }
+
+  // KL30/KL15, the way INPA gets them. INPA's start screen calls UTILITY's
+  // STATUS_UBATT / STATUS_ZUENDUNG, whose bytecode reads the ADAPTER's own
+  // sense lines (BEST/2 xbatt op110, xignit op114) and compares against
+  // 10000 mV -- it never touches the diagnostic bus. A plain K+DCAN cable has
+  // neither sense line, which is exactly the case UTILITY itself handles: for
+  // an interface that cannot measure, it reports the nominal 12000 mV
+  // (UTILITY/INTERFACE op273) and, for one that cannot sense KL15, reports
+  // ignition on (the IDBSS branch, op132). Follow that precedent rather than
+  // inventing a reading -- and mark it derived so the UI can say so.
+  async readState() {
+    if (!this.connected) return { battery: null, ignition: null };
+
+    // --- STATUS_UBATT: xbatt, then `comp 10000 / jae`.
+    const ubattMv = await this._senseKl30();
+    if (ubattMv < UTILITY_UBATT_MIN_MV) {
+      // BATTERIE.SRC: on STAT_UBATT == 0 INPA sets BOTH false and never runs
+      // STATUS_ZUENDUNG at all. Ignition is not "unknown" here, it is off.
+      return { battery: null, ignition: false, derived: true };
+    }
+
+    // --- STATUS_ZUENDUNG: its own xignit read, only reached with battery up.
+    const ignMv = await this._senseKl15();
+    return {
+      battery: ubattMv / 1000,
+      ignition: ignMv >= UTILITY_UBATT_MIN_MV,
+      derived: true,     // nominal, not measured -- this adapter has no sense line
+    };
+  }
+
+  // xbatt equivalent. A K+DCAN cable is bus-powered from OBD pin 16 (KL30), so
+  // if a clone wires that through to a modem line, a de-asserted line is real
+  // evidence of no power. Otherwise UTILITY's "cannot measure" nominal.
+  async _senseKl30() {
+    if (this.port && this.port.getSignals) {
+      try {
+        const s = await this.port.getSignals();
+        if (s && s.dataSetReady === false && s.dataCarrierDetect === false) return 0;
+      } catch { /* no signal support */ }
+    }
+    return UTILITY_NOMINAL_MV;
+  }
+
+  // xignit equivalent. A K+DCAN cable has no KL15 sense line at all. UTILITY's
+  // own precedent for exactly that interface (the IDBSS branch) is `move L0,
+  // 10000` -- report ignition ON rather than falsely reporting it off, because
+  // the cable cannot tell. The bus is the real arbiter: an ECU only answers
+  // with KL15 live, and a failed read already surfaces as such.
+  async _senseKl15() {
+    return UTILITY_IDBSS_IGN_MV;
   }
 
   // Send one request, read one answer. The VM calls this synchronously in
@@ -290,18 +535,172 @@ class WebSerialBus {
   // request and its answer can legitimately share a prefix.
   async exchange(out, comm) { return runExchange(this, out, comm); }
 
+  async fastInit(comm) {
+    if (!this.port.setSignals) {
+      throw ifhError('IFH-0018', 'this browser cannot drive the K line '
+        + '(no setSignals); use the macOS app for this ECU');
+    }
+    // DTR is this cable's transmit enable: EdiabasLib asserts it for the wake
+    // and for the duration of every telegram it writes.
+    await this.port.setSignals({ dataTerminalReady: true, break: true });
+    await new Promise((r) => setTimeout(r, 25));
+    await this.port.setSignals({ break: false });
+    await new Promise((r) => setTimeout(r, 25));
+    await this.port.setSignals({ dataTerminalReady: false });
+    this.inited = true;
+  }
+
+  // ---- ISO 9141-2 slow init ------------------------------------------------
+  // The module sleeps. Waking it means holding the K line low/high by hand at
+  // 5 BITS PER SECOND -- one start bit, eight address bits LSB first, one stop
+  // bit, 200 ms each, 2 seconds in total. No UART can frame that, so it is
+  // bit-banged with setSignals({break}) and the port is reopened afterwards to
+  // discard the framing garbage the break generates.
+  //
+  // The ECU then answers 0x55 (sync) and two key bytes. The tester echoes back
+  // the SECOND key byte inverted, and the ECU replies with the address
+  // inverted -- at which point the session is live and normal requests work.
+  //
+  // Proven against a real E46 M54/MS45:
+  //   addr 0x33 @ 10400 -> 55 08 08, ack f7 cc, then
+  //   mode01 pid00 -> 48 6b 12 41 00 bf 9f e8 91  (0x12 = the DME)
+  //
+  // Init is per-session: `this.inited` holds the concept it was done for, so a
+  // job run does not re-init on every exchange (each one costs 2+ seconds) but
+  // switching ECU or concept does.
+  async slowInit(comm) {
+    const baud = (comm && comm.baud) || ISO9141_BAUD;
+    const addr = ISO9141_INIT_ADDR;
+
+    // Break signalling needs the port open; parity/data bits are irrelevant
+    // while the line is driven by hand.
+    await this.ensureConfig({ baudRate: baud, dataBits: 8, stopBits: 1,
+                              parity: 'none' });
+    if (!this.port.setSignals) {
+      throw ifhError('IFH-0018', 'this browser cannot bit-bang the K line '
+        + '(no setSignals); use the macOS app for this ECU');
+    }
+
+    // start bit (low), 8 data bits LSB first, stop bit (high) -- 200 ms each
+    const bits = [0];
+    for (let i = 0; i < 8; i++) bits.push((addr >> i) & 1);
+    bits.push(1);
+    for (const b of bits) {
+      await this.port.setSignals({ break: b === 0 });
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    await this.port.setSignals({ break: false });
+
+    // Reopen so the break's framing errors are not read as data.
+    await this.reopen({ baudRate: baud, dataBits: 8, stopBits: 1,
+                        parity: 'none' });
+
+    // 0x55 then two key bytes, within ~300 ms of the stop bit
+    const hdr = [];
+    const deadline = Date.now() + 1200;
+    while (hdr.length < 3 && Date.now() < deadline) {
+      const { value, done } = await this.readSome(deadline);
+      if (done) break;
+      if (value && value.length) hdr.push(...value);
+    }
+    const sync = hdr.indexOf(0x55);
+    if (sync < 0 || hdr.length < sync + 3) {
+      throw ifhError('IFH-0009', 'the ECU did not answer the slow init '
+        + '(no 0x55 sync). Ignition on, engine off?');
+    }
+    const kb2 = hdr[sync + 2];
+
+    // Tester sends ~KB2; the ECU replies ~addr. W4 is 25-50 ms.
+    await new Promise((r) => setTimeout(r, 30));
+    await this.writer.write(new Uint8Array([(~kb2) & 0xff]));
+    const ackDeadline = Date.now() + 400;
+    const ack = [];
+    while (ack.length < 2 && Date.now() < ackDeadline) {
+      const { value, done } = await this.readSome(ackDeadline);
+      if (done) break;
+      if (value && value.length) ack.push(...value);
+    }
+    // The ack carries our own echo plus ~addr; a missing one is not fatal --
+    // the E46 answered f7 cc where only cc is the ECU's. Requests that follow
+    // are the real proof, so do not fail the session on a fussy ack.
+    this.inited = true;
+    return { keyBytes: [hdr[sync + 1], kb2], ack };
+  }
+
+  // Close and reopen the port, dropping anything buffered. Used after the
+  // slow init, whose break signalling leaves framing errors in the stream.
+  async reopen(cfg) {
+    try { if (this.reader) { await this.reader.cancel(); this.reader.releaseLock(); } } catch { /* reopening */ }
+    try { if (this.writer) this.writer.releaseLock(); } catch { /* reopening */ }
+    this.pending = null;
+    await this.port.close();
+    await this.port.open(cfg);
+    this.config = cfg;
+    this.writer = this.port.writable.getWriter();
+    this.reader = this.port.readable.getReader();
+  }
+
   async exchangeRaw(framed, timeoutMs, comm) {
+    // Wake the module first. Once per session per concept: an E46 K-line
+    // module ignores every telegram until the break wakes it, which is what
+    // made a healthy car look unreachable.
+    const concept = conceptOf(comm);
+    // THE WAKE BELONGS TO THE PORT, NOT THE TELEGRAM. An SGBD's session init
+    // runs on one concept (ms450ds0 opens on DS2, 0x06) while its jobs declare
+    // another (BMW-FAST, 0x10F). Keying the wake on the per-telegram concept
+    // meant the K-line module was woken for the init and then NOT for the job
+    // that followed -- and worse, reopening the port for the job's baud undid
+    // the wake anyway. Once this port has been woken it stays woken until it
+    // is reopened, which is what clears `inited`.
+    const kline = isKline(concept) || isKline(this.sessionConcept);
+    if (framed && !this.inited) {
+      // ISO 9141 wants the 5-baud address; every other K-line concept wants
+      // the 25 ms break. BMW-FAST over a D-CAN cable needs neither.
+      if (isIso9141(concept) || isIso9141(this.sessionConcept)) {
+        await this.slowInit(comm);
+      } else if (kline) {
+        await this.fastInit(comm);
+      }
+    }
     if (framed) {
       // Drain anything stale before a fresh write -- the same start-clean
       // the native path gets from serialFlush(). A late answer from a
       // timed-out exchange would otherwise be read as this request's echo,
       // fail the compare, and cascade IFH-0003 until the stream happens to
       // run dry.
-      for (;;) {
-        const { value, done } = await this.readSome(Date.now() + 2);
-        if (done || !value || !value.length) break;
+      // Drain to a quiet line. readSome now reports {done:false, value:null}
+      // when it merely ran out of time (done means the PORT closed), so stop
+      // on either. Bounded so a chattering bus cannot spin here forever.
+      // (K-line writes drain INSIDE the DTR window instead -- see below.)
+      const wantDtr0 = isKline(concept) || isKline(this.sessionConcept);
+      if (!wantDtr0) await this.drainBuffered();
+      // DTR IS THE TRANSMIT ENABLE on a K+DCAN cable, and it is what was
+      // missing. EdiabasLib raises it for the duration of every telegram it
+      // writes (EdInterfaceObd.cs:3343-3356) and DS2 sets ParSendSetDtr
+      // (case 0x0006, "DS2 uses DTR"). Without it the bytes are framed
+      // correctly, leave the UART, and never reach the K line -- which is
+      // exactly the silence that looked like a dead ECU.
+      const wantDtr = isKline(concept) || isKline(this.sessionConcept);
+      if (wantDtr && this.port.setSignals) {
+        // DTR up, THEN drain, THEN write -- the order EdiabasLib uses
+        // (DiscardInBuffer sits inside the DTR block, right before Write).
+        // Draining earlier let bytes arrive in the gap and be read as this
+        // request's echo.
+        await this.port.setSignals({ dataTerminalReady: true });
+        await this.drainBuffered();
       }
       await this.writer.write(new Uint8Array(framed));
+      if (wantDtr && this.port.setSignals) {
+        // Hold DTR for exactly the telegram's byte time plus EdiabasLib's
+        // DtrTimeCorrCom (0.3 ms, EdInterfaceObd.cs:156) -- no more. DTR is
+        // the transmit enable, so holding it longer than the write keeps the
+        // cable talking while the ECU answers and the reply is lost. An
+        // earlier +4 ms margin here produced a perfect echo and no answer.
+        const bits = this.config && this.config.parity === 'none' ? 10 : 11;
+        const ms = (framed.length * bits * 1000) / (this.config.baudRate || 9600);
+        await new Promise((r) => setTimeout(r, Math.max(1, Math.round(ms + 0.3))));
+        await this.port.setSignals({ dataTerminalReady: false });
+      }
     }
     const deadline = Date.now() + timeoutMs;
     return readFrame(framed, timeoutMs, async () => {
@@ -310,14 +709,70 @@ class WebSerialBus {
     }, comm);
   }
 
+  // Read with a deadline, WITHOUT losing bytes to an abandoned read.
+  //
+  // THE BUG THIS FIXES: racing reader.read() against a timeout and walking
+  // away leaves that read outstanding. Web Serial still delivers the next
+  // chunk to it, and because nothing held the promise those bytes were gone
+  // for good. The pre-write drain loop below runs with a 2 ms deadline and so
+  // ALWAYS ends by timing out -- meaning every exchange armed an orphaned
+  // read immediately before writing, which then swallowed the K-line echo.
+  // readFrame waited the full timeout for bytes already eaten and threw
+  // IFH-0003 "no echo from the cable" on a cable that echoes perfectly.
+  //
+  // Keeping the single outstanding read on `this.pending` and awaiting that
+  // same promise next time means a timed-out read is resumed, not discarded.
+  // Drain what is already buffered WITHOUT arming a new read.
+  //
+  // THE BUG THIS FIXES: the old drain called readSome() with a 2 ms deadline.
+  // readSome keeps a timed-out read alive on this.pending (that is what stops
+  // bytes being lost), so the drain's last call left a live read armed. The
+  // write then went out and THAT read swallowed the first bytes of the echo --
+  // every answer arrived missing its head ("12 04 00 16" came back as
+  // "00 16"), which readFrame then failed to match.
+  //
+  // Here a read is only consumed if it has ALREADY resolved, so the drain can
+  // never take bytes that belong to the telegram we are about to send.
+  async drainBuffered() {
+    // NEVER CREATE A READ HERE. An earlier version probed with
+    // this.reader.read() when nothing was outstanding; if the line was quiet
+    // that probe stayed armed, the telegram went out, and the probe swallowed
+    // the first bytes of the echo. The tell was unmistakable in a wire trace:
+    // the FIRST attempt of every exchange came back missing its head
+    // ("82 12 f1 1a 80 1f" as "12 f1 1a 80 1f") while the retry -- which found
+    // a pending read already in place and so created none -- was perfect.
+    //
+    // Only an ALREADY-OUTSTANDING read is consumed, and only while it keeps
+    // resolving immediately. A quiet line leaves this a no-op.
+    for (let i = 0; i < 64 && this.pending; i++) {
+      const settled = await Promise.race([
+        this.pending.then((r) => ({ hit: true, r })),
+        new Promise((res) => setTimeout(() => res({ hit: false }), 2)),
+      ]);
+      if (!settled.hit) return;            // still outstanding: leave it be
+      const { value, done } = settled.r || {};
+      if (done || !value || !value.length) return;
+    }
+  }
+
   async readSome(deadline) {
     const ms = Math.max(1, deadline - Date.now());
+    if (!this.pending) {
+      // Tag the read so a resolved value can be told from a stale handle.
+      this.pending = this.reader.read().then(
+        (r) => { this.pending = null; return r; },
+        (e) => { this.pending = null; throw e; });
+    }
     let timer;
     const timeout = new Promise((res) => {
-      timer = setTimeout(() => res({ value: null, done: true }), ms);
+      timer = setTimeout(() => res(TIMED_OUT), ms);
     });
     try {
-      return await Promise.race([this.reader.read(), timeout]);
+      const r = await Promise.race([this.pending, timeout]);
+      // Timed out: the read stays on this.pending for the next call. Report
+      // "nothing yet" rather than done -- done means the port closed.
+      if (r === TIMED_OUT) return { value: null, done: false };
+      return r;
     } finally { clearTimeout(timer); }
   }
 }
@@ -394,6 +849,9 @@ class ThorWifiBus {
     this.fw = null;                                  // { type, version }
     this.state = { battery: null, ignition: null };  // last ident readings
     this.rx = [];
+    // whether the adapter has been asked to wake the K line this session
+    this.inited = false;
+    this.sessionConcept = null;
   }
 
   get connected() {
@@ -456,8 +914,13 @@ class ThorWifiBus {
         rej(new Error(`could not open ${url}`));
       };
       ws.onmessage = (e) => {
-        if (typeof e.data === 'string') { if (onText) onText(); return; }
-        this.rx.push(...new Uint8Array(e.data));
+        if (typeof e.data === 'string') {
+          busTrace.add('ws.text', null, JSON.stringify(String(e.data).slice(0, 60)));
+          if (onText) onText(); return;
+        }
+        const chunk = new Uint8Array(e.data);
+        busTrace.add('ws.recv', chunk, `rx ${this.rx.length} -> ${this.rx.length + chunk.length}`);
+        this.rx.push(...chunk);
       };
       ws.onclose = (e) => {
         // WHO CLOSED IT, AND WHY. A connection that dies mid-session is
@@ -573,6 +1036,9 @@ class ThorWifiBus {
     this.usingDirect = null;
     this.textFrames = false;
     this.rx.length = 0;
+    // the wake belongs to the CONNECTION: a new transport must re-wake
+    this.inited = false;
+    this.sessionConcept = null;
   }
 
   portLabel() {
@@ -594,6 +1060,8 @@ class ThorWifiBus {
     try { if (this.ws) this.ws.close(); } catch { /* already gone */ }
     this.ws = null;
     this.usingDirect = null;
+    this.inited = false;
+    this.sessionConcept = null;
   }
 
   // One special telegram: 82 F1 F1 <cmd> <cmd> <sum8>. The adapter echoes
@@ -617,10 +1085,19 @@ class ThorWifiBus {
       }
       await new Promise((r) => setTimeout(r, 15));
     }
-    if (this.rx.length < want) throw new Error('THOR adapter did not answer');
+    if (this.rx.length < want) {
+      busTrace.add('thor.special', this.rx,
+        `cmd=0x${cmd.toString(16)} SHORT: wanted ${want}, got ${this.rx.length}`);
+      throw new Error('THOR adapter did not answer');
+    }
     const resp = this.rx.slice(req.length, want);
+    busTrace.add('thor.special', resp, `cmd=0x${cmd.toString(16)} ok`);
     const sum = resp.slice(0, -1).reduce((a, b) => (a + b) & 0xff, 0);
-    if (sum !== resp[resp.length - 1]) throw new Error('THOR answer checksum bad');
+    if (sum !== resp[resp.length - 1]) {
+      busTrace.add('thor.special', this.rx,
+        `cmd=0x${cmd.toString(16)} CHECKSUM bad`);
+      throw new Error('THOR answer checksum bad');
+    }
     return resp;
   }
 
@@ -657,21 +1134,56 @@ class ThorWifiBus {
   // 0x80 selects the K line. The adapter echoes the whole wrapped telegram
   // back, then appends the ECU's answer with its own sum8 -- so the answer
   // is checked on its own bytes, not across the echo.
-  static thorConfig(comm) {
+  // flags1 bits, from EdiabasLib EdCustomAdapterCommon (KLINEF1_*). These are
+  // the adapter's instructions for how to drive the wire.
+  static get KLINEF1() {
+    return { PARITY_EVEN: 0x01, USE_LLINE: 0x08, SEND_PULSE: 0x10,
+             NO_ECHO: 0x20, FAST_INIT: 0x40, USE_KLINE: 0x80 };
+  }
+
+  // Build flags1 the way EdiabasLib does (EdCustomAdapterCommon
+  // .CreateAdapterTelegram, lines 245-262), because the adapter acts on these
+  // bits and a missing one is silent.
+  //
+  // THE L LINE IS THE ONE THAT WAS MISSING. EdiabasLib sets KLINEF1_USE_LLINE
+  // whenever setDtr is false, and DS2 is exactly that case: EdInterfaceObd's
+  // concept-1 setup (case 0x0001) sets `ParSendSetDtr = false`. On the serial
+  // path DTR is the transmit enable; on a custom adapter the equivalent is
+  // telling the firmware to drive the L line as well as K. Without it the
+  // telegram is framed perfectly, the adapter echoes it, and the module never
+  // hears a thing -- which is precisely the silence seen here.
+  //
+  // NOTE DS2 needs NO WAKE: the same setup sets `EcuConnected = true` outright,
+  // so there is no fast-init for this concept. (KWP2000 does wake, via
+  // SendWakeFastInit -> KLINEF1_FAST_INIT; that path is kept for 0x10D.)
+  // NO_ECHO IS THE STARTING VALUE, NOT AN OPTION. EdiabasLib opens with
+  // `byte flags1 = KLINEF1_NO_ECHO` and never clears it, so a real adapter is
+  // always told to swallow the echo -- and in the wrapped branch EdiabasLib
+  // reads no echo back either (the echo-removal loop lives only in the raw /
+  // 115200 branch). Asking for the echo left this the only client on the wire
+  // driving the line differently from every other one.
+  static thorConfig(comm, fastInit) {
+    const F = ThorWifiBus.KLINEF1;
     const c = conceptOf(comm);
     const kline = isDs2(c) || c === 0x10d;
     const baud = kline ? ((comm && comm.baud) || 9600) : 115200;
-    // even parity on the K-line concepts, none on BMW-FAST
-    const parity = kline ? 0x01 : 0x00;
+    let flags1 = F.NO_ECHO | F.USE_KLINE;
+    if (kline) {
+      flags1 |= F.PARITY_EVEN;                 // DS2/KWP2000* are 8E1
+      // setDtr is false for these concepts, so the L line carries the send
+      flags1 |= F.USE_LLINE;
+      // only the concepts that actually do a fast init ask for one
+      if (fastInit && c === 0x10d) flags1 |= F.FAST_INIT;
+    }
     return {
       baudHalf: baud === 115200 ? 0 : Math.floor(baud / 2),
-      flags1: parity | 0x80,
+      flags1,
       interByte: 0,
     };
   }
 
-  thorWrap(payload, comm) {
-    const cfg = ThorWifiBus.thorConfig(comm);
+  thorWrap(payload, comm, fastInit) {
+    const cfg = ThorWifiBus.thorConfig(comm, fastInit);
     const v2 = this.fw && this.fw.version >= 0x0008;
     const head = v2
       ? [0x00, 0x02, (cfg.baudHalf >> 8) & 0xff, cfg.baudHalf & 0xff,
@@ -685,38 +1197,75 @@ class ThorWifiBus {
     return tel;
   }
 
-  async exchange(out, comm) {
-    // the BMW telegram still needs its own concept checksum -- the adapter
-    // wraps it, it does not compute it
-    const payload = withChecksum(out, comm);
-    const tel = this.thorWrap(payload, comm);
-    const timeoutMs = (comm && comm.timeout) || 2000;
-    if (comm && comm.waitMs) {
-      await new Promise((r) => setTimeout(r, Math.min(comm.waitMs, 5000)));
+  // The wire settings ride in each telegram's config header (thorWrap), so the
+  // adapter needs no port reconfiguration -- but runExchange calls this on
+  // every exchange, so it has to exist and be cheap. Tracking the concept
+  // keeps parity with the serial buses for anything that reads it back.
+  async ensureConfig(cfg) { this.config = cfg; }
+
+  // Same contract as the serial buses' exchangeRaw: write `framed` (null means
+  // "keep reading the answer to what was already sent" -- the response-pending
+  // path), then return one verified frame. Everything ABOVE this -- concept
+  // reconfiguration, ParRegenTime, response-pending polling, the retry policy
+  // -- now comes from runExchange, shared with the serial path, instead of the
+  // partial copy this class used to carry.
+  async exchangeRaw(framed, timeoutMs, comm) {
+    let echoLen = 0;
+    if (framed) {
+      // `framed` already carries the concept checksum (runExchange applied it);
+      // the adapter wraps that telegram, it does not compute the checksum.
+      // Wake the module on the first K-line telegram of a session, exactly
+      // like the serial path's `inited` gate -- the wake belongs to the
+      // CONNECTION, not to one telegram, so it is cleared on connect/drop.
+      const concept = conceptOf(comm);
+      const wantWake = (isKline(concept) || isKline(this.sessionConcept)) && !this.inited;
+      busTrace.add('thor.wake?', null,
+        `concept=0x${concept.toString(16)} isKline=${isKline(concept)}`
+        + ` sessionConcept=${this.sessionConcept} inited=${this.inited}`
+        + ` -> wantWake=${wantWake}`);
+      const tel = this.thorWrap(Array.from(framed), comm, wantWake);
+      if (wantWake) this.inited = true;
+      // No echo to skip: thorConfig sets KLINEF1_NO_ECHO, so the adapter
+      // swallows it and the next bytes on the stream are the ECU's answer.
+      // (When the flag was absent the adapter echoed the PAYLOAD -- the bare
+      // BMW telegram, not the wrapper -- which is why echoLen was framed.length
+      // and not tel.length. Kept as a note: the echo is a mode, not a given.)
+      echoLen = 0;
+      busTrace.add('thor.telegram', framed, `concept 0x${conceptOf(comm).toString(16)}`);
+      busTrace.add('thor.wrapped', tel,
+        `echoLen=${echoLen} baud=${(comm && comm.baud) || ''}`
+        + ` flags1=0x${tel[4].toString(16)}${wantWake ? ' FAST_INIT' : ''}`);
+      if (this.native) await window.bmacw.tcpRead();    // drop anything stale
+      this.rx.length = 0;
+      if (this.native) await window.bmacw.tcpWrite(tel);
+      else this.ws.send(new Uint8Array(tel));
+    } else {
+      busTrace.add('thor.reread', null, 'response-pending follow-up');
     }
-    if (this.native) await window.bmacw.tcpRead();      // drop anything stale
-    this.rx.length = 0;
-    if (this.native) await window.bmacw.tcpWrite(tel);
-    else this.ws.send(new Uint8Array(tel));
     const deadline = Date.now() + timeoutMs;
-    // wait for the echo first, then let the concept decide how long the
-    // answer is -- same framing rules as the serial path
-    while (this.rx.length < tel.length && Date.now() < deadline) {
+    // echoLen is 0 while NO_ECHO is set; the loop and the throw below cost
+    // nothing then, and still cover an adapter that echoes anyway.
+    while (this.rx.length < echoLen && Date.now() < deadline) {
       if (this.native) {
         const got = await window.bmacw.tcpRead();
         if (got && got.length) { this.rx.push(...got); continue; }
       }
       await new Promise((r) => setTimeout(r, 10));
     }
-    if (this.rx.length < tel.length) {
+    if (this.rx.length < echoLen) {
+      busTrace.add('thor.rx', this.rx, `SHORT: wanted echo of ${echoLen}`);
       throw new Error('no echo from the THOR adapter (timeout)');
     }
+    if (echoLen) busTrace.add('thor.echo', this.rx.slice(0, echoLen), 'echo (skipped)');
     while (Date.now() < deadline) {
-      const buf = this.rx.slice(tel.length);
+      const buf = this.rx.slice(echoLen);
       const total = frameTotal(buf, comm);
       if (total !== null && buf.length >= total) {
         const frame = buf.slice(0, total);
+        busTrace.add('thor.answer', frame, `frameTotal=${total}`);
         verifyChecksum(frame, comm);
+        // consume it, so a follow-up read (response-pending) starts clean
+        this.rx = this.rx.slice(echoLen + total);
         return frame;
       }
       if (this.native) {
@@ -725,11 +1274,16 @@ class ThorWifiBus {
       }
       await new Promise((r) => setTimeout(r, 10));
     }
-    const partial = this.rx.length - tel.length;
+    const partial = this.rx.length - echoLen;
+    busTrace.add('thor.rx', this.rx,
+      `TIMEOUT after echo: ${partial} byte(s) of answer, frameTotal=${frameTotal(this.rx.slice(echoLen), comm)}`);
     throw new Error(partial > 0
       ? `incomplete answer from ECU via THOR (${partial} bytes)`
       : 'no answer from ECU (timeout)');
   }
+
+  // the shared path: identical semantics to the serial buses
+  async exchange(out, comm) { return runExchange(this, out, comm); }
 }
 
 // Which transport this host can do. THOR is an explicit choice (?thor=1 or the
@@ -861,7 +1415,20 @@ async function switchSession(sgbd) {
   if (loadedSgbd === key) return;
   const prev = loadedSgbd;
   loadedSgbd = key;
-  if (prev) await endSession(prev);
+  // Only a REAL switch clears the wire state. `if (loadedSgbd === key) return`
+  // above already skipped the no-op case, so reaching here means a different
+  // ECU -- which may live on a different wire, so the remembered concept and
+  // the wake that went with it do not carry over.
+  //
+  // NOTE this must NOT run between an SGBD's session init and its jobs: those
+  // are the same session. Clearing there let the job's BMW-FAST concept
+  // become the session concept, the port reopened at 115200, and the wake
+  // performed at 10400 was undone before the telegram went out.
+  if (prev) {
+    await endSession(prev);
+    webBus.sessionConcept = null;
+    webBus.inited = null;
+  }
 }
 
 // Run a job the way the server's /run endpoint did, but in the VM.
@@ -884,13 +1451,17 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
   // the request bytes, miss the memo, and re-transmit an already-sent telegram
   const jobNow = new Date();
   let sendSeq = 0;
+  let emptyAnswers = 0;   // telegrams the wire could not answer
+  let realAnswers = 0;    // telegrams that came back with bytes
   for (let attempt = 0; attempt < 64; attempt++) {
     let missing = null;
     sendSeq = 0;
     const vm = new Best2Vm(code, {
       tables,
       args: arg == null ? '' : String(arg),
-      allowWrites: false,
+      // Writes permitted -- see the note on Best2Vm.allowWrites. This is the
+      // main job runner, so it is what lets an actuator test reach the wire.
+      allowWrites: true,
       shared: session.shared,
       inited: session.inited,
       comm: session.comm,
@@ -915,14 +1486,59 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
       const sets = vm.run(job, arg == null ? '' : String(arg));
       session.inited = true;
       session.comm = vm.comm || session.comm;
+      // A job that transmitted and was answered by NOTHING did not read the
+      // car. Saying so is the only honest outcome: the alternative is a
+      // "clean fault memory" that is really a dead wire.
+      if (emptyAnswers && !realAnswers) {
+        throw ifhError('IFH-0009',
+          'the ECU did not answer any telegram in this job');
+      }
       return { sets };
     } catch (e) {
       // Only the needAnswer sentinel may turn into a wire exchange. A real
       // VM error thrown in the same pass must surface as itself, not be
       // recycled into "did not settle".
       if (!missing || !e.needAnswer) throw e;
-      answers.set(missing.key,
-                  await webBus.exchange(missing.out, missing.comm));
+      // A SILENT ECU IS AN ANSWER OF ZERO BYTES, NOT A DEAD JOB.
+      //
+      // The VM sets f.zero from the answer's length and the bytecode branches
+      // on it. Tracing EDIABAS proved the SGBD relies on exactly that:
+      // ms450ds0's INITIALISIERUNG holds two telegrams as constants, sends
+      // "82 12 F1 1A 80", gets IFH-0009 -- and carries on to send
+      // "B8 12 F1 02 1A 80", which the ECU answers. Throwing here killed the
+      // job on the first telegram, so the second was never tried and a
+      // perfectly reachable DME looked silent.
+      //
+      // Only a NO-ANSWER is swallowed this way. A damaged frame, a checksum
+      // failure or a bus-level fault still throws: those mean the wire is
+      // lying, and continuing would decode garbage.
+      let answer;
+      try {
+        answer = await webBus.exchange(missing.out, missing.comm);
+      } catch (err) {
+        // IFH-0009 (silence) and IFH-0003 (the echo did not come back cleanly)
+        // both mean THIS TELEGRAM GOT NOTHING USABLE. The SGBD's fallback
+        // branches on the answer's length via `slen`, so both must arrive as
+        // an empty answer or the bytecode never reaches its second telegram.
+        //
+        // A half-duplex K line genuinely produces both: an ECU that ignores a
+        // framing answers with silence, and the stray leftover byte that
+        // follows makes the NEXT echo compare fail. Treating only the timeout
+        // as "no answer" left the app dying on whichever of the two happened
+        // to occur first.
+        if (err && (err.ifh === 'IFH-0009' || err.ifh === 'IFH-0003')) {
+          answer = [];
+          // REMEMBER THAT THE WIRE FAILED. The empty answer is what the SGBD's
+          // fallback needs, but a job whose telegrams ALL came back empty has
+          // not read the car -- it has read nothing. Without this the fault
+          // screen rendered "No stored faults / clean fault memory" for a DME
+          // holding nine real faults, which is the worst thing a diagnostic
+          // tool can say.
+          emptyAnswers++;
+        } else throw err;
+      }
+      if (answer && answer.length) realAnswers++;
+      answers.set(missing.key, answer);
     }
   }
   throw new Error('job did not settle after 64 telegram exchanges');
@@ -1025,6 +1641,9 @@ async function webResolveVariant(groupName) {
         tables,
         extTables,
         args: '',
+        // Group probing walks diagnostic addresses to find out WHICH module
+        // answers, so it must never transmit anything that changes one. It
+        // only ever needs idents, and this stays refused on purpose.
         allowWrites: false,
         now: jobNow,
         send: (out, comm) => {
@@ -1311,7 +1930,10 @@ function installWebShim() {
         try {
           const st = await webBus.readState();
           return ok({ battery: st.battery, ignition: st.ignition,
-                      connected: true, detail: null });
+                      connected: true, derived: !!st.derived,
+                      detail: st.derived
+                        ? 'nominal: this adapter has no voltage sense'
+                        : null });
         } catch { /* adapter went away; report disconnected below */ }
       }
       return ok({ battery: null, ignition: null, connected: webBus.connected,
@@ -1334,6 +1956,10 @@ function installWebShim() {
           if (typeof webDemoCoding === 'function') {
             await webDemoCoding(sgbd, decodeURIComponent(run[2]), sets);
           }
+          // fault reads answer with faults this module can really report
+          if (typeof webDemoFaults === 'function') {
+            await webDemoFaults(sgbd, decodeURIComponent(run[2]), sets);
+          }
           return ok({ job: run[2], demo: true, sets });
         } catch (e) {
           return err(e.message, 404);
@@ -1349,9 +1975,11 @@ function installWebShim() {
         return ok({ job: run[2], sets: r.sets });
       } catch (e) { return err(e.message); }
     }
-    if (/^\/api\/ecu\/[^/]+\/(clear|write|flash)/.test(rel)) {
-      return err('write operations are not available in the web build', 501);
-    }
+    // The web build used to refuse these outright. Lifted at the owner's
+    // request so actuator tests work; see the note on Best2Vm.allowWrites.
+    // The routes below still run through the VM's own gate, which is now
+    // permissive by default rather than absent.
+
 
     // --- everything else is a static file route (served from the zip archives)
     //

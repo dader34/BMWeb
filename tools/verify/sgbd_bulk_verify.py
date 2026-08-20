@@ -80,6 +80,12 @@ WRITE_TOKEN = re.compile(
     r"|AKTIVIER|DEAKTIVIER|TILGUNG|ANLERN|TEACH|CLEAR)", re.I)
 INFO_READ_TOKEN = re.compile(
     r"(?:\b|_)INFO", re.I)
+# CONFIG names a read ONLY when nothing else in the name says otherwise. MS45
+# exposes ECU_CONFIG (83 12 F1 30 A8 01 -- a three-byte query for the
+# vehicle-equipment list) and ECU_CONFIG_RESET (9B 12 F1 30 A8 04 00 ... --
+# 27 bytes written back); they share service 0x30, so only the name separates
+# them. Checked after READ_TOKEN so read-wins ordering is preserved.
+CONFIG_READ_TOKEN = re.compile(r"CONFIG", re.I)
 
 
 class _WriteJob:
@@ -90,6 +96,9 @@ class _WriteJob:
         n = name or ""
         if READ_TOKEN.search(n):
             return None                       # a read of anything is a read
+        # a *_CONFIG read, but only when no write verb rides along
+        if CONFIG_READ_TOKEN.search(n) and not WRITE_TOKEN.search(n):
+            return None
         if WRITE_TOKEN.search(n):
             return True                       # a named write verb
         if INFO_READ_TOKEN.search(n):

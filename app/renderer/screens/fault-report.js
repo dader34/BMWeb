@@ -18,13 +18,18 @@ const FAULT_REPORT_CSS = `
     th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #777;
          border-bottom: 1px solid #ccc; padding: 4px 6px; }
     td { padding: 5px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
-    .c-code { font: 700 12px "SF Mono", Menlo, monospace; white-space: nowrap; width: 72px; }
+    .c-code { font: 700 12px "SF Mono", Menlo, monospace; white-space: nowrap; width: 92px; }
     .c-p { font: 700 12px "SF Mono", Menlo, monospace; }
     .c-hex { font: 600 10.5px "SF Mono", Menlo, monospace; color: #999; }
     .c-type { font-size: 11px; color: #555; white-space: nowrap; width: 84px; }
     .c-count { font: 600 11px "SF Mono", Menlo, monospace; color: #555; white-space: nowrap; width: 44px; text-align: right; }
     .c-state { font: 600 10.5px "SF Mono", Menlo, monospace; color: #777; white-space: nowrap; width: 64px; text-align: right; }
     tr.present .c-code, tr.present .c-state { color: #c0392b; }
+    tr.envrow td { border-bottom: 1px solid #eee; padding: 3px 6px 6px; }
+    .env { font-size: 10.5px; color: #555; line-height: 1.5; }
+    .e-item { display: inline-block; width: 32%; vertical-align: top; }
+    .e-k { color: #777; }
+    .e-v { font: 600 10.5px "SF Mono", Menlo, monospace; color: #14181d; }
     .clean-note { padding: 24px; text-align: center; color: #2e7d32; font-size: 15px; font-weight: 600;
                   border: 1px solid #cde6cd; border-radius: 6px; background: #f3faf3; }
     footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }`;
@@ -36,14 +41,27 @@ const FAULT_REPORT_CSS = `
 function faultModuleBlock(label, sgbd, codes) {
   const fields = codes.map(c => faultFields(c, sgbd));
   const hasDetail = fields.some(f => f.ftype || f.count);
-  const rows = fields.map(f => `<tr class="${f.present ? 'present' : ''}">
+  const cols = (hasDetail ? 5 : 3);
+  // freeze-frame values ride in a full-width row under their own fault, so the
+  // snapshot stays attached to the code it belongs to
+  const envRow = (c) => {
+    const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
+    if (!pairs.length) return '';
+    const items = pairs.map(([k, v]) =>
+      `<span class="e-item"><span class="e-k">${esc(k)}</span> `
+      + `<span class="e-v">${esc(v)}</span></span>`).join('');
+    return `<tr class="envrow"><td colspan="${cols}"><div class="env">${items}</div></td></tr>`;
+  };
+  const rows = fields.map((f, i) => `<tr class="${f.present ? 'present' : ''}">
       <td class="c-code">${f.pcode
         ? `<div class="c-p">${esc(f.pcode)}</div><div class="c-hex">${esc(f.code)}</div>`
-        : esc(f.code)}</td>
+        : `<div class="c-p">${esc(f.code)}</div>`}${
+        f.hex ? `<div class="c-hex">${esc(f.hex)}</div>` : ''}</td>
       <td class="c-name">${esc(f.name)}</td>
       ${hasDetail ? `<td class="c-type">${esc(f.ftype || '—')}</td>
       <td class="c-count">${esc(f.count || '—')}</td>` : ''}
-      <td class="c-state">${f.present ? 'PRESENT' : 'stored'}</td></tr>`).join('');
+      <td class="c-state">${f.present ? 'PRESENT' : 'stored'}</td></tr>`
+      + envRow(codes[i])).join('');
   return `<section class="mod">
     <h2>${esc(label)} <span class="sgbd">${esc(sgbd)}</span>
       <span class="modcount">${codes.length} fault${codes.length === 1 ? '' : 's'}</span></h2>
@@ -85,19 +103,37 @@ async function printFaultReport(chassisId, faulty, stats) {
         ? ['Code', 'Description', 'Type', 'Count', 'State']
         : ['Code', 'Description', 'State'];
       const rows = fields.map((x) => {
-        const code = x.pcode ? `${x.pcode}  (${x.code})` : x.code;
+        const code = (x.pcode ? `${x.pcode}  (${x.code})` : x.code)
+          + (x.hex ? `\n${x.hex}` : '');
         const state = x.present ? 'PRESENT' : 'stored';
         return hasDetail
           ? [code, x.name, x.ftype || '—', x.count || '—', state]
           : [code, x.name, state];
       });
       const cols = hasDetail
-        ? ['pr-mono', '', '', 'pr-num', 'pr-num']
-        : ['pr-mono', '', 'pr-num'];
+        ? ['pr-code2', '', '', 'pr-num', 'pr-num']
+        : ['pr-code2', '', 'pr-num'];
       sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
         + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
       const t = printTable(headers, rows, cols); t.avoidBreak = false;
       sections.push(t);
+      // Freeze-frame values, only after a detailed read (F_UW*). The table above
+      // has one row per fault and no room for eight more columns, so each fault
+      // that carries a snapshot gets its own labelled block underneath.
+      if (typeof envPairs === 'function') {
+        f.codes.forEach((c, i) => {
+          const pairs = envPairs(c);
+          if (!pairs.length) return;
+          const items = pairs.map(([k, v]) =>
+            `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>`
+            + `<span class="pr-env-v">${esc(v)}</span></div>`).join('');
+          sections.push({
+            html: `<div class="pr-env"><div class="pr-env-head">`
+              + `${esc(fields[i].code)} · environment at code entry</div>${items}</div>`,
+            avoidBreak: true,
+          });
+        });
+      }
     }
   }
   printDoc({

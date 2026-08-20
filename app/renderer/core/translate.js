@@ -603,7 +603,8 @@ function deGerman(text) {
   if (lang() === 'orig') return text; // keep German in EDIABAS mode
   if (_deCache.has(text)) return _deCache.get(text);
   let out = null;
-  const trimmed = text.trim();
+  // web VM results can be numbers (see bmwCode); only strings have .trim()
+  const trimmed = String(text).trim();
   if (INPA_CAPTIONS.has(trimmed)) out = INPA_CAPTIONS.get(trimmed);
   if (out === null && ARG_PHRASES[trimmed]) out = ARG_PHRASES[trimmed];
   // per-ECU fault-location text (SGBD FORTTEXTE tables, faultdb.js), variant-agnostic
@@ -612,12 +613,14 @@ function deGerman(text) {
   if (out === null) for (const [de, en] of FAULT_PHRASES) if (trimmed === de) { out = en; break; }
   if (out === null) {
     // token-level fallback for partial/unlisted phrases (P-code text, etc.)
-    out = text;
+    // NB: the RAW text, not `trimmed` -- keeping the source's padding preserves
+    // the shipped i18n snapshot (trimming here retranslates ~9k captions).
+    out = String(text);
     for (const [re, en] of DE_TOKENS) out = out.replace(re, en);
     // token rules are lowercase (German capitalises nouns), so restore the
     // source's leading case where it had one, else "actuator activation" under
     // "Read error memory".
-    if (/^[A-ZÄÖÜ]/.test(text) && /^[a-z]/.test(out))
+    if (/^[A-ZÄÖÜ]/.test(String(text)) && /^[a-z]/.test(out))
       out = out.charAt(0).toUpperCase() + out.slice(1);
   }
   // don't cache a token-fallback taken before the phrase map loads, or it
@@ -705,11 +708,37 @@ const PCODE_MAP = {
   '27C2': 'P2562',
   '27C4': 'P2564',
 };
-// BMW fault number = first token of F_ORT_TEXT ("27DA BSD-Generator" -> 27DA)
+// Flatten an EDIABAS result value to the same text the native bridge produces
+// (src/EdiabasMac/Diag.cs Format): byte arrays become dashed hex ("27-DA"),
+// everything else its plain string. The web VM returns live typed values --
+// `ergy` (binary) emits a byte Array, `ergi`/`ergb`/... emit numbers -- so
+// screens that only ever saw the native path's strings funnel through here.
+// An empty binary result ([]) is truthy but must read as "no code", which the
+// join handles by yielding ''.
+function hexText(v) {
+  if (v == null || v === '') return '';
+  if (typeof v === 'string') return v;
+  // duck-typed, not `instanceof`: a typed array from another realm (worker,
+  // iframe) fails the instanceof check and would stringify as "39,218".
+  if (Array.isArray(v) || ArrayBuffer.isView(v))
+    return Array.from(v, b => (b & 0xff).toString(16).toUpperCase().padStart(2, '0')).join('-');
+  if (typeof v === 'number')
+    return Number.isFinite(v) && v !== 0
+      ? (v >>> 0).toString(16).toUpperCase().padStart(4, '0') : '';
+  return String(v);
+}
+
+// BMW fault number = first token of F_ORT_TEXT ("27DA BSD-Generator" -> 27DA).
+// GOTCHA: F_HEX_CODE is declared `binary` in every SGBD that has it. The native
+// path flattens it first (Diag.Format -> BitConverter.ToString -> "27-DA", hence
+// the dash strip below), but the web VM hands us the raw Uint8Array, which has
+// no .replace. Most ECUs never reach here because their F_ORT_TEXT leads with
+// the code; KOMBI's text is German-only, so it falls through to `hex`.
 function bmwCode(loc, hex) {
-  if (loc) { const m = loc.match(/^([0-9A-F]{3,5})\b/i); if (m) return m[1].toUpperCase(); }
-  if (hex) return hex.replace(/-/g, '').slice(0, 4).toUpperCase();
-  return null;
+  const text = loc == null ? '' : String(loc);
+  if (text) { const m = text.match(/^([0-9A-F]{3,5})\b/i); if (m) return m[1].toUpperCase(); }
+  const h = hexText(hex);
+  return h ? h.replace(/-/g, '').slice(0, 4).toUpperCase() : null;
 }
 
 // F_ORT_NR (BMW "Fehlerort") -> the LOCATION BYTE the SGBD FORTTEXTE table keys

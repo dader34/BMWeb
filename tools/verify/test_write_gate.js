@@ -188,22 +188,29 @@ for (const tok of CLOSED_GAPS) {
 }
 
 // ---------------------------------------------------------------------------
-console.log('5. webshim keeps allowWrites:false and the 501 write route');
+// WRITES ARE ENABLED BY OWNER'S DECISION (2026-08-19). The refuse-everything
+// posture blocked actuator tests -- STEUERN_E_LUEFTER never reached the wire,
+// so the fan screen's "Activate at 15%" did nothing while the readback sat at
+// the DME's own 92. The classifier cannot separate a temporary actuator drive
+// from a permanent EEPROM write, so enabling one enables both.
+//
+// These assertions now guard the parts that MUST stay narrow, so the change
+// cannot quietly widen further.
+console.log('5. writes are enabled, and the read-only paths stay read-only');
 const shim = read('app/renderer/core/webshim.js');
-ok(/allowWrites:\s*false/.test(shim),
-   'webshim constructs the VM with allowWrites:false');
-ok(!/allowWrites:\s*true/.test(shim),
-   'webshim never constructs the VM with allowWrites:true');
-ok(/\/\^\\\/api\\\/ecu\\\/\[\^\/\]\+\\\/\(clear\|write\|flash\)/.test(shim)
-   || /\(clear\|write\|flash\)/.test(shim),
-   'webshim keeps the /clear|write|flash 501 route');
-ok(/write operations are not available in the web build/.test(shim),
-   'webshim keeps the 501 write-refusal message');
+ok(/allowWrites: true/.test(shim),
+   'the job runner constructs the VM with allowWrites:true');
+ok(/allowWrites: false/.test(shim),
+   'group probing STILL passes allowWrites:false -- it walks addresses that '
+   + 'may not be the module we think, so it must never change one');
+const probe = shim.slice(shim.indexOf('Group probing walks diagnostic addresses'));
+ok(/allowWrites: false/.test(probe.slice(0, 400)),
+   'and that false belongs to the probe, not to a stale call site');
 
 // ---------------------------------------------------------------------------
 if (failures) {
   console.error(`\nWRITE-GATE GUARD FAILED: ${failures} assertion(s).`);
-  console.error('A change has loosened the write protection. Do NOT ship this.');
+  console.error('The write posture changed in a way this guard does not expect.');
   process.exit(1);
 }
 console.log('\nwrite-gate guard: all assertions passed.');

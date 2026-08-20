@@ -48,6 +48,12 @@ async function irResolveGroupVariant(ecu) {
   } catch { return; }
   ecu._sgbdBase = ecu._sgbdBase || ecu.sgbd;
   ecu.sgbd = v;
+  // The group ran IDENTIFIKATION and the answer IS the variant name -- the same
+  // thing irResolveVariant would ask INITIALISIERUNG for. Record it: without
+  // this the variant stayed unknown whenever the group answered first, and
+  // every per-variant menu guard (menuFor) had nothing to match, so an E46 took
+  // the first branch and landed on the E38 pages.
+  if (!ecu._variant) ecu._variant = v.toUpperCase();
 }
 
 // Several root menus, one per ECU variant: INPA runs the variant job and
@@ -55,8 +61,26 @@ async function irResolveGroupVariant(ecu) {
 // a section reached straight from the F-key bar never runs showEcu.
 async function irResolveVariant(ecu) {
   const ir = ecu._ir;
-  if (!ir || !ir.rootVariants || !ir.variantJob || ecu._variant) return;
+  if (!ir || !ir.rootVariants || !ir.variantJob) return;
+  // already known (the group's IDENTIFIKATION answered it): don't ask the car
+  // twice, but DO hand it to the IR -- menu/screen selection reads ir._variant,
+  // and returning early here left it unset.
+  if (ecu._variant) { ir._variant = ecu._variant; return; }
   const names = Object.values(ir.rootVariants).flat();
+  // THE SGBD IS OFTEN THE VARIANT, AND NO JOB REPORTS IT. VARIANTE is an
+  // EDIABAS SYSTEM result derived from the loaded .prg, not something a job
+  // returns: kombi46's INITIALISIERUNG yields only DONE, and no kombi46 job
+  // names VARIANTE at all. Running the variant job to learn it can therefore
+  // never work here -- INPA does not need to ask, because it loaded KOMBI46.
+  // So when the SGBD we are talking to IS one of the variants this IR serves,
+  // that is the answer, and it costs no transaction.
+  const self = names.find(n => String(n).toUpperCase()
+                               === String(ecu.sgbd).toUpperCase());
+  if (self) {
+    ecu._variant = self;
+    ir._variant = self;
+    return;
+  }
   if (demoMode()) {
     // no car to ask: pick a variant INPA itself lists, so the screens belong
     // to a real variant rather than an invented mixture
@@ -70,6 +94,10 @@ async function irResolveVariant(ecu) {
     } catch { /* no cable: irRootMenu falls back to the widest root */ }
   }
   if (ecu._variant) ir._variant = ecu._variant;
+  if (typeof busTrace !== 'undefined') {
+    busTrace.add('ir.variant', null,
+      `sgbd=${ecu.sgbd} variantJob=${ir.variantJob} -> _variant=${ecu._variant}`);
+  }
   await irUseVariantSgbd(ecu);
 }
 
@@ -90,9 +118,32 @@ async function irUseVariantSgbd(ecu) {
   ecu.sgbd = v;
 }
 
-// ECU main menu: section categories on the F-key bar, each opens a sub-screen
-async function showEcu(chassisId, sectionName, ecu) {
-  lastScreen = () => showEcu(chassisId, sectionName, ecu);
+// Deep link (#car/<CHASSIS>/<SGBD>[/<MENU>]): the URL names an SGBD, not the
+// in-memory ECU object the card click would have passed, so look it up in the
+// chassis config first. Falls back to the module list when the SGBD isn't in
+// this chassis (a stale or hand-edited link).
+async function showEcuDeep(chassisId, sgbd, menuName) {
+  const ch = await tryApi(`/api/chassis/${chassisId}`, null, view,
+                          `failed to load ${dispChassis(chassisId)}`);
+  if (!ch) return;
+  const want = String(sgbd).toLowerCase();
+  for (const sec of (ch.sections || [])) {
+    const hit = (sec.ecus || []).find(e => String(e.sgbd).toLowerCase() === want);
+    if (hit) return showEcu(chassisId, sec.name, hit, menuName);
+  }
+  sbLeft.textContent = `${sgbd} not in ${dispChassis(chassisId)}`;
+  return showSections(chassisId);
+}
+
+// ECU main menu: section categories on the F-key bar, each opens a sub-screen.
+// openMenu (optional) is an IR menu name to descend into once the IR is loaded,
+// so a deep link lands on the submenu rather than the root.
+async function showEcu(chassisId, sectionName, ecu, openMenu) {
+  lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu);
+  // the ECU object comes from the chassis config and doesn't know which chassis
+  // it came from; screens that build links/reports off it need that (exportFaults
+  // already read ecu.chassis, which was always undefined until now)
+  ecu.chassis = chassisId;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(chassisId), fn: () => backToModules(chassisId) },
@@ -133,7 +184,14 @@ async function showEcu(chassisId, sectionName, ecu) {
     await irResolveGroupVariant(ecu);
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
+    // asking the car which variant it is takes a real transaction; say so
+    // rather than leaving the skeleton up with no explanation
+    if (!ecu._variant && ecu._ir && ecu._ir.rootVariants
+        && !(typeof demoMode === 'function' && demoMode())) {
+      sbLeft.textContent = 'reading variant…';
+    }
     await irResolveVariant(ecu);
+    sbLeft.textContent = `${ecu.sgbd}.prg`;
   } catch { ecu._ir = null; }
 
   // INPA's own keys, in INPA's own order, each opening whatever it opens.
@@ -149,7 +207,14 @@ async function showEcu(chassisId, sectionName, ecu) {
     // Coding no longer hangs off the per-ECU menu -- it is a chassis-level
     // destination (the Coding tile -> Coding hub). So no root-menu extras here.
     if (typeof setIrRootExtras === 'function') setIrRootExtras(null);
-    renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
+    const toRoot = () =>
+      renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
+    // a deep link naming a submenu opens it directly, with Back going to the
+    // root menu (not out to the module list) so the hierarchy still reads right
+    if (openMenu && openMenu !== irRoot
+        && irMenuItems(ecu._ir, openMenu).length
+        && renderIrMenu(ecu, ecu._ir, openMenu, grid, toRoot, [])) return;
+    toRoot();
     return;
   }
 

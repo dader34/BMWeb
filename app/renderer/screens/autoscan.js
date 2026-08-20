@@ -151,7 +151,7 @@ function showAttentionPopup(findings) {
     <div class="att-group">
       <div class="att-ecu">${esc(g.label)} · ${g.faults.length} fault${g.faults.length === 1 ? '' : 's'}</div>
       ${g.faults.map(c => {
-        const hex = c.F_HEX_CODE || '';
+        const hex = hexText(c.F_HEX_CODE);
         const pstr = c.F_PCODE_STRING
           || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(bmwCode(c.F_ORT_TEXT, hex), g.sgbd) : null) || '';
         const { name, present } = faultFields(c, g.sgbd);

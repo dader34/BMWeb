@@ -126,6 +126,51 @@ OUT_DIR = os.path.join(os.path.dirname(L1.OUT), "inpa-ir")
 
 _KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
 
+# A variant name as it appears in a VARIANTE comparison: KOMBI46, KOMBI46R,
+# IKE, MS430... Two letters is the floor (IKE, IKI are real cluster variants).
+_VARISH = re.compile(r"^[A-Z][A-Z0-9]{1,}[A-Z0-9_]*$")
+# names that look variant-ish but are result keys / job arguments, not variants
+_NOT_VARIANT = re.compile(r"^(STAT|ID|AIF|F|JOB|ARG)_|_(EIN|AUS|WERT|TEXT)$")
+
+
+def _variant_guard(toks, at):
+    """The variant names guarding the branch that contains toks[at].
+
+    INPA writes per-variant dispatch as an if/else-if chain: a run of
+    `VARIANTE == "NAME"` comparisons or-ed together, a `jfalse` over the arm,
+    then the setmenu/setscreen for that arm. Walking back from the call to the
+    nearest jfalse and collecting the string constants compared just before it
+    recovers the condition. Returns [] when the target is not variant-guarded
+    (the common case -- most items name one target unconditionally).
+    """
+    names, seen_jfalse = [], False
+    for x in reversed(toks[max(0, at - 60):at]):
+        op = x.get("op")
+        # A `jump` before we ever saw a jfalse means we are in the ELSE arm of
+        # the chain -- the previous arm jumped over us. An else arm carries no
+        # condition of its own, so it is not variant-guarded: returning the
+        # previous arm's names here would hand KOMBI85's menu to everybody who
+        # falls through (m_steuern_36 in KOMBI's Activate).
+        if op == "jump" and not seen_jfalse:
+            return []
+        # the arm's own jfalse: everything before it is the condition
+        if op == "jfalse" and not seen_jfalse:
+            seen_jfalse = True
+            continue
+        if not seen_jfalse:
+            continue
+        # a previous arm's jump/jfalse ends this condition
+        if op in ("jump", "jfalse", "ITEM"):
+            break
+        if op == "call":            # a call inside the condition: not a guard
+            break
+        if op == "const" and x.get("t") == "s":
+            v = str(x.get("v", ""))
+            if _VARISH.match(v) and not _NOT_VARIANT.match(v):
+                if v not in names:
+                    names.append(v)
+    return list(reversed(names))
+
 # A RESULT name, which is laxer than a job name: BMW ships mixed-case results
 # ("Dimmerstellung" on BMBT46TN, "EINSCHALTZAEHLER_FKT2a") and two-letter ones
 # ("ECU", "TYP"). Used only where a Result* call names what it reads -- job
@@ -1402,6 +1447,24 @@ def _menu_ir(toks, id2name, name=None):
             # and Information looked identical. Keep the FIRST, which is the
             # variant-specific screen, and record the rest.
             slot = "screen" if t["kind"] == 0x40 else "menu"
+            # WHICH variants this branch serves. The alternatives above are not
+            # a list INPA searches -- each one sits inside its own
+            #   if (VARIANTE == "A" || VARIANTE == "B") { setmenu(X) }
+            # arm, and INPA evaluates that against the VARIANTE it read at
+            # startup. KOMBI's "Activate" is exactly this: 36C|39|39C|52|IKE|IKI
+            # -> one menu, 46|46R -> another, 85 -> a third. Recording only the
+            # targets threw the condition away, so an E46 took the first arm and
+            # walked into the E38 activation pages, whose rows call jobs
+            # kombi46 does not have. Keep the guard with its target.
+            guard = _variant_guard(toks, ti)
+            if guard:
+                # several arms can name the SAME target (KOMBI's Coding key
+                # sends every variant to one menu); union their conditions so
+                # the guard says who really reaches it, not just the last arm
+                g = entry.setdefault(slot + "For", {}).setdefault(tgt, [])
+                for v in guard:
+                    if v not in g:
+                        g.append(v)
             if slot not in entry:
                 entry[slot] = tgt
             elif entry[slot] != tgt:

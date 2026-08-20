@@ -587,8 +587,24 @@ function irMenuItems(ir, menuName, variant) {
   // told apart from one that opens a different page
   const menuScreen = (menu.screen)
     || (menuName === (ir.entry || {}).menu ? (ir.entry || {}).screen : null);
-  const pick = (it) => irPickScreen(ir, it, variant || ir._variant, via);
+  const pick = (it) => {
+    const v = variant || ir._variant;
+    // The guard is INPA's own answer, but only when the page it names has
+    // something to draw. INPA parks keys it has no page for on a family
+    // PLACEHOLDER (s_status_36_38_39_46_52_85 is listed for every variant and
+    // holds no rows), and taking that literally hid KOMBI46's real status page.
+    // irPickScreen already prefers a candidate with rows; let it.
+    const g = irGuardPick(it.screenFor, v);
+    if (g && irRows((ir.screens || {})[g] || {}).rows.length) return g;
+    return irPickScreen(ir, it, v, via);
+  };
   const pickMenu = (it) => {
+    // INPA's OWN answer first: each menu key is an if/else-if chain on the
+    // VARIANTE read at startup, and the decompiler now keeps which names guard
+    // which target (menuFor). An exact match is what INPA would have run, so
+    // nothing below needs to infer it from the name.
+    const g = irGuardPick(it.menuFor, variant || ir._variant);
+    if (g) return g;
     const m = irPickTagged(ir, [it.menu, ...(it.menuAlts || [])],
                            variant || ir._variant);
     return m === undefined ? (it.menu || null) : m;
@@ -686,8 +702,16 @@ function irMenuItems(ir, menuName, variant) {
     .filter(it => it.screen || it.menu || it.job || it.inPlace)
     // a key whose menu holds nothing we can run is the same empty thing a level
     // down. Depth-limited not recursive (bars link Back to their parent).
+    //
+    // EXCEPT a captioned fault read. In INPA, "Read error memory" DISPLAYS the
+    // list and the menu it names is the toolbar over that display -- Print,
+    // Back, Exit and nothing else. By this rule that toolbar looks empty, so
+    // the entry was dropped and a cluster's fault page offered only "Clear
+    // error memory" with no way to read. 548 entries across the corpus are in
+    // that shape; the caption tells us which memory to read, so keep them.
     .filter(it => !it.menu || it.screen || it.menu === menuName
-                  || _irHasRunnable(ir, it.menu));
+                  || _irHasRunnable(ir, it.menu)
+                  || IR_FAULT_READ.test(it.label));
 }
 
 // Actuator keys always run -- INPA sends on the keypress. The setting only
@@ -826,6 +850,35 @@ function irIsCard(scr) {
   if (!args.length) return true;
   const caps = new Set(args.map(r => (r.label || '').trim()).filter(Boolean));
   return caps.size === args.length;
+}
+
+// What value is INPA asking for, and what will it accept?
+//
+// The prompt is the screen's own text, so the range is written the way BMW
+// wrote it. All of these occur in the corpus:
+//
+//   "10-90 [degrees]"        "valve position (0-100 %)"
+//   "DSC-Mode eingeben (0..3)"   "Angabe in Zahl von 0 bis 255"
+//
+// Parsed when we can, shown verbatim when we cannot -- a free-form prompt
+// ("Bitte 'ON' oder 'OFF' eingeben") still gets asked, just as text. Returns
+// { ask, lo, hi, unit } with lo === null when no range was found.
+function irPromptRange(prompt) {
+  const parts = (prompt || []).map((x) => String(x).trim()).filter(Boolean);
+  // parts[0] repeats the item label; the question is what follows.
+  const ask = (parts.length > 1 ? parts.slice(1) : parts).join(' — ');
+  for (const text of parts.slice(1).length ? parts.slice(1) : parts) {
+    const m = text.match(/(-?\d+)\s*(?:\.\.\.?|-|bis|to)\s*\+?(-?\d+)/i);
+    if (!m) continue;
+    let lo = Number(m[1]);
+    let hi = Number(m[2]);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) continue;
+    if (lo > hi) { const t = lo; lo = hi; hi = t; }
+    // the unit rides in brackets or right after the range: [degrees], (0-100 %)
+    const u = text.match(/\[([^\]]+)\]/) || text.match(/\d\s*([%A-Za-z°]+)\s*\)/);
+    return { ask, lo, hi, unit: u ? u[1].trim() : '' };
+  }
+  return { ask, lo: null, hi: null, unit: '' };
 }
 
 // INPA's memory dump: SPEICHER_LESEN with a start address and byte count,
@@ -979,6 +1032,40 @@ function irAsCard(scr, descs) {
 // Does this name end in one or more variant suffixes (_36, _38_39, _36c)? INPA
 // suffixes a screen with the chassis numbers it serves (s_status_36).
 const irHasVariantSuffix = (n) => /_\d+[a-zA-Z]?(_\d+[a-zA-Z]?)*$/.test(String(n));
+
+// The target INPA's own dispatch would pick for this variant.
+//
+// `guards` is {target: [VARIANTE, ...]} lifted straight out of the bytecode --
+// each menu/screen key compiles to an if/else-if chain over the VARIANTE read
+// at startup, and this is that condition. An exact name match therefore IS
+// INPA's decision, not an inference from it. Returns null when the item is not
+// variant-guarded (most are not) or when no arm names this variant, in which
+// case the caller falls back to the name-tag heuristics.
+// Does opening this item require a variant we do not have?
+//
+// A key whose targets are variant-guarded is an if/else-if chain on VARIANTE;
+// INPA runs INITIALISIERUNG before dispatching and never guesses. With a car
+// attached and no answer, following the first branch hands the user another
+// cluster's page -- that is how an E46 reached the E38 activation rows and
+// called jobs kombi46 does not have. Say so instead.
+//
+// Demo mode is exempt: there is no car to ask, and irResolveVariant already
+// picks a variant INPA itself lists.
+function irNeedsVariant(it, variant) {
+  if (variant) return false;
+  if (typeof demoMode === 'function' && demoMode()) return false;
+  return Object.keys((it && it.menuFor) || {}).length > 1
+      || Object.keys((it && it.screenFor) || {}).length > 1;
+}
+
+function irGuardPick(guards, variant) {
+  if (!guards || !variant) return null;
+  const V = String(variant).toUpperCase();
+  for (const [target, names] of Object.entries(guards)) {
+    if ((names || []).some(n => String(n).toUpperCase() === V)) return target;
+  }
+  return null;
+}
 
 // Is this variant one the screen suffixes can address at all? KOMBI31..KOMBI85
 // carry their number; IKE and IKI do not (INPA reaches them by name), so no
@@ -1332,8 +1419,49 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   irUseTranslations(ir);
   const items = irMenuItems(ir, menuName);
   if (!items.length) return false;
+  // mirror the menu into the URL so a submenu is a shareable deep link. Only
+  // the root carries no menu segment, keeping #car/<CH>/<SGBD> the ECU's own
+  // link rather than a redundant root-menu one.
+  if (typeof routeSetCar === 'function' && ecu && ecu.chassis && ecu.sgbd) {
+    const root = typeof irRootMenu === 'function' ? irRootMenu(ir, ecu._variant) : null;
+    routeSetCar(ecu.chassis, ecu.sgbd, menuName === root ? null : menuName);
+  }
 
   const open = async (it) => {
+    // This key dispatches on VARIANTE and we do not know it yet: ask the car
+    // before opening anything, because the branches lead to DIFFERENT ECUs'
+    // pages. Retried here rather than only at screen load, so a read that
+    // failed once (bus busy, cable just plugged in) can succeed on the click.
+    if (irNeedsVariant(it, ir._variant || ecu._variant)) {
+      const prev = sbLeft.textContent;
+      sbLeft.textContent = 'reading variant…';
+      try {
+        if (typeof irResolveVariant === 'function') {
+          ecu._variant = null;                 // force a re-read
+          await irResolveVariant(ecu);
+        }
+      } catch { /* reported below */ }
+      sbLeft.textContent = prev;
+      if (!(ir._variant || ecu._variant)) {
+        // Not resolved: do NOT guess a branch. Stay on this menu -- the user is
+        // left exactly where they were, with the reason.
+        await confirmDialog({
+          title: 'Cannot tell which control unit this is',
+          body: `<b>${esc(it.label)}</b> opens a different page for each `
+            + `variant of this module, and the variant read `
+            + `(<span class="mono">${esc(ir.variantJob || 'INITIALISIERUNG')}`
+            + `</span>) did not answer.<br><br>`
+            + `Opening it now would show another control unit's functions, `
+            + `which call jobs this one does not have. Check the cable and `
+            + `ignition, then try again.`,
+          confirmLabel: 'OK', cancelLabel: 'Close',
+        });
+        return;
+      }
+      // resolved: redraw so every key re-picks with the variant known
+      renderIrMenu(ecu, ir, menuName, container, back, trail);
+      return;
+    }
     // a MODE TOGGLE: one option of a radio group setting a shared flag the
     // actuator run reads. Calls no job and navigates nowhere, so picking it just
     // records the choice and redraws to show which is active. A card that
@@ -1435,10 +1563,21 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       }
     }
     const faultScreen = it.screen && (ir.screens || {})[it.screen];
+    // A "Read error memory" entry may carry no job at all: in INPA, choosing it
+    // DISPLAYS the fault list and the submenu it points at is the toolbar over
+    // that display (Print / Back / Exit). The decompiler captured the toolbar
+    // but not the implied read, so 614 entries across the corpus name a memory
+    // they never read -- the app then dropped them and the screen showed only
+    // "Clear error memory". If the caption says it reads a memory and nothing
+    // downstream actually does, run the read the caption names.
+    const subMenu = it.menu && (ir.menus || {})[it.menu];
+    const subReads = subMenu
+      && (subMenu.items || []).some(x => /^(FS|IS|HS)_/i.test(String(x.job || '')));
     const faultKey = IR_FAULT_READ.test(it.label)
       && (it.inPlace
           || (faultScreen && !irReadable(faultScreen)
-              && (faultScreen.jobs || []).some(j => /^FS_/i.test(j.name))));
+              && (faultScreen.jobs || []).some(j => /^FS_/i.test(j.name)))
+          || (!it.job && !faultScreen && !subReads));
     if (faultKey
         && !/^(FS|IS|HS)_LESEN$/i.test(it.job || '')
         && typeof runJob === 'function') {
@@ -1448,7 +1587,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         .then(j => runJob(ecu, j, container, false))
         .catch(() => runJob(ecu, 'FS_LESEN', container, false));
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label}`;
+      // INPA's fault display carries a Print key (its submenu IS that toolbar).
+      // This bar is the one on screen while the codes show, so Print belongs
+      // here, not only on the menu behind it.
       setActions([...keys(), {
+        key: 'p', keyLabel: 'P', label: 'Print', kind: 'print',
+        fn: () => exportFaults(ecu, container),
+      }, {
         key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
         fn: () => renderIrMenu(ecu, ir, menuName, container, back, trail),
       }], shiftKeys());
@@ -1508,17 +1653,61 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         });
         if (!ok) { sbLeft.textContent = 'cancelled'; return; }
       }
-      // INPA asks for a value first and builds the argument from it. We know the
-      // prompts but not how the script assembles them, so sending the job bare
-      // would command a position nobody chose. Listed, not sent.
-      if (it.prompt) {
+      // INPA asks for a value and appends it to the job's argument. The IR
+      // carries both halves, so ask the same question and assemble the same
+      // way rather than refusing:
+      //
+      //   jobArg "TACHO;"  + user "45"  ->  STEUERN_ANZEIGE "TACHO;45"
+      //
+      // The trailing ';' IS the marker for "a value goes here" -- 170 entries
+      // across the corpus use it. The prompt text carries the accepted range
+      // ("10-90 [degrees]", "(0..3)", "0 bis 255"), which irPromptRange parses
+      // when it can and simply shows verbatim when it cannot. Nothing here is
+      // specific to one screen or one ECU.
+      if (it.prompt && String(it.jobArg || '').endsWith(';')) {
+        const spec = irPromptRange(it.prompt);
+        const asked = await inputDialog({
+          title: esc(it.label),
+          body: `INPA asks: <b>${esc(spec.ask)}</b><br><br>`
+            + `Runs <span class="mono">${esc(it.job)}</span> with `
+            + `<span class="mono">${esc(it.jobArg)}&lt;value&gt;</span>.`
+            + (spec.lo != null
+              ? `<br><br>Accepted range <b>${spec.lo}</b> to <b>${spec.hi}</b>`
+                + (spec.unit ? ` ${esc(spec.unit)}` : '') + '.'
+              : ''),
+          kind: spec.lo != null ? 'number' : 'text',
+          example: spec.lo != null ? String(spec.lo) : '',
+          confirmLabel: 'Activate', danger: true,
+        });
+        if (asked == null || String(asked).trim() === '') {
+          sbLeft.textContent = 'cancelled';
+          return;
+        }
+        const val = String(asked).trim();
+        if (spec.lo != null) {
+          const n = Number(val);
+          if (!Number.isFinite(n) || n < spec.lo || n > spec.hi) {
+            container.className = 'results-panel';
+            container.innerHTML = errorBlock(
+              `${val} is outside the range INPA accepts here `
+              + `(${spec.lo}-${spec.hi}${spec.unit ? ' ' + spec.unit : ''}).`);
+            sbLeft.textContent = 'out of range';
+            setActions([...keys(), { key: 'Escape', keyLabel: 'Esc',
+              label: 'Back', kind: 'back', fn: reopen }], shiftKeys());
+            return;
+          }
+        }
+        it = { ...it, jobArg: it.jobArg + val };
+      } else if (it.prompt) {
+        // No trailing ';' means we do not know WHERE the answer goes in the
+        // argument. Guessing would command a position nobody chose.
         container.className = 'results-panel';
         container.innerHTML = `<div class="empty"><div>`
           + `<strong>${esc(it.label)}</strong></div>`
           + `<div>INPA prompts for ${esc(it.prompt.join(' — '))} and builds `
-          + `<code>${esc(it.job)}</code>'s argument from the answer. How it `
-          + `assembles that argument is not decoded, so this is listed but `
-          + `not sent.</div></div>`;
+          + `<code>${esc(it.job)}</code>'s argument from the answer. This `
+          + `job's argument has no value slot we can identify, so it is `
+          + `listed but not sent.</div></div>`;
         sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · needs input`;
         setActions([...keys(), {
           key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
@@ -1647,6 +1836,20 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     }
     if (screens.length) {
       showInpaCategory(ecu, screens, container, irLabel(scr.title) || it.label);
+    } else if (it.job) {
+      // THE SCREEN IS THE BACKDROP, THE JOB IS THE ACTION. An actuator key
+      // names both: "Activate self test" carries STEUERN_SELBSTTEST and points
+      // at s_steuern, which is a bare title screen with no jobs and one line --
+      // what INPA draws WHILE the test runs, not a readout. Because the item
+      // had a screen it was not `inPlace`, so the drive branch above never saw
+      // it and the empty screen fell through to "not offered here", for a job
+      // this ECU really has and answers OKAY to.
+      //
+      // Re-enter through the SAME branch rather than sending here: that one
+      // confirms, registers the drive for release-on-leave, and handles write
+      // jobs. Sending directly would energize an output with none of that.
+      await open({ ...it, inPlace: true, screen: null });
+      return;
     } else {
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
@@ -1792,7 +1995,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     stagger(container, 20);
   }
 
+  // Print sits on the MENU bar, not the fault view: a fault read draws into
+  // this container without re-setting actions, so this bar is the one on screen
+  // when codes are showing. It stays listed with nothing read (the bar is
+  // painted once, before any read) -- exportFaults says "read codes first".
+  // kind:'print' also puts it in the mobile ƒ sheet, which has no F-keys.
   setActions([...keys(), {
+    key: 'p', keyLabel: 'P', label: 'Print', kind: 'print',
+    fn: () => exportFaults(ecu, container),
+  }, {
     key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back,
   }], shiftKeys());
 

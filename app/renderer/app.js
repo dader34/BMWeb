@@ -475,8 +475,16 @@ class StatusPoller {
     }
     try {
       const s = await api('/api/state' + (stateSgbd ? `?sgbd=${encodeURIComponent(stateSgbd)}` : ''));
-      if (s.battery != null) { batLed.className = 'kl-led on'; batVal.textContent = s.battery.toFixed(1) + ' V'; }
-      else { batLed.className = 'kl-led off'; batVal.textContent = 'off'; }
+      if (s.battery != null) {
+        batLed.className = 'kl-led on';
+        // on/off, like INPA's own start screen -- it shows a lamp and the word,
+        // never a number. A measured voltage would be worth printing; the value
+        // we have for a sense-less adapter is UTILITY's nominal, so showing it
+        // would read as a measurement it isn't.
+        batVal.textContent = 'on';
+      } else { batLed.className = 'kl-led off'; batVal.textContent = 'off'; }
+      const klEl = document.getElementById('kl-state');
+      if (klEl && s.detail) klEl.title = s.detail;
       if (s.ignition === true) { ignLed.className = 'kl-led on'; ignVal.textContent = 'on'; }
       else if (s.ignition === false) { ignLed.className = 'kl-led off'; ignVal.textContent = 'off'; }
       else { ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
