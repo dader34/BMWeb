@@ -97,9 +97,15 @@ function webDemoPhase() {
 function webDemoSets(meta, job, arg) {
   const name = String(job).toUpperCase();
 
-  // A FABRICATED FAULT IS WORSE THAN A FABRICATED GAUGE READING: it names a
-  // component and reads like a real DTC. Answer fault jobs with a CLEAN memory —
-  // the honest thing with no car attached.
+  // Fault jobs are filled in by webDemoFaults() from the ECU's OWN fault table,
+  // so a demo scan shows faults that module can really report rather than
+  // invented ones. It runs as an async overlay (the tables load lazily), so
+  // this returns a clean memory and the overlay replaces it. If the tables are
+  // unreachable the clean answer stands -- the honest fallback.
+  //
+  // STILL FABRICATED, and still dangerous in a way a gauge reading is not: a
+  // fault list names components and gets screenshotted. Every fault carries
+  // _DEMO so no screen can render one without knowing.
   if (/^FS_/i.test(name)) return [{ JOB_STATUS: 'OKAY', F_ANZAHL: '0' }];
 
   const j = meta && meta.jobs
@@ -151,11 +157,110 @@ async function webDemoCoding(sgbd, job, sets) {
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Demo fault memory, drawn from the ECU's OWN fault table.
+//
+// The source is window.BMW_FAULT_INDEX (data/faultindex.js), one entry per
+// module carrying its scheme and its real fault rows:
+//
+//   kombi46  scheme "text"  [["K-Bus", "K-bus", "0x87"], ...]
+//   ms_s65   scheme "code"  [["27DA", "Alternator BSD fault", "27DA"], ...]
+//
+// so a demo scan of the cluster shows faults THE CLUSTER can report, in the
+// dialect it reports them in. That matters: a text-scheme ECU hands back
+// German in F_ORT_TEXT and the screen translates it, while a code-scheme one
+// is read from F_ORT_NR. Feeding the wrong dialect gives a fault the screen
+// cannot name.
+//
+// STILL FABRICATED. A fault list is more dangerous than a gauge reading: it
+// names components and it gets screenshotted. Every row carries _DEMO so no
+// screen can render one without knowing, and the count is seeded from the SGBD
+// so a module's demo faults are stable rather than reshuffling each read
+// (which would read as an intermittent fault rather than a demo).
+function webDemoFaultHash(str) {
+  let h = 2166136261;
+  for (const ch of String(str)) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// This module's own fault rows: [germanOrCode, english, hexCode][], or [].
+function webDemoFaultTable(sgbd) {
+  const idx = (typeof window !== 'undefined' && window.BMW_FAULT_INDEX) || null;
+  if (!idx || !idx.length) return null;
+  const key = String(sgbd).toLowerCase();
+  const hits = idx.filter(e => String(e.sgbd || '').toLowerCase() === key);
+  if (!hits.length) return null;
+  // Same SGBD across chassis: take the richest table rather than the first.
+  hits.sort((a, b) => (b.faults || []).length - (a.faults || []).length);
+  return hits[0];
+}
+
+// One FS_LESEN-shaped row. The German/status strings are the exact ones the
+// fault screen keys on (faults.js: "momentan vorhanden", "statisch").
+function webDemoFaultRow(entry, seed) {
+  const [key, english, code] = entry;
+  const textScheme = /^text$/i.test(entry._scheme || '');
+  return {
+    // code scheme reads F_ORT_NR; text scheme is named from F_ORT_TEXT
+    F_ORT_NR: code || '',
+    F_ORT_TEXT: textScheme ? key : (english || key),
+    F_HFK: String(1 + (seed % 8)),
+    F_ART_ANZ: '1',
+    F_ART1_NR: String(1 + (seed % 3)),
+    F_ART1_TEXT: (seed % 3 === 0) ? 'Fehler sporadisch' : 'Fehler statisch',
+    F_VORHANDEN_TEXT: (seed % 4 === 0)
+      ? 'Fehler momentan vorhanden' : 'Fehler momentan nicht vorhanden',
+    F_LZ: String(1 + (seed % 250)),
+    _DEMO: '1',
+  };
+}
+
+// Replace a demo fault read with faults this ECU can actually report.
+// Async because faultindex.js is lazy-loaded; mirrors webDemoCoding.
+async function webDemoFaults(sgbd, job, sets) {
+  if (!/^FS_LESEN/i.test(String(job))) return;   // FS_LOESCHEN etc. stay as-is
+  if (typeof loadFaultIndex === 'function') {
+    try { await loadFaultIndex(); } catch (e) { /* fall through to the check */ }
+  }
+  const entry = webDemoFaultTable(sgbd);
+  // No table for this module: leave the clean memory. Borrowing another ECU's
+  // faults is exactly the fabrication worth avoiding.
+  if (!entry || !(entry.faults || []).length) return;
+
+  const rows = entry.faults;
+  const seed = webDemoFaultHash(String(sgbd).toLowerCase());
+  // 0-4 faults, weighted so a clean memory stays a common outcome
+  const n = Math.min([0, 1, 1, 2, 2, 3, 4][seed % 7], rows.length);
+  if (!n) return;
+
+  const picked = [];
+  const used = new Set();
+  for (let k = 0; picked.length < n && k < rows.length * 2; k++) {
+    const i = (seed + k * 7919) % rows.length;
+    if (used.has(i)) continue;
+    used.add(i);
+    const r = rows[i].slice();
+    r._scheme = entry.scheme;
+    picked.push(webDemoFaultRow(r, seed + k));
+  }
+  if (!picked.length) return;
+
+  sets.length = 0;
+  sets.push({ JOB_STATUS: 'OKAY', F_ANZAHL: String(picked.length), _DEMO: '1' });
+  for (const r of picked) sets.push(r);
+}
+
 if (typeof window !== 'undefined') {
   window.webDemoSets = webDemoSets;
   window.webDemoValue = webDemoValue;
   window.webDemoCoding = webDemoCoding;
+  window.webDemoFaults = webDemoFaults;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { webDemoSets, webDemoValue, webDemoEcho, webDemoCoding };
+  module.exports = { webDemoSets, webDemoValue, webDemoEcho, webDemoCoding,
+                   webDemoFaults, webDemoFaultRow, webDemoFaultHash };
 }

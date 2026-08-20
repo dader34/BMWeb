@@ -119,6 +119,10 @@ echo "== ZCS: validation, format, parse, SA code extraction, FA/ZCS filtering ==
 node tools/verify/test_coding_zcs.js || exit 1
 
 echo
+echo "== ECU memory read: region units (word vs byte), chunking, refused reads =="
+node tools/verify/test_tuning_memory.js || exit 1
+
+echo
 echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
 node tools/verify/test_coding_auftrag.js || exit 1
 

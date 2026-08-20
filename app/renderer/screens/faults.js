@@ -135,12 +135,19 @@ async function exportFaults(ecu, view) {
   const now = new Date();
   const present = faults.filter(c => faultFields(c, ecu.sgbd).present).length;
   const body = faultModuleBlock(ecu.label, ecu.sgbd, faults);
+  // A PDF outlives the app: once exported nothing about the page says where
+  // the faults came from, so a demo export declares it in the TITLE and in the
+  // summary rows, both of which survive printing and cropping.
+  const isDemo = faults.some(c => c._DEMO);
+  const rows = [['Generated', now.toLocaleString()],
+                ['Total faults', faults.length], ['Present', present]];
+  if (isDemo) rows.push(['Source', 'DEMO — simulated, no car was read']);
   const html = faultReportHtml(
-    `${ecu.label} · ${ecu.sgbd}.prg · fault memory`,
-    [['Generated', now.toLocaleString()], ['Total faults', faults.length], ['Present', present]],
+    `${ecu.label} · ${ecu.sgbd}.prg · fault memory${isDemo ? ' (DEMO)' : ''}`,
+    rows,
     body);
 
-  const name = `${APP_NAME}-faults-${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
+  const name = `${APP_NAME}-faults-${isDemo ? 'DEMO-' : ''}${ecu.sgbd}-${now.toISOString().slice(0, 10)}.pdf`;
   sbLeft.textContent = 'saving…';
   try {
     const res = await window.bmacw.savePdf(name, html);
@@ -261,6 +268,16 @@ function renderFaults(codes, container, ecu) {
   }
   container.innerHTML = '';
   container.className = 'faults stagger';
+  // A fabricated fault names a component and gets screenshotted, so a demo
+  // read says so ABOVE the list -- not only in Settings, which is off-screen
+  // by the time anyone is looking at this.
+  if (faults.some(c => c._DEMO)) {
+    const b = document.createElement('div');
+    b.className = 'fault-demo-banner';
+    b.innerHTML = '<b>Demo faults.</b> Simulated from this module\'s fault '
+      + 'table. No car was read.';
+    container.appendChild(b);
+  }
   faults.forEach(c => {
     const ff = faultFields(c, ecu && ecu.sgbd);
     const present = ff.present;
@@ -292,6 +309,7 @@ function renderFaults(codes, container, ecu) {
           </div>` : ''}
       </div>
       <div class="fault-flags">
+        ${c._DEMO ? '<span class="flag demo">demo</span>' : ''}
         ${present ? '<span class="flag present">present</span>' : '<span class="flag">stored</span>'}
         ${warn ? `<span class="flag">${esc(warn)}</span>` : ''}
       </div>`;

@@ -878,3 +878,82 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   background: var(--panel-2);
 }
 .tn-modal-foot { padding: 8px 12px; }
+
+/* ---- Read from ECU dialog -------------------------------------------------
+   Regions are discovered from each job's own argument spec, so this list is
+   whatever the module actually declares -- not a fixed menu. */
+.tn-ecu-modal { max-width: 520px; }
+.tn-ecu-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.tn-ecu-lbl {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink-faint); white-space: nowrap;
+}
+/* The combo wraps the field so the caret can sit inside its border. */
+.tn-ecu-combo {
+  flex: 1; min-width: 0; position: relative; display: flex; align-items: center;
+}
+.tn-ecu-in {
+  flex: 1; min-width: 0;
+  font-family: var(--mono); font-size: 13px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 30px 8px 10px; outline: none;
+}
+.tn-ecu-in:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
+.tn-ecu-in:disabled { opacity: .6; }
+.tn-ecu-caret {
+  position: absolute; right: 1px; top: 1px; bottom: 1px; width: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: 0; cursor: pointer;
+  color: var(--ink-faint); font-size: 11px; line-height: 1;
+  border-radius: 0 5px 5px 0;
+}
+.tn-ecu-caret:hover { color: var(--ink); }
+.tn-ecu-in[aria-expanded="true"] + .tn-ecu-caret { color: var(--amber); }
+
+/* Typeahead list. Sits in normal flow inside the modal rather than floating:
+   a positioned overlay inside a scrolling dialog clips or escapes, and the
+   native <datalist> this replaced did exactly that. */
+.tn-ecu-sug {
+  max-height: 240px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--bg); margin: -6px 0 12px;
+}
+.tn-ecu-sug-row {
+  display: block; width: 100%; text-align: left;
+  background: none; border: 0; cursor: pointer;
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim);
+  padding: 7px 11px;
+}
+.tn-ecu-sug-row:hover { background: var(--panel-2); color: var(--ink); }
+.tn-ecu-sug-row.active { background: var(--amber-glow); color: var(--ink); }
+.tn-ecu-sug-empty {
+  padding: 12px 11px; color: var(--ink-faint); font-size: 13px;
+}
+
+.tn-ecu-regions { display: flex; flex-direction: column; gap: 6px; }
+.tn-ecu-hint { color: var(--ink-faint); font-size: 13px; padding: 6px 2px; }
+.tn-ecu-region {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel-2); cursor: pointer;
+}
+.tn-ecu-region:hover { border-color: var(--line-hover); }
+.tn-ecu-region:has(input:checked) { border-color: var(--amber); }
+.tn-ecu-job {
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 600;
+}
+.tn-ecu-meta {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  margin-left: auto;
+}
+.tn-ecu-type {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 5px; padding: 3px 6px; flex-basis: 100%;
+}
+.tn-ecu-prog {
+  margin-top: 12px; padding: 9px 11px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
+  word-break: break-all;
+}

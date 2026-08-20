@@ -1334,6 +1334,10 @@ function installWebShim() {
           if (typeof webDemoCoding === 'function') {
             await webDemoCoding(sgbd, decodeURIComponent(run[2]), sets);
           }
+          // fault reads answer with faults this module can really report
+          if (typeof webDemoFaults === 'function') {
+            await webDemoFaults(sgbd, decodeURIComponent(run[2]), sets);
+          }
           return ok({ job: run[2], demo: true, sets });
         } catch (e) {
           return err(e.message, 404);

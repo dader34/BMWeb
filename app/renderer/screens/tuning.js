@@ -83,6 +83,7 @@ function showTuning() {
   bar.className = 'tn-bar';
   bar.innerHTML = `
     <button class="btn tn-load-bin">Load BIN…</button>
+    <button class="btn tn-read-ecu">Read from ECU…</button>
     <button class="btn tn-load-xdf" disabled>Load .xdf…</button>
     <button class="btn primary tn-save" disabled>Save BIN…</button>
     <button class="btn tn-clear" disabled title="Unload the firmware and definition, and forget the saved session">Clear</button>
@@ -162,6 +163,7 @@ function showTuning() {
 
   const els = {
     loadBin: bar.querySelector('.tn-load-bin'),
+    readEcu: bar.querySelector('.tn-read-ecu'),
     loadXdf: bar.querySelector('.tn-load-xdf'),
     clear: bar.querySelector('.tn-clear'),
     save: bar.querySelector('.tn-save'),
@@ -303,6 +305,282 @@ function showTuning() {
     }
   }
 
+  // ---- Read from ECU -------------------------------------------------------
+  // Pull a live memory image off a module and treat it exactly like a loaded
+  // file, so the whole hex editor (find, inspector, goto, .xdf overlay) works
+  // on it unchanged. READ ONLY: every job offered here is a *_LESEN.
+  //
+  // The regions are not hardcoded and not mined from an INPA screen -- they
+  // come from each job's own argument spec, which declares its address range,
+  // its max chunk, and crucially its UNIT. kombi46's EEPROM_LESEN addresses
+  // and counts 2-byte WORDS; its ROM_LESEN counts BYTES. See tuning-memory.js.
+  async function onReadFromEcu() {
+    if (typeof window.TuningMemory === 'undefined') {
+      els.status.textContent = 'memory reader not loaded';
+      return;
+    }
+    const TM = window.TuningMemory;
+
+    let sgbds = [];
+    try {
+      sgbds = (typeof tool32SgbdList === 'function') ? await tool32SgbdList() : [];
+    } catch (e) { /* fall through to the empty-state below */ }
+
+    const { overlay, close } = openModal(`
+      <div class="modal tn-ecu-modal" role="dialog" aria-modal="true">
+        <div class="modal-title">Read memory from an ECU</div>
+        <div class="modal-body">
+          <div class="tn-ecu-row">
+            <label class="tn-ecu-lbl" for="tn-ecu-sgbd">Module</label>
+            <div class="tn-ecu-combo" id="tn-ecu-combo">
+              <input class="tn-ecu-in" id="tn-ecu-sgbd" role="combobox"
+                     aria-expanded="false" aria-controls="tn-ecu-sug" aria-autocomplete="list"
+                     placeholder="Select or search a module…" spellcheck="false" autocomplete="off">
+              <button type="button" class="tn-ecu-caret" id="tn-ecu-caret"
+                      aria-label="Show all modules" tabindex="-1">▾</button>
+            </div>
+          </div>
+          <div class="tn-ecu-sug" id="tn-ecu-sug" role="listbox" hidden></div>
+          <div class="tn-ecu-regions" id="tn-ecu-regions">
+            <div class="tn-ecu-hint">Pick a module to see what it can read.</div>
+          </div>
+          <div class="tn-ecu-prog" id="tn-ecu-prog" hidden></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" id="tn-ecu-cancel">Cancel</button>
+          <button class="btn primary" id="tn-ecu-go" disabled>Read</button>
+        </div>
+      </div>`, { backdropValue: null });
+
+    const $ = (sel) => overlay.querySelector(sel);
+    const sgbdIn = $('#tn-ecu-sgbd');
+    const regionBox = $('#tn-ecu-regions');
+    const prog = $('#tn-ecu-prog');
+    const goBtn = $('#tn-ecu-go');
+    const st = { sgbd: '', regions: [], pick: null, busy: false, cancel: false };
+
+    $('#tn-ecu-cancel').onclick = () => { st.cancel = true; close(); };
+
+    const fmtAddr = (n, wide) => '0x' + n.toString(16).toUpperCase()
+      .padStart(wide ? 4 : 2, '0');
+
+    function paintRegions() {
+      if (!st.regions.length) {
+        regionBox.innerHTML = `<div class="tn-ecu-hint">`
+          + `This module declares no readable memory region.</div>`;
+        goBtn.disabled = true;
+        return;
+      }
+      regionBox.innerHTML = st.regions.map((r, i) => {
+        const wide = r.hi > 0xFF;
+        const span = r.hi - r.lo + 1;
+        const bytes = span * r.wordBytes;
+        const sel = r.types.length
+          ? `<select class="tn-ecu-type" data-i="${i}">${
+              r.types.map(t => `<option>${esc(t)}</option>`).join('')}</select>`
+          : '';
+        return `<label class="tn-ecu-region">
+          <input type="radio" name="tn-ecu-r" value="${i}">
+          <span class="tn-ecu-job">${esc(r.job)}</span>
+          <span class="tn-ecu-meta">${fmtAddr(r.lo, wide)}–${fmtAddr(r.hi, wide)}`
+          + ` · ${span} ${r.unit === 'word' ? 'words' : 'bytes'}`
+          + (r.unit === 'word' ? ` (${bytes} bytes)` : '')
+          + ` · ${r.max}/read</span>${sel}</label>`;
+      }).join('');
+      regionBox.querySelectorAll('input[name=tn-ecu-r]').forEach(el => {
+        el.onchange = () => {
+          st.pick = st.regions[+el.value];
+          goBtn.disabled = false;
+        };
+      });
+      regionBox.querySelectorAll('.tn-ecu-type').forEach(sel => {
+        sel.onchange = () => { st.regions[+sel.dataset.i].selType = sel.value; };
+      });
+    }
+
+    // A DROPDOWN, not a bare search box. A native <datalist> renders in OS
+    // chrome -- it escaped the modal, ignored the theme, and offered no way to
+    // browse. This opens on click showing every module, and typing narrows it.
+    // The list is in normal flow inside the dialog rather than floating, so it
+    // can neither be clipped by the modal nor overlap the page behind it.
+    const sug = $('#tn-ecu-sug');
+    const caret = $('#tn-ecu-caret');
+    let sugItems = [];
+    let sugAt = -1;
+    let sugOpen = false;
+
+    function closeSug() {
+      sugOpen = false;
+      sug.hidden = true; sug.innerHTML = ''; sugItems = []; sugAt = -1;
+      sgbdIn.setAttribute('aria-expanded', 'false');
+    }
+
+    function paintSug() {
+      if (!sugItems.length) {
+        sug.hidden = false;
+        sug.innerHTML = '<div class="tn-ecu-sug-empty">No module matches.</div>';
+        sgbdIn.setAttribute('aria-expanded', 'true');
+        return;
+      }
+      sug.innerHTML = sugItems.map((name, i) =>
+        `<button type="button" class="etk-lb-row tn-ecu-sug-row${i === sugAt ? ' active' : ''}"`
+        + ` role="option" data-i="${i}">${esc(name)}</button>`).join('');
+      sug.hidden = false;
+      sgbdIn.setAttribute('aria-expanded', 'true');
+      sug.querySelectorAll('.tn-ecu-sug-row').forEach(el => {
+        el.onmousedown = (ev) => {       // mousedown: fires before the input blurs
+          ev.preventDefault();
+          choose(sugItems[+el.dataset.i]);
+        };
+      });
+      const active = sug.querySelector('.active');
+      if (active) active.scrollIntoView({ block: 'nearest' });
+    }
+
+    function choose(name) {
+      sgbdIn.value = name;
+      closeSug();
+      lookup();
+    }
+
+    // `all` = the caret / an empty box: show everything rather than nothing.
+    function openSug(all) {
+      sugOpen = true;
+      const q = all ? '' : sgbdIn.value.trim().toLowerCase();
+      if (!q) {
+        sugItems = sgbds.slice(0, 400);
+      } else {
+        // Prefix matches first: typing "kom" should put kombi46 above a module
+        // that merely contains those letters somewhere.
+        const starts = [], has = [];
+        for (const n of sgbds) {
+          const l = n.toLowerCase();
+          if (l.startsWith(q)) starts.push(n);
+          else if (l.includes(q)) has.push(n);
+        }
+        sugItems = starts.concat(has).slice(0, 400);
+      }
+      // Keep the current value highlighted so reopening lands where you were.
+      const cur = sgbdIn.value.trim().toLowerCase();
+      sugAt = cur ? sugItems.findIndex(n => n.toLowerCase() === cur) : -1;
+      paintSug();
+    }
+
+    caret.onmousedown = (e) => {
+      e.preventDefault();               // don't steal focus from the input
+      if (sugOpen) { closeSug(); return; }
+      sgbdIn.focus();
+      openSug(true);
+    };
+    sgbdIn.onfocus = () => { if (!sugOpen) openSug(!sgbdIn.value.trim()); };
+    sgbdIn.onblur = () => setTimeout(closeSug, 120);
+
+    sgbdIn.onkeydown = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!sugOpen) { openSug(!sgbdIn.value.trim()); return; }
+        if (!sugItems.length) return;
+        sugAt += (e.key === 'ArrowDown' ? 1 : -1);
+        if (sugAt < 0) sugAt = sugItems.length - 1;
+        if (sugAt >= sugItems.length) sugAt = 0;
+        paintSug();
+      } else if (e.key === 'Enter') {
+        if (sugOpen && sugAt >= 0) { e.preventDefault(); choose(sugItems[sugAt]); }
+      } else if (e.key === 'Escape') {
+        // Escape closes the list first, and only then the dialog.
+        if (sugOpen) { e.stopPropagation(); closeSug(); }
+      }
+    };
+
+    let lookupSeq = 0;
+    async function lookup() {
+      const sgbd = sgbdIn.value.trim().toLowerCase();
+      st.sgbd = sgbd; st.pick = null; goBtn.disabled = true;
+      if (!sgbd) {
+        regionBox.innerHTML = `<div class="tn-ecu-hint">`
+          + `Pick a module to see what it can read.</div>`;
+        return;
+      }
+      const seq = ++lookupSeq;
+      regionBox.innerHTML = `<div class="tn-ecu-hint">Reading ${esc(sgbd)} job list…</div>`;
+      let regions = [];
+      try { regions = await TM.regionsFor(sgbd); } catch (e) { regions = []; }
+      if (seq !== lookupSeq) return;     // a newer lookup already won
+      st.regions = regions;
+      paintRegions();
+    }
+    sgbdIn.oninput = () => {
+      openSug(false);                 // typing always narrows the open list
+      clearTimeout(sgbdIn._t);
+      sgbdIn._t = setTimeout(lookup, 250);
+    };
+
+    goBtn.onclick = async () => {
+      if (!st.pick || st.busy) return;
+      st.busy = true; st.cancel = false;
+      goBtn.disabled = true; sgbdIn.disabled = true;
+      prog.hidden = false;
+      prog.textContent = 'Reading…';
+      const r = st.pick;
+      try {
+        const { bytes, firstArg, demo } = await TM.readRange(
+          st.sgbd, r, r.lo, r.hi,
+          (done, total, arg) => {
+            if (st.cancel) return false;
+            const pct = Math.min(100, Math.round((done / total) * 100));
+            prog.textContent = `${pct}%  ·  ${arg}`;
+            return true;
+          });
+        // REFUSE a synthesized answer. With no cable the shim badges its reply
+        // demo:true and hands back invented bytes; loading those into the hex
+        // editor produces something indistinguishable from a real dump of the
+        // car. A memory image you cannot trust is worse than no image.
+        if (demo) {
+          prog.innerHTML = '<b>No car is answering.</b><br>'
+            + 'Connect the cable (or the WiFi adapter) and try again.';
+          st.busy = false; goBtn.disabled = false; sgbdIn.disabled = false;
+          return;
+        }
+        if (!bytes.length) {
+          prog.textContent = 'The ECU returned no data.';
+          st.busy = false; goBtn.disabled = false; sgbdIn.disabled = false;
+          return;
+        }
+        // Hand it to the editor as a loaded image. tuningState.orig is the
+        // same bytes so the dirty count starts at zero and any later edit is
+        // measured against what the car actually holds.
+        tuningState.bin = bytes;
+        tuningState.orig = bytes.slice();
+        tuningState.fileName = `${st.sgbd}-${r.job}.bin`;
+        tuningState.changed = 0;
+        tuningState.highlight = null;
+        // Reading is not editing: the image came off a car, and there is no
+        // write path back. Save is still offered because saving it to disk is
+        // exactly how you keep a backup before touching anything.
+        els.loadXdf.disabled = false;
+        els.save.disabled = false;
+        els.clear.disabled = false;
+        els.file.textContent = `${tuningState.fileName} · ${fmtBytes(bytes.length)}`;
+        buildCoverage();
+        saveSoon();
+        hex.refresh();
+        if (tuningState.def) renderDefs();
+        updateStatus();
+        els.status.textContent = `read ${bytes.length} B from ${st.sgbd} · ${firstArg}`;
+        close();
+      } catch (e) {
+        // Show the argument that failed: with a job whose spec we parsed, a
+        // failure is usually the ECU refusing the range, not a bad format.
+        const extra = e && e.arg ? ` · sent ${e.arg}` : '';
+        prog.textContent = `${String(e.message || e)}${extra}`;
+        st.busy = false; goBtn.disabled = false; sgbdIn.disabled = false;
+      }
+    };
+
+    setTimeout(() => sgbdIn.focus(), 0);
+  }
+
+  els.readEcu.onclick = onReadFromEcu;
   els.loadBin.onclick = () => els.binInput.click();
   els.loadXdf.onclick = () => els.xdfInput.click();
   els.binInput.onchange = () => { onBinChosen(els.binInput.files[0]); els.binInput.value = ''; };
