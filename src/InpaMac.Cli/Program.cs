@@ -144,6 +144,18 @@ internal static class Program
 
         using var diag = new Diag(ecuPath);
 
+        // BMACW_IFH_TRACE=<dir> captures every telegram EDIABAS puts on the
+        // wire into <dir>/ifh.trc. The VM transport in the browser has to
+        // reproduce these bytes exactly; this is how we see what they are
+        // rather than inferring them from the SGBD.
+        var ifhTraceDir = Environment.GetEnvironmentVariable("BMACW_IFH_TRACE");
+        if (!string.IsNullOrWhiteSpace(ifhTraceDir))
+        {
+            Directory.CreateDirectory(ifhTraceDir);
+            diag.TraceTo(ifhTraceDir);
+            Console.WriteLine($"IFH trace -> {ifhTraceDir}/ifh.trc");
+        }
+
         try
         {
             switch (cmd)

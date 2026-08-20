@@ -123,6 +123,18 @@ echo "== ECU memory read: region units (word vs byte), chunking, refused reads =
 node tools/verify/test_tuning_memory.js || exit 1
 
 echo
+echo "== Web Serial read: a timed-out read is resumed, not orphaned (echo loss) =="
+node tools/verify/test_readsome.js || exit 1
+
+echo
+echo "== ISO 9141 slow init: 5-baud wake, 10400 8N1, framing (E46 DME) =="
+node tools/verify/test_iso9141.js || exit 1
+
+echo
+echo "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallback =="
+node tools/verify/test_longform.js || exit 1
+
+echo
 echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
 node tools/verify/test_coding_auftrag.js || exit 1
 

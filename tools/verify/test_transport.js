@@ -78,14 +78,20 @@ const FAST = { concept: 0x10f, baud: 115200 };
         caught && caught.ifh === 'IFH-0019');
 }
 
-// KWP2000* / BMW-FAST: additive sum8. Request and answer both from
-// data/sim-captures/obd.sim (an MS45 IDENT).
+// KWP2000* / BMW-FAST: additive sum8 -- EXCEPT a 0xB8 frame, which is XOR.
+// Both rules are real bytes from EDIABAS's trace against an E46 MS45:
+//   82 12 F1 1A 80 1F        (short form, sum8)
+//   B8 12 F1 02 1A 80 C3     (long form,  XOR -- sum8 would be 0x57)
+// This block used a 0xB8 frame as its sum8 example, which the car disproves.
 {
-  const req = [0xB8, 0x12, 0xF1, 0x02, 0x1A, 0x80];
+  const req = [0x82, 0x12, 0xF1, 0x1A, 0x80];
   const framed = withChecksum(req, KWP);
   const want = req.reduce((a, b) => (a + b) & 0xff, 0);
-  check('KWP2000* request gains its sum8 checksum',
-        framed.length === 7 && framed[6] === want);
+  check('KWP2000* short-form request gains its sum8 checksum',
+        framed.length === 6 && framed[5] === want && framed[5] === 0x1F);
+  const long = withChecksum([0xB8, 0x12, 0xF1, 0x02, 0x1A, 0x80], KWP);
+  check('a 0xB8 request is signed XOR instead (the car answers only this)',
+        long[long.length - 1] === 0xC3);
   const ans = [0x9B, 0xF1, 0x12, 0x42, 0x1A, 0x80];
   check('KWP2000* answer length is byte 3 + 5',
         frameTotal(ans.concat(new Array(0x42)), KWP) === 0x42 + 5);
@@ -107,6 +113,8 @@ check('a 2-byte prefix does not yet decide a BMW-FAST frame',
 
 // ---- port settings ----------------------------------------------------
 
+// K-line concepts run 8E1 at the rate their CommParameter names, exactly as
+// EdInterfaceObd does (case 0x0006: parity = Even, baudRate = param[1]).
 check('DS2 runs 9600 8E1',
       portConfig(DS2).baudRate === 9600 && portConfig(DS2).parity === 'even');
 check('KWP2000* runs 9600 8E1',
@@ -117,14 +125,21 @@ check('BMW-FAST stays 115200 8N1',
 check('an unknown concept falls back to BMW-FAST, not to nothing',
       portConfig(null).baudRate === 115200);
 
-// ISO 9141 needs an init this transport does not do. Refusing loudly is the
-// contract; timing out mysteriously is what it replaced.
+// ISO 9141 IS implemented now (5-baud slow init, see test_iso9141.js). It used
+// to refuse with IFH-0018 here; that refusal is what made an E46 DME look
+// unreachable when it answers fine once woken. Framing it must now succeed and
+// share KWP's sum8.
 {
   let caught = null;
-  try { withChecksum([0x68, 0x6A, 0xF1], { concept: 0x10c }); }
+  let framed = null;
+  try { framed = withChecksum([0x68, 0x6A, 0xF1], { concept: 0x10c }); }
   catch (e) { caught = e; }
-  check('ISO 9141 refuses with IFH-0018 rather than sending nonsense',
-        caught && caught.ifh === 'IFH-0018');
+  check('ISO 9141 no longer refuses to frame a request', !caught);
+  check('ISO 9141 frames with a sum8 checksum like KWP',
+        framed && framed[framed.length - 1] === ((0x68 + 0x6A + 0xF1) & 0xff));
+  check('ISO 9141 opens at 10400 8N1, not the K-line 9600 8E1',
+        portConfig({ concept: 0x10c }).baudRate === 10400
+        && portConfig({ concept: 0x10c }).parity === 'none');
 }
 
 // ---- response pending -------------------------------------------------
