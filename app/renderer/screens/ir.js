@@ -500,6 +500,44 @@ function irMenuFitsVariant(name, variant) {
   return nums.includes(v[0]);
 }
 
+// Would INPA ever open `menuName` on this variant?
+//
+// A DEEP LINK IS UNTRUSTED INPUT. #car/E46/kombi46/m_steuern_digital_38 names a
+// menu that exists in the corpus but belongs to the E38 cluster; opening it by
+// name because the URL said so is exactly the bug the variant guards fix,
+// re-entered through the address bar (a link shared from another car, or a
+// bookmark kept after the variant was corrected).
+//
+// Answered from INPA's own dispatch, not from the name: a menu is reachable if
+// some key that targets it is guarded FOR this variant, or if it is targeted
+// with no guard at all (family-wide). Menus nothing links to -- roots -- are
+// left to irRootMenu. Unknown variant means we cannot judge, so allow.
+function irMenuAllowedForVariant(ir, menuName, variant) {
+  if (!menuName || !variant) return true;
+  let sawGuardedLink = false;
+  for (const m of Object.values(ir.menus || {})) {
+    for (const it of (m.items || [])) {
+      // A BACK KEY IS NOT AN ENTRY. Every per-variant page links UP to its own
+      // parent unconditionally (m_steuern_digital_85's Back -> m_steuern_85),
+      // and counting that as a family-wide link made the E85 parent reachable
+      // from any variant -- the exact thing this check exists to stop. Back
+      // says where you came from, not who may go there.
+      if (IR_CHROME.test(String(it.label || '').trim())) continue;
+      const guards = it.menuFor || {};
+      if (Object.prototype.hasOwnProperty.call(guards, menuName)) {
+        sawGuardedLink = true;
+        if ((guards[menuName] || []).some(
+          n => String(n).toUpperCase() === String(variant).toUpperCase())) return true;
+      } else if (it.menu === menuName || (it.menuAlts || []).includes(menuName)) {
+        // linked with no condition on it: family-wide, anyone may open it
+        if (!Object.keys(guards).length) return true;
+      }
+    }
+  }
+  // only ever reached through guards, none of which name this variant
+  return !sawGuardedLink;
+}
+
 // Is `menu` just the softkey bar `from` already shows, rather than a submenu?
 // INPA keeps the bar and swaps the SCREEN, so opening such a "menu" re-lists the
 // bar a level deeper. Compared by CONTENT and by what the keys DO not what they
