@@ -1085,10 +1085,19 @@ class ThorWifiBus {
       }
       await new Promise((r) => setTimeout(r, 15));
     }
-    if (this.rx.length < want) throw new Error('THOR adapter did not answer');
+    if (this.rx.length < want) {
+      busTrace.add('thor.special', this.rx,
+        `cmd=0x${cmd.toString(16)} SHORT: wanted ${want}, got ${this.rx.length}`);
+      throw new Error('THOR adapter did not answer');
+    }
     const resp = this.rx.slice(req.length, want);
+    busTrace.add('thor.special', resp, `cmd=0x${cmd.toString(16)} ok`);
     const sum = resp.slice(0, -1).reduce((a, b) => (a + b) & 0xff, 0);
-    if (sum !== resp[resp.length - 1]) throw new Error('THOR answer checksum bad');
+    if (sum !== resp[resp.length - 1]) {
+      busTrace.add('thor.special', this.rx,
+        `cmd=0x${cmd.toString(16)} CHECKSUM bad`);
+      throw new Error('THOR answer checksum bad');
+    }
     return resp;
   }
 
@@ -1147,13 +1156,18 @@ class ThorWifiBus {
   // NOTE DS2 needs NO WAKE: the same setup sets `EcuConnected = true` outright,
   // so there is no fast-init for this concept. (KWP2000 does wake, via
   // SendWakeFastInit -> KLINEF1_FAST_INIT; that path is kept for 0x10D.)
+  // NO_ECHO IS THE STARTING VALUE, NOT AN OPTION. EdiabasLib opens with
+  // `byte flags1 = KLINEF1_NO_ECHO` and never clears it, so a real adapter is
+  // always told to swallow the echo -- and in the wrapped branch EdiabasLib
+  // reads no echo back either (the echo-removal loop lives only in the raw /
+  // 115200 branch). Asking for the echo left this the only client on the wire
+  // driving the line differently from every other one.
   static thorConfig(comm, fastInit) {
     const F = ThorWifiBus.KLINEF1;
     const c = conceptOf(comm);
     const kline = isDs2(c) || c === 0x10d;
     const baud = kline ? ((comm && comm.baud) || 9600) : 115200;
-    // BMW-FAST/D-CAN runs at 115200 raw passthrough: no parity, no L line
-    let flags1 = F.USE_KLINE;
+    let flags1 = F.NO_ECHO | F.USE_KLINE;
     if (kline) {
       flags1 |= F.PARITY_EVEN;                 // DS2/KWP2000* are 8E1
       // setDtr is false for these concepts, so the L line carries the send
@@ -1211,13 +1225,12 @@ class ThorWifiBus {
         + ` -> wantWake=${wantWake}`);
       const tel = this.thorWrap(Array.from(framed), comm, wantWake);
       if (wantWake) this.inited = true;
-      // THE ADAPTER ECHOES THE PAYLOAD, NOT THE WRAPPER. Confirmed on a real
-      // THOR v1.15 against an E46 KOMBI: sending the 15-byte wrapped telegram
-      // `00 02 12 C0 81 00 00 3C 00 04 | 80 04 00 84 | 9D` echoes back exactly
-      // `80 04 00 84` -- the 4-byte BMW telegram, with the config header and
-      // the adapter's own checksum stripped. Skipping tel.length here waited
-      // for 15 bytes that never come and timed out every exchange.
-      echoLen = framed.length;
+      // No echo to skip: thorConfig sets KLINEF1_NO_ECHO, so the adapter
+      // swallows it and the next bytes on the stream are the ECU's answer.
+      // (When the flag was absent the adapter echoed the PAYLOAD -- the bare
+      // BMW telegram, not the wrapper -- which is why echoLen was framed.length
+      // and not tel.length. Kept as a note: the echo is a mode, not a given.)
+      echoLen = 0;
       busTrace.add('thor.telegram', framed, `concept 0x${conceptOf(comm).toString(16)}`);
       busTrace.add('thor.wrapped', tel,
         `echoLen=${echoLen} baud=${(comm && comm.baud) || ''}`
@@ -1230,8 +1243,8 @@ class ThorWifiBus {
       busTrace.add('thor.reread', null, 'response-pending follow-up');
     }
     const deadline = Date.now() + timeoutMs;
-    // The echo is the BMW telegram (see echoLen above), and the ECU's answer
-    // follows it on the same stream.
+    // echoLen is 0 while NO_ECHO is set; the loop and the throw below cost
+    // nothing then, and still cover an adapter that echoes anyway.
     while (this.rx.length < echoLen && Date.now() < deadline) {
       if (this.native) {
         const got = await window.bmacw.tcpRead();
@@ -1243,7 +1256,7 @@ class ThorWifiBus {
       busTrace.add('thor.rx', this.rx, `SHORT: wanted echo of ${echoLen}`);
       throw new Error('no echo from the THOR adapter (timeout)');
     }
-    busTrace.add('thor.echo', this.rx.slice(0, echoLen), 'adapter echo (skipped)');
+    if (echoLen) busTrace.add('thor.echo', this.rx.slice(0, echoLen), 'echo (skipped)');
     while (Date.now() < deadline) {
       const buf = this.rx.slice(echoLen);
       const total = frameTotal(buf, comm);

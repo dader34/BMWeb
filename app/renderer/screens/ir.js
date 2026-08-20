@@ -1041,6 +1041,23 @@ const irHasVariantSuffix = (n) => /_\d+[a-zA-Z]?(_\d+[a-zA-Z]?)*$/.test(String(n
 // INPA's decision, not an inference from it. Returns null when the item is not
 // variant-guarded (most are not) or when no arm names this variant, in which
 // case the caller falls back to the name-tag heuristics.
+// Does opening this item require a variant we do not have?
+//
+// A key whose targets are variant-guarded is an if/else-if chain on VARIANTE;
+// INPA runs INITIALISIERUNG before dispatching and never guesses. With a car
+// attached and no answer, following the first branch hands the user another
+// cluster's page -- that is how an E46 reached the E38 activation rows and
+// called jobs kombi46 does not have. Say so instead.
+//
+// Demo mode is exempt: there is no car to ask, and irResolveVariant already
+// picks a variant INPA itself lists.
+function irNeedsVariant(it, variant) {
+  if (variant) return false;
+  if (typeof demoMode === 'function' && demoMode()) return false;
+  return Object.keys((it && it.menuFor) || {}).length > 1
+      || Object.keys((it && it.screenFor) || {}).length > 1;
+}
+
 function irGuardPick(guards, variant) {
   if (!guards || !variant) return null;
   const V = String(variant).toUpperCase();
@@ -1411,6 +1428,40 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   }
 
   const open = async (it) => {
+    // This key dispatches on VARIANTE and we do not know it yet: ask the car
+    // before opening anything, because the branches lead to DIFFERENT ECUs'
+    // pages. Retried here rather than only at screen load, so a read that
+    // failed once (bus busy, cable just plugged in) can succeed on the click.
+    if (irNeedsVariant(it, ir._variant || ecu._variant)) {
+      const prev = sbLeft.textContent;
+      sbLeft.textContent = 'reading variant…';
+      try {
+        if (typeof irResolveVariant === 'function') {
+          ecu._variant = null;                 // force a re-read
+          await irResolveVariant(ecu);
+        }
+      } catch { /* reported below */ }
+      sbLeft.textContent = prev;
+      if (!(ir._variant || ecu._variant)) {
+        // Not resolved: do NOT guess a branch. Stay on this menu -- the user is
+        // left exactly where they were, with the reason.
+        await confirmDialog({
+          title: 'Cannot tell which control unit this is',
+          body: `<b>${esc(it.label)}</b> opens a different page for each `
+            + `variant of this module, and the variant read `
+            + `(<span class="mono">${esc(ir.variantJob || 'INITIALISIERUNG')}`
+            + `</span>) did not answer.<br><br>`
+            + `Opening it now would show another control unit's functions, `
+            + `which call jobs this one does not have. Check the cable and `
+            + `ignition, then try again.`,
+          confirmLabel: 'OK', cancelLabel: 'Close',
+        });
+        return;
+      }
+      // resolved: redraw so every key re-picks with the variant known
+      renderIrMenu(ecu, ir, menuName, container, back, trail);
+      return;
+    }
     // a MODE TOGGLE: one option of a radio group setting a shared flag the
     // actuator run reads. Calls no job and navigates nowhere, so picking it just
     // records the choice and redraws to show which is active. A card that
@@ -1785,6 +1836,20 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     }
     if (screens.length) {
       showInpaCategory(ecu, screens, container, irLabel(scr.title) || it.label);
+    } else if (it.job) {
+      // THE SCREEN IS THE BACKDROP, THE JOB IS THE ACTION. An actuator key
+      // names both: "Activate self test" carries STEUERN_SELBSTTEST and points
+      // at s_steuern, which is a bare title screen with no jobs and one line --
+      // what INPA draws WHILE the test runs, not a readout. Because the item
+      // had a screen it was not `inPlace`, so the drive branch above never saw
+      // it and the empty screen fell through to "not offered here", for a job
+      // this ECU really has and answers OKAY to.
+      //
+      // Re-enter through the SAME branch rather than sending here: that one
+      // confirms, registers the drive for release-on-leave, and handles write
+      // jobs. Sending directly would energize an output with none of that.
+      await open({ ...it, inPlace: true, screen: null });
+      return;
     } else {
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`

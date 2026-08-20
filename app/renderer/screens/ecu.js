@@ -48,6 +48,12 @@ async function irResolveGroupVariant(ecu) {
   } catch { return; }
   ecu._sgbdBase = ecu._sgbdBase || ecu.sgbd;
   ecu.sgbd = v;
+  // The group ran IDENTIFIKATION and the answer IS the variant name -- the same
+  // thing irResolveVariant would ask INITIALISIERUNG for. Record it: without
+  // this the variant stayed unknown whenever the group answered first, and
+  // every per-variant menu guard (menuFor) had nothing to match, so an E46 took
+  // the first branch and landed on the E38 pages.
+  if (!ecu._variant) ecu._variant = v.toUpperCase();
 }
 
 // Several root menus, one per ECU variant: INPA runs the variant job and
@@ -55,8 +61,26 @@ async function irResolveGroupVariant(ecu) {
 // a section reached straight from the F-key bar never runs showEcu.
 async function irResolveVariant(ecu) {
   const ir = ecu._ir;
-  if (!ir || !ir.rootVariants || !ir.variantJob || ecu._variant) return;
+  if (!ir || !ir.rootVariants || !ir.variantJob) return;
+  // already known (the group's IDENTIFIKATION answered it): don't ask the car
+  // twice, but DO hand it to the IR -- menu/screen selection reads ir._variant,
+  // and returning early here left it unset.
+  if (ecu._variant) { ir._variant = ecu._variant; return; }
   const names = Object.values(ir.rootVariants).flat();
+  // THE SGBD IS OFTEN THE VARIANT, AND NO JOB REPORTS IT. VARIANTE is an
+  // EDIABAS SYSTEM result derived from the loaded .prg, not something a job
+  // returns: kombi46's INITIALISIERUNG yields only DONE, and no kombi46 job
+  // names VARIANTE at all. Running the variant job to learn it can therefore
+  // never work here -- INPA does not need to ask, because it loaded KOMBI46.
+  // So when the SGBD we are talking to IS one of the variants this IR serves,
+  // that is the answer, and it costs no transaction.
+  const self = names.find(n => String(n).toUpperCase()
+                               === String(ecu.sgbd).toUpperCase());
+  if (self) {
+    ecu._variant = self;
+    ir._variant = self;
+    return;
+  }
   if (demoMode()) {
     // no car to ask: pick a variant INPA itself lists, so the screens belong
     // to a real variant rather than an invented mixture
@@ -70,6 +94,10 @@ async function irResolveVariant(ecu) {
     } catch { /* no cable: irRootMenu falls back to the widest root */ }
   }
   if (ecu._variant) ir._variant = ecu._variant;
+  if (typeof busTrace !== 'undefined') {
+    busTrace.add('ir.variant', null,
+      `sgbd=${ecu.sgbd} variantJob=${ir.variantJob} -> _variant=${ecu._variant}`);
+  }
   await irUseVariantSgbd(ecu);
 }
 
@@ -156,7 +184,14 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     await irResolveGroupVariant(ecu);
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
+    // asking the car which variant it is takes a real transaction; say so
+    // rather than leaving the skeleton up with no explanation
+    if (!ecu._variant && ecu._ir && ecu._ir.rootVariants
+        && !(typeof demoMode === 'function' && demoMode())) {
+      sbLeft.textContent = 'reading variant…';
+    }
     await irResolveVariant(ecu);
+    sbLeft.textContent = `${ecu.sgbd}.prg`;
   } catch { ecu._ir = null; }
 
   // INPA's own keys, in INPA's own order, each opening whatever it opens.
