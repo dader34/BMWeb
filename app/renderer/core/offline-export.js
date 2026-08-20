@@ -8,20 +8,61 @@
 // build FAILS LOUDLY on a tag it can't inline — a silently dropped script boots
 // broken in the field with nothing to say why.
 const OFFLINE_SHELL = [
-  'index.html', 'app.js', 'logo.svg',
-  'css/styles.css', 'css/themes.css', 'css/lookup.css',
+  // the page itself, plus the icon it names
+  'index.html', 'logo.svg',
+
+  'css/styles.css',
+  'css/lookup.css',
+  'css/tuning.css',
+  'css/themes.css',
+
   'vendor/fflate.min.js',
-  'core/webdemo.js', 'core/webshim.js', 'core/bestvm.js',
-  'core/core.js', 'core/print.js', 'core/router.js', 'core/translate.js', 'core/nav.js',
-  'screens/autoscan.js', 'screens/sweep.js', 'screens/fault-report.js',
-  'screens/ir.js', 'screens/ecu.js',
+
+  'core/webdemo.js',
+  'core/webshim.js',
+  'core/bestvm.js',
+  'core/core.js',
+  'core/print.js',
+  'core/router.js',
+  'core/translate.js',
+  'core/nav.js',
+  'core/tuning-store.js',
+  'core/xdf.js',
+
+  'screens/autoscan.js',
+  'screens/sweep.js',
+  'screens/fault-report.js',
+  'screens/ir.js',
+  'screens/ecu.js',
   'screens/activations.js',
-  'screens/coding-edit.js', 'screens/curated-coding.js', 'screens/coding-hub.js', 'screens/navlang.js',
+
+  'core/coding-encode.js',
+  'core/coding-zcs.js',
+  'core/coding-auftrag.js',
+  'core/coding-custom.js',
+  'core/coding-write.js',
+
+  'screens/coding-edit.js',
+  'screens/curated-coding.js',
+  'screens/coding-hub.js',
+  'screens/coding-zcs-editor.js',
+  'screens/navlang.js',
   'screens/identity.js',
-  'screens/special.js', 'screens/measurements.js',
-  'screens/live.js', 'screens/faults.js', 'screens/lookup.js',
-  'screens/tutorial.js', 'screens/wiring.js', 'screens/etk.js', 'screens/apps.js',
+  'screens/special.js',
+  'screens/measurements.js',
+  'screens/live.js',
+  'screens/faults.js',
+  'screens/lookup.js',
+  'screens/wiring.js',
+  'screens/etk.js',
   'screens/tool32.js',
+  'screens/tuning-memory.js',
+  'screens/tuning.js',
+  'screens/apps.js',
+  'screens/tutorial.js',
+
+  'app.js',
+
   // coding-value meanings (small, so they travel with the shell not opt-in)
   'data/codingmap.js',
   // ...and BMW's own coding map for modules whose SGBD says nothing

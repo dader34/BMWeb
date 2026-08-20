@@ -73,6 +73,10 @@ python3 tools/decompile/ipo_ir.py --check
 node tools/decompile/ipo_i18n.js --check
 
 echo
+echo "== offline export mirrors index.html =="
+node tools/verify/test_offline_shell.js
+
+echo
 echo "== IR interpreter renders known screens =="
 node tools/verify/test_ir_render.js
 
