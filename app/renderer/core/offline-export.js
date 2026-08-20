@@ -123,6 +123,25 @@ async function offlineGet(path) {
   return new Uint8Array(await r.arrayBuffer());
 }
 
+// The fault tables are BMW-derived and NOT in the repo (see .gitignore), so a
+// hosted build serves 404 for them and fetches them from Hugging Face at
+// runtime instead -- which is what faults.js and translate.js already do. The
+// exporter looked only at data/, so an offline copy taken from the hosted site
+// came out with no fault text at all and warned about four missing files, on a
+// site where fault text works. Fall back to the same dataset the app uses.
+const OFFLINE_FAULT_HF =
+  'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
+
+async function offlineGetFault(path) {
+  try { return await offlineGet(path); }
+  catch (e) {
+    const name = path.split('/').pop();
+    const r = await OFFLINE_FETCH(OFFLINE_FAULT_HF + name);
+    if (!r.ok) throw e;          // report the ORIGINAL miss, not the fallback's
+    return new Uint8Array(await r.arrayBuffer());
+  }
+}
+
 // README for the folder, so it is obvious how to open it a year from now.
 function offlineReadme(chassis, withFaults, withWiring) {
   return `BMWeb offline copy - ${chassis}
@@ -484,7 +503,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
     for (const f of SINGLE_FAULTS) {
       say(`collecting ${f.split('/').pop()}`);
       // not fatal, but a missing table means codes read as bare hex — say it
-      try { dataParts.push('\n', dec.decode(await offlineGet(f))); }
+      try { dataParts.push('\n', dec.decode(await offlineGetFault(f))); }
       catch (e) { warnings.push(`fault table ${f.split('/').pop()}: ${e.message}`); }
     }
   }
