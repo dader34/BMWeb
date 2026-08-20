@@ -220,12 +220,23 @@ function showSettings() {
     goBtn.className = 'btn';
     goBtn.textContent = 'Download';
 
+    // THE PHONE BUTTON. A zip is useless on iOS -- it cannot be unpacked and
+    // its index.html opened -- so the single-file build exists for exactly this
+    // (offlineSingleFile, "ONE FILE, EVERY PLATFORM"). It had no button, only a
+    // console call, which meant the one export a phone can use was unreachable
+    // from the phone. Wiring is never included here: 72 MB for an E46 is not a
+    // file you AirDrop.
+    const oneBtn = document.createElement('button');
+    oneBtn.className = 'btn';
+    oneBtn.textContent = 'Single file';
+    oneBtn.title = 'One .html with everything inside — the one to use on a phone';
+
     // group into ONE cell: the INPA layout's fixed columns spilled a third control onto its own line
     const picker = combo.el.querySelector('.combo');
     const controls = document.createElement('div');
     controls.className = 'setting-controls';
     picker.replaceWith(controls);
-    controls.append(picker, wireLabel, goBtn);
+    controls.append(picker, wireLabel, goBtn, oneBtn);
     tipify(controls);
     api('/api/chassis').then((ids) => {
       combo.setOptions(
@@ -245,6 +256,22 @@ function showSettings() {
         goBtn.textContent = `failed: ${e.message}`;
       }
       setTimeout(() => { goBtn.textContent = was; goBtn.disabled = false; },
+                 5000);
+    };
+    oneBtn.onclick = async () => {
+      if (typeof offlineSingleFile !== 'function') {
+        oneBtn.textContent = 'unavailable'; return;
+      }
+      const was = oneBtn.textContent;
+      oneBtn.disabled = true;
+      try {
+        const n = await offlineSingleFile(pickVal, true,
+                                          (t) => { oneBtn.textContent = t; });
+        oneBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
+      } catch (e) {
+        oneBtn.textContent = `failed: ${e.message}`;
+      }
+      setTimeout(() => { oneBtn.textContent = was; oneBtn.disabled = false; },
                  5000);
     };
     wrap.appendChild(combo.el);
