@@ -13,7 +13,6 @@ SCHEMA (ir = 1)
     {
       "ir": 1,
       "ecu": "RDC",
-      "language": "en" | "de",
       "coverage": 97.7,                     // % of code bytes decoded
       "entry": { "screen": "s_main", "menu": "m_main" },
       "menus": {
@@ -124,25 +123,92 @@ import ipo_disasm as D                                          # noqa: E402
 IR_VERSION = 1
 OUT_DIR = os.path.join(os.path.dirname(L1.OUT), "inpa-ir")
 
-# A variant name as it appears in a VARIANTE comparison: KOMBI46, KOMBI46R,
-# IKE, MS430... Two letters is the floor (IKE, IKI are real cluster variants).
-_VARISH = re.compile(r"^[A-Z][A-Z0-9]{1,}[A-Z0-9_]*$")
-# names that look variant-ish but are result keys / job arguments, not variants
-_NOT_VARIANT = re.compile(r"^(STAT|ID|AIF|F|JOB|ARG)_|_(EIN|AUS|WERT|TEXT)$")
+def _variant_slot(all_toks):
+    """Which global holds the VARIANTE the dispatch tests, or None.
+
+    INPA reads it once at startup and every arm of the per-variant dispatch
+    compares against it:
+
+        INPAapiJob(sgbd, "INITIALISIERUNG", ...)
+        INP1apiResultText(<status ref>, <string ref>, "VARIANTE", 0, "")
+        global13 = <string ref>            # inpainit copies it out
+        ...
+        if (global13 == "KOMBI46") setmenu(...)
+
+    Found by following that chain -- the result read names VARIANTE, its
+    destination procref is the slot, and the store that copies that slot into
+    a global is the one the menus test. No name shapes involved, so a
+    mixed-case variant (KOMBI36c) or a two-letter one (IKE) is read as
+    happily as any other.
+    """
+    for name in ("inpainit", "__inpa_startup__"):
+        toks = all_toks.get(name) or []
+        dest = None
+        for i, t in enumerate(toks):
+            if t["op"] == "call" and t.get("name") in (
+                    "INP1apiResultText", "INPAapiResultText"):
+                seg = D.frame_of(toks, i)
+                strs = [x["v"] for x in seg
+                        if x["op"] == "const" and x.get("t") == "s"]
+                if "VARIANTE" not in strs:
+                    continue
+                refs = [x for x in seg if x["op"] == "procref"]
+                if refs:
+                    # (status ref, string ref): the LAST is where the text lands
+                    dest = refs[-1]["n"]
+            elif dest is not None and t["op"] == "store" \
+                    and t.get("sc") == 0:
+                prev = toks[max(0, i - 3):i]
+                if any(x["op"] == "var" and x.get("sc") == 2
+                       and x["n"] == dest for x in prev):
+                    return t["n"]
+    return None
 
 
-def _variant_guard(toks, at):
+def _eq_operands(toks, i):
+    """The two values an `eq` at index i consumes: (var slot, literal).
+
+    The opcode takes exactly the two pushes before it, so the pairing is
+    exact -- scanning a window instead pulled in a neighbouring literal and
+    turned 'Read memory' and '3.0' into KOMBI variants.
+    """
+    if i < 2:
+        return None, None
+    slot = lit = None
+    for x in (toks[i - 2], toks[i - 1]):
+        if x["op"] == "var":
+            slot = (x.get("sc", 0), x["n"])
+        elif x["op"] == "const" and x.get("t") == "s":
+            lit = x["v"]
+    return slot, lit
+
+
+def _variant_guard(toks, at, vslot=None):
     """The variant names guarding the branch that contains toks[at].
 
     INPA writes per-variant dispatch as an if/else-if chain: a run of
     `VARIANTE == "NAME"` comparisons or-ed together, a `jfalse` over the arm,
-    then the setmenu/setscreen for that arm. Walking back from the call to the
-    nearest jfalse and collecting the string constants compared just before it
-    recovers the condition. Returns [] when the target is not variant-guarded
-    (the common case -- most items name one target unconditionally).
+    then the setmenu/setscreen for that arm.
+
+    A name is taken ONLY from an `eq` whose other operand is the variant
+    global (see _variant_slot) -- never from how the string is spelled. The
+    old test was a shape match, `^[A-Z][A-Z0-9]+$` minus a stop-list of
+    prefixes, and it could not tell a variant from any other capitalised
+    literal in the same condition: "OKAY", the argument of the
+    INPAapiCheckJobStatus that INPA emits after every job, was 1,409 of the
+    3,604 recorded guard values. It also rejected real variants for their
+    spelling -- KOMBI36c is mixed case, KOMBI34L ends in a letter.
+
+    Returns [] when the target is not variant-guarded (the common case), or
+    when this file never reads VARIANTE at all.
     """
+    if vslot is None:
+        return []
     names, seen_jfalse = [], False
-    for x in reversed(toks[max(0, at - 60):at]):
+    lo = max(0, at - 60)
+    window = toks[lo:at]
+    for j in range(len(window) - 1, -1, -1):
+        x = window[j]
         op = x.get("op")
         # A `jump` before we ever saw a jfalse means we are in the ELSE arm of
         # the chain -- the previous arm jumped over us. An else arm carries no
@@ -162,11 +228,10 @@ def _variant_guard(toks, at):
             break
         if op == "call":            # a call inside the condition: not a guard
             break
-        if op == "const" and x.get("t") == "s":
-            v = str(x.get("v", ""))
-            if _VARISH.match(v) and not _NOT_VARIANT.match(v):
-                if v not in names:
-                    names.append(v)
+        if op == "binop" and x.get("name") == "eq":
+            slot, lit = _eq_operands(window, j)
+            if lit and slot == (0, vslot) and lit not in names:
+                names.append(lit)
     return list(reversed(names))
 
 # A RESULT name, which is laxer than a job name: BMW ships mixed-case results
@@ -174,12 +239,33 @@ def _variant_guard(toks, at):
 # ("ECU", "TYP"). Used only where a Result* call names what it reads -- job
 # names keep the strict form, or a bare argument like "FM" would pass for one.
 _RESULTISH = re.compile(r"^[A-Z][A-Za-z0-9_]+$")
-# A human caption rather than a result name: it ends in a colon, or contains a
-# space or a lowercase letter where a key would not ("Steuergerät:", "SGBD
-# RevisionsNr.:"). Trailing padding is INPA's own column alignment.
-_CAPTIONISH = re.compile(r"^(?=.*[ :a-zäöüß])[^\x00-\x1f]{2,40}\s*$")
-
 _WRITE_JOB = re.compile(r"SCHREIBEN|STEUERN|RESET|LOESCHEN|CLEAR|WRITE", re.I)
+
+
+def _is_write(job):
+    """Does this job change the ECU PERMANENTLY? The one answer, every path.
+
+    _PERSISTENT_WRITE is the right question -- it deliberately excludes
+    STEUERN_*, which IS the actuator mechanism, and flagging those would
+    disable every activation. But it also missed the ERASES: 77 jobs ending
+    LOESCHEN/CLEAR that wipe adaptations for good (MS430's eight
+    ADAPT_*_LOESCHEN, XENON_L's ADAPTIVWERT_LOESCHEN). Clearing an adaptation
+    is as permanent as writing one.
+    _WRITE_JOB stays what it is -- the broad "touches the ECU" test the screen
+    layer uses -- but it is no longer mixed into this decision. Three call
+    sites previously used three different combinations, so 107 jobs got a
+    different flag depending only on which decode path found them:
+    FS_LOESCHEN shipped flagged on 256 items and unflagged on 494.
+    """
+    if _PERSISTENT_WRITE.search(job):
+        return True
+    if job.upper().startswith("STEUERN"):
+        return False                      # an actuator drive, not a write
+    return bool(_ERASE_JOB.search(job))
+
+
+# an erase is permanent even though it writes nothing
+_ERASE_JOB = re.compile(r"LOESCHEN|CLEAR", re.I)
 
 # A menu item's job that changes the ECU PERMANENTLY, as opposed to driving an
 # actuator for as long as the test runs. STEUERN_* is deliberately excluded:
@@ -193,124 +279,10 @@ _PERSISTENT_WRITE = re.compile(
 _ACTIONS = {0x0c: "exit", 0x10: "select", 0x11: "deselect", 0x13: "start",
             0x17: "printscreen"}
 
-# Items that drive INPA itself rather than the ECU: loading another script,
-# opening the KVP editor, switching the displayed screen and nothing more.
-# Detected by what the item DOES -- a script path, a tool command line, or a
-# bare setscreen back to the root -- because a list of labels would need an
-# entry per ECU per language, which is the trap this whole IR exists to avoid.
-_APP_TOOL = re.compile(r"\.ipo$|^kvp_edit|^\\\\?inpa\\\\|\\\\sgdat\\\\", re.I)
 
 # crude but effective: words that only occur in German-built pools
-_DE_MARKERS = re.compile(r"\b(lesen|Fehler|Drehzahl|Speicher|Spannung|"
-                         r"Zurueck|Zurück|Ansteuern|Kennung|Werte?)\b")
-
 # ---------------------------------------------------------------------------
-# Actuator (STEUERN_) captions, absorbed from the former steuern_layout.py.
-#
-# INPA compiles each actuator test as a pair of blocks: the start job
-# (STEUERN_X) and its stop job (STEUERN_X_ENDE). Only the stop block carries a
-# human caption -- the "...Ansteuerung beendet!" acknowledgement INPA prints
-# when the test ends. The start block holds nothing but the job name and its
-# JOB_STATUS/OKAY check, so a nearest-string scan from the START job walks into
-# the NEXT actuator's caption and mislabels almost every entry.
-#
-# This is a string-pool adjacency scan over the raw bytes, not a decompiler
-# pass: the pairing lives in string ORDER, which the decoded token stream does
-# not preserve across blocks. It produced data/steuern-labels.json for a year;
-# the fold into the IR keeps its output byte-identical (verified at fold time).
 
-# printable runs, latin-1: the .IPO keeps German captions in CP1252/latin-1
-_ST_RUN = re.compile(rb"[\x20-\x7e\xa0-\xff]{3,}")
-# a bare code token, result name, or number is never a caption
-_ST_NOISE = re.compile(r"^(JOB_STATUS|OKAY|ERROR|[A-Z0-9_]+|[\d.,;x\s+-]+)$")
-_ST_STOP = re.compile(r"^(STEUERN_[A-Z0-9_]+?)_(ENDE|AUS|STOP)$")
-
-# INPA screen chrome and job-failure text: these sit in the same string pool
-# and would otherwise be captured as an actuator's name
-_ST_CHROME = re.compile(
-    r"fehler\s+bei|job-?status|^\s*(drucken|print|info|status|auswahl|selection"
-    r"|aktive\s+fehlermeldung|ende|exit|zur(ü|ue)ck|back|weiter)\s*$"
-    r"|^\s*(activate|ansteuern|steuern|aktivieren|ein|aus|on|off|start|stop)\s*$",
-    re.I)
-
-# acknowledgement wording INPA appends to the component name; stripped so the
-# button reads "E-Lüfter", not "E-Lüfteransteuerung beendet!"
-_ST_STRIP = [
-    (re.compile(r"\s*-?\s*ansteuerung\s+beendet\s*!?\s*$", re.I), ""),
-    (re.compile(r"\s*ansteuerung\s*$", re.I), ""),
-    (re.compile(r"^\s*status\s+", re.I), ""),
-    (re.compile(r"\s+(ein|aus|on|off)\s*$", re.I), ""),
-    (re.compile(r"\s*!+\s*$"), ""),
-]
-
-
-def _st_is_caption(s):
-    """A human-readable caption, not a code token / result name / number."""
-    s = s.strip()
-    if not 4 <= len(s) <= 60:
-        return False
-    if _ST_NOISE.fullmatch(s):
-        return False
-    if s.startswith(("STEUERN", "STATUS_", "STAT_", "_TEL", "ergebnis")):
-        return False
-    if _ST_CHROME.search(s):
-        return False
-    return bool(re.search(r"[a-zäöüß]", s))
-
-
-def _st_clean(caption):
-    """Acknowledgement text -> component name."""
-    s = caption.strip()
-    for pat, rep in _ST_STRIP:
-        s = pat.sub(rep, s)
-    return s.strip(" -:\t") or caption.strip()
-
-
-def _steuern_labels(data):
-    """{start_job: caption} mined from the raw .IPO bytes."""
-    seq = [m.group(0).decode("latin-1") for m in _ST_RUN.finditer(data)]
-    out = {}
-    for i, s in enumerate(seq):
-        m = _ST_STOP.fullmatch(s)
-        if not m:
-            continue
-        start = m.group(1)
-        if start in out:
-            continue
-        # the caption sits just past the stop job, before the next block's
-        # JOB_STATUS/OKAY check
-        for nxt in seq[i + 1:i + 6]:
-            if not _st_is_caption(nxt):
-                continue
-            label = _st_clean(nxt)
-            # stripping the acknowledgement can leave bare chrome ("Status")
-            if len(label) < 2 or _ST_CHROME.search(label):
-                continue
-            out[start] = label
-            break
-    return out
-
-
-def _language(pool):
-    """Which language this .IPO's captions are written in.
-
-    Votes over the WHOLE pool, not a leading sample. Every .IPO opens with
-    the same boilerplate -- inpa.h / BMW_STD.H and a run of Win32 API
-    declaration strings ("kernel32::GetPrivateProfileStringA:c.sssSis%I") --
-    and on 205 ECUs that preamble is longer than 400 entries, so a capped
-    sample scored pure chrome and called a German file English. ACSM3 votes
-    14/400 capped but 84/983 over the pool, and its captions really are
-    "Fehlerspeicher" / "FS löschen".
-    """
-    votes = 0
-    seen = 0
-    for t, v in pool:
-        if t != "s" or len(v) < 4:
-            continue
-        seen += 1
-        if _DE_MARKERS.search(v):
-            votes += 1
-    return "de" if seen and votes / seen > 0.06 else "en"
 
 
 # INPA prints its own softkey help as screen text: "< F1 >  DWA output".
@@ -319,7 +291,14 @@ def _language(pool):
 # back by F-number.
 _SOFTKEY = re.compile(r"^<\s*(?:(Shift)\s*>\s*\+\s*<\s*)?F(\d+)\s*>\s+(.{2,44})$")
 
-# INPA's own chrome, which the app provides natively
+# INPA'S OWN CHROME, printed in the softkey bar. This one stays a word list
+# on purpose. It runs in the caption MINER, which sees only screen text --
+# there is no item to consult yet, and moving the test to the join does not
+# work: at that point "navigates and has no job" describes every ordinary
+# submenu key as well as every Back key, so deciding there strips the
+# captions off real menus (measured: it broke MS450's actuator groups,
+# KOMBI46's submenu and the Ident screens). The strings INPA prints for its
+# own chrome are a closed set it ships itself, not a guess about meaning.
 _SK_CHROME = re.compile(r"^(Print(\s*screen)?|Back|Exit|End|Ende|Zur(ü|ue)ck|"
                         r"Select|Deselect|Auswahl|Abwahl|Druck(en)?|"
                         r"Bildschirmdruck|Change\s+Editor|Gesamt)$", re.I)
@@ -687,7 +666,7 @@ def _screen_ir(toks):
                     if all(j["name"] != jname or j.get("arg") != arg
                            for j in jobs):
                         jobs.append({"name": jname,
-                                     "write": bool(_WRITE_JOB.search(jname)),
+                                     "write": _is_write(jname),
                                      # which LINE this job feeds. A screen can
                                      # read several jobs to fill ONE page --
                                      # MS450's mixture adaptation reads seven,
@@ -1462,7 +1441,7 @@ def _menu_flow(toks):
     return res
 
 
-def _menu_ir(toks, id2name, name=None):
+def _menu_ir(toks, id2name, name=None, vslot=None):
     items, cur_nr, cur_label = [], None, None
     entry = None
     last_const = None
@@ -1572,7 +1551,7 @@ def _menu_ir(toks, id2name, name=None):
             # targets threw the condition away, so an E46 took the first arm and
             # walked into the E38 activation pages, whose rows call jobs
             # kombi46 does not have. Keep the guard with its target.
-            guard = _variant_guard(toks, ti)
+            guard = _variant_guard(toks, ti, vslot)
             if guard:
                 # several arms can name the SAME target (KOMBI's Coding key
                 # sends every variant to one menu); union their conditions so
@@ -1636,7 +1615,7 @@ def _menu_ir(toks, id2name, name=None):
                 # a menu item's job needs the same write flag a screen's
                 # does. KLIMA_5B's "Comp.act" calls EEPROM_SCHREIBEN, which
                 # would have fired on a keypress like any read.
-                if _PERSISTENT_WRITE.search(nm):
+                if _is_write(nm):
                     entry["writeJob"] = True
         elif t["op"] == "calluser" and cur_label is not None:
             # A key that runs a display FUNC: INPA builds some screens inside
@@ -1764,20 +1743,20 @@ def _menu_ir(toks, id2name, name=None):
                 # an item may also ask twice; keep every dialog's wording
                 have = entry.setdefault("prompt", [])
                 have += [p for p in prompts if p not in have]
-        elif t["op"] == "call" and t["n"] == 0x0f and cur_label is not None:
-            # scriptchange: loads a different .IPO entirely. Its argument is a
-            # script or SGBD name ("_DWS", "GS30", "\inpa\sgdat\airbag.ipo"),
-            # so the CALL is the reliable signal -- matching the string shape
-            # missed the bare-name form.
-            if entry is None:
-                entry = {"nr": cur_nr, "label": cur_label}
-                items.append(entry)
-            entry["appTool"] = True
-        elif t["op"] == "const" and t.get("t") == "s" \
-                and cur_label is not None and _APP_TOOL.search(str(t["v"])):
-            # this item drives INPA, not the car: it names a script to load or
-            # a tool to launch (RDC F11 "Change" runs kvp_edit, F15 "Extra"
-            # loads \inpa\sgdat\_rdc.ipo)
+        elif t["op"] == "call" and t["n"] in (0x0f, 0x5b) \
+                and cur_label is not None:
+            # THIS ITEM DRIVES INPA, NOT THE CAR -- said by the opcode:
+            #   0x0f scriptchange  loads a different .IPO ("_DWS", "GS30",
+            #                      "\inpa\sgdat\airbag.ipo")
+            #   0x5b callwin       launches an external program; RDC's
+            #                      "Change" builds "kvp_edit " + args and
+            #                      hands it over
+            # Matching the STRING instead used to stand in for callwin, and
+            # it fired on any pool literal ending .ipo -- 50 fault-menu items
+            # across asa_01/cicr/cidf and others hold a bare '.IPO' fragment
+            # while they concatenate a LOG FILENAME, and were marked PC-only
+            # (and so unflagged for write) on that basis. The two opcodes
+            # cover 663 real launches and none of the 50.
             if entry is None:
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
@@ -2028,17 +2007,32 @@ def build(ecu):
     id2name = {}
     for off, typ, name, pid in decls:
         id2name[(typ, pid)] = name
-    ir = {"ir": IR_VERSION, "ecu": ecu, "language": _language(pool),
-          "menus": {}, "screens": {}}
+    # NO `language` FIELD. It was written by a vote over German marker words
+    # and read by nothing -- and the vote was wrong on 298 ECUs, calling
+    # German files English (MS450's captions really are "Fehlerspeicher
+    # lesen"; it scored 3.8% against a 6% threshold). There is no language
+    # declaration anywhere in the .IPO, and neither umlaut rate nor function
+    # words separate the corpus: BMW ships ASCII fallbacks, and some ECUs
+    # keep their German in result tables rather than the pool. Translation
+    # runs off the per-ECU maps in data/inpa-i18n instead, which are exact.
+    ir = {"ir": IR_VERSION, "ecu": ecu, "menus": {}, "screens": {}}
     cov_unk = cov_len = 0
     # every proc's tokens, kept so a composite menu can look up what the
     # program initialises its argument fields to
     all_toks = {}
+    spans = []
     for k, (off, typ, name, pid) in enumerate(decls):
         lo = off + 1 + len(name) + 1 + 4 + 1
         hi = decls[k + 1][0] if k + 1 < len(decls) else ps
         toks, unk, ln = D.walk(data, lo, hi, pool)
         all_toks[name] = toks
+        spans.append((typ, name, pid, unk, ln))
+    # WHICH GLOBAL HOLDS THE VARIANT, decided before any menu is read:
+    # inpainit is often declared after the menus that test it, so this needs
+    # every proc walked first.
+    vslot = _variant_slot(all_toks)
+    for typ, name, pid, unk, ln in spans:
+        toks = all_toks[name]
         cov_unk += unk
         cov_len += ln
         if typ == "screen" or (typ == "func" and _is_display_func(toks)):
@@ -2055,7 +2049,7 @@ def build(ecu):
                 scr["fromFunc"] = True
             ir["screens"][name] = scr
         elif typ == "menu":
-            m = _menu_ir(toks, id2name, name)
+            m = _menu_ir(toks, id2name, name, vslot)
             comp = _composite(toks)
             if comp:
                 # slot -> its index in the argument string. The SGBD's
@@ -2179,7 +2173,7 @@ def build(ecu):
                     ja = _val(sig.get("arg"))
                     if ja:
                         it["jobArg"] = ja
-                    if _PERSISTENT_WRITE.search(jb) or _WRITE_JOB.search(jb):
+                    if _is_write(jb):
                         it["writeJob"] = True
 
             # a marker for the audit above, not part of the schema: the
@@ -2207,7 +2201,7 @@ def build(ecu):
                     it["arg"] = str(sel)
                 elif hit.get("arg") is not None:
                     it["arg"] = hit["arg"]
-                if _WRITE_JOB.search(hit["job"]):
+                if _is_write(hit["job"]):
                     it["writeJob"] = True
             it["screen"] = nm
             used.add(nm)
@@ -2342,7 +2336,7 @@ def build(ecu):
                 if nm:
                     it.setdefault("job", nm)
                     it["stateJob"] = True
-                    if _PERSISTENT_WRITE.search(nm):
+                    if _is_write(nm):
                         it["writeJob"] = True
                     break
             # THE ARGUMENT THE WRITE ASSEMBLES, spelled out. The proc joins
@@ -2370,7 +2364,7 @@ def build(ecu):
                     # the whole sequence, so the app can say what the test
                     # actually does rather than showing one job of many
                     it["stateJobs"] = reached
-                    if any(_PERSISTENT_WRITE.search(j) for j in reached):
+                    if any(_is_write(j) for j in reached):
                         it["writeJob"] = True
             # A "Change: ..." key: no job of its own, it only edits the
             # buffer the write key later sends. INPA drops these entirely,
@@ -2396,7 +2390,7 @@ def build(ecu):
                     it["job"] = reached[0]
                     it["stateJob"] = True
                     it["stateJobs"] = reached
-                    if any(_PERSISTENT_WRITE.search(j) for j in reached):
+                    if any(_is_write(j) for j in reached):
                         it["writeJob"] = True
     for menu in ir["menus"].values():
         for it in menu["items"]:
@@ -2486,22 +2480,12 @@ def build(ecu):
                 continue
             if 11 <= n <= 19 and (n - 10) in nrs:
                 it["shift"] = True
-    # Actuator captions, mined from the same file's string pool (see
-    # _steuern_labels above). {STEUERN_X: "component name"} -- the names INPA
-    # itself prints; the app's Activations view joins them to /activations by
-    # job. Emitted only when the mine found something, so a diff against the
-    # retired data/steuern-labels.json stays one-to-one.
-    st = _steuern_labels(data)
-    if st:
-        ir["steuernLabels"] = st
     # Every caption this ECU displays, gathered once. The renderer used to
     # translate at draw time -- 24 call sites, the same string re-resolved on
     # every repaint -- which also meant a per-ECU correction had nowhere to
     # live. tools/ipo_i18n.js fills this in from the shared vocabulary plus
     # data/inpa-i18n/<ECU>.json, and the interpreter then just looks up.
     strings = set()
-    for lab in (ir.get("steuernLabels") or {}).values():
-        strings.add(lab)
     for menu in ir["menus"].values():
         for it in menu["items"]:
             if it.get("label"):
