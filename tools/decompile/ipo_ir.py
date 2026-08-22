@@ -1808,6 +1808,14 @@ def _menu_ir(toks, id2name, name=None):
     # appear in INPA's menu
     have = {it.get("nr") for it in items}
     for nr, si in sorted(setitems.items()):
+        # INPA HAS F1..F20 AND NOTHING ELSE (F11-F19 are the shifted row).
+        # A number outside that range did not come from a real setitem: in
+        # dkg_10 and dkg_90 the 0x02 match lands on some other call whose
+        # arguments are string-first, and the "keys" it invents are prose
+        # ("must die Werte in den NVRAM...") and an F1000. Two menus corpus
+        # wide, but one of them collided a phantom F21 onto real F1.
+        if not (0 <= nr <= 20):
+            continue
         if nr not in have:
             items.append({"nr": nr, "label": si["label"],
                           **({"startsDisabled": True} if not si["enabled"]
