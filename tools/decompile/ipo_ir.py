@@ -124,8 +124,6 @@ import ipo_disasm as D                                          # noqa: E402
 IR_VERSION = 1
 OUT_DIR = os.path.join(os.path.dirname(L1.OUT), "inpa-ir")
 
-_KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
-
 # A variant name as it appears in a VARIANTE comparison: KOMBI46, KOMBI46R,
 # IKE, MS430... Two letters is the floor (IKE, IKI are real cluster variants).
 _VARISH = re.compile(r"^[A-Z][A-Z0-9]{1,}[A-Z0-9_]*$")
@@ -294,6 +292,16 @@ def _steuern_labels(data):
 
 
 def _language(pool):
+    """Which language this .IPO's captions are written in.
+
+    Votes over the WHOLE pool, not a leading sample. Every .IPO opens with
+    the same boilerplate -- inpa.h / BMW_STD.H and a run of Win32 API
+    declaration strings ("kernel32::GetPrivateProfileStringA:c.sssSis%I") --
+    and on 205 ECUs that preamble is longer than 400 entries, so a capped
+    sample scored pure chrome and called a German file English. ACSM3 votes
+    14/400 capped but 84/983 over the pool, and its captions really are
+    "Fehlerspeicher" / "FS löschen".
+    """
     votes = 0
     seen = 0
     for t, v in pool:
@@ -302,8 +310,6 @@ def _language(pool):
         seen += 1
         if _DE_MARKERS.search(v):
             votes += 1
-        if seen >= 400:
-            break
     return "de" if seen and votes / seen > 0.06 else "en"
 
 
@@ -401,12 +407,13 @@ def _dispatch(toks):
             args.append(t)
         elif t["op"] == "call":
             if t.get("name") in D.JOB_CALLS:
-                s = [a["v"] for a in args
-                     if a["op"] == "const" and a.get("t") == "s"]
-                if s and D._KEYISH.match(s[0]):
-                    e = {"job": s[0]}
-                    if len(s) > 1 and s[1] != "":
-                        e["arg"] = s[1]
+                _p = D.arg_positions(args)
+                jb = D.arg_str(_p, D.JOB_ARG_JOB)
+                if jb:
+                    e = {"job": jb}
+                    ag = D.arg_str(_p, D.JOB_ARG_ARG)
+                    if ag:
+                        e["arg"] = ag
                     if isinstance(sel, int):
                         out.setdefault(str(sel), e)
                     elif any(a["op"] == "var" for a in args):
@@ -644,7 +651,11 @@ def _screen_ir(toks):
                     if col is not None:
                         el["col"] = col
             elif name in D.JOB_CALLS:
-                jname = next((s for s in strs if D._KEYISH.match(s)), None)
+                # INPAapiJob(sgbd, job, argument, results): both are read from
+                # the positions the signature defines, so a short job name is
+                # no different from a long one.
+                _pos = D.arg_positions(args)
+                jname = D.arg_str(_pos, D.JOB_ARG_JOB)
                 if jname:
                     # the argument INPA passes. A per-position screen calls
                     # the same job once per wheel/bank/cylinder with the index
@@ -652,8 +663,9 @@ def _screen_ir(toks):
                     # ...), so the SAME result keys mean a different thing in
                     # each LINE. Without the argument the screen showed 40
                     # rows of the same 8 values.
-                    after = strs[strs.index(jname) + 1:] if jname in strs else []
-                    arg = next((s for s in after if s.strip()), None)
+                    arg = D.arg_str(_pos, D.JOB_ARG_ARG) or None
+                    if arg is not None and not arg.strip():
+                        arg = None
                     cur()["jobArg"] = arg
                     # ...or a VARIABLE argument, which the menu key set before
                     # opening this screen. MS450's fifteen AIF keys share
@@ -666,14 +678,12 @@ def _screen_ir(toks):
                     # menu key that assembled the argument (promptArg) or
                     # stored a selector before opening this screen.
                     aslot = None
-                    if var_arg:
-                        ji = next((i2 for i2, a in enumerate(args)
-                                   if a["op"] == "const"
-                                   and a.get("v") == jname), None)
-                        if ji is not None:
-                            aslot = next((a["n"] for a in args[ji + 1:]
-                                          if a["op"] == "var"
-                                          and a.get("sc", 0) == 0), None)
+                    if var_arg and D.JOB_ARG_ARG < len(_pos):
+                        # the slot IS the argument position, not "the next var
+                        # after the job name"
+                        aslot = next((x["n"] for x in _pos[D.JOB_ARG_ARG]
+                                      if x["op"] == "var"
+                                      and x.get("sc", 0) == 0), None)
                     if all(j["name"] != jname or j.get("arg") != arg
                            for j in jobs):
                         jobs.append({"name": jname,
@@ -793,16 +803,25 @@ def _screen_ir(toks):
                     bind[(2 if dst["kind"] == 2 else 0, dst["n"])] = bind[src]
                 # A LABELLED field: INPA hands the helper the caption and the
                 # result name together, then the position. MS450's SGBD-Info
-                # is seven of these -- ("Steuergerät:", "ECU", 6, 5) -- and
-                # taking only the key lost every caption, while _KEYISH's
-                # four-character floor dropped the "ECU" row outright.
+                # is seven of these -- ("Steuergerät:", "ECU", 6, 5). Which
+                # argument is which is read from POSITION: a helper called
+                # with two leading strings captions the second, one with a
+                # single string names the key with it. No length floor, so
+                # the three-letter "ECU" row survives.
+                # ...decided by POSITION: argument 0 is the key when the
+                # helper takes one string, and the caption when it takes two
+                # (then argument 1 is the key). Test the positions themselves
+                # -- `len(strs) >= 2` counts strings anywhere in the frame,
+                # including a trailing on/off pair, and mistook a one-string
+                # gauge call for a labelled one.
                 lab = None
-                if len(strs) >= 2 and len(ints) >= 2 \
-                        and _CAPTIONISH.match(strs[0]) \
-                        and _RESULTISH.match(strs[1]):
-                    lab, key = strs[0].strip().rstrip(":").strip(), strs[1]
+                _p = D.arg_positions(args)
+                a0, a1 = D.arg_str(_p, 0), D.arg_str(_p, 1)
+                if a0 is not None and a1 is not None and len(ints) >= 2:
+                    lab = a0.strip().rstrip(":").strip() or None
+                    key = a1
                 else:
-                    key = next((s for s in strs if D._KEYISH.match(s)), None)
+                    key = a0
                 if key and len(ints) >= 2:
                     el = {"t": "value" if lab or len(strs) < 3 else "lamp",
                           "key": key, "row": ints[0], "col": ints[1]}
@@ -930,11 +949,11 @@ def _composite(toks):
     job = None
     for i, t in enumerate(toks):
         if t["op"] == "call" and t.get("name") in D.JOB_CALLS:
-            seg = toks[max(0, i - 8):i]
+            # the call's own frame, not a fixed 8-token lookbehind: the window
+            # could start mid-way through the previous call's operands
+            seg = D.frame_of(toks, i)
             if any(x["op"] == "var" and x["n"] == acc for x in seg):
-                nm = next((x["v"] for x in seg if x["op"] == "const"
-                           and x.get("t") == "s" and _KEYISH.match(x["v"])),
-                          None)
+                nm = D.arg_str(D.arg_positions(seg), D.JOB_ARG_JOB)
                 if nm:
                     job = nm
                     break
@@ -989,6 +1008,103 @@ def _composite(toks):
     return {"job": job, "order": order, "items": items, "send": send}
 
 
+def _helper_job(toks):
+    """How a FUNC runs a job: {'job': src, 'arg': src}, src=('param',n)|('const',v).
+
+    Read from the callee's own body rather than guessed at the call site. A
+    helper either hardcodes the job (GSDS2's `ansteuerung` always sends
+    STEUERN_STELLGLIED and takes the actuator as a parameter) or is handed one
+    (MS42's actuator keys pass their own). Both are resolved the same way:
+    find INPAapiJob, split ITS frame into positional arguments, and read
+    positions 1 and 2 -- the job and its argument, per the call's signature.
+
+    A position that is a parameter is reported as ('param', n) so the caller
+    can substitute the string it actually passed. Following one level of
+    global store back to the param it was built from covers the common
+    `global = param + ";SUFFIX"` shape.
+
+    Corpus: 6,470 helpers hardcode the job, 359 take it as a parameter, so
+    both arms are load-bearing.
+    """
+    for i, t in enumerate(toks):
+        if t["op"] == "call" and t.get("name") in D.FSMODE_CALLS:
+            # the fault-memory reader: job LAST, defaulting to FS_LESEN
+            pos = D.arg_positions(D.frame_of(toks, i))
+            if D.FSMODE_ARG_JOB >= len(pos):
+                continue
+            for x in pos[D.FSMODE_ARG_JOB]:
+                if x["op"] == "var" and x.get("sc") == 2:
+                    return {"job": ("param", x["n"]),
+                            "default": D.FSMODE_DEFAULT_JOB}
+                if x["op"] == "var" and x.get("sc") == 0:
+                    # the wrappers copy each parameter into a global first
+                    # (`global239 = param0; global240 = param1; ...`), so the
+                    # source is the push IMMEDIATELY before that global's
+                    # last store -- not the first param seen anywhere.
+                    # The wrapper may also apply INPA's default BEFORE the
+                    # call (`if (job == "") job = "FS_LESEN"`), so the last
+                    # store to that global is a constant while the parameter
+                    # copy is earlier. Keep both: the parameter is what the
+                    # caller supplies, the constant is what it falls back to.
+                    p = dflt = None
+                    for j in range(i):
+                        st = toks[j]
+                        if st["op"] != "store" or st.get("sc") != 0 \
+                                or st["n"] != x["n"]:
+                            continue
+                        prev = toks[j - 1] if j else None
+                        if prev and prev["op"] == "var" \
+                                and prev.get("sc") == 2:
+                            p = prev["n"]
+                        elif prev and prev["op"] == "const" \
+                                and prev.get("t") == "s" and prev["v"]:
+                            dflt = prev["v"]
+                    if p is not None:
+                        return {"job": ("param", p),
+                                "default": dflt or D.FSMODE_DEFAULT_JOB}
+                    if dflt:
+                        return {"job": ("const", dflt)}
+                if x["op"] == "const" and x.get("t") == "s":
+                    return {"job": ("const", x["v"] or D.FSMODE_DEFAULT_JOB)}
+            continue
+        if not (t["op"] == "call" and t.get("name") in D.JOB_CALLS):
+            continue
+        pos = D.arg_positions(D.frame_of(toks, i))
+        # globals assigned before this call, and the param each came from
+        gsrc = {}
+        for j, st in enumerate(toks[:i]):
+            if st["op"] != "store":
+                continue
+            seg = D.frame_of(toks, j)
+            p = next((x["n"] for x in seg
+                      if x["op"] == "var" and x.get("sc") == 2), None)
+            if p is not None:
+                gsrc[(st.get("sc"), st["n"])] = ("param", p)
+            else:
+                lit = next((x["v"] for x in seg
+                            if x["op"] == "const" and x.get("t") == "s"), None)
+                if lit is not None:
+                    gsrc[(st.get("sc"), st["n"])] = ("const", lit)
+        out = {}
+        for slot, label in ((D.JOB_ARG_JOB, "job"), (D.JOB_ARG_ARG, "arg")):
+            if slot >= len(pos):
+                continue
+            for x in pos[slot]:
+                if x["op"] == "var" and x.get("sc") == 2:
+                    out[label] = ("param", x["n"])
+                    break
+                if x["op"] == "var" and x.get("sc") == 0:
+                    r = gsrc.get((0, x["n"]))
+                    if r:
+                        out[label] = r
+                        break
+                if x["op"] == "const" and x.get("t") == "s":
+                    out.setdefault(label, ("const", x["v"]))
+        if out.get("job"):
+            return out
+    return None
+
+
 def _seq_jobs(name, all_toks, id2name, seen=None):
     """Every job a STATE proc reaches, following its transitions.
 
@@ -1017,15 +1133,11 @@ def _seq_jobs(name, all_toks, id2name, seen=None):
     out = []
     for i, t in enumerate(toks):
         if t["op"] == "call" and t.get("name") in D.JOB_CALLS:
-            lo = i
-            while lo > 0 and toks[lo - 1]["op"] != "frame":
-                lo -= 1
-            # The FIRST key-shaped string in the call frame is the job; a
-            # D_nnnn is one of INPA's own message ids, which sit in the same
-            # frame as the prompt text and are not jobs at all.
-            nm = next((x["v"] for x in toks[lo:i] if x["op"] == "const"
-                       and x.get("t") == "s" and _KEYISH.match(x["v"])
-                       and not re.fullmatch(r"D_\d+", x["v"])), None)
+            # The job is argument 1 of the call. Reading the position also
+            # removes the need to special-case D_nnnn message ids: those sit
+            # in a dialog call's frame, never in INPAapiJob's job position.
+            nm = D.arg_str(D.arg_positions(D.frame_of(toks, i)),
+                           D.JOB_ARG_JOB)
             if nm and nm not in out:
                 out.append(nm)
         # 0x43 IS AN INTERNAL STATE INDEX, NOT A PROC ID, and reading it as one
@@ -1393,8 +1505,12 @@ def _menu_ir(toks, id2name, name=None):
             if t["n"] == 0x04 and ref and screen is None:
                 screen = ref
             args = []
+    # the setscreen awaiting its setmenu partner (see the pairing note below)
+    pend_screen = None
     for ti, t in enumerate(toks):
         if t["op"] == "ITEM":
+            # a pair never spans two items
+            pend_screen = None
             # keep an item even when its body neither navigates nor calls a
             # named action: INPA's actuator items only flip state flags and
             # let the SCREEN send the job, so the item is real and its
@@ -1465,6 +1581,21 @@ def _menu_ir(toks, id2name, name=None):
                 for v in guard:
                     if v not in g:
                         g.append(v)
+            # WHICH SCREEN GOES WITH WHICH MENU. A variant switch is one item
+            # holding many setscreen+setmenu pairs -- GSDS2's "Valves" key has
+            # six, one per gearbox -- and INPA emits each pair together:
+            #   setscreen(s_ventile_834); setmenu(m_ventile_834)
+            # Pairing them by that adjacency is exact. Keeping only the first
+            # screen and a flat list of alternative menus lost the
+            # correspondence, so every variant menu was later captioned from
+            # variant #1's screen (250 items across 227 files read the wrong
+            # component names).
+            if slot == "screen":
+                pend_screen = tgt
+            else:
+                if pend_screen:
+                    entry.setdefault("menuScreen", {})[tgt] = pend_screen
+                pend_screen = None
             if slot not in entry:
                 entry[slot] = tgt
             elif entry[slot] != tgt:
@@ -1488,12 +1619,8 @@ def _menu_ir(toks, id2name, name=None):
             # before it belongs to an earlier call. Scanning a fixed window ran
             # past the frame and picked up the "OKAY" of the CheckJobStatus
             # that follows, making every RADIO actuator call a job named OKAY.
-            lo = ti
-            while lo > 0 and toks[lo - 1]["op"] != "frame":
-                lo -= 1
-            seg = toks[lo:ti]
-            nm = next((x["v"] for x in seg if x["op"] == "const"
-                       and x.get("t") == "s" and _KEYISH.match(x["v"])), None)
+            seg = D.frame_of(toks, ti)
+            nm = D.arg_str(D.arg_positions(seg), D.JOB_ARG_JOB)
             if nm:
                 if entry is None:
                     entry = {"nr": cur_nr, "label": cur_label}
@@ -1503,13 +1630,9 @@ def _menu_ir(toks, id2name, name=None):
                 # separating two keys: CDC's "Trpmode ON" and "OFF" both call
                 # ENERGIESPARMODE and differ solely in "0;1;0" vs "0;0;0".
                 # Without it the two keys would send the same command.
-                after = [x["v"] for x in seg
-                         if x["op"] == "const" and x.get("t") == "s"]
-                if nm in after:
-                    rest = after[after.index(nm) + 1:]
-                    arg = next((s for s in rest if s.strip()), None)
-                    if arg:
-                        entry.setdefault("jobArg", arg)
+                arg = D.arg_str(D.arg_positions(seg), D.JOB_ARG_ARG)
+                if arg and arg.strip():
+                    entry.setdefault("jobArg", arg)
                 # a menu item's job needs the same write flag a screen's
                 # does. KLIMA_5B's "Comp.act" calls EEPROM_SCHREIBEN, which
                 # would have fired on a keypress like any read.
@@ -1535,55 +1658,87 @@ def _menu_ir(toks, id2name, name=None):
                         if x["op"] == "const" and x.get("t") == "i"), None)
             if sel is not None:
                 entry.setdefault("_callsel", sel)
-            # ...and the JOB, when the func is handed one to run. MS42's eight
-            # actuator keys are exactly this: each passes its own job and a
-            # caption to a shared `ansteuerung` ("actuation") helper, so the
-            # key IS one job even though it never calls INPAapiJob itself.
-            #
-            #     ITEM 1 "EV 1"  ->  const "STEUERN_EV_1"
-            #                        const "fuel injection valve Cylinder 1"
-            #                        calluser ansteuerung
-            #
-            # Reading only INPAapiJob missed 2,159 items across 508 files, and
-            # they showed as "not decoded" while naming their job plainly. The
-            # first string is the job and the second is its caption, which the
-            # order below relies on rather than guessing by content.
-            strs = [x["v"] for x in toks[lo:ti]
-                    if x["op"] == "const" and x.get("t") == "s"]
-            nm = next((s for s in strs if _KEYISH.match(s)), None)
-            if nm and "job" not in entry:
-                entry["job"] = nm
-                entry["_viaFunc"] = True
-                if _PERSISTENT_WRITE.search(nm):
-                    entry["writeJob"] = True
-                # WHAT FOLLOWS THE JOB IS NOT ALWAYS AN ARGUMENT. On this path
-                # the helper is handed a job AND a caption to display, and
-                # MS42's actuators take no argument at all -- STEUERN_EV_1's
-                # signature is empty, so recording "fuel injection valve
-                # Cylinder 1" as its argument would send the label as data.
-                # Only keep a following string that looks like a KEY rather
-                # than prose; SMG2's MAGNETVENTIL_* really are handed
-                # POSITIONSVORGABE that way.
-                rest = strs[strs.index(nm) + 1:] if nm in strs else []
-                arg = next((s for s in rest
-                            if s.strip() and _KEYISH.match(s.strip())), None)
-                if arg:
-                    entry.setdefault("jobArg", arg)
-        elif t["op"] == "call" and t["n"] in (0x5c, 0x79) \
+            # ...and the ARGUMENTS this key passes, kept POSITIONALLY. Which
+            # of them is the job and which is a caption is not visible here
+            # and must not be guessed from spelling: it is decided by the
+            # callee's signature, which is resolved once every proc is known
+            # (see _helper_job). GSDS2's "L5" key and MS42's "STEUERN_EV_1"
+            # key compile to the same shape; only the helper says which
+            # position it sends.
+            entry.setdefault("_callargs",
+                             [D.arg_str(D.arg_positions(toks[lo:ti]), k)
+                              for k in range(len(D.arg_positions(toks[lo:ti])))])
+        elif t["op"] == "call" and t.get("name") == "userboxftextout" \
                 and cur_label is not None:
-            # A PC file operation: 5c shows a named file, 79 opens one (LWS5's
-            # "Read Pr." displays na_fs_pr.tmp; "Delete Pr." reopens it "w" to
-            # truncate it). INPA writes these logs on the diagnostic PC.
-            # Recorded from what the item DOES, since the captions vary -- but
-            # only meaningful once the whole item is known, because a real
-            # fault key ALSO writes the log after reading the ECU, and a file
-            # PICKER (which prompts, then shows what you chose) is the first
-            # half of a real function: LWS5's "Write Coding Data" picks a .COD
-            # file and its next key sends it to the sensor.
+            # the item DRAWS what it read. Same separator the helper rule
+            # uses: a key that logs to disk and also shows the result is a
+            # read that happens to log, not an export.
             if entry is None:
                 entry = {"nr": cur_nr, "label": cur_label}
                 items.append(entry)
+            entry["_shows"] = True
+        elif t["op"] == "call" and t["n"] == 0x7b and cur_label is not None:
+            # filewrite: this key EMITS BYTES to disk itself. That separates a
+            # writer from a picker -- both prompt, but a picker only chooses a
+            # path and hands it to the next key (LWS5's "Choose File with
+            # Coding Data" prompts and then setscreen's, never writing).
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["_fileWrite"] = True
             entry["_file"] = True
+        elif t["op"] == "call" and t["n"] == 0x79 and cur_label is not None:
+            # fileopen(path, MODE) -- and the mode says which it is. "w"/"a"
+            # create or append, so the key is a PC write; "r" only reads a
+            # log the key is about to display, which every real fault key
+            # also does after questioning the ECU.
+            #
+            # viewopen (0x5c) used to land here too, and it is the reason
+            # 2,308 genuine ECU reads were marked fileAction: viewopen(file,
+            # TITLE) DISPLAYS a file in a titled window -- LWS5's "Read error
+            # memory" shows na_fs.tmp that way. It writes nothing. The
+            # renderer then leaned on a caption regex to un-hide the ones
+            # that "look like a fault read", which hid 535 real jobs whose
+            # captions did not match (CAS m_fehler F1 runs FS_LESEN under an
+            # empty label).
+            mode = D.arg_str(D.arg_positions(D.frame_of(toks, ti)), 1)
+            if mode and mode.strip().lower()[:1] in ("w", "a"):
+                if entry is None:
+                    entry = {"nr": cur_nr, "label": cur_label}
+                    items.append(entry)
+                entry["_file"] = True
+        elif t["op"] == "call" and (t.get("name") in D.FSMODE_CALLS
+                                    or t.get("name") == "INPAapiFsLesen"):
+            # THE FAULT-MEMORY READER IS ECU CONTACT. It names no job and
+            # goes through no helper, so an item that calls it directly and
+            # then viewopen's the result looked like a bare PC viewer -- 196
+            # "Read error memory" keys were flagged that way, and only the
+            # renderer's caption regex kept them visible.
+            if cur_label is not None:
+                if entry is None:
+                    entry = {"nr": cur_nr, "label": cur_label}
+                    items.append(entry)
+                entry["_ecuRead"] = True
+        elif t["op"] == "call" and t["n"] == 0x18 and cur_label is not None:
+            # printfile: spools a PC file to the printer. Unlike a plain
+            # write this is the key's whole PURPOSE -- "Print error memory"
+            # reads the ECU only to have something to print -- so it is
+            # recorded separately from the logging that every real read does.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["_print"] = True
+            entry["_file"] = True
+        elif t["op"] == "call" and t["n"] == 0x5c and cur_label is not None:
+            # viewopen(file, title): DISPLAYS a file. On its own -- with no
+            # job and no other work in the item -- the key is a pure PC
+            # viewer ("Read protocol file"). It is only that when nothing
+            # else in the item talks to the ECU, so it is recorded weakly
+            # and resolved below once the whole item is known.
+            if entry is None:
+                entry = {"nr": cur_nr, "label": cur_label}
+                items.append(entry)
+            entry["_viewOnly"] = True
         elif t["op"] == "call" and t["n"] in _INPUT_CALLS \
                 and cur_label is not None:
             # an input dialog: INPA asks the user for a value and builds the
@@ -1672,7 +1827,27 @@ def _menu_ir(toks, id2name, name=None):
     # back, so requiring no screen/menu at all left them looking like ECU
     # functions.
     for it in items:
-        if not it.pop("_file", None) or it.get("prompt"):
+        printed = it.pop("_print", None)
+        wrote = it.pop("_fileWrite", None)
+        # popped for EVERY item, not just the ones that reach the decision:
+        # an item that exits early below would otherwise carry the marker
+        # into the shipped IR
+        ecuread = it.pop("_ecuRead", None)
+        shows = it.get("_shows")
+        viewonly = it.pop("_viewOnly", None)
+        if viewonly and not it.get("_file") and not it.get("job") \
+                and not it.get("_callf") and not it.get("_state") \
+                and not ecuread and not it.get("action"):
+            # nothing but a viewer: it shows a file and never asks the ECU
+            it["_file"] = True
+        if not it.pop("_file", None):
+            continue
+        # A key that PROMPTS is normally a picker -- but not when it writes
+        # the file itself. ACSM3's "Fehlerspeicher speichern" asks for a
+        # filename and then filewrite's the memory into it; 842 such keys
+        # (all of them German, where no caption rule caught them) were
+        # showing as runnable ECU functions.
+        if it.get("prompt") and not wrote:
             continue
         # "stays put" covers both shapes INPA uses to return from a PC
         # action: re-installing THIS menu, or jumping back to the root. MS450's
@@ -1681,10 +1856,23 @@ def _menu_ir(toks, id2name, name=None):
                  and (it.get("screen") is None or screen is None
                       or it.get("screen") == screen)) \
             or (it.get("menu") == "m_main" and name != "m_main")
-        if not it.get("job") and not it.get("action") \
+        # A KEY THAT ALSO NAMES A JOB IS AN ECU FUNCTION. Nearly every real
+        # fault read appends its result to INPA's log (fileopen "a"), so the
+        # file evidence alone cannot separate LWS5's "Read error memory"
+        # from a pure export -- but the job can, and it is exactly the
+        # evidence the file rules lack. The keys that ARE exports and still
+        # question the ECU (MS450's "save all faults to a file") are caught
+        # by the helper rule above, which sees that the helper's whole
+        # purpose is filewrite.
+        asked = ecuread or it.get("job") or (shows and wrote)
+        if (printed or not asked) and not it.get("action") \
                 and (stays or not any(it.get(k)
                                       for k in ("screen", "menu"))):
             it["fileAction"] = True
+            if printed:
+                # so the app can say WHY it is a PC action, instead of
+                # re-deriving it from the caption
+                it["printAction"] = True
     # what each key COMPUTES: dialog-assembled argument templates and
     # self-stepped counters (resolved against the target screen's job by
     # build(), which knows both sides)
@@ -1924,11 +2112,68 @@ def build(ecu):
     for off, typ, name, pid in decls:
         if typ == "func" and name in ir["screens"]:
             funcid[pid] = name
+    # EVERY func by id, not just the ones that draw: a helper that only fires
+    # a job (GSDS2's `ansteuerung`) is not a screen, so it is absent from
+    # funcid, and its callers had nowhere to resolve their job from.
+    allfunc = {pid: name for off, typ, name, pid in decls if typ == "func"}
+    sigs = {}
+    # A helper that SPOOLS ITS RESULT TO DISK makes the key that calls it a
+    # PC action, not an ECU function: MS450's OutputError2File reads the
+    # fault memory only to write it out, and its key's own body contains no
+    # file call at all -- the evidence lives entirely in the callee. Keyed on
+    # filewrite, the call that actually emits bytes; fileclose alone also
+    # appears in keys that merely log what they displayed.
+    fwrite = set()
+    for pid, name in allfunc.items():
+        body = all_toks.get(name) or []
+        sig = _helper_job(body)
+        if sig:
+            sigs[pid] = sig
+        # ...but only when the helper never SHOWS what it wrote. Both kinds
+        # read the ECU, so ECU contact cannot separate them: E53's
+        # fs_is_lesen reads the fault memory, draws it with userboxftextout
+        # AND logs it (a read that happens to log), while MS450's
+        # OutputError2File draws nothing -- it exists to spool the bytes to
+        # disk. Drawing is the difference.
+        names = {t.get("name") for t in body if t["op"] == "call"}
+        if "filewrite" in names and "userboxftextout" not in names:
+            fwrite.add(pid)
     used = set()
     for menu in ir["menus"].values():
         for it in menu["items"]:
             fid = it.pop("_callf", None)
             sel = it.pop("_callsel", None)
+            cargs = it.pop("_callargs", None)
+            # THE CALLEE DECIDES WHAT THE KEY SENDS. Substituting the strings
+            # this key passed into the helper's signature is what turns
+            # `calluser(…, "L5")` into a real job+argument -- previously the
+            # job was guessed by string shape, which silently dropped every
+            # short name (L5, L6, UIF, VDM).
+            sig = sigs.get(fid) if fid is not None else None
+            if sig and "job" not in it:
+                def _val(src):
+                    if src is None:
+                        return None
+                    kind, v = src
+                    if kind == "const":
+                        return v
+                    return cargs[v] if cargs and v < len(cargs) else None
+                jb = _val(sig.get("job")) or sig.get("default")
+                if jb:
+                    it["job"] = jb
+                    it["_viaHelper"] = True
+                    # ...unless the CALLER draws the result. E65's F1 hands
+                    # the fetch to read_fs_lesen (which logs without drawing)
+                    # and then shows it with userboxftextout -- the pair is a
+                    # read, and only the caller can see that.
+                    if fid in fwrite and not it.get("_shows"):
+                        it["fileAction"] = True
+                    ja = _val(sig.get("arg"))
+                    if ja:
+                        it["jobArg"] = ja
+                    if _PERSISTENT_WRITE.search(jb) or _WRITE_JOB.search(jb):
+                        it["writeJob"] = True
+
             # a marker for the audit above, not part of the schema: the
             # renderer only needs to know the item HAS a job, not which
             # bytecode shape it arrived in
@@ -1958,6 +2203,15 @@ def build(ecu):
                     it["writeJob"] = True
             it["screen"] = nm
             used.add(nm)
+    # A file key whose job arrived from a helper: writing the fault memory to
+    # disk reads it first, so the job is real but the KEY is still a PC
+    # action -- MS450's "save all faults to a file" and "insert comment" are
+    # exactly this, and listing them beside the five real fault reads made
+    # INPA's own chrome look like ECU functions.
+    for menu in ir["menus"].values():
+        for it in menu["items"]:
+            it.pop("_viaHelper", None)
+            it.pop("_shows", None)
     # PROMPT-ASSEMBLED JOB ARGUMENTS, resolved now that both sides exist:
     # the menu key holds the template (_menu_flow) and the screen's job
     # names the global slot its variable argument reads (argSlot). When they
@@ -2047,7 +2301,18 @@ def build(ecu):
                 continue
             body = all_toks[st]
             calls = {t["n"] for t in body if t["op"] == "call"}
-            if (calls & {0x5c, 0x79}) and not (calls & {0x62, 0x6f}):
+            named = {t.get("name") for t in body if t["op"] == "call"}
+            # Same two corrections as the per-item rule above: viewopen
+            # (0x5c) DISPLAYS a file rather than writing one, and the
+            # fault-memory reader is ECU contact even though it is not a
+            # job call. Writing here means filewrite/printfile or a
+            # fileopen -- and the state proc only counts as a PC action if
+            # it never questions the ECU at all.
+            writes = bool(calls & {0x79, 0x7b, 0x18})
+            asks = bool(calls & {0x62, 0x6f}) \
+                or bool(named & (D.FSMODE_CALLS | {"INPAapiFsLesen"})) \
+                or bool(named & D.JOB_CALLS)
+            if writes and not asks:
                 it["fileAction"] = True     # writes a file, never asks the ECU
                 continue
             form = _state_proc(body)
@@ -2061,9 +2326,11 @@ def build(ecu):
             for i, t in enumerate(body):
                 if t["op"] != "call" or t["n"] not in (0x62, 0x6f):
                     continue
-                nm = next((x["v"] for x in body[max(0, i - 8):i]
-                           if x["op"] == "const" and x.get("t") == "s"
-                           and _KEYISH.match(x["v"])), None)
+                # 0x62/0x6f are the state machine's job calls: the job is
+                # argument 1, bounded by the call's frame rather than an
+                # 8-token guess at where its operands began.
+                nm = D.arg_str(D.arg_positions(D.frame_of(body, i)),
+                               D.JOB_ARG_JOB)
                 if nm:
                     it.setdefault("job", nm)
                     it["stateJob"] = True
@@ -2143,24 +2410,31 @@ def build(ecu):
     # so the pairing is the item's own, not a guess from the name. Without it
     # the join below never ran for KOMBI and its actuator keys kept INPA's
     # fragments ("SII oil", "hi.beam") instead of the screen's own help text.
+    # Each menu's own screen, taken from the setscreen/setmenu pair that
+    # installed it (menuScreen). That pairing is emitted by the compiler, so
+    # there is nothing to choose between and no scoring to get wrong.
     drawn_in = {}
     for m in ir["menus"].values():
         for it in m["items"]:
+            paired = it.get("menuScreen") or {}
             for mt in [it.get("menu")] + (it.get("menuAlts") or []):
-                if mt and it.get("screen"):
+                if not mt:
+                    continue
+                own = paired.get(mt)
+                if own:
+                    drawn_in.setdefault(mt, []).insert(0, own)
+                elif it.get("screen"):
+                    # a key that sets a menu without its own screen keeps the
+                    # item's single target
                     drawn_in.setdefault(mt, []).append(it["screen"])
     for mname, menu in ir["menus"].items():
         target = menu.get("screen")
         if not target:
-            # prefer a screen whose softkeys actually cover this menu's keys
-            nrs = {str(i.get("nr")) for i in menu["items"]}
-            best, score = None, 0
-            for cand in drawn_in.get(mname, []):
-                sk = (ir["screens"].get(cand) or {}).get("softkeys") or {}
-                n = len(nrs & set(sk))
-                if n > score:
-                    best, score = cand, n
-            target = best
+            # the paired screen when there is one; otherwise the only
+            # candidate. No "best guess" among several -- a menu drawn by an
+            # unrelated variant's screen takes that variant's captions.
+            cands = drawn_in.get(mname) or []
+            target = cands[0] if cands else None
         if not target or target not in ir["screens"]:
             continue
         sk = ir["screens"][target].get("softkeys") or {}
@@ -2236,6 +2510,27 @@ def build(ecu):
                         strings.add(e[k])
     ir["strings"] = sorted(strings)
     ir["coverage"] = round(100 * (1 - cov_unk / cov_len), 1) if cov_len else 0
+    # THE SCRIPT'S OWN SHUTDOWN JOB. INPA declares an `inpaexit` proc and
+    # runs it when the script ends, however it ends -- it is not a menu key
+    # and has no caption. 877 ECUs declare one and 58 send a real job from
+    # it, almost always DIAGNOSE_ENDE (CARB sends DIAGNOSTICEND, ekp360
+    # steuern_ret_contr_to_ecu). Without this the app never ended the
+    # diagnostic session and the ECU sat in it until its own timeout.
+    #
+    # Read from the proc, NOT from the Back/Exit keys that also carry it:
+    # those keys are captioned as plain navigation and sit beside keys whose
+    # jobs DRIVE OUTPUTS (STEUERN_CFL behind "Deselect"), so picking them out
+    # by caption would risk firing an actuator on the way out.
+    exit_toks = all_toks.get("inpaexit") or []
+    for i, t in enumerate(exit_toks):
+        if t["op"] != "call" or t.get("name") not in (
+                D.JOB_CALLS | {"INP1apiJob"}):
+            continue
+        jb = D.arg_str(D.arg_positions(D.frame_of(exit_toks, i)),
+                       D.JOB_ARG_JOB)
+        if jb:
+            ir["exitJob"] = jb
+            break
     # An .IPO can ship several root menus, one per ECU variant. INPA does not
     # guess from the SGBD filename: inpainit runs INITIALISIERUNG, reads its
     # VARIANTE result, and compares that against a chain of names --
@@ -2250,15 +2545,20 @@ def build(ecu):
             continue
         for i, t in enumerate(toks):
             if t["op"] == "call" and t.get("name") in D.JOB_CALLS:
-                nm = next((x["v"] for x in toks[max(0, i - 6):i]
-                           if x["op"] == "const" and x.get("t") == "s"
-                           and _KEYISH.match(str(x["v"]))), None)
+                nm = D.arg_str(D.arg_positions(D.frame_of(toks, i)),
+                               D.JOB_ARG_JOB)
                 if nm and vjob is None:
                     vjob = nm
             if t["op"] == "call" and t["n"] == 0x71 and vkey is None:
-                vkey = next((x["v"] for x in toks[max(0, i - 6):i]
-                             if x["op"] == "const" and x.get("t") == "s"
-                             and _KEYISH.match(str(x["v"]))), None)
+                # the result whose value the variant is compared against.
+                # The read takes its destination ref(s) first and the KEY in
+                # the position straight after them -- this form passes two
+                # refs, so a fixed index 1 would land on the second ref.
+                _p = D.arg_positions(D.frame_of(toks, i))
+                _k = 0
+                while _k < len(_p) and _p[_k][-1]["op"] == "procref":
+                    _k += 1
+                vkey = D.arg_str(_p, _k)
             if t["op"] != "procref" or t.get("kind") != 0x41:
                 continue
             mname = id2name.get(("menu", t["n"]))

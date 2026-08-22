@@ -1147,6 +1147,7 @@ html[data-theme="inpa"] .inpa-ss-head.func:hover { background: #e8eefc; }
 html[data-theme="inpa"] .inpa-ss-job.func { color: #000080; }
 /* Coding row sits apart from INPA's own sections: ours, not one of theirs */
 .inpa-ss-coding { margin-top: 6px; }
+.inpa-ss-identity[hidden] { display: none; }
 /* what the coding screen can offer: "values" (editable read) or "map" */
 .inpa-ss-kind {
   float: right; font-weight: 400; font-size: 11px; color: var(--ink-faint);
@@ -1665,6 +1666,7 @@ html[data-theme="inpa"] .coding-tab.active { background: #0a246a; color: #fff; }
 .exp-kind { font-size: 11px; color: var(--ink-faint); margin-right: 8px; }
 .exp-arrow { color: var(--ink-faint); font-size: 18px; font-weight: 600; }
 .sys-item.sys-coding .nav-count { color: var(--amber); }
+.sys-item.sys-identity .nav-count { color: var(--amber); }
 
 /* ---- CODING SCAN (up-front read of the whole car) ----------------------- */
 .coding-scan { max-width: 480px; margin: 40px auto; text-align: center; }
@@ -3800,3 +3802,95 @@ body.apps-section .view { inset: 56px 0 0 0; }
 }
 .fault-demo-banner b { color: var(--ink); }
 .flag.demo { background: var(--amber); color: #11161c; font-weight: 700; }
+
+/* ---- VEHICLE IDENTITY ----------------------------------------------------
+   The reading is the headline: one summary card saying what the car IS, the
+   equipment beneath it as labelled chips, and the control units that answered
+   as a footnote strip. Which ECU replied matters when a read fails and almost
+   never otherwise, so it sits last rather than first. */
+.vi-panel { display: grid; gap: 18px; max-width: 860px; }
+
+/* what the car is: a label/value pair grid, values in mono so keys and
+   paint codes line up and stay checkable against a build sheet */
+.vi-summary {
+  display: grid; grid-template-columns: auto 1fr; gap: 7px 18px;
+  padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--panel); align-items: baseline;
+}
+.vi-sum-k {
+  font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint); white-space: nowrap;
+}
+.vi-sum-v { font-size: 14px; color: var(--ink); word-break: break-all; }
+
+.vi-block { display: grid; gap: 9px; }
+.vi-block h3 {
+  margin: 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-dim); font-weight: 700;
+}
+
+/* An option code is the number FIRST -- that is what a predicate tests and
+   what a forum post quotes -- with the catalogue name under it. */
+.vi-sa-grid {
+  display: grid; gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+}
+.vi-sa {
+  display: grid; gap: 2px; padding: 9px 12px;
+  border: 1px solid var(--line); border-left: 2px solid var(--amber);
+  border-radius: 8px; background: var(--panel); min-width: 0;
+}
+.vi-sa b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; color: var(--amber); font-weight: 700;
+}
+.vi-sa span {
+  font-size: 11.5px; color: var(--ink-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.vi-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.vi-chip {
+  padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--ink-dim); font-size: 11.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.vi-none { color: var(--ink-dim); font-size: 13px; }
+.vi-note { margin: 0; font-size: 11.5px; color: var(--ink-faint); max-width: 62ch; }
+.vi-via { margin-top: -8px; }
+
+/* what could NOT be resolved: collapsed, but present and countable */
+.vi-un { display: grid; gap: 8px; }
+.vi-un > summary {
+  cursor: pointer; font-size: 12px; color: var(--ink-dim); list-style: none;
+}
+.vi-un > summary::-webkit-details-marker { display: none; }
+.vi-un > summary::before { content: '▸ '; color: var(--ink-faint); }
+.vi-un[open] > summary::before { content: '▾ '; }
+
+.vi-raw > summary {
+  cursor: pointer; font-size: 12px; color: var(--ink-dim); list-style: none;
+}
+.vi-raw > summary::-webkit-details-marker { display: none; }
+.vi-raw code {
+  display: block; margin-top: 8px; padding: 10px 12px; border-radius: 8px;
+  background: var(--panel); border: 1px solid var(--line);
+  font-size: 12px; color: var(--ink); word-break: break-all;
+}
+
+/* which control unit answered, and how */
+.vi-src {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  padding-top: 12px; border-top: 1px solid var(--line);
+}
+.vi-src-i { font-size: 11.5px; color: var(--ink-faint); }
+.vi-src-i b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.vi-src-i.ok b { color: var(--green); }
+.vi-src-i.bad b { color: var(--ink-dim); }
+
+@media (max-width: 760px) {
+  .vi-summary { grid-template-columns: 1fr; gap: 2px 0; padding: 14px; }
+  .vi-sum-k { margin-top: 8px; }
+  .vi-sa-grid { grid-template-columns: 1fr 1fr; }
+}

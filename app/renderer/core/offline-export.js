@@ -40,6 +40,8 @@ const OFFLINE_SHELL = [
   'core/coding-zcs.js',
   'core/coding-auftrag.js',
   'core/coding-custom.js',
+  'core/coding-select.js',
+  'core/vehicle-identity.js',
   'core/coding-write.js',
 
   'screens/coding-edit.js',
@@ -48,6 +50,7 @@ const OFFLINE_SHELL = [
   'screens/coding-zcs-editor.js',
   'screens/navlang.js',
   'screens/identity.js',
+  'screens/vehicle-identity.js',
   'screens/special.js',
   'screens/measurements.js',
   'screens/live.js',

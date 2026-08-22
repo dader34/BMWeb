@@ -98,8 +98,8 @@ console.log('\nsession lifecycle');
   const ec = src.match(/async ensureConfig\(cfg\)[\s\S]*?\n  \}/)[0];
   ok(/this\.inited = null/.test(ec),
      'reopening the port for a new concept clears the woken session');
-  ok(/if \(framed && !this\.inited\)/.test(src),
-     'the wake runs once per PORT session, not per telegram concept');
+  ok(/if \(framed && !this\.inited && wantsWake\)/.test(src),
+     'the wake runs once per PORT session, and only for a concept that wants one');
   // The session no longer PINS the wire: every xsetpar reconfigures it, which
   // is how the SGBD moves from 115200 to 9600 to send its second telegram.
   // sessionConcept is kept only so the K-line wake knows the module's kind.
@@ -116,9 +116,12 @@ console.log('\nBMW K-line fast init (the wake that was missing)');
   const fi = src.match(/async fastInit\(comm\)[\s\S]*?\n  \}/)[0];
   ok(/dataTerminalReady: true, break: true/.test(fi),
      'DTR is asserted together with the break (EdiabasLib SendWakeFastInit)');
-  ok(/setTimeout\(r, 25\)/.test(fi), 'the break is held 25 ms');
-  ok((fi.match(/setTimeout\(r, 25\)/g) || []).length === 2,
-     'and released 25 ms before the end, i.e. 50 ms total');
+  // Deadline-based, not two sleeps: EdiabasLib measures the 50 ms from the
+  // START of the break (SendWakeFastInit, EdInterfaceObd.cs:3521-3530), so
+  // sleeping 25+25 plus four awaits' latency overshot it (61 ms, measured).
+  ok(/await until\(25\)/.test(fi), 'the break is held until start+25 ms');
+  ok(/await until\(50\)/.test(fi),
+     'and DTR drops at start+50 ms, measured from the break, not added after');
   ok(/dataTerminalReady: false/.test(fi), 'DTR is dropped after the wake');
   ok(/const kline = isKline\(concept\) \|\| isKline\(this\.sessionConcept\)/.test(src),
      'a BMW-FAST job on a session opened as K-line still counts as K-line');
@@ -166,8 +169,15 @@ console.log('\nthe wake lives on the bus that owns the wires');
   ok(/async slowInit/.test(web), 'slowInit is defined on WebSerialBus');
   ok(!/async fastInit/.test(nat),
      'and NOT stranded on NativeSerialBus, where it would never run');
-  ok(/} else if \(kline\) \{\n\s*await this\.fastInit/.test(web),
-     'WebSerialBus.exchangeRaw is the caller');
+  // fastInit is NO LONGER called for DS2. EdiabasLib's SendWakeFastInit has
+  // one call site, inside TransKwp2000Bmw (EdInterfaceObd.cs:4698); TransDs2
+  // has no wake at all and concept 5/6 sets EcuConnected = true outright.
+  // Breaking a DS2 module that never expected one is what silenced the E46
+  // EGS (0x32) while the cluster (0x80) tolerated it.
+  ok(/const wantsWake = isIso9141\(concept\) \|\| isIso9141\(this\.sessionConcept\)/
+     .test(web), 'only ISO 9141 asks for a wake');
+  ok(!/} else if \(kline\) \{\n\s*await this\.fastInit/.test(web),
+     'DS2 is never broken before a telegram, as EdiabasLib never breaks it');
   ok(/setSignals/.test(web),
      'the wake uses Web Serial setSignals, which only this bus has');
 }

@@ -85,7 +85,13 @@ console.log('\nagainst the real IR corpus');
     }
   }
   console.log(`  (${dead} captioned reads had nothing to run)`);
-  ok(dead > 300, `${dead} dead read entries found across the corpus`);
+  // A SAMPLE-SIZE FLOOR, not a correctness bound: the rule below is only
+  // meaningful if the corpus still holds a decent number of captioned reads
+  // that name no job. Positional job decoding (frame argument 1, replacing
+  // the old key-shaped-string scan) resolved most of them -- 548 -> 190 --
+  // so the floor moved with it. If this trips again, check whether the
+  // population shrank because decoding IMPROVED before raising it.
+  ok(dead > 100, `${dead} dead read entries found across the corpus`);
   ok(wouldRun === dead, 'every one of them now resolves to a read job');
   ok(clears > 0, `and ${clears} Clear entries are untouched by the rule`);
 }

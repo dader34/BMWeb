@@ -335,10 +335,11 @@ async function runExchange(bus, out, comm) {
       lastErr = e;
       busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
       if (!/timeout|checksum|incomplete|echo/.test(String(e.message))) throw e;
-      // A silent module may simply not have woken. Re-arm the wake so the
-      // retry is a genuinely different attempt -- repeating the identical
-      // telegram to a module that never woke can only time out again.
-      bus.inited = null;
+      // EdiabasLib's retry is a PURE RETRANSMISSION: ObdTrans loops the same
+      // bytes with only the ParRegenTime wait, never a reinit (EdInterfaceObd
+      // .cs:3652-3681). Re-arming the wake here made our retry a different,
+      // more disruptive operation than the one EDIABAS performs -- and on DS2
+      // there is no wake to re-arm in the first place.
     }
   }
   throw lastErr;
@@ -379,6 +380,7 @@ class NativeSerialBus {
     // must be woken again. Without this a concept switch mid-job left
     // `inited` set and every following request went to a sleeping ECU.
     this.inited = null;
+    this.initedAddr = null;
     const r = await window.bmacw.serialOpen(this.path === 'serial'
       ? null : this.path, cfg.baudRate, cfg.parity);
     this.path = (r && r.port) || this.path;
@@ -439,6 +441,7 @@ class WebSerialBus {
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this.inited = null;
+    this.initedAddr = null;
     this.pending = null;
     this.sessionConcept = null;
     return this.portLabel();
@@ -471,6 +474,7 @@ class WebSerialBus {
     try { if (this.port) await this.port.close(); } catch { /* closing */ }
     this.port = this.reader = this.writer = null;
     this.inited = null;
+    this.initedAddr = null;
     this.pending = null;
     this.sessionConcept = null;
   }
@@ -542,11 +546,27 @@ class WebSerialBus {
     }
     // DTR is this cable's transmit enable: EdiabasLib asserts it for the wake
     // and for the duration of every telegram it writes.
+    //
+    // THE 50 ms IS MEASURED FROM THE START OF THE BREAK, not added after it.
+    // EdiabasLib's SendWakeFastInit (EdInterfaceObd.cs:3521-3530) takes one
+    // timestamp, holds the break until start+25 ms, releases it, then waits
+    // until start+50 ms and drops DTR -- so the telegram follows ~50 ms after
+    // the break BEGAN. Sleeping 25 then another 25 makes that 50 ms of sleep
+    // PLUS the four awaits' own latency, and the trace showed 61 ms from break
+    // to write. A module with a strict post-wake window (W4 is 25-50 ms) has
+    // stopped listening by then. Deadline-based, so the wall clock matches
+    // whatever the awaits cost.
+    const t0 = Date.now();
+    const until = async (ms) => {
+      const left = ms - (Date.now() - t0);
+      if (left > 0) await new Promise((r) => setTimeout(r, left));
+    };
     await this.port.setSignals({ dataTerminalReady: true, break: true });
-    await new Promise((r) => setTimeout(r, 25));
+    await until(25);
     await this.port.setSignals({ break: false });
-    await new Promise((r) => setTimeout(r, 25));
+    await until(50);
     await this.port.setSignals({ dataTerminalReady: false });
+    busTrace.add('kline', null, `fastInit done in ${Date.now() - t0}ms`);
     this.inited = true;
   }
 
@@ -641,26 +661,43 @@ class WebSerialBus {
   }
 
   async exchangeRaw(framed, timeoutMs, comm) {
-    // Wake the module first. Once per session per concept: an E46 K-line
-    // module ignores every telegram until the break wakes it, which is what
-    // made a healthy car look unreachable.
+    // WHICH concepts need waking at all -- see the DS2 note below. ISO 9141
+    // sleeps until its 5-baud address arrives; DS2 does not, and BMW-FAST over
+    // a D-CAN cable does not. `inited` gates the one that does, and survives
+    // until the port is reopened (which is what clears it): an SGBD's session
+    // init can run on one concept while its jobs declare another, so keying
+    // this to the per-telegram concept would wake for the init and not for the
+    // job that follows.
     const concept = conceptOf(comm);
-    // THE WAKE BELONGS TO THE PORT, NOT THE TELEGRAM. An SGBD's session init
-    // runs on one concept (ms450ds0 opens on DS2, 0x06) while its jobs declare
-    // another (BMW-FAST, 0x10F). Keying the wake on the per-telegram concept
-    // meant the K-line module was woken for the init and then NOT for the job
-    // that followed -- and worse, reopening the port for the job's baud undid
-    // the wake anyway. Once this port has been woken it stays woken until it
-    // is reopened, which is what clears `inited`.
     const kline = isKline(concept) || isKline(this.sessionConcept);
-    if (framed && !this.inited) {
-      // ISO 9141 wants the 5-baud address; every other K-line concept wants
-      // the 25 ms break. BMW-FAST over a D-CAN cable needs neither.
-      if (isIso9141(concept) || isIso9141(this.sessionConcept)) {
-        await this.slowInit(comm);
-      } else if (kline) {
-        await this.fastInit(comm);
-      }
+    // Which ECU this telegram addresses (DS2: the first byte). Kept for the
+    // trace and for the ISO 9141 wake, which IS per module.
+    const addr = (framed && framed.length) ? (framed[0] & 0xff) : null;
+    busTrace.add('kline', null,
+      `addr=0x${addr == null ? '??' : addr.toString(16)}`
+      + ` concept=0x${concept.toString(16)} kline=${kline}`
+      + ` session=${this.sessionConcept} inited=${this.inited}`
+      + ` initedAddr=${this.initedAddr}`
+      + ` cfg=${this.config && this.config.baudRate}/${this.config && this.config.parity}`);
+    // DS2 IS NOT WOKEN. EdiabasLib's SendWakeFastInit has exactly ONE call
+    // site -- inside TransKwp2000Bmw (EdInterfaceObd.cs:4698) -- and TransDs2
+    // (4867-4956) contains no wake, no break, no 5-baud address at all. The
+    // concept-5/6 setup marks the ECU connected outright (`EcuConnected =
+    // true`, line 707) so nothing can trigger one.
+    //
+    // We were sending a 25 ms break before the first telegram to every K-line
+    // address, DS2 included. That is 240 bit-times of dominant K line at 9600
+    // -- to a module that never expected a fast init it is either framing
+    // garbage to resync through, or, on a module that also speaks KWP2000, a
+    // genuine wake pattern that arms a different session in which a raw DS2
+    // telegram is not valid and gets dropped without reply. The E46 cluster
+    // (0x80) forgives it; the EGS (0x32) answered EDIABAS and never us.
+    //
+    // ISO 9141 genuinely does need its 5-baud address, so that stays.
+    const wantsWake = isIso9141(concept) || isIso9141(this.sessionConcept);
+    if (framed && !this.inited && wantsWake) {
+      await this.slowInit(comm);
+      if (addr != null) this.initedAddr = addr;
     }
     if (framed) {
       // Drain anything stale before a fresh write -- the same start-clean
@@ -698,6 +735,9 @@ class WebSerialBus {
         // earlier +4 ms margin here produced a perfect echo and no answer.
         const bits = this.config && this.config.parity === 'none' ? 10 : 11;
         const ms = (framed.length * bits * 1000) / (this.config.baudRate || 9600);
+        busTrace.add('kline', null,
+          `DTR held ${Math.max(1, Math.round(ms + 0.3))}ms for ${framed.length}B`
+          + ` @${this.config && this.config.baudRate}/${this.config && this.config.parity}`);
         await new Promise((r) => setTimeout(r, Math.max(1, Math.round(ms + 0.3))));
         await this.port.setSignals({ dataTerminalReady: false });
       }

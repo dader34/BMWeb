@@ -10,9 +10,12 @@
 // 'values' (SGBD names its coding -- editable read) or 'map' (BMW's DATEN
 // description of the blob -- reference). Cached per chassis for the session.
 const _codeableCache = new Map();
-async function codeableModules(chassisId) {
+async function codeableModules(chassisId, saCodes) {
   const id = String(chassisId || '').toUpperCase();
-  if (_codeableCache.has(id)) return _codeableCache.get(id);
+  // The cache key carries the equipment, because selection depends on it: the
+  // same chassis resolves to different modules on different cars.
+  const key = `${id}|${(saCodes || []).join(',')}`;
+  if (_codeableCache.has(key)) return _codeableCache.get(key);
   let ch;
   try { ch = await api(`/api/chassis/${id}`); }
   catch { return []; }
@@ -29,8 +32,27 @@ async function codeableModules(chassisId) {
     if (typeof datenFor === 'function' && await datenFor(e.sgbd)) return 'map';
     return null;
   }));
-  const out = all.map((e, i) => ({ ...e, kind: kinds[i] })).filter(e => e.kind);
-  _codeableCache.set(id, out);
+  let out = all.map((e, i) => ({ ...e, kind: kinds[i] })).filter(e => e.kind);
+
+  // WHICH VARIANT OF EACH MODULE THIS CAR ACTUALLY HAS.
+  //
+  // The chassis config names one module per slot, but a slot is filled by
+  // different hardware across the build: E46's cluster is C_KMB46 early and
+  // KOMBI46R after the redesign, and an M3 uses a different coding file again.
+  // BMW answers that from the VEHICLE ORDER -- every SGET row carries a
+  // predicate over the car's equipment codes, and the first row that holds
+  // wins. That is what NCS Expert does, and coding-select does the same.
+  //
+  // Only with equipment codes in hand: without them there is nothing to
+  // evaluate and the config's own name stands.
+  if (saCodes && saCodes.length && typeof CodingSelect !== 'undefined') {
+    try {
+      if (typeof loadSget === 'function') await loadSget();
+      out = CodingSelect.applySelection(id, out, saCodes);
+    } catch (e) { /* no SGET for this chassis: keep the config's names */ }
+  }
+
+  _codeableCache.set(key, out);
   return out;
 }
 
@@ -59,11 +81,49 @@ async function showCodingHub(chassisId, initialTab) {
     'Change how the car is configured. Nothing is sent — changes are staged '
     + 'for review.');
 
+  // A CABLE IS REQUIRED TO CODE. Every toggle here is the car's current
+  // setting, and a change is staged as a delta against it. With nothing
+  // connected the reads all fail and the editor used to draw the whole car
+  // anyway, at library defaults -- settings that look read but are invented.
+  // Demo mode is exempt: it says outright that its values are simulated.
+  if (!(typeof demoMode === 'function' && demoMode())) {
+    let port = null;
+    try { ({ port } = await api('/api/port')); } catch { /* treated as none */ }
+    if (!port) {
+      const need = document.createElement('div');
+      need.className = 'empty';
+      need.innerHTML =
+        `<div class="empty-big" style="color:var(--amber)">Connect a cable to code</div>`
+        + `<div>Coding shows what the car is set to now, and stages changes `
+        + `against it. With nothing connected there is nothing to read.</div>`
+        + `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">`
+        + `Showing defaults here would look like the car’s own settings. `
+        + `Connect the adapter and open Coding again, or turn on Demo mode to `
+        + `explore the screens with simulated values.</div>`;
+      view.appendChild(need);
+      setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                    kind: 'back', fn: back }]);
+      sbLeft.textContent = 'coding needs a cable';
+      return;
+    }
+  }
+
+  // THE CAR'S EQUIPMENT FIRST, THEN THE MODULES.
+  //
+  // Which module fills a slot depends on what the car was built with, so the
+  // equipment codes have to be in hand before the module list is built. BMW
+  // reads them from the vehicle order (or, on older cars, decodes them out of
+  // the coding key) and evaluates each candidate's predicate against them.
+  //
+  // A car that will not say is not a failure: with no codes the config's own
+  // module names stand, exactly as before.
+  const saCodes = await readVehicleSaCodes(chassisId);
+
   // Read the whole car up front so both tabs' toggles start at the car's
-  // current values without per-module Read buttons. No cable -> demo scan.
+  // current values without per-module Read buttons.
   const scanHost = document.createElement('div');
   view.appendChild(scanHost);
-  let scan = await scanCoding(chassisId, scanHost);
+  let scan = await scanCoding(chassisId, scanHost, saCodes);
   scanHost.remove();
 
   const tabs = document.createElement('div');
@@ -82,7 +142,7 @@ async function showCodingHub(chassisId, initialTab) {
     const host = document.createElement('div');
     panel.replaceWith(host);
     host.id = 'coding-panel'; host.className = 'coding-panel';
-    scan = await scanCoding(chassisId, host);
+    scan = await scanCoding(chassisId, host, saCodes);
     host.replaceWith(panel);
     panel.innerHTML = '';
     select(tab);
@@ -103,12 +163,56 @@ async function showCodingHub(chassisId, initialTab) {
   select(tab);
 }
 
+// Does a coding read carry values we can actually decode into settings?
+//
+// "Has a read job" is not "has fields". Verified against a real E46: zke5
+// declares 41 fields and answers with a single raw COD_DATEN blob; szm46
+// declares 1 and answers with raw CODE bytes. Rendering a module's toggles off
+// a map it did not fill would show 41 switches backed by nothing, every one of
+// them a default rather than the car. A module like that is readable but not
+// editable, and has to say so.
+function codingDecoded(entry, got) {
+  if (!got || !got.size) return 0;
+  const names = new Set((entry && entry.fields || []).map((f) => f.name));
+  let n = 0;
+  for (const k of got.keys()) if (names.has(k)) n++;
+  return n;
+}
+
+// The modules this car actually has, out of the ones the chassis map lists.
+//
+// A module that answered with decodable fields is editable. One that answered
+// with only a raw blob (zke5's COD_DATEN, szm46's CODE) is present but has no
+// decoder here, so it is kept and marked rather than shown as toggles it
+// cannot back. One that never answered is dropped: on a real car that is
+// almost always hardware this car does not carry.
+//
+// Demo mode keeps everything -- there is no car to answer, and the point there
+// is to see the screens.
+function codingPresent(mods, scan) {
+  const status = (scan && scan.status) || new Map();
+  if (typeof demoMode === 'function' && demoMode()) return mods;
+  if (!status.size) return mods;         // pre-scan callers: unchanged
+  return mods
+    .map((m) => ({ ...m, coding: status.get(m.sgbd) || { state: 'silent' } }))
+    .filter((m) => m.coding.state === 'ok' || m.coding.state === 'raw');
+}
+
 // Scan the car's coding: read every codeable module's coding job once, return
-// a cache { sgbd -> Map(resultName -> value) }, with progress. A module that
-// fails to read is absent from the cache -- its toggles then show unknown.
-async function scanCoding(chassisId, host) {
-  const mods = await codeableModules(chassisId);
+// { values: Map(sgbd -> Map(result -> value)), status: Map(sgbd -> {...}) }.
+//
+// THE STATUS IS THE POINT. This used to swallow every failure and return only
+// what answered, so with no cable the cache came back EMPTY and the editor
+// still drew every toggle -- at library defaults, indistinguishable from the
+// car's real settings. Coding writes are a delta against what was read, so a
+// phantom baseline makes the diff meaningless. Now each module records whether
+// it answered, and with how many decodable fields, and the caller shows only
+// what the car really has.
+async function scanCoding(chassisId, host, saCodes) {
+  const mods = await codeableModules(chassisId, saCodes);
   const cache = new Map();
+  const status = new Map();
+  cache.status = status;
   const total = mods.length;
   const paint = (done, name) => {
     host.innerHTML = `<div class="coding-scan">`
@@ -124,12 +228,30 @@ async function scanCoding(chassisId, host) {
     paint(i, m.label);
     const entry = typeof codingFor === 'function'
       ? await codingFor(m.sgbd) : null;
-    if (entry && entry.read) {
-      try {
-        const d = await api(`/api/ecu/${m.sgbd}/run/${entry.read}`,
-                            { method: 'POST' });
-        cache.set(m.sgbd, new Map(flatResults(d.sets)));
-      } catch { /* unreadable: leave absent */ }
+    if (!entry || !entry.read) {
+      // described by DATEN only: nothing to read, so nothing to stage against
+      status.set(m.sgbd, { state: 'noread' });
+      continue;
+    }
+    try {
+      const d = await api(`/api/ecu/${m.sgbd}/run/${entry.read}`,
+                          { method: 'POST' });
+      const got = new Map(flatResults(d.sets));
+      const n = codingDecoded(entry, got);
+      cache.set(m.sgbd, got);
+      status.set(m.sgbd, {
+        state: n ? 'ok' : 'raw',
+        fields: n,
+        // an ECU that answers a coding read with an error status is present but
+        // refusing -- not the same as absent, and worth saying differently
+        job: String(got.get('JOB_STATUS') || ''),
+      });
+    } catch (e) {
+      // No answer. On a real car this is overwhelmingly a module the car does
+      // not have (the E46 map lists SMG2, RDC, DWA, mirror memory... for cars
+      // that carry them); it can also be one that is asleep or on another bus,
+      // which is why this is recorded rather than assumed to mean "not fitted".
+      status.set(m.sgbd, { state: 'silent', error: String(e && e.message || e) });
     }
   }
   paint(total, '');
@@ -142,9 +264,21 @@ async function scanCoding(chassisId, host) {
 async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   const mobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
-  const mods = await codeableModules(chassisId);
-  if (!mods.length) {
+  const all = await codeableModules(chassisId);
+  if (!all.length) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
+    return;
+  }
+  // ONLY WHAT THE CAR ANSWERED. The chassis map lists every module BMW ever
+  // fitted to this shell -- on a real E46 that is SMG2, RDC, DWA, mirror
+  // memory, cruise, the rollover sensor, none of which this car has. Reading
+  // the car found 7 of 15. Offering the other eight means offering settings
+  // for hardware that is not there.
+  const mods = codingPresent(all, scan);
+  if (!mods.length) {
+    cont.innerHTML = errorBlock(
+      'No module answered a coding read. Check the cable and ignition '
+      + '(engine off, key on), then re-read.');
     return;
   }
   if (mobile) expertModuleList(chassisId, mods, cont, back, scan, reScan);
@@ -275,6 +409,31 @@ async function filterModulesByFa(chassisId, mods, saCodes) {
     });
   });
   /* eslint-enable no-unreachable */
+}
+
+// THE CAR'S OWN EQUIPMENT CODES, read before anything else.
+//
+// These are BMW's SA catalogue numbers (205 automatic, 210 DSC), the namespace
+// every SGET predicate is written against. Two sources, by generation:
+//
+//   the vehicle order (FA)  E60+   its `$` tokens ARE catalogue numbers
+//   the coding key (ZCS)    older  bit indices, translated through BMW's own
+//                                  ZST + AT tables (see vehicle-identity.js)
+//
+// Returns [] when the car will not say -- no cable, no identity module, or a
+// key whose bits carry no catalogue number. That is not a failure: callers
+// treat an empty list as "nothing known", which leaves the configured module
+// names in place rather than selecting on a guess.
+async function readVehicleSaCodes(chassisId) {
+  if (typeof showVehicleIdentity !== 'function'
+      || typeof VehicleIdentity === 'undefined') return [];
+  // Demo mode has no car to ask, and inventing an equipment list there would
+  // silently re-point modules against codes nothing measured.
+  if (typeof demoMode === 'function' && demoMode()) return [];
+  try {
+    const got = await readIdentityCodes(chassisId);
+    return (got && got.codes) || [];
+  } catch (e) { return []; }
 }
 
 // Extract SA codes from scan results for FA/ZCS filtering. Looks for ZCS

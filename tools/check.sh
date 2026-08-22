@@ -107,6 +107,10 @@ echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
 node tools/verify/test_groups.js || exit 1
 
 echo
+echo "== whole-vehicle sweep plans every chassis from its own config =="
+node tools/verify/test_sweep.js || exit 1
+
+echo
 echo "== coding encode is the exact inverse of decode (round-trip + Mod-36) =="
 node tools/verify/test_coding_encode.js || exit 1
 
@@ -153,6 +157,18 @@ node tools/verify/test_coding_auftrag.js || exit 1
 echo
 echo "== SGET rows extract and every predicate parses =="
 python3 tools/decompile/ncs_sget.py --check || exit 1
+
+echo
+echo "== SGFAM/AT/ZST tables parse, and the ZCS->SA bridge resolves =="
+python3 tools/decompile/ncs_tables.py --check || exit 1
+
+echo
+echo "== Vehicle identity: masters, ZCS->SA bridge, FA round-trip, discovery =="
+node tools/verify/test_vehicle_identity.js || exit 1
+
+echo
+echo "== Coding selection: SGET predicates pick the module and its coding file =="
+node tools/verify/test_coding_select.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

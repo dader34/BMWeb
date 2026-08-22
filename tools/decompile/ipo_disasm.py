@@ -536,9 +536,74 @@ def calls_of(toks):
     return out, items
 
 
-# ---------------------------------------------------------------- fields ----
+# ------------------------------------------------------------ call args ----
 
-_KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
+
+def frame_of(toks, ci):
+    """The tokens of the call at index ci: everything back to its frame.
+
+    A frame opens every argument list, so it -- not a fixed lookbehind window
+    -- is the boundary. Scanning a fixed number of tokens ran into the
+    previous call's operands.
+    """
+    lo = ci
+    while lo > 0 and toks[lo - 1]["op"] != "frame":
+        lo -= 1
+    return toks[lo:ci]
+
+
+def arg_positions(seg):
+    """Split a call frame into POSITIONAL arguments.
+
+    Each argument is one value left on the stack: a const/var/procref push is
+    one value, a binop consumes two and yields one. Simulating the stack gives
+    argument k exactly, which is what the call's signature is written against
+    -- so a job can be read from the position INPAapiJob defines for it
+    rather than guessed at from how the string is spelled.
+    """
+    st = []
+    for t in seg:
+        op = t["op"]
+        if op in ("const", "var", "procref"):
+            st.append([t])
+        elif op == "binop":
+            b = st.pop() if st else []
+            a = st.pop() if st else []
+            st.append(a + b + [t])
+    return st
+
+
+def arg_str(pos, k):
+    """The literal string at positional argument k, or None if not a literal.
+
+    None means "not a constant here" (a variable, or no such argument) --
+    never "unrecognised shape". Callers that need the variable resolve it
+    through the enclosing proc, they do not fall back to sniffing.
+    """
+    if k >= len(pos):
+        return None
+    for x in pos[k]:
+        if x["op"] == "const" and x.get("t") == "s":
+            return x["v"]
+    return None
+
+
+# INPAapiJob(sgbd, job, argument, result_filter): the job is argument 1 and
+# what it sends is argument 2, by the call's own signature.
+JOB_ARG_JOB = 1
+JOB_ARG_ARG = 2
+
+# INPAapiFsMode(sgbd, mode, ?, ?, job) -- the fault-memory reader, a distinct
+# builtin from INPAapiJob with the job LAST. 490 files reach their fault
+# memory only through it, so it needs its own position rather than a scan.
+# An empty job there means FS_LESEN: INPA's own default, spelled out in the
+# wrappers that call it (`if (job == "") job = "FS_LESEN"`).
+FSMODE_CALLS = {"INPAapiFsMode"}
+FSMODE_ARG_JOB = 4
+FSMODE_DEFAULT_JOB = "FS_LESEN"
+
+
+# ---------------------------------------------------------------- fields ----
 
 
 def screen_fields(toks, id2name=None):
@@ -577,9 +642,17 @@ def screen_fields(toks, id2name=None):
         return None
 
     def expr_slot(seq):
+        """The (scope, slot) a drawing call reads from.
+
+        A result read names its destination with a procref whose KIND is the
+        scope (0 scratch, 2 the screen's global frame); the draw that prints
+        it pushes a var in the matching scope (sc=2 for the global frame).
+        Keying the bind map on the pair keeps the two scopes' slot numbers
+        from colliding -- they are numbered independently.
+        """
         for a in seq:
             if a["op"] == "var":
-                return a["n"]
+                return (2 if a.get("sc") == 2 else 0, a["n"])
         return None
 
     for t in toks:
@@ -650,11 +723,24 @@ def screen_fields(toks, id2name=None):
                     jobs.append(strs[0])
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
                           "INPAapiResultDigital"):
+                # THE KIND BYTE IS THE DESTINATION SCOPE, NOT A REF TYPE:
+                # 0 writes a scratch slot, 2 writes the screen's own global
+                # frame (drawn by a later LINE's analogout). Accepting only
+                # kind 0 threw away the majority of bindings -- 78,245 of
+                # 145,864 refs are kind 2 -- so screens that read into the
+                # global frame decoded to no fields at all (ACC2's whole
+                # Identification page). ipo_ir.py already reads both; this
+                # brings the disassembler in line with it.
                 ref = next((a for a in args if a["op"] == "procref"
-                            and a["kind"] == 0), None)
-                key = next((s for s in strs if _KEYISH.match(s)), None)
+                            and a["kind"] in (0, 2)), None)
+                # INPAapiResult*(ref, KEY, index, default): the key is
+                # argument 1 by signature. Picking the first "key-shaped"
+                # string instead skipped short result names outright.
+                key = arg_str(arg_positions(args), 1)
                 if ref is not None and key:
-                    bind[ref["n"]] = key
+                    # keyed by (scope, slot): the two scopes number their
+                    # slots independently, so a bare number collides
+                    bind[(2 if ref["kind"] == 2 else 0, ref["n"])] = key
             elif name == "analogout":
                 slot = expr_slot(args)
                 key = bind.get(slot)
@@ -701,8 +787,10 @@ def screen_fields(toks, id2name=None):
                 if key:
                     fields.append(f)
             elif op == "calluser":
-                # per-ECU helper: any call shaped (KEY, row, col, [on, off])
-                key = next((s for s in strs if _KEYISH.match(s)), None)
+                # per-ECU helper shaped (KEY, row, col, [on, off]): the key
+                # is argument 0, so read that position rather than scanning
+                # for a string that looks like a key.
+                key = arg_str(arg_positions(args), 0)
                 if key and len(ints) >= 2:
                     f = {"kind": "digital" if len(strs) >= 3 else "analog",
                          "key": key, "label": last_caption, "line": cur_line,

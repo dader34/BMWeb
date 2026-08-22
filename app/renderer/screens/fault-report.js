@@ -178,3 +178,46 @@ async function exportFaultPdf(chassisId, faulty, stats) {
     if (btn) { btn.textContent = 'Export PDF'; btn.disabled = false; }
   }
 }
+
+// Identification report (Functional Jobs F2): every module the car answered
+// for, grouped by the chassis section it lives in, in sweep order. Printed
+// through the same shared helper as the fault report, so both sheets look
+// like one tool. Native gets the same document via the browser print dialog:
+// unlike the fault report there is no savePdf-only path worth splitting for,
+// because an ident list carries no freeze-frame blocks to lay out specially.
+function printIdentReport(chassisId, found, stats) {
+  const sections = [];
+  if (!found.length) {
+    sections.push(printHtml('<p class="pr-p">No modules answered. '
+      + 'Check the cable and the ignition, then run the scan again.</p>'));
+  } else {
+    // section order is the order the sweep walked them, which is chassis-config
+    // order -- INPA's own menu order
+    const bySection = new Map();
+    for (const f of found) {
+      const k = f.section || 'Modules';
+      if (!bySection.has(k)) bySection.set(k, []);
+      bySection.get(k).push(f);
+    }
+    for (const [name, list] of bySection) {
+      sections.push(printHeading(`${name}  ·  ${list.length} module${list.length === 1 ? '' : 's'}`));
+      const t = printTable(
+        ['Module', 'SGBD', 'Variant', 'Build'],
+        list.map(f => [f.label, f.sgbd, f.variant || '—', f.build || '—']),
+        ['', 'pr-code2', 'pr-code2', '']);
+      t.avoidBreak = false;
+      sections.push(t);
+    }
+  }
+  printDoc({
+    title: `${APP_NAME} Identification Report`,
+    subtitle: `${dispChassis(chassisId)} · every module on the vehicle`,
+    meta: [
+      ['Generated', new Date().toLocaleString()],
+      ['Modules present', String(stats.present)],
+      ['Not installed', String(stats.absent)],
+    ],
+    sections,
+    footer: `${APP_NAME} · identification read over K+DCAN.`,
+  });
+}

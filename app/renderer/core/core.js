@@ -425,6 +425,12 @@ class ActionBar {
     if (activationEcu && activeTests.size && !activationsHeld()) {
       stopAllActivations(activationEcu);
     }
+    // ...and the menu's session-end job, if it registered one. Separate from
+    // the release above because it is NOT conditional on anything being
+    // energized: a menu can owe its ECU a DIAGNOSE_ENDE having driven nothing.
+    // Held by the same redraw guard, so reopening the menu to repaint a row
+    // does not end the session under it.
+    if (!activationsHeld() && typeof endSession === 'function') endSession();
     this.base = actions;
     this.shift = (shifted && shifted.length) ? shifted : null;
     this.shiftHeld = false;
@@ -611,8 +617,20 @@ function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 
 
 // prompt for a value, then call the job with it
 async function runInputFunction(ecu, input, container) {
-  const danger = /steuern|command|throttle|setpoint|write|store|reset/i.test(
-    (input.field || '') + ' ' + (input.job || ''));
+  // THE CANONICAL CLASSIFIER DECIDES, not a word list. The old regex looked
+  // for English write-words in the job name and prompt, so 1,029 of the
+  // corpus's 6,544 job names that isWriteJob() calls writes got the soft
+  // "Run" button instead of "Send" -- FS_LOESCHEN (clear fault memory, 364
+  // modules), FLASH_SCHREIBEN, PRUEFSTEMPEL_SCHREIBEN and INITIALISIERUNG
+  // among them, none of which contain an English verb. isWriteJob is
+  // token-based and default-deny, and is the same gate bestvm enforces
+  // before a job reaches the bus.
+  const danger = typeof isWriteJob === 'function'
+    ? isWriteJob(input.job || '')
+    // no classifier in scope: fall back to the prompt text rather than
+    // silently calling an unknown job safe
+    : /steuern|command|throttle|setpoint|write|store|reset/i.test(
+      (input.field || '') + ' ' + (input.job || ''));
   const val = await inputDialog({
     title: esc(typeof jobLabel === 'function' ? jobLabel(input.job) : input.job),
     // input.field is the entry instruction ("Enter as LABEL;VALUE1"), shown as the prompt

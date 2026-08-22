@@ -656,10 +656,17 @@ function irMenuItems(ir, menuName, variant) {
                     && it.menu === (ir.entry || {}).menu && !it.job))
     // drives INPA rather than the car (loads a script, opens the KVP editor)
     .filter(it => !it.appTool)
-    // a file action (PC-side file I/O, like Print) is an INPA function not an
-    // ECU one, EXCEPT a FAULT read: INPA's library writes na_fs.tmp and shows
-    // it, so it looks like file I/O while being real -- the fault view handles it
-    .filter(it => !(it.fileAction && !IR_FAULT_READ.test(it.label.trim())))
+    // a file action (PC-side file I/O, like Print) is an INPA function, not an
+    // ECU one. The flag decides it outright now: it is set only by a real
+    // write (fileopen "w"/"a", filewrite), a printfile, or a bare viewer, and
+    // a key that questions the ECU or draws what it read is exempt. This used
+    // to read `!IR_FAULT_READ.test(it.label)` -- un-hiding by CAPTION, because
+    // viewopen (which merely displays na_fs.tmp) was mistaken for file I/O and
+    // tagged every real fault read. That hid 535 keys naming real jobs whose
+    // captions did not match, CAS m_fehler F1 (FS_LESEN) among them under an
+    // empty label. On the current IR the caption test rescues 10 items and all
+    // ten are prints that belong hidden.
+    .filter(it => !it.fileAction)
     .filter(it => !(IR_FILE_ACTION.test(it.label.trim()) && !it.job
                     && !it.screen && !it.menu))
     // a key whose only effect is to redraw the menu's own screen does nothing
@@ -1455,6 +1462,12 @@ async function showStateForm(ecu, ir, menuName, it, container, back, trail) {
 // back up -- INPA's own navigation, and ours.
 function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   irUseTranslations(ir);
+  // what this script owes the ECU on the way out (INPA's own inpaexit proc).
+  // Registered on entry so it is sent however the user leaves, not only when
+  // they press a key we do not draw.
+  if (ir.exitJob && typeof registerSessionEnd === 'function') {
+    registerSessionEnd(ecu, ir.exitJob);
+  }
   const items = irMenuItems(ir, menuName);
   if (!items.length) return false;
   // mirror the menu into the URL so a submenu is a shareable deep link. Only
@@ -2008,7 +2021,29 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   } else {
     container.className = 'group-grid stagger';
     container.innerHTML = '';
-    function getGroupCat(label) {
+    // THE JOB SAYS WHAT THE KEY DOES; the caption only describes it. Reading
+    // the caption first mis-sorted 1,686 tiles and left 11,861 more on the
+    // neutral default although their job named the category outright --
+    // ABSASC4's brake actuators run STEUERN_DIGITAL under captions like
+    // "Intake valve front left", so nothing marked them as commanding
+    // hardware. SGBD job names are a fixed vocabulary and never translated,
+    // unlike the captions, which are half German across the corpus.
+    function catOfJob(job) {
+      if (!job) return null;
+      if (/^(FS|IS|HS)_/i.test(job)) return 'gt-fault';
+      if (/^(STATUS|MESSWERT)/i.test(job)) return 'gt-live';
+      if (/^(STEUERN|START)/i.test(job)) return 'gt-act';
+      if (/IDENT|^INFO$/i.test(job)) return 'gt-info';
+      if (/COD|ADAPT|ABGLEICH/i.test(job)) return 'gt-code';
+      return null;
+    }
+    function getGroupCat(it) {
+      // a write outranks everything: it is the one category the user must see
+      if (it.writeJob) return 'gt-code';
+      const byJob = catOfJob(it.job);
+      if (byJob) return byJob;
+      // no job to go on -- fall back to the caption
+      const label = it.label || '';
       if (/fault|error|fehlerspeicher|fs_/i.test(label)) return 'gt-fault';
       if (/status|analog|digital|live|messwert/i.test(label)) return 'gt-live';
       if (/actuat|ansteuer|test|component|active/i.test(label)) return 'gt-act';
@@ -2017,7 +2052,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return 'gt-default';
     }
     items.forEach((it) => {
-      const cls = getGroupCat(it.label);
+      const cls = getGroupCat(it);
       const tile = document.createElement('div');
       tile.className = `group-tile ${cls}`;
       tile.innerHTML = `

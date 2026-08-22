@@ -113,7 +113,24 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
   if (typeof loadDatenMap === 'function') await loadDatenMap();
 
-  const groups = await curatedFeatures(chassisId);
+  let groups = await curatedFeatures(chassisId);
+  // Drop features whose module the car did not answer. The curated list is
+  // written per chassis, not per car, so it names hardware this one may not
+  // carry (on a real E46 eight of fifteen codeable modules never answered --
+  // SMG2, RDC, DWA, mirror memory...). A feature for a module that is not
+  // there is not a setting the user can have. The hub's scan is what knows;
+  // opened standalone there is no scan and the list stays as written.
+  const seenStatus = (scan && scan.status) || null;
+  if (seenStatus && seenStatus.size
+      && !(typeof demoMode === 'function' && demoMode())) {
+    const live = (sg) => {
+      const s = seenStatus.get(sg);
+      return s && (s.state === 'ok' || s.state === 'raw');
+    };
+    groups = groups
+      .map((g) => ({ ...g, items: g.items.filter((i) => live(i.sgbd)) }))
+      .filter((g) => g.items.length);
+  }
   if (!groups.length) {
     setPanel();
     cont.innerHTML = errorBlock(
@@ -127,6 +144,16 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const sgbds = [...new Set(groups.flatMap(g => g.items.map(i => i.sgbd)))];
   const readJobFor = (sgbd) =>
     (typeof codingFor === 'function' ? codingFor(sgbd) : null);
+
+  // BMW's bit-level description per module, for reading settings out of a raw
+  // coding blob (see the DATEN fallback in applyScan)
+  const datenCache = new Map();
+  if (typeof datenFor === 'function') {
+    for (const sg of sgbds) {
+      try { const d = await datenFor(sg); if (d) datenCache.set(sg, d); }
+      catch { /* no DATEN for this module: name-matching only */ }
+    }
+  }
 
   // current value per "sgbd:name", and staged edits
   const current = new Map();
@@ -143,7 +170,25 @@ async function showCuratedCoding(chassisId, container, back, scan, reScan) {
   const applyScan = (cache) => {
     for (const g of groups) for (const it of g.items) {
       const got = cache && cache.get(it.sgbd);
-      const hit = got ? curatedMatchResult(it.name, got) : null;
+      let hit = got ? curatedMatchResult(it.name, got) : null;
+      // Nothing NAMED matched. Modules that answer with the raw coding blob
+      // (zke5's COD_DATEN, szm46's CODE) name nothing at all, so every feature
+      // on them read as unknown and drew as off -- the library default shown
+      // as if it were the car. BMW's DATEN map says which bit this keyword is;
+      // read it out of the bytes the ECU actually returned.
+      if (hit == null && got && typeof codReadDaten === 'function') {
+        const bytes = codBytesOf(got.get('COD_DATEN')
+          ?? got.get('CODE') ?? got.get('CODIERDATEN'));
+        const daten = datenCache.get(it.sgbd);
+        if (bytes && daten) {
+          const idx = typeof codingIndexFromScan === 'function'
+            ? codingIndexFromScan(cache, it.sgbd) : null;
+          const f = codDatenField(daten, chassisId, idx, it.name);
+          // only trust a field from the variant the car's index actually
+          // selects: the same keyword sits at a different word per index
+          if (f && f.exact) hit = codReadDaten(bytes, f);
+        }
+      }
       if (hit != null) { current.set(key(it), hit); continue; }
       if (demo) {
         let h = 0;
