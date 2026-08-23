@@ -141,6 +141,16 @@ const demoMode = () => Settings.get('demo', 'off') === 'on'
 const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
   && !window.matchMedia('(max-width: 760px)').matches;
 
+// INTERPRETED SCREENS. Draw a screen by RUNNING its .IPO rather than by
+// reading the decompiled IR: the script emits its own gauges, lamps and
+// captions, so anything a script can describe renders, instead of only what
+// the miner knew to look for. Off by default while both paths run side by
+// side -- the IR path is what every screen has always used, and the two are
+// compared by tools/verify/ir_vm_diff.py rather than swapped on faith.
+const interpretedScreens = () =>
+  Settings.get('interpretedScreens', 'off') === 'on'
+  || new URLSearchParams(location.search).get('interp') === '1';
+
 async function api(path, opts) {
   let url = `${API}${path}`;
   if (demoMode() && path.includes('/run/'))
@@ -216,7 +226,7 @@ function explainError(raw) {
   // IFH-0003: something is wrong on the line itself
   if (lower.includes('ifh-0003') || lower.includes('echo'))
     return { title: 'The cable is not hearing itself (IFH-0003)', detail: 'The K line echoes everything sent; that echo did not come back correctly.',
-      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency needs to be 1 ms.' };
+      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency timer needs raising to 2 ms -- on macOS a 1 ms latency corrupts K-line reads (short-tail responses).' };
 
   // IFH-0019: bytes arrived, but not a whole valid telegram
   if (lower.includes('ifh-0019') || lower.includes('checksum') || lower.includes('incomplete'))
@@ -225,7 +235,7 @@ function explainError(raw) {
 
   if (lower.includes('ifh-0018') || lower.includes('ifh_0018') || lower.includes('interfaceconnect') || lower.includes('connect'))
     return { title: 'Could not reach the ECU', detail: 'The cable is present but the DME did not answer.',
-      fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency is set to 1 ms.' };
+      fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency timer is 2 ms or more -- on macOS a 1 ms latency corrupts K-line reads.' };
 
   if (lower.includes('error_f_code'))
     return { title: 'This function needs a fault code', detail: 'The detailed fault job requires a specific DTC as input.',
