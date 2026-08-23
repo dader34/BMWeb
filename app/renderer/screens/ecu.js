@@ -199,8 +199,32 @@ async function irBlockUnverified(ecu, chassisId, grid, bar) {
       ? `No answer at address ${esc(ecu.group)}</div>`
         + `<div>The cable is connected, but the module did not identify `
         + `itself. Check the ignition is on -- or this car may carry a `
-        + `different variant (${esc(names.join(', '))}); reopen the module `
-        + `to ask again.</div>`
+        + `different variant (${esc(names.slice(0, 6).join(', '))}`
+        + `${names.length > 6 ? ` and ${names.length - 6} more` : ''}); `
+        + `reopen the module to ask again.</div>`
+        + (() => {
+          // the resolver's own account of HOW it failed -- a silent bus, an
+          // answered-but-unmatched identification, and a probe error are
+          // three different problems and the page should say which this was
+          const d = (typeof webResolveVariantLast === 'function'
+            ? webResolveVariantLast()
+            : (window.webResolveVariantLast && window.webResolveVariantLast()))
+            || null;
+          if (!d || d.group !== String(ecu.group).toLowerCase()) return '';
+          const what = {
+            'no-probe-shipped': 'this build ships no probe for the address',
+            'bus-silent': `nothing on the wire answered `
+              + `(${d.empty || 0} probe${d.empty === 1 ? '' : 's'} sent)`,
+            'probe-error': `the probe failed: ${esc(d.error || 'unknown')} `
+              + `(${d.real || 0} answered, ${d.empty || 0} silent)`,
+            'answered-but-unmatched': `the module ANSWERED `
+              + `${d.real} telegram${d.real === 1 ? '' : 's'} but the `
+              + `identification matched no known variant -- a decode or `
+              + `table problem on our side, not a silent car`,
+          }[d.path] || d.path;
+          return `<div class="mono" style="opacity:.7">probe result: `
+            + `${what}</div>`;
+        })()
       : `Connect a cable to open this module</div>`)
     + `</div>`;
   sbLeft.textContent = `${ecu.sgbd}.prg · variant unverified · `

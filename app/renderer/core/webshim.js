@@ -1642,11 +1642,23 @@ function loadGroupVariants() {
 // Returns null when nothing answered, the answer matched no variant, or
 // the group could not be loaded; never a made-up name. IDENTIFIKATION is a
 // read (IDENT is a strong read token), so no allowWrites is involved.
+// Why the last webResolveVariant call answered null -- the gate screens
+// read this so a failed probe reports WHICH way it failed instead of a
+// generic "no answer". Five exits share that null, and on a live car they
+// mean completely different things (silent bus vs. answered-but-unmatched).
+let _lastResolve = null;
+function webResolveVariantLast() { return _lastResolve; }
+
 async function webResolveVariant(groupName) {
   const key = String(groupName).toLowerCase();
   if (groupVariantCache.has(key)) return groupVariantCache.get(key);
+  const diag = (path, extra) => {
+    _lastResolve = { group: key, path, ...extra };
+    console.info(`[variant] ${key}: ${path}`, extra || '');
+  };
   const code = await loadGroupCode(key);
   if (!code || !code.jobs || code.jobs.IDENTIFIKATION === undefined) {
+    diag('no-probe-shipped');
     return null;
   }
   const variants = await loadGroupVariants();
@@ -1673,6 +1685,8 @@ async function webResolveVariant(groupName) {
   const answers = new Map();
   const jobNow = new Date();
   let sets = null;
+  let emptyAnswers = 0;   // telegrams the wire could not answer
+  let realAnswers = 0;    // telegrams that came back with bytes
   try {
     for (let attempt = 0; attempt < 64; attempt++) {
       let missing = null;
@@ -1700,13 +1714,45 @@ async function webResolveVariant(groupName) {
         break;
       } catch (e) {
         if (!missing || !e.needAnswer) throw e;
-        answers.set(missing.key,
-                    await webBus.exchange(missing.out, missing.comm));
+        let answer;
+        try {
+          answer = await webBus.exchange(missing.out, missing.comm);
+        } catch (err) {
+          // A GROUP PROBES SEVERAL PROTOCOLS AT ONE ADDRESS, AND SILENCE ON
+          // ONE OF THEM IS A NORMAL STEP, NOT THE END OF THE JOB. d_0012
+          // opens with a DS2 frame (12 04 00), then falls back to KWP2000*
+          // (B8 12 F1 02 1A 80). An MS45 ignores the first and answers the
+          // second -- verified against EDIABAS's own ifh.trc on a real E46,
+          // which logs SetError EDIABAS_IFH_0009 on the DS2 probe and keeps
+          // going. The bytecode branches on the answer's LENGTH (slen), so
+          // an empty answer is what carries it to the next telegram.
+          //
+          // Letting that rejection escape to the outer catch returned "no
+          // variant" for a DME that was answering perfectly, and the sweep
+          // drew it as "not installed" -- hiding ten real stored faults.
+          // This is the same rule webRunJob already applies (see its
+          // IFH-0009/IFH-0003 branch); the resolver never got it.
+          if (err && (err.ifh === 'IFH-0009' || err.ifh === 'IFH-0003')) {
+            answer = [];
+            emptyAnswers++;
+          } else throw err;
+        }
+        if (answer && answer.length) realAnswers++;
+        answers.set(missing.key, answer);
       }
     }
-  } catch {
-    // A silent address raises IFH-0009 out of the exchange; the engine's
-    // ExecuteIdentJob turns any job exception into "no variant". Same here.
+  } catch (e) {
+    // A job-level failure (bad bytecode, unusable answer) means the address
+    // did not identify. Absence of an ANSWER is handled above.
+    diag('probe-error', { error: String(e && e.message || e),
+                          empty: emptyAnswers, real: realAnswers });
+    return null;
+  }
+  // Nothing on this address answered anything: the module is genuinely not
+  // there. Distinguished from a resolution that ran but matched no variant,
+  // which is a shipped-tables problem rather than a silent bus.
+  if (emptyAnswers && !realAnswers) {
+    diag('bus-silent', { empty: emptyAnswers });
     return null;
   }
   for (const s of sets || []) {
@@ -1716,6 +1762,8 @@ async function webResolveVariant(groupName) {
       return v;
     }
   }
+  diag('answered-but-unmatched', { empty: emptyAnswers, real: realAnswers,
+                                   sets: (sets || []).length });
   return null;
 }
 
@@ -2053,6 +2101,23 @@ function installWebShim() {
       }
     }
 
+    // THE OWNER INDEX IS A STATIC FILE, NOT A ROUTE. Every /api/* path that
+    // matches nothing below falls to the catch-all err() at the end, which
+    // answers a 404 whose BODY is {"error": ...} -- one key. loadEcu reads
+    // that as the index, finds no owner for the SGBD, and every job on a
+    // variant the page has not already cached fails with "archive not found".
+    //
+    // On a real E46 that meant the climate unit identified as ihka46_3 and
+    // then reported a CLEAN FAULT MEMORY, on a module holding two present
+    // faults. Serve the file.
+    if (m[0] === 'ecu-index.json') {
+      if (typeof BMACW_INLINE === 'object' && BMACW_INLINE
+          && BMACW_INLINE._index) {
+        return ok(BMACW_INLINE._index);
+      }
+      return real(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`, init);
+    }
+
     if (m[0] === 'ecu' && m.length >= 3) {
       const sgbd = m[1].toLowerCase();
       const kind = m[2];
@@ -2091,6 +2156,7 @@ if (typeof window !== 'undefined') {
   // group -> variant resolution, for the sweep screen: which SGBD answers
   // at this diagnostic address? (lowercased SGBD name, or null)
   window.webResolveVariant = webResolveVariant;
+  window.webResolveVariantLast = webResolveVariantLast;
   // The explicitly-confirmed coding write path (the UI's "code this module"
   // action). Gated on opts.confirmed and its own re-read proof; see above.
   window.webWriteCoding = webWriteCoding;
