@@ -112,8 +112,11 @@ def _tok_pool(data, start, end):
     while i < end:
         t = data[i]
         if t == 0x06:
+            # no length cap: CAS's pool holds a 377-byte string (entry 146 of
+            # its declared 15,135), and the declaration's entry count already
+            # validates the walk end-to-end
             j = data.find(b"\n", i + 1)
-            if j < 0 or j - i > 220:
+            if j < 0:
                 return None
             s = data[i + 1:j]
             if any(c not in _PRINTABLE for c in s):
@@ -150,9 +153,37 @@ def _tok_pool(data, start, end):
     return entries
 
 
+# The pool is the body of a DECLARATION named "Constant Data", with the same
+# header grammar as every proc:  <type> <name> \x0a <u32 id> \x0a [version]
+# \x0a \x00 <u16 count>.  Its u16 field is the ENTRY COUNT: on 878 corpus
+# files the walk from the header's end reaches EOF in exactly that many
+# entries, with zero mismatches.
+_POOL_DECL = re.compile(rb".Constant Data\x0a(....)\x0a[ -~]{0,32}\x0a\x00(..)",
+                        re.DOTALL)
+
+
 def find_pool(data):
-    """(pool_start, entries). The pool is the longest EOF-suffix that
-    tokenizes as literals AND whose indexing agrees with the code's refs.
+    """(pool_start, entries) -- the body of the "Constant Data" declaration.
+
+    The v1.x flavour of the format (the NCSEXPER data files) declares the
+    section but encodes its entries differently; there the declaration walk
+    fails after an entry or two and the suffix heuristic below still applies.
+    """
+    m = None
+    for m in _POOL_DECL.finditer(data):
+        pass                                  # the LAST declaration wins
+    if m is not None:
+        start = m.end()
+        declared = int.from_bytes(m.group(2), "little")
+        entries = _tok_pool(data, start, len(data))
+        if entries is not None and (len(entries) & 0xffff) == declared:
+            return start, entries
+    return _find_pool_suffix(data)
+
+
+def _find_pool_suffix(data):
+    """Fallback: the longest EOF-suffix that tokenizes as literals AND whose
+    indexing agrees with the code's refs.
 
     A too-early start prepends fake entries and shifts every index, so
     candidates are scored on a semantic anchor: for sampled call sites
