@@ -382,7 +382,7 @@ class Host:
     def job(self, sgbd, job, arg, results):
         return {}
 
-    def result(self, key, index=1, default=""):
+    def result(self, key, index=1, default="", integer=False):
         # JOB_STATUS IS THE ONE RESULT EVERY JOB RETURNS. Scripts branch on it
         # before touching anything else -- `if JOB_STATUS != "OKAY"` guards the
         # whole body of nearly every ident and memory screen -- so answering ""
@@ -390,6 +390,15 @@ class Host:
         # It is also what status() already reports; the two must agree.
         if key == "JOB_STATUS":
             return self.status()
+        if integer:
+            # ONE OF EVERYTHING. An integer read frequently bounds a loop --
+            # msd87's s_svk_lesen draws a row per ANZAHL_EINHEITEN -- and ""
+            # coerces to 0, so every result-driven loop ran zero times and its
+            # row template never appeared. Answering 1 is the same modelling
+            # decision as presetting presence flags true for the menu walk:
+            # the offline IR describes the maximal structure, one iteration of
+            # each list; a live host overwrites this with what the car says.
+            return 1
         return default
 
     def status(self):
@@ -468,11 +477,20 @@ def _b_checkstatus(vm, stack, item):
     vm.globals["__status__"] = vm.host.status()
 
 
-def _b_result(vm, stack, item):
+def _b_result(vm, stack, item, integer=False):
     # INPAapiResult*(dest ref, KEY, index, default)
     key = next((x for x in stack if isinstance(x, str)), None)
-    val = vm.host.result(key) if key else ""
-    dest = _out_ref(stack)
+    val = vm.host.result(key, integer=integer) if key else ""
+    refs = [x for x in stack if isinstance(x, tuple)
+            and len(x) == 3 and x[0] == "ref"]
+    if len(refs) >= 2:
+        # the legacy two-ref form: INP1apiResultText(->ok, ->text, KEY, ...).
+        # The FIRST ref is a success flag, the value goes through the SECOND.
+        # Writing the text through the first left the flag holding a string
+        # and the text slot unset, so `ok == 0 or text != "OKAY"` guards --
+        # msd87's s_svk_lesen -- printed their error row for every job.
+        _store_out(vm, [refs[0]], 1)
+    dest = refs[-1] if refs else None
     if dest is not None:
         sc = 2 if dest[1] == 2 else 0
         if key:
@@ -495,6 +513,41 @@ def _b_result(vm, stack, item):
             vm.frame[dest[2]] = val
     if key:
         vm.globals["__lastkey__"] = key
+
+
+def _b_errorcode(vm, stack, item):
+    """INP1apiErrorCode(->dest) -- 0 means the last call succeeded.
+
+    The legacy API's twin of JOB_STATUS: scripts on the INP1 path branch on
+    it before reading anything (msd87's s_svk_lesen prints "Fehler beim
+    Lesen von Job" for every row when it is unset). It must agree with
+    status(): the host that says OKAY has no error code to report.
+    """
+    _store_out(vm, stack, 0)
+
+
+def _b_errortext(vm, stack, item):
+    _store_out(vm, stack, "")
+
+
+def _b_resultsets(vm, stack, item):
+    """INP1apiResultSets(->ok, ->count) -- how many result sets came back.
+
+    Two refs like the rest of the INP1 family: success flag first, then the
+    count. Offline the count is 1 for the same reason an integer read
+    answers 1: the maximal structure enumerates one of each list.
+    """
+    refs = [x for x in stack if isinstance(x, tuple)
+            and len(x) == 3 and x[0] == "ref"]
+    if len(refs) >= 2:
+        _store_out(vm, [refs[0]], 1)
+    _store_out(vm, [refs[-1]] if refs else [], 1)
+
+
+def _b_result_int(vm, stack, item):
+    """The integer reads -- INPAapiResultInt and kin -- marked as such so the
+    offline host can answer a number rather than empty text."""
+    _b_result(vm, stack, item, integer=True)
 
 
 def _b_textout(vm, stack, item):
@@ -837,7 +890,7 @@ _BUILTINS = {
     "INPAapiResultText": _b_result,
     "INPAapiResultAnalog": _b_result,
     "INPAapiResultDigital": _b_result,
-    "INPAapiResultInt": _b_result,
+    "INPAapiResultInt": _b_result_int,
     "INP1apiResultText": _b_result,
     "ftextout": _b_textout,
     "textout": _b_textout,
@@ -866,7 +919,8 @@ _BUILTINS = {
     "setstate": _b_setstate, "start": _b_start,
     "select": _b_noop, "deselect": _b_noop,
     "INPAapiInit": _b_noop, "INPAapiEnd": _b_noop,
-    "INPAapiFsLesen": _b_noop, "INP1apiErrorText": _b_noop,
+    "INPAapiFsLesen": _b_noop, "INP1apiErrorText": _b_errortext,
+    "INP1apiErrorCode": _b_errorcode, "INP1apiResultSets": _b_resultsets,
     "getinputstate": _b_getinputstate, "inputhex": _b_noop,
     "fileopen": _b_fileopen, "fileclose": _b_fileclose,
     "filewrite": _b_filewrite, "fileread": _b_fileread,
@@ -874,7 +928,7 @@ _BUILTINS = {
     "setstatemachine": _b_noop, "StrArrayCreate": _b_noop,
     "StrArrayDestroy": _b_noop, "StrArrayRead": _b_noop,
     "StrArrayWrite": _b_noop, "realtostring": _b_inttostring,
-    "INP1apiResultInt": _b_result,
+    "INP1apiResultInt": _b_result_int,
     "INPAapiResultBinary": _b_noop,
 }
 
