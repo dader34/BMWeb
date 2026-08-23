@@ -36,7 +36,14 @@ import ipo_disasm as D                                          # noqa: E402
 
 class _Slot:
     """A global slot pushed with nothing in it -- carries its own number so a
-    later draw can ask which result key was bound to it."""
+    later draw can ask which result key was bound to it.
+
+    AN UNSET SLOT READS AS EMPTY TEXT. Offline, most globals are unset, and a
+    script that builds a path or a caption out of one still has to produce a
+    usable string -- msd87's s_fdyn opens `<install dir> + "DDLI.TXT"` and got
+    a slot object as its filename. Being empty rather than absent is also what
+    the script itself sees: INPA initialises its globals to "".
+    """
 
     __slots__ = ("sc", "n")
 
@@ -46,6 +53,9 @@ class _Slot:
 
     def __repr__(self):
         return f"<slot {self.sc}:{self.n}>"
+
+    def __str__(self):
+        return ""
 
 
 class _Bound(str):
@@ -121,6 +131,8 @@ class VM:
         self.steps = 0
         self.entered = set()     # state procs already entered (loop guard)
         self.binds = {}          # global slot -> the result key read into it
+        self.files = {}          # path -> lines, for scripts that keep lists
+        self.fh = None           # the one open handle INPA scripts use
         # highest global slot this file touches, so a caller preseeding
         # presence flags knows how far the range goes
         self._maxglobal = 0
@@ -371,10 +383,20 @@ class Host:
         return {}
 
     def result(self, key, index=1, default=""):
+        # JOB_STATUS IS THE ONE RESULT EVERY JOB RETURNS. Scripts branch on it
+        # before touching anything else -- `if JOB_STATUS != "OKAY"` guards the
+        # whole body of nearly every ident and memory screen -- so answering ""
+        # sent all 489 of them down the error arm and skipped the real work.
+        # It is also what status() already reports; the two must agree.
+        if key == "JOB_STATUS":
+            return self.status()
         return default
 
     def status(self):
         return "OKAY"
+
+    def inputstate(self):
+        return 0                 # the user accepted the dialog
 
 
 # --------------------------------------------------------------- emissions --
@@ -648,6 +670,60 @@ def _b_inttostring(vm, stack, item):
     _store_out(vm, stack, str(int(n)), _keyed(stack))
 
 
+def _b_fileopen(vm, stack, item):
+    """fileopen(path, mode) -- INPA scripts keep user data in text files.
+
+    The offline host has no filesystem, so files live in vm.files: a screen
+    that writes a measurement list and reads it back (msd87's s_fdyn and
+    DDLI.TXT) sees its own writes, and one that reads a list the user never
+    created correctly takes the empty branch instead of stalling on an
+    unimplemented builtin.
+    """
+    # AN UNSET GLOBAL IS AN EMPTY STRING, NOT A POISON VALUE. INPA builds the
+    # path as `<install dir global> + "DDLI.TXT"`; offline that global is
+    # unset, so the concatenation yields a bare slot and the filename is lost.
+    path = "".join(str(x) for x in stack
+                   if isinstance(x, (str, _Slot)) and x not in ("r", "w", "a"))
+    mode = next((x for x in reversed(stack)
+                 if isinstance(x, str) and x in ("r", "w", "a")), "r")
+    if mode == "w":
+        vm.files[path] = []
+    elif mode == "a":
+        vm.files.setdefault(path, [])
+    vm.fh = {"path": path, "mode": mode, "line": 0}
+
+
+def _b_fileclose(vm, stack, item):
+    vm.fh = None
+
+
+def _b_filewrite(vm, stack, item):
+    if not vm.fh or vm.fh["mode"] == "r":
+        return
+    txt = next((x for x in stack if isinstance(x, str)), "")
+    vm.files.setdefault(vm.fh["path"], []).append(txt)
+
+
+def _b_fileread(vm, stack, item):
+    """fileread(->dest, ...) -- next line, or "" at end of file."""
+    line = ""
+    if vm.fh and vm.fh["mode"] == "r":
+        lines = vm.files.get(vm.fh["path"], [])
+        if vm.fh["line"] < len(lines):
+            line = lines[vm.fh["line"]]
+            vm.fh["line"] += 1
+    _store_out(vm, stack, line)
+
+
+def _b_getinputstate(vm, stack, item):
+    """0 means the user accepted the dialog -- anything else is a cancel.
+
+    Leaving this a noop left the destination slot unset, so a script that
+    branches on it took whichever arm an empty slot happened to select.
+    """
+    _store_out(vm, stack, vm.host.inputstate())
+
+
 def _b_noop(vm, stack, item):
     """Structure packers, view/box chrome, timers -- no effect on the IR.
 
@@ -771,7 +847,9 @@ _BUILTINS = {
     "select": _b_noop, "deselect": _b_noop,
     "INPAapiInit": _b_noop, "INPAapiEnd": _b_noop,
     "INPAapiFsLesen": _b_noop, "INP1apiErrorText": _b_noop,
-    "getinputstate": _b_noop, "inputhex": _b_noop,
+    "getinputstate": _b_getinputstate, "inputhex": _b_noop,
+    "fileopen": _b_fileopen, "fileclose": _b_fileclose,
+    "filewrite": _b_filewrite, "fileread": _b_fileread,
     "hexdump": _b_noop, "printfile": _b_noop,
     "setstatemachine": _b_noop, "StrArrayCreate": _b_noop,
     "StrArrayDestroy": _b_noop, "StrArrayRead": _b_noop,

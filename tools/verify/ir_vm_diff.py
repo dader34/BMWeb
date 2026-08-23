@@ -191,8 +191,20 @@ def compare_screens(ecu):
             t["vm-subset"] += 1
         else:
             t["keys-differ"] += 1
+        # COVERAGE, MEASURED ON THE SET. Exact-order agreement scores the VM
+        # against a reference that repeats 14.6% of its own keys -- the static
+        # miner walked loop bodies it never executed, so s63tu's
+        # s_msa2_hist_no_stop lists each row's caption/value pair twice. A key
+        # the VM found is the thing worth counting, once.
+        iw, gw = set(want["keys"]), set(got["keys"])
+        if iw or gw:
+            t["covered"] += len(iw & gw)
+            t["ir-only"] += len(iw - gw)
+            t["vm-only"] += len(gw - iw)
         t["ir-keys"] += len(want["keys"])
         t["vm-keys"] += len(got["keys"])
+        t["ir-uniq"] += len(iw)
+        t["vm-uniq"] += len(gw)
         for f in ("gauges", "lamps"):
             if want[f] == got[f]:
                 t[f + "-same"] += 1
@@ -283,6 +295,12 @@ def main():
         print(f"  vm found FEWER     {tot['vm-subset']:6}")
         print(f"  keys disjoint      {tot['keys-differ']:6}")
         print(f"\n  total keys  IR={tot['ir-keys']}  VM={tot['vm-keys']}")
+        print(f"  unique keys IR={tot['ir-uniq']}  VM={tot['vm-uniq']}")
+        both = tot["covered"] + tot["ir-only"]
+        if both:
+            print(f"  of the IR's unique keys the VM also found "
+                  f"{tot['covered']} ({100 * tot['covered'] / both:.1f}%); "
+                  f"missed {tot['ir-only']}; found {tot['vm-only']} more")
         print(f"  gauges same={tot['gauges-same']} differ={tot['gauges-differ']}")
         print(f"  lamps  same={tot['lamps-same']} differ={tot['lamps-differ']}")
         return 0
