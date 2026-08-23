@@ -33,6 +33,11 @@
 #
 #   1. python3 tools/decompile/ipo_ir.py --write     -> data/inpa-ir/, i18n EMPTY plus a
 #                                             `strings` hand-off list
+#   1b. python3 tools/decompile/ipo_vm_ir.py --write -> vmScreens (executed twins) into
+#                                             the same files. BEFORE i18n: the executed
+#                                             captions are strings i18n must resolve,
+#                                             so running it after leaves them raw and
+#                                             the i18n check fails on the next run
 #   2. node tools/decompile/ipo_i18n.js              -> RESOLVES those strings back INTO
 #                                             the IR files and drops the list
 #   3. python3 tools/export/build_ecu_tree.py -> assembles the finished IR into
@@ -109,6 +114,10 @@ node tools/verify/test_groups.js || exit 1
 echo
 echo "== whole-vehicle sweep plans every chassis from its own config =="
 node tools/verify/test_sweep.js || exit 1
+
+echo
+echo "== export ships every variant a group can identify, not just the menu =="
+python3 tools/verify/test_export_gate.py || exit 1
 
 echo
 echo "== coding encode is the exact inverse of decode (round-trip + Mod-36) =="
