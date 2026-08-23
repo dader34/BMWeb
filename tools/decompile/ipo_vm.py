@@ -559,6 +559,25 @@ def _b_analogout(vm, stack, item):
         el["fmt"] = fmt.strip()
 
 
+def _b_multianalogout(vm, stack, item):
+    """multianalogout(...) -- several analog series drawn by one call.
+
+    The argument list is analogout's tail repeated per series, so the row is
+    split on the format string that terminates each one and each group emits
+    its own gauge. Drawing a single lamp here (the name this opcode carried
+    before) collapsed every series onto one element.
+    """
+    group, drawn = [], 0
+    for x in stack:
+        group.append(x)
+        if isinstance(x, str) and x.strip():
+            _b_analogout(vm, group, item)
+            drawn += 1
+            group = []
+    if not drawn:
+        _b_analogout(vm, stack, item)
+
+
 def _b_digitalout(vm, stack, item):
     # digitalout(value, row, col, on, off)
     _field(vm, stack, "digital")
@@ -832,6 +851,7 @@ _BUILTINS = {
     "callwin": _b_callwin,
     "analogout": _b_analogout,
     "digitalout": _b_digitalout,
+    "multianalogout": _b_multianalogout,
     "strlen": _b_strlen,
     "midstr": _b_midstr,
     "inttostring": _b_inttostring,

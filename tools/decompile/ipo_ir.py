@@ -121,6 +121,59 @@ import ipo_screens as L1                                        # noqa: E402
 import ipo_disasm as D                                          # noqa: E402
 
 IR_VERSION = 1
+
+# WHAT PRODUCED THIS DATA. data/inpa-ir is derived from the decompiler, and
+# nothing tied the two together: a decoder fix would land while the shipped
+# IR stayed as it was, and every check still passed because each of them
+# only asks whether the DATA is self-consistent. It happened -- the state
+# label and version-field fixes sat uncommitted for a day while the app
+# served pre-fix IR, and Energiediagnose was a whole screen short.
+#
+# The stamp is the hash of the sources the IR is built FROM. --write records
+# it; --check compares and fails. It cannot detect a vendor .IPO changing
+# underneath us, only a code/data mismatch, which is the failure that has
+# actually bitten.
+def _decoder_stamp():
+    """SHA-256 over the modules whose output the IR is."""
+    import hashlib
+    h = hashlib.sha256()
+    here = os.path.dirname(os.path.abspath(__file__))
+    for name in ("ipo_disasm.py", "ipo_ir.py", "ipo_screens.py"):
+        try:
+            with open(os.path.join(here, name), "rb") as f:
+                h.update(f.read())
+        except OSError:
+            h.update(b"?" + name.encode())
+    return h.hexdigest()[:16]
+
+
+def _stamp_path():
+    return os.path.join(OUT_DIR, "_build.json")
+
+
+def write_stamp():
+    with open(_stamp_path(), "w", encoding="utf-8") as f:
+        json.dump({"ir": IR_VERSION, "decoder": _decoder_stamp()}, f)
+
+
+def check_stamp():
+    """None when the IR matches the decoder, else a message saying how not."""
+    want = _decoder_stamp()
+    try:
+        with open(_stamp_path(), encoding="utf-8") as f:
+            got = json.load(f)
+    except (OSError, ValueError):
+        return ("data/inpa-ir carries no build stamp -- it predates this "
+                "check, or was written by hand. Run "
+                "`python3 tools/decompile/ipo_ir.py --write` then "
+                "`node tools/decompile/ipo_i18n.js`.")
+    if got.get("decoder") != want:
+        return (f"data/inpa-ir was built by decoder {got.get('decoder')}, "
+                f"but the decompiler is now {want}. The shipped IR does not "
+                f"reflect the current code. Run "
+                f"`python3 tools/decompile/ipo_ir.py --write` then "
+                f"`node tools/decompile/ipo_i18n.js`.")
+    return None
 OUT_DIR = os.path.join(os.path.dirname(L1.OUT), "inpa-ir")
 
 def _variant_slot(all_toks):
@@ -309,6 +362,28 @@ _TEXT_KEY = re.compile(r"^(.*)_TEXT(\d*)$")
 _VALUE_KEY = re.compile(r"^(.*)_(WERT|VALUE)(\d*)$")
 
 
+def _global_behind(toks, at, local):
+    """The global slot a local was last filled from, before toks[at].
+
+    INPA routes a menu-set global through a conversion into a local and
+    passes the local: `var<global> ; procref ; call <conv>` leaves the value
+    in the frame slot the job then reads. Walking back to the nearest such
+    pair recovers which global the screen is really parameterised by, which
+    is the link a menu key's own store has to match.
+    """
+    # The conversion runs in the screen's INIT, before the LINE that holds
+    # the job -- so this walks the whole proc, not just the current line.
+    for j in range(at - 1, -1, -1):
+        t = toks[j]
+        if t["op"] == "ITEM":
+            break
+        if t["op"] == "var" and t.get("sc", 0) == 0:
+            nxt = toks[j + 1] if j + 1 < len(toks) else None
+            if nxt and nxt["op"] == "procref":
+                return t["n"]
+    return None
+
+
 def _pairs_with_value(key, toks, ti):
     """Is this _TEXT read purely to caption the value that follows it?
 
@@ -444,7 +519,8 @@ def _softkeys(lines):
 # Both halves are required. A helper that only formats (ausgabe_formatiert), or
 # only calls a job without displaying it (inpainit), is not a screen -- mining
 # those would fill the IR with procs no key opens.
-_DISPLAY_CALLS = {"textout", "ftextout", "text", "analogout", "digitalout"}
+_DISPLAY_CALLS = {"textout", "ftextout", "text", "analogout",
+                  "digitalout", "multianalogout"}
 
 
 def _is_display_func(toks):
@@ -660,9 +736,24 @@ def _screen_ir(toks):
                     if var_arg and D.JOB_ARG_ARG < len(_pos):
                         # the slot IS the argument position, not "the next var
                         # after the job name"
-                        aslot = next((x["n"] for x in _pos[D.JOB_ARG_ARG]
+                        arg_expr = _pos[D.JOB_ARG_ARG]
+                        aslot = next((x["n"] for x in arg_expr
                                       if x["op"] == "var"
                                       and x.get("sc", 0) == 0), None)
+                        if aslot is None:
+                            # ...or the job takes a LOCAL that a conversion
+                            # filled from the global. MS450's fifteen AIF
+                            # keys each store their record index in global
+                            # 55, and s_aif reads it as
+                            #     var55(global) -> <conv> -> local0
+                            # then passes local0. Reading only the job's own
+                            # operand finds local 0, which no menu key can
+                            # match, so all fifteen pointed at the same page.
+                            loc = next((x["n"] for x in arg_expr
+                                        if x["op"] == "var"
+                                        and x.get("sc", 0) != 0), None)
+                            if loc is not None:
+                                aslot = _global_behind(toks, ti, loc)
                     if all(j["name"] != jname or j.get("arg") != arg
                            for j in jobs):
                         jobs.append({"name": jname,
@@ -739,7 +830,7 @@ def _screen_ir(toks):
                     if val:
                         bind[dst] = val
                         pending_result = None
-            elif name == "analogout":
+            elif name in ("analogout", "multianalogout"):
                 key = bind.get(slot)
                 el = {"t": "gauge", "key": key}
                 if len(ints) >= 2:
@@ -856,7 +947,8 @@ def _screen_ir(toks):
                                            if g.get("v") is not None else {})}
                         break
                 cur()["elements"].append(el)
-            if name in ("analogout", "digitalout") or op == "calluser":
+            if name in ("analogout", "digitalout",
+                        "multianalogout") or op == "calluser":
                 lastconst.clear()
             args = []
             pend_cmp = None
@@ -1082,6 +1174,100 @@ def _helper_job(toks):
         if out.get("job"):
             return out
     return None
+
+
+def _toggle_job(body):
+    """The job a state proc sends with a togglelist SELECTION, or None.
+
+    INPA's standard actuator idiom, and the reason 274 screens across 76 ECUs
+    looked like dead pages. The machine shows a list of actuator rows, the
+    user picks one, and the picked row's key IS the job argument:
+
+        togglelist(0, 0, out var20)              # builtin 0x16, see Inpa.h:39
+        INPAapiJob(var13, "STEUERN_DIGITAL", var20, "")
+
+    BMW declares it `out: string ApiToggleString`, so the ORT value is
+    produced by the widget at runtime -- it is NOT in the bytecode, which is
+    why no amount of argument decoding recovers it. What IS decodable is the
+    contract: WHICH job the selection feeds, and that the selection is the
+    whole argument. The screen's own lines carry the candidate keys (VRFT,
+    ERFT ...), and the SGBD's BITS table names each one, so the app can offer
+    the same list INPA does and send the row the user picks.
+
+    Returns {"job": <name>, "argVar": <slot>} only when the job's ARGUMENT is
+    exactly the variable togglelist wrote. A job that appends to it
+    (var20 + ";ein") or ignores it is a different shape and is left alone --
+    sending a bare ORT where INPA sends "ORT;ein" would command the wrong
+    thing.
+    """
+    out_var = None
+    for i, t in enumerate(body):
+        if t["op"] == "call" and t.get("name") == "builtin_16":
+            # the out parameter is the last operand pushed before the call
+            for b in reversed(body[max(0, i - 4):i]):
+                if b["op"] == "procref":
+                    out_var = b["n"]
+                    break
+            continue
+        if out_var is None or t["op"] != "call":
+            continue
+        if t.get("name") not in ("INPAapiJob", "INPAapiJobData"):
+            continue
+        # operands of the job call, in order: ecu, job, arg, resultfilter
+        win = body[max(0, i - 6):i]
+        job = next((b["v"] for b in win
+                    if b["op"] == "const" and b.get("t") == "s" and b["v"]), None)
+        if not job:
+            continue
+        # the ARGUMENT must be the togglelist variable itself, untouched
+        after = [b for b in win
+                 if b["op"] == "const" and b.get("t") == "s" and b["v"] == job]
+        if not after:
+            continue
+        idx = win.index(after[0])
+        rest = win[idx + 1:]
+        if any(b["op"] == "binop" for b in rest):
+            continue                      # var + ";ein": not a bare selection
+        if not any(b["op"] == "var" and b["n"] == out_var for b in rest):
+            continue
+        return {"job": job, "argVar": out_var}
+    return None
+
+
+def _state_dispatch(body, id2name):
+    """{selector token: screen name} for a state proc that switches on one var.
+
+    INPA's third proc kind is a state machine, and its commonest shape is a
+    plain dispatch chain -- ZKE5's sm_steuern is 12 arms of exactly this:
+
+        var28 == "EIN_zv"  -> setscreen(procref 33)   # s_steuern_eingang_zv
+        var28 == "EIN_fh"  -> setscreen(procref 32)   # s_steuern_eingang_fh
+
+    The menu key stores the token and hands off; the machine turns it into a
+    page. Reading the chain is what lets a key that names no job of its own
+    open the screen it actually meant, instead of reporting "not decoded".
+
+    Deliberately narrow: only `var == <string const>` compared with `eq`,
+    followed by a screen procref before the next comparison. Anything else in
+    the arm (a job call, arithmetic, a second variable) is left alone -- this
+    resolves navigation, and a machine that DOES something is still handled by
+    the job-call and _seq_jobs paths below.
+    """
+    out = {}
+    last = None             # the string constant most recently pushed
+    pending = None          # the token whose arm we are inside
+    for t in body:
+        if t["op"] == "const" and t.get("t") == "s":
+            last = t["v"]
+        elif t["op"] == "binop" and t.get("name") == "eq":
+            # the string most recently pushed is the one being compared
+            pending, last = last, None
+        elif t["op"] == "procref" and t.get("kind") == 0x40 and pending:
+            nm = id2name.get(("screen", t["n"]))
+            if nm:
+                out.setdefault(pending, nm)
+            pending = None
+    return out
 
 
 def _seq_jobs(name, all_toks, id2name, seen=None):
@@ -1499,7 +1685,14 @@ def _menu_ir(toks, id2name, name=None, vslot=None):
             entry = None
             cur_nr, cur_label = t.get("nr"), (t.get("label") or "").strip()
             last_const = None
-        elif t["op"] == "const" and t.get("t") in ("i", "b"):
+        elif t["op"] == "const" and t.get("t") in ("i", "b", "s"):
+            # STRINGS COUNT TOO. A state machine's selector is a TOKEN, not an
+            # index: ZKE5's six Activate keys each store "EIN_fh" / "EIN_zv" /
+            # "EIN_kontakt" ... into one variable and hand off to sm_steuern,
+            # which compares that token and setscreen's the matching page.
+            # Keeping only numeric constants dropped the token, so every one
+            # of those keys reached the state proc with nothing to say which
+            # page it wanted and fell through to "not decoded".
             last_const = t["v"]
         elif t["op"] == "store" and cur_label is not None \
                 and last_const is not None:
@@ -2300,8 +2493,45 @@ def build(ecu):
                 it["stateCopy"] = cp
             st = it.pop("_state", None)
             if not st or st not in all_toks:
+                # _sel is dropped only when nothing can USE it. A key with no
+                # state proc can still be a record selector: MS450's fifteen
+                # AIF keys each store their index in global 55 and setscreen
+                # s_aif, whose AIF_LESEN reads that same global. Discarding
+                # _sel unconditionally left all fifteen on record 0 -- one
+                # page, fifteen times. 6,699 keys across 404 ECUs carry one.
+                sel0 = it.get("_sel")
+                slot = sel0[0] if isinstance(sel0, (tuple, list)) else None
+                scr0 = ir["screens"].get(it.get("screen")) if slot is not None \
+                    else None
+                if not (scr0 and any(j.get("argSlot") == slot
+                                     for j in scr0.get("jobs", []))):
+                    it.pop("_sel", None)
                 continue
             body = all_toks[st]
+            # A KEY THAT ONLY PICKS A PAGE. Before asking what the machine
+            # DOES, ask where it GOES: ZKE5's Activate keys store a token
+            # ("EIN_zv") and hand off to sm_steuern, which compares it and
+            # setscreen's the matching page. Resolving that turns six keys
+            # that reported "not decoded" into the actuator screens they
+            # always meant -- the screens were decompiled all along
+            # (s_steuern_eingang_zv holds ten named locks), nothing linked
+            # to them. Navigation only: the arm must do nothing but choose
+            # a screen, so this can never fire a job on its own.
+            sel = it.pop("_sel", None)
+            if sel is not None and "screen" not in it:
+                tok = sel[1] if isinstance(sel, tuple) else sel
+                if isinstance(tok, str):
+                    tgt = _state_dispatch(body, id2name).get(tok)
+                    if tgt:
+                        it["screen"] = tgt
+                        # ...and if that page is a togglelist PICKER, record
+                        # the job its selection feeds. The rows are already
+                        # in the screen; without the job they are a dead list.
+                        tj = _toggle_job(body)
+                        scr = ir["screens"].get(tgt)
+                        if tj and scr is not None and not scr.get("jobs"):
+                            scr["pickJob"] = tj["job"]
+                        continue
             calls = {t["n"] for t in body if t["op"] == "call"}
             named = {t.get("name") for t in body if t["op"] == "call"}
             # Same two corrections as the per-item rule above: viewopen
@@ -2311,9 +2541,17 @@ def build(ecu):
             # fileopen -- and the state proc only counts as a PC action if
             # it never questions the ECU at all.
             writes = bool(calls & {0x79, 0x7b, 0x18})
-            asks = bool(calls & {0x62, 0x6f}) \
-                or bool(named & (D.FSMODE_CALLS | {"INPAapiFsLesen"})) \
-                or bool(named & D.JOB_CALLS)
+            # ...and, as with the helper rule, questioning the ECU does not
+            # make it an ECU function when the answer only goes to disk.
+            # LWS5's sm_Codier_Datei reads the coding with INPAapiJob and
+            # writes it to a .COD file, drawing nothing -- so gating on
+            # "never asks the ECU" left it unflagged and m_code's only key
+            # looked like a live coding function.
+            shows = "userboxftextout" in named
+            asks = shows and (bool(calls & {0x62, 0x6f})
+                              or bool(named & (D.FSMODE_CALLS
+                                               | {"INPAapiFsLesen"}))
+                              or bool(named & D.JOB_CALLS))
             if writes and not asks:
                 it["fileAction"] = True     # writes a file, never asks the ECU
                 continue
@@ -2331,11 +2569,29 @@ def build(ecu):
                 # 0x62/0x6f are the state machine's job calls: the job is
                 # argument 1, bounded by the call's frame rather than an
                 # 8-token guess at where its operands began.
-                nm = D.arg_str(D.arg_positions(D.frame_of(body, i)),
-                               D.JOB_ARG_JOB)
+                _p = D.arg_positions(D.frame_of(body, i))
+                nm = D.arg_str(_p, D.JOB_ARG_JOB)
                 if nm:
                     it.setdefault("job", nm)
-                    it["stateJob"] = True
+                    # AND THE ARGUMENT, which this loop never read. Every
+                    # other job path in this file reads slot 2 (lines 393,
+                    # 645, 2217); here only the NAME was taken, so the item
+                    # was marked "argument not decoded" without anyone
+                    # looking. Read it, but only when the slot is a decidable
+                    # CONSTANT -- a `var` or a `binop` there means the value
+                    # is assembled at runtime from a previous read or a
+                    # dialog, and THAT is the case the refusal exists for.
+                    _slot = _p[D.JOB_ARG_ARG] if D.JOB_ARG_ARG < len(_p) else []
+                    runtime = any(a["op"] in ("var", "binop") for a in _slot)
+                    ag = None if runtime else D.arg_str(_p, D.JOB_ARG_ARG)
+                    # `is not None`, NOT truthiness: an EMPTY argument is a
+                    # real, decoded answer (the job takes none), and 166 of
+                    # these items pass exactly that. Testing falsiness is
+                    # what would keep them hidden.
+                    if ag is not None:
+                        it["jobArg"] = ag
+                    else:
+                        it["stateJob"] = True
                     if _is_write(nm):
                         it["writeJob"] = True
                     break
@@ -2373,6 +2629,28 @@ def build(ecu):
             # value -- exactly what INPA does, minus the send.
             if "job" not in it and form and form.get("fields"):
                 it["stateEdit"] = {"fields": form["fields"]}
+
+    # EVERY TOGGLELIST PICKER, however its page was reached. The pass above
+    # only sees screens a string-dispatch chain named; most pickers are
+    # reached by a plain setscreen elsewhere in the same machine. So walk the
+    # state procs once more and attach the job to EVERY screen they display,
+    # which is what makes 274 picker pages across 76 ECUs live rather than 13.
+    for _st, _body in all_toks.items():
+        tj = _toggle_job(_body)
+        if not tj:
+            continue
+        for _t in _body:
+            if _t["op"] != "procref" or _t.get("kind") != 0x40:
+                continue
+            _nm = id2name.get(("screen", _t["n"]))
+            _scr = ir["screens"].get(_nm) if _nm else None
+            if _scr is None or _scr.get("jobs") or _scr.get("pickJob"):
+                continue
+            # only a PICKER: rows that offer a key and read nothing back
+            _ls = _scr.get("lines") or []
+            _pick = [l for l in _ls if l.get("keys") and not (l.get("elements") or [])]
+            if len(_pick) >= 2 and len(_pick) == len([l for l in _ls if l.get("keys")]):
+                _scr["pickJob"] = tj["job"]
 
     # A KEY THAT CALLS `start` LAUNCHES THE SCRIPT'S OWN MACHINE. INPA's
     # special tests (ABS/ASC bleeding, RDC antenna check) are whole programs
@@ -2797,6 +3075,12 @@ def main():
                   f"pairs, argument order != F-key order (checked)")
             print(f"  ir         RDC baseline {comp.get('baseline')!r} "
                   f"(from INPA's own startup init)")
+        # ...and whether the SHIPPED data was built by this code at all. The
+        # checks above all run against a fresh in-memory build, so they pass
+        # happily while data/inpa-ir on disk is a day stale.
+        drift = check_stamp()
+        if drift:
+            fails.append(drift)
         if fails:
             for f in fails:
                 print("   -", f)
@@ -2860,6 +3144,7 @@ def main():
             scr += len(ir["screens"])
             el += sum(len(ln["elements"]) for s in ir["screens"].values()
                       for ln in s["lines"])
+        write_stamp()
         print(f"wrote {n} IR files -> {os.path.relpath(OUT_DIR)} "
               f"({scr} screens, {el} elements)")
         if failed:
