@@ -586,6 +586,32 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
   });
 }
 
+// INPA's messagebox: one OK button, information only. The interpreted-screen
+// path pops these with the script's own words when a live job fails, which is
+// what INPA itself does ("Wrong JOB_STATUS : ...").
+function messageDialog({ title, body, danger = false }) {
+  return new Promise((resolve) => {
+    const { overlay, close } = openModal(`
+      <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
+        <div class="modal-title">${title}</div>
+        <div class="modal-body">${body}</div>
+        <div class="modal-actions">
+          <button class="btn primary modal-confirm">OK<span class="modal-key">⏎</span></button>
+        </div>
+      </div>`, {
+      onClose: resolve,
+      backdropValue: true,
+      onKey: (e, close) => {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+          e.preventDefault(); e.stopPropagation(); close(true);
+        }
+      },
+    });
+    overlay.querySelector('.modal-confirm').onclick = () => close(true);
+    overlay.querySelector('.modal-confirm').focus();
+  });
+}
+
 // value-input modal for INPA functions; returns string or null. Enter submits, Esc cancels.
 function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 'Run', danger = false }) {
   return new Promise((resolve) => {

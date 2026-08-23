@@ -5,6 +5,109 @@
 // showInpaScreens consumes.
 
 // screens whose elements are all static text have nothing to poll
+// ---- togglelist actuator picker -------------------------------------------
+// INPA's standard actuator idiom (274 screens, 76 ECUs): the page is a LIST of
+// actuators, not a readout. The user picks one and the picked row's key is the
+// job argument. See _toggle_job in tools/decompile/ipo_ir.py for why the value
+// cannot come from the bytecode -- BMW declares togglelist's output parameter
+// `out: string ApiToggleString`, so the widget produces it at runtime.
+
+// The SGBD's BITS table names every ORT key: VRFT -> "Verriegeln Fahrertuer",
+// with the byte and mask the ECU actually toggles. Shown beside each row so a
+// pick is an informed one rather than a four-letter guess. Missing table or
+// missing row is fine -- the caption from the screen still names the actuator.
+const _bitsCache = new Map();
+async function irBitsTable(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (!_bitsCache.has(key)) {
+    _bitsCache.set(key, (async () => {
+      try {
+        const t = await api(`/data/sgbd-tables/${key}.json`);
+        const rows = (t && (t.BITS || t.bits)) || [];
+        const m = new Map();
+        for (const r of rows) {
+          const n = String(r.NAME || r.name || '').toUpperCase();
+          if (n) m.set(n, r);
+        }
+        return m;
+      } catch { return new Map(); }
+    })());
+  }
+  return _bitsCache.get(key);
+}
+
+async function irPickAndDrive(ecu, ir, scr, it, menuName, container, back,
+                              trail, open) {
+  const rows = (scr.lines || [])
+    .filter((l) => (l.keys || []).length)
+    .map((l) => ({ key: String(l.keys[0]), caption: irLabel(l.caption) || l.keys[0] }));
+  const bits = await irBitsTable(ecu.sgbd);
+  const reopen = () => renderIrMenu(ecu, ir, menuName, container, back, trail);
+  // Firing a row RE-ENTERS the ordinary actuator branch rather than sending
+  // here: that path owns the confirm dialog, the register-before-send and the
+  // release-on-leave promise. Sending from this list would energize an output
+  // with none of them. Both the click handler and the F-key bar go through it.
+  const fire = (r) => open({ ...it, inPlace: true, screen: null,
+                             job: scr.pickJob, jobArg: r.key,
+                             label: `${it.label} · ${r.caption}` });
+
+  const detailOf = (r) => {
+    const b = bits.get(r.key.toUpperCase());
+    if (!b) return '';
+    const t = b.TEXT && typeof deGerman === 'function' ? deGerman(b.TEXT) : b.TEXT;
+    return t || `byte ${b.BYTE} mask ${b.MASK}`;
+  };
+
+  container.className = 'results-panel';
+  if (inpaMode()) {
+    // INPA draws a togglelist as its ordinary key list: "< Fn >  caption".
+    // Same grammar as irMenuMode's menus, so a picker does not read like a
+    // different app. The ORT stays visible on the right -- it is the value
+    // that goes on the wire, and hiding it would make the pick a guess.
+    container.innerHTML = `<div class="ir-pick-head">Pick the actuator to `
+      + `drive &middot; sends <span class="mono">${esc(scr.pickJob)}</span></div>`
+      + `<div class="act-key-list" id="ir-pick-list"></div>`;
+    const list = container.querySelector('#ir-pick-list');
+    rows.forEach((r, i) => {
+      const row = document.createElement('button');
+      row.className = 'inpa-fn act-key-row';
+      row.dataset.i = String(i);
+      row.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
+        + `<span class="inpa-fn-label">${esc(r.caption)}</span>`
+        + `<span class="act-key-val ir-pick-ort mono">${esc(r.key)}</span>`
+        + `<span class="ir-pick-detail">${esc(detailOf(r))}</span>`;
+      list.appendChild(row);
+    });
+  } else {
+    container.innerHTML = `<div class="ir-pick">
+      <div class="ir-pick-head">Pick the actuator to drive · sends
+        <span class="mono">${esc(scr.pickJob)}</span></div>
+      <div class="ir-pick-rows">${rows.map((r, i) => `
+        <button class="ir-pick-row" data-i="${i}">
+          <span class="ir-pick-name">${esc(r.caption)}</span>
+          <span class="ir-pick-ort mono">${esc(r.key)}</span>
+          <span class="ir-pick-detail">${esc(detailOf(r))}</span>
+        </button>`).join('')}</div></div>`;
+  }
+
+  container.querySelectorAll('[data-i]').forEach((btn) => {
+    btn.onclick = () => {
+      fire(rows[Number(btn.dataset.i)]);
+    };
+  });
+
+  sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · ${rows.length} actuators`;
+  // The softkey bar drives them too, the way INPA's does: F1..F9 map to the
+  // first nine rows in the order the screen lists them, Esc goes back.
+  setActions([
+    ...rows.slice(0, 9).map((r, i) => ({
+      key: String(i + 1), keyLabel: `F${i + 1}`, label: r.caption,
+      fn: () => fire(r),
+    })),
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: reopen },
+  ]);
+}
+
 function irReadable(scr) {
   return (scr.lines || []).some(ln =>
     (ln.elements || []).some(e => e.key && e.t !== 'text'));
@@ -250,6 +353,24 @@ function irTable(scr) {
 // several read jobs becomes one entry per job: the poller reads them all each
 // tick and keeps whichever keys each answers.
 function irScreens(scr) {
+  // the readout path draws the EXECUTED twin when the interpreted flag put
+  // one here; every other consumer of the screen sees the mined original
+  if (scr._vmTwin) scr = Object.assign({ _vm: true }, scr._vmTwin);
+  const out = _irScreensRaw(scr);
+  // an executed screen carries the script's own dialogs -- the entry hints it
+  // pops on open and the error arm's boxes ("Wrong JOB_STATUS : ..."). They
+  // ride on every poll object so the poller can show them at the moment the
+  // live run matches that arm.
+  if (scr._vm) {
+    for (const sc of out) {
+      sc.vmErrors = scr.errorMessages || null;
+      sc.vmEntry = scr.messages || null;
+    }
+  }
+  return out;
+}
+
+function _irScreensRaw(scr) {
   const { rows, cells } = irRows(scr);
   if (!rows.length) return [];
   // write-shaped jobs are represented in the IR but never auto-run
@@ -683,7 +804,15 @@ function irMenuItems(ir, menuName, variant) {
     // listed but never runnable here (firing is gated on car verification, the
     // arming semantics not decoded). But an item that ALSO names a JOB is a real
     // function (CDC's "Trpmode ON"/"OFF" carry action "start" beside a job).
-    .filter(it => it.screen || it.menu || it.job || !it.action)
+    // ...but a job the STATE MACHINE back-filled is not evidence of anything.
+    // _seq_jobs attaches every job reachable in the machine to each key that
+    // launches it, so ZKE5's display-scope "Select"/"Deselect" both came out
+    // carrying STEUERN_DIGITAL and slipped through this filter into the
+    // "not decoded" panel. 246 keys corpus-wide. A GENUINE action job stays
+    // (MEV9N46L's "Exit" really does send STOP_SYSTEMCHECK_LSU, 330 of those),
+    // and stateJob is exactly what tells the two apart.
+    .filter(it => it.screen || it.menu || !it.action
+                  || (it.job && !it.stateJob))
     // a write entry reusing a read entry's SCREEN is a duplicate of the read
     // page -- but ONLY when the write cannot RUN. "MV write" needs a typed value
     // we do not collect; MS450's "reset status" sends RESET_CRU_OFF on the
@@ -1687,6 +1816,33 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }], shiftKeys());
         return;
       }
+      // DRIVING AN OUTPUT ON A VARIANT NOBODY CONFIRMED. Reading an
+      // unverified module is harmless; commanding one is not -- the SGBD on
+      // screen is the chassis config's pick, and 609 of the 1000 grouped rows
+      // sit behind a group that can name a different variant. The same ORT
+      // byte means a different output on a sibling, so this refuses rather
+      // than energizing whatever answers. Not a decode gap: reconnect and
+      // reopen and the group's IDENTIFIKATION settles it.
+      if (ecu.group && ecu._variantSource
+          && ['unverified', 'unavailable'].includes(ecu._variantSource)) {
+        container.className = 'results-panel';
+        container.innerHTML = `<div class="empty"><div>`
+          + `<strong>${esc(it.label)}</strong></div>`
+          + `<div>This would run <code>${esc(it.job)}</code> on `
+          + `<b>${esc(ecu.sgbd)}</b>, but nothing has confirmed that is the `
+          + `variant fitted: <b>${esc(ecu.label)}</b> shares diagnostic `
+          + `address <span class="mono">${esc(ecu.group)}</span> with other `
+          + `modules, and the app is showing the configuration&rsquo;s pick. `
+          + `Reads are fine; driving an output is not, because the same `
+          + `command means a different thing on a sibling.</div>`
+          + `<div style="font-size:12px;color:var(--ink-faint)">Connect the `
+          + `cable and reopen this module &mdash; the address group identifies `
+          + `itself and this unlocks on its own.</div></div>`;
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · variant unverified`;
+        setActions([...keys(), { key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                                 kind: 'back', fn: reopen }], shiftKeys());
+        return;
+      }
       if (confirmActuators() || permanent) {
         const ok = await confirmDialog({
           title: `${permanent ? 'Write to' : 'Activate on'} `
@@ -1900,6 +2056,21 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // confirms, registers the drive for release-on-leave, and handles write
       // jobs. Sending directly would energize an output with none of that.
       await open({ ...it, inPlace: true, screen: null });
+      return;
+    } else if (scr && scr.pickJob
+               && (scr.lines || []).some(l => (l.keys || []).length)) {
+      // A TOGGLELIST PICKER. INPA shows the actuator rows, the user picks one,
+      // and the picked row's key IS the job's argument -- BMW declares
+      // togglelist's third parameter `out: string ApiToggleString`
+      // (Inpa.h:39), so the value is produced by the widget, never stored in
+      // the bytecode. The decompiler recovers the CONTRACT (which job the
+      // selection feeds, see _toggle_job) and the rows come from the screen,
+      // so the same list can be offered here.
+      //
+      // Picking a row re-enters the ordinary actuator branch with the key as
+      // jobArg, which is what gives it the confirm dialog, the register-
+      // before-send, and release-on-leave. Nothing is sent from this list.
+      irPickAndDrive(ecu, ir, scr, it, menuName, container, back, trail, open);
       return;
     } else {
       container.className = 'results-panel';
