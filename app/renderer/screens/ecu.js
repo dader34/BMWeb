@@ -179,6 +179,12 @@ async function irBlockUnverified(ecu, chassisId, grid, bar) {
 
   if (bar) bar.remove();
   grid.className = 'results-panel';
+  // SAY WHAT ACTUALLY HAPPENED. "Connect a cable" with a cable already
+  // paired reads as a broken app -- the read RAN and the address stayed
+  // silent, which is a statement about the car (ignition off, module not
+  // fitted, or it answers as a different variant), not about the cable.
+  const p = await api('/api/port').catch(() => null);
+  const cable = !!(p && p.port);
   // JUST THE HEADLINE. The earlier version spelled out the address, the
   // sibling list and the reasoning; it read as a wall and the mixed
   // centre/left alignment made it worse. The reason belongs in the tooltip,
@@ -189,8 +195,16 @@ async function irBlockUnverified(ecu, chassisId, grid, bar) {
     + `which ${names.length} different modules can answer (${esc(names.join(', '))}). `
     + `Until the car identifies itself, opening one variant's screens for `
     + `another would answer confidently and wrongly.">`
-    + `Connect a cable to open this module</div></div>`;
-  sbLeft.textContent = `${ecu.sgbd}.prg · variant unverified · needs a cable`;
+    + (cable
+      ? `No answer at address ${esc(ecu.group)}</div>`
+        + `<div>The cable is connected, but the module did not identify `
+        + `itself. Check the ignition is on -- or this car may carry a `
+        + `different variant (${esc(names.join(', '))}); reopen the module `
+        + `to ask again.</div>`
+      : `Connect a cable to open this module</div>`)
+    + `</div>`;
+  sbLeft.textContent = `${ecu.sgbd}.prg · variant unverified · `
+    + (cable ? 'address silent' : 'needs a cable');
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
                 fn: () => backToModules(chassisId) }]);
   return true;
