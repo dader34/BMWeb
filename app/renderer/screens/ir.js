@@ -354,8 +354,14 @@ function irTable(scr) {
 // tick and keeps whichever keys each answers.
 function irScreens(scr) {
   // the readout path draws the EXECUTED twin when the interpreted flag put
-  // one here; every other consumer of the screen sees the mined original
-  if (scr._vmTwin) scr = Object.assign({ _vm: true }, scr._vmTwin);
+  // one here; every other consumer of the screen sees the mined original.
+  // A PROMPTED SCREEN STAYS MINED: its job argument comes from an input
+  // dialog (argSlot / argFromMenu), and the twin was derived with no-op
+  // inputs, so its baked argument would poll the job with an empty value
+  // instead of asking. The mined metadata is what drives the prompt.
+  const prompted = (scr.jobs || []).some(j => j.argSlot != null
+    || j.argFromMenu);
+  if (scr._vmTwin && !prompted) scr = Object.assign({ _vm: true }, scr._vmTwin);
   const out = _irScreensRaw(scr);
   // an executed screen carries the script's own dialogs -- the entry hints it
   // pops on open and the error arm's boxes ("Wrong JOB_STATUS : ..."). They
