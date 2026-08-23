@@ -1200,6 +1200,10 @@ def _toggle_job(body):
     sending a bare ORT where INPA sends "ORT;ein" would command the wrong
     thing.
     """
+    # TWO PASSES, because the two calls need not share a body: LSZ's menu
+    # puts togglelist in ITEM 8 ("Select") and the job in ITEM 2 ("start"),
+    # so a single scan met the job while out_var was still unknown and the
+    # whole idiom read as "not decoded".
     out_var = None
     for i, t in enumerate(body):
         if t["op"] == "call" and t.get("name") == "builtin_16":
@@ -1208,7 +1212,7 @@ def _toggle_job(body):
                 if b["op"] == "procref":
                     out_var = b["n"]
                     break
-            continue
+    for i, t in enumerate(body):
         if out_var is None or t["op"] != "call":
             continue
         if t.get("name") not in ("INPAapiJob", "INPAapiJobData"):
@@ -2065,12 +2069,45 @@ def _menu_ir(toks, id2name, name=None, vslot=None):
             it["_tmpl"] = f["tmpl"]
         if f.get("step"):
             it["step"] = f["step"]
+    # THE SPLIT TOGGLELIST IDIOM. One item opens the selection (builtin_16),
+    # a sibling runs the job with the accumulated selection as its whole
+    # argument. Both must land on the PICKER over the menu's companion
+    # screen -- the mined shape sent "start" to a bare job with no argument
+    # (which INPA answers with "First select an item, please!") and left
+    # "Select" decoding to nothing at all.
+    tj = _toggle_job(toks)
+    out_toggle = None
+    if tj:
+        bodies, cur = {}, None
+        for t in toks:
+            if t["op"] == "ITEM":
+                cur = t.get("nr")
+                bodies[cur] = []
+            elif cur is not None:
+                bodies.setdefault(cur, []).append(t)
+        nrs = []
+        for it in items:
+            body = bodies.get(it.get("nr")) or []
+            picks = any(t["op"] == "call" and t.get("name") == "builtin_16"
+                        for t in body)
+            runs = it.get("job") == tj["job"] and not it.get("jobArg")                 and any(t["op"] == "call"
+                        and t.get("name") in ("INPAapiJob", "INPAapiJobData")
+                        for t in body)
+            if picks or runs:
+                nrs.append(it.get("nr"))
+        if nrs:
+            # the companion screen usually is not in THIS menu's INIT -- the
+            # opener pairs them (m_main: screen=s_steuern + menu=m_steuern),
+            # so the screen resolves in build() where every menu exists
+            out_toggle = {"job": tj["job"], "nrs": nrs, "screen": screen}
     # INPA lays its softkeys out by number, so the menu reads in F-key order
     # rather than in the order the bytecode happens to declare them
     items.sort(key=lambda x: (x.get("nr") is None, x.get("nr") or 0))
     out = {"items": items}
     if screen:
         out["screen"] = screen
+    if out_toggle:
+        out["_toggle"] = out_toggle
     return out
 
 
@@ -2209,6 +2246,10 @@ def build(ecu):
     # keep their German in result tables rather than the pool. Translation
     # runs off the per-ECU maps in data/inpa-i18n instead, which are exact.
     ir = {"ir": IR_VERSION, "ecu": ecu, "menus": {}, "screens": {}}
+    # split-togglelist contracts found while mining menus, attached to their
+    # picker screens once every screen exists (the screen may be declared
+    # after the menu in the file)
+    pending_toggles = []
     cov_unk = cov_len = 0
     # every proc's tokens, kept so a composite menu can look up what the
     # program initialises its argument fields to
@@ -2243,6 +2284,14 @@ def build(ecu):
             ir["screens"][name] = scr
         elif typ == "menu":
             m = _menu_ir(toks, id2name, name, vslot)
+            tog = m.pop("_toggle", None)
+            if tog:
+                # attach the contract to the picker's screen once every proc
+                # is mined; the companion screen usually lives in the OPENER
+                # menu's item pairing, so resolution waits until every menu
+                # and screen exists
+                tog["menu"] = name
+                pending_toggles.append(tog)
             comp = _composite(toks)
             if comp:
                 # slot -> its index in the argument string. The SGBD's
@@ -2864,6 +2913,31 @@ def build(ecu):
     }
     # last, so it sees every screen the walk produced
     _apply_mined_gauges(ir, ecu)
+    for tog in pending_toggles:
+        screen = tog.get("screen")
+        if not screen:
+            # the opener's pairing: any item anywhere that opens this menu
+            # and names the screen shown with it
+            for m2 in ir["menus"].values():
+                for it2 in m2.get("items", []):
+                    if it2.get("menu") == tog["menu"] and it2.get("screen"):
+                        screen = it2["screen"]
+                        break
+                if screen:
+                    break
+        scr = ir["screens"].get(screen)
+        if scr is None:
+            continue
+        # the picker rows are the screen's key list; without them there is
+        # nothing to offer and the items are left as mined
+        if not any(l.get("keys") for l in scr.get("lines", [])):
+            continue
+        if not scr.get("jobs") and not scr.get("pickJob"):
+            scr["pickJob"] = tog["job"]
+        for it in ir["menus"][tog["menu"]].get("items", []):
+            if it.get("nr") in tog["nrs"]:
+                it["screen"] = screen
+                it.pop("job", None)       # the picker supplies the argument
     return ir
 
 
