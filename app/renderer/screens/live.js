@@ -565,8 +565,15 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
           keyOrder.push(ck);
           added = true;
         }
-        updateGaugeSpec(cell, unit === r.unit ? r : { ...r, unit },
-                        vals.get(r.key));
+        let liveVal = vals.get(r.key);
+        if (r.map) {
+          // the script mapped this result through a word table
+          // (0 "OFF", 1 "SL", ...): show the word the value names, and the
+          // raw value when the table has no entry for it
+          const w = r.map[String(liveVal).trim()];
+          if (w != null) liveVal = String(w).trim();
+        }
+        updateGaugeSpec(cell, unit === r.unit ? r : { ...r, unit }, liveVal);
       }
     }
     if (added) pager.relayout();

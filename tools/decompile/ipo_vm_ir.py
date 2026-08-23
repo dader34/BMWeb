@@ -44,18 +44,42 @@ class _FailHost(V.Host):
         return "ERROR_ECU_NICHT_VORHANDEN"
 
 
-def _fresh(proto, host):
+def _fresh(proto, host, base=None):
     vm = V.VM.__new__(V.VM)
     vm.__dict__.update(proto.__dict__)
-    vm.globals = {}
+    vm.globals = dict(base["globals"]) if base else {}
     vm.out = V.Emissions()
     vm.entered = set()
     vm.binds = {}
-    vm.files = {}
+    vm.files = ({k: list(v) for k, v in base["files"].items()}
+                if base else {})
     vm.fh = None
+    vm.strArrays = ({k: dict(v) for k, v in base["arrays"].items()}
+                    if base else {})
+    vm._arrN = base["arrN"] if base else 0
     vm.steps = 0
     vm.host = host
     return vm
+
+
+def _init_state(proto, host):
+    """The state inpainit leaves behind -- INPA runs it before any screen.
+
+    LSZ's lamp screens read their state words from a string array inpainit
+    builds; deriving the screen without it looked up an empty table and every
+    lamp row vanished. Screens are derived from a CLONE of this state, so one
+    screen's stores cannot leak into the next.
+    """
+    vm = _fresh(proto, host)
+    if "inpainit" in vm.procs:
+        try:
+            vm.run("inpainit")
+        except Exception:                                       # noqa: BLE001
+            pass
+    return {"globals": dict(vm.globals),
+            "files": {k: list(v) for k, v in vm.files.items()},
+            "arrays": {k: dict(v) for k, v in vm.strArrays.items()},
+            "arrN": vm._arrN}
 
 
 # the renderer's names for what the VM calls warnLo/warnHi: the band INPA
@@ -105,11 +129,13 @@ def derive(ecu, budget=20000):
         return None
     out = {}
     screens = [n for (o, t, n, p) in proto.decls if t == "screen"]
+    base_ok = _init_state(proto, V.Host())
+    base_bad = _init_state(proto, _FailHost())
     for name in screens:
         try:
-            vm = _fresh(proto, V.Host())
+            vm = _fresh(proto, V.Host(), base_ok)
             ok = vm.run(name)
-            vm2 = _fresh(proto, _FailHost())
+            vm2 = _fresh(proto, _FailHost(), base_bad)
             bad = vm2.run(name)
         except Exception:                                       # noqa: BLE001
             continue

@@ -70,6 +70,7 @@ class _Bound(str):
         o = super().__new__(cls, text)
         o.slot = slot
         o.key = key
+        o.amap = None            # the string array a lookup came through
         return o
 
 
@@ -133,6 +134,8 @@ class VM:
         self.binds = {}          # global slot -> the result key read into it
         self.files = {}          # path -> lines, for scripts that keep lists
         self.fh = None           # the one open handle INPA scripts use
+        self.strArrays = {}      # handle -> {index: text} (StrArray* builtins)
+        self._arrN = 0
         # highest global slot this file touches, so a caller preseeding
         # presence flags knows how far the range goes
         self._maxglobal = 0
@@ -544,6 +547,53 @@ def _b_resultsets(vm, stack, item):
     _store_out(vm, [refs[-1]] if refs else [], 1)
 
 
+def _b_strarraycreate(vm, stack, item):
+    """StrArrayCreate(->ok, ->handle) -- a named list of strings.
+
+    LSZ's whole lamp-status family reads through one: inpainit builds the
+    state-word table (0 "OFF", 1 "SL", ...) and every s_stat_* screen maps
+    each channel's value to its word. Without arrays the lookup answered
+    nothing, which is why those screens decoded to zero keyed rows.
+    """
+    refs = [x for x in stack if isinstance(x, tuple)
+            and len(x) == 3 and x[0] == "ref"]
+    vm._arrN += 1
+    vm.strArrays[vm._arrN] = {}
+    if len(refs) >= 2:
+        _store_out(vm, [refs[0]], 1)
+    _store_out(vm, [refs[-1]] if refs else [], vm._arrN)
+
+
+def _b_strarraywrite(vm, stack, item):
+    # StrArrayWrite(handle, index, text)
+    ints = [int(_num(x)) for x in stack
+            if isinstance(x, (int, float, _Bound)) and not isinstance(x, bool)]
+    txt = next((x for x in stack if isinstance(x, str)
+                and not isinstance(x, _Bound)), None)
+    if len(ints) >= 2 and txt is not None and ints[0] in vm.strArrays:
+        vm.strArrays[ints[0]][ints[1]] = txt
+
+
+def _b_strarrayread(vm, stack, item):
+    """StrArrayRead(handle, index, ->dest) -- dest = table[index].
+
+    A LOOKUP MUST NOT LOSE THE BINDING, same rule as a conversion: the index
+    is the result a job returned (STAT_LV_7's value picks the word), so the
+    word that comes out still carries that key -- and the whole table rides
+    along as `amap`, which the derivation ships so a LIVE value can be
+    rendered as INPA's word rather than a bare number.
+    """
+    # positional, per the signature -- picking by "which value looks like a
+    # handle" broke the moment handle and index were both 1
+    vals = [x for x in stack if not (isinstance(x, tuple)
+            and len(x) == 3 and x[0] == "ref")]
+    arr = vm.strArrays.get(int(_num(vals[0])), {}) if vals else {}
+    text = arr.get(int(_num(vals[1])), "") if len(vals) > 1 else ""
+    out = _Bound(None, text, _keyed(stack))
+    out.amap = {str(k): v for k, v in arr.items()} or None
+    _store_out(vm, stack, out, out.key)
+
+
 def _b_result_int(vm, stack, item):
     """The integer reads -- INPAapiResultInt and kin -- marked as such so the
     offline host can answer a number rather than empty text."""
@@ -581,7 +631,12 @@ def _b_textout(vm, stack, item):
     if not vm.out.lines:
         vm.out.lines.append({"label": None, "elements": []})
     if key:
-        vm.out.lines[-1]["elements"].append({"t": "value", "key": key})
+        el = {"t": "value", "key": key}
+        amap = next((getattr(x, "amap", None) for x in stack
+                     if getattr(x, "amap", None)), None)
+        if amap:
+            el["map"] = amap
+        vm.out.lines[-1]["elements"].append(el)
     else:
         vm.out.lines[-1]["elements"].append({"t": "text", "s": lit})
 
@@ -713,18 +768,25 @@ def _store_out(vm, stack, val, key=None):
     dest = _out_ref(stack)
     if dest is None:
         return None
-    sc = LOCAL if vm.frame is not None else GLOBAL
+    # THE REF NAMES ITS OWN SCOPE. A procref is ('ref', kind, n) and kind 2
+    # is a frame slot -- guessing from "is a frame active" wrote LSZ's array
+    # handle into the frame while every reader loads global 46.
+    sc = LOCAL if dest[1] == 2 and vm.frame is not None else GLOBAL
     n = dest[2]
     if key is not None:
+        amap = getattr(val, "amap", None)
         val = _Bound(_Slot(sc, n), "" if val is None else str(val), key)
+        val.amap = amap
         vm.binds[(sc, n)] = key
     if sc == GLOBAL:
         # AN OFFLINE NON-ANSWER MUST NOT OVERWRITE A PRESET. The menu walk
         # binds module-presence globals true because fitment is a property of
         # the car, not the file; a Result* that returns "" offline would erase
         # that and hide every guarded item (13,185 jobs vanished this way).
-        # A real value still wins.
-        if val not in ("", None) or n not in vm.globals:
+        # A real value still wins. The preset is literally the bool True --
+        # anything else in the slot is real state a builtin's answer may
+        # replace, including with "" (a string-array lookup can miss).
+        if val not in ("", None) or vm.globals.get(n) is not True:
             vm.globals[n] = val
     else:
         vm.frame[n] = val
@@ -927,7 +989,10 @@ _BUILTINS = {
     "hexdump": _b_noop, "printfile": _b_noop,
     "setstatemachine": _b_noop, "StrArrayCreate": _b_noop,
     "StrArrayDestroy": _b_noop, "StrArrayRead": _b_noop,
-    "StrArrayWrite": _b_noop, "realtostring": _b_inttostring,
+    "StrArrayCreate": _b_strarraycreate,
+    "StrArrayWrite": _b_strarraywrite,
+    "StrArrayRead": _b_strarrayread,
+    "realtostring": _b_inttostring,
     "INP1apiResultInt": _b_result_int,
     "INPAapiResultBinary": _b_noop,
 }

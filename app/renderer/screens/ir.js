@@ -275,6 +275,10 @@ function irRows(scr) {
           && e.okMax > e.okMin) { row.okMin = e.okMin; row.okMax = e.okMax; }
       if (e.on) row.on = e.on;
       if (e.off) row.off = e.off;
+      // value -> word table the script read this result through (a string
+      // array lookup, LSZ's lamp states): the live value renders as INPA's
+      // word instead of the bare number
+      if (e.map) row.map = e.map;
       rows.push(row);
       if (typeof e.row === 'number')
         cells.push({ key: e.key, row: e.row, col: e.col || 0 });
