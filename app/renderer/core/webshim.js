@@ -128,7 +128,17 @@ function frameTotal(buf, comm) {
     const n = buf[0] & 0x3f;
     return n ? n + 4 : (buf.length >= 4 ? buf[3] + 5 : null);
   }
-  if (isDs2(c)) return buf.length >= 2 ? buf[1] : null;
+  if (isDs2(c)) {
+    // A KWP2000* answer to a B8-framed request is B8-framed even though the
+    // concept sits in the DS2 family: d_0012's probe sends DS2 "12 04 00"
+    // AND KWP "B8 12 F1 02 1A 80" over the SAME comm, so the framing follows
+    // the FRAME, not the concept. Reading the MS45's ident reply
+    // "b8 f1 12 1f 5a 80 ..." with the DS2 rule took byte[1] (0xF1 = 241)
+    // as the expected length and timed out holding a complete 36-byte
+    // answer -- found on the first live E46 probe.
+    if (buf[0] === 0xb8) return buf.length >= 4 ? buf[3] + 5 : null;
+    return buf.length >= 2 ? buf[1] : null;
+  }
   if (c === 0x10d) return buf.length >= 4 ? buf[3] + 5 : null;
   if (buf.length < 4) return null;
   // 0xB8 carries its length in BYTE 3 on this wire, not in the low 6 bits.
