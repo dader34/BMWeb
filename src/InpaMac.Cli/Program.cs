@@ -4,9 +4,16 @@ using System.IO;
 using System.Linq;
 using EdiabasLib;
 using EdiabasMac;
+using InpaMac.Cli;
 
-// InpaMac CLI: native macOS EDIABAS driver for the E46.
+// InpaMac CLI: native macOS EDIABAS driver for BMW (E46 default).
 //
+// This file keeps the original flat-argv commands; the extended subcommand set
+// (ecu/ident/coding/status/resolve/report/tools/...) lives in Commands.cs and
+// its sibling *Commands.cs files, dispatched by Commands.TryDispatch below.
+// Run `inpamac help` for the full command reference (also in README.md).
+//
+//   inpamac help                          full command reference
 //   inpamac jobs   [sgbd]                 list all diagnostic jobs (offline)
 //   inpamac results <JOB> [sgbd]          job result schema (offline)
 //   inpamac read   [--port DEV] [sgbd]    read fault codes from the DME  (live)
@@ -29,6 +36,12 @@ internal static class Program
             Console.Error.WriteLine($"ECU path not found: {ecuPath}");
             return 1;
         }
+
+        // the extended subcommands (Commands.cs) get first refusal. A non-null
+        // result means one of them handled the invocation; null falls through to
+        // the original flat-argv commands below, untouched.
+        int? handled = Commands.TryDispatch(args, ecuPath, inpaRoot);
+        if (handled.HasValue) return handled.Value;
 
         var (cmd, rest, port) = ParseArgs(args);
 
@@ -307,6 +320,7 @@ internal static class Program
 
                 default:
                     Console.WriteLine("commands: jobs | results <JOB> | run <JOB> [ARG] | read | clear   (options: --port DEV)");
+                    Console.WriteLine("run `inpamac help` for the full command reference.");
                     return 0;
             }
         }
