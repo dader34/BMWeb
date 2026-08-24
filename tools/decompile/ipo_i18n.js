@@ -55,12 +55,12 @@ function captionsOf(ir) {
           for (const k of ['s', 'unit', 'on', 'off']) if (e[k]) out.add(e[k]);
         }
       }
-      // executed screens carry the script's own dialogs, whose text is also
-      // shown to the user and must translate like everything else
-      for (const box of [...(s.messages || []), ...(s.errorMessages || [])]) {
-        if (box.title) out.add(box.title);
-        if (box.body) out.add(box.body);
-      }
+      // NOTE: vmScreens dialog text (messages/errorMessages) is deliberately
+      // NOT scanned. Its body carries the ERROR_ECU_NICHT_VORHANDEN
+      // derivation sentinel, which live.js substitutes with the real status
+      // at display time -- so the stored string is never shown raw and has no
+      // translation. Feeding it here made the check demand a translation for
+      // a string that will never appear verbatim.
     }
   };
   // BOTH the mined screens AND the executed twins: interpreted mode draws

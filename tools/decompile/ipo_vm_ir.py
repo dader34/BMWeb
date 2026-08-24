@@ -121,6 +121,31 @@ def _jobs(emissions):
     return out
 
 
+def _state_entry_screens(proto, budget=20000):
+    """{state proc -> the screen it parks on} for picker state machines.
+
+    A menu key that enters a state machine (ZKE5's "Remote control lock
+    system" -> sm_steuern via setstate) has no screen of its own; the machine
+    runs, its INIT setscreen's the picker, and it yields at togglelist. INPA
+    shows that screen. Running the machine in the VM finds it directly --
+    no need to decode the dispatch -- and a screen that carries pickJob is a
+    real picker the app can offer. Non-picker machines (LSZ's event loops)
+    park on no screen and are skipped.
+    """
+    out = {}
+    for (o, t, n, p) in proto.decls:
+        if t != "state":
+            continue
+        try:
+            vm = _fresh(proto, V.Host(), None)
+            em = vm.run(n)
+        except Exception:                                       # noqa: BLE001
+            continue
+        if em.screen:
+            out[n] = em.screen
+    return out
+
+
 def derive(ecu, budget=20000):
     """{screen: vmScreen} for one ECU, or None if the VM cannot load it."""
     try:
@@ -162,7 +187,7 @@ def derive(ecu, budget=20000):
         if errlines:
             scr["errorLines"] = errlines
         out[name] = scr
-    return out
+    return out, _state_entry_screens(proto, budget)
 
 
 def main(argv):
@@ -181,10 +206,22 @@ def main(argv):
             ir = json.load(open(p, encoding="utf-8"))
         except Exception:                                       # noqa: BLE001
             continue
-        vs = derive(ecu)
-        if vs is None:
+        res = derive(ecu)
+        if res is None:
             continue
+        vs, state_entries = res
         ir["vmScreens"] = vs
+        # link a state-entering menu item to the picker its machine opens,
+        # so the app routes to the actuator list instead of "never sent"
+        if state_entries:
+            for mv in (ir.get("menus") or {}).values():
+                for it in mv.get("items", []):
+                    st = it.get("stateEnter")
+                    tgt = state_entries.get(st) if st else None
+                    if tgt and not it.get("screen") \
+                            and (ir.get("screens") or {}).get(tgt, {}) \
+                            .get("pickJob"):
+                        it["stateScreen"] = tgt
         blob = json.dumps(ir, ensure_ascii=False,
                           separators=(",", ":")).encode("utf-8")
         with open(p, "wb") as f:

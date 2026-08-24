@@ -868,6 +868,11 @@ function irMenuItems(ir, menuName, variant) {
       // value (a mode flag, an rpm/duty setpoint). Derived as {slot, value}
       // so the app applies it to its own page state -- no ECU contact.
       localSet: it.localSet || null,
+      // a key that enters a togglelist STATE MACHINE (ZKE5's "Remote control
+      // lock system"): the deriver ran the machine and recorded the picker
+      // screen it opens. Treat it as this key's screen so it flows into the
+      // ordinary picker route instead of the "never sent" state-job branch.
+      stateScreen: it.stateScreen || null,
       // a menu named for other chassis is dropped ONLY when the item also names
       // a screen serving this one; where the menu is all there is, dropping it
       // would leave the key dead
@@ -1816,6 +1821,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // what to write first, and that assembly is not decoded, so firing the job
       // bare would write whatever the ECU makes of an empty argument. EEPROM
       // writes behind the "Only for the developer" gate; listed, never run.
+      // A TOGGLELIST STATE MACHINE resolves to its picker screen (derived by
+      // executing the machine): route there rather than reporting "not sent".
+      if (it.stateScreen && (ir.screens || {})[it.stateScreen]
+          && (ir.screens[it.stateScreen].pickJob)) {
+        const pscr = ir.screens[it.stateScreen];
+        irPickAndDrive(ecu, ir, pscr, it, menuName, container, back, trail,
+                       open);
+        return;
+      }
       if (it.stateJob) {
         container.className = 'results-panel';
         container.innerHTML = `<div class="empty"><div>`

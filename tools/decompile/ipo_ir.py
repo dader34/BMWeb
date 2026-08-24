@@ -2580,6 +2580,15 @@ def build(ecu):
             if cp and "job" not in it:
                 it["stateCopy"] = cp
             st = it.pop("_state", None)
+            # PRESERVE A TOGGLELIST MACHINE'S NAME for the deriver. A key that
+            # setstate's into a picker machine (ZKE5 F3 -> sm_steuern) has no
+            # screen; the machine opens one at runtime. The miner cannot run
+            # it, but it CAN see the machine is a togglelist (a job whose
+            # whole argument is the togglelist variable), and ipo_vm_ir then
+            # executes the machine to find the screen it parks on. Tag it so
+            # that step has something to resolve.
+            if st and st in all_toks and _toggle_job(all_toks[st]):
+                it["stateEnter"] = st
             if not st or st not in all_toks:
                 # _sel is dropped only when nothing can USE it. A key with no
                 # state proc can still be a record selector: MS450's fifteen
