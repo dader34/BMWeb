@@ -46,15 +46,28 @@ function captionsOf(ir) {
   for (const m of Object.values(ir.menus || {})) {
     for (const it of m.items || []) if (it.label) out.add(it.label);
   }
-  for (const s of Object.values(ir.screens || {})) {
-    if (s.title) out.add(s.title);
-    for (const l of s.lines || []) {
-      if (l.caption) out.add(l.caption);
-      for (const e of l.elements || []) {
-        for (const k of ['s', 'unit', 'on', 'off']) if (e[k]) out.add(e[k]);
+  const scanScreens = (screens) => {
+    for (const s of Object.values(screens || {})) {
+      if (s.title) out.add(s.title);
+      for (const l of s.lines || []) {
+        if (l.caption) out.add(l.caption);
+        for (const e of l.elements || []) {
+          for (const k of ['s', 'unit', 'on', 'off']) if (e[k]) out.add(e[k]);
+        }
+      }
+      // executed screens carry the script's own dialogs, whose text is also
+      // shown to the user and must translate like everything else
+      for (const box of [...(s.messages || []), ...(s.errorMessages || [])]) {
+        if (box.title) out.add(box.title);
+        if (box.body) out.add(box.body);
       }
     }
-  }
+  };
+  // BOTH the mined screens AND the executed twins: interpreted mode draws
+  // vmScreens, so leaving them unscanned rendered the interpreted path in
+  // raw German ("Steuergeraeteverbaukennung" instead of the English).
+  scanScreens(ir.screens);
+  scanScreens(ir.vmScreens);
   return [...out].sort();
 }
 

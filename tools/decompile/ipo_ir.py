@@ -1631,6 +1631,44 @@ def _menu_flow(toks):
     return res
 
 
+def _local_set(items, toks):
+    """An item that only writes a global sets a LOCAL UI STATE, in place.
+
+    INPA has no notion of "not decoded" here: pressing the key runs its
+    bytecode, which sets a flag the current page reads (ZKE5's quit-mode,
+    ABGAS's Abbruch/Nochmal). We do not ship bytecode, so the derivation
+    records the EFFECT -- {slot, value} -- and the app applies it to its own
+    page state instead of executing. An item that CALLS anything is excluded:
+    it may reach a job, and only the pure const->store shape is provably
+    ECU-inert. Marked separately from actuator setpoints, which also store
+    but whose value a command consumes -- those keep their job path.
+    """
+    bodies, cur = {}, None
+    for t in toks:
+        if t["op"] == "ITEM":
+            cur = t.get("nr")
+            bodies[cur] = []
+        elif cur is not None:
+            bodies[cur].append(t)
+    for it in items:
+        if it.get("job") or it.get("screen") or it.get("menu") \
+                or it.get("action") or it.get("_start"):
+            continue
+        body = bodies.get(it.get("nr")) or []
+        if not body or any(t["op"] not in ("const", "store", "stmt", "frame")
+                           for t in body):
+            continue
+        store = next((t for t in body if t["op"] == "store"), None)
+        val = None
+        for t in body:
+            if t["op"] == "const":
+                val = t.get("v")
+            elif t["op"] == "store":
+                break
+        if store is not None:
+            it["localSet"] = {"slot": store["n"], "value": val}
+
+
 def _menu_ir(toks, id2name, name=None, vslot=None):
     items, cur_nr, cur_label = [], None, None
     entry = None
@@ -2102,6 +2140,7 @@ def _menu_ir(toks, id2name, name=None, vslot=None):
             out_toggle = {"job": tj["job"], "nrs": nrs, "screen": screen}
     # INPA lays its softkeys out by number, so the menu reads in F-key order
     # rather than in the order the bytecode happens to declare them
+    _local_set(items, toks)
     items.sort(key=lambda x: (x.get("nr") is None, x.get("nr") or 0))
     out = {"items": items}
     if screen:

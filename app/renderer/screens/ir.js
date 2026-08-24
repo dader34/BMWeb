@@ -864,6 +864,10 @@ function irMenuItems(ir, menuName, variant) {
       stateCopy: it.stateCopy || null,
       // INPA asks the user for a value and builds the argument from it
       prompt: it.prompt || null,
+      // an item that only writes a global: INPA runs it in place to set a page
+      // value (a mode flag, an rpm/duty setpoint). Derived as {slot, value}
+      // so the app applies it to its own page state -- no ECU contact.
+      localSet: it.localSet || null,
       // a menu named for other chassis is dropped ONLY when the item also names
       // a screen serving this one; where the menu is all there is, dropping it
       // would leave the key dead
@@ -1986,6 +1990,18 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       await runComposite(ecu, ir, menuName, it, container, reopen);
       return;
     }
+    if (it.inPlace && it.localSet) {
+      // A LOCAL PAGE SETTING, run in place like INPA: pressing the key sets a
+      // value the page reads (ZKE5's quit-mode, MS450's rpm/duty setpoint).
+      // The derivation captured {slot, value}; the app keeps its own map and
+      // the following send-key reads from it. Nothing reaches the ECU here.
+      ir._pageState = ir._pageState || {};
+      ir._pageState[it.localSet.slot] = it.localSet.value;
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · set`;
+      // re-render so the value shows as selected; INPA highlights the active
+      renderIrMenu(ecu, ir, menuName, container, back, trail);
+      return;
+    }
     if (it.inPlace) {
       // a KEY INPA RUNS ON THE PC, NOT THE CAR: NAVI's "languages load" reads a
       // language table off the filesystem for the next key, so it has no job in
@@ -2153,6 +2169,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // sends the assembled word without owning a field, or calls its own job
       if (comp && (comp.send || []).includes(String(it.nr))) return 'send';
       if (it.job) return 'run';
+      // a local page setting (mode flag / setpoint): shows as active when set
+      if (it.localSet) {
+        const cur = ir._pageState && ir._pageState[it.localSet.slot];
+        return cur === it.localSet.value ? 'set ✓' : 'set';
+      }
       // a fault-memory read names no job but open() hands it to the fault view
       if (IR_FAULT_READ.test(it.label)) return 'read';
       // the PC-side language picker, which does work (see open())
