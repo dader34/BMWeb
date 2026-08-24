@@ -785,7 +785,11 @@ function irMenuItems(ir, menuName, variant) {
   };
   const seen = new Set();
   return (menu.items || [])
-    .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
+    // a Select key that carries a togglelist picker (stateScreen) is the
+    // menu's real action, not chrome -- SHD46's Activate has exactly one
+    // such key and dropping it left only the quit-mode toggles on screen
+    .filter(it => it.label
+                  && (it.stateScreen || !IR_CHROME.test(it.label.trim())))
     // the key back to the root IS Back whatever it is called (a handful say
     // "Main menu"). Detected structurally; the app has Esc for this.
     .filter(it => !(menuName !== (ir.entry || {}).menu
@@ -827,7 +831,10 @@ function irMenuItems(ir, menuName, variant) {
     // (MEV9N46L's "Exit" really does send STOP_SYSTEMCHECK_LSU, 330 of those),
     // and stateJob is exactly what tells the two apart.
     .filter(it => it.screen || it.menu || !it.action
-                  || (it.job && !it.stateJob))
+                  || (it.job && !it.stateJob)
+                  // a state machine that resolved to a real picker screen is
+                  // runnable, even though its job came from the machine
+                  || it.stateScreen)
     // a write entry reusing a read entry's SCREEN is a duplicate of the read
     // page -- but ONLY when the write cannot RUN. "MV write" needs a typed value
     // we do not collect; MS450's "reset status" sends RESET_CRU_OFF on the
