@@ -250,11 +250,14 @@ const SHIPPED = new Set(GROUPS.groups || []);
   assert.strictEqual(S.rowForVariant(t, 'MS430DS0').code, 'MS430');
   ok('variant matching is case-insensitive');
 
-  // BMW ships variants the menu never listed. That is normal, so it must not
-  // throw or drop the target -- the read still targets the identified name.
-  assert.ok(S.rowForVariant(t, 'ms450ds0'),
-    'an unlisted variant must still yield a row for label/code');
-  ok('an unlisted variant still yields a row rather than dropping the module');
+  // BMW ships variants the menu never listed, and the row must then be NULL
+  // rather than an unrelated sibling. E46's D_MOTOR probes the broadcast
+  // address, so on an MS45 car it answers ms450ds0 while its only rows are
+  // d50m47b1/ME9N45; returning ecus[0] labelled that car's engine "DDE 5.0
+  // for M47 new" and drew its faults under a diesel it does not have.
+  assert.strictEqual(S.rowForVariant(t, 'ms450ds0'), null,
+    'an unlisted variant must NOT borrow a sibling row for its label');
+  ok('an unlisted variant yields no row, so the identified name is the label');
 }
 
 {

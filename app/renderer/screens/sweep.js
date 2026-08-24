@@ -86,13 +86,19 @@ const targetLabel = (t) => t.label || (t.ecus[0] && t.ecus[0].label) || t.group 
 
 // Which config row does an identified variant correspond to? The ident names
 // an SGBD; match it against each candidate's own sgbd and its declared
-// `variants` aliases. No match is normal and not an error -- BMW ships
-// variants the menu never listed -- so fall back to the first candidate for
-// its label and code, but the READ always targets the identified name.
+// `variants` aliases.
+//
+// NO MATCH RETURNS NULL, NOT ecus[0]. A group's rows are the variants the
+// MENU lists, and an ident can legitimately name one the menu never had --
+// E46's D_MOTOR probes the broadcast address FF, so on an MS45 car it
+// answers ms450ds0 while its only rows are d50m47b1 and ME9N45. Falling back
+// to the first row labelled that car's engine "DDE 5.0 for M47 new" and
+// showed its faults under a diesel it does not have. When nothing matches,
+// the identified SGBD name IS the honest label.
 function rowForVariant(t, via) {
   return t.ecus.find(e => sameSgbd(e.sgbd, via)
       || (e.variants || []).some(v => sameSgbd(v, via)))
-    || t.ecus[0] || null;
+    || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -266,6 +272,11 @@ async function quickErrorSweep(chassisId) {
   let withFaults = 0, read = 0, absent = 0, dupes = 0, unbuilt = 0;
   const seen = new Map();          // fault-signature -> first ECU label
   const faulty = [];               // modules with faults, for the deep pass
+  // ONE PHYSICAL MODULE, ONE ROW. Several groups can reach the same ECU --
+  // E46 lists both D_0012 (address 12) and D_MOTOR (broadcast FF), and on an
+  // MS45 car BOTH identify ms450ds0. Reading it twice showed the same faults
+  // under two names, one of them an engine the car does not have.
+  const readSgbds = new Map();     // resolved sgbd -> the row that claimed it
   const progress = () => {
     headEl.textContent = `${read} read · ${absent} absent · ${withFaults} with faults`;
   };
@@ -293,20 +304,41 @@ async function quickErrorSweep(chassisId) {
       progress(); continue;
     }
 
-    // resolution succeeded: name the row for what actually answered
-    if (r.ecu) setRowLabel(row, r.ecu.label, r.strict ? null : 'direct read');
-    else setRowLabel(row, r.sgbd, r.strict ? null : 'direct read');
+    const key = String(r.sgbd).toLowerCase();
+    if (readSgbds.has(key)) {
+      // another group already reached this exact module
+      row.classList.add('noresp');
+      setRowLabel(row, r.sgbd);
+      status.textContent = `same module as ${readSgbds.get(key)}`;
+      progress(); continue;
+    }
+    readSgbds.set(key, (r.ecu && r.ecu.label) || r.sgbd);
+
+    // resolution succeeded: name the row for what actually answered. With no
+    // matching config row the identified SGBD is the label -- never a
+    // sibling's name (see rowForVariant).
+    setRowLabel(row, (r.ecu && r.ecu.label) || r.sgbd,
+                r.strict ? null : 'direct read');
+
+    // A module with no FS_LESEN keeps no fault memory at all -- CARB's whole
+    // job list is INFO/INITIALISIERUNG/SET_PARAMETER/START_BUS_COMMUNICATION/
+    // DIAGNOSTICEND, because it is the emissions interface, not a control
+    // unit. There is no fault question to ask it, so it is not a row in a
+    // FAULT scan: drop it rather than print a status that means "not asked".
+    // Checked BEFORE the read so it costs no wire traffic.
+    if (!(await jobNamesFor(r.sgbd)).includes('FS_LESEN')) {
+      row.remove();
+      continue;
+    }
 
     let codes;
     try {
       codes = await readFaults(r.sgbd);
     } catch (e) {
-      // A module with no FS_LESEN is not a broken module -- some (gateways,
-      // satellites) genuinely do not keep a fault memory. Distinguish it from
-      // a dead address, which is what a transport failure means.
+      // The job exists but the wire failed: that is a dead address, and it
+      // must never be confused with a module that answered clean.
       row.classList.add('noresp');
-      if (isMissingJob(e)) { status.textContent = 'no fault memory'; }
-      else { absent++; status.textContent = 'no response'; }
+      absent++; status.textContent = 'no response';
       progress(); continue;
     }
 
@@ -478,8 +510,9 @@ async function quickIdentSweep(chassisId) {
     <div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   const headEl = out.querySelector('.quick-head');
-  let present = 0, absent = 0, unbuilt = 0;
+  let present = 0, absent = 0, unbuilt = 0, dupes = 0;
   const found = [];                // for the printable report
+  const seenSgbds = new Map();     // resolved sgbd -> row that claimed it (see error sweep)
   const progress = () => { headEl.textContent = `${present} present · ${absent} absent`; };
 
   for (const t of targets) {
@@ -504,11 +537,20 @@ async function quickIdentSweep(chassisId) {
       row.classList.add('clean');
       setRowLabel(row, r.via);
       status.textContent = `${r.via} · not in build`;
-      found.push({ label: targetLabel(t), section: t.section, sgbd: r.via, variant: r.via, build: null });
+      found.push({ label: r.via, section: t.section, sgbd: r.via, variant: r.via, build: null });
       progress(); continue;
     }
 
-    if (r.ecu) setRowLabel(row, r.ecu.label, r.strict ? null : 'direct read');
+    const key = String(r.sgbd).toLowerCase();
+    if (seenSgbds.has(key)) {
+      dupes++; row.classList.add('noresp');
+      setRowLabel(row, r.sgbd);
+      status.textContent = `same module as ${seenSgbds.get(key)}`;
+      progress(); continue;
+    }
+    seenSgbds.set(key, (r.ecu && r.ecu.label) || r.sgbd);
+    setRowLabel(row, (r.ecu && r.ecu.label) || r.sgbd,
+                r.strict ? null : 'direct read');
 
     // A strict resolution has ALREADY identified this module -- the group ran
     // IDENTIFIKATION and named the variant. Running a second ident job over
@@ -559,7 +601,8 @@ async function quickIdentSweep(chassisId) {
   }
 
   headEl.textContent = `Done · ${present} present, ${absent} absent`
-    + (unbuilt ? ` · ${unbuilt} not in build` : '');
+    + (unbuilt ? ` · ${unbuilt} not in build` : '')
+    + (dupes ? ` · ${dupes} duplicate address${dupes === 1 ? '' : 'es'}` : '');
   sbLeft.textContent = `identification · ${present} present`;
 }
 

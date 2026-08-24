@@ -299,6 +299,48 @@ const A4_IDENT = String([0xa4, 4, 0]);
     const v4 = await wctx.window.webResolveVariant('no_such_group');
     check('webResolveVariant returns null for an unshipped group', v4 === null);
 
+    // ---- SILENCE ON ONE PROBE IS A STEP, NOT THE END OF THE JOB.
+    // Ground truth: EDIABAS's own ifh.trc against a real E46 with an MS45.1.
+    // d_0012 opens with a DS2 frame (12 04 00), tries B8 12 F1 01 A2, and only
+    // its THIRD telegram (B8 12 F1 02 1A 80) is the one the DME answers --
+    // EDIABAS logs SetError EDIABAS_IFH_0009 on the earlier probes and carries
+    // on, because the bytecode branches on the answer's length (slen).
+    //
+    // Letting that rejection escape returned "no variant" for a DME that was
+    // answering perfectly, and the sweep drew it as "not installed" while the
+    // module held ten real stored faults.
+    const tried = [];
+    const MS45 = [0xB8,0xF1,0x12,0x1F,0x5A,0x80,0x00,0x00,0x07,0x56,0x13,0x82,
+                  0x00,0x00,0x00,0x11,0x31,0x43,0x20,0x03,0x09,0x03,0x04,0x00,
+                  0x0D,0x91,0xFF,0xFF,0xFF,0x02,0x03,0x01,0xFF,0xFF,0xFF,0x8C];
+    wctx.window.webBus.exchange = async (out) => {
+      const a = Array.from(out);
+      tried.push(a.map((b) => b.toString(16).padStart(2, '0')).join(' '));
+      // the car answers ONLY the KWP2000* ident, exactly as captured
+      if (a[0] === 0xB8 && a[1] === 0x12 && a[3] === 0x02 && a[4] === 0x1A) {
+        return MS45;
+      }
+      const e = new Error('no answer from ECU (timeout)');
+      e.ifh = 'IFH-0009';
+      throw e;
+    };
+    const v5 = await wctx.window.webResolveVariant('d_0012');
+    check('d_0012 walks past its silent DS2 probe and resolves the MS45'
+          + ` (tried ${tried.length} telegrams)`, v5 === 'ms450ds0');
+    check('and it really did have to skip a silent probe first',
+          tried.length >= 2 && /^12 04 00/.test(tried[0]));
+
+    // The opposite case must still hold: an address where NOTHING answers is
+    // absent. Without this the fix would turn every dead address into a
+    // phantom module.
+    wctx.window.webBus.exchange = async () => {
+      const e = new Error('no answer from ECU (timeout)');
+      e.ifh = 'IFH-0009';
+      throw e;
+    };
+    const v6 = await wctx.window.webResolveVariant('d_0070');
+    check('an address that answers NOTHING is still absent', v6 === null);
+
     console.log(failures ? `\n${failures} FAILURES`
       : '\ngroup variant resolution holds');
     process.exit(failures ? 1 : 0);

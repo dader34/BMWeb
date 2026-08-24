@@ -275,6 +275,7 @@ def _by_chassis():
     """{chassis: [(code, sgbd, ecu_meta), ...]} from the resolved config."""
     import glob
     out = {}
+    gvars = T.group_variants()
     for p in sorted(glob.glob(os.path.join(T.CONFIG, "*.json"))):
         cid = os.path.basename(p)[:-5]
         if cid == "index":
@@ -291,6 +292,24 @@ def _by_chassis():
                     "code": e["code"], "label": e.get("label"),
                     "section": sec.get("name"), "sgbd": sgbd,
                     "group": e.get("group"), "chassis": cid}))
+                # Every variant this entry's group can IDENTIFY gets a folder
+                # of its own, named for the SGBD the car reports (see
+                # ecu_tree.group_variants). Without this the tree has no
+                # ecu.json for them, write_ecu treats the folder as
+                # unclaimed, and the module the car names stays unexported.
+                #
+                # The label carries the menu entry it is a variant of, so a
+                # screen showing "Airbag · mrs4" still reads like the car
+                # rather than like a bare SGBD name.
+                own = sgbd
+                for v in sorted(gvars.get((e.get("group") or "").lower(), ())):
+                    if v == own or any(r[1] == v for r in rows):
+                        continue
+                    rows.append((v, v, {
+                        "code": v, "label": f"{e.get('label')} ({v})",
+                        "section": sec.get("name"), "sgbd": v,
+                        "group": e.get("group"), "chassis": cid,
+                        "identifiedVariantOf": e["code"]}))
         out[cid] = rows
     return out
 

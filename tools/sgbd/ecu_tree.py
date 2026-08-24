@@ -28,13 +28,99 @@ import os
 import sys
 import json
 import glob
+import gzip
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 TREE = os.path.join(ROOT, "data", "chassis")
 CONFIG = os.path.join(ROOT, "data", "chassis-config")
+GROUPS = os.path.join(ROOT, "data", "groups")
+ECU_DIR = os.path.join(ROOT, "vendor", "EDIABAS", "Ecu")
 
 _OWNERS = None
+_PRGS = None
+
+# Names that appear in a group's string pool but are not SGBDs: EDIABAS result
+# and status literals, plus BMW's own XYZ catch-all for "identified nothing".
+RESERVED_NAMES = {
+    "done", "variante", "sgbd", "xyz", "ja", "nein", "error", "okay",
+}
+
+
+def _prg_names():
+    """Every SGBD BMW actually ships a .prg for, lowercased."""
+    global _PRGS
+    if _PRGS is None:
+        out = set()
+        for pat in ("*.prg", "*.PRG"):
+            for p in glob.glob(os.path.join(ECU_DIR, pat)):
+                out.add(os.path.basename(p)[:-4].lower())
+        _PRGS = out
+    return _PRGS
+
+
+def group_variants():
+    """{group: {sgbd, ...}} -- what each shipped group can IDENTIFY.
+
+    THE MENU IS NOT THE ONLY SOURCE OF TRUTH ABOUT WHAT IS IN A CAR.
+    data/chassis-config lists the variants INPA's menu offers; a group's
+    IDENTIFIKATION can legitimately name one the menu never had. On a real
+    E46 with an MS45.1 (verified against the car with EDIABAS), the groups
+    answered gs20, mrs4, ews3, ihka46_3, kombi46r and lws5_1b -- every one a
+    module physically present and answering, every one absent from the E46
+    menu, so none was exported and the scan could only say "not in build".
+
+    Two sources inside each group file, both BMW's own data:
+
+      1. TABLES. A local SGBD table (d_0032 lists GS20 at LI_NR 29) or a
+         hardware->VARIANTE map (d_0012's HW9_TABELLE). Rows carrying a
+         GRUPPE column that names a DIFFERENT group are skipped: several
+         groups embed a copy of the master ZuordnungsTabelle, and its rows
+         describe the whole car, not that group -- without this filter
+         ms450ds0 lands in d_rls and d_fdm_vs as well as d_0012.
+
+      2. THE STRING POOL. Groups with no tables decode the variant in
+         bytecode instead (d_00a4 branches on ident bytes and assigns one of
+         MRS2/MRS3/MRS4/ZAE...). Those names sit in the pool beside the
+         literal "VARIANTE" the bytecode assigns them to.
+
+    Every candidate from either source must name a real .prg. That is what
+    keeps this formulaic rather than a guess: a pool string that matches no
+    shipped SGBD is a caption or a status word, and it is dropped.
+    """
+    out = {}
+    for path in sorted(glob.glob(os.path.join(GROUPS, "*.json.gz"))):
+        g = os.path.basename(path)[:-8].lower()
+        try:
+            with gzip.open(path) as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            continue
+        found = set()
+        for raw in data.get("strings") or []:
+            try:
+                name = bytes(raw).split(b"\x00")[0].decode("latin1").strip()
+            except (TypeError, ValueError):
+                continue
+            n = name.lower()
+            if (n and n not in RESERVED_NAMES
+                    and all(c.isalnum() or c == "_" for c in n)
+                    and n in _prg_names()):
+                found.add(n)
+        for rows in (data.get("tables") or {}).values():
+            for r in rows:
+                if not isinstance(r, dict):
+                    continue
+                gr = str(r.get("GRUPPE") or "").strip().lower()
+                if gr and gr != g:
+                    continue          # a master-table copy; not this group's
+                for col in ("SGBD_NAME", "VARIANTE", "SGBD"):
+                    n = str(r.get(col) or "").strip().lower()
+                    if n and n not in RESERVED_NAMES and n in _prg_names():
+                        found.add(n)
+        if found:
+            out[g] = found
+    return out
 
 
 def owners():
@@ -47,6 +133,7 @@ def owners():
     if _OWNERS is not None:
         return _OWNERS
     out = {}
+    gvars = group_variants()
     for p in sorted(glob.glob(os.path.join(CONFIG, "*.json"))):
         cid = os.path.basename(p)[:-5]
         if cid == "index":
@@ -73,6 +160,31 @@ def owners():
                     sgbd = (sgbd or "").lower()
                     if sgbd:
                         out.setdefault(sgbd, []).append((cid, code))
+                # AND EVERY VARIANT THIS ENTRY'S GROUP CAN IDENTIFY. The
+                # config row names the variants INPA's menu offers; the
+                # group's own tables and bytecode name the ones the CAR can
+                # report. Both are real, so both are exported -- see
+                # group_variants() for why the menu alone is not enough.
+                #
+                # EACH GETS ITS OWN FOLDER, NOT THE MENU ENTRY'S. E46/airbag
+                # declares zae; an mrs4 written there is exactly the sibling
+                # clobber write_ecu refuses (see its docstring), and it would
+                # be dropped. One folder, one SGBD: mrs4 lands in E46/mrs4,
+                # keyed by the name the car reports, which is also the name
+                # the sweep asks for after the group identifies it.
+                grp = (e.get("group") or "").lower()
+                own = (e.get("sgbd") or "").lower()
+                for sgbd in gvars.get(grp, ()):
+                    if sgbd == own:
+                        continue      # already placed in its menu folder
+                    out.setdefault(sgbd, []).append((cid, sgbd))
+    # A variant reachable from several entries (E46 lists both D_0012 and
+    # D_MOTOR for the engine) would otherwise be written twice into the same
+    # folder. Order is preserved so the first owner still wins downstream.
+    for sgbd, places in out.items():
+        seen = set()
+        out[sgbd] = [p for p in places
+                     if not (p in seen or seen.add(p))]
     _OWNERS = out
     return out
 

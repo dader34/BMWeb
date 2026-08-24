@@ -208,6 +208,16 @@ def main():
 
     # 3. Package each chassis configuration and its ECUs into a .chassis archive
     os.makedirs(os.path.join(api, "chassis"), exist_ok=True)
+    # WHAT EACH CHASSIS ACTUALLY SHIPS, recorded as it is packed so the index
+    # below indexes reality rather than the menu (see ecu-index.json).
+    chassis_ecus = {}
+    # every SGBD ecu_tree assigns to a car -- the menu's own names PLUS every
+    # variant that car's groups can identify (ecu_tree.group_variants)
+    tree_owner = {}
+    for sgbd, places in T.owners().items():
+        for c, _code in places:
+            tree_owner.setdefault(c.upper(), set()).add(sgbd.lower())
+
     for cid in ids:
         cfg = chassis_configs[cid]
         chassis_contents = {
@@ -215,11 +225,19 @@ def main():
         }
 
         # Pack referenced SGBD .ecu files
+        want = set()
         for sec in cfg.get("sections", []):
             for e in sec.get("ecus", []):
                 sgbd = (e.get("sgbd") or "").lower()
-                if sgbd in ecu_zips:
-                    chassis_contents[f"ecu/{sgbd}.ecu"] = ecu_zips[sgbd]
+                if sgbd:
+                    want.add(sgbd)
+        want |= tree_owner.get(cid.upper(), set())
+        packed = set()
+        for sgbd in sorted(want):
+            if sgbd in ecu_zips:
+                chassis_contents[f"ecu/{sgbd}.ecu"] = ecu_zips[sgbd]
+                packed.add(sgbd)
+        chassis_ecus[cid] = packed
 
         # Build .chassis ZIP. We use STORED mode since the internal .ecu files are already zipped.
         chassis_zip_bytes = make_zip(chassis_contents, compress=False)
@@ -232,13 +250,22 @@ def main():
     # so opening one the shim has not cached means finding its owner; without
     # this it would try chassis archives in turn, downloading up to 122 MB to
     # find a 116 KB ECU. 5 KB answers it in one lookup.
+    # BUILT FROM WHAT THE ARCHIVES HOLD, NOT FROM THE MENU. This used to walk
+    # the chassis configs, so it could only ever list SGBDs a menu names --
+    # the same gate ecu_tree.owners() had. Every variant a group can IDENTIFY
+    # but the menu never listed (ihka46_3, gs20, mrs4 ...) was packaged into
+    # the .chassis archives and then left out of the index, so loadEcu could
+    # not find its owner and webRunJob answered "no job code shipped".
+    #
+    # On a real E46 that meant the climate unit identified correctly as
+    # ihka46_3 and then reported a CLEAN FAULT MEMORY for a module holding two
+    # present faults -- the worst thing this app can say. ecu_zips is what was
+    # actually written, so index that.
     owner = {}
     for cid in ids:
-        for sec in chassis_configs[cid].get("sections", []):
-            for e in sec.get("ecus", []):
-                sgbd = (e.get("sgbd") or "").lower()
-                if sgbd and sgbd not in owner:
-                    owner[sgbd] = cid
+        for sgbd in sorted(chassis_ecus.get(cid, ())):
+            if sgbd not in owner:
+                owner[sgbd] = cid
     with open(os.path.join(api, "ecu-index.json"), "w") as f:
         json.dump(owner, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  ecu-index.json: {len(owner)} sgbds")
