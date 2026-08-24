@@ -355,13 +355,104 @@ async function runExchange(bus, out, comm) {
   throw lastErr;
 }
 
+// ---- the Transport interface -----------------------------------------------
+//
+// THREE transports carry the exact same protocol to the car: Web Serial (a
+// K+DCAN cable in desktop Chrome), the native bridge (the macOS shell owning
+// /dev/tty), and THOR (a WiFi/socket adapter). runExchange, readFrame,
+// withChecksum, frameTotal and verifyChecksum above are the protocol and are
+// SHARED by all three -- "the protocol does not change with the plumbing." A
+// full merge of the three classes is NOT possible, because three boundaries
+// are physical, not incidental, and each stays a per-transport override:
+//
+//   SEAM 1  connect-entry -- Web Serial needs a USER GESTURE for the first
+//           requestPort(); a socket (THOR) and the native bridge do not.
+//   SEAM 2  K-line line-control -- only Web Serial has setSignals (DTR/break),
+//           so fast-init and the ISO 9141 slow-init live there alone; the
+//           native bridge has no setSignals, and THOR asks its firmware to
+//           wake the line instead (a config flag in each telegram).
+//   SEAM 3  echo/config placement -- half-duplex echo stripping and the FTDI
+//           read-poll latency are Web Serial / native concerns; THOR's remote
+//           adapter strips the echo itself and carries the wire settings in
+//           each telegram, so it has no port to reconfigure.
+//
+// Every transport MUST expose this surface (the rest of the renderer -- app.js,
+// coding-write.js, the fetch shim -- calls only these):
+//
+//   get connected            -> bool           is the wire up right now
+//   async connect()          -> label          open the wire (SEAM 1)
+//   async reconnect()        -> label|null     silent reopen on load, no gesture
+//                                              (Web Serial only: keepCable)
+//   async ensureConfig(cfg)  -> void           make baud+parity match a concept
+//                                              (SEAM 3: no-op on THOR)
+//   async exchange(out,comm) -> frame          one request/answer -- SHARED, it
+//                                              just calls runExchange(this,...)
+//   async exchangeRaw(f,t,c) -> frame          write+read one frame (SEAM 2/3)
+//   async disconnect()       -> void           tear the wire down
+//   async readState()        -> {battery,ignition}   KL30/KL15 (absent on the
+//                                              native bridge -- callers guard)
+//   portLabel()              -> string         a human name for the chip
+//
+// runExchange also reads/writes these transport fields as shared session state:
+//   sessionConcept, lastResponseAt, inited, initedAddr.
+//
+// The native correspondence lives in C# (a different runtime, not unified here):
+// SerialProxy.cs is the byte-mover behind NativeSerialBus (open/write/
+// readAvailable/close/flush), TcpProxy.cs the same for THOR's native socket.
+// Bytes cross that bridge as a JSON int[] (BmacwBridge.cs AsNumberArray), NOT
+// base64 -- base64 corrupted the echo/checksum. src/EdiabasMac is LEGACY (its
+// InpaMac.Api server is deleted); it is reference for what JS reimplemented,
+// not a transport, and is deliberately NOT part of this interface.
+
+// Shared base for the two SERIAL transports (Web Serial + native bridge). They
+// both own a real port whose baud/parity must track the job's concept, and they
+// both keep the same per-session wire state -- so the reconfigure-guard and the
+// state reset live here once. THOR does NOT extend this: it owns no port (SEAM
+// 3) and its "wire state" is a single `inited` flag with no port to reopen.
+class SerialTransportBase {
+  // The full wire state, cleared when the session on the wire ENDS (connect,
+  // reconnect, disconnect): a fresh cable has woken nothing and remembers no
+  // concept.
+  _resetWireState() {
+    this.inited = null;
+    this.initedAddr = null;
+    this.pending = null;
+    this.sessionConcept = null;
+  }
+
+  // The WAKE state only, cleared when the port is REOPENED onto different
+  // settings: a reopened port drops the ECU session, so a woken module must be
+  // woken again. Deliberately does NOT touch sessionConcept -- runExchange sets
+  // that immediately before calling ensureConfig, and the K-line wake in
+  // exchangeRaw reads it right after, so clearing it here would blind the wake.
+  _resetWakeState() {
+    this.inited = null;
+    this.initedAddr = null;
+  }
+
+  // True when a requested config already matches the open port, so ensureConfig
+  // can skip the (session-dropping) reopen. Baud and parity are the only
+  // settings a concept changes; data/stop bits are constant here.
+  _configUnchanged(cfg) {
+    return !!this.config
+      && this.config.baudRate === cfg.baudRate
+      && this.config.parity === cfg.parity;
+  }
+
+  // One request/answer exchange. IDENTICAL for every transport -- the retry,
+  // pacing, response-pending and framing all live in runExchange, which drives
+  // the transport through its exchangeRaw/ensureConfig overrides. Kept in the
+  // base (and reused by THOR below) so there is exactly one copy.
+  async exchange(out, comm) { return runExchange(this, out, comm); }
+}
+
 // The same bus, over the native bridge. A WKWebView has no Web Serial -- that
 // is a Chrome API, and the macOS app is a Cocoa window around WebKit -- so the
 // shell owns the port and moves bytes for us (SerialProxy.cs). The framing,
 // checksums and echo handling stay here, identical to the Web Serial path;
 // only the four primitives differ.
-class NativeSerialBus {
-  constructor() { this.path = null; this.config = null; }
+class NativeSerialBus extends SerialTransportBase {
+  constructor() { super(); this.path = null; this.config = null; }
 
   get connected() { return !!this.path; }
 
@@ -384,20 +475,19 @@ class NativeSerialBus {
   // an E46 mixes 9600 8E1 body modules with a 115200 8N1 DME, and a port
   // opened once at connect time can only speak to one of them.
   async ensureConfig(cfg) {
-    if (this.config && this.config.baudRate === cfg.baudRate
-        && this.config.parity === cfg.parity) return;
+    if (this._configUnchanged(cfg)) return;
     // Reopening the port drops the ECU session with it, so a woken module
     // must be woken again. Without this a concept switch mid-job left
     // `inited` set and every following request went to a sleeping ECU.
-    this.inited = null;
-    this.initedAddr = null;
+    this._resetWakeState();
     const r = await window.bmacw.serialOpen(this.path === 'serial'
       ? null : this.path, cfg.baudRate, cfg.parity);
     this.path = (r && r.port) || this.path;
     this.config = cfg;
   }
 
-  async exchange(out, comm) { return runExchange(this, out, comm); }
+  // exchange() is inherited from SerialTransportBase (identical for every
+  // transport -- it delegates to the shared runExchange).
 
   // ---- BMW K-line fast init ------------------------------------------------
   // THE THING THAT WAS MISSING. An E46 K-line module ignores every telegram
@@ -430,8 +520,9 @@ class NativeSerialBus {
   }
 }
 
-class WebSerialBus {
+class WebSerialBus extends SerialTransportBase {
   constructor() {
+    super();
     this.port = null; this.reader = null; this.writer = null;
     this.config = null;
   }
@@ -450,10 +541,7 @@ class WebSerialBus {
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
-    this.inited = null;
-    this.initedAddr = null;
-    this.pending = null;
-    this.sessionConcept = null;
+    this._resetWireState();
     return this.portLabel();
   }
 
@@ -476,18 +564,14 @@ class WebSerialBus {
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
-    this.inited = null;
-    this.initedAddr = null;
-    this.pending = null;
-    this.sessionConcept = null;
+    this._resetWireState();
     return this.portLabel();
   }
 
   // Close/reopen with a concept's wire settings. Reopening an already-
   // granted port needs no user gesture, only the first requestPort() does.
   async ensureConfig(cfg) {
-    if (this.config && this.config.baudRate === cfg.baudRate
-        && this.config.parity === cfg.parity) return;
+    if (this._configUnchanged(cfg)) return;
     try { if (this.reader) { await this.reader.cancel(); this.reader.releaseLock(); } } catch { /* reopening */ }
     try { if (this.writer) this.writer.releaseLock(); } catch { /* reopening */ }
     await this.port.close();
@@ -509,10 +593,7 @@ class WebSerialBus {
     try { if (this.writer) this.writer.releaseLock(); } catch { /* closing */ }
     try { if (this.port) await this.port.close(); } catch { /* closing */ }
     this.port = this.reader = this.writer = null;
-    this.inited = null;
-    this.initedAddr = null;
-    this.pending = null;
-    this.sessionConcept = null;
+    this._resetWireState();
   }
 
   // KL30/KL15, the way INPA gets them. INPA's start screen calls UTILITY's
@@ -573,7 +654,8 @@ class WebSerialBus {
   // everything sent is also heard). EdInterfaceObd drops exactly as many
   // bytes as it wrote; do the same rather than pattern-matching, because a
   // request and its answer can legitimately share a prefix.
-  async exchange(out, comm) { return runExchange(this, out, comm); }
+  // exchange() is inherited from SerialTransportBase (identical for every
+  // transport -- it delegates to the shared runExchange).
 
   async fastInit(comm) {
     if (!this.port.setSignals) {
@@ -1358,7 +1440,11 @@ class ThorWifiBus {
       : 'no answer from ECU (timeout)');
   }
 
-  // the shared path: identical semantics to the serial buses
+  // The Transport interface's shared exchange: identical to the serial buses'
+  // (all three delegate to runExchange). THOR does NOT extend
+  // SerialTransportBase -- it owns no port, so the reconfigure-guard and
+  // wake-state reset there do not apply (SEAM 3) -- so it keeps its own copy of
+  // this one-liner rather than inheriting the port-shaped base.
   async exchange(out, comm) { return runExchange(this, out, comm); }
 }
 
