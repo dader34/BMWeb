@@ -737,13 +737,18 @@ function _irHasRunnable(ir, menuName) {
   const root = (ir.entry || {}).menu;
   return (((ir.menus || {})[menuName] || {}).items || []).some(
     it => (it.label || '').trim() && !it.fileAction && !it.appTool
-          && !IR_CHROME.test(it.label.trim())
+          // "Select" reads as chrome by label, but a Select key that carries
+          // a togglelist picker (stateScreen / pickJob path) IS the menu's
+          // one real action -- SHD46's Activate is exactly this. Exempt it,
+          // so a menu whose only runnable key is the picker is not judged
+          // empty and its parent opens the screen's "action" message instead.
+          && (it.stateScreen || !IR_CHROME.test(it.label.trim()))
           // a key back to the ROOT is Back whatever it is called (detected
           // structurally), since deGerman can render Back/Print/End as anything
           && !(it.menu === root && !it.job && menuName !== root)
-          && !['printscreen', 'exit', 'select', 'deselect'].includes(it.action)
-          && (it.job || it.screen || it.menu || it.action)
-          && (it.job || it.screen || it.menu || it.action));
+          && (it.stateScreen
+              || !['printscreen', 'exit', 'deselect'].includes(it.action))
+          && (it.job || it.screen || it.menu || it.action || it.stateScreen));
 }
 
 function irMenuItems(ir, menuName, variant) {
