@@ -1866,18 +1866,17 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       if (ecu.group && ecu._variantSource
           && ['unverified', 'unavailable'].includes(ecu._variantSource)) {
         container.className = 'results-panel';
-        container.innerHTML = `<div class="empty"><div>`
-          + `<strong>${esc(it.label)}</strong></div>`
-          + `<div>This would run <code>${esc(it.job)}</code> on `
-          + `<b>${esc(ecu.sgbd)}</b>, but nothing has confirmed that is the `
-          + `variant fitted: <b>${esc(ecu.label)}</b> shares diagnostic `
-          + `address <span class="mono">${esc(ecu.group)}</span> with other `
-          + `modules, and the app is showing the configuration&rsquo;s pick. `
-          + `Reads are fine; driving an output is not, because the same `
-          + `command means a different thing on a sibling.</div>`
-          + `<div style="font-size:12px;color:var(--ink-faint)">Connect the `
-          + `cable and reopen this module &mdash; the address group identifies `
-          + `itself and this unlocks on its own.</div></div>`;
+        // JUST THE ACTION. The full reasoning (shared address, sibling
+        // collision, config-pick) lives in the tooltip; on the page the user
+        // needs the one thing that unblocks this -- connect and reopen.
+        container.innerHTML = `<div class="empty"><div class="empty-big"`
+          + ` style="color:var(--amber)">Connect the cable to use `
+          + `${esc(it.label)}</div>`
+          + `<div title="${esc(ecu.label)} shares diagnostic address `
+          + `${esc(ecu.group)} with other modules; until the car identifies `
+          + `itself, commanding one variant&rsquo;s ${esc(it.job)} could act on `
+          + `a sibling.">Reopen this module with the cable connected and it `
+          + `unlocks on its own.</div></div>`;
         sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · variant unverified`;
         setActions([...keys(), { key: 'Escape', keyLabel: 'Esc', label: 'Back',
                                  kind: 'back', fn: reopen }], shiftKeys());
