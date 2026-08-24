@@ -141,16 +141,6 @@ const demoMode = () => Settings.get('demo', 'off') === 'on'
 const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
   && !window.matchMedia('(max-width: 760px)').matches;
 
-// INTERPRETED SCREENS. Draw a screen by RUNNING its .IPO rather than by
-// reading the decompiled IR: the script emits its own gauges, lamps and
-// captions, so anything a script can describe renders, instead of only what
-// the miner knew to look for. Off by default while both paths run side by
-// side -- the IR path is what every screen has always used, and the two are
-// compared by tools/verify/ir_vm_diff.py rather than swapped on faith.
-const interpretedScreens = () =>
-  Settings.get('interpretedScreens', 'off') === 'on'
-  || new URLSearchParams(location.search).get('interp') === '1';
-
 async function api(path, opts) {
   let url = `${API}${path}`;
   if (demoMode() && path.includes('/run/'))

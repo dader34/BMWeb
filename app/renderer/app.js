@@ -79,19 +79,6 @@ function showSettings() {
     (v) => { Settings.set('keepCable', v); },
   ));
 
-  wrap.appendChild(settingRow(
-    'Interpreted screens',
-    'Draw readout pages as the .IPO script drew them: executed gauges with '
-      + 'their real bounds, INPA\'s own dialogs, and state words instead of '
-      + 'raw values. Takes effect when a module is (re)opened. Experimental.',
-    [
-      { val: 'on', label: 'Executed' },
-      { val: 'off', label: 'Mined' },
-    ],
-    Settings.get('interpretedScreens', 'off'),
-    (v) => { Settings.set('interpretedScreens', v); },
-  ));
-
   // bus is chosen at page load, so switching adapters reloads
   const adapterRow = settingRow(
     'Adapter',

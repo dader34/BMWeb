@@ -52,22 +52,14 @@ function captionsOf(ir) {
       for (const l of s.lines || []) {
         if (l.caption) out.add(l.caption);
         for (const e of l.elements || []) {
-          for (const k of ['s', 'unit', 'on', 'off']) if (e[k]) out.add(e[k]);
+          // 'unit' is a result KEY (STAT_..._EINH), not a display caption --
+          // the SGBD fills the unit text at runtime, so it needs no i18n.
+          for (const k of ['s', 'on', 'off']) if (e[k]) out.add(e[k]);
         }
       }
-      // NOTE: vmScreens dialog text (messages/errorMessages) is deliberately
-      // NOT scanned. Its body carries the ERROR_ECU_NICHT_VORHANDEN
-      // derivation sentinel, which live.js substitutes with the real status
-      // at display time -- so the stored string is never shown raw and has no
-      // translation. Feeding it here made the check demand a translation for
-      // a string that will never appear verbatim.
     }
   };
-  // BOTH the mined screens AND the executed twins: interpreted mode draws
-  // vmScreens, so leaving them unscanned rendered the interpreted path in
-  // raw German ("Steuergeraeteverbaukennung" instead of the English).
   scanScreens(ir.screens);
-  scanScreens(ir.vmScreens);
   return [...out].sort();
 }
 

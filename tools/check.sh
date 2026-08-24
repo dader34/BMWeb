@@ -21,23 +21,19 @@
 #   ipo_coding.py       -> _coding.json     > ipo_enrich.py pipeline (the app
 #   ipo_submenus.py     -> _submenus.json  /  renders from the IR now), so
 #                          these outputs have NO reader -- reference dumps.
-#                          The one satellite output still live is
-#                          ipo_gauges.py -> _gauges.json (read by ipo_ir.py).
+#                          ipo_gauges.py -> _gauges.json is now a reference dump
+#                          too: ir_build derives gauge bounds by executing the
+#                          .IPO, so nothing reads _gauges.json any more.
 #   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
-# (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
+# (actuator captions live in the IR itself now: ir_build emits them)
 #
 # THE HAND-RUN GENERATORS ARE ORDERED. Regenerating everything before a build
 # is not a set of independent commands -- three of them feed each other, and
 # running them out of order silently ships worse data than doing nothing:
 #
-#   1. python3 tools/decompile/ipo_ir.py --write     -> data/inpa-ir/, i18n EMPTY plus a
-#                                             `strings` hand-off list
-#   1b. python3 tools/decompile/ipo_vm_ir.py --write -> vmScreens (executed twins) into
-#                                             the same files. BEFORE i18n: the executed
-#                                             captions are strings i18n must resolve,
-#                                             so running it after leaves them raw and
-#                                             the i18n check fails on the next run
+#   1. (cd tools/decompile && python3 -m ir_build --write) -> data/inpa-ir/, i18n
+#                                             EMPTY plus a `strings` hand-off list
 #   2. node tools/decompile/ipo_i18n.js              -> RESOLVES those strings back INTO
 #                                             the IR files and drops the list
 #   3. python3 tools/export/build_ecu_tree.py -> assembles the finished IR into
@@ -74,7 +70,7 @@ python3 tools/verify/test_disasm.py
 
 echo
 echo "== IR emitter invariants =="
-python3 tools/decompile/ipo_ir.py --check
+(cd tools/decompile && python3 -m ir_build --check)
 node tools/decompile/ipo_i18n.js --check
 
 echo

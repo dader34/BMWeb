@@ -83,6 +83,17 @@ class Halt(Exception):
 GLOBAL, LOCAL, LOCAL3 = 0, 2, 3
 
 
+def _base(key):
+    """A result key without its display-role suffix, so a value and its unit
+    share a stem: STAT_TMOT_WERT and STAT_TMOT_EINH both reduce to STAT_TMOT.
+    Only the display suffixes are stripped -- two readings never collide."""
+    u = key.upper()
+    for suf in ("_WERT", "_EINH", "_TEXT", "_EINHEIT"):
+        if u.endswith(suf):
+            return key[: -len(suf)]
+    return key
+
+
 class Emissions:
     """What one execution produced -- the raw material of the IR."""
 
@@ -96,11 +107,12 @@ class Emissions:
         self.messages = []       # dialogs the script raised
         self.calls = []          # every builtin, for coverage measurement
         self.states = []         # named states the run parked at
+        self.reads = []          # every result key read, in read order
 
     def as_dict(self):
         return {"title": self.title, "items": self.items, "lines": self.lines,
                 "jobs": self.jobs, "menu": self.menu, "screen": self.screen,
-                "messages": self.messages}
+                "messages": self.messages, "reads": self.reads}
 
 
 class VM:
@@ -159,17 +171,45 @@ class VM:
             pass
         return self.out
 
-    def _exec(self, toks, frame):
+    def run_item(self, menu_toks, start, end, item, presence=True):
+        """Execute one menu item's body as if its F-key were pressed,
+        resolving job/screen/action into `item`.
+
+        Runs the FULL menu token list from the item's start (`start`) to the
+        next item (`end`), not a sliced copy -- an item body's jumps target
+        code outside itself (a shared confirm, another item), and a slice
+        loses those targets ("bad jump"). Enable flags are preset true so the
+        guarded blocks run; `item` is the current target so builtins attach to
+        it. This is the build-time equivalent of pressing the key -- how the
+        reference reaches an item's job/screen.
+        """
+        if presence:
+            for g in range(self._maxglobal + 1):
+                self.globals.setdefault(g, True)
+        self._item_target = item
+        try:
+            self._exec(menu_toks, {}, start_at=start, stop_at=end)
+        except Halt:
+            pass
+        finally:
+            self._item_target = None
+        return item
+
+    def _exec(self, toks, frame, start_at=0, stop_at=None):
         # the frame a builtin's destination ref writes into (Result* targets
         # frame slots far more often than globals)
         prev_frame, self.frame = getattr(self, "frame", None), frame
         try:
-            return self._exec_in(toks, frame)
+            return self._exec_in(toks, frame, start_at, stop_at)
         finally:
             self.frame = prev_frame
 
-    def _exec_in(self, toks, frame):
-        # byte offset -> token index, so a resolved jump target is a seek
+    def _exec_in(self, toks, frame, start_at=0, stop_at=None):
+        # byte offset -> token index, so a resolved jump target is a seek.
+        # start_at/stop_at let run_item execute ONE item's body inside the
+        # full menu token list (so its jumps resolve to real targets, which a
+        # sliced copy could not) while beginning at the item and stopping at
+        # the next one.
         index = {t["at"]: i for i, t in enumerate(toks) if "at" in t}
         # STOP AT THE FIRST UNDECODED BYTE. A proc's block header sizes only
         # its OWN section -- each ITEM opens another -- so it cannot bound the
@@ -178,14 +218,14 @@ class VM:
         # decode as `unk` and then as a jump back into themselves. Executing
         # that spins forever. Every proc we actually run decodes cleanly, so
         # the first unk IS the end of the code.
-        end = len(toks)
+        end = len(toks) if stop_at is None else stop_at
         for j, t in enumerate(toks):
-            if t["op"] == "unk":
+            if t["op"] == "unk" and j < end:
                 end = j
                 break
         stack = []               # the current call frame's pushed values
-        i = 0
-        cur_item = None
+        i = start_at
+        cur_item = getattr(self, "_item_target", None)
         while i < end:
             self.steps += 1
             if self.steps > self.budget:
@@ -217,15 +257,22 @@ class VM:
             elif op == "jfalse":
                 cond = stack.pop() if stack else False
                 if not _truthy(cond):
-                    nxt = index.get(t["to"])
-                    if nxt is None:
-                        raise Halt("bad jump")
+                    # THE SKIPPED ARM STILL NAMES REAL RESULTS. A read helper
+                    # branches on a runtime value we don't have (DATA_ID picks
+                    # which block DDE's data_id_lesen reads); executing one arm
+                    # loses the keys the others read. inpax, decoding statically,
+                    # sees them all. Harvest the skipped span's Result* keys so
+                    # the union matches -- reads only, never running its draws.
+                    nxt = index.get(t["to"], end)      # past-end target = exit
+                    self._harvest_reads(toks, i + 1, nxt)
+                    if nxt >= end:
+                        return                         # skip-to-end: proc done
                     i = nxt
                     continue
             elif op == "jump":
-                nxt = index.get(t["to"])
-                if nxt is None:
-                    raise Halt("bad jump")
+                nxt = index.get(t["to"], end)          # past-end target = exit
+                if nxt >= end:
+                    return                             # an unconditional exit
                 i = nxt
                 continue
             elif op == "ITEM":
@@ -247,7 +294,34 @@ class VM:
                 # step counter belongs to the run.
                 name = self.byid.get(("func", t["n"]))
                 if name and name in self.procs:
+                    # A CONVERSION HELPER TURNS A KEYED VALUE INTO A DISPLAY
+                    # STRING through an out-ref. inttohexstring/bytetohexstring
+                    # format their input via structure builtins the VM does not
+                    # model, so the out-slot comes back unset -- yet the row
+                    # still shows the value that went in (LWS5's checksum reads
+                    # COD_CHECK, hex-formats it, draws it). When the callee left
+                    # an out-ref slot unfilled and an INPUT carried a key, carry
+                    # that key onto the out-slot so the draw is not anonymous.
+                    in_key = next((x.key for x in stack
+                                   if isinstance(x, _Bound) and x.key), None)
+                    outs = [x for x in stack if isinstance(x, tuple)
+                            and len(x) == 3 and x[0] == "ref"]
                     self._exec(self.procs[name], dict(enumerate(stack)))
+                    if in_key:
+                        for ref in outs:
+                            dsc = LOCAL if ref[1] == 2 and \
+                                getattr(self, "frame", None) is not None \
+                                else GLOBAL
+                            cur = (self.globals.get(ref[2]) if dsc == GLOBAL
+                                   else self.frame.get(ref[2]))
+                            if isinstance(cur, _Bound) and cur.key:
+                                continue          # callee bound it itself
+                            val = _Bound(_Slot(dsc, ref[2]), "0", in_key)
+                            self.binds[(dsc, ref[2])] = in_key
+                            if dsc == GLOBAL:
+                                self.globals[ref[2]] = val
+                            elif self.frame is not None:
+                                self.frame[ref[2]] = val
                 stack = []
             elif op == "state":
                 # A YIELD, NOT A LOOP. INPA state machines park at a named
@@ -267,6 +341,44 @@ class VM:
 
     # ------------------------------------------------------------ storage --
 
+    def _harvest_reads(self, toks, lo, hi, _seen=None):
+        """Record the result keys an unexecuted span reads, without running it.
+
+        A branch we skip may hold INPAapiResult* calls whose keys are real
+        (the value simply isn't shown on the path we took). Scanning the span
+        for those calls and their KEY constant unions the reads across arms --
+        the same result inpax gets by decoding every branch statically. Only
+        keys are taken; the span's draws, jobs and side effects are not run.
+
+        A skipped span often just CALLS a helper that does the reading (a
+        "write this block to file" arm delegates to rbmBlock1InDatei), so a
+        calluser is followed into the callee's body -- guarded against
+        recursion -- to reach the keys it reads.
+        """
+        if _seen is None:
+            _seen = set()
+        hi = min(hi, len(toks))
+        for k in range(lo, hi):
+            t = toks[k]
+            op = t.get("op")
+            if op == "calluser":
+                name = self.byid.get(("func", t["n"]))
+                if name and name in self.procs and name not in _seen:
+                    _seen.add(name)
+                    body = self.procs[name]
+                    self._harvest_reads(body, 0, len(body), _seen)
+                continue
+            if op != "call" or "Result" not in (t.get("name") or ""):
+                continue
+            # the KEY is the first string constant pushed for this call, a few
+            # tokens back (dest ref, KEY, index, default all precede the call)
+            for b in range(k - 1, max(lo, k - 10) - 1, -1):
+                v = toks[b].get("v") if toks[b].get("op") == "const" else None
+                if isinstance(v, str) and v:
+                    if v not in self.out.reads:
+                        self.out.reads.append(v)
+                    break
+
     def _read(self, t, frame):
         sc = t.get("sc", GLOBAL)
         if sc == GLOBAL:
@@ -274,6 +386,32 @@ class VM:
         return frame.get(t["n"])
 
     def _write(self, t, frame, val):
+        # STORE THROUGH AN OUT-PARAMETER. INPA's string helpers all return by
+        # writing into a ref the caller passed (inttohexstring(->dst) etc.); the
+        # `ref` store's slot holds that ('ref', kind, n) tuple, so the write
+        # lands in the CALLER's slot, not the local one. Without this the
+        # conversion vanished and the caller kept whatever the slot held before
+        # -- LWS5's checksum row drew the previous block's value (and its key)
+        # because slot 20 was never updated by inttohexstring.
+        if t.get("ref"):
+            src = frame.get(t["n"]) if t.get("sc", GLOBAL) != GLOBAL \
+                else self.globals.get(t["n"])
+            if isinstance(src, tuple) and len(src) == 3 and src[0] == "ref":
+                dsc = LOCAL if src[1] == 2 and frame is not None else GLOBAL
+                n = src[2]
+                # the written value carries its own binding if it has one; else
+                # this slot no longer holds what a prior read bound to it, so
+                # clear any stale binding a later draw would otherwise resurrect
+                key = val.key if isinstance(val, _Bound) and val.key else None
+                if key:
+                    self.binds[(dsc, n)] = key
+                else:
+                    self.binds.pop((dsc, n), None)
+                if dsc == GLOBAL:
+                    self.globals[n] = val
+                elif frame is not None:
+                    frame[n] = val
+                return
         sc = t.get("sc", GLOBAL)
         if sc == GLOBAL:
             self.globals[t["n"]] = val
@@ -313,6 +451,31 @@ def _num(v):
         return 0
 
 
+def _carry(a, b):
+    """The (slot, key) an arithmetic result should keep from its operands.
+
+    A drawn value is often a SCALED reading -- ABS wheel speed is
+    `slot13 * scale`, the read's key STAT_RAD_GESCHW_VL_WERT living on slot13.
+    Scaling with a plain number must not drop that identity, or every scaled
+    readout draws unkeyed and the poller cannot fill it. Returns (slot, key)
+    from whichever operand carries them, else (None, None).
+    """
+    for x in (a, b):
+        if isinstance(x, _Bound) and (x.key or x.slot):
+            return x.slot, x.key
+        if isinstance(x, _Slot):
+            return x, None
+    return None, None
+
+
+def _bound_num(value, a, b):
+    """A numeric result, wrapped to keep an operand's slot/key when one had it."""
+    slot, key = _carry(a, b)
+    if slot is None and key is None:
+        return value
+    return _Bound(slot, str(value), key)
+
+
 def _binop(name, a, b):
     if name == "add":
         # INPA overloads + for both concatenation and arithmetic. A row is
@@ -333,17 +496,18 @@ def _binop(name, a, b):
             if slot is not None:
                 break
         if slot is not None:
+            _, key = _carry(a, b)
             return _Bound(slot, f"{'' if a is None else a}"
-                                f"{'' if b is None else b}")
+                                f"{'' if b is None else b}", key)
         if isinstance(a, str) or isinstance(b, str):
             return f"{'' if a is None else a}{'' if b is None else b}"
-        return _num(a) + _num(b)
+        return _bound_num(_num(a) + _num(b), a, b)
     if name == "sub":
-        return _num(a) - _num(b)
+        return _bound_num(_num(a) - _num(b), a, b)
     if name == "mul":
-        return _num(a) * _num(b)
+        return _bound_num(_num(a) * _num(b), a, b)
     if name == "div":
-        return _num(a) / _num(b) if _num(b) else 0
+        return _bound_num(_num(a) / _num(b) if _num(b) else 0, a, b)
     if name == "eq":
         return _cmp_eq(a, b)
     if name == "ne":
@@ -464,16 +628,28 @@ def _b_job(vm, stack, item):
         item["job"] = job
         if rec.get("arg"):
             item["jobArg"] = rec["arg"]
+    # WHICH ARGUMENT FILLS THIS LINE. A coding page reads the same job once per
+    # data block, the block index its only distinguishing argument (LWS5's
+    # CODIERUNG_LESEN "0".."6"); the reads land on the line INPA is drawing, so
+    # the line remembers the arg. The app reads each argument in its own pass --
+    # without it, one block would overwrite another. Only an argument-bearing
+    # read on a line already open counts; the first job on a line wins.
+    if rec.get("arg") and vm.out.lines and "jobArg" not in vm.out.lines[-1]:
+        vm.out.lines[-1]["jobArg"] = rec["arg"]
     vm.globals["__last_job__"] = vm.host.job(sgbd, job, arg, None)
 
 
 def _b_fsmode(vm, stack, item):
-    # INPAapiFsMode(sgbd, mode, ?, ?, job) -- the fault reader, job LAST
-    job = next((x for x in reversed(stack) if isinstance(x, str) and x), None)
-    if job:
-        vm.out.jobs.append({"job": job, "faultMode": True})
-        if item is not None and "job" not in item:
-            item["job"] = job
+    """INPAapiFsMode -- selects the fault-memory mode for INPAapiFsLesen.
+
+    NOT a job. INPA's fault reader is FsMode+FsLesen (writes na_fs.tmp, read
+    back by viewopen); the item names no job and the app identifies it by its
+    caption (IR_FAULT_READ). The old code took the last string arg as a job
+    and captured the MODE letter ("w") -- a bogus one-char job on every
+    fault-menu Read item. Mark the item a fault read and leave job alone.
+    """
+    if item is not None:
+        item["faultRead"] = True
 
 
 def _b_checkstatus(vm, stack, item):
@@ -516,6 +692,12 @@ def _b_result(vm, stack, item, integer=False):
             vm.frame[dest[2]] = val
     if key:
         vm.globals["__lastkey__"] = key
+        # EVERY key the script reads counts, even one never drawn. A reading's
+        # unit (STAT_..._EINH) is read into a slot and paired with the value
+        # at display time -- INPA never draws it on its own line -- so a
+        # draw-only IR loses it. Recording the read lets screens.py pair units
+        # onto their value and surface any other read-but-undrawn result.
+        vm.out.reads.append(key)
 
 
 def _b_errorcode(vm, stack, item):
@@ -600,6 +782,53 @@ def _b_result_int(vm, stack, item):
     _b_result(vm, stack, item, integer=True)
 
 
+def _b_result_binary(vm, stack, item):
+    """INPAapiResultBinary(KEY, index) -- a binary result read into an IMPLICIT
+    buffer. It names no destination slot; GetBinaryDataString moves the value
+    out afterwards. LWS5's coding page reads COD_DATEN this way once per block,
+    then draws the seven blocks -- so the key is parked as PENDING here and the
+    later GetBinaryDataString carries it onto the slot the draw actually shows.
+    Every key read still counts (inpax counts them all), so it is recorded too.
+    """
+    key = next((x for x in stack
+                if isinstance(x, str) and not isinstance(x, _Bound)), None)
+    if key:
+        vm.globals["__pending_binary__"] = key
+        vm.out.reads.append(key)
+
+
+def _b_getbinarydatastring(vm, stack, item):
+    """GetBinaryDataString(->dst, ->src) -- format the binary buffer as a string
+    into dst. Carry whatever key the src slot holds, or the one the preceding
+    ResultBinary left pending, onto dst as a BOUND value -- so a later draw of
+    dst (LWS5 draws it through ausgabe_formatiert) emits a value element keyed
+    by the coding result rather than anonymous text.
+    """
+    refs = [x for x in stack if isinstance(x, tuple)
+            and len(x) == 3 and x[0] == "ref"]
+    if len(refs) < 2:
+        return
+    dst, src = refs[0], refs[1]
+    dsc = LOCAL if dst[1] == 2 and vm.frame is not None else GLOBAL
+    ssc = LOCAL if src[1] == 2 and vm.frame is not None else GLOBAL
+    key = vm.binds.get((ssc, src[2])) or vm.globals.pop("__pending_binary__",
+                                                        None)
+    if not key:
+        return
+    # ONE OF EVERYTHING, as everywhere else offline: the binary buffer has at
+    # least one byte on a real car, so the formatted string is non-empty. A
+    # helper draws it a chunk at a time in a `while offset < len` loop
+    # (LWS5's ausgabe_formatiert); an empty string runs that loop zero times
+    # and the row never draws, so the placeholder must be non-empty to let the
+    # keyed value reach a draw.
+    val = _Bound(_Slot(dsc, dst[2]), "0", key)
+    vm.binds[(dsc, dst[2])] = key
+    if dsc == GLOBAL:
+        vm.globals[dst[2]] = val
+    elif vm.frame is not None:
+        vm.frame[dst[2]] = val
+
+
 def _b_textout(vm, stack, item):
     """ftextout(text, row, col, ...) -- printed text, or a printed VALUE.
 
@@ -628,17 +857,40 @@ def _b_textout(vm, stack, item):
                 if isinstance(x, str) and not isinstance(x, _Bound)), None)
     if key is None and lit is None:
         return
+    # WHERE INPA DREW IT. ftextout(text, row, col, ...): the first two integers
+    # are the cell. A caption printed as a whole ROW above its values (DWA4's
+    # "Clamp R / Clamp 15 / Clamp 61" over three lamps) can only pair to the
+    # right value by position, so the text must carry its row/col like a gauge
+    # does -- without them the pairing falls back to reading order and hands
+    # every lamp the LAST caption.
+    ints = [x for x in stack if isinstance(x, int) and not isinstance(x, bool)]
     if not vm.out.lines:
         vm.out.lines.append({"label": None, "elements": []})
+    # A DRAWN UNIT IS NOT A ROW OF ITS OWN. INPA reads a value's unit through a
+    # companion _EINH result and prints it beside the number (RDC's coding page
+    # draws MDOFFSET then MDOFFSET_EINH); it is the same reading, so the unit
+    # folds onto the value element sharing its base rather than standing as a
+    # second field. Without this the card counted six rows where INPA shows
+    # five.
+    if key and key.upper().endswith(("_EINH", "_EINHEIT")):
+        host = next((e for e in reversed(vm.out.lines[-1]["elements"])
+                     if e.get("key") and _base(e["key"]) == _base(key)
+                     and not e["key"].upper().endswith(("_EINH", "_EINHEIT"))),
+                    None)
+        if host is not None:
+            host["unit"] = key
+            return
     if key:
         el = {"t": "value", "key": key}
         amap = next((getattr(x, "amap", None) for x in stack
                      if getattr(x, "amap", None)), None)
         if amap:
             el["map"] = amap
-        vm.out.lines[-1]["elements"].append(el)
     else:
-        vm.out.lines[-1]["elements"].append({"t": "text", "s": lit})
+        el = {"t": "text", "s": lit}
+    if len(ints) >= 2:
+        el["row"], el["col"] = ints[0], ints[1]
+    vm.out.lines[-1]["elements"].append(el)
 
 
 def _b_analogout(vm, stack, item):
@@ -875,6 +1127,92 @@ def _b_message(vm, stack, item):
             item.setdefault("messages", []).append(strs[0])
 
 
+def _toggle_job(body):
+    """The job a togglelist state machine sends with its selection, or None.
+
+    togglelist (builtin_16) writes the picked row into an out variable, and
+    INPAapiJob sends that variable as its WHOLE argument. Recovering the
+    contract (which job, and that the selection is the entire arg) lets the
+    picker offer INPA's list and send the row the user picks. The two calls
+    can live in different item bodies, so out_var is found in a first pass.
+    """
+    out_var = None
+    for i, t in enumerate(body):
+        if t["op"] == "call" and t.get("name") == "builtin_16":
+            for b in reversed(body[max(0, i - 4):i]):
+                if b["op"] == "procref":
+                    out_var = b["n"]
+                    break
+    for i, t in enumerate(body):
+        if out_var is None or t["op"] != "call":
+            continue
+        if t.get("name") not in ("INPAapiJob", "INPAapiJobData"):
+            continue
+        win = body[max(0, i - 6):i]
+        job = next((b["v"] for b in win
+                    if b["op"] == "const" and b.get("t") == "s" and b["v"]),
+                   None)
+        if not job:
+            continue
+        after = [b for b in win
+                 if b["op"] == "const" and b.get("t") == "s" and b["v"] == job]
+        if not after:
+            continue
+        rest = win[win.index(after[0]) + 1:]
+        if any(b["op"] == "binop" for b in rest):
+            continue
+        if not any(b["op"] == "var" and b["n"] == out_var for b in rest):
+            continue
+        return {"job": job, "argVar": out_var}
+    return None
+
+
+def _machine_job(vm, name, seen=None):
+    """The fixed job a non-picker state machine will fire, or None.
+
+    A write/reset sequence yields (confirm, "press pedal") and fires a
+    CONSTANT job on continue -- SPU_PARAMETER_SCHREIBEN, OTL_DATEN_RESET.
+    The VM stops at the first yield so it never reaches the call, but the job
+    is a literal in the machine's body (unlike a togglelist's runtime arg),
+    so scanning for the first INPAapiJob's job argument recovers it. Follows
+    0x42 cross-state transitions, bounded by `seen`.
+    """
+    if seen is None:
+        seen = set()
+    if name in seen or name not in vm.procs:
+        return None
+    seen.add(name)
+    toks = vm.procs[name]
+    for i, t in enumerate(toks):
+        if t["op"] == "call" and t.get("name") in ("INPAapiJob",
+                                                    "INP1apiJob",
+                                                    "INPAapiJobData"):
+            # job is ARGUMENT POSITION 1 (sgbd is 0) -- taking the first
+            # string grabbed the sgbd name "ACC" or a ";" separator. Use the
+            # disassembler's stack simulator, same rule as _b_job's stack[1].
+            job = D.arg_str(D.arg_positions(D.frame_of(toks, i)),
+                            D.JOB_ARG_JOB)
+            if job:
+                return job
+        elif t["op"] == "procref" and t.get("kind") == 66:
+            sub = vm.byid.get(("state", t["n"]))
+            if sub:
+                j = _machine_job(vm, sub, seen)
+                if j:
+                    return j
+    return None
+
+
+def _b_select(vm, stack, item):
+    if item is not None and not item.get("action"):
+        item["action"] = "select"
+
+
+def _b_deselect(vm, stack, item):
+    if item is not None and not item.get("action"):
+        item["action"] = "deselect"
+
+
 def _b_setstate(vm, stack, item):
     """setstate(<state proc>) -- hand control to a state machine.
 
@@ -897,6 +1235,11 @@ def _b_setstate(vm, stack, item):
     name = vm.byid.get(("state", ref[2]))
     if not name or name not in vm.procs:
         return
+    # Record which machine this key enters so the form deriver can read the
+    # write's argument order and each Change key's field statically -- the
+    # run parks at the machine's first yield and never reaches those.
+    if item is not None:
+        item["stateEnter"] = name
     if name in vm.entered:
         return
     vm.entered.add(name)
@@ -912,6 +1255,33 @@ def _b_setstate(vm, stack, item):
         item["stateJob"] = True
         if j.get("arg"):
             item.setdefault("jobArg", j["arg"])
+    # A TOGGLELIST MACHINE resolves to its picker screen; a job machine does
+    # not. The distinguisher is the machine itself -- _toggle_job succeeds
+    # only for the togglelist idiom (a job whose whole argument is the
+    # togglelist variable). Only then is the parked screen a real picker the
+    # user drives; otherwise the machine did job work and any screen it
+    # touched (often an empty s_dummy placeholder) is not what to show. This
+    # is what the reference does by running: the screen showing at the yield
+    # is the picker's, and job machines just park on a scratch screen.
+    if item is not None:
+        tj = _toggle_job(vm.procs.get(name) or [])
+        if tj:
+            # a togglelist picker: the parked screen is the picker, the job
+            # fires on a pick
+            if vm.out.screen and not item.get("screen"):
+                item["stateScreen"] = vm.out.screen
+            if not item.get("job"):
+                item["job"] = tj["job"]
+                item["stateJob"] = True
+        elif not item.get("job"):
+            # a write/reset sequence: it fires a FIXED job past its yield,
+            # which the run did not reach. The job is a literal in the
+            # machine, so scan for it. No stateScreen -- the screen it
+            # touched (often an empty s_dummy) is not a user page.
+            mj = _machine_job(vm, name)
+            if mj:
+                item["job"] = mj
+                item["stateJob"] = True
 
 
 def _b_start(vm, stack, item):
@@ -979,7 +1349,7 @@ _BUILTINS = {
     "userboxopen": _b_noop, "userboxclose": _b_noop,
     "viewopen": _b_noop, "viewclose": _b_noop,
     "setstate": _b_setstate, "start": _b_start,
-    "select": _b_noop, "deselect": _b_noop,
+    "select": _b_select, "deselect": _b_deselect,
     "INPAapiInit": _b_noop, "INPAapiEnd": _b_noop,
     "INPAapiFsLesen": _b_noop, "INP1apiErrorText": _b_errortext,
     "INP1apiErrorCode": _b_errorcode, "INP1apiResultSets": _b_resultsets,
@@ -994,7 +1364,8 @@ _BUILTINS = {
     "StrArrayRead": _b_strarrayread,
     "realtostring": _b_inttostring,
     "INP1apiResultInt": _b_result_int,
-    "INPAapiResultBinary": _b_noop,
+    "INPAapiResultBinary": _b_result_binary,
+    "GetBinaryDataString": _b_getbinarydatastring,
 }
 
 

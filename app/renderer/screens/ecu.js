@@ -371,22 +371,6 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
       }
     }
     if (!ecu._ir) throw new Error('no IR for this module');
-    // INTERPRETED SCREENS (opt-in, ?interp=1 or the setting): the build
-    // pipeline runs every screen through the .IPO executor and ships what it
-    // DREW as vmScreens -- gauges with their real bounds, the script's own
-    // dialogs, the error arm's lines. Each executed screen rides as a TWIN on
-    // its mined original and only the READOUT path (irScreens) prefers it:
-    // the fault, actuator and memory flows keep the mined structures their
-    // safety contracts were built against.
-    if (typeof interpretedScreens === 'function' && interpretedScreens()
-        && ecu._ir.vmScreens) {
-      ecu._ir.screens = ecu._ir.screens || {};
-      for (const [n, vscr] of Object.entries(ecu._ir.vmScreens)) {
-        const mined = ecu._ir.screens[n];
-        if (mined) mined._vmTwin = vscr;
-        else { vscr._vm = true; ecu._ir.screens[n] = vscr; }
-      }
-    }
     // asking the car which variant it is takes a real transaction; say so
     // rather than leaving the skeleton up with no explanation
     if (!ecu._variant && ecu._ir && ecu._ir.rootVariants
