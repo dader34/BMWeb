@@ -457,6 +457,32 @@ class WebSerialBus {
     return this.portLabel();
   }
 
+  // Reconnect WITHOUT a user gesture, on page load. Web Serial remembers a
+  // granted port across reloads (the permission survives; only the first
+  // requestPort() needs a click), so getPorts() returns it and open()
+  // succeeds silently. This is what keeps the cable "connected through a
+  // reload" -- the reopen-and-it-unlocks flow depends on it. Returns the
+  // label on success, or null when nothing was previously granted (first
+  // run, or the user revoked it) so the caller leaves the chip as "no cable".
+  async reconnect() {
+    if (!('serial' in navigator) || this.connected) return null;
+    let ports = [];
+    try { ports = await navigator.serial.getPorts(); } catch { return null; }
+    if (!ports.length) return null;
+    this.port = ports[0];
+    try {
+      await this.port.open(KDCAN);
+    } catch { this.port = null; return null; }
+    this.config = KDCAN;
+    this.writer = this.port.writable.getWriter();
+    this.reader = this.port.readable.getReader();
+    this.inited = null;
+    this.initedAddr = null;
+    this.pending = null;
+    this.sessionConcept = null;
+    return this.portLabel();
+  }
+
   // Close/reopen with a concept's wire settings. Reopening an already-
   // granted port needs no user gesture, only the first requestPort() does.
   async ensureConfig(cfg) {
