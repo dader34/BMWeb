@@ -137,6 +137,28 @@ function offlineWarn(warnings) {
 // here dead-ends (file:// blocks the fetch), including "SONDER", which has no
 // archive at all. Keep only what this copy can resolve; in an all-cars export
 // every entry should have matched, so a drop there is worth a warning by name.
+// The synthetic catch-all chassis web_export.py packs every orphan SGBD into
+// (see web_export SGBD_CATCHALL). It is not a car and is not in chassis.json,
+// so a whole-site export must add it by hand or the 579 orphans -- every .prg
+// no chassis config names, exactly what a live IDENTIFIKATION can resolve to --
+// travel with no data and loadEcu 404s them offline. Only for "all cars": a
+// single-car copy has no business carrying the whole corpus (56 MB), and its
+// cross-chassis index entries are dropped the same as any other car's.
+const OFFLINE_SGBD_CATCHALL = '_SGBD';
+
+// Append the catch-all to a whole-site export's id list IF its archive exists.
+// Guarded by a real fetch so a build made before the catch-all shipped (or one
+// that never had orphans) simply omits it rather than inlining a 404.
+async function offlineWithCatchAll(ids, chassis) {
+  if (chassis !== '*') return ids;
+  try {
+    const r = await OFFLINE_FETCH(
+      `${offlineBase()}/api/chassis/${OFFLINE_SGBD_CATCHALL}.chassis`);
+    if (r.ok) return [...ids, OFFLINE_SGBD_CATCHALL];
+  } catch { /* no catch-all in this build */ }
+  return ids;
+}
+
 function offlineFilterIndex(idx, ids, allCars, warnings) {
   const have = new Set(ids.map((i) => String(i).toUpperCase()));
   const out = {};
@@ -274,6 +296,8 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   } else {
     ids = [chassis];
   }
+  // whole-site export: carry the orphan catch-all too (no-op for one car)
+  ids = await offlineWithCatchAll(ids, chassis);
   // INLINE, NOT FETCHED. file:// gets an opaque origin where fetch() is blocked,
   // so data in separate files needs a server (or a launcher script macOS then
   // refuses to run). A <script> tag has no such restriction; base64 costs 33%
@@ -500,6 +524,8 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   } else {
     ids = [chassis];
   }
+  // whole-site export: carry the orphan catch-all too (no-op for one car)
+  ids = await offlineWithCatchAll(ids, chassis);
   // ONE COPY AT A TIME. Building an object of all cars then JSON.stringify-ing
   // it holds the payload TWICE; "all cars" is 184 MB, so the peak hit ~700 MB
   // and iOS killed the tab (an OOM kill raises nothing to catch). Emit the
