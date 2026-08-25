@@ -70,23 +70,20 @@ def group_variants():
     module physically present and answering, every one absent from the E46
     menu, so none was exported and the scan could only say "not in build".
 
-    Two sources inside each group file, both BMW's own data:
+    The source is the group's own TABLES, BMW's own data: a local SGBD table
+    (d_0032 lists GS20 at LI_NR 29) or a hardware->VARIANTE map (d_0012's
+    HW9_TABELLE). Rows carrying a GRUPPE column that names a DIFFERENT group are
+    skipped: several groups embed a copy of the master ZuordnungsTabelle, whose
+    rows describe the whole car, not that group -- without this filter ms450ds0
+    lands in d_rls and d_fdm_vs as well as d_0012.
 
-      1. TABLES. A local SGBD table (d_0032 lists GS20 at LI_NR 29) or a
-         hardware->VARIANTE map (d_0012's HW9_TABELLE). Rows carrying a
-         GRUPPE column that names a DIFFERENT group are skipped: several
-         groups embed a copy of the master ZuordnungsTabelle, and its rows
-         describe the whole car, not that group -- without this filter
-         ms450ds0 lands in d_rls and d_fdm_vs as well as d_0012.
-
-      2. THE STRING POOL. Groups with no tables decode the variant in
-         bytecode instead (d_00a4 branches on ident bytes and assigns one of
-         MRS2/MRS3/MRS4/ZAE...). Those names sit in the pool beside the
-         literal "VARIANTE" the bytecode assigns them to.
-
-    Every candidate from either source must name a real .prg. That is what
-    keeps this formulaic rather than a guess: a pool string that matches no
-    shipped SGBD is a caption or a status word, and it is dropped.
+    Only variants the tables actually name are kept, and each must name a real
+    .prg. The candidate list is not the answer -- it is the set the group's own
+    IDENTIFIKATION chooses among, run live against the car (webResolveVariant).
+    A variant name that merely appears in the string pool is NOT taken: that
+    would gate on a name the bytecode does not select, and the app is a straight
+    .IPO emulator -- it runs the code and lets the ECU decide, it does not
+    pre-decide from string shape.
     """
     out = {}
     for path in sorted(glob.glob(os.path.join(GROUPS, "*.json.gz"))):
@@ -97,16 +94,6 @@ def group_variants():
         except (OSError, ValueError):
             continue
         found = set()
-        for raw in data.get("strings") or []:
-            try:
-                name = bytes(raw).split(b"\x00")[0].decode("latin1").strip()
-            except (TypeError, ValueError):
-                continue
-            n = name.lower()
-            if (n and n not in RESERVED_NAMES
-                    and all(c.isalnum() or c == "_" for c in n)
-                    and n in _prg_names()):
-                found.add(n)
         for rows in (data.get("tables") or {}).values():
             for r in rows:
                 if not isinstance(r, dict):
@@ -263,5 +250,12 @@ def read_ecu(sgbd, name):
 
 
 def all_sgbds():
-    """Every SGBD some chassis references."""
-    return sorted(owners().keys())
+    """Every SGBD BMW ships a .prg for -- the whole corpus.
+
+    The app is a straight .IPO emulator: a group's IDENTIFIKATION runs live and
+    the ECU names its own variant, so the ship list must not try to PREDICT
+    which variants a car might have (that is what a menu, or a string-pool
+    guess, does). Shipping every .prg means whatever the wire resolves to always
+    has its data present, and no variant is gated by a build-time inference.
+    """
+    return sorted(_prg_names())
