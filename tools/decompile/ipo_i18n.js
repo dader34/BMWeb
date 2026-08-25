@@ -23,6 +23,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const zlib = require('zlib');
 const R = path.join(__dirname, '..', '..');
 const IR_DIR = path.join(R, 'data/inpa-ir');
 const OVR_DIR = path.join(R, 'data/inpa-i18n');
@@ -169,7 +170,12 @@ function main() {
     // `strings` was the emitter's hand-off to this step; the app never needs
     // the untranslated list, only the map.
     delete ir.strings;
-    fs.writeFileSync(p, JSON.stringify(ir));
+    const out = JSON.stringify(ir);
+    fs.writeFileSync(p, out);
+    // The .json.gz is the COMMITTED source (CI expands it back to .json), so it
+    // must carry the resolved i18n too -- writing only the .json left the gz
+    // stale and CI rendered raw German captions. Rewrite the gz in step.
+    fs.writeFileSync(p + '.gz', zlib.gzipSync(out));
   }
   console.log(`  i18n       ${ecus} ECUs, ${strings} captions, `
     + `${translated} translated (${overridden} from per-ECU overrides, `
