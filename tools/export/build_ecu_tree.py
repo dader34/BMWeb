@@ -94,6 +94,12 @@ def main():
             if f.endswith(".ipoexec.json.gz"):
                 xstems.setdefault(f[:-len(".ipoexec.json.gz")].lower(),
                                   os.path.join(ir_dir, f))
+            # CI's expand step gunzips every *.json.gz in place, so the runnable
+            # twin also appears as <stem>.ipoexec.json -- which the plain .json
+            # branch below would file as a bogus "<stem>.ipoexec" frozen IR.
+            # Skip it; the .gz above is the only form the tree reads.
+            elif f.endswith(".ipoexec.json"):
+                continue
             elif f.endswith(".json"):
                 stems[f[:-5].lower()] = os.path.join(ir_dir, f)
             elif f.endswith(".json.gz"):
