@@ -1,65 +1,214 @@
-// whole-vehicle sweep engine (INPA "Functional Jobs"): quickErrorSweep reads
-// fault memory on every chassis ECU, quickIdentSweep reads IDENT. Strict group
-// resolution (cfe86b07) is the presence test for every ecu with a runnable
-// D_xxxx group; server-derived variant groups skip dead siblings; the hand
-// table below only bridges the few group-less orphans in. fault-signature
-// dedup drops echoes. fillFaultDetail lives in autoscan.js; exportFaultPdf in
-// fault-report.js.
+// whole-vehicle sweep engine (INPA "Functional Jobs"), for ANY chassis.
+//
+// quickErrorSweep reads fault memory on every module; quickIdentSweep reads
+// identification. Both walk the SAME plan, built by sweepPlan() below, so a
+// module that is skipped as absent by one is skipped by the other for the
+// same reason.
+//
+// THE UNIT OF SCAN IS THE DIAGNOSTIC-ADDRESS GROUP, NOT THE CONFIG ROW.
+// That is BMW's own model and the whole reason this file has no tables in it.
+// A chassis config lists every variant BMW ever fitted at an address -- E46
+// Engine lists twelve, of which exactly one is in the car. The group SGBD
+// (D_0012, D_MOTOR, ...) is the thing that knows which: running its
+// IDENTIFIKATION probes the address and reports VARIANTE, the concrete SGBD
+// name. So one probe per group answers "is anything here, and what is it",
+// and the read then targets what answered.
+//
+// What this replaces (2026-08-21): a hand-written VARIANT_GROUPS table that
+// covered E46 and E36 only, a chassis-config `variantGroups` array that was
+// derived by a weaker unvalidated rule, and a nav gate that hid Functional
+// Jobs entirely on every other car. All three are gone. The per-ECU `group`
+// field written by tools/export/inpa_config.py (Resolver.group_file_for) is
+// the formula now, and it is validated at generation time against what the
+// group can actually identify -- T_GRTB (BMW's own variant->group table)
+// first, then .IPO tokens accepted only when the group's own string pool
+// names the resolved SGBD. Every group named by every shipped chassis config
+// is present in data/groups (26/26 chassis, 188 distinct groups, 0 missing),
+// so the strict path is available on every car, not two.
+//
+// fillFaultDetail lives in autoscan.js; exportFaultPdf in fault-report.js.
 
-// variant groups: ECUs sharing one diagnostic address, only one installed. Once
-// a member responds the rest are absent, so the sweep skips them. The server
-// derives the groups from the entries' .IPO address references
-// (ch.variantGroups); the hand entries below now hold ONLY the ecus whose
-// chassis-config `group` is null (.IPO carried no usable token, so they have
-// no strict D_xxxx presence test either), each led by one anchor code that IS
-// in the derived group so buildGroupLookup merges the orphans into it and a
-// strict group answer eliminates them. Every code with a runnable `group` was
-// deleted 2026-08-18: strict resolution is its presence test and
-// ch.variantGroups already carries its sibling-skip (verified against
-// data/chassis-config/E46.json + E36.json vs data/groups/index.json). The old
-// E36 cross-address merges (D_0010+D_0012 engines, D_0032+D_006C boxes) went
-// with it; cost is one cached group-resolution timeout per absent address
-// family, not one per sibling.
-const VARIANT_GROUPS = {
-  E46: {
-    // ME9NG4TU + MS450: `group:null` in E46.json, so they still scan by
-    // direct read; MS430 (D_0012, in the derived engine group) anchors them
-    // so an identified engine skips both. CARB (also group:null) is gone from
-    // the group on the old E36 note's own rationale: it's a dealer interface
-    // that coexists with the DME (like the S50 VANOS box VNC), so an engine
-    // answer must never mark it absent -- it just scans ungrouped now.
-    engine: ['MS430', 'ME9NG4TU', 'MS450'],
-    // dscmk60: `group:null` in E46.json; ascdsc46 (D_0056, in the derived
-    // DSC group) anchors it.
-    dsc: ['ascdsc46', 'dscmk60'],
-  },
-  E36: {
-    // dscmk60: `group:null` in E36.json too (same MK60 box as E46); same
-    // ascdsc46 anchor (in the derived D_0056 group).
-    dsc: ['ascdsc46', 'dscmk60'],
-  },
-};
-// code -> group lookup for one chassis: the server derives groups from the
-// entries' .IPO address references; the hand tables above fill gaps where an
-// .IPO carries no usable token (MS450, dscmk60). Hand entries join a derived
-// group when they share a member, else form their own. unknown code -> null
-// (scanned normally: safe, just slower).
-function buildGroupLookup(ch) {
-  const groups = (ch.variantGroups || []).map(g => new Set(g.map(c => String(c).toLowerCase())));
-  const hand = VARIANT_GROUPS[(ch.id || '').toUpperCase()];
-  if (hand) {
-    for (const list of Object.values(hand)) {
-      const set = new Set(list.map(c => c.toLowerCase()));
-      const overlap = groups.find(g => [...set].some(c => g.has(c)));
-      if (overlap) set.forEach(c => overlap.add(c));
-      else groups.push(set);
+// ---------------------------------------------------------------------------
+// the plan
+// ---------------------------------------------------------------------------
+
+// Build the scan plan for a chassis: a list of TARGETS, each of which is one
+// bus address to probe once.
+//
+//   grouped target  -- ecus sharing a `group`. Probed by the group's
+//                      IDENTIFIKATION; that answer names the variant to read.
+//   ungrouped target -- one ecu whose config row carries no group (the
+//                      generator's five-step ladder found nothing that could
+//                      identify it). Read directly, and SAID to be read
+//                      directly, because there is no presence test for it.
+//
+// Order is chassis-config order (INPA's own menu order, engine section first)
+// and the first row of a group fixes that group's position, so the display
+// reads like the car rather than like a hash map.
+//
+// Dedup is by sgbd within a group and by sgbd globally for ungrouped rows:
+// the same module listed in two sections is one module.
+function sweepPlan(ch) {
+  const targets = [];
+  const byGroup = new Map();
+  const seenSolo = new Set();
+  for (const sec of (ch.sections || [])) {
+    for (const ecu of (sec.ecus || [])) {
+      const g = String(ecu.group || '').toLowerCase();
+      if (g) {
+        let t = byGroup.get(g);
+        if (!t) {
+          t = { group: g, section: sec.name, ecus: [], label: ecu.label };
+          byGroup.set(g, t);
+          targets.push(t);
+        }
+        // every candidate variant at this address, so the identified name has
+        // a config row to take its label and INPA code from
+        if (!t.ecus.some(e => sameSgbd(e.sgbd, ecu.sgbd))) t.ecus.push(ecu);
+      } else {
+        const key = String(ecu.sgbd || '').toLowerCase();
+        if (!key || seenSolo.has(key)) continue;
+        seenSolo.add(key);
+        targets.push({ group: null, section: sec.name, ecus: [ecu], label: ecu.label });
+      }
     }
   }
-  const byCode = new Map();
-  // string keys: a numeric 0 would read falsy at the `grp &&` skip checks
-  groups.forEach((g, i) => g.forEach(c => byCode.set(c, `g${i}`)));
-  return (code) => byCode.get(String(code || '').toLowerCase()) || null;
+  return targets;
 }
+
+const sameSgbd = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
+
+// A target's display name. A group is a bus address with several possible
+// occupants, so before it answers there is no one right name: use the first
+// configured row's label (config order = INPA menu order, so this is the name
+// INPA shows too) and let resolution replace it with the real one.
+const targetLabel = (t) => t.label || (t.ecus[0] && t.ecus[0].label) || t.group || '?';
+
+// Which config row does an identified variant correspond to? The ident names
+// an SGBD; match it against each candidate's own sgbd and its declared
+// `variants` aliases. No match is normal and not an error -- BMW ships
+// variants the menu never listed -- so fall back to the first candidate for
+// its label and code, but the READ always targets the identified name.
+function rowForVariant(t, via) {
+  return t.ecus.find(e => sameSgbd(e.sgbd, via)
+      || (e.variants || []).some(v => sameSgbd(v, via)))
+    || t.ecus[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// probing one target
+// ---------------------------------------------------------------------------
+
+// The shipped-groups index gates the strict path: a group whose bytecode this
+// build ships can be run, and running it IS the presence test. One fetch per
+// session, shared by both sweeps (ecu.js and autoscan.js keep their own for
+// the same reason -- it is a small static file and the browser caches it).
+let _groupIndexP = null;
+const groupIndex = () => (_groupIndexP ??= fetch('data/groups/index.json')
+  .then(r => (r.ok ? r.json() : null)).catch(() => null));
+async function groupRunnable(g) {
+  if (!g || typeof webResolveVariant !== 'function') return false;
+  const idx = await groupIndex();
+  return !!(idx && (idx.groups || []).includes(g));
+}
+
+// group -> variant, once per sweep run. webResolveVariant caches successful
+// resolutions per session underneath (and drops them on disconnect), so this
+// layer only stops a single run from re-probing when two sections list the
+// same group.
+function variantResolver() {
+  const cache = new Map();
+  return async (g) => {
+    if (!cache.has(g)) {
+      let v = null;
+      try { v = await webResolveVariant(g); } catch { v = null; }
+      cache.set(g, v);
+    }
+    return cache.get(g);
+  };
+}
+
+// The job names one SGBD declares.
+//
+// /api/ecu/<s>/jobs has TWO shapes, because two exporters write it:
+// web_export.py writes `sorted(jobs.keys())` (a string array) and
+// sgbd_export.py writes the lifted spec object `{jobs:[{name,...}]}`. Reading
+// only one of them silently sees zero jobs on every module the other exported
+// -- which here would report a present module as "not in build". This is the
+// same normalisation viJobs (vehicle-identity.js) and tool32.js already do.
+//
+// Cached per SGBD for the session: this is a fact about the BUILD (which job
+// code was exported), not about the car, so it cannot go stale on reconnect.
+const _jobNames = new Map();
+function jobNamesFor(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (!_jobNames.has(key)) {
+    _jobNames.set(key, api(`/api/ecu/${key}/jobs`).then((j) => {
+      const list = Array.isArray(j) ? j : (j && j.jobs) || [];
+      return list.map(x => (typeof x === 'string' ? x : x && x.name))
+        .filter(Boolean);
+    }).catch(() => []));
+  }
+  return _jobNames.get(key);
+}
+
+// Can this build actually run jobs on this SGBD? The ident can name a variant
+// whose job code was never exported ('xyz' is BMW's own catch-all, and exotic
+// variants exist that no chassis config lists). Asking first is what lets the
+// row say "identified but not in this build" instead of "no response", which
+// are completely different facts about the car. Same test ecu.js uses before
+// it retargets a screen.
+const buildHasVariant = async (sgbd) => (await jobNamesFor(sgbd)).length > 0;
+
+// Resolve one target to the SGBD to talk to.
+//
+// Returns one of:
+//   { state:'ok',      sgbd, ecu, strict }  talk to sgbd
+//   { state:'absent'                     }  nothing answered this address
+//   { state:'unbuilt', via              }  module answered, build can't read it
+//
+// STRICT MEANS STRICT: when a group is runnable and stays silent, the module
+// is absent and we do NOT fall back to reading a configured sibling. That
+// fallback is the exact trap this design exists to close -- the E46 config
+// maps Airbag to `zae` while many cars carry an MRS, and `zae` will happily
+// answer an MRS and decode its reply as a confident "0 faults". A diagnostic
+// tool reporting a clean airbag module that it never actually spoke to is the
+// worst failure available to it, so silence is reported as silence.
+async function resolveTarget(t, resolve) {
+  if (await groupRunnable(t.group)) {
+    const via = await resolve(t.group);
+    if (!via) return { state: 'absent' };
+    if (!await buildHasVariant(via)) return { state: 'unbuilt', via };
+    return { state: 'ok', sgbd: via, ecu: rowForVariant(t, via), strict: true };
+  }
+  // No runnable group: the only thing left is the configured SGBD, read
+  // directly. This is a weaker statement and the UI says so.
+  const ecu = t.ecus[0];
+  if (!ecu || !ecu.sgbd) return { state: 'absent' };
+  return { state: 'ok', sgbd: ecu.sgbd, ecu, strict: false };
+}
+
+// ---------------------------------------------------------------------------
+// wire helpers
+// ---------------------------------------------------------------------------
+
+// Read fault memory. FS_LESEN is the job every fault-capable SGBD declares;
+// set 0 is the EDIABAS system summary, the rest are fault entries. This is
+// the same call faults.js and live.js make -- the old `/api/ecu/<s>/read`
+// endpoint here was a C#-server route that the web build never implemented,
+// so it 404'd and every module in the sweep reported "no response".
+async function readFaults(sgbd) {
+  const d = await api(`/api/ecu/${sgbd}/run/FS_LESEN`, { method: 'POST' });
+  return dataSets(d.sets).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
+}
+
+// A module answers "no faults" and a module that is not there both produce a
+// short reply, so the difference has to come from the transport: api() throws
+// on a wire failure and returns sets on an answer. `count` (the old field
+// read here) never existed outside the C# server.
+const isMissingJob = (e) =>
+  /404|not found|no job|unknown sgbd|no job code|no static route/i.test(String((e && e.message) || e));
+
 // stable fault signature for echo dedup. F_HEX_CODE is globally unique (BMW
 // DTC); F_ORT_NR is only an ECU-local index, so fall back to it only when hex
 // is absent.
@@ -69,22 +218,16 @@ function buildGroupLookup(ch) {
 const _faultSig = (codes) =>
   (codes || []).map(c => hexText(c.F_HEX_CODE) || `nr:${c.F_ORT_NR}`).join('|');
 
-// Variant resolution is INPA's own model, with no per-module lists: the
-// ecu's diagnostic-address group (D_00A4...) runs its IDENTIFIKATION in the
-// VM (webResolveVariant, available in web AND native builds -- both run jobs
-// through webshim/bestvm) and names the concrete SGBD from the ident bytes.
-// The probeAirbag richest-read hack and its AIRBAG_VARIANTS list are gone:
-// they existed because the configured zae ANSWERS an MRS module and decodes
-// a false 0 faults -- the group's ident chain makes that mixup impossible.
-
 // each sweep takes a token; navigating away or starting another bumps it, and
 // the running loop bails on its next iteration -- stops hammering the K-line
 // once the user leaves.
 let _sweepToken = 0;
 const cancelSweep = () => { _sweepToken++; };
 
-// quick error memory test (INPA FSQUICK): read fault memory on every chassis
-// ECU, report which modules have stored faults.
+// ---------------------------------------------------------------------------
+// F4 -- Full Module Error Scan (INPA FSQUICK)
+// ---------------------------------------------------------------------------
+
 async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
   // scanning every module holds the bus; confirm before touching the K-line
@@ -98,37 +241,20 @@ async function quickErrorSweep(chassisId) {
   if (!ok) return;
   const token = ++_sweepToken;            // claim this run
   const alive = () => token === _sweepToken;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Full Module Error Scan' }]);
+  const leave = () => { cancelSweep(); showSections(id); };
+  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: leave }, { label: 'Full Module Error Scan' }]);
   view.innerHTML = head('Whole vehicle', 'Full Module Error Scan', `Scanning every module on the ${dispChassis(id)} for stored faults…`);
   const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => { cancelSweep(); showSections(id); } }]);
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave }]);
   loadFaultDb(); // warm the name db before detail rows render
   const ch = await tryApi(`/api/chassis/${id}`, null, out);
   if (!ch) return;
-  const ecus = dedupEcus(ch);      // config order: engine section first
-  const groupOf = buildGroupLookup(ch);
-  // The ecu's address group (D_00A4...) runs its own IDENTIFIKATION and
-  // names the concrete variant; the fault read then targets THAT SGBD.
-  // One resolution per group per run (webshim caches per session too).
-  // The shipped-groups index decides which ecus get the strict semantics:
-  // a group we CAN run is the presence test (no identification -> no read),
-  // a group we can't run leaves the legacy direct read in place.
-  const groupIndex = await fetch('data/groups/index.json')
-    .then(r => (r.ok ? r.json() : null)).catch(() => null);
-  const groupRunnable = (g) => !!(g && typeof webResolveVariant === 'function'
-    && groupIndex && (groupIndex.groups || []).includes(g));
-  const resolvedVariant = new Map();
-  const resolveVia = async (g) => {
-    if (!resolvedVariant.has(g)) {
-      let v = null;
-      try { v = await webResolveVariant(g); } catch { v = null; }
-      resolvedVariant.set(g, v);
-    }
-    return resolvedVariant.get(g);
-  };
+  const targets = sweepPlan(ch);
+  const resolve = variantResolver();
+
   out.innerHTML = `<div class="quick-sweep">
     <div class="quick-bar">
-      <div class="quick-head">${ecus.length} modules · scanning…</div>
+      <div class="quick-head">${targets.length} modules · scanning…</div>
       <div class="quick-bar-btns">
         <button class="quick-pdf" id="quick-pdf" disabled>Export PDF</button>
         <button class="quick-clear-all" id="quick-clear-all" disabled>Clear all</button>
@@ -137,83 +263,79 @@ async function quickErrorSweep(chassisId) {
     <div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   const headEl = out.querySelector('.quick-head');
-  let withFaults = 0, scanned = 0, dupes = 0, skipped = 0;
+  let withFaults = 0, read = 0, absent = 0, dupes = 0, unbuilt = 0;
   const seen = new Map();          // fault-signature -> first ECU label
-  const groupDone = new Set();     // variant-group key that already responded
   const faulty = [];               // modules with faults, for the deep pass
-  for (const ecu of ecus) {
-    if (!alive()) return;          // user left the sweep; stop reading the bus
-    const grp = groupOf(ecu.code);
-    const row = addSweepRow(rows, ecu.label);
+  const progress = () => {
+    headEl.textContent = `${read} read · ${absent} absent · ${withFaults} with faults`;
+  };
 
-    if (grp && groupDone.has(grp)) {
-      // another variant in this group answered, so this one isn't installed
-      skipped++; row.classList.add('noresp');
-      row.querySelector('.quick-status').textContent = 'skipped (variant)';
-      continue;
+  for (const t of targets) {
+    if (!alive()) return;          // user left the sweep; stop reading the bus
+    const row = addSweepRow(rows, targetLabel(t));
+    const status = row.querySelector('.quick-status');
+
+    let r;
+    try { r = await resolveTarget(t, resolve); }
+    catch { r = { state: 'absent' }; }
+
+    if (r.state === 'absent') {
+      absent++; row.classList.add('noresp');
+      status.textContent = t.group ? 'not installed' : 'no response';
+      progress(); continue;
     }
+    if (r.state === 'unbuilt') {
+      // The car answered and named itself; this build just has no job code
+      // for that variant. Say exactly that -- reading a sibling instead is
+      // what produces confident wrong answers.
+      unbuilt++; row.classList.add('noresp');
+      status.textContent = `${r.via} not in build`;
+      progress(); continue;
+    }
+
+    // resolution succeeded: name the row for what actually answered
+    if (r.ecu) setRowLabel(row, r.ecu.label, r.strict ? null : 'direct read');
+    else setRowLabel(row, r.sgbd, r.strict ? null : 'direct read');
+
+    let codes;
     try {
-      // legacy hint for the no-group path only; the strict path below runs
-      // the group's own bytecode instead of hinting at a server
-      const gq = groupQuery(ecu);
-      let data;
-      const g = String(ecu.group || '').toLowerCase();
-      if (groupRunnable(g)) {
-        // STRICT group semantics, exactly INPA's: the group's IDENTIFIKATION
-        // is the module-present test, and the fault read runs on the variant
-        // it names. NO fallback to the configured SGBD here -- a wrong-
-        // generation sibling (zae for an MRS airbag) happily answers with a
-        // false 0 faults, which is the exact trap this replaces.
-        const via = await resolveVia(g);
-        if (!via) throw new Error(`no identification from ${g}`);
-        try {
-          data = await api(`/api/ecu/${via}/read`, { method: 'POST' });
-          ecu.sgbd = via;                 // deep read and Clear target it
-        } catch (e) {
-          // identified, but this build can't read that variant ('xyz'
-          // catch-all or missing job-code): say so, don't mis-read a sibling
-          if (/404|not found|no job|unknown sgbd/i.test(String(e.message || e))) {
-            row.classList.add('noresp');
-            row.querySelector('.quick-status').textContent = `variant ${via} not in build`;
-            skipped++; scanned++;
-            headEl.textContent = `${scanned} read · ${skipped} skipped · ${withFaults} with faults`;
-            continue;
-          }
-          throw e;                        // real wire failure stays a failure
-        }
-      } else {
-        // no runnable group for this ecu: the configured direct read
-        data = await api(`/api/ecu/${ecu.sgbd}/read${gq}`, { method: 'POST' });
-      }
-      const n = data.count || 0;
-      // any answer (even 0 faults) claims the variant group
-      if (grp && typeof data.count === 'number') groupDone.add(grp);
-      if (n > 0) {
-        const sig = _faultSig(data.codes);
-        if (seen.has(sig)) {
-          dupes++; row.classList.add('noresp');
-          row.querySelector('.quick-status').textContent = `echo of ${seen.get(sig)}`;
-        } else {
-          seen.set(sig, ecu.label);
-          withFaults++; row.classList.add('has-faults');
-          row.querySelector('.quick-status').innerHTML = `<b>${n} fault${n === 1 ? '' : 's'}</b>`;
-          const codes = (data.codes || []).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
-          faulty.push({ ecu, row, codes });
-        }
-      } else { row.classList.add('clean'); row.querySelector('.quick-status').textContent = 'OK'; }
+      codes = await readFaults(r.sgbd);
     } catch (e) {
-      row.classList.add('noresp'); row.querySelector('.quick-status').textContent = 'no response';
+      // A module with no FS_LESEN is not a broken module -- some (gateways,
+      // satellites) genuinely do not keep a fault memory. Distinguish it from
+      // a dead address, which is what a transport failure means.
+      row.classList.add('noresp');
+      if (isMissingJob(e)) { status.textContent = 'no fault memory'; }
+      else { absent++; status.textContent = 'no response'; }
+      progress(); continue;
     }
-    scanned++;
-    headEl.textContent = `${scanned} read · ${skipped} skipped · ${withFaults} with faults`;
+
+    read++;
+    const n = codes.length;
+    if (n > 0) {
+      const sig = _faultSig(codes);
+      if (seen.has(sig)) {
+        // the identical fault list from two addresses is one module answering
+        // twice (a gateway echoing, a satellite mirrored onto its master)
+        dupes++; row.classList.add('noresp');
+        status.textContent = `echo of ${seen.get(sig)}`;
+      } else {
+        seen.set(sig, (r.ecu && r.ecu.label) || r.sgbd);
+        withFaults++; row.classList.add('has-faults');
+        status.innerHTML = `<b>${n} fault${n === 1 ? '' : 's'}</b>`;
+        faulty.push({ ecu: { ...(r.ecu || {}), sgbd: r.sgbd, label: (r.ecu && r.ecu.label) || r.sgbd }, row, codes });
+      }
+    } else {
+      row.classList.add('clean');
+      status.textContent = 'OK';
+    }
+    progress();
   }
 
   // deep pass: each faulty module gets a detailed read (FS_LESEN_DETAIL), shown
   // inline under its row.
   if (faulty.length) {
     await loadFaultDb(); // names resolve synchronously in the detail rows
-    headEl.textContent =
-      `${scanned} read, ${skipped} skipped · ${withFaults} with faults · reading details…`;
     let done = 0;
     for (const f of faulty) {
       if (!alive()) return;        // user left mid deep-read; stop
@@ -226,7 +348,7 @@ async function quickErrorSweep(chassisId) {
       appendFaultDetailRows(f.row, f.codes, f.ecu.sgbd);
       done++;
       headEl.textContent =
-        `${scanned} read, ${skipped} skipped · ${withFaults} with faults · details ${done}/${faulty.length}`;
+        `${read} read · ${absent} absent · ${withFaults} with faults · details ${done}/${faulty.length}`;
     }
   }
 
@@ -249,28 +371,217 @@ async function quickErrorSweep(chassisId) {
 
   // Fault report, available even with no faults. Native saves a PDF via the
   // Electron bridge; the web build prints a clean sheet via the shared helper.
+  const stats = { scanned: read, skipped: absent + unbuilt, withFaults };
   const pdfBtn = out.querySelector('#quick-pdf');
   if (pdfBtn && window.bmacw && window.bmacw.savePdf) {
     pdfBtn.disabled = false;
-    pdfBtn.onclick = () => exportFaultPdf(id, faulty, { scanned, skipped, withFaults });
+    pdfBtn.onclick = () => exportFaultPdf(id, faulty, stats);
   } else if (pdfBtn) {
     pdfBtn.textContent = 'Print report';
     pdfBtn.disabled = false;
-    pdfBtn.onclick = () => printFaultReport(id, faulty, { scanned, skipped, withFaults });
+    pdfBtn.onclick = () => printFaultReport(id, faulty, stats);
     // register it as the screen's print action too: Cmd/Ctrl+P routes through
     // the current action list (core/print.js), and the mobile functions sheet
     // reads the same list -- without this, both print the live page instead
     setActions([
-      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-        fn: () => { cancelSweep(); showSections(id); } },
+      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
       { key: 'p', keyLabel: 'P', label: 'Print report', kind: 'print',
-        fn: () => printFaultReport(id, faulty, { scanned, skipped, withFaults }) },
+        fn: () => printFaultReport(id, faulty, stats) },
     ]);
   }
 
-  headEl.textContent =
-    `Done · ${scanned} read, ${skipped} skipped · ${withFaults} with stored faults${dupes ? ` · ${dupes} echoes hidden` : ''}`;
+  const extra = [
+    dupes ? `${dupes} echo${dupes === 1 ? '' : 'es'} hidden` : null,
+    unbuilt ? `${unbuilt} not in build` : null,
+  ].filter(Boolean);
+  headEl.textContent = `Done · ${read} read, ${absent} absent · `
+    + `${withFaults} with stored faults${extra.length ? ` · ${extra.join(' · ')}` : ''}`;
   sbLeft.textContent = `full module error scan · ${withFaults} faulty`;
+}
+
+// ---------------------------------------------------------------------------
+// F2 -- Identification (INPA IDQUICK)
+// ---------------------------------------------------------------------------
+
+// Identification fields, in the order INPA prints them. Every one of these is
+// a real EDIABAS result name; the first present wins.
+const IDENT_FIELDS = ['SG_VARIANTE', 'VARIANTE', 'AIF_SG_VARIANTE', 'ID_SG_VARIANTE',
+                      'AIF_TYP', 'ID_TYP', 'HARDWARE_NUMMER', 'ID_HW_NR'];
+// Build/version fields shown after the variant name, same rule.
+const IDENT_BUILD = ['AIF_SW_NR', 'ID_SW_NR', 'SOFTWARE_NUMMER', 'AIF_DATEN_NR',
+                     'ID_DATEN_NR', 'AIF_ZB_NR', 'ID_ZB_NR', 'BMW_NUMMER'];
+
+const identValue = (sets, keys) => {
+  for (const s of dataSets(sets)) {
+    for (const k of keys) {
+      const v = s[k];
+      if (v != null && String(v).trim() && !String(v).startsWith('_')) return String(v).trim();
+    }
+  }
+  return null;
+};
+
+// The ident job this SGBD actually declares. IDENT is the usual name and 84%
+// of the shipped corpus has it, but 16% do not -- the F-series modules use
+// IDENT_FUNKTIONAL, and others name it differently again. Asking the module
+// what it declares is the formula; assuming IDENT is what made a present
+// F01 module report "no response".
+//
+// INITIALISIERUNG is deliberately NOT a candidate even though every one of
+// those modules declares it: bestvm's classifier reads it as a WRITE (it
+// starts a session and can change module state), and an identification sweep
+// must stay read-only end to end.
+const IDENT_JOB_RE = /^(IDENT|IDENTIFIKATION)(_|$)/i;
+// The corpus really does ship IDENT_SCHREIBEN, IDENT_VIN_SCHREIBEN,
+// IDENT_PRODUCTION_DATA_SCHREIBEN and friends -- jobs that WRITE the module's
+// identity. bestvm's isWriteJob() clears all of them, and correctly so for its
+// own contract: a read token anywhere wins, and IDENT is a strong read token
+// (that rule is what stops FS_LESEN_DETAIL being guarded). It is the wrong
+// gate HERE, where the name is already known to start with IDENT, so the
+// write verb has to be excluded explicitly. Getting this backwards would let
+// an identification sweep write identity data to every module on the car.
+const IDENT_WRITE_RE = /(SCHREIBEN|_SETZEN|_WRITE|PROGRAMMIER)/i;
+const isIdentReadJob = (n) =>
+  IDENT_JOB_RE.test(n) && !IDENT_WRITE_RE.test(n) && !isWriteJob(n);
+
+async function identJobFor(sgbd) {
+  const names = await jobNamesFor(sgbd);
+  const cands = names.filter(isIdentReadJob);
+  if (!cands.length) return null;
+  // exact IDENT first, then the narrowest prefixed variant -- shortest name
+  // wins, so IDENT_FUNKTIONAL is preferred over IDENT_READ_CURRENT_UIF_TABLE
+  return cands.includes('IDENT') ? 'IDENT'
+    : cands.slice().sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+}
+
+async function quickIdentSweep(chassisId) {
+  const id = chassisId || 'E46';
+  const token = ++_sweepToken;
+  const alive = () => token === _sweepToken;
+  const leave = () => { cancelSweep(); showSections(id); };
+  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: leave }, { label: 'Identification' }]);
+  view.innerHTML = head('Whole vehicle', 'Identification', `Identifying every module on the ${dispChassis(id)}…`);
+  const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave }]);
+  const ch = await tryApi(`/api/chassis/${id}`, null, out);
+  if (!ch) return;
+  const targets = sweepPlan(ch);
+  const resolve = variantResolver();
+
+  out.innerHTML = `<div class="quick-sweep">
+    <div class="quick-bar">
+      <div class="quick-head">${targets.length} modules · identifying…</div>
+      <div class="quick-bar-btns">
+        <button class="quick-pdf" id="quick-print" disabled>Print</button>
+      </div>
+    </div>
+    <div class="quick-rows" id="quick-rows"></div></div>`;
+  const rows = out.querySelector('#quick-rows');
+  const headEl = out.querySelector('.quick-head');
+  let present = 0, absent = 0, unbuilt = 0;
+  const found = [];                // for the printable report
+  const progress = () => { headEl.textContent = `${present} present · ${absent} absent`; };
+
+  for (const t of targets) {
+    if (!alive()) return;          // user left the sweep; stop reading the bus
+    const row = addSweepRow(rows, targetLabel(t));
+    const status = row.querySelector('.quick-status');
+
+    let r;
+    try { r = await resolveTarget(t, resolve); }
+    catch { r = { state: 'absent' }; }
+
+    if (r.state === 'absent') {
+      absent++; row.classList.add('noresp');
+      status.textContent = t.group ? 'not installed' : 'no response';
+      progress(); continue;
+    }
+    if (r.state === 'unbuilt') {
+      // Present and named, just not readable here. That IS an identification
+      // -- the group told us the variant -- so count it as present and show
+      // the name the car gave.
+      unbuilt++; present++;
+      row.classList.add('clean');
+      setRowLabel(row, r.via);
+      status.textContent = `${r.via} · not in build`;
+      found.push({ label: targetLabel(t), section: t.section, sgbd: r.via, variant: r.via, build: null });
+      progress(); continue;
+    }
+
+    if (r.ecu) setRowLabel(row, r.ecu.label, r.strict ? null : 'direct read');
+
+    // A strict resolution has ALREADY identified this module -- the group ran
+    // IDENTIFIKATION and named the variant. Running a second ident job over
+    // the wire to learn the same thing is pure traffic, so the job below only
+    // fills in the build/version detail, and its absence is not a failure.
+    let variant = r.strict ? r.sgbd.toUpperCase() : null;
+    let build = null;
+    try {
+      const job = await identJobFor(r.sgbd);
+      if (job) {
+        const d = await api(`/api/ecu/${r.sgbd}/run/${job}`, { method: 'POST' });
+        variant = identValue(d.sets, IDENT_FIELDS) || variant;
+        build = identValue(d.sets, IDENT_BUILD);
+      } else if (!r.strict) {
+        // Ungrouped and no ident job to run: nothing here has spoken to the
+        // car, so claiming it is present would be a guess. Report the gap.
+        row.classList.add('noresp');
+        status.textContent = 'no ident job';
+        progress(); continue;
+      }
+    } catch (e) {
+      if (!r.strict) {
+        // Direct read, and the wire refused: the module is not answering.
+        absent++; row.classList.add('noresp');
+        status.textContent = isMissingJob(e) ? 'no ident job' : 'no response';
+        progress(); continue;
+      }
+      // Strict path: the group already proved presence. A failed detail read
+      // downgrades the row's detail, never its presence.
+    }
+
+    present++; row.classList.add('clean');
+    status.textContent = [variant || r.sgbd, build].filter(Boolean).join(' · ').slice(0, 40);
+    found.push({ label: (r.ecu && r.ecu.label) || r.sgbd, section: t.section,
+                 sgbd: r.sgbd, variant: variant || r.sgbd, build });
+    progress();
+  }
+
+  const printBtn = out.querySelector('#quick-print');
+  if (printBtn) {
+    printBtn.disabled = false;
+    printBtn.onclick = () => printIdentReport(id, found, { present, absent });
+    setActions([
+      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
+      { key: 'p', keyLabel: 'P', label: 'Print report', kind: 'print',
+        fn: () => printIdentReport(id, found, { present, absent }) },
+    ]);
+  }
+
+  headEl.textContent = `Done · ${present} present, ${absent} absent`
+    + (unbuilt ? ` · ${unbuilt} not in build` : '');
+  sbLeft.textContent = `identification · ${present} present`;
+}
+
+// ---------------------------------------------------------------------------
+// shared row + clear helpers
+// ---------------------------------------------------------------------------
+
+function addSweepRow(rows, label) {
+  const row = document.createElement('div'); row.className = 'quick-row';
+  row.innerHTML = `<span class="quick-ecu">${esc(label)}</span><span class="quick-status">scanning…</span>`;
+  rows.appendChild(row);
+  return row;
+}
+
+// Rename a row once resolution names the module that actually answered. The
+// note is for the weaker path: an ungrouped row was read without a presence
+// test, and the display should not look identical to one that had one.
+function setRowLabel(row, label, note) {
+  const el = row.querySelector('.quick-ecu');
+  if (!el || !label) return;
+  el.textContent = label;
+  if (note) el.title = note;
 }
 
 // status cell for a faulty module: fault count plus a Clear button.
@@ -298,13 +609,12 @@ async function clearModule(f) {
   const st = f.row.querySelector('.quick-status');
   st.innerHTML = '<span class="quick-clearing">clearing…</span>';
   try {
-    await api(`/api/ecu/${f.ecu.sgbd}/clear`, { method: 'POST' });
+    await api(`/api/ecu/${f.ecu.sgbd}/run/FS_LOESCHEN`, { method: 'POST' });
     // trust the re-read, not the clear
     st.innerHTML = '<span class="quick-clearing">re-reading…</span>';
     let remaining = null;
     try {
-      const d = await api(`/api/ecu/${f.ecu.sgbd}/read`, { method: 'POST' });
-      const codes = (d.codes || []).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
+      const codes = await readFaults(f.ecu.sgbd);
       remaining = codes.length;
       if (remaining) f.codes = codes;
     } catch { /* re-read failed; report the clear alone below */ }
@@ -345,68 +655,4 @@ function appendFaultDetailRows(row, codes, sgbd) {
     </div>`;
   }).join('');
   row.insertAdjacentElement('afterend', wrap);
-}
-
-// quick identification (INPA IDQUICK): read IDENT on every chassis ECU
-async function quickIdentSweep(chassisId) {
-  const id = chassisId || 'E46';
-  const token = ++_sweepToken;
-  const alive = () => token === _sweepToken;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: () => { cancelSweep(); showSections(id); } }, { label: 'Quick identification' }]);
-  view.innerHTML = head('Whole vehicle', 'Quick identification', `Identifying every module on the ${dispChassis(id)}…`);
-  const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => { cancelSweep(); showSections(id); } }]);
-  let ch;
-  try { ch = await api(`/api/chassis/${id}`); }
-  catch (e) { out.innerHTML = errorBlock(e.message); return; }
-  const ecus = dedupEcus(ch);      // config order: engine section first
-  const groupOf = buildGroupLookup(ch);
-  out.innerHTML = `<div class="quick-sweep"><div class="quick-head">${ecus.length} modules · identifying…</div><div class="quick-rows" id="quick-rows"></div></div>`;
-  const rows = out.querySelector('#quick-rows');
-  const head_ = out.querySelector('.quick-head');
-  let present = 0, scanned = 0;
-  const groupDone = new Set();
-  for (const ecu of ecus) {
-    if (!alive()) return;          // user left the sweep; stop reading the bus
-    const grp = groupOf(ecu.code);
-    const row = addSweepRow(rows, ecu.label);
-    if (grp && groupDone.has(grp)) { row.classList.add('noresp'); row.querySelector('.quick-status').textContent = 'skipped (variant)'; continue; }
-    try {
-      const data = await api(`/api/ecu/${ecu.sgbd}/run/IDENT`, { method: 'POST' });
-      if (grp) groupDone.add(grp);
-      const set = dataSets(data.sets).find(s => Object.keys(s).some(k => !k.startsWith('_')));
-      const idtxt = set ? (set.SG_VARIANTE || set.VARIANTE || set.AIF_TYP || set.HARDWARE_NUMMER || 'present') : 'present';
-      present++; row.classList.add('clean'); row.querySelector('.quick-status').textContent = String(idtxt).slice(0, 28);
-    } catch {
-      row.classList.add('noresp'); row.querySelector('.quick-status').textContent = 'no response';
-    }
-    scanned++;
-    head_.textContent = `${scanned} identified · ${present} present`;
-  }
-  head_.textContent = `Done · ${present} modules present`;
-  sbLeft.textContent = `quick ident · ${present} present`;
-}
-
-// shared sweep helpers
-
-// sweep order IS chassis-config order: sections come engine-first in the
-// configs (INPA's own menu order), so the big mutually-exclusive engine group
-// is claimed before the long tail, and dedup keeps the first occurrence. The
-// hand-typed SWEEP_PRIORITY table + sortByPriority (deleted 2026-08-18) bet
-// on likeliest-installed variants per chassis; strict group resolution makes
-// that moot -- one cached IDENTIFIKATION per D_xxxx group names the installed
-// variant no matter which member row runs first -- and the bet was actively
-// wrong under it: it ran group-less legacy reads (MS450 first on E46) BEFORE
-// the strict members, letting a direct read claim the merged variant group
-// ahead of identification.
-function dedupEcus(ch) {
-  const ecus = [];
-  ch.sections.forEach(s => s.ecus.forEach(e => { if (!ecus.find(x => x.sgbd === e.sgbd)) ecus.push(e); }));
-  return ecus;
-}
-function addSweepRow(rows, label) {
-  const row = document.createElement('div'); row.className = 'quick-row';
-  row.innerHTML = `<span class="quick-ecu">${esc(label)}</span><span class="quick-status">scanning…</span>`;
-  rows.appendChild(row);
-  return row;
 }

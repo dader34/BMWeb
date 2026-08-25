@@ -112,8 +112,11 @@ def _tok_pool(data, start, end):
     while i < end:
         t = data[i]
         if t == 0x06:
+            # no length cap: CAS's pool holds a 377-byte string (entry 146 of
+            # its declared 15,135), and the declaration's entry count already
+            # validates the walk end-to-end
             j = data.find(b"\n", i + 1)
-            if j < 0 or j - i > 220:
+            if j < 0:
                 return None
             s = data[i + 1:j]
             if any(c not in _PRINTABLE for c in s):
@@ -150,9 +153,37 @@ def _tok_pool(data, start, end):
     return entries
 
 
+# The pool is the body of a DECLARATION named "Constant Data", with the same
+# header grammar as every proc:  <type> <name> \x0a <u32 id> \x0a [version]
+# \x0a \x00 <u16 count>.  Its u16 field is the ENTRY COUNT: on 878 corpus
+# files the walk from the header's end reaches EOF in exactly that many
+# entries, with zero mismatches.
+_POOL_DECL = re.compile(rb".Constant Data\x0a(....)\x0a[ -~]{0,32}\x0a\x00(..)",
+                        re.DOTALL)
+
+
 def find_pool(data):
-    """(pool_start, entries). The pool is the longest EOF-suffix that
-    tokenizes as literals AND whose indexing agrees with the code's refs.
+    """(pool_start, entries) -- the body of the "Constant Data" declaration.
+
+    The v1.x flavour of the format (the NCSEXPER data files) declares the
+    section but encodes its entries differently; there the declaration walk
+    fails after an entry or two and the suffix heuristic below still applies.
+    """
+    m = None
+    for m in _POOL_DECL.finditer(data):
+        pass                                  # the LAST declaration wins
+    if m is not None:
+        start = m.end()
+        declared = int.from_bytes(m.group(2), "little")
+        entries = _tok_pool(data, start, len(data))
+        if entries is not None and (len(entries) & 0xffff) == declared:
+            return start, entries
+    return _find_pool_suffix(data)
+
+
+def _find_pool_suffix(data):
+    """Fallback: the longest EOF-suffix that tokenizes as literals AND whose
+    indexing agrees with the code's refs.
 
     A too-early start prepends fake entries and shifts every index, so
     candidates are scored on a semantic anchor: for sampled call sites
@@ -247,9 +278,92 @@ def find_pool(data):
 # s_afs_fahrgestellnummern_vergleich (34) and s_afs_motorlagewinkeloffset_lesen
 # (33), which the ECU's own .ini lists and the decoder did not. Cross-checking
 # the corpus against those .ini screen inventories is what surfaced it.
-_DECL = re.compile(rb"([\x01-\x05])([A-Za-z_][A-Za-z0-9_]{2,60})\x0a(....)",
-                   re.DOTALL)
+# A DECLARATION, matched by its full shape rather than by how long the name
+# is:
+#
+#     <type> <name> \n <u32 id> \n [version] \n \x00 <u16 dwords> ...
+#
+# The trailing block header is what makes it a declaration -- anchoring on it
+# cuts 71,421 name-shaped hits to 11,529, exactly the set the old pattern
+# found. That made the {2,60} length floor removable, and it had to go: it
+# hid 15 real procs whose names are one or two characters (PD on the AFS
+# family, pm on the PM65 group, c on three MEV/ME9 DMEs), whose bodies then
+# decoded as garbage inside whichever proc preceded them.
+#
+# A LEADING SPACE IS NOT ALLOWED, though EHC_2 contains exactly one
+# declaration that would need it: " LT_handst", type 4 (statemachine), id 0,
+# 15 dwords, every field present. Admitting it is a net loss -- its own body
+# is a dispatch table of <offset> ffffffff pairs INSIDE the declared extent,
+# which nothing decodes, so recognising the declaration trades 12 unknown
+# bytes for 56. The 12 stay, documented below, until the table format is
+# understood; the file round-trips byte-identically either way.
+#
+# The optional version string is the same field body_start() reads: normally
+# empty, filled in ("111") only by Energiediagnose_L6_v111. Requiring the two
+# newlines to be adjacent lost all 7 of that file's declarations, which is
+# how the field turned up here too.
+_DECL = re.compile(
+    rb"([\x01-\x05])([A-Za-z_][A-Za-z0-9_]{0,60})\x0a(....)\x0a[ -~]{0,32}\x0a\x00",
+    re.DOTALL)
 _TYPES = {1: "screen", 2: "menu", 3: "state", 4: "statemachine", 5: "func"}
+
+
+# THE LAST TWELVE BYTES IN THE CORPUS. EHC_2's `handst` declares a 4-dword
+# body whose first three tokens are unrecognised:
+#
+#     00 04 00        block: 4 dwords
+#     11 51 06 00     ?
+#     11 51 04 00     ?
+#     10 44 00 00     ?
+#     0e 00 00 00     ret
+#
+# Their shape matches the `<op> <byte> <u16>` family (01 push, 06 store), and
+# the u16s are plausible slot indices, which reads like a parameter table --
+# but that is a guess and it is recorded here as one. Nothing supports
+# resolving it: no other proc in 1,788 files opens with 0x10/0x11, EHC_2
+# ships no .SRC, and `handst` is only ever referenced by procref, never
+# called with arguments that would reveal a signature.
+#
+# It costs nothing to leave undecoded. The file round-trips byte-identically
+# (unknown tokens are preserved verbatim), the VM runs it, and `handst` is an
+# empty stub that emits no items and no jobs whichever way the bytes are
+# read. Inventing an opcode to reach a round number would be worse than the
+# 12 bytes.
+
+
+def body_start(data, off, name):
+    """Where a declaration's CODE begins.
+
+        <type> <name> \n <u32 id> <version> \n <block header...>
+
+    The version string between the id and the block is normally EMPTY, so
+    every call site used to hard-code "+ 1" for its terminating newline.
+    Energiediagnose_L6_v111 fills it in ("111", matching its own name), and
+    the five bytes that field costs put every one of its seven procs three
+    bytes into its own body -- 8,770 bytes decoded as garbage, the single
+    largest remaining gap in the corpus. Reading the field's real length
+    costs nothing on the empty case and is what the format actually says.
+    """
+    # <type> <name> \n <u32 id> \n [version] \n <block header ...>
+    #
+    # The version string is normally EMPTY -- the two newlines sit side by
+    # side -- which is why every call site hard-coded "+ 1" and walk() ate
+    # the second newline harmlessly. Energiediagnose_L6_v111 fills it in
+    # ("111", matching its own name), and those extra bytes put each of its
+    # seven procs three bytes into its own body: 8,837 bytes of garbage, the
+    # largest single gap left in the corpus.
+    #
+    #   chrinit    ... 6\x00\x00\x00 \n     \n 00 12 00 ...   body = i + 1
+    #   AEP_LESEN  ... 6\x00\x00\x00 \n 111 \n 00 8e 02 ...   body = i + 4
+    #
+    # Skip the field's CONTENT only, leaving the trailing newline in place so
+    # the empty case keeps the exact offset it has always had.
+    i = off + 1 + len(name) + 1 + 4
+    if data[i:i + 1] == b"\n":
+        j = data.find(b"\n", i + 1, i + 64)
+        if j > i + 1:                      # a non-empty version string
+            return j
+    return i + 1
 
 
 def find_decls(data, pool_start):
@@ -310,18 +424,20 @@ BUILTINS = {
     0x48: "text",            # text(row, col, str)
     0x49: "textout",         # textout(str, row, col)   (empirical)
     0x4a: "ftextout",        # ftextout(str, row, col, flagA, flagB)
-    # digitalout(val, row, col, onText, offText). Two opcodes carry it and
-    # the argument SHAPES tell them apart: 0x4b is (var,int,int,str,str) --
-    # 990 sites, the common form -- while 0x4d takes all-variable arguments
-    # (the caption strings held in variables). Only 0x4d was mapped, so
-    # KLIMA_5B's I/O status decoded twelve captions and zero values.
-    # (0x4d may really be Inpa.h's multianalogout -- the numbers 48..4c land
-    # exactly on text..analogout in declaration order -- but 0x4b is the
-    # proven digitalout and 0x4d's rows render correctly as lamps, so the
-    # empirical name stays until a compiled source site proves it.)
+    # 0x4b is digitalout(val, row, col, onText, offText) -- 879 of its 1,557
+    # sites carry exactly that shape.
+    #
+    # 0x4d is multianalogout, NOT a second digitalout. It was named
+    # empirically because its rows render as lamps, with the standing note
+    # that 48..4c land on text..analogout in declaration order so 0x4d was
+    # probably the next entry. Two independent facts settle it: a second
+    # decoder of this format names it multianalogout, and its arguments are
+    # never digitalout's -- EHC_2's s_handsteuern passes
+    # (1, 0, 100.0, -100.0, 100.0, -100.0, 100.0, "3.0", 1), which is
+    # analogout's min/max/warnLo/warnHi/fmt tail, repeated per series.
     0x4b: "digitalout",
     0x4c: "analogout",       # analogout(val, row, col, min, max, wlo, whi, fmt)
-    0x4d: "digitalout",
+    0x4d: "multianalogout",
     0x4e: "hexdump",         # hexdump(adrstr, count, row, col)
     # boxes, views, PC-side files
     0x52: "messagebox",
@@ -364,6 +480,7 @@ BUILTINS = {
 # this run an EDIABAS job" must accept both.
 JOB_CALLS = {"INPAapiJob", "INP1apiJob"}
 
+
 # binary operators (opcode 09). Proven names per the docstring; the five
 # inferred ones are marked there.
 BINOPS = {
@@ -399,6 +516,48 @@ def walk(data, lo, hi, pool):
         start = i
         mark = len(toks)
         op = data[i]
+        # A STATE LABEL, its own token, sitting where a 4-byte token would:
+        #
+        #     %NAME \n  <u32 state index>  0a
+        #
+        # Read from the bytes, side by side, in RE_VM11:
+        #     0c 81 06 00  %PS1__PS1_Vorgabe_lesen…\n  1a000000 0a   (call)
+        #     0c 81 0c 00  %Setze_IOs\n                 00000000 0a   (call)
+        #     05 00 01 00  %PS1__PS1_Mess_laeuft…\n     04000000 0a   (stmt)
+        # -- the same token after three different predecessors. This used to
+        # be consumed inside builtin 0x06's branch, so the first decoded and
+        # the rest desynchronised the stream: Ablaufsteuerung read 68%
+        # unknown. It is a token in its own right and is read as one here,
+        # which is why the predecessor no longer matters.
+        #
+        # The marker character alone is NOT enough -- "%I\n" appears inside
+        # CAS's format strings. The token is the whole shape: a printable
+        # NUL-free run, terminated by \n, then a u32 and a 0a. Anything else
+        # falls through to the ordinary paths below.
+        #
+        # THE '%' IS PART OF THE TOKEN, not a guess. Dropping it and keying
+        # on the shape alone (printable run, \n, u32, 0a) looked more
+        # principled and was wrong: in MUST_EXX, which contains no state proc
+        # and not one setstatemachine call, it matched 66 pool markers of the
+        # form '$' \n <u32> \n\n and swallowed the instructions after each,
+        # breaking that file's hexdump, showIf, promptArg and argSlot.
+        #
+        # Two other forms looked like bare labels and are not:
+        #   ZKE2     01 01 #\n   is push-const, whose u16 happens to be '#\n'
+        #   Energie  05 AEP_File_reset\n  is a func DECLARATION
+        # Both were mis-read here before their contexts were checked.
+        if data[i:i + 1] == b"%":
+            j = data.find(b"\n", i + 1, min(hi, i + 72))
+            lbl = data[i:j] if j >= 0 else b""
+            if (j >= 0 and lbl
+                    and all(0x20 <= c < 0x7f for c in lbl)
+                    and j + 5 < hi and data[j + 5] == 0x0a):
+                toks.append({"op": "state", "name": lbl.decode("latin-1"),
+                             "index": int.from_bytes(data[j + 1:j + 5],
+                                                     "little"),
+                             "at": i})
+                i = j + 6
+                continue
         if op in _INLINE_OPS and i + 6 <= hi:
             # op + u16 0x000a + pad00 + u16 nr + caption 0a + second 0a
             #    + pad00 + u16 end-dword
@@ -476,20 +635,6 @@ def walk(data, lo, hi, pool):
         elif b0 == 0x0c and b1 == 0x81:
             toks.append({"op": "call", "n": u16,
                          "name": BUILTINS.get(u16, f"builtin_{u16:02x}")})
-            # Builtin 06 names a STATE inline rather than through the pool:
-            # "%Z_TOGGLE\n" follows the call, then a 5-byte tail, then the
-            # next token. Not consuming it desynchronised everything after,
-            # which is why LWS5's state machines read 87% unknown -- the whole
-            # of its missing coverage. 121 files use this form.
-            if u16 == 0x06:
-                j = data.find(b"\n", i + 4, min(hi, i + 4 + 64))
-                s = data[i + 4:j] if j >= 0 else b""
-                if j >= 0 and s and all(0x20 <= c < 0x7f for c in s):
-                    toks[-1]["at"] = start
-                    toks.append({"op": "state", "name": s.decode("latin-1"),
-                                 "at": i + 4})
-                    i = j + 6
-                    continue
         elif b0 == 0x0f:
             toks.append({"op": "frame"})
         else:
@@ -536,9 +681,74 @@ def calls_of(toks):
     return out, items
 
 
-# ---------------------------------------------------------------- fields ----
+# ------------------------------------------------------------ call args ----
 
-_KEYISH = re.compile(r"^[A-Z][A-Z0-9_]{3,}$")
+
+def frame_of(toks, ci):
+    """The tokens of the call at index ci: everything back to its frame.
+
+    A frame opens every argument list, so it -- not a fixed lookbehind window
+    -- is the boundary. Scanning a fixed number of tokens ran into the
+    previous call's operands.
+    """
+    lo = ci
+    while lo > 0 and toks[lo - 1]["op"] != "frame":
+        lo -= 1
+    return toks[lo:ci]
+
+
+def arg_positions(seg):
+    """Split a call frame into POSITIONAL arguments.
+
+    Each argument is one value left on the stack: a const/var/procref push is
+    one value, a binop consumes two and yields one. Simulating the stack gives
+    argument k exactly, which is what the call's signature is written against
+    -- so a job can be read from the position INPAapiJob defines for it
+    rather than guessed at from how the string is spelled.
+    """
+    st = []
+    for t in seg:
+        op = t["op"]
+        if op in ("const", "var", "procref"):
+            st.append([t])
+        elif op == "binop":
+            b = st.pop() if st else []
+            a = st.pop() if st else []
+            st.append(a + b + [t])
+    return st
+
+
+def arg_str(pos, k):
+    """The literal string at positional argument k, or None if not a literal.
+
+    None means "not a constant here" (a variable, or no such argument) --
+    never "unrecognised shape". Callers that need the variable resolve it
+    through the enclosing proc, they do not fall back to sniffing.
+    """
+    if k >= len(pos):
+        return None
+    for x in pos[k]:
+        if x["op"] == "const" and x.get("t") == "s":
+            return x["v"]
+    return None
+
+
+# INPAapiJob(sgbd, job, argument, result_filter): the job is argument 1 and
+# what it sends is argument 2, by the call's own signature.
+JOB_ARG_JOB = 1
+JOB_ARG_ARG = 2
+
+# INPAapiFsMode(sgbd, mode, ?, ?, job) -- the fault-memory reader, a distinct
+# builtin from INPAapiJob with the job LAST. 490 files reach their fault
+# memory only through it, so it needs its own position rather than a scan.
+# An empty job there means FS_LESEN: INPA's own default, spelled out in the
+# wrappers that call it (`if (job == "") job = "FS_LESEN"`).
+FSMODE_CALLS = {"INPAapiFsMode"}
+FSMODE_ARG_JOB = 4
+FSMODE_DEFAULT_JOB = "FS_LESEN"
+
+
+# ---------------------------------------------------------------- fields ----
 
 
 def screen_fields(toks, id2name=None):
@@ -577,9 +787,17 @@ def screen_fields(toks, id2name=None):
         return None
 
     def expr_slot(seq):
+        """The (scope, slot) a drawing call reads from.
+
+        A result read names its destination with a procref whose KIND is the
+        scope (0 scratch, 2 the screen's global frame); the draw that prints
+        it pushes a var in the matching scope (sc=2 for the global frame).
+        Keying the bind map on the pair keeps the two scopes' slot numbers
+        from colliding -- they are numbered independently.
+        """
         for a in seq:
             if a["op"] == "var":
-                return a["n"]
+                return (2 if a.get("sc") == 2 else 0, a["n"])
         return None
 
     for t in toks:
@@ -650,11 +868,24 @@ def screen_fields(toks, id2name=None):
                     jobs.append(strs[0])
             elif name in ("INPAapiResultText", "INPAapiResultAnalog",
                           "INPAapiResultDigital"):
+                # THE KIND BYTE IS THE DESTINATION SCOPE, NOT A REF TYPE:
+                # 0 writes a scratch slot, 2 writes the screen's own global
+                # frame (drawn by a later LINE's analogout). Accepting only
+                # kind 0 threw away the majority of bindings -- 78,245 of
+                # 145,864 refs are kind 2 -- so screens that read into the
+                # global frame decoded to no fields at all (ACC2's whole
+                # Identification page). ipo_ir.py already reads both; this
+                # brings the disassembler in line with it.
                 ref = next((a for a in args if a["op"] == "procref"
-                            and a["kind"] == 0), None)
-                key = next((s for s in strs if _KEYISH.match(s)), None)
+                            and a["kind"] in (0, 2)), None)
+                # INPAapiResult*(ref, KEY, index, default): the key is
+                # argument 1 by signature. Picking the first "key-shaped"
+                # string instead skipped short result names outright.
+                key = arg_str(arg_positions(args), 1)
                 if ref is not None and key:
-                    bind[ref["n"]] = key
+                    # keyed by (scope, slot): the two scopes number their
+                    # slots independently, so a bare number collides
+                    bind[(2 if ref["kind"] == 2 else 0, ref["n"])] = key
             elif name == "analogout":
                 slot = expr_slot(args)
                 key = bind.get(slot)
@@ -701,8 +932,10 @@ def screen_fields(toks, id2name=None):
                 if key:
                     fields.append(f)
             elif op == "calluser":
-                # per-ECU helper: any call shaped (KEY, row, col, [on, off])
-                key = next((s for s in strs if _KEYISH.match(s)), None)
+                # per-ECU helper shaped (KEY, row, col, [on, off]): the key
+                # is argument 0, so read that position rather than scanning
+                # for a string that looks like a key.
+                key = arg_str(arg_positions(args), 0)
                 if key and len(ints) >= 2:
                     f = {"kind": "digital" if len(strs) >= 3 else "analog",
                          "key": key, "label": last_caption, "line": cur_line,
@@ -773,7 +1006,7 @@ def decompile(ecu):
     screens, menus = {}, {}
     cov_unk = cov_len = 0
     for k, (off, typ, name, pid) in enumerate(decls):
-        lo = off + 1 + len(name) + 1 + 4 + 1
+        lo = body_start(data, off, name)
         # the last proc runs to the pool, or to end-of-code when a file
         # has no pool at all (the inline-string dialects)
         hi = decls[k + 1][0] if k + 1 < len(decls) else (
@@ -868,7 +1101,7 @@ def main():
                 # first token and desynced, so --corpus understated coverage
                 # for the whole corpus (44.7% where the real figure is what
                 # decompile() sees)
-                lo = off + 1 + len(name) + 1 + 4 + 1
+                lo = body_start(data, off, name)
                 hi = decls[k + 1][0] if k + 1 < len(decls) else end
                 _, unk, ln = walk(data, lo, hi, pool)
                 tot_unk += unk
@@ -890,7 +1123,7 @@ def main():
         for k, (off, typ, name, pid) in enumerate(decls):
             if name != want:
                 continue
-            lo = off + 1 + len(name) + 1 + 4 + 1
+            lo = body_start(data, off, name)
             # same fallback decompile() uses: the inline-string dialects
             # (A_*, CH/CI/CM) have no pool, so ps is None and a bare `else
             # ps` fed walk() a None bound (TypeError on every such file)
@@ -904,7 +1137,7 @@ def main():
             break
         return 0
     for k, (off, typ, name, pid) in enumerate(decls):
-        lo = off + 1 + len(name) + 1 + 4 + 1
+        lo = body_start(data, off, name)
         hi = decls[k + 1][0] if k + 1 < len(decls) else (
             ps if ps is not None else code_end(data, None))
         toks, unk, ln = walk(data, lo, hi, pool)

@@ -11,6 +11,67 @@ const activeTests = new Set(); // jobs currently on
 const activeDrives = new Map();
 let activationEcu = null;       // ecu whose tests are active, for cleanup
 
+// THE SCRIPT'S SHUTDOWN JOB (ir.exitJob), taken from INPA's own `inpaexit`
+// proc -- a declared function it runs when the script ends, however it ends.
+// 877 ECUs declare one; 58 send a real job from it, nearly always
+// DIAGNOSE_ENDE. Nothing in the app was sending it, so the ECU stayed in
+// diagnostic mode until its own timeout.
+//
+// Read from the proc rather than from the Back/Exit keys that also carry it:
+// those are captioned as plain navigation and sit beside keys whose jobs
+// DRIVE OUTPUTS (STEUERN_CFL behind "Deselect"), so choosing them by caption
+// would risk energizing something on the way out.
+//
+// Registered on ECU ENTRY, not on a keypress, so it fires on every exit path:
+// screen change, in-app navigation, window close, or reload. Deliberately NOT
+// gated on activeTests -- the session needs ending even if nothing was ever
+// energized.
+let sessionEndEcu = null;
+let sessionEndJob = null;
+
+function registerSessionEnd(ecu, job) {
+  if (!ecu || !job) return;
+  sessionEndEcu = ecu;
+  sessionEndJob = job;
+}
+
+
+// Send it and forget it. Fire-and-forget because the common caller is an
+// unload handler, where nothing can be awaited; a failure here is not worth a
+// dialog the way a failed actuator RELEASE is -- the ECU times out by itself.
+function endSession() {
+  const ecu = sessionEndEcu;
+  const job = sessionEndJob;
+  sessionEndEcu = null;
+  sessionEndJob = null;
+  // Moving between menus of the SAME ECU is not leaving its session. ir.js
+  // re-registers on every menu render and setActions runs the leave hook
+  // afterwards, so a submenu hop lands here with the registration still
+  // pointing at the ECU we are staying on -- remember it, and only send once
+  // a render for a DIFFERENT ecu (or no render at all) follows.
+  if (!ecu?.sgbd || !job) return;
+  _pendingEnd = { ecu, job };
+  queueMicrotask(() => {
+    const p = _pendingEnd;
+    _pendingEnd = null;
+    // a re-register for the same ECU happened in between: still here
+    if (!p || (sessionEndJob === p.job && sessionEndEcu?.sgbd === p.ecu.sgbd)) {
+      return;
+    }
+    _sendEnd(p.ecu, p.job);
+  });
+}
+
+let _pendingEnd = null;
+
+function _sendEnd(ecu, job) {
+  if (!ecu?.sgbd || !job) return;
+  try {
+    api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' }).catch(() => {});
+  } catch (e) { /* leaving anyway */ }
+}
+
+
 // Redrawing the SAME screen right after a send (ir.js reopens its menu so
 // each row shows its armed state) is not a screen change: releasing there
 // would replay the off form into the job that was just fired. The redraw
@@ -73,7 +134,20 @@ function stopAllActivations(ecu) {
 // be awaited during unload, so the sends are fire-and-forget.
 window.addEventListener('pagehide', () => {
   if (activationEcu && activeTests.size) stopAllActivations(activationEcu);
+  // SYNCHRONOUS here: the deferral in endSession() rides a microtask, which
+  // never runs once the page is going away. On unload there is no "maybe we
+  // are staying" case to wait for, so send it outright.
+  const ecu = sessionEndEcu;
+  const job = sessionEndJob;
+  sessionEndEcu = null;
+  sessionEndJob = null;
+  _pendingEnd = null;
+  _sendEnd(ecu, job);
 });
+// NOT hooked to visibilitychange: the app treats a hidden window as a PAUSE
+// (app.js stops the status poller and resumes on return), so minimising or
+// switching away from the app is not leaving the screen. Ending the session
+// there would drop it out from under a user who is coming straight back.
 // ...and warn before closing the tab mid-test. This only prompts: releasing
 // here too would kill the test even when the user cancels the close, so the
 // actual release stays on pagehide, which fires only when the page really

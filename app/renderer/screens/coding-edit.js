@@ -342,6 +342,168 @@ function codMatchRead(kw, pairs) {
   return null;
 }
 
+// READ A SETTING OUT OF THE RAW CODING BLOB.
+//
+// codMatchRead above can only match a keyword against NAMED results. Several
+// modules do not give names: on a real E46, zke5 answers COD_LESEN with one
+// COD_DATEN byte array (and szm46 with CODE), so BEIKLAPPEN_GM -- and every
+// other curated feature on that module -- matched nothing and read as unknown,
+// which the UI then drew as off. Every one of those switches was showing the
+// library default, not the car.
+//
+// BMW's DATEN description says exactly where each setting lives: block, word,
+// mask and shift, with the on/off values named. That is enough to read the bit
+// straight out of the bytes the ECU just returned.
+//
+// The word differs per coding index -- zke5's BEIKLAPPEN_GM is word 23 on C04
+// and word 26 on C05+C06 -- so the variant must be chosen by the car's own
+// index, never by taking the first one that names the keyword.
+function codBytesOf(v) {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.map((b) => b & 0xff);
+  if (ArrayBuffer.isView(v)) return Array.from(v, (b) => b & 0xff);
+  const s = String(v).trim();
+  // "System.Byte[]" and friends carry nothing; dashed/spaced hex does
+  if (/^[0-9A-Fa-f]{2}([\s-][0-9A-Fa-f]{2})+$/.test(s)) {
+    return s.split(/[\s-]+/).map((h) => parseInt(h, 16));
+  }
+  return null;
+}
+
+// The DATEN field for `kw` on the variant this car's coding index selects.
+function codDatenField(daten, chassis, index, kw) {
+  const byChassis = (daten && daten.chassis) || {};
+  const variants = byChassis[String(chassis || '').toUpperCase()]
+    || byChassis[Object.keys(byChassis)[0]] || {};
+  const names = Object.keys(variants);
+  if (!names.length) return null;
+  // "C05+C06" serves both; match the index inside the name rather than equality
+  const want = index == null ? null : `C${String(index).padStart(2, '0')}`;
+  const pick = (want && names.find((n) => n.split('+').includes(want))) || null;
+  const order = pick ? [pick] : names;      // no index: fall back to any
+  for (const n of order) {
+    const f = (variants[n] || []).find((x) => x.name === kw);
+    if (f) return { ...f, variant: n, exact: !!pick };
+  }
+  return null;
+}
+
+// Read one DATEN-described setting out of raw coding bytes. Returns 1/0 for a
+// named aktiv/nicht_aktiv pair, the raw nibble otherwise, or null when the
+// bytes or the definition are missing.
+// EINHEIT: how a field's bytes become a number. From NCS Expert's own
+// pipeline (emdzej/ncsx packages/cabd/src/einheit.ts), which reverse-engineered
+// it from the tool:
+//
+//   h  little-endian integer, LSB first          (the default)
+//   a  the first byte, raw                       (ASCII code)
+//   A  alphanumeric hex digit: '0'-'9' -> 0-9, 'A'-'Z' -> 10-35
+//   b  bit-string: each byte is ASCII '0'/'1', byte i contributing bit i
+//   d  ASCII decimal digits, concatenated and parsed
+//
+// Returns null for a byte a unit cannot represent, so a malformed read
+// declines rather than inventing a value.
+function codDecodeUnit(unit, bytes) {
+  const u = unit || 'h';
+  if (!bytes.length) return null;
+  if (u === 'h') {
+    let v = 0;
+    for (let i = 0; i < bytes.length; i++) v |= (bytes[i] & 0xff) << (8 * i);
+    return v >>> 0;
+  }
+  if (u === 'a') return bytes[0] & 0xff;
+  if (u === 'A') {
+    const c = bytes[0] & 0xff;
+    if (c >= 0x30 && c <= 0x39) return c - 0x30;        // '0'-'9'
+    if (c >= 0x41 && c <= 0x5A) return c - 0x37;        // 'A'-'Z' -> 10-35
+    return null;
+  }
+  if (u === 'b') {
+    let v = 0;
+    for (let i = 0; i < bytes.length; i++) {
+      const bit = (bytes[i] & 0xff) - 0x30;
+      if (bit !== 0 && bit !== 1) return null;
+      v |= bit << i;
+    }
+    return v >>> 0;
+  }
+  if (u === 'd') {
+    let s = '';
+    for (const b of bytes) {
+      const c = b & 0xff;
+      if (c < 0x30 || c > 0x39) return null;
+      s += String.fromCharCode(c);
+    }
+    const n = parseInt(s, 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return null;                       // unit we do not implement: decline
+}
+
+// OPERATION: the transforms NCS Expert applies after the unit conversion,
+// in order. Each is [operator, operand]; '!' takes no operand.
+function codApplyOps(value, ops) {
+  let v = value;
+  for (const op of (ops || [])) {
+    const k = Array.isArray(op) ? op[0] : op;
+    const n = Array.isArray(op) ? (op[1] >>> 0) : 0;
+    switch (k) {
+      case '!': break;                       // no-op marker
+      case '&': v = (v & n) >>> 0; break;
+      case '|': v = (v | n) >>> 0; break;
+      case '^': v = (v ^ n) >>> 0; break;
+      case '+': v = v + n; break;
+      case '-': v = v - n; break;
+      case '*': v = v * n; break;
+      case '/': if (!n) return null; v = Math.floor(v / n); break;
+      case '>': v = v >>> n; break;
+      default: return null;                  // unknown operator: decline
+    }
+  }
+  return v;
+}
+
+// Read one DATEN-described setting out of raw coding bytes, the way NCS Expert
+// does: take `byte` bytes from `word`, mask them, convert per EINHEIT, then
+// apply the OPERATION list. Returns 1/0 for a named aktiv/nicht_aktiv pair,
+// the numeric value otherwise, or null when the bytes or definition are
+// missing -- unknown is honest, a wrong toggle is not.
+function codReadDaten(bytes, field) {
+  if (!bytes || !field) return null;
+  const i = typeof field.word === 'number' ? field.word : null;
+  if (i == null || i < 0) return null;
+  const nBytes = typeof field.byte === 'number' && field.byte > 0
+    ? field.byte : 1;
+  if (i + nBytes > bytes.length) return null;
+  // MASKE is per byte in NCS Expert; BMW ships a scalar here, which applies to
+  // the byte the shift addresses (single-byte fields, 89% of the corpus). For
+  // a multi-byte field a scalar mask cannot mean "one mask per byte", so it is
+  // applied to the first and the rest pass whole -- matching the little-endian
+  // fold the 'h' unit performs.
+  const mask = typeof field.mask === 'number' ? field.mask : 0xff;
+  const raw = [];
+  for (let k = 0; k < nBytes; k++) {
+    raw.push(k === 0 ? (bytes[i] & mask) : (bytes[i + k] & 0xff));
+  }
+  let v = codDecodeUnit(field.unit, raw);
+  if (v == null) return null;
+  // the shift positions the masked field within its byte
+  const shift = typeof field.shift === 'number' ? field.shift : 0;
+  if (shift) v = v >>> shift;
+  v = codApplyOps(v, field.ops);
+  if (v == null) return null;
+  const vals = field.values || [];
+  // values are [name, hexString]; find the one this value means
+  const hit = vals.find(([, hex]) => parseInt(hex, 16) === v);
+  if (hit) {
+    const n = String(hit[0]).toLowerCase();
+    if (typeof codKnown === 'function' && codKnown(n)) {
+      return (typeof codIsOn === 'function' && codIsOn(n)) ? 1 : 0;
+    }
+  }
+  return v;
+}
+
 // The coding map, once. Returns the entry for an SGBD or null.
 async function codingFor(sgbd) {
   if (typeof loadCodingMap !== 'function') return null;

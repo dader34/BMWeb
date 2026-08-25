@@ -5,6 +5,109 @@
 // showInpaScreens consumes.
 
 // screens whose elements are all static text have nothing to poll
+// ---- togglelist actuator picker -------------------------------------------
+// INPA's standard actuator idiom (274 screens, 76 ECUs): the page is a LIST of
+// actuators, not a readout. The user picks one and the picked row's key is the
+// job argument. See _toggle_job in tools/decompile/ipo_ir.py for why the value
+// cannot come from the bytecode -- BMW declares togglelist's output parameter
+// `out: string ApiToggleString`, so the widget produces it at runtime.
+
+// The SGBD's BITS table names every ORT key: VRFT -> "Verriegeln Fahrertuer",
+// with the byte and mask the ECU actually toggles. Shown beside each row so a
+// pick is an informed one rather than a four-letter guess. Missing table or
+// missing row is fine -- the caption from the screen still names the actuator.
+const _bitsCache = new Map();
+async function irBitsTable(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (!_bitsCache.has(key)) {
+    _bitsCache.set(key, (async () => {
+      try {
+        const t = await api(`/data/sgbd-tables/${key}.json`);
+        const rows = (t && (t.BITS || t.bits)) || [];
+        const m = new Map();
+        for (const r of rows) {
+          const n = String(r.NAME || r.name || '').toUpperCase();
+          if (n) m.set(n, r);
+        }
+        return m;
+      } catch { return new Map(); }
+    })());
+  }
+  return _bitsCache.get(key);
+}
+
+async function irPickAndDrive(ecu, ir, scr, it, menuName, container, back,
+                              trail, open) {
+  const rows = (scr.lines || [])
+    .filter((l) => (l.keys || []).length)
+    .map((l) => ({ key: String(l.keys[0]), caption: irLabel(l.caption) || l.keys[0] }));
+  const bits = await irBitsTable(ecu.sgbd);
+  const reopen = () => renderIrMenu(ecu, ir, menuName, container, back, trail);
+  // Firing a row RE-ENTERS the ordinary actuator branch rather than sending
+  // here: that path owns the confirm dialog, the register-before-send and the
+  // release-on-leave promise. Sending from this list would energize an output
+  // with none of them. Both the click handler and the F-key bar go through it.
+  const fire = (r) => open({ ...it, inPlace: true, screen: null,
+                             job: scr.pickJob, jobArg: r.key,
+                             label: `${it.label} · ${r.caption}` });
+
+  const detailOf = (r) => {
+    const b = bits.get(r.key.toUpperCase());
+    if (!b) return '';
+    const t = b.TEXT && typeof deGerman === 'function' ? deGerman(b.TEXT) : b.TEXT;
+    return t || `byte ${b.BYTE} mask ${b.MASK}`;
+  };
+
+  container.className = 'results-panel';
+  if (inpaMode()) {
+    // INPA draws a togglelist as its ordinary key list: "< Fn >  caption".
+    // Same grammar as irMenuMode's menus, so a picker does not read like a
+    // different app. The ORT stays visible on the right -- it is the value
+    // that goes on the wire, and hiding it would make the pick a guess.
+    container.innerHTML = `<div class="ir-pick-head">Pick the actuator to `
+      + `drive &middot; sends <span class="mono">${esc(scr.pickJob)}</span></div>`
+      + `<div class="act-key-list" id="ir-pick-list"></div>`;
+    const list = container.querySelector('#ir-pick-list');
+    rows.forEach((r, i) => {
+      const row = document.createElement('button');
+      row.className = 'inpa-fn act-key-row';
+      row.dataset.i = String(i);
+      row.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
+        + `<span class="inpa-fn-label">${esc(r.caption)}</span>`
+        + `<span class="act-key-val ir-pick-ort mono">${esc(r.key)}</span>`
+        + `<span class="ir-pick-detail">${esc(detailOf(r))}</span>`;
+      list.appendChild(row);
+    });
+  } else {
+    container.innerHTML = `<div class="ir-pick">
+      <div class="ir-pick-head">Pick the actuator to drive · sends
+        <span class="mono">${esc(scr.pickJob)}</span></div>
+      <div class="ir-pick-rows">${rows.map((r, i) => `
+        <button class="ir-pick-row" data-i="${i}">
+          <span class="ir-pick-name">${esc(r.caption)}</span>
+          <span class="ir-pick-ort mono">${esc(r.key)}</span>
+          <span class="ir-pick-detail">${esc(detailOf(r))}</span>
+        </button>`).join('')}</div></div>`;
+  }
+
+  container.querySelectorAll('[data-i]').forEach((btn) => {
+    btn.onclick = () => {
+      fire(rows[Number(btn.dataset.i)]);
+    };
+  });
+
+  sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · ${rows.length} actuators`;
+  // The softkey bar drives them too, the way INPA's does: F1..F9 map to the
+  // first nine rows in the order the screen lists them, Esc goes back.
+  setActions([
+    ...rows.slice(0, 9).map((r, i) => ({
+      key: String(i + 1), keyLabel: `F${i + 1}`, label: r.caption,
+      fn: () => fire(r),
+    })),
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: reopen },
+  ]);
+}
+
 function irReadable(scr) {
   return (scr.lines || []).some(ln =>
     (ln.elements || []).some(e => e.key && e.t !== 'text'));
@@ -172,6 +275,10 @@ function irRows(scr) {
           && e.okMax > e.okMin) { row.okMin = e.okMin; row.okMax = e.okMax; }
       if (e.on) row.on = e.on;
       if (e.off) row.off = e.off;
+      // value -> word table the script read this result through (a string
+      // array lookup, LSZ's lamp states): the live value renders as INPA's
+      // word instead of the bare number
+      if (e.map) row.map = e.map;
       rows.push(row);
       if (typeof e.row === 'number')
         cells.push({ key: e.key, row: e.row, col: e.col || 0 });
@@ -250,6 +357,21 @@ function irTable(scr) {
 // several read jobs becomes one entry per job: the poller reads them all each
 // tick and keeps whichever keys each answers.
 function irScreens(scr) {
+  const out = _irScreensRaw(scr);
+  // The executed screen carries the script's own dialogs -- the entry hints it
+  // pops on open and the error arm's boxes ("Wrong JOB_STATUS : ..."). They
+  // ride on every poll object so the poller can show them at the moment the
+  // live run matches that arm.
+  if (scr.messages || scr.errorMessages) {
+    for (const sc of out) {
+      sc.vmErrors = scr.errorMessages || null;
+      sc.vmEntry = scr.messages || null;
+    }
+  }
+  return out;
+}
+
+function _irScreensRaw(scr) {
   const { rows, cells } = irRows(scr);
   if (!rows.length) return [];
   // write-shaped jobs are represented in the IR but never auto-run
@@ -606,13 +728,18 @@ function _irHasRunnable(ir, menuName) {
   const root = (ir.entry || {}).menu;
   return (((ir.menus || {})[menuName] || {}).items || []).some(
     it => (it.label || '').trim() && !it.fileAction && !it.appTool
-          && !IR_CHROME.test(it.label.trim())
+          // "Select" reads as chrome by label, but a Select key that carries
+          // a togglelist picker (stateScreen / pickJob path) IS the menu's
+          // one real action -- SHD46's Activate is exactly this. Exempt it,
+          // so a menu whose only runnable key is the picker is not judged
+          // empty and its parent opens the screen's "action" message instead.
+          && (it.stateScreen || !IR_CHROME.test(it.label.trim()))
           // a key back to the ROOT is Back whatever it is called (detected
           // structurally), since deGerman can render Back/Print/End as anything
           && !(it.menu === root && !it.job && menuName !== root)
-          && !['printscreen', 'exit', 'select', 'deselect'].includes(it.action)
-          && (it.job || it.screen || it.menu || it.action)
-          && (it.job || it.screen || it.menu || it.action));
+          && (it.stateScreen
+              || !['printscreen', 'exit', 'deselect'].includes(it.action))
+          && (it.job || it.screen || it.menu || it.action || it.stateScreen));
 }
 
 function irMenuItems(ir, menuName, variant) {
@@ -649,17 +776,28 @@ function irMenuItems(ir, menuName, variant) {
   };
   const seen = new Set();
   return (menu.items || [])
-    .filter(it => it.label && !IR_CHROME.test(it.label.trim()))
+    // a Select key that carries a togglelist picker (stateScreen) is the
+    // menu's real action, not chrome -- SHD46's Activate has exactly one
+    // such key and dropping it left only the quit-mode toggles on screen
+    .filter(it => it.label
+                  && (it.stateScreen || !IR_CHROME.test(it.label.trim())))
     // the key back to the root IS Back whatever it is called (a handful say
     // "Main menu"). Detected structurally; the app has Esc for this.
     .filter(it => !(menuName !== (ir.entry || {}).menu
                     && it.menu === (ir.entry || {}).menu && !it.job))
     // drives INPA rather than the car (loads a script, opens the KVP editor)
     .filter(it => !it.appTool)
-    // a file action (PC-side file I/O, like Print) is an INPA function not an
-    // ECU one, EXCEPT a FAULT read: INPA's library writes na_fs.tmp and shows
-    // it, so it looks like file I/O while being real -- the fault view handles it
-    .filter(it => !(it.fileAction && !IR_FAULT_READ.test(it.label.trim())))
+    // a file action (PC-side file I/O, like Print) is an INPA function, not an
+    // ECU one. The flag decides it outright now: it is set only by a real
+    // write (fileopen "w"/"a", filewrite), a printfile, or a bare viewer, and
+    // a key that questions the ECU or draws what it read is exempt. This used
+    // to read `!IR_FAULT_READ.test(it.label)` -- un-hiding by CAPTION, because
+    // viewopen (which merely displays na_fs.tmp) was mistaken for file I/O and
+    // tagged every real fault read. That hid 535 keys naming real jobs whose
+    // captions did not match, CAS m_fehler F1 (FS_LESEN) among them under an
+    // empty label. On the current IR the caption test rescues 10 items and all
+    // ten are prints that belong hidden.
+    .filter(it => !it.fileAction)
     .filter(it => !(IR_FILE_ACTION.test(it.label.trim()) && !it.job
                     && !it.screen && !it.menu))
     // a key whose only effect is to redraw the menu's own screen does nothing
@@ -676,7 +814,18 @@ function irMenuItems(ir, menuName, variant) {
     // listed but never runnable here (firing is gated on car verification, the
     // arming semantics not decoded). But an item that ALSO names a JOB is a real
     // function (CDC's "Trpmode ON"/"OFF" carry action "start" beside a job).
-    .filter(it => it.screen || it.menu || it.job || !it.action)
+    // ...but a job the STATE MACHINE back-filled is not evidence of anything.
+    // _seq_jobs attaches every job reachable in the machine to each key that
+    // launches it, so ZKE5's display-scope "Select"/"Deselect" both came out
+    // carrying STEUERN_DIGITAL and slipped through this filter into the
+    // "not decoded" panel. 246 keys corpus-wide. A GENUINE action job stays
+    // (MEV9N46L's "Exit" really does send STOP_SYSTEMCHECK_LSU, 330 of those),
+    // and stateJob is exactly what tells the two apart.
+    .filter(it => it.screen || it.menu || !it.action
+                  || (it.job && !it.stateJob)
+                  // a state machine that resolved to a real picker screen is
+                  // runnable, even though its job came from the machine
+                  || it.stateScreen)
     // a write entry reusing a read entry's SCREEN is a duplicate of the read
     // page -- but ONLY when the write cannot RUN. "MV write" needs a typed value
     // we do not collect; MS450's "reset status" sends RESET_CRU_OFF on the
@@ -718,6 +867,15 @@ function irMenuItems(ir, menuName, variant) {
       stateCopy: it.stateCopy || null,
       // INPA asks the user for a value and builds the argument from it
       prompt: it.prompt || null,
+      // an item that only writes a global: INPA runs it in place to set a page
+      // value (a mode flag, an rpm/duty setpoint). Derived as {slot, value}
+      // so the app applies it to its own page state -- no ECU contact.
+      localSet: it.localSet || null,
+      // a key that enters a togglelist STATE MACHINE (ZKE5's "Remote control
+      // lock system"): the deriver ran the machine and recorded the picker
+      // screen it opens. Treat it as this key's screen so it flows into the
+      // ordinary picker route instead of the "never sent" state-job branch.
+      stateScreen: it.stateScreen || null,
       // a menu named for other chassis is dropped ONLY when the item also names
       // a screen serving this one; where the menu is all there is, dropping it
       // would leave the key dead
@@ -1455,6 +1613,12 @@ async function showStateForm(ecu, ir, menuName, it, container, back, trail) {
 // back up -- INPA's own navigation, and ours.
 function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   irUseTranslations(ir);
+  // what this script owes the ECU on the way out (INPA's own inpaexit proc).
+  // Registered on entry so it is sent however the user leaves, not only when
+  // they press a key we do not draw.
+  if (ir.exitJob && typeof registerSessionEnd === 'function') {
+    registerSessionEnd(ecu, ir.exitJob);
+  }
   const items = irMenuItems(ir, menuName);
   if (!items.length) return false;
   // mirror the menu into the URL so a submenu is a shareable deep link. Only
@@ -1660,6 +1824,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // what to write first, and that assembly is not decoded, so firing the job
       // bare would write whatever the ECU makes of an empty argument. EEPROM
       // writes behind the "Only for the developer" gate; listed, never run.
+      // A TOGGLELIST STATE MACHINE resolves to its picker screen (derived by
+      // executing the machine): route there rather than reporting "not sent".
+      if (it.stateScreen && (ir.screens || {})[it.stateScreen]
+          && (ir.screens[it.stateScreen].pickJob)) {
+        const pscr = ir.screens[it.stateScreen];
+        irPickAndDrive(ecu, ir, pscr, it, menuName, container, back, trail,
+                       open);
+        return;
+      }
       if (it.stateJob) {
         container.className = 'results-panel';
         container.innerHTML = `<div class="empty"><div>`
@@ -1672,6 +1845,32 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
           key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
           fn: reopen,
         }], shiftKeys());
+        return;
+      }
+      // DRIVING AN OUTPUT ON A VARIANT NOBODY CONFIRMED. Reading an
+      // unverified module is harmless; commanding one is not -- the SGBD on
+      // screen is the chassis config's pick, and 609 of the 1000 grouped rows
+      // sit behind a group that can name a different variant. The same ORT
+      // byte means a different output on a sibling, so this refuses rather
+      // than energizing whatever answers. Not a decode gap: reconnect and
+      // reopen and the group's IDENTIFIKATION settles it.
+      if (ecu.group && ecu._variantSource
+          && ['unverified', 'unavailable'].includes(ecu._variantSource)) {
+        container.className = 'results-panel';
+        // JUST THE ACTION. The full reasoning (shared address, sibling
+        // collision, config-pick) lives in the tooltip; on the page the user
+        // needs the one thing that unblocks this -- connect and reopen.
+        container.innerHTML = `<div class="empty"><div class="empty-big"`
+          + ` style="color:var(--amber)">Connect the cable to use `
+          + `${esc(it.label)}</div>`
+          + `<div title="${esc(ecu.label)} shares diagnostic address `
+          + `${esc(ecu.group)} with other modules; until the car identifies `
+          + `itself, commanding one variant&rsquo;s ${esc(it.job)} could act on `
+          + `a sibling.">Reopen this module with the cable connected and it `
+          + `unlocks on its own.</div></div>`;
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · variant unverified`;
+        setActions([...keys(), { key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                                 kind: 'back', fn: reopen }], shiftKeys());
         return;
       }
       if (confirmActuators() || permanent) {
@@ -1807,6 +2006,18 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       await runComposite(ecu, ir, menuName, it, container, reopen);
       return;
     }
+    if (it.inPlace && it.localSet) {
+      // A LOCAL PAGE SETTING, run in place like INPA: pressing the key sets a
+      // value the page reads (ZKE5's quit-mode, MS450's rpm/duty setpoint).
+      // The derivation captured {slot, value}; the app keeps its own map and
+      // the following send-key reads from it. Nothing reaches the ECU here.
+      ir._pageState = ir._pageState || {};
+      ir._pageState[it.localSet.slot] = it.localSet.value;
+      sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · set`;
+      // re-render so the value shows as selected; INPA highlights the active
+      renderIrMenu(ecu, ir, menuName, container, back, trail);
+      return;
+    }
     if (it.inPlace) {
       // a KEY INPA RUNS ON THE PC, NOT THE CAR: NAVI's "languages load" reads a
       // language table off the filesystem for the next key, so it has no job in
@@ -1888,6 +2099,21 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // jobs. Sending directly would energize an output with none of that.
       await open({ ...it, inPlace: true, screen: null });
       return;
+    } else if (scr && scr.pickJob
+               && (scr.lines || []).some(l => (l.keys || []).length)) {
+      // A TOGGLELIST PICKER. INPA shows the actuator rows, the user picks one,
+      // and the picked row's key IS the job's argument -- BMW declares
+      // togglelist's third parameter `out: string ApiToggleString`
+      // (Inpa.h:39), so the value is produced by the widget, never stored in
+      // the bytecode. The decompiler recovers the CONTRACT (which job the
+      // selection feeds, see _toggle_job) and the rows come from the screen,
+      // so the same list can be offered here.
+      //
+      // Picking a row re-enters the ordinary actuator branch with the key as
+      // jobArg, which is what gives it the confirm dialog, the register-
+      // before-send, and release-on-leave. Nothing is sent from this list.
+      irPickAndDrive(ecu, ir, scr, it, menuName, container, back, trail, open);
+      return;
     } else {
       container.className = 'results-panel';
       container.innerHTML = `<div class="empty"><div>`
@@ -1959,6 +2185,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // sends the assembled word without owning a field, or calls its own job
       if (comp && (comp.send || []).includes(String(it.nr))) return 'send';
       if (it.job) return 'run';
+      // a local page setting (mode flag / setpoint): shows as active when set
+      if (it.localSet) {
+        const cur = ir._pageState && ir._pageState[it.localSet.slot];
+        return cur === it.localSet.value ? 'set ✓' : 'set';
+      }
       // a fault-memory read names no job but open() hands it to the fault view
       if (IR_FAULT_READ.test(it.label)) return 'read';
       // the PC-side language picker, which does work (see open())
@@ -2008,7 +2239,29 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   } else {
     container.className = 'group-grid stagger';
     container.innerHTML = '';
-    function getGroupCat(label) {
+    // THE JOB SAYS WHAT THE KEY DOES; the caption only describes it. Reading
+    // the caption first mis-sorted 1,686 tiles and left 11,861 more on the
+    // neutral default although their job named the category outright --
+    // ABSASC4's brake actuators run STEUERN_DIGITAL under captions like
+    // "Intake valve front left", so nothing marked them as commanding
+    // hardware. SGBD job names are a fixed vocabulary and never translated,
+    // unlike the captions, which are half German across the corpus.
+    function catOfJob(job) {
+      if (!job) return null;
+      if (/^(FS|IS|HS)_/i.test(job)) return 'gt-fault';
+      if (/^(STATUS|MESSWERT)/i.test(job)) return 'gt-live';
+      if (/^(STEUERN|START)/i.test(job)) return 'gt-act';
+      if (/IDENT|^INFO$/i.test(job)) return 'gt-info';
+      if (/COD|ADAPT|ABGLEICH/i.test(job)) return 'gt-code';
+      return null;
+    }
+    function getGroupCat(it) {
+      // a write outranks everything: it is the one category the user must see
+      if (it.writeJob) return 'gt-code';
+      const byJob = catOfJob(it.job);
+      if (byJob) return byJob;
+      // no job to go on -- fall back to the caption
+      const label = it.label || '';
       if (/fault|error|fehlerspeicher|fs_/i.test(label)) return 'gt-fault';
       if (/status|analog|digital|live|messwert/i.test(label)) return 'gt-live';
       if (/actuat|ansteuer|test|component|active/i.test(label)) return 'gt-act';
@@ -2017,7 +2270,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return 'gt-default';
     }
     items.forEach((it) => {
-      const cls = getGroupCat(it.label);
+      const cls = getGroupCat(it);
       const tile = document.createElement('div');
       tile.className = `group-tile ${cls}`;
       tile.innerHTML = `

@@ -101,6 +101,60 @@ GENERIC_IPO_TOKENS = {
 SEC_RE_LEGACY = re.compile(r"^\[(ROOT_[A-Z0-9_]+)\]$")
 SEC_RE = re.compile(r"^\[(ROOT_[A-Z0-9_]+)\]$", re.IGNORECASE)
 TOKEN_RE = re.compile(r"\b([A-Z][A-Z0-9_]{2,12})\b")
+# INFRASTRUCTURE .PRGs THAT ARE NOT A MODULE'S SGBD. The token scan below is a
+# last resort: it takes uppercase words out of an .IPO and keeps the first one
+# that happens to name a file on disk. For F-series entries no real SGBD exists
+# in this EDIABAS tree, so the walk ran past the ECU's own name into shared
+# infrastructure and stopped at whichever of these it hit first --
+#   T_GRTB  BMW's ZuordnungsTabelle, the variant->group table this very file
+#           reads as a lookup (see group_file_for); 105 entries
+#   f01     the chassis's own menu: its jobs are all *_FUNKTIONAL broadcasts
+#           plus GRP2SGADR, i.e. it addresses many modules, it is not one; 85
+# 190 of 1,249 shipped entries pointed at one of them, DSC_01 (stability
+# control), ASA_01 (active steering) and EMF_01 (parking brake) among them.
+# Both files exist and load, so the wrong-module read fails SILENTLY. None of
+# the 190 has a real .prg available, so None is the honest answer.
+# Detected from the .prg's own job list rather than named here, so a new
+# chassis menu is caught without an edit: an ECU SGBD asks ONE module its own
+# questions, while these ask MANY modules the same one. Corpus-wide this
+# matches exactly three files -- t_grtb, f01, r56 -- and no real module.
+#   FLASH   the flash-PROGRAMMING service, not any module's identity: E70's
+#           FKA_70 (rear climate) and CHAMP_GW both landed on it. It is in
+#           GENERIC_IPO_TOKENS already, but that only DEPRIORITISES a token --
+#           with nothing better on the list it still won.
+NOT_AN_ECU_SGBD = {"t_grtb", "flash"}
+
+
+def _same_module(code, token):
+    """Does this token name the ECU we are resolving, rather than a shared one?"""
+    c, t = code.lower(), token.lower()
+    return c.startswith(t) or t.startswith(c)
+
+
+# the SGBD list a script declares carries version suffixes and dsN variants
+# ("ZKE3_GM5/V0.07", "MS410DS1") -- compare on the bare stem
+def _sgbd_stems(decl):
+    out = set()
+    for x in re.split(r"[,;\s]+", decl or ""):
+        x = x.strip().lower()
+        if not x:
+            continue
+        base = x.split("/")[0]
+        out.add(x)
+        out.add(base)
+        out.add(re.sub(r"ds\d$", "", base))
+    return {x for x in out if x}
+
+
+def _declared_match(token, declared):
+    t = token.lower()
+    base = re.sub(r"ds\d$", "", t.split("/")[0])
+    return t in declared or base in declared
+# ...and a FUNCTIONAL GATEWAY is recognised from its own string pool rather
+# than named here, so a new chassis menu is caught without an edit: it declares
+# *_FUNKTIONAL broadcast jobs, which address many modules at once. A real
+# module SGBD has none. Corpus-wide this matches f01 and r56 and nothing else.
+_FUNKTIONAL_RUN = re.compile(rb"[A-Z0-9_]+_FUNKTIONAL")
 GROUP_TOKEN_RE = re.compile(r"D_00[0-9A-Fa-f]{2}")
 # named group references (D_ZKE_GM, D_MOTOR, ...): a full D_* identifier, so a
 # D_0072B-style stem is not clipped to its numeric prefix
@@ -132,6 +186,8 @@ class Resolver:
                          for n in ecu_names if n.lower().endswith(".grp")}
         self._pool_cache = {}   # grp stem (lower) -> (all names, ecucomment names)
         self._grtb = None       # sgbd (lower) -> group name, from T_GRTB.PRG
+        self._infra_cache = {}  # stem -> is it a table/gateway rather than an ECU
+        self._decl_cache = {}   # code -> the SGBD names its script declares
         sg_names = sorted(os.listdir(SGDAT)) if os.path.isdir(SGDAT) else []
         self.ipo = {}
         for n in sg_names:
@@ -153,6 +209,92 @@ class Resolver:
     def find_prg(self, base):
         """FindPrgCaseInsensitive: on-disk stem casing, or None."""
         return self.prg.get(base.lower())
+
+    def _is_infrastructure(self, stem):
+        """Is this .prg a lookup table or a broadcast gateway, not an ECU?
+
+        Only consulted on the TOKEN-SCAN path, which is a last resort: a
+        directly resolved SGBD is trusted as-is. See NOT_AN_ECU_SGBD.
+        """
+        key = stem.lower()
+        if key in NOT_AN_ECU_SGBD:
+            return True
+        if key in self._infra_cache:
+            return self._infra_cache[key]
+        fn = self.prg.get(key)
+        infra = False
+        if fn:
+            try:
+                with open(os.path.join(ECU, fn + ".prg"), "rb") as f:
+                    raw = f.read()
+            except OSError:
+                try:
+                    with open(os.path.join(ECU, fn), "rb") as f:
+                        raw = f.read()
+                except OSError:
+                    raw = b""
+            # the pool is XOR 0xF7 in these dumps (same as group_pool below),
+            # but plain in others -- check both rather than assume
+            infra = bool(_FUNKTIONAL_RUN.search(raw)) or bool(
+                _FUNKTIONAL_RUN.search(bytes(b ^ 0xF7 for b in raw)))
+        self._infra_cache[key] = infra
+        return infra
+
+    def declared_sgbds(self, code):
+        """The SGBD names this script says it drives, or None.
+
+        __inpa_startup__ stores a header block into globals; the one that
+        every INPAapiJob(sgbd, ...) reads as argument 0 is the SGBD list.
+        Found by asking which global the job calls use, rather than assuming
+        a slot number -- the header layout differs per script (13 in GSDS2,
+        9 in AIRBAG, 5 in ABSASC5, 17 in ACC).
+        """
+        key = code.lower()
+        if key in self._decl_cache:
+            return self._decl_cache[key]
+        out = None
+        try:
+            out = self._read_declared(key)
+        except Exception:
+            out = None
+        self._decl_cache[key] = out
+        return out
+
+    def _read_declared(self, key):
+        import ipo_disasm as D                      # decompiler, optional dep
+        data, ps, pool, decls = D.load(key)
+        if ps is None:
+            return None
+        procs = {}
+        for k, (off, typ, nm, pid) in enumerate(decls):
+            lo = off + 1 + len(nm) + 1 + 4 + 1
+            hi = decls[k + 1][0] if k + 1 < len(decls) else ps
+            try:
+                procs[nm] = D.walk(data, lo, hi, pool)[0]
+            except Exception:
+                pass
+        slot = None
+        for nm, toks in procs.items():
+            for i, t in enumerate(toks):
+                if t["op"] == "call" and t.get("name") in (
+                        D.JOB_CALLS | {"INP1apiJob"}):
+                    pos = D.arg_positions(D.frame_of(toks, i))
+                    if pos and pos[0][-1]["op"] == "var" \
+                            and pos[0][-1].get("sc") == 0:
+                        slot = pos[0][-1]["n"]
+                        break
+            if slot is not None:
+                break
+        if slot is None:
+            return None
+        st = procs.get("__inpa_startup__") or []
+        for i, t in enumerate(st):
+            if t["op"] == "store" and t.get("sc") == 0 and t["n"] == slot:
+                prev = st[i - 1] if i else None
+                if prev and prev["op"] == "const" \
+                        and isinstance(prev.get("v"), str):
+                    return _sgbd_stems(prev["v"])
+        return None
 
     def sgbd_from_ipo(self, code):
         n = self.ipo.get(code.lower())
@@ -227,8 +369,33 @@ class Resolver:
                 return m.group(1).lower()
         for variant in self.sgbd_variants_from_ipo(code, chassis_id):
             hit = self.find_prg(variant.lower())
-            if hit:
-                return hit
+            if not hit or self._is_infrastructure(hit):
+                continue
+            # A GENERIC token only wins when it IS this ECU (the EWS module
+            # really is ews.prg). Unrelated, it is just the first shared word
+            # in the .IPO that happens to name a file -- which is how DSC_01
+            # landed on UTILITY and FKA_70 on FLASH. Excluding one such token
+            # only uncovers the next, so the rule is relatedness, not a list.
+            if variant.upper() in GENERIC_IPO_TOKENS \
+                    and not _same_module(code, variant):
+                continue
+            # ...and THE SCRIPT ITSELF SAYS WHICH SGBDs IT DRIVES. __inpa_startup__
+            # writes a header block, and one of those globals is the SGBD list
+            # that every INPAapiJob(sgbd, ...) call then passes as argument 0.
+            # That is how INPA knows what to load, so it is the authority here:
+            #   AIRBAG   -> "ZAE,BAE,ZAE2,MRS2,MRS3,MRS4,MRS4RD"  (zae is real)
+            #   ABSASC5  -> "ABS5, ASC5, ASC5D, ABD5, DSC5, ..."
+            #   DDE73N57 -> "D73N57A0,D73N57E0,D72N47A0"          (NOT acc)
+            # Without it the scan took "ACC" out of DDE73N57's display text
+            # ("ACC Stop&Go", a feature the DME reports on) and pointed a
+            # diesel DME at the cruise-control SGBD.
+            declared = self.declared_sgbds(code)
+            # `set()` is not "no declaration": the script stored an SGBD
+            # global and it was empty, which says it names none. Only None
+            # (no such global at all) leaves the scan unguarded.
+            if declared is not None and not _declared_match(variant, declared):
+                continue
+            return hit
         if not self.legacy:
             # fix 5: seat modules ship per-side SGBDs (a-sitz -> A-SITZ_F/_B)
             for suf in ("_f", "_b"):

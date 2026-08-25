@@ -4,21 +4,25 @@
 // engine SGBD used for the battery/ignition read, set on every chassis open so a
 // later chassis can't inherit the previous one's DME. null = let the server pick.
 let stateSgbd = null;
-// the chassis config names the DME: first ecu of the /engine|motor/i section,
+// the chassis config names the DME: first ecu of the ROOT_MOTOR section,
 // the same section find tutorial.js openTourModule uses. Callers (nav.js)
 // already hold the /api/chassis payload, so this stays sync and takes the
 // config instead of fetching a second copy -- nav calls it bare (null) on
 // screen entry so a failed config load can't leave the previous chassis's
 // DME live, then again with the config once it arrives.
 function setStateSgbd(ch = null) {
-  const sec = ch && (ch.sections || []).find(s => /engine|motor/i.test(s.name));
+  // by section KEY, not its display name: the key is the config's own
+  // identifier (ROOT_MOTOR), while `name` is a translated label -- a section
+  // whose key is not in SECTION_ORDER gets pretty(key) instead, so "Antrieb"
+  // would silently never match here
+  const sec = ch && (ch.sections || []).find(s => s.key === 'ROOT_MOTOR');
   stateSgbd = (sec && sec.ecus && sec.ecus[0] && sec.ecus[0].sgbd) || null;
 }
 
 // background scan of the chassis's engine + transmission modules, once per
 // session on first open. Targets come from the chassis config nav already
-// fetched (no hand-tuned per-chassis list): every ecu in the /engine|motor/i
-// and /trans|getriebe|gearbox/i sections that carries a diagnostic-address
+// fetched (no hand-tuned per-chassis list): every ecu in the ROOT_MOTOR
+// and ROOT_GETRIEBE sections that carries a diagnostic-address
 // group, collapsed to ONE target per group -- a group's variants share a bus
 // address, so the group, not the ecu row, is the unit of presence.
 // stored faults get a detail read and an attention popup.
@@ -39,8 +43,9 @@ async function autoScan(chassisId, ch) {
   // row still owns the right label/code.
   const targets = [];
   const byGroup = new Map();
+  const SCAN_SECTIONS = new Set(['ROOT_MOTOR', 'ROOT_GETRIEBE']);
   for (const sec of ch.sections) {
-    if (!/engine|motor|trans|getriebe|gearbox/i.test(sec.name)) continue;
+    if (!SCAN_SECTIONS.has(sec.key)) continue;
     for (const e of (sec.ecus || [])) {
       if (!e.group) continue;
       const g = String(e.group).toLowerCase();
@@ -66,7 +71,7 @@ async function autoScan(chassisId, ch) {
     const findings = [];     // { label, sgbd, code, section, chassis, faults:[ detailed codes ] }
     let anyResponse = false;
     for (const t of targets) {
-      let data, sgbd, ecu;
+      let faults = null, sgbd, ecu;
       if (groupRunnable(t.group)) {
         // STRICT group semantics, exactly quickErrorSweep's: the group's
         // IDENTIFIKATION is the module-present test and names the variant
@@ -77,7 +82,7 @@ async function autoScan(chassisId, ch) {
         try { via = await webResolveVariant(t.group); } catch { via = null; }
         if (!via) continue; // nothing answered at this address
         anyResponse = true; // the ident answered, so the bus is live
-        try { data = await api(`/api/ecu/${via}/read`, { method: 'POST' }); }
+        try { faults = await readFaults(via); }
         catch { continue; } // identified but not readable in this build
         sgbd = via;
         ecu = t.secEcus.find(e => String(e.sgbd).toLowerCase() === via
@@ -88,13 +93,12 @@ async function autoScan(chassisId, ch) {
         // address, so try each in sequence and let the first non-throwing
         // read win (this is what the old E46 trans flag did).
         for (const e of t.ecus) {
-          try { data = await api(`/api/ecu/${e.sgbd}/read${groupQuery(e)}`, { method: 'POST' }); }
+          try { faults = await readFaults(e.sgbd); }
           catch { continue; } // no response = this variant isn't installed
           anyResponse = true; sgbd = e.sgbd; ecu = e; break;
         }
-        if (!data) continue; // whole group silent = module absent
+        if (!faults) continue; // whole group silent = module absent
       }
-      const faults = (data.codes || []).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
       if (!faults.length) continue;
       await fillFaultDetail(sgbd, faults); // detail reads target the RESOLVED sgbd
       findings.push({ label: ecu.label, sgbd, code: ecu.code || sgbd,

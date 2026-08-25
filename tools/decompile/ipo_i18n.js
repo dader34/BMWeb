@@ -46,15 +46,20 @@ function captionsOf(ir) {
   for (const m of Object.values(ir.menus || {})) {
     for (const it of m.items || []) if (it.label) out.add(it.label);
   }
-  for (const s of Object.values(ir.screens || {})) {
-    if (s.title) out.add(s.title);
-    for (const l of s.lines || []) {
-      if (l.caption) out.add(l.caption);
-      for (const e of l.elements || []) {
-        for (const k of ['s', 'unit', 'on', 'off']) if (e[k]) out.add(e[k]);
+  const scanScreens = (screens) => {
+    for (const s of Object.values(screens || {})) {
+      if (s.title) out.add(s.title);
+      for (const l of s.lines || []) {
+        if (l.caption) out.add(l.caption);
+        for (const e of l.elements || []) {
+          // 'unit' is a result KEY (STAT_..._EINH), not a display caption --
+          // the SGBD fills the unit text at runtime, so it needs no i18n.
+          for (const k of ['s', 'on', 'off']) if (e[k]) out.add(e[k]);
+        }
       }
     }
-  }
+  };
+  scanScreens(ir.screens);
   return [...out].sort();
 }
 

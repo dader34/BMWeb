@@ -21,18 +21,19 @@
 #   ipo_coding.py       -> _coding.json     > ipo_enrich.py pipeline (the app
 #   ipo_submenus.py     -> _submenus.json  /  renders from the IR now), so
 #                          these outputs have NO reader -- reference dumps.
-#                          The one satellite output still live is
-#                          ipo_gauges.py -> _gauges.json (read by ipo_ir.py).
+#                          ipo_gauges.py -> _gauges.json is now a reference dump
+#                          too: ir_build derives gauge bounds by executing the
+#                          .IPO, so nothing reads _gauges.json any more.
 #   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
-# (actuator captions live in the IR itself now: ipo_ir.py emits steuernLabels)
+# (actuator captions live in the IR itself now: ir_build emits them)
 #
 # THE HAND-RUN GENERATORS ARE ORDERED. Regenerating everything before a build
 # is not a set of independent commands -- three of them feed each other, and
 # running them out of order silently ships worse data than doing nothing:
 #
-#   1. python3 tools/decompile/ipo_ir.py --write     -> data/inpa-ir/, i18n EMPTY plus a
-#                                             `strings` hand-off list
+#   1. (cd tools/decompile && python3 -m ir_build --write) -> data/inpa-ir/, i18n
+#                                             EMPTY plus a `strings` hand-off list
 #   2. node tools/decompile/ipo_i18n.js              -> RESOLVES those strings back INTO
 #                                             the IR files and drops the list
 #   3. python3 tools/export/build_ecu_tree.py -> assembles the finished IR into
@@ -69,7 +70,7 @@ python3 tools/verify/test_disasm.py
 
 echo
 echo "== IR emitter invariants =="
-python3 tools/decompile/ipo_ir.py --check
+(cd tools/decompile && python3 -m ir_build --check)
 node tools/decompile/ipo_i18n.js --check
 
 echo
@@ -105,6 +106,14 @@ node tools/verify/test_bestvm.js || exit 1
 echo
 echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
 node tools/verify/test_groups.js || exit 1
+
+echo
+echo "== whole-vehicle sweep plans every chassis from its own config =="
+node tools/verify/test_sweep.js || exit 1
+
+echo
+echo "== export ships every variant a group can identify, not just the menu =="
+python3 tools/verify/test_export_gate.py || exit 1
 
 echo
 echo "== coding encode is the exact inverse of decode (round-trip + Mod-36) =="
@@ -153,6 +162,18 @@ node tools/verify/test_coding_auftrag.js || exit 1
 echo
 echo "== SGET rows extract and every predicate parses =="
 python3 tools/decompile/ncs_sget.py --check || exit 1
+
+echo
+echo "== SGFAM/AT/ZST tables parse, and the ZCS->SA bridge resolves =="
+python3 tools/decompile/ncs_tables.py --check || exit 1
+
+echo
+echo "== Vehicle identity: masters, ZCS->SA bridge, FA round-trip, discovery =="
+node tools/verify/test_vehicle_identity.js || exit 1
+
+echo
+echo "== Coding selection: SGET predicates pick the module and its coding file =="
+node tools/verify/test_coding_select.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

@@ -841,6 +841,10 @@ const loadDatenMap = _lazyScript('data/datenmap.js', 'BMW_DATEN_MAP', _datenHold
 // which ECUs a car actually has: SGET rows + their AUFTRAGSAUSDRUCK predicate
 const _sgetHolder = {};
 const loadSget = _lazyScript('data/sget.js', 'BMW_SGET', _sgetHolder);
+// SGFAM (which ECU holds the vehicle order / the central coding key), AT
+// (SA number -> equipment keywords) and ZST (ZCS key bits -> keywords)
+const _tablesHolder = {};
+const loadTables = _lazyScript('data/tables.js', 'BMW_TABLES', _tablesHolder);
 
 // per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. `info`
 // indexes into BMW_FAULT_INFO[hex].

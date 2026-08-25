@@ -493,6 +493,32 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
   const pager = attachInpaPager(container, grid,
     () => keyOrder, (k) => cellEls.get(k));
 
+  // THE SCRIPT'S OWN DIALOGS (interpreted screens only). The .IPO pops a box
+  // when a job fails; the derivation ran the error arm offline and shipped
+  // its dialogs, with ERROR_ECU_NICHT_VORHANDEN standing in for the status a
+  // real car would report. Substituting the LIVE status into that slot shows
+  // the box INPA would have shown, once per visit rather than per poll.
+  let vmBoxShown = false;
+  const vmPopErrors = (scr, liveStatus) => {
+    if (vmBoxShown || !(scr.vmErrors && scr.vmErrors.length)) return;
+    vmBoxShown = true;
+    const sub = (t) => String(t == null ? '' : t)
+      .replace(/ERROR_ECU_NICHT_VORHANDEN/g, liveStatus || 'no answer');
+    (async () => {
+      for (const m of scr.vmErrors) {
+        await messageDialog({ title: esc(sub(m.title)) || 'INPA',
+                              body: esc(sub(m.body)) });
+      }
+    })();
+  };
+  for (const scr of screens) {
+    // entry dialogs pop on open, before the first poll, like INPA
+    for (const m of (scr.vmEntry || [])) {
+      messageDialog({ title: esc(m.title) || 'INPA', body: esc(m.body || '') });
+    }
+    if (scr.vmEntry) break;   // shown once for the page, not once per job
+  }
+
   async function tick() {
     let added = false, alive = 0, lastErr = null;
     for (const scr of screens) {
@@ -503,10 +529,13 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
         data = await api(url, { method: 'POST' });
       } catch (e) {
         lastErr = e;
+        vmPopErrors(scr, e && e.message);
         continue; // one failing job shouldn't blank a merged category
       }
       alive++;
       const vals = new Map(flatResults(data.sets));
+      const st = vals.get('JOB_STATUS');
+      if (st != null && String(st) !== 'OKAY') vmPopErrors(scr, String(st));
       let ri = -1;
       for (const r of gridOrder(scr)) {
         ri++;
@@ -536,8 +565,15 @@ async function showInpaScreens(ecu, screens, container, title, { scroll = false 
           keyOrder.push(ck);
           added = true;
         }
-        updateGaugeSpec(cell, unit === r.unit ? r : { ...r, unit },
-                        vals.get(r.key));
+        let liveVal = vals.get(r.key);
+        if (r.map) {
+          // the script mapped this result through a word table
+          // (0 "OFF", 1 "SL", ...): show the word the value names, and the
+          // raw value when the table has no entry for it
+          const w = r.map[String(liveVal).trim()];
+          if (w != null) liveVal = String(w).trim();
+        }
+        updateGaugeSpec(cell, unit === r.unit ? r : { ...r, unit }, liveVal);
       }
     }
     if (added) pager.relayout();

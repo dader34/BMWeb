@@ -216,7 +216,7 @@ function explainError(raw) {
   // IFH-0003: something is wrong on the line itself
   if (lower.includes('ifh-0003') || lower.includes('echo'))
     return { title: 'The cable is not hearing itself (IFH-0003)', detail: 'The K line echoes everything sent; that echo did not come back correctly.',
-      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency needs to be 1 ms.' };
+      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency timer needs raising to 2 ms -- on macOS a 1 ms latency corrupts K-line reads (short-tail responses).' };
 
   // IFH-0019: bytes arrived, but not a whole valid telegram
   if (lower.includes('ifh-0019') || lower.includes('checksum') || lower.includes('incomplete'))
@@ -225,7 +225,7 @@ function explainError(raw) {
 
   if (lower.includes('ifh-0018') || lower.includes('ifh_0018') || lower.includes('interfaceconnect') || lower.includes('connect'))
     return { title: 'Could not reach the ECU', detail: 'The cable is present but the DME did not answer.',
-      fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency is set to 1 ms.' };
+      fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency timer is 2 ms or more -- on macOS a 1 ms latency corrupts K-line reads.' };
 
   if (lower.includes('error_f_code'))
     return { title: 'This function needs a fault code', detail: 'The detailed fault job requires a specific DTC as input.',
@@ -425,6 +425,12 @@ class ActionBar {
     if (activationEcu && activeTests.size && !activationsHeld()) {
       stopAllActivations(activationEcu);
     }
+    // ...and the menu's session-end job, if it registered one. Separate from
+    // the release above because it is NOT conditional on anything being
+    // energized: a menu can owe its ECU a DIAGNOSE_ENDE having driven nothing.
+    // Held by the same redraw guard, so reopening the menu to repaint a row
+    // does not end the session under it.
+    if (!activationsHeld() && typeof endSession === 'function') endSession();
     this.base = actions;
     this.shift = (shifted && shifted.length) ? shifted : null;
     this.shiftHeld = false;
@@ -570,6 +576,32 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
   });
 }
 
+// INPA's messagebox: one OK button, information only. The interpreted-screen
+// path pops these with the script's own words when a live job fails, which is
+// what INPA itself does ("Wrong JOB_STATUS : ...").
+function messageDialog({ title, body, danger = false }) {
+  return new Promise((resolve) => {
+    const { overlay, close } = openModal(`
+      <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
+        <div class="modal-title">${title}</div>
+        <div class="modal-body">${body}</div>
+        <div class="modal-actions">
+          <button class="btn primary modal-confirm">OK<span class="modal-key">⏎</span></button>
+        </div>
+      </div>`, {
+      onClose: resolve,
+      backdropValue: true,
+      onKey: (e, close) => {
+        if (e.key === 'Escape' || e.key === 'Enter') {
+          e.preventDefault(); e.stopPropagation(); close(true);
+        }
+      },
+    });
+    overlay.querySelector('.modal-confirm').onclick = () => close(true);
+    overlay.querySelector('.modal-confirm').focus();
+  });
+}
+
 // value-input modal for INPA functions; returns string or null. Enter submits, Esc cancels.
 function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 'Run', danger = false }) {
   return new Promise((resolve) => {
@@ -611,8 +643,20 @@ function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 
 
 // prompt for a value, then call the job with it
 async function runInputFunction(ecu, input, container) {
-  const danger = /steuern|command|throttle|setpoint|write|store|reset/i.test(
-    (input.field || '') + ' ' + (input.job || ''));
+  // THE CANONICAL CLASSIFIER DECIDES, not a word list. The old regex looked
+  // for English write-words in the job name and prompt, so 1,029 of the
+  // corpus's 6,544 job names that isWriteJob() calls writes got the soft
+  // "Run" button instead of "Send" -- FS_LOESCHEN (clear fault memory, 364
+  // modules), FLASH_SCHREIBEN, PRUEFSTEMPEL_SCHREIBEN and INITIALISIERUNG
+  // among them, none of which contain an English verb. isWriteJob is
+  // token-based and default-deny, and is the same gate bestvm enforces
+  // before a job reaches the bus.
+  const danger = typeof isWriteJob === 'function'
+    ? isWriteJob(input.job || '')
+    // no classifier in scope: fall back to the prompt text rather than
+    // silently calling an unknown job safe
+    : /steuern|command|throttle|setpoint|write|store|reset/i.test(
+      (input.field || '') + ' ' + (input.job || ''));
   const val = await inputDialog({
     title: esc(typeof jobLabel === 'function' ? jobLabel(input.job) : input.job),
     // input.field is the entry instruction ("Enter as LABEL;VALUE1"), shown as the prompt

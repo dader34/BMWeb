@@ -13,7 +13,8 @@
 // the first section when the expected one is missing.
 async function openTourModule() {
   const ch = await api('/api/chassis/E46');
-  const sec = ch.sections.find(s => /engine|motor/i.test(s.name)) || ch.sections[0];
+  // the config's own key, not its translated display name (see autoscan.js)
+  const sec = ch.sections.find(s => s.key === 'ROOT_MOTOR') || ch.sections[0];
   const ecu = sec.ecus.find(e => /ms45/i.test(e.sgbd)) || sec.ecus[0];
   await showEcu('E46', sec.name, ecu);
 }

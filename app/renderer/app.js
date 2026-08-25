@@ -66,6 +66,19 @@ function showSettings() {
     ));
   }
 
+  wrap.appendChild(settingRow(
+    'Keep cable connected',
+    'Reopen the K+DCAN cable automatically after a reload, with no picker '
+      + '(the browser remembers the port). Off means you click to connect '
+      + 'each launch.',
+    [
+      { val: 'on', label: 'Stay connected' },
+      { val: 'off', label: 'Pick each time' },
+    ],
+    Settings.get('keepCable', 'on'),
+    (v) => { Settings.set('keepCable', v); },
+  ));
+
   // bus is chosen at page load, so switching adapters reloads
   const adapterRow = settingRow(
     'Adapter',
@@ -685,6 +698,22 @@ function setupMobileTabbar() {
       webBus.connect()
         .then(() => { statusPoller.lastStatePoll = 0; return statusPoller.refresh(); })
         .catch((e) => { led.className = 'led off'; linkText.textContent = e.message; });
+    }
+
+    // KEEP THE CABLE THROUGH A RELOAD. Web Serial remembers a granted K+DCAN
+    // port, so reconnect() reopens it with no picker -- the "reopen the module
+    // and it unlocks" flow needs the cable to survive the reload it asks for.
+    // On by default; a user who wants a fresh pick each launch turns it off.
+    if (!webBus.readState && !webBus.connected && typeof webBus.reconnect
+        === 'function' && Settings.get('keepCable', 'on') !== 'off') {
+      linkText.textContent = 'reconnecting…';
+      webBus.reconnect()
+        .then((label) => {
+          if (!label) { linkText.textContent = 'no cable'; return; }
+          statusPoller.lastStatePoll = 0;
+          return statusPoller.refresh();
+        })
+        .catch(() => { linkText.textContent = 'no cable'; });
     }
   }
 

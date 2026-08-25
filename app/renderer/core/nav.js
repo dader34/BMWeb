@@ -148,6 +148,7 @@ async function showScriptSelection(chassisId) {
           <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${esc(dispChassis(chassisId))}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${esc(s.name)}</button>`).join('')}
           ${typeof showCodingHub === 'function' ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
+          ${typeof showVehicleIdentity === 'function' ? '<button class="inpa-ss-item inpa-ss-identity" data-i="-3" hidden>Identity</button>' : ''}
         </div>
         <div class="inpa-ss-right" id="ss-right">
           <div class="inpa-ss-head" id="ss-head">Functional jobs</div>
@@ -159,8 +160,12 @@ async function showScriptSelection(chassisId) {
   const jobsPane = overlay.querySelector('#ss-jobs');
   const headEl = overlay.querySelector('#ss-head');
   const items = overlay.querySelectorAll('.inpa-ss-item');
-  // Functional Jobs enabled only for chassis with variant-group tables (sweep.js), so the sweep skips dead variants
-  const allowFunc = !!VARIANT_GROUPS[chassisId.toUpperCase()];
+  // Functional Jobs works on any chassis whose config lists modules: the sweep
+  // resolves each diagnostic-address group over the wire (sweep.js), so there
+  // is nothing per-chassis to know in advance. This used to be gated on a
+  // hand-written variant-group table that named E46 and E36 only, which hid
+  // whole-vehicle scanning on the other 24 shipped chassis.
+  const allowFunc = (ch.sections || []).some(s => (s.ecus || []).length > 0);
 
   // chassis row selected: the "Functional jobs" header itself is the clickable entry
   const showChassisJobs = () => {
@@ -189,12 +194,26 @@ async function showScriptSelection(chassisId) {
 
   // Coding row: open the Coding hub (Features + Expert)
   const openCoding = () => { close(); showCodingHub(chassisId); };
+  const openIdentity = () => { close(); showVehicleIdentity(chassisId); };
 
   items.forEach(it => {
     const i = Number(it.dataset.i);
     it.onclick = () => (i === -1 ? showChassisJobs()
-      : i === -2 ? openCoding() : showSection(i));
+      : i === -2 ? openCoding()
+      : i === -3 ? openIdentity() : showSection(i));
   });
+
+  // The Identity row is built hidden and revealed only once a module on this
+  // chassis is confirmed to answer with a build record. The list is drawn
+  // synchronously and the probe is async, so revealing beats inserting: the
+  // dialog never reflows under the pointer, and a chassis with no identity
+  // source simply never shows the row rather than showing a dead end.
+  const identRow = overlay.querySelector('.inpa-ss-identity');
+  if (identRow && typeof chassisHasIdentity === 'function') {
+    chassisHasIdentity(chassisId)
+      .then((has) => { if (has) identRow.hidden = false; })
+      .catch(() => { /* no identity source: the row stays hidden */ });
+  }
   showChassisJobs(); // open on the chassis row: Functional Jobs only
 }
 
@@ -210,7 +229,7 @@ function showFunctionalJobs(chassisId) {
   view.appendChild(grid);
 
   const jobs = [
-    { key: '2', name: 'Identification', desc: 'Identify every module on the car (SGBD, HW/SW)', fn: () => quickIdentSweep(id) },
+    { key: '2', name: 'Identification', desc: 'Identify every module on the car: which are fitted, and each one\u2019s variant and build', fn: () => quickIdentSweep(id) },
     { key: '4', name: 'Full Module Error Scan', desc: 'Read fault memory across every module and show which have stored faults', fn: () => quickErrorSweep(id) },
   ];
   jobs.forEach(j => {
@@ -334,6 +353,18 @@ async function showSections(id, selectIndex = 0) {
                       <span class="nav-count">edit</span>`;
     code.onclick = () => showCodingHub(id);
     nav.appendChild(code);
+  }
+
+  // Vehicle identity, shown only where a module can actually answer. The test
+  // is the same one the screen uses -- an ECU declaring a job that returns the
+  // coding key or the vehicle order -- so the tile never opens a dead end.
+  if (typeof chassisHasIdentity === 'function' && await chassisHasIdentity(id)) {
+    const ident = document.createElement('button');
+    ident.className = 'sys-item sys-identity';
+    ident.innerHTML = `<span class="nav-name">Identity</span>
+                      <span class="nav-count">read</span>`;
+    ident.onclick = () => showVehicleIdentity(id);
+    nav.appendChild(ident);
   }
 
   // whole-vehicle fault scan (Functional Jobs F4), reachable from the modern layout too

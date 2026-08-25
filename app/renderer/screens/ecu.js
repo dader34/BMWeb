@@ -31,15 +31,40 @@ let _ecuGroupIndexP = null;
 const ecuGroupIndex = () => (_ecuGroupIndexP ??=
   fetch('data/groups/index.json').then(r => (r.ok ? r.json() : null)).catch(() => null));
 async function irResolveGroupVariant(ecu) {
-  if (ecu._groupTried || demoMode()) return;
+  // One attempt per screen entry, EXCEPT after a failure to verify: a user
+  // who plugs the cable in and re-opens the module must get a real answer,
+  // not a cached "we never asked".
+  if (demoMode()) return;
+  if (ecu._groupTried
+      && !['unverified', 'unavailable'].includes(ecu._variantSource)) return;
   ecu._groupTried = true;
+  // WHY the configured SGBD is still the one on screen. The chassis config
+  // lists every variant BMW fitted at an address and the app opens the first
+  // -- 609 of the 1000 grouped rows sit behind a group that can name a
+  // DIFFERENT variant, so "we did not ask" and "the car confirmed it" are
+  // completely different statements and the header must not render them the
+  // same way. Set on every early return; cleared only by a real answer.
+  ecu._variantSource = null;
   const g = String(ecu.group || '').toLowerCase();
-  if (!g || typeof webResolveVariant !== 'function') return;
+  if (!g) { ecu._variantSource = 'ungrouped'; return; }
+  if (typeof webResolveVariant !== 'function') {
+    ecu._variantSource = 'unavailable'; return;
+  }
   const idx = await ecuGroupIndex();
-  if (!idx || !(idx.groups || []).includes(g)) return;
+  if (!idx || !(idx.groups || []).includes(g)) {
+    ecu._variantSource = 'nogroup'; return;
+  }
   let v = null;
-  try { v = await webResolveVariant(g); } catch { /* silence = keep configured */ }
-  if (!v || v === String(ecu.sgbd).toLowerCase()) return;
+  try { v = await webResolveVariant(g); }
+  catch { /* silence: treated as no answer below */ }
+  if (!v) {
+    // No cable, or the address stayed silent. Either way nothing verified
+    // this SGBD, and the screen says so rather than implying the car agreed.
+    ecu._variantSource = 'unverified'; return;
+  }
+  if (v === String(ecu.sgbd).toLowerCase()) {
+    ecu._variantSource = 'confirmed'; return;
+  }
   // only retarget to a variant this build can actually load ('xyz' catch-all
   // and exotic variants without job-code stay on the configured SGBD)
   try {
@@ -48,6 +73,7 @@ async function irResolveGroupVariant(ecu) {
   } catch { return; }
   ecu._sgbdBase = ecu._sgbdBase || ecu.sgbd;
   ecu.sgbd = v;
+  ecu._variantSource = 'identified';
   // The group ran IDENTIFIKATION and the answer IS the variant name -- the same
   // thing irResolveVariant would ask INITIALISIERUNG for. Record it: without
   // this the variant stayed unknown whenever the group answered first, and
@@ -122,6 +148,127 @@ async function irUseVariantSgbd(ecu) {
 // in-memory ECU object the card click would have passed, so look it up in the
 // chassis config first. Falls back to the module list when the SGBD isn't in
 // this chassis (a stale or hand-edited link).
+// REFUSE THE MODULE UNTIL THE CAR SAYS WHICH VARIANT IT IS.
+//
+// A diagnostic address is shared. D_ZKE_GM can identify NINE different
+// modules (zke3_gm1/4/5/6, zke4, zke5, zke5_s12, bc1, bc1rd) and the chassis
+// config just names the one BMW listed for this shell -- so opening zke5 with
+// nothing connected shows one variant's screens, jobs, coding map and fault
+// text for a car that may carry another. 364 of the 1014 config rows are in
+// that position. Every readout on the wrong variant is a wrong answer that
+// looks exactly like a right one, which is the failure this app exists to
+// avoid, so the screen does not open at all.
+//
+// Only where it is genuinely undecidable: a group that can name just ONE
+// variant (650 rows) has nothing to resolve, and those open as before. Demo
+// mode is exempt -- it says outright that its values are simulated.
+let _groupNamesP = null;
+const groupNames = () => (_groupNamesP ??=
+  fetch('data/groups/variants-by-group.json')
+    .then(r => (r.ok ? r.json() : null)).catch(() => null));
+
+async function irBlockUnverified(ecu, chassisId, grid, bar) {
+  if (typeof demoMode === 'function' && demoMode()) return false;
+  if (!['unverified', 'unavailable'].includes(ecu._variantSource)) return false;
+  const g = String(ecu.group || '').toLowerCase();
+  if (!g) return false;
+  const map = await groupNames();
+  const names = (map && map[g]) || [];
+  // one candidate (or no table shipped) = nothing the read could change
+  if (names.length < 2) return false;
+
+  if (bar) bar.remove();
+  grid.className = 'results-panel';
+  // SAY WHAT ACTUALLY HAPPENED. "Connect a cable" with a cable already
+  // paired reads as a broken app -- the read RAN and the address stayed
+  // silent, which is a statement about the car (ignition off, module not
+  // fitted, or it answers as a different variant), not about the cable.
+  const p = await api('/api/port').catch(() => null);
+  const cable = !!(p && p.port);
+  // JUST THE HEADLINE. The earlier version spelled out the address, the
+  // sibling list and the reasoning; it read as a wall and the mixed
+  // centre/left alignment made it worse. The reason belongs in the tooltip,
+  // not on the page -- what the user needs is the one action that unblocks it.
+  grid.innerHTML = `<div class="empty"><div class="empty-big"
+      style="color:var(--amber)"
+      title="${esc(ecu.label)} sits on diagnostic address ${esc(ecu.group)}, `
+    + `which ${names.length} different modules can answer (${esc(names.join(', '))}). `
+    + `Until the car identifies itself, opening one variant's screens for `
+    + `another would answer confidently and wrongly.">`
+    + (cable
+      ? `No answer at address ${esc(ecu.group)}</div>`
+        + `<div>The cable is connected, but the module did not identify `
+        + `itself. Check the ignition is on -- or this car may carry a `
+        + `different variant (${esc(names.slice(0, 6).join(', '))}`
+        + `${names.length > 6 ? ` and ${names.length - 6} more` : ''}); `
+        + `reopen the module to ask again.</div>`
+        + (() => {
+          // the resolver's own account of HOW it failed -- a silent bus, an
+          // answered-but-unmatched identification, and a probe error are
+          // three different problems and the page should say which this was
+          const d = (typeof webResolveVariantLast === 'function'
+            ? webResolveVariantLast()
+            : (window.webResolveVariantLast && window.webResolveVariantLast()))
+            || null;
+          if (!d || d.group !== String(ecu.group).toLowerCase()) return '';
+          const what = {
+            'no-probe-shipped': 'this build ships no probe for the address',
+            'bus-silent': `nothing on the wire answered `
+              + `(${d.empty || 0} probe${d.empty === 1 ? '' : 's'} sent)`,
+            'probe-error': `the probe failed: ${esc(d.error || 'unknown')} `
+              + `(${d.real || 0} answered, ${d.empty || 0} silent)`,
+            'answered-but-unmatched': `the module ANSWERED `
+              + `${d.real} telegram${d.real === 1 ? '' : 's'} but the `
+              + `identification matched no known variant -- a decode or `
+              + `table problem on our side, not a silent car`,
+          }[d.path] || d.path;
+          return `<div class="mono" style="opacity:.7">probe result: `
+            + `${what}</div>`;
+        })()
+      : `Connect a cable to open this module</div>`)
+    + `</div>`;
+  sbLeft.textContent = `${ecu.sgbd}.prg · variant unverified · `
+    + (cable ? 'address silent' : 'needs a cable');
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: () => backToModules(chassisId) }]);
+  return true;
+}
+
+// SAY WHETHER THE CAR CONFIRMED THIS SGBD. A chassis config lists every
+// variant BMW fitted at a diagnostic address and the app opens the first that
+// matches; on 609 of the 1000 grouped rows the group can name a different one.
+// Opening a module with no cable therefore shows a GUESS, and rendering that
+// identically to a confirmed read is the same class of error as a fault scan
+// reporting "clean" for a module it never spoke to.
+//
+// The screen is not blocked: reading an IR offline is useful and harmless.
+// What changes is that the pill states which of the two it is.
+function irShowVariantSource(ecu, bar) {
+  if (!bar) return;
+  const src = ecu._variantSource;
+  if (!src || src === 'ungrouped' || src === 'nogroup') return;
+  let el = bar.querySelector('#variant-pill');
+  if (!el) {
+    el = document.createElement('span');
+    el.id = 'variant-pill';
+    el.className = 'pill';
+    bar.appendChild(el);
+  }
+  if (src === 'identified' || src === 'confirmed') {
+    el.className = 'pill pill-ok';
+    el.textContent = `variant ${ecu.sgbd} · confirmed by the car`;
+    el.title = 'The diagnostic-address group ran IDENTIFIKATION and the car '
+             + 'named this SGBD.';
+    return;
+  }
+  // unverified / unavailable
+  el.className = 'pill pill-warn';
+  el.textContent = `variant not verified · showing ${ecu.sgbd}`;
+  el.title = `${ecu.label} shares diagnostic address ${ecu.group} with other `
+    + 'variants. Nothing answered, so this is the configuration\u2019s pick, not '
+    + 'the car\u2019s answer -- connect the cable and reopen to confirm.';
+}
+
 async function showEcuDeep(chassisId, sgbd, menuName) {
   const ch = await tryApi(`/api/chassis/${chassisId}`, null, view,
                           `failed to load ${dispChassis(chassisId)}`);
@@ -182,8 +329,48 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     // group first, so the IR fetched below already belongs to the variant
     // the car actually carries (zae's IR is useless against an MRS4)
     await irResolveGroupVariant(ecu);
+    // THE HEADER WAS WRITTEN BEFORE WE KNEW WHICH MODULE THIS IS. It renders
+    // from the chassis config's name 30 lines above, and resolution runs
+    // here -- so an E46 whose climate unit identifies as ihka46_3 kept
+    // reading "SGBD ihka38.prg", an E38 part, for the whole session. The
+    // jobs, screens and fault text below all belong to the resolved variant;
+    // only the caption still claimed otherwise.
+    if (ecu._sgbdBase && ecu._sgbdBase !== ecu.sgbd) {
+      const sub = view.querySelector('.subtitle');
+      if (sub) {
+        sub.textContent = `SGBD ${ecu.sgbd}.prg · identified by the car `
+          + `(configured ${ecu._sgbdBase}) · choose a function group below`;
+      }
+    }
+    irShowVariantSource(ecu, bar);
+    if (await irBlockUnverified(ecu, chassisId, grid, bar)) return;
+    // THE SGBD IS WHAT WE TALK TO; THE SCRIPT IS WHAT DRAWS. INPA never loads
+    // a UI per variant -- it loads ONE script per diagnostic address and picks
+    // the matching screens inside it. E46's climate entry is klima_5B, and
+    // KLIMA_5B.IPO carries 87 screens covering every IHKA variant, named for
+    // the variant they serve (s_eingaenge_ihka46_2, s_steuern_motoren_
+    // ihka38_ihka38_2_ihka38_3). BMW ships no IHKA46_3.IPO and never did:
+    // ihka46_3 appears in that script's dispatch list and shares IHKA46's
+    // pages.
+    //
+    // So retargeting the SGBD must NOT retarget the UI. Asking for
+    // ihka46_3's own IR got "this ECU has no INPA screen definition", which
+    // is true and useless -- the right screens were in the script all along.
+    // Fall back to the CONFIGURED sgbd's archive, which is where this entry's
+    // script ships; irResolveVariant then selects within it by ecu._variant.
+    // 1116 of 2942 shipped archives carry no ir.json, most of them this shape.
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
-    ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`);
+    ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`).catch(() => null);
+    if ((!ecu._ir || !Object.keys(ecu._ir.menus || {}).length)
+        && ecu._sgbdBase && ecu._sgbdBase !== ecu.sgbd) {
+      const base = await api(`/api/ecu/${ecu._sgbdBase}/ir${codeHint}`)
+        .catch(() => null);
+      if (base && Object.keys(base.menus || {}).length) {
+        ecu._ir = base;
+        ecu._irFrom = ecu._sgbdBase;
+      }
+    }
+    if (!ecu._ir) throw new Error('no IR for this module');
     // asking the car which variant it is takes a real transaction; say so
     // rather than leaving the skeleton up with no explanation
     if (!ecu._variant && ecu._ir && ecu._ir.rootVariants
