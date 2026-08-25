@@ -44,7 +44,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 echo "==> freezing the API surface"
-python3 tools/export/web_export.py --out "$OUT"
+python3 tools/export/web_export.py --out "$OUT" "$@"
 
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"

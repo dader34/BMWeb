@@ -56,6 +56,66 @@ async function codeableModules(chassisId, saCodes) {
   return out;
 }
 
+// ASK THE CAR WHICH VARIANT EACH MODULE IS, before reading its coding.
+//
+// applySelection above is BMW's own method and it is right, but it reasons
+// from the VEHICLE ORDER -- it needs SA codes, and it never touches the wire.
+// The bus knows better: a diagnostic address is shared, and running the
+// group's IDENTIFIKATION is what says which of the candidates is actually
+// fitted. On a real E46, EDIABAS answered ews3 where the config says ews,
+// kombi46r where it says kombi46, and ihka46_3 where it says ihka38 -- three
+// wrong coding maps out of fifteen modules.
+//
+// That matters more here than anywhere else in the app. A coding read still
+// ANSWERS on the wrong variant (same address, same job name), so the bytes
+// look fine and only the bit-to-meaning mapping is wrong -- and a write is a
+// delta spliced onto that image, so a wrong map changes a bit nobody chose.
+// assertResolvedForWrite cannot catch it: that guard checks the coding INDEX
+// within one SGBD's own DATEN, and never consults the bus.
+//
+// Sets on each module:
+//   sgbd            retargeted to what the car named, when we can read it
+//   _codingVariant  'identified' | 'confirmed' | 'unverified' | 'sole'
+//   _variantOf      the configured name, when it was replaced
+const _codingGroupNames = () => (typeof groupNames === 'function'
+  ? groupNames() : Promise.resolve(null));
+
+async function codingResolveVariants(mods) {
+  if (typeof demoMode === 'function' && demoMode()) return mods;
+  if (typeof webResolveVariant !== 'function') return mods;
+  const amb = await _codingGroupNames();
+  const cache = new Map();
+  for (const m of mods) {
+    const g = String(m.group || '').toLowerCase();
+    if (!g) { m._codingVariant = 'sole'; continue; }
+    // a group that can name only one variant has nothing to resolve
+    if (amb && !amb[g]) { m._codingVariant = 'sole'; continue; }
+    if (!cache.has(g)) {
+      let v = null;
+      try { v = await webResolveVariant(g); } catch { v = null; }
+      cache.set(g, v);
+    }
+    const via = cache.get(g);
+    if (!via) { m._codingVariant = 'unverified'; continue; }
+    if (via === String(m.sgbd).toLowerCase()) {
+      m._codingVariant = 'confirmed';
+      continue;
+    }
+    // The car named a DIFFERENT variant. Retarget only when this build has a
+    // coding map for it -- otherwise the module is present but undecodable
+    // here, which is a different statement from "wrong map applied".
+    const entry = typeof codingFor === 'function' ? await codingFor(via) : null;
+    const daten = !entry && typeof datenFor === 'function'
+      ? await datenFor(via) : null;
+    if (!entry && !daten) { m._codingVariant = 'unbuilt'; m._variantVia = via; continue; }
+    m._variantOf = m.sgbd;
+    m.sgbd = via;
+    m.kind = entry ? 'values' : 'map';
+    m._codingVariant = 'identified';
+  }
+  return mods;
+}
+
 // Does this chassis have anything to code? Drives the chassis-screen tile.
 async function chassisHasCoding(chassisId) {
   return (await codeableModules(chassisId)).length > 0;
@@ -209,10 +269,14 @@ function codingPresent(mods, scan) {
 // it answered, and with how many decodable fields, and the caller shows only
 // what the car really has.
 async function scanCoding(chassisId, host, saCodes) {
-  const mods = await codeableModules(chassisId, saCodes);
+  const mods = await codingResolveVariants(
+    await codeableModules(chassisId, saCodes));
   const cache = new Map();
   const status = new Map();
   cache.status = status;
+  // the RESOLVED modules, so every consumer works from the variants the car
+  // named rather than re-deriving the config's guess (see showExpertCoding)
+  cache.mods = mods;
   const total = mods.length;
   const paint = (done, name) => {
     host.innerHTML = `<div class="coding-scan">`
@@ -237,6 +301,31 @@ async function scanCoding(chassisId, host, saCodes) {
       const d = await api(`/api/ecu/${m.sgbd}/run/${entry.read}`,
                           { method: 'POST' });
       const got = new Map(flatResults(d.sets));
+      // THE CODING INDEX, WHICH THE READ JOB USUALLY DOES NOT RETURN.
+      // Only 3 of 29 coding modules name it in their own read; ZKE5's
+      // COD_LESEN hands back the raw COD_DATEN blob and nothing else. The
+      // index is what picks which DATEN variant describes those bytes
+      // (ZKE5 ships C01/C02/C04/C05+C06), and codDatenField only trusts a
+      // field when the index selected it -- so without this EVERY curated
+      // feature decoded as "unknown" and drew as an empty toggle, on a car
+      // that had answered perfectly well.
+      //
+      // 23 more modules expose it on IDENT (or C_CI_LESEN). One extra read
+      // per module, and only when the coding read did not already carry it.
+      if (!CI_RESULTS.some((k) => got.has(k))) {
+        for (const j of ['C_CI_LESEN', 'IDENT']) {
+          try {
+            const names = await codingJobNames(m.sgbd);
+            if (!names.includes(j)) continue;
+            const idr = await api(`/api/ecu/${m.sgbd}/run/${j}`,
+                                  { method: 'POST' });
+            for (const [k, v] of flatResults(idr.sets)) {
+              if (CI_RESULTS.includes(k) && !got.has(k)) got.set(k, v);
+            }
+            if (CI_RESULTS.some((k) => got.has(k))) break;
+          } catch { /* no index from this job: try the next */ }
+        }
+      }
       const n = codingDecoded(entry, got);
       cache.set(m.sgbd, got);
       status.set(m.sgbd, {
@@ -264,7 +353,13 @@ async function scanCoding(chassisId, host, saCodes) {
 async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   const mobile = window.matchMedia
     && window.matchMedia('(max-width: 760px)').matches;
-  const all = await codeableModules(chassisId);
+  // THE SAME LIST THE SCAN READ. This used to call codeableModules without
+  // saCodes, so the expert tab built its tree from the UNSELECTED names while
+  // the scan had read the selected ones -- the two disagreed about which
+  // variant a slot holds. Take the scan's own modules, which are also the
+  // ones codingResolveVariants retargeted.
+  const all = (scan && scan.mods)
+    || await codeableModules(chassisId);
   if (!all.length) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
     return;
@@ -289,6 +384,27 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
 // ID_COD_INDEX / CODIER_INDEX alongside the coding read; it's the number
 // after the "C" in the variant key (C06 -> 6). Returns null when the scan
 // didn't name it (offline, or a module that doesn't report it).
+// The result names that carry a coding index, in the order
+// codingIndexFromScan reads them. Declared once so the scan can ask "did the
+// read already give me one?" with the same vocabulary.
+const CI_RESULTS = ['ID_COD_INDEX', 'CODIER_INDEX', 'CODIERINDEX',
+                    'COD_INDEX', 'ID_CODIERINDEX'];
+
+// Job names one SGBD declares, cached per session. Used only to avoid running
+// a job the module does not have -- a 404 there is noise, not information.
+const _codJobNames = new Map();
+function codingJobNames(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (!_codJobNames.has(key)) {
+    _codJobNames.set(key, api(`/api/ecu/${key}/jobs`).then((j) => {
+      const list = Array.isArray(j) ? j : (j && j.jobs) || [];
+      return list.map((x) => (typeof x === 'string' ? x : x && x.name))
+        .filter(Boolean);
+    }).catch(() => []));
+  }
+  return _codJobNames.get(key);
+}
+
 function codingIndexFromScan(scan, sgbd) {
   const res = scan && scan.get(String(sgbd).toLowerCase());
   if (!res) return null;
@@ -533,7 +649,21 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
 // C02-C06 but 368 on C07-C08: writing off the wrong stamp puts bytes into the
 // wrong ECU memory. Reading that view is fine; transmitting from it is not.
 // Throws with a message naming the ECU, so the caller's catch reports it.
-function assertResolvedForWrite(sgbd, fns) {
+function assertResolvedForWrite(sgbd, fns, mod) {
+  // WHICH MODULE, before which layout. The check below verifies the coding
+  // INDEX picked one variant stamp inside this SGBD's own DATEN -- it says
+  // nothing about whether this SGBD is the module on the wire. Those are two
+  // different axes and only one of them was ever guarded: a diagnostic
+  // address is shared, and writing ews's map into an EWS3 changes bits nobody
+  // chose. codingResolveVariants asks the group; if it could not, refuse.
+  if (mod && ['unverified', 'unbuilt'].includes(mod._codingVariant)) {
+    throw new Error(
+      `refusing to write ${sgbd}: nothing confirmed this is the variant `
+      + `fitted. ${mod.label || sgbd} shares diagnostic address `
+      + `${mod.group || '?'} with other modules, and a coding write is a `
+      + `delta against the layout of whichever one answers. Reconnect and `
+      + `re-read so the address group can identify itself.`);
+  }
   if (fns && fns.codingIsResolved) return;
   const ci = fns ? fns.codingIndex : null;
   const vs = (fns && fns.codingVariants) || [];
@@ -1185,7 +1315,7 @@ async function treeReview(built, state, label) {
     try {
       // The union view is a reference, not a write target -- refuse before
       // anything touches the wire.
-      assertResolvedForWrite(sgbd, mod.fns);
+      assertResolvedForWrite(sgbd, mod.fns, mod);
 
       // Read current netto
       const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;

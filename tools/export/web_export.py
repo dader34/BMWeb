@@ -18,6 +18,13 @@ import gzip
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 CACHE = os.path.join(ROOT, "data", "chassis-config")
+ECU_SRC = os.path.join(ROOT, "data", "ecu-src")
+
+# The synthetic chassis id the orphan SGBDs are packed under. Not a real car:
+# it is the catch-all that makes loadEcu(<any shipped SGBD>) resolve for the
+# ~579 .prg no chassis config names. loadChassis uppercases the id, so this
+# lives at api/chassis/_SGBD.chassis and ecu-index.json points orphans at it.
+SGBD_CATCHALL = "_SGBD"
 
 # every request that fell back to the committed cache while the app WAS
 # running -- a mix of fresh and stale configs in one export must be loud
@@ -25,6 +32,107 @@ FALLBACKS = []
 
 sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
 import ecu_tree as T                                          # noqa: E402
+
+
+def _orphan_sgbds():
+    """Every .prg BMW ships that no chassis config names: the app must be able
+    to load ANY shipped SGBD by name, because the live IDENTIFIKATION can
+    resolve to a variant no menu ever listed. all_sgbds() is the corpus,
+    owners() is what a car claims; the difference are the orphans."""
+    return sorted(set(T.all_sgbds()) - set(T.owners().keys()))
+
+
+def _ecu_src_read(sgbd, tree_name):
+    """Decompressed bytes of one derived kind for an ORPHAN, from data/ecu-src.
+
+    Orphans have no per-car folder, so their data lives only in the committed
+    per-SGBD source (data/ecu-src/<sgbd>.<kind>.json.gz, always gzipped).
+    Maps the tree filename build_ecu_contents asks for onto the ecu-src name.
+    """
+    kind = {
+        "meta.json": "meta",
+        "tables.json": "tables",
+        "job-code.json.gz": "job-code",
+        "screens.json": None,          # orphans carry no decompiled IR
+    }.get(tree_name, None)
+    if kind is None:
+        return None
+    p = os.path.join(ECU_SRC, f"{sgbd}.{kind}.json.gz")
+    if not os.path.exists(p):
+        return None
+    with gzip.open(p, "rb") as f:
+        return f.read()
+
+
+def build_ecu_contents(sgbd, read):
+    """Assemble one ECU's .ecu file map from a `read(tree_name) -> bytes|None`
+    accessor, returning (contents, counts). Shared by the per-car tree path
+    (owned SGBDs) and the ecu-src path (orphans) so the two cannot drift: the
+    same jobs.json/meta/results/arguments/tables/table/ir/job-code/sgbd-tables
+    layout the shim expects comes out of one place. `read` hands back the
+    DECOMPRESSED bytes for a kind (job-code is stored gzipped in the tree,
+    everything in ecu-src is gzipped -- the accessor hides that)."""
+    ecu_contents = {}
+    counts = {"jobs": 0, "results": 0, "tables": 0, "ir": 0}
+
+    mb = read("meta.json")
+    if mb:
+        meta = json.loads(mb)
+        jobs = meta.get("jobs", {})
+        ecu_contents["jobs.json"] = json.dumps(
+            sorted(jobs.keys()), separators=(",", ":"))
+        counts["jobs"] = 1
+
+        slim = {}
+        for jname, j in jobs.items():
+            rs = [{"name": r["name"], "comment": r.get("comment", "")}
+                  for r in j.get("results", []) if r.get("name")]
+            if rs:
+                slim[jname.upper()] = {"results": rs}
+        if slim:
+            ecu_contents["meta.json"] = json.dumps(
+                {"sgbd": sgbd, "jobs": slim}, separators=(",", ":"))
+
+        for jname, j in jobs.items():
+            lines = [f"{r['name']} : {r.get('comment', '')}"
+                     for r in j.get("results", [])]
+            if lines:
+                ecu_contents[f"results/{jname.upper()}.json"] = json.dumps(
+                    lines, separators=(",", ":"))
+                counts["results"] += 1
+            args = j.get("arguments") or []
+            if args:
+                rows = []
+                for a in args:
+                    row = {"ARG": a["name"], "ARGTYPE": a.get("type", "")}
+                    for i, c in enumerate(a.get("comments", [])):
+                        row[f"ARGCOMMENT{i}"] = c
+                    rows.append(row)
+                ecu_contents[f"arguments/{jname.upper()}.json"] = json.dumps(
+                    {"job": jname, "arguments": rows}, separators=(",", ":"))
+
+    tb = read("tables.json")
+    if tb:
+        tabs = json.loads(tb)
+        ecu_contents["tables.json"] = json.dumps(
+            sorted(tabs.keys()), separators=(",", ":"))
+        for name, rows in tabs.items():
+            ecu_contents[f"table/{name.upper()}.json"] = json.dumps(
+                rows, separators=(",", ":"))
+        # VM SGBD tables: the raw table map the walker reads at runtime
+        ecu_contents["sgbd-tables.json"] = tb
+        counts["tables"] = 1
+
+    irb = read("screens.json")
+    if irb:
+        ecu_contents["ir.json"] = irb
+        counts["ir"] = 1
+
+    jcb = read("job-code.json.gz")
+    if jcb:
+        ecu_contents["job-code.json"] = jcb
+
+    return ecu_contents, counts
 
 
 def get(port, path):
@@ -115,87 +223,45 @@ def main():
                 if sgbd:
                     sgbds.add(sgbd)
 
+    # EVERY SGBD ecu_tree ASSIGNS TO A CAR, not just the menu's own names. A
+    # group variant a car's IDENTIFIKATION can name (ecu_tree.group_variants:
+    # gs20 via d_0032, and the rest) has a per-car folder in the tree but never
+    # appears in a chassis config's `sgbd` field -- so the menu-only set above
+    # never built its .ecu, step 3 found nothing in ecu_zips to pack, and the
+    # module the car reports resolved to a 404. The index comment downstream
+    # has always CLAIMED to ship these; this is what actually builds them.
+    for sgbd, places in T.owners().items():
+        if places:
+            sgbds.add(sgbd.lower())
+
     # 2. Package each ECU into its own .ecu (zip) archive
     ecu_zips = {}
     njobs = nres = ntab = nir = 0
     os.makedirs(os.path.join(api, "ecu"), exist_ok=True)
 
     for sgbd in sorted(sgbds):
-        ecu_contents = {}
-
         # EVERYTHING COMES FROM THE PER-CAR TREE. data/chassis/<C>/<ECU>/ is
         # the source of truth now; the flat per-kind folders it was built from
-        # are gone. src() finds the file in whichever car folder holds this
-        # SGBD -- the copies are written together, so any one of them will do.
-        def src(name):
-            for d in T.ecu_dirs(sgbd):
+        # are gone. tree_read() finds the file in whichever car folder holds
+        # this SGBD -- the copies are written together, so any one will do --
+        # and returns its DECOMPRESSED bytes so build_ecu_contents does not
+        # have to know whether a kind is stored gzipped (job-code) or plain.
+        def tree_read(name, _sgbd=sgbd):
+            for d in T.ecu_dirs(_sgbd):
                 q = os.path.join(d, name)
                 if os.path.exists(q):
-                    return q
+                    if q.endswith(".gz"):
+                        with gzip.open(q, "rb") as f:
+                            return f.read()
+                    with open(q, "rb") as f:
+                        return f.read()
             return None
 
-        mp = src("meta.json")
-        if mp:
-            with open(mp) as f:
-                meta = json.load(f)
-            jobs = meta.get("jobs", {})
-            ecu_contents["jobs.json"] = json.dumps(sorted(jobs.keys()), separators=(",", ":"))
-            njobs += 1
-
-            slim = {}
-            for jname, j in jobs.items():
-                rs = [{"name": r["name"], "comment": r.get("comment", "")}
-                      for r in j.get("results", []) if r.get("name")]
-                if rs:
-                    slim[jname.upper()] = {"results": rs}
-            if slim:
-                ecu_contents["meta.json"] = json.dumps({"sgbd": sgbd, "jobs": slim}, separators=(",", ":"))
-
-            for jname, j in jobs.items():
-                lines = [f"{r['name']} : {r.get('comment', '')}" for r in j.get("results", [])]
-                if lines:
-                    ecu_contents[f"results/{jname.upper()}.json"] = json.dumps(lines, separators=(",", ":"))
-                    nres += 1
-                args = j.get("arguments") or []
-                if args:
-                    rows = []
-                    for a in args:
-                        row = {"ARG": a["name"], "ARGTYPE": a.get("type", "")}
-                        for i, c in enumerate(a.get("comments", [])):
-                            row[f"ARGCOMMENT{i}"] = c
-                        rows.append(row)
-                    ecu_contents[f"arguments/{jname.upper()}.json"] = json.dumps(
-                        {"job": jname, "arguments": rows}, separators=(",", ":")
-                    )
-
-        # Load tables
-        tp = src("tables.json")
-        if tp:
-            with open(tp) as f:
-                tabs = json.load(f)
-            ecu_contents["tables.json"] = json.dumps(sorted(tabs.keys()), separators=(",", ":"))
-            for name, rows in tabs.items():
-                ecu_contents[f"table/{name.upper()}.json"] = json.dumps(rows, separators=(",", ":"))
-            ntab += 1
-
-        # Add IR if matched
-        ir_path = src("screens.json")
-        if ir_path:
-            with open(ir_path, "rb") as f:
-                ecu_contents["ir.json"] = f.read()
-            nir += 1
-
-        # Decompress and embed the VM's job-code bytecode
-        gp = src("job-code.json.gz")
-        if gp:
-            with gzip.open(gp, "rb") as gf:
-                ecu_contents["job-code.json"] = gf.read()
-
-        # Embed VM SGBD tables
-        vmtp = src("tables.json")
-        if vmtp:
-            with open(vmtp, "rb") as tf:
-                ecu_contents["sgbd-tables.json"] = tf.read()
+        ecu_contents, counts = build_ecu_contents(sgbd, tree_read)
+        njobs += counts["jobs"]
+        nres += counts["results"]
+        ntab += counts["tables"]
+        nir += counts["ir"]
 
         # Build the .ecu zip. Held in memory only: every one of these goes
         # inside its chassis archive below, and writing them loose as well
@@ -204,10 +270,50 @@ def main():
         if ecu_contents:
             ecu_zips[sgbd] = make_zip(ecu_contents, compress=True)
 
-    print(f"  packaged {len(ecu_zips)} .ecu archives ({njobs} jobs, {nres} result schemas, {ntab} tables, {nir} IRs)")
+    # 2b. THE ORPHANS. Every .prg BMW ships but no chassis config names --
+    # ecu_tree.all_sgbds() minus ecu_tree.owners(). The app is a straight .IPO
+    # emulator: a group's IDENTIFIKATION runs live and the ECU names its own
+    # variant, so whatever the wire resolves to must have its data present, not
+    # just the variants a menu happens to list. On a real E46 the airbag group
+    # answered mrs4, the climate group ihka46_3 -- neither in any menu, both
+    # orphans -- and without this they loadEcu-404, so the module identified
+    # correctly and then could not read a single fault. Their data is derived
+    # OFFLINE into data/ecu-src by tools/export/orphan_ecus.py; read it the same
+    # way build_ecu_contents reads an owned SGBD, then pack them all into one
+    # synthetic "_SGBD" chassis below (step 3b) and index them (step 3c).
+    orphan_zips = {}
+    n_orphan = 0
+    for sgbd in _orphan_sgbds():
+        def src_read(name, _sgbd=sgbd):
+            return _ecu_src_read(_sgbd, name)
+        ecu_contents, counts = build_ecu_contents(sgbd, src_read)
+        # job-code is the one kind the VM cannot run without; an orphan with no
+        # job-code is not loadable in any useful sense, so it does not ship
+        if "job-code.json" not in ecu_contents:
+            continue
+        njobs += counts["jobs"]
+        nres += counts["results"]
+        ntab += counts["tables"]
+        orphan_zips[sgbd] = make_zip(ecu_contents, compress=True)
+        n_orphan += 1
+    ecu_zips.update(orphan_zips)
+
+    print(f"  packaged {len(ecu_zips)} .ecu archives "
+          f"({n_orphan} orphans; {njobs} jobs, {nres} result schemas, "
+          f"{ntab} tables, {nir} IRs)")
 
     # 3. Package each chassis configuration and its ECUs into a .chassis archive
     os.makedirs(os.path.join(api, "chassis"), exist_ok=True)
+    # WHAT EACH CHASSIS ACTUALLY SHIPS, recorded as it is packed so the index
+    # below indexes reality rather than the menu (see ecu-index.json).
+    chassis_ecus = {}
+    # every SGBD ecu_tree assigns to a car -- the menu's own names PLUS every
+    # variant that car's groups can identify (ecu_tree.group_variants)
+    tree_owner = {}
+    for sgbd, places in T.owners().items():
+        for c, _code in places:
+            tree_owner.setdefault(c.upper(), set()).add(sgbd.lower())
+
     for cid in ids:
         cfg = chassis_configs[cid]
         chassis_contents = {
@@ -215,33 +321,82 @@ def main():
         }
 
         # Pack referenced SGBD .ecu files
+        want = set()
         for sec in cfg.get("sections", []):
             for e in sec.get("ecus", []):
                 sgbd = (e.get("sgbd") or "").lower()
-                if sgbd in ecu_zips:
-                    chassis_contents[f"ecu/{sgbd}.ecu"] = ecu_zips[sgbd]
+                if sgbd:
+                    want.add(sgbd)
+        want |= tree_owner.get(cid.upper(), set())
+        packed = set()
+        for sgbd in sorted(want):
+            if sgbd in ecu_zips:
+                chassis_contents[f"ecu/{sgbd}.ecu"] = ecu_zips[sgbd]
+                packed.add(sgbd)
+        chassis_ecus[cid] = packed
 
         # Build .chassis ZIP. We use STORED mode since the internal .ecu files are already zipped.
         chassis_zip_bytes = make_zip(chassis_contents, compress=False)
         with open(os.path.join(api, "chassis", f"{cid}.chassis"), "wb") as f:
             f.write(chassis_zip_bytes)
 
-    print(f"  packaged {len(ids)} .chassis archives")
+    # 3b. THE ORPHAN CATCH-ALL. Every orphan .ecu (packed in step 2b) goes
+    # into one synthetic "_SGBD" chassis, so loadEcu(<orphan>) resolves through
+    # exactly the same path an owned SGBD does: ecu-index.json names _SGBD, the
+    # shim downloads _SGBD.chassis once, and every orphan is then cached. It
+    # carries an empty config so cacheChassis' `config.json` requirement is met;
+    # nothing renders a menu from it -- it is reached only by name via loadEcu.
+    orphan_packed = set()
+    if orphan_zips:
+        catchall_contents = {"config.json": json.dumps(
+            {"chassis": SGBD_CATCHALL, "sections": [],
+             "note": "synthetic catch-all: every .prg no chassis config names, "
+                     "so the live IDENTIFIKATION always lands on shipped data"},
+            separators=(",", ":"))}
+        for sgbd in sorted(orphan_zips):
+            catchall_contents[f"ecu/{sgbd}.ecu"] = orphan_zips[sgbd]
+            orphan_packed.add(sgbd)
+        catchall_bytes = make_zip(catchall_contents, compress=False)
+        with open(os.path.join(api, "chassis",
+                               f"{SGBD_CATCHALL}.chassis"), "wb") as f:
+            f.write(catchall_bytes)
+        print(f"  packaged {SGBD_CATCHALL}.chassis "
+              f"({len(orphan_packed)} orphan ECUs, "
+              f"{len(catchall_bytes)//(1024*1024)} MB)")
+
+    print(f"  packaged {len(ids)} .chassis archives"
+          + (f" + {SGBD_CATCHALL}" if orphan_packed else ""))
 
     # Which car owns each SGBD. ECUs live only inside their chassis archive,
     # so opening one the shim has not cached means finding its owner; without
     # this it would try chassis archives in turn, downloading up to 122 MB to
     # find a 116 KB ECU. 5 KB answers it in one lookup.
+    # BUILT FROM WHAT THE ARCHIVES HOLD, NOT FROM THE MENU. This used to walk
+    # the chassis configs, so it could only ever list SGBDs a menu names --
+    # the same gate ecu_tree.owners() had. Every variant a group can IDENTIFY
+    # but the menu never listed (ihka46_3, gs20, mrs4 ...) was packaged into
+    # the .chassis archives and then left out of the index, so loadEcu could
+    # not find its owner and webRunJob answered "no job code shipped".
+    #
+    # On a real E46 that meant the climate unit identified correctly as
+    # ihka46_3 and then reported a CLEAN FAULT MEMORY for a module holding two
+    # present faults -- the worst thing this app can say. ecu_zips is what was
+    # actually written, so index that.
     owner = {}
     for cid in ids:
-        for sec in chassis_configs[cid].get("sections", []):
-            for e in sec.get("ecus", []):
-                sgbd = (e.get("sgbd") or "").lower()
-                if sgbd and sgbd not in owner:
-                    owner[sgbd] = cid
+        for sgbd in sorted(chassis_ecus.get(cid, ())):
+            if sgbd not in owner:
+                owner[sgbd] = cid
+    # THE ORPHANS point at the synthetic catch-all. A real chassis always wins
+    # (an orphan is by definition unowned, so this only ever adds new keys) --
+    # keeping the guard means a future name collision surfaces as a real chassis
+    # owner rather than being silently redirected into _SGBD.
+    for sgbd in sorted(orphan_packed):
+        owner.setdefault(sgbd, SGBD_CATCHALL)
     with open(os.path.join(api, "ecu-index.json"), "w") as f:
         json.dump(owner, f, ensure_ascii=False, separators=(",", ":"))
-    print(f"  ecu-index.json: {len(owner)} sgbds")
+    print(f"  ecu-index.json: {len(owner)} sgbds "
+          f"({len(orphan_packed)} via {SGBD_CATCHALL})")
 
     # 4. Copy the global job-code index
     src_idx = os.path.join(ROOT, "data", "job-code", "index.json")

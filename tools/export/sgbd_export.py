@@ -489,6 +489,17 @@ def export_groups(chassis=None):
     with open(os.path.join(out_dir, "index.json"), "w") as f:
         json.dump({"format": 1, "groups": sorted(r[0] for r in made),
                    "variants": bool(rows)}, f, separators=(",", ":"))
+
+    # WHICH VARIANTS EACH ADDRESS CAN ANSWER WITH. The renderer refuses to
+    # open a module whose group is ambiguous until the car identifies itself
+    # (ecu.js irBlockUnverified) -- D_ZKE_GM can be any of nine modules, and
+    # showing one variant's screens for another answers confidently and
+    # wrongly. Only the ambiguous groups are written: a group that can name
+    # one variant has nothing to resolve and must not gate anything.
+    amb = {g: sorted(n) for g, n in ET.group_variants().items() if len(n) > 1}
+    with open(os.path.join(out_dir, "variants-by-group.json"), "w") as f:
+        json.dump(amb, f, separators=(",", ":"), sort_keys=True)
+    print(f"variants-by-group: {len(amb)} ambiguous groups")
     if not rows:
         # no variant mapping means no group can NAME the SGBD it resolved:
         # that is the feature, so its absence is a failure, not a log line
@@ -769,8 +780,16 @@ def main():
                if not a.startswith("--") and a not in ship_chassis]
     if not targets:
         if "--all-chassis" in argv:
-            targets = sorted({g for ch in all_chassis()
-                              for g in chassis_sgbds(ch)})
+            # ecu_tree.all_sgbds(), not the menu. A chassis config lists the
+            # variants INPA offers; owners() adds every variant a group can
+            # IDENTIFY (see ecu_tree.group_variants), and those are exactly
+            # the ones a car reports for itself -- gs20, mrs4, ews3 and the
+            # rest were all present on a real E46 and none was in the menu,
+            # so none was exported and the sweep could only say
+            # "not in build". Falls back to the menu union if the tree
+            # module is unavailable for any reason.
+            targets = sorted(ET.all_sgbds() or {g for ch in all_chassis()
+                                                for g in chassis_sgbds(ch)})
             if "--force" not in argv:
                 # keep what an earlier run already extracted
                 targets = [t for t in targets if not os.path.exists(
