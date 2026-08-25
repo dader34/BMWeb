@@ -155,6 +155,22 @@ function irReadable(scr) {
 // the frozen IR (itself derived by executing the .IPO at build time) stands in,
 // so the fallback below is a safety net, not a second "non-interpreted" path.
 
+// Can this diagnostic address name more than one variant? Only then does an
+// unverified variant matter for a DRIVE -- the same ORT byte commands a
+// different output on a sibling. A group no map entry lists (or lists once) has
+// nothing to confuse, so refusing its drive is a false alarm even with the cable
+// connected. Mirrors ecu.js's groupNames()/irBlockUnverified ambiguity test so
+// the open gate and the drive gate agree. Cached; null map -> not ambiguous.
+let _grpNamesP = null;
+async function irGroupAmbiguous(group) {
+  const g = String(group || '').toLowerCase();
+  if (!g) return false;
+  _grpNamesP ??= fetch('data/groups/variants-by-group.json')
+    .then(r => (r.ok ? r.json() : null)).catch(() => null);
+  const map = await _grpNamesP;
+  return !!(map && (map[g] || []).length >= 2);
+}
+
 // {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
 // twin (an orphan, or a pre-phase-1 archive) -- callers fall back to frozen IR.
 const _ipoExecCache = new Map();
@@ -2065,8 +2081,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // byte means a different output on a sibling, so this refuses rather
       // than energizing whatever answers. Not a decode gap: reconnect and
       // reopen and the group's IDENTIFIKATION settles it.
+      //
+      // But ONLY when the address is genuinely shared: a group that names one
+      // variant (or none the map lists) has no sibling to confuse, so refusing
+      // its drive is a false alarm -- it fired on the mirror driver (D_SPMFT,
+      // no siblings) even with the cable connected. Match the module-open gate.
       if (ecu.group && ecu._variantSource
-          && ['unverified', 'unavailable'].includes(ecu._variantSource)) {
+          && ['unverified', 'unavailable'].includes(ecu._variantSource)
+          && await irGroupAmbiguous(ecu.group)) {
         container.className = 'results-panel';
         // JUST THE ACTION. The full reasoning (shared address, sibling
         // collision, config-pick) lives in the tooltip; on the page the user
