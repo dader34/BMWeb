@@ -913,6 +913,18 @@ def build(proto, budget=20000):
             # keep stateScreen only when it names a DIFFERENT (deferred) target
             if it.get("stateScreen") == it.get("screen"):
                 it.pop("stateScreen", None)
+            # A PROMPTED KEY'S ARGUMENT ENDS AT ITS OPEN SLOT. The key builds
+            # `"TACHO;" + answer` and sends it; offline the answer is the "0"
+            # the input dialog parks, so the run captured "TACHO;0". The command
+            # is "TACHO;" -- the value belongs to the user, appended at runtime
+            # (irPromptRange). Drop the placeholder back to the trailing ';' so
+            # the arg is the open slot INPA sends, not a resolved default. Only a
+            # prompted key is touched; a multi-field composite (ZEIT;WEG) has no
+            # prompt and keeps every field.
+            if it.get("prompt") and it.get("job"):
+                ja = it.get("jobArg")
+                if isinstance(ja, str) and ";" in ja and not ja.endswith(";"):
+                    it["jobArg"] = ja[: ja.rindex(";") + 1]
         items = [merged[nr] for nr in sorted(merged)]
         if items:
             menus[name] = {"items": items}
