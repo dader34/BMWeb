@@ -97,6 +97,7 @@ data/groups/*
 !data/groups/*.json.gz
 !data/groups/variants.json
 !data/groups/index.json
+!data/groups/variants-by-group.json
 
 # local scratch notes
 /docs
