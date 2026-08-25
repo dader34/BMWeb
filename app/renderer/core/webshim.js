@@ -2245,7 +2245,12 @@ function installWebShim() {
       const kind = m[2];
       try {
         const ecu = await loadEcu(sgbd, real);
-        if (kind === 'jobs' || kind === 'ir' || kind === 'tables') {
+        // 'ipoexec' is the runnable execution-derived twin ({procs,byid}) the
+        // live .IPO interpreter (ipovm.js) executes, shipped beside ir.json.
+        // An ECU without one (an orphan, or a pre-phase-1 archive) 404s and the
+        // renderer falls back to the frozen IR -- so it is optional, not fatal.
+        if (kind === 'jobs' || kind === 'ir' || kind === 'tables'
+            || kind === 'ipoexec') {
           const res = ecu.get(`${kind}.json`);
           if (!res) {
             if (kind === 'jobs') return ok([]);

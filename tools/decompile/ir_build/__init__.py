@@ -38,15 +38,30 @@ def _prune_sel(ir):
     Every `const; store <global>` in an item body looks like a selector, but
     only a few are: MS450's AIF keys store the slot s_aif hands to AIF_LESEN.
     A key that stored a mode flag no screen reads carries a stray _sel; keep it
-    only when the screen the key opens runs a job whose argSlot is that slot.
+    only when it is really used, in one of two shapes:
+      1. the screen the key opens runs a job whose argSlot is that slot (AIF);
+      2. it is a MODE TOGGLE -- two keys in the same menu store the SAME slot
+         with different values (SHD46's with/without Quitting set slot 30 to
+         1/0, which the actuator machine reads to gate its acknowledgment). The
+         renderer groups these by selSlot, so the slot must survive.
     """
     scrs = ir.get("screens") or {}
     for menu in (ir.get("menus") or {}).values():
-        for it in menu.get("items", []):
+        items = menu.get("items", [])
+        # slots written by more than one key in this menu = a mode toggle group
+        slot_count = {}
+        for it in items:
+            sel = it.get("_sel")
+            slot = sel[0] if isinstance(sel, (tuple, list)) else None
+            if slot is not None:
+                slot_count[slot] = slot_count.get(slot, 0) + 1
+        for it in items:
             sel = it.get("_sel")
             if not sel:
                 continue
             slot = sel[0] if isinstance(sel, (tuple, list)) else None
+            if slot is not None and slot_count.get(slot, 0) >= 2:
+                continue                          # a mode-toggle pair: keep it
             scr = scrs.get(it.get("screen")) if slot is not None else None
             if not (scr and any(j.get("argSlot") == slot
                                 for j in scr.get("jobs", []))):
