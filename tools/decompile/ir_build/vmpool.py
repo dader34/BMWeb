@@ -53,11 +53,19 @@ def init_state(proto, host, budget=20000):
     is derived from a CLONE of this so one screen's stores cannot leak forward.
     """
     vm = fresh(proto, host, budget=budget)
-    if "inpainit" in vm.procs:
-        try:
-            vm.run("inpainit")
-        except Exception:                                      # noqa: BLE001
-            pass
+    # __inpa_startup__ runs before inpainit on a real INPA start and seeds the
+    # constant globals a script leans on -- notably the input_ok sentinel a
+    # menu key compares getinputstate against ("if the dialog was accepted, run
+    # the job"). Without it that slot is unset, the compare fails, and every
+    # value-prompting key (KLIMA's flap positions) loses the job it sends. It
+    # also seeds a default VARIANTE, which the per-variant exploration overrides.
+    for boot in ("__inpa_startup__", "inpainit"):
+        if boot in vm.procs:
+            try:
+                vm.out = V.Emissions()      # seed state only, keep no emissions
+                vm.run(boot)
+            except Exception:                                  # noqa: BLE001
+                pass
     return {
         "globals": dict(vm.globals),
         "files": {k: list(v) for k, v in vm.files.items()},

@@ -71,6 +71,12 @@ class _Bound(str):
         o.slot = slot
         o.key = key
         o.amap = None            # the string array a lookup came through
+        # keys of OTHER reads concatenated into this one value. INPA draws a
+        # composite field ("type / variant" = FAHRZEUG_TYP + ' / ' +
+        # FAHRZEUG_VARIANTE) as one ftextout; only the carried key becomes the
+        # element, but every folded key IS on screen, so the draw records them
+        # all as drawn and the undrawn-read fold does not re-add a phantom row.
+        o.extra = ()
         return o
 
 
@@ -108,6 +114,9 @@ class Emissions:
         self.calls = []          # every builtin, for coverage measurement
         self.states = []         # named states the run parked at
         self.reads = []          # every result key read, in read order
+        self.predicate_reads = set()   # keys read only to branch on (control
+        #                                values: STAT_GETRIEBE_NR gates the
+        #                                transmission block but is never shown)
 
     def as_dict(self):
         return {"title": self.title, "items": self.items, "lines": self.lines,
@@ -249,10 +258,45 @@ class VM:
                 stack.append(("ref", t.get("kind"), t["n"]))
             elif op == "store":
                 val = stack.pop() if stack else None
+                # A RECORD INDEX THE KEY SELECTS. `const <v>; store <global>` in
+                # an item body picks a record a shared screen then reads:
+                # MS450's fifteen AIF keys each store their index (current=0,
+                # "AIF 1"=1 ...) into global 55, and s_aif hands that slot to
+                # AIF_LESEN. The value must be a bare literal -- a plain int/str,
+                # not a _Bound (a read's result) or _Slot (an unset slot) -- the
+                # store targets a GLOBAL, and the first such store per item wins,
+                # matching a straight `const; store` in the bytecode.
+                if (cur_item is not None and t.get("sc", GLOBAL) == GLOBAL
+                        and "_sel" not in cur_item
+                        and isinstance(val, (int, str))
+                        and not isinstance(val, (bool, _Bound))):
+                    cur_item["_sel"] = (t["n"], val)
+                # A CODING IMAGE STORED FOR SLICED DISPLAY. INPAapiResultBinary
+                # parks the coding key (DATEN) as pending and the page stores a
+                # display string it then prints in chunks via midstr -- each
+                # chunk is one coding-block row. Binding the pending key onto the
+                # stored slot lets every slice carry DATEN, so the whole image
+                # draws its blocks instead of collapsing to one anonymous row.
+                pend = self.globals.get("__pending_binary__")
+                if (pend and isinstance(val, str)
+                        and not isinstance(val, _Bound)):
+                    sc = t.get("sc", GLOBAL)
+                    val = _Bound(_Slot(sc, t["n"]), val, pend)
+                    self.binds[(sc, t["n"])] = pend
+                    self.globals.pop("__pending_binary__", None)
                 self._write(t, frame, val)
             elif op == "binop":
                 b = stack.pop() if stack else None
                 a = stack.pop() if stack else None
+                # A READING CONSUMED BY A COMPARISON IS A CONTROL VALUE. The
+                # script reads STAT_GETRIEBE_NR only to gate `if == 1` on the
+                # transmission block, never to show it; recording the key here
+                # lets the deriver tell a predicate read from a displayed one,
+                # so a value never drawn is not surfaced as a phantom row.
+                if t.get("name") in ("eq", "ne", "lt", "gt", "le", "ge"):
+                    for x in (a, b):
+                        if isinstance(x, _Bound) and x.key:
+                            self.out.predicate_reads.add(x.key)
                 stack.append(_binop(t.get("name"), a, b))
             elif op == "jfalse":
                 cond = stack.pop() if stack else False
@@ -497,8 +541,21 @@ def _binop(name, a, b):
                 break
         if slot is not None:
             _, key = _carry(a, b)
-            return _Bound(slot, f"{'' if a is None else a}"
-                                f"{'' if b is None else b}", key)
+            out = _Bound(slot, f"{'' if a is None else a}"
+                               f"{'' if b is None else b}", key)
+            # remember every OTHER read folded into this concatenation, so a
+            # composite draw (FAHRZEUG_TYP + ' / ' + FAHRZEUG_VARIANTE) reports
+            # both halves as drawn -- the element carries `key`, the rest ride
+            # on `extra` and are not re-added as phantom rows.
+            folded = []
+            for x in (a, b):
+                if isinstance(x, _Bound):
+                    if x.key and x.key != key:
+                        folded.append(x.key)
+                    folded.extend(k for k in x.extra if k != key)
+            if folded:
+                out.extra = tuple(dict.fromkeys(folded))
+            return out
         if isinstance(a, str) or isinstance(b, str):
             return f"{'' if a is None else a}{'' if b is None else b}"
         return _bound_num(_num(a) + _num(b), a, b)
@@ -632,10 +689,27 @@ def _b_job(vm, stack, item):
     # data block, the block index its only distinguishing argument (LWS5's
     # CODIERUNG_LESEN "0".."6"); the reads land on the line INPA is drawing, so
     # the line remembers the arg. The app reads each argument in its own pass --
-    # without it, one block would overwrite another. Only an argument-bearing
-    # read on a line already open counts; the first job on a line wins.
-    if rec.get("arg") and vm.out.lines and "jobArg" not in vm.out.lines[-1]:
-        vm.out.lines[-1]["jobArg"] = rec["arg"]
+    # without it, one block would overwrite another.
+    #
+    # A PER-WHEEL GRID IS A LOOP THAT NEVER OPENS A LINE. RDC's s_rad_io runs
+    # `while i < 4: i += 1; INPAapiJob(STATUS_RAD_IO, i); draw row i` -- one job
+    # per wheel, but the row is drawn by ftextout at an absolute (row, col), so
+    # no LINE opcode ever fires and all four wheels pile onto the one open line.
+    # The renderer splits a per-position screen into one poll per LINE-level arg,
+    # so four wheels on one line collapse to a single read that overwrites every
+    # wheel with the last. The job boundary IS the row boundary here: when this
+    # job's argument differs from the wheel already drawn on the open line, the
+    # loop has advanced to the next wheel, so open a fresh line for it. A line
+    # still carrying only its heading text (no drawn value yet) is this wheel's
+    # own line, not a previous one's, so it is filled rather than split off.
+    if rec.get("arg"):
+        last = vm.out.lines[-1] if vm.out.lines else None
+        drawn = bool(last and last.get("elements"))
+        if drawn and last.get("jobArg") not in (None, rec["arg"]):
+            vm.out.lines.append({"label": None, "elements": []})
+            last = vm.out.lines[-1]
+        if last is not None and "jobArg" not in last:
+            last["jobArg"] = rec["arg"]
     vm.globals["__last_job__"] = vm.host.job(sgbd, job, arg, None)
 
 
@@ -843,9 +917,11 @@ def _b_textout(vm, stack, item):
     # value -- taking the first string emitted the caption and dropped the
     # reading. ABSASC4's pedal-travel row and 2,995 others were lost that way.
     key = None
+    also = ()                                # other reads folded into this draw
     for x in stack:
         if isinstance(x, _Bound) and x.key:
             key = x.key                      # the value carries its own key
+            also = tuple(k for k in getattr(x, "extra", ()) if k != key)
             break
         sl = x.slot if isinstance(x, _Bound) else (
             x if isinstance(x, _Slot) else None)
@@ -882,6 +958,8 @@ def _b_textout(vm, stack, item):
             return
     if key:
         el = {"t": "value", "key": key}
+        if also:
+            el["also"] = list(also)          # composited reads, drawn with `key`
         amap = next((getattr(x, "amap", None) for x in stack
                      if getattr(x, "amap", None)), None)
         if amap:
@@ -1108,6 +1186,29 @@ def _b_getinputstate(vm, stack, item):
     branches on it took whichever arm an empty slot happened to select.
     """
     _store_out(vm, stack, vm.host.inputstate())
+
+
+def _b_input(vm, stack, item):
+    """An input dialog: INPA asks the user for a value the key then sends.
+
+    KLIMA_5B's flap-position keys all run STEUERN_MOTOR_KLAPPENPOSITION but
+    each opens its own dialog first ("Fresh air flap", "Position (0-100 %)"),
+    so the keys are not interchangeable and none can be sent without asking.
+    The dialog's own strings -- its title and its range/help -- are the string
+    constants pushed for this call, and they are what the app must show. The
+    call also writes the answer through an out-ref; a non-empty placeholder
+    goes there so a later `if answer ...` does not take the empty-slot arm.
+    """
+    prompts = [x for x in stack if isinstance(x, str) and str(x).strip()
+               and not isinstance(x, _Bound)]
+    if item is not None and prompts:
+        have = item.setdefault("prompt", [])
+        have += [p for p in prompts if p not in have]
+    # the answer flows back through the dialog's out-ref(s); a "0" keeps any
+    # argument the key assembles from it non-empty, like an integer read
+    for ref in [x for x in stack if isinstance(x, tuple)
+                and len(x) == 3 and x[0] == "ref"]:
+        _store_out(vm, [ref], "0")
 
 
 def _b_noop(vm, stack, item):
@@ -1354,6 +1455,12 @@ _BUILTINS = {
     "INPAapiFsLesen": _b_noop, "INP1apiErrorText": _b_errortext,
     "INP1apiErrorCode": _b_errorcode, "INP1apiResultSets": _b_resultsets,
     "getinputstate": _b_getinputstate, "inputhex": _b_noop,
+    # input dialogs a menu key opens to ask for the value it sends -- KLIMA's
+    # flap positions prompt "Position (0-100 %)" then send it. The hex/digital
+    # "Change field" dialogs (inputhex/inputdigital/input2hex) are left to the
+    # state-form deriver; these are the value-prompt forms.
+    "builtin_3f": _b_input, "input2text": _b_input,
+    "input2hexnum": _b_input, "inputint": _b_input,
     "fileopen": _b_fileopen, "fileclose": _b_fileclose,
     "filewrite": _b_filewrite, "fileread": _b_fileread,
     "hexdump": _b_noop, "printfile": _b_noop,

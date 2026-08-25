@@ -32,6 +32,27 @@ def _link_pickers(ir, entries):
                 it["stateScreen"] = tgt
 
 
+def _prune_sel(ir):
+    """Drop a key's record index where no screen job actually reads that slot.
+
+    Every `const; store <global>` in an item body looks like a selector, but
+    only a few are: MS450's AIF keys store the slot s_aif hands to AIF_LESEN.
+    A key that stored a mode flag no screen reads carries a stray _sel; keep it
+    only when the screen the key opens runs a job whose argSlot is that slot.
+    """
+    scrs = ir.get("screens") or {}
+    for menu in (ir.get("menus") or {}).values():
+        for it in menu.get("items", []):
+            sel = it.get("_sel")
+            if not sel:
+                continue
+            slot = sel[0] if isinstance(sel, (tuple, list)) else None
+            scr = scrs.get(it.get("screen")) if slot is not None else None
+            if not (scr and any(j.get("argSlot") == slot
+                                for j in scr.get("jobs", []))):
+                it.pop("_sel", None)
+
+
 def build_ir(ecu, budget=20000):
     """The complete execution-derived IR for one ECU, or None if it won't run."""
     try:
@@ -44,7 +65,12 @@ def build_ir(ecu, budget=20000):
     ir = {"ir": IR_VERSION, "ecu": ecu, **tree}
     ir["screens"] = screens.build(proto, budget)
     _link_pickers(ir, screens.state_entry_screens(proto, budget))
+    # a stored record index only survives where a screen job reads its slot
+    _prune_sel(ir)
     # softkey captions live on the screen; join them onto empty item labels
     # now that both menus and screens exist
     menus.attach_softkey_labels(ir, proto)
+    # a shifted key INPA never captioned is still ITEM n+10 -- pair it so both
+    # rows do not bind to the same digit
+    menus.attach_shift_pairs(ir)
     return ir
