@@ -149,15 +149,11 @@ function irReadable(scr) {
 // it draws the maximal skeleton (every guard open, one loop iteration), and
 // which screen ARM is drawn is decided by which proc runs -- MS45.1's kurz and
 // detail are different procs, so they diverge with no per-screen patching.
-function irInterpOn() {
-  try {
-    if (typeof Settings !== 'undefined'
-        && Settings.get('interpretedScreens', 'off') === 'on') return true;
-  } catch { /* Settings not ready */ }
-  try {
-    return new URLSearchParams(location.search).get('interp') === '1';
-  } catch { return false; }
-}
+//
+// Running the .IPO live is how the app works now, not a mode: there is no flag.
+// Where a live run cannot happen -- an ECU ships no ipoexec, or the run throws --
+// the frozen IR (itself derived by executing the .IPO at build time) stands in,
+// so the fallback below is a safety net, not a second "non-interpreted" path.
 
 // {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
 // twin (an orphan, or a pre-phase-1 archive) -- callers fall back to frozen IR.
@@ -172,12 +168,12 @@ function irLiveExec(sgbd) {
   return _ipoExecCache.get(key);
 }
 
-// The screen object to draw for `name`: the LIVE run when interp is on and the
-// proc exists, else the frozen ir.screens entry. Always resolves to a screen or
-// undefined, so both call sites can await it in place of the raw lookup.
+// The screen object to draw for `name`: the LIVE run when the proc exists, else
+// the frozen ir.screens entry. Always resolves to a screen or undefined, so both
+// call sites can await it in place of the raw lookup.
 async function irLiveScreen(ecu, ir, name) {
   const frozen = (ir.screens || {})[name];
-  if (!name || !irInterpOn() || typeof IpoVm === 'undefined') return frozen;
+  if (!name || typeof IpoVm === 'undefined') return frozen;
   const exec = await irLiveExec(ecu.sgbd);
   if (!exec || !exec.procs[name]) return frozen;
   try {
@@ -266,9 +262,9 @@ async function irLivePickJob(ecu, stateName) {
 // fire the same FS_LESEN, so the screen, not the job, is what asks for detail.
 // Running the screen live reveals which fields it draws; if it reads the
 // environment/P-code family, route to the per-fault detailed read. Returns false
-// (plain read) when interp is off or the screen can't be run.
+// (plain read) when the screen can't be run live.
 async function irFaultWantsDetail(ecu, screenName) {
-  if (!screenName || !irInterpOn() || typeof IpoVm === 'undefined') return false;
+  if (!screenName || typeof IpoVm === 'undefined') return false;
   const exec = await irLiveExec(ecu.sgbd);
   if (!exec || !exec.procs[screenName]) return false;
   try {
@@ -1544,7 +1540,7 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
     return true;
   }
   if (!irReadable(scr)) return false;
-  // The readout path runs the screen LIVE when interp is on (falls back to the
+  // The readout path runs the screen LIVE (falls back to the
   // frozen scr otherwise or on any failure). Card classification and drawing
   // use the resolved screen so a live-executed ident card still renders.
   irLiveScreen(ecu, ir, it.screen).then((live) => irDescs(ecu, live).then((d) => {
@@ -2035,7 +2031,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         const fscr = it.screen && (ir.screens || {})[it.screen];
         let pj = fscr && fscr.pickJob;
         // else run the machine live to recover it (a picker the deriver missed)
-        if (!pj && irInterpOn() && typeof IpoVm !== 'undefined') {
+        if (!pj && typeof IpoVm !== 'undefined') {
           pj = await irLivePickJob(ecu, it.stateEnter);
         }
         if (pj) {
@@ -2284,7 +2280,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       return;
     }
     // Memory/info/actuator/picker above keep their mined structures; from here
-    // down is the readout path, so run the screen LIVE when interp is on
+    // down is the readout path, so run the screen LIVE
     // (falls back to the frozen scr otherwise or on failure).
     const readScr = scr ? await irLiveScreen(ecu, ir, it.screen) : scr;
     // labelled reads render as the ID-data card, the way the Info tab does
