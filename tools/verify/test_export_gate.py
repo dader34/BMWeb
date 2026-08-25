@@ -1,20 +1,33 @@
 #!/usr/bin/env python3
-"""The export gate ships every variant a group can IDENTIFY, not just the
-variants a chassis menu happens to list.
+"""A module the car reports must be shipped and resolvable -- the emulator way.
 
-THE BUG THIS PINS. data/chassis-config is INPA's menu; a group's
-IDENTIFIKATION can name a variant the menu never had. On a real E46 with an
-MS45.1 -- verified module by module against the car with EDIABAS -- the groups
-answered gs20, mrs4, ews3, ihka46_3, kombi46r and lws5_1b. Every one is a
-module physically present and answering. None was in the E46 menu, so none was
-exported, and the whole-vehicle scan could only say "<name> not in build" for
-a module it had just correctly identified.
+THE BUG THIS PINS. data/chassis-config is INPA's menu; a car carries modules the
+menu never lists. On a real E46 with an MS45.1 -- verified module by module
+against the car with EDIABAS -- the groups answered gs20, mrs4, ews3, ihka46_3,
+kombi46r and lws5_1b. Every one is physically present and answering; none is in
+the E46 menu. If the build does not ship them, a present module reads as absent.
+
+The app is a STRAIGHT .IPO EMULATOR: it does not predict which variants a car
+has. A group's IDENTIFIKATION runs live over the wire and the ECU names its own
+variant (webResolveVariant). So the contract this pins is:
+
+  1. every SGBD BMW ships a .prg for is EXPORTED (the whole corpus), so whatever
+     the wire resolves to always has data -- no variant is gated by a build-time
+     guess, and in particular the six the car reported are all present; and
+  2. each of those six is resolvable LIVE -- the group it answers on carries an
+     IDENTIFIKATION for the VM to run.
+
+What is NOT asserted, on purpose: that group_variants() pre-lists a variant, or
+that it lands in an E46 menu folder. Predicting the variant list from a group's
+string pool was the old model; it gated variants the bytecode never selects. The
+corpus ships everything and the live probe decides.
 
     python3 tools/verify/test_export_gate.py
 """
+import gzip
+import json
 import os
 import sys
-import glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
@@ -37,10 +50,9 @@ def fail(what):
     sys.exit(1)
 
 
-# ---- 1. the ground truth from the car -------------------------------------
-# These six were read over the wire with EDIABAS on a real E46 (part numbers
-# 7544721 / 6933238 / 6905670 among them). If the gate stops shipping any of
-# them, a present module goes back to reading as absent.
+# The six read over the wire with EDIABAS on a real E46 (part numbers 7544721 /
+# 6933238 / 6905670 among them), each with the group its IDENTIFIKATION answers
+# on. If any stops being shipped or resolvable, a present module goes absent.
 CAR = {
     "gs20": "d_0032",
     "mrs4": "d_00a4",
@@ -50,89 +62,63 @@ CAR = {
     "lws5_1b": "d_0057",
 }
 
-gv = T.group_variants()
-if not gv:
-    fail("group_variants() found nothing -- is data/groups generated?")
-ok(f"group_variants() maps {len(gv)} groups")
 
-for sgbd, group in CAR.items():
-    where = [g for g, names in gv.items() if sgbd in names]
-    if group not in where:
-        fail(f"{sgbd} is no longer identifiable from {group} (found in {where})")
-    # It must map to exactly ONE group. Several groups embed a copy of the
-    # master ZuordnungsTabelle, whose rows describe the whole car; without the
-    # GRUPPE filter ms450ds0 lands in d_rls and d_fdm_vs as well as d_0012.
-    if len(where) != 1:
-        fail(f"{sgbd} maps to {len(where)} groups {where}, expected only {group}")
-ok(f"each of the {len(CAR)} modules read off the car maps to exactly one group")
-
-if "ms450ds0" in gv.get("d_rls", set()):
-    fail("the master-table GRUPPE filter regressed: ms450ds0 leaked into d_rls")
-ok("a group's embedded master-table copy does not claim other groups' variants")
-
-
-# ---- 2. every candidate is a REAL sgbd -------------------------------------
-# This is what keeps the rule formulaic instead of a guess: a pool string that
-# matches no shipped .prg is a caption or a status word, and is dropped.
+# ---- 1. the whole corpus ships -- no variant is predicted away -------------
+ship = set(T.all_sgbds())
+if not ship:
+    fail("all_sgbds() is empty -- is vendor/EDIABAS/Ecu present?")
 prgs = T._prg_names()
-if not prgs:
-    fail("no .prg files found under vendor/EDIABAS/Ecu")
-bogus = sorted({n for names in gv.values() for n in names} - prgs)
-if bogus:
-    fail(f"identifiable set contains non-SGBDs: {bogus[:8]}")
-ok(f"all {len({n for v in gv.values() for n in v})} identifiable names are real .prg files")
-
-reserved = sorted({n for names in gv.values() for n in names}
-                  & T.RESERVED_NAMES)
-if reserved:
-    fail(f"EDIABAS literals leaked in as SGBDs: {reserved}")
-ok("EDIABAS result/status literals are excluded")
+missing = sorted(prgs - ship)
+if missing:
+    fail(f"{len(missing)} shipped .prg not in all_sgbds(): {missing[:8]}")
+ok(f"all_sgbds() ships the whole corpus ({len(ship)} SGBDs)")
 
 
-# ---- 3. they reach the tree, in their OWN folders ---------------------------
-own = T.owners()
+# ---- 2. every module the car reported is shipped --------------------------
 for sgbd in CAR:
-    places = [c for c in own.get(sgbd, []) if c[0] == "E46"]
-    if not places:
-        fail(f"{sgbd} has no home on E46 -- it will not be exported")
-    # Its own folder, never the menu entry's. E46/airbag declares zae, and an
-    # mrs4 written there is exactly the sibling clobber write_ecu refuses.
-    if [p for p in places if p[1] != sgbd]:
-        fail(f"{sgbd} placed in a foreign folder {places} -- write_ecu drops it")
-ok("every identified variant gets its own E46 folder (no sibling clobber)")
-
-# No placement may collide with a folder another SGBD already owns.
-by_folder = {}
-for sgbd, places in own.items():
-    for cid, code in places:
-        by_folder.setdefault((cid, code), set()).add(sgbd)
-clashes = {k: v for k, v in by_folder.items() if len(v) > 1}
-# Menu entries legitimately map sibling dsN builds onto one folder; only the
-# NEW own-name folders must be exclusive.
-bad = {k: v for k, v in clashes.items() if k[1] in v and len(v) > 1}
-if bad:
-    fail(f"own-name folders shared with another SGBD: {list(bad.items())[:3]}")
-ok("no identified-variant folder is shared with a different SGBD")
+    if sgbd not in ship:
+        fail(f"{sgbd} is not shipped -- a present module will read as absent")
+    if sgbd not in prgs:
+        fail(f"{sgbd} names no real .prg under vendor/EDIABAS/Ecu")
+ok(f"all {len(CAR)} modules read off the car are shipped")
 
 
-# ---- 4. the gate really did widen ------------------------------------------
-menu = set()
-for p in sorted(glob.glob(os.path.join(T.CONFIG, "*.json"))):
-    if os.path.basename(p) == "index.json":
-        continue
-    import json
-    with open(p) as f:
-        cfg = json.load(f)
-    for sec in cfg.get("sections", []):
-        for e in sec.get("ecus", []):
-            if e.get("sgbd"):
-                menu.add(e["sgbd"].lower())
-            for v in e.get("variants") or []:
-                menu.add(str(v).lower())
-added = set(own) - menu
-if len(added) < 50:
-    fail(f"only {len(added)} variants added beyond the menu -- gate looks closed")
-ok(f"the gate ships {len(added)} variants the menu never named "
-   f"({len(own)} total, was {len(menu)})")
+# ---- 3. each is resolvable LIVE -- its group carries an IDENTIFIKATION -----
+# The emulator resolves the variant by running the group's IDENTIFIKATION over
+# the wire (webResolveVariant), not from a precomputed list. So the group each
+# module answers on must carry that job for the VM to run.
+GROUPS = os.path.join(ROOT, "data", "groups")
+for sgbd, group in CAR.items():
+    path = os.path.join(GROUPS, f"{group}.json.gz")
+    if not os.path.exists(path):
+        fail(f"{sgbd}: group {group} not shipped -- nothing to run to resolve it")
+    try:
+        with gzip.open(path) as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        fail(f"{sgbd}: group {group} unreadable ({e})")
+    jobs = data.get("jobs") or {}
+    if "IDENTIFIKATION" not in jobs:
+        fail(f"{sgbd}: group {group} has no IDENTIFIKATION -- cannot resolve live")
+ok(f"each of the {len(CAR)} modules resolves live from its group's "
+   "IDENTIFIKATION")
+
+
+# ---- 4. the tables source stays formulaic (no pool guessing) ---------------
+# group_variants() is no longer the ship gate; it now only supplies the
+# ZuordnungsTabelle candidates the live resolver's VM reads. Whatever it names
+# must be a real .prg and never an EDIABAS literal -- decoded from tables, not
+# guessed from the string pool.
+gv = T.group_variants()
+named = {n for names in gv.values() for n in names}
+bogus = sorted(named - prgs)
+if bogus:
+    fail(f"group_variants() named non-SGBDs (pool leak?): {bogus[:8]}")
+reserved = sorted(named & T.RESERVED_NAMES)
+if reserved:
+    fail(f"EDIABAS literals leaked into group_variants(): {reserved}")
+ok(f"group_variants() names only real SGBDs from tables ({len(named)} across "
+   f"{len(gv)} groups)")
+
 
 print(f"\nexport gate: {passed} checks passed")
