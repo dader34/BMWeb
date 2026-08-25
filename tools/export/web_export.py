@@ -426,15 +426,19 @@ def main():
     problems = []
     groups_src = os.path.join(ROOT, "data", "groups")
     gfiles = sorted(glob.glob(os.path.join(groups_src, "*.json.gz")))
-    extras = [p for p in (os.path.join(groups_src, "variants.json"),
-                          os.path.join(groups_src, "index.json"))
-              if os.path.exists(p)]
-    if gfiles and len(extras) == 2:
+    # variants-by-group.json is the safety map irBlockUnverified reads to decide
+    # a module's diagnostic address is shared -- without it the block silently
+    # no-ops and an ambiguous variant (IHKA's D_005B names 22) opens with no
+    # cable. It MUST ship with the other group files.
+    want_extras = ("variants.json", "index.json", "variants-by-group.json")
+    extras = [os.path.join(groups_src, n) for n in want_extras
+              if os.path.exists(os.path.join(groups_src, n))]
+    if gfiles and len(extras) == len(want_extras):
         gdst = os.path.join(out, "data", "groups")
         os.makedirs(gdst, exist_ok=True)
         for p in gfiles + extras:
             shutil.copyfile(p, os.path.join(gdst, os.path.basename(p)))
-        print(f"  copied {len(gfiles)} group SGBDs + variants.json")
+        print(f"  copied {len(gfiles)} group SGBDs + {len(extras)} group tables")
     else:
         # data/groups is generated (sgbd_export.py --groups) and currently
         # GITIGNORED (data/* with no carve-out), so a checkout that never
