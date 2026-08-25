@@ -19,8 +19,11 @@ R = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))))
 sys.path[:0] = [os.path.join(R, "tools", "decompile")]
 
-from ir_build import build_ir                                  # noqa: E402
+from ir_build import build_ir, vmpool                          # noqa: E402
 from ir_build.stamp import write_stamp                         # noqa: E402
+
+sys.path[:0] = [os.path.join(R, "tools", "export")]
+import ipo_exec                                                 # noqa: E402
 
 IR_DIR = os.path.join(R, "data", "inpa-ir")
 
@@ -53,6 +56,20 @@ def _write_one(ecu):
     if os.path.exists(gz):
         with gzip.open(gz, "wb", compresslevel=6) as f:
             f.write(blob)
+
+    # The runnable twin of the frozen IR: the same decoded token tape ipovm.js
+    # executes live. build_ir just built (and vmpool cached) this ECU's VM, so
+    # prototype() hands back that SAME decoded VM for free rather than
+    # re-disassembling the whole file -- ipo_exec.export reuses it. Shipped
+    # gzipped because, like job-code.json, it is large and read by the machine,
+    # never by eye.
+    dump = ipo_exec.export(ecu, vm=vmpool.prototype(ecu))
+    xblob = json.dumps(dump, ensure_ascii=False,
+                       separators=(",", ":")).encode("utf-8")
+    with gzip.open(os.path.join(IR_DIR, ecu + ".ipoexec.json.gz"),
+                   "wb", compresslevel=6) as f:
+        f.write(xblob)
+
     return len(ir.get("screens") or {}), len(ir.get("menus") or {})
 
 

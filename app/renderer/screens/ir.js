@@ -38,23 +38,46 @@ async function irBitsTable(sgbd) {
 
 async function irPickAndDrive(ecu, ir, scr, it, menuName, container, back,
                               trail, open) {
-  const rows = (scr.lines || [])
+  const bits = await irBitsTable(ecu.sgbd);
+  let rows = (scr.lines || [])
     .filter((l) => (l.keys || []).length)
     .map((l) => ({ key: String(l.keys[0]), caption: irLabel(l.caption) || l.keys[0] }));
-  const bits = await irBitsTable(ecu.sgbd);
+  // A digital actuator (STEUERN_DIGITAL) draws no rows in the .IPO -- its
+  // component list is the BITS table, named by the job's ORT argument
+  // ("table BITS NAME TEXT"). When the screen lifted no rows but the SGBD's
+  // BITS table has them, offer those: NAME is the ORT the job takes, TEXT its
+  // caption. The XY "nicht definiert" placeholder row is dropped.
+  if (!rows.length && bits && bits.size) {
+    irUseTranslations(ir);              // so irLabel consults this ECU's i18n
+    rows = [...bits.values()]
+      .filter((b) => b.NAME && String(b.NAME).toUpperCase() !== 'XY')
+      .map((b) => ({
+        key: String(b.NAME),
+        // irLabel, not raw deGerman: the per-ECU i18n map answers the SGBD's
+        // own actuator wording where the shared vocabulary cannot.
+        caption: (b.TEXT ? irLabel(b.TEXT) : '') || String(b.NAME),
+      }));
+  }
   const reopen = () => renderIrMenu(ecu, ir, menuName, container, back, trail);
   // Firing a row RE-ENTERS the ordinary actuator branch rather than sending
   // here: that path owns the confirm dialog, the register-before-send and the
   // release-on-leave promise. Sending from this list would energize an output
   // with none of them. Both the click handler and the F-key bar go through it.
-  const fire = (r) => open({ ...it, inPlace: true, screen: null,
+  //
+  // CLEAR THE STATE FIELDS: the item still carries stateEnter/stateScreen, and
+  // open() routes those straight back to the picker -- so without clearing them
+  // a pick would re-open this same list instead of driving. Null them (and the
+  // screen/menu) so the pick lands on the plain one-key-one-job drive branch.
+  const fire = (r) => open({ ...it, inPlace: true, screen: null, menu: null,
+                             stateEnter: null, stateScreen: null,
+                             stateJob: false,
                              job: scr.pickJob, jobArg: r.key,
                              label: `${it.label} · ${r.caption}` });
 
   const detailOf = (r) => {
     const b = bits.get(r.key.toUpperCase());
     if (!b) return '';
-    const t = b.TEXT && typeof deGerman === 'function' ? deGerman(b.TEXT) : b.TEXT;
+    const t = b.TEXT ? irLabel(b.TEXT) : '';
     return t || `byte ${b.BYTE} mask ${b.MASK}`;
   };
 
@@ -111,6 +134,148 @@ async function irPickAndDrive(ecu, ir, scr, it, menuName, container, back,
 function irReadable(scr) {
   return (scr.lines || []).some(ln =>
     (ln.elements || []).some(e => e.key && e.t !== 'text'));
+}
+
+// ---- live .IPO screen execution (phase 2) ---------------------------------
+// The frozen IR in ir.screens is what the build-time executor DREW once and
+// froze. When the interpreted-screens flag is on we run the same .IPO screen
+// proc LIVE instead, so the drawn structure branches on the real bytecode at
+// open time rather than on a snapshot -- the readout path only (status/gauge/
+// fault), where irReadable is true; the fault/actuator/memory FLOWS keep their
+// mined structures, whose safety contracts were written against them.
+//
+// This gives the LIVE structure; the VALUES still come from showInpaScreens
+// polling the wire. So the run uses the offline OkHost: like the frozen twin,
+// it draws the maximal skeleton (every guard open, one loop iteration), and
+// which screen ARM is drawn is decided by which proc runs -- MS45.1's kurz and
+// detail are different procs, so they diverge with no per-screen patching.
+function irInterpOn() {
+  try {
+    if (typeof Settings !== 'undefined'
+        && Settings.get('interpretedScreens', 'off') === 'on') return true;
+  } catch { /* Settings not ready */ }
+  try {
+    return new URLSearchParams(location.search).get('interp') === '1';
+  } catch { return false; }
+}
+
+// {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
+// twin (an orphan, or a pre-phase-1 archive) -- callers fall back to frozen IR.
+const _ipoExecCache = new Map();
+function irLiveExec(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (!_ipoExecCache.has(key)) {
+    _ipoExecCache.set(key, api(`/api/ecu/${key}/ipoexec`)
+      .then(x => (x && x.procs) ? x : null)
+      .catch(() => null));
+  }
+  return _ipoExecCache.get(key);
+}
+
+// The screen object to draw for `name`: the LIVE run when interp is on and the
+// proc exists, else the frozen ir.screens entry. Always resolves to a screen or
+// undefined, so both call sites can await it in place of the raw lookup.
+async function irLiveScreen(ecu, ir, name) {
+  const frozen = (ir.screens || {})[name];
+  if (!name || !irInterpOn() || typeof IpoVm === 'undefined') return frozen;
+  const exec = await irLiveExec(ecu.sgbd);
+  if (!exec || !exec.procs[name]) return frozen;
+  try {
+    // budget matches the headless harness; OkHost is the constructor default
+    const vm = new IpoVm(exec, { budget: 80000 });
+    const out = vm.run(name);
+    const live = {
+      title: out.title != null ? out.title
+        : (frozen && frozen.title) || null,
+      lines: out.lines || [],
+      jobs: irAdaptLiveJobs(out.jobs || [], frozen),
+      messages: (out.messages && out.messages.length) ? out.messages : null,
+      errorMessages: (frozen && frozen.errorMessages) || null,
+    };
+    // a live run with no drawn readout is not usable -- fall back
+    return irReadable(live) ? live : frozen;
+  } catch {
+    return frozen;                       // any VM error -> the frozen snapshot
+  }
+}
+
+// The executed VM emits jobs as {job, sgbd, arg}; the renderer reads {name, arg,
+// line, write, argFromMenu}. Bridge the two, AND carry the build-time
+// ANNOTATIONS the runtime cannot derive: argFromMenu/argSlot (a key that reads a
+// record indexed by the menu selection -- MS450's AIF keys all open s_aif but
+// each reads its own record), write, and line are computed by ir_build's static
+// pass, not by running the bytecode. The live run decides which jobs run and in
+// what shape; the frozen twin supplies the annotations, matched by name.
+// Without this, every AIF key polled AIF_LESEN with arg "0" and showed the same
+// record, and jobs with no .name never polled at all.
+function irAdaptLiveJobs(liveJobs, frozen) {
+  const fz = (frozen && frozen.jobs) || [];
+  // frozen jobs by name; a name used more than once (rare) keeps a queue so
+  // repeated live jobs pair with distinct frozen annotations in order
+  const byName = new Map();
+  for (const j of fz) {
+    const n = j.name;
+    if (!byName.has(n)) byName.set(n, []);
+    byName.get(n).push(j);
+  }
+  return liveJobs.map((lj) => {
+    const nm = lj.name != null ? lj.name : lj.job;   // ipovm uses .job
+    const rec = { name: nm };
+    if (lj.arg != null) rec.arg = lj.arg;
+    const q = byName.get(nm);
+    const ann = q && q.length ? q.shift() : null;
+    if (ann) {
+      // annotations the running bytecode does not carry
+      if (ann.argFromMenu) rec.argFromMenu = ann.argFromMenu;
+      if (ann.argSlot != null) rec.argSlot = ann.argSlot;
+      if (ann.write) rec.write = ann.write;
+      if (ann.line != null && rec.line == null) rec.line = ann.line;
+      // a menu-parameterised read has no fixed arg -- the poller supplies the
+      // selection; drop the offline placeholder the VM baked in
+      if (ann.argFromMenu) delete rec.arg;
+    }
+    return rec;
+  });
+}
+
+// Is this state machine a togglelist picker, and if so which job does it fire?
+// Runs it live to its first yield, then DRY-drives it with a placeholder pick to
+// see whether the resumed segment fires a STEUERN_*/START* job. Returns the job
+// name (the pickJob) if so, else null (a fixed-job or non-picker machine). This
+// is derivation only -- no wire is touched: the drive surfaces as a {kind:'job'}
+// pending action, which we inspect and discard here.
+async function irLivePickJob(ecu, stateName) {
+  const exec = await irLiveExec(ecu.sgbd);
+  if (!exec || !exec.procs[stateName]) return null;
+  try {
+    const vm = new IpoVm(exec, { budget: 80000 });
+    let step = vm.stepStart(stateName);
+    if (step.kind !== 'yield') return null;          // not a parked picker
+    // dry pick: resume with a throwaway ORT to see what the machine fires
+    step = vm.resume({ ort: '__probe__', ein: 0 });
+    if (step.kind === 'job' && /^(STEUERN|START)/i.test(step.job || '')) {
+      return step.job;
+    }
+    return null;
+  } catch { return null; }
+}
+
+// Does this fault screen want the DETAILED read? INPA's fault keys open
+// different screens -- s_fs_kurz reads 5 fields, s_fs_detail also reads the
+// P-code and the freeze-frame environment (F_UW*/F_PCODE/F_HFK) -- but they all
+// fire the same FS_LESEN, so the screen, not the job, is what asks for detail.
+// Running the screen live reveals which fields it draws; if it reads the
+// environment/P-code family, route to the per-fault detailed read. Returns false
+// (plain read) when interp is off or the screen can't be run.
+async function irFaultWantsDetail(ecu, screenName) {
+  if (!screenName || !irInterpOn() || typeof IpoVm === 'undefined') return false;
+  const exec = await irLiveExec(ecu.sgbd);
+  if (!exec || !exec.procs[screenName]) return false;
+  try {
+    const vm = new IpoVm(exec, { budget: 80000 });
+    const reads = vm.run(screenName).reads || [];
+    return reads.some(k => /^(F_UW\d|F_PCODE|F_HFK|F_LZ)/i.test(String(k)));
+  } catch { return false; }
 }
 
 // Pair captions to values by WHERE INPA drew them, for lines where reading
@@ -730,16 +895,19 @@ function _irHasRunnable(ir, menuName) {
     it => (it.label || '').trim() && !it.fileAction && !it.appTool
           // "Select" reads as chrome by label, but a Select key that carries
           // a togglelist picker (stateScreen / pickJob path) IS the menu's
-          // one real action -- SHD46's Activate is exactly this. Exempt it,
-          // so a menu whose only runnable key is the picker is not judged
-          // empty and its parent opens the screen's "action" message instead.
-          && (it.stateScreen || !IR_CHROME.test(it.label.trim()))
+          // one real action -- SHD46's Activate is exactly this. A machine the
+          // deriver could not resolve to a screen still carries stateEnter, and
+          // the live driver resolves it at open time, so stateEnter counts too.
+          // Exempt it, so a menu whose only runnable key is the picker is not
+          // judged empty and its parent opens the screen's "action" message.
+          && (it.stateScreen || it.stateEnter || !IR_CHROME.test(it.label.trim()))
           // a key back to the ROOT is Back whatever it is called (detected
           // structurally), since deGerman can render Back/Print/End as anything
           && !(it.menu === root && !it.job && menuName !== root)
-          && (it.stateScreen
+          && (it.stateScreen || it.stateEnter
               || !['printscreen', 'exit', 'deselect'].includes(it.action))
-          && (it.job || it.screen || it.menu || it.action || it.stateScreen));
+          && (it.job || it.screen || it.menu || it.action
+              || it.stateScreen || it.stateEnter));
 }
 
 function irMenuItems(ir, menuName, variant) {
@@ -776,11 +944,14 @@ function irMenuItems(ir, menuName, variant) {
   };
   const seen = new Set();
   return (menu.items || [])
-    // a Select key that carries a togglelist picker (stateScreen) is the
-    // menu's real action, not chrome -- SHD46's Activate has exactly one
-    // such key and dropping it left only the quit-mode toggles on screen
+    // a Select key that carries a togglelist picker is the menu's real action,
+    // not chrome -- SHD46's Activate has exactly one such key and dropping it
+    // left only the quit-mode toggles on screen. stateEnter counts as well as
+    // stateScreen: a machine the deriver could not resolve to a screen still
+    // carries stateEnter, and the live driver resolves it at open time.
     .filter(it => it.label
-                  && (it.stateScreen || !IR_CHROME.test(it.label.trim())))
+                  && (it.stateScreen || it.stateEnter
+                      || !IR_CHROME.test(it.label.trim())))
     // the key back to the root IS Back whatever it is called (a handful say
     // "Main menu"). Detected structurally; the app has Esc for this.
     .filter(it => !(menuName !== (ir.entry || {}).menu
@@ -876,6 +1047,10 @@ function irMenuItems(ir, menuName, variant) {
       // screen it opens. Treat it as this key's screen so it flows into the
       // ordinary picker route instead of the "never sent" state-job branch.
       stateScreen: it.stateScreen || null,
+      // the state machine this key enters, even when the deriver could not
+      // resolve its picker screen (SHD46's Activate). The live driver runs it
+      // at open time to recover the picker, so this must survive the mapping.
+      stateEnter: it.stateEnter || null,
       // a menu named for other chassis is dropped ONLY when the item also names
       // a screen serving this one; where the menu is all there is, dropping it
       // would leave the key dead
@@ -1360,6 +1535,7 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
   }
   const scr = (ir.screens || {})[it.screen];
   if (!scr) return false;
+  // Memory keeps its mined structure (its safety contract was built against it).
   if (irIsMemory(scr)) {
     const mined = (ecu._layout || {}).special;
     const mem = irMemoryScreen(scr, mined && mined.memory);
@@ -1368,7 +1544,11 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
     return true;
   }
   if (!irReadable(scr)) return false;
-  irDescs(ecu, scr).then((d) => {
+  // The readout path runs the screen LIVE when interp is on (falls back to the
+  // frozen scr otherwise or on any failure). Card classification and drawing
+  // use the resolved screen so a live-executed ident card still renders.
+  irLiveScreen(ecu, ir, it.screen).then((live) => irDescs(ecu, live).then((d) => {
+    const scr = live;
     const screens = irRowsTranslated(scr, d);
     if (irIsCard(scr)) {
       renderIdentity(ecu, irAsCard(scr, d), container,
@@ -1379,7 +1559,7 @@ function irOpenItem(ecu, ir, menuName, it, container, back) {
       setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
                     kind: 'back', fn: back }]);
     }
-  });
+  }));
   return true;
 }
 
@@ -1785,9 +1965,19 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         && typeof runJob === 'function') {
       // the caption says WHICH memory ("Read IM" -> IS_LESEN); "Shadow" needs
       // the ECU asked, not just the caption read, so it resolves before the run
-      irFaultJobFor(it.label, ecu)
-        .then(j => runJob(ecu, j, container, false))
-        .catch(() => runJob(ecu, 'FS_LESEN', container, false));
+      // The DETAILED fault screen (s_fs_detail: reads P-code + freeze-frame
+      // environment) routes to the per-fault detailed read, which enriches each
+      // fault with FS_LESEN_DETAIL -- so "Detail" shows more than the plain
+      // list, as INPA does, instead of the two keys showing the same thing.
+      irFaultWantsDetail(ecu, it.screen).then((detail) => {
+        if (detail && typeof readFaultsDetailed === 'function') {
+          readFaultsDetailed(ecu, container);
+        } else {
+          irFaultJobFor(it.label, ecu)
+            .then(j => runJob(ecu, j, container, false))
+            .catch(() => runJob(ecu, 'FS_LESEN', container, false));
+        }
+      });
       sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label}`;
       // INPA's fault display carries a Print key (its submenu IS that toolbar).
       // This bar is the one on screen while the codes show, so Print belongs
@@ -1832,6 +2022,31 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         irPickAndDrive(ecu, ir, pscr, it, menuName, container, back, trail,
                        open);
         return;
+      }
+      // LIVE: a state machine the build-time deriver could not resolve to a
+      // picker (no stateScreen) may still BE one -- shd46's Activate yields at
+      // %Z_TOGGLE, then builtin_16 + STEUERN_DIGITAL. Run it live to find out:
+      // if driving it produces a STEUERN_* job, it is a picker, and its rows are
+      // the BITS table. The pick fires through the SAME safe drive path.
+      if (it.stateEnter) {
+        // First the frozen contract: the screen this key names may already
+        // carry pickJob (the deriver recovered it), which works even when the
+        // live driver cannot run (an orphan variant ships no ipoexec).
+        const fscr = it.screen && (ir.screens || {})[it.screen];
+        let pj = fscr && fscr.pickJob;
+        // else run the machine live to recover it (a picker the deriver missed)
+        if (!pj && irInterpOn() && typeof IpoVm !== 'undefined') {
+          pj = await irLivePickJob(ecu, it.stateEnter);
+        }
+        if (pj) {
+          // reuse the named screen when it has rows, else a synthetic one that
+          // irPickAndDrive fills from the BITS table
+          const pscr = (fscr && (fscr.lines || []).some(l => (l.keys || []).length))
+            ? fscr : { lines: [], jobs: [], pickJob: pj };
+          irPickAndDrive(ecu, ir, pscr, it, menuName, container, back, trail,
+                         open);
+          return;
+        }
       }
       if (it.stateJob) {
         container.className = 'results-panel';
@@ -2068,23 +2283,38 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
     }
+    // Memory/info/actuator/picker above keep their mined structures; from here
+    // down is the readout path, so run the screen LIVE when interp is on
+    // (falls back to the frozen scr otherwise or on failure).
+    const readScr = scr ? await irLiveScreen(ecu, ir, it.screen) : scr;
     // labelled reads render as the ID-data card, the way the Info tab does
-    if (scr && irIsCard(scr)) {
-      renderIdentity(ecu, irAsCard(scr, await irDescs(ecu, scr)),
+    if (readScr && irIsCard(readScr)) {
+      renderIdentity(ecu, irAsCard(readScr, await irDescs(ecu, readScr)),
                      container, backAct);
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
     }
-    let screens = scr
-      ? irRowsTranslated(scr, await irDescs(ecu, scr)) : [];
+    let screens = readScr
+      ? irRowsTranslated(readScr, await irDescs(ecu, readScr)) : [];
     // a screen several keys share, parameterised by the index the key set
     // (MS450's AIF keys all open s_aif, differing only in the record AIF_LESEN reads)
-    if (scr && it.sel != null
-        && (scr.jobs || []).some(j => j.argFromMenu)) {
+    if (readScr && it.sel != null
+        && (readScr.jobs || []).some(j => j.argFromMenu)) {
       screens = screens.map(x => ({ ...x, args: String(it.sel) }));
     }
     if (screens.length) {
-      showInpaCategory(ecu, screens, container, irLabel(scr.title) || it.label);
+      showInpaCategory(ecu, screens, container,
+                       irLabel(readScr.title) || it.label);
+    } else if ((readScr || scr) && ((readScr || scr).pickJob)
+               && ((((readScr || scr).lines) || []).some(l => (l.keys || []).length)
+                   || (await irBitsTable(ecu.sgbd)).size)) {
+      // A TOGGLELIST PICKER comes BEFORE the generic job branch: a screen that
+      // carries pickJob is a picker, not a backdrop-with-a-job. Routing it to
+      // the job branch first (it.job is set on a picker key too) re-entered
+      // open() with inPlace and dead-ended at the state-job "not sent" message.
+      irPickAndDrive(ecu, ir, (readScr || scr), it, menuName, container, back,
+                     trail, open);
+      return;
     } else if (it.job) {
       // THE SCREEN IS THE BACKDROP, THE JOB IS THE ACTION. An actuator key
       // names both: "Activate self test" carries STEUERN_SELBSTTEST and points
@@ -2100,14 +2330,16 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       await open({ ...it, inPlace: true, screen: null });
       return;
     } else if (scr && scr.pickJob
-               && (scr.lines || []).some(l => (l.keys || []).length)) {
+               && ((scr.lines || []).some(l => (l.keys || []).length)
+                   || (await irBitsTable(ecu.sgbd)).size)) {
       // A TOGGLELIST PICKER. INPA shows the actuator rows, the user picks one,
       // and the picked row's key IS the job's argument -- BMW declares
       // togglelist's third parameter `out: string ApiToggleString`
       // (Inpa.h:39), so the value is produced by the widget, never stored in
       // the bytecode. The decompiler recovers the CONTRACT (which job the
-      // selection feeds, see _toggle_job) and the rows come from the screen,
-      // so the same list can be offered here.
+      // selection feeds, see _toggle_job) and the rows come from the screen --
+      // or, for a digital actuator that lifts no rows, from the SGBD's BITS
+      // table (irPickAndDrive sources them, ORT = "table BITS NAME TEXT").
       //
       // Picking a row re-enters the ordinary actuator branch with the key as
       // jobArg, which is what gives it the confirm dialog, the register-

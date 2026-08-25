@@ -86,9 +86,15 @@ def main():
 
     ir_dir = os.path.join(ROOT, "data", "inpa-ir")
     stems = {}
+    # the runnable twin ir_build writes beside each IR: <stem>.ipoexec.json.gz.
+    # keyed the same way so ir_for() can resolve it by the same code/sgbd rules.
+    xstems = {}
     if os.path.isdir(ir_dir):
         for f in os.listdir(ir_dir):
-            if f.endswith(".json"):
+            if f.endswith(".ipoexec.json.gz"):
+                xstems.setdefault(f[:-len(".ipoexec.json.gz")].lower(),
+                                  os.path.join(ir_dir, f))
+            elif f.endswith(".json"):
                 stems[f[:-5].lower()] = os.path.join(ir_dir, f)
             elif f.endswith(".json.gz"):
                 stems.setdefault(f[:-8].lower(), os.path.join(ir_dir, f))
@@ -156,6 +162,14 @@ def main():
                 put("screens.json", b)
                 n_file += 1
                 n_content += 1
+            # the runnable dump ships gzipped as-is (already .gz on disk, and
+            # it is machine-read and large, exactly like job-code.json.gz)
+            xp = ir_for(code, sgbd, xstems)
+            if xp:
+                with open(xp, "rb") as f:
+                    put("ipoexec.json.gz", f.read())
+                n_file += 1
+                n_content += 1
             for src, name in ((i18n, "i18n.json"), (faults, "faults.json")):
                 q = src.get(code.lower()) or src.get(sgbd)
                 if q:
@@ -208,6 +222,12 @@ def main():
             os.makedirs(d, exist_ok=True)
             b = (gzip.open(p, "rb") if p.endswith(".gz") else open(p, "rb")).read()
             _write(d, "screens.json", b)
+            # its runnable twin, if ir_build wrote one for this stem
+            xp = xstems.get(stem)
+            if xp:
+                with open(xp, "rb") as f:
+                    _write(d, "ipoexec.json.gz", f.read())
+                n_file += 1
             kind0 = bucket(name0)
             _write(d, "ecu.json", json.dumps(
                 {"code": name0, "sgbd": stem, "chassis": None,

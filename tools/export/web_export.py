@@ -54,6 +54,7 @@ def _ecu_src_read(sgbd, tree_name):
         "tables.json": "tables",
         "job-code.json.gz": "job-code",
         "screens.json": None,          # orphans carry no decompiled IR
+        "ipoexec.json.gz": None,       # ... and no runnable twin of it either
     }.get(tree_name, None)
     if kind is None:
         return None
@@ -127,6 +128,13 @@ def build_ecu_contents(sgbd, read):
     if irb:
         ecu_contents["ir.json"] = irb
         counts["ir"] = 1
+
+    # the runnable execution-derived dump, alongside the frozen IR. Stored
+    # decompressed inside the .ecu (the zip DEFLATEs it) exactly as job-code
+    # and ir are -- read() hands back the decompressed bytes for it.
+    xb = read("ipoexec.json.gz")
+    if xb:
+        ecu_contents["ipoexec.json"] = xb
 
     jcb = read("job-code.json.gz")
     if jcb:

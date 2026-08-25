@@ -290,7 +290,14 @@ const DE_TOKENS = [
   [/\bReserve\b/gi, 'spare'], [/\bEingang\b/gi, 'input'],
   // direction words: standalone tokens only (case-sensitive), never inside a word
   [/\bauf\b/g, 'up'], [/\bzu\b/g, 'down'],
-  [/\bAnsteuern\b/gi, 'Activate'],
+  // actuator motion verbs, as they appear in BITS/STEUERN component names
+  // ("Schalter SHD Heben", "Tipp Schieben Auf", "SHD normiert"). Whole-word,
+  // both cases -- these are the sunroof/window/seat drive vocabulary.
+  [/\bHeben\b/gi, 'raise'], [/\bSenken\b/gi, 'lower'],
+  [/\bSchieben\b/gi, 'slide'], [/\bTipp\b/gi, 'jog'],
+  [/\bAuf\b/g, 'open'], [/\bZu\b/g, 'close'],
+  [/\bnormiert\b/gi, 'normalized'],
+  [/\bAnsteuern\b/gi, 'Activate'], [/\bAnsteuerung\b/gi, 'control'],
   [/BMW-?Hardwarenummer/gi, 'BMW hardware number'],
   [/BMW-?Teilenummer/gi, 'BMW part number'],
   [/BMW-?Einkaufsnummer/gi, 'BMW purchasing number'],
