@@ -78,6 +78,11 @@ function tmRegionFromArgs(job, spec) {
     lo: range.lo, hi: range.hi,
     max: count.max, unit: count.unit, wordBytes: count.wordBytes,
     selArg: sel ? sel.ARG : null, types,
+    // the ACTUAL names this job gave its address and count args -- SPEICHER_LESEN
+    // calls the count ANZAHL, EEPROM_LESEN calls it BYTE_ANZAHL. tmReadChunk must
+    // fill them by these names, not a hardcoded pair, or the count comes out
+    // blank and the ECU gets ";0x0000" (empty count) and refuses the read.
+    addrArg: addr.ARG, lenArg: len.ARG,
     // argument order as the SGBD declares it, so the ";" string is built right
     order: args.map(a => a.ARG),
   };
@@ -142,9 +147,21 @@ function tmJobStatus(sets) {
 async function tmReadChunk(sgbd, region, at, count) {
   const hexAddr = '0x' + at.toString(16).toUpperCase()
     .padStart(region.hi > 0xFF ? 4 : 2, '0');
-  const vals = { ADRESSE: hexAddr, BYTE_ANZAHL: String(count) };
+  // fill by the job's OWN arg names -- SPEICHER_LESEN calls its count ANZAHL,
+  // EEPROM_LESEN calls it BYTE_ANZAHL. Hardcoding one pair left the other blank
+  // and sent the ECU an empty count (";0x0000"). Prefer the names the region
+  // resolved from the spec; fall back to matching them out of `order` (same
+  // rule as tmRegionFromArgs) so a region built without them still works.
+  const order = region.order || [];
+  const addrArg = region.addrArg
+    || order.find(a => /ADRESSE|ADDRESS/i.test(a || ''));
+  const lenArg = region.lenArg
+    || order.find(a => /ANZAHL|COUNT|LAENGE/i.test(a || ''));
+  const vals = {};
+  if (addrArg) vals[addrArg] = hexAddr;
+  if (lenArg) vals[lenArg] = String(count);
   if (region.selArg) vals[region.selArg] = region.selType || (region.types[0] || '');
-  const arg = region.order.map(a => vals[a] != null ? vals[a] : '').join(';');
+  const arg = order.map(a => vals[a] != null ? vals[a] : '').join(';');
   const d = await api(
     `/api/ecu/${sgbd}/run/${encodeURIComponent(region.job)}?arg=${encodeURIComponent(arg)}`,
     { method: 'POST' });
