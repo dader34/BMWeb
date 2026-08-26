@@ -239,6 +239,20 @@ function explainError(raw) {
     return { title: 'Engine failed to start', detail: 'The diagnostic engine (the bundled sidecar) did not come up.',
       fix: `Press Retry. If it keeps failing, quit and reopen ${APP_NAME}.` };
 
+  // "no job X": the SGBD the car identified as does not implement this job. The
+  // .IPO is shared across a family and offers every screen, but a variant need
+  // not carry every job (E46's kombi46r dropped DPRAM_LESEN/ROM_LESEN that the
+  // older kombi46 had). This is not a fault or a bug -- INPA hits the same wall
+  // -- so name the job honestly rather than "something went wrong".
+  const nojob = m.match(/no job (?:code shipped for )?([A-Za-z0-9_]+)/i);
+  if (nojob)
+    return { title: 'Not available on this control unit',
+      detail: `This variant does not implement ${nojob[1]}. The screen is part `
+        + `of the shared script, but the module the car identified as carries a `
+        + `different set of jobs.`,
+      fix: 'Nothing to fix -- the function simply is not offered by this ECU. '
+        + 'INPA behaves the same against this variant.' };
+
   // fallback: raw message
   return { title: 'Something went wrong', detail: m || 'Unknown error.',
     fix: 'Check the cable and ignition (engine off, key on), then try again.' };

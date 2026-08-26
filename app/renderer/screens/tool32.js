@@ -197,18 +197,27 @@ function showTool32() {
     if (!state.sgbd || !state.job) return;
     const name = state.job.name;
     const write = typeof isWriteJob === 'function' && isWriteJob(name);
-    if (write) {
-      // the web VM refuses writes (allowWrites:false); say so plainly rather
-      // than firing a request that comes back as an opaque engine error.
+    // THIS WARNING USED TO BE A LIE. It said writes were "blocked in this
+    // build for safety" and offered "Run (will be refused)" -- text left over
+    // from when webRunJob passed allowWrites:false. It does not: the route was
+    // unblocked so actuator tests work, and Best2Vm defaults permissive
+    // (allowWrites: opts.allowWrites !== false). STEUERN_DIGITAL really does
+    // command the module, so telling the user it would harmlessly error was
+    // the most dangerous thing this dialog could say.
+    //
+    // It also ignored the user's own setting. Tool32 is the raw job runner --
+    // someone who turned actuator confirmations off has said what they want,
+    // and the same rule the IR screens follow applies here.
+    if (write && (typeof confirmActuators !== 'function' || confirmActuators())) {
       const okGo = typeof confirmDialog === 'function'
         ? await confirmDialog({
             title: `${name} changes the ECU`,
-            body: 'This job is classified as a write (it commands or changes the '
-                + 'ECU rather than reading it) and is blocked in this build for '
-                + 'safety. Running it will return an error, not modify the '
-                + 'module. Continue anyway?',
-            confirmLabel: 'Run (will be refused)', danger: true })
-        : false;
+            body: 'This job commands or changes the ECU rather than reading '
+                + 'it, and Tool32 sends exactly what you type &mdash; no '
+                + 'release-on-leave, no re-read. Make sure the module and '
+                + 'anything it drives are safe to move.',
+            confirmLabel: 'Run', danger: true })
+        : true;
       if (!okGo) return;
     }
     const arg = argInput.value.trim();

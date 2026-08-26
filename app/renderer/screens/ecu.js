@@ -167,6 +167,78 @@ const groupNames = () => (_groupNamesP ??=
   fetch('data/groups/variants-by-group.json')
     .then(r => (r.ok ? r.json() : null)).catch(() => null));
 
+// INPA's inpainit gate: with a cable, ask the ECU to identify itself before
+// drawing the menu; if it is silent (IFH-0009) the module is not answering --
+// not fitted, or asleep -- so show that, not a menu for a phantom. Returns true
+// when it blocked (caller stops). With no cable it does nothing (offline browse
+// stays open). Only INITIALISIERUNG is run: it is INPA's own wake/init, a read,
+// and its silence is the definitive "nobody home" -- a variant mismatch still
+// answers, so this does not fire on a fitted module that reports another variant.
+
+// The set of job names the LOADED variant actually implements, cached on the
+// ecu. A shared .IPO offers every family screen, but a variant need not carry
+// every job (kombi46r dropped DPRAM_LESEN/ROM_LESEN), and renderIrMenu drops a
+// readout tile whose job this ECU lacks. null (never resolved / offline) means
+// "don't filter" -- we only hide a tile when we KNOW the job is absent.
+async function irLoadJobNames(ecu) {
+  if (ecu._jobNames) return ecu._jobNames;
+  try {
+    const jobs = await api(`/api/ecu/${ecu.sgbd}/jobs`);
+    ecu._jobNames = new Set((Array.isArray(jobs) ? jobs : []).map(
+      j => String(typeof j === 'string' ? j : (j && j.name) || '').toUpperCase()));
+  } catch { /* leave unset: offline -> do not filter */ }
+  return ecu._jobNames || null;
+}
+
+async function irEntryProbeJob(ecu) {
+  const names = await irLoadJobNames(ecu);
+  if (!names) return null;
+  return names.has('IDENT') ? 'IDENT'
+    : names.has('INITIALISIERUNG') ? 'INITIALISIERUNG' : null;
+}
+
+async function irEntryUnresponsive(ecu, grid, bar, back) {
+  // cable? no cable -> nothing to ask, open offline as before
+  const p = await api('/api/port').catch(() => null);
+  if (!(p && p.port)) return false;
+  // the group already identified the car (a real wire answer): the ECU is
+  // there, don't ask twice
+  if (ecu._variantSource === 'identified'
+      || ecu._variantSource === 'confirmed') return false;
+  // Probe with IDENT, not INITIALISIERUNG. A module's INITIALISIERUNG bytecode
+  // often holds several wake telegrams and tries them in turn -- one gets
+  // IFH-0009, the VM carries on to the next, and the JOB still returns "ok" even
+  // when nobody answered (ms450ds0 does exactly this). IDENT is a plain read: it
+  // surfaces the silence as IFH-0009 to the caller, which is the signal we need.
+  // Fall back to INITIALISIERUNG only if the ECU declares no IDENT.
+  const probe = await irEntryProbeJob(ecu);
+  if (!probe) return false;                 // no probe job -> can't gate, open
+  let silent = false;
+  try {
+    await api(`/api/ecu/${ecu.sgbd}/run/${probe}`, { method: 'POST' });
+  } catch (e) {
+    // IFH-0009 (no answer) / IFH-0019 (half frame) = the ECU did not respond.
+    // Any other error (a job quirk, a table miss) is NOT silence -- let the
+    // module open; the real read will report its own trouble.
+    silent = /IFH-0009|IFH-0019|no answer|keine Antwort/i.test(e.message || '');
+  }
+  if (!silent) return false;
+  if (bar) bar.remove();
+  grid.className = 'results-panel';
+  const why = 'INITIALISIERUNG went out and the ECU stayed silent (IFH-0009). '
+    + 'On a car that means the module is not fitted, is asleep, or sits on a '
+    + 'different address than the config expects.';
+  grid.innerHTML = `<div class="empty"><div class="empty-big"`
+    + ` style="color:var(--amber)">${esc(ecu.label)} is not answering</div>`
+    + `<div title="${esc(why)}">The cable is connected, but this module did `
+    + `not respond. It may not be fitted to this car, or the ignition may need `
+    + `to be on. Re-open to ask again.</div></div>`;
+  sbLeft.textContent = `${ecu.sgbd}.prg · no response (IFH-0009)`;
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                fn: back }]);
+  return true;
+}
+
 async function irBlockUnverified(ecu, chassisId, grid, bar) {
   if (typeof demoMode === 'function' && demoMode()) return false;
   if (!['unverified', 'unavailable'].includes(ecu._variantSource)) return false;
@@ -378,8 +450,25 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
       sbLeft.textContent = 'reading variant…';
     }
     await irResolveVariant(ecu);
+    // the loaded variant's job list, so renderIrMenu can drop readout tiles for
+    // jobs this ECU does not implement (kombi46r has no DPRAM_LESEN). Awaited
+    // here so it is ready before any menu draws; a failure leaves it unset and
+    // nothing is filtered.
+    await irLoadJobNames(ecu);
     sbLeft.textContent = `${ecu.sgbd}.prg`;
   } catch { ecu._ir = null; }
+
+  // ENTRY GATE, like INPA's inpainit. INPA runs INITIALISIERUNG before drawing
+  // anything and stops if the ECU is silent -- so a module the car does not
+  // carry never opens its menu. We do the same, but ONLY with a cable: run the
+  // init live, and if the ECU gives IFH-0009 (no answer), show that instead of
+  // the function list. With NO cable there is nothing to ask, so the module
+  // still opens offline for browsing (structure only). Demo mode is exempt.
+  if (ecu._ir && !(typeof demoMode === 'function' && demoMode())) {
+    const blocked = await irEntryUnresponsive(ecu, grid, bar,
+      () => backToModules(chassisId));
+    if (blocked) return;
+  }
 
   // INPA's own keys, in INPA's own order, each opening whatever it opens.
   const irRoot = ecu._ir && typeof irRootMenu === 'function'

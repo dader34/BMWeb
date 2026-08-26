@@ -155,6 +155,22 @@ function irReadable(scr) {
 // the frozen IR (itself derived by executing the .IPO at build time) stands in,
 // so the fallback below is a safety net, not a second "non-interpreted" path.
 
+// The single job a menu item REQUIRES to do anything, for the "does this
+// variant implement it" filter -- or null when the item is not a lone-job key
+// (it opens a menu, names no job, or its screen runs several). Only a key whose
+// whole purpose is one job is hidden when that job is absent; a menu, an
+// actuator picker, or a multi-job screen is always kept (dropping those on one
+// missing job would hide real navigation). item.job wins; else the screen's one
+// read job.
+function irItemJob(ir, it) {
+  if (!it || it.menu || it.action) return null;
+  if (it.job) return String(it.job);
+  const scr = it.screen && (ir.screens || {})[it.screen];
+  const jobs = (scr && scr.jobs) || [];
+  return jobs.length === 1 && jobs[0] && jobs[0].name
+    ? String(jobs[0].name) : null;
+}
+
 // Can this diagnostic address name more than one variant? Only then does an
 // unverified variant matter for a DRIVE -- the same ORT byte commands a
 // different output on a sibling. A group no map entry lists (or lists once) has
@@ -1811,7 +1827,19 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (ir.exitJob && typeof registerSessionEnd === 'function') {
     registerSessionEnd(ecu, ir.exitJob);
   }
-  const items = irMenuItems(ir, menuName);
+  let items = irMenuItems(ir, menuName);
+  // Drop a readout tile whose job the LOADED variant does not implement. The
+  // .IPO is shared across a family and offers every screen, but a variant need
+  // not carry every job (kombi46r has RAM_LESEN + PRUEFSTEMPEL_LESEN but no
+  // DPRAM_LESEN/ROM_LESEN). INPA would let the click fail; we just don't offer
+  // it. Only when the job list is KNOWN (ecu._jobNames populated) -- offline it
+  // stays unset and nothing is hidden. A menu/action/no-job key is never hidden.
+  if (ecu && ecu._jobNames && ecu._jobNames.size) {
+    items = items.filter(it => {
+      const req = irItemJob(ir, it);
+      return !req || ecu._jobNames.has(req.toUpperCase());
+    });
+  }
   if (!items.length) return false;
   // mirror the menu into the URL so a submenu is a shareable deep link. Only
   // the root carries no menu segment, keeping #car/<CH>/<SGBD> the ECU's own
