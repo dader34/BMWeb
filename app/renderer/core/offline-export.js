@@ -21,6 +21,7 @@ const OFFLINE_SHELL = [
   'core/webdemo.js',
   'core/webshim.js',
   'core/bestvm.js',
+  'core/ipovm.js',
   'core/core.js',
   'core/print.js',
   'core/router.js',
@@ -95,8 +96,8 @@ function offlineBase() {
 // with no version is undebuggable.
 function offlineStamp() {
   const app = (typeof APP_NAME === 'string') ? APP_NAME : 'BMWeb';
-  const ver = (window.bmacw && window.bmacw.version)
-    ? `v${window.bmacw.version}` : 'web';
+  const ver = (window.bmacw && window.bmacw.version) ? `v${window.bmacw.version}`
+    : (window.BMACW_VERSION ? `v${window.BMACW_VERSION}` : 'web');
   return `${app} ${ver} · exported ${new Date().toISOString()}`;
 }
 

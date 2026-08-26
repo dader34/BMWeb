@@ -52,6 +52,20 @@ cp -R "$ROOT/app/renderer/." "$OUT/"
 # beside the page, which no phone can do. Kept in the repo for anyone who
 # still starts one by hand (?relay=1), but not shipped.
 rm -f "$OUT/thor_bridge.js"
+
+# Stamp the version into the web build. The native app injects window.bmacw
+# (with .version) at document start; a web build has no host, so index.html sees
+# window.BMACW_VERSION instead -- settings and the offline export both fall back
+# to it. Read from the csproj so there is ONE version source.
+VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' \
+  "$ROOT/src/InpaMac.App/InpaMac.App.csproj")
+printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
+# load it before app.js reads it (right after the opening <head>, cheap + early)
+if ! grep -q 'version.js' "$OUT/index.html"; then
+  # macOS/BSD sed: insert the tag after the first <head>
+  sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' "$OUT/index.html"
+  rm -f "$OUT/index.html.bak"
+fi
 # index.html already loads webshim.js: BOTH builds need it now. The macOS app
 # dropped its C# API too, so the shim is the only thing answering /api/* in
 # either host -- it picks its transport at load (Web Serial in a browser, the

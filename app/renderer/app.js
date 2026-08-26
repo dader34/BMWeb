@@ -210,125 +210,12 @@ function showSettings() {
   hiwRow.appendChild(hiwBtn);
   wrap.appendChild(hiwRow);
 
-  // hidden in an offline copy (exporters need sibling files a single-file copy lacks) and in the native app (already installed)
-  const isOfflineCopy = typeof window.BMACW_INLINE === 'object'
-    && window.BMACW_INLINE !== null;
-  const isNativeApp = typeof window.bmacw === 'object' && window.bmacw !== null;
-  if (!isOfflineCopy && !isNativeApp && typeof offlineExport === 'function') {
-    let pickVal = 'E46';
-    const opts = [{ val: '*', label: 'All chassis (large)' }];
-    const combo = settingCombo(
-      'Download offline copy',
-      'Runs with no internet. \u201cFolder\u201d unzips to a folder \u2014 right for a computer. '
-      + '\u201cSingle file\u201d is one .html that taps open \u2014 the one to use on a phone, '
-      + 'and the only way to reach a THOR adapter from iOS.',
-      opts, pickVal, (v) => { pickVal = v; });
-    // wiring adds 2-24 MB/car and not every car has it; checked by default
-    const wireLabel = document.createElement('label');
-    wireLabel.className = 'setting-check';
-    wireLabel.title = 'Include BMW’s wiring diagrams for the selected vehicle';
-    wireLabel.innerHTML = `<input type="checkbox" id="offline-wiring" checked>`
-      + `<span>Wiring diagrams</span>`;
-    const wireBox = wireLabel.querySelector('input');
-
-    const goBtn = document.createElement('button');
-    goBtn.className = 'btn';
-    goBtn.textContent = 'Folder (.zip)';
-
-    // THE PHONE BUTTON. A zip is useless on iOS -- it cannot be unpacked and
-    // its index.html opened -- so the single-file build exists for exactly this
-    // (offlineSingleFile, "ONE FILE, EVERY PLATFORM"). It had no button, only a
-    // console call, which meant the one export a phone can use was unreachable
-    // from the phone. Wiring is never included here: 72 MB for an E46 is not a
-    // file you AirDrop.
-    const oneBtn = document.createElement('button');
-    oneBtn.className = 'btn';
-    oneBtn.textContent = 'Single file (.html)';
-    oneBtn.title = 'One .html with everything inside — the one to use on a phone';
-
-    // group into ONE cell: the INPA layout's fixed columns spilled a third control onto its own line
-    const picker = combo.el.querySelector('.combo');
-    const controls = document.createElement('div');
-    controls.className = 'setting-controls';
-    picker.replaceWith(controls);
-    controls.append(picker, wireLabel, goBtn, oneBtn);
-    tipify(controls);
-    api('/api/chassis').then((ids) => {
-      combo.setOptions(
-        [{ val: '*', label: 'All chassis (large)' }]
-          .concat(ids.map(id => ({ val: id, label: id }))),
-        pickVal);
-    }).catch(() => { goBtn.disabled = true; });
-    goBtn.onclick = async () => {
-      const was = goBtn.textContent;
-      goBtn.disabled = true;
-      try {
-        const n = await offlineExport(pickVal, true,
-                                      (t) => { goBtn.textContent = t; },
-                                      wireBox.checked);
-        goBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
-      } catch (e) {
-        goBtn.textContent = `failed: ${e.message}`;
-      }
-      setTimeout(() => { goBtn.textContent = was; goBtn.disabled = false; },
-                 5000);
-    };
-    oneBtn.onclick = async () => {
-      if (typeof offlineSingleFile !== 'function') {
-        oneBtn.textContent = 'unavailable'; return;
-      }
-      const was = oneBtn.textContent;
-      oneBtn.disabled = true;
-      try {
-        const n = await offlineSingleFile(pickVal, true,
-                                          (t) => { oneBtn.textContent = t; });
-        oneBtn.textContent = `${(n / 1048576).toFixed(0)} MB saved`;
-      } catch (e) {
-        oneBtn.textContent = `failed: ${e.message}`;
-      }
-      setTimeout(() => { oneBtn.textContent = was; oneBtn.disabled = false; },
-                 5000);
-    };
-    wrap.appendChild(combo.el);
-
-    // Full-dataset bundles: too big to zip in the browser like the per-car copy
-    // above, so these are pre-built .tar.zst archives hosted on Hugging Face.
-    // Each is the same dist-web/ tree (drop it behind any static server, or
-    // open index.html); sizes are shown so the choice is informed. The full
-    // catalogue is the whole thing; ETK / WDS are the two heavy datasets alone.
-    const BUNDLE_BASE =
-      'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/bundles/';
-    const bundles = [
-      { file: 'bmweb-full-catalogue.tar.zst', name: 'Full catalogue',
-        size: '7.0 GB', desc: 'The whole app offline: every chassis, parts, wiring, faults, diagnostics.' },
-      { file: 'bmweb-etk-all.tar.zst', name: 'Parts catalogue (ETK), all chassis',
-        size: '5.8 GB', desc: 'Every chassis’ part diagrams and numbers.' },
-      { file: 'bmweb-wds-all.tar.zst', name: 'Wiring diagrams (WDS), all chassis',
-        size: '1.1 GB', desc: 'BMW’s schematics for every covered chassis.' },
-    ];
-    const bRow = document.createElement('div');
-    bRow.className = 'setting-row offline-bundles-row';
-    bRow.innerHTML = `
-      <div class="setting-text">
-        <div class="setting-title">Full offline datasets</div>
-        <div class="setting-desc">Pre-built archives (drop the folder behind any
-          static server, or open index.html). Large — pick by size.</div>
-      </div>
-      <div class="offline-bundles">${bundles.map((b) => `
-        <a class="offline-bundle" href="${BUNDLE_BASE}${b.file}" download
-           title="${b.desc}">
-          <span class="offline-bundle-name">${b.name}</span>
-          <span class="offline-bundle-size">${b.size}</span>
-        </a>`).join('')}</div>`;
-    wrap.appendChild(bRow);
-    tipify(bRow);
-  }
 
   view.appendChild(wrap);
 
   const ver = document.createElement('div');
   ver.className = 'settings-version';
-  ver.textContent = `${APP_NAME} ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : ''}`.trim();
+  ver.textContent = `${APP_NAME} ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : (window.BMACW_VERSION ? 'v' + window.BMACW_VERSION : '')}`.trim();
   view.appendChild(ver);
 
   stagger(wrap, 40);

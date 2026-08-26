@@ -1,0 +1,116 @@
+name: Release offline web builds
+
+# Builds the OFFLINE web app -- the same static site the browser serves, packaged
+# to unzip and open index.html with no internet -- in four variants, and attaches
+# the .zips to the GitHub Release for a v* tag. Runs on ubuntu (no macOS toolchain
+# needed): it just assembles dist-web the way Pages does, downloads the wiring
+# diagrams for the "full" variants, then runs scripts/build/offline-build.mjs.
+#
+#   push a tag  v*   -> builds the variants and uploads them to that Release
+#   run manually     -> builds them and uploads as workflow artifacts (no release)
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with Git LFS (the SGBDs and IPOs the build reads)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # A v0.9.9 tag must build a 0.9.9 app -- check before spending the time.
+      - name: Tag must match the app version
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          ver=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)
+          echo "tag=${GITHUB_REF_NAME}  csproj=${ver}"
+          test "v${ver}" = "${GITHUB_REF_NAME}" || {
+            echo "error: tag ${GITHUB_REF_NAME} != ApplicationDisplayVersion ${ver}" >&2
+            exit 1
+          }
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Expand the committed data
+        run: |
+          set -euo pipefail
+          find data/inpa-ir -name '*.json.gz' -print0 \
+            | xargs -0 -r -P 4 -I{} gzip -dkf {}
+          echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) files"
+
+      - name: Assemble the per-car tree
+        run: |
+          set -euo pipefail
+          python3 tools/export/build_ecu_tree.py
+          test -d data/chassis/E46
+
+      - name: Build the static site (same as Pages)
+        run: |
+          set -euo pipefail
+          mkdir -p dist-web
+          python3 tools/export/web_export.py --out dist-web
+          cp -R app/renderer/. dist-web/
+          rm -f dist-web/thor_bridge.js dist-web/core/offline-export.js
+          # stamp the web version (window.BMACW_VERSION) so settings + the
+          # OFFLINE-README show it -- one version source (the csproj).
+          VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)
+          printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION}\"" > dist-web/version.js
+          grep -q 'version.js' dist-web/index.html \
+            || sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
+          test -s dist-web/index.html
+          grep -q webshim.js dist-web/index.html
+          echo "dist-web (no wiring yet): $(du -sh dist-web | cut -f1)"
+
+      - name: Wiring diagrams (for the full / no-parts variants)
+        run: |
+          set -euo pipefail
+          # The WDS schematics live in a separate release, exactly as the DMG
+          # job pulls them. The offline-build script leaves them out of the
+          # no-wiring / lite variants; here we just make them available.
+          gh release download wiring-latest \
+            --repo dader34/BMacW-wiring-images \
+            --pattern '*.wiring' --dir dist-web/data/wiring
+          n=$(find dist-web/data/wiring -name '*.wiring' | wc -l)
+          echo "wiring archives: $n"
+          test "$n" -ge 15
+          du -sh dist-web/data/wiring
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Package the offline variants
+        run: |
+          set -euo pipefail
+          node scripts/build/offline-build.mjs --dist dist-web --out release-builds
+          ls -lh release-builds/*.zip
+          cat release-builds/manifest.json
+
+      - name: Upload as workflow artifacts (manual runs)
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-web-builds
+          path: release-builds/*.zip
+
+      - name: Attach to the GitHub Release (tag runs)
+        if: github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          # --clobber so a re-run replaces the same-named assets rather than
+          # failing; the DMG job creates the release first on a tag push, but
+          # `gh release create ... || edit` guards the race either way.
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
+          gh release upload "${GITHUB_REF_NAME}" release-builds/*.zip --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

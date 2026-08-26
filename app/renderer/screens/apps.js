@@ -44,8 +44,11 @@ const APP_REGISTRY = [
     desc: "BMW's ETK: part numbers, diagrams and supersessions by chassis",
     tag: 'ETK',
     open: () => (typeof showEtk === 'function' ? showEtk() : null),
-    // present only if at least one chassis actually has an .etk bundle in this build
+    // present only if at least one chassis actually has an .etk bundle in this
+    // build. A "no-parts" offline build sets window.BMACW_NO_PARTS to hide the
+    // catalogue outright -- it ships without ETK support on purpose.
     hasData: async () => {
+      if (typeof window !== 'undefined' && window.BMACW_NO_PARTS) return false;
       if (typeof showEtk !== 'function' || typeof etkChassisList !== 'function') return false;
       try { return (await etkChassisList()).length > 0; }
       catch (e) { return false; }
