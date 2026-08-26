@@ -1,12 +1,12 @@
 // INPA .IPO virtual machine: EXECUTE .IPO screen/menu programs in the browser.
 //
 // The app currently ships a FROZEN IR -- a static snapshot of what each screen
-// draws, patched per-screen where inference guessed wrong. inpax runs the .IPO
-// bytecode live instead, so its screens branch on the real VARIANTE, the real
-// job results, the real keypress. This is the JS twin of tools/decompile/
+// draws, patched per-screen where inference guessed wrong. Running the .IPO
+// bytecode live instead lets screens branch on the real VARIANTE, the real job
+// results, the real keypress. This is the JS twin of tools/decompile/
 // ipo_vm.py: it runs the same decoded token tape and produces the same
 // emissions (drawn lines, menu items, jobs, dialogs), so the app can execute
-// screens the way inpax does rather than freezing them.
+// screens by running them rather than freezing them.
 //
 // WHAT IT EXECUTES. tools/export/ipo_exec.py output: {procs, byid, pool}. This
 // is a DERIVATION of the .IPO (the walked, jump-resolved token stream), exactly
@@ -685,8 +685,9 @@ class IpoVm {
   // ------------------------------------------------------------ reads --
 
   // Record result keys an unexecuted branch reads, without running it, so the
-  // union of keys across arms matches inpax's static decode. Follows calluser
-  // into the callee (guarded against recursion). Ported from _harvest_reads.
+  // union of keys across arms matches a full static decode of every branch.
+  // Follows calluser into the callee (guarded against recursion). Ported from
+  // _harvest_reads.
   _harvestReads(toks, lo, hi, seen) {
     if (!seen) seen = new Set();
     hi = Math.min(hi, toks.length);

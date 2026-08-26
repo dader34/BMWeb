@@ -304,8 +304,9 @@ class VM:
                     # THE SKIPPED ARM STILL NAMES REAL RESULTS. A read helper
                     # branches on a runtime value we don't have (DATA_ID picks
                     # which block DDE's data_id_lesen reads); executing one arm
-                    # loses the keys the others read. inpax, decoding statically,
-                    # sees them all. Harvest the skipped span's Result* keys so
+                    # loses the keys the others read; a full static decode of
+                    # every branch sees them all. Harvest the skipped span's
+                    # Result* keys so
                     # the union matches -- reads only, never running its draws.
                     nxt = index.get(t["to"], end)      # past-end target = exit
                     self._harvest_reads(toks, i + 1, nxt)
@@ -391,7 +392,7 @@ class VM:
         A branch we skip may hold INPAapiResult* calls whose keys are real
         (the value simply isn't shown on the path we took). Scanning the span
         for those calls and their KEY constant unions the reads across arms --
-        the same result inpax gets by decoding every branch statically. Only
+        the same result a static decode of every branch gets. Only
         keys are taken; the span's draws, jobs and side effects are not run.
 
         A skipped span often just CALLS a helper that does the reading (a
@@ -862,7 +863,8 @@ def _b_result_binary(vm, stack, item):
     out afterwards. LWS5's coding page reads COD_DATEN this way once per block,
     then draws the seven blocks -- so the key is parked as PENDING here and the
     later GetBinaryDataString carries it onto the slot the draw actually shows.
-    Every key read still counts (inpax counts them all), so it is recorded too.
+    Every key read still counts (a static decode counts them all), so it is
+    recorded too.
     """
     key = next((x for x in stack
                 if isinstance(x, str) and not isinstance(x, _Bound)), None)
