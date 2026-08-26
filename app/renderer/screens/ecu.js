@@ -458,16 +458,61 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     sbLeft.textContent = `${ecu.sgbd}.prg`;
   } catch { ecu._ir = null; }
 
-  // ENTRY GATE, like INPA's inpainit. INPA runs INITIALISIERUNG before drawing
-  // anything and stops if the ECU is silent -- so a module the car does not
-  // carry never opens its menu. We do the same, but ONLY with a cable: run the
-  // init live, and if the ECU gives IFH-0009 (no answer), show that instead of
-  // the function list. With NO cable there is nothing to ask, so the module
-  // still opens offline for browsing (structure only). Demo mode is exempt.
+  // ENTRY GATE = INPA's inpainit, run LIVE. INPA reads INITIALISIERUNG->VARIANTE
+  // and INFO->{REVISION,SPRACHE,...} before drawing anything, and pops a
+  // messagebox on a variant / version / LANGUAGE mismatch -- or "Program will be
+  // stopped!" when the ECU cannot be identified. We run that bytecode and show
+  // what it draws, instead of the JS re-implementation this replaces. ONLY with
+  // a cable (no answers to compare offline); demo exempt; falls back to the
+  // silence probe if the ECU ships no runnable inpainit.
   if (ecu._ir && !(typeof demoMode === 'function' && demoMode())) {
-    const blocked = await irEntryUnresponsive(ecu, grid, bar,
-      () => backToModules(chassisId));
-    if (blocked) return;
+    const p = await api('/api/port').catch(() => null);
+    const cable = !!(p && p.port);
+    const entry = cable && typeof irRunEntry === 'function'
+      ? await irRunEntry(ecu) : { ran: false };
+    if (entry.ran) {
+      // inpainit IS the variant read -- it is authoritative over the earlier
+      // irResolveVariant (which stays only as the offline / no-ipoexec fallback
+      // and to seed the "reading variant…" UX). The live wire answer wins.
+      if (entry.variant) {
+        ecu._variant = String(entry.variant).toUpperCase();
+        if (ecu._ir) ecu._ir._variant = ecu._variant;
+      }
+      const msgs = entry.messages || [];
+      // "Program will be stopped!" (variant not found / silent) is BLOCKING:
+      // INPA does not open the module. Show it and stop.
+      const stop = msgs.find(m => /stopped/i.test(m.body || ''));
+      if (stop || entry.silent) {
+        if (bar) bar.remove();
+        grid.className = 'results-panel';
+        const m = stop || { title: `${esc(ecu.label)} is not answering`,
+          body: 'The cable is connected, but this module did not identify '
+              + 'itself. It may not be fitted to this car, or the ignition may '
+              + 'need to be on.' };
+        grid.innerHTML = `<div class="empty"><div class="empty-big"`
+          + ` style="color:var(--amber)">${esc(irLabel(m.title) || m.title)}`
+          + `</div><div>${esc(irLabel(m.body) || m.body || '')}</div></div>`;
+        sbLeft.textContent = `${ecu.sgbd}.prg · ${stop ? 'stopped' : 'no response'}`;
+        setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                      kind: 'back', fn: () => backToModules(chassisId) }]);
+        return;
+      }
+      // version / LANGUAGE mismatch ("Malfunction possible!") is a WARNING:
+      // INPA shows it, then proceeds into the module. Show each once, awaited so
+      // the user sees it before the menu, then fall through to draw the menu.
+      for (const m of msgs) {
+        if (typeof messageDialog === 'function') {
+          await messageDialog({ title: irLabel(m.title) || m.title,
+                                body: irLabel(m.body) || m.body || '',
+                                danger: true });
+        }
+      }
+    } else {
+      // no live entry proc (or no cable): keep the silence probe as before
+      const blocked = await irEntryUnresponsive(ecu, grid, bar,
+        () => backToModules(chassisId));
+      if (blocked) return;
+    }
   }
 
   // INPA's own keys, in INPA's own order, each opening whatever it opens.
