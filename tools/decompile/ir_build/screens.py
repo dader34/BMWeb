@@ -134,7 +134,8 @@ def _pair_units(lines, reads, predicate_reads=None, fault=False):
 
     A reading's unit (STAT_..._EINH) is read into a slot and shown beside the
     value, never drawn on a line of its own -- so a draw-only pass loses it.
-    Every key the script read is real (inpax counts them all); here each unit
+    Every key the script read is real (a static decode counts them all); here
+    each unit
     is attached to the value element it belongs to as `unit`, and any other
     read that reached no element is appended as a value so the reading is not
     silently dropped.

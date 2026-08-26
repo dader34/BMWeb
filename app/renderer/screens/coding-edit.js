@@ -391,9 +391,8 @@ function codDatenField(daten, chassis, index, kw) {
 // Read one DATEN-described setting out of raw coding bytes. Returns 1/0 for a
 // named aktiv/nicht_aktiv pair, the raw nibble otherwise, or null when the
 // bytes or the definition are missing.
-// EINHEIT: how a field's bytes become a number. From NCS Expert's own
-// pipeline (emdzej/ncsx packages/cabd/src/einheit.ts), which reverse-engineered
-// it from the tool:
+// EINHEIT: how a field's bytes become a number, as NCS Expert's own coding
+// pipeline interprets it:
 //
 //   h  little-endian integer, LSB first          (the default)
 //   a  the first byte, raw                       (ASCII code)

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Measure the execution-derived IR against the inpax reference decoder.
+"""Measure the execution-derived IR against an external reference decoder.
 
-inpax IS ground truth. This compares ir_build's screens (keys drawn per
+The reference decoder (supplied via XREF_CMD) is treated as ground truth. This
+compares ir_build's screens (keys drawn per
 screen) against the reference's per-screen result keys, and reports the gap:
 what the VM misses (ref-only, the real defects) and what it emits the
 reference does not (vm-only, to audit for over-emission).
 
-    XREF_CMD='node /path/to/inpax decompile {ipo} --no-color --no-raw' \\
+    XREF_CMD='<your-reference-decoder> {ipo}' \\
         python3 tools/verify/ir_vs_ref.py           # whole corpus
         python3 tools/verify/ir_vs_ref.py LWS5      # one ECU, verbose diff
 """
@@ -43,7 +44,8 @@ def _classify_miss(key, vk):
     """Why the reference names a key we don't -- artifact, excluded, or real.
 
     'truncated': the reference key is a prefix of a fuller key we DO emit --
-    inpax clips long result names, so a set-diff flags a false miss when our
+    the reference clips long result names, so a set-diff flags a false miss
+    when our
     key is the more complete one. 'genuine': a key we should have and don't.
     """
     if any(v.startswith(key) and v != key for v in vk):
@@ -98,7 +100,7 @@ def _corpus():
     covered = both / (both + genuine) * 100 if both + genuine else 100.0
     print(f"\nkeys both={both}  vm-only={vmo}  ref-only(missed)={refo}")
     print(f"  of missed: genuine={genuine}  "
-          f"artifact/excluded={artifact} (inpax truncation + strcat)")
+          f"artifact/excluded={artifact} (reference truncation + strcat)")
     print(f"  meaningful coverage (both / both+genuine) = {covered:.2f}%")
     return 0
 
