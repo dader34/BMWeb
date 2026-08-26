@@ -75,105 +75,14 @@ async function irResolveGroupVariant(ecu) {
   ecu.sgbd = v;
   ecu._variantSource = 'identified';
   // The group ran IDENTIFIKATION and the answer IS the variant name -- the same
-  // thing irResolveVariant would ask INITIALISIERUNG for. Record it: without
+  // thing inpainit reads from INITIALISIERUNG. Record it: without
   // this the variant stayed unknown whenever the group answered first, and
   // every per-variant menu guard (menuFor) had nothing to match, so an E46 took
   // the first branch and landed on the E38 pages.
   if (!ecu._variant) ecu._variant = v.toUpperCase();
 }
 
-// Several root menus, one per ECU variant: INPA runs the variant job and
-// matches its VARIANTE result. Both showEcu and showEcuSection need this --
-// a section reached straight from the F-key bar never runs showEcu.
-async function irResolveVariant(ecu) {
-  const ir = ecu._ir;
-  if (!ir || !ir.rootVariants || !ir.variantJob) return;
-  // already known (the group's IDENTIFIKATION answered it): don't ask the car
-  // twice, but DO hand it to the IR -- menu/screen selection reads ir._variant,
-  // and returning early here left it unset.
-  if (ecu._variant) { ir._variant = ecu._variant; return; }
-  const names = Object.values(ir.rootVariants).flat();
-  // THE SGBD IS OFTEN THE VARIANT, AND NO JOB REPORTS IT. VARIANTE is an
-  // EDIABAS SYSTEM result derived from the loaded .prg, not something a job
-  // returns: kombi46's INITIALISIERUNG yields only DONE, and no kombi46 job
-  // names VARIANTE at all. Running the variant job to learn it can therefore
-  // never work here -- INPA does not need to ask, because it loaded KOMBI46.
-  // So when the SGBD we are talking to IS one of the variants this IR serves,
-  // that is the answer, and it costs no transaction.
-  const self = names.find(n => String(n).toUpperCase()
-                               === String(ecu.sgbd).toUpperCase());
-  if (self) {
-    ecu._variant = self;
-    ir._variant = self;
-    return;
-  }
-  if (demoMode()) {
-    // no car to ask: pick a variant INPA itself lists, so the screens belong
-    // to a real variant rather than an invented mixture
-    ecu._variant = names[Math.floor(Math.random() * names.length)];
-  } else {
-    try {
-      const d = await api(`/api/ecu/${ecu.sgbd}/run/${ir.variantJob}`,
-                          { method: 'POST' });
-      const key = ir.variantKey || 'VARIANTE';
-      ecu._variant = (flatResults(d.sets).find(([k]) => k === key) || [])[1];
-    } catch { /* no cable: irRootMenu falls back to the widest root */ }
-  }
-  if (ecu._variant) ir._variant = ecu._variant;
-  if (typeof busTrace !== 'undefined') {
-    busTrace.add('ir.variant', null,
-      `sgbd=${ecu.sgbd} variantJob=${ir.variantJob} -> _variant=${ecu._variant}`);
-  }
-  await irUseVariantSgbd(ecu);
-}
 
-// INPA's .IPO is one frontend for a family of ECUs (KOMBI.IPO drives KOMBI31
-// .. KOMBI85), and the variant name IS the SGBD it then talks to -- there is
-// no KOMBI.prg. Jobs aimed at the family name reach no schema, so every row
-// came back unanswered ("0 of 16 values"). Point the ECU at the variant's own
-// SGBD once, and every job/results/table call follows.
-async function irUseVariantSgbd(ecu) {
-  const v = ecu._variant;
-  if (!v || v.toUpperCase() === String(ecu.sgbd).toUpperCase()) return;
-  if (ecu._sgbdBase) return;
-  try {
-    const jobs = await api(`/api/ecu/${v}/jobs`);
-    if (!Array.isArray(jobs) || !jobs.length) return;
-  } catch { return; }        // not a real SGBD (a misread variant key)
-  ecu._sgbdBase = ecu.sgbd;
-  ecu.sgbd = v;
-}
-
-// Deep link (#car/<CHASSIS>/<SGBD>[/<MENU>]): the URL names an SGBD, not the
-// in-memory ECU object the card click would have passed, so look it up in the
-// chassis config first. Falls back to the module list when the SGBD isn't in
-// this chassis (a stale or hand-edited link).
-// REFUSE THE MODULE UNTIL THE CAR SAYS WHICH VARIANT IT IS.
-//
-// A diagnostic address is shared. D_ZKE_GM can identify NINE different
-// modules (zke3_gm1/4/5/6, zke4, zke5, zke5_s12, bc1, bc1rd) and the chassis
-// config just names the one BMW listed for this shell -- so opening zke5 with
-// nothing connected shows one variant's screens, jobs, coding map and fault
-// text for a car that may carry another. 364 of the 1014 config rows are in
-// that position. Every readout on the wrong variant is a wrong answer that
-// looks exactly like a right one, which is the failure this app exists to
-// avoid, so the screen does not open at all.
-//
-// Only where it is genuinely undecidable: a group that can name just ONE
-// variant (650 rows) has nothing to resolve, and those open as before. Demo
-// mode is exempt -- it says outright that its values are simulated.
-let _groupNamesP = null;
-const groupNames = () => (_groupNamesP ??=
-  fetch('data/groups/variants-by-group.json')
-    .then(r => (r.ok ? r.json() : null)).catch(() => null));
-
-// INPA's inpainit gate: with a cable, ask the ECU to identify itself before
-// drawing the menu; if it is silent (IFH-0009) the module is not answering --
-// not fitted, or asleep -- so show that, not a menu for a phantom. Returns true
-// when it blocked (caller stops). With no cable it does nothing (offline browse
-// stays open). Only INITIALISIERUNG is run: it is INPA's own wake/init, a read,
-// and its silence is the definitive "nobody home" -- a variant mismatch still
-// answers, so this does not fire on a fitted module that reports another variant.
 
 // The set of job names the LOADED variant actually implements, cached on the
 // ecu. A shared .IPO offers every family screen, but a variant need not carry
@@ -190,121 +99,8 @@ async function irLoadJobNames(ecu) {
   return ecu._jobNames || null;
 }
 
-async function irEntryProbeJob(ecu) {
-  const names = await irLoadJobNames(ecu);
-  if (!names) return null;
-  return names.has('IDENT') ? 'IDENT'
-    : names.has('INITIALISIERUNG') ? 'INITIALISIERUNG' : null;
-}
 
-async function irEntryUnresponsive(ecu, grid, bar, back) {
-  // cable? no cable -> nothing to ask, open offline as before
-  const p = await api('/api/port').catch(() => null);
-  if (!(p && p.port)) return false;
-  // the group already identified the car (a real wire answer): the ECU is
-  // there, don't ask twice
-  if (ecu._variantSource === 'identified'
-      || ecu._variantSource === 'confirmed') return false;
-  // Probe with IDENT, not INITIALISIERUNG. A module's INITIALISIERUNG bytecode
-  // often holds several wake telegrams and tries them in turn -- one gets
-  // IFH-0009, the VM carries on to the next, and the JOB still returns "ok" even
-  // when nobody answered (ms450ds0 does exactly this). IDENT is a plain read: it
-  // surfaces the silence as IFH-0009 to the caller, which is the signal we need.
-  // Fall back to INITIALISIERUNG only if the ECU declares no IDENT.
-  const probe = await irEntryProbeJob(ecu);
-  if (!probe) return false;                 // no probe job -> can't gate, open
-  let silent = false;
-  try {
-    await api(`/api/ecu/${ecu.sgbd}/run/${probe}`, { method: 'POST' });
-  } catch (e) {
-    // IFH-0009 (no answer) / IFH-0019 (half frame) = the ECU did not respond.
-    // Any other error (a job quirk, a table miss) is NOT silence -- let the
-    // module open; the real read will report its own trouble.
-    silent = /IFH-0009|IFH-0019|no answer|keine Antwort/i.test(e.message || '');
-  }
-  if (!silent) return false;
-  if (bar) bar.remove();
-  grid.className = 'results-panel';
-  const why = 'INITIALISIERUNG went out and the ECU stayed silent (IFH-0009). '
-    + 'On a car that means the module is not fitted, is asleep, or sits on a '
-    + 'different address than the config expects.';
-  grid.innerHTML = `<div class="empty"><div class="empty-big"`
-    + ` style="color:var(--amber)">${esc(ecu.label)} is not answering</div>`
-    + `<div title="${esc(why)}">The cable is connected, but this module did `
-    + `not respond. It may not be fitted to this car, or the ignition may need `
-    + `to be on. Re-open to ask again.</div></div>`;
-  sbLeft.textContent = `${ecu.sgbd}.prg · no response (IFH-0009)`;
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: back }]);
-  return true;
-}
 
-async function irBlockUnverified(ecu, chassisId, grid, bar) {
-  if (typeof demoMode === 'function' && demoMode()) return false;
-  if (!['unverified', 'unavailable'].includes(ecu._variantSource)) return false;
-  const g = String(ecu.group || '').toLowerCase();
-  if (!g) return false;
-  const map = await groupNames();
-  const names = (map && map[g]) || [];
-  // one candidate (or no table shipped) = nothing the read could change
-  if (names.length < 2) return false;
-
-  if (bar) bar.remove();
-  grid.className = 'results-panel';
-  // SAY WHAT ACTUALLY HAPPENED. "Connect a cable" with a cable already
-  // paired reads as a broken app -- the read RAN and the address stayed
-  // silent, which is a statement about the car (ignition off, module not
-  // fitted, or it answers as a different variant), not about the cable.
-  const p = await api('/api/port').catch(() => null);
-  const cable = !!(p && p.port);
-  // JUST THE HEADLINE. The earlier version spelled out the address, the
-  // sibling list and the reasoning; it read as a wall and the mixed
-  // centre/left alignment made it worse. The reason belongs in the tooltip,
-  // not on the page -- what the user needs is the one action that unblocks it.
-  grid.innerHTML = `<div class="empty"><div class="empty-big"
-      style="color:var(--amber)"
-      title="${esc(ecu.label)} sits on diagnostic address ${esc(ecu.group)}, `
-    + `which ${names.length} different modules can answer (${esc(names.join(', '))}). `
-    + `Until the car identifies itself, opening one variant's screens for `
-    + `another would answer confidently and wrongly.">`
-    + (cable
-      ? `No answer at address ${esc(ecu.group)}</div>`
-        + `<div>The cable is connected, but the module did not identify `
-        + `itself. Check the ignition is on -- or this car may carry a `
-        + `different variant (${esc(names.slice(0, 6).join(', '))}`
-        + `${names.length > 6 ? ` and ${names.length - 6} more` : ''}); `
-        + `reopen the module to ask again.</div>`
-        + (() => {
-          // the resolver's own account of HOW it failed -- a silent bus, an
-          // answered-but-unmatched identification, and a probe error are
-          // three different problems and the page should say which this was
-          const d = (typeof webResolveVariantLast === 'function'
-            ? webResolveVariantLast()
-            : (window.webResolveVariantLast && window.webResolveVariantLast()))
-            || null;
-          if (!d || d.group !== String(ecu.group).toLowerCase()) return '';
-          const what = {
-            'no-probe-shipped': 'this build ships no probe for the address',
-            'bus-silent': `nothing on the wire answered `
-              + `(${d.empty || 0} probe${d.empty === 1 ? '' : 's'} sent)`,
-            'probe-error': `the probe failed: ${esc(d.error || 'unknown')} `
-              + `(${d.real || 0} answered, ${d.empty || 0} silent)`,
-            'answered-but-unmatched': `the module ANSWERED `
-              + `${d.real} telegram${d.real === 1 ? '' : 's'} but the `
-              + `identification matched no known variant -- a decode or `
-              + `table problem on our side, not a silent car`,
-          }[d.path] || d.path;
-          return `<div class="mono" style="opacity:.7">probe result: `
-            + `${what}</div>`;
-        })()
-      : `Connect a cable to open this module</div>`)
-    + `</div>`;
-  sbLeft.textContent = `${ecu.sgbd}.prg · variant unverified · `
-    + (cable ? 'address silent' : 'needs a cable');
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: () => backToModules(chassisId) }]);
-  return true;
-}
 
 // SAY WHETHER THE CAR CONFIRMED THIS SGBD. A chassis config lists every
 // variant BMW fitted at a diagnostic address and the app opens the first that
@@ -414,8 +210,9 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
           + `(configured ${ecu._sgbdBase}) · choose a function group below`;
       }
     }
+    // an informational pill showing whether the group's IDENTIFIKATION named
+    // this SGBD -- status only, it gates nothing (inpainit is the gate now).
     irShowVariantSource(ecu, bar);
-    if (await irBlockUnverified(ecu, chassisId, grid, bar)) return;
     // THE SGBD IS WHAT WE TALK TO; THE SCRIPT IS WHAT DRAWS. INPA never loads
     // a UI per variant -- it loads ONE script per diagnostic address and picks
     // the matching screens inside it. E46's climate entry is klima_5B, and
@@ -429,7 +226,7 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     // ihka46_3's own IR got "this ECU has no INPA screen definition", which
     // is true and useless -- the right screens were in the script all along.
     // Fall back to the CONFIGURED sgbd's archive, which is where this entry's
-    // script ships; irResolveVariant then selects within it by ecu._variant.
+    // script ships; inpainit then reads the variant and selects within it.
     // 1116 of 2942 shipped archives carry no ir.json, most of them this shape.
     const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
     ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`).catch(() => null);
@@ -443,13 +240,6 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
       }
     }
     if (!ecu._ir) throw new Error('no IR for this module');
-    // asking the car which variant it is takes a real transaction; say so
-    // rather than leaving the skeleton up with no explanation
-    if (!ecu._variant && ecu._ir && ecu._ir.rootVariants
-        && !(typeof demoMode === 'function' && demoMode())) {
-      sbLeft.textContent = 'reading variant…';
-    }
-    await irResolveVariant(ecu);
     // the loaded variant's job list, so renderIrMenu can drop readout tiles for
     // jobs this ECU does not implement (kombi46r has no DPRAM_LESEN). Awaited
     // here so it is ready before any menu draws; a failure leaves it unset and
@@ -458,29 +248,31 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     sbLeft.textContent = `${ecu.sgbd}.prg`;
   } catch { ecu._ir = null; }
 
-  // ENTRY GATE = INPA's inpainit, run LIVE. INPA reads INITIALISIERUNG->VARIANTE
-  // and INFO->{REVISION,SPRACHE,...} before drawing anything, and pops a
-  // messagebox on a variant / version / LANGUAGE mismatch -- or "Program will be
-  // stopped!" when the ECU cannot be identified. We run that bytecode and show
-  // what it draws, instead of the JS re-implementation this replaces. ONLY with
-  // a cable (no answers to compare offline); demo exempt; falls back to the
-  // silence probe if the ECU ships no runnable inpainit.
+  // ENTRY GATE = INPA's inpainit, run LIVE. This is the ONE authority on
+  // "is this the right control unit, and does it answer". INPA reads
+  // INITIALISIERUNG->VARIANTE and INFO->{REVISION,SPRACHE,...}, compares each to
+  // what the script was compiled for, and pops a messagebox on a variant /
+  // version / LANGUAGE mismatch -- or "Program will be stopped!" when the ECU
+  // cannot be identified. We run that bytecode and show exactly what it draws.
+  // There is no JS re-implementation any more (the variant "block", the silence
+  // probe, the _variantSource state machine are gone): the .IPO shipped the real
+  // check and it works, so we run it instead of guessing. Cable + a runnable
+  // inpainit required; with no cable there is nothing to ask and the module
+  // opens offline for browsing; demo exempt.
   if (ecu._ir && !(typeof demoMode === 'function' && demoMode())) {
     const p = await api('/api/port').catch(() => null);
     const cable = !!(p && p.port);
     const entry = cable && typeof irRunEntry === 'function'
       ? await irRunEntry(ecu) : { ran: false };
     if (entry.ran) {
-      // inpainit IS the variant read -- it is authoritative over the earlier
-      // irResolveVariant (which stays only as the offline / no-ipoexec fallback
-      // and to seed the "reading variant…" UX). The live wire answer wins.
+      // inpainit IS the variant read -- the live wire answer is the variant.
       if (entry.variant) {
         ecu._variant = String(entry.variant).toUpperCase();
         if (ecu._ir) ecu._ir._variant = ecu._variant;
       }
       const msgs = entry.messages || [];
       // "Program will be stopped!" (variant not found / silent) is BLOCKING:
-      // INPA does not open the module. Show it and stop.
+      // INPA does not open the module.
       const stop = msgs.find(m => /stopped/i.test(m.body || ''));
       if (stop || entry.silent) {
         if (bar) bar.remove();
@@ -498,8 +290,7 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
         return;
       }
       // version / LANGUAGE mismatch ("Malfunction possible!") is a WARNING:
-      // INPA shows it, then proceeds into the module. Show each once, awaited so
-      // the user sees it before the menu, then fall through to draw the menu.
+      // INPA shows it, then proceeds. Show each once before the menu.
       for (const m of msgs) {
         if (typeof messageDialog === 'function') {
           await messageDialog({ title: irLabel(m.title) || m.title,
@@ -507,12 +298,11 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
                                 danger: true });
         }
       }
-    } else {
-      // no live entry proc (or no cable): keep the silence probe as before
-      const blocked = await irEntryUnresponsive(ecu, grid, bar,
-        () => backToModules(chassisId));
-      if (blocked) return;
     }
+    // entry.ran === false means no cable or no runnable inpainit -- open for
+    // browsing. We do NOT fabricate a block from a failed JS probe: the .IPO is
+    // the source of truth, and not being able to run it is our gap, not a reason
+    // to refuse a module that may well answer.
   }
 
   // INPA's own keys, in INPA's own order, each opening whatever it opens.
@@ -534,7 +324,7 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
     // root menu (not out to the module list) so the hierarchy still reads
     // right. But the URL is untrusted: it can name a menu belonging to another
     // variant of this family (a link shared from a different car, or a stale
-    // bookmark). irResolveVariant has already run above, so check the link
+    // bookmark). inpainit has already resolved the variant above, so check the link
     // against INPA's own dispatch before honouring it -- otherwise the address
     // bar walks straight past the variant guards.
     if (openMenu && openMenu !== irRoot && irMenuItems(ecu._ir, openMenu).length) {

@@ -171,21 +171,6 @@ function irItemJob(ir, it) {
     ? String(jobs[0].name) : null;
 }
 
-// Can this diagnostic address name more than one variant? Only then does an
-// unverified variant matter for a DRIVE -- the same ORT byte commands a
-// different output on a sibling. A group no map entry lists (or lists once) has
-// nothing to confuse, so refusing its drive is a false alarm even with the cable
-// connected. Mirrors ecu.js's groupNames()/irBlockUnverified ambiguity test so
-// the open gate and the drive gate agree. Cached; null map -> not ambiguous.
-let _grpNamesP = null;
-async function irGroupAmbiguous(group) {
-  const g = String(group || '').toLowerCase();
-  if (!g) return false;
-  _grpNamesP ??= fetch('data/groups/variants-by-group.json')
-    .then(r => (r.ok ? r.json() : null)).catch(() => null);
-  const map = await _grpNamesP;
-  return !!(map && (map[g] || []).length >= 2);
-}
 
 // {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
 // twin (an orphan, or a pre-phase-1 archive) -- callers fall back to frozen IR.
@@ -1956,9 +1941,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       const prev = sbLeft.textContent;
       sbLeft.textContent = 'reading variant…';
       try {
-        if (typeof irResolveVariant === 'function') {
-          ecu._variant = null;                 // force a re-read
-          await irResolveVariant(ecu);
+        // re-run inpainit live (same path as module entry) to read VARIANTE --
+        // a click can succeed where the open-time read failed (bus just woke).
+        if (typeof irRunEntry === 'function') {
+          const entry = await irRunEntry(ecu);
+          if (entry && entry.variant) {
+            ecu._variant = String(entry.variant).toUpperCase();
+            ir._variant = ecu._variant;
+          }
         }
       } catch { /* reported below */ }
       sbLeft.textContent = prev;
@@ -2200,38 +2190,12 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }], shiftKeys());
         return;
       }
-      // DRIVING AN OUTPUT ON A VARIANT NOBODY CONFIRMED. Reading an
-      // unverified module is harmless; commanding one is not -- the SGBD on
-      // screen is the chassis config's pick, and 609 of the 1000 grouped rows
-      // sit behind a group that can name a different variant. The same ORT
-      // byte means a different output on a sibling, so this refuses rather
-      // than energizing whatever answers. Not a decode gap: reconnect and
-      // reopen and the group's IDENTIFIKATION settles it.
-      //
-      // But ONLY when the address is genuinely shared: a group that names one
-      // variant (or none the map lists) has no sibling to confuse, so refusing
-      // its drive is a false alarm -- it fired on the mirror driver (D_SPMFT,
-      // no siblings) even with the cable connected. Match the module-open gate.
-      if (ecu.group && ecu._variantSource
-          && ['unverified', 'unavailable'].includes(ecu._variantSource)
-          && await irGroupAmbiguous(ecu.group)) {
-        container.className = 'results-panel';
-        // JUST THE ACTION. The full reasoning (shared address, sibling
-        // collision, config-pick) lives in the tooltip; on the page the user
-        // needs the one thing that unblocks this -- connect and reopen.
-        container.innerHTML = `<div class="empty"><div class="empty-big"`
-          + ` style="color:var(--amber)">Connect the cable to use `
-          + `${esc(it.label)}</div>`
-          + `<div title="${esc(ecu.label)} shares diagnostic address `
-          + `${esc(ecu.group)} with other modules; until the car identifies `
-          + `itself, commanding one variant&rsquo;s ${esc(it.job)} could act on `
-          + `a sibling.">Reopen this module with the cable connected and it `
-          + `unlocks on its own.</div></div>`;
-        sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · variant unverified`;
-        setActions([...keys(), { key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                                 kind: 'back', fn: reopen }], shiftKeys());
-        return;
-      }
+      // No variant gate here any more. inpainit runs live at module ENTRY and is
+      // the authority on which control unit answered -- a wrong/absent variant
+      // never opens the menu ("Program will be stopped!"), so by the time a key
+      // is driven the variant the car reported is already what we are talking
+      // to. The old JS "variant unverified, refuse the drive" guard duplicated
+      // that check with a flakier group probe and is gone.
       if (confirmActuators() || permanent) {
         const ok = await confirmDialog({
           title: `${permanent ? 'Write to' : 'Activate on'} `
