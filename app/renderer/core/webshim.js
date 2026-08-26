@@ -75,14 +75,39 @@ const busTrace = {
   on: false,
   rows: [],
   limit: 400,
+  // A small ALWAYS-ON ring buffer of the most recent wire activity, kept even
+  // when verbose tracing is off (it is cheap -- a handful of {tag,hex,note}
+  // objects). When an IFH error surfaces to the user, dumpRecent() prints this
+  // so the failing telegrams are on the console without anyone having to have
+  // run busTrace.start() first.
+  recent: [],
+  recentLimit: 60,
   start(limit) { this.on = true; this.rows = []; if (limit) this.limit = limit;
     console.log('[bus] tracing ON — reproduce the failure, then busTrace.dump()');
     return 'tracing'; },
   stop() { this.on = false; return `tracing OFF (${this.rows.length} rows kept)`; },
   add(tag, bytes, note) {
+    const row = { t: Date.now(), tag, hex: busTrace.hex(bytes),
+                  n: bytes ? bytes.length : 0, note };
+    // ring buffer: always on, bounded, drops the oldest
+    this.recent.push(row);
+    if (this.recent.length > this.recentLimit) this.recent.shift();
+    // verbose buffer: only while explicitly tracing
     if (!this.on) return;
     if (this.rows.length >= this.limit) return;
-    this.rows.push({ t: Date.now(), tag, hex: busTrace.hex(bytes), n: bytes ? bytes.length : 0, note });
+    this.rows.push(row);
+  },
+  // Print the recent ring buffer -- called automatically when an IFH error
+  // reaches the UI, or by hand. Labelled so it is obvious it is the auto-dump.
+  dumpRecent(why) {
+    if (!this.recent.length) return;
+    const t0 = this.recent[0].t;
+    console.groupCollapsed(`[bus] wire trace before ${why || 'error'} `
+      + `(${this.recent.length} rows) — expand for telegrams`);
+    console.table(this.recent.map((r) => ({
+      'ms': r.t - t0, 'what': r.tag, 'len': r.n, 'bytes': r.hex, 'note': r.note || '',
+    })));
+    console.groupEnd();
   },
   hex(b) {
     if (!b) return '';
@@ -2183,7 +2208,13 @@ function installWebShim() {
         await switchSession(run[1]);
         const r = await webRunJob(run[1], decodeURIComponent(run[2]), arg);
         return ok({ job: run[2], sets: r.sets });
-      } catch (e) { return err(e.message); }
+      } catch (e) {
+        // A WIRE error (IFH-*) that reaches the user is where the telegram
+        // trace is worth seeing -- auto-dump the recent ring buffer so the
+        // failing exchange is on the console with no busTrace.start() needed.
+        if (e && e.ifh) busTrace.dumpRecent(`${e.ifh} on ${run[1]}/${run[2]}`);
+        return err(e.message);
+      }
     }
     // The web build used to refuse these outright. Lifted at the owner's
     // request so actuator tests work; see the note on Best2Vm.allowWrites.
