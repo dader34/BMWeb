@@ -580,16 +580,35 @@ class WebSerialBus extends SerialTransportBase {
   async reconnect() {
     if (!('serial' in navigator) || this.connected) return null;
     let ports = [];
-    try { ports = await navigator.serial.getPorts(); } catch { return null; }
-    if (!ports.length) return null;
-    this.port = ports[0];
+    try { ports = await navigator.serial.getPorts(); }
+    catch (e) { console.info('[serial] getPorts() threw:', e.message); return null; }
+    if (!ports.length) {
+      // The browser remembers a granted port PER ORIGIN, but the grant is lost
+      // if the origin changes, the device re-enumerated (some FTDI adapters do
+      // on replug), or the user cleared site permissions. Nothing to reopen
+      // silently -- the next connect() will ask once and it sticks again.
+      console.info('[serial] getPorts() returned no previously-granted port '
+        + '(first run here, or the grant was lost) -- a one-time pick is needed');
+      return null;
+    }
+    // Chrome 130+ exposes SerialPort.connected = is the device physically
+    // present. Prefer a present one; a remembered-but-unplugged port would just
+    // fail to open. Fall back to the first if the flag is unavailable.
+    this.port = ports.find(p => p.connected !== false) || ports[0];
     try {
       await this.port.open(KDCAN);
-    } catch { this.port = null; return null; }
+    } catch (e) {
+      // The commonest cause is the port being held by another tab/app, or the
+      // device unplugged. Say which, rather than a silent "no cable".
+      console.info(`[serial] reopen of a granted port failed: ${e.message} `
+        + `(unplugged, or another tab/app holds it?)`);
+      this.port = null; return null;
+    }
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this._resetWireState();
+    console.info('[serial] reconnected to a previously-granted port, no picker');
     return this.portLabel();
   }
 

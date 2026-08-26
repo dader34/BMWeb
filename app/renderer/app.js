@@ -579,20 +579,21 @@ function setupMobileTabbar() {
       await statusPoller.refresh();
     };
 
-    // THOR needs no user gesture (a socket, not a port picker), so connect on load
-    if (webBus.readState && !webBus.connected) {
-      linkText.textContent = 'connecting…';
-      webBus.connect()
-        .then(() => { statusPoller.lastStatePoll = 0; return statusPoller.refresh(); })
-        .catch((e) => { led.className = 'led off'; linkText.textContent = e.message; });
-    }
-
-    // KEEP THE CABLE THROUGH A RELOAD. Web Serial remembers a granted K+DCAN
-    // port, so reconnect() reopens it with no picker -- the "reopen the module
-    // and it unlocks" flow needs the cable to survive the reload it asks for.
-    // On by default; a user who wants a fresh pick each launch turns it off.
-    if (!webBus.readState && !webBus.connected && typeof webBus.reconnect
-        === 'function' && Settings.get('keepCable', 'on') !== 'off') {
+    // The two transports reconnect on load in opposite ways, and the tell is
+    // whether the bus can reconnect() WITHOUT a gesture:
+    //   * Web Serial CAN (getPorts() returns a previously-granted port), but its
+    //     connect() opens the PORT PICKER -- a user gesture the browser refuses
+    //     on page load. So it must use reconnect(), never connect(), here.
+    //   * THOR is a socket with no picker, so plain connect() needs no gesture
+    //     and it exposes no reconnect().
+    // Both buses have readState (battery/ignition), so gating on THAT sent the
+    // USB cable down the connect() path -- which pops the picker and loses the
+    // "cable survives the reload" behaviour every time. Gate on reconnect.
+    const canSilentReconnect = typeof webBus.reconnect === 'function';
+    if (canSilentReconnect && !webBus.connected
+        && Settings.get('keepCable', 'on') !== 'off') {
+      // KEEP THE CABLE THROUGH A RELOAD. Web Serial remembers a granted K+DCAN
+      // port, so reconnect() reopens it with no picker.
       linkText.textContent = 'reconnecting…';
       webBus.reconnect()
         .then((label) => {
@@ -601,6 +602,12 @@ function setupMobileTabbar() {
           return statusPoller.refresh();
         })
         .catch(() => { linkText.textContent = 'no cable'; });
+    } else if (!canSilentReconnect && webBus.readState && !webBus.connected) {
+      // THOR: a socket, connect on load with no gesture.
+      linkText.textContent = 'connecting…';
+      webBus.connect()
+        .then(() => { statusPoller.lastStatePoll = 0; return statusPoller.refresh(); })
+        .catch((e) => { led.className = 'led off'; linkText.textContent = e.message; });
     }
   }
 
