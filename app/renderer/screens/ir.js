@@ -36,29 +36,108 @@ async function irBitsTable(sgbd) {
   return _bitsCache.get(key);
 }
 
+// All of an SGBD's tables, once. The togglelist's row source is named by the
+// job's own argument descriptor, not always BITS.
+const _sgbdTablesCache = new Map();
+function irSgbdTables(sgbd) {
+  const key = String(sgbd).toLowerCase();
+  if (!_sgbdTablesCache.has(key)) {
+    _sgbdTablesCache.set(key,
+      api(`/data/sgbd-tables/${key}.json`).catch(() => null));
+  }
+  return _sgbdTablesCache.get(key);
+}
+
+// The actuator rows a togglelist offers, read THE WAY THE SGBD DOES: the drive
+// job (STEUERN_DIGITAL/STEUERN_IO) has an ORT/component argument whose
+// descriptor names the table its valid values come from --
+//   SHD46:   "table BITS NAME TEXT"              (NAME=key, TEXT=caption)
+//   AHM_E65: "table DigitalSignaleSchreiben NAME" (NAME=key, no caption col)
+// EDIABAS reads exactly that descriptor to know an argument's choices, so we do
+// too, instead of hardcoding BITS (which covers only ~12% of these modules).
+// Returns [{key, caption}] or [] when the descriptor names no resolvable table.
+const _actuatorRowsCache = new Map();
+async function irActuatorRows(sgbd, job) {
+  const ck = `${String(sgbd).toLowerCase()}:${String(job).toUpperCase()}`;
+  if (_actuatorRowsCache.has(ck)) return _actuatorRowsCache.get(ck);
+  const p = (async () => {
+    let spec;
+    try {
+      spec = await api(`/api/ecu/${sgbd}/arguments/${encodeURIComponent(job)}`);
+    } catch { return []; }
+    const args = (spec && spec.arguments) || [];
+    const tables = await irSgbdTables(sgbd);
+    if (!tables) return [];
+    // EDIABAS's own argument descriptor is the source of truth, verbatim. An
+    // argument that takes its value FROM A TABLE declares it as
+    //   "table <TableName> <valueCol> [<textCol> ...]"
+    // -- the FIRST column after the table name is the value the job takes, and
+    // a SECOND column (when present) is its display text. This is positional and
+    // explicit: no guessing which argument is the component (it is whichever one
+    // resolves to a shipped table) and no guessing which column is the caption
+    // (the descriptor lists them in order). The on/off value, a count, etc. name
+    // no table and are skipped.
+    const resolve = (a) => {
+      const c = String(a.ARGCOMMENT1 || a.ARGCOMMENT0 || '');
+      const m = c.match(/\btable\s+(\S+)\s+(\S+)(?:\s+(\S+))?/i);
+      if (!m) return null;
+      const tkey = Object.keys(tables).find(
+        k => k.toUpperCase() === m[1].toUpperCase());
+      const rows = tkey ? tables[tkey] : null;
+      if (!Array.isArray(rows) || !rows.length) return null;
+      return { rows, valueCol: m[2], textCol: m[3] || null };
+    };
+    // the component argument is the one whose descriptor resolves to a table
+    const r = args.map(resolve).find(Boolean);
+    if (!r) return [];
+    return r.rows
+      .map(row => ({
+        key: String(row[r.valueCol] != null ? row[r.valueCol] : ''),
+        capRaw: r.textCol && row[r.textCol] != null ? String(row[r.textCol]) : '',
+      }))
+      .filter(row => row.key && row.key.toUpperCase() !== 'XY');
+  })();
+  _actuatorRowsCache.set(ck, p);
+  return p;
+}
+
 async function irPickAndDrive(ecu, ir, scr, it, menuName, container, back,
                               trail, open) {
   const bits = await irBitsTable(ecu.sgbd);
   let rows = (scr.lines || [])
     .filter((l) => (l.keys || []).length)
     .map((l) => ({ key: String(l.keys[0]), caption: irLabel(l.caption) || l.keys[0] }));
-  // A digital actuator (STEUERN_DIGITAL) draws no rows in the .IPO -- its
-  // component list is the BITS table, named by the job's ORT argument
-  // ("table BITS NAME TEXT"). When the screen lifted no rows but the SGBD's
-  // BITS table has them, offer those: NAME is the ORT the job takes, TEXT its
-  // caption. The XY "nicht definiert" placeholder row is dropped.
-  if (!rows.length && bits && bits.size) {
+  // A digital actuator (STEUERN_DIGITAL / STEUERN_IO) draws no rows in the .IPO:
+  // its component list is a table the DRIVE JOB'S OWN ARGUMENT DESCRIPTOR names.
+  // Read it the way the SGBD does -- irActuatorRows resolves "table <NAME>
+  // <cols>" from the ORT arg and loads that table -- so this works for every
+  // module, not just the ones whose list happens to live in BITS. The caption
+  // goes through irLabel (per-ECU i18n first) so the display is unchanged.
+  if (!rows.length && scr.pickJob) {
     irUseTranslations(ir);              // so irLabel consults this ECU's i18n
-    rows = [...bits.values()]
-      .filter((b) => b.NAME && String(b.NAME).toUpperCase() !== 'XY')
-      .map((b) => ({
-        key: String(b.NAME),
-        // irLabel, not raw deGerman: the per-ECU i18n map answers the SGBD's
-        // own actuator wording where the shared vocabulary cannot.
-        caption: (b.TEXT ? irLabel(b.TEXT) : '') || String(b.NAME),
-      }));
+    const src = await irActuatorRows(ecu.sgbd, scr.pickJob);
+    rows = src.map((r) => ({
+      key: r.key,
+      caption: (r.capRaw ? irLabel(r.capRaw) : '') || irLabel(r.key) || r.key,
+    }));
   }
   const reopen = () => renderIrMenu(ecu, ir, menuName, container, back, trail);
+  // No components resolved: the drive job's argument descriptor named no table
+  // we could load (or it lists them at runtime only). Say so rather than drawing
+  // an empty list -- and offer the raw job, which the drive branch still runs.
+  if (!rows.length) {
+    container.className = 'results-panel';
+    container.innerHTML = `<div class="empty"><div>`
+      + `<strong>${esc(irLabel(it.label) || it.label)}</strong></div>`
+      + `<div>This actuator's component list is produced by the module at `
+      + `runtime and could not be read from the SGBD's tables, so the picker `
+      + `has nothing to list. <span class="mono">${esc(scr.pickJob)}</span> `
+      + `still runs from Tool32 with an explicit argument.</div></div>`;
+    sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · no component list`;
+    setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
+                  fn: reopen }]);
+    return;
+  }
   // Firing a row RE-ENTERS the ordinary actuator branch rather than sending
   // here: that path owns the confirm dialog, the register-before-send and the
   // release-on-leave promise. Sending from this list would energize an output
@@ -2413,13 +2492,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     if (screens.length) {
       showInpaCategory(ecu, screens, container,
                        irLabel(readScr.title) || it.label);
-    } else if ((readScr || scr) && ((readScr || scr).pickJob)
-               && ((((readScr || scr).lines) || []).some(l => (l.keys || []).length)
-                   || (await irBitsTable(ecu.sgbd)).size)) {
+    } else if ((readScr || scr) && ((readScr || scr).pickJob)) {
       // A TOGGLELIST PICKER comes BEFORE the generic job branch: a screen that
-      // carries pickJob is a picker, not a backdrop-with-a-job. Routing it to
-      // the job branch first (it.job is set on a picker key too) re-entered
-      // open() with inPlace and dead-ended at the state-job "not sent" message.
+      // carries pickJob IS a picker, not a backdrop-with-a-job (regardless of
+      // where its rows come from -- irPickAndDrive resolves them from the drive
+      // job's own argument descriptor). Routing it to the job branch first
+      // (it.job is set on a picker key too) re-entered open() with inPlace and
+      // dead-ended at the state-job "not sent" message.
       irPickAndDrive(ecu, ir, (readScr || scr), it, menuName, container, back,
                      trail, open);
       return;
@@ -2437,9 +2516,7 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // jobs. Sending directly would energize an output with none of that.
       await open({ ...it, inPlace: true, screen: null });
       return;
-    } else if (scr && scr.pickJob
-               && ((scr.lines || []).some(l => (l.keys || []).length)
-                   || (await irBitsTable(ecu.sgbd)).size)) {
+    } else if (scr && scr.pickJob) {
       // A TOGGLELIST PICKER. INPA shows the actuator rows, the user picks one,
       // and the picked row's key IS the job's argument -- BMW declares
       // togglelist's third parameter `out: string ApiToggleString`
