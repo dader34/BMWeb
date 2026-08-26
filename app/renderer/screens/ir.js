@@ -200,6 +200,104 @@ function irLiveExec(sgbd) {
   return _ipoExecCache.get(key);
 }
 
+// ---- live module entry: run inpainit like INPA does -----------------------
+//
+// INPA does not draw anything until it runs the SGBD's inpainit: it reads
+// INITIALISIERUNG->VARIANTE and INFO->{ECU,REVISION,SPRACHE,...}, compares each
+// against what the script was compiled for, and pops a messagebox when the
+// variant, version or LANGUAGE do not match ("Language variants do not match.
+// Malfunction possible!"). If VARIANTE cannot be read it stops with "Program
+// will be stopped!". We used to re-implement fragments of this in JS
+// (irResolveVariant, the silence probe) and never showed the mismatch dialogs
+// at all -- the build step ran inpainit only to seed state and threw its
+// emissions away. So RUN IT, live, and surface what it draws.
+//
+// The VM is synchronous but the jobs are async, so we PRE-FETCH the two jobs
+// inpainit calls (INITIALISIERUNG, INFO) over the wire, then run inpainit with a
+// host that answers reads from those results -- no async inside the VM.
+
+// A host that answers INPAapiJob/INPAapiResult* from pre-fetched result maps.
+// results: { JOBNAME: Map(resultKey -> value) }. The last job run seeds the
+// read pool, mirroring EDIABAS (a Result* reads the most recent job's set).
+function prefetchHost(results) {
+  let pool = new Map();
+  return {
+    job(_sgbd, job) {
+      const set = results[String(job).toUpperCase()];
+      pool = set instanceof Map ? set : new Map();
+      return {};
+    },
+    result(key, opts = {}) {
+      if (key === 'JOB_STATUS') return this.status();
+      const v = pool.get(key);
+      if (v == null) return opts.integer ? 0 : (opts.default != null ? opts.default : '');
+      return opts.integer ? (parseInt(v, 10) || 0) : String(v);
+    },
+    status() { return this._status || 'OKAY'; },
+    inputstate() { return 0; },
+    _status: 'OKAY',
+  };
+}
+
+// The jobs the entry proc reads from. inpainit calls INITIALISIERUNG (for
+// VARIANTE) then INFO (for ECU/REVISION/SPRACHE); SgbdInpaCheck is the same
+// family. Fetch both; a job that IFH-0009s (silent ECU) yields an empty set,
+// which is exactly what the bytecode's error branch keys on.
+const _ENTRY_JOBS = ['INITIALISIERUNG', 'INFO'];
+
+// Run the module's entry proc (inpainit / SgbdInpaCheck) LIVE and return what it
+// drew: { messages:[{title,body}], variant, silent, ran }. `silent` is true when
+// the entry job got no answer (IFH-0009). Only runs with a cable and an ipoexec;
+// otherwise { ran:false } and the caller keeps its offline behaviour.
+async function irRunEntry(ecu) {
+  if (typeof IpoVm === 'undefined') return { ran: false };
+  const exec = await irLiveExec(ecu.sgbd);
+  if (!exec) return { ran: false };
+  const proc = exec.procs.inpainit ? 'inpainit'
+    : exec.procs.SgbdInpaCheck ? 'SgbdInpaCheck' : null;
+  if (!proc) return { ran: false };
+  // pre-fetch the entry jobs over the wire
+  const results = {};
+  let silent = false, anyAnswer = false;
+  for (const jn of _ENTRY_JOBS) {
+    try {
+      const d = await api(`/api/ecu/${ecu.sgbd}/run/${jn}`, { method: 'POST' });
+      const m = new Map(flatResults(d.sets));
+      results[jn] = m;
+      if (m.size) anyAnswer = true;
+    } catch (e) {
+      // IFH-0009 on INITIALISIERUNG = the ECU did not answer at all
+      if (jn === 'INITIALISIERUNG'
+          && /IFH-0009|IFH-0019|no answer/i.test(e.message || '')) silent = true;
+      results[jn] = new Map();
+    }
+  }
+  try {
+    const vm = new IpoVm(exec, { budget: 80000, host: prefetchHost(results) });
+    // __inpa_startup__ seeds the compiled-in expectations inpainit compares
+    // against -- the script's expected variant name, version and language
+    // (MSS50: n8='BMSS501', n6='1.03'). Without it the mismatch tests run
+    // against undefined and never fire. Run it first on the SAME VM, exactly as
+    // the build-time seed does, keeping its (chrome) emissions out of the result.
+    if (exec.procs.__inpa_startup__) {
+      try { vm.run('__inpa_startup__'); } catch { /* seed best-effort */ }
+      vm.out = new (vm.out.constructor)();      // discard startup chrome
+    }
+    const out = vm.run(proc);
+    // the variant inpainit read (the VARIANTE result), if any
+    const variant = (results.INITIALISIERUNG
+      && results.INITIALISIERUNG.get('VARIANTE')) || null;
+    return {
+      ran: true,
+      messages: out.messages || [],
+      variant: variant ? String(variant) : null,
+      silent: silent || !anyAnswer,
+    };
+  } catch {
+    return { ran: false };
+  }
+}
+
 // The screen object to draw for `name`: the LIVE run when the proc exists, else
 // the frozen ir.screens entry. Always resolves to a screen or undefined, so both
 // call sites can await it in place of the raw lookup.
