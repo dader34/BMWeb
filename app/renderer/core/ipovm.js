@@ -211,6 +211,62 @@ class OkHost {
   inputstate() { return 0; }
 }
 
+// A host the guided driver FEEDS: resume(resultsMap) lands here, and the
+// machine's INPAapiResult* reads serve from the most recent job's results --
+// including JOB_STATUS, so INPAapiCheckJobStatus sees the wire's own verdict.
+class FeedHost {
+  constructor() { this.map = new Map(); }
+  feed(m) {
+    this.map = m instanceof Map ? m : new Map(Object.entries(m || {}));
+  }
+  job(_sgbd, _job, _arg, _results) { return {}; }
+  result(key, opts = {}) {
+    if (key === 'JOB_STATUS') return this.status();
+    const v = this.map.get(key);
+    if (v == null) {
+      return opts.integer ? 0 : (opts.default != null ? opts.default : '');
+    }
+    return opts.integer ? (parseInt(v, 10) || 0) : String(v);
+  }
+  status() {
+    const st = this.map.get('JOB_STATUS');
+    return st != null ? String(st) : 'OKAY';
+  }
+  inputstate() { return 0; }
+}
+
+// The quit-mode confirmation a machine pops after a successful drive:
+//     if (slotN == 1) messagebox(title, prefix + <ORT>)
+// (ZKE5 sm_steuern: slot 29 = the "with Quitting" toggle, box "ACTIVATED
+// DIGITAL VALUE / Signal : <ORT>"). Scanned from the bytecode so the slot and
+// the words are INPA's own, never invented. Returns {slot, title, prefix} or
+// null when the machine has no such box.
+function scanQuitBox(toks) {
+  if (!Array.isArray(toks)) return null;
+  for (let i = 0; i + 4 < toks.length; i++) {
+    const a = toks[i], b = toks[i + 1], c = toks[i + 2];
+    if (a.op !== 'var' || b.op !== 'const' || b.v !== 1) continue;
+    if (c.op !== 'binop' || c.name !== 'eq') continue;
+    // guarded body within reach: frame, const title, const prefix, ...,
+    // call messagebox
+    for (let j = i + 3; j < Math.min(i + 14, toks.length); j++) {
+      const t = toks[j];
+      if (t.op === 'call' && t.name === 'messagebox') {
+        const strs = [];
+        for (let k = i + 3; k < j; k++) {
+          if (toks[k].op === 'const' && toks[k].t === 's') strs.push(toks[k].v);
+        }
+        if (strs.length >= 2) {
+          return { slot: a.n, title: strs[0], prefix: strs[1] };
+        }
+        break;
+      }
+      if (t.op === 'state' || t.op === 'jump') break;
+    }
+  }
+  return null;
+}
+
 // ----------------------------------------------------------- emissions --
 
 class Emissions {
@@ -269,6 +325,15 @@ class IpoVm {
     this.byidRaw = exec.byid || {};
     this.pool = exec.pool || [];
     this.host = opts.host || new OkHost();
+    // wireJobs: the driven executor suspends on EVERY INPAapiJob (and on
+    // builtin_1b waits), not only STEUERN/START -- the guided-procedure
+    // driver runs each on the real wire and feeds the results back. Never
+    // set by the headless diff harness, so offline parity is untouched.
+    this.wireJobs = !!opts.wireJobs;
+    // onText: live tap on every printed string (ftextout/messagebox), for the
+    // guided driver's running log -- emissions can be repainted away by the
+    // machine's own setscreen before the driver looks, the tap cannot.
+    this.onText = typeof opts.onText === 'function' ? opts.onText : null;
     this.budget = opts.budget || 200000;
 
     this.globals = new Map();      // slot n (or ('ref',n) key) -> value
@@ -508,7 +573,8 @@ class IpoVm {
     const toks = this.procs[name];
     if (!toks) throw new IpoError(`no proc ${name}`);
     this._susp = { toks, frame: new Map(), i: 0, stack: [],
-                   index: this._byteIndex(toks), end: this._procEnd(toks) };
+                   index: this._byteIndex(toks), end: this._procEnd(toks),
+                   remap: this._segRemap(toks) };
     return this._drive();
   }
 
@@ -534,6 +600,11 @@ class IpoVm {
     } else if (s.pending === 'job') {
       // the wire answered; fold its result keys in so a later read sees them
       this._lastJobSets = value || {};
+      // ...and serve them to INPAapiResult*: the reads go through the host,
+      // so a host that can be fed (FeedHost) is what closes the loop
+      if (this.host && typeof this.host.feed === 'function') {
+        this.host.feed(value);
+      }
     }
     s.pending = null;
     s.i += 1;                       // step past the suspending token
@@ -547,6 +618,65 @@ class IpoVm {
       if (jt && jt.op === 'jump') s.i += 1;
     }
     return this._drive();
+  }
+
+  // Keypress-flag globals the CURRENT wait segment tests (var N == const ->
+  // jfalse before anything stores N): INPA's "Weiter"/"Start" keys set these.
+  // The driver shows a Continue control when the parked segment has one.
+  pendingGuards() {
+    const s = this._susp;
+    if (!s) return new Set();
+    let end = s.end;
+    for (let k = s.i + 1; k < s.end; k++) {
+      if (s.toks[k].op === 'state') { end = k; break; }
+    }
+    return keypressGuards(s.toks, s.i + 1, end);
+  }
+
+  // Press a machine key: set its guard flag so the wait segment opens.
+  pressKey(n) { this.globals.set(n, 1); }
+
+  // JUMP TARGETS PAST A STATE ARE SEGMENT-RELATIVE. The compiler emits a
+  // jump's u16 as a dword index from its enclosing BLOCK -- the proc body, an
+  // ITEM/LINE body, or (the part the walker does not model) a %STATE segment:
+  // each state label opens a new block whose dwords count from the token
+  // after the state's own exit jump (the body the driven resume enters).
+  // The walker resolves every target against the proc/ITEM base, so a target
+  // inside a state segment lands short by the states' label bytes -- across
+  // the corpus only 41% of intra-segment jumps hit a real token that way,
+  // while re-basing per segment resolves 95.8% (and S_ZUHEIZ's Pruefung
+  // becomes semantically exact: the measure loop's jfalse skips ONE store,
+  // the Weiter guard exits to the %ENDE block). Offline execution never runs
+  // past the first state (it halts there), so only the DRIVEN path needs
+  // this; _execIn stays byte-identical to ipo_vm.py.
+  //
+  // A corrected target may land ON a `state` token: that is a generic park
+  // (the current machine segment is what setstatemachine last set), which
+  // the driven loop's yield handling already provides.
+  _segRemap(toks) {
+    const remap = new Map();
+    if (!toks.length || toks[0].at == null) return remap;
+    const at = (i) => toks[i].at;
+    let walker = at(0) + 4;      // dword 0 of the proc's own block
+    let seg = walker;
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (t.op === 'ITEM' || t.op === 'LINE') {
+        const nxt = i + 1 < toks.length ? at(i + 1) : at(i) + 4;
+        walker = nxt;
+        seg = nxt;
+      } else if (t.op === 'state') {
+        let j = i + 1;
+        if (j < toks.length && toks[j].op === 'jump') j += 1;  // exit edge
+        seg = j < toks.length ? at(j) : at(i);
+      } else if (t.to != null) {
+        const u16 = t.to - walker;
+        if (u16 >= 0 && u16 % 4 === 0 && seg !== walker) {
+          remap.set(i, seg + u16);
+        }
+      }
+    }
+    return remap;
   }
 
   _byteIndex(toks) {
@@ -588,8 +718,9 @@ class IpoVm {
         const sig = this._stepOne(t, op, s, index, end);
         if (sig === 'ret') break;
         if (sig === 'jumped') continue;      // _stepOne already moved s.i
-        if (sig && sig.kind === 'job') {      // a wire job wants the renderer
-          s.pending = 'job';
+        if (sig && (sig.kind === 'job' || sig.kind === 'wait')) {
+          // a wire job (the renderer runs it) or a timed wait (it sleeps)
+          s.pending = sig.kind;
           return sig;
         }
         s.i += 1;
@@ -632,12 +763,12 @@ class IpoVm {
     } else if (op === 'jfalse') {
       const cond = stack.length ? stack.pop() : false;
       if (!truthy(cond)) {
-        const nxt = index.has(t.to) ? index.get(t.to) : end;
+        const nxt = this._jumpIndex(s, index, end);
         if (nxt >= end) return 'ret';
         s.i = nxt; return 'jumped';
       }
     } else if (op === 'jump') {
-      const nxt = index.has(t.to) ? index.get(t.to) : end;
+      const nxt = this._jumpIndex(s, index, end);
       if (nxt >= end) return 'ret';
       s.i = nxt; return 'jumped';
     } else if (op === 'ITEM') {
@@ -658,6 +789,16 @@ class IpoVm {
     return undefined;
   }
 
+  // The driven executor's jump resolution: the segment-rebased target first
+  // (see _segRemap), the walker's raw byte target as the fallback for the
+  // few machines outside the model. A target neither resolves = exit.
+  _jumpIndex(s, index, end) {
+    const t = s.toks[s.i];
+    const ct = s.remap ? s.remap.get(s.i) : undefined;
+    if (ct !== undefined && index.has(ct)) return index.get(ct);
+    return index.has(t.to) ? index.get(t.to) : end;
+  }
+
   // builtin dispatch for the resumable path. Identical to _builtin EXCEPT a
   // drive job (STEUERN_*/START*) is not answered offline -- it returns a `job`
   // pending action so the renderer runs it through the audited safe drive path.
@@ -670,12 +811,19 @@ class IpoVm {
       const sgbd = stack.length > 0 ? strv(stack[0]) : null;
       const job = stack.length > 1 ? strv(stack[1]) : null;
       const arg = stack.length > 2 ? strv(stack[2]) : null;
-      if (job && /^(STEUERN|START)/i.test(job)) {
+      if (job && (this.wireJobs || /^(STEUERN|START)/i.test(job))) {
         // hand the drive to the renderer; it confirms, registers for release,
         // sends on the wire, and hands the result sets back through resume()
         return { kind: 'job', job, sgbd: sgbd || null,
                  arg: arg || null, out: this.out };
       }
+    }
+    // builtin_1b = wartezeit(ms). Offline a noop; a guided run honours it --
+    // the S_ZUHEIZ Pruefung waits 2000ms after DIAGNOSE_ENDE and 10000ms for
+    // the heater's run-on, and rushing those changes what the ECU answers.
+    if (this.wireJobs && name === 'builtin_1b') {
+      const ms = stack.find((x) => isPlainInt(x));
+      return { kind: 'wait', ms: ms != null ? ms : 0, out: this.out };
     }
     // not a drive: run it exactly as the offline builtin would
     this._builtin(t, stack, null);
@@ -940,6 +1088,10 @@ function bGetBinaryDataString(vm, stack) {
 }
 
 function bTextout(vm, stack) {
+  if (vm.onText) {
+    const t = stack.find((x) => isPlainStr(x) || isBound(x));
+    if (t != null && String(t).trim()) vm.onText(asStr(t));
+  }
   // ftextout(text/slot, row, col, ...): a printed literal, or a printed VALUE
   // whose key comes from the binding. A bound value wins over a literal.
   let key = null, also = [];
@@ -1057,8 +1209,14 @@ function bMidstr(vm, stack) {
 function bInttostring(vm, stack) {
   let n = stack.find((x) => typeof x === 'number' || isFloat(x));
   if (n == null) {
-    const s = stack.find(isPlainStr);
-    n = parseFloat(s);
+    // A BOUND VALUE COUNTS AS A STRING. Python's _b_inttostring tests
+    // isinstance(x, str), which _Bound (a str subclass) passes -- so a job
+    // result written through INPAapiResult* converts there. The JS box is
+    // not a string subclass, and matching plain strings only zeroed every
+    // converted result: S_ZUHEIZ printed "Startzähler : 0" for a counter
+    // the wire answered 7.
+    const s = stack.find((x) => isPlainStr(x) || isBound(x));
+    n = parseFloat(asStr(s));
     if (Number.isNaN(n)) n = 0;
   } else {
     n = num(n);
@@ -1070,6 +1228,7 @@ function bMessage(vm, stack, item) {
   // Python's _b_message uses isinstance(x, str), which is TRUE for _Bound (a
   // str subclass) -- the body is often a concatenation, so a bound value.
   const strs = stack.filter((x) => isPlainStr(x) || isBound(x)).map(asStr);
+  if (vm.onText && strs.length) vm.onText(strs.join(' — '));
   if (strs.length) {
     vm.out.messages.push({ title: strs[0], body: strs.length > 1 ? strs[1]
       : null });
@@ -1256,8 +1415,10 @@ if (typeof window !== 'undefined') {
   window.IpoVm = IpoVm;
   window.IpoError = IpoError;
   window.OkHost = OkHost;
+  window.FeedHost = FeedHost;
+  window.scanQuitBox = scanQuitBox;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { IpoVm, IpoError, OkHost, Emissions,
-                     mkBound, mkSlot, isBound, isSlot, binop };
+  module.exports = { IpoVm, IpoError, OkHost, FeedHost, scanQuitBox,
+                     Emissions, mkBound, mkSlot, isBound, isSlot, binop };
 }
