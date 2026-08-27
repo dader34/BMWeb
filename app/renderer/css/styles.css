@@ -4018,3 +4018,49 @@ body.apps-section .view { inset: 56px 0 0 0; }
   .ir-pick-row { grid-template-columns: 1fr auto; min-height: 44px; }
   .ir-pick-detail { display: none; }
 }
+
+/* ============================================================ remote
+   The helper's whole window wears a red frame: these jobs touch someone
+   else's car, and that must never be ambiguous. */
+body.remote-helper { box-shadow: inset 0 0 0 3px #d63b3b; }
+body.remote-helper::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9998;
+  box-shadow: inset 0 0 0 3px #d63b3b;
+}
+.remote-badge {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+  z-index: 10000; display: flex; align-items: center; gap: 8px;
+  background: #d63b3b; color: #fff; font-size: 12px; font-weight: 600;
+  letter-spacing: .08em; padding: 5px 10px 5px 12px; border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.remote-badge .rb-dot { width: 8px; height: 8px; border-radius: 50%;
+  background: #fff; animation: rb-pulse 1.3s ease-in-out infinite; }
+@keyframes rb-pulse { 50% { opacity: .3; } }
+.remote-badge .rb-end {
+  background: rgba(255,255,255,.2); color: #fff; border: 0; cursor: pointer;
+  font: inherit; font-weight: 500; padding: 2px 8px; border-radius: 4px;
+  margin-left: 4px; }
+.remote-badge .rb-end:hover { background: rgba(255,255,255,.35); }
+
+/* owner console: the code, the live job log, the kill switch */
+.owner-console {
+  position: fixed; right: 16px; bottom: 16px; width: 320px; z-index: 10000;
+  background: var(--panel, #12161c); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  padding: 14px; font-size: 13px; }
+.owner-console .oc-head { display: flex; justify-content: space-between;
+  align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.owner-console .oc-title { font-weight: 600; }
+.owner-console .oc-sub { color: var(--ink-dim); font-size: 12px; }
+.owner-console .oc-code {
+  font-family: var(--mono); font-size: 26px; letter-spacing: .18em;
+  text-align: center; padding: 10px; background: rgba(127,127,127,.08);
+  border: 1px dashed var(--line); border-radius: 8px; cursor: pointer;
+  user-select: all; }
+.owner-console .oc-code.oc-copied { border-color: var(--amber, #d90); }
+.owner-console .oc-state { margin: 8px 0; color: var(--ink-dim); font-size: 12px; }
+.owner-console .oc-state.oc-live { color: #4bbf73; }
+.owner-console .oc-log {
+  max-height: 180px; overflow-y: auto; font-size: 11.5px; line-height: 1.6;
+  border-top: 1px solid var(--line); padding-top: 8px; color: var(--ink-dim); }

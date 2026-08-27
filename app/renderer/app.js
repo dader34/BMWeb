@@ -233,6 +233,21 @@ function showSettings() {
     if (!betaOn && typeof _journalButton === 'function') _journalButton();
     showSettings();
   };
+  // remote diagnostics: share the car, or drive a shared one
+  const remoteRow = document.createElement('div');
+  remoteRow.className = 'setting-row';
+  remoteRow.innerHTML = `
+    <div class="setting-text">
+      <div class="setting-title">Remote session</div>
+      <div class="setting-desc">Share your cabled car with someone, or connect
+        to theirs. The car stays on its own machine; only jobs cross, direct
+        browser-to-browser.</div>
+    </div>
+    <button class="btn" id="set-remote">Open…</button>`;
+  remoteRow.querySelector('#set-remote').onclick = () =>
+    (typeof showRemoteDialog === 'function' ? showRemoteDialog() : null);
+  wrap.appendChild(remoteRow);
+
   wrap.appendChild(betaRow);
 
   view.appendChild(wrap);
