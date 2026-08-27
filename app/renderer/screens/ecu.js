@@ -63,10 +63,21 @@ async function irResolveGroupVariant(ecu) {
     ecu._variantSource = 'unverified'; return;
   }
   if (v === String(ecu.sgbd).toLowerCase()) {
+    ecu._variant = v.toUpperCase();
     ecu._variantSource = 'confirmed'; return;
   }
-  // only retarget to a variant this build can actually load ('xyz' catch-all
-  // and exotic variants without job-code stay on the configured SGBD)
+  // THE VARIANT NAME IS INPAINIT'S GROUND TRUTH. The group's IDENTIFIKATION
+  // returns the concrete variant (SM46_4) -- the same thing inpainit checks
+  // against its expected list. Record it ALWAYS, even when this build cannot
+  // load a separate SGBD for it: a family .prg (sm46 covering SM46_3/_4/C_*)
+  // runs one script and inpainit validates the variant INSIDE it, so without
+  // the real name inpainit compared its list against the SGBD filename "SM46"
+  // -- which matches none of SM46_3/_4/... -- and stopped with a
+  // self-contradictory "Requested 'SM46' not found. Found 'SM46'".
+  ecu._variant = v.toUpperCase();
+  ecu._variantSource = 'confirmed';
+  // only RETARGET the SGBD when a concrete variant SGBD actually ships;
+  // otherwise keep the family SGBD and just carry the resolved variant name.
   try {
     const jobs = await api(`/api/ecu/${v}/jobs`);
     if (!Array.isArray(jobs) || !jobs.length) return;

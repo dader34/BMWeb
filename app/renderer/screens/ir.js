@@ -402,6 +402,13 @@ async function irRunEntry(ecu) {
     }
   }
   try {
+    // inpainit checks the CONCRETE variant the car resolved to (SM46_4), not
+    // the SGBD filename. If the group probe already named it (ecu._variant),
+    // feed that as VARIANTE so a family SGBD passes its own variant check;
+    // the synthetic "<sgbd>" only fits ECUs whose filename IS a variant.
+    if (ecu._variant && results.INITIALISIERUNG) {
+      results.INITIALISIERUNG.set('VARIANTE', String(ecu._variant));
+    }
     const vm = new IpoVm(exec, { budget: 80000, host: prefetchHost(results) });
     // __inpa_startup__ seeds the compiled-in expectations inpainit compares
     // against -- the script's expected variant name, version and language
@@ -414,7 +421,8 @@ async function irRunEntry(ecu) {
     }
     const out = vm.run(proc);
     // the variant inpainit read (the VARIANTE result), if any
-    const variant = (results.INITIALISIERUNG
+    const variant = (ecu._variant)
+      || (results.INITIALISIERUNG
       && results.INITIALISIERUNG.get('VARIANTE')) || null;
     return {
       ran: true,
