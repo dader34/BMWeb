@@ -94,6 +94,16 @@ jobs:
           # index.html already loads webshim.js -- both hosts need it.
           test -s dist-web/index.html
           grep -q webshim.js dist-web/index.html
+          # Version stamp, exactly as build-web.sh does it. This step calls
+          # the exporter directly and skipped the stamp, so the deployed app
+          # had no BMACW_VERSION and every beta report said app "dev".
+          VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' \
+            src/InpaMac.App/InpaMac.App.csproj | head -1)
+          test -n "$VERSION"
+          printf 'window.BMACW_VERSION="%s";\n' "$VERSION" > dist-web/version.js
+          sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
+          grep -q version.js dist-web/index.html
+          echo "version: $VERSION"
           # A build that exported nothing must FAIL here, not deploy a shell
           # of a site: an earlier run shipped 63 files and looked green, and a
           # later one shipped archives that were present but hollow. Check
