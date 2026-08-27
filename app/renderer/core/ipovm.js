@@ -650,9 +650,21 @@ class IpoVm {
         // runs outside _drive, so switch to that frame for the store
         const prevFrame = this.frame;
         this.frame = s.frame;
-        const n = Math.trunc(Number(value));
-        storeOut(this, s.pendingStack,
-                 Number.isFinite(n) ? n : 0, null);
+        // a hex ask answers with a STRING (stored verbatim); a two-field
+        // ask answers with an ARRAY, one element per out-ref -- storing a
+        // single number through the first ref only left every second field
+        // (input2hexnum's number, input2int's Jahr) unset
+        const store1 = (ref, v) => {
+          if (typeof v === 'string') { storeOut(this, [ref], v, null); return; }
+          const n = Math.trunc(Number(v));
+          storeOut(this, [ref], Number.isFinite(n) ? n : 0, null);
+        };
+        const refs = s.pendingStack.filter(isRef);
+        if (Array.isArray(value)) {
+          refs.forEach((r, k) => { if (k < value.length) store1(r, value[k]); });
+        } else if (refs.length) {
+          refs.forEach((r) => store1(r, value));
+        }
         this.frame = prevFrame;
         s.pendingStack = null;
       }
@@ -960,6 +972,7 @@ class IpoVm {
         .map((x) => (isPlainInt(x) ? x : (isFloat(x) ? x.v : null)))
         .filter((x) => x != null && Number.isFinite(x));
       return { kind: 'input', name, prompts,
+               refs: stack.filter(isRef).length,
                lo: nums.length > 1 ? nums[nums.length - 2] : null,
                hi: nums.length > 1 ? nums[nums.length - 1] : null,
                stack, out: this.out };
@@ -1476,6 +1489,50 @@ function bSetstate(vm, stack, item) {
   }
 }
 
+function bStringtoreal(vm, stack) {
+  const src = stack.find((x) => isPlainStr(x) || isBound(x));
+  let v = parseFloat(String(asStr(src) || '').replace(',', '.'));
+  if (!Number.isFinite(v)) v = 0;
+  storeOut(vm, stack, v, keyed(stack));
+}
+
+function bStringtoint(vm, stack) {
+  const src = stack.find((x) => isPlainStr(x) || isBound(x));
+  let v = parseFloat(String(asStr(src) || '').replace(',', '.'));
+  v = Number.isFinite(v) ? Math.trunc(v) : 0;
+  storeOut(vm, stack, v, keyed(stack));
+}
+
+function bHexconvert(vm, stack) {
+  const src = stack.find((x) => isPlainStr(x) || isBound(x));
+  let v = parseInt(String(asStr(src) || '').trim() || '0', 16);
+  if (!Number.isFinite(v)) v = 0;
+  const refs = stack.filter(isRef);
+  const parts = [(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF, (v >> 24) & 0xFF];
+  refs.forEach((r, k) => { if (k < 4) storeOut(vm, [r], parts[k]); });
+}
+
+function bStrcat(vm, stack) {
+  const ins = stack.filter((x) => isPlainStr(x) || isBound(x)).map(asStr);
+  storeOut(vm, stack, ins.join(''), keyed(stack));
+}
+
+function bNumconvert(vm, stack) {
+  const n = stack.find((x) => typeof x === 'number' || isFloat(x));
+  storeOut(vm, stack, n == null ? 0 : num(n), keyed(stack));
+}
+
+function bGetdate(vm, stack) { storeOut(vm, stack, '01.01.2000'); }
+function bGettime(vm, stack) { storeOut(vm, stack, '00:00:00'); }
+function bGetapistring(vm, stack) { storeOut(vm, stack, ''); }
+
+function bInputDigital(vm, stack, item) {
+  // mirrors _b_inputdigital: capture+taint via bInput, then the CONFIRMING
+  // choice as the placeholder -- the lift keeps the yes-branch's job
+  bInput(vm, stack, item);
+  for (const ref of stack.filter(isRef)) storeOut(vm, [ref], 1);
+}
+
 const BUILTINS = {
   setmenutitle: bSetTitle,
   settitle: bSetTitle,
@@ -1532,7 +1589,10 @@ const BUILTINS = {
   INP1apiErrorCode: bErrorCode,
   INP1apiResultSets: bResultSets,
   getinputstate: bGetInputState,
-  inputhex: bNoop,
+  inputhex: bInput,
+  inputdigital: bInputDigital,
+  input2hex: bInput,
+  builtin_47: bInput,     // input2int (ACC: Kalenderwoche/Jahr)
   builtin_3f: bInput,
   builtin_40: bInput,
   input2text: bInput,
@@ -1555,7 +1615,25 @@ const BUILTINS = {
   // builtin_16 = togglelist: writes the picked row into an out variable. Offline
   // a noop (the pick is runtime-only); when driven it stores the user's pick.
   builtin_16: bToggleList,
-  builtin_12: bNoop,   // start (0x12): begins the selected sequence
+  builtin_12: bNoop,   // control (0x12)
+  // --- coverage sweep 2026-08-27: shapes proven against the corpus ---
+  stringtoreal: bStringtoreal,
+  builtin_21: bStringtoint,       // stringtoint
+  builtin_22: bHexconvert,        // hexconvert
+  builtin_23: bStrcat,            // strcat (dest ref FIRST)
+  builtin_26: bNumconvert,        // inttoreal/realtoint family
+  formatnum: bInttostring,        // (src, dst): number -> display
+  getdate: bGetdate,
+  gettime: bGettime,
+  builtin_15: bGetapistring,      // getapistring(out s)
+  INPAapiResultSets: bResultSets, // single-ref INPA form
+  INP1apiResultBinary: bResultBinary,
+  builtin_74: bResult,            // INP1apiResultReal(rc, val, KEY, set)
+  builtin_14: bNoop,              // stop
+  builtin_1a: bNoop,              // setcolor
+  builtin_51: bNoop,              // blankscreen
+  builtin_57: bNoop,              // userboxclear
+  builtin_58: bNoop,              // userboxsetcolor
 };
 
 // Loaded two ways: as a <script> in the app (globals) and via require() in the

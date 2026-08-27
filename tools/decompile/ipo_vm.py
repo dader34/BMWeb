@@ -1221,6 +1221,87 @@ def _b_input(vm, stack, item):
     vm.input_fed = True
 
 
+def _b_stringtoreal(vm, stack, item):
+    # stringtoreal(in s, out r) -- 2842 sites. The parse INPA does.
+    src = next((x for x in stack if isinstance(x, str)), "")
+    try:
+        v = float(str(src).replace(",", "."))
+    except (TypeError, ValueError):
+        v = 0.0
+    _store_out(vm, stack, v, _keyed(stack))
+
+
+def _b_stringtoint(vm, stack, item):
+    # builtin_21 = stringtoint(in s, out i): shape (var, ref) corpus-wide,
+    # position 0x21 right after inttostring 0x20, matching Inpa.h order.
+    src = next((x for x in stack if isinstance(x, str)), "")
+    try:
+        v = int(float(str(src).replace(",", ".")))
+    except (TypeError, ValueError):
+        v = 0
+    _store_out(vm, stack, v, _keyed(stack))
+
+
+def _b_hexconvert(vm, stack, item):
+    # builtin_22 = hexconvert(in hexstr, out high, mid, low, seg): one
+    # string in, exactly FOUR out-refs at every corpus site.
+    src = next((x for x in stack if isinstance(x, str)), "")
+    try:
+        v = int(str(src).strip() or "0", 16)
+    except (TypeError, ValueError):
+        v = 0
+    refs = [x for x in stack if isinstance(x, tuple)
+            and len(x) == 3 and x[0] == "ref"]
+    parts = [(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF, (v >> 24) & 0xFF]
+    for ref, val in zip(refs, parts):
+        _store_out(vm, [ref], val)
+
+
+def _b_strcat(vm, stack, item):
+    # builtin_23 = strcat(out dest, in a, in b) -- 3135 sites; ACC2 builds
+    # "0x"+var / "0y"+var with it. NOT a conversion: the ref comes FIRST.
+    ins = [str(x) for x in stack if isinstance(x, str)]
+    _store_out(vm, stack, "".join(ins), _keyed(stack))
+
+
+def _b_numconvert(vm, stack, item):
+    # builtin_26: (in var, out ref), one numeric in, one out -- the
+    # inttoreal/realtoint family by position. The value passes through
+    # unchanged; which exact cast it is does not survive the corpus, and
+    # identity is right for every candidate but the truncation edge.
+    n = next((x for x in stack if isinstance(x, (int, float))), 0)
+    _store_out(vm, stack, n, _keyed(stack))
+
+
+def _b_getdate(vm, stack, item):
+    # getdate(out s): a print header, not a computation. A fixed constant
+    # keeps the twins and every re-run byte-identical.
+    _store_out(vm, stack, "01.01.2000")
+
+
+def _b_gettime(vm, stack, item):
+    _store_out(vm, stack, "00:00:00")
+
+
+def _b_getapistring(vm, stack, item):
+    # getapistring(flags..., out s): the screen's API string. Offline there
+    # is no live screen; an empty string keeps `if s ...` guards honest.
+    _store_out(vm, stack, "")
+
+
+def _b_inputdigital(vm, stack, item):
+    """The yes/no ask. Same capture+taint as every input, but the
+    placeholder is the CONFIRMING choice: a key's job lives behind
+    "user said yes" (dde7uds's lernwert_rueck guards LERNWERTE_RUECKSETZEN
+    on the answer), and lifting the no-branch erases what the key does.
+    The real answer is runtime input either way -- the taint already
+    keeps any argument built from it out of the lift."""
+    _b_input(vm, stack, item)
+    for ref in [x for x in stack if isinstance(x, tuple)
+                and len(x) == 3 and x[0] == "ref"]:
+        _store_out(vm, [ref], 1)
+
+
 def _b_noop(vm, stack, item):
     """Structure packers, view/box chrome, timers -- no effect on the IR.
 
@@ -1464,11 +1545,17 @@ _BUILTINS = {
     "INPAapiInit": _b_noop, "INPAapiEnd": _b_noop,
     "INPAapiFsLesen": _b_noop, "INP1apiErrorText": _b_errortext,
     "INP1apiErrorCode": _b_errorcode, "INP1apiResultSets": _b_resultsets,
-    "getinputstate": _b_getinputstate, "inputhex": _b_noop,
+    "getinputstate": _b_getinputstate,
     # input dialogs a menu key opens to ask for the value it sends -- KLIMA's
-    # flap positions prompt "Position (0-100 %)" then send it. The hex/digital
-    # "Change field" dialogs (inputhex/inputdigital/input2hex) are left to the
-    # state-form deriver; these are the value-prompt forms.
+    # flap positions prompt "Position (0-100 %)" then send it. ALL ask forms
+    # are inputs now (hex, digital, two-field): each captures its prompts,
+    # writes the placeholder through its out-refs, and taints the item so no
+    # fabricated static argument survives the lift. builtin_47 = input2int
+    # (two refs, title, help, two captions, two min/max pairs -- ACC's
+    # Kalenderwoche/Jahr ident-write dialog).
+    "inputhex": _b_input, "inputdigital": _b_inputdigital,
+    "input2hex": _b_input,
+    "builtin_47": _b_input,
     "builtin_3f": _b_input, "builtin_40": _b_input, "input2text": _b_input,
     "input2hexnum": _b_input, "inputint": _b_input,
     "fileopen": _b_fileopen, "fileclose": _b_fileclose,
@@ -1483,6 +1570,27 @@ _BUILTINS = {
     "INP1apiResultInt": _b_result_int,
     "INPAapiResultBinary": _b_result_binary,
     "GetBinaryDataString": _b_getbinarydatastring,
+    # --- coverage sweep 2026-08-27: shapes proven against the corpus ---
+    "stringtoreal": _b_stringtoreal,
+    "builtin_21": _b_stringtoint,        # stringtoint
+    "builtin_22": _b_hexconvert,         # hexconvert
+    "builtin_23": _b_strcat,             # strcat (dest ref FIRST)
+    "builtin_26": _b_numconvert,         # inttoreal/realtoint family
+    "formatnum": _b_inttostring,         # (src, dst): number -> display
+    "getdate": _b_getdate, "gettime": _b_gettime,
+    "builtin_15": _b_getapistring,       # getapistring(out s)
+    "INPAapiResultSets": _b_resultsets,  # single-ref INPA form
+    "INP1apiResultBinary": _b_result_binary,
+    "builtin_74": _b_result,             # INP1apiResultReal(rc, val, KEY, set)
+    # chrome, listed so coverage shows them as looked-at
+    "builtin_14": _b_noop,               # stop
+    "builtin_1a": _b_noop,               # setcolor
+    "builtin_51": _b_noop,               # blankscreen
+    "builtin_57": _b_noop,               # userboxclear
+    "builtin_58": _b_noop,               # userboxsetcolor
+    "StrArrayDelete": _b_noop,
+    "builtin_12": _b_noop,               # control
+    "builtin_16": _b_noop,               # togglelist: pick is runtime-only
 }
 
 
