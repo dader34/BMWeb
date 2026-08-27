@@ -1,0 +1,17 @@
+{
+ "Adaptionswerte in NVRAM speichern": "Store adaptation values in NVRAM",
+ "Anti Leerlaufklackern aktivieren": "Activate anti idle-rattle",
+ "Beliebigen Gang einlegen": "Engage any gear",
+ "Diagnose PV7": "Diagnosis PV7",
+ "Diagnose Parksperrenmagnet": "Diagnosis park lock solenoid",
+ "Fehlerspeicher formatieren": "Format fault memory",
+ "Getriebe einlernen": "Teach in transmission",
+ "Kupplungskühlung aktivieren": "Activate clutch cooling",
+ "Kupplungsschleifpunkt 1 und 2 einlernen (Kisspoint 1+2)": "Teach in clutch slip point 1 and 2 (kisspoint 1+2)",
+ "Solldruckvorgabe Kupplung 1": "Target pressure setpoint clutch 1",
+ "Solldruckvorgabe Kupplung 2": "Target pressure setpoint clutch 2",
+ "Spülfunktion starten": "Start flush function",
+ "Undefiniert": "Undefined",
+ "Ventilkennlinien einlernen PV1/2": "Teach in valve characteristic curves PV1/2",
+ "Vorgabe des Systemdrucks": "System pressure setpoint"
+}

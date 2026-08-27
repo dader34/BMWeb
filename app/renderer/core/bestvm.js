@@ -501,6 +501,10 @@ class Best2Vm {
     if (init !== undefined && !this._inited
         && String(jobName).toUpperCase() !== 'INITIALISIERUNG') {
       this._inited = true;
+      // The init runs with NO arguments, but the real job's argument may
+      // already be sitting in argText (constructed with {args}); runOne(init,
+      // '') overwrote it and FS_LESEN_DETAIL then saw no F_CODE at all.
+      const jobArgs = args !== undefined ? args : this.argText;
       let initSets;
       try {
         initSets = this.runOne(init, '');
@@ -526,6 +530,7 @@ class Best2Vm {
         throw new VmError(
           'INITIALISIERUNG did not report DONE=1 (EDIABAS_SYS_0010)');
       }
+      this.argText = jobArgs;
     }
     return this.runOne(undefined, args, jobName);
   }

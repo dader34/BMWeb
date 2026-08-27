@@ -324,87 +324,215 @@ async function readIdentityCodes(chassisId) {
   return p;
 }
 
-// ---- rendering -------------------------------------------------------------
+// ---- rendering: NCS's "Information about car and ZCS/FA coding" ------------
+//
+// ONE COLUMN PER IDENTITY MASTER, read separately and never merged. The car
+// stores its record twice (E46: cluster and EWS), and the whole reason this
+// dialog exists is to compare the copies -- a swapped module shows up as two
+// columns that disagree, which a first-answer-wins page can never show.
+// Three boxes, same as the original: what the car is, the coding record, and
+// the decoded option list.
 
-function viChip(text, title) {
-  return `<span class="vi-chip"${title ? ` title="${esc(title)}"` : ''}>`
-    + `${esc(text)}</span>`;
+// Roles for the car-info results, matched against DECLARED result names --
+// same contract as VI_KEY_ROLE: the regex names the ROLE, never one spelling.
+// (kombi46 declares AIF_FG_NR, ews declares FG_NR; both are the VIN.)
+const VI_VIN_ROLE = /^(AIF_)?FG_?NR$|^FGSTNR/i;
+const VI_KM_ROLE =
+  /^STAT_KILOMETERSTAND_WERT$|^KILOMETERSTAND$|^KM_?STAND\b|GESAMTWEGSTRECKE/i;
+
+// The read job on this ECU declaring a result in `role`. Scanning is archive
+// reads only (each job's result table ships in the .ecu); the wire sees just
+// the one job that wins.
+async function viPickInfoJob(sgbd, jobs, role) {
+  for (const j of jobs) {
+    if (!viIsRead(j.name)) continue;
+    const names = await viJobResults(sgbd, j.name);
+    const hit = names.find((n) => role.test(n));
+    if (hit) return { job: j.name, result: hit };
+  }
+  return null;
 }
 
-// The summary card: what the car IS.
-function viSummary(chassisId, fa, keys) {
-  const rows = [];
-  const add = (k, v) => { if (v) rows.push([k, v]); };
-  if (fa) {
-    add('Chassis', fa.br);
-    add('Type', fa.typ);
-    add('Build date', fa.date ? String(fa.date).replace(/^#/, '') : null);
-    add('Paint', fa.lack);
-    add('Upholstery', fa.polster);
-    if (fa.zusbau && fa.zusbau.length) add('Order', fa.zusbau.join(' · '));
+async function viRunValues(sgbd, job) {
+  const d = await api(`/api/ecu/${sgbd}/run/${job}`, { method: 'POST' });
+  return new Map(flatResults(d.sets));
+}
+
+// Read ONE master completely: its record (FA or ZCS), its VIN, its odometer.
+async function viReadColumn(m, sources, famName) {
+  const col = { m, keys: null, fa: null, faRaw: null, vin: null, km: null };
+  const sg = famName(m.sgbd) || m.sgbd;
+  if (m.fa) {
+    try {
+      const values = await viRunValues(m.sgbd, m.faJob.job);
+      const text = viFaFrom(values, m.faJob.result);
+      if (text) {
+        col.faRaw = text;
+        col.fa = VehicleIdentity.parseFa(text);
+        sources.push({ sg, ok: true, what: `order via ${m.faJob.job}` });
+      } else {
+        sources.push({ sg, ok: false,
+                       what: `${m.faJob.job}: no order in reply` });
+      }
+    } catch (e) { sources.push({ sg, ok: false, what: 'no answer' }); }
   }
-  if (keys) {
-    add('GM key', keys.gm);
-    add('SA key', keys.sa);
-    add('VN key', keys.vn);
+  if (m.zcs && !col.fa) {
+    try {
+      const values = await viRunValues(m.sgbd, m.zcsJob.job);
+      const k = viKeysFrom(values, m.zcsJob.keys);
+      if (k) {
+        col.keys = k;
+        sources.push({ sg, ok: true,
+          what: k.source === 'named' ? `keys via ${m.zcsJob.job}`
+                                     : `key region at byte ${k.offset}` });
+      } else {
+        // a reply whose keys do not check out is NOT shown as the car's
+        sources.push({ sg, ok: false,
+                       what: `${m.zcsJob.job}: no valid key in reply` });
+      }
+    } catch (e) { sources.push({ sg, ok: false, what: 'no answer' }); }
   }
-  if (!rows.length) return '';
-  return `<div class="vi-summary">`
-    + rows.map(([k, v]) =>
-      `<div class="vi-sum-k">${esc(k)}</div>`
-      + `<div class="vi-sum-v mono">${esc(v)}</div>`).join('')
+  // VIN and odometer, from whatever job this module itself declares for them
+  const jobs = await viJobs(m.sgbd);
+  for (const [field, role] of [['vin', VI_VIN_ROLE], ['km', VI_KM_ROLE]]) {
+    const pick = await viPickInfoJob(m.sgbd, jobs, role);
+    if (!pick) continue;
+    try {
+      const values = await viRunValues(m.sgbd, pick.job);
+      const v = values.has(pick.result)
+        ? String(values.get(pick.result)).trim() : '';
+      if (v) col[field] = v;
+    } catch (e) { /* that row shows an em dash */ }
+  }
+  return col;
+}
+
+// A full 17-char VIN carries the type key at positions 4..7 (WBA AV36 ...).
+// A short VIN cannot say; the row stays honest and empty.
+function viTypeKey(vin) {
+  const v = String(vin || '').toUpperCase().replace(/\s/g, '');
+  return /^[A-Z0-9]{17}$/.test(v) ? v.slice(3, 7) : null;
+}
+
+// ETK's VIN index resolves even the 7-char short VIN a cluster stores into
+// the exact production variant -- model, body, engine -- and vehicles.json
+// adds that variant's gearbox. Best-effort: a build without the parts
+// catalogue simply leaves those rows empty.
+async function viEtkDecode(vin) {
+  if (typeof loadVinIndex !== 'function'
+      || typeof decodeVin !== 'function' || !vin) return null;
+  try {
+    const d = decodeVin(await loadVinIndex(), vin);
+    if (!d) return null;
+    let gear = null;
+    if (typeof loadVehicles === 'function') {
+      try {
+        const veh = await loadVehicles();
+        const rows = ((veh[d.chassis] || {})[d.body] || {})[d.model] || [];
+        const hit = rows.find((r) => r[3] === d.mospid);
+        if (hit) gear = hit[1];
+      } catch (e) { /* no gearbox column then */ }
+    }
+    return { ...d, gear };
+  } catch (e) { return null; }
+}
+
+// The ZST keywords name the body and engine in BMW's own vocabulary.
+const VI_BODY_WORDS = { LIM: 'Limousine', TOUR: 'Touring', COUP: 'Coupé',
+                        CABR: 'Cabrio', COMP: 'Compact' };
+const VI_ENGINE_KW = /^[MNSW]\d{2,3}[A-Z]\d{2}/;
+
+// What one column SAYS about the car, decoded from its own record.
+function viColInfo(id, col, etk) {
+  const sa = col.keys ? VehicleIdentity.saCodesFromZcs(id, col.keys) : null;
+  const kws = (sa && sa.keywords) || [];
+  const bodyKw = kws.find((k) => VI_BODY_WORDS[k]);
+  const engineKw = kws.find((k) => VI_ENGINE_KW.test(k));
+  const gearMap = { M: 'Manual', A: 'Automatic' };
+  return {
+    chassis: (col.fa && col.fa.br) || id,
+    model: (etk && etk.model) || null,
+    body: (etk && etk.body) || (bodyKw ? VI_BODY_WORDS[bodyKw] : null),
+    engine: engineKw || (etk && etk.motor) || null,
+    gearbox: etk && etk.gear ? (gearMap[etk.gear] || etk.gear) : null,
+    typeKey: viTypeKey(col.vin) || (col.fa && col.fa.typ) || null,
+    sa,
+  };
+}
+
+// A key rendered the way the original renders it: body, dash, check character.
+function viZcsFmt(kind, body) {
+  if (!body || typeof CodingZcs === 'undefined') return body || null;
+  try {
+    const f = CodingZcs['format' + kind](body);
+    return `${f.slice(0, -1)}-${f.slice(-1)}`;
+  } catch (e) { return body; }
+}
+
+// Parameter table: label column plus one column per master. A row nobody
+// answers is dropped; a row the columns DISAGREE on is flagged -- that
+// disagreement is the finding this screen exists to surface. Two values are
+// compatible when one contains the other (a short VIN inside the full one is
+// the same car, not a mismatch). `soft` rows never flag: the odometer copies
+// update at different moments and a 1 km skew is normal.
+function viNcsTable(cols, rows) {
+  let h = `<table class="vi-ncs"><thead><tr><th>Parameter</th>`
+    + cols.map((c) => `<th>${esc(c.title)}</th>`).join('')
+    + `</tr></thead><tbody>`;
+  for (const [label, get, soft] of rows) {
+    const vals = cols.map(get);
+    if (!vals.some(Boolean)) continue;
+    const norm = vals.filter(Boolean)
+      .map((v) => String(v).replace(/\s+/g, '').toUpperCase());
+    const compatible = norm.every((a) =>
+      norm.every((b) => a.includes(b) || b.includes(a)));
+    const mism = !soft && !compatible;
+    h += `<tr${mism ? ' class="vi-mismatch"' : ''}><td>${esc(label)}</td>`
+      + vals.map((v) =>
+        `<td class="mono">${v ? esc(v) : '—'}</td>`).join('')
+      + `</tr>`;
+  }
+  return h + `</tbody></table>`;
+}
+
+// The decoded option list, one column per master: <0530> Air conditioning.
+//
+// Two dictionaries name a number. The ETK catalogue has the English name,
+// picked by the car's build date because BMW reused numbers (199 changed
+// meaning in 1999). The chassis AT table has the SGET keyword the coding
+// predicates key on (KLIMAREGELUNG). The name leads; the keyword stays on
+// the row, dimmed, because it is what the coding filter actually matches.
+function viOptionsBox(id, cols) {
+  const lists = cols.map((c) => {
+    const codes = c.codes || [];
+    if (!codes.length) {
+      return `<div><h4>${esc(c.title)}</h4>`
+        + `<div class="vi-none">No options resolved.</div></div>`;
+    }
+    const date = (c.etk && c.etk.prod) || 0;
+    const items = codes.map((code) => {
+      const kw = VehicleIdentity.saLabel(id, code);
+      const name = VehicleIdentity.saName(code, date);
+      const num = `<span class="mono">&lt;${esc(String(code)
+        .padStart(4, '0'))}&gt;</span>`;
+      if (name) {
+        return `<li>${num} <span class="vi-opt-name">${esc(name)}</span>`
+          + (kw ? ` <span class="vi-opt-kw">${esc(kw)}</span>` : '') + `</li>`;
+      }
+      return `<li>${num} ${kw ? esc(kw) : ''}</li>`;
+    }).join('');
+    return `<div><h4>${esc(c.title)}</h4><ul class="vi-opt">${items}</ul></div>`;
+  }).join('');
+  return `<div class="vi-block"><h3>Options</h3>`
+    + `<div class="vi-opt-grid" style="--vi-cols:${cols.length}">${lists}</div>`
     + `</div>`;
 }
 
-// The equipment block: resolved SA numbers as labelled chips, and an honest
-// note about what could not be resolved.
-function viEquipment(chassisId, result) {
-  const codes = result.codes || [];
-  const label = (c) => (typeof VehicleIdentity !== 'undefined'
-    ? VehicleIdentity.saLabel(chassisId, c) : null);
-  const chips = codes.map((c) => {
-    const l = label(c);
-    return `<span class="vi-sa" title="${esc(l || 'no catalogue name')}">`
-      + `<b>${esc(c)}</b>${l ? `<span>${esc(l)}</span>` : ''}</span>`;
-  }).join('');
-
-  let out = `<div class="vi-block"><h3>Equipment</h3>`;
-  if (codes.length) {
-    out += `<div class="vi-sa-grid">${chips}</div>`;
-  } else {
-    out += `<div class="vi-none">No option codes resolved.</div>`;
-  }
-
-  // WHAT WE COULD NOT RESOLVE IS PART OF THE ANSWER. Most keywords in the
-  // coding table are body, engine and market names that carry no catalogue
-  // number at all -- LIM, COUP, M52B25, US. Hiding them would make the list
-  // look complete when it is not, and a caller reading "no code" as "option
-  // absent" is exactly how an equipment filter hides real hardware.
-  const un = result.unresolved || [];
-  if (un.length) {
-    out += `<details class="vi-un"><summary>`
-      + `${un.length} descriptor${un.length === 1 ? '' : 's'} with no option `
-      + `number</summary>`
-      + `<div class="vi-chips">${un.map((k) => viChip(k)).join('')}</div>`
-      + `<p class="vi-note">Body, engine and market names. They describe the `
-      + `car but have no order code, so they cannot be matched against a `
-      + `module's fitment rule.</p></details>`;
-  }
-  return out + `</div>`;
-}
-
-// Coding-index stamps: which .Cxx a module should be read against.
-function viStamps(ci) {
-  const sgs = Object.keys(ci || {}).sort();
-  if (!sgs.length) return '';
-  return `<div class="vi-block"><h3>Coding index</h3>`
-    + `<div class="vi-chips">`
-    + sgs.map((sg) => viChip(`${sg} C${String(ci[sg]).padStart(2, '0')}`,
-        `${sg} reads against coding index ${ci[sg]}`)).join('')
-    + `</div>`
-    + `<p class="vi-note">Which coding variant each module should be read `
-    + `against. Addresses move between variants, so this decides where a `
-    + `setting lives.</p></div>`;
+// The wait: a read is several jobs against several modules over a slow bus,
+// so the pane says what it is doing rather than sitting empty.
+function viLoading(text) {
+  return `<div class="vi-loading"><span class="wiring-spinner"></span>`
+    + `<span>${esc(text)}</span></div>`;
 }
 
 // The source strip: which ECU answered, and how.
@@ -444,10 +572,23 @@ async function showVehicleIdentity(chassisId) {
                   kind: 'back', fn: back }];
   setActions(acts);
 
+  // A re-read while one is running: the older pass must not paint over the
+  // newer one when its slower jobs come back.
+  const pass = (showVehicleIdentity._pass = (showVehicleIdentity._pass || 0) + 1);
+  const stale = () => showVehicleIdentity._pass !== pass;
+  const wait = (text) => {
+    if (stale()) return;
+    panel.innerHTML = viLoading(text);
+    sbLeft.textContent = text;
+  };
+
+  wait('Looking up which modules hold the build record…');
   if (typeof loadTables === 'function') await loadTables();
+  if (typeof loadSaNames === 'function') await loadSaNames();
 
   // Who can answer, asked of the modules themselves.
   const masters = await viIdentityModulesCached(id);
+  if (stale()) return;
   if (!masters.length) {
     panel.innerHTML = errorBlock(
       `No control unit on ${esc(dispChassis(chassisId))} declares a job that `
@@ -469,58 +610,21 @@ async function showVehicleIdentity(chassisId) {
       s.startsWith(k) || k.startsWith(s)) || null;
   };
 
+  // EVERY master is read, and each keeps its own column -- the copies are the
+  // point. A master that answers nothing at all drops out of the table but
+  // stays on the source strip, so a dead module is a finding, not a blank.
   const sources = [];
-  let fa = null, keys = null, faRaw = null;
-
-  // FA first: where a car has one, its option tokens ARE catalogue numbers
-  // and no translation is needed at all.
-  for (const m of masters.filter((x) => x.fa)) {
-    if (fa) break;
-    const { job, result } = m.faJob;
-    try {
-      const d = await api(`/api/ecu/${m.sgbd}/run/${job}`, { method: 'POST' });
-      const values = new Map(flatResults(d.sets));
-      const text = viFaFrom(values, result);
-      if (text) {
-        faRaw = text;
-        fa = VehicleIdentity.parseFa(text);
-        sources.push({ sg: famName(m.sgbd) || m.sgbd, ok: true,
-                       what: `order via ${job}` });
-      } else {
-        sources.push({ sg: famName(m.sgbd) || m.sgbd, ok: false,
-                       what: `${job}: no order in reply` });
-      }
-    } catch (e) {
-      sources.push({ sg: famName(m.sgbd) || m.sgbd, ok: false,
-                     what: 'no answer' });
-    }
+  const cols = [];
+  for (let i = 0; i < masters.length; i++) {
+    const m = masters[i];
+    wait(`Reading ${famName(m.sgbd) || m.label || m.sgbd} `
+         + `(${i + 1} of ${masters.length})…`);
+    const col = await viReadColumn(m, sources, famName);
+    if (stale()) return;
+    if (col.keys || col.fa || col.vin || col.km) cols.push(col);
   }
 
-  // ZCS for the cars that predate the vehicle order.
-  for (const m of masters.filter((x) => x.zcs)) {
-    if (keys) break;
-    const { job, keys: names } = m.zcsJob;
-    try {
-      const d = await api(`/api/ecu/${m.sgbd}/run/${job}`, { method: 'POST' });
-      const values = new Map(flatResults(d.sets));
-      const k = viKeysFrom(values, names);
-      if (k) {
-        keys = k;
-        sources.push({ sg: famName(m.sgbd) || m.sgbd, ok: true,
-          what: k.source === 'named' ? `keys via ${job}`
-                                     : `key region at byte ${k.offset}` });
-      } else {
-        // A reply whose keys do not check out is NOT shown as the car's.
-        sources.push({ sg: famName(m.sgbd) || m.sgbd, ok: false,
-                       what: `${job}: no valid key in reply` });
-      }
-    } catch (e) {
-      sources.push({ sg: famName(m.sgbd) || m.sgbd, ok: false,
-                     what: 'no answer' });
-    }
-  }
-
-  if (!fa && !keys) {
+  if (!cols.length) {
     panel.innerHTML = errorBlock(
       'No control unit answered with a build record. Check the cable and the '
       + 'ignition (engine off, key on), then re-read.')
@@ -529,39 +633,72 @@ async function showVehicleIdentity(chassisId) {
     return;
   }
 
-  // Equipment: straight from the order where there is one, through the coding
-  // table where there is not.
-  let equip;
-  if (fa) {
-    const codes = VehicleIdentity.saCodesFromFa(fa);
-    equip = { codes, keywords: [], ci: {}, unresolved: [], resolved: !!codes.length };
-  } else {
-    equip = VehicleIdentity.saCodesFromZcs(id, keys);
+  wait('Decoding the build record…');
+  // A module that stores only the 7-char production number (kombi46) cannot
+  // say its type key; a sibling holding the full 17-char VIN of THE SAME car
+  // (same production number) can say it for both. The rows are still one
+  // column per module: nothing else crosses over.
+  const fullVinFor = (short) => {
+    const s = String(short || '');
+    if (s.length >= 17) return s;
+    const hit = cols.find((o) => o.vin && String(o.vin).length >= 17
+                                  && String(o.vin).endsWith(s));
+    return hit ? hit.vin : s;
+  };
+  for (const col of cols) {
+    col.title = famName(col.m.sgbd) || col.m.label || col.m.sgbd;
+    col.etk = await viEtkDecode(col.vin);
+    col.info = viColInfo(id, col, col.etk);
+    if (!col.info.typeKey && col.vin) {
+      col.info.typeKey = viTypeKey(fullVinFor(col.vin));
+    }
+    col.codes = col.fa
+      ? VehicleIdentity.saCodesFromFa(col.fa)
+      : ((col.info.sa && col.info.sa.codes) || []);
   }
 
-  const via = fa
-    ? 'From the vehicle order, whose option tokens are catalogue numbers.'
-    : 'Decoded from the coding key through BMW’s chassis table.';
+  const kmText = (v) => (v == null ? null
+    : (/^\d+(\.\d+)?$/.test(String(v)) ? `${v} km` : String(v)));
 
+  const infoRows = [
+    ['Chassis', (c) => c.info.chassis],
+    ['Model', (c) => c.info.model],
+    ['Body', (c) => c.info.body],
+    ['Engine', (c) => c.info.engine],
+    ['Gearbox', (c) => c.info.gearbox],
+    ['VIN', (c) => c.vin],
+    // the copies update at different moments; a small skew is normal (soft)
+    ['Odometer', (c) => kmText(c.km), true],
+  ];
+  const zcsRows = [
+    ['Type-Key', (c) => c.info.typeKey],
+    ['ZCS GM', (c) => c.keys ? viZcsFmt('Gm', c.keys.gm) : null],
+    ['ZCS SA', (c) => c.keys ? viZcsFmt('Sa', c.keys.sa) : null],
+    ['ZCS VN', (c) => c.keys ? viZcsFmt('Vn', c.keys.vn) : null],
+    // the FA generation's record, in the same box (NCS titles it ZCS/FA)
+    ['Order date', (c) => c.fa && c.fa.date
+      ? String(c.fa.date).replace(/^#/, '') : null],
+    ['Paint', (c) => c.fa && c.fa.lack],
+    ['Upholstery', (c) => c.fa && c.fa.polster],
+  ];
+
+  if (stale()) return;
   panel.innerHTML =
-    viSummary(id, fa, keys)
-    + `<p class="vi-note vi-via">${esc(via)}</p>`
-    + viEquipment(id, equip)
-    + viStamps(equip.ci)
-    + (faRaw ? `<details class="vi-raw"><summary>Raw order</summary>`
-        + `<code class="mono">${esc(faRaw)}</code></details>` : '')
+    `<div class="vi-block"><h3>Information about car</h3>`
+    + `<div class="vi-ncs-wrap">${viNcsTable(cols, infoRows)}</div></div>`
+    + `<div class="vi-block"><h3>ZCS/FA coding</h3>`
+    + `<div class="vi-ncs-wrap">${viNcsTable(cols, zcsRows)}</div></div>`
+    + viOptionsBox(id, cols)
+    + cols.filter((c) => c.faRaw).map((c) =>
+        `<details class="vi-raw"><summary>Raw order · ${esc(c.title)}`
+        + `</summary><code class="mono">${esc(c.faRaw)}</code></details>`)
+      .join('')
     + viSources(sources);
 
-  sbLeft.textContent = equip.codes.length
-    ? `${equip.codes.length} option codes`
+  const nCodes = Math.max(...cols.map((c) => (c.codes || []).length), 0);
+  sbLeft.textContent = nCodes
+    ? `${cols.length} module${cols.length === 1 ? '' : 's'} · ${nCodes} option codes`
     : 'identity read';
-
-  // Hand the resolved codes to the coding screens, which use them to decide
-  // which modules this car actually carries.
-  if (typeof window !== 'undefined') {
-    window.VI_LAST = { chassis: id, codes: equip.codes, ci: equip.ci,
-                       fa, keys, resolved: equip.resolved };
-  }
 }
 
 if (typeof window !== 'undefined') {

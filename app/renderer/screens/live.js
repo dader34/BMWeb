@@ -219,7 +219,7 @@ async function runJob(ecu, job, container, danger, presetArg) {
     }
     const data = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, { method: 'POST' });
     if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL' || isShadowJob(job)) {
-      const codes = data.sets.slice(1); // set 0 = system summary
+      const codes = dataSets(data.sets); // minus EDIABAS's system set, if present
       await loadFaultDb(); // names resolve synchronously in the render
       renderFaults(codes, container, ecu);
       // say WHICH store: a shadow read showing 0 is a different statement from
@@ -234,7 +234,7 @@ async function runJob(ecu, job, container, danger, presetArg) {
       try {
         const rq = ecu.group ? `?group=${encodeURIComponent(ecu.group)}` : '';
         const rr = await api(`/api/ecu/${ecu.sgbd}/run/FS_LESEN${rq}`, { method: 'POST' });
-        const codes = rr.sets.slice(1);
+        const codes = dataSets(rr.sets);
         await loadFaultDb();
         renderFaults(codes, container, ecu);
         sbLeft.textContent = codes.length

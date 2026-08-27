@@ -2199,6 +2199,20 @@ function installWebShim() {
     if (run) {
       const q = new URLSearchParams(rel.split('?')[1] || '');
       const arg = q.get('arg');
+      // EDIABAS answers every job with a SYNTHETIC result set 0 the runtime
+      // itself fills: OBJECT (the loaded SGBD), VARIANTE (its variant name),
+      // JOBNAME and SAETZE. It never comes from the wire and no job declares
+      // it -- inpainit's variant check reads VARIANTE from set 0 to ask "which
+      // ECU file is loaded?", and without it the check compared against ''
+      // and stopped every module whose .ipo gates on it. bestvm returns data
+      // sets only (its set 0 is the engine's set 1), so carry the system
+      // record beside them rather than renumbering every consumer.
+      const systemSet = (sets) => ({
+        OBJECT: run[1].toLowerCase(),
+        VARIANTE: run[1].toUpperCase(),
+        JOBNAME: decodeURIComponent(run[2]).toUpperCase(),
+        SAETZE: (sets || []).length,
+      });
       if (q.get('demo') === '1' && typeof webDemoSets === 'function') {
         const sgbd = run[1].toLowerCase();
         try {
@@ -2214,7 +2228,7 @@ function installWebShim() {
           if (typeof webDemoFaults === 'function') {
             await webDemoFaults(sgbd, decodeURIComponent(run[2]), sets);
           }
-          return ok({ job: run[2], demo: true, sets });
+          return ok({ job: run[2], demo: true, sets, system: systemSet(sets) });
         } catch (e) {
           return err(e.message, 404);
         }
@@ -2226,7 +2240,7 @@ function installWebShim() {
         // one initialises.
         await switchSession(run[1]);
         const r = await webRunJob(run[1], decodeURIComponent(run[2]), arg);
-        return ok({ job: run[2], sets: r.sets });
+        return ok({ job: run[2], sets: r.sets, system: systemSet(r.sets) });
       } catch (e) {
         // A WIRE error (IFH-*) that reaches the user is where the telegram
         // trace is worth seeing -- auto-dump the recent ring buffer so the

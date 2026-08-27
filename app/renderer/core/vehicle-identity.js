@@ -277,6 +277,34 @@
     return (names && names.length) ? names.join(', ') : null;
   }
 
+  // What an SA number is CALLED, in English, off the ETK catalogue
+  // (tools/etk_sa_names.py -> data/sanames.js). BMW reused numbers over the
+  // years, so the name is chosen by the car's build date (YYYYMMDD; a
+  // YYYYMM00 from the VIN index is fine). Without a date the earliest
+  // window wins, since a bare number is most often quoted in its original
+  // sense. Returns null when the catalogue does not know the number (or is
+  // not loaded), so the caller falls back to the SGET keywords.
+  //
+  // Options ('S') outrank the country/package/accessory codes that share
+  // the number space: <0807> is "National version Japan" only because no
+  // option 807 exists.
+  const SA_ART_RANK = { S: 0, L: 1, Q: 2, N: 3, Y: 4, X: 5, V: 6 };
+  function saName(code, date) {
+    const db = (typeof window !== 'undefined' && window.BMW_SA_NAMES) || null;
+    const key = String(code == null ? '' : code).replace(/[^0-9]/g, '');
+    if (!db || !key) return null;
+    const rows = db[String(parseInt(key, 10))];
+    if (!rows || !rows.length) return null;
+    const d = Number(date) || 0;
+    const rank = (r) => (r[0] in SA_ART_RANK ? SA_ART_RANK[r[0]] : 9);
+    const inWindow = (r) => d >= r[1] && (!r[2] || d < r[2]);
+    const pool = d ? rows.filter(inWindow) : rows;
+    if (!pool.length) return null;
+    const best = pool.slice().sort((a, b) => rank(a) - rank(b)
+                                             || a[1] - b[1])[0];
+    return best[3] || null;
+  }
+
   // ---- ZCS region off a raw read ------------------------------------------
 
   // Pull the three keys out of a 20-byte ZCS region. Thin wrapper over
@@ -295,7 +323,7 @@
     identityMasters, familyMap,
     zstMatches, maskHolds,
     saCodesFromZcs,
-    parseFa, formatFa, saCodesFromFa, saLabel,
+    parseFa, formatFa, saCodesFromFa, saLabel, saName,
     keysFromRegion,
     FA_MARKERS,
   };

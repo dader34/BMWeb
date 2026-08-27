@@ -1,0 +1,14 @@
+{
+ "Fensterheber Beifahrertuer auswaehlen": "Select passenger door power window",
+ "Fensterheber Fahrertuer auswaehlen": "Select driver's door power window",
+ "Spiegel Beifahrertuer auswaehlen": "Select passenger door mirror",
+ "Spiegel Fahrertuer auswaehlen": "Select driver's door mirror",
+ "Spiegel beiklappen/ausklappen": "Mirror fold in/fold out",
+ "Spiegel nach links fahren": "Move mirror left",
+ "Spiegel nach oben fahren": "Move mirror up",
+ "Spiegel nach rechts fahren": "Move mirror right",
+ "Spiegel nach unten fahren": "Move mirror down",
+ "Spiegel nicht bewegen": "Do not move mirror",
+ "beide Fensterheber auswaehlen": "Select both power windows",
+ "falscher Eingabewert": "Invalid input value"
+}
