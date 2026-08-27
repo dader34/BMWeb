@@ -50,7 +50,16 @@ html, body {
   font-family: var(--display);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
-  user-select: none;
+}
+
+/* TEXT IS COPYABLE EVERYWHERE. Values, fault texts, part numbers and
+   telegrams are the product; a diagnostic tool whose readings cannot be
+   copied into a forum post is half a tool. Only CONTROLS suppress
+   selection, so clicking a key or dragging a slider never starts a
+   highlight. (The old rule was user-select:none on body for the kiosk
+   feel, with per-screen re-enables that never covered enough.) */
+button, summary, .theme-card {
+  user-select: none; -webkit-user-select: none;
 }
 
 /* film grain + scanlines */
