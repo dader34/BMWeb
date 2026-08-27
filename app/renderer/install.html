@@ -204,7 +204,7 @@
             <tbody>
               <tr>
                 <th scope="row">macOS</th>
-                <td>BMacW native, or BMWeb</td>
+                <td>the macOS app, or BMWeb</td>
                 <td style="white-space:nowrap">K+DCAN USB · THOR WiFi</td>
                 <td class="req">Native needs no setup. On the web build, USB needs Chrome or Edge.</td>
               </tr>
@@ -238,7 +238,7 @@
         </div>
         <div class="note-col">
           <h3>Which build</h3>
-          <p><b>BMacW</b> is the macOS app, and the only build that drives a USB cable
+          <p><b>The macOS app</b> is the only build that drives a USB cable
             without Chrome, since Safari has no Web Serial.</p>
           <p><b>BMWeb</b> is a progressive web app that runs everywhere. For a USB cable it
             needs Chrome or Edge on the desktop; for a WiFi adapter it needs nothing but a
@@ -339,10 +339,10 @@
     d.id = 'mac-help';
     d.innerHTML =
       '<h4>First launch on macOS</h4>'
-      + '<p>BMacW is ad-hoc signed, with no Apple Developer ID, so macOS quarantines '
+      + '<p>The macOS app is ad-hoc signed, with no Apple Developer ID, so macOS quarantines '
       + 'the download and blocks the first launch. Clear the flag once:</p>'
       + '<ol>'
-      + '<li>Open the .dmg and drag <b>BMacW</b> to Applications.</li>'
+      + '<li>Open the .dmg and drag the app to Applications.</li>'
       + '<li>Run this in <b>Terminal</b>:'
       + '<div class="cmd"><code id="xattr-cmd">xattr -dr '
       + 'com.apple.quarantine /Applications/BMacW.app</code>'
@@ -366,7 +366,7 @@
   var REPO = 'dader34/BMacW';
   var APP = {
     id: 'mac',
-    title: 'BMacW for macOS',
+    title: 'BMWeb for macOS',
     sub: 'The native desktop app. Drives a K+DCAN USB cable directly, with PDF export and CSV logging.',
     meta: 'Apple silicon · .dmg',
     href: 'https://github.com/' + REPO + '/releases/latest',
