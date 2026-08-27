@@ -123,7 +123,14 @@ async function chassisHasCoding(chassisId) {
 
 async function showCodingHub(chassisId, initialTab) {
   const id = String(chassisId || '').toUpperCase();
-  lastScreen = () => showCodingHub(chassisId, initialTab);
+  // STALENESS TOKEN. The read is several awaits long; if the user backs out
+  // mid-read, a later screen reassigns lastScreen, and this run must abort
+  // rather than paint the coding panel onto whatever is showing now. Every
+  // screen fn sets lastScreen at entry, so "is my token still installed?"
+  // is the honest test.
+  const myToken = () => showCodingHub(chassisId, initialTab);
+  lastScreen = myToken;
+  const alive = () => lastScreen === myToken;
   const back = () => (typeof backToModules === 'function'
     ? backToModules(chassisId)
     : (typeof showSections === 'function' ? showSections(chassisId) : showChassis()));
@@ -168,6 +175,23 @@ async function showCodingHub(chassisId, initialTab) {
     }
   }
 
+  // ONE LOADING REGION FOR THE WHOLE READ. Two awaits precede the module
+  // scan -- the vehicle SA codes (an identity read) and the scan itself --
+  // and both were silent before, so the pane sat blank, then the scan bar
+  // appeared mid-render. A single host, shown immediately and replaced
+  // atomically, covers the lot: the reader never sees a blank coding page or
+  // a progress bar arriving after the toggles.
+  const loadHost = document.createElement('div');
+  view.appendChild(loadHost);
+  const scanShell = (title, sub) => `<div class="coding-scan">`
+    + `<div class="coding-scan-title">${esc(title)}</div>`
+    + `<div class="coding-scan-bar coding-scan-indef"><span></span></div>`
+    + `<div class="coding-scan-mod mono">${esc(sub || '')}</div></div>`;
+  loadHost.innerHTML = scanShell('Reading the car…',
+    'identifying equipment…');
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                kind: 'back', fn: back }]);
+
   // THE CAR'S EQUIPMENT FIRST, THEN THE MODULES.
   //
   // Which module fills a slot depends on what the car was built with, so the
@@ -178,13 +202,15 @@ async function showCodingHub(chassisId, initialTab) {
   // A car that will not say is not a failure: with no codes the config's own
   // module names stand, exactly as before.
   const saCodes = await readVehicleSaCodes(chassisId);
+  if (!alive()) return;                       // backed out during identify
 
   // Read the whole car up front so both tabs' toggles start at the car's
-  // current values without per-module Read buttons.
-  const scanHost = document.createElement('div');
-  view.appendChild(scanHost);
-  let scan = await scanCoding(chassisId, scanHost, saCodes);
-  scanHost.remove();
+  // current values without per-module Read buttons. The scan paints its
+  // determinate progress into the SAME host, so the bar continues from the
+  // indeterminate identify phase with no flash of empty page between.
+  let scan = await scanCoding(chassisId, loadHost, saCodes);
+  if (!alive()) { loadHost.remove(); return; }   // backed out mid-scan
+  loadHost.remove();
 
   const tabs = document.createElement('div');
   tabs.className = 'coding-tabs';
@@ -203,6 +229,7 @@ async function showCodingHub(chassisId, initialTab) {
     panel.replaceWith(host);
     host.id = 'coding-panel'; host.className = 'coding-panel';
     scan = await scanCoding(chassisId, host, saCodes);
+    if (!alive()) { host.remove(); return; }
     host.replaceWith(panel);
     panel.innerHTML = '';
     select(tab);

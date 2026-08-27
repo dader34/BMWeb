@@ -1623,62 +1623,113 @@ async function irMenuHeader(ecu, ir, menuName, el) {
   // text is the page title), value elements become keyed cells
   const lines = (scr.lines || []).slice(0, 14);
   const parts = [];
+  const rowCells = [];
   let sawAny = false;
   // a printed softkey row ("< F1 > EINSPRITZVENTILE") is INPA's own key help
   // -- the app draws the real key list below, so showing it doubled the menu
   const softkey = /<\s*(?:shift\s*>\s*\+\s*<\s*)?f\s*\d+\s*>/i;
+  // PAIR BY POSITION, NOT BY COUNT. INPA lays a header line out as
+  // "caption : value  caption : value" with each element carrying its column
+  // (GSDS2's s_main: BMW part number : <val>  Date of manufacture : <kw> /
+  // <year> Week/year). Count-pairing captions to values scrambled that into
+  // stray colons and mismatched rows. Sort every element by column, drop the
+  // pure separators (":" "/"), and give each VALUE the caption text sitting
+  // immediately to its left (up to the previous value). A value with no
+  // caption falls back to its result description.
+  const isSep = (t) => /^[:=|/_\-\s]+$/.test(String(t || '').trim());
   lines.forEach((ln, i) => {
-    const els = ln.elements || [];
-    if (els.some(e => e.t === 'text' && softkey.test(String(e.s || '')))) {
+    const els0 = ln.elements || [];
+    if (els0.some(e => e.t === 'text' && softkey.test(String(e.s || '')))) {
       return;                      // the whole line belongs to the key bar
     }
-    const texts = els.filter(e => e.t === 'text' && String(e.s || '').trim()
-      && !/^[=\-_|]+$/.test(String(e.s).trim()));
-    const values = els.filter(e => e.t === 'value' && e.key);
-    if (!texts.length && !values.length) return;
-    sawAny = true;
-    if (i === 0 && texts.length === 1 && !values.length) {
-      parts.push(`<div class="ir-head-title">${esc(irLabel(texts[0].s)
-        || texts[0].s)}</div>`);
+    // positioned elements, in column order; unpositioned keep source order
+    const els = els0
+      .filter(e => (e.t === 'value' && e.key)
+        || (e.t === 'text' && String(e.s || '').trim()))
+      .slice()
+      .sort((a, b) => (a.col == null ? 1e9 : a.col)
+                    - (b.col == null ? 1e9 : b.col));
+    if (!els.length) return;
+
+    const values = els.filter(e => e.t === 'value');
+    // a caption-only first line is the page title
+    if (i === 0 && !values.length) {
+      const cap = els.filter(e => !isSep(e.s)).map(e => irLabel(e.s) || e.s)
+        .join(' ').trim();
+      if (cap) { parts.push(`<div class="ir-head-title">${esc(cap)}</div>`);
+                 sawAny = true; }
       return;
     }
+    if (!values.length) return;
+    sawAny = true;
+
+    // walk left to right. A CAPTION opens a cell; the VALUES that follow it
+    // (until the next caption) belong to that cell, joined by the separators
+    // between them -- so "Date of manufacture : <KW> / <YEAR>" is ONE cell
+    // showing "28 / 04", not two mislabelled cells. A pure-separator "text"
+    // between two values (the "/") becomes the joiner. A caption that TRAILS
+    // all the values on the line ("Week / year", col 68 after both dates) is
+    // a format hint -- appended to the last cell's label, not orphaned.
     const cells = [];
-    if (values.length && texts.length >= values.length) {
-      // INPA lays captions above their values by position ("LL - Istwert /
-      // LL - Sollwert" over the two rpm readouts): the LAST N texts pair
-      // with the N values; a text left over ahead of them is the page's own
-      // headline ("MS45 LL - Drehzahl verstellen")
-      const lead = texts.slice(0, texts.length - values.length);
-      const caps = texts.slice(texts.length - values.length);
-      lead.forEach((t, k) => {
-        if (i === 0 && k === 0) {
-          parts.push(`<div class="ir-head-title">${esc(irLabel(t.s) || t.s)}`
-            + `</div>`);
+    let cur = null;                    // {label, parts:[{key}|{sep}]}
+    let pendingSep = '';
+    for (const e of els) {
+      if (e.t === 'text') {
+        if (isSep(e.s)) { pendingSep = String(e.s).trim(); continue; }
+        const label = irLabel(e.s) || e.s;
+        if (cur && cur.parts.some(p => p.key)) {
+          // this cell already holds a value, so a NEW caption opens a NEW
+          // cell (Generation number : GEN | Date of manufacture : KW/YEAR).
+          // A caption that turns out to trail every value with none of its
+          // own becomes a format hint in the post-pass below.
+          cur = { label, parts: [] };
+          cells.push(cur);
+        } else if (cur) {
+          cur.label = `${cur.label} ${label}`.trim();
         } else {
-          cells.push(`<span class="ir-head-label">${esc(irLabel(t.s) || t.s)}`
-            + `</span>`);
+          cur = { label, parts: [] };
+          cells.push(cur);
         }
-      });
-      values.forEach((v, k) => {
-        cells.push(`<span class="ir-head-cell"><span class="ir-head-label">`
-          + `${esc(irLabel(caps[k].s) || caps[k].s)}</span>`
-          + `<span class="ir-head-value" data-key="${esc(v.key)}">–</span>`
-          + `</span>`);
-      });
-    } else {
-      for (const t of texts) {
-        cells.push(`<span class="ir-head-label">${esc(irLabel(t.s) || t.s)}`
-          + `</span>`);
+        pendingSep = '';
+        continue;
       }
-      for (const v of values) {
-        cells.push(`<span class="ir-head-cell"><span class="ir-head-label">`
-          + `${esc(irLabel(descs.get(v.key) || '') || '')}</span>`
-          + `<span class="ir-head-value" data-key="${esc(v.key)}">–</span>`
-          + `</span>`);
+      // a value
+      if (!cur) { cur = { label: '', parts: [] }; cells.push(cur); }
+      if (pendingSep && cur.parts.length) cur.parts.push({ sep: pendingSep });
+      pendingSep = '';
+      cur.parts.push({ key: e.key });
+    }
+    // a trailing cell with a label but NO value of its own is a format hint
+    // ("Week / year" sitting past both date values) -- fold it into the
+    // previous cell's label rather than orphaning it.
+    for (let k = cells.length - 1; k > 0; k--) {
+      if (!cells[k].parts.some(p => p.key) && cells[k].label) {
+        cells[k - 1].hint = cells[k].label;
+        cells.splice(k, 1);
       }
     }
-    parts.push(`<div class="ir-head-row">${cells.join('')}</div>`);
+    const html = cells.filter(c => c.parts.some(p => p.key)).map((c) => {
+      // a value with no caption of its own falls back to its read's desc
+      const firstKey = (c.parts.find(p => p.key) || {}).key;
+      let label = c.label || (firstKey
+        ? (irLabel(descs.get(firstKey) || '') || '') : '');
+      if (c.hint) label = label ? `${label} (${c.hint})` : c.hint;
+      const inner = c.parts.map((p) => p.sep
+        ? `<span class="ir-head-sep">${esc(p.sep)}</span>`
+        : `<span class="ir-head-value" data-key="${esc(p.key)}">–</span>`)
+        .join(' ');
+      return `<span class="ir-head-cell">`
+        + (label ? `<span class="ir-head-label">${esc(label)}</span>` : '')
+        + `<span class="ir-head-vwrap">${inner}</span></span>`;
+    }).join('');
+    if (html) rowCells.push(html);
   });
+  if (rowCells.length) {
+    // all value cells flow in ONE wrapping row -- identity facts are peers,
+    // and a lone value on its own source line (BMW part number) should sit
+    // beside the others, not drop to a row of its own.
+    parts.push(`<div class="ir-head-row">${rowCells.join('')}</div>`);
+  }
   if (!sawAny) return;
   el.innerHTML = parts.join('');
 
