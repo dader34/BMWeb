@@ -88,13 +88,45 @@ async function irActuatorRows(sgbd, job) {
       return { rows, valueCol: m[2], textCol: m[3] || null };
     };
     // the component argument is the one whose descriptor resolves to a table
-    const r = args.map(resolve).find(Boolean);
+    let r = args.map(resolve).find(Boolean);
+    // STEUERN_IO is the exception the descriptor does not spell out: its ORT1..
+    // ORT15 arguments say "gewuenschte Komponente N ... Liste:" and truncate,
+    // but EDIABAS's fixed layout for it is the STEUERN table keyed by its
+    // STEUER_I_O column (the same table cvm_ii's descriptor names explicitly as
+    // "table Stellglieder STEUERN STEUER_I_O"). So when the descriptor named no
+    // table and this is STEUERN_IO, read that table by that convention.
+    if (!r && /^STEUERN_IO/i.test(job)) {
+      const tkey = Object.keys(tables).find(k => k.toUpperCase() === 'STEUERN');
+      const rows = tkey ? tables[tkey] : null;
+      if (Array.isArray(rows) && rows.length && rows[0]
+          && Object.prototype.hasOwnProperty.call(rows[0], 'STEUER_I_O')) {
+        r = { rows, valueCol: 'STEUER_I_O', textCol: null };
+      }
+    }
     if (!r) return [];
+    // The descriptor is also the LEGEND: BMW documents each legal value inline
+    // as "'KEY' = description" lines in the argument comments (STEUERN_IO's
+    // ORT1 carries all 48: 'S_WBL' = Schalter Warnblinklicht, ...). When the
+    // table gives no text column, the caption comes from this dictionary --
+    // same file, already fetched, written by the SGBD's own authors. The ECU
+    // never transmits names, so this offline legend IS the source.
+    const legend = new Map();
+    for (const a of args) {
+      for (const [k, v] of Object.entries(a)) {
+        if (!k.startsWith('ARGCOMMENT')) continue;
+        const m = String(v).match(/^'([^']+)'\s*=\s*(.+?)\s*$/);
+        if (m && !legend.has(m[1].toUpperCase())) {
+          legend.set(m[1].toUpperCase(), m[2]);
+        }
+      }
+    }
     return r.rows
-      .map(row => ({
-        key: String(row[r.valueCol] != null ? row[r.valueCol] : ''),
-        capRaw: r.textCol && row[r.textCol] != null ? String(row[r.textCol]) : '',
-      }))
+      .map(row => {
+        const key = String(row[r.valueCol] != null ? row[r.valueCol] : '');
+        const tabText = r.textCol && row[r.textCol] != null
+          ? String(row[r.textCol]) : '';
+        return { key, capRaw: tabText || legend.get(key.toUpperCase()) || '' };
+      })
       .filter(row => row.key && row.key.toUpperCase() !== 'XY');
   })();
   _actuatorRowsCache.set(ck, p);
@@ -251,6 +283,17 @@ function irItemJob(ir, it) {
 }
 
 
+// The runnable .ipo twin and the frozen screens are ONE file. When the group's
+// IDENTIFIKATION retargets the ecu to a variant that ships no .ipo of its own
+// (E46 lsz -> lsz_2: LSZ.IPO serves both, only lsz carries the decompile),
+// showEcu already falls the frozen IR back to the configured base and records
+// it on ecu._irFrom. The live VM must load the SAME .ipo, or the screens come
+// from lsz and the executor from a variant that has none -- so ask for the twin
+// under the IR's own sgbd, not the retargeted wire variant.
+function irExecSgbd(ecu) {
+  return String((ecu && (ecu._irFrom || ecu.sgbd)) || '').toLowerCase();
+}
+
 // {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
 // twin (an orphan, or a pre-phase-1 archive) -- callers fall back to frozen IR.
 const _ipoExecCache = new Map();
@@ -315,7 +358,7 @@ const _ENTRY_JOBS = ['INITIALISIERUNG', 'INFO'];
 // otherwise { ran:false } and the caller keeps its offline behaviour.
 async function irRunEntry(ecu) {
   if (typeof IpoVm === 'undefined') return { ran: false };
-  const exec = await irLiveExec(ecu.sgbd);
+  const exec = await irLiveExec(irExecSgbd(ecu));
   if (!exec) return { ran: false };
   const proc = exec.procs.inpainit ? 'inpainit'
     : exec.procs.SgbdInpaCheck ? 'SgbdInpaCheck' : null;
@@ -326,9 +369,23 @@ async function irRunEntry(ecu) {
   for (const jn of _ENTRY_JOBS) {
     try {
       const d = await api(`/api/ecu/${ecu.sgbd}/run/${jn}`, { method: 'POST' });
-      const m = new Map(flatResults(d.sets));
+      // EDIABAS's synthetic set 0 (OBJECT/VARIANTE/JOBNAME/SAETZE) rides
+      // beside the data sets -- inpainit reads VARIANTE from it to learn which
+      // SGBD is loaded. Merge it under the wire results so a genuine data
+      // result of the same name still wins.
+      const wire = flatResults(d.sets);
+      const m = new Map([
+        ...Object.entries(d.system || {}).map(([k, v]) => [k, String(v)]),
+        ...wire,
+      ]);
       results[jn] = m;
-      if (m.size) anyAnswer = true;
+      // "answered" means the WIRE answered -- the synthetic system record is
+      // always present and must not make a silent ECU look alive
+      if (wire.length) anyAnswer = true;
+      try {
+        console.info(`[entry] ${ecu.sgbd} ${jn} ->`,
+          Object.fromEntries([...m.entries()]));
+      } catch { /* logging only */ }
     } catch (e) {
       // IFH-0009 on INITIALISIERUNG = the ECU did not answer at all
       if (jn === 'INITIALISIERUNG'
@@ -368,7 +425,7 @@ async function irRunEntry(ecu) {
 async function irLiveScreen(ecu, ir, name) {
   const frozen = (ir.screens || {})[name];
   if (!name || typeof IpoVm === 'undefined') return frozen;
-  const exec = await irLiveExec(ecu.sgbd);
+  const exec = await irLiveExec(irExecSgbd(ecu));
   if (!exec || !exec.procs[name]) return frozen;
   try {
     // budget matches the headless harness; OkHost is the constructor default
@@ -435,7 +492,7 @@ function irAdaptLiveJobs(liveJobs, frozen) {
 // is derivation only -- no wire is touched: the drive surfaces as a {kind:'job'}
 // pending action, which we inspect and discard here.
 async function irLivePickJob(ecu, stateName) {
-  const exec = await irLiveExec(ecu.sgbd);
+  const exec = await irLiveExec(irExecSgbd(ecu));
   if (!exec || !exec.procs[stateName]) return null;
   try {
     const vm = new IpoVm(exec, { budget: 80000 });
@@ -450,6 +507,76 @@ async function irLivePickJob(ecu, stateName) {
   } catch { return null; }
 }
 
+// WHICH ROWS does this togglelist key's group offer? The key stores its
+// group name into a slot (ZKE5's "Window regulator" writes EIN_fh into slot
+// 28) and the machine's first act is a dispatch on that slot:
+//     if (slot28 == "EIN_fh") setscreen(s_steuern_eingang_fh); ...
+// and THAT screen's proc carries the group's rows as LINE tokens pairing the
+// caption with the ORT the row drives ("Switch Window regulator Driver open"
+// / SFFA). So the filter INPA applies is not a table -- it is the screen the
+// machine installs for the pick. Scan the dispatch for the branch whose
+// constant equals this key's sel (the same formulaic bytecode read as
+// irMenuPickJob, no name-guessing), then lift that screen's LINEs. Returns
+// [{caption, keys:[ort]}] or null when this key is not the dispatch idiom --
+// the caller then falls back to the job's whole argument table.
+async function irTogglelistLines(ecu, it) {
+  if (!it || !it.stateEnter || it.sel == null || it.selSlot == null) {
+    return null;
+  }
+  const exec = await irLiveExec(irExecSgbd(ecu));
+  const toks = exec && exec.procs && exec.procs[it.stateEnter];
+  if (!Array.isArray(toks)) return null;
+  let screenName = null;
+  for (let i = 0; i + 2 < toks.length && !screenName; i++) {
+    const a = toks[i], b = toks[i + 1], c = toks[i + 2];
+    if (a.op !== 'var' || a.n !== it.selSlot) continue;
+    if (b.op !== 'const' || String(b.v) !== String(it.sel)) continue;
+    if (c.op !== 'binop' || c.name !== 'eq') continue;
+    // the branch body: procref [const...] call setscreen
+    for (let j = i + 3; j < Math.min(i + 12, toks.length); j++) {
+      if (toks[j].op !== 'procref') continue;
+      let k = j + 1;
+      while (k < toks.length && toks[k].op === 'const') k++;
+      if (toks[k] && toks[k].op === 'call' && toks[k].name === 'setscreen') {
+        screenName = (exec.byid || {})[`screen:${toks[j].n}`] || null;
+      }
+      break;
+    }
+  }
+  if (!screenName) return null;
+  const scr = exec.procs[screenName];
+  if (!Array.isArray(scr)) return null;
+  const lines = scr
+    .filter((t) => t.op === 'LINE' && t.keys)
+    .map((t) => ({ caption: t.label, keys: [String(t.keys)] }));
+  return lines.length ? lines : null;
+}
+
+// Is this MENU actually a togglelist actuator picker? INPA's "Activate" opens a
+// sub-menu (e.g. LSZ's m_steuern) whose real content is a togglelist: the user
+// picks a component (ORT) and it drives a STEUERN_* job with the pick as the
+// argument. builtin_16 is togglelist (Inpa.h:39) and the widget produces the
+// ORT string at runtime, so the derivation cannot lift the pick loop -- the
+// sub-menu comes across as bare children ("starting the control", "Select")
+// that dead-end. But the CONTRACT is in the ipoexec proc: a menu proc that
+// calls builtin_16 and names a STEUERN_*/START* job IS the picker, and that job
+// is the pickJob. Read it the way EDIABAS would -- from the bytecode, formulaic,
+// no name-guessing. Returns the pickJob name, or null when the menu is ordinary.
+async function irMenuPickJob(ecu, menuName) {
+  if (!menuName) return null;
+  const exec = await irLiveExec(irExecSgbd(ecu));
+  const toks = exec && exec.procs && exec.procs[menuName];
+  if (!Array.isArray(toks)) return null;
+  const has16 = toks.some(t => t && t.op === 'call' && t.name === 'builtin_16');
+  if (!has16) return null;
+  // the drive job is a string constant naming a STEUERN_*/START* job
+  const job = toks
+    .filter(t => t && t.op === 'const' && typeof t.v === 'string')
+    .map(t => t.v)
+    .find(v => /^(STEUERN|START)/i.test(v));
+  return job || null;
+}
+
 // Does this fault screen want the DETAILED read? INPA's fault keys open
 // different screens -- s_fs_kurz reads 5 fields, s_fs_detail also reads the
 // P-code and the freeze-frame environment (F_UW*/F_PCODE/F_HFK) -- but they all
@@ -459,7 +586,7 @@ async function irLivePickJob(ecu, stateName) {
 // (plain read) when the screen can't be run live.
 async function irFaultWantsDetail(ecu, screenName) {
   if (!screenName || typeof IpoVm === 'undefined') return false;
-  const exec = await irLiveExec(ecu.sgbd);
+  const exec = await irLiveExec(irExecSgbd(ecu));
   if (!exec || !exec.procs[screenName]) return false;
   try {
     const vm = new IpoVm(exec, { budget: 80000 });
@@ -1307,6 +1434,10 @@ const _modeState = new Map();
 // result means `it` is one option of a mode toggle, not a lone dead key.
 function irModeGroup(ir, menuName, it) {
   if (it.selSlot == null) return null;
+  // A mode slot holds NUMBERS (irModeValue takes Math.min, irSetMode stores
+  // Number(value)): a slot selecting by NAME ("EIN_fh") is a state machine's
+  // input selector, not a radio group.
+  if (!Number.isFinite(Number(it.sel))) return null;
   const peers = irMenuItems(ir, menuName)
     .filter(x => x.selSlot === it.selSlot);
   return peers.length > 1 ? peers : null;
@@ -2056,7 +2187,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // records the choice and redraws to show which is active. A card that
     // navigates (menu/screen) is never one of these, even if it shares a
     // selSlot -- treat it as navigation so clicking opens the page.
-    const modeGroup = !it.menu && !it.screen && irModeGroup(ir, menuName, it);
+    // ...and never one that ENTERS A STATE MACHINE: the tail's job re-entry
+    // strips screen/menu off a togglelist key (ZKE5's six input groups all
+    // write slot 28 with the group name), and a bare slot-writer with peers
+    // then read as a radio group -- so the click recorded a "mode" and
+    // redrew, and the picker never opened.
+    const modeGroup = !it.menu && !it.screen && !it.stateEnter
+      && !it.stateScreen && irModeGroup(ir, menuName, it);
     if (modeGroup) {
       irSetMode(ir, menuName, it.selSlot, it.sel);
       renderIrMenu(ecu, ir, menuName, container, back, trail);
@@ -2198,6 +2335,23 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       }], shiftKeys());
       return;
     }
+    // A key that installs a menu whose PROC is a togglelist actuator picker
+    // (builtin_16 + a STEUERN_*/START* job -- irMenuPickJob reads it from the
+    // bytecode) IS the picker, whatever else the key carries. INPA's "Activate"
+    // sets screen s_steuern AND menu m_steuern together; the screen is only the
+    // backdrop drawn while driving, and the menu's children are the widget's
+    // own select/start/end keys -- so neither routes anywhere on its own
+    // (irOpensMenu says false: the children look bare), and without this the
+    // key fell through the screen path to "not offered here". Checked for ANY
+    // menu-carrying key, not just ones irOpensMenu accepts.
+    if (it.menu) {
+      const pickJob = await irMenuPickJob(ecu, it.menu);
+      if (pickJob) {
+        irPickAndDrive(ecu, ir, { pickJob }, it, menuName, container, back,
+                       trail, open);
+        return;
+      }
+    }
     // a key that installs a MENU opens it, whatever else it does: INPA's root
     // keys set screen AND menu together, where the screen is only the window.
     // (irOpensMenu excludes a menu no narrower than this one: same bar kept.)
@@ -2225,7 +2379,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       // executing the machine): route there rather than reporting "not sent".
       if (it.stateScreen && (ir.screens || {})[it.stateScreen]
           && (ir.screens[it.stateScreen].pickJob)) {
-        const pscr = ir.screens[it.stateScreen];
+        const frozen = ir.screens[it.stateScreen];
+        // the machine's own group screen first (see irTogglelistLines): the
+        // frozen picker screen lists captions but the exec twin pairs them
+        // with the ORT each row drives, filtered to this key's group
+        const mlines = await irTogglelistLines(ecu, it);
+        const pscr = mlines
+          ? { ...frozen, lines: mlines } : frozen;
         irPickAndDrive(ecu, ir, pscr, it, menuName, container, back, trail,
                        open);
         return;
@@ -2246,10 +2406,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
           pj = await irLivePickJob(ecu, it.stateEnter);
         }
         if (pj) {
-          // reuse the named screen when it has rows, else a synthetic one that
-          // irPickAndDrive fills from the BITS table
-          const pscr = (fscr && (fscr.lines || []).some(l => (l.keys || []).length))
-            ? fscr : { lines: [], jobs: [], pickJob: pj };
+          // this key's own group rows off the machine's dispatch first (see
+          // irTogglelistLines); else the named screen when it has rows; else
+          // a synthetic one that irPickAndDrive fills from the whole table
+          const mlines = await irTogglelistLines(ecu, it);
+          const pscr = mlines ? { lines: mlines, jobs: [], pickJob: pj }
+            : (fscr && (fscr.lines || []).some(l => (l.keys || []).length))
+              ? fscr : { lines: [], jobs: [], pickJob: pj };
           irPickAndDrive(ecu, ir, pscr, it, menuName, container, back, trail,
                          open);
           return;
