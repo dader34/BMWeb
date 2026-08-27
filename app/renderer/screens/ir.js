@@ -700,14 +700,10 @@ async function irRunGuided(ecu, ir, it, menuName, container, back, trail) {
       const job = step.job;
       const sg = String(step.sgbd || ecu.sgbd).toLowerCase();
       stateEl.textContent = `${job}${step.arg ? ` ${step.arg}` : ''}`;
-      // register BEFORE send, exactly like a hand-fired drive: an unreleased
-      // activation must not outlive the screen
       if (/^(STEUERN|START)/i.test(job)
           && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(job)
-          && typeof activeTests === 'object') {
-        activationEcu = ecu;
-        activeTests.add(job);
-        activeDrives.set(job, step.arg ? `${step.arg};0` : null);
+          && typeof markEnergized === 'function') {
+        markEnergized();
       }
       let fed = new Map();
       try {
@@ -903,13 +899,10 @@ async function irRunItemLive(ecu, ir, menuName, it, container, back, trail) {
     for (let n = 0; n < 400 && step && step.kind !== 'done'; n++) {
       if (step.kind === 'job') {
         const sg = String(step.sgbd || ecu.sgbd).toLowerCase();
-        // register BEFORE send: release-on-leave holds for script sends too
         if (/^(STEUERN|START)/i.test(step.job)
             && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(step.job)
-            && typeof activeTests === 'object') {
-          activationEcu = ecu;
-          activeTests.add(step.job);
-          activeDrives.set(step.job, step.arg ? `${step.arg};0` : null);
+            && typeof markEnergized === 'function') {
+          markEnergized();
         }
         const fed = new Map();
         try {
@@ -2020,11 +2013,16 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   // NEUTRAL baseline word as the release (activations.js:9-11 invariant), so
   // leaving re-commands every field back to it; then irResetCompositeState
   // forgets the toggled flags.
-  activationEcu = ecu;
-  activeTests.add(comp.job);
-  activeDrives.set(comp.job, (comp.baseline
-    ? comp.baseline.split(';')
-    : new Array(comp.fields).fill('0')).join(';'));
+  // a composite word drives several outputs at once. Its release is
+  // re-commanding the word to neutral, which is the menu's own behavior
+  // (INPA re-sends the composite, it does not have per-output _ENDEs). Note
+  // the neutral word so the leave hook can re-send it, and mark energized.
+  if (typeof markEnergized === 'function') markEnergized();
+  if (typeof registerCompositeNeutral === 'function') {
+    registerCompositeNeutral(ecu, comp.job, (comp.baseline
+      ? comp.baseline.split(';')
+      : new Array(comp.fields).fill('0')).join(';'));
+  }
 
   // INPA stays on its menu, so the result goes to the status bar, not a page
   sbLeft.textContent = `${ecu.sgbd}.prg · ${comp.job} ${arg} · sending`;
@@ -2046,9 +2044,9 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   keepActivationsDuring(reopen);
 }
 
-// forget every composite actuator word. Called by stopAllActivations AFTER it
-// has sent the neutral word, so a re-entered menu starts from baseline rather
-// than showing flags nobody is driving.
+// forget every composite actuator word, so a re-entered menu starts from
+// baseline rather than showing flags nobody is driving. Called after the
+// neutral word is re-sent on leave.
 function irResetCompositeState() { _compState.clear(); }
 
 // A screen with no gauges and no lamps is a labelled READ (coding, ident,
@@ -2655,6 +2653,30 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (ir.exitJob && typeof registerSessionEnd === 'function') {
     registerSessionEnd(ecu, ir.exitJob);
   }
+  // THE MENU'S OWN RELEASE. INPA releases (or not) through its keys: some
+  // Back items carry a real stop job (kombi STEUERN_46's Back = DIAGNOSE_ENDE),
+  // most just navigate and let the ECU's actuator timeout end it (MS45 MIL).
+  // Register the leaving job the IR itself declares -- never a synthesized
+  // "arg=0". A repaint of the same menu keeps the same key and fires nothing.
+  if (typeof registerMenuLeave === 'function') {
+    // A Back item's job is a RELEASE only when its shape says so: it ends the
+    // ECU session (DIAGNOSE_ENDE/MODE) or is stop-shaped (STOP_*, *_ENDE,
+    // *_AUS/_OFF, *beenden). A Back that carries a READ (FS_LESEN, IDENT,
+    // MESSWERTBLOCK_LESEN) or a fresh DRIVE (STEUERN_IO) is the parent menu's
+    // own job, NOT a release -- firing it on leave would be a spurious command.
+    const rawItems = ((ir.menus || {})[menuName] || {}).items || [];
+    const isRelease = (j) => j && (
+      /^DIAGNOSE_(ENDE|MODE)$/i.test(j)
+      || /(_ENDE|_AUS|_OFF|_STOP)$/i.test(j)
+      || /^STOP_/i.test(j)
+      || /beenden$/i.test(j));
+    const backIt = rawItems.find((it) =>
+      isRelease(it.job)
+      && (IR_CHROME.test(String(it.label || '').trim())
+        || (it.menu && it.menu !== menuName)));
+    registerMenuLeave(ecu, `${ecu && ecu.sgbd}:${menuName}`,
+      backIt ? backIt.job : null);
+  }
   let items = irMenuItems(ir, menuName);
   // Drop a readout tile whose job the LOADED variant does not implement. The
   // .IPO is shared across a family and offers every screen, but a variant need
@@ -3073,27 +3095,16 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       try {
         // arg often distinguishes two keys (RADIO sources differ only in "FM"/"CDC")
         const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
-        // REGISTER BEFORE SEND: an unreleased drive outlives the screen, and the
-        // confirm above promises release on leave. Arg _ENDE fallback: register
-        // "arg;0" as the release. Not for a permanent write (nothing to release)
-        // or an OFF form (already a stop).
-        const drives = !permanent
-          && /^(STEUERN|START)/i.test(it.job)
-          && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
-          && typeof activeTests === 'object';
-        if (drives) {
-          activationEcu = ecu;
-          activeTests.add(it.job);
-          activeDrives.set(it.job, it.jobArg ? `${it.jobArg};0` : null);
+        // a real drive energizes an output: note it so a tab-close can run
+        // the menu's Back job. The RELEASE itself is the menu's own key
+        // (registerMenuLeave), never a synthesized arg=0.
+        if (!permanent && /^(STEUERN|START)/i.test(it.job)
+            && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
+            && typeof markEnergized === 'function') {
+          markEnergized();
         }
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
-        // a permanent write is set-and-stay and must NOT be replayed with arg=0
-        if (!permanent) {
-          activationEcu = ecu;
-          activeTests.add(it.job);
-          activeDrives.set(it.job, null);
-        }
         const r = flatResults(out.sets).map(([k, v]) => `${k}=${v}`)
           .slice(0, 3).join(' ') || 'sent';
         sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · ${it.job} · ${r}`;
