@@ -71,6 +71,8 @@ const OFFLINE_SHELL = [
   'data/codingmap.js',
   // ...and BMW's own coding map for modules whose SGBD says nothing
   'data/datenmap.js',
+  // what the car's option numbers are called (small, dated)
+  'data/sanames.js',
 ];
 
 // The fault tables, 80 MB together, so opt-in: without them CODES still read,
@@ -583,7 +585,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   // sibling to fetch — coding labels were silently lost. Inline them with the
   // data; loadCodingMap()/loadDatenMap() check the globals first, so the lazy
   // path becomes a no-op.
-  for (const f of ['data/codingmap.js', 'data/datenmap.js']) {
+  for (const f of ['data/codingmap.js', 'data/datenmap.js', 'data/sanames.js']) {
     if (shell[f]) dataParts.push('\n', dec.decode(shell[f]));
     else warnings.push(`${f}: not in the app shell, coding labels will be missing`);
   }

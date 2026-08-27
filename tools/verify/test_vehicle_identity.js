@@ -286,6 +286,29 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   ok('FA: SA numbers get their order-dictionary label, or null');
 }
 
+{
+  // The English names come off the ETK catalogue, and BY DATE: BMW reused
+  // numbers, so a 1998 car and a 2001 car read the same <0199> differently.
+  const SA = path.join(ROOT, 'app', 'renderer', 'data', 'sanames.js');
+  assert.ok(fs.existsSync(SA),
+    'data/sanames.js missing -- run tools/etk_sa_names.py --db etk.sqlite');
+  // eslint-disable-next-line no-eval
+  eval(fs.readFileSync(SA, 'utf8'));
+  assert.ok(window.BMW_SA_NAMES, 'sanames.js did not set BMW_SA_NAMES');
+  assert.strictEqual(VI.saName('0530', 20010100), 'Air conditioning');
+  assert.strictEqual(VI.saName('534', 20010100), 'Automatic air conditioning');
+  assert.strictEqual(VI.saName('199', 19980601), 'without catalytic converter');
+  assert.strictEqual(VI.saName('199', 20010100), 'Equipment for leaded fuel');
+  assert.strictEqual(VI.saName('199', 0), 'without catalytic converter');
+  // a country code shares the number space but is still named
+  assert.strictEqual(VI.saName('807', 20010100), 'National version Japan');
+  assert.strictEqual(VI.saName('999999', 20010100), null);
+  // a number that did not yet exist at the date says nothing rather than
+  // borrowing a later meaning
+  assert.strictEqual(VI.saName('249', 19980601), null);
+  ok('FA: SA numbers get their ETK English name, picked by build date');
+}
+
 // ---- 5. the two paths agree -------------------------------------------------
 
 {

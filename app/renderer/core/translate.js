@@ -852,6 +852,9 @@ const loadSget = _lazyScript('data/sget.js', 'BMW_SGET', _sgetHolder);
 // (SA number -> equipment keywords) and ZST (ZCS key bits -> keywords)
 const _tablesHolder = {};
 const loadTables = _lazyScript('data/tables.js', 'BMW_TABLES', _tablesHolder);
+// SA option numbers -> English names, dated (BMW reused the numbers)
+const _saNamesHolder = {};
+const loadSaNames = _lazyScript('data/sanames.js', 'BMW_SA_NAMES', _saNamesHolder);
 
 // per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. `info`
 // indexes into BMW_FAULT_INFO[hex].
