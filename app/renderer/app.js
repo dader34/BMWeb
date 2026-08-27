@@ -211,6 +211,30 @@ function showSettings() {
   wrap.appendChild(hiwRow);
 
 
+  // beta feedback: the Report button + what a report carries
+  const betaRow = document.createElement('div');
+  betaRow.className = 'setting-row';
+  const betaOn = Settings.get('betaReports', true) !== false;
+  betaRow.innerHTML = `
+    <div class="setting-text">
+      <div class="setting-title">Beta reports</div>
+      <div class="setting-desc">The Report button collects this session's
+        screens, jobs, wire telegrams and errors into one file. VINs are
+        masked.</div>
+    </div>
+    <button class="btn" id="set-beta-file">File a report…</button>
+    <button class="btn" id="set-beta-toggle">${betaOn ? 'On' : 'Off'}</button>`;
+  betaRow.querySelector('#set-beta-file').onclick = () =>
+    (typeof showBetaReport === 'function' ? showBetaReport() : null);
+  betaRow.querySelector('#set-beta-toggle').onclick = () => {
+    Settings.set('betaReports', !betaOn);
+    const b = document.getElementById('beta-btn');
+    if (b && betaOn) b.remove();
+    if (!betaOn && typeof _journalButton === 'function') _journalButton();
+    showSettings();
+  };
+  wrap.appendChild(betaRow);
+
   view.appendChild(wrap);
 
   const ver = document.createElement('div');

@@ -29,6 +29,7 @@ const OFFLINE_SHELL = [
   'core/nav.js',
   'core/tuning-store.js',
   'core/xdf.js',
+  'core/journal.js',
 
   'screens/autoscan.js',
   'screens/sweep.js',
