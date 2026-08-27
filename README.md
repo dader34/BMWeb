@@ -269,23 +269,34 @@ are all generated. Never edit them by hand.
 
 ## Safety
 
-Write jobs are refused unless explicitly enabled. The guard sits in the VM
-itself, before anything is transmitted, so a job that codes, clears or flashes
-sends zero bytes rather than being stopped partway. `tools/test_writeguard.js`
-asserts that.
-
-The web build refuses writes outright, in both the shim and the VM.
+Every job is classified before it runs, and anything the classifier does not
+recognise is treated as a write rather than assumed safe. A blocked write is
+blocked in the VM itself, before anything is transmitted, so it sends zero
+bytes rather than being stopped partway (`tools/verify/test_writeguard.js`
+asserts that). What does change the car is gated, not forbidden: actuator
+tests confirm before firing, are registered before they are sent, and are
+released when you leave the screen; a permanent write (EEPROM, service
+reset) always confirms; coding writes take a backup first and re-read the
+module afterwards to prove what landed.
 
 
 ## Status
 
-Fault reading, live values, actuator tests and coding readout work. Flashing is
-backup only; writing is not enabled.
+Verified against a real E46 over K+DCAN: fault reading and clearing, live
+values, identity and coding, actuator tests, and adjustment screens. A key
+press runs the key's own INPA bytecode -- the item body executes in the
+driven VM, so computed arguments (idle-raise setpoints, CO trim steps,
+adaptation clears) go to the wire exactly as INPA sends them, and guided
+test procedures (activate, wait, observe, tear down) run their state
+machines live. Flashing is backup only.
 
-The transport is the untested part. Both hosts share the framing and half duplex
-echo handling, and neither has moved a byte over a real cable since the EDIABAS
-engine was removed from the app path. Everything above the transport is verified
-against that engine offline.
+The VM is additionally diffed offline against the real EDIABAS engine
+(`src/InpaMac.Cli` keeps it for exactly that), agreeing on 3,729 of 3,730
+results across an E46 corpus.
+
+Beta feedback is built in: a Report button bundles the session journal and
+the last wire telegrams (VINs masked), and IFH wire errors file themselves,
+throttled. The collector worker lives in `tools/beta/`.
 
 
 ## Requirements
@@ -421,9 +432,10 @@ uses `SWTFSW01`, E46 `SWTFSW06`, E60 `SWTFSW05`, E70 `SWTFSW11`. Reading a
 module against the wrong one does not fail loudly, it returns real keywords
 belonging to some other function, so chassis and table travel together.
 
-Together the two sources describe 85 of the 310 shipped ECUs. Writes stay
-blocked in either case: the screen reads, stages a change and shows exactly
-what would be sent, and there is no send path in it at all.
+Together the two sources describe 85 of the 310 shipped ECUs. The editor
+reads, stages a change and shows exactly what would be sent; sending is
+gated behind an explicit confirm, takes a backup first, and re-reads the
+module to prove what landed.
 
 ### Check the layout
 

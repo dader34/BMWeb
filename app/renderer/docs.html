@@ -213,11 +213,11 @@
         </div>
 
         <h3>macOS, with the native app</h3>
-        <p>BMacW owns the serial port directly, so nothing else is needed. It is ad-hoc
+        <p>The macOS app owns the serial port directly, so nothing else is needed. It is ad-hoc
           signed with no Apple Developer ID, which means macOS quarantines the download
           and blocks the first launch.</p>
         <ol class="steps">
-          <li><div><b>Install it</b><span>Open the .dmg and drag BMacW to Applications.</span></div></li>
+          <li><div><b>Install it</b><span>Open the .dmg and drag the app to Applications.</span></div></li>
           <li><div><b>Clear the quarantine flag, once</b><span>Run the command below in Terminal.</span></div></li>
           <li><div><b>Launch from Applications</b><span>After the first run it opens normally.</span></div></li>
         </ol>
@@ -408,17 +408,20 @@
 
       <section id="safety">
         <h2>Writing and safety</h2>
-        <p class="section-note">The short version: reading is open, writing is closed by
-          default, and the app is built so that a refused write sends nothing at all.</p>
+        <p class="section-note">The short version: reading is open, and anything that
+          changes the car asks first &mdash; and a refused write sends nothing at all.</p>
 
         <div class="callout">
-          <h4>Writes are off by default, and unknown jobs are treated as writes</h4>
+          <h4>Unknown jobs are treated as writes, and every write is gated</h4>
           <p>Every job is classified before it runs. Anything the classifier does not
-            recognise is <b>assumed to be a write and refused</b>, rather than assumed safe.
-            When a write is blocked, it is blocked before a single byte reaches the car,
-            not caught partway through.</p>
-          <p>The browser build refuses write, clear and flash operations outright,
-            regardless of the setting.</p>
+            recognise is <b>assumed to be a write</b>, rather than assumed safe, and a
+            blocked write is blocked before a single byte reaches the car, not caught
+            partway through.</p>
+          <p>Actuator tests confirm before firing, are registered before they are sent,
+            and are released when you leave the screen. A permanent write (an EEPROM
+            change, a service reset) always confirms, whatever the setting. Coding
+            writes take a backup first and re-read the module afterwards to prove what
+            landed.</p>
         </div>
 
         <h3>Coding</h3>
@@ -512,8 +515,9 @@
         <h2>Limitations</h2>
         <p class="section-note">What this does not do yet, stated plainly.</p>
         <ul>
-          <li><b>Writing is not enabled.</b> Fault reading, live values, actuator tests and
-            coding readout work. Flashing exists for backup only.</li>
+          <li><b>Flashing exists for backup only.</b> Fault reading and clearing, live
+            values, actuator tests (running INPA's own key scripts), guided test
+            procedures and coding work; DME flashing stays read-side.</li>
           <li><b>ISO 9141 slow init is not implemented.</b> Very early modules that need a
             5 baud initialisation will refuse to connect rather than half work.</li>
           <li><b>A phone cannot use a USB cable</b>, and a site served over HTTPS cannot

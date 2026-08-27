@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>BMacW</title>
+  <title>BMWeb</title>
   <!-- The roundel, inlined. A data URI rather than a file so the
        installer stays one self-contained page, and so a downloaded
        copy keeps its icon with no sibling to fetch. -->
@@ -69,7 +69,7 @@
   <!-- boot splash, dismissed once the sidecar answers. logo inherits theme vars -->
   <div class="splash" id="splash" aria-hidden="true">
     <div class="splash-inner">
-      <svg class="splash-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMacW">
+      <svg class="splash-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMWeb">
         <circle class="logo-ring" cx="50" cy="50" r="48" />
         <clipPath id="splash-disc"><circle cx="50" cy="50" r="31"/></clipPath>
         <g clip-path="url(#splash-disc)">
@@ -80,8 +80,8 @@
         </g>
         <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
       </svg>
-      <div class="splash-name">BMacW</div>
-      <div class="splash-tag">BMW diagnostics for macOS</div>
+      <div class="splash-name">BMWeb</div>
+      <div class="splash-tag">BMW diagnostics in the browser</div>
       <div class="splash-bar"><span class="splash-bar-fill" id="splash-bar-fill"></span></div>
       <div class="splash-status" id="splash-status">starting engine</div>
     </div>
@@ -103,7 +103,7 @@
          F-key bar already do the job. -->
     <button class="nav-back" id="nav-back" aria-label="Back"><span class="nav-back-label">Back</span></button>
     <div class="brand">
-      <svg class="brand-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMacW logo">
+      <svg class="brand-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="BMWeb logo">
         <!-- outer ring -->
         <circle class="logo-ring" cx="50" cy="50" r="48" />
         <!-- inner quadrant disc -->
@@ -118,7 +118,7 @@
         </g>
         <circle class="logo-inner-ring" cx="50" cy="50" r="31" />
       </svg>
-      <span class="brand-name">BMacW</span>
+      <span class="brand-name">BMWeb</span>
     </div>
     <nav class="breadcrumbs" id="crumbs"></nav>
     <!-- A screen's primary action, shown top-right on mobile the way the back
@@ -198,15 +198,14 @@
     const IS_WEB = !window.bmacw;
     const APP_NAME = IS_WEB ? 'BMWeb' : (window.bmacw.appName || 'BMacW');
     const OWN_CHROME = !IS_WEB && window.bmacw.ownChrome !== false;
-    if (APP_NAME !== 'BMacW') {
+    // the static page is BMWeb (what the hosted site and every crawler
+    // sees); a native host renames itself on boot
+    if (APP_NAME !== 'BMWeb') {
       document.title = APP_NAME;
       document.querySelector('.splash-name').textContent = APP_NAME;
       document.querySelector('.brand-name').textContent = APP_NAME;
-      // the tagline follows the NAME, not the host: only the macOS build is
-      // "for macOS", and a Windows window saying so is simply wrong
-      document.querySelector('.splash-tag').textContent = IS_WEB
-        ? 'BMW diagnostics in the browser'
-        : 'BMW diagnostics';
+      document.querySelector('.splash-tag').textContent =
+        'BMW diagnostics';
     }
     if (!OWN_CHROME) {
       // nothing for these to drive: the window's own chrome is showing

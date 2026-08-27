@@ -89,8 +89,8 @@ find "$OUT/api" "$OUT/data" -name "*.json" -size +256k -print0 \
 SIZE=$(du -sh "$OUT" | cut -f1)
 RAW=$(find "$OUT" -name "*.json" -o -name "*.js" | wc -l | tr -d ' ')
 cat > "$OUT/README.txt" <<EOF
-BMacW web build
-===============
+BMWeb build
+===========
 
 Static: serve this directory over HTTP and open index.html.
 
@@ -109,10 +109,10 @@ Note this needs the page on http:// or file://, not https://: a secure page
 cannot open a ws:// connection, and a private IP cannot hold a certificate.
 That is what the single-file download is for.
 
-Not available in the web build, by design:
-  * write jobs (coding, clearing, flashing) -- refused in the shim AND in
-    the VM's own write guard
-  * demo mode -- the value synthesiser lives in the C# server
+Safety, in one line: unknown jobs are classified as writes and refused;
+actuator tests confirm before firing and release when you leave the screen;
+permanent writes always confirm; coding writes back up first and re-read to
+prove what landed. Demo mode works with no car attached.
 
 Files: $RAW  Size: $SIZE
 EOF
