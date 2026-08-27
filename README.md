@@ -1,512 +1,325 @@
-# BMacW / BMWeb
+# BMWeb
 
-BMW diagnostics that runs anywhere. Read fault codes, watch live values, run
-actuator tests and inspect coding data, with no Windows, no Windows VM, and
-no EDIABAS install.
+BMW diagnostics in a browser. INPA's screens, EDIABAS's ECU logic, ISTA's
+fault documentation, WDS wiring diagrams and the ETK parts catalogue, running
+as a static web page with no Windows, no VM and no EDIABAS install.
 
-THIS PROJECT IS IN DEVELOPMENT, USE WRITE JOBS AT YOUR OWN RISK
+**https://bmweb.danner.ink/**
 
-**The main build is a single HTML file.** One download, everything inside it -
-the app, the BEST2 VM, and one car's ECU data. It opens in a browser on
-Windows, macOS, iPhone and Android, needs no server and no internet, and talks
-to the car over a WiFi adapter's own WebSocket. Downloaded from Settings, or
-built with the exporter.
-
-The macOS app exists for the **K+DCAN USB cable**. A browser reaches a USB
-serial port only through Web Serial, which is Chrome and Edge on the desktop -
-no Safari, no phone. The app owns the port itself, and adds native save
-dialogs, PDF export and CSV logging.
-
-So: **wireless works everywhere, the cable wants the app or Chrome.**
+> **This project is in development. Use write jobs at your own risk.**
 
 INPA is a Windows application built on BMW's EDIABAS engine. It reads two kinds
-of proprietary file: `.prg` modules that describe how to talk to each ECU, and
-`.IPO` screens that describe what to draw. BMacW reimplements both halves. It
-decompiles the screens ahead of time into JSON, and interprets the ECU modules
-at runtime with its own virtual machine.
+of proprietary file: `.prg` modules (SGBDs) that describe how to talk to each
+ECU, and `.IPO` screens that describe what to draw. BMWeb reimplements both
+halves in JavaScript: the screens are decompiled ahead of time into JSON, and
+the ECU modules are executed at runtime by its own BEST2 virtual machine. The
+car is reached over a K+DCAN USB cable through Web Serial, or over WiFi
+through a THOR adapter's WebSocket, so the same page works on a laptop and on
+a phone.
+
+
+## Using it
+
+**Hosted.** Open https://bmweb.danner.ink/. It installs as a progressive web
+app (add to home screen / dock) and keeps working without a connection once
+cached. Note that an `https://` page cannot open a socket to a THOR adapter
+on the local network, so for WiFi diagnostics use an offline copy.
+
+**Offline.** Every [release](https://github.com/dader34/BMWeb/releases) ships
+four self-contained zips; unzip one and open `index.html`:
+
+| Zip | Contents |
+|---|---|
+| `bmweb-<ver>-offline-full.zip` | everything, including ~1 GB of wiring diagrams |
+| `bmweb-<ver>-offline-no-wiring.zip` | everything except the wiring diagrams |
+| `bmweb-<ver>-offline-no-parts.zip` | everything except the parts catalogue |
+| `bmweb-<ver>-offline-lite.zip` | neither wiring nor parts |
+
+The parts catalogue data is large and fetched on demand, so "no-parts" just
+hides the entry; the wiring diagrams are physically dropped.
+
+On iPhone, open the page in Safari or from the home screen, not from the
+Files-app preview: Quick Look restricts scripts and the page hangs on the
+splash with no error.
+
+
+## Connecting to a car
+
+Ignition in position 2, engine off, healthy battery. Most "the ECU rejected
+the request" errors are a car in the wrong state or a sagging battery.
+
+| | K+DCAN USB | THOR WiFi |
+|---|---|---|
+| Chrome / Edge, desktop | yes, via Web Serial | yes |
+| Safari | no, Safari has no Web Serial | yes |
+| iPhone / Android | no USB path on a phone | yes, the only option |
+
+**K+DCAN cable** (Settings → Adapter → K+DCAN, the default). Plug the cable
+straight into the machine, no hub, and click the cable chip in the top bar;
+Web Serial only opens its port picker from a click, so there is no automatic
+connect. On macOS the port is `cu.usbserial*`, `cu.SLAB*` or
+`cu.wchusbserial*`; on Linux `ttyUSB*` or `ttyACM*`
+(`scripts/setup/99-bmacw-kdcan.rules` grants the permission). The app opens
+at 115200 8N1 and re-opens at 9600 8E1 for DS2/KWP2000 modules on its own.
+FTDI cables want a 1 ms latency timer; the app cannot set it but will tell
+you when `IFH-0003` looks like that.
+
+**THOR WiFi adapter** (Settings → Adapter → THOR). A Deep-OBD-style adapter
+(the EdiabasLib DEEPOBDWIFI protocol, **not** an ELM327) whose ESP8266 runs
+esp-link. Plug it into the OBD port, join `Thor_Wifi`, pick THOR, click the
+chip. The app reaches `ws://192.168.4.1/bmweb` and proves the link with an
+identity exchange before trusting it. Stock esp-link has no WebSocket, so the
+adapter needs the firmware in `vendor/esp-link-ws/` once; see
+[Flashing the THOR adapter](#flashing-the-thor-adapter). `?ws=<host>` on the
+URL points the app at an adapter on another address.
+
+**Remote session** (Settings → Remote session). Whoever has the cable picks
+"Share my car" and gets an 8-character code; anyone else opens the same app,
+enters the code, and drives the car over a WebRTC data channel. Only the
+car-touching requests cross the link; the helper sees the same screens.
+
+**Demo mode** (Settings, or `?demo=1`) runs every screen against simulated
+values, clearly badged, with no cable.
+
+
+## What it does
+
+Every module screen is BMW's own INPA screen, decompiled and rendered as it
+was drawn. Modules BMW never drew a screen for say so rather than guessing at
+a layout. A key press runs the key's own INPA bytecode, so computed arguments
+(idle-raise setpoints, CO trim steps, adaptation clears) go to the wire
+exactly as INPA sends them, and guided procedures (activate, wait, observe,
+tear down) run their state machines live.
+
+- **Fault memory** — read stored codes with English text and detail, clear them.
+- **Error scan** — sweep every module in the car in one pass, export a PDF report.
+- **Live values** — gauges updating continuously, several at once, CSV logging.
+- **Activations** — drive real components; held actuators release when you leave.
+- **Coding** — read a module's coding, stage changes, see exactly what would be
+  sent; write with backup-first and verify-by-re-read.
+- **Diagnostic Plans and Trouble Codes** — search 51,484 fault codes offline
+  with P-codes and the matching ISTA service documents (set condition,
+  monitoring, fault impact, lamp behaviour, service measures).
+- **Wiring Diagrams** — BMW's WDS schematics as vectors, plus component
+  locations, connector views and pin assignments. 15 chassis.
+- **Parts Catalogue** — ETK part numbers, diagrams, supersessions, VIN
+  decoding, 246 chassis bundles from the E3 to the G series.
+- **Tool32** — run any SGBD job directly and read the raw result registers.
+- **Tuning** — inspect ECU firmware images in a hex editor with TunerPro
+  `.xdf` constants, flags and tables.
+- A seven-step tour and a "how it works" walkthrough, from the Apps hub.
 
 
 ## Coverage
 
 | | |
 |---|---|
-| Chassis | 26 (E31 through F30, R50/R56, RR1, K25/K40) |
-| ECUs | 1015 |
-| Decompiled screens | 21,386 across 1,117 ECUs |
-| Diagnostic jobs | 23,956 |
+| Chassis | 26: E31 E34 E36 E38 E39 E46 E52 E53 E60 E65 E70 E83 E85 E87 E89 E90 F01 F07 F10 F25 F30 K25 K40 R50 R56 RR1 |
+| ECU definitions (SGBDs) | 950 |
+| Decompiled INPA screens | ~19,500 across ~800 ECUs |
+| Diagnostic jobs | ~55,000 |
 | Fault codes | 51,484 |
+| Wiring diagrams | 15 chassis, E38 through F01 |
 
-Every ECU the app can open renders from its own decompiled INPA screen. There is
-no fallback renderer and no hand written layout.
+Per-chassis depth follows how many modules the car has: an E65 carries 96
+module definitions, an E60 91, an E90 61, an E46 55, an F30 19.
 
 
 ## How it works
 
 Four pieces, none of them BMW's code.
 
-**The screen decompiler** (`tools/ipo_ir.py`) turns each `.IPO` into JSON: menus,
-F-key numbers, screens, gauges with their scales, lamps, and which job feeds each
-row. The renderer interprets that file directly, so a screen looks the way INPA
-drew it because it is the same description.
+**The screen decompiler** (`tools/`) turns each `.IPO` into JSON: menus, F-key
+numbers, screens, gauges with their scales, lamps, and which job feeds each
+row. The renderer interprets that file directly, so a screen looks the way
+INPA drew it because it is the same description.
 
-**The BEST2 virtual machine** (`app/renderer/core/bestvm.js`) executes the bytecode
-inside a `.prg`. EDIABAS compiles each ECU's logic to a 184 opcode instruction
-set; the VM runs it, including the register file, byte stack, string table and
-table lookups. This is what turns raw bytes off the wire into named results.
-Replaying captured telegrams through read jobs across an E46 corpus, it agrees
-with the real EDIABAS engine on 3,729 of 3,730 results over 460 jobs (the one
-disagreement is a known JOB_STATUS case on a synthetic fixture).
+**The BEST2 virtual machine** (`app/renderer/core/bestvm.js`) executes the
+bytecode inside a `.prg`. EDIABAS compiles each ECU's logic to a 184-opcode
+instruction set; the VM runs it — register file, byte stack, string table,
+table lookups — and turns raw bytes off the wire into named results. Diffed
+offline against the real EDIABAS engine (`src/InpaMac.Cli` links it for
+exactly that), it agrees on 3,729 of 3,730 results over 460 jobs on an E46
+corpus.
 
-**The static data layer** holds what the VM needs: lifted job code, SGBD tables,
-job metadata and per ECU screens, all generated from the BMW files by the tools
-in `tools/`.
+**The static data layer** holds what the VM needs — lifted job code, SGBD
+tables, job metadata and per-ECU screens — all generated from the BMW files
+by the tools in `tools/`. `data/ecu-src/` is one gzipped copy per SGBD and is
+what is committed; `data/chassis/<CAR>/<ECU>/` is built from it and ignored.
 
-**The transport** moves bytes. That is the only part that has to be native, and
-it differs by host: Web Serial in a browser, a small serial proxy in the macOS
-shell.
-
-
-## Two builds, one renderer
-
-The same renderer runs in both. `app/renderer/core/webshim.js` decides at load
-time where data and bytes come from, and the shell provides only what a web
-page cannot do for itself: the USB cable and the file dialogs.
-
-**The single file (BMWeb).** One `.html` with the app, the VM and one car's
-data inlined, about 7 MB for an E46. No server, no internet, no unzipping.
-Get it from **Settings → Download single file**, or build one directly:
-
-```sh
-scripts/build/build-web.sh                 # dist-web, the source of the export
-python3 -m http.server -d dist-web 8080    # then use the Settings button
-```
-
-Everything is inlined because a `file://` page gets an opaque origin where
-`fetch()` is blocked, so scripts, styles and ECU data all travel in the
-document. That is also why it works from a phone's Downloads folder.
-
-Two things to know on iOS: open it in a **browser**, not the Files-app
-preview, which is Quick Look and restricts scripts (the page hangs on the
-splash with no error). And it must stay `http://` or `file://`, an `https://`
-page cannot open `ws://`, and a bare IP cannot hold a certificate.
-
-**macOS app (BMacW).** A Cocoa window around WKWebView, for the K+DCAN cable.
-The shell serves the renderer over loopback, owns `/dev/cu.usbserial*`, and
-provides PDF export, CSV logging, durable settings and window chrome. About
-600 lines of C#, no EDIABAS.
-
-```sh
-scripts/build/package-macos.sh             # -> dist-release/BMacW-*.dmg
-```
-
-The hosted site is the same `dist-web` tree. It is how you download the
-single file; it is not how you talk to a car, because HTTPS cannot reach a
-private-IP WebSocket.
-
-
-## Offline download
-
-Settings offers two, and they differ in shape rather than content:
-
-**Download single file**, one `.html`, everything inside. The one to use on
-a phone: it AirDrops, sits in Downloads, and opens by tapping it. No folder,
-no unzipping. Wiring diagrams are excluded (72 MB against 7 for the rest of
-an E46); fault text is a checkbox.
-
-**Download offline copy**, a zip of the app plus one car's data, which
-unpacks to a folder you open by double-clicking `index.html`. Right for a
-computer, where a folder is easy to keep and the wiring diagrams are worth
-having.
-
-Both are produced in the browser tab with no server involved, and both are
-branded BMWeb, since they always run in a browser whoever exported them.
-
-The ECU data is embedded in the page rather than fetched, which is what lets
-a page opened straight from disk read it at all (a `file://` page gets an
-opaque origin where `fetch()` is blocked). Fault descriptions are always
-included, so codes read with their English text, not as bare hex.
-
-One chassis per download by default, 2 to 13 MB, where the whole site is
-about 200 MB and zipping that in a tab would hold it all in memory. "All
-chassis" is offered, with that warning.
-
-What works offline: browsing every screen, job, table and coding view, the
-fault lookup, and demo mode's simulated values. Running a job against a real
-car needs a K+DCAN cable and a browser with Web Serial (desktop Chrome or
-Edge). Writes are refused, as in any web build.
-
-
-## THOR WiFi adapter
-
-The THOR WiFi dongle is a Deep-OBD-style custom adapter (the EdiabasLib
-DEEPOBDWIFI protocol, not an ELM327): an ESP8266 running esp-link in front of
-an adapter MCU, carrying BMW-FAST-framed telegrams, exactly what the VM
-speaks. **This is the transport that makes every platform work**, because it
-needs nothing but a browser.
-
-Stock esp-link offers a page no way in: port 23 is raw telnet, which a browser
-cannot open, and the µC console is HTTP polling of a *text* endpoint, which
-mangles every byte over 0x7F, and telegrams are full of them. So
-`vendor/esp-link-ws/` adds a **binary WebSocket** at `ws://192.168.4.1/bmweb`,
-bridged straight to the UART. Prebuilt images and flashing notes are in
-`vendor/esp-link-ws/firmware/`; it flashes over esp-link's own OTA page and
-keeps the config UI, WiFi setup and telnet bridge intact.
-
-### Flashing the adapter
-
-The dongle ships with stock esp-link, which serves only raw telnet on port
-23, a browser cannot open that, so out of the box the adapter is
-unreachable from a web page. Flashing replaces nothing you need: the config
-pages, WiFi setup, OTA upload and the telnet bridge all keep working, and
-the **adapter MCU is never touched** (it is a separate chip, and it holds
-everything BMW-specific). The worst case is a non-booting ESP in front of a
-perfectly intact adapter.
-
-1. **Back up first, if you can.** `esptool.py --port /dev/cu.usbserial-XXXX
-   read_flash 0 0x400000 thor-backup.bin`. This needs physical access to the
-   ESP's TX/RX/GND pads. If your dongle is sealed, know that esp-link's
-   two-slot fallback is then your only safety net.
-2. Join the adapter's `Thor_Wifi` network and open **http://192.168.4.1**.
-3. Go to **Upgrade Firmware**. It names the file it wants, `user1.bin` or
-   `user2.bin`, whichever slot it is *not* running from. Upload that one
-   from `vendor/esp-link-ws/firmware/`. The two are built for different
-   flash offsets and are not interchangeable; the wrong one is rejected
-   rather than half-written.
-4. When it reboots, the page reads `Current firmware: esp-link bmweb-ws.3`.
-5. Check it with `node tools/thor_ws_probe.js`, a pass ends with
-   `VALID IDENT` and the adapter's type and firmware version. The ident is
-   addressed tester-to-tester, so no car is involved.
-
-Then just: join `Thor_Wifi`, open the app, **Settings → Adapter → THOR
-(WiFi)**, and click the cable chip. There is no address to enter -
-`192.168.4.1` is the ESP's own soft-AP address and never changes while you
-are joined to it. The topbar reads "THOR direct" when it is live, along with
-live battery and ignition off the adapter.
-
-Confirmed end to end: adapter type 0x10, firmware v1.15, live values on an
-iPhone with no laptop and no relay.
-
-### Changing the address
-
-Two reasons you might: you would rather reach the adapter over your own
-network, or you changed its AP address. Both are esp-link settings, not app
-settings.
-
-- **Station mode** (adapter joins your WiFi): esp-link's **WiFi Station**
-  page. It gets a normal DHCP address on your LAN, so you keep internet
-  while using it, but at a car, with no network in range, it falls back to
-  being its own AP.
-- **A different AP address**: esp-link's **WiFi Soft-AP** page.
-
-Either way, tell the app with `?ws=<host>` on the URL, for example
-`index.html?ws=192.168.1.57`. A bare host, `host:port`, or a full
-`ws://host/path` all work.
-
-Tip if you need internet while on the adapter's network: give the machine a
-second link (Ethernet, or an iPhone via USB with Personal Hotspot) and put it
-above Wi-Fi in System Settings > Network > service order.
-
-## Wiring diagrams
-
-BMW's own wiring documentation, from WDS (Wiring Diagram System, the tool the
-dealer traced circuits on). Open the main menu and pick **Wiring diagrams**: BMW's
-document tree on the left, the document on the right. 15 chassis are covered,
-E38 through F01.
-
-Per car that is roughly 2,000 to 5,500 wiring diagrams plus component
-locations, connector views, pin assignments, specification values, test
-procedures and functional descriptions. Search covers every document title in
-the car at once.
-
-The diagrams are **vector, not images**. WDS ships them as `.svgz`, which is
-gzipped SVG, so the browser draws them directly: scroll to zoom, drag to pan,
-and wire gauges, colour codes and connector numbers stay sharp at any
-magnification. Nothing is rasterised and no viewer library is involved.
-
-```sh
-scripts/setup/fetch-wiring.sh           # built archives, ~1 GB -> ready to use
-scripts/setup/fetch-wiring.sh E46       # or just one car
-```
-
-That is the short way: one `.wiring` archive per car, already built, straight
-into `app/renderer/data/wiring/`. To rebuild them from BMW's own ISO instead,
-which you only need for a newer WDS release:
-
-```sh
-scripts/setup/fetch-wds.sh              # WDS v15 ISO (4.7 GB) -> vendor/WDS
-tools/wds_import.py --wds vendor/WDS    # -> app/renderer/data/wiring/
-```
-
-Either way it is optional, and `check-vendor.sh` reports it as absent rather
-than failing. Everything else builds and runs without it; only the Wiring
-screen is missing.
-The importer maps WDS's chassis names onto the app's (WDS splits `e60e61`,
-and its E90 folder is a stub pointing at E87).
-
-
-## Fault lookup
-
-Beyond reading a car's memory, the app carries an offline fault database:
-search any code across every chassis and module, or filter by either. Each
-result shows the code, its P-code where one exists, and the English
-description. Opening a code shows that ECU's service document: set condition,
-monitoring conditions, fault impact, warning lamp behaviour, and service
-measures.
-
-Two sources feed it, and both are generated rather than hand edited:
-
-- **BMW SGBD `FORTTEXTE` tables**, the fault text each ECU ships in its `.prg`.
-  This is the same data EDIABAS reads over the cable.
-- **BMW ISTA diagnostic database**, the dealer tool's reference, which supplies
-  fleet wide descriptions, the BMW hex to SAE P-code mapping, and the service
-  documents.
-
-```sh
-node scripts/build/build-faultdb.mjs   # writes app/renderer/faultdb.js + faultindex.js
-```
-
-`faultdb.js`, `faultindex.js`, `faultmeta.js`, `faultinfo.js` and `pcodes.js`
-are all generated. Never edit them by hand.
+**The transport** moves bytes: Web Serial or a THOR WebSocket in the browser.
+`app/renderer/core/webshim.js` picks one at load time and installs itself
+over `fetch`, so the renderer never knows which.
 
 
 ## Safety
 
-Every job is classified before it runs, and anything the classifier does not
-recognise is treated as a write rather than assumed safe. A blocked write is
-blocked in the VM itself, before anything is transmitted, so it sends zero
-bytes rather than being stopped partway (`tools/verify/test_writeguard.js`
-asserts that). What does change the car is gated, not forbidden: actuator
-tests confirm before firing, are registered before they are sent, and are
-released when you leave the screen; a permanent write (EEPROM, service
-reset) always confirms; coding writes take a backup first and re-read the
-module afterwards to prove what landed.
+Every job is classified before it runs. Anything the classifier does not
+recognise is treated as a write, not assumed safe, and a blocked write is
+blocked inside the VM before a single byte is transmitted
+(`tools/verify/test_writeguard.js` asserts that). What does change the car is
+gated rather than forbidden:
+
+- actuator tests confirm before firing, are registered before they are sent,
+  and are released when you leave the screen;
+- a permanent write (EEPROM, service reset) always confirms, whatever the
+  setting;
+- coding writes take a backup first and re-read the module afterwards; a
+  mismatch is reported as a verification error, not a success.
+
+Flashing is backup (read) only.
 
 
-## Status
+## Flashing the THOR adapter
 
-Verified against a real E46 over K+DCAN: fault reading and clearing, live
-values, identity and coding, actuator tests, and adjustment screens. A key
-press runs the key's own INPA bytecode -- the item body executes in the
-driven VM, so computed arguments (idle-raise setpoints, CO trim steps,
-adaptation clears) go to the wire exactly as INPA sends them, and guided
-test procedures (activate, wait, observe, tear down) run their state
-machines live. Flashing is backup only.
+Stock esp-link exposes only raw telnet on port 23, which a browser cannot
+open. `vendor/esp-link-ws/` adds a binary WebSocket at `/bmweb` bridged to
+the UART and keeps the config pages, WiFi setup, OTA and telnet intact. The
+adapter MCU — the chip that holds everything BMW-specific — is never touched;
+worst case is a non-booting ESP in front of an intact adapter.
 
-The VM is additionally diffed offline against the real EDIABAS engine
-(`src/InpaMac.Cli` keeps it for exactly that), agreeing on 3,729 of 3,730
-results across an E46 corpus.
+1. Back up if you can: `esptool.py --port /dev/cu.usbserial-XXXX read_flash 0 0x400000 thor-backup.bin`
+   (needs the ESP's TX/RX/GND pads; if the dongle is sealed, esp-link's
+   two-slot fallback is your safety net).
+2. Join `Thor_Wifi`, open http://192.168.4.1 → **Upgrade Firmware**. It names
+   the slot it wants, `user1.bin` or `user2.bin`; upload that one from
+   `vendor/esp-link-ws/firmware/`. The wrong one is rejected, not half-written.
+3. After reboot the page reads `Current firmware: esp-link bmweb-ws.3`.
+4. `node tools/thor_ws_probe.js` should end with `VALID IDENT`.
 
-Beta feedback is built in: a Report button bundles the session journal and
-the last wire telegrams (VINs masked), and IFH wire errors file themselves,
-throttled. The collector worker lives in `tools/beta/`.
-
-
-## Requirements
-
-- macOS on Apple Silicon, or desktop Chrome/Edge for the web build
-- A K+DCAN USB cable, which appears as `/dev/cu.usbserial-*`
-
-Running a release build needs nothing else. The app reads only generated JSON.
+To use the adapter on your own LAN instead of its AP, set esp-link's WiFi
+Station page and open the app with `?ws=<its address>`.
 
 
 ## Building from source
 
-BMW's own files are **not in this repository**. They are build inputs: every
-screen, job and table the app ships is generated from them, and they are BMW's
-to distribute, not ours. To build, or to regenerate data, you supply them.
-
-### The short version
+BMW's own files are **not in this repository**. Every screen, job and table
+the app ships is generated from them; they are BMW's to distribute. Running
+the built app needs none of this — only regenerating data does.
 
 ```sh
-scripts/setup/fetch.sh            # ask what you need, then get it
-scripts/setup/fetch.sh --list     # what is available, and how big
-scripts/setup/fetch.sh --vendor   # EDIABAS + INPA, ~710 MB
-scripts/setup/fetch.sh --wiring E46   # one car's diagrams (or blank for all)
-scripts/setup/check-vendor.sh     # what is installed, what is missing
+scripts/setup/fetch.sh --list       # what is available, and how big
+scripts/setup/fetch.sh --vendor     # EDIABAS SGBDs + INPA screens, ~710 MB
+scripts/setup/fetch.sh --coding     # NCS Expert coding definitions, 5.6 MB
+scripts/setup/fetch.sh --wiring E46 # built wiring archives, one car or all
+scripts/setup/fetch.sh --wds        # the raw WDS ISO, only to rebuild wiring
+scripts/setup/check-vendor.sh       # what is installed, what is missing
 ```
 
-Everything comes from one Hugging Face dataset now
-([CraigFf/bmw-files](https://huggingface.co/datasets/CraigFf/bmw-files)) —
-plain HTTPS, resumable, no login. The old per-asset scripts
-(`fetch-vendor.sh`, `fetch-wiring.sh`, `fetch-coding.sh`, `fetch-wds.sh`)
-still work; they now forward to `fetch.sh`.
-
-**Running BMacW needs none of this.** The app is self-contained: the
-renderer reads static JSON out of `dist-web/`, and `vendor/` is a build
-input rather than runtime data. You want `--vendor` to regenerate the ECU
-data, and `--wiring` if you want diagrams in the app.
-
-Only the first is needed to build and run. The other two each light up one
-screen, and `check-vendor.sh` says how to get them if they are absent rather
-than failing. Each section below explains what its script actually does.
-
-### Get the BMW files
-
-The package is publicly shared, so this is scripted:
-
-```sh
-scripts/setup/fetch-vendor.sh
-```
-
-It downloads `ec-apps.zip` (~710 MB) from the Drive folder linked below,
-unpacks the two trees it needs with `7z`, and puts them in place. Needs `curl`
-and `7z` (`brew install sevenzip`) and about 4 GB free while unpacking. It
-no-ops if `vendor/` is already complete.
-
-Not the `BMW_Standard_Tools_Setup` .exe in the same folder: that is a 32 MB
-installer stub which downloads its payload at install time, so it holds no
-`.prg` or `.IPO` at all.
-
-To do it by hand instead: BMW Standard Tools contains an `EDIABAS` directory and
-an `EC-APPS` directory. Copy them in so the tree looks exactly like this:
+Everything comes from one Hugging Face dataset
+([CraigFf/bmw-files](https://huggingface.co/datasets/CraigFf/bmw-files)),
+plain HTTPS, resumable. Needs `curl`, and `7z` for `--vendor`/`--wds`. The
+expected layout:
 
 ```
 vendor/
-  EDIABAS/
-    Ecu/                *.prg     ECU modules: job code, tables, metadata
-  EC-APPS/
-    INPA/
-      SGDAT/            *.IPO     INPA screens, and their *.ini siblings
-      CFGDAT/           *.ENG     chassis config: which ECUs each car has
+  EDIABAS/Ecu/                 *.prg   ECU modules (required)
+  EC-APPS/INPA/SGDAT/          *.IPO   INPA screens (required)
+  EC-APPS/INPA/CFGDAT/         *.ENG   chassis config (required)
+  EC-APPS/NCSEXPER/DATEN/      coding definitions (optional)
+  WDS/                         wiring source (optional)
+app/renderer/data/wiring/      *.wiring  built wiring archives (optional)
 ```
 
-`EDIABAS/Bin` and `EDIABAS/Hardware` are Win32 tools and drivers, skip them.
-Filename case does not matter, the tools match either. The installer is
-[here](https://drive.google.com/drive/folders/1Odd9etzajiDBUYiso5NsTMZSoTOkeTXl)
-if you would rather fetch it yourself.
+### Build the site
 
-### Get the wiring diagrams (optional)
-
-A separate BMW product and a separate download, so it is a separate script:
+This is what `.github/workflows/pages.yml` does:
 
 ```sh
-scripts/setup/fetch-wds.sh
+scripts/setup/data-cache.sh expand        # data/inpa-ir/*.json.gz -> .json
+python3 tools/export/build_ecu_tree.py    # data/chassis/<CAR>/<ECU>/
+python3 tools/export/web_export.py --out dist-web
+cp -R app/renderer/. dist-web/
+python3 -m http.server -d dist-web 8080   # serve it
 ```
 
-It downloads the WDS v15 English ISO (4.7 GB), mounts it, and copies the
-~200 MB the importer actually reads into `vendor/WDS`: the shared `svg/` and
-`zinfo/` document stores plus one document tree per chassis. The rest of the
-disc is a Java applet and a frameset that the app replaces with its own
-viewer. Needs `hdiutil` (so macOS; on Linux, mount the ISO and copy its
-`release/us` tree to `vendor/WDS` by hand) and about 11 GB free while working.
-It no-ops if `vendor/WDS` is already there, and resumes a part-finished
-download.
-
-Then build the per-car archives:
+`scripts/build/build-web.sh` wraps the same steps with esbuild bundling and
+gzip precompression. Other generators:
 
 ```sh
-tools/wds_import.py --wds vendor/WDS
+node scripts/build/build-faultdb.mjs      # app/renderer/data/faultdb.js + faultindex.js
+tools/decompile/daten_map.py              # app/renderer/data/datenmap.js (coding labels)
+tools/wds_import.py --wds vendor/WDS      # app/renderer/data/wiring/*.wiring
+node scripts/build/offline-build.mjs --dist dist-web --out release-builds   # the 4 zips
 ```
 
-Skip all of this if you do not want wiring diagrams. Nothing else depends on
-them, and `check-vendor.sh` reports them as absent rather than failing.
+Files under `app/renderer/data/` named `faultdb`, `faultindex`, `faultmeta`,
+`faultinfo`, `pcodes`, `datenmap` are generated. Never edit them by hand.
 
-The importer also takes `--images-out DIR`, which writes the component
-photographs beside the archives instead of inside them, deduplicated across
-chassis. That is how the hosted build is made: a GitHub Pages site may hold
-1 GB and the archives are 1.02 GB, of which 878 MB is photographs. So the web
-build ships the 144 MB of diagrams and text and pulls each picture from
-[a CDN](https://github.com/dader34/BMacW-wiring-images) as it is needed,
-keeping it in the browser's cache. The macOS app and offline copies keep the
-images inside their archives and never touch the network for them.
-
-### Coding definitions (optional)
-
-The Coding screen labels a module's settings from two independent sources.
-The first needs nothing extra: 32 ECUs name their own coding values inside
-their SGBD, and `coding_map.py` mines those. The second is BMW's own coding
-description, which is what NCS Expert reads, and covers the modules whose
-SGBD hands back an unlabelled blob:
+### Check
 
 ```sh
-scripts/setup/fetch-coding.sh           # 5.6 MB, all 18 chassis
-tools/decompile/daten_map.py            # -> app/renderer/data/datenmap.js
+tools/check.sh
 ```
 
-That is a slice of SP-Daten: 2,219 `.C0x` module files across E36 to RR1,
-each chassis with the keyword tables that name its functions and values.
-The full SP-Daten distribution is around 16 GB, but almost all of that is
-ECU firmware for reprogramming, which nothing here uses; the coding
-definitions are 17.7 MB of it.
+Runs every guard on the pipeline: the `.IPO` round-trip, the decompiler
+against known screens, IR emitter invariants, the interpreter against known
+screens, the VM against captured telegrams, wire framing and checksums, the
+write guard, the coding encoder round-trip, variant resolution, and more.
+Checks that need the real EDIABAS engine skip cleanly unless `BMACW_PORT`
+points at a running native shell.
 
-**The keyword table is per chassis** and each archive carries its own: E39
-uses `SWTFSW01`, E46 `SWTFSW06`, E60 `SWTFSW05`, E70 `SWTFSW11`. Reading a
-module against the wrong one does not fail loudly, it returns real keywords
-belonging to some other function, so chassis and table travel together.
+### Release
 
-Together the two sources describe 85 of the 310 shipped ECUs. The editor
-reads, stages a change and shows exactly what would be sent; sending is
-gated behind an explicit confirm, takes a backup first, and re-reads the
-module to prove what landed.
+Bump `<ApplicationDisplayVersion>` and `<ApplicationVersion>` in
+`src/InpaMac.App/InpaMac.App.csproj` (the version stamp both workflows read)
+and `version` in `package.json`, then push a `v<version>` tag.
+`release-web.yml` builds `dist-web`, pulls the wiring archives from
+[dader34/BMacW-wiring-images](https://github.com/dader34/BMacW-wiring-images),
+and attaches the four offline zips to the GitHub Release. The tag must match
+the csproj version or the job refuses to build.
 
-### Check the layout
 
-Before anything else. It names exactly what is missing and where it goes:
+## URL flags
 
-```sh
-scripts/setup/check-vendor.sh
-```
+| Flag | Effect |
+|---|---|
+| `?demo=1` | demo mode, simulated values |
+| `?thor=1` | force the THOR transport |
+| `?ws=<host>` | THOR adapter at another address (`host`, `host:port` or `ws://host/path`) |
+| `?api=<base>` | alternate API base |
+| `?dtc=<code>&sgbd=<name>` | deep link to a fault lookup entry |
+| `#apps`, `#apps/wiring/…`, `#apps/parts/…`, `#apps/tool32` | Apps hub routes |
 
-### Build
 
-```sh
-tools/export/build_ecu_tree.py        # data/chassis/<CAR>/<ECU>/ from data/ecu-src
-tools/wds_import.py --wds vendor/WDS  # wiring archives (optional, needs WDS)
-scripts/build/build-web.sh            # static web build -> dist-web/
-dotnet build src/InpaMac.App          # macOS app
-scripts/build/package-macos.sh        # signed DMG (needs dist-web/ first)
-tools/check.sh                        # every guard on the pipeline
-```
+## Beta feedback
 
-`tools/check.sh` verifies the decompiler against known screens, the IR
-emitter's invariants, the interpreter against known screens across the
-decompiled ECUs, the VM against captured telegrams, the VM bridge's frame
-reconstruction, the wire framing and checksums, and the write guard. With the
-app running it also checks job metadata against the engine and that every
-table an SGBD references is shipped; without it those two are skipped.
+A **Report** button next to the Settings gear bundles the app and browser
+version, the current screen, the session journal (screens, jobs, errors) and
+the last wire telegrams, with VINs masked, and posts them to the collector in
+`tools/beta/` (endpoint configurable in Settings). If the send fails it
+saves the report as a `.json` you can attach by hand.
 
-### Where the data lives
-
-`data/ecu-src/` holds one gzipped copy per SGBD of the generated job code,
-metadata and tables. That is what is committed. `data/chassis/<CAR>/<ECU>/` is
-built from it and gitignored: everything about one ECU in one folder, which
-means an SGBD used by several cars is stored once per car (310 distinct ECUs
-become 1022 folders). Convenient to work in, wasteful to commit, so only the
-deduplicated source is in git.
-
-Two folders sit outside the cars: `other/` for ECUs INPA decompiles but no
-chassis config references, and `vehicle/` for the whole-vehicle screens BMW
-ships per car rather than per module. Neither is shipped.
 
 ## Layout
 
 ```
-app/renderer/     the UI: IR interpreter, BEST2 VM, transport shim
-src/BMacW.Host/   shell core: file host, cable, TCP, settings, paths
-src/InpaMac.App/  macOS shell: AppKit window + WKWebView around that core
-src/InpaMac.Cli/  the real EDIABAS engine, kept to verify the VM against
-vendor/esp-link-ws/  WebSocket firmware for the THOR adapter, + prebuilt images
-tools/            decompilers, exporters, test harnesses
-data/ecu-src/     committed source: one gzipped copy per SGBD
-data/chassis/     derived per-car tree (gitignored)
-vendor/           BMW originals: NOT in the repo, supply your own
-vendor/WDS/       BMW's wiring diagrams, optional (scripts/setup/fetch-wds.sh)
-vendor/EC-APPS/NCSEXPER/DATEN/  coding definitions (scripts/setup/fetch-coding.sh)
+app/renderer/          the app: IR interpreter, BEST2 VM, transport shim, screens
+  core/                bestvm.js, webshim.js, coding-write.js, remote.js, journal.js
+  screens/             apps hub, lookup, wiring, etk, tool32, tuning, coding
+  data/                generated JS data (fault DB, coding labels, wiring archives)
+data/ecu-src/          committed source: one gzipped copy per SGBD
+data/inpa-ir/          decompiled INPA screens (gzipped)
+data/chassis/          derived per-car tree (gitignored)
+tools/                 decompilers, exporters, verify/ test harnesses, beta/ collector
+scripts/setup/         fetch.sh, check-vendor.sh, data-cache.sh
+scripts/build/         build-web.sh, build-bundle.sh, offline-build.mjs, build-faultdb.mjs
+vendor/esp-link-ws/    WebSocket firmware for the THOR adapter, with prebuilt images
+vendor/                BMW originals: NOT in the repo, supply your own
+src/BMacW.Host/        C# shell core: static host, cable proxy (not released)
+src/InpaMac.App/       macOS WKWebView shell around that core (not released)
+src/InpaMac.Cli/       the real EDIABAS engine, kept only to verify the VM against
 ```
 
-`src/InpaMac.Cli` still links EDIABAS on purpose. It is the ground truth the VM
-is diffed against; the app itself ships no engine.
+The native macOS shell is kept in the tree and still holds the version stamp,
+but no desktop build is published; the browser is the product.
 
 
-## Credits
+## Credits and license
 
-Built on the file format work in
-[EdiabasLib](https://github.com/uholeschak/ediabaslib) by Ulrich Holeschak.
-EDIABAS, INPA and the vehicle data are BMW's.
-
-
-## License
-
-GPLv3. The DME flash code is ported from
-[terraphantm/MS45-Flasher](https://github.com/terraphantm/MS45-Flasher), which is
-GPLv3. See `LICENSE` and `NOTICE.md`.
+Built on the file-format work in
+[EdiabasLib](https://github.com/uholeschak/ediabaslib) by Ulrich Holeschak
+(Apache 2.0). The DME flash code is ported from
+[terraphantm/MS45-Flasher](https://github.com/terraphantm/MS45-Flasher)
+(GPLv3), which makes the project as a whole **GPLv3**. See `LICENSE` and
+`NOTICE.md`. EDIABAS, INPA, ISTA, ETK, WDS and the vehicle data are BMW's.
