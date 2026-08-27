@@ -736,6 +736,19 @@ async function irRunGuided(ecu, ir, it, menuName, container, back, trail) {
       step = vm.resume();
       continue;
     }
+    if (step.kind === 'input') {
+      const asked = await inputDialog({
+        title: esc(deGerman(step.prompts[0] || '') || step.prompts[0] || ''),
+        body: esc(deGerman(step.prompts[1] || '') || step.prompts[1] || ''),
+        kind: 'number',
+        example: step.lo != null ? String(step.lo) : '',
+        confirmLabel: 'OK',
+      });
+      const n = Math.trunc(Number(asked));
+      if (asked == null || !Number.isFinite(n)) { stop = true; break; }
+      step = vm.resume(n);
+      continue;
+    }
     // a %STATE yield: show where we are, offer the machine's key when its
     // wait segment has one, else tick the poll loop forward
     stateEl.textContent = String(step.name || '').replace(/^%/, '');
@@ -752,6 +765,200 @@ async function irRunGuided(ecu, ir, it, menuName, container, back, trail) {
   }
   sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · `
     + `${stop ? 'stopped' : 'done'}`;
+  return true;
+}
+
+// ---- live item bodies -------------------------------------------------
+//
+// A key whose static decode is AMBIGUOUS lost its argument to script: INPA
+// computes it in the item's body (ms450's m_llco steps all decoded as arg
+// "0", the LLERH steps all as the STOP job -- the real send is
+// clamp(setpoint+delta) inside a helper). The body ships in the exec twin,
+// so run IT: stepStartItem is INPA's keypress, the driven call stack takes
+// the helper's INPAapiJob to the wire, and the argument is whatever the
+// bytecode computes. One VM per module persists across presses, the way
+// INPA's runtime does -- +10 then +10 sends 10 then 20.
+const _itemVms = new Map();
+
+function irItemLossy(ir, menuName, it) {
+  if (!it || it.nr == null || !it.job) return false;
+  const raw = ((ir.menus || {})[menuName] || {}).items || [];
+  const key = (x) => `${x.job || ''}\u0000${x.jobArg || ''}`;
+  const mine = raw.find((x) => x.nr === it.nr);
+  if (!mine || !mine.job) return false;
+  return raw.filter((x) => x.label && x.job && key(x) === key(mine)).length >= 2;
+}
+
+async function irItemVm(ecu, exec) {
+  const ck = String(ecu.sgbd).toLowerCase();
+  let rec = _itemVms.get(ck);
+  if (!rec || rec.exec !== exec) {
+    const vm = new IpoVm(exec, { budget: 800000, wireJobs: true,
+                                 host: new FeedHost() });
+    // the module's startup defaults (mode flags), answered with silence --
+    // startup does not touch the wire, but a stray job must not park the VM
+    if (exec.procs.__inpa_startup__) {
+      try {
+        let st = vm.stepStart('__inpa_startup__');
+        for (let n = 0; n < 50 && st && st.kind !== 'done'; n++) {
+          st = vm.resume(new Map());
+        }
+      } catch (e) { /* defaults only */ }
+    }
+    rec = { vm, menus: new Set(), exec };
+    _itemVms.set(ck, rec);
+  }
+  return rec;
+}
+
+// Every job name an item's body (and its helpers, one level) can send.
+function irItemBodyJobs(exec, toks, i0, end) {
+  const out = [];
+  const scan = (tk, a, b, depth) => {
+    for (let i = a; i < Math.min(b, tk.length); i++) {
+      const t = tk[i];
+      if (t.op === 'call' && /^INP.?apiJob/.test(t.name || '')) {
+        for (let j = i - 1; j >= Math.max(0, i - 8); j--) {
+          const c = tk[j];
+          if (c.op === 'const' && c.t === 's'
+              && /^[A-Z][A-Z0-9_]{3,}$/.test(String(c.v))) {
+            if (!out.includes(c.v)) out.push(c.v);
+            break;
+          }
+          if (c.op === 'frame') break;
+        }
+      } else if (t.op === 'calluser' && depth < 2) {
+        const nm = (exec.byid || {})[`func:${t.n}`];
+        const body = nm && exec.procs[nm];
+        if (Array.isArray(body)) scan(body, 0, body.length, depth + 1);
+      }
+    }
+  };
+  scan(toks, i0, end, 0);
+  return out;
+}
+
+async function irRunItemLive(ecu, ir, menuName, it, container, back, trail) {
+  if (typeof IpoVm === 'undefined' || typeof FeedHost === 'undefined') {
+    return false;
+  }
+  const exec = await irLiveExec(irExecSgbd(ecu));
+  const toks = exec && exec.procs && exec.procs[menuName];
+  if (!Array.isArray(toks)) return false;
+  const idx = toks.findIndex((t) => t.op === 'ITEM' && t.nr === it.nr);
+  if (idx < 0) return false;
+  let bend = toks.length;
+  for (let j = idx + 1; j < toks.length; j++) {
+    if (toks[j].op === 'ITEM') { bend = j; break; }
+  }
+  const jobs = irItemBodyJobs(exec, toks, idx + 1, bend);
+  const reopen = () => renderIrMenu(ecu, ir, menuName, container, back, trail);
+  const writes = jobs.filter((j) => (typeof isWriteJob === 'function'
+    ? isWriteJob(j) : /^(STEUERN|START)|SCHREIBEN|LOESCH|RESET|PROG/i.test(j)));
+  if (confirmActuators() || writes.length) {
+    const ok = await confirmDialog({
+      title: `${esc(irLabel(it.label) || it.label)} on ${esc(ecu.label)}?`,
+      body: `Runs INPA's own key script, live`
+        + (jobs.length ? `; it can send <span class="mono">`
+          + `${jobs.map(esc).join(' · ')}</span>.` : `.`)
+        + `<br><br>The argument is computed by the script, exactly as INPA `
+        + `computes it.`,
+      confirmLabel: 'Run', danger: writes.length > 0,
+    });
+    if (!ok) { sbLeft.textContent = 'cancelled'; return true; }
+  }
+  const rec = await irItemVm(ecu, exec);
+  const vm = rec.vm;
+  const msgs0 = (vm.out.messages || []).length;
+  const sent = [];
+  const drive = async (step) => {
+    for (let n = 0; n < 400 && step && step.kind !== 'done'; n++) {
+      if (step.kind === 'job') {
+        const sg = String(step.sgbd || ecu.sgbd).toLowerCase();
+        // register BEFORE send: release-on-leave holds for script sends too
+        if (/^(STEUERN|START)/i.test(step.job)
+            && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(step.job)
+            && typeof activeTests === 'object') {
+          activationEcu = ecu;
+          activeTests.add(step.job);
+          activeDrives.set(step.job, step.arg ? `${step.arg};0` : null);
+        }
+        const fed = new Map();
+        try {
+          const q = step.arg ? `?arg=${encodeURIComponent(step.arg)}` : '';
+          const d = await api(`/api/ecu/${sg}/run/${step.job}${q}`,
+                              { method: 'POST' });
+          for (const set of dataSets(d.sets)) {
+            for (const [k, v] of Object.entries(set)) {
+              if (!k.startsWith('_')) fed.set(k, v);
+            }
+          }
+        } catch (e) { fed.set('JOB_STATUS', 'ERROR_NO_ANSWER'); }
+        sent.push(`${step.job}${step.arg ? ` ${step.arg}` : ''} · `
+          + `${fed.get('JOB_STATUS') || 'OKAY'}`);
+        step = vm.resume(fed);
+      } else if (step.kind === 'wait') {
+        await new Promise((r) => setTimeout(r,
+          Math.min(Number(step.ms) || 0, 30000)));
+        step = vm.resume();
+      } else if (step.kind === 'input') {
+        // INPA's own prompt, in its own words (inputint's title, hint and
+        // range come off the stack). Cancel abandons the keypress.
+        const asked = await inputDialog({
+          title: esc(deGerman(step.prompts[0] || '') || step.prompts[0]
+            || it.label),
+          body: esc(deGerman(step.prompts[1] || '') || step.prompts[1] || '')
+            + (step.lo != null && step.hi != null
+              ? `<br><br>Accepted range <b>${step.lo}</b> to `
+                + `<b>${step.hi}</b>.` : ''),
+          kind: 'number',
+          example: step.lo != null ? String(step.lo) : '',
+          confirmLabel: 'OK',
+        });
+        const n = Math.trunc(Number(asked));
+        if (asked == null || String(asked).trim() === ''
+            || !Number.isFinite(n)
+            || (step.lo != null && n < step.lo)
+            || (step.hi != null && n > step.hi)) {
+          sent.push('cancelled');
+          break;
+        }
+        step = vm.resume(n);
+      } else {
+        break;              // a %STATE in a key body: not this path's shape
+      }
+    }
+  };
+  try {
+    // the menu's own prologue once per menu per VM (title, page defaults)
+    if (!rec.menus.has(menuName)) {
+      rec.menus.add(menuName);
+      const first = toks.findIndex((t) => t.op === 'ITEM');
+      if (first > 0) await drive(vm.stepStartRange(menuName, 0, first));
+    }
+    await drive(vm.stepStartItem(menuName, it.nr));
+  } catch (e) {
+    container.innerHTML = errorBlock(e.message);
+    sbLeft.textContent = 'failed';
+    setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                  kind: 'back', fn: reopen }], typeof shiftKeys === 'function'
+      ? undefined : undefined);
+    return true;
+  }
+  // the script's own dialog (its error box), in its own words
+  const msgs = (vm.out.messages || []).slice(msgs0);
+  if (msgs.length) {
+    const m = msgs[msgs.length - 1];
+    await confirmDialog({
+      title: esc(deGerman(m.title) || m.title),
+      body: esc(deGerman(m.body || '') || m.body || ''),
+      confirmLabel: 'OK', cancelLabel: 'Close',
+    });
+  }
+  keepActivationsDuring(reopen);
+  // after the redraw, so the menu's own status line does not paint over it
+  sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · `
+    + (sent.length ? sent.join('  |  ') : 'ran · nothing sent');
   return true;
 }
 
@@ -1368,35 +1575,114 @@ function irSameBar(ir, menu, from) {
   return shared / Math.max(A.size, B.size) > 0.8;
 }
 
-// INPA's menu IS a screen, and most ECUs print live identity values (part
-// number, VIN, date) above the softkey list. Read once, not polled -- they are
-// identity facts, not gauges.
+// INPA's menu IS a screen: the softkeys sit on a backdrop that prints the
+// function's title, its captions and its live values ("MS45 LL - Drehzahl
+// verstellen / LL - Istwert / LL - Sollwert"). Draw the WHOLE backdrop --
+// statics immediately, values as placeholders filled by the read and
+// re-polled while the menu stands, so an adjust menu reads like INPA's page
+// rather than a bare key list. The screen comes from the menu's own record,
+// the entry, or INPA's sibling naming (m_llco is drawn on s_llco).
 async function irMenuHeader(ecu, ir, menuName, el) {
   if (!el) return;
   const name = ((ir.menus || {})[menuName] || {}).screen
-    || (menuName === (ir.entry || {}).menu ? (ir.entry || {}).screen : null);
+    || (menuName === (ir.entry || {}).menu ? (ir.entry || {}).screen : null)
+    || (((ir.screens || {})['s' + String(menuName).slice(1)])
+        ? 's' + String(menuName).slice(1) : null);
   const scr = name && (ir.screens || {})[name];
   if (!scr) return;
-  const rows = irRows(scr).rows.filter(r => r.kind === 'value');
   const jobs = (scr.jobs || []).filter(j => !j.write);
-  if (!rows.length || !jobs.length) return;
-  const vals = new Map();
-  for (const j of jobs) {
-    try {
-      const q = j.arg ? `?arg=${encodeURIComponent(j.arg)}` : '';
-      const d = await api(`/api/ecu/${ecu.sgbd}/run/${j.name}${q}`,
-                          { method: 'POST' });
-      flatResults(d.sets).forEach(([k, v]) => vals.set(k, v));
-    } catch { /* the menu still stands without its header */ }
-  }
   const descs = await irDescs(ecu, scr);
-  const shown = rows.filter(r => vals.has(r.key));
-  if (!shown.length || !el.isConnected) return;
-  el.innerHTML = shown.map(r => `<span class="ir-head-cell">`
-    + `<span class="ir-head-label">`
-    + `${esc(irLabel(r.label || descs.get(r.key) || r.key))}</span>`
-    + `<span class="ir-head-value">${esc(String(vals.get(r.key)))}</span>`
-    + `</span>`).join('');
+  if (!el.isConnected) return;
+
+  // the backdrop, line by line: text elements are captions (a lone first
+  // text is the page title), value elements become keyed cells
+  const lines = (scr.lines || []).slice(0, 14);
+  const parts = [];
+  let sawAny = false;
+  // a printed softkey row ("< F1 > EINSPRITZVENTILE") is INPA's own key help
+  // -- the app draws the real key list below, so showing it doubled the menu
+  const softkey = /<\s*(?:shift\s*>\s*\+\s*<\s*)?f\s*\d+\s*>/i;
+  lines.forEach((ln, i) => {
+    const els = ln.elements || [];
+    if (els.some(e => e.t === 'text' && softkey.test(String(e.s || '')))) {
+      return;                      // the whole line belongs to the key bar
+    }
+    const texts = els.filter(e => e.t === 'text' && String(e.s || '').trim()
+      && !/^[=\-_|]+$/.test(String(e.s).trim()));
+    const values = els.filter(e => e.t === 'value' && e.key);
+    if (!texts.length && !values.length) return;
+    sawAny = true;
+    if (i === 0 && texts.length === 1 && !values.length) {
+      parts.push(`<div class="ir-head-title">${esc(irLabel(texts[0].s)
+        || texts[0].s)}</div>`);
+      return;
+    }
+    const cells = [];
+    if (values.length && texts.length >= values.length) {
+      // INPA lays captions above their values by position ("LL - Istwert /
+      // LL - Sollwert" over the two rpm readouts): the LAST N texts pair
+      // with the N values; a text left over ahead of them is the page's own
+      // headline ("MS45 LL - Drehzahl verstellen")
+      const lead = texts.slice(0, texts.length - values.length);
+      const caps = texts.slice(texts.length - values.length);
+      lead.forEach((t, k) => {
+        if (i === 0 && k === 0) {
+          parts.push(`<div class="ir-head-title">${esc(irLabel(t.s) || t.s)}`
+            + `</div>`);
+        } else {
+          cells.push(`<span class="ir-head-label">${esc(irLabel(t.s) || t.s)}`
+            + `</span>`);
+        }
+      });
+      values.forEach((v, k) => {
+        cells.push(`<span class="ir-head-cell"><span class="ir-head-label">`
+          + `${esc(irLabel(caps[k].s) || caps[k].s)}</span>`
+          + `<span class="ir-head-value" data-key="${esc(v.key)}">–</span>`
+          + `</span>`);
+      });
+    } else {
+      for (const t of texts) {
+        cells.push(`<span class="ir-head-label">${esc(irLabel(t.s) || t.s)}`
+          + `</span>`);
+      }
+      for (const v of values) {
+        cells.push(`<span class="ir-head-cell"><span class="ir-head-label">`
+          + `${esc(irLabel(descs.get(v.key) || '') || '')}</span>`
+          + `<span class="ir-head-value" data-key="${esc(v.key)}">–</span>`
+          + `</span>`);
+      }
+    }
+    parts.push(`<div class="ir-head-row">${cells.join('')}</div>`);
+  });
+  if (!sawAny) return;
+  el.innerHTML = parts.join('');
+
+  if (!jobs.length) return;
+  // fill the value cells from the backdrop's own read jobs, and keep them
+  // fresh while the menu is on screen -- an adjust page's Istwert is a
+  // gauge, not an identity fact
+  const tick = async () => {
+    if (!el.isConnected) return;
+    const vals = new Map();
+    for (const j of jobs) {
+      try {
+        const q = j.arg ? `?arg=${encodeURIComponent(j.arg)}` : '';
+        const d = await api(`/api/ecu/${ecu.sgbd}/run/${j.name}${q}`,
+                            { method: 'POST' });
+        flatResults(d.sets).forEach(([k, v]) => vals.set(k, v));
+      } catch { /* the menu still stands without its values */ }
+    }
+    if (!el.isConnected) return;
+    el.querySelectorAll('.ir-head-value[data-key]').forEach((cell) => {
+      const v = vals.get(cell.dataset.key);
+      if (v != null) cell.textContent = String(v);
+    });
+  };
+  await tick();
+  if (typeof scheduleLive === 'function' && el.isConnected
+      && el.querySelector('.ir-head-value[data-key]')) {
+    scheduleLive(() => { if (el.isConnected) return tick(); });
+  }
 }
 
 // Does pressing this key open a MENU, or the screen it also names? A key can
@@ -1643,6 +1929,11 @@ function irModeGroup(ir, menuName, it) {
   if (!Number.isFinite(Number(it.sel))) return null;
   const peers = irMenuItems(ir, menuName)
     .filter(x => x.selSlot === it.selSlot);
+  // ...and a radio group offers DISTINCT values (quitting: 0 vs 1). Five
+  // keys all writing 1 into the same slot (LLERH's +10/-10/... setting the
+  // "adjusted" flag) select nothing -- treating them as a group swallowed
+  // the keypress as a lamp change.
+  if (new Set(peers.map(x => String(x.sel))).size < 2) return null;
   return peers.length > 1 ? peers : null;
 }
 
@@ -2652,6 +2943,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }], shiftKeys());
         return;
       }
+      // A key whose siblings share its (job, argument) decode lost the real
+      // argument to script -- run INPA's own key body live instead of firing
+      // the flattened job (which would send m_llco's "+" as CO_PERC=0).
+      if (irItemLossy(ir, menuName, it)) {
+        const ran = await irRunItemLive(ecu, ir, menuName, it, container,
+                                        back, trail);
+        if (ran) return;
+      }
       // No variant gate here any more. inpainit runs live at module ENTRY and is
       // the authority on which control unit answered -- a wrong/absent variant
       // never opens the menu ("Program will be stopped!"), so by the time a key
@@ -2861,6 +3160,15 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     if (scr && irIsInfo(scr, it.screen)) {
       renderIdentity(ecu, irInfoCard(scr), container, backAct);
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
+      return;
+    }
+    // A LOSSY adjust key runs its body, never the readout path: the backdrop
+    // screen (s_system_llerh) executes to live VALUE ROWS now, and both the
+    // identity-card branch and the readout list would otherwise swallow the
+    // "+10" keypress as a read-only page. The menu redraw shows those same
+    // values as the header afterwards, which is where INPA draws them.
+    if (it.job && irItemLossy(ir, menuName, it)) {
+      await open({ ...it, inPlace: true, screen: null });
       return;
     }
     // Memory/info/actuator/picker above keep their mined structures; from here

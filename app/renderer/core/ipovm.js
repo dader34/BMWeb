@@ -143,6 +143,15 @@ function cmpEq(a, b) {
 function binop(name, a, b) {
   switch (name) {
     case 'add': {
+      // BOTH SIDES NUMERIC -> ARITHMETIC, boxed or not. INPA's + on int
+      // variables is addition; the slot/bound boxes exist so the offline
+      // derivation can bind draws, and letting a box force concatenation
+      // made a live accumulator compute '10'+10='1010' (llerh's setpoint on
+      // the second keypress). boundNum keeps the slot and key riding on the
+      // numeric result, so draw binding survives the arithmetic.
+      const numish = (x) => typeof x === 'number' || isFloat(x) || isSlot(x)
+        || (isBound(x) && /^-?\d+(\.\d+)?$/.test(String(x.s).trim()));
+      if (numish(a) && numish(b)) return boundNum(num(a) + num(b), a, b);
       // + is BOTH concatenation and arithmetic. A row is often
       // `<bound slot> + " Werte"`; a slot concatenated must keep its identity
       // or the draw sees only text.
@@ -179,7 +188,16 @@ function binop(name, a, b) {
     case 'ge': return num(a) >= num(b);
     case 'and': return truthy(a) && truthy(b);
     case 'or': return truthy(a) || truthy(b);
-    case 'neg': return !truthy(a == null ? b : a);
+    case 'neg': {
+      // 0x6d is UNARY MINUS (ipo_disasm ground truth): llerh's "-10" is
+      // `const 10; neg`, the clamp bounds are `const 128; neg`. Boolean-not
+      // only ever fit guard shapes; a numeric operand negates arithmetically.
+      const x = a == null ? b : a;
+      const numish = typeof x === 'number' || isFloat(x)
+        || (isBound(x) && /^-?\d+(\.\d+)?$/.test(String(x.s).trim()));
+      if (numish) return boundNum(-num(x), x, null);
+      return !truthy(x);
+    }
     default: return null;
   }
 }
@@ -572,8 +590,36 @@ class IpoVm {
   stepStart(name) {
     const toks = this.procs[name];
     if (!toks) throw new IpoError(`no proc ${name}`);
-    this._susp = { toks, frame: new Map(), i: 0, stack: [],
-                   index: this._byteIndex(toks), end: this._procEnd(toks),
+    return this._beginRange(toks, 0, this._procEnd(toks));
+  }
+
+  // INPA's KEYPRESS: run ONE item's body inside its menu proc. Starts after
+  // the ITEM token, stops at the next one; the body's keypress-guard flags
+  // are preset (pressing the key IS the flag); jumps resolve against the
+  // whole proc, which slicing the body out would lose.
+  stepStartItem(procName, nr) {
+    const toks = this.procs[procName];
+    if (!toks) throw new IpoError(`no proc ${procName}`);
+    const idx = toks.findIndex((t) => t.op === 'ITEM' && t.nr === nr);
+    if (idx < 0) throw new IpoError(`no item ${nr} in ${procName}`);
+    let end = this._procEnd(toks);
+    for (let j = idx + 1; j < end; j++) {
+      if (toks[j].op === 'ITEM') { end = j; break; }
+    }
+    for (const g of keypressGuards(toks, idx + 1, end)) this.globals.set(g, 1);
+    return this._beginRange(toks, idx + 1, end);
+  }
+
+  // A slice of a proc, driven (a menu's prologue: its title and defaults).
+  stepStartRange(procName, i0, end) {
+    const toks = this.procs[procName];
+    if (!toks) throw new IpoError(`no proc ${procName}`);
+    return this._beginRange(toks, i0, Math.min(end, this._procEnd(toks)));
+  }
+
+  _beginRange(toks, i0, end) {
+    this._susp = { toks, frame: new Map(), i: i0, stack: [], callers: [],
+                   index: this._byteIndex(toks), end,
                    remap: this._segRemap(toks) };
     return this._drive();
   }
@@ -596,6 +642,18 @@ class IpoVm {
       } else {
         this._pickInput = value;
         this._driveInput = 0;
+      }
+    } else if (s.pending === 'input') {
+      if (s.pendingStack) {
+        // the input's out-ref targets the SUSPENDED body's locals; resume
+        // runs outside _drive, so switch to that frame for the store
+        const prevFrame = this.frame;
+        this.frame = s.frame;
+        const n = Math.trunc(Number(value));
+        storeOut(this, s.pendingStack,
+                 Number.isFinite(n) ? n : 0, null);
+        this.frame = prevFrame;
+        s.pendingStack = null;
       }
     } else if (s.pending === 'job') {
       // the wire answered; fold its result keys in so a later read sees them
@@ -696,16 +754,22 @@ class IpoVm {
   }
 
   // The resumable loop. Runs synchronously until it suspends or finishes.
+  // Reads s.toks/s.index/s.end afresh each pass: a driven calluser SWITCHES
+  // the suspension onto the callee, and stale locals would keep stepping the
+  // caller's tape.
   _drive() {
     const s = this._susp;
-    const { toks, index, end } = s;
     const prevFrame = this.frame;
-    this.frame = s.frame;
     try {
-      while (s.i < end) {
+      for (;;) {
+        this.frame = s.frame;
+        if (s.i >= s.end) {
+          if (s.callers && s.callers.length) { this._popCall(s); continue; }
+          break;
+        }
         this.steps += 1;
         if (this.steps > this.budget) throw new Halt('step budget');
-        const t = toks[s.i];
+        const t = s.toks[s.i];
         const op = t.op;
         if (op === 'state') {
           // suspend: the drawn screen so far IS the picker
@@ -715,12 +779,19 @@ class IpoVm {
         }
         // every non-suspending op runs exactly as _execIn does, via a shared
         // single-step so the two executors cannot drift
-        const sig = this._stepOne(t, op, s, index, end);
-        if (sig === 'ret') break;
+        const sig = this._stepOne(t, op, s, s.index, s.end);
+        if (sig === 'ret') {
+          if (s.callers && s.callers.length) { this._popCall(s); continue; }
+          break;
+        }
         if (sig === 'jumped') continue;      // _stepOne already moved s.i
-        if (sig && (sig.kind === 'job' || sig.kind === 'wait')) {
-          // a wire job (the renderer runs it) or a timed wait (it sleeps)
+        if (sig === 'called') continue;      // switched into a callee
+        if (sig && (sig.kind === 'job' || sig.kind === 'wait'
+                    || sig.kind === 'input')) {
+          // a wire job (the renderer runs it), a timed wait (it sleeps), or
+          // a user prompt (it asks and hands the answer back)
           s.pending = sig.kind;
+          if (sig.kind === 'input') s.pendingStack = sig.stack;
           return sig;
         }
         s.i += 1;
@@ -781,12 +852,67 @@ class IpoVm {
       s.stack = [];
       if (sig) return sig;             // a wire-job pending action
     } else if (op === 'calluser') {
-      this._callUser(t, stack);
+      const entered = this._pushCall(s, t, stack);
       s.stack = [];
+      if (entered) return 'called';
     } else if (op === 'ret') {
       return 'ret';
     }
     return undefined;
+  }
+
+  // DRIVE INTO THE CALLEE. The offline _callUser executes a user function
+  // through the offline executor, so a job inside a helper never suspends --
+  // and INPA puts the send inside helpers routinely (ms450's llerh(delta)
+  // computes the setpoint and calls START_SYSTEMCHECK_LLERH itself). The
+  // driven path keeps a call stack instead: switch the suspension onto the
+  // callee's tokens; _drive pops back on ret/end. Falls back to the offline
+  // call (a noop for an unknown function) exactly as before.
+  _pushCall(s, t, stack) {
+    const name = this.byid('func', t.n);
+    if (!name || !this.procs[name]) return false;
+    let inKey = null;
+    for (const x of stack) if (isBound(x) && x.key) { inKey = x.key; break; }
+    const outs = stack.filter(isRef);
+    const frame = new Map();
+    stack.forEach((v, i) => frame.set(i, v));
+    if (!s.callers) s.callers = [];
+    s.callers.push({ toks: s.toks, i: s.i, end: s.end, index: s.index,
+                     remap: s.remap, frame: s.frame, inKey, outs });
+    const toks = this.procs[name];
+    s.toks = toks;
+    s.i = 0;
+    s.end = this._procEnd(toks);
+    s.index = this._byteIndex(toks);
+    s.remap = this._segRemap(toks);
+    s.frame = frame;
+    return true;
+  }
+
+  // Return from a driven callee: the same conversion-helper key carry the
+  // offline _callUser performs, then the caller's suspension is restored.
+  _popCall(s) {
+    const c = s.callers.pop();
+    this.frame = c.frame;
+    if (c.inKey) {
+      for (const ref of c.outs) {
+        const dsc = (ref[1] === 2 && this.frame != null) ? LOCAL : GLOBAL;
+        const cur = dsc === GLOBAL ? this.globals.get(ref[2])
+          : (this.frame ? this.frame.get(ref[2]) : null);
+        if (!(isBound(cur) && cur.key)) {
+          const val = mkBound(mkSlot(dsc, ref[2]), '0', c.inKey);
+          this.setBind(dsc, ref[2], c.inKey);
+          if (dsc === GLOBAL) this.globals.set(ref[2], val);
+          else if (this.frame) this.frame.set(ref[2], val);
+        }
+      }
+    }
+    s.toks = c.toks;
+    s.i = c.i + 1;
+    s.end = c.end;
+    s.index = c.index;
+    s.remap = c.remap;
+    s.frame = c.frame;
   }
 
   // The driven executor's jump resolution: the segment-rebased target first
@@ -807,7 +933,9 @@ class IpoVm {
       || `builtin_${(t.n || 0).toString(16).padStart(2, '0')}`;
     if (name === 'INPAapiJob' || name === 'INP1apiJob'
         || name === 'INPAapiJobData') {
-      const strv = (x) => (isPlainStr(x) ? x : (isBound(x) ? x.s : null));
+      const strv = (x) => (isPlainStr(x) ? x : (isBound(x) ? x.s
+        : (typeof x === 'number' ? String(x)
+          : (isFloat(x) ? String(x.v) : null))));
       const sgbd = stack.length > 0 ? strv(stack[0]) : null;
       const job = stack.length > 1 ? strv(stack[1]) : null;
       const arg = stack.length > 2 ? strv(stack[2]) : null;
@@ -817,6 +945,18 @@ class IpoVm {
         return { kind: 'job', job, sgbd: sgbd || null,
                  arg: arg || null, out: this.out };
       }
+    }
+    // input builtins: INPA asks the user and parks until getinputstate says
+    // confirmed. Offline they store '0' -- which a LIVE run must never send
+    // (LLERH's Select would command idle target 0). Suspend instead; the
+    // renderer shows INPA's own prompt and resume() stores the typed value.
+    if (this.wireJobs && /^input(int|real|hex|string)?$/.test(name)) {
+      const prompts = stack.filter((x) => isPlainStr(x) && x.trim());
+      const ints = stack.filter((x) => isPlainInt(x));
+      return { kind: 'input', name, prompts,
+               lo: ints.length > 1 ? ints[ints.length - 2] : null,
+               hi: ints.length > 1 ? ints[ints.length - 1] : null,
+               stack, out: this.out };
     }
     // builtin_1b = wartezeit(ms). Offline a noop; a guided run honours it --
     // the S_ZUHEIZ Pruefung waits 2000ms after DIAGNOSE_ENDE and 10000ms for
