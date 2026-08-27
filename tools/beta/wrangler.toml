@@ -1,0 +1,7 @@
+name = "bmweb-beta"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[[kv_namespaces]]
+binding = "BETA"
+id = "57678a6ee1904245a2c89ce7c0109aee"
