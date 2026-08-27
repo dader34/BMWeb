@@ -165,9 +165,20 @@ async function tryApi(path, opts, container, msg = 'failed') {
 const groupQuery = (o) => (o && o.group) ? `?group=${encodeURIComponent(o.group)}` : '';
 
 // result sets minus the set-0 system summary (kept when it's the only set)
+// EDIABAS answers every job with a SYNTHETIC set 0 the runtime fills
+// (OBJECT, VARIANTE, JOBNAME, SAETZE) ahead of the data sets. The native
+// server passes that through; the browser VM (webshim) returns DATA SETS
+// ONLY and carries the record beside them as `system`. Dropping "set 0" by
+// position therefore threw away the first REAL set in the browser -- one
+// stored fault rendered as "clean fault memory", nine rendered as eight.
+// A system set is recognised by what it contains, never by where it sits.
+function isSystemSet(s) {
+  return !!s && typeof s === 'object'
+    && ('SAETZE' in s || 'JOBNAME' in s || 'OBJECT' in s);
+}
 function dataSets(sets) {
   const list = sets || [];
-  return list.length > 1 ? list.slice(1) : list;
+  return list.length && isSystemSet(list[0]) ? list.slice(1) : list;
 }
 
 // flatten result sets into ordered [key, value] pairs, skipping internal keys
