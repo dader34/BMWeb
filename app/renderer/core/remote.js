@@ -34,8 +34,13 @@ const Remote = {
   // signaling endpoint: the beta worker, /rtc/*. Reuses the same base the
   // report endpoint uses so there is one worker to run, not two.
   base() {
+    // the SAME endpoint the beta kit posts to; its default is baked in at
+    // deploy so a fresh visitor on the hosted site needs no setup. Settings
+    // 'betaEndpoint' overrides per install.
+    const dflt = (typeof BETA_ENDPOINT_DEFAULT === 'string')
+      ? BETA_ENDPOINT_DEFAULT : '';
     const ep = (typeof Settings !== 'undefined')
-      ? Settings.get('betaEndpoint', '') : '';
+      ? Settings.get('betaEndpoint', dflt) : dflt;
     // ".../report" -> ".../rtc"
     return ep ? ep.replace(/\/report$/, '') : '';
   },
