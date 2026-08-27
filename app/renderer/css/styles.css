@@ -395,6 +395,13 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   cursor: pointer;
 }
 .setting-row.disabled { opacity: .45; }
+/* a row with more than one control keeps them together in the single control
+   column (the grid's 3rd track), stacked and right-aligned, so a second
+   button never wraps under the description */
+.setting-row .setting-btns {
+  display: flex; flex-direction: column; gap: 6px; align-items: stretch;
+  justify-self: end; }
+.setting-row .setting-btns .btn { white-space: nowrap; }
 .setting-row.disabled .opacity-control { pointer-events: none; }
 .seg { display: inline-flex; border: 1px solid var(--line-bright); border-radius: 4px; overflow: hidden; flex: none; }
 .seg-btn {

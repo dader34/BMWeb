@@ -1383,6 +1383,9 @@ function irUseTranslations(ir) {
 
 function irLabel(s) {
   if (!s) return s;
+  // "Function labels: Original (EDIABAS)" shows BMW's own strings verbatim --
+  // no i18n lookup, no deGerman. The setting is global (lang() in core.js).
+  if (typeof lang === 'function' && lang() === 'orig') return s;
   if (_irI18n && Object.prototype.hasOwnProperty.call(_irI18n, s)) {
     return _irI18n[s];
   }
@@ -1405,6 +1408,7 @@ function irDescLabel(s) {
 function irState(s) {
   if (s == null) return s;
   const t = String(s).trim();
+  if (typeof lang === 'function' && lang() === 'orig') return irLabel(t);
   if (/^EIN$/i.test(t)) return 'ON';
   if (/^AUS$/i.test(t)) return 'OFF';
   if (/^JA$/i.test(t)) return 'YES';

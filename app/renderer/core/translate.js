@@ -606,6 +606,7 @@ const ARG_PHRASES = {
 
 const _deCache = new Map();
 function deGerman(text) {
+  if (typeof lang === 'function' && lang() === 'orig') return text;
   if (!text) return text;
   if (lang() === 'orig') return text; // keep German in EDIABAS mode
   if (_deCache.has(text)) return _deCache.get(text);
