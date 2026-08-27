@@ -23,6 +23,61 @@ export default {
     const url = new URL(req.url);
     if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
+    // ---- remote-diagnostics signaling -----------------------------------
+    // A one-shot mailbox that pairs two browsers by code: offer/answer/ICE
+    // in, the counterpart out. Data never flows here -- once the peers
+    // connect over WebRTC, the car traffic is browser-to-browser. Everything
+    // is stored in KV with a short TTL so an abandoned code disappears.
+    if (req.method === 'POST' && url.pathname.startsWith('/rtc/')) {
+      const action = url.pathname.slice(5);
+      let m;
+      try { m = await req.json(); } catch { return json({ error: 'not json' }, 400); }
+      const code = String(m.code || '').toUpperCase();
+      if (!/^[A-Z0-9]{6,12}$/.test(code)) return json({ error: 'bad code' }, 400);
+      const K = (k) => `rtc/${code}/${k}`;
+      const TTL = { expirationTtl: 600 };   // 10 min; a session re-offers to refresh
+
+      if (action === 'offer') {
+        // refuse to clobber a live session on the same code (unguessable, so
+        // a collision is a retry, not a takeover)
+        await env.BETA.put(K('offer'), JSON.stringify(m.offer), TTL);
+        return json({ ok: true });
+      }
+      if (action === 'answer') {
+        if (!(await env.BETA.get(K('offer')))) return json({ error: 'no session' }, 404);
+        // one joiner: first answer wins, later ones are refused
+        if (await env.BETA.get(K('answer'))) return json({ error: 'taken' }, 409);
+        await env.BETA.put(K('answer'), JSON.stringify(m.answer), TTL);
+        return json({ ok: true });
+      }
+      if (action === 'ice') {
+        const side = m.from === 'owner' ? 'ownerIce' : 'helperIce';
+        const cur = JSON.parse(await env.BETA.get(K(side)) || '[]');
+        cur.push(m.candidate);
+        await env.BETA.put(K(side), JSON.stringify(cur.slice(-40)), TTL);
+        return json({ ok: true });
+      }
+      if (action === 'poll') {
+        const want = m.want;
+        if (want === 'offer') {
+          const o = await env.BETA.get(K('offer'));
+          return json({ offer: o ? JSON.parse(o) : null });
+        }
+        if (want === 'answer') {
+          const a = await env.BETA.get(K('answer'));
+          return json({ answer: a ? JSON.parse(a) : null });
+        }
+        if (want === 'ownerIce' || want === 'helperIce') {
+          const c = await env.BETA.get(K(want));
+          // read-once so candidates are not re-applied every poll
+          if (c) await env.BETA.delete(K(want));
+          return json({ ice: c ? JSON.parse(c) : [] });
+        }
+        return json({ error: 'bad want' }, 400);
+      }
+      return json({ error: 'unknown rtc action' }, 404);
+    }
+
     if (req.method === 'POST' && url.pathname === '/report') {
       const len = Number(req.headers.get('content-length') || 0);
       if (len > MAX_BYTES) return json({ error: 'too large' }, 413);
