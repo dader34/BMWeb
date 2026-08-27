@@ -741,16 +741,9 @@ async function irRunGuided(ecu, ir, it, menuName, container, back, trail) {
       continue;
     }
     if (step.kind === 'input') {
-      const asked = await inputDialog({
-        title: esc(deGerman(step.prompts[0] || '') || step.prompts[0] || ''),
-        body: esc(deGerman(step.prompts[1] || '') || step.prompts[1] || ''),
-        kind: 'number',
-        example: step.lo != null ? String(step.lo) : '',
-        confirmLabel: 'OK',
-      });
-      const n = Math.trunc(Number(asked));
-      if (asked == null || !Number.isFinite(n)) { stop = true; break; }
-      step = vm.resume(n);
+      const got = await irAskInput(step, null);
+      if (got == null) { stop = true; break; }
+      step = vm.resume(got);
       continue;
     }
     // a %STATE yield: show where we are, offer the machine's key when its
@@ -809,6 +802,56 @@ function irItemActs(exec, toks, i0, end) {
     return false;
   };
   return scan(toks, i0, end, 0);
+}
+
+// One INPA ask, in INPA's own words. The driven VM suspends at every input
+// builtin; this renders the right dialog for its kind and returns what
+// resume() stores: a number (inputint/inputnum), a hex STRING (inputhex),
+// 1/0 from the two-choice box (inputdigital), or an ARRAY for the two-field
+// forms (input2int's Kalenderwoche/Jahr) -- one element per out-ref. null =
+// cancelled, and the keypress is abandoned.
+async function irAskInput(step, fallbackTitle) {
+  const refs = Math.max(1, Number(step.refs || 1));
+  const name = String(step.name || '');
+  const tr = (x) => esc(deGerman(x || '') || x || '');
+  const p0 = step.prompts[0] || fallbackTitle || '';
+  const p1 = step.prompts[1] || '';
+  if (name === 'inputdigital') {
+    // (out bool, title, text, FalseStr, TrueStr): the box offers the two
+    // words, nothing else -- INPA's yes/no
+    const f = step.prompts[step.prompts.length - 2] || 'OFF';
+    const t = step.prompts[step.prompts.length - 1] || 'ON';
+    const yes = await confirmDialog({
+      title: tr(p0), body: tr(p1),
+      confirmLabel: tr(t), cancelLabel: tr(f),
+    });
+    return yes ? 1 : 0;
+  }
+  const hex = /hex/i.test(name);
+  const vals = [];
+  for (let k = 0; k < refs; k++) {
+    // a two-field form captions each field after the title/help pair
+    const cap = refs > 1 ? (step.prompts[2 + k] || `${p0} (${k + 1}/${refs})`)
+      : p1;
+    const asked = await inputDialog({
+      title: tr(p0),
+      body: tr(cap)
+        + (step.lo != null && step.hi != null && !hex
+          ? `<br><br>Accepted range <b>${step.lo}</b> to <b>${step.hi}</b>.`
+          : ''),
+      kind: hex ? 'text' : 'number',
+      example: hex ? '' : (step.lo != null ? String(step.lo) : ''),
+      confirmLabel: 'OK',
+    });
+    if (asked == null || String(asked).trim() === '') return null;
+    if (hex) { vals.push(String(asked).trim()); continue; }
+    const n = Math.trunc(Number(asked));
+    if (!Number.isFinite(n)) return null;
+    if (refs === 1 && step.lo != null && step.hi != null
+        && (n < step.lo || n > step.hi)) return null;
+    vals.push(n);
+  }
+  return refs > 1 ? vals : vals[0];
 }
 
 // The key's body in its menu proc: [toks, bodyStart, bodyEnd], or null when
@@ -931,28 +974,14 @@ async function irRunItemLive(ecu, ir, menuName, it, container, back, trail) {
           Math.min(Number(step.ms) || 0, 30000)));
         step = vm.resume();
       } else if (step.kind === 'input') {
-        // INPA's own prompt, in its own words (inputint's title, hint and
-        // range come off the stack). Cancel abandons the keypress.
-        const asked = await inputDialog({
-          title: esc(deGerman(step.prompts[0] || '') || step.prompts[0]
-            || it.label),
-          body: esc(deGerman(step.prompts[1] || '') || step.prompts[1] || '')
-            + (step.lo != null && step.hi != null
-              ? `<br><br>Accepted range <b>${step.lo}</b> to `
-                + `<b>${step.hi}</b>.` : ''),
-          kind: 'number',
-          example: step.lo != null ? String(step.lo) : '',
-          confirmLabel: 'OK',
-        });
-        const n = Math.trunc(Number(asked));
-        if (asked == null || String(asked).trim() === ''
-            || !Number.isFinite(n)
-            || (step.lo != null && n < step.lo)
-            || (step.hi != null && n > step.hi)) {
+        // INPA's own prompt, in its own words -- number, hex string,
+        // two-choice or two-field, by the builtin's kind
+        const got = await irAskInput(step, it.label);
+        if (got == null) {
           sent.push('cancelled');
           break;
         }
-        step = vm.resume(n);
+        step = vm.resume(got);
       } else {
         break;              // a %STATE in a key body: not this path's shape
       }
