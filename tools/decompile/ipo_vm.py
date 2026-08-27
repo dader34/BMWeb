@@ -323,6 +323,7 @@ class VM:
             elif op == "ITEM":
                 cur_item = {"nr": t.get("nr"), "label": t.get("label")}
                 self.out.items.append(cur_item)
+                self.input_fed = False
                 stack = []
             elif op == "LINE":
                 self.out.lines.append({"label": t.get("label"), "elements": []})
@@ -679,7 +680,7 @@ def _b_job(vm, stack, item):
     if not isinstance(job, str):
         return
     rec = {"job": job, "sgbd": sgbd if isinstance(sgbd, str) else None}
-    if isinstance(arg, str) and arg:
+    if isinstance(arg, str) and arg and not getattr(vm, "input_fed", False):
         rec["arg"] = arg
     vm.out.jobs.append(rec)
     if item is not None and "job" not in item:
@@ -1211,6 +1212,13 @@ def _b_input(vm, stack, item):
     for ref in [x for x in stack if isinstance(x, tuple)
                 and len(x) == 3 and x[0] == "ref"]:
         _store_out(vm, [ref], "0")
+    # THE ARG IS RUNTIME INPUT NOW. Any job this key sends after asking is
+    # built (at least partly) from the answer, so a "static" argument lifted
+    # from the placeholder is fiction -- MS43's idle key lifted jobArg "10"
+    # (realtostring's FORMAT const, picked up by the fallback because the
+    # value var was input-fed and unset). Taint the item; _b_job records no
+    # arg while the taint stands, and the live run asks for the real value.
+    vm.input_fed = True
 
 
 def _b_noop(vm, stack, item):
@@ -1461,7 +1469,7 @@ _BUILTINS = {
     # flap positions prompt "Position (0-100 %)" then send it. The hex/digital
     # "Change field" dialogs (inputhex/inputdigital/input2hex) are left to the
     # state-form deriver; these are the value-prompt forms.
-    "builtin_3f": _b_input, "input2text": _b_input,
+    "builtin_3f": _b_input, "builtin_40": _b_input, "input2text": _b_input,
     "input2hexnum": _b_input, "inputint": _b_input,
     "fileopen": _b_fileopen, "fileclose": _b_fileclose,
     "filewrite": _b_filewrite, "fileread": _b_fileread,

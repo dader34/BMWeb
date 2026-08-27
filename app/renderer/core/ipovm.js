@@ -517,6 +517,7 @@ class IpoVm {
       } else if (op === 'ITEM') {
         curItem = { nr: t.nr, label: t.label };
         this.out.items.push(curItem);
+        this.inputFed = false;
         stack = [];
       } else if (op === 'LINE') {
         this.out.lines.push({ label: t.label, elements: [] });
@@ -950,12 +951,17 @@ class IpoVm {
     // confirmed. Offline they store '0' -- which a LIVE run must never send
     // (LLERH's Select would command idle target 0). Suspend instead; the
     // renderer shows INPA's own prompt and resume() stores the typed value.
-    if (this.wireJobs && /^input(int|real|hex|string)?$/.test(name)) {
+    if (this.wireJobs && (BUILTINS[name] === bInput
+                          || /^input(int|real|hex|string)?$/.test(name))) {
       const prompts = stack.filter((x) => isPlainStr(x) && x.trim());
-      const ints = stack.filter((x) => isPlainInt(x));
+      // bounds may be ints (inputint) or doubles (builtin_40: MS43 pushes
+      // 512.0/1600.0); take the last two numerics either way
+      const nums = stack
+        .map((x) => (isPlainInt(x) ? x : (isFloat(x) ? x.v : null)))
+        .filter((x) => x != null && Number.isFinite(x));
       return { kind: 'input', name, prompts,
-               lo: ints.length > 1 ? ints[ints.length - 2] : null,
-               hi: ints.length > 1 ? ints[ints.length - 1] : null,
+               lo: nums.length > 1 ? nums[nums.length - 2] : null,
+               hi: nums.length > 1 ? nums[nums.length - 1] : null,
                stack, out: this.out };
     }
     // builtin_1b = wartezeit(ms). Offline a noop; a guided run honours it --
@@ -1119,7 +1125,7 @@ function bJob(vm, stack, item) {
   const arg = stack.length > 2 ? strv(stack[2]) : null;
   if (job == null) return;
   const rec = { job, sgbd: sgbd == null ? null : sgbd };
-  if (arg) rec.arg = arg;
+  if (arg && !vm.inputFed) rec.arg = arg;
   vm.out.jobs.push(rec);
   if (item && !('job' in item)) {
     item.job = job;
@@ -1401,6 +1407,8 @@ function bInput(vm, stack, item) {
     for (const p of prompts) if (!have.includes(p)) have.push(p);
   }
   for (const ref of stack.filter(isRef)) storeOut(vm, [ref], '0');
+  // mirrors Python _b_input: a job sent after an ask has no static arg
+  vm.inputFed = true;
 }
 
 function bFileopen(vm, stack) {
@@ -1526,6 +1534,7 @@ const BUILTINS = {
   getinputstate: bGetInputState,
   inputhex: bNoop,
   builtin_3f: bInput,
+  builtin_40: bInput,
   input2text: bInput,
   input2hexnum: bInput,
   inputint: bInput,
