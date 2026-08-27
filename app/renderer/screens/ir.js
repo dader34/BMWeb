@@ -700,14 +700,10 @@ async function irRunGuided(ecu, ir, it, menuName, container, back, trail) {
       const job = step.job;
       const sg = String(step.sgbd || ecu.sgbd).toLowerCase();
       stateEl.textContent = `${job}${step.arg ? ` ${step.arg}` : ''}`;
-      // register BEFORE send, exactly like a hand-fired drive: an unreleased
-      // activation must not outlive the screen
       if (/^(STEUERN|START)/i.test(job)
           && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(job)
-          && typeof activeTests === 'object') {
-        activationEcu = ecu;
-        activeTests.add(job);
-        activeDrives.set(job, step.arg ? `${step.arg};0` : null);
+          && typeof markEnergized === 'function') {
+        markEnergized();
       }
       let fed = new Map();
       try {
@@ -903,13 +899,10 @@ async function irRunItemLive(ecu, ir, menuName, it, container, back, trail) {
     for (let n = 0; n < 400 && step && step.kind !== 'done'; n++) {
       if (step.kind === 'job') {
         const sg = String(step.sgbd || ecu.sgbd).toLowerCase();
-        // register BEFORE send: release-on-leave holds for script sends too
         if (/^(STEUERN|START)/i.test(step.job)
             && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(step.job)
-            && typeof activeTests === 'object') {
-          activationEcu = ecu;
-          activeTests.add(step.job);
-          activeDrives.set(step.job, step.arg ? `${step.arg};0` : null);
+            && typeof markEnergized === 'function') {
+          markEnergized();
         }
         const fed = new Map();
         try {
@@ -1630,62 +1623,113 @@ async function irMenuHeader(ecu, ir, menuName, el) {
   // text is the page title), value elements become keyed cells
   const lines = (scr.lines || []).slice(0, 14);
   const parts = [];
+  const rowCells = [];
   let sawAny = false;
   // a printed softkey row ("< F1 > EINSPRITZVENTILE") is INPA's own key help
   // -- the app draws the real key list below, so showing it doubled the menu
   const softkey = /<\s*(?:shift\s*>\s*\+\s*<\s*)?f\s*\d+\s*>/i;
+  // PAIR BY POSITION, NOT BY COUNT. INPA lays a header line out as
+  // "caption : value  caption : value" with each element carrying its column
+  // (GSDS2's s_main: BMW part number : <val>  Date of manufacture : <kw> /
+  // <year> Week/year). Count-pairing captions to values scrambled that into
+  // stray colons and mismatched rows. Sort every element by column, drop the
+  // pure separators (":" "/"), and give each VALUE the caption text sitting
+  // immediately to its left (up to the previous value). A value with no
+  // caption falls back to its result description.
+  const isSep = (t) => /^[:=|/_\-\s]+$/.test(String(t || '').trim());
   lines.forEach((ln, i) => {
-    const els = ln.elements || [];
-    if (els.some(e => e.t === 'text' && softkey.test(String(e.s || '')))) {
+    const els0 = ln.elements || [];
+    if (els0.some(e => e.t === 'text' && softkey.test(String(e.s || '')))) {
       return;                      // the whole line belongs to the key bar
     }
-    const texts = els.filter(e => e.t === 'text' && String(e.s || '').trim()
-      && !/^[=\-_|]+$/.test(String(e.s).trim()));
-    const values = els.filter(e => e.t === 'value' && e.key);
-    if (!texts.length && !values.length) return;
-    sawAny = true;
-    if (i === 0 && texts.length === 1 && !values.length) {
-      parts.push(`<div class="ir-head-title">${esc(irLabel(texts[0].s)
-        || texts[0].s)}</div>`);
+    // positioned elements, in column order; unpositioned keep source order
+    const els = els0
+      .filter(e => (e.t === 'value' && e.key)
+        || (e.t === 'text' && String(e.s || '').trim()))
+      .slice()
+      .sort((a, b) => (a.col == null ? 1e9 : a.col)
+                    - (b.col == null ? 1e9 : b.col));
+    if (!els.length) return;
+
+    const values = els.filter(e => e.t === 'value');
+    // a caption-only first line is the page title
+    if (i === 0 && !values.length) {
+      const cap = els.filter(e => !isSep(e.s)).map(e => irLabel(e.s) || e.s)
+        .join(' ').trim();
+      if (cap) { parts.push(`<div class="ir-head-title">${esc(cap)}</div>`);
+                 sawAny = true; }
       return;
     }
+    if (!values.length) return;
+    sawAny = true;
+
+    // walk left to right. A CAPTION opens a cell; the VALUES that follow it
+    // (until the next caption) belong to that cell, joined by the separators
+    // between them -- so "Date of manufacture : <KW> / <YEAR>" is ONE cell
+    // showing "28 / 04", not two mislabelled cells. A pure-separator "text"
+    // between two values (the "/") becomes the joiner. A caption that TRAILS
+    // all the values on the line ("Week / year", col 68 after both dates) is
+    // a format hint -- appended to the last cell's label, not orphaned.
     const cells = [];
-    if (values.length && texts.length >= values.length) {
-      // INPA lays captions above their values by position ("LL - Istwert /
-      // LL - Sollwert" over the two rpm readouts): the LAST N texts pair
-      // with the N values; a text left over ahead of them is the page's own
-      // headline ("MS45 LL - Drehzahl verstellen")
-      const lead = texts.slice(0, texts.length - values.length);
-      const caps = texts.slice(texts.length - values.length);
-      lead.forEach((t, k) => {
-        if (i === 0 && k === 0) {
-          parts.push(`<div class="ir-head-title">${esc(irLabel(t.s) || t.s)}`
-            + `</div>`);
+    let cur = null;                    // {label, parts:[{key}|{sep}]}
+    let pendingSep = '';
+    for (const e of els) {
+      if (e.t === 'text') {
+        if (isSep(e.s)) { pendingSep = String(e.s).trim(); continue; }
+        const label = irLabel(e.s) || e.s;
+        if (cur && cur.parts.some(p => p.key)) {
+          // this cell already holds a value, so a NEW caption opens a NEW
+          // cell (Generation number : GEN | Date of manufacture : KW/YEAR).
+          // A caption that turns out to trail every value with none of its
+          // own becomes a format hint in the post-pass below.
+          cur = { label, parts: [] };
+          cells.push(cur);
+        } else if (cur) {
+          cur.label = `${cur.label} ${label}`.trim();
         } else {
-          cells.push(`<span class="ir-head-label">${esc(irLabel(t.s) || t.s)}`
-            + `</span>`);
+          cur = { label, parts: [] };
+          cells.push(cur);
         }
-      });
-      values.forEach((v, k) => {
-        cells.push(`<span class="ir-head-cell"><span class="ir-head-label">`
-          + `${esc(irLabel(caps[k].s) || caps[k].s)}</span>`
-          + `<span class="ir-head-value" data-key="${esc(v.key)}">–</span>`
-          + `</span>`);
-      });
-    } else {
-      for (const t of texts) {
-        cells.push(`<span class="ir-head-label">${esc(irLabel(t.s) || t.s)}`
-          + `</span>`);
+        pendingSep = '';
+        continue;
       }
-      for (const v of values) {
-        cells.push(`<span class="ir-head-cell"><span class="ir-head-label">`
-          + `${esc(irLabel(descs.get(v.key) || '') || '')}</span>`
-          + `<span class="ir-head-value" data-key="${esc(v.key)}">–</span>`
-          + `</span>`);
+      // a value
+      if (!cur) { cur = { label: '', parts: [] }; cells.push(cur); }
+      if (pendingSep && cur.parts.length) cur.parts.push({ sep: pendingSep });
+      pendingSep = '';
+      cur.parts.push({ key: e.key });
+    }
+    // a trailing cell with a label but NO value of its own is a format hint
+    // ("Week / year" sitting past both date values) -- fold it into the
+    // previous cell's label rather than orphaning it.
+    for (let k = cells.length - 1; k > 0; k--) {
+      if (!cells[k].parts.some(p => p.key) && cells[k].label) {
+        cells[k - 1].hint = cells[k].label;
+        cells.splice(k, 1);
       }
     }
-    parts.push(`<div class="ir-head-row">${cells.join('')}</div>`);
+    const html = cells.filter(c => c.parts.some(p => p.key)).map((c) => {
+      // a value with no caption of its own falls back to its read's desc
+      const firstKey = (c.parts.find(p => p.key) || {}).key;
+      let label = c.label || (firstKey
+        ? (irLabel(descs.get(firstKey) || '') || '') : '');
+      if (c.hint) label = label ? `${label} (${c.hint})` : c.hint;
+      const inner = c.parts.map((p) => p.sep
+        ? `<span class="ir-head-sep">${esc(p.sep)}</span>`
+        : `<span class="ir-head-value" data-key="${esc(p.key)}">–</span>`)
+        .join(' ');
+      return `<span class="ir-head-cell">`
+        + (label ? `<span class="ir-head-label">${esc(label)}</span>` : '')
+        + `<span class="ir-head-vwrap">${inner}</span></span>`;
+    }).join('');
+    if (html) rowCells.push(html);
   });
+  if (rowCells.length) {
+    // all value cells flow in ONE wrapping row -- identity facts are peers,
+    // and a lone value on its own source line (BMW part number) should sit
+    // beside the others, not drop to a row of its own.
+    parts.push(`<div class="ir-head-row">${rowCells.join('')}</div>`);
+  }
   if (!sawAny) return;
   el.innerHTML = parts.join('');
 
@@ -2020,11 +2064,16 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   // NEUTRAL baseline word as the release (activations.js:9-11 invariant), so
   // leaving re-commands every field back to it; then irResetCompositeState
   // forgets the toggled flags.
-  activationEcu = ecu;
-  activeTests.add(comp.job);
-  activeDrives.set(comp.job, (comp.baseline
-    ? comp.baseline.split(';')
-    : new Array(comp.fields).fill('0')).join(';'));
+  // a composite word drives several outputs at once. Its release is
+  // re-commanding the word to neutral, which is the menu's own behavior
+  // (INPA re-sends the composite, it does not have per-output _ENDEs). Note
+  // the neutral word so the leave hook can re-send it, and mark energized.
+  if (typeof markEnergized === 'function') markEnergized();
+  if (typeof registerCompositeNeutral === 'function') {
+    registerCompositeNeutral(ecu, comp.job, (comp.baseline
+      ? comp.baseline.split(';')
+      : new Array(comp.fields).fill('0')).join(';'));
+  }
 
   // INPA stays on its menu, so the result goes to the status bar, not a page
   sbLeft.textContent = `${ecu.sgbd}.prg · ${comp.job} ${arg} · sending`;
@@ -2046,9 +2095,9 @@ async function runComposite(ecu, ir, menuName, it, container, reopen, keysFor) {
   keepActivationsDuring(reopen);
 }
 
-// forget every composite actuator word. Called by stopAllActivations AFTER it
-// has sent the neutral word, so a re-entered menu starts from baseline rather
-// than showing flags nobody is driving.
+// forget every composite actuator word, so a re-entered menu starts from
+// baseline rather than showing flags nobody is driving. Called after the
+// neutral word is re-sent on leave.
 function irResetCompositeState() { _compState.clear(); }
 
 // A screen with no gauges and no lamps is a labelled READ (coding, ident,
@@ -2655,6 +2704,30 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
   if (ir.exitJob && typeof registerSessionEnd === 'function') {
     registerSessionEnd(ecu, ir.exitJob);
   }
+  // THE MENU'S OWN RELEASE. INPA releases (or not) through its keys: some
+  // Back items carry a real stop job (kombi STEUERN_46's Back = DIAGNOSE_ENDE),
+  // most just navigate and let the ECU's actuator timeout end it (MS45 MIL).
+  // Register the leaving job the IR itself declares -- never a synthesized
+  // "arg=0". A repaint of the same menu keeps the same key and fires nothing.
+  if (typeof registerMenuLeave === 'function') {
+    // A Back item's job is a RELEASE only when its shape says so: it ends the
+    // ECU session (DIAGNOSE_ENDE/MODE) or is stop-shaped (STOP_*, *_ENDE,
+    // *_AUS/_OFF, *beenden). A Back that carries a READ (FS_LESEN, IDENT,
+    // MESSWERTBLOCK_LESEN) or a fresh DRIVE (STEUERN_IO) is the parent menu's
+    // own job, NOT a release -- firing it on leave would be a spurious command.
+    const rawItems = ((ir.menus || {})[menuName] || {}).items || [];
+    const isRelease = (j) => j && (
+      /^DIAGNOSE_(ENDE|MODE)$/i.test(j)
+      || /(_ENDE|_AUS|_OFF|_STOP)$/i.test(j)
+      || /^STOP_/i.test(j)
+      || /beenden$/i.test(j));
+    const backIt = rawItems.find((it) =>
+      isRelease(it.job)
+      && (IR_CHROME.test(String(it.label || '').trim())
+        || (it.menu && it.menu !== menuName)));
+    registerMenuLeave(ecu, `${ecu && ecu.sgbd}:${menuName}`,
+      backIt ? backIt.job : null);
+  }
   let items = irMenuItems(ir, menuName);
   // Drop a readout tile whose job the LOADED variant does not implement. The
   // .IPO is shared across a family and offers every screen, but a variant need
@@ -3073,27 +3146,16 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       try {
         // arg often distinguishes two keys (RADIO sources differ only in "FM"/"CDC")
         const q = it.jobArg ? `?arg=${encodeURIComponent(it.jobArg)}` : '';
-        // REGISTER BEFORE SEND: an unreleased drive outlives the screen, and the
-        // confirm above promises release on leave. Arg _ENDE fallback: register
-        // "arg;0" as the release. Not for a permanent write (nothing to release)
-        // or an OFF form (already a stop).
-        const drives = !permanent
-          && /^(STEUERN|START)/i.test(it.job)
-          && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
-          && typeof activeTests === 'object';
-        if (drives) {
-          activationEcu = ecu;
-          activeTests.add(it.job);
-          activeDrives.set(it.job, it.jobArg ? `${it.jobArg};0` : null);
+        // a real drive energizes an output: note it so a tab-close can run
+        // the menu's Back job. The RELEASE itself is the menu's own key
+        // (registerMenuLeave), never a synthesized arg=0.
+        if (!permanent && /^(STEUERN|START)/i.test(it.job)
+            && !/(_AUS|_ENDE|_OFF|_STOP)$/i.test(it.job)
+            && typeof markEnergized === 'function') {
+          markEnergized();
         }
         const out = await api(`/api/ecu/${ecu.sgbd}/run/${it.job}${q}`,
                               { method: 'POST' });
-        // a permanent write is set-and-stay and must NOT be replayed with arg=0
-        if (!permanent) {
-          activationEcu = ecu;
-          activeTests.add(it.job);
-          activeDrives.set(it.job, null);
-        }
         const r = flatResults(out.sets).map(([k, v]) => `${k}=${v}`)
           .slice(0, 3).join(' ') || 'sent';
         sbLeft.textContent = `${ecu.sgbd}.prg · ${it.label} · ${it.job} · ${r}`;

@@ -1,33 +1,98 @@
-// The actuator write registry. Actuator tests are driven from the IR menu
-// (ir.js) now; this owns the shared "what is currently energized" state so any
-// running output is released on the next screen change or page unload. Every
-// path that energizes an output MUST register here (ir.js does), or "outputs
-// are released when you leave" is a lie.
-const activeTests = new Set(); // jobs currently on
-// job -> the argument that de-energizes it, when the drive path knows one
-// ("<component>;0" for component drives). null means the generic ?arg=0 /
-// _ENDE fallback in stopAllActivations. Every path that energizes an output
-// MUST register here, or "outputs are released when you leave" is a lie.
-const activeDrives = new Map();
-let activationEcu = null;       // ecu whose tests are active, for cleanup
+// Actuator release, INPA's way: we do NOT synthesize a stop telegram.
+//
+// An actuator menu in the .IPO releases (or does not) through its OWN keys.
+// On the MS45 MIL menu the release is a key -- "Ansteuerung zurück an DME"
+// (STEUERN_MIL_ENDE) -- and its BACK key just navigates: INPA leaves the MIL
+// commanded and lets the ECU's own actuator timeout end it. On kombi's
+// STEUERN_46 menu the BACK key itself carries DIAGNOSE_ENDE. Either way the
+// truth is in the bytecode the IR already carries, so the ONE honest release
+// is: run the leaving menu's Back-item job, and only that.
+//
+// The old registry (activeTests / activeDrives / an "<arg>;0" off form
+// replayed on leave) invented releases INPA never sends and guessed the wrong
+// telegram when it did -- firing STEUERN_MIL?arg=0, itself a drive command,
+// on back-out. Gone. What a menu owes on the way out is what its Back key
+// runs; what it owes on ECU exit is inpaexit's DIAGNOSE_ENDE (registerSessionEnd
+// below), which is likewise read from the script, not made up.
 
-// THE SCRIPT'S SHUTDOWN JOB (ir.exitJob), taken from INPA's own `inpaexit`
-// proc -- a declared function it runs when the script ends, however it ends.
-// 877 ECUs declare one; 58 send a real job from it, nearly always
-// DIAGNOSE_ENDE. Nothing in the app was sending it, so the ECU stayed in
-// diagnostic mode until its own timeout.
+// ---- the menu's on-leave job -----------------------------------------------
 //
-// Read from the proc rather than from the Back/Exit keys that also carry it:
-// those are captioned as plain navigation and sit beside keys whose jobs
-// DRIVE OUTPUTS (STEUERN_CFL behind "Deselect"), so choosing them by caption
-// would risk energizing something on the way out.
-//
-// Registered on ECU ENTRY, not on a keypress, so it fires on every exit path:
-// screen change, in-app navigation, window close, or reload. Deliberately NOT
-// gated on activeTests -- the session needs ending even if nothing was ever
-// energized.
+// Set by ir.js as it renders a menu: the job the current menu's Back item
+// runs (null for a menu whose Back only navigates). Sent once, when a render
+// for a DIFFERENT menu (or a real leave) follows -- a same-menu repaint must
+// not fire it.
+let leaveEcu = null;
+let leaveJob = null;
+let leaveKey = null;            // "sgbd:menu", so a repaint of the same menu is a no-op
+let _leftEnergized = false;     // did THIS menu fire a drive? (for pagehide only)
+
+function registerMenuLeave(ecu, menuKey, job) {
+  // a different menu is being set up: run what the PREVIOUS one owed
+  if (leaveKey && leaveKey !== menuKey) {
+    if (compEcu?.sgbd && compJob) {
+      try {
+        api(`/api/ecu/${compEcu.sgbd}/run/${compJob}`
+          + `?arg=${encodeURIComponent(compArg)}`, { method: 'POST' }).catch(() => {});
+      } catch (e) { /* leaving */ }
+      if (typeof irResetCompositeState === 'function') irResetCompositeState();
+      _clearComposite();
+    }
+    if (leaveJob && leaveEcu) _sendLeave(leaveEcu, leaveJob);
+  }
+  leaveEcu = ecu || null;
+  leaveJob = job || null;
+  leaveKey = menuKey || null;
+  _leftEnergized = false;
+}
+
+// ir.js calls this when a drive is fired in the current menu, so a tab-close
+// can run the Back job even for a menu whose release is a separate key.
+function markEnergized() { _leftEnergized = true; }
+
+// A composite actuator word (LSZ-style: several outputs in one job) releases
+// by being RE-COMMANDED to neutral -- INPA's own behavior, not a synthetic
+// _ENDE. ir.js registers the neutral word here; runMenuLeave re-sends it.
+let compEcu = null, compJob = null, compArg = null;
+function registerCompositeNeutral(ecu, job, neutralArg) {
+  compEcu = ecu || null; compJob = job || null; compArg = neutralArg;
+}
+function _clearComposite() { compEcu = compJob = compArg = null; }
+
+function _sendLeave(ecu, job) {
+  if (!ecu?.sgbd || !job) return;
+  try {
+    api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' }).catch(() => {});
+  } catch (e) { /* leaving anyway */ }
+}
+
+// Called from the setActions leave hook (core.js). A same-menu repaint keeps
+// leaveKey unchanged and is held, so nothing fires; a real navigation has
+// already re-registered (or cleared) leaveKey via ir.js, so run what the menu
+// we are leaving owed.
+function runMenuLeave() {
+  // a composite word: re-command it to neutral, then forget the flags
+  if (compEcu?.sgbd && compJob) {
+    try {
+      api(`/api/ecu/${compEcu.sgbd}/run/${compJob}`
+        + `?arg=${encodeURIComponent(compArg)}`, { method: 'POST' }).catch(() => {});
+    } catch (e) { /* leaving */ }
+    if (typeof irResetCompositeState === 'function') irResetCompositeState();
+    _clearComposite();
+  }
+  if (leaveJob && leaveEcu) {
+    const ecu = leaveEcu, job = leaveJob;
+    _sendLeave(ecu, job);
+  }
+  leaveEcu = leaveJob = leaveKey = null;
+}
+
+// ---- ECU session end (inpaexit's DIAGNOSE_ENDE) ----------------------------
+// Unchanged in spirit: read from the script, sent on ECU exit however it
+// happens. Registered on ENTRY so it fires even when the user leaves by a
+// path we do not draw.
 let sessionEndEcu = null;
 let sessionEndJob = null;
+let _pendingEnd = null;
 
 function registerSessionEnd(ecu, job) {
   if (!ecu || !job) return;
@@ -35,48 +100,29 @@ function registerSessionEnd(ecu, job) {
   sessionEndJob = job;
 }
 
-
-// Send it and forget it. Fire-and-forget because the common caller is an
-// unload handler, where nothing can be awaited; a failure here is not worth a
-// dialog the way a failed actuator RELEASE is -- the ECU times out by itself.
 function endSession() {
   const ecu = sessionEndEcu;
   const job = sessionEndJob;
   sessionEndEcu = null;
   sessionEndJob = null;
-  // Moving between menus of the SAME ECU is not leaving its session. ir.js
-  // re-registers on every menu render and setActions runs the leave hook
-  // afterwards, so a submenu hop lands here with the registration still
-  // pointing at the ECU we are staying on -- remember it, and only send once
-  // a render for a DIFFERENT ecu (or no render at all) follows.
   if (!ecu?.sgbd || !job) return;
+  // a submenu hop re-registers the same ECU before this microtask runs, so
+  // only send once we are truly off this ECU.
   _pendingEnd = { ecu, job };
   queueMicrotask(() => {
     const p = _pendingEnd;
     _pendingEnd = null;
-    // a re-register for the same ECU happened in between: still here
     if (!p || (sessionEndJob === p.job && sessionEndEcu?.sgbd === p.ecu.sgbd)) {
       return;
     }
-    _sendEnd(p.ecu, p.job);
+    _sendLeave(p.ecu, p.job);
   });
 }
 
-let _pendingEnd = null;
-
-function _sendEnd(ecu, job) {
-  if (!ecu?.sgbd || !job) return;
-  try {
-    api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' }).catch(() => {});
-  } catch (e) { /* leaving anyway */ }
-}
-
-
-// Redrawing the SAME screen right after a send (ir.js reopens its menu so
-// each row shows its armed state) is not a screen change: releasing there
-// would replay the off form into the job that was just fired. The redraw
-// runs inside this hold; every real navigation still releases (setActions
-// in core.js consults activationsHeld before stopping).
+// ---- same-screen repaint hold ----------------------------------------------
+// ir.js reopens its menu after a drive so each row shows its armed state.
+// That repaint must not count as leaving: registerMenuLeave keeps the same
+// leaveKey, and this hold stops the leave hook from running mid-repaint.
 let _activationsHeld = false;
 function keepActivationsDuring(fn) {
   _activationsHeld = true;
@@ -84,76 +130,26 @@ function keepActivationsDuring(fn) {
 }
 const activationsHeld = () => _activationsHeld;
 
-const keepAliveTimers = new Map(); // start job -> interval id
-
-function stopKeepAlive(job) {
-  const t = keepAliveTimers.get(job);
-  if (t) { clearInterval(t); keepAliveTimers.delete(job); }
-}
-
-// stop all running actuator tests, on leaving the screen. A failed release is
-// not swallowed: if neither the off form nor _ENDE went out, the user is told
-// the output may still be commanded rather than being shown nothing.
-function stopAllActivations(ecu) {
-  if (!activeTests.size) return;
-  const ecuSgbd = ecu?.sgbd;
-  const failed = [];
-  const sends = [];
-  for (const start of [...activeTests]) {
-    stopKeepAlive(start);
-    if (ecuSgbd) {
-      // a drive that registered its exact off form gets it; otherwise
-      // arg=0 de-energizes, _ENDE only as fallback
-      const off = activeDrives.get(start) || '0';
-      sends.push(
-        api(`/api/ecu/${ecuSgbd}/run/${start}?arg=${encodeURIComponent(off)}`, { method: 'POST' })
-          .catch(() => api(`/api/ecu/${ecuSgbd}/run/${start}_ENDE`, { method: 'POST' }))
-          .catch(() => { failed.push(start); }));
-    }
-    activeTests.delete(start);
-    activeDrives.delete(start);
-  }
-  // the composite actuator words (ir.js) were re-commanded to neutral above;
-  // forget them so a re-entered menu starts from baseline, not stale flags
-  if (typeof irResetCompositeState === 'function') irResetCompositeState();
-  Promise.all(sends).then(() => {
-    if (!failed.length) return;
-    sbLeft.textContent = `release FAILED: ${failed.join(', ')} — outputs may still be driven`;
-    confirmDialog({
-      title: 'Release failed',
-      body: `The release telegram failed for <span class="mono">${esc(failed.join(', '))}</span>. `
-          + `<b>The outputs may still be commanded.</b> Check the components; `
-          + `if one is still running, switch the ignition off.`,
-      confirmLabel: 'OK', cancelLabel: 'Close',
-    });
-  });
-}
-
-// Last-ditch release when the whole page goes away (tab close, reload,
-// navigation): the setActions leave hook never fires for those. Nothing can
-// be awaited during unload, so the sends are fire-and-forget.
+// ---- page teardown ---------------------------------------------------------
+// Tab close / reload / navigation: the setActions leave hook never fires.
+// Run the leaving menu's Back job (if it had one and we energized something)
+// and the ECU session end, synchronously -- microtasks never run on unload.
 window.addEventListener('pagehide', () => {
-  if (activationEcu && activeTests.size) stopAllActivations(activationEcu);
-  // SYNCHRONOUS here: the deferral in endSession() rides a microtask, which
-  // never runs once the page is going away. On unload there is no "maybe we
-  // are staying" case to wait for, so send it outright.
-  const ecu = sessionEndEcu;
-  const job = sessionEndJob;
-  sessionEndEcu = null;
-  sessionEndJob = null;
-  _pendingEnd = null;
-  _sendEnd(ecu, job);
+  if (_leftEnergized) {
+    if (compEcu?.sgbd && compJob) {
+      _sendLeave(compEcu, compJob);   // best effort; arg lost on unload, but neutral job runs
+    }
+    if (leaveEcu && leaveJob) _sendLeave(leaveEcu, leaveJob);
+  }
+  const ecu = sessionEndEcu, job = sessionEndJob;
+  sessionEndEcu = sessionEndJob = _pendingEnd = null;
+  _sendLeave(ecu, job);
 });
-// NOT hooked to visibilitychange: the app treats a hidden window as a PAUSE
-// (app.js stops the status poller and resumes on return), so minimising or
-// switching away from the app is not leaving the screen. Ending the session
-// there would drop it out from under a user who is coming straight back.
-// ...and warn before closing the tab mid-test. This only prompts: releasing
-// here too would kill the test even when the user cancels the close, so the
-// actual release stays on pagehide, which fires only when the page really
-// goes away.
+
+// Warn before closing the tab while an actuator is energized -- only prompts;
+// the actual release rides pagehide so a cancelled close does not kill it.
 window.addEventListener('beforeunload', (e) => {
-  if (!(activationEcu && activeTests.size)) return;
+  if (!_leftEnergized) return;
   e.preventDefault();
   e.returnValue = '';
 });

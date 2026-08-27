@@ -443,18 +443,18 @@ class ActionBar {
     if (this.shiftRepaint) this.shiftRepaint();
   }
 
-  // screen change: stop polling/logging, drop the shift row/badge, and kill active actuator tests unless activationsHeld() (keepActivationsDuring holds a same-screen redraw open)
+  // screen change: stop polling/logging, drop the shift row/badge, and run the
+  // leaving menu's OWN release (its Back-item job or a composite neutral word),
+  // unless activationsHeld() -- a same-menu repaint after a drive is held.
   set(actions, shifted) {
     stopLive(); stopLogging();
     if (typeof dismissAttention === 'function') dismissAttention();
-    if (activationEcu && activeTests.size && !activationsHeld()) {
-      stopAllActivations(activationEcu);
+    if (!activationsHeld() && typeof runMenuLeave === 'function') {
+      runMenuLeave();
     }
-    // ...and the menu's session-end job, if it registered one. Separate from
-    // the release above because it is NOT conditional on anything being
-    // energized: a menu can owe its ECU a DIAGNOSE_ENDE having driven nothing.
-    // Held by the same redraw guard, so reopening the menu to repaint a row
-    // does not end the session under it.
+    // ...and the menu's session-end job (inpaexit's DIAGNOSE_ENDE), if one was
+    // registered. Not conditional on anything energized: a menu can owe a
+    // session end having driven nothing. Held by the same repaint guard.
     if (!activationsHeld() && typeof endSession === 'function') endSession();
     this.base = actions;
     this.shift = (shifted && shifted.length) ? shifted : null;
