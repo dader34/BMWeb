@@ -128,6 +128,17 @@ def encode(data, addr_list):
             index[st] = len(ops)
             seen.add(st)
             ops.append([name, [enc_arg(name, a) for a in args]])
+            # JUMP TARGETS ARE ENTRY POINTS TOO. The walker runs linearly and
+            # stops at eoj, but a conditional jump can land PAST the eoj --
+            # D_0072's IDENTIFIKATION jz-es over its end-of-job into a
+            # continuation block, and without queueing the target that code
+            # was never decoded, so relocate() emitted a null target and the
+            # VM died at the jump ("unresolved jump at 98" -- the seat-memory
+            # variant probe). walk() has already made the target absolute.
+            if name in S.JUMPS and args and args[0].get("m") == 7:
+                tgt = args[0].get("v")
+                if isinstance(tgt, int) and 0 <= tgt < len(data)                         and tgt not in seen:
+                    pending.append(tgt)
     return ops, index, strings
 
 
