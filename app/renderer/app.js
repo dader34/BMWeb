@@ -106,17 +106,6 @@ function showSettings() {
   );
   wrap.appendChild(adapterRow);
 
-  wrap.appendChild(settingRow(
-    'Auto-scan on open',
-    'Read the engine fault memory automatically when you select a vehicle, and flag stored faults.',
-    [
-      { val: 'on', label: 'On' },
-      { val: 'off', label: 'Off' },
-    ],
-    Settings.get('autoScan', 'off'),
-    (v) => Settings.set('autoScan', v),
-  ));
-
   // demo values are synthesized and badged, never presented as real
   wrap.appendChild(settingRow(
     'Demo mode (no cable)',
@@ -140,47 +129,6 @@ function showSettings() {
     Settings.get('confirmActuators', 'on'),
     (v) => Settings.set('confirmActuators', v),
   ));
-
-  const startRow = settingCombo(
-    'Startup vehicle',
-    'Skip the chassis picker and open this vehicle when the app starts.',
-    [{ val: '', label: 'Ask each time' }], // filled from /api/chassis below
-    Settings.get('startChassis', ''),
-    (v) => { Settings.set('startChassis', v); loadStartEcus(v); },
-  );
-  wrap.appendChild(startRow.el);
-
-  const ecuRow = settingCombo(
-    'Startup module',
-    'Also open this module of the startup vehicle, preloading it. Needs a startup vehicle.',
-    [{ val: '', label: 'None' }],
-    Settings.get('startEcu', ''),
-    (v) => Settings.set('startEcu', v),
-  );
-  wrap.appendChild(ecuRow.el);
-
-  // value encodes sgbd|code|label so boot can open the ECU without re-fetching
-  async function loadStartEcus(chassisId) {
-    if (!chassisId) { ecuRow.setOptions([{ val: '', label: 'None' }], ''); Settings.set('startEcu', ''); return; }
-    try {
-      const ch = await api(`/api/chassis/${chassisId}`);
-      const opts = [{ val: '', label: 'None' }];
-      (ch.sections || []).forEach(s => s.ecus.forEach(e =>
-        opts.push({ val: `${e.sgbd}|${e.code}|${e.label}`, label: `${e.label} (${s.name})` })));
-      const cur = Settings.get('startEcu', '');
-      const valid = opts.some(o => o.val === cur);
-      if (!valid && cur) Settings.set('startEcu', ''); // stale module from another chassis
-      ecuRow.setOptions(opts, valid ? cur : '');
-    } catch { ecuRow.setOptions([{ val: '', label: 'None' }], ''); }
-  }
-
-  api('/api/chassis').then(ids => {
-    startRow.setOptions([
-      { val: '', label: 'Ask each time' },
-      ...(ids || []).map(id => ({ val: id, label: dispChassis(id) })),
-    ], Settings.get('startChassis', ''));
-    loadStartEcus(Settings.get('startChassis', ''));
-  }).catch(() => {});
 
   const tourRow = document.createElement('div');
   tourRow.className = 'setting-row tour-setting';
@@ -222,8 +170,10 @@ function showSettings() {
         screens, jobs, wire telegrams and errors into one file. VINs are
         masked.</div>
     </div>
-    <button class="btn" id="set-beta-file">File a report…</button>
-    <button class="btn" id="set-beta-toggle">${betaOn ? 'On' : 'Off'}</button>`;
+    <div class="setting-btns">
+      <button class="btn" id="set-beta-file">File a report…</button>
+      <button class="btn" id="set-beta-toggle">${betaOn ? 'On' : 'Off'}</button>
+    </div>`;
   betaRow.querySelector('#set-beta-file').onclick = () =>
     (typeof showBetaReport === 'function' ? showBetaReport() : null);
   betaRow.querySelector('#set-beta-toggle').onclick = () => {
