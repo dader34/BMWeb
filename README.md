@@ -4,6 +4,8 @@ BMW diagnostics that runs anywhere. Read fault codes, watch live values, run
 actuator tests and inspect coding data, with no Windows, no Windows VM, and
 no EDIABAS install.
 
+THIS PROJECT IS IN DEVELOPMENT, USE WRITE JOBS AT YOUR OWN RISK
+
 **The main build is a single HTML file.** One download, everything inside it -
 the app, the BEST2 VM, and one car's ECU data. It opens in a browser on
 Windows, macOS, iPhone and Android, needs no server and no internet, and talks
