@@ -71,6 +71,7 @@
  "Textausgabe von STAT_NORM_EIN": "Text output of STAT_NORM_EIN",
  "Textausgabe zu STAT_KL_CLOSE_EIN": "Text output for STAT_KL_CLOSE_EIN",
  "Textausgabe zu STAT_KL_TILT_EIN": "Text output for STAT_KL_TILT_EIN",
+ "Vorgang Abbrechen": "Cancel operation",
  "Wert": "Value",
  "Wert der Batteriespannung in mV": "Battery voltage value in mV",
  "Wert von TCO": "Value of TCO",
