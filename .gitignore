@@ -156,3 +156,6 @@ tools/beta/.token.local
 
 # Raw NCS Expert DATEN files used for local testing; never ship them
 E46/
+
+# wrangler local state for the beta collector (tools/beta)
+.wrangler/
