@@ -153,3 +153,6 @@ app/renderer/data/faultindex.js
 # Claude Code local state: settings and 1.3GB of scratch worktrees
 .claude/
 tools/beta/.token.local
+
+# Raw NCS Expert DATEN files used for local testing; never ship them
+E46/
