@@ -780,13 +780,45 @@ async function irRunGuided(ecu, ir, it, menuName, container, back, trail) {
 // INPA's runtime does -- +10 then +10 sends 10 then 20.
 const _itemVms = new Map();
 
-function irItemLossy(ir, menuName, it) {
-  if (!it || it.nr == null || !it.job) return false;
-  const raw = ((ir.menus || {})[menuName] || {}).items || [];
-  const key = (x) => `${x.job || ''}\u0000${x.jobArg || ''}`;
-  const mine = raw.find((x) => x.nr === it.nr);
-  if (!mine || !mine.job) return false;
-  return raw.filter((x) => x.label && x.job && key(x) === key(mine)).length >= 2;
+// Does this key's CODE act -- send a job, ask for a value? That is the whole
+// routing rule: an acting body runs live (INPA's keypress), a body that only
+// draws routes to the screen it names, and only a module with NO shipped
+// bytecode falls back to the frozen decode. No per-screen knowledge, no
+// lossiness heuristics -- the bytecode decides.
+function irItemActs(exec, toks, i0, end) {
+  const scan = (tk, a, b, depth) => {
+    for (let i = a; i < Math.min(b, tk.length); i++) {
+      const t = tk[i];
+      if (t.op === 'call'
+          && (/^INP.?apiJob/.test(t.name || '')
+              || /^input(int|real|hex|string)?$/.test(t.name || ''))) {
+        return true;
+      }
+      if (t.op === 'calluser' && depth < 2) {
+        const nm = (exec.byid || {})[`func:${t.n}`];
+        const body = nm && exec.procs[nm];
+        if (Array.isArray(body) && scan(body, 0, body.length, depth + 1)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  };
+  return scan(toks, i0, end, 0);
+}
+
+// The key's body in its menu proc: [toks, bodyStart, bodyEnd], or null when
+// the module ships no runnable twin for it.
+function irItemBody(exec, menuName, nr) {
+  const toks = exec && exec.procs && exec.procs[menuName];
+  if (!Array.isArray(toks) || nr == null) return null;
+  const idx = toks.findIndex((t) => t.op === 'ITEM' && t.nr === nr);
+  if (idx < 0) return null;
+  let end = toks.length;
+  for (let j = idx + 1; j < toks.length; j++) {
+    if (toks[j].op === 'ITEM') { end = j; break; }
+  }
+  return [toks, idx + 1, end];
 }
 
 async function irItemVm(ecu, exec) {
@@ -843,15 +875,11 @@ async function irRunItemLive(ecu, ir, menuName, it, container, back, trail) {
     return false;
   }
   const exec = await irLiveExec(irExecSgbd(ecu));
-  const toks = exec && exec.procs && exec.procs[menuName];
-  if (!Array.isArray(toks)) return false;
-  const idx = toks.findIndex((t) => t.op === 'ITEM' && t.nr === it.nr);
-  if (idx < 0) return false;
-  let bend = toks.length;
-  for (let j = idx + 1; j < toks.length; j++) {
-    if (toks[j].op === 'ITEM') { bend = j; break; }
-  }
-  const jobs = irItemBodyJobs(exec, toks, idx + 1, bend);
+  const body = irItemBody(exec, menuName, it.nr);
+  if (!body) return false;                 // no shipped bytecode for this key
+  const [toks, bstart, bend] = body;
+  if (!irItemActs(exec, toks, bstart, bend)) return false;  // draw-only key
+  const jobs = irItemBodyJobs(exec, toks, bstart, bend);
   const reopen = () => renderIrMenu(ecu, ir, menuName, container, back, trail);
   const writes = jobs.filter((j) => (typeof isWriteJob === 'function'
     ? isWriteJob(j) : /^(STEUERN|START)|SCHREIBEN|LOESCH|RESET|PROG/i.test(j)));
@@ -2943,10 +2971,11 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
         }], shiftKeys());
         return;
       }
-      // A key whose siblings share its (job, argument) decode lost the real
-      // argument to script -- run INPA's own key body live instead of firing
-      // the flattened job (which would send m_llco's "+" as CO_PERC=0).
-      if (irItemLossy(ir, menuName, it)) {
+      // ONE WAY: the keypress runs the key's own code whenever the module
+      // ships it. The frozen job below fires only for a module with no
+      // runnable twin -- the static decode is the recording, the bytecode is
+      // the instrument.
+      {
         const ran = await irRunItemLive(ecu, ir, menuName, it, container,
                                         back, trail);
         if (ran) return;
@@ -3162,14 +3191,18 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
     }
-    // A LOSSY adjust key runs its body, never the readout path: the backdrop
-    // screen (s_system_llerh) executes to live VALUE ROWS now, and both the
+    // A key whose CODE ACTS runs it, never the readout path: the backdrop
+    // screen (s_system_llerh) executes to live VALUE ROWS, and both the
     // identity-card branch and the readout list would otherwise swallow the
-    // "+10" keypress as a read-only page. The menu redraw shows those same
-    // values as the header afterwards, which is where INPA draws them.
-    if (it.job && irItemLossy(ir, menuName, it)) {
-      await open({ ...it, inPlace: true, screen: null });
-      return;
+    // "+10" keypress as a read-only page. A body that only draws falls
+    // through to exactly those branches -- same rule, both directions.
+    if (it.nr != null) {
+      const exec = await irLiveExec(irExecSgbd(ecu));
+      const body = irItemBody(exec, menuName, it.nr);
+      if (body && irItemActs(exec, body[0], body[1], body[2])) {
+        await open({ ...it, inPlace: true, screen: null });
+        return;
+      }
     }
     // Memory/info/actuator/picker above keep their mined structures; from here
     // down is the readout path, so run the screen LIVE
