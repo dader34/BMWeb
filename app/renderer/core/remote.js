@@ -382,8 +382,10 @@ const Remote = {
 // static route (screens, IR, tables, fault data) is answered locally by the
 // shim exactly as always. So the helper's app is fully itself, and only the
 // car reaches across.
+// /api/state is the topbar's battery/ignition poll -- the owner's car's
+// KL30/KL15, so it crosses too, or the helper sees dashes for a live car.
 const REMOTE_CAR_ROUTE =
-  /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b)/;
+  /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b|state\b)/;
 
 let _remoteBaseFetch = null;
 function installRemoteHelperShim() {
@@ -508,12 +510,26 @@ function showOwnerConsole(code) {
         <div class="oc-title">Sharing your car</div>
         <div class="oc-sub">Give this code to the person connecting.</div>
       </div>
-      <button class="btn danger" id="oc-end">End session</button>
+      <div class="oc-btns">
+        <button class="btn" id="oc-min" title="Collapse to a pill">&#8211;</button>
+        <button class="btn danger" id="oc-end">End session</button>
+      </div>
     </div>
     <div class="oc-code" id="oc-code">${esc(code)}</div>
     <div class="oc-state" id="oc-state">waiting for someone to connect…</div>
-    <div class="oc-log mono" id="oc-log"></div>`;
+    <div class="oc-log mono" id="oc-log"></div>
+    <div class="oc-pill" id="oc-pill" title="Expand">
+      <span class="rb-dot"></span><span class="mono">${esc(code)}</span>
+      <span class="oc-pill-state" id="oc-pill-state">waiting</span>
+    </div>`;
   document.body.appendChild(el);
+  // the console sits over the bottom-right of the screen -- exactly where a
+  // module's F-keys and readouts live. Collapse it to a pill and back.
+  const setMin = (min) => { el.classList.toggle('oc-min', min);
+    try { localStorage.setItem('bmweb.oc.min', min ? '1' : '0'); } catch {} };
+  el.querySelector('#oc-min').onclick = () => setMin(true);
+  el.querySelector('#oc-pill').onclick = () => setMin(false);
+  try { if (localStorage.getItem('bmweb.oc.min') === '1') setMin(true); } catch {}
   const logEl = el.querySelector('#oc-log');
   Remote.onLog = (text) => {
     const d = document.createElement('div');
@@ -528,6 +544,11 @@ function showOwnerConsole(code) {
       : s === 'connecting' ? 'waiting for the helper — the code above connects'
       : 'session ended';
     st.className = 'oc-state' + (s === 'live' ? ' oc-live' : '');
+    const ps = el.querySelector('#oc-pill-state');
+    if (ps) {
+      ps.textContent = s === 'live' ? 'live' : s === 'connecting' ? 'waiting' : 'ended';
+      ps.className = 'oc-pill-state' + (s === 'live' ? ' oc-live' : '');
+    }
     if (s === 'closed') setTimeout(() => el.remove(), 1500);
   };
   el.querySelector('#oc-code').onclick = () => {

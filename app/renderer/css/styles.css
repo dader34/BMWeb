@@ -4079,3 +4079,17 @@ body.remote-helper::after {
 .owner-console .oc-log {
   max-height: 180px; overflow-y: auto; font-size: 11.5px; line-height: 1.6;
   border-top: 1px solid var(--line); padding-top: 8px; color: var(--ink-dim); }
+
+/* owner console, collapsed: a pill with the code and the live state, so the
+   share dialog stops covering the F-keys and readouts it sits on top of */
+.owner-console .oc-btns { display: flex; gap: 6px; align-items: flex-start; }
+.owner-console #oc-min { padding: 2px 10px; line-height: 1.2; }
+.owner-console .oc-pill { display: none; align-items: center; gap: 8px;
+  cursor: pointer; font-size: 13px; letter-spacing: .12em; white-space: nowrap; }
+.owner-console .oc-pill .oc-pill-state { letter-spacing: 0; font-size: 12px;
+  color: var(--ink-dim); }
+.owner-console .oc-pill .oc-pill-state.oc-live { color: #4bbf73; }
+.owner-console.oc-min { width: auto; padding: 8px 14px; }
+.owner-console.oc-min .oc-head, .owner-console.oc-min .oc-code,
+.owner-console.oc-min .oc-state, .owner-console.oc-min .oc-log { display: none; }
+.owner-console.oc-min .oc-pill { display: flex; }
