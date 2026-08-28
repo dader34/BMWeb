@@ -1821,6 +1821,12 @@ async function webResolveVariant(groupName) {
   const diag = (path, extra) => {
     _lastResolve = { group: key, path, ...extra };
     console.info(`[variant] ${key}: ${path}`, extra || '');
+    // into the session journal too: a beta Report must say WHY a module
+    // was not identified, not just that inpainit stopped afterwards
+    if (typeof Journal !== 'undefined' && Journal.log) {
+      Journal.log('variant', `${key}: ${path}`
+        + (extra ? ' ' + JSON.stringify(extra) : ''));
+    }
   };
   const code = await loadGroupCode(key);
   if (!code || !code.jobs || code.jobs.IDENTIFIKATION === undefined) {
@@ -1924,6 +1930,7 @@ async function webResolveVariant(groupName) {
   for (const s of sets || []) {
     if (typeof s.VARIANTE === 'string' && s.VARIANTE) {
       const v = s.VARIANTE.toLowerCase();
+      diag('resolved', { variant: v, empty: emptyAnswers, real: realAnswers });
       groupVariantCache.set(key, v);
       return v;
     }
