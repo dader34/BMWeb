@@ -1,24 +1,30 @@
 #!/usr/bin/env node
 // Package a built dist-web into downloadable OFFLINE web builds, in variants.
 //
-// The in-browser export (app/renderer/core/offline-export.js) zips the live
-// site from a running page; this does the same job server-side so CI can attach
-// the builds to a GitHub release. It does NOT reimplement the shell file list --
 // dist-web is already the whole static site (index.html + every file it loads),
-// so a variant is just dist-web with some data directories left out.
+// so a variant is just dist-web with some data trees left out. Three datasets
+// are normally streamed from Hugging Face at runtime and MUST be present in
+// dist-web/data before packaging, or the build is not offline at all:
+//
+//   data/faultdb.js faultindex.js faultmeta.js faultinfo.js   fault lookup (84 MB)
+//   data/ista/faulttests.json                                 ISTA test plans (14 MB)
+//   data/etk/                                                 parts catalogue (5.8 GB)
+//
+// The first two are required for every variant (this script refuses without
+// them). The parts catalogue is only in the "complete" variant, which is too
+// big for a GitHub release asset (2 GB cap) and is published to Hugging Face
+// instead; the other variants hide the Parts entry.
 //
 //   node scripts/build/offline-build.mjs --dist dist-web --out release-builds
+//   node scripts/build/offline-build.mjs --dist dist-web --out release-builds --variant complete
 //
 // Produces one .zip per variant:
-//   bmweb-<ver>-offline-full.zip        everything (diagnostics + coding + faults
-//                                        + wiring + parts-catalogue support)
-//   bmweb-<ver>-offline-no-wiring.zip   full minus the WDS wiring diagrams (~1 GB)
-//   bmweb-<ver>-offline-no-parts.zip    full minus the parts catalogue (ETK)
-//   bmweb-<ver>-offline-lite.zip        minus BOTH wiring and parts catalogue
+//   bmweb-<ver>-offline.zip             diagnostics + coding + fault lookup + wiring
+//   bmweb-<ver>-offline-no-wiring.zip   the same minus the WDS wiring diagrams (~150 MB)
+//   bmweb-<ver>-offline-complete.zip    everything, parts catalogue included (~6.5 GB)
 //
 // Each build is self-contained static HTML: unzip and open index.html (or serve
-// the folder over any static HTTP server). Wiring/ETK, when excluded, degrade to
-// a "not included in this build" notice -- nothing else changes.
+// the folder over any static HTTP server).
 
 import { execFileSync } from 'node:child_process';
 import { cpSync, rmSync, mkdirSync, existsSync, writeFileSync, readFileSync,
@@ -50,16 +56,40 @@ function readVersion() {
 const VER = readVersion();
 
 // The variants: name -> which data trees to DROP. Everything not dropped ships.
-//   wiring: data/wiring/*.wiring  (the WDS diagrams, ~1 GB -- the big one)
-//   parts : the ETK parts catalogue. ETK data is fetched remotely, not bundled,
-//           so "without parts" ships a flag that hides the catalogue entry --
-//           see PARTS_OFF below -- rather than deleting a local tree.
-const VARIANTS = [
-  { name: 'full',       dropWiring: false, dropParts: false },
-  { name: 'no-wiring',  dropWiring: true,  dropParts: false },
-  { name: 'no-parts',   dropWiring: false, dropParts: true  },
-  { name: 'lite',       dropWiring: true,  dropParts: true  },
+//   wiring: data/wiring/*.wiring  (the WDS diagrams, ~150 MB as released)
+//   parts : data/etk/             (the ETK catalogue, ~5.8 GB; "complete" only)
+const ALL_VARIANTS = [
+  { name: '',            dropWiring: false, dropParts: true  },
+  { name: '-no-wiring',  dropWiring: true,  dropParts: true  },
+  { name: '-complete',   dropWiring: false, dropParts: false },
 ];
+const WANT = arg('variant', 'github');   // github = the two release-asset zips
+const VARIANTS = WANT === 'complete' ? ALL_VARIANTS.filter((v) => !v.dropParts)
+               : WANT === 'all'      ? ALL_VARIANTS
+               :                       ALL_VARIANTS.filter((v) => v.dropParts);
+
+// Offline means offline: the fault lookup data is fetched from Hugging Face by
+// the hosted site, so a dist-web straight out of web_export.py does not have
+// it. Refuse rather than ship a zip whose README promises fault lookup.
+const REQUIRED = ['data/faultdb.js', 'data/faultindex.js', 'data/faultmeta.js',
+                  'data/faultinfo.js', 'data/ista/faulttests.json'];
+const missing = REQUIRED.filter((f) => !existsSync(join(DIST, f)));
+if (missing.length) {
+  console.error(`error: ${DIST} is missing the fault-lookup data, so the build would `
+    + `not be offline:\n  ${missing.join('\n  ')}\n`
+    + `Fetch faults/*.js and ista/faulttests.json from the CraigFf/bmweb-etk dataset `
+    + `into ${DIST}/data first (release-web.yml shows how).`);
+  process.exit(1);
+}
+if (VARIANTS.some((v) => !v.dropParts)) {
+  const n = existsSync(join(DIST, 'data', 'etk'))
+    ? readdirSync(join(DIST, 'data', 'etk')).filter((f) => f.endsWith('.etk')).length : 0;
+  if (n < 200 || !existsSync(join(DIST, 'data', 'etk', 'index.json'))) {
+    console.error(`error: the complete variant needs the ETK tree in ${DIST}/data/etk `
+      + `(found ${n} .etk bundles, want 246 plus index.json).`);
+    process.exit(1);
+  }
+}
 
 // When parts are OFF: a tiny flag file the app reads to hide the parts-catalogue
 // (ETK) entry rather than offer a feature this build cannot serve. Loaded before
@@ -86,7 +116,7 @@ mkdirSync(OUT, { recursive: true });
 const results = [];
 
 for (const v of VARIANTS) {
-  const stageName = `bmweb-${VER}-offline-${v.name}`;
+  const stageName = `bmweb-${VER}-offline${v.name}`;
   const stage = join(OUT, stageName);
   console.log(`\n==> building ${stageName}`);
   rmSync(stage, { recursive: true, force: true });
@@ -103,8 +133,8 @@ for (const v of VARIANTS) {
     if (existsSync(wj)) rmSync(wj, { force: true });
   }
   if (v.dropParts) {
-    // ETK is remote-fetched, so there is usually no local tree to delete; ship
-    // the flag that hides the catalogue entry and drop any local etk data.
+    // The catalogue is 5.8 GB and lives only in the complete build; hide the
+    // Parts entry here rather than offer a screen that would try the network.
     writeFileSync(join(stage, 'no-parts.js'), PARTS_OFF_JS);
     if (!readFileSync(join(stage, 'index.html'), 'utf8').includes('no-parts.js')) {
       const html = readFileSync(join(stage, 'index.html'), 'utf8')
@@ -114,26 +144,28 @@ for (const v of VARIANTS) {
     const etk = join(stage, 'data', 'etk');
     if (existsSync(etk)) { rmSync(etk, { recursive: true, force: true });
       console.log('    dropped data/etk (parts catalogue)'); }
-    console.log('    parts catalogue disabled');
+    console.log('    parts catalogue hidden (see the complete build)');
   }
 
   // a short readme so the download explains itself
   writeFileSync(join(stage, 'OFFLINE-README.txt'),
-    `BMWeb ${VER} -- offline web build (${v.name})\n`
+    `BMWeb ${VER} -- offline web build (offline${v.name})\n`
     + `${'='.repeat(48)}\n\n`
     + `Unzip this folder and open index.html in a browser, or serve the folder\n`
-    + `over any static HTTP server. Everything runs locally -- no internet needed\n`
-    + `for diagnostics, coding and fault reading. A K+DCAN / ENET cable talks to\n`
-    + `the car through the browser (Web Serial) or the THOR WiFi adapter.\n\n`
+    + `over any static HTTP server. Nothing in this build fetches from the\n`
+    + `internet. A K+DCAN cable talks to the car through the browser (Web Serial,\n`
+    + `Chrome or Edge) or over WiFi through the THOR adapter.\n\n`
     + `This build includes:\n`
     + `  - full diagnostics (every shipped SGBD), coding, fault memory\n`
-    + `  - fault code lookup with English descriptions\n`
+    + `  - fault code lookup with English descriptions and ISTA test plans\n`
     + (v.dropWiring
         ? `  - NO wiring diagrams (WDS) -- excluded to keep this build small\n`
         : `  - WDS wiring diagrams (where covered)\n`)
     + (v.dropParts
-        ? `  - NO parts catalogue (ETK) -- excluded from this build\n`
-        : `  - parts catalogue (ETK) support\n`)
+        ? `  - NO parts catalogue (ETK). It is 5.8 GB, more than a GitHub release\n`
+          + `    asset may hold, so the build that has it lives on Hugging Face:\n`
+          + `    the "offline-complete" zip linked from the release notes.\n`
+        : `  - the ETK parts catalogue, every chassis\n`)
     + `\nVersion ${VER}.\n`);
 
   const size = dirSize(stage);

@@ -26,17 +26,19 @@ cached. Note that an `https://` page cannot open a socket to a THOR adapter
 on the local network, so for WiFi diagnostics use an offline copy.
 
 **Offline.** Every [release](https://github.com/dader34/BMWeb/releases) ships
-four self-contained zips; unzip one and open `index.html`:
+self-contained builds; unzip one and open `index.html`. Nothing in them
+fetches from the internet.
 
-| Zip | Contents |
-|---|---|
-| `bmweb-<ver>-offline-full.zip` | everything, including ~1 GB of wiring diagrams |
-| `bmweb-<ver>-offline-no-wiring.zip` | everything except the wiring diagrams |
-| `bmweb-<ver>-offline-no-parts.zip` | everything except the parts catalogue |
-| `bmweb-<ver>-offline-lite.zip` | neither wiring nor parts |
+| Build | Where | Contents |
+|---|---|---|
+| `bmweb-<ver>-offline.zip` | GitHub release | diagnostics, coding, fault lookup with ISTA plans, wiring diagrams (~450 MB) |
+| `bmweb-<ver>-offline-no-wiring.zip` | GitHub release | the same without the wiring diagrams (~300 MB) |
+| `bmweb-<ver>-offline-complete.zip` | Hugging Face, linked from the release notes | everything above plus the ETK parts catalogue for every chassis (~6.5 GB) |
 
-The parts catalogue data is large and fetched on demand, so "no-parts" just
-hides the entry; the wiring diagrams are physically dropped.
+The parts catalogue is 5.8 GB on its own, more than a GitHub release asset
+may hold, which is why the complete build lives on Hugging Face. The two
+GitHub builds hide the Parts entry rather than offer a screen that would
+need the network.
 
 On iPhone, open the page in Safari or from the home screen, not from the
 Files-app preview: Quick Look restricts scripts and the page hangs on the
