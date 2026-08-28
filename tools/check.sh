@@ -187,6 +187,10 @@ echo
 echo "== write guard holds =="
 node tools/verify/test_writeguard.js || exit 1
 
+echo
+echo "== remote session seam: car routes wait for the owner, never go local =="
+node tools/verify/test_remote.js || exit 1
+
 # Table completeness: the VM reaches tables the lifter never modelled, so a
 # shipped set that omits declared tables silently decodes lookups as "".
 # Needs a running app for the ECU table API; skipped otherwise.

@@ -30,6 +30,8 @@ const Remote = {
   onLog: null,         // owner console hook
   onState: null,       // UI hook: 'connecting'|'live'|'closed'
   jobs: 0,
+  ending: false,       // set while end() runs, so onclose does not re-host
+  waiters: [],         // helper: resolvers parked until the channel opens
 
   // signaling endpoint: the beta worker, /rtc/*. Reuses the same base the
   // report endpoint uses so there is one worker to run, not two.
@@ -107,7 +109,32 @@ const Remote = {
 
   // ---- helper: turn a car fetch into a peer request -----------------------
 
-  request(path, init) {
+  // The channel is not open for a moment after join() (ICE is still running)
+  // and again after a reconnect. A request in that window must WAIT, not go
+  // to the local shim: on the helper's machine the local shim has no cable,
+  // and "no cable" is exactly the wrong answer for "the owner is not here
+  // yet". Rejects if the session ends or the peer never shows.
+  _ready(ms = 20000) {
+    if (this.chan && this.chan.readyState === 'open') return Promise.resolve();
+    if (this.role !== 'helper') {
+      return Promise.reject(new Error('not in a remote session'));
+    }
+    return new Promise((resolve, reject) => {
+      const w = { resolve, reject, timer: null };
+      w.timer = setTimeout(() => {
+        this.waiters = this.waiters.filter((x) => x !== w);
+        reject(new Error('remote: the shared car did not connect'));
+      }, ms);
+      this.waiters.push(w);
+    });
+  },
+  _wake(err) {
+    const ws = this.waiters; this.waiters = [];
+    for (const w of ws) { clearTimeout(w.timer); err ? w.reject(err) : w.resolve(); }
+  },
+
+  async request(path, init) {
+    await this._ready();
     return new Promise((resolve, reject) => {
       const id = `${++this.seq}`;
       const timer = setTimeout(() => {
@@ -154,12 +181,96 @@ const Remote = {
   _wire(chan) {
     this.chan = chan;
     chan.onopen = () => {
+      this._wake();
       if (this.onState) this.onState('live');
       this.log(this.role === 'owner'
         ? 'helper connected' : 'connected to the car');
     };
-    chan.onclose = () => this.end('peer closed');
+    chan.onclose = () => {
+      if (this.ending) return;
+      // The helper closing its tab, or losing the network, must not end the
+      // OWNER's share: the code they were given should keep working. Put a
+      // fresh offer under the same code and wait again.
+      if (this.role === 'owner') this._rehost().catch((e) => this.end(e.message));
+      else this.end('the owner disconnected');
+    };
     chan.onmessage = (ev) => this._onMessage(ev);
+  },
+
+  // A closed data channel is not always reported (a peer that vanishes mid-
+  // ICE, a laptop lid): the connection state is. 'disconnected' gets a grace
+  // period since it flaps on WiFi; 'failed'/'closed' are final.
+  _watch(pc) {
+    let grace = null;
+    pc.onconnectionstatechange = () => {
+      if (pc !== this.pc) return;                     // an old connection
+      const st = pc.connectionState;
+      if (st === 'connected' && grace) { clearTimeout(grace); grace = null; }
+      if (st === 'disconnected' && !grace) {
+        grace = setTimeout(() => {
+          if (pc === this.pc && pc.connectionState !== 'connected') {
+            if (this.chan && this.chan.onclose) this.chan.onclose();
+          }
+        }, 8000);
+      }
+      if (st === 'failed' || st === 'closed') {
+        if (this.chan && this.chan.onclose) this.chan.onclose();
+      }
+    };
+  },
+
+  // Drop every piece of a previous session so a new host()/join() starts
+  // clean. Silent: no hooks, no log. end() is the loud version.
+  _teardown() {
+    if (this.poll) { clearInterval(this.poll); this.poll = null; }
+    for (const [, p] of this.pending) {
+      clearTimeout(p.timer);
+      p.reject(new Error('remote session ended'));
+    }
+    this.pending.clear();
+    this._wake(new Error('remote session ended'));
+    const chan = this.chan, pc = this.pc;
+    this.chan = this.pc = null;
+    if (chan) { chan.onclose = null; try { chan.close(); } catch {} }
+    if (pc) { pc.onconnectionstatechange = null; try { pc.close(); } catch {} }
+  },
+
+  // OWNER: the helper went away; offer again under the SAME code so the code
+  // they already have still connects. The worker treats a new offer as a new
+  // round (it clears the old answer), so the helper's next join is accepted.
+  async _rehost() {
+    const code = this.code;
+    this._teardown();
+    this.role = 'owner'; this.code = code;
+    this.log('helper disconnected — the same code reconnects');
+    if (this.onState) this.onState('connecting');
+    await this._offer();
+  },
+
+  async _offer() {
+    this.pc = new RTCPeerConnection(this.ICE());
+    this._watch(this.pc);
+    this._wire(this.pc.createDataChannel('diag', { ordered: true }));
+    this.pc.onicecandidate = (e) => {
+      if (e.candidate) this.sig('ice', { from: 'owner', candidate: e.candidate })
+        .catch(() => {});
+    };
+    const offer = await this.pc.createOffer();
+    await this.pc.setLocalDescription(offer);
+    await this.sig('offer', { offer });
+    // poll for the helper's answer, then its ICE
+    let answered = false;
+    const pc = this.pc;
+    this.poll = setInterval(async () => {
+      if (pc !== this.pc) return;
+      const r = await this.sig('poll', { want: 'answer' }).catch(() => null);
+      if (r && r.answer && !answered) {
+        answered = true;
+        await this.pc.setRemoteDescription(r.answer);
+        this.log('helper joined — negotiating');
+      }
+      if (answered) await this._drainIce('helperIce');
+    }, 1500);
   },
 
   async _drainIce(fromKey) {
@@ -175,49 +286,46 @@ const Remote = {
   // OWNER: create the session, wait for the helper's answer + ICE.
   async host() {
     if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
+    this._teardown();                        // whatever came before
+    if (this.role === 'helper') uninstallRemoteHelperShim();
     this.role = 'owner';
     this.code = this.newCode();
-    this.pc = new RTCPeerConnection(this.ICE());
-    this._wire(this.pc.createDataChannel('diag', { ordered: true }));
-    this.pc.onicecandidate = (e) => {
-      if (e.candidate) this.sig('ice', { from: 'owner', candidate: e.candidate })
-        .catch(() => {});
-    };
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    await this.sig('offer', { offer });
     if (this.onState) this.onState('connecting');
-    // poll for the helper's answer, then its ICE
-    let answered = false;
-    this.poll = setInterval(async () => {
-      const r = await this.sig('poll', { want: 'answer' }).catch(() => null);
-      if (r && r.answer && !answered) {
-        answered = true;
-        await this.pc.setRemoteDescription(r.answer);
-        this.log('helper joined — negotiating');
-      }
-      if (answered) await this._drainIce('helperIce');
-    }, 1500);
+    await this._offer();
     return this.code;
   },
 
   // HELPER: join by code, answer the owner's offer.
   async join(code) {
     if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
+    this._teardown();                        // a second connect starts clean
     this.role = 'helper';
     this.code = String(code || '').trim().toUpperCase();
-    this.pc = new RTCPeerConnection(this.ICE());
-    this.pc.ondatachannel = (e) => this._wire(e.channel);
-    this.pc.onicecandidate = (e) => {
-      if (e.candidate) this.sig('ice', { from: 'helper', candidate: e.candidate })
-        .catch(() => {});
-    };
-    const r = await this.sig('poll', { want: 'offer' });
-    if (!r || !r.offer) throw new Error('no such session, or it expired');
-    await this.pc.setRemoteDescription(r.offer);
-    const answer = await this.pc.createAnswer();
-    await this.pc.setLocalDescription(answer);
-    await this.sig('answer', { answer });
+    try {
+      this.pc = new RTCPeerConnection(this.ICE());
+      this._watch(this.pc);
+      this.pc.ondatachannel = (e) => this._wire(e.channel);
+      this.pc.onicecandidate = (e) => {
+        if (e.candidate) this.sig('ice', { from: 'helper', candidate: e.candidate })
+          .catch(() => {});
+      };
+      const r = await this.sig('poll', { want: 'offer' });
+      if (!r || !r.offer) throw new Error('no such session, or it expired');
+      await this.pc.setRemoteDescription(r.offer);
+      const answer = await this.pc.createAnswer();
+      await this.pc.setLocalDescription(answer);
+      await this.sig('answer', { answer }).catch((e) => {
+        throw new Error(/taken/.test(e.message)
+          ? 'that session already has a helper — ask the owner to end it and share again'
+          : e.message);
+      });
+    } catch (e) {
+      // never leave a half-joined helper behind: role set, no channel, and
+      // every car fetch quietly answered by the local (cable-less) shim
+      this._teardown();
+      this.role = this.code = null;
+      throw e;
+    }
     if (this.onState) this.onState('connecting');
     installRemoteHelperShim();               // route car fetches to the peer
     if (typeof showRemoteBar === 'function') showRemoteBar();
@@ -226,16 +334,12 @@ const Remote = {
   },
 
   end(why) {
-    if (this.poll) { clearInterval(this.poll); this.poll = null; }
-    for (const [, p] of this.pending) {
-      clearTimeout(p.timer);
-      p.reject(new Error('remote session ended'));
-    }
-    this.pending.clear();
-    try { if (this.chan) this.chan.close(); } catch {}
-    try { if (this.pc) this.pc.close(); } catch {}
+    if (this.ending) return;
+    this.ending = true;
+    this._teardown();
     const wasHelper = this.role === 'helper';
-    this.chan = this.pc = this.role = this.code = null;
+    this.role = this.code = null;
+    this.ending = false;
     if (wasHelper) uninstallRemoteHelperShim();
     if (this.onState) this.onState('closed');
     if (typeof document !== 'undefined') {
@@ -262,8 +366,10 @@ function installRemoteHelperShim() {
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     const rel = url.replace(/^https?:\/\/[^/]+/, '');
-    if (Remote.role === 'helper' && Remote.chan
-        && REMOTE_CAR_ROUTE.test(rel)) {
+    // role alone decides: while we are a helper, a car route goes to the
+    // owner or fails, it never falls through to this machine's own shim
+    // (which has no cable and would say so, misleadingly)
+    if (Remote.role === 'helper' && REMOTE_CAR_ROUTE.test(rel)) {
       return Remote.request(rel, init);
     }
     return _remoteBaseFetch(input, init);
@@ -393,7 +499,7 @@ function showOwnerConsole(code) {
     const st = el.querySelector('#oc-state');
     if (!st) return;
     st.textContent = s === 'live' ? '● live — helper is connected'
-      : s === 'connecting' ? 'negotiating…'
+      : s === 'connecting' ? 'waiting for the helper — the code above connects'
       : 'session ended';
     st.className = 'oc-state' + (s === 'live' ? ' oc-live' : '');
     if (s === 'closed') setTimeout(() => el.remove(), 1500);
