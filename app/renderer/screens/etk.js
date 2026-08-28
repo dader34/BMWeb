@@ -332,7 +332,8 @@ async function showEtk() {
     note.innerHTML = `
       <div class="empty-big">No parts data in this build</div>
       <div>The catalogue comes from BMW's ETK, a separate import not part of this repository.</div>
-      <div style="font-size:12px;color:var(--ink-faint)">To add it:
+      <div style="font-size:12px;color:var(--ink-faint)">Offline, it is in the
+           <em>offline-complete</em> build linked from each release; from source,
            <code>tools/etk_import.py --db etk.sqlite --out data/etk</code>.</div>`;
     view.appendChild(note);
     return;

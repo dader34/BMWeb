@@ -1,13 +1,23 @@
 name: Release offline web builds
 
 # Builds the OFFLINE web app -- the same static site the browser serves, packaged
-# to unzip and open index.html with no internet -- in four variants, and attaches
-# the .zips to the GitHub Release for a v* tag. Runs on ubuntu (no macOS toolchain
-# needed): it just assembles dist-web the way Pages does, downloads the wiring
-# diagrams for the "full" variants, then runs scripts/build/offline-build.mjs.
+# to unzip and open index.html with no internet -- and publishes it for a v* tag.
+# Runs on ubuntu (no macOS toolchain needed): it assembles dist-web the way Pages
+# does, then adds the three datasets the hosted site streams from Hugging Face
+# at runtime, because a build that still fetches them is not offline:
 #
-#   push a tag  v*   -> builds the variants and uploads them to that Release
-#   run manually     -> builds them and uploads as workflow artifacts (no release)
+#   faults/*.js + ista/faulttests.json   fault lookup, ~100 MB   -> every zip
+#   the ETK parts tree, ~5.8 GB          parts catalogue         -> "complete" only
+#
+# Two jobs:
+#   offline   bmweb-<ver>-offline.zip and -no-wiring.zip -> GitHub Release assets
+#   complete  bmweb-<ver>-offline-complete.zip (~6.5 GB) -> Hugging Face, linked
+#             from the release notes. A GitHub release asset is capped at 2 GB.
+#             Needs the HF_TOKEN secret (write access to the target dataset);
+#             without it the job is skipped and the release says so.
+#
+#   push a tag  v*   -> builds and publishes
+#   run manually     -> builds and uploads as workflow artifacts (no release)
 on:
   push:
     tags: ['v*']
@@ -15,6 +25,10 @@ on:
 
 permissions:
   contents: write
+
+env:
+  HF_DATA: CraigFf/bmweb-etk          # where the runtime datasets live
+  HF_RELEASES: CraigFf/bmweb-releases # where the complete build is published
 
 jobs:
   offline:
@@ -42,42 +56,15 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '20' }
 
-      - name: Expand the committed data
-        run: |
-          set -euo pipefail
-          find data/inpa-ir -name '*.json.gz' -print0 \
-            | xargs -0 -r -P 4 -I{} gzip -dkf {}
-          echo "expanded: $(find data/inpa-ir -name '*.json' | wc -l) files"
+      - name: Build dist-web
+        run: scripts/build/ci-dist-web.sh
 
-      - name: Assemble the per-car tree
-        run: |
-          set -euo pipefail
-          python3 tools/export/build_ecu_tree.py
-          test -d data/chassis/E46
+      - name: Fault lookup data (every variant)
+        run: scripts/build/ci-fetch-hf-data.sh faults
 
-      - name: Build the static site (same as Pages)
+      - name: Wiring diagrams
         run: |
           set -euo pipefail
-          mkdir -p dist-web
-          python3 tools/export/web_export.py --out dist-web
-          cp -R app/renderer/. dist-web/
-          rm -f dist-web/thor_bridge.js dist-web/core/offline-export.js
-          # stamp the web version (window.BMACW_VERSION) so settings + the
-          # OFFLINE-README show it -- one version source (the csproj).
-          VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)
-          printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION}\"" > dist-web/version.js
-          grep -q 'version.js' dist-web/index.html \
-            || sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
-          test -s dist-web/index.html
-          grep -q webshim.js dist-web/index.html
-          echo "dist-web (no wiring yet): $(du -sh dist-web | cut -f1)"
-
-      - name: Wiring diagrams (for the full / no-parts variants)
-        run: |
-          set -euo pipefail
-          # The WDS schematics live in a separate release, exactly as the DMG
-          # job pulls them. The offline-build script leaves them out of the
-          # no-wiring / lite variants; here we just make them available.
           gh release download wiring-latest \
             --repo dader34/BMacW-wiring-images \
             --pattern '*.wiring' --dir dist-web/data/wiring
@@ -88,7 +75,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Package the offline variants
+      - name: Package the release-asset variants
         run: |
           set -euo pipefail
           node scripts/build/offline-build.mjs --dist dist-web --out release-builds
@@ -106,11 +93,109 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
-          # --clobber so a re-run replaces the same-named assets rather than
-          # failing; the DMG job creates the release first on a tag push, but
-          # `gh release create ... || edit` guards the race either way.
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
             || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
           gh release upload "${GITHUB_REF_NAME}" release-builds/*.zip --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  complete:
+    runs-on: ubuntu-latest
+    # ~0.5 GB of site, 5.8 GB of ETK, ~6.5 GB of zip: the stock runner has ~14 GB
+    # free, so the preinstalled toolchains nobody here uses are removed first.
+    steps:
+      - name: Free runner disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          df -h /
+
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+
+      - name: Is there a Hugging Face token?
+        id: hf
+        run: |
+          if [ -n "${HF_TOKEN:-}" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::HF_TOKEN secret is not set; the complete build is skipped."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+      - name: Build dist-web
+        if: steps.hf.outputs.ok == 'true'
+        run: scripts/build/ci-dist-web.sh
+
+      - name: Fault lookup data and the ETK parts tree
+        if: steps.hf.outputs.ok == 'true'
+        run: |
+          scripts/build/ci-fetch-hf-data.sh faults
+          scripts/build/ci-fetch-hf-data.sh etk
+          df -h /
+
+      - name: Wiring diagrams
+        if: steps.hf.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          gh release download wiring-latest \
+            --repo dader34/BMacW-wiring-images \
+            --pattern '*.wiring' --dir dist-web/data/wiring
+          test "$(find dist-web/data/wiring -name '*.wiring' | wc -l)" -ge 15
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Package the complete variant
+        if: steps.hf.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          node scripts/build/offline-build.mjs --dist dist-web --out release-builds --variant complete
+          rm -rf dist-web            # make room: the zip is as big as the tree
+          ls -lh release-builds/*.zip
+          df -h /
+
+      - name: Publish to Hugging Face and link it from the release
+        if: steps.hf.outputs.ok == 'true' && github.ref_type == 'tag'
+        run: |
+          set -euo pipefail
+          pip install -q 'huggingface_hub>=0.34'
+          zip=$(ls release-builds/*-offline-complete.zip)
+          name=$(basename "$zip")
+          ver="${GITHUB_REF_NAME#v}"
+          python3 - "$zip" "$ver/$name" <<'PY'
+          import sys
+          from huggingface_hub import HfApi
+          src, dst = sys.argv[1:3]
+          api = HfApi()
+          api.create_repo("${{ env.HF_RELEASES }}", repo_type="dataset", exist_ok=True)
+          api.upload_file(path_or_fileobj=src, path_in_repo=dst,
+                          repo_id="${{ env.HF_RELEASES }}", repo_type="dataset",
+                          commit_message=f"{dst}")
+          print("uploaded", dst)
+          PY
+          url="https://huggingface.co/datasets/${{ env.HF_RELEASES }}/resolve/main/$ver/$name"
+          size=$(du -h "$zip" | cut -f1)
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 \
+            || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
+          gh release view "${GITHUB_REF_NAME}" --json body -q .body > notes.md
+          printf '\n\n## Complete offline build (%s)\n\nEverything above plus the ETK parts catalogue for every chassis, too large for a GitHub release asset:\n\n**[%s](%s)**\n' \
+            "$size" "$name" "$url" >> notes.md
+          gh release edit "${GITHUB_REF_NAME}" --notes-file notes.md
+          echo "linked $url"
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Keep the zip as an artifact (manual runs)
+        if: steps.hf.outputs.ok == 'true' && github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-complete-build
+          path: release-builds/*-offline-complete.zip
