@@ -202,6 +202,15 @@ const Remote = {
   // period since it flaps on WiFi; 'failed'/'closed' are final.
   _watch(pc) {
     let grace = null;
+    // The channel's onclose is the one place that decides "re-host or end";
+    // route every loss through it. A helper whose ICE never completed has no
+    // channel at all, and used to sit with the red border forever.
+    const lost = (why) => {
+      if (this.ending || pc !== this.pc) return;
+      if (this.chan && this.chan.onclose) this.chan.onclose();
+      else if (this.role === 'owner') this._rehost().catch((e) => this.end(e.message));
+      else this.end(why);
+    };
     pc.onconnectionstatechange = () => {
       if (pc !== this.pc) return;                     // an old connection
       const st = pc.connectionState;
@@ -209,13 +218,11 @@ const Remote = {
       if (st === 'disconnected' && !grace) {
         grace = setTimeout(() => {
           if (pc === this.pc && pc.connectionState !== 'connected') {
-            if (this.chan && this.chan.onclose) this.chan.onclose();
+            lost('the connection dropped');
           }
         }, 8000);
       }
-      if (st === 'failed' || st === 'closed') {
-        if (this.chan && this.chan.onclose) this.chan.onclose();
-      }
+      if (st === 'failed' || st === 'closed') lost('could not reach the owner');
     };
   },
 
@@ -251,13 +258,25 @@ const Remote = {
     this.pc = new RTCPeerConnection(this.ICE());
     this._watch(this.pc);
     this._wire(this.pc.createDataChannel('diag', { ordered: true }));
+    // ICE starts the moment setLocalDescription runs, so host candidates fire
+    // BEFORE the offer POST below has landed -- and the worker clears the
+    // previous round's candidates when it stores a new offer. Posting them
+    // early meant our own offer wiped them, the helper never got them, and
+    // ICE failed ten seconds in. Hold them until the offer is up.
+    const queued = [];
+    let posted = false;
     this.pc.onicecandidate = (e) => {
-      if (e.candidate) this.sig('ice', { from: 'owner', candidate: e.candidate })
-        .catch(() => {});
+      if (!e.candidate) return;
+      if (!posted) { queued.push(e.candidate); return; }
+      this.sig('ice', { from: 'owner', candidate: e.candidate }).catch(() => {});
     };
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
     await this.sig('offer', { offer });
+    posted = true;
+    for (const c of queued) {
+      this.sig('ice', { from: 'owner', candidate: c }).catch(() => {});
+    }
     // poll for the helper's answer, then its ICE
     let answered = false;
     const pc = this.pc;
@@ -305,9 +324,12 @@ const Remote = {
       this.pc = new RTCPeerConnection(this.ICE());
       this._watch(this.pc);
       this.pc.ondatachannel = (e) => this._wire(e.channel);
+      const queued = [];
+      let posted = false;
       this.pc.onicecandidate = (e) => {
-        if (e.candidate) this.sig('ice', { from: 'helper', candidate: e.candidate })
-          .catch(() => {});
+        if (!e.candidate) return;
+        if (!posted) { queued.push(e.candidate); return; }
+        this.sig('ice', { from: 'helper', candidate: e.candidate }).catch(() => {});
       };
       const r = await this.sig('poll', { want: 'offer' });
       if (!r || !r.offer) throw new Error('no such session, or it expired');
@@ -319,6 +341,10 @@ const Remote = {
           ? 'that session already has a helper — ask the owner to end it and share again'
           : e.message);
       });
+      posted = true;
+      for (const c of queued) {
+        this.sig('ice', { from: 'helper', candidate: c }).catch(() => {});
+      }
     } catch (e) {
       // never leave a half-joined helper behind: role set, no channel, and
       // every car fetch quietly answered by the local (cable-less) shim
