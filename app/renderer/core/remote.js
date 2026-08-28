@@ -258,26 +258,12 @@ const Remote = {
     this.pc = new RTCPeerConnection(this.ICE());
     this._watch(this.pc);
     this._wire(this.pc.createDataChannel('diag', { ordered: true }));
-    // ICE starts the moment setLocalDescription runs, so host candidates fire
-    // BEFORE the offer POST below has landed -- and the worker clears the
-    // previous round's candidates when it stores a new offer. Posting them
-    // early meant our own offer wiped them, the helper never got them, and
-    // ICE failed ten seconds in. Hold them until the offer is up.
-    const queued = [];
-    let posted = false;
-    this.pc.onicecandidate = (e) => {
-      if (!e.candidate) return;
-      if (!posted) { queued.push(e.candidate); return; }
-      this.sig('ice', { from: 'owner', candidate: e.candidate }).catch(() => {});
-    };
     const offer = await this.pc.createOffer();
     await this.pc.setLocalDescription(offer);
-    await this.sig('offer', { offer });
-    posted = true;
-    for (const c of queued) {
-      this.sig('ice', { from: 'owner', candidate: c }).catch(() => {});
-    }
-    // poll for the helper's answer, then its ICE
+    await this._gathered(this.pc);
+    // localDescription now carries every candidate: one write, nothing to race
+    await this.sig('offer', { offer: this.pc.localDescription });
+    // poll for the helper's answer (candidates ride inside it too)
     let answered = false;
     const pc = this.pc;
     this.poll = setInterval(async () => {
@@ -287,9 +273,28 @@ const Remote = {
         answered = true;
         await this.pc.setRemoteDescription(r.answer);
         this.log('helper joined — negotiating');
+        // older clients still trickle; keep draining for them
+        await this._drainIce('helperIce');
       }
-      if (answered) await this._drainIce('helperIce');
     }, 1500);
+  },
+
+  // Trickle ICE through KV does not work across edge locations: the mailbox
+  // is eventually consistent (a write can take up to a minute to show at
+  // another PoP) and the candidate list was a read-modify-write on one key,
+  // so concurrent posts overwrote each other and the read-once poll raced
+  // the writes. Same-LAN peers hit one PoP and never saw it; a phone on
+  // data or a parent across town did, every first attempt. So: gather
+  // first, then post ONE description with every candidate inside it.
+  _gathered(pc, ms = 3000) {
+    if (pc.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => { clearTimeout(t); resolve(); };
+      const t = setTimeout(done, ms);       // a slow TURN lookup must not stall
+      pc.onicegatheringstatechange = () => {
+        if (pc.iceGatheringState === 'complete') done();
+      };
+    });
   },
 
   async _drainIce(fromKey) {
@@ -324,27 +329,17 @@ const Remote = {
       this.pc = new RTCPeerConnection(this.ICE());
       this._watch(this.pc);
       this.pc.ondatachannel = (e) => this._wire(e.channel);
-      const queued = [];
-      let posted = false;
-      this.pc.onicecandidate = (e) => {
-        if (!e.candidate) return;
-        if (!posted) { queued.push(e.candidate); return; }
-        this.sig('ice', { from: 'helper', candidate: e.candidate }).catch(() => {});
-      };
       const r = await this.sig('poll', { want: 'offer' });
       if (!r || !r.offer) throw new Error('no such session, or it expired');
       await this.pc.setRemoteDescription(r.offer);
       const answer = await this.pc.createAnswer();
       await this.pc.setLocalDescription(answer);
-      await this.sig('answer', { answer }).catch((e) => {
+      await this._gathered(this.pc);
+      await this.sig('answer', { answer: this.pc.localDescription }).catch((e) => {
         throw new Error(/taken/.test(e.message)
           ? 'that session already has a helper — ask the owner to end it and share again'
           : e.message);
       });
-      posted = true;
-      for (const c of queued) {
-        this.sig('ice', { from: 'helper', candidate: c }).catch(() => {});
-      }
     } catch (e) {
       // never leave a half-joined helper behind: role set, no channel, and
       // every car fetch quietly answered by the local (cable-less) shim

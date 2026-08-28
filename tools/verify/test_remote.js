@@ -106,19 +106,27 @@ Remote.role = null;
 await assert.rejects(Remote.request('/api/port'), /not in a remote session/);
 ok('request() outside a session rejects instead of pretending');
 
-// ---- 7. no ICE candidate leaves before the offer is on the worker --------
-// (the regression: setLocalDescription fires host candidates synchronously,
-// they were POSTed, then the owner's own offer POST wiped them server-side;
-// the helper never got them and ICE failed ten seconds in)
+// ---- 7. ICE is gathered first and rides inside the offer -- no trickle ----
+// (the regression: candidates went through the KV mailbox one write each,
+// which is eventually consistent across edge locations; same-LAN peers
+// never noticed, a phone on data hung at "negotiating" every first try)
 global.RTCPeerConnection = class {
-  constructor() { this.connectionState = 'new'; }
+  constructor() { this.connectionState = 'new'; this.iceGatheringState = 'new';
+                  this.localDescription = null; }
   createDataChannel() { return { readyState: 'connecting', send() {} }; }
   async createOffer() { return { type: 'offer', sdp: 'o' }; }
   async createAnswer() { return { type: 'answer', sdp: 'a' }; }
-  async setLocalDescription() {
-    // candidates fire the moment ICE starts -- before any POST resolves
-    this.onicecandidate && this.onicecandidate({ candidate: { c: 'host1' } });
-    this.onicecandidate && this.onicecandidate({ candidate: { c: 'host2' } });
+  async setLocalDescription(d) {
+    this.localDescription = { type: d.type, sdp: d.sdp + ' (no candidates yet)' };
+    this.iceGatheringState = 'gathering';
+    // candidates arrive after a beat, then gathering completes and the
+    // local description is the full one
+    setTimeout(() => {
+      this.onicecandidate && this.onicecandidate({ candidate: { c: 'host1' } });
+      this.localDescription = { type: d.type, sdp: d.sdp + ' a=candidate:host1 a=candidate:srflx1' };
+      this.iceGatheringState = 'complete';
+      this.onicegatheringstatechange && this.onicegatheringstatechange();
+    }, 20);
   }
   async setRemoteDescription() {}
   async addIceCandidate() {}
@@ -126,13 +134,15 @@ global.RTCPeerConnection = class {
 };
 const calls = [];
 Remote.base = () => 'http://sig';
-Remote.sig = async (action, body) => { calls.push(action); return { ok: true }; };
+Remote.sig = async (action, body) => { calls.push([action, body]); return { ok: true }; };
 Remote.role = 'owner'; Remote.code = 'TESTCODE';
 await Remote._offer();
 clearInterval(Remote.poll); Remote.poll = null;
-assert.deepStrictEqual(calls, ['offer', 'ice', 'ice'],
-  `offer must precede every ice POST, got ${calls.join(',')}`);
-ok('owner: both host candidates are posted AFTER the offer, none before');
+assert.deepStrictEqual(calls.map((c) => c[0]), ['offer'],
+  `exactly one offer POST and no ice POSTs, got ${calls.map((c) => c[0]).join(',')}`);
+assert.match(calls[0][1].offer.sdp, /candidate:host1.*candidate:srflx1/,
+  'the posted offer must be the gathered local description');
+ok('owner: waits for ICE gathering, posts one offer with every candidate inside');
 
 // ---- 8. helper whose ICE fails before any channel arrives is ended ---------
 Remote._teardown(); Remote.role = 'helper'; Remote.code = 'TESTCODE';
