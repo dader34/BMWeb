@@ -1,6 +1,6 @@
 {
   "name": "bmweb-renderer",
-  "version": "0.9.95",
+  "version": "0.9.96",
   "private": true,
   "description": "BMWeb renderer — ES modules bundled to a single IIFE by esbuild",
   "scripts": {
