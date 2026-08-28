@@ -212,24 +212,10 @@
             car that is not in the right state, or a battery sagging under load.</p>
         </div>
 
-        <h3>macOS, with the native app</h3>
-        <p>The macOS app owns the serial port directly, so nothing else is needed. It is ad-hoc
-          signed with no Apple Developer ID, which means macOS quarantines the download
-          and blocks the first launch.</p>
-        <ol class="steps">
-          <li><div><b>Install it</b><span>Open the .dmg and drag the app to Applications.</span></div></li>
-          <li><div><b>Clear the quarantine flag, once</b><span>Run the command below in Terminal.</span></div></li>
-          <li><div><b>Launch from Applications</b><span>After the first run it opens normally.</span></div></li>
-        </ol>
-        <div class="cmd">
-          <code id="xattr-cmd">xattr -dr com.apple.quarantine /Applications/BMacW.app</code>
-          <button type="button" id="xattr-copy">Copy</button>
-        </div>
-
         <h3>Any desktop, with a USB cable in the browser</h3>
         <p>The web app drives a K+DCAN cable through Web Serial, which only
           <b>Chrome and Edge on the desktop</b> implement. Safari has no Web Serial at all,
-          so on a Mac with a USB cable you want the native app instead.</p>
+          so on a Mac with a USB cable use Chrome or Edge.</p>
         <ol class="steps">
           <li><div><b>Plug the cable in directly</b><span>Into the car's OBD-II port and into the machine. Avoid USB hubs.</span></div></li>
           <li><div><b>Set the adapter</b><span>Settings, then Adapter, then K+DCAN. This is the default.</span></div></li>
@@ -297,11 +283,6 @@
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <th scope="row">macOS, native app</th>
-                  <td>Yes, no setup</td>
-                  <td>Yes</td>
-                </tr>
                 <tr>
                   <th scope="row">Chrome or Edge, desktop</th>
                   <td>Yes, via Web Serial</td>
@@ -453,10 +434,17 @@
         <p>The app installs to the home screen or the dock as a progressive web app and
           keeps working without a connection. Everything it reads is a static file, so once
           it is cached there is no server to be unreachable.</p>
-        <p>From Settings you can also take a full offline copy, either as a folder or a zip,
-          with wiring diagrams optional. Pre-built dataset archives are available too: the
-          full catalogue is about 7.0 GB, the parts catalogue for all chassis about 5.8 GB,
-          and the wiring diagrams for all chassis about 1.1 GB.</p>
+        <p>For a copy that never touches the network, every
+          <a href="https://github.com/dader34/BMWeb/releases">release</a> ships
+          self-contained builds: unzip one and open <code>index.html</code>. The
+          <b>offline</b> build (about 370 MB) has diagnostics, coding, the fault lookup
+          with its ISTA plans and the wiring diagrams; <b>offline-no-wiring</b> (about
+          220 MB) drops the diagrams. The <b>offline-complete</b> build adds the parts
+          catalogue for every chassis, which makes it about 6 GB, more than a GitHub
+          release asset may hold, so it lives on Hugging Face and is linked from each
+          release's notes.</p>
+        <p>A local copy must stay on <code>http://</code> or <code>file://</code> to reach
+          a THOR adapter; see <a href="#start">Getting connected</a>.</p>
       </section>
 
       <section id="trouble">
@@ -536,23 +524,12 @@
 <footer class="site-footer">
   <div class="wrap wrap-wide footer-in">
     <span>BMWeb, BMW diagnostics without Windows</span>
-    <a href="https://github.com/dader34/BMacW">github.com/dader34/BMacW</a>
+    <a href="https://github.com/dader34/BMWeb">github.com/dader34/BMWeb</a>
   </div>
 </footer>
 
 <script>
 (function () {
-  // Copy the quarantine command.
-  var btn = document.getElementById('xattr-copy');
-  if (btn) {
-    btn.addEventListener('click', function () {
-      var t = document.getElementById('xattr-cmd').textContent;
-      navigator.clipboard.writeText(t).then(function () {
-        btn.textContent = 'Copied';
-        setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
-      }).catch(function () {});
-    });
-  }
 
   // Highlight the contents entry for whatever section is on screen. Uses an
   // observer rather than a scroll handler so it costs nothing while idle.
