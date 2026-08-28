@@ -45,10 +45,12 @@ assert.ok(seen.size >= 199, 'codes must not collide in 200 draws');
 ok('codes: 8 unambiguous chars, effectively unique');
 
 // ---- 3. helper request/response round-trips through the protocol -----------
+const tick = () => new Promise((r) => setImmediate(r));
 const sent = [];
 Remote.role = 'helper';
 Remote.chan = { readyState: 'open', send: (s) => sent.push(JSON.parse(s)) };
 const p = Remote.request('/api/ecu/ms450ds0/run/FS_LESEN', { method: 'POST' });
+await tick();
 assert.strictEqual(sent.length, 1);
 assert.strictEqual(sent[0].t, 'req');
 assert.strictEqual(sent[0].path, '/api/ecu/ms450ds0/run/FS_LESEN');
@@ -61,6 +63,45 @@ assert.strictEqual(res.status, 200);
 const body = await res.json();
 assert.strictEqual(body.sets[0].JOB_STATUS, 'OKAY');
 ok('protocol: helper req -> owner res -> a Response api() can consume');
+
+// ---- 4. a request before the channel opens WAITS for it ---------------------
+// (the second-connect bug: the cable chip asked /api/port while ICE was still
+// running, the request fell through to the local shim, and a machine with no
+// cable said "no cable" about someone else's car)
+sent.length = 0;
+Remote.chan = null;                              // joined, channel not yet up
+const early = Remote.request('/api/port');
+await tick();
+assert.strictEqual(sent.length, 0, 'nothing sent while the channel is down');
+assert.strictEqual(Remote.waiters.length, 1, 'the request is parked');
+// the channel arrives and opens: _wire hooks it, onopen wakes the waiter
+const chan = { readyState: 'connecting', send: (s) => sent.push(JSON.parse(s)) };
+Remote._wire(chan);
+chan.readyState = 'open';
+chan.onopen();
+await tick();
+assert.strictEqual(sent.length, 1, 'parked request sent once the channel opened');
+assert.strictEqual(sent[0].path, '/api/port');
+Remote._helperResponse({ t: 'res', id: sent[0].id, status: 200,
+  body: { port: '/dev/cu.usbserial-OWNER' } });
+assert.strictEqual((await (await early).json()).port, '/dev/cu.usbserial-OWNER');
+ok('a car fetch before the channel opens waits, then goes to the owner');
+
+// ---- 5. teardown rejects what is parked; the session does not leak ---------
+Remote.chan = null;
+const parked = Remote.request('/api/port');
+await tick();
+Remote._teardown();
+await assert.rejects(parked, /remote session ended/);
+assert.strictEqual(Remote.waiters.length, 0);
+assert.strictEqual(Remote.pending.size, 0);
+assert.strictEqual(Remote.chan, null);
+ok('teardown: parked and in-flight requests reject, state is clean');
+
+// ---- 6. not a helper: a car fetch is refused, never silently local ---------
+Remote.role = null;
+await assert.rejects(Remote.request('/api/port'), /not in a remote session/);
+ok('request() outside a session rejects instead of pretending');
 
 Remote.role = null; Remote.chan = null;
 console.log(`\nremote: ${passed} checks passed`);

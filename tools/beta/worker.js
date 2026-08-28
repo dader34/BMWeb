@@ -38,8 +38,12 @@ export default {
       const TTL = { expirationTtl: 600 };   // 10 min; a session re-offers to refresh
 
       if (action === 'offer') {
-        // refuse to clobber a live session on the same code (unguessable, so
-        // a collision is a retry, not a takeover)
+        // A new offer is a new round: the owner re-offers under the SAME code
+        // when its helper drops, so the code they were given keeps working.
+        // The previous answer and ICE must go, or the next join is 'taken'.
+        // (Codes are unguessable, so a collision is a retry, not a takeover.)
+        await Promise.all([K('answer'), K('ownerIce'), K('helperIce')]
+          .map((k) => env.BETA.delete(k)));
         await env.BETA.put(K('offer'), JSON.stringify(m.offer), TTL);
         return json({ ok: true });
       }
