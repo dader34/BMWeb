@@ -19,6 +19,8 @@ const remote = [
   '/api/ecu/zke5/clear/FS_LOESCHEN',
   '/api/ecu/kombi46/write/COD',
   '/api/port',
+  '/api/state',
+  '/api/state?sgbd=ms450ds0',
 ];
 const local = [
   '/api/chassis',
@@ -33,6 +35,7 @@ const local = [
 for (const r of remote) assert.ok(REMOTE_CAR_ROUTE.test(r), `should forward: ${r}`);
 for (const r of local) assert.ok(!REMOTE_CAR_ROUTE.test(r), `should stay local: ${r}`);
 ok(`car-route filter: ${remote.length} forwarded, ${local.length} local`);
+assert.ok(!REMOTE_CAR_ROUTE.test('/api/statement'), 'state must not match a prefix');
 
 // ---- 2. codes are one-shot, unambiguous -------------------------------------
 const seen = new Set();
