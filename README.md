@@ -1,18 +1,16 @@
 # BMWeb
 
-BMW diagnostics in a browser. INPA's screens, EDIABAS's ECU logic, ISTA's
-fault documentation, WDS wiring diagrams and the ETK parts catalogue, running
-as a static web page with no Windows, no VM and no EDIABAS install.
+BMW diagnostics in a browser. Read and clear fault memory, watch live values,
+run activations, code modules, look up fault documentation, browse wiring
+diagrams and the parts catalogue, from a static web page with no Windows and
+nothing to install.
 
 **https://bmweb.danner.ink/**
 
 > **This project is in development. Use write jobs at your own risk.**
 
-INPA is a Windows application built on BMW's EDIABAS engine. It reads two kinds
-of proprietary file: `.prg` modules (SGBDs) that describe how to talk to each
-ECU, and `.IPO` screens that describe what to draw. BMWeb reimplements both
-halves in JavaScript: the screens are decompiled ahead of time into JSON, and
-the ECU modules are executed at runtime by its own BEST2 virtual machine. The
+Each module's screens are described in JSON and drawn by an interpreter; each
+module's diagnostic logic runs in the app's own bytecode virtual machine. The
 car is reached over a K+DCAN USB cable through Web Serial, or over WiFi
 through a THOR adapter's WebSocket, so the same page works on a laptop and on
 a phone.
@@ -31,9 +29,9 @@ fetches from the internet.
 
 | Build | Where | Contents |
 |---|---|---|
-| `bmweb-<ver>-offline.zip` | GitHub release | diagnostics, coding, fault lookup with ISTA plans, wiring diagrams (~450 MB) |
+| `bmweb-<ver>-offline.zip` | GitHub release | diagnostics, coding, fault lookup with service plans, wiring diagrams (~450 MB) |
 | `bmweb-<ver>-offline-no-wiring.zip` | GitHub release | the same without the wiring diagrams (~300 MB) |
-| `bmweb-<ver>-offline-complete.zip` | Hugging Face, linked from the release notes | everything above plus the ETK parts catalogue for every chassis (~6.5 GB) |
+| `bmweb-<ver>-offline-complete.zip` | Hugging Face, linked from the release notes | everything above plus the parts catalogue for every chassis (~6.5 GB) |
 
 The parts catalogue is 5.8 GB on its own, more than a GitHub release asset
 may hold, which is why the complete build lives on Hugging Face. The two
@@ -86,12 +84,12 @@ values, clearly badged, with no cable.
 
 ## What it does
 
-Every module screen is BMW's own INPA screen, decompiled and rendered as it
-was drawn. Modules BMW never drew a screen for say so rather than guessing at
-a layout. A key press runs the key's own INPA bytecode, so computed arguments
-(idle-raise setpoints, CO trim steps, adaptation clears) go to the wire
-exactly as INPA sends them, and guided procedures (activate, wait, observe,
-tear down) run their state machines live.
+Every module screen is rendered from its own screen definition, as designed.
+Modules with no screen definition say so rather than guessing at a layout. A
+key press runs that key's own logic in the VM, so computed arguments
+(idle-raise setpoints, CO trim steps, adaptation clears) go to the wire as
+designed, and guided procedures (activate, wait, observe, tear down) run
+their state machines live.
 
 - **Fault memory** — read stored codes with English text and detail, clear them.
 - **Error scan** — sweep every module in the car in one pass, export a PDF report.
@@ -100,13 +98,14 @@ tear down) run their state machines live.
 - **Coding** — read a module's coding, stage changes, see exactly what would be
   sent; write with backup-first and verify-by-re-read.
 - **Diagnostic Plans and Trouble Codes** — search 51,484 fault codes offline
-  with P-codes and the matching ISTA service documents (set condition,
+  with P-codes and the matching service documents (set condition,
   monitoring, fault impact, lamp behaviour, service measures).
-- **Wiring Diagrams** — BMW's WDS schematics as vectors, plus component
+- **Wiring Diagrams** — factory schematics as vectors, plus component
   locations, connector views and pin assignments. 15 chassis.
-- **Parts Catalogue** — ETK part numbers, diagrams, supersessions, VIN
+- **Parts Catalogue** — part numbers, diagrams, supersessions, VIN
   decoding, 246 chassis bundles from the E3 to the G series.
-- **Tool32** — run any SGBD job directly and read the raw result registers.
+- **Job runner** — run any diagnostic job on a module directly and read the
+  raw result registers.
 - **Tuning** — inspect ECU firmware images in a hex editor with TunerPro
   `.xdf` constants, flags and tables.
 - A seven-step tour and a "how it works" walkthrough, from the Apps hub.
@@ -117,8 +116,8 @@ tear down) run their state machines live.
 | | |
 |---|---|
 | Chassis | 26: E31 E34 E36 E38 E39 E46 E52 E53 E60 E65 E70 E83 E85 E87 E89 E90 F01 F07 F10 F25 F30 K25 K40 R50 R56 RR1 |
-| ECU definitions (SGBDs) | 950 |
-| Decompiled INPA screens | ~19,500 across ~800 ECUs |
+| ECU definitions | 950 |
+| Module screens | ~19,500 across ~800 ECUs |
 | Diagnostic jobs | ~55,000 |
 | Fault codes | 51,484 |
 | Wiring diagrams | 15 chassis, E38 through F01 |
@@ -129,25 +128,23 @@ module definitions, an E60 91, an E90 61, an E46 55, an F30 19.
 
 ## How it works
 
-Four pieces, none of them BMW's code.
+Four pieces.
 
-**The screen decompiler** (`tools/`) turns each `.IPO` into JSON: menus, F-key
-numbers, screens, gauges with their scales, lamps, and which job feeds each
-row. The renderer interprets that file directly, so a screen looks the way
-INPA drew it because it is the same description.
+**The screen interpreter** draws each module's screens from a JSON
+description: menus, F-key numbers, screens, gauges with their scales, lamps,
+and which job feeds each row.
 
-**The BEST2 virtual machine** (`app/renderer/core/bestvm.js`) executes the
-bytecode inside a `.prg`. EDIABAS compiles each ECU's logic to a 184-opcode
-instruction set; the VM runs it — register file, byte stack, string table,
-table lookups — and turns raw bytes off the wire into named results. Diffed
-offline against the real EDIABAS engine (`src/InpaMac.Cli` links it for
-exactly that), it agrees on 3,729 of 3,730 results over 460 jobs on an E46
-corpus.
+**The virtual machine** (`app/renderer/core/bestvm.js`) executes each
+module's diagnostic logic, a 184-opcode instruction set — register file, byte
+stack, string table, table lookups — and turns raw bytes off the wire into
+named results. Diffed offline against a reference engine (`src/InpaMac.Cli`
+exists for exactly that), it agrees on 3,729 of 3,730 results over 460 jobs
+on an E46 corpus.
 
-**The static data layer** holds what the VM needs — lifted job code, SGBD
-tables, job metadata and per-ECU screens — all generated from the BMW files
-by the tools in `tools/`. `data/ecu-src/` is one gzipped copy per SGBD and is
-what is committed; `data/chassis/<CAR>/<ECU>/` is built from it and ignored.
+**The static data layer** holds what the VM needs — job code, tables, job
+metadata and per-ECU screens — generated by the tools in `tools/`.
+`data/ecu-src/` is one gzipped copy per ECU definition and is what is
+committed; `data/chassis/<CAR>/<ECU>/` is built from it and ignored.
 
 **The transport** moves bytes: Web Serial or a THOR WebSocket in the browser.
 `app/renderer/core/webshim.js` picks one at load time and installs itself
@@ -195,33 +192,19 @@ Station page and open the app with `?ws=<its address>`.
 
 ## Building from source
 
-BMW's own files are **not in this repository**. Every screen, job and table
-the app ships is generated from them; they are BMW's to distribute. Running
-the built app needs none of this — only regenerating data does.
+The shipped data is generated from diagnostic definition files that are
+**not in this repository**; they are build inputs. Running the built app
+needs none of them — only regenerating data does.
 
 ```sh
 scripts/setup/fetch.sh --list       # what is available, and how big
-scripts/setup/fetch.sh --vendor     # EDIABAS SGBDs + INPA screens, ~710 MB
-scripts/setup/fetch.sh --coding     # NCS Expert coding definitions, 5.6 MB
+scripts/setup/fetch.sh --vendor     # the module definitions and screens
+scripts/setup/fetch.sh --coding     # coding definitions
 scripts/setup/fetch.sh --wiring E46 # built wiring archives, one car or all
-scripts/setup/fetch.sh --wds        # the raw WDS ISO, only to rebuild wiring
-scripts/setup/check-vendor.sh       # what is installed, what is missing
+scripts/setup/check-vendor.sh       # what is installed, what is missing, and where it goes
 ```
 
-Everything comes from one Hugging Face dataset
-([CraigFf/bmw-files](https://huggingface.co/datasets/CraigFf/bmw-files)),
-plain HTTPS, resumable. Needs `curl`, and `7z` for `--vendor`/`--wds`. The
-expected layout:
-
-```
-vendor/
-  EDIABAS/Ecu/                 *.prg   ECU modules (required)
-  EC-APPS/INPA/SGDAT/          *.IPO   INPA screens (required)
-  EC-APPS/INPA/CFGDAT/         *.ENG   chassis config (required)
-  EC-APPS/NCSEXPER/DATEN/      coding definitions (optional)
-  WDS/                         wiring source (optional)
-app/renderer/data/wiring/      *.wiring  built wiring archives (optional)
-```
+Needs `curl`, and `7z` for `--vendor`.
 
 ### Build the site
 
@@ -241,8 +224,8 @@ gzip precompression. Other generators:
 ```sh
 node scripts/build/build-faultdb.mjs      # app/renderer/data/faultdb.js + faultindex.js
 tools/decompile/daten_map.py              # app/renderer/data/datenmap.js (coding labels)
-tools/wds_import.py --wds vendor/WDS      # app/renderer/data/wiring/*.wiring
-node scripts/build/offline-build.mjs --dist dist-web --out release-builds   # the 4 zips
+tools/wds_import.py                       # app/renderer/data/wiring/*.wiring
+node scripts/build/offline-build.mjs --dist dist-web --out release-builds   # the release zips
 ```
 
 Files under `app/renderer/data/` named `faultdb`, `faultindex`, `faultmeta`,
@@ -254,12 +237,11 @@ Files under `app/renderer/data/` named `faultdb`, `faultindex`, `faultmeta`,
 tools/check.sh
 ```
 
-Runs every guard on the pipeline: the `.IPO` round-trip, the decompiler
-against known screens, IR emitter invariants, the interpreter against known
-screens, the VM against captured telegrams, wire framing and checksums, the
-write guard, the coding encoder round-trip, variant resolution, and more.
-Checks that need the real EDIABAS engine skip cleanly unless `BMACW_PORT`
-points at a running native shell.
+Runs every guard on the pipeline: the screen round-trip, IR emitter
+invariants, the interpreter against known screens, the VM against captured
+telegrams, wire framing and checksums, the write guard, the coding encoder
+round-trip, variant resolution, and more. Checks that need the reference
+engine skip cleanly unless `BMACW_PORT` points at a running native shell.
 
 ### Release
 
@@ -296,21 +278,21 @@ saves the report as a `.json` you can attach by hand.
 ## Layout
 
 ```
-app/renderer/          the app: IR interpreter, BEST2 VM, transport shim, screens
+app/renderer/          the app: screen interpreter, bytecode VM, transport shim, screens
   core/                bestvm.js, webshim.js, coding-write.js, remote.js, journal.js
   screens/             apps hub, lookup, wiring, etk, tool32, tuning, coding
   data/                generated JS data (fault DB, coding labels, wiring archives)
-data/ecu-src/          committed source: one gzipped copy per SGBD
-data/inpa-ir/          decompiled INPA screens (gzipped)
+data/ecu-src/          committed source: one gzipped copy per ECU definition
+data/inpa-ir/          module screens (gzipped)
 data/chassis/          derived per-car tree (gitignored)
-tools/                 decompilers, exporters, verify/ test harnesses, beta/ collector
+tools/                 generators, exporters, verify/ test harnesses, beta/ collector
 scripts/setup/         fetch.sh, check-vendor.sh, data-cache.sh
 scripts/build/         build-web.sh, build-bundle.sh, offline-build.mjs, build-faultdb.mjs
 vendor/esp-link-ws/    WebSocket firmware for the THOR adapter, with prebuilt images
-vendor/                BMW originals: NOT in the repo, supply your own
+vendor/                build inputs: NOT in the repo
 src/BMacW.Host/        C# shell core: static host, cable proxy (not released)
 src/InpaMac.App/       macOS WKWebView shell around that core (not released)
-src/InpaMac.Cli/       the real EDIABAS engine, kept only to verify the VM against
+src/InpaMac.Cli/       reference engine, kept only to verify the VM against
 ```
 
 The native macOS shell is kept in the tree and still holds the version stamp,
@@ -324,4 +306,4 @@ Built on the file-format work in
 (Apache 2.0). The DME flash code is ported from
 [terraphantm/MS45-Flasher](https://github.com/terraphantm/MS45-Flasher)
 (GPLv3), which makes the project as a whole **GPLv3**. See `LICENSE` and
-`NOTICE.md`. EDIABAS, INPA, ISTA, ETK, WDS and the vehicle data are BMW's.
+`NOTICE.md`.
