@@ -95,6 +95,7 @@ if (VARIANTS.some((v) => !v.dropParts)) {
 // (ETK) entry rather than offer a feature this build cannot serve. Loaded before
 // app.js, same mechanism as version.js.
 const PARTS_OFF_JS = 'window.BMACW_NO_PARTS=true;\n';
+const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
 
 function humanSize(bytes) {
   const u = ['B', 'KB', 'MB', 'GB'];
@@ -132,6 +133,16 @@ for (const v of VARIANTS) {
     const wj = join(stage, 'data', 'wiring.js');
     if (existsSync(wj)) rmSync(wj, { force: true });
   }
+  // every offline variant carries the flag the app reads to drop features
+  // that only make sense online (the remote session). Same mechanism as
+  // version.js / no-parts.js: a tiny script before app.js.
+  writeFileSync(join(stage, 'offline.js'), OFFLINE_JS);
+  if (!readFileSync(join(stage, 'index.html'), 'utf8').includes('offline.js')) {
+    const html = readFileSync(join(stage, 'index.html'), 'utf8')
+      .replace('<head>', '<head>\n  <script src="offline.js"></script>');
+    writeFileSync(join(stage, 'index.html'), html);
+  }
+
   if (v.dropParts) {
     // The catalogue is 5.8 GB and lives only in the complete build; hide the
     // Parts entry here rather than offer a screen that would try the network.

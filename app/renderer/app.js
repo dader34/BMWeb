@@ -79,8 +79,12 @@ function showSettings() {
     (v) => { Settings.set('keepCable', v); },
   ));
 
-  // bus is chosen at page load, so switching adapters reloads
-  const adapterRow = settingRow(
+  // bus is chosen at page load, so switching adapters reloads.
+  // Not offered on the hosted https site: a secure page cannot open the
+  // adapter's ws:// socket, so K+DCAN over Web Serial is the only bus there.
+  // Offline and local copies (http:// or file://) keep the choice.
+  const httpsSite = typeof location !== 'undefined' && location.protocol === 'https:';
+  const adapterRow = httpsSite ? null : settingRow(
     'Adapter',
     'K+DCAN over serial, or THOR WiFi adapter.',
     [
@@ -104,7 +108,7 @@ function showSettings() {
       location.reload();
     },
   );
-  wrap.appendChild(adapterRow);
+  if (adapterRow) wrap.appendChild(adapterRow);
 
   // demo values are synthesized and badged, never presented as real
   wrap.appendChild(settingRow(
@@ -196,7 +200,11 @@ function showSettings() {
     <button class="btn" id="set-remote">Open…</button>`;
   remoteRow.querySelector('#set-remote').onclick = () =>
     (typeof showRemoteDialog === 'function' ? showRemoteDialog() : null);
-  wrap.appendChild(remoteRow);
+  // not in the offline builds: a session needs the signaling worker and a
+  // peer on the internet, which is what an offline copy is for not having
+  if (!(typeof window !== 'undefined' && window.BMACW_OFFLINE)) {
+    wrap.appendChild(remoteRow);
+  }
 
   wrap.appendChild(betaRow);
 
