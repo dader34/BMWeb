@@ -321,6 +321,7 @@ html[data-theme="inpa"] .grain { display: none; }
   repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 2px),
   linear-gradient(180deg, #e2e4e7, #b3b6bb); }
 .sw-brackets { background: linear-gradient(135deg, #1d1f21 50%, #f8de7e 50%); }
+.sw-phosphor { background: linear-gradient(135deg, #050a06 50%, #39ff14 50%); }
 
 /* PER-THEME KEY BADGES: the number chips on the f-key bar + sidebar. */
 
@@ -393,6 +394,126 @@ html .inpa-settings .setting-row {
 }
 html[data-theme="inpa"] .inpa-settings .setting-row {
   border-bottom-color: #c9c9c9 !important;
+}
+
+
+/* PHOSPHOR: a green-on-black CRT terminal. One ink, one accent, a faint glow
+   on text and a scanline wash over the page. Monospace everywhere, because a
+   terminal has one face. */
+html[data-theme="phosphor"] {
+  --bg: #050a06;
+  --panel: #0a130c;
+  --panel-2: #0e1a11;
+  --raised: #132316;
+  --line: #1d3a22;
+  --line-bright: #2f6a38;
+  --ink: #b8ffc2;
+  --ink-dim: #6fcf7c;
+  --ink-faint: #3f8a4a;
+  --amber: #39ff14;
+  --amber-soft: #2fd611;
+  --amber-glow: rgba(57,255,20,.18);
+  --amber-ink: #04130a;
+  --red: #ff5f56;
+  --green: #39ff14;
+  --cyan: #5cf2d6;
+  --shadow: 0 0 18px rgba(57,255,20,.08);
+  --display: 'JetBrains Mono', 'Source Code Pro', ui-monospace, monospace;
+  --mono: 'JetBrains Mono', 'Source Code Pro', ui-monospace, monospace;
+  /* logo */
+  --logo-bg: rgba(5, 10, 6, 0.95);
+  --logo-border: rgba(57, 255, 20, 0.7);
+  --logo-quad-1: #39ff14;
+  --logo-quad-2: #0e1a11;
+  --logo-inner-border: rgba(57, 255, 20, 0.35);
+  --sb-size: 10px; --sb-radius: 0px; --sb-track: #0a130c;
+  --sb-thumb: #1d3a22; --sb-thumb-hover: #2f6a38; --sb-thumb-border: none;
+  --gauge-track: #0e1a11; --gauge-fill: #39ff14;
+}
+html[data-theme="phosphor"], html[data-theme="phosphor"] body {
+  background: #050a06 !important;
+  color: var(--ink);
+}
+/* the glow: text carries a little light, headings a little more */
+html[data-theme="phosphor"] body { text-shadow: 0 0 6px rgba(57,255,20,.25); }
+html[data-theme="phosphor"] h1, html[data-theme="phosphor"] .empty-big,
+html[data-theme="phosphor"] .splash-name {
+  text-shadow: 0 0 12px rgba(57,255,20,.45), 0 0 2px rgba(57,255,20,.6);
+}
+/* scanlines: a fixed overlay that never catches the pointer */
+html[data-theme="phosphor"] body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.18) 2px 3px);
+  mix-blend-mode: multiply;
+}
+/* flat, ruled surfaces -- a terminal draws boxes with lines, not shadows */
+html[data-theme="phosphor"] .section, html[data-theme="phosphor"] .chassis-card,
+html[data-theme="phosphor"] .group-tile, html[data-theme="phosphor"] .menu-section,
+html[data-theme="phosphor"] .fault, html[data-theme="phosphor"] .live-panel,
+html[data-theme="phosphor"] .modal, html[data-theme="phosphor"] .result-card,
+html[data-theme="phosphor"] .split-nav-item, html[data-theme="phosphor"] .act-card,
+html[data-theme="phosphor"] .setting-row, html[data-theme="phosphor"] .theme-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+html[data-theme="phosphor"] .btn, html[data-theme="phosphor"] .fkey, html[data-theme="phosphor"] .icon-btn {
+  border-radius: 2px !important;
+  background: var(--raised) !important;
+  border: 1px solid var(--line-bright) !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+html[data-theme="phosphor"] .btn:hover, html[data-theme="phosphor"] .fkey:hover {
+  background: var(--line) !important;
+  border-color: var(--amber) !important;
+}
+html[data-theme="phosphor"] .btn.primary {
+  background: var(--amber) !important;
+  color: var(--amber-ink) !important;
+  border-color: var(--amber-soft) !important;
+  text-shadow: none;
+}
+html[data-theme="phosphor"] .topbar, html[data-theme="phosphor"] .fkeybar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-bright);
+}
+html[data-theme="phosphor"] .sidebar {
+  background: var(--panel-2);
+  border-right: 1px solid var(--line);
+}
+html[data-theme="phosphor"] input[type="text"],
+html[data-theme="phosphor"] input[type="search"],
+html[data-theme="phosphor"] select,
+html[data-theme="phosphor"] textarea {
+  background: var(--bg) !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 2px !important;
+  color: var(--ink) !important;
+  caret-color: var(--amber);
+}
+html[data-theme="phosphor"] input:focus, html[data-theme="phosphor"] select:focus,
+html[data-theme="phosphor"] textarea:focus {
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 0 1px var(--amber), 0 0 10px var(--amber-glow) !important;
+  outline: none !important;
+}
+html[data-theme="phosphor"] .gauge-track { border: 1px solid var(--line-bright) !important; }
+html[data-theme="phosphor"] .gauge-fill {
+  background: var(--amber) !important;
+  box-shadow: 0 0 8px var(--amber-glow);
+}
+html[data-theme="phosphor"] .splash { background: #050a06; }
+html[data-theme="phosphor"] .splash-name { color: #39ff14; }
+html[data-theme="phosphor"] .splash-tag { color: #6fcf7c; }
+html[data-theme="phosphor"] .splash-bar { background: #1d3a22; }
+html[data-theme="phosphor"] .splash-status { color: #3f8a4a; }
+/* key badges: green digit on a ruled chip */
+html[data-theme="phosphor"] .fkey-num, html[data-theme="phosphor"] .nav-key {
+  color: var(--amber) !important;
+  background: var(--bg) !important;
+  border: 1px solid var(--line-bright) !important;
 }
 
 /* ---------------------------------------------------------------------------
@@ -517,6 +638,126 @@ html[data-theme="brackets"] .splash-name { color: #f8de7e; }
 html[data-theme="brackets"] .splash-tag { color: #a0a3a5; }
 html[data-theme="brackets"] .splash-bar { background: #404447; }
 html[data-theme="brackets"] .splash-status { color: #6c6f71; }
+
+
+/* PHOSPHOR: a green-on-black CRT terminal. One ink, one accent, a faint glow
+   on text and a scanline wash over the page. Monospace everywhere, because a
+   terminal has one face. */
+html[data-theme="phosphor"] {
+  --bg: #050a06;
+  --panel: #0a130c;
+  --panel-2: #0e1a11;
+  --raised: #132316;
+  --line: #1d3a22;
+  --line-bright: #2f6a38;
+  --ink: #b8ffc2;
+  --ink-dim: #6fcf7c;
+  --ink-faint: #3f8a4a;
+  --amber: #39ff14;
+  --amber-soft: #2fd611;
+  --amber-glow: rgba(57,255,20,.18);
+  --amber-ink: #04130a;
+  --red: #ff5f56;
+  --green: #39ff14;
+  --cyan: #5cf2d6;
+  --shadow: 0 0 18px rgba(57,255,20,.08);
+  --display: 'JetBrains Mono', 'Source Code Pro', ui-monospace, monospace;
+  --mono: 'JetBrains Mono', 'Source Code Pro', ui-monospace, monospace;
+  /* logo */
+  --logo-bg: rgba(5, 10, 6, 0.95);
+  --logo-border: rgba(57, 255, 20, 0.7);
+  --logo-quad-1: #39ff14;
+  --logo-quad-2: #0e1a11;
+  --logo-inner-border: rgba(57, 255, 20, 0.35);
+  --sb-size: 10px; --sb-radius: 0px; --sb-track: #0a130c;
+  --sb-thumb: #1d3a22; --sb-thumb-hover: #2f6a38; --sb-thumb-border: none;
+  --gauge-track: #0e1a11; --gauge-fill: #39ff14;
+}
+html[data-theme="phosphor"], html[data-theme="phosphor"] body {
+  background: #050a06 !important;
+  color: var(--ink);
+}
+/* the glow: text carries a little light, headings a little more */
+html[data-theme="phosphor"] body { text-shadow: 0 0 6px rgba(57,255,20,.25); }
+html[data-theme="phosphor"] h1, html[data-theme="phosphor"] .empty-big,
+html[data-theme="phosphor"] .splash-name {
+  text-shadow: 0 0 12px rgba(57,255,20,.45), 0 0 2px rgba(57,255,20,.6);
+}
+/* scanlines: a fixed overlay that never catches the pointer */
+html[data-theme="phosphor"] body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 2147483000;
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,.18) 2px 3px);
+  mix-blend-mode: multiply;
+}
+/* flat, ruled surfaces -- a terminal draws boxes with lines, not shadows */
+html[data-theme="phosphor"] .section, html[data-theme="phosphor"] .chassis-card,
+html[data-theme="phosphor"] .group-tile, html[data-theme="phosphor"] .menu-section,
+html[data-theme="phosphor"] .fault, html[data-theme="phosphor"] .live-panel,
+html[data-theme="phosphor"] .modal, html[data-theme="phosphor"] .result-card,
+html[data-theme="phosphor"] .split-nav-item, html[data-theme="phosphor"] .act-card,
+html[data-theme="phosphor"] .setting-row, html[data-theme="phosphor"] .theme-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+html[data-theme="phosphor"] .btn, html[data-theme="phosphor"] .fkey, html[data-theme="phosphor"] .icon-btn {
+  border-radius: 2px !important;
+  background: var(--raised) !important;
+  border: 1px solid var(--line-bright) !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+html[data-theme="phosphor"] .btn:hover, html[data-theme="phosphor"] .fkey:hover {
+  background: var(--line) !important;
+  border-color: var(--amber) !important;
+}
+html[data-theme="phosphor"] .btn.primary {
+  background: var(--amber) !important;
+  color: var(--amber-ink) !important;
+  border-color: var(--amber-soft) !important;
+  text-shadow: none;
+}
+html[data-theme="phosphor"] .topbar, html[data-theme="phosphor"] .fkeybar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-bright);
+}
+html[data-theme="phosphor"] .sidebar {
+  background: var(--panel-2);
+  border-right: 1px solid var(--line);
+}
+html[data-theme="phosphor"] input[type="text"],
+html[data-theme="phosphor"] input[type="search"],
+html[data-theme="phosphor"] select,
+html[data-theme="phosphor"] textarea {
+  background: var(--bg) !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 2px !important;
+  color: var(--ink) !important;
+  caret-color: var(--amber);
+}
+html[data-theme="phosphor"] input:focus, html[data-theme="phosphor"] select:focus,
+html[data-theme="phosphor"] textarea:focus {
+  border-color: var(--amber) !important;
+  box-shadow: 0 0 0 1px var(--amber), 0 0 10px var(--amber-glow) !important;
+  outline: none !important;
+}
+html[data-theme="phosphor"] .gauge-track { border: 1px solid var(--line-bright) !important; }
+html[data-theme="phosphor"] .gauge-fill {
+  background: var(--amber) !important;
+  box-shadow: 0 0 8px var(--amber-glow);
+}
+html[data-theme="phosphor"] .splash { background: #050a06; }
+html[data-theme="phosphor"] .splash-name { color: #39ff14; }
+html[data-theme="phosphor"] .splash-tag { color: #6fcf7c; }
+html[data-theme="phosphor"] .splash-bar { background: #1d3a22; }
+html[data-theme="phosphor"] .splash-status { color: #3f8a4a; }
+/* key badges: green digit on a ruled chip */
+html[data-theme="phosphor"] .fkey-num, html[data-theme="phosphor"] .nav-key {
+  color: var(--amber) !important;
+  background: var(--bg) !important;
+  border: 1px solid var(--line-bright) !important;
+}
 
 /* ---------------------------------------------------------------------------
    INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers
