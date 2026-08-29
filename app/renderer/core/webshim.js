@@ -262,7 +262,16 @@ async function readFrame(sent, timeoutMs, pump, comm) {
       : 'no echo from the cable (is it connected to the car?)');
   }
   buf.splice(0, at >= 0 ? at + echoLen : 0);   // drop leading noise AND the echo
-  while (Date.now() < deadline) {
+  // timeoutMs is ParTimeoutStd: how long the ECU may take to START answering.
+  // EDIABAS ends the frame on inter-byte silence (ParTimeoutTelEnd), not on
+  // that budget -- so once the first byte is here, a long answer at 9600 baud
+  // (a fault memory: ~250 ms of wire time) must not be cut off by a 500 ms
+  // answer timeout that it already met. Judge silence at timeoutMs; give a
+  // started frame its own completion budget.
+  let frameDeadline = deadline;
+  let started = buf.length > 0;
+  if (started) frameDeadline = Date.now() + Math.max(timeoutMs, 3000);
+  while (Date.now() < frameDeadline) {
     const total = frameTotal(buf, comm);
     if (total !== null && buf.length >= total) {
       const frame = buf.slice(0, total);
@@ -270,8 +279,10 @@ async function readFrame(sent, timeoutMs, pump, comm) {
       return frame;
     }
     const got = await pump();
-    if (got && got.length) buf.push(...got);
-    else await new Promise((r) => setTimeout(r, 4));
+    if (got && got.length) {
+      buf.push(...got);
+      if (!started) { started = true; frameDeadline = Date.now() + Math.max(timeoutMs, 3000); }
+    } else await new Promise((r) => setTimeout(r, 4));
   }
   // A half-received frame is NOT an answer -- handing it to the VM decodes
   // garbage. Distinguish it from silence so the error means something.
@@ -305,10 +316,8 @@ function isResponsePending(frame, comm) {
 // ParRegenTime = CommParameterProtected[3]); the DS2 case reads index 6 of its
 // own 16-bit layout. Clamped, because a bogus blob must not stall the bus.
 function regenTimeOf(comm) {
-  const p = comm && comm.params;
-  if (!Array.isArray(p) || p.length < 4) return 0;
-  const c = conceptOf(comm);
-  const raw = isDs2(c) ? (p[6] || 0) : (p[3] || 0);
+  // decoded by Best2Vm.decodeCommParams from the concept's own index
+  const raw = comm && comm.regen != null ? comm.regen : 0;
   return raw > 0 && raw <= 1000 ? raw : 0;
 }
 
@@ -356,12 +365,14 @@ async function runExchange(bus, out, comm) {
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      busTrace.add('tx', framed, `attempt ${attempt + 1}/2 timeout=${timeoutMs}ms`);
+      busTrace.add('tx', framed, `${attempt ? 'retransmit' : 'tx'} timeout=${timeoutMs}ms`);
       let frame = await bus.exchangeRaw(framed, timeoutMs, comm);
       // keep reading while the ECU says "still working" -- bounded, so a
       // stuck ECU still fails instead of hanging the screen
       for (let pending = 0; pending < 30 && isResponsePending(frame, comm); pending++) {
-        frame = await bus.exchangeRaw(null, Math.max(timeoutMs, 5000), comm);
+        // ParTimeoutNr78: how long the ECU may say "busy" between polls
+        frame = await bus.exchangeRaw(null,
+          (comm && comm.timeoutNr78) || Math.max(timeoutMs, 5000), comm);
       }
       busTrace.add('rx', frame, 'OK');
       bus.lastResponseAt = Date.now();
@@ -369,7 +380,12 @@ async function runExchange(bus, out, comm) {
     } catch (e) {
       lastErr = e;
       busTrace.add('err', null, `${e.ifh || ''} ${e.message}`.trim());
-      if (!/timeout|checksum|incomplete|echo/.test(String(e.message))) throw e;
+      // Retransmit a GARBLED answer once (a K-line glitch), never a SILENT
+      // one: EDIABAS ships CommRepeats = 0, so a telegram nobody answers is
+      // sent exactly once and the bytecode moves on to its next protocol.
+      // Sending it twice doubled every probe step (ms450ds0's KWP2000* try
+      // before the BMW-FAST one that an MS45 actually answers).
+      if (!/checksum|incomplete|echo/.test(String(e.message))) throw e;
       // EdiabasLib's retry is a PURE RETRANSMISSION: ObdTrans loops the same
       // bytes with only the ParRegenTime wait, never a reinit (EdInterfaceObd
       // .cs:3652-3681). Re-arming the wake here made our retry a different,

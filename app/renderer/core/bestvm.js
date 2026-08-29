@@ -458,6 +458,34 @@ class Best2Vm {
   }
 
   // NUL-terminated text, the way result strings are published
+  // set_communication_pars, decoded the way EdInterfaceObd.cs reads it: the
+  // answer timeout, the regeneration gap and the response-pending timeout
+  // sit at a concept-specific index in the CommParameter words. The old
+  // "largest plausible timing word" guess picked ParTimeoutNr78 (5000 ms,
+  // the 0x78 busy-wait) as the answer timeout on every 0x1xx concept, so a
+  // silent KWP2000* probe cost 5 s where EDIABAS waits 500 ms -- the whole
+  // "MS45 takes ages to identify the first time".
+  //   concepts 1,2,3,5,6  (ISO 9141, KWP1281, DS1/DS2): [5] [6] [7]
+  //   0x10B/0x10C/0x10D   (KWP2000 std/BMW/*):          [2] [3] [4], Nr78 [7]
+  //   0x10F               (BMW-FAST):                    [2] [3] [4], Nr78 [6]
+  //   0x110               (D-CAN):                       [7] [8],     Nr78 [9]
+  static decodeCommParams(words) {
+    const c = words[0];
+    const at = (i) => (i < words.length && words[i] > 0 ? words[i] : null);
+    let timeout = null, regen = null, telEnd = null, timeoutNr78 = null;
+    if (c >= 0x1 && c <= 0x6) {
+      timeout = at(5); regen = at(6); telEnd = at(7);
+    } else if (c === 0x10b || c === 0x10c || c === 0x10d) {
+      timeout = at(2); regen = at(3); telEnd = at(4); timeoutNr78 = at(7);
+    } else if (c === 0x10f) {
+      timeout = at(2); regen = at(3); telEnd = at(4); timeoutNr78 = at(6);
+    } else if (c === 0x110) {
+      timeout = at(7); regen = at(8); timeoutNr78 = at(9);
+    }
+    return { concept: c, baud: words[1], timeout, regen, telEnd, timeoutNr78,
+             params: words };
+  }
+
   static cstr(b) {
     const z = b.indexOf(0);
     return Best2Vm.bytesStr(z < 0 ? b : b.slice(0, z));
@@ -1654,16 +1682,7 @@ class Best2Vm {
           }
         }
         if (words.length >= 2 && words[0] > 0 && words[0] <= 0x1ff) {
-          // The exact index of the answer timeout inside the blob is not
-          // decoded yet; the largest plausible timing word is a safe upper
-          // bound (an answer that IS coming arrives long before it).
-          const timing = words.slice(2).filter((v) => v >= 100 && v <= 30000);
-          this.comm = {
-            concept: words[0],
-            baud: words[1],
-            timeout: timing.length ? Math.max(1000, ...timing) : null,
-            params: words,
-          };
+          this.comm = Best2Vm.decodeCommParams(words);
         }
         return;
       }
