@@ -22,7 +22,6 @@ const THEMES = [
   { id: 'aero',       name: 'Frutiger' },
   { id: 'metal',      name: 'Brushed Metal' },
   { id: 'brackets',   name: 'Brackets' },
-  { id: 'phosphor',   name: 'Phosphor' },
 ];
 function applyTheme(id) {
   if (!id || id === 'instrument') document.documentElement.removeAttribute('data-theme');
