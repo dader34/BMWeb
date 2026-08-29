@@ -187,8 +187,13 @@ function _journalInstall() {
         if (run) {
           Journal.log('job', `${run[1]} ${decodeURIComponent(run[2])}`
             + ` · FAILED ${e.message} · ${Date.now() - t0}ms`);
-          Journal.maybeAutoReport(e.message,
-            `${run[1]} ${decodeURIComponent(run[2])}`);
+          // not for the "is it there" jobs: a silent INITIALISIERUNG is how
+          // a module that is not fitted answers, and the screen already says so
+          if (!/^(INITIALISIERUNG|IDENTIFIKATION|IDENT)$/i
+              .test(decodeURIComponent(run[2]))) {
+            Journal.maybeAutoReport(e.message,
+              `${run[1]} ${decodeURIComponent(run[2])}`);
+          }
         }
         throw e;
       }
@@ -202,10 +207,12 @@ function _journalInstall() {
     busTrace._journalTapped = true;
     const innerAdd = busTrace.add.bind(busTrace);
     busTrace.add = function journaledAdd(tag, bytes, note) {
-      if (tag === 'err' && note) {
-        Journal.log('wire', String(note));
-        Journal.maybeAutoReport(note, 'wire');
-      }
+      // LOG only. Group probes and entry checks send telegrams whose silence
+      // is a valid answer (D_0012 tries DS2, then KWP2000, before the BMW-FAST
+      // form an MS45 answers), and every one of those IFH-0009s was filing a
+      // report -- six in the collector, all noise. A wire error is worth a
+      // report when a job the tester ASKED for fails: the api tap above.
+      if (tag === 'err' && note) Journal.log('wire', String(note));
       return innerAdd(tag, bytes, note);
     };
   }
