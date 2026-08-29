@@ -206,7 +206,11 @@ function showSettings() {
     wrap.appendChild(remoteRow);
   }
 
-  wrap.appendChild(betaRow);
+  // offline builds have no collector: no beta row (journal.js drops the
+  // button and the auto-reports on the same flag)
+  if (!(typeof window !== 'undefined' && window.BMACW_OFFLINE)) {
+    wrap.appendChild(betaRow);
+  }
 
   view.appendChild(wrap);
 
