@@ -597,7 +597,10 @@ function extractSaCodesFromScan(scan) {
         const val = String(res.get(k)).replace(/^0x/i, '').replace(/\s/g, '');
         // SA body is 16 hex chars; with check digit it's 17
         const body = val.length >= 16 ? val.slice(0, 16) : null;
-        if (body && /^[0-9A-F]{16}$/i.test(body)) {
+        // an all-FF / all-00 body is an erased or "no special equipment" key,
+        // not a bitfield -- decoding it would invent ~60 phantom SA codes
+        if (body && /^[0-9A-F]{16}$/i.test(body)
+            && !CodingZcs.isBlankKeyBody(body)) {
           return CodingZcs.extractSaCodes(body);
         }
       }

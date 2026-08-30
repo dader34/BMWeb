@@ -306,7 +306,11 @@ async function readIdentityCodes(chassisId) {
       } catch (e) { /* try the next master */ }
     }
 
-    // Then the coding key, translated through BMW's chassis tables.
+    // Then the coding key, translated through BMW's chassis tables. A key
+    // whose SA body is blank (all-FF) carries no equipment -- keep it only as
+    // a last resort so a real FA/ZCS on another master still wins, and never
+    // let a blank key fabricate an option list.
+    let blankFallback = null;
     for (const m of masters.filter((x) => x.zcs)) {
       try {
         const d = await api(`/api/ecu/${m.sgbd}/run/${m.zcsJob.job}`,
@@ -314,11 +318,19 @@ async function readIdentityCodes(chassisId) {
         const keys = viKeysFrom(new Map(flatResults(d.sets)), m.zcsJob.keys);
         if (!keys) continue;
         const eq = VehicleIdentity.saCodesFromZcs(id, keys);
-        return { codes: eq.codes, ci: eq.ci, fa: null, keys,
-                 source: `${m.sgbd}:${m.zcsJob.job}` };
+        const result = { codes: eq.codes, ci: eq.ci, fa: null, keys,
+                         blank: !!eq.blank, source: `${m.sgbd}:${m.zcsJob.job}` };
+        if (eq.blank || (!eq.resolved && !eq.codes.length)) {
+          // remember the first blank/unresolved key, but keep looking
+          if (!blankFallback) blankFallback = result;
+          continue;
+        }
+        return result;
       } catch (e) { /* try the next master */ }
     }
-    return empty;
+    // nothing resolved: return the blank key honestly (codes:[]) so the UI
+    // shows "no options decoded" rather than inventing any
+    return blankFallback || empty;
   })();
   _viCodesCache.set(id, p);
   return p;

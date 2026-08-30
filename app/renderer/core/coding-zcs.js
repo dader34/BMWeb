@@ -106,6 +106,28 @@
     return check === mod36('C3', body);
   }
 
+  // ---- Blank / unprogrammed key detection --------------------------------
+  //
+  // A ZCS key body of all-FF (or all-00) is not equipment data -- it is an
+  // erased or never-programmed EEPROM region, and BMW's own blank SA key
+  // (FFFFFFFFFFFFFFFF) carries a valid Mod-36 check char, so it reads as
+  // "structurally fine" while meaning "no special equipment". Decoding it as
+  // a bitfield or matching it against the assignment table invents options a
+  // car does not have. `saBody` is the hex body string (no check char).
+  function isBlankKeyBody(body) {
+    const h = String(body || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    if (!h.length) return true;
+    return /^F+$/.test(h) || /^0+$/.test(h);
+  }
+
+  // Convenience for callers holding the full "<body><check>" SA value: strip
+  // the trailing check char first when the length matches, else test whole.
+  function isBlankSaKey(value) {
+    const v = String(value || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    const body = v.length === 17 ? v.slice(0, 16) : v;
+    return isBlankKeyBody(body);
+  }
+
   // ---- Parse 20-byte ZCS region ------------------------------------------
 
   function parseZcsRegion(bytes) {
@@ -235,6 +257,9 @@
 
     // FA/ZCS filtering
     extractSaCodes, matchesAsw,
+
+    // Blank/unprogrammed key detection
+    isBlankKeyBody, isBlankSaKey,
   };
 
   root.CodingZcs = api;
