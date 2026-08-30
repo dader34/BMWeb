@@ -19,242 +19,269 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="BMWeb">
-  <meta name="theme-color" content="#0d1217">
+  <meta name="theme-color" content="#0c1015">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20width%3D%22180%22%20height%3D%22180%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2248%22%20fill%3D%22%2311161c%22%20stroke%3D%22%23ff9e2c%22%20stroke-width%3D%223%22%2F%3E%3CclipPath%20id%3D%22disc%22%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%2F%3E%3C%2FclipPath%3E%3Cg%20clip-path%3D%22url%28%23disc%29%22%3E%3Crect%20x%3D%2219%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23eef2f5%22%2F%3E%3Crect%20x%3D%2250%22%20y%3D%2219%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3Crect%20x%3D%2219%22%20y%3D%2250%22%20width%3D%2231%22%20height%3D%2231%22%20fill%3D%22%23ff9e2c%22%2F%3E%3C%2Fg%3E%3Ccircle%20cx%3D%2250%22%20cy%3D%2250%22%20r%3D%2231%22%20fill%3D%22none%22%20stroke%3D%22%230a0d11%22%20stroke-width%3D%222%22%2F%3E%3C%2Fsvg%3E">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="site.css">
   <style>
-    /* Page-specific: the hero and the two build cards. Everything else
-       (masthead, buttons, matrix, footer) comes from site.css. */
-    .hero {
-      padding: clamp(48px, 7vw, 84px) 0 clamp(40px, 5vw, 60px);
-      max-width: 46rem;
+    * { box-sizing: border-box; margin: 0; }
+    html, body { background: #0c1015; }
+    body {
+      font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+      background: #0c1015; color: #cdd5dc;
+      font-size: 17px; line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
     }
-    .hero h1 {
-      margin: 0 0 22px;
-      font-size: clamp(38px, 6vw, 60px);
-      line-height: 1.08;
-      letter-spacing: -.035em;
-      font-weight: 600;
+    .col { margin: 0 auto; padding: 48px clamp(28px, 5vw, 72px) 88px; }
+
+    .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 44px; }
+    .brand .n { font-weight: 700; font-size: 19px; color: #eef2f5; }
+    .brand a { margin-left: auto; color: #6e7a86; font-size: 15px; text-decoration: none; }
+    .brand a:hover { color: #eef2f5; }
+
+    /* ---- hero: two columns so the page carries its width ---- */
+    .hero { display: grid; grid-template-columns: 1.25fr .75fr; gap: 48px; align-items: center; }
+    h1 {
+      font-size: clamp(32px, 4.6vw, 46px); font-weight: 700;
+      line-height: 1.12; color: #eef2f5; text-wrap: balance;
+      margin-bottom: 16px;
     }
-    .hero h1 span { color: var(--faint); }
-    .lead {
-      margin: 0; max-width: 36rem;
-      color: var(--dim); font-size: 18px; line-height: 1.62;
+    .lede { font-size: 19px; color: #98a2ac; margin-bottom: 28px; max-width: 34em; }
+    .lede b { color: #eef2f5; }
+    .go {
+      display: inline-block; background: #e8891d; color: #fff;
+      font-weight: 700; font-size: 18px; text-decoration: none;
+      padding: 13px 28px; border-radius: 6px;
+    }
+    .go:hover { background: #f5981f; }
+    .go:focus-visible { outline: 3px solid #ffb95e; outline-offset: 3px; }
+    .go-sub { display: block; margin-top: 10px; color: #6e7a86; font-size: 14.5px; }
+
+    /* hero art: a small honest mock of the app's own fault-scan screen */
+    .appmock {
+      background: #11161c; border: 1px solid #232b35; border-radius: 10px;
+      overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,.45);
+      font-size: 13px;
+    }
+    .appmock .bar {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 13px; background: #0c1015; border-bottom: 1px solid #232b35;
+      color: #dbe2e8; font-weight: 700; font-size: 12.5px;
+    }
+    .appmock .bar .st { margin-left: auto; color: #6cc794; font-weight: 400; font-size: 11.5px; }
+    .appmock .row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 13px; border-bottom: 1px solid #1a212a; color: #cdd5dc;
+    }
+    .appmock .row:last-of-type { border-bottom: 0; }
+    .appmock .row .m { color: #eef2f5; }
+    .appmock .row .r { margin-left: auto; color: #6e7a86; font-size: 12px; }
+    .appmock .row .r.bad { color: #ff9e2c; font-weight: 700; }
+    .cap { color: #6e7a86; font-size: 13.5px; margin-top: 10px; text-align: center; }
+
+    h2 {
+      font-size: 15px; font-weight: 700; letter-spacing: .09em;
+      text-transform: uppercase; color: #6e7a86; margin: 54px 0 16px;
     }
 
-    .builds {
-      display: grid; grid-template-columns: 1fr; gap: 14px;
-      padding-bottom: clamp(56px, 8vw, 88px);
+    /* ---- What you need: three cards across ---- */
+    .needs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .need {
+      background: #141a21; border: 1px solid #232b35; border-radius: 10px;
+      padding: 22px 22px 20px;
     }
-    @media (min-width: 760px) {
-      /* start, not stretch: the macOS runbook expands its own card only. */
-      .builds { grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-    }
-    .build {
-      display: flex; flex-direction: column;
-      background: var(--surface); border-radius: var(--r);
-      padding: 26px 26px 24px;
-      transition: background-color .16s ease;
-    }
-    .build:hover { background: var(--surface-2); }
-    .build-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-    .build h2 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
-    .tag {
-      font-size: 11px; font-weight: 500; letter-spacing: .02em;
-      color: var(--amber); background: rgba(255, 158, 44, .1);
-      padding: 3px 8px; border-radius: 20px;
-    }
-    .build .sub { margin: 0 0 20px; color: var(--dim); font-size: 14.5px; line-height: 1.6; }
-    .build .meta {
-      margin: 0 0 20px; color: var(--faint); font-size: 13px;
-      font-family: var(--mono); letter-spacing: -.01em;
-    }
-    .build-cta { margin-top: auto; }
+    .need .ic { height: 44px; margin-bottom: 12px; display: flex; align-items: center; }
+    .need b { display: block; color: #eef2f5; font-size: 17px; margin-bottom: 4px; }
+    .need span { color: #98a2ac; font-size: 15.5px; }
+    .need a { color: #ff9e2c; }
 
-    .section { padding-bottom: clamp(56px, 8vw, 88px); }
-    .section > h2 {
-      margin: 0 0 20px;
-      font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--dim);
+    /* ---- steps: numbered row ---- */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: s; }
+    .step {
+      background: #141a21; border: 1px solid #232b35; border-radius: 10px;
+      padding: 20px 22px; counter-increment: s;
     }
-    .matrix thead th:nth-child(1), .matrix tbody th { width: 16%; }
-    .matrix thead th:nth-child(2) { width: 22%; }
-    .matrix thead th:nth-child(3) { width: 24%; }
-
-    .notes { display: grid; grid-template-columns: 1fr; gap: 30px; }
-    @media (min-width: 760px) { .notes { grid-template-columns: 1fr 1fr; gap: 48px; } }
-    .note-col h3 { margin: 0 0 10px; font-size: 14.5px; font-weight: 600; color: var(--ink); }
-    .note-col p { margin: 0 0 12px; color: var(--dim); font-size: 14.5px; line-height: 1.65; }
-    .note-col p:last-child { margin-bottom: 0; }
-    .note-col b { color: var(--ink); font-weight: 500; }
-    .note-col a {
-      color: var(--dim); text-decoration: underline;
-      text-underline-offset: 3px; text-decoration-color: var(--faint);
-    }
-    .note-col a:hover { color: var(--amber); text-decoration-color: var(--amber); }
-
-    /* macOS first-launch runbook, revealed under the download button. */
-    .runbook {
-      margin-top: 12px; background: rgba(255,255,255,.04);
-      border-radius: 8px; padding: 16px 18px;
-    }
-    .runbook h4 { margin: 0 0 6px; font-size: 13.5px; font-weight: 600; color: var(--ink); }
-    .runbook p { margin: 0 0 12px; color: var(--dim); font-size: 13.5px; line-height: 1.55; }
-    .runbook ol { margin: 0; padding-left: 18px; color: var(--dim); font-size: 13.5px; }
-    .runbook li { margin-bottom: 8px; }
-    .runbook li:last-child { margin-bottom: 0; }
-    .runbook b { color: var(--ink); font-weight: 500; }
-    .runbook .cmd code { font-size: 12px; padding: 9px 11px; }
-    .runbook .cmd button { min-height: 34px; }
-
-    /* iOS "add to home screen" sheet. */
-    .sheet-overlay {
-      position: fixed; inset: 0; z-index: 99999;
-      background: rgba(6, 9, 12, .7);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 16px; animation: fade .18s ease-out;
-    }
-    @keyframes fade { from { opacity: 0 } to { opacity: 1 } }
-    .sheet {
-      background: var(--surface); border-radius: 12px;
-      width: 100%; max-width: 400px;
-      box-shadow: 0 24px 60px rgba(0,0,0,.5);
-      display: flex; flex-direction: column; max-height: 86vh;
-    }
-    .sheet-head {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 12px; padding: 18px 20px 4px;
-    }
-    .sheet-head .t { font-size: 15.5px; font-weight: 600; letter-spacing: -.015em; }
-    .sheet-close {
-      background: none; border: 0; color: var(--faint);
-      font: 400 16px/1 var(--sans); cursor: pointer; padding: 4px 6px; border-radius: 6px;
-    }
-    .sheet-close:hover { color: var(--ink); }
-    .sheet-body { padding: 8px 20px 20px; overflow-y: auto; }
-    .steps { margin: 0 0 18px; padding: 0; list-style: none; counter-reset: s; }
-    .steps li { display: flex; gap: 12px; align-items: baseline; padding: 11px 0; counter-increment: s; }
-    .steps li::before {
+    .step::before {
       content: counter(s);
-      flex: none; width: 20px; height: 20px; border-radius: 50%;
-      background: rgba(255,255,255,.07); color: var(--dim);
-      font-size: 11.5px; font-weight: 500;
-      display: flex; align-items: center; justify-content: center;
-      align-self: flex-start;
+      font-family: 'Source Serif 4', Georgia, serif; font-weight: 700;
+      font-size: 30px; color: #e8891d; display: block; margin-bottom: 6px;
     }
-    .steps b { display: block; color: var(--ink); font-size: 14px; font-weight: 500; margin-bottom: 2px; }
-    .steps span { display: block; color: var(--dim); font-size: 13px; line-height: 1.5; }
+    .step b { color: #eef2f5; display: block; margin-bottom: 3px; }
+    .step span { color: #98a2ac; font-size: 15.5px; }
+
+    /* ---- questions: two columns ---- */
+    .qa { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 40px; }
+    .qa .q { padding: 14px 0; border-top: 1px solid #232b35; }
+    .qa dt { font-weight: 700; color: #eef2f5; }
+    .qa dd { margin: 4px 0 0; color: #98a2ac; font-size: 15.5px; }
+    .qa a { color: #ff9e2c; }
+
+    .foot {
+      margin-top: 56px; padding-top: 18px; border-top: 1px solid #232b35;
+      display: flex; gap: 24px; flex-wrap: wrap; font-size: 14.5px; color: #6e7a86;
+    }
+    .foot a { color: #6e7a86; }
+    .foot a:hover { color: #eef2f5; }
+
+    @media (max-width: 860px) {
+      .hero { grid-template-columns: 1fr; gap: 28px; }
+      .needs, .steps { grid-template-columns: 1fr; }
+      .qa { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
-<header class="masthead">
-  <div class="wrap masthead-in">
-    <a class="brand" href="./">
-      <svg class="logo" viewBox="0 0 100 100" role="img" aria-label="BMWeb">
-        <circle class="logo-ring" cx="50" cy="50" r="48"/>
-        <clipPath id="d"><circle cx="50" cy="50" r="31"/></clipPath>
-        <g clip-path="url(#d)">
-          <rect class="q-white" x="19" y="19" width="31" height="31"/>
-          <rect class="q-white" x="50" y="50" width="31" height="31"/>
-          <rect class="q-color" x="50" y="19" width="31" height="31"/>
-          <rect class="q-color" x="19" y="50" width="31" height="31"/>
-        </g>
-        <circle class="logo-ring" cx="50" cy="50" r="31"/>
-      </svg>
-      <span class="name" id="brand-name">BMWeb</span>
-    </a>
-    <nav class="nav-links">
-      <a href="docs.html" class="nav-btn">Docs</a>
-    </nav>
+<div class="col">
+  <div class="brand">
+    <svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="3"/>
+      <clipPath id="d1"><circle cx="50" cy="50" r="31"/></clipPath>
+      <g clip-path="url(#d1)">
+        <rect x="19" y="19" width="31" height="31" fill="#eef2f5"/><rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>
+        <rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/><rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>
+      </g>
+      <circle cx="50" cy="50" r="31" fill="none" stroke="#0a0d11" stroke-width="2"/>
+    </svg>
+    <span class="n">BMWeb</span>
+    <a href="docs.html">Docs</a>
   </div>
-</header>
 
-<main>
-  <div class="wrap">
-    <section class="hero">
-      <h1>BMW diagnostics,<br><span>no Windows.</span></h1>
-      <p class="lead">Read fault codes, watch live values, run actuator tests and inspect
-        coding data, over a K+DCAN cable or a WiFi adapter. No download, no EDIABAS,
-        no virtual machine, no Windows install.</p>
-    </section>
+  <div class="hero">
+    <div>
+      <h1>Find out what's wrong with your BMW, right in your browser.</h1>
+      <p class="lede">Plug a cheap diagnostic cable into your car, open BMWeb,
+      and see what the dealer's computer sees: fault codes in plain English,
+      live engine data, and component tests. <b>Free, nothing to install.</b></p>
+      <a class="go" href="app.html" data-applink>Open BMWeb</a>
+      <span class="go-sub">Works with 1996 to 2006 BMWs (E36, E39, E46, E53 and more)</span>
+    </div>
 
-    <section class="builds" id="cards"></section>
-
-    <section class="section">
-      <h2>Platform &amp; connection</h2>
-      <div class="matrix">
-        <div class="matrix-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Platform</th>
-                <th scope="col">Build</th>
-                <th scope="col">Connection</th>
-                <th scope="col">Requirements</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">macOS</th>
-                <td>the macOS app, or BMWeb</td>
-                <td style="white-space:nowrap">K+DCAN USB · THOR WiFi</td>
-                <td class="req">Native needs no setup. On the web build, USB needs Chrome or Edge.</td>
-              </tr>
-              <tr>
-                <th scope="row">Windows &amp; Linux</th>
-                <td>BMWeb</td>
-                <td style="white-space:nowrap">K+DCAN USB · THOR WiFi</td>
-                <td class="req">USB needs Chrome or Edge. WiFi works in any browser.</td>
-              </tr>
-              <tr>
-                <th scope="row">iOS &amp; Android</th>
-                <td>BMWeb on the home screen</td>
-                <td>THOR WiFi only</td>
-                <td class="req">Safari on iOS, Chrome on Android. Phones have no USB path.</td>
-              </tr>
-            </tbody>
-          </table>
+    <div>
+      <div class="appmock" role="img" aria-label="BMWeb scanning an E46: the engine module reports two faults, the rest are clean.">
+        <div class="bar">
+          <svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="4"/>
+            <clipPath id="d3"><circle cx="50" cy="50" r="31"/></clipPath>
+            <g clip-path="url(#d3)">
+              <rect x="19" y="19" width="31" height="31" fill="#eef2f5"/><rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>
+              <rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/><rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>
+            </g>
+          </svg>
+          Full Module Error Scan
+          <span class="st">cable connected</span>
         </div>
+        <div class="row"><span class="m">Engine (MS45.1)</span><span class="r bad">2 faults</span></div>
+        <div class="row"><span class="m">ABS / DSC</span><span class="r">no faults</span></div>
+        <div class="row"><span class="m">Airbags</span><span class="r">no faults</span></div>
+        <div class="row"><span class="m">Instrument cluster</span><span class="r">no faults</span></div>
+        <div class="row"><span class="m">Climate control</span><span class="r">no faults</span></div>
+        <div class="row"><span class="m">Central body electronics</span><span class="r">no faults</span></div>
       </div>
-    </section>
+      <div class="cap">A whole-car scan in BMWeb.</div>
+    </div>
+  </div>
 
-    <section class="section">
-      <div class="notes">
-        <div class="note-col">
-          <h3>Which cable</h3>
-          <p>On a computer, either works: macOS, Windows and Linux can all drive a
-            <b>K+DCAN USB cable</b> or a
-            <a href="https://github.com/dader34/BMacW#thor-wifi-adapter">WiFi adapter</a>.</p>
-          <p>A <b>phone or tablet has no USB path</b>, so iPhone and Android need the
-            WiFi adapter.</p>
-        </div>
-        <div class="note-col">
-          <h3>Which build</h3>
-          <p><b>The macOS app</b> is the only build that drives a USB cable
-            without Chrome, since Safari has no Web Serial.</p>
-          <p><b>BMWeb</b> is a progressive web app that runs everywhere. For a USB cable it
-            needs Chrome or Edge on the desktop; for a WiFi adapter it needs nothing but a
-            browser. Both read the same decompiled INPA screens and run the same BEST2
-            virtual machine.</p>
-        </div>
+  <h2>What you need</h2>
+  <div class="needs">
+    <div class="need">
+      <div class="ic">
+        <!-- the cable: OBD plug, cord, USB plug -->
+        <svg width="112" height="36" viewBox="0 0 112 36" aria-hidden="true">
+          <path d="M4 10h20l5 5v6l-5 5H4z" fill="none" stroke="#e8891d" stroke-width="2.6" stroke-linejoin="round"/>
+          <path d="M10 15h3M10 21h3M16 15h3M16 21h3" stroke="#e8891d" stroke-width="2.2"/>
+          <path d="M29 18c14 0 10-10 24-10s10 20 24 20 10-10 17-10" fill="none" stroke="#6e7a86" stroke-width="2.6" stroke-linecap="round"/>
+          <rect x="94" y="12" width="14" height="12" rx="1.5" fill="none" stroke="#e8891d" stroke-width="2.6"/>
+          <path d="M98 16h6M98 20h6" stroke="#e8891d" stroke-width="1.8"/>
+        </svg>
       </div>
-    </section>
+      <b>A K+DCAN cable (about $20)</b>
+      <span>The common USB diagnostic cable for these BMWs, sold everywhere
+      online. On a phone, use a
+      <a href="https://github.com/dader34/BMWeb#thor-wifi-adapter">WiFi adapter</a> instead.</span>
+    </div>
+    <div class="need">
+      <div class="ic">
+        <svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="3"/>
+          <clipPath id="d2"><circle cx="50" cy="50" r="31"/></clipPath>
+          <g clip-path="url(#d2)">
+            <rect x="19" y="19" width="31" height="31" fill="#eef2f5"/><rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>
+            <rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/><rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>
+          </g>
+          <circle cx="50" cy="50" r="31" fill="none" stroke="#0a0d11" stroke-width="2"/>
+        </svg>
+      </div>
+      <b>A 1996 to 2006 BMW</b>
+      <span>3 Series, 5 Series, 7 Series, X3, X5, Z4 and more. The cable
+      plugs into the round port under the hood or the OBD port by your knee.</span>
+    </div>
+    <div class="need">
+      <div class="ic">
+        <svg width="52" height="36" viewBox="0 0 52 36" aria-hidden="true">
+          <rect x="8" y="4" width="36" height="24" rx="2.5" fill="none" stroke="#e8891d" stroke-width="2.6"/>
+          <path d="M2 33h48" stroke="#6e7a86" stroke-width="2.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <b>Chrome or Edge on a computer</b>
+      <span>That's it. No Windows, no INPA install, no virtual machine.
+      Mac users can also grab the
+      <a href="https://github.com/dader34/BMWeb/releases">Mac app</a>.</span>
+    </div>
   </div>
-</main>
 
-<footer>
-  <div class="wrap footer-in">
-    <span>BMWeb, BMW diagnostics without Windows</span>
-    <a href="https://github.com/dader34/BMacW">github.com/dader34/BMacW</a>
+  <h2>Three steps</h2>
+  <div class="steps">
+    <div class="step"><b>Plug in the cable.</b>
+      <span>One end in the car, the other in your computer. Turn the
+      ignition on.</span></div>
+    <div class="step"><b>Open BMWeb and pick your car.</b>
+      <span>Click the orange button above, choose your model, and allow the
+      cable when the browser asks.</span></div>
+    <div class="step"><b>Read your car.</b>
+      <span>Scan every module for faults, watch live data, or test
+      components. The same screens BMW technicians used.</span></div>
   </div>
-</footer>
+
+  <h2>Common questions</h2>
+  <dl class="qa">
+    <div class="q">
+      <dt>Is it safe to poke around?</dt>
+      <dd>Reading is completely safe, you're only listening. Anything that
+      changes the car asks you first.</dd>
+    </div>
+    <div class="q">
+      <dt>Does it cost anything?</dt>
+      <dd>No. BMWeb is free and open source. Your only cost is the cable.</dd>
+    </div>
+    <div class="q">
+      <dt>Will it work on my phone?</dt>
+      <dd>Yes. Download the
+      <a href="https://github.com/dader34/BMWeb/releases">offline zip</a> and
+      open it in Microsoft Edge (iPhone and Android are both supported),
+      then join the
+      <a href="https://github.com/dader34/BMWeb#thor-wifi-adapter">THOR
+      adapter's</a> WiFi network. Phones can't talk to USB cables, so the
+      WiFi adapter is the way in.</dd>
+    </div>
+    <div class="q">
+      <dt>Do I need internet at the car?</dt>
+      <dd>Only the first time. Once BMWeb has loaded, it works offline, and
+      there are <a href="https://github.com/dader34/BMWeb/releases">offline
+      downloads</a> too.</dd>
+    </div>
+  </dl>
+
+  <div class="foot">
+    <span>BMWeb, free and open source</span>
+    <a href="https://github.com/dader34/BMWeb">GitHub</a>
+    <a href="https://github.com/dader34/BMWeb/releases">Offline downloads</a>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -282,171 +309,9 @@
     });
   }
 
-  var ua = navigator.userAgent;
-  var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-  var isAndroid = /Android/i.test(ua);
-  var isMobile = isIOS || isAndroid;
-  var isMac = /Macintosh|Mac OS X/.test(ua) && !isIOS && navigator.maxTouchPoints <= 1;
-
   // The app URL resolves to app.html on published Pages, or index.html locally
   var targetAppUrl = window.location.pathname.endsWith('install.html') ? 'index.html' : 'app.html';
-
-  function showIosTutorialModal(e) {
-    if (e) e.preventDefault();
-    if (document.getElementById('sheet-overlay')) return;
-
-    var overlay = document.createElement('div');
-    overlay.className = 'sheet-overlay';
-    overlay.id = 'sheet-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', 'Add BMWeb to the iPhone home screen');
-    overlay.innerHTML =
-      '<div class="sheet">'
-      + '  <div class="sheet-head">'
-      + '    <span class="t">Add to home screen</span>'
-      + '    <button class="sheet-close" id="close-modal" aria-label="Close">✕</button>'
-      + '  </div>'
-      + '  <div class="sheet-body">'
-      + '    <ol class="steps">'
-      + '      <li><div><b>Tap Share in Safari</b><span>The square icon with an arrow, in the bottom toolbar.</span></div></li>'
-      + '      <li><div><b>Choose Add to Home Screen</b><span>Scroll the share sheet until you reach it.</span></div></li>'
-      + '      <li><div><b>Tap Add</b><span>Top right of the sheet.</span></div></li>'
-      + '      <li><div><b>Open BMWeb from the home screen</b><span>It runs full screen, with no browser chrome.</span></div></li>'
-      + '    </ol>'
-      + '    <a href="' + targetAppUrl + '" class="btn solid">Open in browser instead</a>'
-      + '  </div>'
-      + '</div>';
-
-    document.body.appendChild(overlay);
-
-    var closeBtn = overlay.querySelector('#close-modal');
-    function close() {
-      overlay.remove();
-      document.removeEventListener('keydown', onKey);
-    }
-    function onKey(evt) { if (evt.key === 'Escape') close(); }
-    closeBtn.onclick = close;
-    overlay.onclick = function (evt) { if (evt.target === overlay) close(); };
-    document.addEventListener('keydown', onKey);
-    closeBtn.focus();
-  }
-
-  function macHelp() {
-    var d = document.createElement('div');
-    d.className = 'runbook';
-    d.id = 'mac-help';
-    d.innerHTML =
-      '<h4>First launch on macOS</h4>'
-      + '<p>The macOS app is ad-hoc signed, with no Apple Developer ID, so macOS quarantines '
-      + 'the download and blocks the first launch. Clear the flag once:</p>'
-      + '<ol>'
-      + '<li>Open the .dmg and drag the app to Applications.</li>'
-      + '<li>Run this in <b>Terminal</b>:'
-      + '<div class="cmd"><code id="xattr-cmd">xattr -dr '
-      + 'com.apple.quarantine /Applications/BMacW.app</code>'
-      + '<button type="button" id="xattr-copy">Copy</button></div></li>'
-      + '<li>Launch it normally from Applications.</li>'
-      + '</ol>';
-    setTimeout(function () {
-      var btn = d.querySelector('#xattr-copy');
-      if (!btn) return;
-      btn.onclick = function () {
-        var t = d.querySelector('#xattr-cmd').textContent;
-        navigator.clipboard.writeText(t).then(function () {
-          btn.textContent = 'Copied';
-          setTimeout(function () { btn.textContent = 'Copy'; }, 2000);
-        });
-      };
-    }, 0);
-    return d;
-  }
-
-  var REPO = 'dader34/BMacW';
-  var APP = {
-    id: 'mac',
-    title: 'BMWeb for macOS',
-    sub: 'The native desktop app. Drives a K+DCAN USB cable directly, with PDF export and CSV logging.',
-    meta: 'Apple silicon · .dmg',
-    href: 'https://github.com/' + REPO + '/releases/latest',
-    cta: 'Download for macOS'
-  };
-  var WEB_PWA = {
-    id: 'pwa',
-    title: 'BMWeb',
-    sub: 'The web app. Runs in the browser and installs to the home screen. Nothing to download.',
-    meta: isIOS ? 'iPhone · iPad · Full screen' : 'All platforms · Browser app',
-    href: targetAppUrl,
-    cta: 'Launch BMWeb'
-  };
-
-  // BMWeb is always the main/primary option, BMacW is second on desktop
-  var order = isMobile ? [WEB_PWA] : [WEB_PWA, APP];
-
-  var cards = document.getElementById('cards');
-  order.forEach(function (o, i) {
-    var card = document.createElement('div');
-    card.className = 'build' + (i === 0 ? ' primary' : ' secondary');
-
-    card.innerHTML =
-      '<div class="build-top">'
-      + '<h2>' + o.title + '</h2>'
-      + (i === 0 ? '<span class="tag">Recommended</span>' : '')
-      + '</div>'
-      + '<p class="sub">' + o.sub + '</p>'
-      + '<p class="meta">' + o.meta + '</p>'
-      + '<div class="build-cta"></div>';
-
-    var btn = document.createElement('a');
-    btn.className = 'btn' + (i === 0 ? ' solid' : '');
-    btn.href = o.href;
-    if (o.id === 'mac') btn.rel = 'noopener';
-    btn.textContent = o.cta;
-    card.querySelector('.build-cta').appendChild(btn);
-    cards.appendChild(card);
-
-    if (o.id === 'mac') {
-      btn.addEventListener('click', function () {
-        if (document.getElementById('mac-help')) return;
-        card.querySelector('.build-cta').appendChild(macHelp());
-      });
-    }
-  });
-
-  if (isIOS) {
-    var primary = cards.querySelector('.build.primary .build-cta');
-    if (primary) {
-      var link = document.createElement('a');
-      link.href = '#';
-      link.id = 'ios-guide-link';
-      link.className = 'btn';
-      link.textContent = 'How to add it to the home screen';
-      primary.appendChild(link);
-      link.addEventListener('click', showIosTutorialModal);
-    }
-  }
-
-  // Mac download URL lookup from releases
-  fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (rel) {
-      if (!rel || !rel.assets) return;
-      var dmg = rel.assets.filter(function (a) {
-        return /\.dmg$/i.test(a.name);
-      })[0];
-      var card = cards.querySelector('.build.secondary');
-      var btn = card ? card.querySelector('.btn') : null;
-      if (!dmg || !card || !btn) return;
-      btn.href = dmg.browser_download_url;
-      btn.setAttribute('download', '');
-      var meta = card.querySelector('.meta');
-      if (meta) {
-        meta.textContent = 'Apple silicon · .dmg · '
-          + (dmg.size / 1048576).toFixed(0) + ' MB'
-          + (rel.tag_name ? ' · ' + rel.tag_name : '');
-      }
-    })
-    .catch(function () {});
+  document.querySelectorAll('[data-applink]').forEach(function (a) { a.href = targetAppUrl; });
 }());
 </script>
 </body>
