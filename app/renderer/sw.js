@@ -9,7 +9,7 @@
 //
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
-const CACHE_NAME = 'bmweb-v40';   // v40: ipoexec regen in #32/#35 shipped without a bump
+const CACHE_NAME = 'bmweb-v41';   // v41: .ecu archives gain ecu.json (sweep labels)
 const CORE_ASSETS = [
   './',
   './index.html',

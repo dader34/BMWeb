@@ -2339,6 +2339,12 @@ function installWebShim() {
         // live .IPO interpreter (ipovm.js) executes, shipped beside ir.json.
         // An ECU without one (an orphan, or a pre-phase-1 archive) 404s and the
         // renderer falls back to the frozen IR -- so it is optional, not fatal.
+        // the variant's own config record (label, section, group): the sweep
+        // names an identified variant by it when the menu lists no such row
+        if (kind === 'ecu') {
+          const info = ecu.get('ecu.json');
+          return info ? ok(info) : err(`No record for ${sgbd}`, 404);
+        }
         if (kind === 'jobs' || kind === 'ir' || kind === 'tables'
             || kind === 'ipoexec') {
           const res = ecu.get(`${kind}.json`);
