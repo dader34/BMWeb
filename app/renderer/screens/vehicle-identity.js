@@ -84,6 +84,72 @@ async function viJobResults(sgbd, job) {
 // what the module in front of us declares is still what settles it -- a car
 // whose SGBD differs from the shipped copy is caught by the confirmation
 // below rather than trusted from a table.
+// The coding SGBD (CABD) paired with a diagnostic SGBD, from BMW's own SGFAM
+// table -- the mapping NCS Expert uses. A diagnostic SGBD (kombi46) answers
+// ZCS_LESEN with a stale / uninitialised SA whose region scan can lock onto
+// coincidentally-valid but WRONG bytes; the CABD (C_KMB46) answers
+// C_ZCS_LESEN / C_FA_LESEN with the authoritative value. SGFAM is keyed by SG
+// short-name (KMB, EWS, LSZ, AKMB, ALSZ); the config gives us the diagnostic
+// name (kombi46) and a `code` (kombi), so bridge to the short-name, take its
+// `.cabd`, and use it only when it ships (loads by name) and exposes a coding
+// read. Returns the CABD name (lowercased) or null so the caller falls back.
+//
+// A car lists several SGs sharing a family (KMB and AKMB both -> C_KMB46; LSZ
+// and ALSZ -> C_LSZ / C_LSZA): prefer the CABD that carries a coding READ,
+// which is how the identity role (fa/zcs) is expressed.
+async function viCodingSgbdFor(sgbd, code, chassisId) {
+  const t = (typeof window !== 'undefined' && window.BMW_TABLES) || null;
+  // Scope to THIS chassis's sgfam: the same SG short-name (KMB) recurs across
+  // chassis with different CABDs, so scanning every table adds cross-chassis
+  // noise. Fall back to all tables only when the chassis isn't resolvable.
+  const one = t && chassisId && t[String(chassisId).toUpperCase()];
+  const tables = (one && one.sgfam) ? [one]
+    : (t ? Object.values(t).filter((x) => x && x.sgfam) : []);
+  const wantKeys = viSgShortNames(sgbd, code);
+  const cabds = [];
+  for (const tbl of tables) {
+    for (const [sg, row] of Object.entries(tbl.sgfam)) {
+      if (!row || !row.cabd) continue;
+      if (wantKeys.includes(sg.toUpperCase())) {
+        // rank a row that declares a coding read ahead of a bare one
+        cabds.push({ cabd: String(row.cabd).toLowerCase(),
+                     rank: (row.zcs ? 2 : 0) + (row.fa ? 1 : 0) });
+      }
+    }
+  }
+  cabds.sort((a, b) => b.rank - a.rank);
+  for (const { cabd } of cabds) {
+    if (cabd.startsWith('c_') && await viHasCodingRead(cabd)) return cabd;
+  }
+  return null;
+}
+
+// The SGFAM short-names a diagnostic SGBD / config code could map to. SGFAM
+// keys are terse (KMB, not kombi46), and a family may have an "A"-prefixed
+// variant (AKMB, ALSZ) for the same CABD -- include both, plus a couple of
+// well-known aliases the terse form does not spell out (kombi -> KMB).
+function viSgShortNames(sgbd, code) {
+  const raw = [String(code || ''), String(sgbd || '')]
+    .map((x) => x.toUpperCase().replace(/[0-9]+$/, ''))
+    .filter(Boolean);
+  const alias = { KOMBI: 'KMB' };
+  const out = new Set();
+  for (const r of raw) {
+    const base = alias[r] || r;
+    out.add(base);
+    out.add('A' + base);          // AKMB, ALSZ, AEWS variants share the CABD
+  }
+  return [...out];
+}
+
+// Does a CABD SGBD load AND expose a coding read (C_ZCS_LESEN / C_FA_LESEN)?
+async function viHasCodingRead(sgbd) {
+  const jobs = await viJobs(sgbd);
+  if (!jobs.length) return false;
+  const names = jobs.map((j) => j.name);
+  return names.includes('C_ZCS_LESEN') || names.includes('C_FA_LESEN');
+}
+
 function viIndexFor(sgbd) {
   const t = (typeof window !== 'undefined' && window.BMW_TABLES) || null;
   const idx = t && t._identity;
@@ -163,13 +229,26 @@ async function viIdentityModules(chassisId) {
   }
   if (typeof loadTables === 'function') await loadTables();
   const probed = await Promise.all(ecus.map(async (e) => {
-    const jobs = await viJobs(e.sgbd);
-    if (!jobs.length) return null;
-    const zcsJob = await viPickZcsJob(e.sgbd, jobs);
-    const faJob = await viPickFaJob(e.sgbd, jobs);
-    if (!zcsJob && !faJob) return null;
-    return { sgbd: e.sgbd, label: e.label || e.sgbd,
-             fa: !!faJob, zcs: !!zcsJob, faJob, zcsJob };
+    // READ CODING FROM THE CODING SGBD. The diagnostic SGBD a car lists
+    // (kombi46) answers ZCS_LESEN with a stale / uninitialised SA -- its
+    // region scan can lock onto a coincidentally-valid but WRONG 16 bytes
+    // (FFFFFFA8EF020F05 vs the true blank FFFFFFFFFFFFFFFF). The paired
+    // coding SGBD (c_kmb46) exposes C_ZCS_LESEN / C_FA_LESEN with NAMED
+    // GM/SA/VN keys and returns the authoritative value -- the same read
+    // NCS Expert performs. Prefer it whenever it ships (orphan .ecu, so it
+    // loads by name), falling back to the configured diagnostic SGBD.
+    const codingSgbd = await viCodingSgbdFor(e.sgbd, e.code, id);
+    for (const sgbd of [codingSgbd, e.sgbd]) {
+      if (!sgbd) continue;
+      const jobs = await viJobs(sgbd);
+      if (!jobs.length) continue;
+      const zcsJob = await viPickZcsJob(sgbd, jobs);
+      const faJob = await viPickFaJob(sgbd, jobs);
+      if (!zcsJob && !faJob) continue;
+      return { sgbd, label: e.label || e.sgbd,
+               fa: !!faJob, zcs: !!zcsJob, faJob, zcsJob };
+    }
+    return null;
   }));
   return probed.filter(Boolean);
 }
