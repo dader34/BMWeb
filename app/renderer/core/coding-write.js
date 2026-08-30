@@ -14,12 +14,13 @@
 //   cfg-chunked   C_S_AUFTRAG <binbuf> loop -> C_CHECKSUM <binbuf>
 //                 (ZKE5/GM5; needs BINARY job args)
 //
-// SAFETY. Every telegram a write job puts on the wire goes through the VM's
-// allowWrites gate (bestvm.js). This module is the ONLY place that constructs
-// the VM with allowWrites:true, and it does so only inside writeCoding(),
-// which itself refuses unless opts.confirmed is set by the UI. webshim's
-// ordinary job runner still builds the VM with allowWrites:false, unchanged,
-// so the write permission cannot leak into a normal read/job run.
+// SAFETY. The VM itself permits write jobs by default (bestvm.js, owner's
+// decision 2026-08-19: the classifier cannot tell an actuator drive from an
+// EEPROM write, and blocking one blocked both), so the write protection for
+// CODING lives HERE, not in the VM: writeCoding() refuses unless
+// opts.confirmed is set by the UI's review dialog, the read steps in this
+// module explicitly pass allowWrites:false, and every write is proved by
+// re-read (below) before it is reported as a success.
 //
 // PROVE-BY-RE-READ. After the write sequence reports JOB_STATUS OKAY, we
 // re-read the coding block and assert it now equals what we asked to write.
@@ -162,9 +163,10 @@
   // memoise it keyed by (occurrence, request bytes), and retry from the top
   // (the VM is deterministic under a fixed clock, so replay is safe).
   //
-  // The ONE difference from webRunJob is allowWrites, threaded from the
-  // caller. This runner lives HERE, not in webshim, so the only place that
-  // ever builds the VM writeable is a path the UI has explicitly confirmed.
+  // The ONE difference from webRunJob is that allowWrites is threaded from
+  // the caller instead of fixed: the read steps of a coding sequence run
+  // with the gate CLOSED, so only the confirmed write steps can transmit a
+  // write job even if a read job were misclassified.
   async function runJobOverBus(ctx, sgbd, job, arg) {
     const Vm = ctx.Best2Vm;
     const code = ctx.code;
@@ -182,9 +184,9 @@
       const vm = new Vm(code, {
         tables,
         args: argText,
-        // THE WRITE PERMISSION. Only ever true here, only for an explicitly
-        // confirmed coding write (writeCoding gates on opts.confirmed before
-        // it ever calls this). Reads pass allowWrites:false like everywhere.
+        // THE WRITE PERMISSION for this sequence. True only for the write
+        // steps of an explicitly confirmed coding write (writeCoding gates
+        // on opts.confirmed); the read steps in this module pass false.
         allowWrites: !!ctx.allowWrites,
         shared: ctx.session.shared,
         inited: ctx.session.inited,
