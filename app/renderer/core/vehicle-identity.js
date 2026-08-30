@@ -146,6 +146,21 @@
   //   unresolved keywords carrying no SA number -- body/engine/market names,
   //              and the reason a caller must not read "no code" as "no option"
   function saCodesFromZcs(chassis, keys) {
+    // A BLANK SA KEY IS NOT AN EQUIPMENT LIST. An all-FF (or all-00) SA body
+    // is an erased or never-programmed region -- and BMW's own "no special
+    // equipment" key is FFFFFFFFFFFFFFFF with a valid check char, so it looks
+    // structurally sound while carrying zero options. A modern car keeps its
+    // real equipment in the FA (parseFa/saCodesFromFa); its legacy ZCS SA key
+    // is legitimately blank. Matching that blank against the assignment table
+    // invents SA numbers the car does not have (the phantom-options bug), so
+    // decline here and let the caller fall back to the FA or report "no VO".
+    if (Zcs && typeof Zcs.isBlankSaKey === 'function'
+        && Zcs.isBlankSaKey(keys && keys.sa)) {
+      return {
+        codes: [], keywords: [], ci: {}, unresolved: [],
+        resolved: false, rows: 0, blank: true,
+      };
+    }
     const t = tablesFor(chassis);
     const at = (t && t.at) || null;
     const rows = zstMatches(chassis, keys);
