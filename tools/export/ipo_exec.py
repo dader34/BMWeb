@@ -30,19 +30,24 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import ipo_vm as V                                              # noqa: E402
 
 
-def export(ecu, budget=50000, vm=None):
+def export(ecu, budget=50000, vm=None, coding=False):
     """The runnable dump for one ECU. Pass `vm` to reuse an already-built VM.
 
     build_ir() constructs a V.VM per ECU too; when the IR pipeline calls us it
     threads that same decoded VM through here so the whole file is not
     disassembled a second time per ECU across the corpus.
+
+    coding=True exports an NCS coding dispatcher (A_<cabd>): same runnable
+    shape, but the A_ constant pool is decoded and calls are named against the
+    CDH host table, so the CDH runtime can execute it.
     """
     if vm is None:
-        vm = V.VM(ecu, budget=budget)
+        vm = V.VM(ecu, budget=budget, coding=coding)
     return {
         "ecu": ecu,
         "procs": vm.procs,
         "byid": {f"{k[0]}:{k[1]}": v for k, v in vm.byid.items()},
+        "coding": bool(coding),
     }
 
 
@@ -50,9 +55,11 @@ def main(argv):
     if not argv:
         print(__doc__)
         return 0
+    coding = "--coding" in argv
+    argv = [a for a in argv if a != "--coding"]
     ecu = argv[0]
     out = argv[1] if len(argv) > 1 else f"{ecu}.ipoexec.json"
-    data = export(ecu)
+    data = export(ecu, coding=coding)
     with open(out, "w") as f:
         json.dump(data, f)
     raw = os.path.getsize(out)

@@ -60,17 +60,10 @@ def a_pool(data):
     if p < len(data) and data[p] == 0x00:
         p += 1
     p += 2                                    # u16 declared count (not relied on)
-    # include name: \x04 <name> \x0a
-    if p >= len(data) or data[p] != 0x04:
-        return None
-    e = data.find(b"\x0a", p + 1)
-    if e < 0:
-        return None
-    p = e + 1
-    # import32 signature table: a run of \x02 <u16>
-    while p + 3 <= len(data) and data[p] == 0x02:
-        p += 3
-    # the pool proper
+    # Every record from here is a const slot -- INCLUDING the \x04 include name
+    # and the \x02 import32 signature entries. `const n` (01 01 <u16>) indexes
+    # this whole stream; skipping the include/imports shifts every high index
+    # (A_KMB46 references const 449 = "JOBNAME", which only lands with them in).
     pool = []
     while p < len(data):
         t = data[p]
