@@ -282,8 +282,43 @@ const cancelSweep = () => { _sweepToken++; };
 // F4 -- Full Module Error Scan (INPA FSQUICK)
 // ---------------------------------------------------------------------------
 
+// A CABLE IS REQUIRED TO SCAN. With nothing connected no module was ever
+// asked, so every row the sweep would print -- "not installed" included --
+// is a claim about a car it never spoke to. (The two groups whose probes
+// identify without wire traffic even split the labels: their reads fail a
+// stage later and said "no response" while everything else said "not
+// installed".) Same gate the coding hub uses; demo mode is exempt because
+// its synthesized answers are labelled as such. Returns true when blocked,
+// after rendering the explanation in place of the sweep.
+async function sweepNeedsCable(id, title, leave) {
+  if (typeof demoMode === 'function' && demoMode()) return false;
+  let port = null;
+  try { ({ port } = await api('/api/port')); } catch { /* treated as none */ }
+  if (port) return false;
+  setCrumbs([{ label: 'Vehicles', fn: showChassis },
+             { label: dispChassis(id), fn: leave }, { label: title }]);
+  view.innerHTML = head('Whole vehicle', title, '');
+  const need = document.createElement('div');
+  need.className = 'empty';
+  need.innerHTML =
+    `<div class="empty-big" style="color:var(--amber)">Connect a cable to scan</div>`
+    + `<div>A scan asks every module on the car to answer. With nothing `
+    + `connected there is nothing to ask, and reporting modules as present `
+    + `or absent would be a guess.</div>`
+    + `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">`
+    + `Connect the adapter and start the scan again, or turn on Demo mode `
+    + `to explore the screen with simulated values.</div>`;
+  view.appendChild(need);
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
+                kind: 'back', fn: leave }]);
+  sbLeft.textContent = 'scanning needs a cable';
+  return true;
+}
+
 async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
+  if (await sweepNeedsCable(id, 'Full Module Error Scan',
+                            () => showSections(id))) return;
   // scanning every module holds the bus; confirm before touching the K-line
   const ok = await confirmDialog({
     title: 'Scan all modules?',
@@ -535,6 +570,8 @@ async function identJobFor(sgbd) {
 
 async function quickIdentSweep(chassisId) {
   const id = chassisId || 'E46';
+  if (await sweepNeedsCable(id, 'Identification',
+                            () => showSections(id))) return;
   const token = ++_sweepToken;
   const alive = () => token === _sweepToken;
   const leave = () => { cancelSweep(); showSections(id); };
