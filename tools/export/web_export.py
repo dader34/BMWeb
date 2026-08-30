@@ -474,6 +474,20 @@ def main():
         for p in gfiles + extras:
             shutil.copyfile(p, os.path.join(gdst, os.path.basename(p)))
         print(f"  copied {len(gfiles)} group SGBDs + {len(extras)} group tables")
+        # THE SHARED TABLE FILES. An SGBD reaches into t_pcod (P-code texts),
+        # t_scod, t_ausb with `tabsetex <table>, <file>`; without them a
+        # detailed fault read on an MS45 ended in ERROR_TABLE and every rich
+        # field was thrown away. One gz, {file: {TABLE: rows}}, loaded once.
+        shared = {}
+        for tp in sorted(glob.glob(os.path.join(ECU_SRC, "t_*.tables.json.gz"))):
+            name = os.path.basename(tp).split(".")[0]
+            with gzip.open(tp, "rt", encoding="utf-8") as fh:
+                shared[name] = json.load(fh)
+        if shared:
+            with gzip.open(os.path.join(gdst, "shared-tables.json.gz"), "wt",
+                           encoding="utf-8") as fh:
+                json.dump(shared, fh, ensure_ascii=False, separators=(",", ":"))
+            print(f"  shared tables: {', '.join(sorted(shared))}")
     else:
         # data/groups is generated (sgbd_export.py --groups) and currently
         # GITIGNORED (data/* with no carve-out), so a checkout that never

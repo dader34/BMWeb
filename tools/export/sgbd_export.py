@@ -159,7 +159,7 @@ def export_specs(targets):
 
 def export_tables(targets):
     os.makedirs(TABLE_DIR, exist_ok=True)
-    # table fetches are HTTP calls to the engine API: thread them
+    # the .prg parse is CPU-bound and quick; the pool just keeps the loop shape
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(max_workers=8) as ex:
         results = list(ex.map(_export_tables_one, targets))
@@ -183,67 +183,38 @@ def export_tables(targets):
 
 
 def _export_tables_one(sgbd):
-    # EVERY table the .prg declares, not just the ones a lifted spec field
-    # happens to name. MS450 declares 53 and the spec fields named 20, so a
-    # third of its lookup text was missing -- STATUS_MESSWERTBLOCK's unit
-    # column resolved to "" because the table holding it was never shipped.
-    # The VM reaches tables the lifter never modelled, so the export has to
-    # come from the SGBD, not from our summary of it.
-    names = set()
-    listing_failed = False
-    table_failures = 0
-    port = os.environ.get("BMACW_PORT")
-    if port:
-        import urllib.request
-        try:
-            listing = json.load(urllib.request.urlopen(
-                f"http://127.0.0.1:{port}/api/ecu/{sgbd}/tables", timeout=60))
-            for t in (listing if isinstance(listing, list) else []):
-                n = t if isinstance(t, str) else t.get("name")
-                if n:
-                    names.add(n)
-        except Exception as e:                              # noqa: BLE001
-            # falling back to spec-referenced tables only is exactly the
-            # regression described above -- shout, or it ships again
-            listing_failed = True
-            print(f"  {sgbd:12} WARNING: table listing failed "
-                  f"({type(e).__name__}: {e}) -- exporting only "
-                  f"spec-referenced tables")
-    path = os.path.join(SPEC_DIR, f"{sgbd}.json")
-    if os.path.exists(path):
-        spec_file = json.load(open(path))
-        for spec in spec_file.get("jobs", {}).values():
-            if spec.get("statusTable"):
-                names.add(spec["statusTable"])
-            for t in spec.get("tables", []):
-                names.add(t)
-            for r in spec.get("results", []):
-                lk = r.get("lookup")
-                if lk and lk.get("table"):
-                    names.add(lk["table"])
-    if not names:
-        return (sgbd, listing_failed, table_failures)
-    tables = {}
-    for t in sorted(names):
-        try:
-            rows = V.sgbd_table(sgbd, t)
-        except Exception as e:                              # noqa: BLE001
-            # a dropped table is not "declared and empty": say which
-            table_failures += 1
-            print(f"  {sgbd:12} WARNING: table {t} fetch failed "
-                  f"({type(e).__name__}: {e}) -- dropped")
-            rows = None
-        if rows:
-            tables[t] = rows
-    if tables:
-        tp = os.path.join(TABLE_DIR, f"{sgbd}.json")
-        with open(tp, "w") as f:
-            json.dump(tables, f, ensure_ascii=False,
-                      separators=(",", ":"))
-        print(f"  {sgbd:12} {len(tables):2} tables "
-              f"{os.path.getsize(tp)//1024:5} KB")
-    return (sgbd, listing_failed, table_failures)
+    """Every table the .prg carries, read OFFLINE from the container.
 
+    This used to ask the running engine for a table listing and then fetch
+    each table through the API, whose header rule ("first row with no
+    digits") refused real headers such as ORT, UW1_NR and shipped 1,664
+    tables as COLUMN0..n with the header as data row 0; it also missed
+    tables the listing did not name. The container has the tables in full
+    (_prg_tables is the same walk EdiabasNet.IndexTable does: row 0 is the
+    header), so it is the only source now -- no engine, no BMACW_PORT.
+    Written to data/ecu-src/<sgbd>.tables.json.gz, the committed source
+    build_ecu_tree fans out. Returns (sgbd, listing_failed, table_failures)
+    like before; both are 0 unless the .prg is missing or unreadable.
+    """
+    import gzip as _gz
+    path = S.sgbd_path(sgbd)
+    if not path or not os.path.exists(path):
+        print(f"  {sgbd:12} WARNING: no .prg, tables not exported")
+        return (sgbd, True, 0)
+    try:
+        tables = _prg_tables(path)
+    except (ValueError, struct.error) as e:
+        print(f"  {sgbd:12} WARNING: tables unreadable "
+              f"({type(e).__name__}: {e})")
+        return (sgbd, False, 1)
+    src_dir = os.path.join(ROOT, "data", "ecu-src")
+    os.makedirs(src_dir, exist_ok=True)
+    blob = json.dumps(tables, ensure_ascii=False,
+                      separators=(",", ":")).encode("utf-8")
+    with open(os.path.join(src_dir, f"{sgbd}.tables.json.gz"), "wb") as f:
+        f.write(_gz.compress(blob, 6))
+    print(f"  {sgbd:12} {len(tables):3} tables {len(blob)//1024:5} KB")
+    return (sgbd, False, 0)
 
 def _cli_dumptable(table, sgbd):
     """Table rows via the prebuilt CLI: the embedded engine, offline.

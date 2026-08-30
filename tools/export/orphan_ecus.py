@@ -34,6 +34,7 @@ abort the sweep -- a partial derivation you know about beats one you find in
 production.
 """
 import os
+import glob
 import sys
 import gzip
 import json
@@ -142,6 +143,26 @@ def main():
         print(f"\n{len(orphans())} orphans", file=sys.stderr)
         return 0
     named = [a.lower() for a in argv if not a.startswith("--")]
+    # --missing: every corpus SGBD with no job code in ecu-src, OWNED OR NOT.
+    # A car's group can identify a variant its menu never lists (telibus2 on
+    # the E46's D_00C8, the whole GS8/DDE family on D_0032/D_0012); owners()
+    # claims those, so they were not orphans, and the IR-filtered lifter gave
+    # them one job and nothing was written. 53 SGBDs, all in car configs,
+    # all identifiable on the wire, all "not in build". Same derivation as
+    # an orphan: all jobs, offline, into the committed source.
+    if "--missing" in sys.argv:
+        have = {os.path.basename(f).split(".")[0]
+                for f in glob.glob(os.path.join(SRC, "*.job-code.json.gz"))}
+        names = sorted(s for s in ET.all_sgbds() if s.lower() not in have)
+        print(f"{len(names)} SGBDs without job code in ecu-src", file=sys.stderr)
+        results = [derive_one(s) for s in names]
+        bad = [r for r in results if not r["code"]]
+        for r in results:
+            print(f"  {r['sgbd']:12} code {r['code']:3} jobs  meta {r['meta']//1024:4} KB  "
+                  f"tables {r['tables']//1024:4} KB" + (f"  {r['errors']}" if r["errors"] else ""))
+        print(f"derived {len(results) - len(bad)}/{len(results)}", file=sys.stderr)
+        return 1 if bad else 0
+
     orph = set(orphans())
     if named:
         # only derive names that ARE orphans -- an owned SGBD already has a car

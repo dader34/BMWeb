@@ -1660,6 +1660,7 @@ async function switchSession(sgbd) {
 async function webRunJob(sgbd, job, arg, opts = {}) {
   const code = await webFetchJson(`data/job-code/${sgbd.toLowerCase()}.json`);
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
+  const sharedTables = await loadSharedTables();
   const tables = await webFetchJson(
     `data/sgbd-tables/${sgbd.toLowerCase()}.json`) || {};
   const session = opts.shared
@@ -1683,6 +1684,7 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
     sendSeq = 0;
     const vm = new Best2Vm(code, {
       tables,
+      extTables: sharedTables,
       args: arg == null ? '' : String(arg),
       // Writes permitted -- see the note on Best2Vm.allowWrites. This is the
       // main job runner, so it is what lets an actuator test reach the wire.
@@ -1811,6 +1813,19 @@ function loadGroupCode(name) {
     groupCodeCache.set(key, webFetchGz(`data/groups/${key}.json.gz`));
   }
   return groupCodeCache.get(key);
+}
+
+// The shared table files (t_pcod, t_scod, t_ausb, t_grtb): an SGBD reads
+// them with `tabsetex <table>, <file>` -- ms450ds0's FS_LESEN_DETAIL looks
+// its P-code up in t_pcod's PCodeTexte. Loaded once, given to every VM.
+let sharedTablesPromise = null;
+function loadSharedTables() {
+  if (!sharedTablesPromise) {
+    sharedTablesPromise = webFetchGz('data/groups/shared-tables.json.gz')
+      .then((t) => (t && typeof t === 'object') ? t : {})
+      .catch(() => ({}));
+  }
+  return sharedTablesPromise;
 }
 
 function loadGroupVariants() {

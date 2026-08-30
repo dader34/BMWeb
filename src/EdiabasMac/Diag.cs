@@ -105,14 +105,18 @@ public sealed class Diag : IDisposable
             return cells;
         }
 
-        // the header is the first row whose cells look like column names
-        // (all non-empty, no digits) — some SGBDs emit a blank row ahead of it,
-        // and taking set 0 blindly turns the real header into a data row.
+        // EDIABAS has no heuristic: the first row IS the header
+        // (EdiabasNet.IndexTable, j == 0). Some SGBDs emit a blank set ahead
+        // of it, so the header is the first set with a non-empty cell. It
+        // was "the first row with no digits" here, which refused real headers
+        // such as ORT, UW1_NR, UW2_NR -- 1,656 tables in 211 SGBDs then shipped
+        // with COLUMNn names and their header as data row 0
+        // (tools/sgbd/repair_table_headers.py undid that in the dump).
         int head = 0;
         for (int i = 0; i < sets.Count && i < 4; i++)
         {
             var c = Cells(sets[i]);
-            if (c.Count > 0 && c.All(x => x.Length > 0 && !x.Any(char.IsDigit)))
+            if (c.Count > 0 && c.Any(x => x.Length > 0))
             {
                 head = i;
                 break;
