@@ -1,7 +1,7 @@
 /* skins. each overrides CSS vars + body background via <html data-theme="...">
    from Settings. no attribute = Instrument. */
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=VT323&family=Press+Start+2P&family=Audiowide&family=Michroma&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=VT323&family=Press+Start+2P&family=Audiowide&family=Michroma&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 /* FRUTIGER AERO: glossy Y2K glass, sky-blue to lime. */
 html[data-theme="aero"] {
@@ -321,6 +321,7 @@ html[data-theme="inpa"] .grain { display: none; }
   repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 2px),
   linear-gradient(180deg, #e2e4e7, #b3b6bb); }
 .sw-brackets { background: linear-gradient(135deg, #1d1f21 50%, #f8de7e 50%); }
+.sw-gt1 { background: linear-gradient(180deg, #f2c500 0 28%, #c7cacf 28%); }
 
 /* PER-THEME KEY BADGES: the number chips on the f-key bar + sidebar. */
 
@@ -394,6 +395,239 @@ html .inpa-settings .setting-row {
 html[data-theme="inpa"] .inpa-settings .setting-row {
   border-bottom-color: #c9c9c9 !important;
 }
+
+
+/* GT1: the dealer tester. Two greys and black type; the yellow is the tab
+   strip on the real unit, so it lives in the header and on the selected
+   item only. Soft-keys are raised with a thick bottom edge, like the buttons
+   under its screen. */
+html[data-theme="gt1"] {
+  --bg: #c7cacf;
+  --panel: #f4f5f6;
+  --panel-2: #dfe1e4;
+  --raised: #eceef0;
+  --line: #a3a7ad;
+  --line-bright: #7d8087;
+  --ink: #111214;
+  --ink-dim: #55585d;
+  --ink-faint: #8a8e95;
+  /* the accent token is what the app paints TEXT with (codes, eyebrows,
+     counts, links); on the tester those are dark. The tab-strip yellow is
+     a fill only, so it is written literally where a fill is meant. */
+  --amber: #8f7400;
+  --amber-soft: #6e5a00;
+  --amber-glow: rgba(242,197,0,.28);
+  --amber-ink: #111214;
+  --red: #c8321e;
+  --green: #2e7d32;
+  --cyan: #1f6f8b;
+  --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 1px 2px rgba(0,0,0,.12);
+  --display: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono: 'IBM Plex Mono', 'Consolas', ui-monospace, monospace;
+  /* logo */
+  --logo-bg: #111214;
+  --logo-border: #8f7400;
+  --logo-quad-1: #f2c500;
+  --logo-quad-2: #dfe1e4;
+  --logo-inner-border: rgba(242,197,0,.5);
+  --sb-size: 12px; --sb-radius: 2px; --sb-track: #dfe1e4;
+  --sb-thumb: #a3a7ad; --sb-thumb-hover: #7d8087; --sb-thumb-border: 1px solid #dfe1e4;
+  --gauge-track: #dfe1e4; --gauge-fill: #f2c500;
+}
+html[data-theme="gt1"], html[data-theme="gt1"] body {
+  background: #c7cacf !important;
+  color: var(--ink);
+}
+/* the tab strip */
+html[data-theme="gt1"] .topbar {
+  background: #f2c500;
+  color: #111214;
+  border-bottom: 3px solid #8f7400;
+}
+html[data-theme="gt1"] .topbar .crumbs, html[data-theme="gt1"] .topbar .crumb,
+html[data-theme="gt1"] .topbar .crumb-sep { color: #4a3f00 !important; }
+html[data-theme="gt1"] .topbar .pill, html[data-theme="gt1"] .topbar .btn,
+html[data-theme="gt1"] .topbar .icon-btn {
+  background: #fff7cc !important;
+  border: 1px solid #8f7400 !important;
+  color: #111214 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+/* the working area: lighter grey panel on the chassis grey */
+html[data-theme="gt1"] .view, html[data-theme="gt1"] .main, html[data-theme="gt1"] .content {
+  background: var(--panel-2);
+}
+html[data-theme="gt1"] .section, html[data-theme="gt1"] .chassis-card,
+html[data-theme="gt1"] .group-tile, html[data-theme="gt1"] .menu-section,
+html[data-theme="gt1"] .fault, html[data-theme="gt1"] .live-panel,
+html[data-theme="gt1"] .modal, html[data-theme="gt1"] .result-card,
+html[data-theme="gt1"] .act-card, html[data-theme="gt1"] .setting-row,
+html[data-theme="gt1"] .theme-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-top: 4px solid #f2c500 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 0 #fff inset !important;
+}
+html[data-theme="gt1"] .setting-row, html[data-theme="gt1"] .theme-card,
+html[data-theme="gt1"] .modal { border-top: 1px solid var(--line) !important; }
+html[data-theme="gt1"] .split-nav-item {
+  background: var(--raised) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+}
+html[data-theme="gt1"] .split-nav-item.active, html[data-theme="gt1"] .split-nav-item[aria-current] {
+  background: #f2c500 !important;
+  color: var(--amber-ink) !important;
+  font-weight: 600;
+}
+html[data-theme="gt1"] .sidebar {
+  background: var(--raised);
+  border-right: 1px solid var(--line);
+}
+html[data-theme="gt1"] .btn, html[data-theme="gt1"] .icon-btn {
+  border-radius: 2px !important;
+  background: linear-gradient(#f8f9fa, #d9dbdf) !important;
+  border: 1px solid var(--line-bright) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 0 #fff inset !important;
+}
+html[data-theme="gt1"] .btn:hover, html[data-theme="gt1"] .icon-btn:hover {
+  background: linear-gradient(#ffffff, #e6e8eb) !important;
+}
+html[data-theme="gt1"] .btn.primary {
+  background: linear-gradient(#ffe36e, #f2c500) !important;
+  border-color: #8f7400 !important;
+  color: #111214 !important;
+}
+html[data-theme="gt1"] .btn.primary:hover { background: linear-gradient(#fff0a0, #ffd21a) !important; }
+html[data-theme="gt1"] .btn.danger {
+  background: linear-gradient(#e26a58, #c8321e) !important;
+  border-color: #7a1e12 !important;
+  color: #fff !important;
+}
+html[data-theme="gt1"] input[type="text"], html[data-theme="gt1"] input[type="search"],
+html[data-theme="gt1"] select, html[data-theme="gt1"] textarea {
+  background: #fff !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 2px !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08) inset !important;
+}
+html[data-theme="gt1"] input:focus, html[data-theme="gt1"] select:focus,
+html[data-theme="gt1"] textarea:focus {
+  border-color: #8f7400 !important;
+  box-shadow: 0 0 0 2px var(--amber-glow) !important;
+  outline: none !important;
+}
+html[data-theme="gt1"] .gauge-track { border: 1px solid var(--line) !important; background: #fff !important; }
+html[data-theme="gt1"] .gauge-fill { background: #f2c500 !important; }
+/* the soft-keys under the screen: raised, thick bottom edge, yellow when lit */
+html[data-theme="gt1"] .fkeybar {
+  background: #b9bcc2;
+  border-top: 1px solid #8e9198;
+}
+html[data-theme="gt1"] .fkey {
+  background: linear-gradient(#f8f9fa, #d9dbdf) !important;
+  border: 1px solid var(--line-bright) !important;
+  border-bottom-width: 3px !important;
+  border-radius: 3px !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+html[data-theme="gt1"] .fkey:hover { background: linear-gradient(#ffffff, #e6e8eb) !important; }
+html[data-theme="gt1"] .fkey.active, html[data-theme="gt1"] .fkey.current {
+  background: linear-gradient(#ffe36e, #f2c500) !important;
+  border-color: #8f7400 !important;
+}
+html[data-theme="gt1"] .fkey.active .fkey-num { color: #111214; }
+html[data-theme="gt1"] .fkey-btns .fkey.empty, html[data-theme="gt1"] .fkey-btns .fkey.empty:hover {
+  background: #cfd2d6 !important;
+  border-color: #a3a7ad !important;
+}
+html[data-theme="gt1"] .fkey-nums .fkey-num { color: #3b3e44 !important; font-weight: 600; }
+html[data-theme="gt1"] .nav-key, html[data-theme="gt1"] .fkey-num {
+  color: #3b3e44 !important;
+  background: #eceef0 !important;
+  border: 1px solid var(--line) !important;
+}
+/* the real class names the modules screen uses (mock parity) */
+html[data-theme="gt1"] .view, html[data-theme="gt1"] #view {
+  background: var(--panel-2) !important;
+}
+html[data-theme="gt1"] .ecu-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-top: 4px solid #f2c500 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 0 #fff inset !important;
+}
+html[data-theme="gt1"] .ecu-card:hover { transform: none; background: #fff !important; }
+html[data-theme="gt1"] .split-nav {
+  gap: 0 !important;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  align-self: start;
+}
+html[data-theme="gt1"] .sys-item {
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+html[data-theme="gt1"] .sys-item:last-child { border-bottom: 0 !important; }
+html[data-theme="gt1"] .sys-item.active {
+  background: #f2c500 !important;
+  color: #111214 !important;
+  font-weight: 600;
+}
+html[data-theme="gt1"] .sys-item.active .nav-count, html[data-theme="gt1"] .sys-item.active .nav-name {
+  color: #111214 !important;
+}
+html[data-theme="gt1"] .sys-item .nav-count { color: var(--ink-dim) !important; }
+/* header controls: black keys with the strip's yellow lettering */
+html[data-theme="gt1"] .topbar .icon-btn, html[data-theme="gt1"] .topbar .nav-action,
+html[data-theme="gt1"] .topbar .nav-back, html[data-theme="gt1"] .topbar .nav-fn {
+  background: #111214 !important;
+  color: #f2c500 !important;
+  border: 1px solid #111214 !important;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+html[data-theme="gt1"] .topbar .icon-btn:hover, html[data-theme="gt1"] .topbar .nav-action:hover {
+  background: #2a2c30 !important;
+}
+/* soft-keys: raised, thick bottom edge (the app's own size) */
+html[data-theme="gt1"] .fkey-btns .fkey, html[data-theme="gt1"] .fkeybar .fkey {
+  background: linear-gradient(#f8f9fa, #d9dbdf) !important;
+  border: 1px solid var(--line-bright) !important;
+  border-bottom: 3px solid var(--line-bright) !important;
+  border-radius: 3px !important;
+}
+html[data-theme="gt1"] .fkey-btns .fkey .fkey-label { color: #111214 !important; }
+html[data-theme="gt1"] .fkey-nums .fkey-num { font-weight: 600 !important; color: #3b3e44 !important; }
+html[data-theme="gt1"] .fkey-btns .fkey.active, html[data-theme="gt1"] .fkeybar .fkey.active,
+html[data-theme="gt1"] .fkey-btns .fkey.current {
+  background: linear-gradient(#ffe36e, #f2c500) !important;
+  border-color: #8f7400 !important;
+}
+/* selected segment / tab: the strip yellow with black type */
+html[data-theme="gt1"] .seg-btn.active, html[data-theme="gt1"] .seg .active, html[data-theme="gt1"] .seg button.active,
+html[data-theme="gt1"] .seg .on, html[data-theme="gt1"] .seg [aria-pressed="true"],
+html[data-theme="gt1"] .coding-tab.active, html[data-theme="gt1"] .inpa-ss-chassis.active,
+html[data-theme="gt1"] .chassis-filter-chip.active {
+  background: #f2c500 !important;
+  color: #111214 !important;
+  border-color: #8f7400 !important;
+}
+html[data-theme="gt1"] .splash { background: #c7cacf; }
+html[data-theme="gt1"] .splash-name { color: #111214; }
+html[data-theme="gt1"] .splash-tag { color: #55585d; }
+html[data-theme="gt1"] .splash-bar { background: #f2c500; }
+html[data-theme="gt1"] .splash-status { color: #55585d; }
 
 /* ---------------------------------------------------------------------------
    INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers
@@ -517,6 +751,239 @@ html[data-theme="brackets"] .splash-name { color: #f8de7e; }
 html[data-theme="brackets"] .splash-tag { color: #a0a3a5; }
 html[data-theme="brackets"] .splash-bar { background: #404447; }
 html[data-theme="brackets"] .splash-status { color: #6c6f71; }
+
+
+/* GT1: the dealer tester. Two greys and black type; the yellow is the tab
+   strip on the real unit, so it lives in the header and on the selected
+   item only. Soft-keys are raised with a thick bottom edge, like the buttons
+   under its screen. */
+html[data-theme="gt1"] {
+  --bg: #c7cacf;
+  --panel: #f4f5f6;
+  --panel-2: #dfe1e4;
+  --raised: #eceef0;
+  --line: #a3a7ad;
+  --line-bright: #7d8087;
+  --ink: #111214;
+  --ink-dim: #55585d;
+  --ink-faint: #8a8e95;
+  /* the accent token is what the app paints TEXT with (codes, eyebrows,
+     counts, links); on the tester those are dark. The tab-strip yellow is
+     a fill only, so it is written literally where a fill is meant. */
+  --amber: #8f7400;
+  --amber-soft: #6e5a00;
+  --amber-glow: rgba(242,197,0,.28);
+  --amber-ink: #111214;
+  --red: #c8321e;
+  --green: #2e7d32;
+  --cyan: #1f6f8b;
+  --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 1px 2px rgba(0,0,0,.12);
+  --display: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono: 'IBM Plex Mono', 'Consolas', ui-monospace, monospace;
+  /* logo */
+  --logo-bg: #111214;
+  --logo-border: #8f7400;
+  --logo-quad-1: #f2c500;
+  --logo-quad-2: #dfe1e4;
+  --logo-inner-border: rgba(242,197,0,.5);
+  --sb-size: 12px; --sb-radius: 2px; --sb-track: #dfe1e4;
+  --sb-thumb: #a3a7ad; --sb-thumb-hover: #7d8087; --sb-thumb-border: 1px solid #dfe1e4;
+  --gauge-track: #dfe1e4; --gauge-fill: #f2c500;
+}
+html[data-theme="gt1"], html[data-theme="gt1"] body {
+  background: #c7cacf !important;
+  color: var(--ink);
+}
+/* the tab strip */
+html[data-theme="gt1"] .topbar {
+  background: #f2c500;
+  color: #111214;
+  border-bottom: 3px solid #8f7400;
+}
+html[data-theme="gt1"] .topbar .crumbs, html[data-theme="gt1"] .topbar .crumb,
+html[data-theme="gt1"] .topbar .crumb-sep { color: #4a3f00 !important; }
+html[data-theme="gt1"] .topbar .pill, html[data-theme="gt1"] .topbar .btn,
+html[data-theme="gt1"] .topbar .icon-btn {
+  background: #fff7cc !important;
+  border: 1px solid #8f7400 !important;
+  color: #111214 !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+/* the working area: lighter grey panel on the chassis grey */
+html[data-theme="gt1"] .view, html[data-theme="gt1"] .main, html[data-theme="gt1"] .content {
+  background: var(--panel-2);
+}
+html[data-theme="gt1"] .section, html[data-theme="gt1"] .chassis-card,
+html[data-theme="gt1"] .group-tile, html[data-theme="gt1"] .menu-section,
+html[data-theme="gt1"] .fault, html[data-theme="gt1"] .live-panel,
+html[data-theme="gt1"] .modal, html[data-theme="gt1"] .result-card,
+html[data-theme="gt1"] .act-card, html[data-theme="gt1"] .setting-row,
+html[data-theme="gt1"] .theme-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-top: 4px solid #f2c500 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 0 #fff inset !important;
+}
+html[data-theme="gt1"] .setting-row, html[data-theme="gt1"] .theme-card,
+html[data-theme="gt1"] .modal { border-top: 1px solid var(--line) !important; }
+html[data-theme="gt1"] .split-nav-item {
+  background: var(--raised) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+}
+html[data-theme="gt1"] .split-nav-item.active, html[data-theme="gt1"] .split-nav-item[aria-current] {
+  background: #f2c500 !important;
+  color: var(--amber-ink) !important;
+  font-weight: 600;
+}
+html[data-theme="gt1"] .sidebar {
+  background: var(--raised);
+  border-right: 1px solid var(--line);
+}
+html[data-theme="gt1"] .btn, html[data-theme="gt1"] .icon-btn {
+  border-radius: 2px !important;
+  background: linear-gradient(#f8f9fa, #d9dbdf) !important;
+  border: 1px solid var(--line-bright) !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 0 #fff inset !important;
+}
+html[data-theme="gt1"] .btn:hover, html[data-theme="gt1"] .icon-btn:hover {
+  background: linear-gradient(#ffffff, #e6e8eb) !important;
+}
+html[data-theme="gt1"] .btn.primary {
+  background: linear-gradient(#ffe36e, #f2c500) !important;
+  border-color: #8f7400 !important;
+  color: #111214 !important;
+}
+html[data-theme="gt1"] .btn.primary:hover { background: linear-gradient(#fff0a0, #ffd21a) !important; }
+html[data-theme="gt1"] .btn.danger {
+  background: linear-gradient(#e26a58, #c8321e) !important;
+  border-color: #7a1e12 !important;
+  color: #fff !important;
+}
+html[data-theme="gt1"] input[type="text"], html[data-theme="gt1"] input[type="search"],
+html[data-theme="gt1"] select, html[data-theme="gt1"] textarea {
+  background: #fff !important;
+  border: 1px solid var(--line-bright) !important;
+  border-radius: 2px !important;
+  color: var(--ink) !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,.08) inset !important;
+}
+html[data-theme="gt1"] input:focus, html[data-theme="gt1"] select:focus,
+html[data-theme="gt1"] textarea:focus {
+  border-color: #8f7400 !important;
+  box-shadow: 0 0 0 2px var(--amber-glow) !important;
+  outline: none !important;
+}
+html[data-theme="gt1"] .gauge-track { border: 1px solid var(--line) !important; background: #fff !important; }
+html[data-theme="gt1"] .gauge-fill { background: #f2c500 !important; }
+/* the soft-keys under the screen: raised, thick bottom edge, yellow when lit */
+html[data-theme="gt1"] .fkeybar {
+  background: #b9bcc2;
+  border-top: 1px solid #8e9198;
+}
+html[data-theme="gt1"] .fkey {
+  background: linear-gradient(#f8f9fa, #d9dbdf) !important;
+  border: 1px solid var(--line-bright) !important;
+  border-bottom-width: 3px !important;
+  border-radius: 3px !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+html[data-theme="gt1"] .fkey:hover { background: linear-gradient(#ffffff, #e6e8eb) !important; }
+html[data-theme="gt1"] .fkey.active, html[data-theme="gt1"] .fkey.current {
+  background: linear-gradient(#ffe36e, #f2c500) !important;
+  border-color: #8f7400 !important;
+}
+html[data-theme="gt1"] .fkey.active .fkey-num { color: #111214; }
+html[data-theme="gt1"] .fkey-btns .fkey.empty, html[data-theme="gt1"] .fkey-btns .fkey.empty:hover {
+  background: #cfd2d6 !important;
+  border-color: #a3a7ad !important;
+}
+html[data-theme="gt1"] .fkey-nums .fkey-num { color: #3b3e44 !important; font-weight: 600; }
+html[data-theme="gt1"] .nav-key, html[data-theme="gt1"] .fkey-num {
+  color: #3b3e44 !important;
+  background: #eceef0 !important;
+  border: 1px solid var(--line) !important;
+}
+/* the real class names the modules screen uses (mock parity) */
+html[data-theme="gt1"] .view, html[data-theme="gt1"] #view {
+  background: var(--panel-2) !important;
+}
+html[data-theme="gt1"] .ecu-card {
+  background: var(--panel) !important;
+  border: 1px solid var(--line) !important;
+  border-top: 4px solid #f2c500 !important;
+  border-radius: 2px !important;
+  box-shadow: 0 1px 0 #fff inset !important;
+}
+html[data-theme="gt1"] .ecu-card:hover { transform: none; background: #fff !important; }
+html[data-theme="gt1"] .split-nav {
+  gap: 0 !important;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  align-self: start;
+}
+html[data-theme="gt1"] .sys-item {
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+html[data-theme="gt1"] .sys-item:last-child { border-bottom: 0 !important; }
+html[data-theme="gt1"] .sys-item.active {
+  background: #f2c500 !important;
+  color: #111214 !important;
+  font-weight: 600;
+}
+html[data-theme="gt1"] .sys-item.active .nav-count, html[data-theme="gt1"] .sys-item.active .nav-name {
+  color: #111214 !important;
+}
+html[data-theme="gt1"] .sys-item .nav-count { color: var(--ink-dim) !important; }
+/* header controls: black keys with the strip's yellow lettering */
+html[data-theme="gt1"] .topbar .icon-btn, html[data-theme="gt1"] .topbar .nav-action,
+html[data-theme="gt1"] .topbar .nav-back, html[data-theme="gt1"] .topbar .nav-fn {
+  background: #111214 !important;
+  color: #f2c500 !important;
+  border: 1px solid #111214 !important;
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+html[data-theme="gt1"] .topbar .icon-btn:hover, html[data-theme="gt1"] .topbar .nav-action:hover {
+  background: #2a2c30 !important;
+}
+/* soft-keys: raised, thick bottom edge (the app's own size) */
+html[data-theme="gt1"] .fkey-btns .fkey, html[data-theme="gt1"] .fkeybar .fkey {
+  background: linear-gradient(#f8f9fa, #d9dbdf) !important;
+  border: 1px solid var(--line-bright) !important;
+  border-bottom: 3px solid var(--line-bright) !important;
+  border-radius: 3px !important;
+}
+html[data-theme="gt1"] .fkey-btns .fkey .fkey-label { color: #111214 !important; }
+html[data-theme="gt1"] .fkey-nums .fkey-num { font-weight: 600 !important; color: #3b3e44 !important; }
+html[data-theme="gt1"] .fkey-btns .fkey.active, html[data-theme="gt1"] .fkeybar .fkey.active,
+html[data-theme="gt1"] .fkey-btns .fkey.current {
+  background: linear-gradient(#ffe36e, #f2c500) !important;
+  border-color: #8f7400 !important;
+}
+/* selected segment / tab: the strip yellow with black type */
+html[data-theme="gt1"] .seg-btn.active, html[data-theme="gt1"] .seg .active, html[data-theme="gt1"] .seg button.active,
+html[data-theme="gt1"] .seg .on, html[data-theme="gt1"] .seg [aria-pressed="true"],
+html[data-theme="gt1"] .coding-tab.active, html[data-theme="gt1"] .inpa-ss-chassis.active,
+html[data-theme="gt1"] .chassis-filter-chip.active {
+  background: #f2c500 !important;
+  color: #111214 !important;
+  border-color: #8f7400 !important;
+}
+html[data-theme="gt1"] .splash { background: #c7cacf; }
+html[data-theme="gt1"] .splash-name { color: #111214; }
+html[data-theme="gt1"] .splash-tag { color: #55585d; }
+html[data-theme="gt1"] .splash-bar { background: #f2c500; }
+html[data-theme="gt1"] .splash-status { color: #55585d; }
 
 /* ---------------------------------------------------------------------------
    INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers

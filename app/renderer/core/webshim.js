@@ -1525,6 +1525,9 @@ const bootQuery = (() => {
 })();
 
 const wantThor = (() => {
+  // an https page cannot open ws://192.168.4.1, so the hosted site is
+  // K+DCAN only whatever a carried-over setting says
+  if (typeof location !== 'undefined' && location.protocol === 'https:') return false;
   if (bootQuery.has('thor') || bootQuery.has('ws')) return true;
   return bootSettings.adapter === 'thor';
 })();

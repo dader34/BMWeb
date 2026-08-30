@@ -84,6 +84,10 @@ const Journal = {
   },
 
   endpoint() {
+    // an offline build has no collector to talk to: no button, no auto
+    // reports, no sends -- the journal itself still runs for the dialog-less
+    // file save nothing ever triggers
+    if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return '';
     return (typeof Settings !== 'undefined')
       ? Settings.get('betaEndpoint', BETA_ENDPOINT_DEFAULT)
       : BETA_ENDPOINT_DEFAULT;
@@ -223,6 +227,7 @@ function _journalInstall() {
 // the topbar Report button (beta builds; Settings.set('betaReports', false)
 // hides it)
 function _journalButton() {
+  if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return;
   if (typeof Settings !== 'undefined'
       && Settings.get('betaReports', true) === false) return;
   const anchor = document.getElementById('settings-btn');
