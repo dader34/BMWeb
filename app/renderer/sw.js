@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v46';   // v42: 1664 tables regain their headers; shared t_* tables ship
+const CACHE_NAME = 'bmweb-v47';   // v47: fault-report PDF layout (env grid, code column)
 
 
 const CORE_ASSETS = [
