@@ -98,6 +98,13 @@ data/groups/*
 !data/groups/variants.json
 !data/groups/index.json
 !data/groups/variants-by-group.json
+# Coding dispatchers: the derived A_<cabd> programs the coding write path runs
+# (coding-dispatch.js) plus their manifest. Committed because they are built
+# from the vendor NCSEXPER tree, which is gitignored and absent in the Pages
+# build. Regenerate with tools/export/coding_dispatch_export.py.
+!data/coding-dispatch/
+data/coding-dispatch/*
+!data/coding-dispatch/*.json
 
 # local scratch notes
 /docs

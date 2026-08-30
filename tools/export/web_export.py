@@ -500,6 +500,24 @@ def main():
             "sgbd_export.py --groups, and commit the outputs once "
             ".gitignore carves data/groups out of data/*")
 
+    # 6. Ship the coding dispatchers whole: data/coding-dispatch/<cabd>.json
+    #    (the derived A_<cabd> program + its dataOrg) plus index.json. The
+    #    coding write path fetches these by CABD name to run BMW's own
+    #    dispatcher instead of hand-sequencing (coding-dispatch.js). Optional:
+    #    a build without them falls back to the strategy path, so a missing
+    #    dir is a warning, not a failure. Regenerate: coding_dispatch_export.py.
+    cd_src = os.path.join(ROOT, "data", "coding-dispatch")
+    cd_files = sorted(glob.glob(os.path.join(cd_src, "*.json")))
+    if cd_files:
+        cd_dst = os.path.join(out, "data", "coding-dispatch")
+        os.makedirs(cd_dst, exist_ok=True)
+        for p in cd_files:
+            shutil.copyfile(p, os.path.join(cd_dst, os.path.basename(p)))
+        print(f"  copied {len(cd_files)} coding dispatchers")
+    else:
+        print("  no coding dispatchers (data/coding-dispatch empty); "
+              "coding writes use the strategy fallback")
+
     total_size = sum(
         os.path.getsize(os.path.join(dirpath, filename))
         for dirpath, _, filenames in os.walk(api)
