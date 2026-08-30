@@ -46,7 +46,7 @@ function check(what, ok) {
   else console.log(`  ok    ${what}`);
 }
 
-const DS2 = { concept: 6, baud: 9600 };
+const DS2 = { concept: 6, baud: 9600, answerLen: [-1, 0] };   // zke5/lws5: xawlen -1, 0
 const KWP = { concept: 0x10d, baud: 9600 };
 const FAST = { concept: 0x10f, baud: 115200 };
 
@@ -84,10 +84,16 @@ const FAST = { concept: 0x10f, baud: 115200 };
 //   B8 12 F1 02 1A 80 C3     (long form,  XOR -- sum8 would be 0x57)
 // This block used a 0xB8 frame as its sum8 example, which the car disproves.
 {
+  // The car's own trace (2026-08-29 wire ring): ms450ds0 sends the 0x82 form
+  // right after `xsetpar` concept 0x10F at 115200 -- and it went out as
+  // 82 12 F1 1A 80 1F, sum8 -- then the 0xB8 form after `xsetpar` 0x10D at
+  // 9600, XOR-signed C3. Each telegram is framed by the concept in force,
+  // which is how EDIABAS does it (ParTransmitFunc per concept), not by its
+  // first byte.
   const req = [0x82, 0x12, 0xF1, 0x1A, 0x80];
-  const framed = withChecksum(req, KWP);
+  const framed = withChecksum(req, FAST);
   const want = req.reduce((a, b) => (a + b) & 0xff, 0);
-  check('KWP2000* short-form request gains its sum8 checksum',
+  check('the 0x82 form under BMW-FAST gains its sum8 checksum (car: ...80 1F)',
         framed.length === 6 && framed[5] === want && framed[5] === 0x1F);
   const long = withChecksum([0xB8, 0x12, 0xF1, 0x02, 0x1A, 0x80], KWP);
   check('a 0xB8 request is signed XOR instead (the car answers only this)',
@@ -107,9 +113,13 @@ const FAST = { concept: 0x10f, baud: 115200 };
         frameTotal(framed, FAST) === 6);
 }
 
-// An undecidable prefix must say "keep reading", never guess a length.
-check('a 2-byte prefix does not yet decide a BMW-FAST frame',
-      frameTotal([0x82, 0x12], FAST) === null);
+// TelLengthBmwFast decides a SHORT frame from byte 0 alone (length in the
+// low 6 bits); only the long form (low bits 0) needs byte 3, and a long form
+// with byte 3 == 0 needs bytes 4-5.
+check('a BMW-FAST short-form prefix already decides the total from byte 0',
+      frameTotal([0x82, 0x12], FAST) === 6);
+check('a BMW-FAST long-form prefix waits for byte 3',
+      frameTotal([0x80, 0xF1, 0x12], FAST) === null);
 
 // ---- port settings ----------------------------------------------------
 
@@ -122,8 +132,35 @@ check('KWP2000* runs 9600 8E1',
 check('BMW-FAST stays 115200 8N1',
       portConfig(FAST).baudRate === 115200
       && portConfig(FAST).parity === 'none');
-check('an unknown concept falls back to BMW-FAST, not to nothing',
-      portConfig(null).baudRate === 115200);
+{
+  // no CommParameter = no wire: EDIABAS refuses (IFH-0056) and so do we,
+  // instead of assuming BMW-FAST and signing a DS2 request wrong
+  let caught = null;
+  try { withChecksum([0xE8, 0x04, 0x00], null); } catch (e) { caught = e; }
+  check('a telegram with no CommParameter is refused, not framed as BMW-FAST',
+        caught && caught.ifh === 'IFH-0056');
+}
+{
+  // checksum and length come from the CONCEPT, never from the first byte:
+  // KWP2000* (0x10D) XORs a 0xB8 frame, BMW-FAST (0x10F) sums the same bytes
+  const req = [0xB8, 0x12, 0xF1, 0x02, 0x1A, 0x80];
+  const kwp = withChecksum(req, KWP), fast = withChecksum(req, FAST);
+  check('KWP2000* signs 0xB8 frames with XOR',
+        kwp[kwp.length - 1] === req.reduce((a, b) => a ^ b, 0));
+  check('BMW-FAST signs the same 0xB8 frame with sum8',
+        fast[fast.length - 1] === req.reduce((a, b) => (a + b) & 0xff, 0));
+  // BMW-FAST length: short form from byte 0, long form from byte 3
+  check('BMW-FAST short form: (b0 & 0x3F) + 3 + checksum',
+        frameTotal([0x83, 0xF1, 0x12, 0x5A, 0x80, 0x00, 0x00], FAST) === 3 + 3 + 1);
+  check('BMW-FAST long form: byte 3 + 4 + checksum',
+        frameTotal([0x80, 0xF1, 0x12, 0x10], FAST) === 0x10 + 4 + 1);
+  // DS2 length is the SGBD's xawlen rule, not "byte 1"
+  const ds2fixed = { concept: 6, baud: 9600, answerLen: [7] };
+  check('DS2 fixed answer length from xawlen [n]', frameTotal([0xE8, 0x00], ds2fixed) === 7);
+  let noLen = null;
+  try { frameTotal([0xE8, 0x11], { concept: 6, baud: 9600 }); } catch (e) { noLen = e; }
+  check('DS2 with no xawlen is refused, not guessed', noLen && noLen.ifh === 'IFH-0018');
+}
 
 // ISO 9141 IS implemented now (5-baud slow init, see test_iso9141.js). It used
 // to refuse with IFH-0018 here; that refusal is what made an E46 DME look
