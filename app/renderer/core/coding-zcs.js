@@ -120,11 +120,23 @@
     return /^F+$/.test(h) || /^0+$/.test(h);
   }
 
-  // Convenience for callers holding the full "<body><check>" SA value: strip
-  // the trailing check char first when the length matches, else test whole.
+  // Convenience for callers holding an SA value in any of the shapes the read
+  // paths produce: a bare 16-hex body, a 17-char body+check, or the display
+  // form that keeps the channel tag and Mod-36 check ("C2FFFFFFFFFFFFFFFF-S").
+  // Strip the leading channel prefix (C1/C2/C3) and any trailing non-hex check
+  // char, then test the 16-hex body -- otherwise the prefix (C2) makes an
+  // all-F body read as non-blank and the guard never fires.
   function isBlankSaKey(value) {
-    const v = String(value || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
-    const body = v.length === 17 ? v.slice(0, 16) : v;
+    let v = String(value || '').trim().toUpperCase();
+    // drop a leading ZCS channel tag if present (C1 = GM, C2 = SA, C3 = VN)
+    v = v.replace(/^C[123]/, '');
+    // keep only hex; a Mod-36 check char (e.g. S, E, P) is non-hex and falls
+    // away here, as does any separator
+    const hex = v.replace(/[^0-9A-F]/g, '');
+    // an SA body is 16 hex chars; if we have exactly 16 (or 17 with a hex
+    // check digit folded in) test the leading 16, else test whatever remains
+    const body = hex.length >= 16 ? hex.slice(0, 16) : hex;
+
     return isBlankKeyBody(body);
   }
 
