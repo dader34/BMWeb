@@ -452,6 +452,40 @@ def block_names(data):
     return out
 
 
+def speicherorg(data):
+    """The CABD's memory organisation -> {wortBreite, byteFolge}.
+
+    The dispatcher's write packet is framed to this: a word-mode module (E46
+    KMB) needs wortBreite 2 or the SGBD's `len == 22 + N*wortBreite` check
+    fails. The SPEICHERORG block declares STRUKTUR, whose value token is
+    WORDMSB (2-byte, high-byte-first), WORDLSB (2-byte, low-byte-first) or
+    BYTE (1-byte). Read the token; default byte mode when absent.
+
+    byteFolge: 0 = low byte first (LSB), 1 = high byte first (MSB).
+    """
+    so = data.find(b"SPEICHERORG")
+    if so < 0:
+        return {"wortBreite": 1, "byteFolge": 0}
+    # the STRUKTUR value sits after the SPEICHERORG block header; the first of
+    # these tokens to appear after it is the module's word organisation. Match
+    # NUL-DELIMITED tokens so "BYTE" is the STRUKTUR value, not the "BYTE" in
+    # the "BLOCKNR,WORTADR,BYTEADR" field-name list a few bytes earlier.
+    win = data[so:so + 4096]
+    pos = {}
+    for tok in (b"WORDMSB", b"WORDLSB", b"BYTE"):
+        framed = win.find(b"\x00" + tok + b"\x00")
+        if framed >= 0:
+            pos[tok] = framed
+    if not pos:
+        return {"wortBreite": 1, "byteFolge": 0}
+    first = min(pos, key=pos.get)
+    if first == b"WORDMSB":
+        return {"wortBreite": 2, "byteFolge": 1}
+    if first == b"WORDLSB":
+        return {"wortBreite": 2, "byteFolge": 0}
+    return {"wortBreite": 1, "byteFolge": 0}
+
+
 def rows(data, kw=None, chassis=None):
     """The module's coding rows: block, word, bit, function and its values.
 

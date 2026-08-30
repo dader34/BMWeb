@@ -2003,6 +2003,15 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
   const tables = await webFetchJson(`data/sgbd-tables/${key}.json`) || {};
 
+  // DISPATCHER PROGRAM (optional). When a derived A_<cabd> coding dispatcher
+  // is shipped for this module, writeCoding runs BMW's own dispatcher instead
+  // of the hand-sequenced strategy (see coding-write.js writeViaDispatch). The
+  // exec ships next to the module's job-code as <sgbd>.ipoexec.json with a
+  // "coding":true marker; opts.dataOrg carries the CABD word width. Absent, the
+  // strategy path runs unchanged, so this is additive and safe.
+  const dispatch = await webFetchJson(`data/coding-dispatch/${key}.json`);
+  const dispatchOk = dispatch && dispatch.coding && dispatch.procs;
+
   // One SGBD is loaded at a time, exactly like a read: end the previous
   // session (its ENDE) before this one initialises, then run the whole write
   // sequence under the bus lock so nothing else touches the wire mid-coding.
@@ -2018,6 +2027,10 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
     // serialises, so pass the RAW exchange to avoid queuing behind ourselves
     exchange: (out, comm) => webBusRawExchange(out, comm),
     session,
+    // the dispatcher program + its word width, only when shipped for this CABD
+    dispatch: dispatchOk ? dispatch : null,
+    dataOrg: dispatchOk ? (dispatch.dataOrg || null) : null,
+    jobname: dispatchOk ? (opts.jobname || 'SG_CODIEREN') : undefined,
   }));
 }
 

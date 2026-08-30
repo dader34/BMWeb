@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import ipo_vm as V                                              # noqa: E402
 
 
-def export(ecu, budget=50000, vm=None, coding=False):
+def export(ecu, budget=50000, vm=None, coding=False, cabd_path=None):
     """The runnable dump for one ECU. Pass `vm` to reuse an already-built VM.
 
     build_ir() constructs a V.VM per ECU too; when the IR pipeline calls us it
@@ -43,12 +43,25 @@ def export(ecu, budget=50000, vm=None, coding=False):
     """
     if vm is None:
         vm = V.VM(ecu, budget=budget, coding=coding)
-    return {
+    out = {
         "ecu": ecu,
         "procs": vm.procs,
         "byid": {f"{k[0]}:{k[1]}": v for k, v in vm.byid.items()},
         "coding": bool(coding),
     }
+    # For a coding dispatcher, carry the CABD's memory organisation so the
+    # runtime seeds data-org before the write (KMB is word mode; the SGBD's
+    # len == 22 + N*wortBreite check fails otherwise). cabd_path points at the
+    # module's .C0x descriptor; absent, the runtime falls back to byte mode.
+    if coding and cabd_path:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                        "..", "decompile"))
+        import ncs_daten as _N
+        try:
+            out["dataOrg"] = _N.speicherorg(open(cabd_path, "rb").read())
+        except OSError:
+            pass
+    return out
 
 
 def main(argv):
@@ -56,10 +69,14 @@ def main(argv):
         print(__doc__)
         return 0
     coding = "--coding" in argv
-    argv = [a for a in argv if a != "--coding"]
+    cabd_path = None
+    for a in argv:
+        if a.startswith("--cabd="):
+            cabd_path = a.split("=", 1)[1]
+    argv = [a for a in argv if a != "--coding" and not a.startswith("--cabd=")]
     ecu = argv[0]
     out = argv[1] if len(argv) > 1 else f"{ecu}.ipoexec.json"
-    data = export(ecu, coding=coding)
+    data = export(ecu, coding=coding, cabd_path=cabd_path)
     with open(out, "w") as f:
         json.dump(data, f)
     raw = os.path.getsize(out)

@@ -543,6 +543,13 @@
     // bestvm's classifier anyway. The caller still gates the WHOLE dispatch on
     // opts.confirmed above.
     host.allowWrites = true;
+    // Seed the data-org from the CABD SPEICHERORG (exec.dataOrg / opts.dataOrg):
+    // NCSEXPER's C layer sets it at CABD load, before the IPO runs, and the
+    // dispatcher only re-sets it if it wants to override. Without this, a
+    // word-mode module (E46 KMB, wortBreite 2) frames its packet as byte mode
+    // and the SGBD rejects it (len != 22 + N*wortBreite).
+    const org = opts.dataOrg || exec.dataOrg;
+    if (org) host.CDHSetDataOrg(org.wortBreite, org.byteFolge, org.adrMode || 0);
     const interp = new Interp(exec, host);
     // cabimain routes by JOBNAME; seed it and run the router.
     host.CDHSetCabdPar('JOBNAME', opts.jobname || 'SG_CODIEREN');

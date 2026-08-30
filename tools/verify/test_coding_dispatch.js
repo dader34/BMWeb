@@ -18,10 +18,25 @@ const CD = require(path.join(ROOT, 'app/renderer/core/coding-dispatch.js'));
 let pass = 0, fail = 0;
 function ok(cond, msg) { if (cond) { pass++; } else { fail++; console.error('  FAIL:', msg); } }
 
+function findKmbCabd() {
+  const base = path.join(ROOT, 'vendor/EC-APPS/NCSEXPER/DATEN');
+  if (!fs.existsSync(base)) return null;
+  for (const chassis of fs.readdirSync(base)) {
+    const dir = path.join(base, chassis);
+    let files = [];
+    try { files = fs.readdirSync(dir); } catch { continue; }
+    const m = files.find((f) => /^KMB_E46\.C0/i.test(f));
+    if (m) return path.join(dir, m);
+  }
+  return null;
+}
+
 function buildExec() {
   const out = path.join(require('os').tmpdir(), 'A_KMB46.test.ipoexec.json');
-  execFileSync('python3', [path.join(ROOT, 'tools/export/ipo_exec.py'),
-    'A_KMB46', out, '--coding'], { cwd: ROOT });
+  const args = [path.join(ROOT, 'tools/export/ipo_exec.py'), 'A_KMB46', out, '--coding'];
+  const cabd = findKmbCabd();
+  if (cabd) args.push(`--cabd=${cabd}`);
+  execFileSync('python3', args, { cwd: ROOT });
   return JSON.parse(fs.readFileSync(out, 'utf8'));
 }
 
@@ -29,6 +44,11 @@ async function main() {
   const exec = buildExec();
   ok(exec.coding === true, 'exec marked coding');
   ok(!!exec.procs.cabimain && !!exec.procs.Cod, 'has cabimain + Cod');
+  // KMB is a word-mode module: the exec must carry that from the CABD.
+  if (exec.dataOrg) {
+    ok(exec.dataOrg.wortBreite === 2, 'KMB dataOrg is word mode (wortBreite 2)');
+    ok(exec.dataOrg.byteFolge === 1, 'KMB dataOrg is MSB (byteFolge 1)');
+  }
   // const 449 must have inlined to the JOBNAME literal (pool numbering)
   const jn = exec.procs.cabimain.find((t) => t.op === 'const' && t.v === 'JOBNAME');
   ok(!!jn, 'JOBNAME const inlined in cabimain');
@@ -51,6 +71,7 @@ async function main() {
 
   const r = await CD.runCodingDispatch(exec, {
     sgbd: 'C_KMB46', slots, jobname: 'SG_CODIEREN', confirmed: true, runJob,
+    dataOrg: exec.dataOrg,
   });
   ok(r.ok, 'dispatch reports ok');
   ok(jobs.length > 0, 'dispatch issued jobs');
@@ -59,15 +80,18 @@ async function main() {
     'issued C_S_LESEN with a binary request');
   ok(jobs.some((j) => j.job === 'C_CHECKSUM'), 'issued C_CHECKSUM');
 
-  // the framed packet: 22-byte header, correct count/addr fields, payload@0x15
+  // the framed packet: 22-byte header, correct count/addr fields, payload@0x15.
+  // word count is always 20 (slots); byte count and length scale with word
+  // width, which comes from the CABD (KMB = word mode, wb 2).
+  const wb = (exec.dataOrg && exec.dataOrg.wortBreite) || 1;
   ok(!!packet, 'captured a C_S packet');
   if (packet) {
     ok(packet[0] === 1, 'packet dataType = 1');
-    ok((packet[13] | (packet[14] << 8)) === 20, 'byte count @0x0D = 20');
+    ok(packet[1] === wb, `packet word width @0x01 = ${wb}`);
+    ok((packet[13] | (packet[14] << 8)) === 20 * wb, `byte count @0x0D = ${20 * wb}`);
     ok((packet[15] | (packet[16] << 8)) === 20, 'word count @0x0F = 20');
     ok((packet[17] | (packet[18] << 8)) === 0, 'wire addr @0x11 = 0');
-    ok(packet[21] === 0x40 && packet[22] === 0x41, 'payload starts at 0x15 with slot values');
-    ok(packet.length === 21 + 20, 'packet length = 21 + payload');
+    ok(packet.length === 21 + 20 * wb, `packet length = 21 + ${20 * wb}`);
   }
 
   // refuses without confirmation
