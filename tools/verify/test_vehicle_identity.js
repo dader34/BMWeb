@@ -201,6 +201,18 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
 }
 
 {
+  // REGRESSION: the SA value as the identity screen actually holds it -- with
+  // the C2 channel tag and the Mod-36 check char ("C2FFFFFFFFFFFFFFFF-S").
+  // The tag must not defeat the blank test.
+  const r = VI.saCodesFromZcs('E46', {
+    gm: 'C1FFFFFF-2', sa: 'C2FFFFFFFFFFFFFFFF-S', vn: 'C3FFFFFFFF-U',
+  });
+  assert.deepStrictEqual(r.codes, [], 'tagged blank SA key must yield no codes');
+  assert.strictEqual(r.blank, true, 'tagged blank key must be flagged blank');
+  ok('bridge: a channel-tagged blank SA key (C2...-S) also invents nothing');
+}
+
+{
   // Coding-index stamps say WHICH .Cxx a module should be read against, which
   // is a different question from what equipment the car has -- so they are
   // separated out rather than mixed into the keyword list.
