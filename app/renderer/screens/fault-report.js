@@ -105,37 +105,37 @@ async function printFaultReport(chassisId, faulty, stats) {
       const headers = hasDetail
         ? ['Code', 'Description', 'Type', 'Count', 'State']
         : ['Code', 'Description', 'State'];
-      const rows = fields.map((x) => {
-        const code = x.pcode ? `${x.pcode}  (${x.code})` : x.code;
-        const state = x.present ? 'PRESENT' : 'stored';
-        return hasDetail
-          ? [code, x.name, x.ftype || '—', x.count || '—', state]
-          : [code, x.name, state];
-      });
       const cols = hasDetail
         ? ['pr-code2', '', '', 'pr-num', 'pr-num']
         : ['pr-code2', '', 'pr-num'];
-      sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
-        + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
-      const t = printTable(headers, rows, cols); t.avoidBreak = false;
-      sections.push(t);
-      // Freeze-frame values, only after a detailed read (F_UW*). The table above
-      // has one row per fault and no room for eight more columns, so each fault
-      // that carries a snapshot gets its own labelled block underneath.
-      if (typeof envPairs === 'function') {
-        f.codes.forEach((c, i) => {
-          const pairs = envPairs(c);
-          if (!pairs.length) return;
+      // Hand-built table rather than printTable(): a fault that carries a
+      // freeze-frame snapshot (detailed read, F_UW*) gets a full-width row
+      // with the environment grid directly under its own code, like the
+      // native savePdf report -- not a separate block after the table.
+      const cls = (i) => (cols[i] ? ` class="${cols[i]}"` : '');
+      const thead = `<thead><tr>${headers.map((h, i) =>
+        `<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead>`;
+      const body = fields.map((x, i) => {
+        const code = x.pcode ? `${x.pcode}  (${x.code})` : x.code;
+        const state = x.present ? 'PRESENT' : 'stored';
+        const cells = hasDetail
+          ? [code, x.name, x.ftype || '—', x.count || '—', state]
+          : [code, x.name, state];
+        let row = `<tr>${cells.map((c, j) => `<td${cls(j)}>${esc(c)}</td>`).join('')}</tr>`;
+        const pairs = typeof envPairs === 'function' ? envPairs(f.codes[i]) : [];
+        if (pairs.length) {
           const items = pairs.map(([k, v]) =>
             `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>`
             + `<span class="pr-env-v">${esc(v)}</span></div>`).join('');
-          sections.push({
-            html: `<div class="pr-env"><div class="pr-env-head">`
-              + `${esc(fields[i].code)} · environment at code entry</div>${items}</div>`,
-            avoidBreak: true,
-          });
-        });
-      }
+          row += `<tr class="pr-envtr"><td colspan="${headers.length}">`
+            + `<div class="pr-env"><div class="pr-env-head">environment at code entry</div>`
+            + `${items}</div></td></tr>`;
+        }
+        return row;
+      }).join('');
+      sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
+        + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
+      sections.push({ html: `<table class="pr-table">${thead}<tbody>${body}</tbody></table>` });
     }
   }
   printDoc({
