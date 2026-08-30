@@ -155,6 +155,9 @@ const PRINT_CSS = `
     .pr-env { margin: 4px 0 10px; padding: 5px 8px; border-left: 3px solid #bbb;
               background: #fafafa; page-break-inside: avoid;
               display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 22px; }
+    /* env grid riding inside the fault table, under its own code's row */
+    .pr-envtr td { padding: 0 0 8px; border-bottom: 1px solid #e4e4e4; }
+    .pr-envtr .pr-env { margin: 2px 0 0; }
     .pr-env-head { grid-column: 1 / -1; font-size: 9.5px; text-transform: uppercase;
                    letter-spacing: .05em; color: #777; margin-bottom: 3px; }
     .pr-env-row { display: flex; justify-content: space-between; align-items: baseline;
