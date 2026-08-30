@@ -76,6 +76,13 @@ def build_ecu_contents(sgbd, read):
     ecu_contents = {}
     counts = {"jobs": 0, "results": 0, "tables": 0, "ir": 0}
 
+    # the variant's own config record (label, section, group, chassis): the
+    # sweep names an identified variant by it when the menu lists no such
+    # row. Tree-owned SGBDs have one; orphans do not, and read() says so.
+    eb = read("ecu.json")
+    if eb:
+        ecu_contents["ecu.json"] = eb
+
     mb = read("meta.json")
     if mb:
         meta = json.loads(mb)
@@ -324,6 +331,34 @@ def main():
 
     for cid in ids:
         cfg = chassis_configs[cid]
+        # THE CAR'S OWN NAMES FOR WHAT ITS ADDRESSES CAN IDENTIFY. The menu
+        # lists three transmissions for an E46; the tree holds a record for
+        # every variant the D_0032 probe can answer with, labelled the way
+        # THIS car's config labels it ("GS20/GS8.xx for GM or ZF (gs20)").
+        # Names are per chassis -- the same gs20 is "AGS9.22 for M62 / M73"
+        # in an E38 -- so they ride in the chassis config, not the shared
+        # .ecu. The sweep names an identified variant by this list when the
+        # menu has no row for it.
+        menu = set()
+        for sec in cfg.get("sections", []):
+            for e in sec.get("ecus", []):
+                if e.get("sgbd"):
+                    menu.add(str(e["sgbd"]).lower())
+        variants = []
+        tree_dir = os.path.join(ROOT, "data", "chassis", cid)
+        if os.path.isdir(tree_dir):
+            for name in sorted(os.listdir(tree_dir)):
+                rec_path = os.path.join(tree_dir, name, "ecu.json")
+                if not os.path.isfile(rec_path):
+                    continue
+                with open(rec_path, encoding="utf-8") as f:
+                    rec = json.load(f)
+                sg = str(rec.get("sgbd") or "").lower()
+                if not sg or sg in menu or not rec.get("label"):
+                    continue
+                variants.append({k: rec[k] for k in ("sgbd", "label", "section", "group")
+                                 if rec.get(k) is not None})
+        cfg = dict(cfg, variants=variants)
         chassis_contents = {
             "config.json": json.dumps(cfg, separators=(",", ":"))
         }

@@ -18,9 +18,11 @@ const FAULT_REPORT_CSS = `
     th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #777;
          border-bottom: 1px solid #ccc; padding: 4px 6px; }
     td { padding: 5px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
-    .c-code { font: 700 12px "SF Mono", Menlo, monospace; white-space: nowrap; width: 92px; }
+    .c-code { font: 700 12px "SF Mono", Menlo, monospace; width: 104px; max-width: 104px; }
     .c-p { font: 700 12px "SF Mono", Menlo, monospace; }
-    .c-hex { font: 600 10.5px "SF Mono", Menlo, monospace; color: #999; }
+    /* the raw entry: some modules keep 19 bytes per fault (GS20), so it wraps
+       inside its own column instead of pushing the description off the page */
+    .c-hex { font: 600 10px/1.35 "SF Mono", Menlo, monospace; color: #999; word-break: break-all; overflow-wrap: anywhere; }
     .c-type { font-size: 11px; color: #555; white-space: nowrap; width: 84px; }
     .c-count { font: 600 11px "SF Mono", Menlo, monospace; color: #555; white-space: nowrap; width: 44px; text-align: right; }
     .c-state { font: 600 10.5px "SF Mono", Menlo, monospace; color: #777; white-space: nowrap; width: 64px; text-align: right; }

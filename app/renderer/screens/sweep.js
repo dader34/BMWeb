@@ -50,6 +50,11 @@
 // the same module listed in two sections is one module.
 function sweepPlan(ch) {
   const targets = [];
+  // the car's own names for variants the menu does not list (see nameFor)
+  const variantNames = new Map();
+  for (const v of (ch.variants || [])) {
+    if (v && v.sgbd && v.label) variantNames.set(String(v.sgbd).toLowerCase(), v);
+  }
   const byGroup = new Map();
   const seenSolo = new Set();
   for (const sec of (ch.sections || [])) {
@@ -58,7 +63,7 @@ function sweepPlan(ch) {
       if (g) {
         let t = byGroup.get(g);
         if (!t) {
-          t = { group: g, section: sec.name, ecus: [], label: ecu.label };
+          t = { group: g, section: sec.name, ecus: [], label: ecu.label, variantNames };
           byGroup.set(g, t);
           targets.push(t);
         }
@@ -69,7 +74,7 @@ function sweepPlan(ch) {
         const key = String(ecu.sgbd || '').toLowerCase();
         if (!key || seenSolo.has(key)) continue;
         seenSolo.add(key);
-        targets.push({ group: null, section: sec.name, ecus: [ecu], label: ecu.label });
+        targets.push({ group: null, section: sec.name, ecus: [ecu], label: ecu.label, variantNames });
       }
     }
   }
@@ -95,6 +100,49 @@ const targetLabel = (t) => t.label || (t.ecus[0] && t.ecus[0].label) || t.group 
 // to the first row labelled that car's engine "DDE 5.0 for M47 new" and
 // showed its faults under a diesel it does not have. When nothing matches,
 // the identified SGBD name IS the honest label.
+// The name to print for what answered. A matching config row wins. With no
+// match, the ADDRESS still tells us what the module is when every row on it
+// carries the same name -- the config disambiguates same-name rows with a
+// "(variant)" suffix ("GS20/GS8.xx for GM or ZF (gs855)", "... (smg)"), so
+// strip that and compare. One name across the rows -> that is the module
+// (Airbag, Sunroof module, Instrument cluster) whichever variant identified.
+// Different names (the engine address mixes "DDE 4.0 for M57" with "ME9.2
+// for N42/N45") -> the identified SGBD stays the honest label.
+const baseLabel = (label, sgbd) => {
+  // only the suffix that names the row's OWN sgbd is a variant tag, and the
+  // config writes those lowercase, as the sgbd is: "(gs855)". An uppercase
+  // abbreviation that happens to equal the sgbd -- "Electronic vehicle
+  // immobilization (EWS)" on ews -- is part of the name and stays.
+  const l = String(label || '').trim();
+  const m = /^(.*?)\s*\(([^)]+)\)$/.exec(l);
+  return m && m[2] === String(sgbd || '') ? m[1].trim() : l;
+};
+function familyLabel(t) {
+  const names = new Set((t.ecus || []).map(e => baseLabel(e.label, e.sgbd)).filter(Boolean));
+  return names.size === 1 ? [...names][0] : null;
+}
+// The identified variant's OWN record. The menu lists three transmissions
+// for an E46, but the build ships a record for every variant the address
+// can answer with -- gs20's says "GS20/GS8.xx for GM or ZF (gs20)".
+const variantLabels = new Map();
+async function variantLabel(sgbd) {
+  const key = String(sgbd || '').toLowerCase();
+  if (!key) return null;
+  if (!variantLabels.has(key)) {
+    variantLabels.set(key, api(`/api/ecu/${key}/ecu`)
+      .then(info => (info && info.label) ? baseLabel(info.label, key) : null)
+      .catch(() => null));
+  }
+  return variantLabels.get(key);
+}
+async function nameFor(t, r) {
+  if (r.ecu && r.ecu.label) return r.ecu.label;
+  // this car's own record for the variant (chassis config `variants`)
+  const own = t.variantNames && t.variantNames.get(String(r.sgbd || '').toLowerCase());
+  if (own) return baseLabel(own.label, own.sgbd);
+  return (await variantLabel(r.sgbd)) || familyLabel(t) || r.sgbd;
+}
+
 function rowForVariant(t, via) {
   return t.ecus.find(e => sameSgbd(e.sgbd, via)
       || (e.variants || []).some(v => sameSgbd(v, via)))
@@ -312,13 +360,12 @@ async function quickErrorSweep(chassisId) {
       status.textContent = `same module as ${readSgbds.get(key)}`;
       progress(); continue;
     }
-    readSgbds.set(key, (r.ecu && r.ecu.label) || r.sgbd);
+    readSgbds.set(key, await nameFor(t, r));
 
-    // resolution succeeded: name the row for what actually answered. With no
-    // matching config row the identified SGBD is the label -- never a
-    // sibling's name (see rowForVariant).
-    setRowLabel(row, (r.ecu && r.ecu.label) || r.sgbd,
-                r.strict ? null : 'direct read');
+    // resolution succeeded: name the row for what actually answered -- the
+    // matching config row, else the address's one shared name, else the
+    // identified SGBD; never a differently-named sibling (see nameFor).
+    setRowLabel(row, await nameFor(t, r), r.strict ? null : 'direct read');
 
     // A module with no FS_LESEN keeps no fault memory at all -- CARB's whole
     // job list is INFO/INITIALISIERUNG/SET_PARAMETER/START_BUS_COMMUNICATION/
@@ -352,10 +399,10 @@ async function quickErrorSweep(chassisId) {
         dupes++; row.classList.add('noresp');
         status.textContent = `echo of ${seen.get(sig)}`;
       } else {
-        seen.set(sig, (r.ecu && r.ecu.label) || r.sgbd);
+        seen.set(sig, await nameFor(t, r));
         withFaults++; row.classList.add('has-faults');
         status.innerHTML = `<b>${n} fault${n === 1 ? '' : 's'}</b>`;
-        faulty.push({ ecu: { ...(r.ecu || {}), sgbd: r.sgbd, label: (r.ecu && r.ecu.label) || r.sgbd }, row, codes });
+        faulty.push({ ecu: { ...(r.ecu || {}), sgbd: r.sgbd, label: await nameFor(t, r) }, row, codes });
       }
     } else {
       row.classList.add('clean');
@@ -548,8 +595,8 @@ async function quickIdentSweep(chassisId) {
       status.textContent = `same module as ${seenSgbds.get(key)}`;
       progress(); continue;
     }
-    seenSgbds.set(key, (r.ecu && r.ecu.label) || r.sgbd);
-    setRowLabel(row, (r.ecu && r.ecu.label) || r.sgbd,
+    seenSgbds.set(key, await nameFor(t, r));
+    setRowLabel(row, await nameFor(t, r),
                 r.strict ? null : 'direct read');
 
     // A strict resolution has ALREADY identified this module -- the group ran
@@ -584,7 +631,7 @@ async function quickIdentSweep(chassisId) {
 
     present++; row.classList.add('clean');
     status.textContent = [variant || r.sgbd, build].filter(Boolean).join(' · ').slice(0, 40);
-    found.push({ label: (r.ecu && r.ecu.label) || r.sgbd, section: t.section,
+    found.push({ label: await nameFor(t, r), section: t.section,
                  sgbd: r.sgbd, variant: variant || r.sgbd, build });
     progress();
   }
