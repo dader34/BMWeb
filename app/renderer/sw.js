@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v54';   // v54: env/freeze-frame text from a maintained dictionary
+const CACHE_NAME = 'bmweb-v55';   // v55: i18n pass over regenerated corpus (captions resolved)
 
 
 const CORE_ASSETS = [
