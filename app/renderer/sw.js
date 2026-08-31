@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v55';   // v55: i18n pass over regenerated corpus (captions resolved)
+const CACHE_NAME = 'bmweb-v56';   // v56: coding-dispatch derived JSON wired into coding-write
 
 
 const CORE_ASSETS = [

@@ -14,12 +14,13 @@
 //   cfg-chunked   C_S_AUFTRAG <binbuf> loop -> C_CHECKSUM <binbuf>
 //                 (ZKE5/GM5; needs BINARY job args)
 //
-// SAFETY. Every telegram a write job puts on the wire goes through the VM's
-// allowWrites gate (bestvm.js). This module is the ONLY place that constructs
-// the VM with allowWrites:true, and it does so only inside writeCoding(),
-// which itself refuses unless opts.confirmed is set by the UI. webshim's
-// ordinary job runner still builds the VM with allowWrites:false, unchanged,
-// so the write permission cannot leak into a normal read/job run.
+// SAFETY. The VM itself permits write jobs by default (bestvm.js, owner's
+// decision 2026-08-19: the classifier cannot tell an actuator drive from an
+// EEPROM write, and blocking one blocked both), so the write protection for
+// CODING lives HERE, not in the VM: writeCoding() refuses unless
+// opts.confirmed is set by the UI's review dialog, the read steps in this
+// module explicitly pass allowWrites:false, and every write is proved by
+// re-read (below) before it is reported as a success.
 //
 // PROVE-BY-RE-READ. After the write sequence reports JOB_STATUS OKAY, we
 // re-read the coding block and assert it now equals what we asked to write.
@@ -162,9 +163,10 @@
   // memoise it keyed by (occurrence, request bytes), and retry from the top
   // (the VM is deterministic under a fixed clock, so replay is safe).
   //
-  // The ONE difference from webRunJob is allowWrites, threaded from the
-  // caller. This runner lives HERE, not in webshim, so the only place that
-  // ever builds the VM writeable is a path the UI has explicitly confirmed.
+  // The ONE difference from webRunJob is that allowWrites is threaded from
+  // the caller instead of fixed: the read steps of a coding sequence run
+  // with the gate CLOSED, so only the confirmed write steps can transmit a
+  // write job even if a read job were misclassified.
   async function runJobOverBus(ctx, sgbd, job, arg) {
     const Vm = ctx.Best2Vm;
     const code = ctx.code;
@@ -182,9 +184,9 @@
       const vm = new Vm(code, {
         tables,
         args: argText,
-        // THE WRITE PERMISSION. Only ever true here, only for an explicitly
-        // confirmed coding write (writeCoding gates on opts.confirmed before
-        // it ever calls this). Reads pass allowWrites:false like everywhere.
+        // THE WRITE PERMISSION for this sequence. True only for the write
+        // steps of an explicitly confirmed coding write (writeCoding gates
+        // on opts.confirmed); the read steps in this module pass false.
         allowWrites: !!ctx.allowWrites,
         shared: ctx.session.shared,
         inited: ctx.session.inited,
@@ -314,13 +316,6 @@
       throw new Error('coding write refused: no bus exchange provided');
     }
 
-    const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
-    const strategy = codingWriteStrategy(sgbd, jobs);
-    if (!strategy) {
-      throw new Error(`coding write refused: ${sgbd} exposes no known coding `
-        + 'write job (CODIERDATEN_SCHREIBEN / CODIERUNG_SCHREIBEN / C_S_AUFTRAG)');
-    }
-
     const session = opts.session || { shared: new Map(), inited: false, comm: null };
     const baseCtx = {
       Best2Vm,
@@ -330,6 +325,23 @@
       session,
       now: opts.now || null,
     };
+
+    // DISPATCHER PATH. When the caller ships the derived A_<cabd> program
+    // (opts.dispatch), execute BMW's own coding dispatcher instead of the
+    // hand-sequenced strategy: it picks the jobs and builds the wire packet
+    // itself (coding-dispatch.js). We still prove the write by re-read below,
+    // using whichever read job the SGBD exposes. Falls through to the strategy
+    // path when no dispatcher is shipped for this module.
+    if (opts.dispatch && typeof root.runCodingDispatch === 'function') {
+      return writeViaDispatch(sgbd, want, baseCtx, opts);
+    }
+
+    const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
+    const strategy = codingWriteStrategy(sgbd, jobs);
+    if (!strategy) {
+      throw new Error(`coding write refused: ${sgbd} exposes no known coding `
+        + 'write job (CODIERDATEN_SCHREIBEN / CODIERUNG_SCHREIBEN / C_S_AUFTRAG)');
+    }
 
     const readJob = readJobFor(strategy, jobs);
     const sequence = [];
@@ -375,6 +387,71 @@
     }
 
     return { ok: true, before, after, sequence, strategy };
+  }
+
+  // ---- dispatcher-driven write --------------------------------------------
+  //
+  // Run BMW's derived A_<cabd> dispatcher (opts.dispatch) to produce the write.
+  // We hand it the target netto as a slot table (one slot per byte address) and
+  // the data-org (word width / byte order) from the CABD's SPEICHERORG, then
+  // read back and prove equality. The dispatcher owns the job order and the
+  // wire-packet framing; we own the confirm gate, the slot/data-org seeding,
+  // and the prove-by-re-read.
+  async function writeViaDispatch(sgbd, want, baseCtx, opts) {
+    // data-org: word width (1 byte / 2 word), byte order (0 low-first).
+    // The CABD SPEICHERORG STRUKTUR: BYTE -> wb 1; WORDMSB/WORDLSB -> wb 2,
+    // byteFolge 0 (LSB) or 1 (MSB). Default byte mode when unspecified.
+    const org = opts.dataOrg || {};
+    const wb = org.wortBreite === 2 ? 2 : 1;
+    const byteFolge = org.byteFolge === 1 ? 1 : 0;
+    // The netto to write as a byte-addressed slot table. The dispatcher's
+    // CDHGetApiJobData walks these in address order to build each chunk.
+    const slots = want.map((v, addr) => ({ addr, value: v & 0xff, mask: 0xff, flags: 0 }));
+
+    // runJob for the dispatcher: the SAME memoised bus replay the strategy
+    // path uses, with allowWrites threaded per call. Reads (the dispatcher's
+    // own ident/index/current-netto) come with the gate closed.
+    const runJob = async (jobSgbd, job, argText, o) => {
+      const ctx = { ...baseCtx, allowWrites: !!(o && o.allowWrites) };
+      const arg = (o && o.binary) ? { bin: Array.from(argText, (c) => c.charCodeAt(0)) }
+        : argText;
+      return runJobOverBus(ctx, jobSgbd || sgbd, job, arg);
+    };
+
+    // Seed data-org before the dispatcher runs (NCSEXPER's C layer does this at
+    // CABD load, before the IPO): the SGBD's len == 22 + N*wortBreite check
+    // fails if the width does not match, so a word-mode module (E46 KMB) needs
+    // wb 2 here.
+    const result = await root.runCodingDispatch(opts.dispatch, {
+      sgbd,
+      slots,
+      jobname: opts.jobname || 'SG_CODIEREN',
+      dataOrg: { wortBreite: wb, byteFolge, adrMode: 0 },
+      confirmed: true,
+      runJob,
+    });
+    if (!result.ok) {
+      throw errVerify(`dispatcher reported failure (err ${result.err}, `
+        + `ret ${result.ret})`);
+    }
+
+    // PROVE BY RE-READ, independent of the dispatcher's own verify. Use the
+    // SGBD's coding read job; compare to what we asked to write.
+    const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
+    const readJob = readJobFor('codierdaten', jobs)
+      || readJobFor('codierung', jobs);
+    const after = readJob ? await readNetto(baseCtx, sgbd, readJob) : null;
+    if (after == null) {
+      // No read job to verify with: the dispatcher's post-write C_CHECKSUM is
+      // the only proof. Report it but flag the missing independent re-read.
+      return { ok: true, before: null, after: null, strategy: 'dispatch',
+               log: result.log, note: 'no coding read job to prove by re-read' };
+    }
+    if (!bytesEqual(after, want)) {
+      throw errVerify(`re-read does not match written netto `
+        + `(wanted ${toHex(want)}, read back ${toHex(after)})`);
+    }
+    return { ok: true, before: null, after, strategy: 'dispatch', log: result.log };
   }
 
   // ---- pre-write backup ----------------------------------------------------

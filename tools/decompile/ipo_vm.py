@@ -133,11 +133,25 @@ class VM:
     current call frame, a call consumes them.
     """
 
-    def __init__(self, ecu, host=None, budget=200000):
+    def __init__(self, ecu, host=None, budget=200000, coding=False):
         self.ecu = ecu
         self.host = host or Host()
         self.budget = budget
+        # The NCS coding dispatchers (A_<cabd>) are the same bytecode but have
+        # no screen-style constant pool (D.find_pool -> None) and their calls
+        # index the CDH host table, not the screen builtins. `coding=True`
+        # decodes the A_ pool and names calls against ipo_cdh, so the dispatcher
+        # exports the same runnable {procs,byid} shape as any other .IPO.
         data, ps, pool, decls = D.load(ecu)
+        names = None
+        if coding or ps is None:
+            import ipo_cdh
+            import ipo_coding_dispatch as CD
+            apool = CD.a_pool(data)
+            if apool is not None:
+                pool = apool
+                names = {op: row[0] for op, row in ipo_cdh.CDH_SLOTS.items()}
+                ps = D.code_end(data, ps)          # proc bodies end at the pool
         if ps is None:
             raise ValueError(f"{ecu}: no constant pool")
         self.data, self.ps, self.pool, self.decls = data, ps, pool, decls
@@ -146,7 +160,7 @@ class VM:
         for k, (off, typ, name, pid) in enumerate(decls):
             lo = off + 1 + len(name) + 1 + 4 + 1
             hi = decls[k + 1][0] if k + 1 < len(decls) else ps
-            self.procs[name] = D.walk(data, lo, hi, pool)[0]
+            self.procs[name] = D.walk(data, lo, hi, pool, names)[0]
             self.byid[(typ, pid)] = name
         self.globals = {}
         self.out = Emissions()

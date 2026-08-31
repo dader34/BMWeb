@@ -501,14 +501,20 @@ _INLINE_OPS = {0x21, 0x22, 0x24}      # LINE/ITEM: label inline until \n
 _NEG = 0x6d                           # unary minus; see calls_of
 
 
-def walk(data, lo, hi, pool):
+def walk(data, lo, hi, pool, names=None):
     """Token stream of one proc body. Yields dicts; counts unknown bytes.
 
     Every token carries "at", its byte offset. Jump tokens carry "to", the
     target RESOLVED to a byte offset: targets are dword indices relative to
     the enclosing block (the proc body after its header, or the bytes after
     the nearest ITEM/LINE header), which `base` tracks.
+
+    `names` overrides the call-name table for the file's dialect. The screen
+    IPOs and the NCS coding dispatchers share the bytecode but index different
+    host function tables, so a coding dispatcher passes ipo_cdh.CDH_SLOTS-derived
+    names here (via the --cdh flag) while screen IPOs pass None (BUILTINS).
     """
+    call_names = names if names is not None else BUILTINS
     toks, unknown = [], 0
     i = lo
     base = lo + 4               # dword 0 of the proc's own block
@@ -634,7 +640,7 @@ def walk(data, lo, hi, pool):
             toks.append({"op": "calluser", "n": u16})
         elif b0 == 0x0c and b1 == 0x81:
             toks.append({"op": "call", "n": u16,
-                         "name": BUILTINS.get(u16, f"builtin_{u16:02x}")})
+                         "name": call_names.get(u16, f"builtin_{u16:02x}")})
         elif b0 == 0x0f:
             toks.append({"op": "frame"})
         else:
@@ -1115,6 +1121,13 @@ def main():
     if not args:
         print(__doc__)
         return 0
+    # The NCS coding dispatchers (A_<cabd>) index the CDH host table, not the
+    # screen builtins; --cdh names calls against it (ipo_cdh.CDH_SLOTS).
+    cdh_names = None
+    if "--cdh" in sys.argv:
+        import ipo_cdh
+        cdh_names = {op: row[0] for op, row in ipo_cdh.CDH_SLOTS.items()}
+
     ecu = args[0]
     data, ps, pool, decls = load(ecu)
     print(f"{ecu}: pool at {ps} ({len(pool)} entries), {len(decls)} procs")
@@ -1129,7 +1142,7 @@ def main():
             # ps` fed walk() a None bound (TypeError on every such file)
             hi = decls[k + 1][0] if k + 1 < len(decls) else (
                 ps if ps is not None else code_end(data, None))
-            toks, unk, ln = walk(data, lo, hi, pool)
+            toks, unk, ln = walk(data, lo, hi, pool, cdh_names)
             print(f"\n{typ} {name} (id {pid}) {off}..{hi} "
                   f"unknown {unk}/{ln} bytes")
             for t in toks:
