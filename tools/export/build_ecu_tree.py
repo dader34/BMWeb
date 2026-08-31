@@ -16,6 +16,7 @@ become 1022 folders. That is the cost of the layout, paid once here rather
 than by hand.
 """
 import os
+import re
 import sys
 import json
 import gzip
@@ -297,6 +298,36 @@ def _write(d, name, payload):
         f.write(payload)
 
 
+# an SGBD's own human name from its .prg description block (meta.ecu.ECU),
+# cleaned of BMW's suffixes ("MS45 fuer M54 / M56 mit EWS3 oder CAS" ->
+# "MS45 fuer M54"). Used to label a derived variant by ITSELF when its
+# address hosts several unrelated engine families and no single menu label
+# fits (D_0012 carries DDE diesels, MS42/43/45, ME9, MSS54 -- calling an
+# ms450ds0 "DDE 4.0 for M57 (ms450ds0)" because DDE40 was the first menu row
+# is simply wrong).
+_ECU_NAME_CACHE = {}
+
+
+def _own_name(sgbd):
+    key = sgbd.lower()
+    if key in _ECU_NAME_CACHE:
+        return _ECU_NAME_CACHE[key]
+    name = None
+    path = os.path.join(ROOT, "data", "ecu-src", key + ".meta.json.gz")
+    if os.path.exists(path):
+        try:
+            with gzip.open(path, "rt", encoding="utf-8") as f:
+                ecu = (json.load(f).get("ecu") or {})
+            raw = ecu.get("ECU") if isinstance(ecu, dict) else None
+            if raw:
+                # keep the model, drop the " fuer ..."/" mit ..." tail
+                name = re.split(r"\s+(?:fuer|für|mit)\s+", raw.strip(), 1)[0].strip()
+        except (OSError, ValueError):
+            name = None
+    _ECU_NAME_CACHE[key] = name
+    return name
+
+
 def _by_chassis():
     """{chassis: [(code, sgbd, ecu_meta), ...]} from the resolved config."""
     import glob
@@ -308,33 +339,57 @@ def _by_chassis():
             continue
         with open(p) as f:
             cfg = json.load(f)
+        # every sgbd the MENU lists, across all sections -- a derived variant
+        # whose sgbd is one of these already has a real, correctly-labelled
+        # row and must NOT get a second folder (the old per-row guard only saw
+        # rows built so far, so ms450ds0 got both "MS45.1 for M54" and a bogus
+        # "DDE 4.0 for M57 (ms450ds0)" duplicate).
+        menu_sgbds = {(e.get("sgbd") or "").lower()
+                      for sec in cfg.get("sections", [])
+                      for e in sec.get("ecus", []) if e.get("sgbd")}
+
+        # per group: do all the menu rows on this address share ONE family
+        # name? (Airbag address -> just "Airbag"; engine address -> DDE + MS4x
+        # + ME9 + MSS54, several.) A single-family address may lend its label
+        # to a derived variant; a mixed one must not, so the variant is named
+        # by itself.
+        def _family_label(grp):
+            labels = set()
+            for sec in cfg.get("sections", []):
+                for e in sec.get("ecus", []):
+                    if (e.get("group") or "").upper() == grp.upper() and e.get("label"):
+                        labels.add(re.sub(r"\s*\([^)]*\)\s*$", "", e["label"]).strip())
+            return next(iter(labels)) if len(labels) == 1 else None
+
         rows = []
+        seen = set()
         for sec in cfg.get("sections", []):
             for e in sec.get("ecus", []):
                 sgbd = (e.get("sgbd") or "").lower()
-                if not sgbd:
+                if not sgbd or sgbd in seen:
                     continue
+                seen.add(sgbd)
                 rows.append((e["code"], sgbd, {
                     "code": e["code"], "label": e.get("label"),
                     "section": sec.get("name"), "sgbd": sgbd,
                     "group": e.get("group"), "chassis": cid}))
-                # Every variant this entry's group can IDENTIFY gets a folder
-                # of its own, named for the SGBD the car reports (see
-                # ecu_tree.group_variants). Without this the tree has no
-                # ecu.json for them, write_ecu treats the folder as
-                # unclaimed, and the module the car names stays unexported.
-                #
-                # The label carries the menu entry it is a variant of, so a
-                # screen showing "Airbag · mrs4" still reads like the car
-                # rather than like a bare SGBD name.
-                own = sgbd
-                for v in sorted(gvars.get((e.get("group") or "").lower(), ())):
-                    if v == own or any(r[1] == v for r in rows):
+                # Every variant this address can IDENTIFY that has no menu row
+                # of its own gets a folder, so whatever the car resolves to has
+                # data. Name it by the address family when there is one single
+                # family (so "Airbag -> mrs4" reads right), otherwise by the
+                # variant's OWN .prg name (so the engine address does not
+                # mislabel an MS45 as a diesel).
+                grp = (e.get("group") or "")
+                fam = _family_label(grp) if grp else None
+                for v in sorted(gvars.get(grp.lower(), ())):
+                    if v in menu_sgbds or v in seen:
                         continue
+                    seen.add(v)
+                    label = ("%s (%s)" % (fam, v)) if fam else (_own_name(v) or v.upper())
                     rows.append((v, v, {
-                        "code": v, "label": f"{e.get('label')} ({v})",
+                        "code": v, "label": label,
                         "section": sec.get("name"), "sgbd": v,
-                        "group": e.get("group"), "chassis": cid,
+                        "group": grp, "chassis": cid,
                         "identifiedVariantOf": e["code"]}))
         out[cid] = rows
     return out
