@@ -4079,6 +4079,30 @@ body.remote-helper::after {
 .owner-console .oc-log {
   max-height: 180px; overflow-y: auto; font-size: 11.5px; line-height: 1.6;
   border-top: 1px solid var(--line); padding-top: 8px; color: var(--ink-dim); }
+.owner-console .oc-access {
+  text-align: center; font-size: 11px; letter-spacing: .04em;
+  color: var(--ink-dim); margin: -2px 0 6px; }
+
+/* the admit / approve-a-write prompt: the one place remote consent is given */
+.owner-console .oc-gate {
+  margin: 8px 0; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: rgba(127,127,127,.06); }
+.owner-console .oc-gate-admit { border-color: #4bbf73;
+  background: rgba(75,191,115,.08); }
+.owner-console .oc-gate-write { border-color: var(--amber, #d90);
+  background: rgba(217,153,0,.10); }
+.owner-console .oc-gate-t { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.owner-console .oc-gate-d { font-size: 11.5px; color: var(--ink-dim);
+  line-height: 1.5; margin-bottom: 8px; word-break: break-word; }
+.owner-console .oc-gate-btns { display: flex; gap: 8px; }
+.owner-console .oc-gate-btns .btn { padding: 4px 14px; }
+
+/* the pre-share access picker in the remote dialog */
+.rm-opt { display: flex; gap: 8px; align-items: flex-start; padding: 7px 9px;
+  border: 1px solid var(--line); border-radius: 7px; margin-bottom: 6px;
+  cursor: pointer; font-size: 13px; line-height: 1.45; }
+.rm-opt:hover { border-color: var(--line-strong, var(--line)); }
+.rm-opt input { margin-top: 2px; flex: none; }
 
 /* owner console, collapsed: a pill with the code and the live state, so the
    share dialog stops covering the F-keys and readouts it sits on top of */
@@ -4091,5 +4115,6 @@ body.remote-helper::after {
 .owner-console .oc-pill .oc-pill-state.oc-live { color: #4bbf73; }
 .owner-console.oc-min { width: auto; padding: 8px 14px; }
 .owner-console.oc-min .oc-head, .owner-console.oc-min .oc-code,
-.owner-console.oc-min .oc-state, .owner-console.oc-min .oc-log { display: none; }
+.owner-console.oc-min .oc-state, .owner-console.oc-min .oc-log,
+.owner-console.oc-min .oc-access, .owner-console.oc-min .oc-gate { display: none; }
 .owner-console.oc-min .oc-pill { display: flex; }

@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v56';   // v56: coding-dispatch derived JSON wired into coding-write
+const CACHE_NAME = 'bmweb-v57';   // v57: remote diag owner-side consent (access level, per-write confirm, admit handshake)
 
 
 const CORE_ASSETS = [
