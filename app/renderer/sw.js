@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v47';   // v47: fault fields from the result set + F_ART type list
+const CACHE_NAME = 'bmweb-v51';   // v51: toolbar-only fault screens run the read (ZKE5)
 
 
 const CORE_ASSETS = [
