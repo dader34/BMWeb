@@ -2944,11 +2944,20 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     const subMenu = it.menu && (ir.menus || {})[it.menu];
     const subReads = subMenu
       && (subMenu.items || []).some(x => /^(FS|IS|HS)_/i.test(String(x.job || '')));
+    // A screen that draws no readout AND names no job of its own is a bare
+    // TOOLBAR: INPA reads the memory with its built-in fault display and this
+    // .IPO screen is only the Read/Clear/Print button bar over it (ZKE5's
+    // s_fehler, KLIMA_5B, and others). The decompiler captured the toolbar,
+    // not the implied read -- so "Read error memory" landed on an empty screen
+    // and showed "performs an action, not a readout". It IS the read; run it.
+    const toolbarOnly = faultScreen && !irReadable(faultScreen)
+      && !(faultScreen.jobs || []).some(j => /^(STEUERN|START|STELL)/i.test(j.name));
     const faultKey = IR_FAULT_READ.test(it.label)
       && (it.inPlace
           || (faultScreen && !irReadable(faultScreen)
               && (faultScreen.jobs || []).some(j => /^FS_/i.test(j.name)))
-          || (!it.job && !faultScreen && !subReads));
+          || (!it.job && !faultScreen && !subReads)
+          || (!it.job && toolbarOnly && !subReads));
     if (faultKey
         && !/^(FS|IS|HS)_LESEN$/i.test(it.job || '')
         && typeof runJob === 'function') {
