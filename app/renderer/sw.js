@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v44';   // v44: groups pack the variants their bytecode identifies (ihka46_3 etc.)
+const CACHE_NAME = 'bmweb-v45';   // v45: fault fields drawn from the result set, F_ART type list
 
 
 const CORE_ASSETS = [

@@ -53,6 +53,21 @@ function faultName(loc, hex, sgbd) {
   return deGerman(loc) || loc || '';
 }
 
+// The ECU's fault-type list (F_ART1..F_ART_ANZ), "--" entries dropped, joined
+// for a one-line display. This is what a body module reports in place of the
+// DME's F_SYMPTOM -- IHKA46_3's 0x20 comes back as "Kurzschluss gegen U-Batt".
+function faultTypeText(c) {
+  const n = parseInt(c.F_ART_ANZ, 10) || 0;
+  const parts = [];
+  for (let a = 1; a <= n; a++) {
+    const t = c[`F_ART${a}_TEXT`];
+    if (t != null && String(t).trim() && String(t).trim() !== '--') {
+      parts.push(deGerman(t));
+    }
+  }
+  return parts.join(', ');
+}
+
 // shared fault projection: code, English name, present/stored. one home for the
 // "momentan vorhanden && !nicht vorhanden" logic.
 function faultFields(c, sgbd) {
@@ -208,13 +223,32 @@ function renderFaultsInpa(codes, container, ecu) {
     const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING
       || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(code, ecu && ecu.sgbd) : null) || '';
     const ptext = deGerman(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
-    const sym = deGerman(c.F_SYMPTOM_TEXT);
-    const ready = deGerman(c.F_READY_TEXT);
-    const status = deGerman(c.F_VORHANDEN_TEXT);
-    const warn = deGerman(c.F_WARNUNG_TEXT);
     const freq = c.F_HFK || c.F_LZ;           // how many times seen
     const km = c.F_UW_KM;                       // mileage at entry
     const { present } = faultFields(c, ecu && ecu.sgbd);
+    // DRAW THE FIELDS THE ECU ACTUALLY RETURNED, not a fixed OBD template.
+    // A DME's FS_LESEN declares F_SYMPTOM/F_READY/F_VORHANDEN/F_WARNUNG; a
+    // body module (IHKA46_3) declares none of those -- it reports the fault
+    // type in F_ART1..F_ART_ANZ_TEXT instead. Showing the DME labels as "-"
+    // on an IHKA both hid its real type field and invented four the module
+    // never sends. Each row below is emitted only if its result is present.
+    const has = (k) => c[k] != null && String(c[k]).trim() !== '';
+    const row = (label, k, nrKey) => has(k)
+      ? `<div class="inpa-ff"><span class="inpa-ff-k">${label}</span><span class="inpa-ff-v">`
+        + `${esc(`${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${deGerman(c[k])}`)}</span></div>`
+      : '';
+    // F_ART1..N: the fault-type list (F_ART_ANZ counts them). "--" entries
+    // are the ECU's own "not this type", so drop them.
+    const artN = parseInt(c.F_ART_ANZ, 10) || 0;
+    const artRows = [];
+    for (let a = 1; a <= artN; a++) {
+      const t = c[`F_ART${a}_TEXT`];
+      if (t != null && String(t).trim() && String(t).trim() !== '--') {
+        artRows.push(`<div class="inpa-ff"><span class="inpa-ff-k">`
+          + `${artRows.length ? '' : 'type of error:'}</span>`
+          + `<span class="inpa-ff-v">${esc(deGerman(t))}</span></div>`);
+      }
+    }
     return `
       <div class="inpa-fault">
         <div class="inpa-fault-head">
@@ -225,10 +259,10 @@ function renderFaultsInpa(codes, container, ecu) {
           ${freq ? `<span class="inpa-fault-freq">frequency: ${esc(freq)}</span>` : ''}
         </div>
         <div class="inpa-fault-fields">
-          <div class="inpa-ff"><span class="inpa-ff-k">type of error:</span><span class="inpa-ff-v">${esc(`${c.F_SYMPTOM_NR ? `(${c.F_SYMPTOM_NR}) ` : ''}${sym || '-'}`)}</span></div>
-          <div class="inpa-ff"><span class="inpa-ff-k">readiness flag:</span><span class="inpa-ff-v">${esc(`${c.F_READY_NR ? `(${c.F_READY_NR}) ` : ''}${ready || '-'}`)}</span></div>
-          <div class="inpa-ff"><span class="inpa-ff-k">error status:</span><span class="inpa-ff-v">${esc(`${c.F_VORHANDEN_NR ? `(${c.F_VORHANDEN_NR}) ` : ''}${status || '-'}`)}</span></div>
-          <div class="inpa-ff"><span class="inpa-ff-k">warning lamp:</span><span class="inpa-ff-v">${esc(`${c.F_WARNUNG_NR ? `(${c.F_WARNUNG_NR}) ` : ''}${warn || '-'}`)}</span></div>
+          ${c.F_SYMPTOM_TEXT != null ? row('type of error:', 'F_SYMPTOM_TEXT', 'F_SYMPTOM_NR') : artRows.join('')}
+          ${row('readiness flag:', 'F_READY_TEXT', 'F_READY_NR')}
+          ${row('error status:', 'F_VORHANDEN_TEXT', 'F_VORHANDEN_NR')}
+          ${row('warning lamp:', 'F_WARNUNG_TEXT', 'F_WARNUNG_NR')}
           ${pstr ? `<div class="inpa-ff"><span class="inpa-ff-k">P-Code:</span><span class="inpa-ff-v mono">${esc(`${pstr}${ptext ? ` - ${ptext}` : ''}`)}</span></div>` : ''}
           <div class="inpa-ff"><span class="inpa-ff-k">F-Code:</span><span class="inpa-ff-v mono">${esc(`${hex || '-'}${code ? `  ·  ${code}` : ''}`)}</span></div>
           ${km ? `<div class="inpa-ff"><span class="inpa-ff-k">entry at km:</span><span class="inpa-ff-v">${esc(km)}</span></div>` : ''}
@@ -310,11 +344,11 @@ function renderFaults(codes, container, ecu) {
       </div>
       <div class="fault-main">
         <div class="fault-loc">${esc(ff.name || 'Unknown location')}</div>
-        <div class="fault-symptom">${esc(deGerman(c.F_SYMPTOM_TEXT) || '')}</div>
+        <div class="fault-symptom">${esc(deGerman(c.F_SYMPTOM_TEXT) || faultTypeText(c) || '')}</div>
         ${detailed ? `
           <div class="fault-detail">
             ${ptext ? `<div class="fd-row"><span class="fd-k">Meaning</span><span class="fd-v">${esc(ptext)}</span></div>` : ''}
-            <div class="fd-row"><span class="fd-k">Status</span><span class="fd-v">${esc(deGerman(c.F_VORHANDEN_TEXT) || '-')}</span></div>
+            ${c.F_VORHANDEN_TEXT != null ? `<div class="fd-row"><span class="fd-k">Status</span><span class="fd-v">${esc(deGerman(c.F_VORHANDEN_TEXT) || '-')}</span></div>` : ''}
             ${freq ? `<div class="fd-row"><span class="fd-k">Frequency</span><span class="fd-v">${esc(freq)}</span></div>` : ''}
             ${km ? `<div class="fd-row"><span class="fd-k">At mileage</span><span class="fd-v">${esc(km)} km</span></div>` : ''}
             ${faultEnvInline(c)}
