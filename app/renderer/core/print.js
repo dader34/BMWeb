@@ -135,6 +135,15 @@ const PRINT_CSS = `
     /* tables: a long table paginates; its header repeats atop each page */
     .pr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .pr-table thead { display: table-header-group; }
+    /* The fault report drives every module table from ONE shared <colgroup>
+       (screens/fault-report.js faultColumns). table-layout:fixed makes the
+       browser honour those widths exactly instead of auto-sizing per block, so
+       Code/Type/Count/State sit at the same x-position in every module table
+       and on every printed page. Description takes the remaining width. */
+    .pr-fault-table { table-layout: fixed; }
+    .pr-fault-table td, .pr-fault-table th { overflow-wrap: anywhere; }
+    /* a fault row and its freeze-frame row must not split across a page */
+    .pr-faultrow, .pr-envtr { page-break-inside: avoid; break-inside: avoid; }
     .pr-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
                    color: #666; border-bottom: 1px solid #bbb; padding: 4px 6px; }
     .pr-table td { padding: 4px 6px; border-bottom: 1px solid #e4e4e4; vertical-align: top; }
@@ -153,18 +162,21 @@ const PRINT_CSS = `
        that flows into as many columns as the page width allows, so eight values
        take a few lines instead of a full page of near-empty rows */
     .pr-env { margin: 4px 0 10px; padding: 5px 8px; border-left: 3px solid #bbb;
-              background: #fafafa; page-break-inside: avoid;
-              display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 22px; }
+              background: #fafafa; page-break-inside: avoid; break-inside: avoid;
+              display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 22px; }
     /* env grid riding inside the fault table, under its own code's row */
     .pr-envtr td { padding: 0 0 8px; border-bottom: 1px solid #e4e4e4; }
     .pr-envtr .pr-env { margin: 2px 0 0; }
     .pr-env-head { grid-column: 1 / -1; font-size: 9.5px; text-transform: uppercase;
                    letter-spacing: .05em; color: #777; margin-bottom: 3px; }
-    .pr-env-row { display: flex; justify-content: space-between; align-items: baseline;
-                  gap: 10px; padding: 1px 0; font-size: 11px; }
-    .pr-env-k { color: #555; }
+    /* each label:value pair is its own two-track sub-grid, so the value can
+       never drop onto a line of its own away from its label */
+    .pr-env-row { display: grid; grid-template-columns: auto 1fr; align-items: baseline;
+                  column-gap: 10px; min-width: 0; padding: 1px 0; font-size: 11px;
+                  page-break-inside: avoid; break-inside: avoid; }
+    .pr-env-k { color: #555; white-space: nowrap; }
     .pr-env-v { font: 600 11px "SF Mono", Menlo, Consolas, monospace; color: #14181d;
-                text-align: right; white-space: nowrap; }
+                text-align: right; overflow-wrap: anywhere; }
     /* text blocks */
     .pr-p { margin: 0 0 6px; }
     .pr-bullet { padding-left: 16px; position: relative; }
