@@ -39,9 +39,18 @@ const grab = (name) => {
   if (!m) throw new Error('could not find ' + name);
   return m[0];
 };
+// grab the const helpers (checksumOf, the concept sets) by name too
+const grabConst = (name) => {
+  const m = src.match(new RegExp('const ' + name + ' = [\\s\\S]*?;'));
+  if (!m) throw new Error('could not find const ' + name);
+  return m[0];
+};
 const sandbox = new Function(
+  grabConst('XOR_CONCEPTS') + '\n' + grabConst('SUM_CONCEPTS') + '\n' +
+  grab('checksumOf') + '\n' +
   grab('frameTotal') + '\n' + grab('portConfig') + '\n' + grab('withChecksum') + '\n' +
-  'const conceptOf = (comm) => (comm && comm.concept) || 0x10f;\n' +
+  grab('verifyChecksum') + '\n' +
+  'const conceptOf = (comm) => (comm && comm.concept) || 0x10c;\n' +
   'const isDs2 = (c) => c === 1 || c === 5 || c === 6;\n' +
   'const isIso9141 = (c) => c === 0x10c;\n' +
   'const ISO9141_BAUD = 10400;\n' +
