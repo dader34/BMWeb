@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v52';   // v52: ZKE5 s_steuern_funk carries LINE.keys -> INPA's 16-object picker, not 172-row BITS dump
+const CACHE_NAME = 'bmweb-v53';   // v53: derived variants named by themselves, no menu-row dupes
 
 
 const CORE_ASSETS = [
