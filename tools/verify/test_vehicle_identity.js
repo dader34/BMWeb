@@ -168,9 +168,11 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // THE HONESTY REQUIREMENT. Most ZST keywords are body/engine/market names
   // with no catalog number at all. Those must be reported as unresolved, not
   // silently dropped -- a caller that reads "no code" as "option absent"
-  // would hide hardware the car really has.
+  // would hide hardware the car really has. Use a REAL (non-blank) key: an
+  // all-FF body is a blank "no equipment" key and is rejected outright (see
+  // the blank-key test below).
   const r = VI.saCodesFromZcs('E46', {
-    gm: 'FFFFFFFF', sa: 'FFFFFFFFFFFFFFFF', vn: 'FFFFFFFFFF',
+    gm: '00000000', sa: '0000000000200000', vn: '0018640620',
   });
   assert.ok(r.keywords.length > r.codes.length,
     'expected some keywords to carry no SA number');
@@ -179,6 +181,35 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
     assert.ok(!r.codes.includes(k), 'unresolved leaked into codes');
   }
   ok(`bridge: reports what it could not resolve (${r.unresolved.length} keywords)`);
+}
+
+{
+  // A BLANK SA KEY IS NOT AN EQUIPMENT LIST. An all-FF SA body is BMW's own
+  // "no special equipment" sentinel (and the erased-EEPROM pattern) -- it even
+  // carries a valid Mod-36 check char, so it looks structurally fine while
+  // meaning nothing is fitted. Matching it against the assignment table
+  // invents SA numbers a car does not have. It must resolve to NOTHING and be
+  // flagged blank, so the caller falls back to the FA or reports "no VO".
+  const r = VI.saCodesFromZcs('E46', {
+    gm: 'FFFFFFFF', sa: 'FFFFFFFFFFFFFFFF', vn: 'FFFFFFFFFF',
+  });
+  assert.deepStrictEqual(r.codes, [], 'blank SA key must yield no codes');
+  assert.strictEqual(r.resolved, false, 'blank key is not resolved');
+  assert.strictEqual(r.blank, true, 'blank key must be flagged blank');
+  assert.strictEqual(r.keywords.length, 0, 'blank key must match no keywords');
+  ok('bridge: a blank all-FF SA key invents no options');
+}
+
+{
+  // REGRESSION: the SA value as the identity screen actually holds it -- with
+  // the C2 channel tag and the Mod-36 check char ("C2FFFFFFFFFFFFFFFF-S").
+  // The tag must not defeat the blank test.
+  const r = VI.saCodesFromZcs('E46', {
+    gm: 'C1FFFFFF-2', sa: 'C2FFFFFFFFFFFFFFFF-S', vn: 'C3FFFFFFFF-U',
+  });
+  assert.deepStrictEqual(r.codes, [], 'tagged blank SA key must yield no codes');
+  assert.strictEqual(r.blank, true, 'tagged blank key must be flagged blank');
+  ok('bridge: a channel-tagged blank SA key (C2...-S) also invents nothing');
 }
 
 {

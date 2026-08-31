@@ -84,6 +84,18 @@ def group_variants():
     would gate on a name the bytecode does not select, and the app is a straight
     .IPO emulator -- it runs the code and lets the ECU decide, it does not
     pre-decide from string shape.
+
+    Some groups carry NO ZuordnungsTabelle and name their variants only in the
+    IDENTIFIKATION bytecode: `move "IHKA46_3", S1 / ergs "VARIANTE", S1` -- an
+    if/else-if chain that assigns the concrete name into the VARIANTE result
+    per branch (D_005B, the E46 climate address, is one; its .grp has no
+    tables at all). Those names are NOT loose pool strings: each is the operand
+    of a `move` whose destination is the very register the bytecode then
+    publishes as VARIANTE. Reading exactly that idiom is reading what the code
+    selects, not its string shape -- so it is a legitimate second source, and
+    without it ihka46_3 was never packed into E46 and the direct-open fault
+    read decoded 0x1F against ihka38's table ("frei 0x1F") instead of
+    ihka46_3's ("Drucksensor").
     """
     out = {}
     for path in sorted(glob.glob(os.path.join(GROUPS, "*.json.gz"))):
@@ -105,9 +117,59 @@ def group_variants():
                     n = str(r.get(col) or "").strip().lower()
                     if n and n not in RESERVED_NAMES and n in _prg_names():
                         found.add(n)
+        for n in _variants_in_bytecode(data):
+            if n not in RESERVED_NAMES and n in _prg_names():
+                found.add(n)
         if found:
             out[g] = found
     return out
+
+
+def _variants_in_bytecode(data):
+    """Variant names the IDENTIFIKATION bytecode ASSIGNS into VARIANTE.
+
+    A group with no ZuordnungsTabelle picks its variant with an if/else-if
+    chain: `move "IHKA46_3", S1 / ergs "VARIANTE", S1`. The name is the
+    operand of a move whose destination register is the one the bytecode
+    then publishes as the VARIANTE result -- i.e. a value the code selects,
+    not a loose string in the pool. Collect the registers used as an `ergs
+    "VARIANTE", <reg>` source, then every string moved into one of them.
+    """
+    st = data.get("strings") or []
+    ops = data.get("ops") or []
+
+    def lit(a):
+        # a string operand [8, idx] into the pool; the pool holds strings as
+        # str OR as raw byte arrays (this group file uses bytes)
+        if (isinstance(a, list) and len(a) >= 2 and a[0] == 8
+                and isinstance(a[1], int) and 0 <= a[1] < len(st)):
+            v = st[a[1]]
+            if isinstance(v, str):
+                return v.rstrip("\x00")
+            if isinstance(v, list):
+                try:
+                    return bytes(v).decode("latin1").rstrip("\x00")
+                except (ValueError, TypeError):
+                    return None
+        return None
+
+    var_regs = set()
+    for op in ops:
+        if op[0] == "ergs" and len(op[1]) >= 2:
+            name = lit(op[1][0]); src = op[1][1]
+            if name and name.upper() == "VARIANTE" and isinstance(src, list):
+                var_regs.add(tuple(src))
+    names = set()
+    if not var_regs:
+        return names
+    for op in ops:
+        if op[0] == "move" and len(op[1]) >= 2:
+            dst = op[1][0]; val = lit(op[1][1])
+            if isinstance(dst, list) and tuple(dst) in var_regs and val:
+                v = val.strip().lower()
+                if v:
+                    names.add(v)
+    return names
 
 
 def owners():

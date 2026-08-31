@@ -28,10 +28,12 @@ const FAULT_REPORT_CSS = `
     .c-state { font: 600 10.5px "SF Mono", Menlo, monospace; color: #777; white-space: nowrap; width: 64px; text-align: right; }
     tr.present .c-code, tr.present .c-state { color: #c0392b; }
     tr.envrow td { border-bottom: 1px solid #eee; padding: 3px 6px 6px; }
-    .env { font-size: 10.5px; color: #555; line-height: 1.5; }
-    .e-item { display: inline-block; width: 32%; vertical-align: top; }
+    .env { font-size: 10.5px; color: #555; line-height: 1.5;
+           display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 22px; }
+    .e-item { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
     .e-k { color: #777; }
-    .e-v { font: 600 10.5px "SF Mono", Menlo, monospace; color: #14181d; }
+    .e-v { font: 600 10.5px "SF Mono", Menlo, monospace; color: #14181d;
+           text-align: right; white-space: nowrap; }
     .clean-note { padding: 24px; text-align: center; color: #2e7d32; font-size: 15px; font-weight: 600;
                   border: 1px solid #cde6cd; border-radius: 6px; background: #f3faf3; }
     footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }`;
@@ -57,8 +59,7 @@ function faultModuleBlock(label, sgbd, codes) {
   const rows = fields.map((f, i) => `<tr class="${f.present ? 'present' : ''}">
       <td class="c-code">${f.pcode
         ? `<div class="c-p">${esc(f.pcode)}</div><div class="c-hex">${esc(f.code)}</div>`
-        : `<div class="c-p">${esc(f.code)}</div>`}${
-        f.hex ? `<div class="c-hex">${esc(f.hex)}</div>` : ''}</td>
+        : `<div class="c-p">${esc(f.code)}</div>`}</td>
       <td class="c-name">${esc(f.name)}</td>
       ${hasDetail ? `<td class="c-type">${esc(f.ftype || '—')}</td>
       <td class="c-count">${esc(f.count || '—')}</td>` : ''}
@@ -104,38 +105,37 @@ async function printFaultReport(chassisId, faulty, stats) {
       const headers = hasDetail
         ? ['Code', 'Description', 'Type', 'Count', 'State']
         : ['Code', 'Description', 'State'];
-      const rows = fields.map((x) => {
-        const code = (x.pcode ? `${x.pcode}  (${x.code})` : x.code)
-          + (x.hex ? `\n${x.hex}` : '');
-        const state = x.present ? 'PRESENT' : 'stored';
-        return hasDetail
-          ? [code, x.name, x.ftype || '—', x.count || '—', state]
-          : [code, x.name, state];
-      });
       const cols = hasDetail
         ? ['pr-code2', '', '', 'pr-num', 'pr-num']
         : ['pr-code2', '', 'pr-num'];
-      sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
-        + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
-      const t = printTable(headers, rows, cols); t.avoidBreak = false;
-      sections.push(t);
-      // Freeze-frame values, only after a detailed read (F_UW*). The table above
-      // has one row per fault and no room for eight more columns, so each fault
-      // that carries a snapshot gets its own labelled block underneath.
-      if (typeof envPairs === 'function') {
-        f.codes.forEach((c, i) => {
-          const pairs = envPairs(c);
-          if (!pairs.length) return;
+      // Hand-built table rather than printTable(): a fault that carries a
+      // freeze-frame snapshot (detailed read, F_UW*) gets a full-width row
+      // with the environment grid directly under its own code, like the
+      // native savePdf report -- not a separate block after the table.
+      const cls = (i) => (cols[i] ? ` class="${cols[i]}"` : '');
+      const thead = `<thead><tr>${headers.map((h, i) =>
+        `<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead>`;
+      const body = fields.map((x, i) => {
+        const code = x.pcode ? `${x.pcode}  (${x.code})` : x.code;
+        const state = x.present ? 'PRESENT' : 'stored';
+        const cells = hasDetail
+          ? [code, x.name, x.ftype || '—', x.count || '—', state]
+          : [code, x.name, state];
+        let row = `<tr>${cells.map((c, j) => `<td${cls(j)}>${esc(c)}</td>`).join('')}</tr>`;
+        const pairs = typeof envPairs === 'function' ? envPairs(f.codes[i]) : [];
+        if (pairs.length) {
           const items = pairs.map(([k, v]) =>
             `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>`
             + `<span class="pr-env-v">${esc(v)}</span></div>`).join('');
-          sections.push({
-            html: `<div class="pr-env"><div class="pr-env-head">`
-              + `${esc(fields[i].code)} · environment at code entry</div>${items}</div>`,
-            avoidBreak: true,
-          });
-        });
-      }
+          row += `<tr class="pr-envtr"><td colspan="${headers.length}">`
+            + `<div class="pr-env"><div class="pr-env-head">environment at code entry</div>`
+            + `${items}</div></td></tr>`;
+        }
+        return row;
+      }).join('');
+      sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
+        + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
+      sections.push({ html: `<table class="pr-table">${thead}<tbody>${body}</tbody></table>` });
     }
   }
   printDoc({

@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v43';   // v43: framing by concept, xawlen, isWriteJob drives
+const CACHE_NAME = 'bmweb-v46';   // v46: INPA module list + autoscan keep the group (variant re-resolves)
 
 
 const CORE_ASSETS = [

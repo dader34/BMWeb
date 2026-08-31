@@ -1,5 +1,16 @@
 // navigation: chassis select, INPA script picker, functional-jobs menu, sections.
 // sweeps live in sweep.js, chassis auto-scan in autoscan.js, PDF report in fault-report.js.
+
+// Coding is not ready for the public build yet, so it is hidden on the
+// deployed site (bmweb.danner.ink and any *.github.io mirror). It stays
+// available everywhere else -- localhost dev and the macOS app -- where it is
+// being worked on. Host-based, not build-flag, so the same bundle serves both.
+function codingReady() {
+  if (typeof location === 'undefined') return true;      // packaged app
+  const h = String(location.hostname || '').toLowerCase();
+  const hidden = h === 'bmweb.danner.ink' || h.endsWith('.github.io');
+  return !hidden;
+}
 async function showChassis() {
   cancelSweep();                 // leaving the chassis list stops any sweep (sweep.js)
   lastScreen = showChassis;
@@ -147,7 +158,7 @@ async function showScriptSelection(chassisId) {
         <div class="inpa-ss-left" id="ss-left">
           <button class="inpa-ss-item inpa-ss-chassis" data-i="-1">${esc(dispChassis(chassisId))}</button>
           ${ch.sections.map((s, i) => `<button class="inpa-ss-item" data-i="${i}">${esc(s.name)}</button>`).join('')}
-          ${typeof showCodingHub === 'function' ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
+          ${typeof showCodingHub === 'function' && codingReady() ? '<button class="inpa-ss-item inpa-ss-coding" data-i="-2">Coding</button>' : ''}
           ${typeof showVehicleIdentity === 'function' ? '<button class="inpa-ss-item inpa-ss-identity" data-i="-3" hidden>Identity</button>' : ''}
         </div>
         <div class="inpa-ss-right" id="ss-right">
@@ -185,10 +196,17 @@ async function showScriptSelection(chassisId) {
     headEl.classList.remove('func');
     headEl.onclick = null;
     jobsPane.innerHTML = sec.ecus.length
-      ? sec.ecus.map(e => `<button class="inpa-ss-job" data-sgbd="${esc(e.sgbd)}" data-code="${esc(e.code)}" data-label="${esc(e.label)}">${esc(e.label)}</button>`).join('')
+      ? sec.ecus.map(() => '<button class="inpa-ss-job"></button>').join('')
       : '<div class="inpa-ss-empty">No modules</div>';
-    jobsPane.querySelectorAll('.inpa-ss-job').forEach(b => {
-      b.onclick = () => { close(); showEcu(chassisId, sec.name, { sgbd: b.dataset.sgbd, code: b.dataset.code, label: b.dataset.label }); };
+    // Close over the FULL config row, not a {sgbd,code,label} rebuilt from
+    // data- attributes: that rebuild dropped `group`, so on this INPA-layout
+    // path irResolveGroupVariant saw an ungrouped ECU and never re-identified
+    // the variant (an E46 IHKA stayed ihka38 instead of resolving ihka46_3).
+    // The modern card already passes the whole object; match it.
+    jobsPane.querySelectorAll('.inpa-ss-job').forEach((b, i) => {
+      const e = sec.ecus[i];
+      b.textContent = e.label;
+      b.onclick = () => { close(); showEcu(chassisId, sec.name, e); };
     });
   };
 
@@ -346,7 +364,8 @@ async function showSections(id, selectIndex = 0) {
   });
 
   // Coding hub entry, shown only when the chassis has codeable modules
-  if (typeof chassisHasCoding === 'function' && await chassisHasCoding(id)) {
+  if (codingReady() && typeof chassisHasCoding === 'function'
+      && await chassisHasCoding(id)) {
     const code = document.createElement('button');
     code.className = 'sys-item sys-coding';
     code.innerHTML = `<span class="nav-name">Coding</span>

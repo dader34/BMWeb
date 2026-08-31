@@ -143,7 +143,8 @@ const PRINT_CSS = `
     /* a code cell carrying its raw fault word on a second line: pre-line keeps
        the newline the caller put in, which plain .pr-mono would collapse */
     .pr-code2 { font: 600 11.5px "SF Mono", Menlo, Consolas, monospace;
-                white-space: pre-line; line-height: 1.35; }
+                white-space: pre-line; line-height: 1.35;
+                width: 128px; max-width: 128px; overflow-wrap: anywhere; }
     .pr-num { text-align: right; white-space: nowrap; }
     .pr-table-grid { margin: 6px 0; border: 1px solid #ccc; }
     .pr-table-grid th, .pr-table-grid td { border: 1px solid #ddd; padding: 3px 6px; }
@@ -152,13 +153,18 @@ const PRINT_CSS = `
        that flows into as many columns as the page width allows, so eight values
        take a few lines instead of a full page of near-empty rows */
     .pr-env { margin: 4px 0 10px; padding: 5px 8px; border-left: 3px solid #bbb;
-              background: #fafafa; page-break-inside: avoid; }
-    .pr-env-head { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em;
-                   color: #777; margin-bottom: 3px; }
-    .pr-env-row { display: inline-flex; gap: 6px; width: 32%; padding: 1px 0;
-                  font-size: 11px; vertical-align: top; }
+              background: #fafafa; page-break-inside: avoid;
+              display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 22px; }
+    /* env grid riding inside the fault table, under its own code's row */
+    .pr-envtr td { padding: 0 0 8px; border-bottom: 1px solid #e4e4e4; }
+    .pr-envtr .pr-env { margin: 2px 0 0; }
+    .pr-env-head { grid-column: 1 / -1; font-size: 9.5px; text-transform: uppercase;
+                   letter-spacing: .05em; color: #777; margin-bottom: 3px; }
+    .pr-env-row { display: flex; justify-content: space-between; align-items: baseline;
+                  gap: 10px; padding: 1px 0; font-size: 11px; }
     .pr-env-k { color: #555; }
-    .pr-env-v { font: 600 11px "SF Mono", Menlo, Consolas, monospace; color: #14181d; }
+    .pr-env-v { font: 600 11px "SF Mono", Menlo, Consolas, monospace; color: #14181d;
+                text-align: right; white-space: nowrap; }
     /* text blocks */
     .pr-p { margin: 0 0 6px; }
     .pr-bullet { padding-left: 16px; position: relative; }
