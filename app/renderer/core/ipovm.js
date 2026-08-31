@@ -952,7 +952,14 @@ class IpoVm {
       const sgbd = stack.length > 0 ? strv(stack[0]) : null;
       const job = stack.length > 1 ? strv(stack[1]) : null;
       const arg = stack.length > 2 ? strv(stack[2]) : null;
-      if (job && (this.wireJobs || /^(STEUERN|START)/i.test(job))) {
+      // Which jobs must reach the renderer (confirm, register for release,
+      // send) even when the VM is not driving the wire: the ones that CHANGE
+      // the car. That is the write classifier's verdict -- token-based,
+      // default-deny, the same one the job route enforces -- not a name
+      // prefix (ANSTEUERN_*, LAMPEN_TEST, SG_RESET are writes too).
+      const isDrive = (typeof isWriteJob === 'function') ? isWriteJob(job)
+        : true;                           // classifier absent: never assume safe
+      if (job && (this.wireJobs || isDrive)) {
         // hand the drive to the renderer; it confirms, registers for release,
         // sends on the wire, and hands the result sets back through resume()
         return { kind: 'job', job, sgbd: sgbd || null,

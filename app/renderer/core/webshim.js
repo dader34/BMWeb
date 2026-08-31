@@ -36,7 +36,16 @@ const UTILITY_IDBSS_IGN_MV = 10000;
 //   0x110   D-CAN      115200 8N1   sum8           (CAN cable, BMW-FAST serial)
 //   0x10C   ISO 9141: needs a 5-baud slow init this transport cannot do yet,
 //           so it refuses loudly rather than timing out mysteriously.
-const conceptOf = (comm) => (comm && comm.concept) || 0x10f;
+// The wire is described by the SGBD's set_communication_pars and nothing
+// else. A telegram with no CommParameter behind it has no baud, no checksum
+// rule and no length rule -- EDIABAS refuses it (IFH-0056), so do we, rather
+// than assume BMW-FAST and sign a DS2 request with the wrong checksum.
+const conceptOf = (comm) => {
+  if (!(comm && comm.concept)) {
+    throw ifhError('IFH-0056', 'no CommParameter set before the telegram');
+  }
+  return comm.concept;
+};
 const isDs2 = (c) => c === 1 || c === 5 || c === 6;
 // ISO 9141-2: the module sleeps until a 5-baud address byte wakes it.
 const isIso9141 = (c) => c === 0x10c;
@@ -124,76 +133,61 @@ const busTrace = {
 };
 if (typeof window !== 'undefined') window.busTrace = busTrace;
 
-function withChecksum(out, comm) {
-  const c = conceptOf(comm);
-  // THE CHECKSUM FOLLOWS THE FRAME FORM. Straight from EDIABAS's own trace
-  // against this car:
-  //
-  //   Send: 82 12 F1 1A 80 1F            <- short form, sum8  (xor would be FB)
-  //   Send: B8 12 F1 02 1A 80 C3         <- long form,  XOR   (sum8 would be 57)
-  //   Send: B8 12 F1 04 18 02 FF FF 45   <- long form,  XOR
-  //
-  // So it is not the session's wire and not the telegram's declared concept --
-  // a 0xB8 frame is signed XOR, everything else follows its concept. Getting
-  // this wrong in either direction makes the ECU ignore the telegram in
-  // silence, which is indistinguishable from a dead cable.
+// Which EDIABAS transmit function a concept runs, and therefore its checksum
+// and its answer-length rule (EdInterfaceObd, the `switch (concept)` that
+// sets ParTransmitFunc):
+//   1, 5, 6            TransDs2         XOR    length from xawlen (TelLengthDs2)
+//   0x10D KWP2000*     TransKwp2000S    XOR    byte[3] + 4      (TelLengthKwp2000S)
+//   0x10B/0x10C/0x10F  TransKwp2000Bmw/ sum    TelLengthBmwFast
+//   0x110 D-CAN        TransBmwFast
+// Nothing here looks at the first byte of a frame to decide -- 0xB8 is just
+// the tester address KWP2000* and BMW-FAST both use.
+const XOR_CONCEPTS = new Set([1, 5, 6, 0x10d]);
+const SUM_CONCEPTS = new Set([0x10b, 0x10c, 0x10f, 0x110]);
+function checksumOf(bytes, c) {
   let sum = 0;
-  if (isDs2(c) || out[0] === 0xb8) for (const b of out) sum ^= b;
-  else for (const b of out) sum = (sum + b) & 0xff;
-  return [...out, sum];
+  if (XOR_CONCEPTS.has(c)) { for (const b of bytes) sum ^= b; return sum; }
+  if (SUM_CONCEPTS.has(c)) { for (const b of bytes) sum = (sum + b) & 0xff; return sum; }
+  throw ifhError('IFH-0018', `concept 0x${c.toString(16)} is not supported on this interface`);
+}
+function withChecksum(out, comm) {
+  return [...out, checksumOf(out, conceptOf(comm))];
 }
 
-// Total answer length (checksum included), or null while undecidable.
+// Total frame length INCLUDING the checksum byte, or null while too few
+// bytes are in to know. Each rule is its EDIABAS TelLength* + 1.
 function frameTotal(buf, comm) {
   const c = conceptOf(comm);
-  // ISO 9141-2: [fmt, tgt, src, ...data, sum]. The low 6 bits of fmt are the
-  // data length, so the whole frame is 3 header + data + 1 checksum.
-  if (isIso9141(c)) {
+  if (XOR_CONCEPTS.has(c) && c !== 0x10d) {
+    // DS2: the SGBD declared the rule with xawlen (EdInterfaceObd.TelLengthDs2)
+    const al = comm && comm.answerLen;
+    if (!al || !al.length) {
+      throw ifhError('IFH-0018', 'DS2 answer length not set by the SGBD (xawlen)');
+    }
+    if (al[0] > 0) return al[0];
+    const off = -al[0];
+    return buf.length > off ? buf[off] + (al[1] || 0) : null;
+  }
+  if (c === 0x10d) return buf.length >= 4 ? buf[3] + 4 + 1 : null;
+  if (SUM_CONCEPTS.has(c)) {
+    // EdInterfaceBase.TelLengthBmwFast
     if (!buf.length) return null;
-    const n = buf[0] & 0x3f;
-    return n ? n + 4 : (buf.length >= 4 ? buf[3] + 5 : null);
+    const short = buf[0] & 0x3f;
+    if (short) return short + 3 + 1;
+    if (buf.length < 4) return null;
+    if (buf[3] === 0) return buf.length >= 6 ? ((buf[4] << 8) + buf[5]) + 6 + 1 : null;
+    return buf[3] + 4 + 1;
   }
-  if (isDs2(c)) {
-    // A KWP2000* answer to a B8-framed request is B8-framed even though the
-    // concept sits in the DS2 family: d_0012's probe sends DS2 "12 04 00"
-    // AND KWP "B8 12 F1 02 1A 80" over the SAME comm, so the framing follows
-    // the FRAME, not the concept. Reading the MS45's ident reply
-    // "b8 f1 12 1f 5a 80 ..." with the DS2 rule took byte[1] (0xF1 = 241)
-    // as the expected length and timed out holding a complete 36-byte
-    // answer -- found on the first live E46 probe.
-    if (buf[0] === 0xb8) return buf.length >= 4 ? buf[3] + 5 : null;
-    return buf.length >= 2 ? buf[1] : null;
-  }
-  if (c === 0x10d) return buf.length >= 4 ? buf[3] + 5 : null;
-  if (buf.length < 4) return null;
-  // 0xB8 carries its length in BYTE 3 on this wire, not in the low 6 bits.
-  // MEASURED against the car: the ident reply "b8 f1 12 1f 5a 80 ..." is
-  // exactly 36 bytes = 4 + 31 + 1, and byte[3] is 0x1F = 31. Reading the low
-  // 6 bits instead (0xB8 & 0x3F = 56) would wait for 60 bytes and time out.
-  // EdInterfaceBase.TelLengthBmwFast reads the low bits first, but that is the
-  // generic BMW-FAST rule and does not hold for this DS2-session ECU.
-  if (buf[0] === 0xb8) return buf[3] + 5;
-  const short = buf[0] & 0x3f;
-  return short ? short + 4 : buf[3] + 5;
+  throw ifhError('IFH-0018', `concept 0x${c.toString(16)} is not supported on this interface`);
 }
 
 function verifyChecksum(frame, comm) {
-  let sum = 0;
-  const body = frame.slice(0, -1);
-  // Same rule as withChecksum: a 0xB8 frame is XOR, everything else follows
-  // its concept.
-  if (isDs2(conceptOf(comm)) || frame[0] === 0xb8) {
-    for (const b of body) sum ^= b;
-  } else {
-    for (const b of body) sum = (sum + b) & 0xff;
-  }
-  if (sum !== frame[frame.length - 1]) {
+  const want = checksumOf(frame.slice(0, -1), conceptOf(comm));
+  if (want !== frame[frame.length - 1]) {
     throw ifhError('IFH-0019', 'answer checksum mismatch');
   }
 }
 
-// The serial settings a concept needs. K-line concepts run 9600 8E1; the
-// BMW-FAST family stays at the cable's 115200 8N1.
 function portConfig(comm) {
   const c = conceptOf(comm);
   if (isIso9141(c)) {
@@ -385,7 +379,9 @@ async function runExchange(bus, out, comm) {
       // sent exactly once and the bytecode moves on to its next protocol.
       // Sending it twice doubled every probe step (ms450ds0's KWP2000* try
       // before the BMW-FAST one that an MS45 actually answers).
-      if (!/checksum|incomplete|echo/.test(String(e.message))) throw e;
+      // the error carries its IFH code; a garbled answer is IFH-0019
+      // (checksum / incomplete) or IFH-0003 (echo), silence is IFH-0009
+      if (!(e && (e.ifh === 'IFH-0019' || e.ifh === 'IFH-0003'))) throw e;
       // EdiabasLib's retry is a PURE RETRANSMISSION: ObdTrans loops the same
       // bytes with only the ParRegenTime wait, never a reinit (EdInterfaceObd
       // .cs:3652-3681). Re-arming the wake here made our retry a different,

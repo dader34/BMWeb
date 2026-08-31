@@ -187,6 +187,7 @@ class Best2Vm {
     // and mine left a stale flag so `jt err,#10` fired after a good tabset
     // and 31 jobs reported ERROR_TABLE.
     this.trapBit = -1;
+    this.trapMask = 0;       // set_trap_mask (settmr/gettmr), see OpSettmr
     this.answer = new Uint8Array(0);
     this.tokenSep = '';                // setspc separators for stoken
     this.tokenIdx = 0;                 // 1-based token number, 0 = unset
@@ -1658,31 +1659,27 @@ class Best2Vm {
       }
       case 'xsetpar': {
         // CommParameter: the SGBD tells the interface handler how to drive
-        // the wire. Two packings exist in the corpus. Classic concepts use
-        // 16-bit words: [concept, baud, ecuAddr, ...timings] (ms450ds0:
-        // 06 00 80 25 b8 00 ... = DS2, 9600, addr 0xB8). The 0x1xx family
-        // uses 32-bit dwords: [concept, baud, ...timings] (0d 01 00 00
-        // 80 25 00 00 ... = KWP2000*, 9600). A dword-parse of a classic
-        // blob yields an absurd concept, which is the disambiguator.
+        // the wire. The blob DECLARES its own element width in byte 1
+        // (EdOperations.OpXsetpar): 0x00 = 16-bit words, 0x01 = 32-bit
+        // dwords, 0xFF = bytes; anything else is not a CommParameter. That
+        // replaces the old "a dword parse gives an absurd concept" guess.
         //
         // The VM does not touch the port; it surfaces {concept, baud,
-        // timeout} to send(), which owns framing and the wire.
+        // timeout, ...} to send(), which owns framing and the wire.
         const raw = Array.from(this.bytes(A));
+        const width = raw.length >= 2
+          ? ({ 0x00: 2, 0x01: 4, 0xff: 1 })[raw[1]] || 0 : 0;
         let words = [];
-        if (raw.length >= 4 && raw.length % 4 === 0) {
-          for (let i = 0; i + 3 < raw.length; i += 4) {
-            words.push(raw[i] + raw[i + 1] * 0x100
-              + raw[i + 2] * 0x10000 + raw[i + 3] * 0x1000000);
-          }
-        }
-        if (!words.length || words[0] > 0x1ff) {
-          words = [];
-          for (let i = 0; i + 1 < raw.length; i += 2) {
-            words.push(raw[i] + raw[i + 1] * 0x100);
+        if (width && raw.length % width === 0) {
+          for (let i = 0; i + width - 1 < raw.length; i += width) {
+            let v = 0;
+            for (let k = width - 1; k >= 0; k--) v = v * 0x100 + raw[i + k];
+            words.push(v);
           }
         }
         if (words.length >= 2 && words[0] > 0 && words[0] <= 0x1ff) {
           this.comm = Best2Vm.decodeCommParams(words);
+          if (this.answerLen) this.comm.answerLen = this.answerLen;
         }
         return;
       }
@@ -1723,10 +1720,26 @@ class Best2Vm {
         return;
       }
       case 'xvers': {
-        // Interface version as a number. 0x0730 = the 7.3.0 engine the
-        // data was lifted from; nothing in the corpus does more than
-        // require it to be non-zero / recent.
-        this.store(A, 0x0730);
+        // EdInterfaceObd.InterfaceVersion: 209 (0xD1). Not the engine's
+        // 7.3.0 -- the INTERFACE's version, which is what the SGBD asks.
+        this.store(A, 209);
+        return;
+      }
+      case 'settmr': {
+        // set_trap_mask: bits of errors the SGBD chooses to handle itself
+        // (EdOperations.OpSettmr / EdiabasNet.SetError: an error whose bit
+        // is masked does not abort the job; the SGBD reads it back with
+        // `trap`/`gettmr`). This is NOT a timer.
+        this.trapMask = this.val(A) >>> 0;
+        return;
+      }
+      case 'gettmr': {
+        this.store(A, this.trapMask >>> 0);
+        return;
+      }
+      case 'ticks': {
+        // milliseconds of wall clock (EdOperations.OpTicks: Ticks / 10000)
+        this.store(A, (this.now ? this.now.getTime() : Date.now()) >>> 0);
         return;
       }
       case 'date': {
@@ -1785,19 +1798,34 @@ class Best2Vm {
         f.carry = true;
         return;
       }
-      case 'settmr': case 'gettmr':
-      case 'xconnect': case 'xhangup': case 'xstopf': case 'xawlen':
+      case 'xawlen': {
+        // set_answer_length (EdOperations.OpXawlen): int16 pairs. For DS2 the
+        // interface derives the answer's total length from it
+        // (EdInterfaceObd.TelLengthDs2): [n>0] fixed n bytes; [-o, k] = the
+        // byte at offset o plus k. zke5/lws5 say [-1, 0]; ms450ds0 [-3, 5].
+        // Carried on comm so the transport reads the SGBD's rule, not a
+        // guessed "length is byte 1".
+        const raw = Array.from(this.bytes(A));
+        const al = [];
+        for (let i = 0; i + 1 < raw.length; i += 2) {
+          const v = raw[i] | (raw[i + 1] << 8);
+          al.push(v & 0x8000 ? v - 0x10000 : v);
+        }
+        this.answerLen = al;
+        this.comm = Object.assign({}, this.comm || {}, { answerLen: al });
+        return;
+      }
+      case 'xconnect': case 'xhangup': case 'xstopf':
       case 'xreps': case 'xkeyb': case 'xkeybytes':
       case 'xprog': case 'xreset':
       case 'setflt': case 'clrflt':
       case 'cfgig': case 'cfgsg': case 'cfgss':
-      case 'ticks': case 'trap': case 'plink': case 'pjob': case 'pexec':
+      case 'trap': case 'plink': case 'pjob': case 'pexec':
       case 'fclose': case 'fseekln': case 'fwrite': case 'ergsysi':
       case 'iupdate': case 'realf':
         // ergsysi stays a no-op ON PURPOSE: it publishes into result set 0,
         // which this VM deliberately never synthesizes (the engine injects
         // set 0; see SYSTEM_RESULTS in test_bestvm.js).
-        if (name === 'gettmr' || name === 'ticks') this.store(A, 0);
         return;
 
       default:
