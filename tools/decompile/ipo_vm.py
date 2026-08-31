@@ -326,7 +326,14 @@ class VM:
                 self.input_fed = False
                 stack = []
             elif op == "LINE":
-                self.out.lines.append({"label": t.get("label"), "elements": []})
+                # `keys` names the ORT component this line drives (togglelist /
+                # STEUERN_DIGITAL actuator screens). Carry it: it is the object
+                # list INPA's picker shows, and without it the renderer cannot
+                # scope the drive job to this screen's components.
+                ln = {"label": t.get("label"), "elements": []}
+                if t.get("keys") is not None:
+                    ln["keys"] = t["keys"]
+                self.out.lines.append(ln)
                 stack = []
             elif op == "call":
                 self._builtin(t, stack, cur_item)

@@ -60,6 +60,17 @@ def _lines(raw):
         d = {"elements": els}
         if ln.get("label"):
             d["caption"] = ln["label"]
+        # THE ORT KEY THIS CAPTION NAMES. A togglelist/actuator screen
+        # (STEUERN_DIGITAL) draws no reading elements -- its rows are captions,
+        # and the LINE op pairs each caption with the component key the drive job
+        # takes (ZKE5 s_steuern_funk: "Central locking Lock" -> ZV0FS). That is
+        # the object list INPA's picker shows; without it the renderer cannot
+        # tell which of the SGBD's whole BITS table this screen scopes to and
+        # dumps all of it. The VM emits `keys` as a scalar; the renderer reads
+        # `keys[0]`, so carry it as a one-element list.
+        if ln.get("keys"):
+            k = ln["keys"]
+            d["keys"] = k if isinstance(k, list) else [str(k)]
         # WHICH JOB ARGUMENT FILLED THIS LINE. A coding page reads one job per
         # data block (LWS5's CODIERUNG_LESEN "0".."6") and a per-wheel grid one
         # job per wheel (RDC's ABGLEICHWERT_LESEN "1".."5"), each drawing a line;
