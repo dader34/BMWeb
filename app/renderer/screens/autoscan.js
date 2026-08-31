@@ -102,7 +102,7 @@ async function autoScan(chassisId, ch) {
       if (!faults.length) continue;
       await fillFaultDetail(sgbd, faults); // detail reads target the RESOLVED sgbd
       findings.push({ label: ecu.label, sgbd, code: ecu.code || sgbd,
-                      section: t.section, chassis: chassisId, faults });
+                      group: t.group, section: t.section, chassis: chassisId, faults });
     }
     if (anyResponse) _autoScanRan = true; // mark done only after the bus answered, so a late connect rescans
     if (findings.length) { await loadFaultDb(); showAttentionPopup(findings); }
@@ -194,7 +194,9 @@ function showAttentionPopup(findings) {
     dismiss(); // navigating away, clean up badge + listener
     // the chassis and section the finding came from, carried on the finding
     // itself (autoScan is chassis-agnostic now; nothing here may assume E46)
-    showEcu(g.chassis, g.section, { sgbd: g.sgbd, code: g.code, label: g.label });
+    // carry the group so the module re-resolves its variant (irResolveGroup-
+    // Variant needs it; without it the open stays on the configured SGBD)
+    showEcu(g.chassis, g.section, { sgbd: g.sgbd, code: g.code, label: g.label, group: g.group });
   };
   document.addEventListener('click', onDocClick); // removed in dismiss()
 }
