@@ -26,6 +26,11 @@ const OFFLINE_SHELL = [
   'core/print.js',
   'core/router.js',
   'core/translate.js',
+  // maintained freeze-frame (Umwelt) field dictionary. Eager <script> tag (env
+  // text is translated synchronously at fault render), so the tag inliner
+  // carries it — it must be listed here to mirror index.html, or the inliner
+  // throws on a src it can't resolve.
+  'data/envmap.js',
   'core/nav.js',
   'core/tuning-store.js',
   'core/xdf.js',

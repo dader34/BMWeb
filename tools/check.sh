@@ -78,6 +78,10 @@ echo "== offline export mirrors index.html =="
 node tools/verify/test_offline_shell.js
 
 echo
+echo "== freeze-frame (Umwelt) dictionary is a pure lookup =="
+node tools/verify/test_env_i18n.js
+
+echo
 echo "== IR interpreter renders known screens =="
 node tools/verify/test_ir_render.js
 

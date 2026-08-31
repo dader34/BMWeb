@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v53';   // v53: derived variants named by themselves, no menu-row dupes
+const CACHE_NAME = 'bmweb-v54';   // v54: env/freeze-frame text from a maintained dictionary
 
 
 const CORE_ASSETS = [

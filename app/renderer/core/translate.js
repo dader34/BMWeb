@@ -640,70 +640,19 @@ function deGerman(text) {
   return out;
 }
 
-// environment-measurement labels (F_UW*_TEXT). skipped in Original mode.
-const ENV_LABELS = {
-  'Motordrehzahl': 'Engine RPM',
-  'Lichtmaschine Sollspannung': 'Alternator target voltage',
-  'Spannung Kl.87': 'Terminal 87 voltage',
-  'Spannung Kl.30': 'Terminal 30 voltage (battery)',
-  'Status Motorsteuerung': 'Engine management status',
-  'Motor Status': 'Engine status',
-  'Motortemperatur': 'Engine temperature',
-  'Motortemperatur beim Start': 'Engine temp at start',
-  '(Motor) - Öltemperatur': 'Engine oil temperature',
-  'Öltemperatur': 'Oil temperature',
-  'Kühlmitteltemperatur': 'Coolant temperature',
-  'Ansauglufttemperatur': 'Intake air temperature',
-  'Umgebungstemperatur': 'Ambient temperature',
-  'Umgebungsdruck': 'Ambient pressure',
-  'Ladedruck': 'Boost pressure',
-  'Last': 'Engine load',
-  'Fahrgeschwindigkeit': 'Vehicle speed',
-  'Batteriespannung': 'Battery voltage',
-  'Zündwinkel': 'Ignition angle',
-  'Lambdawert': 'Lambda value',
-  'Saugrohrdruck': 'Manifold pressure',
-  'Differenz zwischen Maximum und Minimum SAF': 'Max-min difference, secondary air mass',
-  'Mittlere Diagnosewert minimale Luftmasse': 'Mean diagnostic value, minimum air mass',
-  'Sekundärluftmasse': 'Secondary air mass',
-  'minimale Luftmasse': 'Minimum air mass',
-};
-// value-phrase fragments seen in F_UW*_WERT (engine-state enums etc.)
-const ENV_VALUE_PHRASES = [
-  [/Motor steht/gi, 'engine stopped'],
-  [/Motor im Leerlauf/gi, 'engine idling'],
-  [/Motor l[äa]uft/gi, 'engine running'],
-  [/Sy?nchronisiert und Z[üu]ndung ein/gi, 'synchronized, ignition on'],
-  [/Z[üu]ndung ein/gi, 'ignition on'],
-  [/Z[üu]ndung aus/gi, 'ignition off'],
-  [/^(\d+)\s+[EI]S\s*-\s*/, '$1 '],  // strip the "N ES -" / "N IS -" state-code prefix
-];
-// token fallback for compound env labels not in the exact map
-const ENV_TOKENS = [
-  [/Motortemperatur/gi, 'engine temp'], [/Öltemperatur/gi, 'oil temp'],
-  [/temperatur/gi, 'temperature'], [/Spannung/gi, 'voltage'], [/Drehzahl/gi, 'RPM'],
-  [/Luftmasse/gi, 'air mass'], [/Sekundärluft/gi, 'secondary air'], [/Druck/gi, 'pressure'],
-  [/Diagnosewert/gi, 'diagnostic value'], [/Differenz zwischen/gi, 'difference between'],
-  [/Maximum und Minimum/gi, 'max and min'], [/Mittlere?r?/gi, 'mean'],
-  [/minimale?/gi, 'minimum'], [/Status/gi, 'status'], [/Motor\b/gi, 'engine'],
-  [/Sollspannung/gi, 'target voltage'], [/Umgebung/gi, 'ambient'],
-  [/beim Start/gi, 'at start'], [/Lichtmaschine/gi, 'alternator'],
-];
-// translate an env label or value phrase, gated on Settings language
+// Freeze-frame (Umwelt) field labels and enum values -- a pure lookup over the
+// MAINTAINED dictionary window.BMW_ENV_TEXT (app/renderer/data/envmap.js,
+// generated from tools/decompile/env_i18n_de.json). No word-munging: an entry
+// is present with a curated English translation, or the German passes through
+// unchanged. Keyed on the EXACT string, including any leading state code an
+// enum value carries ("2 IS - Motor im Leerlauf"). Skipped in Original mode.
+// Deliberately does NOT call deGerman -- that heuristic path never touches
+// environment text.
 function envLabel(text) {
   if (lang() === 'orig' || !text) return text;
   const s = String(text).trim();
-  if (ENV_LABELS[s]) return ENV_LABELS[s];
-  // value phrases (engine-state enums)
-  let out = s;
-  for (const [re, en] of ENV_VALUE_PHRASES) out = out.replace(re, en);
-  if (out !== s) return out.replace(/\s{2,}/g, ' ').trim();
-  // token fallback for unmapped compound labels: translate German word parts
-  if (/[A-Za-zÄÖÜäöü]/.test(s)) {
-    let t = s;
-    for (const [re, en] of ENV_TOKENS) t = t.replace(re, en);
-    if (t !== s) return t.replace(/\s{2,}/g, ' ').trim();
-  }
+  const map = (typeof window !== 'undefined' && window.BMW_ENV_TEXT) || null;
+  if (map && Object.prototype.hasOwnProperty.call(map, s)) return map[s];
   return text;
 }
 
