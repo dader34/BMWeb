@@ -196,10 +196,17 @@ async function showScriptSelection(chassisId) {
     headEl.classList.remove('func');
     headEl.onclick = null;
     jobsPane.innerHTML = sec.ecus.length
-      ? sec.ecus.map(e => `<button class="inpa-ss-job" data-sgbd="${esc(e.sgbd)}" data-code="${esc(e.code)}" data-label="${esc(e.label)}">${esc(e.label)}</button>`).join('')
+      ? sec.ecus.map(() => '<button class="inpa-ss-job"></button>').join('')
       : '<div class="inpa-ss-empty">No modules</div>';
-    jobsPane.querySelectorAll('.inpa-ss-job').forEach(b => {
-      b.onclick = () => { close(); showEcu(chassisId, sec.name, { sgbd: b.dataset.sgbd, code: b.dataset.code, label: b.dataset.label }); };
+    // Close over the FULL config row, not a {sgbd,code,label} rebuilt from
+    // data- attributes: that rebuild dropped `group`, so on this INPA-layout
+    // path irResolveGroupVariant saw an ungrouped ECU and never re-identified
+    // the variant (an E46 IHKA stayed ihka38 instead of resolving ihka46_3).
+    // The modern card already passes the whole object; match it.
+    jobsPane.querySelectorAll('.inpa-ss-job').forEach((b, i) => {
+      const e = sec.ecus[i];
+      b.textContent = e.label;
+      b.onclick = () => { close(); showEcu(chassisId, sec.name, e); };
     });
   };
 
