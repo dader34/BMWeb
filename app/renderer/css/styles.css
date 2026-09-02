@@ -846,7 +846,7 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 /* run pane */
 .t32-runcol { min-width: 0; }
 .t32-runhead {
-  font-size: 13px; color: var(--ink-dim); min-height: 20px; line-height: 1.5;
+  font-size: 13px; color: var(--ink-dim); line-height: 1.5; margin-top: 10px;
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
 }
 .t32-jobname { font-family: var(--mono); font-size: 14px; color: var(--ink); font-weight: 600; }
@@ -855,12 +855,13 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   border: 1px solid var(--red); border-radius: 3px; padding: 1px 5px;
 }
 .t32-comment { flex-basis: 100%; font-size: 12px; color: var(--ink-faint); }
-.t32-argrow { display: flex; gap: 8px; margin-top: 12px; }
+.t32-argrow { display: flex; gap: 8px; }
 .t32-arg {
   flex: 1; min-width: 0; font-family: var(--mono); font-size: 13px; color: var(--ink);
   background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px;
 }
 .t32-arg:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+.t32-arg:disabled { opacity: .5; }
 .t32-run { padding: 9px 22px; }
 .t32-run:disabled { opacity: .5; cursor: default; }
 .t32-out { margin-top: 14px; }
@@ -882,6 +883,96 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
   border-radius: 3px; padding: 1px 5px; margin-right: 8px; letter-spacing: .04em;
 }
 .t32-table.t32-demo .t32-v { color: var(--amber); }
+
+/* Custom checkbox: square, amber when checked, app-themed (no native control) */
+.t32-check {
+  -webkit-appearance: none; appearance: none; margin: 0; flex: none; cursor: pointer;
+  width: 16px; height: 16px; border: 1px solid var(--line); border-radius: 4px;
+  background: var(--panel); position: relative; transition: border-color .12s, background .12s;
+}
+.t32-check:hover { border-color: var(--ink-faint); }
+.t32-check:checked { background: var(--amber); border-color: var(--amber); }
+.t32-check:checked::after {
+  content: ""; position: absolute; left: 5px; top: 1px; width: 4px; height: 9px;
+  border: solid var(--amber-ink); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.t32-check:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--amber-glow); }
+
+/* Custom select: app-themed with a drawn chevron, no native arrow */
+.t32-select {
+  -webkit-appearance: none; appearance: none; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+  padding: 5px 26px 5px 10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a949e' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 9px center;
+}
+.t32-select:hover { border-color: var(--ink-faint); }
+.t32-select:focus-visible { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+
+/* Test/repeat controls */
+.t32-reprow { display: flex; align-items: center; gap: 7px; margin-top: 9px; font-size: 12.5px; color: var(--ink-dim); }
+.t32-reprow label { cursor: pointer; }
+.t32-repms {
+  width: 58px; padding: 4px 8px; font-family: var(--mono); font-size: 12px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+  -moz-appearance: textfield;
+}
+.t32-repms::-webkit-outer-spin-button,
+.t32-repms::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.t32-repms:focus { outline: none; border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+.t32-repunit { color: var(--ink-faint); }
+.t32-run.t32-stop { background: var(--red); border-color: var(--red); color: #fff; }
+
+/* Trace section (Tool32's Trace window): a full-width block below the columns */
+.t32-tracesec { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 14px; }
+.t32-tracebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.t32-tracetitle {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-faint); margin-right: 2px;
+}
+.t32-tracetoggle {
+  font-family: var(--mono); font-size: 12px; padding: 5px 12px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink-dim);
+}
+.t32-tracetoggle.on { border-color: #6cc794; color: #6cc794; background: rgba(108,199,148,.1); }
+.t32-tracebtn {
+  font-size: 12px; padding: 5px 12px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink-dim);
+}
+.t32-tracebtn:hover { color: var(--ink); border-color: var(--ink-faint); }
+/* the shared lookupDropdown, sized to match the trace bar's buttons instead of
+   the Lookup screen's full-width pickers (min-width 200px, tall padding) */
+.t32-tracelayer.lkd { flex: none; }
+.t32-tracelayer .lkd-btn {
+  min-width: 0; padding: 5px 10px; font-size: 12px; border-radius: 6px;
+  background: var(--panel);
+}
+.t32-tracelog {
+  max-height: 300px; overflow: auto;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.6;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px;
+}
+.t32-traceempty { color: var(--ink-faint); font-family: var(--sans); font-size: 12.5px; }
+.t32-trow { display: flex; gap: 8px; align-items: baseline; }
+.t32-tms { color: var(--ink-faint); flex: none; width: 44px; text-align: right; }
+.t32-ttag { width: 30px; flex: none; text-align: center; font-weight: 700; }
+.t32-apitag { font-size: 9px; color: var(--amber-ink); background: var(--amber); border-radius: 3px; padding: 1px 0; }
+.t32-tx .t32-ttag { color: var(--amber); }
+.t32-rx .t32-ttag { color: #6cc794; }
+.t32-terr .t32-ttag { color: var(--red); }
+.t32-tapi { color: var(--ink); word-break: break-all; }
+.t32-thex { color: var(--ink); word-break: break-all; }
+.t32-tnote { color: var(--ink-faint); margin-left: auto; padding-left: 10px; flex: none; white-space: nowrap; }
+.t32-tnote.t32-rx { color: #6cc794; }
+.t32-tnote.t32-terr { color: var(--red); }
+.t32-tnote.t32-tx { color: var(--amber); }
+.t32-apirow { border-bottom: 1px dashed var(--line); padding-bottom: 2px; margin-bottom: 2px; }
+/* info rows (K-line wake, config): neutral, one line, no hex, no red marker */
+.t32-inforow { color: var(--ink-faint); }
+.t32-infotag { color: var(--ink-faint); font-weight: 400; font-style: italic; }
+.t32-tinfo { color: var(--ink-faint); }
+
 @media (max-width: 900px) {
   .t32-cols { grid-template-columns: 1fr 1fr; }
   .t32-runcol { grid-column: 1 / -1; }

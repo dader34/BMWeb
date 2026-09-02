@@ -133,6 +133,29 @@ const busTrace = {
 };
 if (typeof window !== 'undefined') window.busTrace = busTrace;
 
+// The API-LAYER trace: EDIABAS's api.trc equivalent. busTrace is ifh.trc (the
+// raw telegrams); this is the layer above -- one row per job run, with its
+// arguments, its result sets and the JOB_STATUS. Tool32's Trace window shows
+// both layers; the wire tells you WHAT went over the bus, the API layer tells
+// you what the JOB did with it. Recording is gated on `on` (Tool32's trace
+// toggle sets it), matching how EDIABAS only writes the trace when the level
+// is non-zero.
+const apiTrace = {
+  on: false,
+  rows: [],
+  limit: 500,
+  start() { this.on = true; return 'api trace ON'; },
+  stop() { this.on = false; return 'api trace OFF'; },
+  clear() { this.rows = []; },
+  // record one job: {sgbd, job, arg, sets, status, error, demo, t}
+  add(entry) {
+    if (!this.on) return;
+    if (this.rows.length >= this.limit) return;
+    this.rows.push({ t: Date.now(), ...entry });
+  },
+};
+if (typeof window !== 'undefined') window.apiTrace = apiTrace;
+
 // Which EDIABAS transmit function a concept runs, and therefore its checksum
 // and its answer-length rule (EdInterfaceObd, the `switch (concept)` that
 // sets ParTransmitFunc):
@@ -2278,8 +2301,12 @@ function installWebShim() {
           if (typeof webDemoFaults === 'function') {
             await webDemoFaults(sgbd, decodeURIComponent(run[2]), sets);
           }
+          apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
+            sets, status: (sets[0] && sets[0].JOB_STATUS) || '', demo: true });
           return ok({ job: run[2], demo: true, sets, system: systemSet(sets) });
         } catch (e) {
+          apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
+            error: e.message, demo: true });
           return err(e.message, 404);
         }
       }
@@ -2290,8 +2317,12 @@ function installWebShim() {
         // one initialises.
         await switchSession(run[1]);
         const r = await webRunJob(run[1], decodeURIComponent(run[2]), arg);
+        apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
+          sets: r.sets, status: (r.sets[0] && r.sets[0].JOB_STATUS) || '' });
         return ok({ job: run[2], sets: r.sets, system: systemSet(r.sets) });
       } catch (e) {
+        apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
+          error: e.message });
         // A WIRE error (IFH-*) that reaches the user is where the telegram
         // trace is worth seeing -- auto-dump the recent ring buffer so the
         // failing exchange is on the console with no busTrace.start() needed.
