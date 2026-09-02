@@ -34,12 +34,30 @@ sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
 import ecu_tree as T                                          # noqa: E402
 
 
+def _ecu_src_sgbds():
+    """Every SGBD that has committed source in data/ecu-src (by its job-code
+    file). This is the corpus as it exists IN CI: the vendor .prg tree
+    (T.all_sgbds' source) is gitignored and absent from the Pages build, so
+    scanning it there yields nothing and every orphan silently drops. The
+    ecu-src gz files ARE committed, so they are the reliable corpus list on
+    both a full local checkout and CI."""
+    out = set()
+    for p in glob.glob(os.path.join(ECU_SRC, "*.job-code.json.gz")):
+        out.add(os.path.basename(p)[:-len(".job-code.json.gz")].lower())
+    return out
+
+
 def _orphan_sgbds():
-    """Every .prg BMW ships that no chassis config names: the app must be able
+    """Every shipped SGBD that no chassis config names: the app must be able
     to load ANY shipped SGBD by name, because the live IDENTIFIKATION can
-    resolve to a variant no menu ever listed. all_sgbds() is the corpus,
-    owners() is what a car claims; the difference are the orphans."""
-    return sorted(set(T.all_sgbds()) - set(T.owners().keys()))
+    resolve to a variant no menu ever listed. The corpus is the union of the
+    vendor .prg tree (T.all_sgbds, full only on a local checkout) and the
+    committed ecu-src sources (present in CI); owners() is what a car claims;
+    the difference are the orphans. Using the union means CI -- which has
+    ecu-src but not vendor/ -- still packs every orphan, so the deployed
+    ecu-index matches a local build instead of dropping ~600 SGBDs."""
+    corpus = set(T.all_sgbds()) | _ecu_src_sgbds()
+    return sorted(corpus - set(T.owners().keys()))
 
 
 def _ecu_src_read(sgbd, tree_name):
