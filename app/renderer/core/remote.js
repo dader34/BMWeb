@@ -33,6 +33,23 @@ const Remote = {
   ending: false,       // set while end() runs, so onclose does not re-host
   waiters: [],         // helper: resolvers parked until the channel opens
 
+  // ---- OWNER-SIDE ACCESS POLICY (the security boundary) --------------------
+  // The helper's browser is attacker-controllable, so NONE of the safety
+  // decisions may live there. These are set by the OWNER at host() time and
+  // enforced in _ownerHandle before a single telegram touches the car:
+  //   access        'rw' | 'ro'  -- 'ro' refuses every write/actuator route
+  //   confirmActions bool         -- writes/actuators wait for owner approval
+  //   accepted       bool         -- the owner has admitted THIS helper
+  // Defaults are the safe ones: read-only is not the default (a session is
+  // usually meant to help), but confirm-actions IS on, and a helper is never
+  // accepted until the owner clicks accept. onGate/onAccept are UI hooks.
+  access: 'rw',
+  confirmActions: true,
+  accepted: false,
+  onGate: null,        // (job, sgbd, arg) -> Promise<bool>  owner approves a write
+  onAccept: null,      // (info) -> Promise<bool>            owner admits a helper
+  peerInfo: null,      // {ip, ua, at} best-effort helper details for the prompt
+
   // signaling endpoint: the beta worker, /rtc/*. Reuses the same base the
   // report endpoint uses so there is one worker to run, not two.
   base() {
@@ -88,23 +105,80 @@ const Remote = {
   // ---- owner: run a forwarded request through the REAL shim ----------------
 
   async _ownerHandle(msg) {
-    // the helper asked us to fetch a car route; run it locally (real shim)
-    // and return the JSON. window.fetch here is the shim's own fetch.
     if (msg.t !== 'req') return;
+    // EVERYTHING below runs on the OWNER, the only party at the car and the
+    // only one that cannot be spoofed. The helper's request is DATA, never a
+    // command we trust: validate the route, enforce the access level, and get
+    // owner approval for writes -- all before window.fetch touches the wire.
+    const reply = (status, body) => this._send({ t: 'res', id: msg.id, status, body });
+
+    // (1) ROUTE ALLOWLIST on the owner side. The helper-side filter is on the
+    // wrong side of the trust boundary; this is the one that counts. Only the
+    // sanctioned car routes may run -- anything else is refused, never fetched.
+    const rel = String(msg.path || '');
+    if (!REMOTE_CAR_ROUTE.test(rel)) {
+      this.log(`refused (not a car route): ${rel.slice(0, 80)}`);
+      return reply(403, { error: 'remote: route not permitted' });
+    }
+
+    // classify what this request would do to the car
+    const runM = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(rel);
+    const sgbd = runM ? runM[1] : '';
+    const verb = runM ? runM[2] : (/\/(port|state)\b/.test(rel) ? 'read' : '');
+    const job = runM ? decodeURIComponent(runM[3]) : '';
+    // clear/write/flash routes are writes by definition; a /run/ job is a write
+    // when the classifier says so (same isWriteJob the local write-guard uses),
+    // and STEUERN_/STELL_ actuator drives count as dangerous too.
+    const isW = typeof isWriteJob === 'function' ? isWriteJob(job) : false;
+    const isActuator = /^(STEUERN|STELL|START)/i.test(job);
+    const dangerous = verb === 'clear' || verb === 'write' || verb === 'flash'
+      || isW || isActuator;
+
+    // (2) ACCESS LEVEL. A read-only share refuses every write/actuator, so the
+    // car cannot be written no matter what the helper's browser sends.
+    if (this.access === 'ro' && dangerous) {
+      this.log(`blocked (read-only session): ${sgbd} ${job || verb}`);
+      return reply(403, { error: 'remote: this session is read-only' });
+    }
+
+    // (3) PER-ACTION CONFIRM. When on (default), a write/actuator waits for the
+    // owner to approve THIS job before it runs -- the confirm lives here, not
+    // in the helper's UI which the attacker controls. Reads never prompt, so a
+    // normal session stays frictionless.
+    if (dangerous && this.confirmActions && typeof this.onGate === 'function') {
+      this.log(`awaiting your approval: ${sgbd} ${job || verb}`);
+      let ok = false;
+      try { ok = await this.onGate({ sgbd, job: job || verb, arg: this._argOf(msg) }); }
+      catch { ok = false; }
+      if (!ok) {
+        this.log(`you declined: ${sgbd} ${job || verb}`);
+        return reply(403, { error: 'remote: the car owner declined this action' });
+      }
+    }
+
+    // approved -- run it through the owner's REAL shim and return the JSON.
+    this.log(`job ${sgbd || ''} ${job || verb} · running…`);
     let status = 200, body;
     try {
-      const res = await window.fetch(msg.path, msg.init || undefined);
+      const res = await window.fetch(rel, msg.init || undefined);
       status = res.status;
       body = await res.json().catch(() => ({}));
-      const run = /\/api\/ecu\/([^/]+)\/run\/([^/?]+)/.exec(msg.path);
-      if (run) {
-        this.log(`job ${run[1]} ${decodeURIComponent(run[2])} `
-          + `· ${(body.system && '') || ''}${status === 200 ? 'ok' : status}`);
+      if (runM || verb === 'read') {
+        this.log(`job ${sgbd || ''} ${job || verb} · ${status === 200 ? 'ok' : status}`);
       }
     } catch (e) {
       status = 500; body = { error: e.message };
     }
-    this._send({ t: 'res', id: msg.id, status, body });
+    reply(status, body);
+  },
+
+  _argOf(msg) {
+    // best-effort: show the owner the job's argument if the helper sent one
+    try {
+      const q = String(msg.path || '').split('?')[1] || '';
+      const p = new URLSearchParams(q);
+      return p.get('arg') || p.get('args') || (msg.init && msg.init.body) || '';
+    } catch { return ''; }
   },
 
   // ---- helper: turn a car fetch into a peer request -----------------------
@@ -172,8 +246,59 @@ const Remote = {
   _onMessage(ev) {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
-    if (this.role === 'owner') this._ownerHandle(msg);
-    else if (msg.t === 'res') this._helperResponse(msg);
+    if (this.role === 'owner') {
+      // the helper's greeting: hold it for the owner to accept before ANY job
+      // is honoured. Until accepted, every request is refused.
+      if (msg.t === 'hello') { this._ownerAccept(msg); return; }
+      if (!this.accepted) {
+        if (msg.t === 'req') this._send({ t: 'res', id: msg.id, status: 403,
+          body: { error: 'remote: the owner has not admitted this helper yet' } });
+        return;
+      }
+      this._ownerHandle(msg);
+    } else {
+      if (msg.t === 'admit') this._helperAdmitted(msg);
+      else if (msg.t === 'res') this._helperResponse(msg);
+    }
+  },
+
+  // OWNER: a helper's channel opened and it said hello. Do NOT go live or run
+  // anything until the owner clicks accept -- connecting the DataChannel is not
+  // consent. Show who is asking (best-effort details) and wait.
+  async _ownerAccept(hello) {
+    this.peerInfo = {
+      ua: String((hello && hello.ua) || '').slice(0, 200),
+      at: Date.now(),
+      ip: (hello && hello.ip) || this._peerIp || null,
+    };
+    let ok = false;
+    if (typeof this.onAccept === 'function') {
+      try { ok = await this.onAccept(this.peerInfo); } catch { ok = false; }
+    } else { ok = true; }            // no UI hook (headless/tests): admit
+    if (this.ending || this.role !== 'owner') return;
+    if (!ok) {
+      this.log('you declined the helper');
+      this._send({ t: 'admit', ok: false });
+      // drop this helper but keep the code alive for another try
+      this._rehost().catch((e) => this.end(e.message));
+      return;
+    }
+    this.accepted = true;
+    this.log('you admitted the helper');
+    if (this.onState) this.onState('live');
+    this._send({ t: 'admit', ok: true, access: this.access });
+  },
+
+  // HELPER: the owner accepted (or refused). Only now is the session usable.
+  _helperAdmitted(msg) {
+    if (msg.ok) {
+      this.access = msg.access || 'rw';
+      this._wake();
+      if (this.onState) this.onState('live');
+      this.log('the owner admitted you — connected to the car');
+    } else {
+      this.end('the owner declined the connection');
+    }
   },
 
   // ---- connection lifecycle ------------------------------------------------
@@ -181,10 +306,19 @@ const Remote = {
   _wire(chan) {
     this.chan = chan;
     chan.onopen = () => {
-      this._wake();
-      if (this.onState) this.onState('live');
-      this.log(this.role === 'owner'
-        ? 'helper connected' : 'connected to the car');
+      if (this.role === 'owner') {
+        // wait for the helper's hello, then for the owner to accept. Not live
+        // yet, and _wake stays parked so no queued helper request runs.
+        this.accepted = false;
+        this.log('someone is connecting — waiting to admit them…');
+        if (this.onState) this.onState('connecting');
+      } else {
+        // HELPER: greet the owner; the session is not usable until admitted.
+        this.log('connected — waiting for the owner to admit you…');
+        this._send({ t: 'hello', ua: (typeof navigator !== 'undefined'
+          && navigator.userAgent) || '' });
+        // do NOT _wake here; _helperAdmitted does once the owner accepts.
+      }
     };
     chan.onclose = () => {
       if (this.ending) return;
@@ -229,6 +363,10 @@ const Remote = {
   // Drop every piece of a previous session so a new host()/join() starts
   // clean. Silent: no hooks, no log. end() is the loud version.
   _teardown() {
+    // a new/reconnecting helper must be admitted afresh -- consent never
+    // carries across peers or across a re-host under the same code.
+    this.accepted = false;
+    this.peerInfo = null;
     if (this.poll) { clearInterval(this.poll); this.poll = null; }
     for (const [, p] of this.pending) {
       clearTimeout(p.timer);
@@ -308,11 +446,17 @@ const Remote = {
   },
 
   // OWNER: create the session, wait for the helper's answer + ICE.
-  async host() {
+  // opts.access ('rw'|'ro') and opts.confirmActions (bool) are the owner's
+  // policy for THIS session, enforced in _ownerHandle. Defaults: full access,
+  // confirm on -- the safe pair.
+  async host(opts = {}) {
     if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
     this._teardown();                        // whatever came before
     if (this.role === 'helper') uninstallRemoteHelperShim();
     this.role = 'owner';
+    this.access = opts.access === 'ro' ? 'ro' : 'rw';
+    this.confirmActions = opts.confirmActions !== false;
+    this.accepted = false;
     this.code = this.newCode();
     if (this.onState) this.onState('connecting');
     await this._offer();
@@ -430,10 +574,40 @@ function showRemoteDialog() {
           Share your car with someone, or connect to a shared car. The car
           stays on this machine &mdash; only jobs cross the connection, and it
           is direct browser&#8209;to&#8209;browser once linked.</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;flex-wrap:wrap" id="rm-choose">
           <button class="btn primary" id="rm-host">Share my car</button>
           <button class="btn" id="rm-join">Connect to a car</button>
         </div>
+
+        <div id="rm-share-opts" style="display:none;margin-top:6px">
+          <div style="font-weight:600;margin-bottom:4px">Share my car</div>
+          <p style="margin:0 0 12px;color:var(--ink-dim);font-size:13px">
+            What should the helper be able to do? These are enforced on this
+            machine &mdash; the one at the car &mdash; not the helper's.</p>
+
+          <div style="font-size:12px;color:var(--ink-dim);margin-bottom:5px">
+            Access</div>
+          <label class="rm-opt">
+            <input type="radio" name="rm-access" value="rw" checked>
+            <span><strong>Read + write</strong> &mdash; read faults and live
+              values, clear codes, run activations, code modules.</span></label>
+          <label class="rm-opt">
+            <input type="radio" name="rm-access" value="ro">
+            <span><strong>Read only</strong> &mdash; read faults and live
+              values only. Writes and activations are refused.</span></label>
+
+          <label class="rm-opt" style="margin-top:10px">
+            <input type="checkbox" id="rm-confirm" checked>
+            <span><strong>Confirm the helper's actions</strong> &mdash; you
+              approve each write or activation before it reaches the car.
+              Reads never prompt. <span style="color:var(--ink-dim)">Recommended.</span></span></label>
+
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn primary" id="rm-share-go">Get a code</button>
+            <button class="btn" id="rm-share-back">Back</button>
+          </div>
+        </div>
+
         <div id="rm-join-row" style="display:none;margin-top:14px">
           <input id="rm-code" placeholder="SESSION CODE" maxlength="12"
             style="text-transform:uppercase;letter-spacing:.15em;
@@ -454,15 +628,34 @@ function showRemoteDialog() {
   overlay.querySelector('.modal-cancel').onclick = () => close();
   if (!configured) return;
 
+  const choose = overlay.querySelector('#rm-choose');
+  const shareOpts = overlay.querySelector('#rm-share-opts');
+  const joinRow = overlay.querySelector('#rm-join-row');
+
   overlay.querySelector('#rm-join').onclick = () => {
-    overlay.querySelector('#rm-join-row').style.display = 'block';
+    shareOpts.style.display = 'none';
+    joinRow.style.display = 'block';
     overlay.querySelector('#rm-code').focus();
   };
-  overlay.querySelector('#rm-host').onclick = async () => {
+  // Share is now a two-step flow: pick the access level + confirm setting,
+  // THEN get a code. The owner decides the session's ceiling up front.
+  overlay.querySelector('#rm-host').onclick = () => {
+    joinRow.style.display = 'none';
+    choose.style.display = 'none';
+    shareOpts.style.display = 'block';
+  };
+  overlay.querySelector('#rm-share-back').onclick = () => {
+    shareOpts.style.display = 'none';
+    choose.style.display = 'flex';
+  };
+  overlay.querySelector('#rm-share-go').onclick = async () => {
+    const access = overlay.querySelector('input[name="rm-access"]:checked')?.value === 'ro'
+      ? 'ro' : 'rw';
+    const confirmActions = overlay.querySelector('#rm-confirm')?.checked !== false;
     try {
-      const code = await Remote.host();
+      const code = await Remote.host({ access, confirmActions });
       close();
-      showOwnerConsole(code);
+      showOwnerConsole(code, { access, confirmActions });
     } catch (e) {
       overlay.querySelector('#remote-body').innerHTML =
         `<div class="modal-body">Could not start: ${esc(e.message)}</div>`;
@@ -494,8 +687,12 @@ function showRemoteDialog() {
 // OWNER: a persistent console -- the code to share, a live log of what the
 // helper runs on the car, and a big end button. This is the owner's window
 // onto their own car while someone else drives it.
-function showOwnerConsole(code) {
+function showOwnerConsole(code, opts = {}) {
   document.getElementById('owner-console')?.remove();
+  const access = opts.access === 'ro' ? 'ro' : 'rw';
+  const confirmOn = opts.confirmActions !== false;
+  const accessLabel = access === 'ro' ? 'Read only'
+    : (confirmOn ? 'Read + write · you approve each action' : 'Read + write');
   const el = document.createElement('div');
   el.id = 'owner-console';
   el.className = 'owner-console';
@@ -511,13 +708,57 @@ function showOwnerConsole(code) {
       </div>
     </div>
     <div class="oc-code" id="oc-code">${esc(code)}</div>
+    <div class="oc-access mono" id="oc-access">${esc(accessLabel)}</div>
     <div class="oc-state" id="oc-state">waiting for someone to connect…</div>
+    <div class="oc-gate" id="oc-gate" style="display:none"></div>
     <div class="oc-log mono" id="oc-log"></div>
     <div class="oc-pill" id="oc-pill" title="Expand">
       <span class="rb-dot"></span><span class="mono">${esc(code)}</span>
       <span class="oc-pill-state" id="oc-pill-state">waiting</span>
     </div>`;
   document.body.appendChild(el);
+  const gateEl = el.querySelector('#oc-gate');
+
+  // ADMIT a connecting helper. Returns a promise the accept flow awaits: the
+  // channel is open but nothing runs until the owner clicks Admit. Shows the
+  // best-effort details we have about who is asking.
+  Remote.onAccept = (info) => new Promise((resolve) => {
+    el.classList.remove('oc-min');   // a decision is waiting — never hidden in the pill
+    const when = new Date(info.at || Date.now()).toLocaleTimeString();
+    const ua = (info.ua || '').replace(/\s+/g, ' ').slice(0, 90) || 'unknown device';
+    const ip = info.ip ? ` · ${esc(info.ip)}` : '';
+    gateEl.className = 'oc-gate oc-gate-admit';
+    gateEl.style.display = 'block';
+    gateEl.innerHTML = `
+      <div class="oc-gate-t">Someone is connecting</div>
+      <div class="oc-gate-d mono">${esc(ua)}<br>connected ${esc(when)}${ip}</div>
+      <div class="oc-gate-btns">
+        <button class="btn primary" id="oc-admit">Admit</button>
+        <button class="btn" id="oc-reject">Reject</button>
+      </div>`;
+    const done = (ok) => { gateEl.style.display = 'none'; gateEl.innerHTML = ''; resolve(ok); };
+    gateEl.querySelector('#oc-admit').onclick = () => done(true);
+    gateEl.querySelector('#oc-reject').onclick = () => done(false);
+  });
+
+  // APPROVE a single write/actuator. Only fires when the session allows writes
+  // and confirm is on; reads never reach here.
+  Remote.onGate = (j) => new Promise((resolve) => {
+    el.classList.remove('oc-min');   // a write is waiting — never hidden in the pill
+    gateEl.className = 'oc-gate oc-gate-write';
+    gateEl.style.display = 'block';
+    gateEl.innerHTML = `
+      <div class="oc-gate-t">Helper wants to run</div>
+      <div class="oc-gate-d mono">${esc(j.sgbd || '')} · ${esc(j.job || '')}${
+        j.arg ? ` (${esc(String(j.arg).slice(0, 40))})` : ''}</div>
+      <div class="oc-gate-btns">
+        <button class="btn primary" id="oc-allow">Allow</button>
+        <button class="btn danger" id="oc-deny">Deny</button>
+      </div>`;
+    const done = (ok) => { gateEl.style.display = 'none'; gateEl.innerHTML = ''; resolve(ok); };
+    gateEl.querySelector('#oc-allow').onclick = () => done(true);
+    gateEl.querySelector('#oc-deny').onclick = () => done(false);
+  });
   // the console sits over the bottom-right of the screen -- exactly where a
   // module's F-keys and readouts live. Collapse it to a pill and back.
   const setMin = (min) => { el.classList.toggle('oc-min', min);

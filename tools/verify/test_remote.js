@@ -77,18 +77,68 @@ const early = Remote.request('/api/port');
 await tick();
 assert.strictEqual(sent.length, 0, 'nothing sent while the channel is down');
 assert.strictEqual(Remote.waiters.length, 1, 'the request is parked');
-// the channel arrives and opens: _wire hooks it, onopen wakes the waiter
+// the channel arrives and opens: _wire hooks it. On open the helper now sends
+// a `hello` and PARKS -- consent first. The parked car request must NOT flush
+// until the owner admits (an untrusted helper cannot command the car merely by
+// completing ICE).
 const chan = { readyState: 'connecting', send: (s) => sent.push(JSON.parse(s)) };
 Remote._wire(chan);
 chan.readyState = 'open';
 chan.onopen();
 await tick();
-assert.strictEqual(sent.length, 1, 'parked request sent once the channel opened');
-assert.strictEqual(sent[0].path, '/api/port');
-Remote._helperResponse({ t: 'res', id: sent[0].id, status: 200,
+assert.strictEqual(sent.length, 1, 'on open the helper sends exactly one message');
+assert.strictEqual(sent[0].t, 'hello', 'and it is the hello, not the car request');
+assert.strictEqual(Remote.waiters.length, 1, 'the car request stays parked pre-admit');
+// owner admits: only now does the parked request go to the car
+Remote._onMessage({ data: JSON.stringify({ t: 'admit', ok: true, access: 'rw' }) });
+await tick();
+assert.strictEqual(sent.length, 2, 'the parked request flushes once admitted');
+assert.strictEqual(sent[1].path, '/api/port');
+Remote._helperResponse({ t: 'res', id: sent[1].id, status: 200,
   body: { port: '/dev/cu.usbserial-OWNER' } });
 assert.strictEqual((await (await early).json()).port, '/dev/cu.usbserial-OWNER');
-ok('a car fetch before the channel opens waits, then goes to the owner');
+ok('a car fetch waits for the channel AND the owner admitting, then goes over');
+
+// ---- 4b. the owner gate: read-only refuses writes, confirm gates them ------
+const oreq = [];
+Remote.role = 'owner';
+Remote.chan = { readyState: 'open', send: (s) => oreq.push(JSON.parse(s)) };
+Remote.accepted = true;
+// read-only: a write route is refused without ever fetching
+Remote.access = 'ro'; Remote.confirmActions = false;
+global.window = { fetch: async () => { throw new Error('MUST NOT FETCH'); } };
+await Remote._ownerHandle({ t: 'req', id: 'w1',
+  path: '/api/ecu/zke5/clear/FS_LOESCHEN' });
+assert.strictEqual(oreq.at(-1).status, 403, 'read-only session refuses a write');
+// a non-car route is refused by the owner-side allowlist too
+await Remote._ownerHandle({ t: 'req', id: 'w2', path: '/api/chassis/E46' });
+assert.strictEqual(oreq.at(-1).status, 403, 'owner refuses a non-car route');
+// rw + confirm on: the owner must approve; deny => refused, no fetch
+Remote.access = 'rw'; Remote.confirmActions = true;
+Remote.onGate = async () => false;
+await Remote._ownerHandle({ t: 'req', id: 'w3',
+  path: '/api/ecu/zke5/clear/FS_LOESCHEN' });
+assert.strictEqual(oreq.at(-1).status, 403, 'a denied write is refused, not run');
+// approve => it runs through the owner shim
+Remote.onGate = async () => true;
+global.window = { fetch: async () => new Response(JSON.stringify({ ok: 1 }), { status: 200 }) };
+await Remote._ownerHandle({ t: 'req', id: 'w4',
+  path: '/api/ecu/zke5/clear/FS_LOESCHEN' });
+assert.strictEqual(oreq.at(-1).status, 200, 'an approved write runs');
+// a read is never gated even with confirm on
+let gateCalls = 0; Remote.onGate = async () => { gateCalls++; return true; };
+await Remote._ownerHandle({ t: 'req', id: 'r1', path: '/api/port' });
+assert.strictEqual(gateCalls, 0, 'reads never prompt the owner');
+assert.strictEqual(oreq.at(-1).status, 200, 'a read runs straight through');
+// a request before the owner admits is refused
+Remote.accepted = false;
+Remote._onMessage({ data: JSON.stringify({ t: 'req', id: 'r2', path: '/api/port' }) });
+await tick();
+assert.strictEqual(oreq.at(-1).status, 403, 'nothing runs before the owner admits');
+Remote.onGate = null; global.window = undefined;
+// restore helper role + a clean channel for the teardown test that follows
+Remote.role = 'helper'; Remote.accepted = false; Remote.chan = null;
+ok('owner gate: read-only blocks writes, confirm gates writes, reads pass, pre-admit blocked');
 
 // ---- 5. teardown rejects what is parked; the session does not leak ---------
 Remote.chan = null;
