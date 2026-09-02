@@ -213,7 +213,7 @@ const Remote = {
       const id = `${++this.seq}`;
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error('remote timeout — the owner did not answer'));
+        reject(new Error('remote timeout: the owner did not answer'));
       }, 60000);
       this.pending.set(id, { resolve, reject, timer });
       // strip method/body to a structured-clonable shape
@@ -295,7 +295,7 @@ const Remote = {
       this.access = msg.access || 'rw';
       this._wake();
       if (this.onState) this.onState('live');
-      this.log('the owner admitted you — connected to the car');
+      this.log('the owner admitted you. Connected to the car');
     } else {
       this.end('the owner declined the connection');
     }
@@ -310,11 +310,11 @@ const Remote = {
         // wait for the helper's hello, then for the owner to accept. Not live
         // yet, and _wake stays parked so no queued helper request runs.
         this.accepted = false;
-        this.log('someone is connecting — waiting to admit them…');
+        this.log('someone is connecting. Waiting to admit them…');
         if (this.onState) this.onState('connecting');
       } else {
         // HELPER: greet the owner; the session is not usable until admitted.
-        this.log('connected — waiting for the owner to admit you…');
+        this.log('connected. Waiting for the owner to admit you…');
         this._send({ t: 'hello', ua: (typeof navigator !== 'undefined'
           && navigator.userAgent) || '' });
         // do NOT _wake here; _helperAdmitted does once the owner accepts.
@@ -387,7 +387,7 @@ const Remote = {
     const code = this.code;
     this._teardown();
     this.role = 'owner'; this.code = code;
-    this.log('helper disconnected — the same code reconnects');
+    this.log('helper disconnected. The same code reconnects');
     if (this.onState) this.onState('connecting');
     await this._offer();
   },
@@ -410,7 +410,7 @@ const Remote = {
       if (r && r.answer && !answered) {
         answered = true;
         await this.pc.setRemoteDescription(r.answer);
-        this.log('helper joined — negotiating');
+        this.log('helper joined. Negotiating');
         // older clients still trickle; keep draining for them
         await this._drainIce('helperIce');
       }
@@ -450,7 +450,7 @@ const Remote = {
   // policy for THIS session, enforced in _ownerHandle. Defaults: full access,
   // confirm on -- the safe pair.
   async host(opts = {}) {
-    if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
+    if (!this.base()) throw new Error('no signaling endpoint. Set one in Settings');
     this._teardown();                        // whatever came before
     if (this.role === 'helper') uninstallRemoteHelperShim();
     this.role = 'owner';
@@ -465,7 +465,7 @@ const Remote = {
 
   // HELPER: join by code, answer the owner's offer.
   async join(code) {
-    if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
+    if (!this.base()) throw new Error('no signaling endpoint. Set one in Settings');
     this._teardown();                        // a second connect starts clean
     this.role = 'helper';
     this.code = String(code || '').trim().toUpperCase();
@@ -481,7 +481,7 @@ const Remote = {
       await this._gathered(this.pc);
       await this.sig('answer', { answer: this.pc.localDescription }).catch((e) => {
         throw new Error(/taken/.test(e.message)
-          ? 'that session already has a helper — ask the owner to end it and share again'
+          ? 'that session already has a helper. Ask the owner to end it and share again'
           : e.message);
       });
     } catch (e) {
@@ -572,7 +572,7 @@ function showRemoteDialog() {
         ${configured ? `
         <p style="margin:0 0 14px;color:var(--ink-dim);font-size:13px">
           Share your car with someone, or connect to a shared car. The car
-          stays on this machine &mdash; only jobs cross the connection, and it
+          stays on this machine. Only jobs cross the connection, and it
           is direct browser&#8209;to&#8209;browser once linked.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap" id="rm-choose">
           <button class="btn primary" id="rm-host">Share my car</button>
@@ -583,22 +583,22 @@ function showRemoteDialog() {
           <div style="font-weight:600;margin-bottom:4px">Share my car</div>
           <p style="margin:0 0 12px;color:var(--ink-dim);font-size:13px">
             What should the helper be able to do? These are enforced on this
-            machine &mdash; the one at the car &mdash; not the helper's.</p>
+            machine, the one at the car, not the helper's.</p>
 
           <div style="font-size:12px;color:var(--ink-dim);margin-bottom:5px">
             Access</div>
           <label class="rm-opt">
             <input type="radio" name="rm-access" value="rw" checked>
-            <span><strong>Read + write</strong> &mdash; read faults and live
+            <span><strong>Read + write</strong>: read faults and live
               values, clear codes, run activations, code modules.</span></label>
           <label class="rm-opt">
             <input type="radio" name="rm-access" value="ro">
-            <span><strong>Read only</strong> &mdash; read faults and live
+            <span><strong>Read only</strong>: read faults and live
               values only. Writes and activations are refused.</span></label>
 
           <label class="rm-opt" style="margin-top:10px">
             <input type="checkbox" id="rm-confirm" checked>
-            <span><strong>Confirm the helper's actions</strong> &mdash; you
+            <span><strong>Confirm the helper's actions</strong>: you
               approve each write or activation before it reaches the car.
               Reads never prompt. <span style="color:var(--ink-dim)">Recommended.</span></span></label>
 
@@ -723,7 +723,7 @@ function showOwnerConsole(code, opts = {}) {
   // channel is open but nothing runs until the owner clicks Admit. Shows the
   // best-effort details we have about who is asking.
   Remote.onAccept = (info) => new Promise((resolve) => {
-    el.classList.remove('oc-min');   // a decision is waiting — never hidden in the pill
+    el.classList.remove('oc-min');   // a decision is waiting, never hidden in the pill
     const when = new Date(info.at || Date.now()).toLocaleTimeString();
     const ua = (info.ua || '').replace(/\s+/g, ' ').slice(0, 90) || 'unknown device';
     const ip = info.ip ? ` · ${esc(info.ip)}` : '';
@@ -744,7 +744,7 @@ function showOwnerConsole(code, opts = {}) {
   // APPROVE a single write/actuator. Only fires when the session allows writes
   // and confirm is on; reads never reach here.
   Remote.onGate = (j) => new Promise((resolve) => {
-    el.classList.remove('oc-min');   // a write is waiting — never hidden in the pill
+    el.classList.remove('oc-min');   // a write is waiting, never hidden in the pill
     gateEl.className = 'oc-gate oc-gate-write';
     gateEl.style.display = 'block';
     gateEl.innerHTML = `
@@ -776,8 +776,8 @@ function showOwnerConsole(code, opts = {}) {
   Remote.onState = (s) => {
     const st = el.querySelector('#oc-state');
     if (!st) return;
-    st.textContent = s === 'live' ? '● live — helper is connected'
-      : s === 'connecting' ? 'waiting for the helper — the code above connects'
+    st.textContent = s === 'live' ? '● live: helper is connected'
+      : s === 'connecting' ? 'waiting for the helper. The code above connects'
       : 'session ended';
     st.className = 'oc-state' + (s === 'live' ? ' oc-live' : '');
     const ps = el.querySelector('#oc-pill-state');
@@ -808,7 +808,7 @@ function showRemoteBar() {
   b.querySelector('#rb-end').onclick = () => { Remote.end('you disconnected'); };
   Remote.onState = (s) => {
     if (s === 'live' && typeof sbLeft !== 'undefined') {
-      sbLeft.textContent = 'connected — driving the shared car';
+      sbLeft.textContent = 'connected: driving the shared car';
     }
     if (s === 'closed') {
       document.getElementById('remote-badge')?.remove();
