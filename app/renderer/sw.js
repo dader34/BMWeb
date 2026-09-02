@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v58';   // v58: remote diag owner-side consent (on top of Tool32 trace/test v57)
+const CACHE_NAME = 'bmweb-v62';   // v62: reads never prompt (port|state routes not classified via default-deny)
 
 
 const CORE_ASSETS = [

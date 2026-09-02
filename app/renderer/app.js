@@ -664,6 +664,9 @@ function setupMobileTabbar() {
     setTimeout(() => {
       dismissSplash();
       maybeOfferTutorial(); // one-time, first boot only
+      // resume an owner's share across a reload: re-host the same code and
+      // bring the console back (no-op if there was no active share)
+      if (typeof resumeRemoteShare === 'function') resumeRemoteShare();
     }, wait);
     openStart().catch(e => {
       view.innerHTML = errorBlock(e.message, 'red');

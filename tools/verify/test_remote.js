@@ -104,6 +104,9 @@ const oreq = [];
 Remote.role = 'owner';
 Remote.chan = { readyState: 'open', send: (s) => oreq.push(JSON.parse(s)) };
 Remote.accepted = true;
+// a realistic classifier so read jobs are seen as reads and *_SCHREIBEN as
+// writes -- mirrors bestvm's isWriteJob (read token wins, else default-deny)
+global.isWriteJob = (n) => !/LESEN|STATUS|READ/i.test(String(n || ''));
 // read-only: a write route is refused without ever fetching
 Remote.access = 'ro'; Remote.confirmActions = false;
 global.window = { fetch: async () => { throw new Error('MUST NOT FETCH'); } };
@@ -125,17 +128,23 @@ global.window = { fetch: async () => new Response(JSON.stringify({ ok: 1 }), { s
 await Remote._ownerHandle({ t: 'req', id: 'w4',
   path: '/api/ecu/zke5/clear/FS_LOESCHEN' });
 assert.strictEqual(oreq.at(-1).status, 200, 'an approved write runs');
-// a read is never gated even with confirm on
+// reads are never gated even with confirm on -- NONE of these may prompt:
+// /port and /state (no job name -> must not hit the default-deny classifier),
+// and an actual read job on a /run/ route.
 let gateCalls = 0; Remote.onGate = async () => { gateCalls++; return true; };
-await Remote._ownerHandle({ t: 'req', id: 'r1', path: '/api/port' });
-assert.strictEqual(gateCalls, 0, 'reads never prompt the owner');
-assert.strictEqual(oreq.at(-1).status, 200, 'a read runs straight through');
+for (const p of ['/api/port', '/api/state', '/api/state?sgbd=ms450ds0',
+                 '/api/ecu/ms450ds0/run/FS_LESEN',
+                 '/api/ecu/ms450ds0/run/STATUS_LESEN']) {
+  await Remote._ownerHandle({ t: 'req', id: 'r_' + p, path: p });
+  assert.strictEqual(oreq.at(-1).status, 200, `read runs through: ${p}`);
+}
+assert.strictEqual(gateCalls, 0, 'no read of any kind prompts the owner');
 // a request before the owner admits is refused
 Remote.accepted = false;
 Remote._onMessage({ data: JSON.stringify({ t: 'req', id: 'r2', path: '/api/port' }) });
 await tick();
 assert.strictEqual(oreq.at(-1).status, 403, 'nothing runs before the owner admits');
-Remote.onGate = null; global.window = undefined;
+Remote.onGate = null; global.window = undefined; delete global.isWriteJob;
 // restore helper role + a clean channel for the teardown test that follows
 Remote.role = 'helper'; Remote.accepted = false; Remote.chan = null;
 ok('owner gate: read-only blocks writes, confirm gates writes, reads pass, pre-admit blocked');
@@ -206,6 +215,39 @@ assert.strictEqual(ended, true, 'end() must run on a failed connection with no c
 assert.strictEqual(Remote.role, null);
 ok('helper: failed ICE with no channel ends the session (badge comes down)');
 Remote.onState = null;
+
+Remote.role = null; Remote.chan = null;
+
+// ---- 9. share persistence: survives a reload, expires, clears on end -------
+// a tiny in-memory localStorage so the persistence helpers are exercisable
+const store = new Map();
+global.localStorage = {
+  getItem: (k) => (store.has(k) ? store.get(k) : null),
+  setItem: (k, v) => store.set(k, String(v)),
+  removeItem: (k) => store.delete(k),
+};
+// nothing stored -> nothing to resume
+assert.strictEqual(Remote.savedShare(), null, 'no stored share -> null');
+// simulate a share having been persisted
+Remote.code = 'ABCD2345'; Remote.access = 'ro';
+Remote.confirmActions = true; Remote.startedAt = Date.now();
+Remote._persist();
+let s = Remote.savedShare();
+assert.ok(s && s.code === 'ABCD2345' && s.access === 'ro', 'a share round-trips through storage');
+// an OLD share that was never joined is expired and unresumable
+store.set(Remote.SHARE_KEY, JSON.stringify({ code: 'OLD12345', access: 'rw',
+  startedAt: Date.now() - (Remote.EXPIRE_MS + 1000) }));
+assert.strictEqual(Remote.savedShare(), null, 'a >5-min never-joined share is dropped');
+// an old share that WAS joined stays resumable (established sessions persist)
+store.set(Remote.SHARE_KEY, JSON.stringify({ code: 'JOIN2345', access: 'rw',
+  everJoined: true, startedAt: Date.now() - (Remote.EXPIRE_MS + 1000) }));
+assert.ok(Remote.savedShare(), 'an established (joined) share resumes regardless of age');
+// end() clears the stored share so it never auto-resumes after an explicit end
+Remote.role = 'owner'; Remote.code = 'JOIN2345';
+Remote.end('you ended it');
+assert.strictEqual(Remote.savedShare(), null, 'end() clears the persisted share');
+ok('share persists across reload, expires unjoined at 5 min, clears on end');
+delete global.localStorage;
 
 Remote.role = null; Remote.chan = null;
 console.log(`\nremote: ${passed} checks passed`);
