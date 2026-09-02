@@ -128,9 +128,12 @@ const Remote = {
     const job = runM ? decodeURIComponent(runM[3]) : '';
     // clear/write/flash routes are writes by definition; a /run/ job is a write
     // when the classifier says so (same isWriteJob the local write-guard uses),
-    // and STEUERN_/STELL_ actuator drives count as dangerous too.
-    const isW = typeof isWriteJob === 'function' ? isWriteJob(job) : false;
-    const isActuator = /^(STEUERN|STELL|START)/i.test(job);
+    // and STEUERN_/STELL_ actuator drives count as dangerous too. Routes with
+    // NO job (/port, /state) are always reads -- never pass an empty name to
+    // isWriteJob, whose default-deny would wrongly flag it as a write.
+    const isRunFamily = !!runM;              // /run|clear|write|flash/<job>
+    const isW = isRunFamily && typeof isWriteJob === 'function' && isWriteJob(job);
+    const isActuator = isRunFamily && /^(STEUERN|STELL|START)/i.test(job);
     const dangerous = verb === 'clear' || verb === 'write' || verb === 'flash'
       || isW || isActuator;
 
@@ -284,6 +287,13 @@ const Remote = {
       return;
     }
     this.accepted = true;
+    // the share is now established: it no longer expires, and a reload should
+    // resume it silently rather than starting a fresh 5-minute window.
+    if (this._expiry) { clearTimeout(this._expiry); this._expiry = null; }
+    try {
+      const s = JSON.parse(localStorage.getItem(this.SHARE_KEY) || 'null');
+      if (s) { s.everJoined = true; localStorage.setItem(this.SHARE_KEY, JSON.stringify(s)); }
+    } catch {}
     this.log('you admitted the helper');
     if (this.onState) this.onState('live');
     this._send({ t: 'admit', ok: true, access: this.access });
@@ -293,6 +303,11 @@ const Remote = {
   _helperAdmitted(msg) {
     if (msg.ok) {
       this.access = msg.access || 'rw';
+      // let the helper in: drop the full-screen wait, reveal the app + badge
+      if (typeof document !== 'undefined') {
+        document.getElementById('remote-overlay')?.remove();
+        if (typeof showRemoteBar === 'function') showRemoteBar();
+      }
       this._wake();
       if (this.onState) this.onState('live');
       this.log('the owner admitted you. Connected to the car');
@@ -450,17 +465,83 @@ const Remote = {
   // policy for THIS session, enforced in _ownerHandle. Defaults: full access,
   // confirm on -- the safe pair.
   async host(opts = {}) {
-    if (!this.base()) throw new Error('no signaling endpoint. Set one in Settings');
+    return this._share(this.newCode(),
+      { access: opts.access === 'ro' ? 'ro' : 'rw',
+        confirmActions: opts.confirmActions !== false,
+        startedAt: Date.now() });
+  },
+
+  // Re-host an EXISTING share (page reload / auto-reconnect) under the SAME
+  // code and the SAME policy, so the code the owner already gave out keeps
+  // working. The worker re-offer clears the stale answer/ICE for us.
+  async resume(saved) {
+    if (!saved || !saved.code) throw new Error('no session to resume');
+    return this._share(saved.code, {
+      access: saved.access === 'ro' ? 'ro' : 'rw',
+      confirmActions: saved.confirmActions !== false,
+      startedAt: saved.startedAt || Date.now(),
+    });
+  },
+
+  // The share worker for host()/resume(): set the owner policy, remember it so
+  // a reload can restore it, arm the "no helper in 5 min" expiry, then offer.
+  async _share(code, policy) {
+    if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
     this._teardown();                        // whatever came before
     if (this.role === 'helper') uninstallRemoteHelperShim();
     this.role = 'owner';
-    this.access = opts.access === 'ro' ? 'ro' : 'rw';
-    this.confirmActions = opts.confirmActions !== false;
+    this.access = policy.access;
+    this.confirmActions = policy.confirmActions;
+    this.startedAt = policy.startedAt;
     this.accepted = false;
-    this.code = this.newCode();
+    this.code = code;
+    this._persist();                         // survive a reload
+    this._armExpiry();                       // end if nobody joins in 5 min
     if (this.onState) this.onState('connecting');
     await this._offer();
     return this.code;
+  },
+
+  // ---- share persistence + auto-reconnect ---------------------------------
+  // Only the OWNER's SHARE persists (code + policy + when it started) -- never
+  // a live connection (an RTCPeerConnection dies with the page). On the next
+  // load we re-host under the same code. Ends 5 min after startedAt if no
+  // helper was ever admitted.
+  SHARE_KEY: 'bmweb.remote.share',
+  EXPIRE_MS: 5 * 60 * 1000,
+
+  _persist() {
+    try {
+      localStorage.setItem(this.SHARE_KEY, JSON.stringify({
+        code: this.code, access: this.access,
+        confirmActions: this.confirmActions, startedAt: this.startedAt,
+      }));
+    } catch {}
+  },
+  _clearPersist() {
+    try { localStorage.removeItem(this.SHARE_KEY); } catch {}
+  },
+  savedShare() {
+    try {
+      const s = JSON.parse(localStorage.getItem(this.SHARE_KEY) || 'null');
+      if (!s || !s.code) return null;
+      // an expired share (>5 min, never joined) is not resumable
+      if (!s.everJoined && Date.now() - (s.startedAt || 0) > this.EXPIRE_MS) {
+        this._clearPersist(); return null;
+      }
+      return s;
+    } catch { return null; }
+  },
+  _armExpiry() {
+    if (this._expiry) clearTimeout(this._expiry);
+    // once a helper is admitted the share is "established" and does not expire;
+    // until then, end it EXPIRE_MS after it first started.
+    const left = this.EXPIRE_MS - (Date.now() - (this.startedAt || Date.now()));
+    this._expiry = setTimeout(() => {
+      if (this.role === 'owner' && !this.accepted) {
+        this.end('no one connected within 5 minutes');
+      }
+    }, Math.max(1000, left));
   },
 
   // HELPER: join by code, answer the owner's offer.
@@ -493,7 +574,8 @@ const Remote = {
     }
     if (this.onState) this.onState('connecting');
     installRemoteHelperShim();               // route car fetches to the peer
-    if (typeof showRemoteBar === 'function') showRemoteBar();
+    // the REMOTE badge waits until the owner admits (showHelperWaiting covers
+    // the screen until then); _helperAdmitted brings it up.
     this.poll = setInterval(() => this._drainIce('ownerIce'), 1500);
     return true;
   },
@@ -501,14 +583,19 @@ const Remote = {
   end(why) {
     if (this.ending) return;
     this.ending = true;
+    if (this._expiry) { clearTimeout(this._expiry); this._expiry = null; }
+    this._clearPersist();                    // an ended share never auto-resumes
     this._teardown();
     const wasHelper = this.role === 'helper';
     this.role = this.code = null;
+    this.startedAt = null;
     this.ending = false;
     if (wasHelper) uninstallRemoteHelperShim();
     if (this.onState) this.onState('closed');
     if (typeof document !== 'undefined') {
       document.body.classList.remove('remote-helper');
+      // drop any full-screen wait/admit/approve overlay still up
+      document.getElementById('remote-overlay')?.remove();
     }
     if (why && this.onLog) this.onLog(`session ended: ${why}`);
   },
@@ -573,7 +660,7 @@ function showRemoteDialog() {
         <p style="margin:0 0 14px;color:var(--ink-dim);font-size:13px">
           Share your car with someone, or connect to a shared car. The car
           stays on this machine. Only jobs cross the connection, and it
-          is direct browser&#8209;to&#8209;browser once linked.</p>
+          is direct browser-to-browser once linked.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap" id="rm-choose">
           <button class="btn primary" id="rm-host">Share my car</button>
           <button class="btn" id="rm-join">Connect to a car</button>
@@ -589,16 +676,16 @@ function showRemoteDialog() {
             Access</div>
           <label class="rm-opt">
             <input type="radio" name="rm-access" value="rw" checked>
-            <span><strong>Read + write</strong>: read faults and live
+            <span><strong>Read + write.</strong> Read faults and live
               values, clear codes, run activations, code modules.</span></label>
           <label class="rm-opt">
             <input type="radio" name="rm-access" value="ro">
-            <span><strong>Read only</strong>: read faults and live
+            <span><strong>Read only.</strong> Read faults and live
               values only. Writes and activations are refused.</span></label>
 
           <label class="rm-opt" style="margin-top:10px">
             <input type="checkbox" id="rm-confirm" checked>
-            <span><strong>Confirm the helper's actions</strong>: you
+            <span><strong>Confirm the helper's actions.</strong> You
               approve each write or activation before it reaches the car.
               Reads never prompt. <span style="color:var(--ink-dim)">Recommended.</span></span></label>
 
@@ -669,9 +756,11 @@ function showRemoteDialog() {
     try {
       await Remote.join(code);
       close();
-      showRemoteBar();
+      // The channel is up but we are NOT in yet: show a blocking full-screen
+      // wait until the owner admits. showRemoteBar/app come after admit.
+      showHelperWaiting();
       if (typeof sbLeft !== 'undefined') {
-        sbLeft.textContent = 'connecting to the shared car…';
+        sbLeft.textContent = 'waiting for the owner to let you in…';
       }
     } catch (e) {
       btn.disabled = false; btn.textContent = 'Connect';
@@ -684,15 +773,52 @@ function showRemoteDialog() {
     (e) => { if (e.key === 'Enter') go(); });
 }
 
+// ---- full-screen remote overlays -------------------------------------------
+// A single centred, blocking overlay used for the moments that need the user's
+// whole attention on BOTH sides: the helper waiting to be admitted, and the
+// owner admitting a helper or approving a write. Returns { close }.
+function remoteOverlay({ kind, title, body, actions }) {
+  document.getElementById('remote-overlay')?.remove();
+  const el = document.createElement('div');
+  el.id = 'remote-overlay';
+  el.className = 'remote-overlay' + (kind ? ' ro-' + kind : '');
+  el.innerHTML = `
+    <div class="ro-card">
+      ${kind === 'wait' ? '<div class="ro-spinner" aria-hidden="true"></div>' : ''}
+      <div class="ro-title">${esc(title)}</div>
+      <div class="ro-body">${body || ''}</div>
+      <div class="ro-actions">${
+        (actions || []).map((a, i) => `<button class="btn ${a.cls || ''}"
+          data-i="${i}">${esc(a.label)}</button>`).join('')}</div>
+    </div>`;
+  document.body.appendChild(el);
+  const close = () => el.remove();
+  (actions || []).forEach((a, i) => {
+    const b = el.querySelector(`[data-i="${i}"]`);
+    if (b) b.onclick = () => { if (a.keepOpen) a.fn(); else { close(); a.fn && a.fn(); } };
+  });
+  return { el, close };
+}
+
+// HELPER: the full-screen "waiting to be admitted" screen, shown from the
+// moment the channel connects until the owner admits (or declines / cancel).
+function showHelperWaiting() {
+  const { close } = remoteOverlay({
+    kind: 'wait',
+    title: 'Waiting for the owner to let you in',
+    body: `<p>You're connected to the shared car. The owner has to admit you
+      before you can run anything.</p>`,
+    actions: [{ label: 'Cancel', cls: 'danger',
+      fn: () => Remote.end('you cancelled the request') }],
+  });
+  return close;
+}
+
 // OWNER: a persistent console -- the code to share, a live log of what the
 // helper runs on the car, and a big end button. This is the owner's window
 // onto their own car while someone else drives it.
 function showOwnerConsole(code, opts = {}) {
   document.getElementById('owner-console')?.remove();
-  const access = opts.access === 'ro' ? 'ro' : 'rw';
-  const confirmOn = opts.confirmActions !== false;
-  const accessLabel = access === 'ro' ? 'Read only'
-    : (confirmOn ? 'Read + write · you approve each action' : 'Read + write');
   const el = document.createElement('div');
   el.id = 'owner-console';
   el.className = 'owner-console';
@@ -708,56 +834,49 @@ function showOwnerConsole(code, opts = {}) {
       </div>
     </div>
     <div class="oc-code" id="oc-code">${esc(code)}</div>
-    <div class="oc-access mono" id="oc-access">${esc(accessLabel)}</div>
     <div class="oc-state" id="oc-state">waiting for someone to connect…</div>
-    <div class="oc-gate" id="oc-gate" style="display:none"></div>
     <div class="oc-log mono" id="oc-log"></div>
     <div class="oc-pill" id="oc-pill" title="Expand">
       <span class="rb-dot"></span><span class="mono">${esc(code)}</span>
       <span class="oc-pill-state" id="oc-pill-state">waiting</span>
     </div>`;
   document.body.appendChild(el);
-  const gateEl = el.querySelector('#oc-gate');
 
-  // ADMIT a connecting helper. Returns a promise the accept flow awaits: the
-  // channel is open but nothing runs until the owner clicks Admit. Shows the
-  // best-effort details we have about who is asking.
+  // ADMIT a connecting helper -- a full-screen prompt so the owner can't miss
+  // it. Nothing runs until they decide. Shows the best-effort details of who is
+  // asking. The promise the accept flow awaits resolves on the click.
   Remote.onAccept = (info) => new Promise((resolve) => {
-    el.classList.remove('oc-min');   // a decision is waiting, never hidden in the pill
     const when = new Date(info.at || Date.now()).toLocaleTimeString();
-    const ua = (info.ua || '').replace(/\s+/g, ' ').slice(0, 90) || 'unknown device';
-    const ip = info.ip ? ` · ${esc(info.ip)}` : '';
-    gateEl.className = 'oc-gate oc-gate-admit';
-    gateEl.style.display = 'block';
-    gateEl.innerHTML = `
-      <div class="oc-gate-t">Someone is connecting</div>
-      <div class="oc-gate-d mono">${esc(ua)}<br>connected ${esc(when)}${ip}</div>
-      <div class="oc-gate-btns">
-        <button class="btn primary" id="oc-admit">Admit</button>
-        <button class="btn" id="oc-reject">Reject</button>
-      </div>`;
-    const done = (ok) => { gateEl.style.display = 'none'; gateEl.innerHTML = ''; resolve(ok); };
-    gateEl.querySelector('#oc-admit').onclick = () => done(true);
-    gateEl.querySelector('#oc-reject').onclick = () => done(false);
+    const ua = (info.ua || '').replace(/\s+/g, ' ').slice(0, 120) || 'unknown device';
+    const ip = info.ip ? ` &middot; ${esc(info.ip)}` : '';
+    remoteOverlay({
+      kind: 'admit',
+      title: 'Someone wants to connect to your car',
+      body: `<div class="ro-detail mono">${esc(ua)}<br>connected ${esc(when)}${ip}</div>
+        <p>They can read and (if you allow it) command your car. Only admit
+        someone you are expecting.</p>`,
+      actions: [
+        { label: 'Admit', cls: 'primary', fn: () => resolve(true) },
+        { label: 'Reject', cls: 'danger', fn: () => resolve(false) },
+      ],
+    });
   });
 
-  // APPROVE a single write/actuator. Only fires when the session allows writes
-  // and confirm is on; reads never reach here.
+  // APPROVE a single write/actuator -- also full-screen. Only fires when the
+  // session allows writes and confirm is on; reads never reach here.
   Remote.onGate = (j) => new Promise((resolve) => {
-    el.classList.remove('oc-min');   // a write is waiting, never hidden in the pill
-    gateEl.className = 'oc-gate oc-gate-write';
-    gateEl.style.display = 'block';
-    gateEl.innerHTML = `
-      <div class="oc-gate-t">Helper wants to run</div>
-      <div class="oc-gate-d mono">${esc(j.sgbd || '')} · ${esc(j.job || '')}${
-        j.arg ? ` (${esc(String(j.arg).slice(0, 40))})` : ''}</div>
-      <div class="oc-gate-btns">
-        <button class="btn primary" id="oc-allow">Allow</button>
-        <button class="btn danger" id="oc-deny">Deny</button>
-      </div>`;
-    const done = (ok) => { gateEl.style.display = 'none'; gateEl.innerHTML = ''; resolve(ok); };
-    gateEl.querySelector('#oc-allow').onclick = () => done(true);
-    gateEl.querySelector('#oc-deny').onclick = () => done(false);
+    remoteOverlay({
+      kind: 'approve',
+      title: 'Helper wants to run an action on your car',
+      body: `<div class="ro-detail mono">${esc(j.sgbd || '')} &middot; ${esc(j.job || '')}${
+        j.arg ? ` (${esc(String(j.arg).slice(0, 60))})` : ''}</div>
+        <p>This writes to or activates hardware on the car. Allow it only if you
+        expect it.</p>`,
+      actions: [
+        { label: 'Allow', cls: 'primary', fn: () => resolve(true) },
+        { label: 'Deny', cls: 'danger', fn: () => resolve(false) },
+      ],
+    });
   });
   // the console sits over the bottom-right of the screen -- exactly where a
   // module's F-keys and readouts live. Collapse it to a pill and back.
@@ -818,6 +937,29 @@ function showRemoteBar() {
   };
 }
 
+// Auto-resume a share across a page reload. If the last load left an active
+// share (owner, not yet expired), re-host it under the SAME code and bring the
+// console back, so a refresh does not drop a session the owner set up and does
+// not force them to re-share a new code. Called once at boot.
+async function resumeRemoteShare() {
+  const saved = Remote.savedShare && Remote.savedShare();
+  if (!saved || !Remote.base()) return false;
+  try {
+    const code = await Remote.resume(saved);
+    if (typeof showOwnerConsole === 'function') {
+      showOwnerConsole(code, { access: saved.access,
+        confirmActions: saved.confirmActions });
+      if (Remote.onLog) Remote.onLog('reconnected — the same code still works');
+    }
+    return true;
+  } catch (e) {
+    // a dead endpoint or a rejected re-offer: drop the stored share quietly
+    Remote._clearPersist && Remote._clearPersist();
+    return false;
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.showRemoteDialog = showRemoteDialog;
+  window.resumeRemoteShare = resumeRemoteShare;
 }
