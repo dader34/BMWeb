@@ -2322,22 +2322,35 @@ function irInfoCard(scr) {
 }
 
 // One IR screen as the shape renderIdentity consumes.
-function irAsCard(scr, descs) {
+function irAsCard(scr, descs, menuArg) {
   const { rows } = irRows(scr);
+  // A menu-parameterised card (MS450's AIF: every key opens s_aif but reads its
+  // own record) sends the SAME arg for the whole card -- the index the key set.
+  // AIF_LESEN is argFromMenu; without this the card polls it bare (arg 0) and
+  // all keys show the current record. renderIdentity honours a PER-FIELD arg
+  // (jobs[] entries are bare names it reads with no arg), so when the menu
+  // supplies the index, drop the argFromMenu job from jobs[] and instead read
+  // every field via that job WITH the menu arg.
+  const argJobName = menuArg != null
+    ? (scr.jobs || []).find(j => j.argFromMenu && !j.write)?.name : null;
   return {
     title: irLabel(scr.title) || 'Read',
     subtitle: (scr.jobs || []).map(j => j.name).join(' · ') + ' · read-only',
-    // argument-carrying jobs are read per FIELD below, so listing them here
-    // too would read each block twice and keep only the last
-    jobs: (scr.jobs || []).filter(j => !j.write && j.arg == null)
+    // bare-name jobs read with no arg. Exclude fixed-arg jobs (read per field)
+    // AND the menu-arg job (read per field with the menu index, below).
+    jobs: (scr.jobs || [])
+      .filter(j => !j.write && j.arg == null && j.name !== argJobName)
       .map(j => j.name),
     fields: rows.map(r => ({
       key: r.key,
       label: irLabel(r.label || irDescLabel(descs && descs.get(r.key)) || r.key),
-      // INPA reads this row in its own pass, so the card reads it separately
-      ...(r.arg != null
-        ? { arg: r.arg, job: (scr.jobs || []).find(j => !j.write)?.name }
-        : {}),
+      // A menu-parameterised card reads EVERY field through the argFromMenu job
+      // with the menu index; else INPA's own per-field arg, if any.
+      ...(argJobName
+        ? { arg: String(menuArg), job: argJobName }
+        : (r.arg != null
+          ? { arg: r.arg, job: (scr.jobs || []).find(j => !j.write)?.name }
+          : {})),
     })),
   };
 }
@@ -2953,6 +2966,13 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     const toolbarOnly = faultScreen && !irReadable(faultScreen)
       && !(faultScreen.jobs || []).some(j => /^(STEUERN|START|STELL)/i.test(j.name));
     const faultKey = IR_FAULT_READ.test(it.label)
+      // GROUND TRUTH from the bytecode: a key that opens a real submenu is
+      // NAVIGATION, not a read. INPA's "Fehlerspeicher lesen" on the root menu
+      // sets menu m_fehlersp -- whose OWN keys are the read variants (short,
+      // detail, freeze-frame, hex, clear). Reading here would skip that submenu
+      // and fire one read, so a key that irOpensMenu accepts is never a direct
+      // fault-read: let it fall through to the menu branch below.
+      && !irOpensMenu(ir, it, menuName)
       && (it.inPlace
           || (faultScreen && !irReadable(faultScreen)
               && (faultScreen.jobs || []).some(j => /^FS_/i.test(j.name)))
@@ -3320,9 +3340,14 @@ function renderIrMenu(ecu, ir, menuName, container, back, trail = []) {
     // down is the readout path, so run the screen LIVE
     // (falls back to the frozen scr otherwise or on failure).
     const readScr = scr ? await irLiveScreen(ecu, ir, it.screen) : scr;
-    // labelled reads render as the ID-data card, the way the Info tab does
+    // labelled reads render as the ID-data card, the way the Info tab does.
+    // A menu-parameterised card (AIF) reads with the index the key set; without
+    // passing it.sel the card polls its argFromMenu job bare and every key
+    // shows the same record.
     if (readScr && irIsCard(readScr)) {
-      renderIdentity(ecu, irAsCard(readScr, await irDescs(ecu, readScr)),
+      const menuArg = (it.sel != null
+        && (readScr.jobs || []).some(j => j.argFromMenu)) ? it.sel : null;
+      renderIdentity(ecu, irAsCard(readScr, await irDescs(ecu, readScr), menuArg),
                      container, backAct);
       sbLeft.textContent = `${ecu.sgbd}.prg · ${[...trail, it.label].join(' · ')}`;
       return;
