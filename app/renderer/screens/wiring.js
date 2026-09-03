@@ -160,28 +160,23 @@ function wiringDiagramMatch(doc) {
   return wiringApplicability.match(doc, wiringVinHit);
 }
 
-// Should this folder stay visible under the "my car" filter? A folder is kept
-// when its subtree holds at least one diagram DECISIVELY for this vehicle, and
-// hidden when its content is decisively wrong. "Decisive" weighs the off count:
-// a folder dominated by 'off' diagrams (a wrong-engine DME folder) collapses
-// even if a stray chassis-only doc technically 'match'es -- those non-specific
-// docs shouldn't rescue an otherwise-wrong folder. A folder with no 'off' at
-// all (purely generic/neutral content) always stays.
+// Should this folder stay visible under the "my car" filter? Keep it when its
+// subtree holds ANY diagram that isn't 'off' for the VIN (a match, or generic
+// neutral content), and hide it only when EVERY diagram in the subtree is 'off'
+// -- i.e. nothing in it applies to the car. This never hides a container that
+// holds real matches, and collapses only the folders that are entirely wrong.
+// (Off diagrams inside a kept folder are still hidden individually.)
 function wiringSubtreeHasMatch(node) {
-  let off = 0, match = 0;
+  let sawDoc = false;
   const stack = [node];
   while (stack.length) {
     const n = stack.pop();
     for (const c of n.children || []) {
-      if (c.doc) {
-        const m = wiringDiagramMatch(c.doc);
-        if (m === 'match') match++;
-        else if (m === 'off') off++;
-      } else if (c.children) stack.push(c);
+      if (c.doc) { sawDoc = true; if (wiringDiagramMatch(c.doc) !== 'off') return true; }
+      else if (c.children) stack.push(c);
     }
   }
-  if (off === 0) return true;              // nothing wrong -> keep
-  return match > off;                      // keep only if matches outweigh the wrong ones
+  return !sawDoc;   // no diagrams at all -> keep (generic container)
 }
 
 // Is wiring shipped for this chassis? (the section's "resolvable" gate)
