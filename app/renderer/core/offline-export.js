@@ -337,7 +337,7 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   files['data/inline.js'] = enc0.encode(
     `// ${stamp}\n`
     + `console.log(${JSON.stringify(`offline copy: ${stamp}`)});\n`
-    + `window.BMACW_INLINE=${JSON.stringify(inline)};`);
+    + `window.BMACW_OFFLINE=true;window.BMACW_INLINE=${JSON.stringify(inline)};`);
 
   // Wiring diagrams, inlined the same way. Absent for a car WDS never covered
   // (not an error). Opt-out, 2 to 24 MB per car.
@@ -540,7 +540,7 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
   // it holds the payload TWICE; "all cars" is 184 MB, so the peak hit ~700 MB
   // and iOS killed the tab (an OOM kill raises nothing to catch). Emit the
   // object literal as fragments: encode, append and drop each car before the next.
-  const dataParts = ['window.BMACW_INLINE={'];
+  const dataParts = ['window.BMACW_OFFLINE=true;window.BMACW_INLINE={'];
   let first = true;
   for (const id of ids) {
     say(`collecting ${id}`);
