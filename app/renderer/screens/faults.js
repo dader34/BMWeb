@@ -131,9 +131,17 @@ async function addFaultComment(ecu, container) {
 let faultComment = '';
 
 // INPA "Printing" (F9): single-ECU fault report PDF from the last fault read.
-async function exportFaults(ecu, view) {
+async function exportFaults(ecu, view, opts = {}) {
   const faults = lastFaultRead || [];
-  if (!faults.length) { sbLeft.textContent = 'read codes first'; return; }
+  if (!faults.length) {
+    // Nothing read yet. An explicit Print (F-key / click) gets the hint; but
+    // Cmd+P is the OS print gesture and must never be swallowed into a no-op --
+    // the handler already suppressed the native dialog to route here, so hand
+    // the user a real print dialog of the current view instead of silence.
+    if ((opts.viaHotkey || window.__printViaHotkey)
+        && typeof window.print === 'function') { window.print(); return; }
+    sbLeft.textContent = 'read codes first'; return;
+  }
   // Web build has no savePdf bridge: print a clean sheet for this one module
   // through the shared helper instead (reuses the whole-car report builder).
   if (!(window.bmacw && window.bmacw.savePdf)) {

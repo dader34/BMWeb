@@ -294,7 +294,15 @@ function installPrintHotkey() {
     const act = currentPrintAction();
     if (!act) return;                                 // let the native dialog run
     e.preventDefault();
-    act.fn();
+    // Flag the Cmd/Ctrl+P origin so an action that has nothing to print yet
+    // (a Print listed on a menu before anything was read) can fall through to
+    // the native dialog instead of no-opping and swallowing the shortcut.
+    window.__printViaHotkey = true;
+    try { act.fn(); } finally {
+      // clear on the next tick, after fn() has read it (fn may be async, but it
+      // reads the flag synchronously before its first await)
+      setTimeout(() => { window.__printViaHotkey = false; }, 0);
+    }
   }, true);   // capture, to beat the app's own key handler and the dialog
 }
 
