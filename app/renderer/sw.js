@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v63';   // v63: Cmd+P falls through to native print when a menu Print action has nothing to print
+const CACHE_NAME = 'bmweb-v65';   // bmweb-v65: AIF record picker passes its index (each AIF key reads its own UIF record, not the current one)
 
 
 const CORE_ASSETS = [
