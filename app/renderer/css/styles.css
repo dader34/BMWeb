@@ -701,6 +701,61 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 }
 .etk-vin-open:hover { background: rgba(255,158,44,.28); }
 
+/* Save button, right of the decode arrow: same shape as the arrow but ghosted */
+.etk-vin-save {
+  flex: none; font-size: 13px; font-weight: 700; line-height: 1; cursor: pointer;
+  color: var(--amber); background: var(--amber-glow);
+  border: 1px solid var(--amber); border-radius: 8px; padding: 10px 16px;
+}
+.etk-vin-save:hover { background: rgba(255,158,44,.28); }
+
+/* ---- two columns: VIN box + attributes left, saved-vehicles column right -- */
+.etk-vin-layout {
+  display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 16px;
+  align-items: start;
+}
+.etk-vin-left { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.etk-vin-left .etk-fs-vin,
+.etk-vin-left .etk-fs-attr { margin: 0; }
+.etk-saved-panel {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  overflow: hidden; display: flex; flex-direction: column;
+  position: sticky; top: 12px; max-height: calc(100vh - 120px); overflow-y: auto;
+  /* the left box's legend rides on its top border (above the box), so nudge
+     this panel down to sit level with the fieldset's visible border, not its
+     legend text */
+  margin-top: 7px;
+}
+/* stack to one column on narrow screens */
+@media (max-width: 760px) {
+  .etk-vin-layout { grid-template-columns: 1fr; }
+  .etk-saved-panel { position: static; max-height: none; }
+}
+/* Header sits inside the panel; padding tuned (measured) so the first saved row
+   lines up with the VIN input row on the left despite the fieldset's legend. */
+.etk-saved-head {
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+  color: var(--ink-dim); padding: 8px 16px 6px; line-height: 1;
+}
+.etk-saved-empty { font-size: 12.5px; color: var(--ink-dim); padding: 0 14px 14px; }
+.etk-saved-row { display: flex; align-items: stretch; border-top: 1px solid var(--line); }
+.etk-saved-open {
+  flex: 1; display: flex; flex-direction: column; gap: 3px; text-align: left;
+  padding: 10px 14px; background: none; border: none; color: var(--ink);
+  cursor: pointer; font: inherit;
+}
+.etk-saved-open:hover { background: rgba(127,127,127,.10); }
+.etk-saved-veh { font-size: 13.5px; color: var(--ink); }
+.etk-saved-vin {
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em; color: var(--ink-dim);
+}
+.etk-saved-del {
+  flex: none; width: 40px; background: none; border: none;
+  border-left: 1px solid var(--line); color: var(--ink-faint);
+  cursor: pointer; font-size: 12px;
+}
+.etk-saved-del:hover { color: var(--red, #ff6b6b); background: rgba(127,127,127,.10); }
+
 /* ETK-style "identify by attributes" group box */
 /* filter row: Brand dropdown + Auto/Moto + Main/Classic radios, like the
    terminal's brand / product-type / catalogue-scope strip */
@@ -2940,6 +2995,58 @@ body.apps-section .view { inset: 56px 0 0 0; }
 .wds-frame .wiring-loading { color: #333; }
 .wds-frame .wiring-spinner { border-color: #b0b0b0; border-top-color: #000080; }
 
+/* ---- "Identify by VIN" entry card on the wiring picker -------------------
+   Opens the shared VIN decoder (VIN input, Save button, saved-vehicles panel
+   all live there). Rides the theme vars so INPA mode (amber -> navy) follows. */
+.wiring-vin-entry {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
+  margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--line);
+  border-radius: 10px; background: var(--panel); color: var(--ink);
+  cursor: pointer; font: inherit;
+}
+.wiring-vin-entry:hover { border-color: var(--amber); }
+.wiring-vin-entry-body { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.wiring-vin-entry-title { font-size: 15px; font-weight: 700; }
+.wiring-vin-entry-desc { font-size: 12.5px; color: var(--ink-dim); }
+.wiring-vin-entry-arrow { font-size: 18px; color: var(--amber); }
+.wds-frame .wiring-vin-entry { background: #f0f0f0; border-color: #c0c0c0; }
+.wds-frame .wiring-vin-entry-title { color: #000; }
+
+/* ---- VIN applicability filtering (from ISTA applicability data) --------- */
+/* A diagram opened via a decoded VIN is tagged match / off / neutral. Matches
+   are starred; off-build diagrams dim; the "Only my vehicle" toggle hides the
+   off ones. Nothing hidden until the toggle is on. */
+.wiring-vinstar { margin-left: auto; padding-left: 6px; color: var(--amber); font-size: 11px; flex: none; }
+.wiring-leaf.vin-off { opacity: .42; }
+.wiring-leaf.vin-match .wiring-leaf-name { color: var(--ink); font-weight: 600; }
+/* when the filter is on, hide off-build diagrams and any now-empty folder */
+.wiring-body.vin-filtered .wiring-leaf.vin-off { display: none; }
+
+.wiring-vinbanner {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-direction: column;
+  gap: 8px; padding: 10px 12px; margin-bottom: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.wiring-vinbanner-veh { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.wiring-vinbanner-desc { font-size: 13px; color: var(--ink); font-weight: 700; }
+.wiring-vinbanner-vin { font-family: var(--mono); font-size: 10.5px; letter-spacing: .04em; color: var(--ink-faint); }
+/* segmented My car | Show all control */
+.wiring-vinseg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.wiring-vinseg-btn {
+  flex: 1; padding: 7px 10px; font: inherit; font-size: 12px; font-weight: 600;
+  color: var(--ink-dim); background: transparent; border: none; cursor: pointer;
+}
+.wiring-vinseg-btn + .wiring-vinseg-btn { border-left: 1px solid var(--line); }
+.wiring-vinseg-btn:hover { background: rgba(127,127,127,.10); }
+.wiring-vinseg-btn.active { background: var(--amber); color: var(--amber-ink); }
+.wds-frame .wiring-vinbanner { background: #f0f0f0; border-color: #c0c0c0; }
+.wds-frame .wiring-vinbanner-desc { color: #000; }
+.wds-frame .wiring-vinseg-btn.active { background: #000080; color: #fff; }
+
+/* when "my car" is on: hide off-build leaves and folders whose whole subtree
+   is off-build (marked at render time, so lazy folders hide without expanding) */
+.wiring-body.vin-filtered .wiring-folderwrap[data-vin-empty] { display: none; }
+
 /* ============================================================ mobile
    A PHONE IS A REAL TARGET NOW. The single-file export runs on iOS and
    Android next to the car, over the adapter's own WebSocket, with no
@@ -3863,8 +3970,17 @@ body.apps-section .view { inset: 56px 0 0 0; }
     display: flex; flex-direction: column; height: 100%; min-height: 0;
   }
   .wiring-split:not(.wds-frame) .wiring-body { flex: 1; min-height: 0; }
-  .wiring-split:not(.wds-frame) .wiring-nav {
+  /* The visible pane fills the body and scrolls. This flex chain must NOT be
+     handed to the hidden pane: on a phone one pane is shown at a time (the
+     data-pane hide below), and `display:flex` here outranks that hide by
+     specificity -- which left the tree showing on top of a diagram in doc
+     mode. Scope the chain to the shown pane by matching data-pane on the
+     body, so the hide (same specificity, later) wins for the other one. */
+  .wiring-split:not(.wds-frame) .wiring-body:not([data-pane="doc"]) .wiring-nav {
     display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+  }
+  .wiring-split:not(.wds-frame) .wiring-body[data-pane="doc"] .wiring-nav {
+    display: none;
   }
   .wiring-split:not(.wds-frame) .wiring-tree {
     flex: 1; min-height: 0; overflow-y: auto;

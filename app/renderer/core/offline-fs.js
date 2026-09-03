@@ -86,15 +86,15 @@
 
   // ---- read one file by app-relative path ----------------------------------
   // path is what the app fetched, e.g. "api/chassis/E46.chassis",
-  // "data/groups/e46.json.gz", "data/ista/faulttests.json". Returns a minimal
-  // Response-like object so webshim's callers (which do .ok / .json() /
-  // .arrayBuffer() / .text()) work unchanged. A missing file is {ok:false,
-  // status:404}, matching fetch of a 404 -- webFetchGz/webFetchJson turn that
-  // into null and degrade the same way they do online.
+  // "data/groups/e46.json.gz", "data/ista/faulttests.json". Returns a REAL
+  // Response, not a hand-rolled stand-in: some callers read .headers (ETK's
+  // readWithProgress reads content-length) and .body (stream reader), so a
+  // partial shape crashes them. A Response built from the file's bytes carries
+  // all of .ok/.status/.headers/.body/.arrayBuffer()/.json()/.text(). A missing
+  // file is a 404 Response, matching a real fetch -- webFetchGz/webFetchJson
+  // turn that into null and degrade the same way they do online.
   function notFound() {
-    return { ok: false, status: 404, statusText: 'Not Found',
-             arrayBuffer: async () => new ArrayBuffer(0),
-             json: async () => null, text: async () => '' };
+    return new Response(null, { status: 404, statusText: 'Not Found' });
   }
   async function offlineReadFile(path) {
     if (!dirHandle) return notFound();
@@ -108,12 +108,11 @@
       const fh = await dir.getFileHandle(file);
       const f = await fh.getFile();
       const buf = await f.arrayBuffer();
-      return {
-        ok: true, status: 200, statusText: 'OK',
-        arrayBuffer: async () => buf,
-        text: async () => new TextDecoder('utf-8').decode(new Uint8Array(buf)),
-        json: async () => JSON.parse(new TextDecoder('utf-8').decode(new Uint8Array(buf))),
-      };
+      // carry the length so a progress reader can show a real percentage
+      return new Response(buf, {
+        status: 200, statusText: 'OK',
+        headers: { 'Content-Length': String(buf.byteLength) },
+      });
     } catch { return notFound(); }
   }
 

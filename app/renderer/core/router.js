@@ -10,6 +10,7 @@
 //   #apps                 the hub
 //   #apps/diagnostics     Diagnostic Plans and Trouble Codes (showLookup)
 //   #apps/wiring          Wiring Diagrams (showWiringChassis)
+//   #apps/wiring/vin      the wiring VIN decoder (showWiringVinDecoder)
 //   #apps/parts           Parts Catalogue (showEtk)
 //   #apps/parts/vin       the VIN Decoder page (showVinDecoder)
 //   #apps/tool32          Tool32 (showTool32)
@@ -18,6 +19,7 @@ const APPS_ROUTES = {
   'apps': () => (typeof showApps === 'function' ? showApps() : null),
   'apps/diagnostics': () => (typeof showLookup === 'function' ? showLookup() : null),
   'apps/wiring': () => (typeof showWiringChassis === 'function' ? showWiringChassis() : null),
+  'apps/wiring/vin': () => (typeof showWiringVinDecoder === 'function' ? showWiringVinDecoder() : null),
   'apps/parts': () => (typeof showEtk === 'function' ? showEtk() : null),
   'apps/parts/vin': () => (typeof showVinDecoder === 'function' ? showVinDecoder() : null),
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),

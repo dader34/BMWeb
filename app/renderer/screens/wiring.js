@@ -141,6 +141,94 @@ async function wiringChassisList() {
   return WIRING_CHASSIS;
 }
 
+// VIN identification for wiring. The decoder screen (VIN input, Save button and
+// the saved-vehicles panel) is the shared showVinDecoder, reused 1:1 so Parts
+// and Wiring never drift; wiring keeps its own saved list under this key.
+const WIRING_VINS_KEY = 'wiringVins';
+
+// The VIN the current wiring view is filtered against (set by showWiring's vin
+// arg), and whether the user has the "matches my vehicle" filter on. Both are
+// view-scoped; cleared when a chassis opens without a VIN.
+let wiringVinHit = null;
+let wiringVinFilterOn = false;
+
+// Tag a diagram against the current VIN using BMW's own applicability data
+// (SP-doc -> chassis/engine, decoded from ISTA). 'match' | 'off' | 'neutral'.
+// Keyed by the SP DOC ID (leaf.doc), never the diagram name.
+function wiringDiagramMatch(doc) {
+  if (!wiringVinHit || typeof wiringApplicability === 'undefined') return 'neutral';
+  return wiringApplicability.match(doc, wiringVinHit);
+}
+
+// Should this folder stay visible under the "my car" filter? A folder is kept
+// when its subtree holds at least one diagram DECISIVELY for this vehicle, and
+// hidden when its content is decisively wrong. "Decisive" weighs the off count:
+// a folder dominated by 'off' diagrams (a wrong-engine DME folder) collapses
+// even if a stray chassis-only doc technically 'match'es -- those non-specific
+// docs shouldn't rescue an otherwise-wrong folder. A folder with no 'off' at
+// all (purely generic/neutral content) always stays.
+function wiringSubtreeHasMatch(node) {
+  let off = 0, match = 0;
+  const stack = [node];
+  while (stack.length) {
+    const n = stack.pop();
+    for (const c of n.children || []) {
+      if (c.doc) {
+        const m = wiringDiagramMatch(c.doc);
+        if (m === 'match') match++;
+        else if (m === 'off') off++;
+      } else if (c.children) stack.push(c);
+    }
+  }
+  if (off === 0) return true;              // nothing wrong -> keep
+  return match > off;                      // keep only if matches outweigh the wrong ones
+}
+
+// Is wiring shipped for this chassis? (the section's "resolvable" gate)
+async function wiringHasChassis(chassis) {
+  const shipped = await wiringChassisList();
+  return shipped.some(id => String(id).toUpperCase() === String(chassis).toUpperCase());
+}
+
+// The wiring VIN decoder: the SAME screen the Parts catalogue uses (VIN box +
+// identify-by-attributes), retargeted to open wiring and remember the VIN.
+function showWiringVinDecoder() {
+  if (typeof showVinDecoder !== 'function') { showWiringChassis(); return; }
+  showVinDecoder({
+    eyebrow: 'WDS',
+    title: 'Vehicle Identification',
+    subtitle: 'Enter your VIN, or identify your vehicle by series, body and model, to open its wiring.',
+    crumbs: [{ label: 'Vehicles', fn: showChassis },
+             { label: 'Apps', fn: showApps },
+             { label: 'Wiring', fn: showWiringChassis }, { label: 'VIN' }],
+    back: showWiringChassis,
+    savedKey: WIRING_VINS_KEY,     // wiring keeps its own saved-vehicles list
+    resolvable: (chassis) => wiringHasChassis(chassis),
+    openLabel: (disp) => `Open ${disp} diagrams →`,
+    unavailable: (disp) => `⚠ No wiring diagrams shipped for ${disp} yet.`,
+    // carry the decoded VIN into the diagram view so it can filter by build
+    // engine / body, from ISTA's applicability data
+    onResolve: (hit) => showWiring(hit.chassis, null, hit),
+  });
+}
+
+// The "Identify by VIN" entry card shown atop the wiring chassis picker. It
+// opens the full decoder submenu, where the VIN input, Save button and the
+// saved-vehicles panel live.
+function buildWiringVinBox() {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'wiring-vin-entry';
+  card.innerHTML = `
+    <span class="wiring-vin-entry-body">
+      <span class="wiring-vin-entry-title">Identify by VIN</span>
+      <span class="wiring-vin-entry-desc">Enter a VIN, or pick year / make / model, to open its wiring</span>
+    </span>
+    <span class="wiring-vin-entry-arrow">→</span>`;
+  card.onclick = () => showWiringVinDecoder();
+  return card;
+}
+
 // Wiring as its own section: pick the car here rather than arriving via chassis.
 async function showWiringChassis() {
   lastScreen = showWiringChassis;
@@ -148,9 +236,14 @@ async function showWiringChassis() {
              { label: 'Apps', fn: showApps }, { label: 'Wiring' }]);
   sbLeft.textContent = 'wiring';
   view.innerHTML = head('WDS', 'Wiring Diagrams',
-    'BMW’s own schematics. Pick a vehicle to browse its diagrams.');
+    'BMW’s own schematics. Enter a VIN or pick a vehicle to browse its diagrams.');
   setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
                 fn: showApps }]);
+
+  // VIN search: decode the VIN to a chassis (same index the Parts catalogue
+  // uses) and open its wiring. A saved VIN is remembered and pre-filled, so a
+  // returning user is one Enter away from their car.
+  view.appendChild(buildWiringVinBox());
 
   const classic = typeof inpaMode === 'function' && inpaMode();
   const grid = document.createElement('div');
@@ -209,8 +302,12 @@ async function showWiringChassis() {
   ]);
 }
 
-function showWiring(chassisId, openDoc = null) {
-  lastScreen = () => showWiring(chassisId);
+// `vin` (a decoded VIN hit: {prod, body, motor, steer, vin}) turns on ISTA-
+// style applicability filtering: each diagram is tagged match / off / neutral
+// against the vehicle, and a toggle can hide the off ones. Null = no filtering.
+function showWiring(chassisId, openDoc = null, vin = null) {
+  lastScreen = () => showWiring(chassisId, null, vin);
+  wiringVinHit = vin || null;   // module-level so renderTree/search can read it
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: 'Apps', fn: showApps },
@@ -354,7 +451,15 @@ function showWiring(chassisId, openDoc = null) {
   on('#wds-pane-doc', () => setPane('doc'));
   on('#wds-pane-split', () => setPane('split'));
   on('#wds-pane-tree', () => setPane('tree'));
-  setPane(Settings.get('wdsPane', 'split'));
+  // opened via a VIN: the point is the FILTERED TREE, so force it visible even
+  // if the saved pref was diagram-only (don't overwrite that pref). Otherwise
+  // honour the remembered pane.
+  if (wiringVinHit) {
+    const pref = Settings.get('wdsPane', 'split');
+    setPane(pref === 'doc' ? 'split' : pref, false);
+  } else {
+    setPane(Settings.get('wdsPane', 'split'));
+  }
   tipify(split);
 
   // Back from the tree leaves wiring; back from a DIAGRAM on a phone returns to
@@ -379,10 +484,16 @@ function showWiring(chassisId, openDoc = null) {
   ];
   setActions(browseActions);
 
-  loadWiring(chassisId).then((data) => {
+  // load the archive and (when filtering by VIN) BMW's applicability index in
+  // parallel, so leaves can be tagged the moment the tree renders
+  Promise.all([
+    loadWiring(chassisId),
+    (wiringVinHit && typeof wiringApplicability !== 'undefined')
+      ? wiringApplicability.load().catch(() => null) : Promise.resolve(),
+  ]).then(([data]) => {
     const index = wiringIndex(data.tree);
     sbLeft.textContent = 'wiring';
-    sbRight.textContent = `${index.length} documents`;
+    // sbRight is set by refreshCount() below so it stays faithful to the mode
 
     // prev/next step through documents in tree order (the flat index IS that
     // order)
@@ -400,15 +511,25 @@ function showWiring(chassisId, openDoc = null) {
       for (const c of node.children || []) {
         if (c.doc) {
           const leaf = document.createElement('button');
-          leaf.className = `wiring-leaf kind-${c.kind}`;
+          const vm = wiringDiagramMatch(c.doc);   // match | off | neutral
+          leaf.className = `wiring-leaf kind-${c.kind}`
+            + (vm === 'match' ? ' vin-match' : vm === 'off' ? ' vin-off' : '');
+          leaf.dataset.vin = vm;
           leaf.style.paddingLeft = `${10 + depth * 12}px`;
+          const star = vm === 'match'
+            ? '<span class="wiring-vinstar" title="Matches your vehicle">★</span>' : '';
           leaf.innerHTML = `<span class="wiring-dot"></span>`
-            + `<span class="wiring-leaf-name">${esc(c.name)}</span>`;
+            + `<span class="wiring-leaf-name">${esc(c.name)}</span>${star}`;
           leaf.title = WIRING_KIND_LABEL[c.kind] || c.kind;
           leaf.onclick = () => openDocument(c);
           parent.appendChild(leaf);
         } else if (c.children && c.children.length > 0) {
           const wrap = document.createElement('div');
+          wrap.className = 'wiring-folderwrap';
+          // whether this branch holds ANY diagram that isn't off-build for the
+          // VIN -- lets the filter hide a folder whose whole subtree is off-build
+          // without having to expand it first (the tree is lazy)
+          if (wiringVinHit && !wiringSubtreeHasMatch(c)) wrap.dataset.vinEmpty = '1';
           const btn = document.createElement('button');
           btn.className = 'wiring-folder';
           btn.style.paddingLeft = `${10 + depth * 12}px`;
@@ -442,7 +563,73 @@ function showWiring(chassisId, openDoc = null) {
       }
     };
     treeEl.innerHTML = '';           // drop the "loading" placeholder
+
+    // Count docs the current mode would show (all, or only those not off-build).
+    const countShown = () => {
+      let n = 0;
+      (function walk(node) {
+        for (const c of node.children || []) {
+          if (c.doc) { if (!wiringVinFilterOn || wiringDiagramMatch(c.doc) !== 'off') n++; }
+          else if (c.children) walk(c);
+        }
+      })(data.tree);
+      return n;
+    };
+    // Keep the doc count (status bar + empty state) faithful to the mode.
+    const refreshCount = () => {
+      const n = countShown();
+      sbRight.textContent = `${n} diagram${n === 1 ? '' : 's'}`
+        + (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
+      const empty = viewEl.querySelector('.wiring-emptycount');
+      if (empty) empty.textContent = `${n} diagram${n === 1 ? '' : 's'}`
+        + (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
+    };
+
+    // VIN mode: a "your car" header at the top of the tree with a Show all /
+    // My car toggle. Opening via a VIN defaults to MY CAR (filtered) -- that is
+    // the whole point -- and the toggle flips to the full tree.
+    if (wiringVinHit) {
+      const bits = [wiringVinHit.model,
+        (typeof bodyLabel === 'function' && wiringVinHit.body ? bodyLabel(wiringVinHit.body) : ''),
+        wiringVinHit.motor,
+        wiringVinHit.prod ? `${String(wiringVinHit.prod).slice(0,4)}-${String(wiringVinHit.prod).slice(4,6)}` : '']
+        .filter(Boolean).join(' · ');
+      const banner = document.createElement('div');
+      banner.className = 'wiring-vinbanner';
+      banner.innerHTML = `
+        <div class="wiring-vinbanner-veh">
+          <span class="wiring-vinbanner-desc">${esc(bits)}</span>
+          <span class="wiring-vinbanner-vin">${esc(wiringVinHit.vin || '')}</span>
+        </div>
+        <div class="wiring-vinseg" role="group" aria-label="Diagram filter">
+          <button type="button" class="wiring-vinseg-btn" data-mode="mine">My car</button>
+          <button type="button" class="wiring-vinseg-btn" data-mode="all">Show all</button>
+        </div>`;
+      treeEl.appendChild(banner);
+      const seg = banner.querySelector('.wiring-vinseg');
+      const body = split.querySelector('.wiring-body');
+      const applyFilter = (on) => {
+        wiringVinFilterOn = on;
+        body?.classList.toggle('vin-filtered', on);   // CSS hides off leaves + empty folders
+        seg.querySelectorAll('.wiring-vinseg-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.mode === (on ? 'mine' : 'all')));
+        refreshCount();
+      };
+      seg.querySelectorAll('.wiring-vinseg-btn').forEach(b =>
+        b.onclick = () => applyFilter(b.dataset.mode === 'mine'));
+      // default ON when opened via a VIN
+      wiringVinFilterOn = true;
+      // applyFilter is called after renderTree below (folders must exist first)
+      banner._applyFilter = applyFilter;
+    }
+
     renderTree(data.tree, treeEl, 0);
+    // now that the tree exists, apply the default VIN filter (folders present)
+    if (wiringVinHit) {
+      const banner = treeEl.querySelector('.wiring-vinbanner');
+      banner && banner._applyFilter(true);
+    }
+    refreshCount();
 
     // Expand the tree down to a specific document and highlight/scroll to it.
     // Used by the deep-link path so a shared #apps/wiring/<CHASSIS>/<DOC> link
@@ -686,9 +873,10 @@ function showWiring(chassisId, openDoc = null) {
       if (hit) { openDocument(hit); expandTreeToDoc(hit.doc); }
     } else {
       viewEl.innerHTML = `<div class="empty"><div>`
-        + `<strong>${index.length} documents</strong></div>`
+        + `<strong class="wiring-emptycount">${index.length} documents</strong></div>`
         + `<div>Pick a diagram on the left, or search. Diagrams are vector: `
         + `scroll to zoom, drag to pan.</div></div>`;
+      refreshCount();   // reflect the VIN mode in the count if filtering
     }
   }).catch((e) => {
     viewEl.innerHTML = errorBlock(e.message);

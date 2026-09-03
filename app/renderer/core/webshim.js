@@ -2209,12 +2209,18 @@ function installWebShim() {
     if (typeof offlineFsActive === 'function' && offlineFsActive()
         && typeof offlineFsReady === 'function' && offlineFsReady()) {
       const url = typeof input === 'string' ? input : (input && input.url) || '';
-      let rel = url.replace(/^https?:\/\/[^/]+/, '').replace(/^file:\/\//, '');
-      if (WEB_BASE && rel.startsWith(WEB_BASE)) rel = rel.slice(WEB_BASE.length);
-      rel = rel.replace(/^\/+/, '');
-      // only same-origin static paths belong to the folder; anything else
-      // (a genuine remote URL) still goes to the real network
-      if (rel && !/^[a-z]+:\/\//i.test(rel)) return offlineReadFile(rel);
+      // ONLY same-origin paths belong to the folder. A genuine remote URL (the
+      // ETK/faults HF fallback) must still go to the network -- rerouting it to
+      // a folder read would 404 a file that was meant to come from the internet.
+      // An http(s):// URL to another host is remote; a file:// URL or a bare
+      // relative path is ours.
+      const isRemote = /^https?:\/\//i.test(url);
+      if (!isRemote) {
+        let rel = url.replace(/^file:\/\/[^/]*/, '');
+        if (WEB_BASE && rel.startsWith(WEB_BASE)) rel = rel.slice(WEB_BASE.length);
+        rel = rel.replace(/^\/+/, '');
+        if (rel) return offlineReadFile(rel);
+      }
     }
     return nativeFetch(input, init);
   };
