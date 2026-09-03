@@ -162,10 +162,21 @@ for (const v of VARIANTS) {
   writeFileSync(join(stage, 'OFFLINE-README.txt'),
     `BMWeb ${VER} -- offline web build (offline${v.name})\n`
     + `${'='.repeat(48)}\n\n`
-    + `Unzip this folder and open index.html in a browser, or serve the folder\n`
-    + `over any static HTTP server. Nothing in this build fetches from the\n`
-    + `internet. A K+DCAN cable talks to the car through the browser (Web Serial,\n`
-    + `Chrome or Edge) or over WiFi through the THOR adapter.\n\n`
+    + `HOW TO RUN\n`
+    + `  Easiest: unzip, then open index.html in Chrome or Edge. The first time,\n`
+    + `  click "Select folder" and choose THIS folder (the one holding\n`
+    + `  index.html). The app then loads its car data straight from the folder --\n`
+    + `  no internet, no server. It remembers the folder for next time.\n\n`
+    + `  Alternative: serve this folder over any static HTTP server (e.g.\n`
+    + `  "python3 -m http.server" in this folder, then open the shown URL). Then\n`
+    + `  no folder pick is needed.\n\n`
+    + `  Why the folder pick: a browser opening index.html directly (file://)\n`
+    + `  blocks a page from reading its own data files unless you grant access to\n`
+    + `  the folder. Chrome and Edge support this; Safari and Firefox do not, so\n`
+    + `  on those use the HTTP-server option above.\n\n`
+    + `Nothing in this build fetches from the internet. A K+DCAN cable talks to\n`
+    + `the car through the browser (Web Serial, Chrome or Edge) or over WiFi\n`
+    + `through the THOR adapter.\n\n`
     + `This build includes:\n`
     + `  - full diagnostics (every shipped SGBD), coding, fault memory\n`
     + `  - fault code lookup with English descriptions and ISTA test plans\n`

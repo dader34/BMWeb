@@ -639,6 +639,13 @@ function setupMobileTabbar() {
 
   const start = async () => {
     const splashStart = Date.now();
+    // OFFLINE FOLDER (file:// double-click): resolve the directory handle
+    // before the first data read. Restores a remembered folder silently, or
+    // shows a one-time picker. A no-op on http(s) and in the native app.
+    if (typeof initOfflineFs === 'function') {
+      splashStatus('opening offline folder');
+      try { await initOfflineFs(); } catch { /* fall through; reads will error visibly */ }
+    }
     splashStatus('starting engine');
     if (!(await waitForEngine())) {
       splashStatus('engine did not start');

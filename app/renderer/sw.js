@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v65';   // bmweb-v65: AIF record picker passes its index (each AIF key reads its own UIF record, not the current one)
+const CACHE_NAME = 'bmweb-v66';   // bmweb-v66: file:// offline build reads car data through a picked folder handle (offline-fs.js)
 
 
 const CORE_ASSETS = [
