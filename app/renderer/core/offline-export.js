@@ -65,6 +65,7 @@ const OFFLINE_SHELL = [
   'screens/live.js',
   'screens/faults.js',
   'screens/lookup.js',
+  'screens/wiring-applicability.js',
   'screens/wiring.js',
   'screens/etk.js',
   'screens/tool32.js',

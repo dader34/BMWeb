@@ -454,19 +454,37 @@ function groupBySeries(veh) {
 
 // The VIN Decoder page: enter a VIN (or its last 7) and it resolves to the
 // exact vehicle, then opens that catalogue pre-filtered.
-function showVinDecoder() {
-  lastScreen = showVinDecoder;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis },
+//
+// `opts` retargets the SAME screen for other sections (the wiring picker reuses
+// it 1:1 so the two never drift). Defaults to Parts:
+//   { title, subtitle, crumbs:[...], back:fn,       -- chrome
+//     onResolve(hit),                               -- what the go/open does
+//     resolvable(chassis):bool|Promise, unavailable(disp):string }
+//     -- gate + message for a decoded chassis the section can't open
+function showVinDecoder(opts) {
+  opts = opts || {};
+  const onResolve = opts.onResolve || openDecoded;    // default: open the parts catalogue
+  const backFn = opts.back || showEtk;
+  lastScreen = () => showVinDecoder(opts);
+  setCrumbs(opts.crumbs || [{ label: 'Vehicles', fn: showChassis },
              { label: 'Apps', fn: showApps },
              { label: 'Parts', fn: showEtk }, { label: 'VIN Decoder' }]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'vin decoder';
-  view.innerHTML = head('ETK', 'Vehicle Identification',
-    'Enter your VIN, or identify your vehicle by series, body and model.');
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk }]);
+  view.innerHTML = head(opts.eyebrow || 'ETK', opts.title || 'Vehicle Identification',
+    opts.subtitle || 'Enter your VIN, or identify your vehicle by series, body and model.');
+  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: backFn }]);
+
+  // Two columns: the VIN box + attributes selector on the left, a full-height
+  // saved-vehicles panel down the right.
+  const layout = document.createElement('div');
+  layout.className = 'etk-vin-layout';
+  const leftCol = document.createElement('div');
+  leftCol.className = 'etk-vin-left';
+  layout.appendChild(leftCol);
 
   // ETK's top group box: "Identification by VIN number" — a labelled input
-  // with the go-arrow at the right, inside an etched fieldset.
+  // with the go-arrow and a Save button at the right, inside an etched fieldset.
   const card = document.createElement('fieldset');
   card.className = 'etk-fs etk-fs-vin';
   card.innerHTML = `
@@ -476,18 +494,86 @@ function showVinDecoder() {
       <input class="etk-vin-input" type="text" maxlength="17" spellcheck="false"
              autocapitalize="characters" placeholder="WBA… or last 7 chars">
       <button class="etk-vin-go" type="button" aria-label="Decode VIN">→</button>
+      <button class="etk-vin-save" type="button"
+              title="Decode and save this VIN">Save</button>
     </div>
     <div class="etk-vin-hint">A BMW VIN's last 7 characters are the production
       number. Paste the full VIN or just those 7.</div>
     <div class="etk-vin-result" hidden></div>`;
-  view.appendChild(card);
+  leftCol.appendChild(card);
+
+  // Saved vehicles panel: a full-height column down the right, alongside both
+  // the VIN box and the attributes selector. Each entry shows the car above its
+  // VIN and opens that vehicle in this section. Persisted in Settings under
+  // opts.savedKey (sections keep their own list).
+  const SAVED_KEY = opts.savedKey || 'savedVins';
+  const savedPanel = document.createElement('div');
+  savedPanel.className = 'etk-saved-panel';
+  layout.appendChild(savedPanel);
+
+  view.appendChild(layout);
+
+  const readSaved = () => {
+    if (typeof Settings !== 'object' || !Settings.get) return [];
+    const v = Settings.get(SAVED_KEY, []);
+    return Array.isArray(v) ? v : [];
+  };
+  const writeSaved = (list) => {
+    if (typeof Settings === 'object' && Settings.set) Settings.set(SAVED_KEY, list.slice(0, 12));
+  };
+  const addSaved = (entry) => {
+    const vin = String(entry.vin || '').toUpperCase();
+    if (!vin) return;
+    const rest = readSaved().filter(e => String(e.vin).toUpperCase() !== vin);
+    writeSaved([{ ...entry, vin }, ...rest]);
+    renderSaved();
+  };
+  const delSaved = (vin) => {
+    const V = String(vin).toUpperCase();
+    writeSaved(readSaved().filter(e => String(e.vin).toUpperCase() !== V));
+    renderSaved();
+  };
+  function renderSaved() {
+    const list = readSaved();
+    savedPanel.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = 'etk-saved-head';
+    head.textContent = 'Saved vehicles';
+    savedPanel.appendChild(head);
+    if (!list.length) {
+      const e = document.createElement('div');
+      e.className = 'etk-saved-empty';
+      e.textContent = 'Decode a VIN and press Save to keep it here.';
+      savedPanel.appendChild(e);
+      return;
+    }
+    list.forEach((it) => {
+      const row = document.createElement('div');
+      row.className = 'etk-saved-row';
+      const disp = it.disp || dispChassis(it.chassis);
+      const meta = [disp, it.bits, it.date].filter(Boolean).join(' · ');
+      row.innerHTML = `
+        <button type="button" class="etk-saved-open" title="Open ${esc(disp)}">
+          <span class="etk-saved-veh">${esc(meta)}</span>
+          <span class="etk-saved-vin">${esc(it.vin)}</span>
+        </button>
+        <button type="button" class="etk-saved-del" title="Remove" aria-label="Remove">✕</button>`;
+      row.querySelector('.etk-saved-open').onclick = () =>
+        onResolve({ chassis: it.chassis, model: it.model, body: it.body,
+                    motor: it.motor, steer: it.steer, prod: it.prod, vin: it.vin });
+      row.querySelector('.etk-saved-del').onclick = () => delSaved(it.vin);
+      savedPanel.appendChild(row);
+    });
+  }
+  renderSaved();
 
   const input = card.querySelector('.etk-vin-input');
   const go = card.querySelector('.etk-vin-go');
+  const saveBtn = card.querySelector('.etk-vin-save');
   const result = card.querySelector('.etk-vin-result');
   input.focus();
 
-  async function decode() {
+  async function decode(alsoSave) {
     const vin = input.value.trim();
     if (vin.length < 7) {
       result.hidden = false;
@@ -513,16 +599,34 @@ function showVinDecoder() {
         result.textContent = `No vehicle found for “${vin.toUpperCase()}”. Check the VIN, or pick a chassis on the previous screen.`;
         return;
       }
+      hit.vin = vin.toUpperCase();
       const bits = [hit.model, bodyLabel(hit.body), hit.motor,
                     hit.steer === 'R' ? 'RHD' : hit.steer === 'L' ? 'LHD' : '']
                    .filter(Boolean).join(' · ');
       const dateStr = hit.prod && String(hit.prod).length >= 6
         ? ` · ${String(hit.prod).slice(0, 4)}-${String(hit.prod).slice(4, 6)}` : '';
+      const disp = dispChassis(hit.chassis);
+      // Save was pressed: remember this vehicle (car above the VIN in the panel)
+      if (alsoSave) {
+        addSaved({ vin: hit.vin, chassis: hit.chassis, disp,
+                   bits, date: dateStr.replace(/^ · /, ''),
+                   model: hit.model, body: hit.body, motor: hit.motor,
+                   steer: hit.steer, prod: hit.prod });
+      }
+      // the section may not be able to open every decoded chassis (wiring ships
+      // fewer than the VIN index covers): gate, and say what it found either way
+      const canOpen = opts.resolvable ? await opts.resolvable(hit.chassis) : true;
       result.className = 'etk-vin-result etk-vin-ok';
-      result.innerHTML = `
-        <div class="etk-vin-veh"><b>${esc(dispChassis(hit.chassis))}</b> ${esc(bits)}${esc(dateStr)}</div>
-        <button class="etk-vin-open" type="button">Open ${esc(dispChassis(hit.chassis))} parts →</button>`;
-      result.querySelector('.etk-vin-open').onclick = () => openDecoded(hit);
+      if (canOpen) {
+        result.innerHTML = `
+          <div class="etk-vin-veh"><b>${esc(disp)}</b> ${esc(bits)}${esc(dateStr)}</div>
+          <button class="etk-vin-open" type="button">${esc(opts.openLabel ? opts.openLabel(disp) : `Open ${disp} parts →`)}</button>`;
+        result.querySelector('.etk-vin-open').onclick = () => onResolve(hit);
+      } else {
+        result.innerHTML = `
+          <div class="etk-vin-veh"><b>${esc(disp)}</b> ${esc(bits)}${esc(dateStr)}</div>
+          <div class="etk-vin-note">${esc(opts.unavailable ? opts.unavailable(disp) : `Not available for ${disp}.`)}</div>`;
+      }
     } catch (e) {
       go.disabled = false;
       result.className = 'etk-vin-result etk-vin-err';
@@ -530,8 +634,9 @@ function showVinDecoder() {
     }
   }
 
-  go.onclick = decode;
-  input.onkeydown = (e) => { if (e.key === 'Enter') decode(); };
+  go.onclick = () => decode(false);
+  saveBtn.onclick = () => decode(true);       // decode + remember
+  input.onkeydown = (e) => { if (e.key === 'Enter') decode(false); };
 
   // ---- identify by attributes: ETK's Vehicle Identification, 1:1 -----------
   // The terminal's lower group box: a Brand / Prod. type / Catalogue filter
@@ -659,7 +764,7 @@ function showVinDecoder() {
   foot.append(idHint, idOpen);
 
   idCard.append(lists, foot);
-  view.appendChild(idCard);
+  leftCol.appendChild(idCard);
 
   let veh = null;                 // the loaded vehicles.json
   let grouped = null;             // { order, groups } from groupBySeries
@@ -852,7 +957,18 @@ function showVinDecoder() {
     idOpen.hidden = false;
   }
 
-  idOpen.onclick = () => { if (picked) openDecoded(picked); };
+  idOpen.onclick = async () => {
+    if (!picked) return;
+    // the section may not cover this manually-picked chassis (wiring)
+    const canOpen = opts.resolvable ? await opts.resolvable(picked.chassis) : true;
+    if (!canOpen) {
+      idHint.textContent = opts.unavailable
+        ? opts.unavailable(dispChassis(picked.chassis))
+        : `Not available for ${dispChassis(picked.chassis)}.`;
+      return;
+    }
+    onResolve(picked);
+  };
 
   // populate the Series pane once vehicles.json is in hand (car photos load
   // alongside; missing thumbs just leave the silhouette)

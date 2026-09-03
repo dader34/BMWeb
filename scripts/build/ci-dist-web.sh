@@ -15,6 +15,14 @@ test -d data/chassis/E46
 rm -rf dist-web && mkdir -p dist-web
 python3 tools/export/web_export.py --out dist-web
 cp -R app/renderer/. dist-web/
+
+# WDS wiring VIN-applicability index (SP-doc -> chassis/engine, from ISTA). The
+# .wiring bundles it filters are downloaded into dist-web/data/wiring/ later by
+# release-web.yml; the index is small and committed, so place it now.
+if [ -f data/wiring-applicability.json.gz ]; then
+  mkdir -p dist-web/data/wiring
+  cp data/wiring-applicability.json.gz dist-web/data/wiring/applicability.json.gz
+fi
 # the relay is not shipped, and the in-page exporter is what THIS replaces
 rm -f dist-web/thor_bridge.js dist-web/core/offline-export.js
 

@@ -2,13 +2,14 @@
 # Fetch the datasets the hosted site streams from Hugging Face at runtime into
 # dist-web/data, so an offline build is actually offline. Plain HTTPS, no token.
 #
-#   scripts/build/ci-fetch-hf-data.sh faults   fault lookup + ISTA test plans, ~100 MB
+#   scripts/build/ci-fetch-hf-data.sh faults   fault lookup + ISTA + VIN index, ~110 MB
 #   scripts/build/ci-fetch-hf-data.sh etk      the ETK parts tree, ~5.8 GB
 #
 # Layout matches what the renderer probes locally before falling back to HF:
 # translate.js  -> data/fault{db,index,meta,info}.js
 # lookup.js     -> data/ista/faulttests.json
 # etk.js        -> data/etk/<id>.etk, index.json, vehicles.json, thumbs/, vin-index.json.gz
+# wiring.js     -> data/etk/vin-index.json.gz (VIN search on the wiring picker)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 DATASET="${HF_DATA:-CraigFf/bmweb-etk}"
@@ -32,6 +33,10 @@ case "${1:-}" in
     get faults/faultmeta.js    "$DIST/data/faultmeta.js"        5000000
     get faults/faultinfo.js    "$DIST/data/faultinfo.js"       20000000
     get ista/faulttests.json   "$DIST/data/ista/faulttests.json" 5000000
+    # the VIN index (11 MB) so the wiring picker's VIN search works offline;
+    # it lives under data/etk/ but is tiny next to the parts tree, so it ships
+    # with every variant, not only the complete build
+    get vin-index.json.gz      "$DIST/data/etk/vin-index.json.gz" 3000000
     ;;
   etk)
     echo "==> ETK parts tree -> $DIST/data/etk"
