@@ -2196,7 +2196,28 @@ async function loadEcu(sgbd, realFetch) {
 
 // Install over window.fetch so core.js's api() needs no change at all.
 function installWebShim() {
-  const real = window.fetch.bind(window);
+  const nativeFetch = window.fetch.bind(window);
+  // OFFLINE FOLDER (file:// double-click). Every genuine file read funnels
+  // through `real`: the shim passes non-/api/ paths straight here (line "if
+  // (!rel.startsWith('/api/')) return real(...)"), and chassis.json,
+  // ecu-index.json and the .chassis/.ecu archives load through it too. So
+  // routing THIS one function through the picked directory handle covers all
+  // data -- chassis, ECU, groups, coding-dispatch, sgbd-tables, job-code,
+  // ISTA -- with no other change. offlineFsActive() is false on http(s) and
+  // in the native app, where this is exactly nativeFetch.
+  const real = async (input, init) => {
+    if (typeof offlineFsActive === 'function' && offlineFsActive()
+        && typeof offlineFsReady === 'function' && offlineFsReady()) {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      let rel = url.replace(/^https?:\/\/[^/]+/, '').replace(/^file:\/\//, '');
+      if (WEB_BASE && rel.startsWith(WEB_BASE)) rel = rel.slice(WEB_BASE.length);
+      rel = rel.replace(/^\/+/, '');
+      // only same-origin static paths belong to the folder; anything else
+      // (a genuine remote URL) still goes to the real network
+      if (rel && !/^[a-z]+:\/\//i.test(rel)) return offlineReadFile(rel);
+    }
+    return nativeFetch(input, init);
+  };
   // Anything that needs the FILE rather than the shim's answer (the offline
   // exporter zips the archives themselves) asks for this.
   window.webRealFetch = real;

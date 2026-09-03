@@ -19,6 +19,7 @@ const OFFLINE_SHELL = [
   'vendor/fflate.min.js',
 
   'core/webdemo.js',
+  'core/offline-fs.js',
   'core/webshim.js',
   'core/bestvm.js',
   'core/ipovm.js',
