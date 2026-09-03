@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v62';   // v62: reads never prompt (port|state routes not classified via default-deny)
+const CACHE_NAME = 'bmweb-v63';   // v63: Cmd+P falls through to native print when a menu Print action has nothing to print
 
 
 const CORE_ASSETS = [
