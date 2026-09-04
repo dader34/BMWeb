@@ -80,6 +80,14 @@ fi
 # keeps the original, so a build without them still serves everything -- just
 # uncompressed. That is why absence is fine but a failure HERE is not: a
 # broken gzip should fail the build, not quietly ship the fat site.
+# Bundle the renderer scripts into one $OUT/bundle.js (index.html load order)
+# and collapse $OUT/index.html to a single <script> tag. The dev source keeps
+# its individual tags; only the shipped copy is bundled.
+echo "==> bundling the renderer"
+node "$ROOT/scripts/build/bundle-renderer.mjs" "$OUT" "$OUT/bundle.js"
+node "$ROOT/scripts/build/bundle-index.mjs" "$OUT/index.html"
+grep -q 'bundle.js' "$OUT/index.html"
+
 echo "==> pre-compressing the large payloads"
 find "$OUT" -name "*.js" -size +1M -print0 \
   | xargs -0 -P 8 -I{} gzip -9 -k -f {}

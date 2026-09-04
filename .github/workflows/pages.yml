@@ -121,6 +121,12 @@ jobs:
           sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html
           grep -q version.js dist-web/index.html
           echo "version: $VERSION"
+          # Bundle the ~50 renderer scripts into one dist-web/bundle.js and
+          # collapse index.html to a single tag (the dev source keeps its
+          # individual tags). One request instead of fifty on the deployed site.
+          node scripts/build/bundle-renderer.mjs dist-web dist-web/bundle.js
+          node scripts/build/bundle-index.mjs dist-web/index.html
+          grep -q bundle.js dist-web/index.html
           # A build that exported nothing must FAIL here, not deploy a shell
           # of a site: an earlier run shipped 63 files and looked green, and a
           # later one shipped archives that were present but hollow. Check

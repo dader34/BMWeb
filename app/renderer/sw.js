@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v78'; // bmweb-v78: shared makeFolder in the wiring/docs tree
+const CACHE_NAME = 'bmweb-v79'; // bmweb-v79: shipped build serves one bundle.js (renderer concatenated)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

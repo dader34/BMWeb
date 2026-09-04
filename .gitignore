@@ -176,3 +176,4 @@ E46/
 
 # wrangler local state for the beta collector (tools/beta)
 .wrangler/
+app/renderer/bundle.js

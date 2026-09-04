@@ -4,7 +4,7 @@
   "private": true,
   "description": "BMWeb renderer",
   "scripts": {
-    "build": "bash scripts/build/build-bundle.sh",
+    "build": "node scripts/build/bundle-renderer.mjs",
     "lint": "eslint \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\"",
     "format": "prettier --write \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\"",
     "format:check": "prettier --check \"app/renderer/**/*.js\" \"tools/**/*.js\" \"scripts/**/*.mjs\"",
