@@ -54,13 +54,21 @@ function makeDropdown(opts) {
   let items = (o.items || []).slice();
   let sel = o.value;
 
+  // element class suffixes. Default scheme is cur/menu/opt; a caller whose CSS
+  // predates this factory can remap them (the fault-lookup `.lkd` skin uses
+  // val/pop/item, shared with a hand-built button, so it keeps those names).
+  const sfx = o.parts || {};
+  const cCur = `${P}-${sfx.cur || 'cur'}`;
+  const cMenu = `${P}-${sfx.menu || 'menu'}`;
+  const cOpt = `${P}-${sfx.opt || 'opt'}`;
+
   const root = document.createElement('div');
   root.className = P;
   root.innerHTML =
     `<button class="${P}-btn" type="button">` +
-    `<span class="${P}-cur"></span>` +
+    `<span class="${cCur}"></span>` +
     `<span class="${P}-caret">▾</span></button>` +
-    `<div class="${P}-menu" hidden>` +
+    `<div class="${cMenu}" hidden>` +
     (searchable
       ? `<input class="${P}-search" type="${o.searchType || 'text'}" ` +
         `placeholder="${esc(o.searchPlaceholder || 'Search…')}" ` +
@@ -69,8 +77,8 @@ function makeDropdown(opts) {
     `<div class="${P}-list"></div></div>`;
 
   const btn = root.querySelector(`.${P}-btn`);
-  const curEl = root.querySelector(`.${P}-cur`);
-  const menu = root.querySelector(`.${P}-menu`);
+  const curEl = root.querySelector(`.${cCur}`);
+  const menu = root.querySelector(`.${cMenu}`);
   const search = root.querySelector(`.${P}-search`);
   const list = root.querySelector(`.${P}-list`);
 
@@ -85,7 +93,10 @@ function makeDropdown(opts) {
     const it = itemFor(sel);
     const label = it ? itemLabel(it) : o.synthetic ? o.synthetic.label : '';
     curEl.textContent = label || o.placeholder || '';
-    curEl.classList.toggle(`${P}-placeholder`, !it && !o.synthetic);
+    // greyed when nothing real is chosen: no matched item (and no synthetic
+    // fallback), OR the matched item is the blank-value "all" entry
+    const blank = !it ? !o.synthetic : itemValue(it) === '';
+    curEl.classList.toggle(`${P}-placeholder`, blank);
     if (o.activeClass) curEl.classList.toggle(o.activeClass, !isDefault(sel));
   }
 
@@ -96,7 +107,7 @@ function makeDropdown(opts) {
     if (o.synthetic && !f) {
       const a = document.createElement('button');
       a.type = 'button';
-      a.className = `${P}-opt${sel === o.synthetic.value ? ' active' : ''}`;
+      a.className = `${cOpt}${sel === o.synthetic.value ? ' active' : ''}`;
       a.textContent = o.synthetic.label;
       a.onclick = (e) => pick(o.synthetic.value, null, e);
       list.appendChild(a);
@@ -109,7 +120,7 @@ function makeDropdown(opts) {
       const v = itemValue(it, i);
       const el = document.createElement('button');
       el.type = 'button';
-      el.className = `${P}-opt${v === sel ? ' active' : ''}`;
+      el.className = `${cOpt}${v === sel ? ' active' : ''}`;
       if (o.renderRow) el.innerHTML = o.renderRow(it, v === sel);
       else el.textContent = itemLabel(it);
       el.onclick = (e) => pick(v, it, e);
