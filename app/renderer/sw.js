@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v70';   // bmweb-v70: wiring tabs restore-fit fix + Share (copy link)
+const CACHE_NAME = 'bmweb-v71b';  // bmweb-v71b: fix restored active wiring tab not rendering (focusTab short-circuit on reload)
 
 
 const CORE_ASSETS = [
