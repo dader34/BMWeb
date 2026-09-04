@@ -22,7 +22,74 @@ async function openTourModule() {
 const TOUR_SCREENS = {
   home: () => showChassis(),
   module: () => openTourModule(),
+  // the guided Apps tour lives on the Apps hub; each step spotlights a card
+  apps: () => showApps(),
 };
+
+// The optional extended tour: a guided walk of the Apps hub. Only the apps that
+// actually shipped in this build render a card (apps.js greys/omits the rest),
+// so each step guards on its card being present -- a missing target is skipped
+// by the tour driver, exactly like the classic/modern step split.
+function appsTourSteps() {
+  return [
+    {
+      screen: 'apps',
+      sel: '.apps-list',
+      title: 'The Apps hub',
+      body: 'Beyond live diagnostics, ' + APP_NAME + ' ports BMW\'s own dealer '
+          + 'reference tools -- offline, no login. Here they are; let\'s look '
+          + 'at each one.',
+    },
+    {
+      screen: 'apps',
+      sel: '.app-entry[data-app="lookup"]:not(.app-absent)',
+      title: 'Diagnostic Plans & Trouble Codes',
+      body: 'Search any fault code and read its plain-English meaning, then the '
+          + 'ISTA service data and step-by-step diagnostic procedure BMW\'s own '
+          + 'technicians follow. Works with no car attached.',
+    },
+    {
+      screen: 'apps',
+      sel: '.app-entry[data-app="wiring"]:not(.app-absent)',
+      title: 'Wiring Diagrams (WDS)',
+      body: 'BMW\'s own WDS schematics, component locations and connector views. '
+          + 'Enter a VIN and it opens straight to your car\'s diagrams and '
+          + 'filters them to your exact engine and body.',
+    },
+    {
+      screen: 'apps',
+      sel: '.app-entry[data-app="etk"]:not(.app-absent)',
+      title: 'Parts Catalogue (ETK)',
+      body: 'BMW\'s ETK parts catalogue: exploded diagrams, part numbers and '
+          + 'supersessions by chassis. Decode a VIN to jump straight to your '
+          + 'exact vehicle\'s parts.',
+    },
+    {
+      screen: 'apps',
+      sel: '.app-entry[data-app="tool32"]:not(.app-absent)',
+      title: 'Tool32',
+      body: 'The power tool: run any SGBD job on a module directly and read its '
+          + 'raw result registers -- the same low-level access the factory '
+          + 'ToolSet32 gives, in your browser.',
+    },
+    {
+      screen: 'apps',
+      sel: '.app-entry[data-app="tuning"]:not(.app-absent)',
+      title: 'Tuning',
+      body: 'Open an ECU firmware BIN as raw hex, or load a TunerPro .xdf to '
+          + 'edit its constants, flags and maps by name. For reading and '
+          + 'understanding your tune.',
+    },
+    {
+      screen: 'apps',
+      sel: '.apps-list',
+      title: 'That\'s the tour',
+      body: 'That\'s everything. Plug in a K+DCAN cable when you\'re ready, or '
+          + 'keep exploring offline -- and you can replay this tour any time '
+          + 'from Settings.',
+    },
+  ];
+}
 
 // steps are built at start time so they match the active layout mode (classic
 // F-key list vs modern cards).
@@ -138,9 +205,13 @@ async function maybeOfferTutorial() {
 // spotlight tour over the live UI. Esc/Skip ends it; ←/→ and the buttons
 // navigate (crossing screens when the step calls for it); the ring and tip
 // track their target on window resize. Ends back on the vehicle screen.
-async function startTutorial() {
+async function startTutorial(opts) {
+  opts = opts || {};
   if (document.querySelector('.tour-overlay')) return; // one tour at a time
-  const steps = tourSteps();
+  // the base tour, or (when replayed with {full:true}) base + the apps walk
+  let steps = opts.full ? tourSteps().concat(appsTourSteps()) : tourSteps();
+  const baseLen = tourSteps().length;   // where the base tour ends / apps begin
+  let offeredMore = opts.full;          // don't re-offer once the apps tour is on
   let currentScreen = null;
   let navigating = false;
 
@@ -152,8 +223,7 @@ async function startTutorial() {
       <div class="tour-title"></div>
       <div class="tour-body"></div>
       <div class="tour-foot">
-        <div class="tour-dots">${steps.map((_, n) =>
-          `<span class="tour-dot" data-n="${n}"></span>`).join('')}</div>
+        <div class="tour-dots"></div>
         <div class="tour-btns">
           <button class="btn tour-skip">Skip</button>
           <button class="btn tour-back">Back</button>
@@ -169,6 +239,16 @@ async function startTutorial() {
   const backBtn = overlay.querySelector('.tour-back');
   const nextBtn = overlay.querySelector('.tour-next');
   let i = 0;
+
+  // dots track the current step count -- the apps tour can grow `steps` mid-run
+  function renderDots() {
+    if (dots.children.length !== steps.length) {
+      dots.innerHTML = steps.map((_, n) =>
+        `<span class="tour-dot" data-n="${n}"></span>`).join('');
+    }
+    dots.querySelectorAll('.tour-dot').forEach((d, n) =>
+      d.classList.toggle('active', n === i));
+  }
 
   // enter step n (dir = which way to keep moving when a target is missing),
   // navigating between screens when the step lives elsewhere
@@ -201,10 +281,12 @@ async function startTutorial() {
 
     overlay.querySelector('.tour-title').textContent = step.title;
     overlay.querySelector('.tour-body').textContent = step.body;
-    dots.querySelectorAll('.tour-dot').forEach((d, n) =>
-      d.classList.toggle('active', n === i));
+    renderDots();
     backBtn.style.visibility = i === 0 ? 'hidden' : 'visible';
-    nextBtn.textContent = i === steps.length - 1 ? 'Done' : 'Next';
+    // "Next" still points forward at the base-tour boundary (there's the apps
+    // offer beyond it); only the true final step reads "Done".
+    const atFinish = i === steps.length - 1 && (offeredMore || i !== baseLen - 1);
+    nextBtn.textContent = atFinish ? 'Done' : 'Next';
 
     // tip below the target when there's room, else above; clamped to viewport
     tip.style.visibility = 'hidden';
@@ -226,10 +308,38 @@ async function startTutorial() {
     window.removeEventListener('resize', onResize);
     overlay.classList.remove('show');
     setTimeout(() => overlay.remove(), 160);
-    // don't leave the user stranded mid-demo: finish on the vehicle screen
-    if (currentScreen !== 'home') { try { showChassis(); } catch { } }
+    // Don't strand the user mid-demo. If the apps tour ran, leave them on the
+    // Apps hub (they just explored it); otherwise return to the vehicle screen.
+    if (currentScreen === 'apps') { /* stay on Apps */ }
+    else if (currentScreen !== 'home') { try { showChassis(); } catch { } }
   }
-  const next = () => { if (i >= steps.length - 1) end(); else show(i + 1, 1); };
+  // At the end of the BASE tour, offer the extended Apps walk before finishing.
+  // Choosing "See more" appends the apps steps and continues; "I'll explore"
+  // ends. Once the apps tour is running (offeredMore), Next just advances/ends.
+  async function next() {
+    if (!offeredMore && i === baseLen - 1) {
+      offeredMore = true;
+      overlay.classList.remove('show');            // hide the spotlight for the dialog
+      // stand our capturing key handler down so the dialog owns Enter/Esc
+      window.removeEventListener('keydown', onKey, true);
+      const more = await confirmDialog({
+        title: 'Want the full tour?',
+        body: 'That covers live diagnostics. ' + APP_NAME + ' also ports BMW\'s '
+            + 'own reference tools -- fault plans, wiring diagrams, the parts '
+            + 'catalogue and more. Take a quick guided tour of them, or head '
+            + 'off on your own.',
+        confirmLabel: 'Show me more',
+        cancelLabel: 'I\'ll explore on my own',
+      });
+      if (!more) { end(); return; }               // end() won't double-remove the listener
+      window.addEventListener('keydown', onKey, true);   // resume tour key control
+      steps = steps.concat(appsTourSteps());       // extend the tour in place
+      overlay.classList.add('show');
+      show(baseLen, 1);
+      return;
+    }
+    if (i >= steps.length - 1) end(); else show(i + 1, 1);
+  }
   const back = () => { if (i > 0) show(i - 1, -1); };
   const onResize = () => place();
 

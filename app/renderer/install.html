@@ -69,7 +69,38 @@
     }
     .shots figure { margin: 0; position: absolute; inset: 0; opacity: 0; transition: opacity .5s ease; }
     .shots figure.on { opacity: 1; }
-    .shots img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+    .shots img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; cursor: zoom-in; }
+    /* lightbox: click a slide to see it full-size */
+    .lb {
+      position: fixed; inset: 0; z-index: 50; display: none;
+      background: rgba(6,9,12,.92); align-items: center; justify-content: center;
+      padding: 32px; opacity: 0; transition: opacity .18s ease;
+    }
+    .lb.on { display: flex; opacity: 1; }
+    .lb img {
+      max-width: 100%; max-height: 100%; width: auto; height: auto;
+      border-radius: 8px; box-shadow: 0 18px 60px rgba(0,0,0,.6); cursor: zoom-out;
+      object-fit: contain;
+    }
+    .lb-close {
+      position: absolute; top: 14px; right: 18px; width: 40px; height: 40px;
+      border: 0; border-radius: 50%; background: rgba(20,26,33,.85); color: #eef2f5;
+      font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .lb-close:hover { background: rgba(30,38,48,.95); }
+    .lb-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 46px; height: 46px; border: 0; border-radius: 50%;
+      background: rgba(20,26,33,.8); color: #eef2f5; font-size: 22px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .lb-nav:hover { background: rgba(30,38,48,.95); }
+    .lb-nav.prev { left: 16px; } .lb-nav.next { right: 16px; }
+    .lb-close:focus-visible, .lb-nav:focus-visible { outline: 2px solid #ffb95e; outline-offset: 2px; }
+    .lb-cap {
+      position: absolute; left: 0; right: 0; bottom: 18px; text-align: center;
+      color: #9aa6b2; font-size: 13.5px; padding: 0 60px;
+    }
     /* dots */
     .shots-dots {
       position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 7px;
@@ -189,8 +220,17 @@
         <button class="shots-nav next" type="button" aria-label="Next screen">&#8250;</button>
         <div class="shots-dots" role="tablist"></div>
       </div>
-      <div class="cap">A look inside BMWeb.</div>
+      <div class="cap">A look inside BMWeb. Click a screen to enlarge it.</div>
     </div>
+  </div>
+
+  <!-- full-size viewer for the carousel; opened by clicking a slide -->
+  <div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged screen">
+    <button class="lb-close" type="button" aria-label="Close">&times;</button>
+    <button class="lb-nav prev" type="button" aria-label="Previous screen">&#8249;</button>
+    <img id="lb-img" src="" alt="">
+    <button class="lb-nav next" type="button" aria-label="Next screen">&#8250;</button>
+    <div class="lb-cap" id="lb-cap"></div>
   </div>
 
   <script>
@@ -215,14 +255,50 @@
         dots.forEach(function (d, k) { d.setAttribute('aria-current', k === i ? 'true' : 'false'); });
       }
       function next() { go(i + 1); }
-      function reset() { if (timer) clearInterval(timer); timer = setInterval(next, DELAY); }
+      var reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+      function stop() { if (timer) { clearInterval(timer); timer = null; } }
+      // don't auto-advance while the lightbox is open, or if reduced motion is on
+      function reset() { stop(); if (!reduced && !lbOpen) timer = setInterval(next, DELAY); }
       box.querySelector('.shots-nav.next').addEventListener('click', function () { next(); reset(); });
       box.querySelector('.shots-nav.prev').addEventListener('click', function () { go(i - 1); reset(); });
       // pause on hover; stop entirely if the viewer prefers reduced motion
-      box.addEventListener('mouseenter', function () { if (timer) clearInterval(timer); });
+      box.addEventListener('mouseenter', stop);
       box.addEventListener('mouseleave', reset);
+
+      // Lightbox: click a slide to enlarge it. Shares the carousel index so
+      // prev/next inside the lightbox also move the carousel underneath.
+      var lb = document.getElementById('lightbox');
+      var lbImg = document.getElementById('lb-img');
+      var lbCap = document.getElementById('lb-cap');
+      var lbOpen = false;
+      var imgs = slides.map(function (s) { return s.querySelector('img'); });
+      function paintLb() {
+        var src = imgs[i]; if (!src) return;
+        lbImg.src = src.currentSrc || src.src;
+        lbImg.alt = src.alt || '';
+        lbCap.textContent = src.alt || '';
+      }
+      function openLb(n) { go(n); lbOpen = true; stop(); paintLb(); lb.classList.add('on'); }
+      function closeLb() { lbOpen = false; lb.classList.remove('on'); lbImg.src = ''; reset(); }
+      function lbStep(d) { go(i + d); paintLb(); }
+      imgs.forEach(function (img, n) {
+        img.addEventListener('click', function () { openLb(n); });
+      });
+      lb.querySelector('.lb-close').addEventListener('click', closeLb);
+      lb.querySelector('.lb-nav.next').addEventListener('click', function () { lbStep(1); });
+      lb.querySelector('.lb-nav.prev').addEventListener('click', function () { lbStep(-1); });
+      // click the image or the backdrop (but not the arrows) to close
+      lbImg.addEventListener('click', closeLb);
+      lb.addEventListener('click', function (e) { if (e.target === lb) closeLb(); });
+      document.addEventListener('keydown', function (e) {
+        if (!lbOpen) return;
+        if (e.key === 'Escape') closeLb();
+        else if (e.key === 'ArrowRight') lbStep(1);
+        else if (e.key === 'ArrowLeft') lbStep(-1);
+      });
+
       go(0);
-      if (!window.matchMedia || !matchMedia('(prefers-reduced-motion: reduce)').matches) reset();
+      reset();
     }());
   </script>
 

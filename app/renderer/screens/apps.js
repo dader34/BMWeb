@@ -115,6 +115,7 @@ async function showApps() {
   states.forEach(({ app, ready }) => {
     const card = document.createElement('button');
     card.className = 'lookup-entry app-entry' + (ready ? '' : ' app-absent');
+    card.dataset.app = app.id;   // lets the guided tour spotlight a named app
     card.innerHTML = `
       <span class="lookup-entry-icon">${app.icon}</span>
       <span class="lookup-entry-text">

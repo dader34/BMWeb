@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v67';   // bmweb-v67: wiring VIN decoder, saved vehicles, and VIN-based diagram filtering from ISTA applicability data
+const CACHE_NAME = 'bmweb-v68';   // bmweb-v68: extended tutorial -- optional guided Apps-hub tour after the base walkthrough
 
 
 const CORE_ASSETS = [
