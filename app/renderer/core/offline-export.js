@@ -40,6 +40,7 @@ const OFFLINE_SHELL = [
   'core/remote.js',
 
   'ui/typed-block.js',
+  'ui/dropdown.js',
 
   'screens/autoscan.js',
   'screens/sweep.js',
