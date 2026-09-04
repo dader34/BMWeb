@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v74'; // bmweb-v74: shared ui/typed-block renderer (Stage 2 UI-kit extraction)
+const CACHE_NAME = 'bmweb-v75'; // bmweb-v75: shared ui/dropdown (ETK variant filter wraps it)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

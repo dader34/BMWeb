@@ -1488,6 +1488,8 @@ function printEtkIndex(data, chassisId) {
 // unstyleable and unsearchable. Options: "All variants" plus one per variant,
 // sorted by model+date, filterable by a search box. Sets ETK_STATE.variant.
 function buildVariantDropdown(variants) {
+  // The variant rows, sorted by model then date. Each item keeps its ORIGINAL
+  // index (i) -- that index is the value ETK_STATE.variant holds.
   const order = variants
     .map((v, i) => ({ i, v, text: etkVariantLabel(v) }))
     .sort(
@@ -1495,99 +1497,37 @@ function buildVariantDropdown(variants) {
         (a.v.model || '').localeCompare(b.v.model || '') ||
         String(a.v.date).localeCompare(String(b.v.date))
     );
+  const allLabel = `All variants (${variants.length})`;
 
-  const root = document.createElement('div');
-  root.className = 'etk-vdd';
-  const btn = document.createElement('button');
-  btn.className = 'etk-vdd-btn';
-  btn.innerHTML = `<span class="etk-vdd-cur">All variants (${variants.length})</span>
-                   <span class="etk-vdd-caret">▾</span>`;
-  const menu = document.createElement('div');
-  menu.className = 'etk-vdd-menu';
-  menu.hidden = true;
-  const search = document.createElement('input');
-  search.className = 'etk-vdd-search';
-  search.type = 'search';
-  search.placeholder = 'Search 316i, LHD, N42, 2003…';
-  const list = document.createElement('div');
-  list.className = 'etk-vdd-list';
-  menu.appendChild(search);
-  menu.appendChild(list);
-  root.appendChild(btn);
-  root.appendChild(menu);
-
-  const cur = btn.querySelector('.etk-vdd-cur');
-
-  function choose(idx, text, ev) {
-    if (ev) {
-      ev.preventDefault();
-      ev.stopPropagation();
-    }
-    ETK_STATE.variant = idx;
-    // the exact variant string ("325i · Lim · M54 · LHD · 2003-03"), so a
-    // printed diagram names the vehicle it was filtered to; null = all variants
-    ETK_STATE.variantLabel = idx != null ? text : null;
-    cur.textContent = text;
-    cur.classList.toggle('etk-vdd-filtered', idx != null);
-    close();
-  }
-
-  function renderList(q) {
-    list.innerHTML = '';
-    const ql = (q || '').toLowerCase();
-    const all = document.createElement('button');
-    all.type = 'button';
-    all.className =
-      'etk-vdd-opt' + (ETK_STATE.variant == null ? ' active' : '');
-    all.textContent = `All variants (${variants.length})`;
-    all.onclick = (e) => choose(null, `All variants (${variants.length})`, e);
-    if (!ql) list.appendChild(all);
-    let shown = 0;
-    for (const o of order) {
-      if (ql && !o.text.toLowerCase().includes(ql)) continue;
-      if (++shown > 200) break; // cap the DOM; search narrows it
-      const el = document.createElement('button');
-      el.type = 'button';
-      el.className =
-        'etk-vdd-opt' + (ETK_STATE.variant === o.i ? ' active' : '');
-      el.textContent = o.text;
-      el.onclick = (e) => choose(o.i, o.text, e);
-      list.appendChild(el);
-    }
-  }
-
-  let outside = null;
-  function open() {
-    menu.hidden = false;
-    search.value = '';
-    renderList('');
-    search.focus();
-    // arm the outside-click closer on the NEXT tick so this same click that
-    // opened the menu doesn't immediately close it.
-    setTimeout(() => {
-      outside = (e) => {
-        if (!root.contains(e.target)) close();
-      };
-      document.addEventListener('click', outside);
-    }, 0);
-  }
-  function close() {
-    menu.hidden = true;
-    if (outside) {
-      document.removeEventListener('click', outside);
-      outside = null;
-    }
-  }
-
-  btn.type = 'button';
-  btn.onclick = (e) => {
-    e.stopPropagation();
-    menu.hidden ? open() : close();
-  };
-  search.oninput = () => renderList(search.value);
-  search.onclick = (e) => e.stopPropagation();
-
-  return root;
+  // A thin wrapper over the shared dropdown (ui/dropdown.js): no drop-up, no
+  // Esc, click-to-close, immediate focus, a 200-row cap and a synthetic "All"
+  // row -- the exact behaviour this control had before. Selection writes
+  // ETK_STATE (there is no callback consumer) and lights the button amber.
+  const dd = makeDropdown({
+    items: order,
+    value: ETK_STATE.variant != null ? ETK_STATE.variant : null,
+    classPrefix: 'etk-vdd',
+    searchType: 'search',
+    searchPlaceholder: 'Search 316i, LHD, N42, 2003…',
+    itemValue: (o) => o.i,
+    itemLabel: (o) => o.text,
+    filterItem: (o, q) => o.text.toLowerCase().includes(q),
+    synthetic: { value: null, label: allLabel },
+    placeholder: allLabel,
+    rowCap: 200,
+    flip: false,
+    escClose: false,
+    closeOn: 'click',
+    focusDelay: null, // focus immediately, as before
+    activeClass: 'etk-vdd-filtered',
+    onChange: (idx, item) => {
+      ETK_STATE.variant = idx;
+      // the exact variant string, so a printed diagram names the vehicle it was
+      // filtered to; null = all variants
+      ETK_STATE.variantLabel = idx != null && item ? item.text : null;
+    },
+  });
+  return dd.el;
 }
 
 function etkVariantLabel(v) {
