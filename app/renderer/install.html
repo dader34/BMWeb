@@ -61,26 +61,39 @@
     .go:focus-visible { outline: 3px solid #ffb95e; outline-offset: 3px; }
     .go-sub { display: block; margin-top: 10px; color: #6e7a86; font-size: 14.5px; }
 
-    /* hero art: a small honest mock of the app's own fault-scan screen */
-    .appmock {
-      background: #11161c; border: 1px solid #232b35; border-radius: 10px;
-      overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,.45);
-      font-size: 13px;
+    /* hero art: a carousel of real BMWeb screens */
+    .shots {
+      position: relative; border: 1px solid #232b35; border-radius: 10px;
+      overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,.45); background: #0c1015;
+      aspect-ratio: 1500 / 722;
     }
-    .appmock .bar {
-      display: flex; align-items: center; gap: 9px;
-      padding: 9px 13px; background: #0c1015; border-bottom: 1px solid #232b35;
-      color: #dbe2e8; font-weight: 700; font-size: 12.5px;
+    .shots figure { margin: 0; position: absolute; inset: 0; opacity: 0; transition: opacity .5s ease; }
+    .shots figure.on { opacity: 1; }
+    .shots img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+    /* dots */
+    .shots-dots {
+      position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 7px;
+      justify-content: center; z-index: 2;
     }
-    .appmock .bar .st { margin-left: auto; color: #6cc794; font-weight: 400; font-size: 11.5px; }
-    .appmock .row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 13px; border-bottom: 1px solid #1a212a; color: #cdd5dc;
+    .shots-dots button {
+      width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%;
+      background: rgba(255,255,255,.28); cursor: pointer; transition: background .2s, transform .2s;
     }
-    .appmock .row:last-of-type { border-bottom: 0; }
-    .appmock .row .m { color: #eef2f5; }
-    .appmock .row .r { margin-left: auto; color: #6e7a86; font-size: 12px; }
-    .appmock .row .r.bad { color: #ff9e2c; font-weight: 700; }
+    .shots-dots button:hover { background: rgba(255,255,255,.55); }
+    .shots-dots button[aria-current="true"] { background: #e8891d; transform: scale(1.25); }
+    .shots-dots button:focus-visible { outline: 2px solid #ffb95e; outline-offset: 2px; }
+    /* prev/next, revealed on hover */
+    .shots-nav {
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+      width: 34px; height: 34px; border: 0; border-radius: 50%;
+      background: rgba(12,16,21,.7); color: #eef2f5; font-size: 17px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity .2s;
+    }
+    .shots:hover .shots-nav { opacity: 1; }
+    .shots-nav:hover { background: rgba(12,16,21,.92); }
+    .shots-nav.prev { left: 8px; } .shots-nav.next { right: 8px; }
+    .shots-nav:focus-visible { opacity: 1; outline: 2px solid #ffb95e; }
     .cap { color: #6e7a86; font-size: 13.5px; margin-top: 10px; text-align: center; }
 
     h2 {
@@ -162,29 +175,56 @@
     </div>
 
     <div>
-      <div class="appmock" role="img" aria-label="BMWeb scanning an E46: the engine module reports two faults, the rest are clean.">
-        <div class="bar">
-          <svg width="16" height="16" viewBox="0 0 100 100" aria-hidden="true">
-            <circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="4"/>
-            <clipPath id="d3"><circle cx="50" cy="50" r="31"/></clipPath>
-            <g clip-path="url(#d3)">
-              <rect x="19" y="19" width="31" height="31" fill="#eef2f5"/><rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>
-              <rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/><rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>
-            </g>
-          </svg>
-          Full Module Error Scan
-          <span class="st">cable connected</span>
-        </div>
-        <div class="row"><span class="m">Engine (MS45.1)</span><span class="r bad">2 faults</span></div>
-        <div class="row"><span class="m">ABS / DSC</span><span class="r">no faults</span></div>
-        <div class="row"><span class="m">Airbags</span><span class="r">no faults</span></div>
-        <div class="row"><span class="m">Instrument cluster</span><span class="r">no faults</span></div>
-        <div class="row"><span class="m">Climate control</span><span class="r">no faults</span></div>
-        <div class="row"><span class="m">Central body electronics</span><span class="r">no faults</span></div>
+      <div class="shots" id="shots" aria-roledescription="carousel" aria-label="Screens from BMWeb">
+        <figure class="on"><img src="img/landing/01-vehicles.webp" alt="BMWeb's vehicle picker: a grid of BMW chassis from E31 to R50." width="1500" height="722" loading="eager" decoding="async"></figure>
+        <figure><img src="img/landing/02-modules.webp" alt="An E46's control modules listed by system: engine, transmission, chassis, body and more." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/03-apps.webp" alt="The Apps hub: fault lookup, wiring diagrams, parts catalogue, Tool32 and tuning." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/04-wiring.webp" alt="BMW's own WDS wiring diagram for an E46, opened inside BMWeb." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/05-remote-share.webp" alt="Sharing your car remotely: BMWeb shows a short code to give the person connecting." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/06-remote-waiting.webp" alt="The helper's view: connected to the shared car, waiting for the owner to let them in." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/07-remote-admit.webp" alt="The owner is asked to admit or reject someone requesting to connect to their car." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/08-remote-approve.webp" alt="Before any write, the owner approves the exact action the helper wants to run." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <figure><img src="img/landing/09-remote-connected.webp" alt="A live remote session: a red REMOTE badge and an orange frame while the helper drives the car." width="1500" height="722" loading="lazy" decoding="async"></figure>
+        <button class="shots-nav prev" type="button" aria-label="Previous screen">&#8249;</button>
+        <button class="shots-nav next" type="button" aria-label="Next screen">&#8250;</button>
+        <div class="shots-dots" role="tablist"></div>
       </div>
-      <div class="cap">A whole-car scan in BMWeb.</div>
+      <div class="cap">A look inside BMWeb.</div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      var box = document.getElementById('shots');
+      if (!box) return;
+      var slides = [].slice.call(box.querySelectorAll('figure'));
+      var dotWrap = box.querySelector('.shots-dots');
+      var i = 0, timer = null, DELAY = 4500;
+      slides.forEach(function (s, n) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-label', 'Screen ' + (n + 1));
+        b.addEventListener('click', function () { go(n); reset(); });
+        dotWrap.appendChild(b);
+      });
+      var dots = [].slice.call(dotWrap.children);
+      function go(n) {
+        i = (n + slides.length) % slides.length;
+        slides.forEach(function (s, k) { s.classList.toggle('on', k === i); });
+        dots.forEach(function (d, k) { d.setAttribute('aria-current', k === i ? 'true' : 'false'); });
+      }
+      function next() { go(i + 1); }
+      function reset() { if (timer) clearInterval(timer); timer = setInterval(next, DELAY); }
+      box.querySelector('.shots-nav.next').addEventListener('click', function () { next(); reset(); });
+      box.querySelector('.shots-nav.prev').addEventListener('click', function () { go(i - 1); reset(); });
+      // pause on hover; stop entirely if the viewer prefers reduced motion
+      box.addEventListener('mouseenter', function () { if (timer) clearInterval(timer); });
+      box.addEventListener('mouseleave', reset);
+      go(0);
+      if (!window.matchMedia || !matchMedia('(prefers-reduced-motion: reduce)').matches) reset();
+    }());
+  </script>
 
   <h2>What you need</h2>
   <div class="needs">
