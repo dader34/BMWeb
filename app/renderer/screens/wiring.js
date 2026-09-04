@@ -32,6 +32,32 @@ const WIRING_KIND_LABEL = {
   document: 'Document',
 };
 
+// Open document tabs, persisted per chassis so a workspace survives leaving
+// and returning to the wiring screen. Each tab is a doc entry reduced to what
+// re-opening needs: { doc, name, kind }. localStorage is best-effort -- a
+// private window or a wiped store just starts with no tabs.
+const WIRING_TABS_KEY = 'wiring.tabs';   // { CHASSIS: { open:[{doc,name,kind}], active:doc } }
+
+function wiringTabsLoad(chassisId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(WIRING_TABS_KEY) || '{}');
+    const st = all[chassisId.toUpperCase()];
+    if (st && Array.isArray(st.open)) return st;
+  } catch (e) { /* ignore */ }
+  return { open: [], active: null };
+}
+
+function wiringTabsSave(chassisId, state) {
+  try {
+    const all = JSON.parse(localStorage.getItem(WIRING_TABS_KEY) || '{}');
+    all[chassisId.toUpperCase()] = {
+      open: state.open.map(t => ({ doc: t.doc, name: t.name, kind: t.kind })),
+      active: state.active,
+    };
+    localStorage.setItem(WIRING_TABS_KEY, JSON.stringify(all));
+  } catch (e) { /* quota / private mode: tabs are a convenience, not critical */ }
+}
+
 async function loadWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return WIRING_CACHE.get(id);
@@ -375,6 +401,7 @@ function showWiring(chassisId, openDoc = null, vin = null) {
       <button class="btn wiring-tbtn" id="wds-help"
               title="How to use this screen">Help</button>
     </div>`}
+    <div class="wiring-tabs" id="wiring-tabs" role="tablist" hidden></div>
     <div class="wiring-body">
       <nav class="split-nav wiring-nav">
         <div class="wiring-tree" id="wiring-tree"></div>
@@ -490,13 +517,136 @@ function showWiring(chassisId, openDoc = null, vin = null) {
     sbLeft.textContent = 'wiring';
     // sbRight is set by refreshCount() below so it stays faithful to the mode
 
+    // ---- open-document tabs -------------------------------------------------
+    // A workspace of open documents shown as a tab strip above the panes. A
+    // tree click always opens a NEW tab (or focuses one already open); each tab
+    // remembers its entry so switching re-renders that document. Tabs persist
+    // per chassis (wiringTabsSave) so the workspace survives leaving/returning.
+    const tabsEl = split.querySelector('#wiring-tabs');
+    const tabs = { open: [], active: null };   // open:[entry], active:doc id
+
+    // a document tab keys on its doc id; a glossary leaf has none, so key it by
+    // a stable synthetic id ("glossary:<name>") and remember it's a glossary
+    const tabKey = (entry) =>
+      entry && (entry.doc || ('glossary:' + (entry.name || '')));
+    const persist = () => wiringTabsSave(chassisId, {
+      open: tabs.open, active: tabs.active,
+    });
+
+    function renderTabs() {
+      if (!tabs.open.length) {
+        tabsEl.hidden = true;
+        tabsEl.innerHTML = '';
+        return;
+      }
+      tabsEl.hidden = false;
+      tabsEl.innerHTML = '';
+      tabs.open.forEach((entry) => {
+        const active = tabKey(entry) === tabs.active;
+        const tab = document.createElement('div');
+        tab.className = 'wiring-tab' + (active ? ' active' : '');
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        tab.title = entry.name;
+        const kind = WIRING_KIND_LABEL[entry.kind] ? entry.kind : 'document';
+        tab.innerHTML =
+          `<span class="wiring-tab-dot kind-${esc(kind)}">`
+          + `<span class="wiring-dot"></span></span>`
+          + `<span class="wiring-tab-name">${esc(entry.name)}</span>`
+          + `<button class="wiring-tab-close" aria-label="Close tab"`
+          + ` title="Close">×</button>`;
+        tab.querySelector('.wiring-tab-name').onclick = () => focusTab(entry);
+        tab.querySelector('.wiring-tab-dot').onclick = () => focusTab(entry);
+        tab.querySelector('.wiring-tab-close').onclick = (ev) => {
+          ev.stopPropagation();
+          closeTab(entry);
+        };
+        // middle-click closes, like a browser
+        tab.onmousedown = (ev) => {
+          if (ev.button === 1) { ev.preventDefault(); closeTab(entry); }
+        };
+        tabsEl.appendChild(tab);
+      });
+      // keep the active tab in view when the strip overflows
+      const act = tabsEl.querySelector('.wiring-tab.active');
+      if (act && act.scrollIntoView) {
+        act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+    }
+
+    // open-or-focus: focus the tab if the doc is already open, else add it
+    function openTab(entry) {
+      const existing = tabs.open.find(t => tabKey(t) === tabKey(entry));
+      if (existing) { focusTab(existing); return; }
+      tabs.open.push(entry);
+      tabs.active = tabKey(entry);
+      renderTabs();
+      persist();
+      renderActive(entry);
+    }
+
+    function focusTab(entry) {
+      if (tabs.active === tabKey(entry)) { renderTabs(); return; }
+      tabs.active = tabKey(entry);
+      renderTabs();
+      persist();
+      renderActive(entry);
+    }
+
+    function closeTab(entry) {
+      const i = tabs.open.findIndex(t => tabKey(t) === tabKey(entry));
+      if (i < 0) return;
+      const wasActive = tabs.active === tabKey(entry);
+      tabs.open.splice(i, 1);
+      if (wasActive) {
+        // focus the neighbour to the left, else the next one, else nothing
+        const next = tabs.open[i - 1] || tabs.open[i] || tabs.open[0] || null;
+        tabs.active = next ? tabKey(next) : null;
+        renderTabs();
+        persist();
+        if (next) renderActive(next); else showPlaceholder();
+      } else {
+        renderTabs();
+        persist();
+      }
+    }
+
+    // render a tab's document into the view pane (the actual drawing work).
+    // A glossary leaf has no doc id -- route it to the glossary viewer.
+    function renderActive(entry) {
+      if (!entry.doc) openGlossary(entry);
+      else openDocument(entry);
+    }
+
+    function showPlaceholder() {
+      viewEl.innerHTML = `<div class="empty"><div>`
+        + `<strong class="wiring-emptycount">${index.length} documents</strong></div>`
+        + `<div>Pick a diagram on the left, or search. Open documents stack as `
+        + `tabs above. Diagrams are vector: scroll to zoom, drag to pan.</div></div>`;
+      setActions(browseActions);
+      refreshCount();
+    }
+
     // prev/next step through documents in tree order (the flat index IS that
     // order)
     let atIndex = -1;
     const step = (d) => {
       if (!index.length) return;
       atIndex = (atIndex + d + index.length) % index.length;
-      openDocument(index[atIndex]);
+      // prev/next moves the active tab through tree order rather than opening a
+      // new tab per step -- stepping is browsing, not collecting
+      const entry = index[atIndex];
+      const active = tabs.open.find(t => tabKey(t) === tabs.active);
+      if (active && active.doc) {
+        const i = tabs.open.indexOf(active);
+        tabs.open[i] = entry;
+        tabs.active = tabKey(entry);
+        renderTabs();
+        persist();
+        renderActive(entry);
+      } else {
+        openTab(entry);
+      }
     };
     on('#wds-prev', () => step(-1));
     on('#wds-next', () => step(1));
@@ -516,7 +666,7 @@ function showWiring(chassisId, openDoc = null, vin = null) {
           leaf.innerHTML = `<span class="wiring-dot"></span>`
             + `<span class="wiring-leaf-name">${esc(c.name)}</span>${star}`;
           leaf.title = WIRING_KIND_LABEL[c.kind] || c.kind;
-          leaf.onclick = () => openDocument(c);
+          leaf.onclick = () => openTab(c);
           parent.appendChild(leaf);
         } else if (c.children && c.children.length > 0) {
           const wrap = document.createElement('div');
@@ -552,7 +702,7 @@ function showWiring(chassisId, openDoc = null, vin = null) {
           leaf.innerHTML = `<span class="wiring-dot" style="background: var(--amber);"></span>`
             + `<span class="wiring-leaf-name">${esc(c.name)}</span>`;
           leaf.title = 'Signal / Component definition';
-          leaf.onclick = () => openGlossary(c);
+          leaf.onclick = () => openTab(c);
           parent.appendChild(leaf);
         }
       }
@@ -690,7 +840,7 @@ function showWiring(chassisId, openDoc = null, vin = null) {
         b.innerHTML = `<span class="wiring-dot"></span>`
           + `<span class="wiring-leaf-name">${esc(e.name)}</span>`
           + `<span class="wiring-trail">${esc(e.trail.slice(-1)[0] || '')}</span>`;
-        b.onclick = () => openDocument(e);
+        b.onclick = () => openTab(e);
         searchWrap.appendChild(b);
       });
       treeEl.parentNode.appendChild(searchWrap);
@@ -762,7 +912,7 @@ function showWiring(chassisId, openDoc = null, vin = null) {
         el.onclick = () => {
           const did = el.getAttribute('data-doc');
           const hit = index.find(e => e.doc === did);
-          if (hit) openDocument(hit);
+          if (hit) openTab(hit);
         };
       });
 
@@ -799,6 +949,14 @@ function showWiring(chassisId, openDoc = null, vin = null) {
         return;
       }
       if (doc.type === 'html') {
+        // a description has no zoom controls, so give its bar a Share button
+        // (schematics get theirs from fitAndPan, into this same bar)
+        const share = document.createElement('button');
+        share.className = 'btn wiring-fit wiring-share';
+        share.textContent = 'Share';
+        share.title = 'Copy a link to this document';
+        share.onclick = () => wiringShareCurrent(share);
+        bar.appendChild(share);
         const art = document.createElement('article');
         art.className = 'wiring-doc';
         art.innerHTML = doc.text;
@@ -822,7 +980,7 @@ function showWiring(chassisId, openDoc = null, vin = null) {
           a.onclick = (ev) => {
             ev.preventDefault();
             const hit = index.find(e => e.doc === target);
-            openDocument(hit || { name: target, kind: 'document', doc: target });
+            openTab(hit || { name: target, kind: 'document', doc: target });
           };
         });
         viewEl.appendChild(art);
@@ -861,17 +1019,43 @@ function showWiring(chassisId, openDoc = null, vin = null) {
       sbLeft.textContent = entry.name;
     }
 
-    // open straight to a document when asked (ECU / shared-link deep-link)
+    // restore the persisted tab workspace for this chassis. Each saved tab is
+    // re-tied to the live index entry (so a rebuilt archive that dropped a doc
+    // just skips it); a saved glossary tab has no doc, so keep it as-is.
+    const saved = wiringTabsLoad(chassisId);
+    saved.open.forEach((t) => {
+      const live = t.doc
+        ? (index.find(e => e.doc === t.doc) || null)
+        : { name: t.name, kind: t.kind };   // glossary leaf
+      if (live) {
+        const entry = t.doc ? live : t;
+        if (!tabs.open.some(o => tabKey(o) === tabKey(entry))) tabs.open.push(entry);
+      }
+    });
+    tabs.active = tabs.open.some(t => tabKey(t) === saved.active)
+      ? saved.active : (tabs.open[0] ? tabKey(tabs.open[0]) : null);
+    renderTabs();
+
+    // open straight to a document when asked (ECU / shared-link deep-link):
+    // that becomes a tab too, on top of any restored ones
     if (openDoc) {
       const hit = index.find(e => e.doc === openDoc)
         || index.find(e => e.name === openDoc);
-      if (hit) { openDocument(hit); expandTreeToDoc(hit.doc); }
+      if (hit) { openTab(hit); expandTreeToDoc(hit.doc); }
+      else if (tabs.active) { renderActiveById(tabs.active); }
+      else showPlaceholder();
+    } else if (tabs.active) {
+      // reopen the tab that was active when the user last left
+      renderActiveById(tabs.active);
+      const act = tabs.open.find(t => t.doc && tabKey(t) === tabs.active);
+      if (act) expandTreeToDoc(act.doc);
     } else {
-      viewEl.innerHTML = `<div class="empty"><div>`
-        + `<strong class="wiring-emptycount">${index.length} documents</strong></div>`
-        + `<div>Pick a diagram on the left, or search. Diagrams are vector: `
-        + `scroll to zoom, drag to pan.</div></div>`;
-      refreshCount();   // reflect the VIN mode in the count if filtering
+      showPlaceholder();
+    }
+
+    function renderActiveById(key) {
+      const entry = tabs.open.find(t => tabKey(t) === key);
+      if (entry) renderActive(entry); else showPlaceholder();
     }
   }).catch((e) => {
     viewEl.innerHTML = errorBlock(e.message);
@@ -1031,7 +1215,8 @@ function fitAndPan(svg, stage, bar, classic = false) {
     }
   });
 
-  // on-screen zoom controls, mirroring the F-keys
+  // on-screen zoom controls, mirroring the F-keys, plus Share (copies a link
+  // to this exact document so it can be sent to someone else)
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
   [[classic ? '⊕' : '+', 'Zoom in (+ key, or scroll the wheel)', () => zoomBy(1 / 1.3)],
@@ -1045,6 +1230,12 @@ function fitAndPan(svg, stage, bar, classic = false) {
     b.onclick = fn;
     controls.appendChild(b);
   });
+  const share = document.createElement('button');
+  share.className = (classic ? 'wds-btn' : 'btn wiring-fit') + ' wiring-share';
+  share.textContent = 'Share';
+  share.title = 'Copy a link to this document';
+  share.onclick = () => wiringShareCurrent(share);
+  controls.appendChild(share);
   if (classic) bar.innerHTML = '';
   bar.appendChild(controls);
   if (typeof tipify === 'function') tipify(controls);
@@ -1060,7 +1251,57 @@ function fitAndPan(svg, stage, bar, classic = false) {
   });
   ro.observe(stage);
 
+  // Fit once up front. On a hard reload the stage is already at its final size
+  // when the observer attaches, so the ResizeObserver's first callback can be a
+  // no-op (same signature) and the diagram would render unfitted until the pane
+  // next resized. A next-frame fit guarantees a correct first paint; it records
+  // the size so the observer won't fight it, and skips if the user already
+  // zoomed before the frame ran.
+  requestAnimationFrame(() => {
+    const r = stage.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return;
+    last = `${Math.round(r.width)}x${Math.round(r.height)}`;
+    if (!touched) fit();
+  });
+
   return { by: zoomBy, fit };
+}
+
+// Copy a shareable link to the document on screen. The app already reflects the
+// open document in the address bar (#apps/wiring/<CHASSIS>/<DOC>), so the link
+// is just the current URL. Flash the button to confirm the copy; fall back to a
+// hidden-textarea copy where the async clipboard API is unavailable (file://,
+// older browsers).
+async function wiringShareCurrent(btn) {
+  const url = location.href;
+  let ok = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url);
+      ok = true;
+    }
+  } catch (e) { ok = false; }
+  if (!ok) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      ok = document.execCommand('copy');
+      ta.remove();
+    } catch (e) { ok = false; }
+  }
+  if (!btn) return;
+  const original = btn.textContent;
+  btn.textContent = ok ? '✓ Copied' : 'Copy failed';
+  btn.classList.toggle('copied', ok);
+  clearTimeout(btn._copyTimer);
+  btn._copyTimer = setTimeout(() => {
+    btn.textContent = original;
+    btn.classList.remove('copied');
+  }, 1600);
 }
 
 // Print the DOCUMENT via the shared theme-agnostic helper (core/print.js): a

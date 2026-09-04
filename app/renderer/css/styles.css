@@ -2674,6 +2674,45 @@ select.modal-input { appearance: none; cursor: pointer; }
 .kind-specs      .wiring-dot { background: #ffd166; border-radius: 50%; }
 .wiring-empty { color: var(--ink-dim); font-size: 12px; padding: 10px 8px; }
 
+/* open-document tabs: a strip above the panes. Each pick from the tree stacks
+   a tab; the active one is filled, the rest are quiet. Overflows scroll
+   horizontally rather than wrapping, so the panes never lose height. */
+.wiring-tabs {
+  display: flex; align-items: stretch; gap: 4px; flex: none;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  padding: 6px 2px 0; margin-bottom: 2px;
+}
+.wiring-tabs[hidden] { display: none; }
+.wiring-tab {
+  display: flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  max-width: 220px; cursor: pointer; user-select: none;
+  padding: 6px 8px 6px 10px; border: 1px solid var(--line);
+  border-bottom: none; border-radius: 7px 7px 0 0;
+  background: var(--panel-2); color: var(--ink-dim); font-size: 12.5px;
+}
+.wiring-tab:hover { color: var(--ink); background: var(--panel); }
+.wiring-tab.active {
+  color: var(--ink); background: var(--panel);
+  border-color: var(--line); box-shadow: inset 0 2px 0 var(--amber);
+}
+.wiring-tab-dot { display: inline-flex; flex: none; }
+.wiring-tab-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-weight: 600;
+}
+.wiring-tab-close {
+  flex: none; border: none; background: none; cursor: pointer;
+  color: var(--ink-faint); font-size: 15px; line-height: 1; padding: 0 2px;
+  border-radius: 3px;
+}
+.wiring-tab-close:hover { color: var(--ink); background: rgba(127,127,127,.18); }
+/* WDS (classic) frame: tabs read as light chrome to match the grey toolbar */
+.wds-frame .wiring-tabs { padding: 4px 6px 0; background: #808080; margin-bottom: 0; }
+.wds-frame .wiring-tab {
+  background: #d4d0c8; border-color: #c0c0c0; color: #202020; border-radius: 0;
+}
+.wds-frame .wiring-tab.active { background: #f0f0f0; box-shadow: inset 0 2px 0 #003a8c; }
+
 .wiring-view { display: flex; flex-direction: column; min-height: 0; padding: 0; }
 .wiring-bar {
   display: flex; align-items: baseline; gap: 12px; flex: none;
@@ -2685,6 +2724,11 @@ select.modal-input { appearance: none; cursor: pointer; }
   text-transform: uppercase; color: var(--ink-dim);
 }
 .wiring-fit { font-size: 11px; padding: 4px 10px; }
+/* Share confirms the copy by turning amber-green briefly */
+.wiring-share { white-space: nowrap; }
+.wiring-share.copied {
+  color: var(--green, #4caf50); border-color: var(--green, #4caf50);
+}
 /* the schematic stage: white because BMW drew these on white, and the
    strokes are black -- inverting them would misread as a different diagram */
 .wiring-stage {
