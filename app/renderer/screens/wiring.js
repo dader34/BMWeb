@@ -1041,8 +1041,19 @@ function showWiring(chassisId, openDoc = null, vin = null) {
     if (openDoc) {
       const hit = index.find(e => e.doc === openDoc)
         || index.find(e => e.name === openDoc);
-      if (hit) { openTab(hit); expandTreeToDoc(hit.doc); }
-      else if (tabs.active) { renderActiveById(tabs.active); }
+      if (hit) {
+        // openTab focuses an already-open tab, but focusTab short-circuits when
+        // that tab is already the active one -- which it is right after a reload
+        // that restored this same doc as the active tab, so nothing would draw.
+        // Render it explicitly in that case; otherwise open/focus as normal.
+        if (tabs.active === tabKey(hit)
+            && tabs.open.some(t => tabKey(t) === tabKey(hit))) {
+          renderActiveById(tabs.active);
+        } else {
+          openTab(hit);
+        }
+        expandTreeToDoc(hit.doc);
+      } else if (tabs.active) { renderActiveById(tabs.active); }
       else showPlaceholder();
     } else if (tabs.active) {
       // reopen the tab that was active when the user last left
