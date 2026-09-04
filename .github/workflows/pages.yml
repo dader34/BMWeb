@@ -52,6 +52,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+          # cache the npm download keyed on package-lock.json, so "Install dev
+          # tooling" restores in seconds after the first run instead of
+          # re-downloading eslint/prettier/typescript every time (~7 min)
+          cache: npm
 
       - name: Expand the committed data
         run: |
