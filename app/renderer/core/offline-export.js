@@ -296,6 +296,7 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
       .replace('<script src="core/webshim.js"></script>',
                '<script src="data/inline.js"></script>\n'
                + '  <script src="data/wiring.js"></script>\n'
+               + '  <script src="data/docs.js"></script>\n'
                + '  <script src="core/webshim.js"></script>');
     files['index.html'] = enc0.encode(html);
   }
@@ -359,6 +360,25 @@ async function offlineExport(chassis, withFaults, onProgress, withWiring = true)
   if (Object.keys(wiring).length) {
     files['data/wiring.js'] = enc0.encode(
       `window.BMACW_WIRING=${JSON.stringify(wiring)};`);
+  }
+
+  // ISTA reference documents, inlined the same way. Small (~0.3-2.3 MB per car),
+  // shipped with wiring since they live in the same merged screen. Absent for a
+  // car with no .docs bundle (not an error).
+  const docs = {};
+  if (withWiring) {
+    for (const id of ids) {
+      try {
+        say(`collecting ${id} documents`);
+        docs[id] = b64(await offlineGet(`data/docs/${id}.docs`));
+      } catch (e) {
+        if (!/^missing /.test(e.message)) warnings.push(`${id} documents: ${e.message}`);
+      }
+    }
+  }
+  if (Object.keys(docs).length) {
+    files['data/docs.js'] = enc0.encode(
+      `window.BMACW_DOCS=${JSON.stringify(docs)};`);
   }
 
   if (withFaults) {
@@ -579,6 +599,22 @@ async function offlineSingleFile(chassis, withFaults, onProgress,
     }
     if (parts.length) {
       dataParts.push('\nwindow.BMACW_WIRING={', ...parts, '};');
+    }
+    // ISTA reference documents alongside wiring (same merged screen)
+    const dparts = [];
+    let dfirst = true;
+    for (const id of ids) {
+      try {
+        say(`collecting ${id} documents`);
+        const d = b64(await offlineGet(`data/docs/${id}.docs`));
+        dparts.push(`${dfirst ? '' : ','}${JSON.stringify(id)}:${JSON.stringify(d)}`);
+        dfirst = false;
+      } catch (e) {
+        if (!/^missing /.test(e.message)) warnings.push(`${id} documents: ${e.message}`);
+      }
+    }
+    if (dparts.length) {
+      dataParts.push('\nwindow.BMACW_DOCS={', ...dparts, '};');
     }
   }
   if (withFaults) {

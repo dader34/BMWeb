@@ -23,6 +23,13 @@ if [ -f data/wiring-applicability.json.gz ]; then
   mkdir -p dist-web/data/wiring
   cp data/wiring-applicability.json.gz dist-web/data/wiring/applicability.json.gz
 fi
+
+# ISTA reference-document bundles (one .docs per chassis). Small and committed,
+# so copy them straight in -- no release download needed, unlike .wiring.
+if ls data/docs/*.docs >/dev/null 2>&1; then
+  mkdir -p dist-web/data/docs
+  cp data/docs/*.docs dist-web/data/docs/
+fi
 # the relay is not shipped, and the in-page exporter is what THIS replaces
 rm -f dist-web/thor_bridge.js dist-web/core/offline-export.js
 

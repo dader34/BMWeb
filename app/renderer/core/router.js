@@ -24,6 +24,7 @@ const APPS_ROUTES = {
   'apps/parts/vin': () => (typeof showVinDecoder === 'function' ? showVinDecoder() : null),
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
+  'apps/documents': () => (typeof showWiringChassis === 'function' ? showWiringChassis() : null),
 };
 
 // The reverse map: which route a given show*() belongs to, so navigating by
@@ -64,6 +65,14 @@ function resolveRoute(route) {
     const chassis = w[1].toUpperCase();
     const doc = w[2] ? decodeURIComponent(w[2]) : null;
     return () => showWiring(chassis, doc);
+  }
+  // #apps/documents/<CHASSIS>[/<DOCID>] -> the merged wiring/docs screen, doc
+  // category; the doc id ("d:"-prefixed internally) opens that document
+  const dq = /^apps\/documents\/([A-Za-z0-9]+)(?:\/([0-9]+))?$/.exec(route);
+  if (dq && typeof showWiring === 'function') {
+    const chassis = dq[1].toUpperCase();
+    const docId = dq[2] ? ('d:' + dq[2]) : null;
+    return () => showWiring(chassis, docId, null, 'repair');
   }
   // #apps/parts/<CHASSIS>[/<HG>[/<BTNR>]]  (vin is an exact route, handled above)
   const p = /^apps\/parts\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(route);
@@ -231,6 +240,15 @@ function routeSetWiringDoc(chassis, doc) {
 }
 
 // Same, for an open ETK diagram: #apps/parts/<CHASSIS>/<HG>/<BTNR>.
+function routeSetDocsDoc(chassis, docId) {
+  if (_routing || !chassis || !docId) return;
+  const route = `apps/documents/${String(chassis).toUpperCase()}/${encodeURIComponent(docId)}`;
+  if (currentRoute() === route) return;
+  _routing = true;
+  try { history.replaceState(null, '', '#' + route); _openRoute = route; }
+  finally { _routing = false; }
+}
+
 function routeSetEtkDiagram(chassis, hg, btnr) {
   if (_routing || !chassis || !hg || !btnr) return;
   const route = `apps/parts/${String(chassis).toUpperCase()}/`

@@ -24,9 +24,9 @@ const APP_REGISTRY = [
   {
     id: 'wiring',
     icon: '⌁',
-    title: 'Wiring Diagrams',
-    desc: "BMW's own schematics, component locations and connector views",
-    tag: 'WDS',
+    title: 'Wiring & Documents',
+    desc: "BMW's schematics plus ISTA repair steps, pin assignments and tech data",
+    tag: 'WDS · ISTA',
     open: () => showWiringChassis(),
     // present if any chassis carries wiring data (same probe the card used)
     hasData: async () => {

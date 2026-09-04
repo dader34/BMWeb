@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v71b';  // bmweb-v71b: fix restored active wiring tab not rendering (focusTab short-circuit on reload)
+const CACHE_NAME = 'bmweb-v73';   // bmweb-v73: merged Wiring & Documents (category toggle, ISTA docs in the wiring screen)
 
 
 const CORE_ASSETS = [
@@ -27,7 +27,7 @@ function isShellRequest(request, url) {
 
 // The heavy, per-release data payloads worth caching hard.
 function isDataRequest(url) {
-  return /\.(?:chassis|wiring)$/i.test(url.pathname)
+  return /\.(?:chassis|wiring|docs)$/i.test(url.pathname)
     || url.pathname.includes('/api/chassis/')
     || url.pathname.includes('/data/')
     || /\.(?:json|json\.gz|png|jpg|jpeg|svg|gif|ico|pdf)(?:\?|$)/i.test(url.pathname);

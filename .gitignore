@@ -42,6 +42,12 @@ data/faults/*
 # ISTA's DiagDocDb rule BLOBs by tools/wiring/build_applicability.py. 175 KB,
 # committed because the WDS bundles it filters are downloaded at build time.
 !data/wiring-applicability.json.gz
+# ISTA reference-document bundles: small (~15 MB total, one per chassis) and
+# self-contained (each carries its own component tree + applicability), so they
+# are committed and copied into dist-web at build time, unlike the multi-GB WDS
+# .wiring bundles which are downloaded from a release.
+!data/docs/
+!data/docs/*.docs
 !data/faults/*/
 !data/faults/*/*.json
 # Per-ECU caption translations. These are hand-written SOURCE, not generated:
