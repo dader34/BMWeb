@@ -861,49 +861,9 @@ function showVinDecoder(opts) {
   idCard.appendChild(filters);
 
   // a scrolling single-select list box (ETK's <select size=N> panes)
-  function listBox() {
-    const box = document.createElement('div');
-    box.className = 'etk-lb';
-    box.tabIndex = 0;
-    let items = [],
-      value = -1; // value = selected index, -1 = none
-    box._onpick = null;
-    function render() {
-      box.innerHTML = '';
-      items.forEach((it, i) => {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'etk-lb-row' + (i === value ? ' active' : '');
-        row.textContent = it.label;
-        row.onclick = () => {
-          value = i;
-          render();
-          if (i === value) row.scrollIntoView({ block: 'nearest' });
-          if (box._onpick) box._onpick(items[i].key, items[i].label);
-        };
-        box.appendChild(row);
-      });
-      if (!items.length) {
-        const e = document.createElement('div');
-        e.className = 'etk-lb-empty';
-        e.textContent = '—';
-        box.appendChild(e);
-      }
-    }
-    box.setItems = (arr) => {
-      items = arr;
-      value = -1;
-      render();
-    };
-    box.clear = () => {
-      items = [];
-      value = -1;
-      render();
-    };
-    box.selected = () => (value >= 0 ? items[value] : null);
-    render();
-    return box;
-  }
+  // the ETK cascade's list boxes use the shared control (ui/listbox.js),
+  // focusable for keyboard navigation
+  const listBox = () => makeListBox({ focusable: true });
 
   const lbSeries = listBox();
   const lbChassis = listBox();
@@ -1059,7 +1019,7 @@ function showVinDecoder(opts) {
   selBrand.onchange = refreshSeries;
 
   // Series picked -> fill Chassis
-  lbSeries._onpick = (series) => {
+  lbSeries.onpick = (series) => {
     state.series = series;
     state.chassis = state.body = state.model = null;
     lbBody.clear();
@@ -1088,7 +1048,7 @@ function showVinDecoder(opts) {
   }
 
   // Chassis picked -> fill Body
-  lbChassis._onpick = (ch) => {
+  lbChassis.onpick = (ch) => {
     state.chassis = ch;
     state.body = state.model = null;
     lbModel.clear();
@@ -1111,7 +1071,7 @@ function showVinDecoder(opts) {
     idHint.textContent = 'Pick a body style.';
   };
   // Body picked -> fill Model (and show that body's car photo)
-  lbBody._onpick = (body) => {
+  lbBody.onpick = (body) => {
     state.body = body;
     state.model = null;
     resetDrops();
@@ -1121,7 +1081,7 @@ function showVinDecoder(opts) {
     idHint.textContent = 'Pick a model.';
   };
   // Model picked -> fill the Steering / Gearbox / Year / Month dropdowns
-  lbModel._onpick = (model) => {
+  lbModel.onpick = (model) => {
     state.model = model;
     resetDrops();
     const variants = veh[state.chassis][state.body][model]; // [[steer,gear,date,mospid]]
