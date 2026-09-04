@@ -804,6 +804,37 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
       on('#wds-prev', () => step(-1));
       on('#wds-next', () => step(1));
 
+      // A collapsing folder row, shared by the diagram tree and the document
+      // tree (their leaf rows differ, but the folder is identical): a caret +
+      // name button that lazily builds its children via `recurse` on first open,
+      // and carries data-vin-empty so the VIN filter can hide a wholly-off-build
+      // branch without expanding it. `hasMatch(node)` is the per-tree subtree
+      // test (diagrams vs docs).
+      const makeFolder = (c, parent, depth, recurse, hasMatch) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'wiring-folderwrap';
+        if (wiringVinHit && !hasMatch(c)) wrap.dataset.vinEmpty = '1';
+        const btn = document.createElement('button');
+        btn.className = 'wiring-folder';
+        btn.style.paddingLeft = `${10 + depth * 12}px`;
+        btn.innerHTML =
+          `<span class="wiring-caret">▸</span>` + `<span>${esc(c.name)}</span>`;
+        const kids = document.createElement('div');
+        kids.className = 'wiring-kids';
+        kids.hidden = true;
+        btn.onclick = () => {
+          kids.hidden = !kids.hidden;
+          btn.classList.toggle('open', !kids.hidden);
+          if (!kids.dataset.built) {
+            recurse(c, kids, depth + 1);
+            kids.dataset.built = '1';
+          }
+        };
+        wrap.appendChild(btn);
+        wrap.appendChild(kids);
+        parent.appendChild(wrap);
+      };
+
       // the tree: folders collapse, leaves open
       const renderTree = (node, parent, depth) => {
         for (const c of node.children || []) {
@@ -826,33 +857,7 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
             leaf.onclick = () => openTab(c);
             parent.appendChild(leaf);
           } else if (c.children && c.children.length > 0) {
-            const wrap = document.createElement('div');
-            wrap.className = 'wiring-folderwrap';
-            // whether this branch holds ANY diagram that isn't off-build for the
-            // VIN -- lets the filter hide a folder whose whole subtree is off-build
-            // without having to expand it first (the tree is lazy)
-            if (wiringVinHit && !wiringSubtreeHasMatch(c))
-              wrap.dataset.vinEmpty = '1';
-            const btn = document.createElement('button');
-            btn.className = 'wiring-folder';
-            btn.style.paddingLeft = `${10 + depth * 12}px`;
-            btn.innerHTML =
-              `<span class="wiring-caret">▸</span>` +
-              `<span>${esc(c.name)}</span>`;
-            const kids = document.createElement('div');
-            kids.className = 'wiring-kids';
-            kids.hidden = true;
-            btn.onclick = () => {
-              kids.hidden = !kids.hidden;
-              btn.classList.toggle('open', !kids.hidden);
-              if (!kids.dataset.built) {
-                renderTree(c, kids, depth + 1);
-                kids.dataset.built = '1';
-              }
-            };
-            wrap.appendChild(btn);
-            wrap.appendChild(kids);
-            parent.appendChild(wrap);
+            makeFolder(c, parent, depth, renderTree, wiringSubtreeHasMatch);
           } else {
             // Glossary / Signal definition leaf
             const leaf = document.createElement('button');
@@ -1004,28 +1009,7 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
         }
         for (const c of node.children || []) {
           if (!c.children && !c.docs) continue;
-          const wrap = document.createElement('div');
-          wrap.className = 'wiring-folderwrap';
-          if (wiringVinHit && !docsSubtreeHasMatch(c))
-            wrap.dataset.vinEmpty = '1';
-          const btn = document.createElement('button');
-          btn.className = 'wiring-folder';
-          btn.style.paddingLeft = `${10 + depth * 12}px`;
-          btn.innerHTML = `<span class="wiring-caret">▸</span><span>${esc(c.name)}</span>`;
-          const kids = document.createElement('div');
-          kids.className = 'wiring-kids';
-          kids.hidden = true;
-          btn.onclick = () => {
-            kids.hidden = !kids.hidden;
-            btn.classList.toggle('open', !kids.hidden);
-            if (!kids.dataset.built) {
-              renderDocsTree(c, kids, depth + 1);
-              kids.dataset.built = '1';
-            }
-          };
-          wrap.appendChild(btn);
-          wrap.appendChild(kids);
-          parent.appendChild(wrap);
+          makeFolder(c, parent, depth, renderDocsTree, docsSubtreeHasMatch);
         }
       }
 
