@@ -86,6 +86,10 @@ echo "== IR interpreter renders known screens =="
 node tools/verify/test_ir_render.js
 
 echo
+echo "== no cross-file global-name collisions in the renderer =="
+node tools/verify/test_global_collisions.js
+
+echo
 echo "== INPA config export matches the shipped chassis-config =="
 python3 tools/export/inpa_config.py --check || exit 1
 
