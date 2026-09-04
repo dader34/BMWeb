@@ -327,6 +327,7 @@ if (typeof window !== 'undefined') {
   window.routeApplyHash = routeApplyHash;
   window.routeSyncFromScreen = routeSyncFromScreen;
   window.routeSetWiringDoc = routeSetWiringDoc;
+  window.routeSetDocsDoc = routeSetDocsDoc;
   window.routeSetEtkDiagram = routeSetEtkDiagram;
   window.routeSetCar = routeSetCar;
   window.routeSetCarList = routeSetCarList;

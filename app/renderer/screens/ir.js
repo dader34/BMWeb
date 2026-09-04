@@ -2985,65 +2985,6 @@ function irPickScreen(ir, it, variant, via) {
   return all[0] || it.screen;
 }
 
-// Open ONE root item directly, for a section mapping to a single INPA key
-// (Special -> Memory). Returns false when there is nothing to show, so the
-// caller can fall back.
-function irOpenItem(ecu, ir, menuName, it, container, back) {
-  irUseTranslations(ir);
-  // a key can install a menu AND a screen; the screen wins unless the menu is a
-  // narrower list than the one we came from (see irOpensMenu / irSameBar)
-  if (irOpensMenu(ir, it, menuName)) {
-    return renderIrMenu(ecu, ir, it.menu, container, back);
-  }
-  const scr = (ir.screens || {})[it.screen];
-  if (!scr) return false;
-  // Memory keeps its mined structure (its safety contract was built against it).
-  if (irIsMemory(scr)) {
-    const mined = (ecu._layout || {}).special;
-    const mem = irMemoryScreen(scr, mined && mined.memory);
-    if (mem && typeof showMemory === 'function')
-      showMemory(ecu, mem, container, back);
-    else renderIrMemory(ecu, scr, container, back, () => []);
-    return true;
-  }
-  if (!irReadable(scr)) return false;
-  // The readout path runs the screen LIVE (falls back to the
-  // frozen scr otherwise or on any failure). Card classification and drawing
-  // use the resolved screen so a live-executed ident card still renders.
-  irLiveScreen(ecu, ir, it.screen).then((live) =>
-    irDescs(ecu, live).then((d) => {
-      const scr = live;
-      const screens = irRowsTranslated(scr, d);
-      if (irIsCard(scr)) {
-        renderIdentity(ecu, irAsCard(scr, d), container, {
-          key: 'Escape',
-          keyLabel: 'Esc',
-          label: 'Back',
-          kind: 'back',
-          fn: back,
-        });
-      } else if (screens.length) {
-        showInpaCategory(
-          ecu,
-          screens,
-          container,
-          irLabel(scr.title) || it.label
-        );
-        setActions([
-          {
-            key: 'Escape',
-            keyLabel: 'Esc',
-            label: 'Back',
-            kind: 'back',
-            fn: back,
-          },
-        ]);
-      }
-    })
-  );
-  return true;
-}
-
 // A decoded ident-write form: INPA's "Only for the developer" ident page as one
 // editable card. Reads the module to pre-fill, stages edits, shows the exact
 // semicolon-joined argument the write WOULD send -- and STOPS there: an ident
