@@ -14,6 +14,8 @@ global.Response = class {
     return JSON.parse(this.body);
   }
 };
+// remote.js holds the engine (Remote + REMOTE_CAR_ROUTE); remote-ui.js holds
+// the helper shim + overlays, split out of the old monolith.
 const {
   Remote,
   REMOTE_CAR_ROUTE,

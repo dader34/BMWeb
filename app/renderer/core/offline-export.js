@@ -38,6 +38,7 @@ const OFFLINE_SHELL = [
   'core/xdf.js',
   'core/journal.js',
   'core/remote.js',
+  'core/remote-ui.js',
 
   'ui/typed-block.js',
   'ui/dropdown.js',
