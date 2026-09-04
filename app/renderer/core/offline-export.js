@@ -39,6 +39,8 @@ const OFFLINE_SHELL = [
   'core/journal.js',
   'core/remote.js',
 
+  'ui/typed-block.js',
+
   'screens/autoscan.js',
   'screens/sweep.js',
   'screens/fault-report.js',
