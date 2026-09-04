@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v80'; // bmweb-v80: fix bundle.js load position (end of body, not head)
+const CACHE_NAME = 'bmweb-v81'; // bmweb-v81: split remote.js into engine + remote-ui.js
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
