@@ -899,78 +899,13 @@ async function showLookup() {
   // ISTA guided-diagnostic document for the component this fault names: how the
   // system works and how to test it. Rendered as a collapsible section below
   // the service fields so it never crowds the fault description.
-  const _isLegendKey = (s) =>
-    /^([0-9]{1,2}|[A-Z]{1,4}\s?[0-9]{0,2})$/.test(String(s).trim());
-
-  // A block is prose, a bullet, or a table. ISTA "legend" tables pack several
-  // key→label pairs per row (1|Pedal|2|Sensor); flatten those to a key/label
-  // list. A genuine data table (label|value rows) renders as a small grid.
-  function _tpBlock(b) {
-    if (b.t === 'p') return `<p class="fm-tp-p">${esc(b.s)}</p>`;
-    if (b.t === 'bullet')
-      return `<p class="fm-tp-p fm-tp-bullet">${esc(b.s)}</p>`;
-    if (b.t !== 'table' || !b.rows || !b.rows.length) return '';
-    const cols = Math.max(...b.rows.map((r) => r.length));
-    // a legend table: even columns are keys, odd are their labels, repeating
-    const looksLegend =
-      cols >= 2 &&
-      cols % 2 === 0 &&
-      b.rows.every((r) => {
-        for (let i = 0; i < r.length; i += 2) {
-          if (r[i] && !_isLegendKey(r[i])) return false;
-        }
-        return true;
-      });
-    if (looksLegend) {
-      const pairs = [];
-      for (const r of b.rows) {
-        for (let i = 0; i + 1 < r.length; i += 2) {
-          if (r[i] || r[i + 1]) pairs.push([r[i], r[i + 1]]);
-        }
-      }
-      return pairs
-        .map(
-          ([k, v]) =>
-            `<div class="fm-tp-leg">` +
-            `<span class="fm-tp-leg-k">${esc(k)}</span>` +
-            `<span>${esc(v)}</span></div>`
-        )
-        .join('');
-    }
-    // otherwise a plain grid, sized to the widest row
-    const rows = b.rows
-      .map((r, ri) => {
-        const cells = [];
-        for (let i = 0; i < cols; i++) {
-          cells.push(
-            `<span class="fm-tp-td${ri === 0 ? ' fm-tp-th' : ''}">` +
-              `${esc(r[i] || '')}</span>`
-          );
-        }
-        return `<div class="fm-tp-tr">${cells.join('')}</div>`;
-      })
-      .join('');
-    return `<div class="fm-tp-table" style="--cols:${cols}">${rows}</div>`;
-  }
-
+  // The typed-block rendering lives in ui/typed-block.js now. The fault viewer
+  // wants ISTA "legend" tables (key|label pairs) flattened to a key/label list,
+  // so it renders with { legend: true }.
   function testPlanSection(doc) {
     if (!doc || !doc.chapters || !doc.chapters.length) return '';
     const chapters = doc.chapters
-      .map((ch) => {
-        const head = ch.heading
-          ? `<div class="fm-tp-h">${esc(ch.heading)}</div>`
-          : '';
-        // support both the block shape and the older flat paras (defensive)
-        const items =
-          ch.blocks ||
-          (ch.paras || []).map((p) =>
-            p.startsWith('• ')
-              ? { t: 'bullet', s: p.slice(2) }
-              : { t: 'p', s: p }
-          );
-        const body = items.map(_tpBlock).join('');
-        return `<div class="fm-tp-chap">${head}${body}</div>`;
-      })
+      .map((ch) => renderTpChapter(ch, { legend: true }))
       .join('');
     return `<details class="fm-tp" open>
         <summary class="fm-tp-sum">Diagnostic procedure${

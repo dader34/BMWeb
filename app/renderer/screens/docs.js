@@ -125,40 +125,9 @@ function docsDoc(data, docId) {
   }
 }
 
-// one chapter -> HTML: heading, then its typed blocks
+// one chapter -> HTML: heading, then its typed blocks. Uses the shared
+// typed-block renderer (ui/typed-block.js); `breaks:true` keeps a HINT title +
+// its sub-lines as separate lines, which document bodies rely on.
 function docsChapterHtml(ch) {
-  const head = ch.heading
-    ? `<div class="fm-tp-h">${esc(ch.heading)}</div>`
-    : '';
-  const body = (ch.blocks || []).map(docsBlockHtml).join('');
-  return `<div class="fm-tp-chap">${head}${body}</div>`;
-}
-
-// typed block -> HTML. 'h' is a sub-heading; 'p'/'bullet' are prose; 'table' is
-// a grid sized to its widest row. Mirrors lookup.js's _tpBlock for consistency.
-function docsBlockHtml(b) {
-  if (b.t === 'h') return `<div class="fm-tp-subh">${esc(b.s)}</div>`;
-  if (b.t === 'p') return `<p class="fm-tp-p">${docsInline(b.s)}</p>`;
-  if (b.t === 'bullet')
-    return `<p class="fm-tp-p fm-tp-bullet">${docsInline(b.s)}</p>`;
-  if (b.t !== 'table' || !b.rows || !b.rows.length) return '';
-  const cols = Math.max(...b.rows.map((r) => r.length));
-  const rows = b.rows
-    .map((r, ri) => {
-      const cells = [];
-      for (let i = 0; i < cols; i++) {
-        cells.push(
-          `<span class="fm-tp-td${ri === 0 ? ' fm-tp-th' : ''}">` +
-            `${esc(r[i] || '')}</span>`
-        );
-      }
-      return `<div class="fm-tp-tr">${cells.join('')}</div>`;
-    })
-    .join('');
-  return `<div class="fm-tp-table" style="--cols:${cols}">${rows}</div>`;
-}
-
-// keep newlines inside a bullet (a HINT title + its sub-lines) as line breaks
-function docsInline(s) {
-  return esc(s).replace(/\n/g, '<br>');
+  return renderTpChapter(ch, { breaks: true });
 }
