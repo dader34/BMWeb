@@ -21,10 +21,13 @@ const SRC = process.argv[2] || join(ROOT, 'app/renderer');
 const OUT = process.argv[3] || join(SRC, 'bundle.js');
 
 const html = readFileSync(join(SRC, 'index.html'), 'utf8');
-// every <script src="..."></script> in document order (local srcs only)
+// every <script src="..."></script> in document order (local srcs only).
+// version.js is excluded: it is injected separately into <head> to set
+// window.BMACW_VERSION before anything reads it, and stays its own tag (see
+// bundle-index.mjs) rather than being folded into the bundle.
 const srcs = [...html.matchAll(/<script\s+src="([^"]+)"><\/script>/g)]
   .map((m) => m[1])
-  .filter((s) => !/^https?:\/\//.test(s));
+  .filter((s) => !/^https?:\/\//.test(s) && s !== 'version.js');
 
 const parts = [];
 parts.push(
