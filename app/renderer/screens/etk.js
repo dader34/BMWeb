@@ -1336,7 +1336,7 @@ async function openDecoded(hit) {
       ETK_STATE.variant = match;
       const cur = document.querySelector('.etk-vdd-cur');
       if (cur) {
-        cur.textContent = variantLabel(vs[match]);
+        cur.textContent = etkVariantLabel(vs[match]);
         cur.classList.add('etk-vdd-filtered');
       }
     }
@@ -1489,7 +1489,7 @@ function printEtkIndex(data, chassisId) {
 // sorted by model+date, filterable by a search box. Sets ETK_STATE.variant.
 function buildVariantDropdown(variants) {
   const order = variants
-    .map((v, i) => ({ i, v, text: variantLabel(v) }))
+    .map((v, i) => ({ i, v, text: etkVariantLabel(v) }))
     .sort(
       (a, b) =>
         (a.v.model || '').localeCompare(b.v.model || '') ||
@@ -1590,7 +1590,7 @@ function buildVariantDropdown(variants) {
   return root;
 }
 
-function variantLabel(v) {
+function etkVariantLabel(v) {
   const parts = [];
   if (v.model) parts.push(v.model);
   if (v.body) parts.push(v.body);

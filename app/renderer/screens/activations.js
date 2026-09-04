@@ -121,7 +121,7 @@ function registerSessionEnd(ecu, job) {
   sessionEndJob = job;
 }
 
-function endSession() {
+function endActivationSession() {
   const ecu = sessionEndEcu;
   const job = sessionEndJob;
   sessionEndEcu = null;
