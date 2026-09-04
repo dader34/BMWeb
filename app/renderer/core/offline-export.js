@@ -250,26 +250,6 @@ WHAT NEEDS A CABLE
 Running a job against a real ECU needs a K+DCAN cable and a browser with
 Web Serial (desktop Chrome or Edge). Nothing here talks to a car by itself.
 
-THE THOR WIFI ADAPTER
-
-The THOR WiFi dongle talks to this app directly, over its own WebSocket --
-no relay, no node, nothing else running. That works on a phone as well as a
-computer.
-
-It needs the WebSocket firmware flashed once. The adapter ships with stock
-esp-link, which serves only raw telnet a browser cannot open. Flashing is an
-upload through esp-link's own web page; see vendor/esp-link-ws/ in the
-project for the images and the steps.
-
-Once it is flashed:
-
-1. Plug the THOR into the car and join its Thor_Wifi network.
-2. Open index.html and set Settings > Adapter to "THOR (WiFi)".
-3. Click the cable chip in the top bar to connect.
-
-Battery voltage, ignition state and the adapter identity read out today;
-running jobs over the THOR is still being wired up.
-
 Other chassis are not included. Export them separately from Settings.
 `;
 }

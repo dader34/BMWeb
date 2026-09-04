@@ -430,15 +430,27 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 .view::-webkit-scrollbar,
 .modal::-webkit-scrollbar,
 .live-panel::-webkit-scrollbar,
-.split-list::-webkit-scrollbar { width: var(--sb-size, 10px); height: var(--sb-size, 10px); }
+.split-list::-webkit-scrollbar,
+.wiring-tree::-webkit-scrollbar,
+.wiring-results::-webkit-scrollbar,
+.wiring-doc::-webkit-scrollbar,
+.docs-doc::-webkit-scrollbar { width: var(--sb-size, 10px); height: var(--sb-size, 10px); }
 .view::-webkit-scrollbar-track,
 .modal::-webkit-scrollbar-track,
 .live-panel::-webkit-scrollbar-track,
-.split-list::-webkit-scrollbar-track { background: var(--sb-track, transparent); }
+.split-list::-webkit-scrollbar-track,
+.wiring-tree::-webkit-scrollbar-track,
+.wiring-results::-webkit-scrollbar-track,
+.wiring-doc::-webkit-scrollbar-track,
+.docs-doc::-webkit-scrollbar-track { background: var(--sb-track, transparent); }
 .view::-webkit-scrollbar-thumb,
 .modal::-webkit-scrollbar-thumb,
 .live-panel::-webkit-scrollbar-thumb,
-.split-list::-webkit-scrollbar-thumb {
+.split-list::-webkit-scrollbar-thumb,
+.wiring-tree::-webkit-scrollbar-thumb,
+.wiring-results::-webkit-scrollbar-thumb,
+.wiring-doc::-webkit-scrollbar-thumb,
+.docs-doc::-webkit-scrollbar-thumb {
   background: var(--sb-thumb, var(--line));
   border-radius: var(--sb-radius, 8px);
   border: var(--sb-thumb-border, none);
@@ -446,7 +458,11 @@ html[data-theme="inpa"] .combo-item.active { color: #fff; background: #000080; }
 .view::-webkit-scrollbar-thumb:hover,
 .modal::-webkit-scrollbar-thumb:hover,
 .live-panel::-webkit-scrollbar-thumb:hover,
-.split-list::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover, var(--line-bright)); }
+.split-list::-webkit-scrollbar-thumb:hover,
+.wiring-tree::-webkit-scrollbar-thumb:hover,
+.wiring-results::-webkit-scrollbar-thumb:hover,
+.wiring-doc::-webkit-scrollbar-thumb:hover,
+.docs-doc::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover, var(--line-bright)); }
 .view::-webkit-scrollbar-corner { background: var(--sb-track, transparent); }
 
 .screen-head { margin-bottom: 30px; }

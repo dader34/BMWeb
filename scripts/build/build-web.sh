@@ -100,15 +100,6 @@ Reading ECU data (screens, jobs, fault text) works with no cable and no
 server. Running a job needs a K+DCAN cable and a browser with Web Serial
 (Chrome/Edge desktop) -- click the cable control to pick the port.
 
-THOR WiFi adapter: flash it once with the WebSocket firmware
-(vendor/esp-link-ws) and it serves the socket itself -- no relay, no node,
-nothing running beside the page. Join the Thor_Wifi network, open the site,
-set Settings > Adapter to "THOR (WiFi)", and click the cable chip.
-
-Note this needs the page on http:// or file://, not https://: a secure page
-cannot open a ws:// connection, and a private IP cannot hold a certificate.
-That is what the single-file download is for.
-
 Safety, in one line: unknown jobs are classified as writes and refused;
 actuator tests confirm before firing and release when you leave the screen;
 permanent writes always confirm; coding writes back up first and re-read to
