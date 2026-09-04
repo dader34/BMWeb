@@ -178,125 +178,37 @@ function lookupModuleLabel(chassis, moduleValue) {
   return (m && m[moduleValue]) || moduleValue;
 }
 
-// custom dropdown for the Lookup screen. options: [{ val, label, meta, count }].
+// The Lookup screen's dropdown, a thin wrapper over the shared ui/dropdown.js.
+// options: [{ val, label, meta?, count? }]. Keeps the `.lkd` class family
+// (val/pop/item, shared with the hand-built INPA module button below) via the
+// `parts` remap, and the rich label+meta+count rows, drop-up flip, list-height
+// clamp to the F-key bar, Esc close and mousedown-capture close it always had.
+// Returns { el, setOptions, value, set, close } -- the surface its callers use.
 function lookupDropdown(placeholder, options, current, onChange) {
-  const root = document.createElement('div');
-  root.className = 'lkd';
-  root.innerHTML = `
-    <button class="lkd-btn" type="button">
-      <span class="lkd-val"></span>
-      <span class="lkd-caret">▾</span>
-    </button>
-    <div class="lkd-pop" hidden>
-      <input class="lkd-search" type="text" placeholder="Search…" spellcheck="false" autocomplete="off" />
-      <div class="lkd-list"></div>
-    </div>`;
-  const btn = root.querySelector('.lkd-btn');
-  const valEl = root.querySelector('.lkd-val');
-  const pop = root.querySelector('.lkd-pop');
-  const search = root.querySelector('.lkd-search');
-  const list = root.querySelector('.lkd-list');
-  let opts = options.slice();
-  let sel = current;
-
-  const optFor = (v) => opts.find((o) => o.val === v);
-  const renderVal = () => {
-    const o = optFor(sel);
-    valEl.textContent = o ? o.label : placeholder || '';
-    valEl.classList.toggle('lkd-placeholder', !o || o.val === '');
-  };
-
-  const renderList = (filter = '') => {
-    const f = filter.trim().toLowerCase();
-    list.innerHTML = '';
-    const shown = opts.filter(
-      (o) =>
-        !f ||
-        o.label.toLowerCase().includes(f) ||
-        (o.meta && o.meta.toLowerCase().includes(f)) ||
-        String(o.val).toLowerCase().includes(f)
-    );
-    for (const o of shown) {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'lkd-item' + (o.val === sel ? ' active' : '');
-      item.innerHTML = `
-        <span class="lkd-item-label">${esc(o.label)}</span>
-        ${o.meta ? `<span class="lkd-item-meta">${esc(o.meta)}</span>` : ''}
-        ${o.count != null ? `<span class="lkd-item-count">${esc(String(o.count))}</span>` : ''}`;
-      item.onclick = () => {
-        sel = o.val;
-        renderVal();
-        onChange(sel);
-        close();
-      };
-      list.appendChild(item);
-    }
-    if (!list.children.length)
-      list.innerHTML = '<div class="lkd-empty">No matches</div>';
-  };
-
-  const open = () => {
-    pop.hidden = false;
-    root.classList.add('open');
-    search.value = '';
-    renderList();
-    setTimeout(() => search.focus(), 10);
-    requestAnimationFrame(() => {
-      const r = btn.getBoundingClientRect();
-      const need = pop.offsetHeight + 8;
-      const below = window.innerHeight - r.bottom;
-      const up = below < need && r.top > below;
-      root.classList.toggle('drop-up', up);
-      // cap the list to the real space on the chosen side (down to the F-key
-      // bar's actual top, up to the viewport top) so the popup never scrolls
-      // the page
-      const bar = document.getElementById('fkeybar');
-      const floor = bar ? bar.getBoundingClientRect().top : window.innerHeight;
-      const MARGIN = 12;
-      const avail = up ? r.top - MARGIN : floor - r.bottom - MARGIN;
-      const searchH = search.offsetHeight || 42;
-      list.style.maxHeight = Math.max(120, avail - searchH) + 'px';
-    });
-    document.addEventListener('mousedown', onDoc, true);
-    window.addEventListener('keydown', onEsc, true);
-  };
-  const close = () => {
-    pop.hidden = true;
-    root.classList.remove('open', 'drop-up');
-    document.removeEventListener('mousedown', onDoc, true);
-    window.removeEventListener('keydown', onEsc, true);
-  };
-  const onDoc = (e) => {
-    if (!root.contains(e.target)) close();
-  };
-  const onEsc = (e) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      close();
-    }
-  };
-
-  btn.onclick = () => (pop.hidden ? open() : close());
-  search.oninput = () => renderList(search.value);
-
-  renderVal();
-  return {
-    el: root,
-    setOptions(newOpts, cur) {
-      opts = newOpts.slice();
-      if (cur !== undefined) sel = cur;
-      renderVal();
-    },
-    value() {
-      return sel;
-    },
-    set(v) {
-      sel = v;
-      renderVal();
-    },
-    close,
-  };
+  return makeDropdown({
+    items: options,
+    value: current,
+    onChange,
+    placeholder,
+    classPrefix: 'lkd',
+    parts: { cur: 'val', menu: 'pop', opt: 'item' },
+    emptyText: 'No matches',
+    clampToBar: '#fkeybar',
+    flip: true,
+    escClose: true,
+    closeOn: 'mousedown',
+    focusDelay: 10,
+    filterItem: (o, q) =>
+      o.label.toLowerCase().includes(q) ||
+      (o.meta && o.meta.toLowerCase().includes(q)) ||
+      String(o.val).toLowerCase().includes(q),
+    renderRow: (o) =>
+      `<span class="lkd-item-label">${esc(o.label)}</span>` +
+      (o.meta ? `<span class="lkd-item-meta">${esc(o.meta)}</span>` : '') +
+      (o.count != null
+        ? `<span class="lkd-item-count">${esc(String(o.count))}</span>`
+        : ''),
+  });
 }
 
 async function showLookup() {
