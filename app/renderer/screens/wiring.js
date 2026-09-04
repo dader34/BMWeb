@@ -1627,7 +1627,7 @@ function printWiring(chassisId) {
     meta: [['Vehicle', dispChassis(chassisId)], ['Type', kindText]],
     sections: [section],
     landscape: !!svg,   // a diagram wants landscape; a description reads portrait
-    footer: `BMW WDS · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
+    footer: `BMWeb · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
   });
 }
 
