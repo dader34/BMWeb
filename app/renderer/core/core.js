@@ -577,7 +577,8 @@ class ActionBar {
     // ...and the menu's session-end job (inpaexit's DIAGNOSE_ENDE), if one was
     // registered. Not conditional on anything energized: a menu can owe a
     // session end having driven nothing. Held by the same repaint guard.
-    if (!activationsHeld() && typeof endSession === 'function') endSession();
+    if (!activationsHeld() && typeof endActivationSession === 'function')
+      endActivationSession();
     this.base = actions;
     this.shift = shifted && shifted.length ? shifted : null;
     this.shiftHeld = false;
