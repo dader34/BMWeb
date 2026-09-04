@@ -24,8 +24,8 @@ global.api = async (path, opts) => {
         [
           ['COD_WERT_NETTO', '0x48656C6C6F'], // "Hello" in hex
           ['ID_COD_INDEX', '0x06'],
-        ]
-      ]
+        ],
+      ],
     };
   }
   throw new Error('Unexpected API call: ' + path);
@@ -40,9 +40,10 @@ global.confirmDialog = async (opts) => {
   return true;
 };
 
-global.esc = (s) => String(s).replace(/[<>&"]/g, c => {
-  return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c];
-});
+global.esc = (s) =>
+  String(s).replace(/[<>&"]/g, (c) => {
+    return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c];
+  });
 
 global.codingReviewRow = (name, path, before, after) => {
   return `<div>${name}: ${before} → ${after}</div>`;
@@ -75,9 +76,12 @@ async function simulateTreeReview(built, state) {
       throw new Error('No read job');
     }
 
-    const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, { method: 'POST' });
+    const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
+      method: 'POST',
+    });
     const flatRes = new Map(flatResults(readRes.sets));
-    const nettoHex = flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
+    const nettoHex =
+      flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
     if (!nettoHex) {
       throw new Error('No netto in read');
     }
@@ -89,7 +93,9 @@ async function simulateTreeReview(built, state) {
     }
 
     const modified = CodingEncode.spliceEdits(new Uint8Array(netto), edits);
-    const modHex = Array.from(modified, b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+    const modHex = Array.from(modified, (b) =>
+      ('0' + (b & 0xff).toString(16)).slice(-2)
+    ).join('');
 
     await webWriteCoding(sgbd, modHex, { confirmed: true });
   }
@@ -108,10 +114,13 @@ async function testBasicWrite() {
           byte: 1,
           mask: 0xff,
           shift: 0,
-          values: [['opt1', '41'], ['opt2', '42']],
-        }
-      ]
-    }
+          values: [
+            ['opt1', '41'],
+            ['opt2', '42'],
+          ],
+        },
+      ],
+    },
   ];
 
   const state = new Map();
@@ -158,7 +167,10 @@ async function testMultiFieldWrite() {
           byte: 1,
           mask: 0x0f,
           shift: 0,
-          values: [['v1', '01'], ['v2', '02']],
+          values: [
+            ['v1', '01'],
+            ['v2', '02'],
+          ],
         },
         {
           name: 'FIELD_B',
@@ -167,10 +179,13 @@ async function testMultiFieldWrite() {
           byte: 1,
           mask: 0xff,
           shift: 0,
-          values: [['v3', '30'], ['v4', '40']],
-        }
-      ]
-    }
+          values: [
+            ['v3', '30'],
+            ['v4', '40'],
+          ],
+        },
+      ],
+    },
   ];
 
   const state = new Map();
@@ -205,7 +220,7 @@ async function testMultiFieldWrite() {
   await testBasicWrite();
   await testMultiFieldWrite();
   console.log('\ncoding UI flow OK\n');
-})().catch(err => {
+})().catch((err) => {
   console.error('FAIL:', err.message);
   process.exit(1);
 });

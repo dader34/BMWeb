@@ -40,10 +40,11 @@
     return new Promise((resolve) => {
       let req;
       try {
-        if (typeof indexedDB === 'undefined' || !indexedDB) return resolve(null);
+        if (typeof indexedDB === 'undefined' || !indexedDB)
+          return resolve(null);
         req = indexedDB.open(DB_NAME, DB_VERSION);
       } catch (e) {
-        return resolve(null);            // policy-blocked storage
+        return resolve(null); // policy-blocked storage
       }
       req.onupgradeneeded = () => {
         const db = req.result;
@@ -58,12 +59,20 @@
   function tx(db, mode, fn) {
     return new Promise((resolve) => {
       let t;
-      try { t = db.transaction(STORE, mode); }
-      catch (e) { return resolve(null); }
+      try {
+        t = db.transaction(STORE, mode);
+      } catch (e) {
+        return resolve(null);
+      }
       const store = t.objectStore(STORE);
       let out = null;
-      try { out = fn(store); } catch (e) { /* fall through to oncomplete */ }
-      t.oncomplete = () => resolve(out && out.result !== undefined ? out.result : out);
+      try {
+        out = fn(store);
+      } catch (e) {
+        /* fall through to oncomplete */
+      }
+      t.oncomplete = () =>
+        resolve(out && out.result !== undefined ? out.result : out);
       t.onerror = () => resolve(null);
       t.onabort = () => resolve(null);
     });
@@ -95,7 +104,11 @@
       openCats: state.openCats ? [...state.openCats] : null,
     };
     const ok = await tx(db, 'readwrite', (s) => s.put(rec, KEY));
-    try { db.close(); } catch (e) { /* already closing */ }
+    try {
+      db.close();
+    } catch (e) {
+      /* already closing */
+    }
     return ok !== null;
   }
 
@@ -105,18 +118,27 @@
     if (!db) return null;
     const rec = await new Promise((resolve) => {
       let t;
-      try { t = db.transaction(STORE, 'readonly'); }
-      catch (e) { return resolve(null); }
+      try {
+        t = db.transaction(STORE, 'readonly');
+      } catch (e) {
+        return resolve(null);
+      }
       const req = t.objectStore(STORE).get(KEY);
       req.onsuccess = () => resolve(req.result || null);
       req.onerror = () => resolve(null);
     });
-    try { db.close(); } catch (e) { /* already closing */ }
+    try {
+      db.close();
+    } catch (e) {
+      /* already closing */
+    }
     if (!rec || rec.v !== 1) return null;
     // Re-wrap: structured clone gives back plain typed arrays, but a stored
     // ArrayBuffer (older shapes, other browsers) needs coercing.
-    if (rec.bin && !(rec.bin instanceof Uint8Array)) rec.bin = new Uint8Array(rec.bin);
-    if (rec.orig && !(rec.orig instanceof Uint8Array)) rec.orig = new Uint8Array(rec.orig);
+    if (rec.bin && !(rec.bin instanceof Uint8Array))
+      rec.bin = new Uint8Array(rec.bin);
+    if (rec.orig && !(rec.orig instanceof Uint8Array))
+      rec.orig = new Uint8Array(rec.orig);
     return rec;
   }
 
@@ -124,7 +146,11 @@
     const db = await open();
     if (!db) return false;
     const ok = await tx(db, 'readwrite', (s) => s.delete(KEY));
-    try { db.close(); } catch (e) { /* already closing */ }
+    try {
+      db.close();
+    } catch (e) {
+      /* already closing */
+    }
     return ok !== null;
   }
 
@@ -140,7 +166,11 @@
       const fn = pending;
       pending = null;
       if (typeof fn === 'function') {
-        try { saveSession(fn()); } catch (e) { /* best-effort */ }
+        try {
+          saveSession(fn());
+        } catch (e) {
+          /* best-effort */
+        }
       }
     }, SAVE_DEBOUNCE_MS);
   }
@@ -149,14 +179,27 @@
   // survive). Returns a promise, but callers on pagehide cannot await it --
   // IndexedDB writes started before unload generally still land.
   function flushSave(getState) {
-    if (timer) { clearTimeout(timer); timer = null; }
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
     const fn = pending || getState;
     pending = null;
     if (typeof fn !== 'function') return Promise.resolve(false);
-    try { return saveSession(fn()); } catch (e) { return Promise.resolve(false); }
+    try {
+      return saveSession(fn());
+    } catch (e) {
+      return Promise.resolve(false);
+    }
   }
 
-  const api = { saveSession, loadSession, clearSession, scheduleSave, flushSave };
+  const api = {
+    saveSession,
+    loadSession,
+    clearSession,
+    scheduleSave,
+    flushSave,
+  };
   root.TuningStore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : this);

@@ -14,27 +14,35 @@ async function showZcsEditor(chassisId, sgbd, back) {
   ]);
   sbLeft.textContent = `${dispChassis(chassisId)} · ZCS`;
 
-  view.innerHTML = head('ZCS Editor', `${dispChassis(chassisId)} · ${sgbd}.prg`,
-    'Edit the three ZCS keys (Grundmodell, Sonderausstattung, Versionsnummer). '
-    + 'Changes are validated and written to the ECU.');
+  view.innerHTML = head(
+    'ZCS Editor',
+    `${dispChassis(chassisId)} · ${sgbd}.prg`,
+    'Edit the three ZCS keys (Grundmodell, Sonderausstattung, Versionsnummer). ' +
+      'Changes are validated and written to the ECU.'
+  );
 
   const panel = document.createElement('div');
   panel.className = 'zcs-editor-panel';
   view.appendChild(panel);
 
   // Read current ZCS
-  panel.innerHTML = '<div class="coding-scan"><div class="coding-scan-title">Reading ZCS…</div></div>';
+  panel.innerHTML =
+    '<div class="coding-scan"><div class="coding-scan-title">Reading ZCS…</div></div>';
 
   let currentZcs = null;
   try {
-    const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;
+    const entry =
+      typeof codingFor === 'function' ? await codingFor(sgbd) : null;
     if (!entry || !entry.read) {
       throw new Error('No coding read job for this module');
     }
 
-    const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, { method: 'POST' });
+    const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
+      method: 'POST',
+    });
     const flatRes = new Map(flatResults(readRes.sets));
-    const nettoHex = flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
+    const nettoHex =
+      flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
     if (!nettoHex) {
       throw new Error('Read did not return netto');
     }
@@ -52,7 +60,8 @@ async function showZcsEditor(chassisId, sgbd, back) {
     let zcsOffset = 0;
     if (daten && daten.chassis) {
       const chId = String(chassisId || '').toUpperCase();
-      const chassis = daten.chassis[chId] || daten.chassis[Object.keys(daten.chassis)[0]];
+      const chassis =
+        daten.chassis[chId] || daten.chassis[Object.keys(daten.chassis)[0]];
       if (chassis) {
         // Look for a field named ZCS or GM_SCHLUESSEL to find the offset
         const keys = Object.keys(chassis);
@@ -75,7 +84,6 @@ async function showZcsEditor(chassisId, sgbd, back) {
 
     currentZcs = CodingZcs.parseZcsRegion(zcsBytes);
     currentZcs.offset = zcsOffset;
-
   } catch (err) {
     panel.innerHTML = errorBlock(`Failed to read ZCS: ${err.message}`);
     return;
@@ -98,9 +106,10 @@ async function showZcsEditor(chassisId, sgbd, back) {
     const saFmt = saValid ? '' : CodingZcs.formatSa(state.sa);
     const vnFmt = vnValid ? '' : CodingZcs.formatVn(state.vn);
 
-    const changed = state.gm !== currentZcs.gm.body
-      || state.sa !== currentZcs.sa.body
-      || state.vn !== currentZcs.vn.body;
+    const changed =
+      state.gm !== currentZcs.gm.body ||
+      state.sa !== currentZcs.sa.body ||
+      state.vn !== currentZcs.vn.body;
 
     panel.innerHTML = `
       <div class="zcs-editor">
@@ -128,9 +137,13 @@ async function showZcsEditor(chassisId, sgbd, back) {
           </div>
           ${saValid ? `<div class="zcs-error">${esc(saValid)}</div>` : ''}
           ${saFmt ? `<div class="zcs-check">With check: <span class="mono">${esc(saFmt)}</span></div>` : ''}
-          ${!saValid && state.sa ? `<div class="zcs-sa-codes">SA codes: ${
-            CodingZcs.extractSaCodes(state.sa).join(', ') || 'none'
-          }</div>` : ''}
+          ${
+            !saValid && state.sa
+              ? `<div class="zcs-sa-codes">SA codes: ${
+                  CodingZcs.extractSaCodes(state.sa).join(', ') || 'none'
+                }</div>`
+              : ''
+          }
         </div>
 
         <div class="zcs-row">
@@ -211,18 +224,23 @@ async function showZcsEditor(chassisId, sgbd, back) {
 
     if (!ok) return;
 
-    panel.innerHTML = '<div class="coding-scan"><div class="coding-scan-title">Writing ZCS…</div></div>';
+    panel.innerHTML =
+      '<div class="coding-scan"><div class="coding-scan-title">Writing ZCS…</div></div>';
 
     try {
       // Read current netto
-      const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;
+      const entry =
+        typeof codingFor === 'function' ? await codingFor(sgbd) : null;
       if (!entry || !entry.read) {
         throw new Error('No read job');
       }
 
-      const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, { method: 'POST' });
+      const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
+        method: 'POST',
+      });
       const flatRes = new Map(flatResults(readRes.sets));
-      const nettoHex = flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
+      const nettoHex =
+        flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
       if (!nettoHex) {
         throw new Error('Read did not return netto');
       }
@@ -239,7 +257,9 @@ async function showZcsEditor(chassisId, sgbd, back) {
         netto[currentZcs.offset + i] = zcsRegion[i];
       }
 
-      const modHex = netto.map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+      const modHex = netto
+        .map((b) => ('0' + (b & 0xff).toString(16)).slice(-2))
+        .join('');
 
       // Write via webWriteCoding
       if (typeof webWriteCoding !== 'function') {
@@ -249,31 +269,32 @@ async function showZcsEditor(chassisId, sgbd, back) {
       // BACKUP BEFORE TRANSMIT. nettoHex holds the ECU's current ZCS keys;
       // after the write they are gone. Persist first -- a ZCS mistake takes
       // the car's identity with it.
-      const backup = (typeof saveCodingBackup === 'function')
-        ? saveCodingBackup(sgbd, nettoHex, {
-            chassis: chassisId,
-            note: 'pre-write (ZCS)',
-          })
-        : null;
+      const backup =
+        typeof saveCodingBackup === 'function'
+          ? saveCodingBackup(sgbd, nettoHex, {
+              chassis: chassisId,
+              note: 'pre-write (ZCS)',
+            })
+          : null;
 
       await webWriteCoding(sgbd, modHex, { confirmed: true });
 
       await confirmDialog({
         title: 'ZCS written',
-        body: '<p>ZCS keys written and verified successfully.</p>'
-          + (backup
-              ? '<p class="cod-note">The previous keys were saved to this '
-                + 'browser first, under Coding backups.</p>'
-              : '<p class="cod-note"><b>No backup was saved</b> (browser '
-                + 'storage unavailable) — the previous keys are not '
-                + 'recoverable from this app.</p>'),
+        body:
+          '<p>ZCS keys written and verified successfully.</p>' +
+          (backup
+            ? '<p class="cod-note">The previous keys were saved to this ' +
+              'browser first, under Coding backups.</p>'
+            : '<p class="cod-note"><b>No backup was saved</b> (browser ' +
+              'storage unavailable) — the previous keys are not ' +
+              'recoverable from this app.</p>'),
         confirmLabel: 'OK',
         cancelLabel: null,
       });
 
       // Reload
       showZcsEditor(chassisId, sgbd, back);
-
     } catch (err) {
       panel.innerHTML = errorBlock(`Failed to write ZCS: ${err.message}`);
     }

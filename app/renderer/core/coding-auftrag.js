@@ -38,13 +38,13 @@
 (function (root) {
   'use strict';
 
-  const T_REF = 0x53;   // 'S'
-  const T_AND = 0x2b;   // '+'
-  const T_OR  = 0x2c;   // ','
-  const T_NOT = 0x21;   // '!'
-  const T_LP  = 0x28;   // '('
-  const T_RP  = 0x29;   // ')'
-  const T_CONT = 0x5c;  // '\'
+  const T_REF = 0x53; // 'S'
+  const T_AND = 0x2b; // '+'
+  const T_OR = 0x2c; // ','
+  const T_NOT = 0x21; // '!'
+  const T_LP = 0x28; // '('
+  const T_RP = 0x29; // ')'
+  const T_CONT = 0x5c; // '\'
 
   // ---- lexer ---------------------------------------------------------------
 
@@ -60,19 +60,35 @@
         if (i + 2 >= b.length) {
           throw new Error('AUFTRAGSAUSDRUCK: truncated S token at ' + i);
         }
-        out.push({ t: 'ref', id: b[i + 1] | (b[i + 2] << 8) });   // u16 LE
+        out.push({ t: 'ref', id: b[i + 1] | (b[i + 2] << 8) }); // u16 LE
         i += 2;
         continue;
       }
-      if (c === T_AND) { out.push({ t: '+' }); continue; }
-      if (c === T_OR)  { out.push({ t: ',' }); continue; }
-      if (c === T_NOT) { out.push({ t: '!' }); continue; }
-      if (c === T_LP)  { out.push({ t: '(' }); continue; }
-      if (c === T_RP)  { out.push({ t: ')' }); continue; }
-      if (c === T_CONT) continue;            // chunk seam, not an operand
-      if (c === 0x00) continue;              // trailing NUL padding
-      throw new Error('AUFTRAGSAUSDRUCK: unexpected byte 0x'
-        + c.toString(16) + ' at ' + i);
+      if (c === T_AND) {
+        out.push({ t: '+' });
+        continue;
+      }
+      if (c === T_OR) {
+        out.push({ t: ',' });
+        continue;
+      }
+      if (c === T_NOT) {
+        out.push({ t: '!' });
+        continue;
+      }
+      if (c === T_LP) {
+        out.push({ t: '(' });
+        continue;
+      }
+      if (c === T_RP) {
+        out.push({ t: ')' });
+        continue;
+      }
+      if (c === T_CONT) continue; // chunk seam, not an operand
+      if (c === 0x00) continue; // trailing NUL padding
+      throw new Error(
+        'AUFTRAGSAUSDRUCK: unexpected byte 0x' + c.toString(16) + ' at ' + i
+      );
     }
     return out;
   }
@@ -91,8 +107,12 @@
 
     function atom() {
       const tk = peek();
-      if (!tk) throw new Error('AUFTRAGSAUSDRUCK: unexpected end of expression');
-      if (tk.t === 'ref') { pos++; return { op: 'ref', id: tk.id }; }
+      if (!tk)
+        throw new Error('AUFTRAGSAUSDRUCK: unexpected end of expression');
+      if (tk.t === 'ref') {
+        pos++;
+        return { op: 'ref', id: tk.id };
+      }
       if (tk.t === '(') {
         eat('(');
         const e = expr();
@@ -103,19 +123,28 @@
     }
 
     function unary() {
-      if (peek() && peek().t === '!') { pos++; return { op: 'not', a: unary() }; }
+      if (peek() && peek().t === '!') {
+        pos++;
+        return { op: 'not', a: unary() };
+      }
       return atom();
     }
 
     function and() {
       let l = unary();
-      while (peek() && peek().t === '+') { pos++; l = { op: 'and', a: l, b: unary() }; }
+      while (peek() && peek().t === '+') {
+        pos++;
+        l = { op: 'and', a: l, b: unary() };
+      }
       return l;
     }
 
     function expr() {
       let l = and();
-      while (peek() && peek().t === ',') { pos++; l = { op: 'or', a: l, b: and() }; }
+      while (peek() && peek().t === ',') {
+        pos++;
+        l = { op: 'or', a: l, b: and() };
+      }
       return l;
     }
 
@@ -131,11 +160,16 @@
   // has(id) -> boolean: does the car carry this equipment code?
   function evalTree(node, has) {
     switch (node.op) {
-      case 'ref': return !!has(node.id);
-      case 'not': return !evalTree(node.a, has);
-      case 'and': return evalTree(node.a, has) && evalTree(node.b, has);
-      case 'or':  return evalTree(node.a, has) || evalTree(node.b, has);
-      default: throw new Error('AUFTRAGSAUSDRUCK: bad node ' + node.op);
+      case 'ref':
+        return !!has(node.id);
+      case 'not':
+        return !evalTree(node.a, has);
+      case 'and':
+        return evalTree(node.a, has) && evalTree(node.b, has);
+      case 'or':
+        return evalTree(node.a, has) || evalTree(node.b, has);
+      default:
+        throw new Error('AUFTRAGSAUSDRUCK: bad node ' + node.op);
     }
   }
 
@@ -146,8 +180,8 @@
   function hasFrom(codes) {
     if (typeof codes === 'function') return codes;
     const set = new Set();
-    for (const c of (codes || [])) {
-      const n = (typeof c === 'number') ? c : parseInt(String(c).trim(), 10);
+    for (const c of codes || []) {
+      const n = typeof c === 'number' ? c : parseInt(String(c).trim(), 10);
       if (Number.isFinite(n)) set.add(n);
     }
     return (id) => set.has(id);
@@ -162,8 +196,12 @@
     const refs = [];
     (function walk(n) {
       if (!n) return;
-      if (n.op === 'ref') { if (!refs.includes(n.id)) refs.push(n.id); return; }
-      walk(n.a); walk(n.b);
+      if (n.op === 'ref') {
+        if (!refs.includes(n.id)) refs.push(n.id);
+        return;
+      }
+      walk(n.a);
+      walk(n.b);
     })(tree);
     return { tree, refs };
   }
@@ -182,7 +220,8 @@
   // diffs and error messages. Parenthesised only where precedence needs it.
   function toText(node) {
     switch (node.op) {
-      case 'ref': return 'S' + node.id;
+      case 'ref':
+        return 'S' + node.id;
       case 'not': {
         const inner = toText(node.a);
         return '!' + (node.a.op === 'ref' ? inner : `(${inner})`);
@@ -191,12 +230,22 @@
         const w = (n) => (n.op === 'or' ? `(${toText(n)})` : toText(n));
         return `${w(node.a)}+${w(node.b)}`;
       }
-      case 'or': return `${toText(node.a)},${toText(node.b)}`;
-      default: return '?';
+      case 'or':
+        return `${toText(node.a)},${toText(node.b)}`;
+      default:
+        return '?';
     }
   }
 
-  const api = { lex, parse, compile, evalTree, matchesAuftrag, toText, hasFrom };
+  const api = {
+    lex,
+    parse,
+    compile,
+    evalTree,
+    matchesAuftrag,
+    toText,
+    hasFrom,
+  };
   root.CodingAuftrag = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : this);

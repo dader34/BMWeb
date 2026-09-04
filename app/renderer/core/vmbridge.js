@@ -45,9 +45,10 @@ async function vmCodeFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!VM_CODE_CACHE.has(key)) {
     const shipped = await vmHasCode(key);
-    VM_CODE_CACHE.set(key, shipped
-      ? await vmFetchJson(`data/job-code/${key}.json`)
-      : null);
+    VM_CODE_CACHE.set(
+      key,
+      shipped ? await vmFetchJson(`data/job-code/${key}.json`) : null
+    );
   }
   return VM_CODE_CACHE.get(key);
 }
@@ -55,8 +56,10 @@ async function vmCodeFor(sgbd) {
 async function vmTablesFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!VM_TABLE_CACHE.has(key)) {
-    VM_TABLE_CACHE.set(key, await vmFetchJson(`data/sgbd-tables/${key}.json`)
-      || {});
+    VM_TABLE_CACHE.set(
+      key,
+      (await vmFetchJson(`data/sgbd-tables/${key}.json`)) || {}
+    );
   }
   return VM_TABLE_CACHE.get(key);
 }
@@ -68,8 +71,10 @@ async function vmReplay(sgbd, job, engineSets, arg) {
   if (typeof Best2Vm === 'undefined') return { skipped: 'vm not loaded' };
   const code = await vmCodeFor(sgbd);
   if (!code) return { skipped: 'no job code shipped' };
-  if (code.jobs[job] === undefined
-      && code.jobs[String(job).toUpperCase()] === undefined) {
+  if (
+    code.jobs[job] === undefined &&
+    code.jobs[String(job).toUpperCase()] === undefined
+  ) {
     return { skipped: 'job not in export' };
   }
   // Collect the request/response pairs the engine recorded, in order. A
@@ -86,7 +91,7 @@ async function vmReplay(sgbd, job, engineSets, arg) {
   // payload instead made every job read its fields three bytes early and
   // decode nothing.
   const pairs = [];
-  for (const s of (engineSets || [])) {
+  for (const s of engineSets || []) {
     const req = telBytes(s._TEL_AUFTRAG ?? s._TEL_AUFTRAG_L);
     let ans = telBytes(s._TEL_ANTWORT);
     // SOMETIMES THE HEADER IS ALREADY THERE. Whether _TEL_ANTWORT is the
@@ -102,9 +107,12 @@ async function vmReplay(sgbd, job, engineSets, arg) {
     // it, which is how STATUS_INPUT_SIGNALS ended up
     // ERROR_ECU_INCORRECT_RESPONSE_ID. Byte 0 with bit 7 set and low bits
     // equal to the remaining length is the frame's own self-description.
-    const framed = ans && ans.length >= 4 && (ans[0] & 0x80) !== 0
-      && ((ans[0] & 0x3f) === ans.length - 3
-          || (ans[0] & 0x3f) === ans.length - 4);
+    const framed =
+      ans &&
+      ans.length >= 4 &&
+      (ans[0] & 0x80) !== 0 &&
+      ((ans[0] & 0x3f) === ans.length - 3 ||
+        (ans[0] & 0x3f) === ans.length - 4);
     if (!framed && ans && req && req.length >= 3 && ans.length < 0x40) {
       // header + payload + CHECKSUM. EdInterfaceObd returns the frame with
       // its trailing checksum byte (TelLengthBmwFast + 1) and jobs verify
@@ -152,13 +160,25 @@ async function vmReplay(sgbd, job, engineSets, arg) {
 // Compare one engine set against one VM set. Engine values are strings;
 // numbers are compared numerically so 1.0 and "1" agree.
 function vmDiffSets(engineSets, vmSets) {
-  const SYS = new Set(['OBJECT', 'JOBNAME', 'VARIANTE', 'GRUPPE', 'FAMILIE',
-    'SAETZE', 'JOBSTATUS', 'UBATTCURRENT', 'UBATTHISTORY', 'IGNITIONCURRENT',
-    'IGNITIONHISTORY', 'SPRACHE']);
+  const SYS = new Set([
+    'OBJECT',
+    'JOBNAME',
+    'VARIANTE',
+    'GRUPPE',
+    'FAMILIE',
+    'SAETZE',
+    'JOBSTATUS',
+    'UBATTCURRENT',
+    'UBATTHISTORY',
+    'IGNITIONCURRENT',
+    'IGNITIONHISTORY',
+    'SPRACHE',
+  ]);
   const diffs = [];
   let checked = 0;
   const data = (engineSets || []).filter(
-    (s) => !Object.keys(s).some((k) => SYS.has(k)));
+    (s) => !Object.keys(s).some((k) => SYS.has(k))
+  );
   for (let i = 0; i < data.length; i++) {
     const want = data[i];
     const got = (vmSets || [])[i] || {};
@@ -167,14 +187,18 @@ function vmDiffSets(engineSets, vmSets) {
       checked++;
       let gv = got[k];
       if (Array.isArray(gv)) {
-        gv = gv.map((b) => b.toString(16).toUpperCase()
-          .padStart(2, '0')).join('-');
+        gv = gv
+          .map((b) => b.toString(16).toUpperCase().padStart(2, '0'))
+          .join('-');
       }
-      const wn = parseFloat(wv), gn = parseFloat(gv);
-      const same = (Number.isFinite(wn) && Number.isFinite(gn)
-        && /^[-+0-9.eE]+$/.test(String(wv).trim()))
-        ? Math.abs(wn - gn) <= Math.max(1e-6, Math.abs(wn) * 1e-9)
-        : String(wv) === String(gv);
+      const wn = parseFloat(wv),
+        gn = parseFloat(gv);
+      const same =
+        Number.isFinite(wn) &&
+        Number.isFinite(gn) &&
+        /^[-+0-9.eE]+$/.test(String(wv).trim())
+          ? Math.abs(wn - gn) <= Math.max(1e-6, Math.abs(wn) * 1e-9)
+          : String(wv) === String(gv);
       if (!same) diffs.push({ key: k, engine: wv, vm: gv });
     }
   }
@@ -183,15 +207,23 @@ function vmDiffSets(engineSets, vmSets) {
 
 // Running tally, so a drive produces one honest number rather than a stream
 // of toasts. Read it from the console with vmStats().
-const VM_STATS = { jobs: 0, checked: 0, disagreed: 0, skipped: 0,
-                   bySkip: {}, worst: [] };
+const VM_STATS = {
+  jobs: 0,
+  checked: 0,
+  disagreed: 0,
+  skipped: 0,
+  bySkip: {},
+  worst: [],
+};
 
-function vmStats() { return VM_STATS; }
+function vmStats() {
+  return VM_STATS;
+}
 
 // The entry point core.js calls after every successful job run.
 async function vmObserve(sgbd, job, engineSets, arg) {
-  const mode = (typeof Settings !== 'undefined')
-    ? Settings.get('vm', 'off') : 'off';
+  const mode =
+    typeof Settings !== 'undefined' ? Settings.get('vm', 'off') : 'off';
   if (mode === 'off') return null;
   const r = await vmReplay(sgbd, job, engineSets, arg);
   if (r.skipped) {
@@ -206,8 +238,10 @@ async function vmObserve(sgbd, job, engineSets, arg) {
   if (diffs.length) {
     VM_STATS.worst.push({ sgbd, job, diffs: diffs.slice(0, 6) });
     if (VM_STATS.worst.length > 40) VM_STATS.worst.shift();
-    console.warn(`[vm] ${sgbd}:${job} ${diffs.length}/${checked} differ`,
-                 diffs.slice(0, 6));
+    console.warn(
+      `[vm] ${sgbd}:${job} ${diffs.length}/${checked} differ`,
+      diffs.slice(0, 6)
+    );
   }
   return mode === 'on' ? r.sets : null;
 }

@@ -70,10 +70,24 @@ jobs:
           python3 tools/export/build_ecu_tree.py
           test -d data/chassis/E46
 
+      # Lint + format + type gate. Install dev deps and run the same checks a
+      # developer runs locally (npm run lint/format:check/typecheck).
+      - name: Install dev tooling
+        run: npm ci || npm install
+
+      - name: Lint, format and type check
+        run: |
+          set -euo pipefail
+          npm run lint
+          npm run format:check
+          npm run typecheck
+
       # NO DEPLOY OF UNTESTED CODE. These are the verify tests whose inputs
       # are all in git (plus the data/chassis tree assembled above): the VM
-      # against captured telegrams, the wire framing, the VM bridge, and the
-      # IR interpreter. They need no app, no vendor tree and no cable.
+      # against captured telegrams, the wire framing, the VM bridge, the IR
+      # interpreter, and -- critically -- the safety write-guard and its gate,
+      # which keep an unrecognised job from ever reaching the car. They need no
+      # app, no vendor tree and no cable.
       - name: Run the verify tests
         run: |
           set -euo pipefail
@@ -81,6 +95,9 @@ jobs:
           node tools/verify/test_transport.js
           node tools/verify/test_vmbridge.js
           node tools/verify/test_ir_render.js
+          node tools/verify/test_writeguard.js
+          node tools/verify/test_write_gate.js
+          node tools/verify/test_irfaultread.js
 
       - name: Build the static site
         run: |

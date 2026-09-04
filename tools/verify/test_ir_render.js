@@ -28,22 +28,49 @@ const R = path.join(__dirname, '..', '..');
 
 const lang = () => 'en';
 eval(fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'));
-const inpaMode = () => true, esc = (s) => s, stagger = () => {}, FKEY_SLOTS = 9;
-const api = async () => { throw new Error('offline'); };   // descs unavailable
+const inpaMode = () => true,
+  esc = (s) => s,
+  stagger = () => {},
+  FKEY_SLOTS = 9;
+const api = async () => {
+  throw new Error('offline');
+}; // descs unavailable
 // `const` declarations inside eval() are not visible to this scope, so the
 // few the guard asserts on are exposed deliberately. Copying their patterns
 // here instead would test a copy, not the code -- which is exactly how the
 // last mislabelling survived a passing run.
-let _irSrc = fs.readFileSync(path.join(R, 'app/renderer/screens/ir.js'), 'utf8');
-_irSrc = _irSrc.replace('function irMenuFitsVariant', 'globalThis.irMenuFitsVariant = irMenuFitsVariant; function irMenuFitsVariant')
-               .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
-               .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')
-               .replace('function irSameBar', 'globalThis.irSameBar = irSameBar; function irSameBar')
-               .replace('function _irHasRunnable', 'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable')
-               .replace('function irOpensMenu', 'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu')
-               .replace('function irUseTranslations', 'globalThis.irUseTranslations = irUseTranslations; function irUseTranslations')
-               .replace('function irLabel', 'globalThis.irLabel = irLabel; function irLabel')
-               .replace('function irState', 'globalThis.irState = irState; function irState');
+let _irSrc = fs.readFileSync(
+  path.join(R, 'app/renderer/screens/ir.js'),
+  'utf8'
+);
+_irSrc = _irSrc
+  .replace(
+    'function irMenuFitsVariant',
+    'globalThis.irMenuFitsVariant = irMenuFitsVariant; function irMenuFitsVariant'
+  )
+  .replace('const IR_FAULT_READ =', 'globalThis.IR_FAULT_READ =')
+  .replace('const IR_FILE_ACTION =', 'globalThis.IR_FILE_ACTION =')
+  .replace(
+    'function irSameBar',
+    'globalThis.irSameBar = irSameBar; function irSameBar'
+  )
+  .replace(
+    'function _irHasRunnable',
+    'globalThis._irHasRunnable = _irHasRunnable; function _irHasRunnable'
+  )
+  .replace(
+    'function irOpensMenu',
+    'globalThis.irOpensMenu = irOpensMenu; function irOpensMenu'
+  )
+  .replace(
+    'function irUseTranslations',
+    'globalThis.irUseTranslations = irUseTranslations; function irUseTranslations'
+  )
+  .replace('function irLabel', 'globalThis.irLabel = irLabel; function irLabel')
+  .replace(
+    'function irState',
+    'globalThis.irState = irState; function irState'
+  );
 eval(_irSrc);
 
 // Navigate the way the app now does: from the ECU's own root menu, by the
@@ -51,18 +78,22 @@ eval(_irSrc);
 // user would read it off the screen.
 function rootKey(ir, re) {
   const root = irRootMenu(ir);
-  return root ? irMenuItems(ir, root).find(i => re.test(i.label)) : null;
+  return root ? irMenuItems(ir, root).find((i) => re.test(i.label)) : null;
 }
-function keyMenu(ir, re) { const i = rootKey(ir, re); return i && i.menu; }
+function keyMenu(ir, re) {
+  const i = rootKey(ir, re);
+  return i && i.menu;
+}
 function keyScreen(ir, re) {
   const i = rootKey(ir, re);
   return i && !i.menu && i.screen ? (ir.screens || {})[i.screen] : null;
 }
 
-const load = (e) => JSON.parse(
-  loadScreens(e));
+const load = (e) => JSON.parse(loadScreens(e));
 const fails = [];
-const ok = (cond, msg) => { if (!cond) fails.push(msg); };
+const ok = (cond, msg) => {
+  if (!cond) fails.push(msg);
+};
 
 // ---- GSDS2: eight distinct pages, right kinds, units not captions ---------
 const g = load('GSDS2');
@@ -76,43 +107,60 @@ for (const it of gItems) {
   const scr = g.screens[it.screen];
   if (!scr) continue;
   const { rows } = irRows(scr);
-  if (rows.length) sigs.add(rows.map(r => r.key).join(','));
+  if (rows.length) sigs.add(rows.map((r) => r.key).join(','));
 }
-ok(sigs.size >= 7,
-   `GSDS2 pages should differ; only ${sigs.size} distinct row sets`);
+ok(
+  sigs.size >= 7,
+  `GSDS2 pages should differ; only ${sigs.size} distinct row sets`
+);
 
 const ana = irRows(g.screens['s_analog_1']).rows;
-ok(ana.length > 0 && ana.every(r => r.kind === 'gauge'),
-   'GSDS2 s_analog_1 should be all gauges');
-ok(ana.every(r => !/^\[.*\]$/.test(String(r.label || ''))),
-   'a "[unit]" caption leaked into a label on s_analog_1');
-ok(ana.some(r => r.unit),
-   'GSDS2 s_analog_1 gauges lost their units');
-ok(ana.every(r => r.min === undefined || r.max > r.min),
-   'GSDS2 s_analog_1 has an inverted gauge range');
+ok(
+  ana.length > 0 && ana.every((r) => r.kind === 'gauge'),
+  'GSDS2 s_analog_1 should be all gauges'
+);
+ok(
+  ana.every((r) => !/^\[.*\]$/.test(String(r.label || ''))),
+  'a "[unit]" caption leaked into a label on s_analog_1'
+);
+ok(
+  ana.some((r) => r.unit),
+  'GSDS2 s_analog_1 gauges lost their units'
+);
+ok(
+  ana.every((r) => r.min === undefined || r.max > r.min),
+  'GSDS2 s_analog_1 has an inverted gauge range'
+);
 
 const sw = irRows(g.screens['s_schalter']).rows;
-ok(sw.length && sw.every(r => r.kind === 'lamp' && r.on && r.off),
-   'GSDS2 s_schalter should be lamps with on/off text');
+ok(
+  sw.length && sw.every((r) => r.kind === 'lamp' && r.on && r.off),
+  'GSDS2 s_schalter should be lamps with on/off text'
+);
 
 // ---- RDC: loop captions suppressed, writes handled ------------------------
 const r = load('RDC');
 const rm = keyMenu(r, /^(Status|Read status)$/i);
 ok(rm === 'm_rdc_status', `RDC status menu resolved to ${rm}`);
 const rItems = irMenuItems(r, rm);
-ok(!rItems.some(i => /write/i.test(i.label)),
-   'RDC "MV write" duplicates the read screen and should be dropped');
+ok(
+  !rItems.some((i) => /write/i.test(i.label)),
+  'RDC "MV write" duplicates the read screen and should be dropped'
+);
 
 const wheel = irRows(r.screens['s_rad_io']).rows;
-const dupLabels = wheel.filter(x => x.label)
-  .filter((x, _i, a) => a.filter(y => y.label === x.label).length > 1);
-ok(dupLabels.length === 0,
-   `RDC loop caption pasted onto ${dupLabels.length} rows`);
+const dupLabels = wheel
+  .filter((x) => x.label)
+  .filter((x, _i, a) => a.filter((y) => y.label === x.label).length > 1);
+ok(
+  dupLabels.length === 0,
+  `RDC loop caption pasted onto ${dupLabels.length} rows`
+);
 
 // no screen may poll a write job
 for (const [name, scr] of Object.entries(r.screens)) {
   for (const s of irScreens(scr)) {
-    const j = (scr.jobs || []).find(x => x.name === s.job);
+    const j = (scr.jobs || []).find((x) => x.name === s.job);
     ok(j && !j.write, `RDC ${name} would poll write job ${s.job}`);
   }
 }
@@ -125,40 +173,65 @@ for (const [name, scr] of Object.entries(r.screens)) {
 const ract = keyMenu(r, /^(Activate|Ansteuern)$/i);
 ok(ract === 'm_steuern', `RDC activations menu resolved to ${ract}`);
 const rActs = irMenuItems(r, ract);
-ok(rActs.length >= 8,
-   `RDC should list >=8 actuator functions, got ${rActs.length}`);
-ok(rActs.some(i => /DWA output/i.test(i.label)),
-   'RDC actuator captions did not join from the screen softkeys');
-ok(rActs.every(i => !/^(DWA|button|plant)$/i.test(i.label)),
-   'an actuator item kept its fragment label instead of the softkey caption');
+ok(
+  rActs.length >= 8,
+  `RDC should list >=8 actuator functions, got ${rActs.length}`
+);
+ok(
+  rActs.some((i) => /DWA output/i.test(i.label)),
+  'RDC actuator captions did not join from the screen softkeys'
+);
+ok(
+  rActs.every((i) => !/^(DWA|button|plant)$/i.test(i.label)),
+  'an actuator item kept its fragment label instead of the softkey caption'
+);
 // nothing in-place may ever be runnable
-ok(rActs.filter(i => i.inPlace).every(i => !i.screen && !i.menu),
-   'an in-place actuator item claims a target');
+ok(
+  rActs.filter((i) => i.inPlace).every((i) => !i.screen && !i.menu),
+  'an in-place actuator item claims a target'
+);
 
 // ---- labelled rows: caption, not the ":" separator ------------------------
 // INPA lays a labelled row out as three prints -- caption at col 0, a bare
 // ":" at a fixed column, then the value. "Nearest preceding text" took the
 // separator, so every RDC coding row was labelled ":".
 const cod = keyScreen(r, /^Cod(e|ing)$/i);
-ok(cod && cod.title === 'RDC coding',
-   `RDC Coding screen not found: ${cod && cod.title}`);
+ok(
+  cod && cod.title === 'RDC coding',
+  `RDC Coding screen not found: ${cod && cod.title}`
+);
 const codRows = cod ? irRows(cod).rows : [];
-ok(codRows.length === 5, `RDC coding should have 5 rows, got ${codRows.length}`);
-ok(codRows.some(x => x.label === 'Number antennas'),
-   'RDC coding lost its real captions');
-ok(codRows.every(x => x.kind === 'value'),
-   'RDC coding rows must stay text values, not gauges');
+ok(
+  codRows.length === 5,
+  `RDC coding should have 5 rows, got ${codRows.length}`
+);
+ok(
+  codRows.some((x) => x.label === 'Number antennas'),
+  'RDC coding lost its real captions'
+);
+ok(
+  codRows.every((x) => x.kind === 'value'),
+  'RDC coding rows must stay text values, not gauges'
+);
 // a screen of labelled reads renders as the ID-data card, like the Info tab
-ok(cod && irIsCard(cod), 'RDC coding should render as a card, not a gauge grid');
+ok(
+  cod && irIsCard(cod),
+  'RDC coding should render as a card, not a gauge grid'
+);
 const codCard = cod && irAsCard(cod, new Map());
-ok(codCard && codCard.jobs.length === 1
-   && codCard.jobs[0] === 'CODIERUNG_LESEN',
-   `RDC coding card job wrong: ${codCard && codCard.jobs}`);
-ok(codCard && codCard.fields.every(f => f.label && f.label !== f.key),
-   'RDC coding card has unlabelled fields');
+ok(
+  codCard && codCard.jobs.length === 1 && codCard.jobs[0] === 'CODIERUNG_LESEN',
+  `RDC coding card job wrong: ${codCard && codCard.jobs}`
+);
+ok(
+  codCard && codCard.fields.every((f) => f.label && f.label !== f.key),
+  'RDC coding card has unlabelled fields'
+);
 // a gauge screen must NOT be treated as a card
-ok(!irIsCard(g.screens['s_analog_1']),
-   'GSDS2 s_analog_1 is gauges and must not render as a card');
+ok(
+  !irIsCard(g.screens['s_analog_1']),
+  'GSDS2 s_analog_1 is gauges and must not render as a card'
+);
 
 // ---- the bar a key keeps is not a submenu ---------------------------------
 // INPA keeps the softkey bar and swaps the SCREEN: KOMBI's Info, Ident and
@@ -173,21 +246,31 @@ ok(!irIsCard(g.screens['s_analog_1']),
   kbb._variant = 'KOMBI46';
   const rootB = irRootMenu(kbb, 'KOMBI46');
   const bar = 'm_info_ident_code_36_38_39_46_52_85';
-  ok(irSameBar(kbb, bar, rootB),
-     'KOMBI Coding/Ident install the root bar, not a submenu');
-  for (const [re, want] of [[/^Cod(e|ing)$/i, 's_code_46'],
-                            [/^Ident/i, 's_ident_36_38_39_46_52_85']]) {
-    const it = irMenuItems(kbb, rootB, 'KOMBI46').find(i => re.test(i.label));
-    ok(it && (!it.menu || irSameBar(kbb, it.menu, rootB)),
-       `KOMBI46 ${it && it.label} should open its screen, not the bar again`);
-    ok(it && it.screen === want,
-       `KOMBI46 ${it && it.label} screen: ${it && it.screen}`);
+  ok(
+    irSameBar(kbb, bar, rootB),
+    'KOMBI Coding/Ident install the root bar, not a submenu'
+  );
+  for (const [re, want] of [
+    [/^Cod(e|ing)$/i, 's_code_46'],
+    [/^Ident/i, 's_ident_36_38_39_46_52_85'],
+  ]) {
+    const it = irMenuItems(kbb, rootB, 'KOMBI46').find((i) => re.test(i.label));
+    ok(
+      it && (!it.menu || irSameBar(kbb, it.menu, rootB)),
+      `KOMBI46 ${it && it.label} should open its screen, not the bar again`
+    );
+    ok(
+      it && it.screen === want,
+      `KOMBI46 ${it && it.label} screen: ${it && it.screen}`
+    );
   }
   // a REAL submenu still opens: Activate/Status/Memory list their own keys
   for (const re of [/^Activate\b/i, /^(Read )?Status$/i, /^Read memory$/i]) {
-    const it = irMenuItems(kbb, rootB, 'KOMBI46').find(i => re.test(i.label));
-    ok(it && it.menu && !irSameBar(kbb, it.menu, rootB),
-       `KOMBI46 ${it && it.label} lost its real submenu`);
+    const it = irMenuItems(kbb, rootB, 'KOMBI46').find((i) => re.test(i.label));
+    ok(
+      it && it.menu && !irSameBar(kbb, it.menu, rootB),
+      `KOMBI46 ${it && it.label} lost its real submenu`
+    );
   }
 }
 
@@ -201,22 +284,32 @@ ok(!irIsCard(g.screens['s_analog_1']),
 {
   const kbs = load('KOMBI');
   kbs._variant = 'KOMBI46';
-  ok(irSameBar(kbs, 'm_status_sub_38_39', 'm_status_38_39'),
-     'a narrowed page bar must not count as a submenu');
-  ok(irSameBar(kbs, 'm_status_sub_46', 'm_status_46'),
-     'KOMBI46 narrowed status bar must not count as a submenu');
+  ok(
+    irSameBar(kbs, 'm_status_sub_38_39', 'm_status_38_39'),
+    'a narrowed page bar must not count as a submenu'
+  );
+  ok(
+    irSameBar(kbs, 'm_status_sub_46', 'm_status_46'),
+    'KOMBI46 narrowed status bar must not count as a submenu'
+  );
   // real submenus still are ones
   const rootS = irRootMenu(kbs, 'KOMBI46');
   for (const m of ['m_status_46', 'm_steuern_46', 'm_fehler']) {
     ok(!irSameBar(kbs, m, rootS), `${m} is a real submenu of the root`);
   }
   // every status page opens a screen, not the menu again
-  const st = irMenuItems(kbs, rootS, 'KOMBI46')
-    .find(i => /^(Read )?Status$/i.test(i.label));
+  const st = irMenuItems(kbs, rootS, 'KOMBI46').find((i) =>
+    /^(Read )?Status$/i.test(i.label)
+  );
   const pages = irMenuItems(kbs, st.menu, 'KOMBI46');
-  ok(pages.length >= 5, `KOMBI46 status should list its pages, got ${pages.length}`);
-  ok(pages.every(p => !p.menu || irSameBar(kbs, p.menu, st.menu)),
-     'a status page still opens a menu instead of its screen');
+  ok(
+    pages.length >= 5,
+    `KOMBI46 status should list its pages, got ${pages.length}`
+  );
+  ok(
+    pages.every((p) => !p.menu || irSameBar(kbs, p.menu, st.menu)),
+    'a status page still opens a menu instead of its screen'
+  );
 }
 
 // ---- a menu with nothing runnable loses to the screen ---------------------
@@ -227,22 +320,34 @@ ok(!irIsCard(g.screens['s_analog_1']),
 // screen it also names holds the seven data blocks and the checksum.
 {
   const lw2 = load('LWS5');
-  const cod = lw2.menus.m_code.items.find(i => i.nr === 1);
-  ok(cod && cod.fileAction,
-     'LWS5 Coding key writes a .COD file and must be flagged');
-  ok(!_irHasRunnable(lw2, 'm_code'),
-     'm_code holds nothing runnable once the file action is flagged');
+  const cod = lw2.menus.m_code.items.find((i) => i.nr === 1);
+  ok(
+    cod && cod.fileAction,
+    'LWS5 Coding key writes a .COD file and must be flagged'
+  );
+  ok(
+    !_irHasRunnable(lw2, 'm_code'),
+    'm_code holds nothing runnable once the file action is flagged'
+  );
   const rootC = irRootMenu(lw2);
-  const key = irMenuItems(lw2, rootC).find(i => /^Cod(e|ing)$/i.test(i.label));
-  ok(key && key.screen === 's_code',
-     `LWS5 Coding should name s_code, got ${key && key.screen}`);
+  const key = irMenuItems(lw2, rootC).find((i) =>
+    /^Cod(e|ing)$/i.test(i.label)
+  );
+  ok(
+    key && key.screen === 's_code',
+    `LWS5 Coding should name s_code, got ${key && key.screen}`
+  );
   const rows = irRows(lw2.screens.s_code).rows;
   ok(rows.length === 8, `LWS5 coding should show 8 rows, got ${rows.length}`);
-  ok(rows.filter(r => r.key === 'COD_DATEN').length === 7,
-     'LWS5 coding lost its seven data blocks');
+  ok(
+    rows.filter((r) => r.key === 'COD_DATEN').length === 7,
+    'LWS5 coding lost its seven data blocks'
+  );
   // real submenus must still open
-  ok(_irHasRunnable(lw2, 'm_status') && _irHasRunnable(lw2, 'm_fehler'),
-     'a real LWS5 submenu was judged empty');
+  ok(
+    _irHasRunnable(lw2, 'm_status') && _irHasRunnable(lw2, 'm_fehler'),
+    'a real LWS5 submenu was judged empty'
+  );
 }
 
 // ---- a file PICKER is half a real function, not a log dump ---------------
@@ -256,49 +361,76 @@ ok(!irIsCard(g.screens['s_analog_1']),
 {
   const lw3 = load('LWS5');
   const cs = lw3.menus.m_cod_schreiben.items;
-  const pick = cs.find(i => i.nr === 1);
-  ok(pick && !pick.fileAction && pick.prompt,
-     'the .COD file picker must not be flagged a file action');
-  const send = cs.find(i => i.nr === 2);
-  ok(send && send.job === 'CODIERUNG_SCHREIBEN_DATEI',
-     `coding write should carry its state job, got ${send && send.job}`);
-  ok(send && send.writeJob && send.stateJob,
-     'a state-machine EEPROM write must be flagged write AND state-sourced');
+  const pick = cs.find((i) => i.nr === 1);
+  ok(
+    pick && !pick.fileAction && pick.prompt,
+    'the .COD file picker must not be flagged a file action'
+  );
+  const send = cs.find((i) => i.nr === 2);
+  ok(
+    send && send.job === 'CODIERUNG_SCHREIBEN_DATEI',
+    `coding write should carry its state job, got ${send && send.job}`
+  );
+  ok(
+    send && send.writeJob && send.stateJob,
+    'a state-machine EEPROM write must be flagged write AND state-sourced'
+  );
   // the ident write is the same shape
-  const idw = lw3.menus.m_id_schreiben.items.find(i => i.nr === 8);
-  ok(idw && idw.job === 'IDENT_SCHREIBEN' && idw.stateJob && idw.writeJob,
-     `ident write not surfaced: ${idw && idw.job}`);
+  const idw = lw3.menus.m_id_schreiben.items.find((i) => i.nr === 8);
+  ok(
+    idw && idw.job === 'IDENT_SCHREIBEN' && idw.stateJob && idw.writeJob,
+    `ident write not surfaced: ${idw && idw.job}`
+  );
   // ...and its state procedure is now DECODED into a form: eight fields in
   // the ;-joined send order, each named by the Change proc that fills it.
-  ok(idw.stateForm && idw.stateForm.fields.length === 8,
-     `ident write form: ${idw.stateForm && idw.stateForm.fields.length} fields`);
-  ok(idw.stateForm.fields[0].caption === 'BMW part number'
-     && idw.stateForm.fields[7].caption === 'Supplier'
-     && idw.stateForm.sep === ';',
-     'ident write form fields/order wrong');
+  ok(
+    idw.stateForm && idw.stateForm.fields.length === 8,
+    `ident write form: ${idw.stateForm && idw.stateForm.fields.length} fields`
+  );
+  ok(
+    idw.stateForm.fields[0].caption === 'BMW part number' &&
+      idw.stateForm.fields[7].caption === 'Supplier' &&
+      idw.stateForm.sep === ';',
+    'ident write form fields/order wrong'
+  );
   // the "Change: Indices" key edits three fields (Coding/Diagnostic/Bus)
-  const chIdx = lw3.menus.m_id_schreiben.items.find(i => i.nr === 5);
-  ok(chIdx && chIdx.stateEdit && chIdx.stateEdit.fields.length === 3
-     && chIdx.stateEdit.fields[0].caption === 'Coding index',
-     'Change: Indices should edit 3 named fields');
-  ok(!chIdx.job && !chIdx.stateJob,
-     'a Change key edits the buffer and must name no job');
+  const chIdx = lw3.menus.m_id_schreiben.items.find((i) => i.nr === 5);
+  ok(
+    chIdx &&
+      chIdx.stateEdit &&
+      chIdx.stateEdit.fields.length === 3 &&
+      chIdx.stateEdit.fields[0].caption === 'Coding index',
+    'Change: Indices should edit 3 named fields'
+  );
+  ok(
+    !chIdx.job && !chIdx.stateJob,
+    'a Change key edits the buffer and must name no job'
+  );
   // "Set default values" copies the eight read-back slots into edit slots
-  const dflt = lw3.menus.m_id_schreiben.items.find(i => i.nr === 1);
-  ok(dflt && Array.isArray(dflt.stateCopy) && dflt.stateCopy.length === 8,
-     `Set default should copy 8 slot pairs, got ${dflt && (dflt.stateCopy || []).length}`);
+  const dflt = lw3.menus.m_id_schreiben.items.find((i) => i.nr === 1);
+  ok(
+    dflt && Array.isArray(dflt.stateCopy) && dflt.stateCopy.length === 8,
+    `Set default should copy 8 slot pairs, got ${dflt && (dflt.stateCopy || []).length}`
+  );
   // so the key opens its MENU again, rather than an empty screen
   const ex = irMenuItems(lw3, 'm_entwickler_5_0');
-  const wc = ex.find(i => /^Write Coding Data$/i.test(i.label));
-  ok(wc && irOpensMenu(lw3, wc, 'm_entwickler_5_0'),
-     'Write Coding Data should open its menu');
+  const wc = ex.find((i) => /^Write Coding Data$/i.test(i.label));
+  ok(
+    wc && irOpensMenu(lw3, wc, 'm_entwickler_5_0'),
+    'Write Coding Data should open its menu'
+  );
   // ...while a key whose menu really is chrome-only opens its screen
-  const ird = ex.find(i => /^Ident reading$/i.test(i.label));
-  ok(ird && !irOpensMenu(lw3, ird, 'm_entwickler_5_0')
-     && ird.screen === 's_ident_e',
-     'Ident reading should open s_ident_e, not its chrome-only menu');
-  ok(irRows(lw3.screens.s_ident_e).rows.length === 9,
-     'LWS5 ident screen lost its fields');
+  const ird = ex.find((i) => /^Ident reading$/i.test(i.label));
+  ok(
+    ird &&
+      !irOpensMenu(lw3, ird, 'm_entwickler_5_0') &&
+      ird.screen === 's_ident_e',
+    'Ident reading should open s_ident_e, not its chrome-only menu'
+  );
+  ok(
+    irRows(lw3.screens.s_ident_e).rows.length === 9,
+    'LWS5 ident screen lost its fields'
+  );
 }
 
 // ---- a labelled per-pass read is still a card ----------------------------
@@ -314,26 +446,39 @@ ok(!irIsCard(g.screens['s_analog_1']),
   const cod2 = lw4.screens.s_code;
   ok(irIsCard(cod2), 'LWS5 coding should render as a card');
   const card = irAsCard(cod2, new Map());
-  ok(card.fields.length === 8, `coding card should have 8 fields, got ${card.fields.length}`);
-  const blocks = card.fields.filter(f => f.arg != null);
+  ok(
+    card.fields.length === 8,
+    `coding card should have 8 fields, got ${card.fields.length}`
+  );
+  const blocks = card.fields.filter((f) => f.arg != null);
   ok(blocks.length === 7, `expected 7 per-pass blocks, got ${blocks.length}`);
-  ok(blocks.every(f => f.job === 'CODIERUNG_LESEN'),
-     'a per-pass field must name the job that reads it');
-  ok(new Set(blocks.map(f => f.arg)).size === 7,
-     'the seven blocks must read seven distinct arguments');
+  ok(
+    blocks.every((f) => f.job === 'CODIERUNG_LESEN'),
+    'a per-pass field must name the job that reads it'
+  );
+  ok(
+    new Set(blocks.map((f) => f.arg)).size === 7,
+    'the seven blocks must read seven distinct arguments'
+  );
   // the argument-carrying job must NOT also be read argument-less, or each
   // block would be read twice and only the last kept
-  ok(!card.jobs.includes('CODIERUNG_LESEN'),
-     'a per-pass job must not also be in the card-level job list');
-  ok(card.jobs.includes('CODIERUNG_CHECK'),
-     'the checksum job reads normally and must stay');
+  ok(
+    !card.jobs.includes('CODIERUNG_LESEN'),
+    'a per-pass job must not also be in the card-level job list'
+  );
+  ok(
+    card.jobs.includes('CODIERUNG_CHECK'),
+    'the checksum job reads normally and must stay'
+  );
   // RDC reads the same 8 keys once per wheel -- 40 rows, 8 distinct keys, the
   // caption repeating each pass. Those must stay on the poller, which reads
   // each argument separately, or a card would show the last wheel five times.
   const rdcW = load('RDC').screens.s_abgleichwert_lesen;
   ok(!irIsCard(rdcW), 'a per-wheel screen must stay on the poller');
-  ok(irRows(rdcW).rows.length === 40,
-     `RDC per-wheel screen changed shape: ${irRows(rdcW).rows.length} rows`);
+  ok(
+    irRows(rdcW).rows.length === 40,
+    `RDC per-wheel screen changed shape: ${irRows(rdcW).rows.length} rows`
+  );
 }
 
 // ---- a menu key's JOB ARGUMENT is often all that distinguishes it ---------
@@ -346,29 +491,41 @@ ok(!irIsCard(g.screens['s_analog_1']),
 {
   const rad = load('RADIO');
   const eq = irMenuItems(rad, 'm_steuern_eq');
-  const fm = eq.find(i => /source FM$/i.test(i.label));
+  const fm = eq.find((i) => /source FM$/i.test(i.label));
   // the shifted half now carries INPA's full caption: "AM" is printed as
   // "<Shift> + < F2 >  entertainment source AM", i.e. ITEM 12
-  const am = eq.find(i => /source AM$/i.test(i.label));
-  ok(fm && fm.job === 'STEUERN_NEXT_ENTSOURCE' && fm.jobArg === 'FM',
-     `RADIO FM: job=${fm && fm.job} arg=${fm && fm.jobArg}`);
-  ok(am && am.jobArg === 'AM' && am.shift && am.nr === 12,
-     `RADIO AM: arg=${am && am.jobArg} shift=${am && am.shift} nr=${am && am.nr}`);
-  ok(new Set(eq.filter(i => i.jobArg).map(i => i.jobArg)).size
-     === eq.filter(i => i.jobArg).length,
-     'two entertainment-source keys share an argument');
+  const am = eq.find((i) => /source AM$/i.test(i.label));
+  ok(
+    fm && fm.job === 'STEUERN_NEXT_ENTSOURCE' && fm.jobArg === 'FM',
+    `RADIO FM: job=${fm && fm.job} arg=${fm && fm.jobArg}`
+  );
+  ok(
+    am && am.jobArg === 'AM' && am.shift && am.nr === 12,
+    `RADIO AM: arg=${am && am.jobArg} shift=${am && am.shift} nr=${am && am.nr}`
+  );
+  ok(
+    new Set(eq.filter((i) => i.jobArg).map((i) => i.jobArg)).size ===
+      eq.filter((i) => i.jobArg).length,
+    'two entertainment-source keys share an argument'
+  );
   // no key may take the CheckJobStatus token as its job name
   const act = irMenuItems(rad, 'm_steuern');
-  ok(!act.some(i => i.job === 'OKAY'),
-     `an actuator key took OKAY as its job: ${act.filter(i => i.job === 'OKAY').map(i => i.label)}`);
-  ok(act.some(i => i.job === 'STEUERN_FADER_LH'),
-     'RADIO fader key lost its real job');
+  ok(
+    !act.some((i) => i.job === 'OKAY'),
+    `an actuator key took OKAY as its job: ${act.filter((i) => i.job === 'OKAY').map((i) => i.label)}`
+  );
+  ok(
+    act.some((i) => i.job === 'STEUERN_FADER_LH'),
+    'RADIO fader key lost its real job'
+  );
   // CDC's two transport-mode keys differ only in the argument
   const cdc = irMenuItems(load('CDC'), 'm_fetrawe');
-  const on = cdc.find(i => /ON$/i.test(i.label));
-  const off = cdc.find(i => /OFF$/i.test(i.label));
-  ok(on && off && on.job === off.job && on.jobArg !== off.jobArg,
-     `CDC transport mode must differ by argument: ${on && on.jobArg} vs ${off && off.jobArg}`);
+  const on = cdc.find((i) => /ON$/i.test(i.label));
+  const off = cdc.find((i) => /OFF$/i.test(i.label));
+  ok(
+    on && off && on.job === off.job && on.jobArg !== off.jobArg,
+    `CDC transport mode must differ by argument: ${on && on.jobArg} vs ${off && off.jobArg}`
+  );
 }
 
 // ---- INPA's softkey bar has TWO rows: Fn and Shift+Fn ---------------------
@@ -380,29 +537,39 @@ ok(!irIsCard(g.screens['s_analog_1']),
 {
   const sm = load('SM46');
   const act = irMenuItems(sm, 'm_steuern');
-  const pairs = [['seat forward', 'seat back', 'SLV_VOR', 'SLV_ZUR'],
-                 // F2 still reads its ITEM label "height +" -- the plain-key
-                 // join only takes a softkey caption when it is LONGER, and
-                 // "seat up" is shorter. Left alone deliberately: removing
-                 // that rule mislabels MFLR50's Status key "Mode", a separate
-                 // screen-selection bug in the join.
-                 ['height +', 'seat down', 'SHV_AUF', 'SHV_AB'],
-                 ['inclination +', 'inclination -', 'SNV_AUF', 'SNV_AB'],
-                 ['backrest forward', 'backrest back', 'LNV_VOR', 'LNV_ZUR']];
+  const pairs = [
+    ['seat forward', 'seat back', 'SLV_VOR', 'SLV_ZUR'],
+    // F2 still reads its ITEM label "height +" -- the plain-key
+    // join only takes a softkey caption when it is LONGER, and
+    // "seat up" is shorter. Left alone deliberately: removing
+    // that rule mislabels MFLR50's Status key "Mode", a separate
+    // screen-selection bug in the join.
+    ['height +', 'seat down', 'SHV_AUF', 'SHV_AB'],
+    ['inclination +', 'inclination -', 'SNV_AUF', 'SNV_AB'],
+    ['backrest forward', 'backrest back', 'LNV_VOR', 'LNV_ZUR'],
+  ];
   for (const [up, dn, aUp, aDn] of pairs) {
-    const u = act.find(i => i.label === up);
-    const d = act.find(i => i.label === dn);
-    ok(u && !u.shift && u.jobArg === aUp,
-       `SM46 "${up}" should be plain F${u && u.nr} on ${aUp}, got ${u && u.jobArg}`);
-    ok(d && d.shift && d.jobArg === aDn,
-       `SM46 "${dn}" should be shifted on ${aDn}, got shift=${d && d.shift} arg=${d && d.jobArg}`);
+    const u = act.find((i) => i.label === up);
+    const d = act.find((i) => i.label === dn);
+    ok(
+      u && !u.shift && u.jobArg === aUp,
+      `SM46 "${up}" should be plain F${u && u.nr} on ${aUp}, got ${u && u.jobArg}`
+    );
+    ok(
+      d && d.shift && d.jobArg === aDn,
+      `SM46 "${dn}" should be shifted on ${aDn}, got shift=${d && d.shift} arg=${d && d.jobArg}`
+    );
     // the shifted key is its partner's ITEM + 10
-    ok(u && d && d.nr === u.nr + 10,
-       `SM46 "${dn}" should be ITEM ${u && u.nr + 10}, got ${d && d.nr}`);
+    ok(
+      u && d && d.nr === u.nr + 10,
+      `SM46 "${dn}" should be ITEM ${u && u.nr + 10}, got ${d && d.nr}`
+    );
   }
   // a shifted key must never keep the cramped ITEM label
-  ok(!act.some(i => /^(ankle|b-rest|seat bw|pos\.) /.test(i.label)),
-     `a shifted key kept its ITEM label: ${act.map(i => i.label)}`);
+  ok(
+    !act.some((i) => /^(ankle|b-rest|seat bw|pos\.) /.test(i.label)),
+    `a shifted key kept its ITEM label: ${act.map((i) => i.label)}`
+  );
 
   // The bar shows ONE row at a time, as INPA does, and both rows bind to the
   // same digits -- F3 and Shift+F3 are both the "3" key. A digit appearing
@@ -412,34 +579,39 @@ ok(!irIsCard(g.screens['s_analog_1']),
     const n = it.shift ? it.nr - 10 : it.nr;
     return n === 20 ? null : String(n % 10);
   };
-  let collisions = 0, shiftedMenus = 0;
-  for (const f of fs.readdirSync(IRDIR).filter(f => f.endsWith('.json'))) {
+  let collisions = 0,
+    shiftedMenus = 0;
+  for (const f of fs.readdirSync(IRDIR).filter((f) => f.endsWith('.json'))) {
     const ir2 = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
     for (const mn of Object.keys(ir2.menus || {})) {
       const its = irMenuItems(ir2, mn);
       if (!its.length) continue;
-      const rows = [its.filter(i => !i.shift), its.filter(i => i.shift)];
+      const rows = [its.filter((i) => !i.shift), its.filter((i) => i.shift)];
       if (rows[1].length) shiftedMenus++;
       for (const row of rows) {
         const seen = new Set();
         for (const i of row.slice(0, 9)) {
           const k = bindOf(i);
           if (k === null) continue;
-          if (seen.has(k)) { collisions++; break; }
+          if (seen.has(k)) {
+            collisions++;
+            break;
+          }
           seen.add(k);
         }
       }
     }
   }
   ok(collisions === 0, `${collisions} menus bind two keys to one digit`);
-  ok(shiftedMenus > 600,
-     `menus with a shifted row regressed: ${shiftedMenus}`);
+  ok(shiftedMenus > 600, `menus with a shifted row regressed: ${shiftedMenus}`);
   // a shifted ITEM is still recognised when INPA printed no shifted caption:
   // the n+10 pairing holds regardless (AFS_70 "AIF 9" at 11 against "AIF 1")
   const afs = irMenuItems(load('AFS_70'), 'm_afs_AifTabelle');
-  const a9 = afs.find(i => /AIF 9/.test(i.label));
-  ok(a9 && a9.shift && a9.nr === 11,
-     `AFS_70 "AIF 9" should be shifted ITEM 11, got nr=${a9 && a9.nr} shift=${a9 && a9.shift}`);
+  const a9 = afs.find((i) => /AIF 9/.test(i.label));
+  ok(
+    a9 && a9.shift && a9.nr === 11,
+    `AFS_70 "AIF 9" should be shifted ITEM 11, got nr=${a9 && a9.nr} shift=${a9 && a9.shift}`
+  );
 }
 
 // ---- SGBD result descriptions carry German the screen has to read --------
@@ -449,23 +621,40 @@ ok(!irIsCard(g.screens['s_analog_1']),
 // /Geschwindigkeit/ and /Signal/ rules, or "Radgeschwindigkeit" becomes
 // "Radspeed" and "Rohsignal" survives untouched.
 for (const [de, en] of [
-    ['Rohsignal vom DSC/ABS RL (Impulse/sec)', 'Raw signal from DSC/ABS RL (pulses/sec)'],
-    ['Speedsabh. Standardisierungsfortschritt 1 for EXX',
-     'Speed-dep. standardisation progress 1 for EXX'],
-    ['Radgeschwindigkeit vorne links', 'Wheel speed front left'],
-    ['geschwindigkeitsabhängige Standardisierung',
-     'speed-dependent standardisation'],
-    ['ABS-Rohsignale [Hz]', 'ABS-raw signals [Hz]'],
-    ['Bandmode', 'Plant mode']]) {
-  ok(deGerman(de) === en, `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);
+  [
+    'Rohsignal vom DSC/ABS RL (Impulse/sec)',
+    'Raw signal from DSC/ABS RL (pulses/sec)',
+  ],
+  [
+    'Speedsabh. Standardisierungsfortschritt 1 for EXX',
+    'Speed-dep. standardisation progress 1 for EXX',
+  ],
+  ['Radgeschwindigkeit vorne links', 'Wheel speed front left'],
+  [
+    'geschwindigkeitsabhängige Standardisierung',
+    'speed-dependent standardisation',
+  ],
+  ['ABS-Rohsignale [Hz]', 'ABS-raw signals [Hz]'],
+  ['Bandmode', 'Plant mode'],
+]) {
+  ok(
+    deGerman(de) === en,
+    `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`
+  );
 }
 // ...and must not touch strings BMW already shipped in English. "Impulse" is
 // spelled the same in both languages, so translating the bare word turned
 // "Closing impulses left" into "Closing pulsess left".
-for (const eng of ['Closing impulses left', 'Encoder impulse count',
-                   'wheel speed impulse :  ', 'impulse open']) {
-  ok(deGerman(eng) === eng,
-     `deGerman mangled English: ${JSON.stringify(eng)} -> ${JSON.stringify(deGerman(eng))}`);
+for (const eng of [
+  'Closing impulses left',
+  'Encoder impulse count',
+  'wheel speed impulse :  ',
+  'impulse open',
+]) {
+  ok(
+    deGerman(eng) === eng,
+    `deGerman mangled English: ${JSON.stringify(eng)} -> ${JSON.stringify(deGerman(eng))}`
+  );
 }
 
 // ---- INPA's caption may carry its own separator --------------------------
@@ -474,10 +663,14 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
 {
   const bm = load('BMBT46TN');
   const rows = irRows(bm.screens.s_status_drehgeber).rows;
-  ok(rows.every(r => !/[:=]\s*$/.test(r.label || '')),
-     `a caption kept its separator: ${rows.map(r => r.label)}`);
-  ok(rows.some(r => r.label === 'Monitor pot.'),
-     `expected "Monitor pot.", got ${rows.map(r => r.label)}`);
+  ok(
+    rows.every((r) => !/[:=]\s*$/.test(r.label || '')),
+    `a caption kept its separator: ${rows.map((r) => r.label)}`
+  );
+  ok(
+    rows.some((r) => r.label === 'Monitor pot.'),
+    `expected "Monitor pot.", got ${rows.map((r) => r.label)}`
+  );
 }
 
 // ---- a coding flag is a yes/no answer, not a measurement -----------------
@@ -490,28 +683,39 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
   const dwa = load('DWA4');
   const cod = irRows(dwa.screens.s_code).rows;
   ok(cod.length === 8, `DWA4 coding should have 8 rows, got ${cod.length}`);
-  const lamps = cod.filter(r => r.kind === 'lamp');
-  ok(lamps.length === 4, `DWA4 coding should have 4 flags, got ${lamps.length}`);
-  ok(lamps.every(r => r.min === undefined && r.max === undefined),
-     'a coding flag must carry no gauge range');
-  ok(lamps.some(r => /tilt alarm sensor/i.test(r.label || '')),
-     `DWA4 flags lost their captions: ${lamps.map(r => r.label)}`);
+  const lamps = cod.filter((r) => r.kind === 'lamp');
+  ok(
+    lamps.length === 4,
+    `DWA4 coding should have 4 flags, got ${lamps.length}`
+  );
+  ok(
+    lamps.every((r) => r.min === undefined && r.max === undefined),
+    'a coding flag must carry no gauge range'
+  );
+  ok(
+    lamps.some((r) => /tilt alarm sensor/i.test(r.label || '')),
+    `DWA4 flags lost their captions: ${lamps.map((r) => r.label)}`
+  );
 
   // ...and the page reads as a CARD, like Identification: eight labelled
   // answers, four of them yes/no. renderIdentity prints "label : value" and
   // translates ja/nein, which is exactly what INPA draws.
   ok(irIsCard(dwa.screens.s_code), 'DWA4 coding should render as a card');
-  ok(irAsCard(dwa.screens.s_code, new Map()).fields.length === 8,
-     'DWA4 coding card lost fields');
+  ok(
+    irAsCard(dwa.screens.s_code, new Map()).fields.length === 8,
+    'DWA4 coding card lost fields'
+  );
 
   // A screen whose flags outnumber its non-ident values is an indicator
   // panel and must NOT become a card -- the glyph is the point there.
-  for (const [e, n] of [['BC_V', 's_digital'],            // 18 clamp states
-                        ['BZMF_E65', 's_status_links'],   // button panel
-                        ['CCM38', 's_codierung_abfrage'], // 53 of 58 lamps
-                        // 8 occupancy flags + 9 ident fields: the ident block
-                        // says nothing about the flags
-                        ['SBSR', 's_status_sitzbelegung_oc3']]) {
+  for (const [e, n] of [
+    ['BC_V', 's_digital'], // 18 clamp states
+    ['BZMF_E65', 's_status_links'], // button panel
+    ['CCM38', 's_codierung_abfrage'], // 53 of 58 lamps
+    // 8 occupancy flags + 9 ident fields: the ident block
+    // says nothing about the flags
+    ['SBSR', 's_status_sitzbelegung_oc3'],
+  ]) {
     ok(!irIsCard(load(e).screens[n]), `${e}/${n} is a lamp panel, not a card`);
   }
 }
@@ -527,36 +731,56 @@ for (const eng of ['Closing impulses left', 'Encoder impulse count',
   const dw = load('DWA4');
   const st = irRows(dw.screens.s_status).rows;
   ok(st.length === 25, `DWA4 status should have 25 rows, got ${st.length}`);
-  ok(st.every(r => r.label), `DWA4 status has unlabelled rows: `
-     + st.filter(r => !r.label).map(r => r.key));
-  for (const [key, want] of [['STAT_KL_R_EIN', 'Clamp R'],
-                             ['STAT_KL_15_EIN', 'Clamp 15'],
-                             ['STAT_KL_61_EIN', 'Clamp 61'],
-                             ['STAT_ZS1_EIN', 'ZS1'],
-                             ['STAT_FAHRERTUER_OFFEN', 'Driver door'],
-                             ['STAT_BEIFAHRERTUER_OFFEN', 'Passenger door']]) {
-    const r = st.find(x => x.key === key);
-    ok(r && r.label === want,
-       `DWA4 ${key} should read ${JSON.stringify(want)}, got ${JSON.stringify(r && r.label)}`);
+  ok(
+    st.every((r) => r.label),
+    `DWA4 status has unlabelled rows: ` +
+      st.filter((r) => !r.label).map((r) => r.key)
+  );
+  for (const [key, want] of [
+    ['STAT_KL_R_EIN', 'Clamp R'],
+    ['STAT_KL_15_EIN', 'Clamp 15'],
+    ['STAT_KL_61_EIN', 'Clamp 61'],
+    ['STAT_ZS1_EIN', 'ZS1'],
+    ['STAT_FAHRERTUER_OFFEN', 'Driver door'],
+    ['STAT_BEIFAHRERTUER_OFFEN', 'Passenger door'],
+  ]) {
+    const r = st.find((x) => x.key === key);
+    ok(
+      r && r.label === want,
+      `DWA4 ${key} should read ${JSON.stringify(want)}, got ${JSON.stringify(r && r.label)}`
+    );
   }
   // the group heading ("clamps", "lock signals") is a title, not a label
-  ok(!st.some(r => /^(clamps|lock signals|checked switches)$/i.test(r.label)),
-     'a group heading leaked onto a row as its caption');
+  ok(
+    !st.some((r) => /^(clamps|lock signals|checked switches)$/i.test(r.label)),
+    'a group heading leaked onto a row as its caption'
+  );
   // ...and every one of them is a LAMP. INPA drew the whole page with
   // digitalout, so not one of these rows is a measurement -- the renderer
   // must never give any of them a bar, whatever value arrives.
-  ok(st.every(r => r.kind === 'lamp'),
-     `DWA4 status should be all lamps: ${[...new Set(st.map(r => r.kind))]}`);
-  ok(st.every(r => r.min === undefined && r.max === undefined),
-     'a DWA4 status row carries a gauge range');
+  ok(
+    st.every((r) => r.kind === 'lamp'),
+    `DWA4 status should be all lamps: ${[...new Set(st.map((r) => r.kind))]}`
+  );
+  ok(
+    st.every((r) => r.min === undefined && r.max === undefined),
+    'a DWA4 status row carries a gauge range'
+  );
 }
 // A printed softkey row is the screen's own key help, never a caption: taking
 // it labelled IHKA's flap position "< F3 >  Fresh air flap".
-for (const [e, scr] of [['KLIMA_5B', null], ['IHKA39', null]]) {
+for (const [e, scr] of [
+  ['KLIMA_5B', null],
+  ['IHKA39', null],
+]) {
   const ir3 = load(e);
   for (const s3 of Object.values(ir3.screens || {})) {
-    ok(!irRows(s3).rows.some(r => /^<\s*(Shift\s*>\s*\+\s*<\s*)?F\s*\d+\s*>/.test(r.label || '')),
-       `${e}: a softkey row was taken as a caption`);
+    ok(
+      !irRows(s3).rows.some((r) =>
+        /^<\s*(Shift\s*>\s*\+\s*<\s*)?F\s*\d+\s*>/.test(r.label || '')
+      ),
+      `${e}: a softkey row was taken as a caption`
+    );
   }
 }
 
@@ -566,26 +790,45 @@ for (const [e, scr] of [['KLIMA_5B', null], ['IHKA39', null]]) {
 // actuator) over an 18-group actuator tree that was simply unreachable,
 // because the section map matched only Activate|Ansteuern|Steuern.
 {
-  const ACT = /^(Activate|Ansteuern|Steuern|Stellglied|Aktor|Actuator)|(activat|ansteuer)\w*$/i;
-  for (const l of ['Activate', 'Ansteuern', 'Stellgliedcontrolen',
-                   'Stellgliedansteuerungen', 'Actuator activations 1',
-                   'Activate seat-drives', 'Steuern 1']) {
+  const ACT =
+    /^(Activate|Ansteuern|Steuern|Stellglied|Aktor|Actuator)|(activat|ansteuer)\w*$/i;
+  for (const l of [
+    'Activate',
+    'Ansteuern',
+    'Stellgliedcontrolen',
+    'Stellgliedansteuerungen',
+    'Actuator activations 1',
+    'Activate seat-drives',
+    'Steuern 1',
+  ]) {
     ok(ACT.test(l), `Activate pattern misses ${JSON.stringify(l)}`);
   }
-  for (const l of ['Read status', 'Coding', 'Read memory', 'Information',
-                   'Error memory', 'Identification']) {
+  for (const l of [
+    'Read status',
+    'Coding',
+    'Read memory',
+    'Information',
+    'Error memory',
+    'Identification',
+  ]) {
     ok(!ACT.test(l), `Activate pattern wrongly claims ${JSON.stringify(l)}`);
   }
   // MS450's actuator tree must be reachable and intact
   const ms = load('MS450');
-  const act = irMenuItems(ms, irRootMenu(ms)).find(i => ACT.test(i.label));
-  ok(act && act.menu === 'm_iostatus',
-     `MS450 Activate should open m_iostatus, got ${act && act.menu}`);
+  const act = irMenuItems(ms, irRootMenu(ms)).find((i) => ACT.test(i.label));
+  ok(
+    act && act.menu === 'm_iostatus',
+    `MS450 Activate should open m_iostatus, got ${act && act.menu}`
+  );
   const groups = irMenuItems(ms, 'm_iostatus');
-  ok(groups.length >= 18,
-     `MS450 should list >=18 actuator groups, got ${groups.length}`);
-  ok(groups.every(g => g.menu || g.screen),
-     'an MS450 actuator group leads nowhere');
+  ok(
+    groups.length >= 18,
+    `MS450 should list >=18 actuator groups, got ${groups.length}`
+  );
+  ok(
+    groups.every((g) => g.menu || g.screen),
+    'an MS450 actuator group leads nowhere'
+  );
 }
 
 // ---- a German-built ECU: chrome by ACTION, not by caption ----------------
@@ -595,38 +838,56 @@ for (const [e, scr] of [['KLIMA_5B', null], ['IHKA39', null]]) {
 // holding the 23 identification fields -- and the key appeared to do nothing.
 {
   const ms2 = load('MS450');
-  ok(!_irHasRunnable(ms2, 'm_ident'),
-     'MS450 ident menu is chrome only and must not count as runnable');
+  ok(
+    !_irHasRunnable(ms2, 'm_ident'),
+    'MS450 ident menu is chrome only and must not count as runnable'
+  );
   const rootM = irRootMenu(ms2);
-  const id = irMenuItems(ms2, rootM).find(i => /identification/i.test(i.label));
-  ok(id && !irOpensMenu(ms2, id, rootM) && id.screen === 's_ident',
-     `MS450 identification should open s_ident, got ${id && id.screen}`);
-  ok(irRows(ms2.screens.s_ident).rows.length === 23,
-     `MS450 s_ident should have 23 rows, got ${irRows(ms2.screens.s_ident).rows.length}`);
+  const id = irMenuItems(ms2, rootM).find((i) =>
+    /identification/i.test(i.label)
+  );
+  ok(
+    id && !irOpensMenu(ms2, id, rootM) && id.screen === 's_ident',
+    `MS450 identification should open s_ident, got ${id && id.screen}`
+  );
+  ok(
+    irRows(ms2.screens.s_ident).rows.length === 23,
+    `MS450 s_ident should have 23 rows, got ${irRows(ms2.screens.s_ident).rows.length}`
+  );
 
   // its fault menu ends with three PC actions -- save-to-file, insert comment,
   // needle-printer export -- which name no job and go nowhere. Listing them
   // beside the five real fault reads made INPA's own chrome look like ECU
   // functions.
   const fm2 = irMenuItems(ms2, 'm_fehlersp');
-  ok(fm2.length === 5, `MS450 fault menu should list 5 reads, got ${fm2.length}: `
-     + fm2.map(i => i.label));
-  ok(!fm2.some(i => /Datei|Kommentar|Nadeldrucker|file|comment|printer/i.test(i.label)),
-     `a PC action survived in the fault menu: ${fm2.map(i => i.label)}`);
+  ok(
+    fm2.length === 5,
+    `MS450 fault menu should list 5 reads, got ${fm2.length}: ` +
+      fm2.map((i) => i.label)
+  );
+  ok(
+    !fm2.some((i) =>
+      /Datei|Kommentar|Nadeldrucker|file|comment|printer/i.test(i.label)
+    ),
+    `a PC action survived in the fault menu: ${fm2.map((i) => i.label)}`
+  );
 }
 // German menu captions translate as whole phrases: a word table cannot reorder
 // "Fehlerspeicher lesen" (verb-last), and the bare /Fehler/ rule alone left
 // "faultspeicher Read" -- German grammar with an English stem.
 for (const [de, en] of [
-    ['Fehlerspeicher lesen', 'Read error memory'],
-    ['Fehlerspeicher l\u00f6schen', 'Clear error memory'],
-    ['Anpassungswerte selektiv l\u00f6schen', 'Clear selected adaptation values'],
-    ['SG-Identifikation', 'ECU identification'],
-    ['Stellgliedansteuerungen', 'Actuator activation'],
-    ['Systemdiagnosen', 'System diagnostics'],
-    ['Bildschirm drucken', 'Print screen']]) {
-  ok(deGerman(de) === en,
-     `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`);
+  ['Fehlerspeicher lesen', 'Read error memory'],
+  ['Fehlerspeicher l\u00f6schen', 'Clear error memory'],
+  ['Anpassungswerte selektiv l\u00f6schen', 'Clear selected adaptation values'],
+  ['SG-Identifikation', 'ECU identification'],
+  ['Stellgliedansteuerungen', 'Actuator activation'],
+  ['Systemdiagnosen', 'System diagnostics'],
+  ['Bildschirm drucken', 'Print screen'],
+]) {
+  ok(
+    deGerman(de) === en,
+    `deGerman(${JSON.stringify(de)}) = ${JSON.stringify(deGerman(de))}`
+  );
 }
 
 // ---- several keys, one screen, told apart by an index --------------------
@@ -638,19 +899,32 @@ for (const [de, en] of [
 {
   const ms3 = load('MS450');
   const aif = irMenuItems(ms3, 'm_aif');
-  ok(aif.length >= 15, `MS450 AIF menu should list >=15 keys, got ${aif.length}`);
-  ok(aif.every(i => i.screen === 's_aif'),
-     'MS450 AIF keys should all open s_aif');
-  const sels = aif.map(i => i.sel).filter(v => v != null);
-  ok(sels.length === aif.length,
-     `every AIF key needs its record index: ${aif.map(i => i.label + '=' + i.sel)}`);
-  ok(new Set(sels).size === sels.length,
-     `two AIF keys share a record index: ${sels}`);
-  ok(aif[0].sel === 0 && aif[1].sel === 1,
-     `AIF indices should start 0,1: ${sels.slice(0, 3)}`);
+  ok(
+    aif.length >= 15,
+    `MS450 AIF menu should list >=15 keys, got ${aif.length}`
+  );
+  ok(
+    aif.every((i) => i.screen === 's_aif'),
+    'MS450 AIF keys should all open s_aif'
+  );
+  const sels = aif.map((i) => i.sel).filter((v) => v != null);
+  ok(
+    sels.length === aif.length,
+    `every AIF key needs its record index: ${aif.map((i) => i.label + '=' + i.sel)}`
+  );
+  ok(
+    new Set(sels).size === sels.length,
+    `two AIF keys share a record index: ${sels}`
+  );
+  ok(
+    aif[0].sel === 0 && aif[1].sel === 1,
+    `AIF indices should start 0,1: ${sels.slice(0, 3)}`
+  );
   // and the screen must declare that its job takes that argument
-  ok((ms3.screens.s_aif.jobs || []).some(j => j.argFromMenu),
-     'AIF_LESEN should be marked as taking its argument from the menu');
+  ok(
+    (ms3.screens.s_aif.jobs || []).some((j) => j.argFromMenu),
+    'AIF_LESEN should be marked as taking its argument from the menu'
+  );
 }
 
 // ---- a fault key whose screen has nothing to poll ------------------------
@@ -662,19 +936,26 @@ for (const [de, en] of [
   const ms4 = load('MS450');
   for (const n of ['s_fs_kurz', 's_fs_detail', 's_fs_lang']) {
     const sc = ms4.screens[n];
-    ok(irRows(sc).rows.length === 0 && !irReadable(sc),
-       `${n} should have nothing to poll`);
-    ok((sc.jobs || []).some(j => /^FS_/i.test(j.name)),
-       `${n} should name a fault job`);
+    ok(
+      irRows(sc).rows.length === 0 && !irReadable(sc),
+      `${n} should have nothing to poll`
+    );
+    ok(
+      (sc.jobs || []).some((j) => /^FS_/i.test(j.name)),
+      `${n} should name a fault job`
+    );
   }
   const fm3 = irMenuItems(ms4, 'm_fehlersp');
-  const reads = fm3.filter(i => IR_FAULT_READ.test(i.label));
+  const reads = fm3.filter((i) => IR_FAULT_READ.test(i.label));
   ok(reads.length === 3, `expected 3 fault reads, got ${reads.length}`);
   // the clear carries its screen's job so it can run, and stays flagged write
-  const clr = fm3.find(i => /^Clear/i.test(i.label));
-  ok(clr && ms4.screens[clr.screen].jobs[0].name === 'FS_LOESCHEN'
-     && ms4.screens[clr.screen].jobs[0].write,
-     'MS450 clear should carry FS_LOESCHEN as a write');
+  const clr = fm3.find((i) => /^Clear/i.test(i.label));
+  ok(
+    clr &&
+      ms4.screens[clr.screen].jobs[0].name === 'FS_LOESCHEN' &&
+      ms4.screens[clr.screen].jobs[0].write,
+    'MS450 clear should carry FS_LOESCHEN as a write'
+  );
 }
 
 // ---- translations are resolved per ECU, into the IR ----------------------
@@ -686,55 +967,80 @@ for (const [de, en] of [
 // shared vocabulary second.
 {
   const ms5 = load('MS450');
-  ok(ms5.i18n && Object.keys(ms5.i18n).length > 100,
-     'MS450 should carry a resolved translation map');
-  ok(!ms5.strings,
-     'the emitter hand-off list should be consumed, not shipped to the app');
+  ok(
+    ms5.i18n && Object.keys(ms5.i18n).length > 100,
+    'MS450 should carry a resolved translation map'
+  );
+  ok(
+    !ms5.strings,
+    'the emitter hand-off list should be consumed, not shipped to the app'
+  );
   // the shared vocabulary alone still mangles this -- which is why the
   // per-ECU layer exists
-  ok(deGerman('Gesteuerte LuftF\u00fchrung GLF') !== 'Controlled air guidance (GLF)',
-     'this phrase is deliberately NOT in the shared vocabulary');
+  ok(
+    deGerman('Gesteuerte LuftF\u00fchrung GLF') !==
+      'Controlled air guidance (GLF)',
+    'this phrase is deliberately NOT in the shared vocabulary'
+  );
   irUseTranslations(ms5);
   const acts = irMenuItems(ms5, 'm_iostatus');
-  for (const want of ['Injectors', 'Electric fan', 'Lambda sensor heaters',
-                      'Controlled air guidance (GLF)', 'Idle actuator']) {
-    ok(acts.some(i => i.label === want),
-       `MS450 actuator group ${JSON.stringify(want)} not translated: `
-       + acts.map(i => i.label));
+  for (const want of [
+    'Injectors',
+    'Electric fan',
+    'Lambda sensor heaters',
+    'Controlled air guidance (GLF)',
+    'Idle actuator',
+  ]) {
+    ok(
+      acts.some((i) => i.label === want),
+      `MS450 actuator group ${JSON.stringify(want)} not translated: ` +
+        acts.map((i) => i.label)
+    );
   }
   // no caption may keep the tells of a half-translation
-  ok(!acts.some(i => /[\u00e4\u00f6\u00fc\u00df]|Gecontrolse|heateren/.test(i.label)),
-     `a mangled caption survived: ${acts.map(i => i.label)}`);
+  ok(
+    !acts.some((i) =>
+      /[\u00e4\u00f6\u00fc\u00df]|Gecontrolse|heateren/.test(i.label)
+    ),
+    `a mangled caption survived: ${acts.map((i) => i.label)}`
+  );
   // Submenus and monitor rows too. The monitor labels arrive at RUNTIME from
   // the SGBD's result descriptions rather than from the .IPO, and they are
   // exactly what a word table mangles ("Zaehler Ueberdrehzahl" -> "counter
   // UeberRPM"), so an override must ship whether or not the bytecode holds
   // that string.
   for (const [de, en] of [
-      ['Ansteuerung Einlass mit 50 %', 'Activate intake at 50%'],
-      ['Ansteuerung zur\u00fcck an DME', 'Return control to DME'],
-      ['DMTL Heizung ein', 'DMTL heater on'],
-      ['Einspritzventil Zylinder 3', 'Injector cylinder 3'],
-      ['Sekund\u00e4rluft Adaption', 'Secondary air adaptation'],
-      ['Fehlz\u00fcndung', 'Misfire'],
-      ['Z\u00e4hler \u00dcberdrehzahl', 'Overspeed counter'],
-      ['KAT\u00dcberwachung', 'Catalyst monitoring']]) {
-    ok(irLabel(de) === en,
-       `MS450 irLabel(${JSON.stringify(de)}) = ${JSON.stringify(irLabel(de))}`);
+    ['Ansteuerung Einlass mit 50 %', 'Activate intake at 50%'],
+    ['Ansteuerung zur\u00fcck an DME', 'Return control to DME'],
+    ['DMTL Heizung ein', 'DMTL heater on'],
+    ['Einspritzventil Zylinder 3', 'Injector cylinder 3'],
+    ['Sekund\u00e4rluft Adaption', 'Secondary air adaptation'],
+    ['Fehlz\u00fcndung', 'Misfire'],
+    ['Z\u00e4hler \u00dcberdrehzahl', 'Overspeed counter'],
+    ['KAT\u00dcberwachung', 'Catalyst monitoring'],
+  ]) {
+    ok(
+      irLabel(de) === en,
+      `MS450 irLabel(${JSON.stringify(de)}) = ${JSON.stringify(irLabel(de))}`
+    );
   }
   // every MS450 menu caption should be English by now
   for (const m of Object.keys(ms5.menus)) {
     for (const it of irMenuItems(ms5, m)) {
-      ok(!/[\u00e4\u00f6\u00fc\u00df\u00c4\u00d6\u00dc]/.test(it.label),
-         `MS450 ${m}: German caption survived -- ${JSON.stringify(it.label)}`);
+      ok(
+        !/[\u00e4\u00f6\u00fc\u00df\u00c4\u00d6\u00dc]/.test(it.label),
+        `MS450 ${m}: German caption survived -- ${JSON.stringify(it.label)}`
+      );
     }
   }
 
   // an ECU with no overrides file still gets the shared vocabulary
   const dws2 = load('DWS');
   irUseTranslations(dws2);
-  ok(irMenuItems(dws2, irRootMenu(dws2)).length > 0,
-     'an ECU without overrides must still render');
+  ok(
+    irMenuItems(dws2, irRootMenu(dws2)).length > 0,
+    'an ECU without overrides must still render'
+  );
   irUseTranslations(null);
 }
 
@@ -747,16 +1053,22 @@ for (const [de, en] of [
 {
   const ms6 = load('MS450');
   const fgr = irRows(ms6.screens.s_digital2).rows;
-  const lamps = fgr.filter(r => r.kind === 'lamp');
+  const lamps = fgr.filter((r) => r.kind === 'lamp');
   ok(lamps.length === 4, `MS450 FGR should have 4 lamps, got ${lamps.length}`);
   // the decode keeps INPA's own words; irState translates them at render
-  ok(lamps.every(r => r.on === 'EIN' && r.off === 'AUS'),
-     `MS450 FGR lamps should declare EIN/AUS: ${lamps.map(r => r.on + '/' + r.off)}`);
-  ok(irState('EIN') === 'ON' && irState('AUS') === 'OFF',
-     'EIN/AUS should render as ON/OFF');
+  ok(
+    lamps.every((r) => r.on === 'EIN' && r.off === 'AUS'),
+    `MS450 FGR lamps should declare EIN/AUS: ${lamps.map((r) => r.on + '/' + r.off)}`
+  );
+  ok(
+    irState('EIN') === 'ON' && irState('AUS') === 'OFF',
+    'EIN/AUS should render as ON/OFF'
+  );
   // the value row beside them is a real reading, not a lamp
-  ok(fgr.some(r => r.kind === 'value' && r.key === 'STAT_MSW_CAN'),
-     'MS450 FGR lost its MSW_CAN reading');
+  ok(
+    fgr.some((r) => r.kind === 'value' && r.key === 'STAT_MSW_CAN'),
+    'MS450 FGR lost its MSW_CAN reading'
+  );
 }
 
 // ---- a PC file operation is not an ECU function --------------------------
@@ -770,28 +1082,38 @@ for (const [de, en] of [
 {
   const lw = load('LWS5');
   const fm = lw.menus.m_fehler.items;
-  const byNr = (n) => fm.find(i => i.nr === n) || {};
-  ok(byNr(1).job === 'ABGLEICH_LESEN' && !byNr(1).fileAction,
-     'LWS5 F1 reads the ECU and must not be flagged a file action');
-  ok(byNr(2).job === 'FS_LOESCHEN' && !byNr(2).fileAction,
-     'LWS5 F2 clears the ECU and must not be flagged a file action');
+  const byNr = (n) => fm.find((i) => i.nr === n) || {};
+  ok(
+    byNr(1).job === 'ABGLEICH_LESEN' && !byNr(1).fileAction,
+    'LWS5 F1 reads the ECU and must not be flagged a file action'
+  );
+  ok(
+    byNr(2).job === 'FS_LOESCHEN' && !byNr(2).fileAction,
+    'LWS5 F2 clears the ECU and must not be flagged a file action'
+  );
   for (const n of [3, 4]) {
     ok(byNr(n).fileAction, `LWS5 F${n} is a protocol-file action`);
   }
-  const shown = irMenuItems(lw, 'm_fehler').map(i => i.label);
-  ok(!shown.some(l => /protocol file/i.test(l)),
-     `a protocol-file action is still listed: ${shown}`);
-  ok(shown.some(l => /^Read error memory$/i.test(l))
-     && shown.some(l => /^Clear error memory$/i.test(l)),
-     `LWS5 lost a real fault key: ${shown}`);
+  const shown = irMenuItems(lw, 'm_fehler').map((i) => i.label);
+  ok(
+    !shown.some((l) => /protocol file/i.test(l)),
+    `a protocol-file action is still listed: ${shown}`
+  );
+  ok(
+    shown.some((l) => /^Read error memory$/i.test(l)) &&
+      shown.some((l) => /^Clear error memory$/i.test(l)),
+    `LWS5 lost a real fault key: ${shown}`
+  );
   // fault reads route through INPA's own library and look like file I/O; RDC
   // and SZL must keep theirs
   for (const e of ['RDC', 'SZL']) {
     const ir2 = load(e);
     const err = rootKey(ir2, /^(Error|Fehler)/i);
-    const items = irMenuItems(ir2, err.menu).map(i => i.label);
-    ok(items.some(l => IR_FAULT_READ.test(l)),
-       `${e} lost its fault read to the file-action filter: ${items}`);
+    const items = irMenuItems(ir2, err.menu).map((i) => i.label);
+    ok(
+      items.some((l) => IR_FAULT_READ.test(l)),
+      `${e} lost its fault read to the file-action filter: ${items}`
+    );
   }
 }
 
@@ -800,13 +1122,19 @@ for (const [de, en] of [
 // touches the car. Detected from what the item does (a scriptchange call or a
 // script path), never from its label.
 const rRoot = irMenuItems(r, irRootMenu(r));
-ok(!rRoot.some(i => /^(Change|Extra)$/i.test(i.label)),
-   'RDC root menu still lists INPA app tools');
-ok(rRoot.length === 7,
-   `RDC root should list INPA's 7 ECU keys, got ${rRoot.length}`);
+ok(
+  !rRoot.some((i) => /^(Change|Extra)$/i.test(i.label)),
+  'RDC root menu still lists INPA app tools'
+);
+ok(
+  rRoot.length === 7,
+  `RDC root should list INPA's 7 ECU keys, got ${rRoot.length}`
+);
 const dRoot = irMenuItems(load('DWS'), irRootMenu(load('DWS')));
-ok(!dRoot.some(i => /^Extra$/i.test(i.label)),
-   'DWS "Extra" (bare-name scriptchange) still listed');
+ok(
+  !dRoot.some((i) => /^Extra$/i.test(i.label)),
+  'DWS "Extra" (bare-name scriptchange) still listed'
+);
 
 // ---- fault menu: real entries, jobs preserved, file actions dropped -------
 // "store" is BMW_STD.SRC's "FS speichern" -- it writes the fault list to a
@@ -815,16 +1143,20 @@ ok(!dRoot.some(i => /^Extra$/i.test(i.label)),
 const errIt = rootKey(r, /^(Error|Fehler)/i);
 ok(errIt && errIt.menu, 'RDC Error key lost its menu');
 const errItems = irMenuItems(r, errIt.menu);
-ok(!errItems.some(i => /^store$/i.test(i.label)),
-   'fault menu still lists the file-save action');
+ok(
+  !errItems.some((i) => /^store$/i.test(i.label)),
+  'fault menu still lists the file-save action'
+);
 // A menu item takes the screen's own softkey help when that says more, so
 // match on meaning rather than INPA's shortest wording.
-const clear = errItems.find(i => /^(Clear|Delete)\b/i.test(i.label));
-ok(clear && clear.job === 'FS_LOESCHEN',
-   `Clear must carry FS_LOESCHEN, got ${clear && clear.job}`);
+const clear = errItems.find((i) => /^(Clear|Delete)\b/i.test(i.label));
+ok(
+  clear && clear.job === 'FS_LOESCHEN',
+  `Clear must carry FS_LOESCHEN, got ${clear && clear.job}`
+);
 // reading faults is INPA library code (INPAapiFsLesen_neu), so the item names
 // no job and the app's own fault view handles it
-const read = errItems.find(i => /^(Read|FS lesen|Lesen)\b/i.test(i.label));
+const read = errItems.find((i) => /^(Read|FS lesen|Lesen)\b/i.test(i.label));
 ok(read && !read.job, 'fault Read should have no job of its own');
 
 // ---- setitem captions: INPA names its keys at runtime --------------------
@@ -836,19 +1168,27 @@ const szl = load('SZL');
 const szlErr = rootKey(szl, /^(Error|Fehler)/i);
 ok(szlErr && szlErr.menu, 'SZL Error key lost its menu');
 const szlItems = irMenuItems(szl, szlErr.menu);
-ok(szlItems.every(i => i.label && i.label.trim()),
-   'SZL fault menu still has blank captions');
+ok(
+  szlItems.every((i) => i.label && i.label.trim()),
+  'SZL fault menu still has blank captions'
+);
 // Wording depends on whether the screen printed longer softkey help ("Read
 // error memory") or only the setitem abbreviation ("Read EM"), so match the
 // memory and the verb, and assert the JOB -- which is what actually runs.
 for (const [what, verb, mem, job] of [
-    ['fault read', /^(Read|Lesen)/i, /\b(EM|FS|error|fault)\b/i, null],
-    ['fault clear', /^(Clear|Delete)/i, /\b(EM|FS|error|fault)\b/i, 'FS_LOESCHEN'],
-    ['info read', /^(Read|Lesen)/i, /\b(IM|IS|info)/i, null],
-    ['info clear', /^(Clear|Delete)/i, /\b(IM|IS|info)/i, 'IS_LOESCHEN'],
-    ['history read', /^(Read|Lesen)/i, /\b(HM|HS|history)/i, null],
-    ['history clear', /^(Clear|Delete)/i, /\b(HM|HS|history)/i, 'HS_LOESCHEN']]) {
-  const e = szlItems.find(i => verb.test(i.label) && mem.test(i.label));
+  ['fault read', /^(Read|Lesen)/i, /\b(EM|FS|error|fault)\b/i, null],
+  [
+    'fault clear',
+    /^(Clear|Delete)/i,
+    /\b(EM|FS|error|fault)\b/i,
+    'FS_LOESCHEN',
+  ],
+  ['info read', /^(Read|Lesen)/i, /\b(IM|IS|info)/i, null],
+  ['info clear', /^(Clear|Delete)/i, /\b(IM|IS|info)/i, 'IS_LOESCHEN'],
+  ['history read', /^(Read|Lesen)/i, /\b(HM|HS|history)/i, null],
+  ['history clear', /^(Clear|Delete)/i, /\b(HM|HS|history)/i, 'HS_LOESCHEN'],
+]) {
+  const e = szlItems.find((i) => verb.test(i.label) && mem.test(i.label));
   ok(e, `SZL fault menu missing ${what}`);
   if (e && job) ok(e.job === job, `SZL ${what} job: ${e.job}`);
 }
@@ -856,8 +1196,17 @@ for (const [what, verb, mem, job] of [
 // "FS lesen", "Shadow" (the info memory under another name -- TOENS labels
 // F3 that way and answers IS_LESEN). All are fault reads and none may be
 // labelled "not decoded", since open() hands them to the fault view.
-for (const cap of ['Read', 'Read EM', 'EM Read', 'FS Read', 'IS Read',
-                   'HS Read', 'FS lesen', 'Lesen', 'Shadow']) {
+for (const cap of [
+  'Read',
+  'Read EM',
+  'EM Read',
+  'FS Read',
+  'IS Read',
+  'HS Read',
+  'FS lesen',
+  'Lesen',
+  'Shadow',
+]) {
   ok(IR_FAULT_READ.test(cap), `"${cap}" not recognised as a fault read`);
 }
 for (const cap of ['Clear', 'Print', 'on', 'off', 'Stop', 'EV 1', 'Activate']) {
@@ -865,15 +1214,24 @@ for (const cap of ['Clear', 'Print', 'on', 'off', 'Stop', 'EV 1', 'Activate']) {
 }
 
 // the caption picks the memory: "Read IM" must read IS_LESEN, not FS_LESEN
-const FJ = [[/\b(IM|IS)\b/i, 'IS_LESEN'], [/\b(HM|HS)\b/i, 'HS_LESEN'],
-            [/\b(EM|FS)\b/i, 'FS_LESEN']];
+const FJ = [
+  [/\b(IM|IS)\b/i, 'IS_LESEN'],
+  [/\b(HM|HS)\b/i, 'HS_LESEN'],
+  [/\b(EM|FS)\b/i, 'FS_LESEN'],
+];
 const fj = (l) => (FJ.find(([re]) => re.test(l)) || [null, 'FS_LESEN'])[1];
-ok(fj('Read IM') === 'IS_LESEN' && fj('Read HM') === 'HS_LESEN'
-   && fj('Read EM') === 'FS_LESEN' && fj('Read') === 'FS_LESEN',
-   'fault-memory caption -> job mapping wrong');
+ok(
+  fj('Read IM') === 'IS_LESEN' &&
+    fj('Read HM') === 'HS_LESEN' &&
+    fj('Read EM') === 'FS_LESEN' &&
+    fj('Read') === 'FS_LESEN',
+  'fault-memory caption -> job mapping wrong'
+);
 // print/save are file actions, like store
-ok(!szlItems.some(i => /^(Print|Save) (EM|IM|HM)$/i.test(i.label)),
-   'SZL fault menu still lists print/save file actions');
+ok(
+  !szlItems.some((i) => /^(Print|Save) (EM|IM|HM)$/i.test(i.label)),
+  'SZL fault menu still lists print/save file actions'
+);
 
 // ---- per-position screens read once per argument --------------------------
 // RDC's "matching values" calls ABGLEICHWERT_LESEN with "1".."5", once per
@@ -884,23 +1242,35 @@ ok(!szlItems.some(i => /^(Print|Save) (EM|IM|HM)$/i.test(i.label)),
 // wheel must still poll separately and carry its own argument, or the grid
 // shows one wheel's answer five times.
 const mv = r.screens['s_abgleichwert_lesen'];
-const mvJobs = (mv.jobs || []).filter(j => !j.write);
-ok(mvJobs.length === 5 && mvJobs.every(j => j.arg),
-   `RDC matching values should read 5 arguments, got ${mvJobs.length}`);
+const mvJobs = (mv.jobs || []).filter((j) => !j.write);
+ok(
+  mvJobs.length === 5 && mvJobs.every((j) => j.arg),
+  `RDC matching values should read 5 arguments, got ${mvJobs.length}`
+);
 const mvScreens = irScreens(mv);
-ok(mvScreens.length === 1 && mvScreens[0].table,
-   `per-wheel grid should be one table screen, got ${mvScreens.length}`);
+ok(
+  mvScreens.length === 1 && mvScreens[0].table,
+  `per-wheel grid should be one table screen, got ${mvScreens.length}`
+);
 const mvT = mvScreens[0].table || { labels: [], keys: [], args: [] };
-ok(mvT.labels.length === 5 && mvT.keys.every(k => k.length === 8),
-   `grid should be 5 wheels x 8 columns: `
-   + `${mvT.labels.length}x${mvT.keys.map(k => k.length)}`);
+ok(
+  mvT.labels.length === 5 && mvT.keys.every((k) => k.length === 8),
+  `grid should be 5 wheels x 8 columns: ` +
+    `${mvT.labels.length}x${mvT.keys.map((k) => k.length)}`
+);
 const mvPolls = mvScreens[0].polls || [];
-ok(mvPolls.length === 5 && new Set(mvPolls.map(p => p.args)).size === 5,
-   'per-wheel polls must use distinct job arguments');
-ok(new Set(mvT.args).size === 5,
-   'each grid row must carry the argument that fills it');
-ok(!irIsCard(mv),
-   'a per-position screen must not collapse onto one card keyed by result name');
+ok(
+  mvPolls.length === 5 && new Set(mvPolls.map((p) => p.args)).size === 5,
+  'per-wheel polls must use distinct job arguments'
+);
+ok(
+  new Set(mvT.args).size === 5,
+  'each grid row must carry the argument that fills it'
+);
+ok(
+  !irIsCard(mv),
+  'a per-position screen must not collapse onto one card keyed by result name'
+);
 
 // A screen with several jobs becomes one poll PER JOB, each carrying the whole
 // row list (every job answers its own subset). The value count is therefore
@@ -908,16 +1278,23 @@ ok(!irIsCard(mv),
 // page as "126 values" and its 3-job Analog page as 30.
 {
   const kbc = load('KOMBI');
-  for (const [name, jobs, rows] of [['s_status_can_36C_38_39C_46', 7, 18],
-                                    ['s_status_analog_46', 3, 10],
-                                    ['s_status_toens_io_46', 2, 5]]) {
+  for (const [name, jobs, rows] of [
+    ['s_status_can_36C_38_39C_46', 7, 18],
+    ['s_status_analog_46', 3, 10],
+    ['s_status_toens_io_46', 2, 5],
+  ]) {
     const polls = irScreens(kbc.screens[name]);
-    ok(polls.length === jobs,
-       `${name} should poll ${jobs} jobs, got ${polls.length}`);
-    const distinct = new Set(polls.flatMap(
-      p => p.rows.map(r => `${r.key}:${r.arg || ''}`))).size;
-    ok(distinct === rows,
-       `${name} should show ${rows} values, got ${distinct}`);
+    ok(
+      polls.length === jobs,
+      `${name} should poll ${jobs} jobs, got ${polls.length}`
+    );
+    const distinct = new Set(
+      polls.flatMap((p) => p.rows.map((r) => `${r.key}:${r.arg || ''}`))
+    ).size;
+    ok(
+      distinct === rows,
+      `${name} should show ${rows} values, got ${distinct}`
+    );
   }
 }
 
@@ -929,31 +1306,41 @@ ok(!irIsCard(mv),
 for (const label of [/^(Read )?Status$/i, /^Activate\b/i]) {
   const it = rootKey(r, label);
   ok(it && it.menu, `RDC ${label} lost its menu`);
-  ok(it && irMenuItems(r, it.menu).length > 0,
-     `RDC ${label} menu is empty`);
+  ok(it && irMenuItems(r, it.menu).length > 0, `RDC ${label} menu is empty`);
   // the screen it also names must be a menu holder, not a readout
   const holder = it && it.screen ? r.screens[it.screen] : null;
-  ok(!holder || irRows(holder).rows.length === 0,
-     `RDC ${label} screen unexpectedly has rows`);
+  ok(
+    !holder || irRows(holder).rows.length === 0,
+    `RDC ${label} screen unexpectedly has rows`
+  );
 }
 
 // ---- Information: script facts, not an empty screen ----------------------
 // s_info reads no ECU results -- INPA prints captions and fills them from
 // script variables -- so it rendered blank. Paired with the SGBD's INFO job.
 const info = r.screens['s_info'];
-ok(irIsInfo(info, 's_info'), 'RDC s_info should be recognised as the Information screen');
-ok(!irIsInfo(r.screens['s_status'], 's_status'),
-   'a screen that only hosts a menu must not be read as Information');
+ok(
+  irIsInfo(info, 's_info'),
+  'RDC s_info should be recognised as the Information screen'
+);
+ok(
+  !irIsInfo(r.screens['s_status'], 's_status'),
+  'a screen that only hosts a menu must not be read as Information'
+);
 ok(!irIsCard(info), 's_info has no result rows and must not be a value card');
 const infoCard = irInfoCard(info);
-ok(infoCard.fields.length >= 5 && infoCard.jobs[0] === 'INFO',
-   `RDC info card wrong: ${infoCard.fields.length} fields, ${infoCard.jobs}`);
-ok(infoCard.fields[0].label === 'Rework program',
-   `info card first caption: ${infoCard.fields[0].label}`);
+ok(
+  infoCard.fields.length >= 5 && infoCard.jobs[0] === 'INFO',
+  `RDC info card wrong: ${infoCard.fields.length} fields, ${infoCard.jobs}`
+);
+ok(
+  infoCard.fields[0].label === 'Rework program',
+  `info card first caption: ${infoCard.fields[0].label}`
+);
 
 // no row anywhere may be labelled with punctuation
 let punct = 0;
-for (const f of fs.readdirSync(IRDIR).filter(f => f.endsWith('.json'))) {
+for (const f of fs.readdirSync(IRDIR).filter((f) => f.endsWith('.json'))) {
   const ir2 = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
   for (const s of Object.values(ir2.screens || {}))
     for (const x of irRows(s).rows)
@@ -968,13 +1355,19 @@ ok(punct === 0, `${punct} rows labelled with a separator instead of a caption`);
 const kl = load('KLIMA_5B');
 const io = kl.screens['s_eingaenge_ihka38_ihka38_2_ihka38_3'];
 const ioRows = irRows(io).rows;
-ok(ioRows.length === 12, `IHKA I/O status should have 12 rows, got ${ioRows.length}`);
-ok(ioRows.every(x => x.kind === 'lamp' && x.on && x.off),
-   'IHKA I/O status rows should all be lamps with on/off text');
+ok(
+  ioRows.length === 12,
+  `IHKA I/O status should have 12 rows, got ${ioRows.length}`
+);
+ok(
+  ioRows.every((x) => x.kind === 'lamp' && x.on && x.off),
+  'IHKA I/O status rows should all be lamps with on/off text'
+);
 
 // a job that changes the ECU permanently must be flagged, but STEUERN_* --
 // the actuator mechanism itself -- must NOT be, or every activation dies
-let permanent = 0, actuators = 0;
+let permanent = 0,
+  actuators = 0;
 for (const m of Object.values(kl.menus || {})) {
   for (const i of m.items || []) {
     if (!i.job) continue;
@@ -990,35 +1383,55 @@ ok(actuators > 10, `IHKA should keep its actuators runnable, got ${actuators}`);
 
 // nine flap positions call ONE job but each prompts for its own value
 const flaps = Object.values(kl.menus || {})
-  .flatMap(m => (m.items || []))
-  .filter(i => i.job === 'STEUERN_MOTOR_KLAPPENPOSITION' && i.prompt);
-ok(flaps.length >= 5,
-   `IHKA flap positions should carry their prompts, got ${flaps.length}`);
-ok(flaps.every(i => i.prompt.some(p => /%/.test(p))),
-   'a flap prompt lost its range');
+  .flatMap((m) => m.items || [])
+  .filter((i) => i.job === 'STEUERN_MOTOR_KLAPPENPOSITION' && i.prompt);
+ok(
+  flaps.length >= 5,
+  `IHKA flap positions should carry their prompts, got ${flaps.length}`
+);
+ok(
+  flaps.every((i) => i.prompt.some((p) => /%/.test(p))),
+  'a flap prompt lost its range'
+);
 
 // ---- variant roots: INPA asks the ECU, and so do we ----------------------
 // KOMBI ships two root menus and inpainit picks between them by running
 // INITIALISIERUNG and matching its VARIANTE result. Taking the first declared
 // gave an E46 the E31/E32/E34 root, which has no Status or Memory key.
 const kb = load('KOMBI');
-ok(kb.variantJob === 'INITIALISIERUNG' && kb.variantKey === 'VARIANTE',
-   `KOMBI variant probe wrong: ${kb.variantJob}/${kb.variantKey}`);
-ok(Object.keys(kb.rootVariants || {}).length === 2,
-   'KOMBI should declare two root menus');
-ok((kb.rootVariants['m_main_36_38_39_46_52_85'] || []).includes('KOMBI46'),
-   'KOMBI46 not listed against the E36..E85 root');
-ok(irRootMenu(kb, 'KOMBI46') === 'm_main_36_38_39_46_52_85',
-   'an E46 cluster must get the root that has Status and Memory');
-ok(irRootMenu(kb, 'KOMBI31') === 'm_main_31_32_34',
-   'an E31 cluster must get its own root');
+ok(
+  kb.variantJob === 'INITIALISIERUNG' && kb.variantKey === 'VARIANTE',
+  `KOMBI variant probe wrong: ${kb.variantJob}/${kb.variantKey}`
+);
+ok(
+  Object.keys(kb.rootVariants || {}).length === 2,
+  'KOMBI should declare two root menus'
+);
+ok(
+  (kb.rootVariants['m_main_36_38_39_46_52_85'] || []).includes('KOMBI46'),
+  'KOMBI46 not listed against the E36..E85 root'
+);
+ok(
+  irRootMenu(kb, 'KOMBI46') === 'm_main_36_38_39_46_52_85',
+  'an E46 cluster must get the root that has Status and Memory'
+);
+ok(
+  irRootMenu(kb, 'KOMBI31') === 'm_main_31_32_34',
+  'an E31 cluster must get its own root'
+);
 // with no answer, prefer the widest root rather than the first declared
-ok(irMenuItems(kb, irRootMenu(kb)).some(i => /^(Read )?Status$/i.test(i.label)),
-   'the default root must not be the one missing Status');
+ok(
+  irMenuItems(kb, irRootMenu(kb)).some((i) =>
+    /^(Read )?Status$/i.test(i.label)
+  ),
+  'the default root must not be the one missing Status'
+);
 // variant names are names, not result keys picked up from a nearby compare
 for (const list of Object.values(kb.rootVariants || {})) {
-  ok(!list.some(v => /^STAT_|_EIN$/.test(v)),
-     `a result key leaked into KOMBI's variant list: ${list}`);
+  ok(
+    !list.some((v) => /^STAT_|_EIN$/.test(v)),
+    `a result key leaked into KOMBI's variant list: ${list}`
+  );
 }
 
 // ---- variant SCREENS, not just variant roots -----------------------------
@@ -1032,23 +1445,33 @@ for (const list of Object.values(kb.rootVariants || {})) {
   kbv._variant = 'KOMBI46';
   const root = irRootMenu(kbv, 'KOMBI46');
   const items = irMenuItems(kbv, root, 'KOMBI46');
-  const code = items.find(i => /^Cod(e|ing)$/i.test(i.label));
-  ok(code && code.screen === 's_code_46',
-     `KOMBI46 Code should open s_code_46, got ${code && code.screen}`);
-  ok(irRows(kbv.screens[code.screen]).rows.length > 30,
-     'KOMBI46 coding screen lost its rows');
+  const code = items.find((i) => /^Cod(e|ing)$/i.test(i.label));
+  ok(
+    code && code.screen === 's_code_46',
+    `KOMBI46 Code should open s_code_46, got ${code && code.screen}`
+  );
+  ok(
+    irRows(kbv.screens[code.screen]).rows.length > 30,
+    'KOMBI46 coding screen lost its rows'
+  );
   // INPA ships one Status menu per variant and lists the rest as alternatives.
   // Taking item.menu blind gave an E46 the E38/E39 pages; it must get its own
   // m_status_46, whose keys (TOENS I/O, TOENS ECU, CAN) exist on no other.
-  const stat = items.find(i => /^(Read )?Status$/i.test(i.label));
-  ok(stat && stat.menu === 'm_status_46',
-     `KOMBI46 Status should open m_status_46, got ${stat && stat.menu}`);
+  const stat = items.find((i) => /^(Read )?Status$/i.test(i.label));
+  ok(
+    stat && stat.menu === 'm_status_46',
+    `KOMBI46 Status should open m_status_46, got ${stat && stat.menu}`
+  );
   const pages = irMenuItems(kbv, stat.menu, 'KOMBI46');
-  const ana = pages.find(i => /\bAnalog\b/i.test(i.label));
-  ok(ana && ana.screen === 's_status_analog_46',
-     `KOMBI46 Analog should be s_status_analog_46, got ${ana && ana.screen}`);
-  ok(pages.some(i => /CAN/i.test(i.label)),
-     'KOMBI46 Status lost the CAN page its own menu declares');
+  const ana = pages.find((i) => /\bAnalog\b/i.test(i.label));
+  ok(
+    ana && ana.screen === 's_status_analog_46',
+    `KOMBI46 Analog should be s_status_analog_46, got ${ana && ana.screen}`
+  );
+  ok(
+    pages.some((i) => /CAN/i.test(i.label)),
+    'KOMBI46 Status lost the CAN page its own menu declares'
+  );
 
   // A lettered variant falls back to its numeric sibling's menu where INPA
   // ships no lettered one: there is no m_steuern_46r, so the E46 roadster
@@ -1057,20 +1480,33 @@ for (const list of Object.values(kb.rootVariants || {})) {
   {
     const ir46r = load('KOMBI');
     ir46r._variant = 'KOMBI46R';
-    const act = irMenuItems(ir46r, irRootMenu(ir46r, 'KOMBI46R'), 'KOMBI46R')
-      .find(i => /^Activate\b/i.test(i.label));
-    ok(act && act.menu === 'm_steuern_46',
-       `KOMBI46R Activate should open m_steuern_46, got ${act && act.menu}`);
+    const act = irMenuItems(
+      ir46r,
+      irRootMenu(ir46r, 'KOMBI46R'),
+      'KOMBI46R'
+    ).find((i) => /^Activate\b/i.test(i.label));
+    ok(
+      act && act.menu === 'm_steuern_46',
+      `KOMBI46R Activate should open m_steuern_46, got ${act && act.menu}`
+    );
     // ...but a key whose only screen is the family placeholder (which lists
     // the variant names and holds nothing) is one this variant does not have
-    const st = irMenuItems(ir46r, irRootMenu(ir46r, 'KOMBI46R'), 'KOMBI46R')
-      .find(i => /^(Read )?Status$/i.test(i.label));
+    const st = irMenuItems(
+      ir46r,
+      irRootMenu(ir46r, 'KOMBI46R'),
+      'KOMBI46R'
+    ).find((i) => /^(Read )?Status$/i.test(i.label));
     const p46r = irMenuItems(ir46r, st.menu, 'KOMBI46R');
-    ok(!p46r.some(i => /TOENS|Thermal oil/i.test(i.label)),
-       'KOMBI46R has no TOENS page and must not be offered one');
-    ok(p46r.every(i => !i.screen
-                    || irRows(ir46r.screens[i.screen] || {}).rows.length),
-       'a Status page resolved to the empty family placeholder');
+    ok(
+      !p46r.some((i) => /TOENS|Thermal oil/i.test(i.label)),
+      'KOMBI46R has no TOENS page and must not be offered one'
+    );
+    ok(
+      p46r.every(
+        (i) => !i.screen || irRows(ir46r.screens[i.screen] || {}).rows.length
+      ),
+      'a Status page resolved to the empty family placeholder'
+    );
   }
 
   // A screen suffixed with variants serves THOSE variants only. s_status_36
@@ -1080,8 +1516,9 @@ for (const list of Object.values(kb.rootVariants || {})) {
   const st36 = (v) => {
     const ir2 = load('KOMBI');
     ir2._variant = v;
-    const it = irMenuItems(ir2, irRootMenu(ir2, v), v)
-      .find(i => /^(Read )?Status$/i.test(i.label));
+    const it = irMenuItems(ir2, irRootMenu(ir2, v), v).find((i) =>
+      /^(Read )?Status$/i.test(i.label)
+    );
     if (!it) return null;
     return it.menu ? `menu:${it.menu}` : it.screen;
   };
@@ -1089,25 +1526,35 @@ for (const list of Object.values(kb.rootVariants || {})) {
     ok(st36(v) === 's_status_36', `${v} Status should be s_status_36`);
   }
   for (const v of ['KOMBI46', 'KOMBI52', 'KOMBI85', 'IKE']) {
-    ok(st36(v) !== 's_status_36',
-       `${v} must not land on s_status_36 -- its SGBD has no STATUS_LESEN`);
+    ok(
+      st36(v) !== 's_status_36',
+      `${v} must not land on s_status_36 -- its SGBD has no STATUS_LESEN`
+    );
   }
-  ok(stat && irRows(kbv.screens[stat.screen]).rows.length > 10,
-     `KOMBI46 Status screen has too few rows: ${stat && stat.screen}`);
+  ok(
+    stat && irRows(kbv.screens[stat.screen]).rows.length > 10,
+    `KOMBI46 Status screen has too few rows: ${stat && stat.screen}`
+  );
   // a different variant gets its own screens
   const i36 = irMenuItems(kbv, root, 'KOMBI36');
-  ok(i36.find(i => /^Cod(e|ing)$/i.test(i.label)).screen !== 's_code_46',
-     'KOMBI36 wrongly given the E46 coding screen');
+  ok(
+    i36.find((i) => /^Cod(e|ing)$/i.test(i.label)).screen !== 's_code_46',
+    'KOMBI36 wrongly given the E46 coding screen'
+  );
   // a menu with no digits serves every variant
-  ok(irMenuFitsVariant('m_steuern', 'KOMBI46')
-     && !irMenuFitsVariant('m_status_38_39', 'KOMBI46')
-     && irMenuFitsVariant('m_status_38_39', 'KOMBI38'),
-     'menu-name chassis matching is wrong');
+  ok(
+    irMenuFitsVariant('m_steuern', 'KOMBI46') &&
+      !irMenuFitsVariant('m_status_38_39', 'KOMBI46') &&
+      irMenuFitsVariant('m_status_38_39', 'KOMBI38'),
+    'menu-name chassis matching is wrong'
+  );
 }
 
 // ---- corpus: the interpreter must not throw on any ECU --------------------
-let files = fs.readdirSync(IRDIR).filter(f => f.endsWith('.json'));
-let screens = 0, rows = 0, broke = 0;
+let files = fs.readdirSync(IRDIR).filter((f) => f.endsWith('.json'));
+let screens = 0,
+  rows = 0,
+  broke = 0;
 for (const f of files) {
   try {
     const ir = JSON.parse(fs.readFileSync(path.join(IRDIR, f), 'utf8'));
@@ -1116,7 +1563,9 @@ for (const f of files) {
       rows += irRows(scr).rows.length;
     }
     for (const m of Object.keys(ir.menus || {})) irMenuItems(ir, m);
-  } catch (e) { broke++; }
+  } catch (e) {
+    broke++;
+  }
 }
 ok(broke === 0, `interpreter threw on ${broke} ECUs`);
 ok(rows > 20000, `corpus rows regressed: ${rows}`);
@@ -1131,13 +1580,19 @@ for (const f of files) {
   if (irRootMenu(ir)) rooted++;
 }
 ok(rooted > 450, `ECUs drivable from their own root menu regressed: ${rooted}`);
-console.log(`  ir-render  ${rooted}/${files.length} ECUs drive from their own `
-  + `root menu (no label mapping)`);
+console.log(
+  `  ir-render  ${rooted}/${files.length} ECUs drive from their own ` +
+    `root menu (no label mapping)`
+);
 
-console.log(`  ir-render  GSDS2 ${gItems.length} pages / ${sigs.size} distinct, `
-  + `RDC ${rItems.length} pages`);
-console.log(`  ir-render  corpus ${files.length} ECUs, ${screens} screens, `
-  + `${rows} rows, ${broke} errors`);
+console.log(
+  `  ir-render  GSDS2 ${gItems.length} pages / ${sigs.size} distinct, ` +
+    `RDC ${rItems.length} pages`
+);
+console.log(
+  `  ir-render  corpus ${files.length} ECUs, ${screens} screens, ` +
+    `${rows} rows, ${broke} errors`
+);
 if (fails.length) {
   console.log('\nFAIL');
   for (const f of fails) console.log('   -', f);

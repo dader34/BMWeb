@@ -41,7 +41,9 @@ if (!fs.existsSync(ROOT)) {
 // fetch would have.
 const BASE = path.resolve(ROOT);
 const get = async (u) => {
-  const rel = String(u).replace(/^FILEBASE\//, '').replace(/^\//, '');
+  const rel = String(u)
+    .replace(/^FILEBASE\//, '')
+    .replace(/^\//, '');
   const p = path.resolve(BASE, path.normalize(rel));
   if (p !== BASE && !p.startsWith(BASE + path.sep)) {
     return { ok: false, status: 404 };
@@ -51,7 +53,8 @@ const get = async (u) => {
   return {
     ok: true,
     status: 200,
-    arrayBuffer: async () => b.buffer.slice(b.byteOffset, b.byteOffset + b.length),
+    arrayBuffer: async () =>
+      b.buffer.slice(b.byteOffset, b.byteOffset + b.length),
     json: async () => JSON.parse(b.toString()),
     text: async () => b.toString(),
   };
@@ -60,25 +63,45 @@ const get = async (u) => {
 function makeContext() {
   let saved = null;
   const ctx = {
-    console, TextDecoder, TextEncoder, btoa, Uint8Array, JSON, Error,
-    Promise, String, Object, Array, RegExp, Math, setTimeout,
+    console,
+    TextDecoder,
+    TextEncoder,
+    btoa,
+    Uint8Array,
+    JSON,
+    Error,
+    Promise,
+    String,
+    Object,
+    Array,
+    RegExp,
+    Math,
+    setTimeout,
   };
   ctx.window = ctx;
   ctx.fetch = get;
   ctx.webRealFetch = get;
-  ctx.Blob = class { constructor(parts) { saved = parts[0]; } };
+  ctx.Blob = class {
+    constructor(parts) {
+      saved = parts[0];
+    }
+  };
   ctx.URL = { createObjectURL: () => 'blob:x', revokeObjectURL() {} };
   ctx.document = {
     createElement: () => ({ click() {}, remove() {} }),
     body: { appendChild() {} },
   };
   ctx.location = {
-    href: 'http://x/index.html', pathname: '/index.html',
-    protocol: 'http:', search: '',
+    href: 'http://x/index.html',
+    pathname: '/index.html',
+    protocol: 'http:',
+    search: '',
   };
   vm.createContext(ctx);
   vm.runInContext(
-    fs.readFileSync('app/renderer/core/offline-export.js', 'utf8'), ctx);
+    fs.readFileSync('app/renderer/core/offline-export.js', 'utf8'),
+    ctx
+  );
   // offlineBase() derives from location.pathname in the browser; pin it so
   // the fetch stub above sees a predictable prefix.
   vm.runInContext('offlineBase=()=>"FILEBASE";', ctx);
@@ -92,8 +115,9 @@ function makeContext() {
   //                 assemble in a phone's browser.
   let ids;
   if (which === 'all') {
-    ids = JSON.parse(fs.readFileSync(
-      path.join(ROOT, 'api', 'chassis.json'), 'utf8'));
+    ids = JSON.parse(
+      fs.readFileSync(path.join(ROOT, 'api', 'chassis.json'), 'utf8')
+    );
   } else {
     ids = [which];
   }
@@ -109,11 +133,17 @@ function makeContext() {
     // 'all-in-one' asks the exporter for '*' (every car) and lands as one
     // file the installer can link to.
     const solo = id === 'all-in-one';
-    const out = path.join(outDir,
-      solo ? 'bmweb-all.html' : `bmweb-${id.toLowerCase()}${suffix}.html`);
+    const out = path.join(
+      outDir,
+      solo ? 'bmweb-all.html' : `bmweb-${id.toLowerCase()}${suffix}.html`
+    );
     try {
-      const n = await ctx.offlineSingleFile(solo ? '*' : id, withFaults,
-                                            () => {}, withWiring);
+      const n = await ctx.offlineSingleFile(
+        solo ? '*' : id,
+        withFaults,
+        () => {},
+        withWiring
+      );
       fs.writeFileSync(out, Buffer.from(saved()));
       console.log(`${id.padEnd(8)} ${(n / 1048576).toFixed(1)} MB  ${out}`);
     } catch (e) {
@@ -126,4 +156,7 @@ function makeContext() {
     process.exit(1);
   }
   console.log(`\n${ids.length} file(s) -> ${outDir}`);
-})().catch((e) => { console.error('FAILED:', e.message); process.exit(1); });
+})().catch((e) => {
+  console.error('FAILED:', e.message);
+  process.exit(1);
+});

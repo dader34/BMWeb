@@ -18,19 +18,31 @@ const A = require('../../app/renderer/core/coding-auftrag.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 let passed = 0;
-const ok = (what) => { passed++; if (process.env.V) console.log('  ok', what); };
+const ok = (what) => {
+  passed++;
+  if (process.env.V) console.log('  ok', what);
+};
 
 // ---- helpers ---------------------------------------------------------------
 
 // build predicate bytes the way BMW does, so tests read as expressions
-function S(id) { return [0x53, id & 0xff, (id >> 8) & 0xff]; }
-const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
+function S(id) {
+  return [0x53, id & 0xff, (id >> 8) & 0xff];
+}
+const AND = 0x2b,
+  OR = 0x2c,
+  NOT = 0x21,
+  LP = 0x28,
+  RP = 0x29;
 
 // ---- 1. lexer --------------------------------------------------------------
 
 {
   const toks = A.lex([...S(902), AND, ...S(903)]);
-  assert.deepStrictEqual(toks.map(t => t.t), ['ref', '+', 'ref']);
+  assert.deepStrictEqual(
+    toks.map((t) => t.t),
+    ['ref', '+', 'ref']
+  );
   assert.strictEqual(toks[0].id, 902);
   assert.strictEqual(toks[2].id, 903);
   ok('lex: S<u16 LE> + S<u16 LE>');
@@ -46,7 +58,10 @@ const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
 {
   // NUL padding and the continuation seam are skipped, not operands
   const toks = A.lex([...S(1), 0x00, 0x5c, AND, ...S(2)]);
-  assert.deepStrictEqual(toks.map(t => t.t), ['ref', '+', 'ref']);
+  assert.deepStrictEqual(
+    toks.map((t) => t.t),
+    ['ref', '+', 'ref']
+  );
   ok('lex: NUL padding and continuation marker dropped');
 }
 
@@ -67,11 +82,17 @@ const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
   assert.strictEqual(tree.op, 'or', 'OR must be the ROOT (loosest binding)');
   assert.strictEqual(A.toText(tree), 'S1,S2+S3');
 
-  assert.strictEqual(A.matchesAuftrag(bytes, [1]), true,
-    '{1} satisfies 1 OR (2 AND 3); it would NOT satisfy (1 OR 2) AND 3');
+  assert.strictEqual(
+    A.matchesAuftrag(bytes, [1]),
+    true,
+    '{1} satisfies 1 OR (2 AND 3); it would NOT satisfy (1 OR 2) AND 3'
+  );
   assert.strictEqual(A.matchesAuftrag(bytes, [2, 3]), true);
-  assert.strictEqual(A.matchesAuftrag(bytes, [2]), false,
-    '{2} alone must fail: the AND needs 3 too');
+  assert.strictEqual(
+    A.matchesAuftrag(bytes, [2]),
+    false,
+    '{2} alone must fail: the AND needs 3 too'
+  );
   ok("precedence: '+' binds tighter than ',' (the swap-detecting case)");
 }
 
@@ -98,8 +119,11 @@ const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
 
 {
   const grouped = [LP, ...S(1), OR, ...S(2), RP, AND, ...S(3)];
-  assert.strictEqual(A.matchesAuftrag(grouped, [1]), false,
-    '(1 OR 2) AND 3 must reject {1}');
+  assert.strictEqual(
+    A.matchesAuftrag(grouped, [1]),
+    false,
+    '(1 OR 2) AND 3 must reject {1}'
+  );
   assert.strictEqual(A.matchesAuftrag(grouped, [1, 3]), true);
   ok('parens: override the default precedence');
 }
@@ -130,7 +154,11 @@ const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
   assert.strictEqual(A.matchesAuftrag(bytes, ['902']), true, 'string');
   assert.strictEqual(A.matchesAuftrag(bytes, ['0902']), true, 'zero-padded');
   assert.strictEqual(A.matchesAuftrag(bytes, new Set([902])), true, 'Set');
-  assert.strictEqual(A.matchesAuftrag(bytes, (id) => id === 902), true, 'fn');
+  assert.strictEqual(
+    A.matchesAuftrag(bytes, (id) => id === 902),
+    true,
+    'fn'
+  );
   assert.strictEqual(A.matchesAuftrag(bytes, ['903']), false);
   ok('codes accepted as number / string / padded / Set / predicate fn');
 }
@@ -149,8 +177,11 @@ const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
     const bytes = d.slice(0x1de, 0x1de + len);
 
     const { tree, refs } = A.compile(bytes);
-    assert.strictEqual(A.toText(tree), '(S99,S92+S3,S287)+!S420',
-      'real BMW bytes must round-trip to the known expression');
+    assert.strictEqual(
+      A.toText(tree),
+      '(S99,S92+S3,S287)+!S420',
+      'real BMW bytes must round-trip to the known expression'
+    );
     assert.deepStrictEqual(refs, [99, 92, 3, 287, 420]);
     ok('ground truth: E46SGET.000 parses to (S99,S92+S3,S287)+!S420');
 
@@ -159,10 +190,13 @@ const AND = 0x2b, OR = 0x2c, NOT = 0x21, LP = 0x28, RP = 0x29;
     const ref = (s) =>
       (s.has(99) || (s.has(92) && s.has(3)) || s.has(287)) && !s.has(420);
     const ids = [99, 92, 3, 287, 420];
-    for (let m = 0; m < (1 << ids.length); m++) {
+    for (let m = 0; m < 1 << ids.length; m++) {
       const s = new Set(ids.filter((_, i) => m & (1 << i)));
-      assert.strictEqual(A.matchesAuftrag(bytes, [...s]), ref(s),
-        `disagreement on {${[...s].join(',')}}`);
+      assert.strictEqual(
+        A.matchesAuftrag(bytes, [...s]),
+        ref(s),
+        `disagreement on {${[...s].join(',')}}`
+      );
     }
     ok(`ground truth: all ${1 << ids.length} code combinations agree`);
   }

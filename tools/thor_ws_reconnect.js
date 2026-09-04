@@ -26,7 +26,11 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function frame(payload) {
   const mask = crypto.randomBytes(4);
   const body = Buffer.from(payload.map((b, i) => b ^ mask[i & 3]));
-  return Buffer.concat([Buffer.from([0x82, 0x80 | payload.length]), mask, body]);
+  return Buffer.concat([
+    Buffer.from([0x82, 0x80 | payload.length]),
+    mask,
+    body,
+  ]);
 }
 
 // One full session: handshake, ident, close the way `how` says.
@@ -38,10 +42,14 @@ function session(how) {
     let buf = Buffer.alloc(0);
     let status = null;
     let ident = null;
-    let req = null;              // the ident telegram we sent (echo detection)
-    let pay = [];                // ws-frame payloads accumulated so far
+    let req = null; // the ident telegram we sent (echo detection)
+    let pay = []; // ws-frame payloads accumulated so far
     const done = (r) => {
-      try { how === 'destroy' ? sock.destroy() : sock.end(); } catch { /* gone */ }
+      try {
+        how === 'destroy' ? sock.destroy() : sock.end();
+      } catch {
+        /* gone */
+      }
       resolve({ status, ident, ...r });
     };
     sock.setTimeout(6000);
@@ -56,7 +64,7 @@ function session(how) {
         buf = buf.slice(end + 4);
         phase = 'frames';
         if (!/101/.test(status)) return done({});
-        req = [0x82, 0xF1, 0xF1, 0xFD, 0xFD];
+        req = [0x82, 0xf1, 0xf1, 0xfd, 0xfd];
         req.push(sum8(req));
         sock.write(frame(req));
       }
@@ -70,20 +78,26 @@ function session(how) {
         // thor_ws_probe.js handles. And echo + answer may land in separate
         // frames, so accumulate until something checksums; a session that
         // never does ends on the 6 s socket timeout with ident NONE.
-        const ans = pay.length >= req.length + 9
-                  ? pay.slice(req.length, req.length + 9)
-                  : pay.length >= 9 ? pay.slice(0, 9) : null;
+        const ans =
+          pay.length >= req.length + 9
+            ? pay.slice(req.length, req.length + 9)
+            : pay.length >= 9
+              ? pay.slice(0, 9)
+              : null;
         if (ans && sum8(ans.slice(0, 8)) === ans[8]) {
-          ident = `type 0x${((ans[4] << 8) | ans[5]).toString(16)} `
-                + `v${ans[6]}.${ans[7]}`;
+          ident =
+            `type 0x${((ans[4] << 8) | ans[5]).toString(16)} ` +
+            `v${ans[6]}.${ans[7]}`;
           return done({});
         }
       }
     });
     sock.connect(PORT, HOST, () => {
-      sock.write(`GET ${PATH} HTTP/1.1\r\nHost: ${HOST}\r\n`
-        + 'Upgrade: websocket\r\nConnection: Upgrade\r\n'
-        + `Sec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`);
+      sock.write(
+        `GET ${PATH} HTTP/1.1\r\nHost: ${HOST}\r\n` +
+          'Upgrade: websocket\r\nConnection: Upgrade\r\n' +
+          `Sec-WebSocket-Key: ${key}\r\nSec-WebSocket-Version: 13\r\n\r\n`
+      );
     });
   });
 }
@@ -102,7 +116,9 @@ function session(how) {
     // give the ESP a moment to notice the close before reconnecting
     await wait(1500);
   }
-  console.log('\nIf attempt 1 identifies and later ones return 503 or no ident,');
+  console.log(
+    '\nIf attempt 1 identifies and later ones return 503 or no ident,'
+  );
   console.log('the firmware is not releasing its single-client slot on close.');
   console.log('Power-cycle the adapter to confirm: if attempt 1 then works');
   console.log('again, that is the bug.\n');

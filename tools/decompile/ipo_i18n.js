@@ -37,7 +37,9 @@ const OVR_DIR = path.join(R, 'data/inpa-i18n');
 const _vocab = vm.createContext({ lang: () => 'en' });
 vm.runInContext(
   fs.readFileSync(path.join(R, 'app/renderer/core/translate.js'), 'utf8'),
-  _vocab, { filename: 'translate.js' });
+  _vocab,
+  { filename: 'translate.js' }
+);
 const deGerman = _vocab.deGerman;
 
 // every caption an IR displays, for the check path (the emitter supplies the
@@ -82,14 +84,17 @@ function overridesFor(ecu) {
 // COMMA-split caption is deliberately not aliased -- its halves label
 // different rows and each needs its own translation.
 function keyForms(s) {
-  const t = String(s).trim().replace(/\s*[:=]\s*$/, '');
+  const t = String(s)
+    .trim()
+    .replace(/\s*[:=]\s*$/, '');
   return t && t !== s ? [s, t] : [s];
 }
 
 function resolve(ecu, strings) {
   const ovr = overridesFor(ecu);
   const out = {};
-  let fromOvr = 0, fromVocab = 0;
+  let fromOvr = 0,
+    fromVocab = 0;
   // Every override ships, whether or not the .IPO contains that string. Some
   // captions reach the screen at RUNTIME from the SGBD's result descriptions
   // rather than from the bytecode -- MS450 labels its monitor rows that way
@@ -105,8 +110,10 @@ function resolve(ecu, strings) {
         // an override on the whole caption also answers for the label form
         // irRows derives from it, unless a form has its own override
         for (const k of keyForms(s)) {
-          if (out[k] === undefined
-              && !(k !== s && Object.prototype.hasOwnProperty.call(ovr, k))) {
+          if (
+            out[k] === undefined &&
+            !(k !== s && Object.prototype.hasOwnProperty.call(ovr, k))
+          ) {
             out[k] = ovr[s];
           }
         }
@@ -115,7 +122,10 @@ function resolve(ecu, strings) {
       continue;
     }
     const en = deGerman(s);
-    if (en && en !== s) { out[s] = en; fromVocab++; }
+    if (en && en !== s) {
+      out[s] = en;
+      fromVocab++;
+    }
   }
   return { map: out, fromOvr, fromVocab, hasOvr: !!ovr };
 }
@@ -123,16 +133,24 @@ function resolve(ecu, strings) {
 function main() {
   const args = process.argv.slice(2);
   const check = args.includes('--check');
-  const only = args.filter(a => !a.startsWith('--'));
+  const only = args.filter((a) => !a.startsWith('--'));
   const files = only.length
-    ? only.map(e => e + '.json')
-    : fs.readdirSync(IR_DIR).filter(f => f.endsWith('.json'));
+    ? only.map((e) => e + '.json')
+    : fs.readdirSync(IR_DIR).filter((f) => f.endsWith('.json'));
 
-  let ecus = 0, strings = 0, translated = 0, overridden = 0, withOvr = 0;
+  let ecus = 0,
+    strings = 0,
+    translated = 0,
+    overridden = 0,
+    withOvr = 0;
   let problems = 0;
   for (const f of files) {
     const p = path.join(IR_DIR, f);
-    if (!fs.existsSync(p)) { console.error(`no IR for ${f}`); problems++; continue; }
+    if (!fs.existsSync(p)) {
+      console.error(`no IR for ${f}`);
+      problems++;
+      continue;
+    }
     const ir = JSON.parse(fs.readFileSync(p, 'utf8'));
     // `strings` is the emitter's hand-off and is consumed on the first run, so
     // --check re-derives it from what the IR actually holds. That also makes
@@ -152,15 +170,19 @@ function main() {
       // header describes); a map entry the IR lacks means an override or
       // the vocabulary changed and this step has not been re-run.
       const have = ir.i18n || {};
-      const missing = Object.keys(r.map).filter(k => have[k] !== r.map[k]);
+      const missing = Object.keys(r.map).filter((k) => have[k] !== r.map[k]);
       if (Array.isArray(ir.strings)) {
-        console.error(`  ${ir.ecu || f}: strings hand-off unconsumed -- `
-          + `run node tools/decompile/ipo_i18n.js`);
+        console.error(
+          `  ${ir.ecu || f}: strings hand-off unconsumed -- ` +
+            `run node tools/decompile/ipo_i18n.js`
+        );
         problems++;
       } else if (missing.length) {
-        console.error(`  ${ir.ecu || f}: ${missing.length} resolved captions `
-          + `missing from i18n (e.g. ${JSON.stringify(missing[0])}) -- `
-          + `run node tools/decompile/ipo_i18n.js`);
+        console.error(
+          `  ${ir.ecu || f}: ${missing.length} resolved captions ` +
+            `missing from i18n (e.g. ${JSON.stringify(missing[0])}) -- ` +
+            `run node tools/decompile/ipo_i18n.js`
+        );
         problems++;
       }
       continue;
@@ -177,9 +199,11 @@ function main() {
     // stale and CI rendered raw German captions. Rewrite the gz in step.
     fs.writeFileSync(p + '.gz', zlib.gzipSync(out));
   }
-  console.log(`  i18n       ${ecus} ECUs, ${strings} captions, `
-    + `${translated} translated (${overridden} from per-ECU overrides, `
-    + `${withOvr} ECUs have an overrides file)`);
+  console.log(
+    `  i18n       ${ecus} ECUs, ${strings} captions, ` +
+      `${translated} translated (${overridden} from per-ECU overrides, ` +
+      `${withOvr} ECUs have an overrides file)`
+  );
   if (check && problems) {
     console.error(`  i18n check FAILED: ${problems} IR(s) out of step`);
     process.exitCode = 1;

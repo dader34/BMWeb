@@ -30,13 +30,15 @@
   'use strict';
 
   const STORE_KEY = 'bmweb.coding.custom';
-  const ID_BASE = 0xf000;      // synthetic ids start here
+  const ID_BASE = 0xf000; // synthetic ids start here
   const ID_MAX = 0xffff;
 
   function store() {
     try {
       if (typeof localStorage !== 'undefined') return localStorage;
-    } catch (e) { /* private mode: fall through */ }
+    } catch (e) {
+      /* private mode: fall through */
+    }
     return null;
   }
 
@@ -45,7 +47,7 @@
     if (!s) return {};
     try {
       const v = JSON.parse(s.getItem(STORE_KEY) || '{}');
-      return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+      return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
     } catch (e) {
       return {};
     }
@@ -58,7 +60,7 @@
       s.setItem(STORE_KEY, JSON.stringify(all));
       return true;
     } catch (e) {
-      return false;              // quota: caller reports, never throws
+      return false; // quota: caller reports, never throws
     }
   }
 
@@ -67,9 +69,11 @@
   // BMW ships one file per coding index -- so a custom row must not leak
   // between them.
   function keyOf(sgbd, chassis, variant) {
-    return [String(sgbd || '').toLowerCase(),
-            String(chassis || '').toUpperCase(),
-            String(variant || '')].join('|');
+    return [
+      String(sgbd || '').toLowerCase(),
+      String(chassis || '').toUpperCase(),
+      String(variant || ''),
+    ].join('|');
   }
 
   function isCustom(field) {
@@ -86,8 +90,10 @@
     const name = String(row.name || '').trim();
     if (!name) return 'name is required';
     if (!/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(name)) {
-      return 'name must start with a letter and use only letters, digits, '
-        + '_ or - (max 40)';
+      return (
+        'name must start with a letter and use only letters, digits, ' +
+        '_ or - (max 40)'
+      );
     }
 
     const word = Number(row.word);
@@ -132,7 +138,7 @@
     // Name collision inside the same module/variant -- including against
     // BMW's own rows, which the caller passes in.
     const lower = name.toLowerCase();
-    for (const f of (existing || [])) {
+    for (const f of existing || []) {
       if (String(f.name || '').toLowerCase() === lower) {
         return `"${name}" already exists in this module`;
       }
@@ -147,7 +153,7 @@
     const hits = [];
     const word = Number(row.word);
     const mask = Number(row.mask == null ? 0xff : row.mask);
-    for (const f of (fields || [])) {
+    for (const f of fields || []) {
       if (Number(f.word) !== word) continue;
       const fm = Number(f.mask == null ? 0xff : f.mask);
       if ((fm & mask) !== 0) hits.push(f.name);
@@ -193,8 +199,10 @@
       byte: width,
       mask,
       shift,
-      values: (row.values || []).map((v) => [String(v[0]).trim(),
-                                             String(v[1]).toUpperCase()]),
+      values: (row.values || []).map((v) => [
+        String(v[0]).trim(),
+        String(v[1]).toUpperCase(),
+      ]),
       custom: true,
       note: row.note ? String(row.note).slice(0, 200) : undefined,
     };
@@ -203,8 +211,10 @@
     const all = readAll();
     all[keyOf(sgbd, chassis, variant)] = rows;
     if (!writeAll(all)) {
-      return { ok: false, err: 'could not save (browser storage unavailable '
-        + 'or full)' };
+      return {
+        ok: false,
+        err: 'could not save (browser storage unavailable ' + 'or full)',
+      };
     }
     return { ok: true, field };
   }
@@ -215,7 +225,8 @@
     const rows = Array.isArray(all[k]) ? all[k] : [];
     const keep = rows.filter((r) => Number(r.id) !== Number(id));
     if (keep.length === rows.length) return false;
-    if (keep.length) all[k] = keep; else delete all[k];
+    if (keep.length) all[k] = keep;
+    else delete all[k];
     return writeAll(all);
   }
 
@@ -232,15 +243,21 @@
       // place after the last field of the same block, else at the end
       let at = -1;
       for (let i = out.length - 1; i >= 0; i--) {
-        if (Number(out[i].block) === Number(r.block)) { at = i + 1; break; }
+        if (Number(out[i].block) === Number(r.block)) {
+          at = i + 1;
+          break;
+        }
       }
-      if (at < 0) out.push(r); else out.splice(at, 0, r);
+      if (at < 0) out.push(r);
+      else out.splice(at, 0, r);
     }
     return out;
   }
 
   // Everything the user has defined, for an export / manage view.
-  function exportAll() { return readAll(); }
+  function exportAll() {
+    return readAll();
+  }
 
   function importAll(obj, { merge = true } = {}) {
     if (!obj || typeof obj !== 'object') return false;
@@ -253,9 +270,15 @@
 
   const api = {
     ID_BASE,
-    isCustom, validate, overlaps,
-    list, addCustom, removeCustom, mergeCustom,
-    exportAll, importAll,
+    isCustom,
+    validate,
+    overlaps,
+    list,
+    addCustom,
+    removeCustom,
+    mergeCustom,
+    exportAll,
+    importAll,
     _keyOf: keyOf,
   };
   root.CodingCustom = api;

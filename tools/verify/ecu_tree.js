@@ -25,8 +25,11 @@ function owners() {
   for (const f of fs.readdirSync(CONFIG)) {
     if (!f.endsWith('.json') || f === 'index.json') continue;
     let cfg;
-    try { cfg = JSON.parse(fs.readFileSync(path.join(CONFIG, f), 'utf8')); }
-    catch { continue; }
+    try {
+      cfg = JSON.parse(fs.readFileSync(path.join(CONFIG, f), 'utf8'));
+    } catch {
+      continue;
+    }
     const cid = f.slice(0, -5);
     for (const sec of cfg.sections || []) {
       for (const e of sec.ecus || []) {
@@ -40,8 +43,9 @@ function owners() {
 }
 
 function ecuDirs(sgbd) {
-  return (owners()[String(sgbd).toLowerCase()] || [])
-    .map(([cid, code]) => path.join(TREE, cid, code));
+  return (owners()[String(sgbd).toLowerCase()] || []).map(([cid, code]) =>
+    path.join(TREE, cid, code)
+  );
 }
 
 // Read one file for an SGBD, transparently inflating a .gz sibling. Returns
@@ -60,7 +64,11 @@ function readEcu(sgbd, name) {
 function readEcuJson(sgbd, name) {
   const s = readEcu(sgbd, name);
   if (s == null) return null;
-  try { return JSON.parse(s); } catch { return null; }
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
 }
 
 // Every screens.json in the tree, ONCE each. An SGBD in several cars has a
@@ -79,8 +87,11 @@ function screenCorpus() {
       let sgbd = code.toLowerCase();
       const ep = path.join(cd, code, 'ecu.json');
       if (fs.existsSync(ep)) {
-        try { sgbd = JSON.parse(fs.readFileSync(ep, 'utf8')).sgbd || sgbd; }
-        catch { /* keep the folder name */ }
+        try {
+          sgbd = JSON.parse(fs.readFileSync(ep, 'utf8')).sgbd || sgbd;
+        } catch {
+          /* keep the folder name */
+        }
       }
       if (seen.has(sgbd)) continue;
       seen.add(sgbd);
@@ -90,5 +101,12 @@ function screenCorpus() {
   return out;
 }
 
-module.exports = { ROOT, TREE, owners, ecuDirs, readEcu, readEcuJson,
-                   screenCorpus };
+module.exports = {
+  ROOT,
+  TREE,
+  owners,
+  ecuDirs,
+  readEcu,
+  readEcuJson,
+  screenCorpus,
+};

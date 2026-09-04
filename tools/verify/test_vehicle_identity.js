@@ -14,7 +14,10 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 let passed = 0;
-const ok = (what) => { passed++; if (process.env.V) console.log('  ok', what); };
+const ok = (what) => {
+  passed++;
+  if (process.env.V) console.log('  ok', what);
+};
 
 // Lift a run of functions out of the screen file to exercise them directly.
 // The screen is a browser script, not a module, so there is nothing to
@@ -32,8 +35,10 @@ function liftFrom(src, from, to) {
 // The module reads its tables off a window global, the way the renderer does.
 global.window = global;
 const TABLES = path.join(ROOT, 'app', 'renderer', 'data', 'tables.js');
-assert.ok(fs.existsSync(TABLES),
-  'data/tables.js missing -- run tools/decompile/ncs_tables.py --write');
+assert.ok(
+  fs.existsSync(TABLES),
+  'data/tables.js missing -- run tools/decompile/ncs_tables.py --write'
+);
 // eslint-disable-next-line no-eval
 eval(fs.readFileSync(TABLES, 'utf8'));
 assert.ok(window.BMW_TABLES, 'tables.js did not set BMW_TABLES');
@@ -49,8 +54,12 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // the chassis's own directory ships. Four masters, and the FA/ZCS split
   // across them is the whole point -- KMB and EWS answer the order, AKMB and
   // ALSZ answer the coding key.
-  assert.deepStrictEqual(m.map((x) => x.sg).sort(),
-    ['AKMB', 'ALSZ', 'EWS', 'KMB']);
+  assert.deepStrictEqual(m.map((x) => x.sg).sort(), [
+    'AKMB',
+    'ALSZ',
+    'EWS',
+    'KMB',
+  ]);
   assert.strictEqual(byName.KMB.fa, true);
   assert.strictEqual(byName.KMB.zcs, false);
   assert.strictEqual(byName.EWS.fa, true);
@@ -81,7 +90,9 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
     if (!window.BMW_TABLES[ch].sgfam) continue;
     assert.ok(VI.identityMasters(ch).length > 0, `${ch}: no identity master`);
   }
-  ok(`SGFAM: every chassis with a family map names a master (${chassis.length})`);
+  ok(
+    `SGFAM: every chassis with a family map names a master (${chassis.length})`
+  );
 }
 
 {
@@ -112,9 +123,18 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // Keys run to 64 bits, past exact integer range, so comparison must not go
   // through a float. Bit 63 with every lower bit clear is the case that
   // catches a parseInt-based implementation.
-  assert.strictEqual(VI.maskHolds('8000000000000000', '8000000000000000'), true);
-  assert.strictEqual(VI.maskHolds('7FFFFFFFFFFFFFFF', '8000000000000000'), false);
-  assert.strictEqual(VI.maskHolds('FFFFFFFFFFFFFFFF', '0000000000000001'), true);
+  assert.strictEqual(
+    VI.maskHolds('8000000000000000', '8000000000000000'),
+    true
+  );
+  assert.strictEqual(
+    VI.maskHolds('7FFFFFFFFFFFFFFF', '8000000000000000'),
+    false
+  );
+  assert.strictEqual(
+    VI.maskHolds('FFFFFFFFFFFFFFFF', '0000000000000001'),
+    true
+  );
   ok('mask: 64-bit keys compare exactly (bit 63 survives)');
 }
 
@@ -133,7 +153,9 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   //   W 261 FOND_AIRBAG
   // so a car whose SA key has bit 7 set carries SA 261, rear side airbags.
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000000000000080', vn: '0000000000',
+    gm: '00000000',
+    sa: '0000000000000080',
+    vn: '0000000000',
   });
   assert.ok(r.keywords.includes('FOND_AIRBAG'), 'keyword not found');
   assert.ok(r.codes.includes('261'), `261 not in ${r.codes}`);
@@ -144,7 +166,9 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
 {
   // 520 fog lights: H 520 ... 0000200000000000 ... NEBELSCHEINW
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000200000000000', vn: '0000000000',
+    gm: '00000000',
+    sa: '0000200000000000',
+    vn: '0000000000',
   });
   assert.ok(r.keywords.includes('NEBELSCHEINW'));
   assert.ok(r.codes.includes('520'), `520 not in ${r.codes}`);
@@ -156,11 +180,15 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // (two order codes for the same equipment). Both must come through, or a
   // predicate testing the other one fails for no visible reason.
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000080000000000', vn: '0000000000',
+    gm: '00000000',
+    sa: '0000080000000000',
+    vn: '0000000000',
   });
   assert.ok(r.keywords.includes('KLIMAAUTOMATIK'));
-  assert.ok(r.codes.includes('534') && r.codes.includes('857'),
-    `expected 534 and 857, got ${r.codes}`);
+  assert.ok(
+    r.codes.includes('534') && r.codes.includes('857'),
+    `expected 534 and 857, got ${r.codes}`
+  );
   ok('bridge: one keyword may carry several SA numbers (534 + 857)');
 }
 
@@ -172,15 +200,21 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // all-FF body is a blank "no equipment" key and is rejected outright (see
   // the blank-key test below).
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000000000200000', vn: '0018640620',
+    gm: '00000000',
+    sa: '0000000000200000',
+    vn: '0018640620',
   });
-  assert.ok(r.keywords.length > r.codes.length,
-    'expected some keywords to carry no SA number');
+  assert.ok(
+    r.keywords.length > r.codes.length,
+    'expected some keywords to carry no SA number'
+  );
   assert.ok(r.unresolved.length > 0, 'unresolved must be reported');
   for (const k of r.unresolved) {
     assert.ok(!r.codes.includes(k), 'unresolved leaked into codes');
   }
-  ok(`bridge: reports what it could not resolve (${r.unresolved.length} keywords)`);
+  ok(
+    `bridge: reports what it could not resolve (${r.unresolved.length} keywords)`
+  );
 }
 
 {
@@ -191,7 +225,9 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // invents SA numbers a car does not have. It must resolve to NOTHING and be
   // flagged blank, so the caller falls back to the FA or reports "no VO".
   const r = VI.saCodesFromZcs('E46', {
-    gm: 'FFFFFFFF', sa: 'FFFFFFFFFFFFFFFF', vn: 'FFFFFFFFFF',
+    gm: 'FFFFFFFF',
+    sa: 'FFFFFFFFFFFFFFFF',
+    vn: 'FFFFFFFFFF',
   });
   assert.deepStrictEqual(r.codes, [], 'blank SA key must yield no codes');
   assert.strictEqual(r.resolved, false, 'blank key is not resolved');
@@ -205,9 +241,15 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // the C2 channel tag and the Mod-36 check char ("C2FFFFFFFFFFFFFFFF-S").
   // The tag must not defeat the blank test.
   const r = VI.saCodesFromZcs('E46', {
-    gm: 'C1FFFFFF-2', sa: 'C2FFFFFFFFFFFFFFFF-S', vn: 'C3FFFFFFFF-U',
+    gm: 'C1FFFFFF-2',
+    sa: 'C2FFFFFFFFFFFFFFFF-S',
+    vn: 'C3FFFFFFFF-U',
   });
-  assert.deepStrictEqual(r.codes, [], 'tagged blank SA key must yield no codes');
+  assert.deepStrictEqual(
+    r.codes,
+    [],
+    'tagged blank SA key must yield no codes'
+  );
   assert.strictEqual(r.blank, true, 'tagged blank key must be flagged blank');
   ok('bridge: a channel-tagged blank SA key (C2...-S) also invents nothing');
 }
@@ -217,14 +259,18 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // is a different question from what equipment the car has -- so they are
   // separated out rather than mixed into the keyword list.
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000000000200000', vn: '0018640620',
+    gm: '00000000',
+    sa: '0000000000200000',
+    vn: '0018640620',
   });
   const stamps = Object.keys(r.ci);
   assert.ok(stamps.length > 0, 'expected coding-index stamps');
   for (const sg of stamps) {
     assert.strictEqual(typeof r.ci[sg], 'number');
-    assert.ok(!r.keywords.includes(`${sg}_CI_${r.ci[sg]}`),
-      'CI stamp leaked into the equipment keywords');
+    assert.ok(
+      !r.keywords.includes(`${sg}_CI_${r.ci[sg]}`),
+      'CI stamp leaked into the equipment keywords'
+    );
   }
   ok(`bridge: coding-index stamps kept apart from equipment (${stamps})`);
 }
@@ -232,7 +278,9 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
 {
   // An empty key resolves to nothing, and says so, rather than throwing.
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000000000000000', vn: '0000000000',
+    gm: '00000000',
+    sa: '0000000000000000',
+    vn: '0000000000',
   });
   assert.deepStrictEqual(r.codes, []);
   assert.strictEqual(r.resolved, false);
@@ -244,7 +292,9 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
   // decimal with no padding -- "261", never "0261" (both spellings appear in
   // AT.000 and only one matches a predicate).
   const r = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000000000000080', vn: '0000000000',
+    gm: '00000000',
+    sa: '0000000000000080',
+    vn: '0000000000',
   });
   for (const c of r.codes) {
     assert.ok(/^[1-9][0-9]*$/.test(c), `padded or non-numeric code ${c}`);
@@ -259,7 +309,7 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 {
   const f = VI.parseFa(FA);
   assert.strictEqual(f.br, 'E46');
-  assert.strictEqual(f.date, '#0303');   // the '#' stays IN the token
+  assert.strictEqual(f.date, '#0303'); // the '#' stays IN the token
   assert.strictEqual(f.typ, 'BW32');
   assert.strictEqual(f.lack, '0A08');
   assert.strictEqual(f.polster, 'N6TT');
@@ -296,8 +346,11 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   // FA's $ tokens ARE catalog numbers -- this is why an FA car needs no
   // bridge at all.
   assert.deepStrictEqual(VI.saCodesFromFa(FA), ['205', '210', '880']);
-  assert.deepStrictEqual(VI.saCodesFromFa('E46_$0205$210'), ['205', '210'],
-    'zero-padded SA must normalise to the predicate spelling');
+  assert.deepStrictEqual(
+    VI.saCodesFromFa('E46_$0205$210'),
+    ['205', '210'],
+    'zero-padded SA must normalise to the predicate spelling'
+  );
   ok('FA: SA tokens are catalog numbers, normalised unpadded');
 }
 
@@ -311,8 +364,10 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 
 {
   // The labels come from the same dictionary the bridge uses.
-  assert.ok(/AUTOMATIK/.test(VI.saLabel('E46', '205') || ''),
-    'SA 205 should be named AUTOMATIK');
+  assert.ok(
+    /AUTOMATIK/.test(VI.saLabel('E46', '205') || ''),
+    'SA 205 should be named AUTOMATIK'
+  );
   assert.strictEqual(VI.saLabel('E46', '999999'), null);
   ok('FA: SA numbers get their order-dictionary label, or null');
 }
@@ -321,8 +376,10 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   // The English names come off the ETK catalogue, and BY DATE: BMW reused
   // numbers, so a 1998 car and a 2001 car read the same <0199> differently.
   const SA = path.join(ROOT, 'app', 'renderer', 'data', 'sanames.js');
-  assert.ok(fs.existsSync(SA),
-    'data/sanames.js missing -- run tools/etk_sa_names.py --db etk.sqlite');
+  assert.ok(
+    fs.existsSync(SA),
+    'data/sanames.js missing -- run tools/etk_sa_names.py --db etk.sqlite'
+  );
   // eslint-disable-next-line no-eval
   eval(fs.readFileSync(SA, 'utf8'));
   assert.ok(window.BMW_SA_NAMES, 'sanames.js did not set BMW_SA_NAMES');
@@ -348,10 +405,14 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   // produce the same shape of answer.
   const viaFa = VI.saCodesFromFa('E46_$261');
   const viaZcs = VI.saCodesFromZcs('E46', {
-    gm: '00000000', sa: '0000000000000080', vn: '0000000000',
+    gm: '00000000',
+    sa: '0000000000000080',
+    vn: '0000000000',
   }).codes;
-  assert.ok(viaFa.includes('261') && viaZcs.includes('261'),
-    'the two identity paths disagree on SA 261');
+  assert.ok(
+    viaFa.includes('261') && viaZcs.includes('261'),
+    'the two identity paths disagree on SA 261'
+  );
   ok('both identity paths land in the SA-number namespace');
 }
 
@@ -368,15 +429,18 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   const Zcs = require('../../app/renderer/core/coding-zcs.js');
   global.CodingZcs = Zcs;
   const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'), 'utf8');
+    path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'),
+    'utf8'
+  );
   // eslint-disable-next-line no-eval
   eval(liftFrom(screen, 'function viFindRegion', '// The vehicle order,'));
 
   const region = (gm, sa, vn) => {
     const out = [];
     const push = (full, n) => {
-      for (let i = 0; i < n * 2; i += 2) out.push(parseInt(full.substr(i, 2), 16));
-      out.push(full.charCodeAt(n * 2));       // the Mod-36 check character
+      for (let i = 0; i < n * 2; i += 2)
+        out.push(parseInt(full.substr(i, 2), 16));
+      out.push(full.charCodeAt(n * 2)); // the Mod-36 check character
     };
     push(Zcs.formatGm(gm), 4);
     push(Zcs.formatSa(sa), 8);
@@ -388,7 +452,9 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 
   // The real E46 KMB addresses are among these.
   for (const off of [0, 7, 104, 368]) {
-    const blob = new Array(off).fill(0xAA).concat(REG, new Array(11).fill(0x55));
+    const blob = new Array(off)
+      .fill(0xaa)
+      .concat(REG, new Array(11).fill(0x55));
     const found = viFindRegion(blob);
     assert.ok(found, `region planted at ${off} was not found`);
     assert.strictEqual(found.offset, off);
@@ -399,7 +465,7 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   // AND IT MUST DECLINE. Returning offset 0 for a blob with no valid region
   // is the old bug; a wrong region shown as the car's identity is worse than
   // saying the read failed.
-  assert.strictEqual(viFindRegion(new Array(60).fill(0xAA)), null);
+  assert.strictEqual(viFindRegion(new Array(60).fill(0xaa)), null);
   assert.strictEqual(viFindRegion(new Array(60).fill(0x00)), null);
   assert.strictEqual(viFindRegion([1, 2, 3]), null, 'too short');
   ok('region: declines rather than falling back to offset 0');
@@ -420,13 +486,28 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 (async () => {
   const zlib = require('zlib');
   const bestvm = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'core', 'bestvm.js'), 'utf8');
-  try { eval(bestvm); } catch (e) { /* only isWriteJob is needed here */ }
-  assert.strictEqual(typeof isWriteJob, 'function',
-    'the write classifier must load: discovery depends on it');
+    path.join(ROOT, 'app', 'renderer', 'core', 'bestvm.js'),
+    'utf8'
+  );
+  try {
+    eval(bestvm);
+  } catch (e) {
+    /* only isWriteJob is needed here */
+  }
+  assert.strictEqual(
+    typeof isWriteJob,
+    'function',
+    'the write classifier must load: discovery depends on it'
+  );
 
-  const metaOf = (sgbd) => JSON.parse(zlib.gunzipSync(fs.readFileSync(
-    path.join(ROOT, 'data', 'ecu-src', `${sgbd}.meta.json.gz`))));
+  const metaOf = (sgbd) =>
+    JSON.parse(
+      zlib.gunzipSync(
+        fs.readFileSync(
+          path.join(ROOT, 'data', 'ecu-src', `${sgbd}.meta.json.gz`)
+        )
+      )
+    );
 
   // Stand in for the two endpoints discovery uses, answering in the SHAPES
   // the runtime answers in: job names only, and "NAME : comment" per job.
@@ -441,7 +522,9 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   };
 
   const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'), 'utf8');
+    path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'),
+    'utf8'
+  );
   eval(liftFrom(screen, 'const VI_KEY_ROLE', '// WHICH CONTROL UNITS HOLD'));
 
   const jobsOf = async (sgbd) => viJobs(sgbd);
@@ -470,8 +553,11 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   const cas = await viPickFaJob('cas', cJobs);
   assert.ok(cas, 'cas holds the vehicle order');
   assert.strictEqual(cas.result, 'FAHRZEUGAUFTRAG');
-  assert.strictEqual(await viPickZcsJob('cas', cJobs), null,
-    'cas has no coding key and must not claim one');
+  assert.strictEqual(
+    await viPickZcsJob('cas', cJobs),
+    null,
+    'cas has no coding key and must not claim one'
+  );
   ok('discovery: E60+ resolves to the order, and declines the key');
 
   // NEVER A WRITE. The corpus ships C_ZCS_AUFTRAG and STEUERN_FAHRZEUGAUFTRAG
@@ -479,9 +565,14 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   for (const sgbd of ['ews', 'kombi46', 'cas']) {
     const js = await jobsOf(sgbd);
     const picked = [await viPickZcsJob(sgbd, js), await viPickFaJob(sgbd, js)]
-      .filter(Boolean).map((x) => x.job);
+      .filter(Boolean)
+      .map((x) => x.job);
     for (const j of picked) {
-      assert.strictEqual(isWriteJob(j), false, `${sgbd}: picked a write (${j})`);
+      assert.strictEqual(
+        isWriteJob(j),
+        false,
+        `${sgbd}: picked a write (${j})`
+      );
     }
   }
   ok('discovery: only read jobs are ever selected');
@@ -489,9 +580,15 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
   // A module with no identity job must say so rather than offering one.
   assert.strictEqual(await viPickZcsJob('lsz', []), null);
   assert.strictEqual(await viPickFaJob('lsz', []), null);
-  assert.strictEqual(await viPickZcsJob('lsz', await jobsOf('lsz')), null,
-    'lsz declares no key-returning job and must not be claimed as a master');
+  assert.strictEqual(
+    await viPickZcsJob('lsz', await jobsOf('lsz')),
+    null,
+    'lsz declares no key-returning job and must not be claimed as a master'
+  );
   ok('discovery: a module without the job is not claimed as a master');
 
   console.log(`vehicle-identity: ${passed} tests passed`);
-})().catch((e) => { console.error(e); process.exit(1); });
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

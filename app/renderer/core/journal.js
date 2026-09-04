@@ -11,12 +11,14 @@
 // keeps the world-maker/type half and masks the 7-char serial. Raw wire hex
 // is included as captured (it is the evidence), which the dialog says.
 
-const BETA_ENDPOINT_DEFAULT = 'https://bmweb-beta.danner-baumgartner.workers.dev/report';
+const BETA_ENDPOINT_DEFAULT =
+  'https://bmweb-beta.danner-baumgartner.workers.dev/report';
 
 function scrubVin(text) {
-  return String(text == null ? '' : text)
-    .replace(/\b([A-HJ-NPR-Z0-9]{10})([A-HJ-NPR-Z0-9]{7})\b/g,
-             (m, head) => `${head}XXXXXXX`);
+  return String(text == null ? '' : text).replace(
+    /\b([A-HJ-NPR-Z0-9]{10})([A-HJ-NPR-Z0-9]{7})\b/g,
+    (m, head) => `${head}XXXXXXX`
+  );
 }
 
 const Journal = {
@@ -34,17 +36,22 @@ const Journal = {
       let id = localStorage.getItem('bmacw.beta.id');
       if (!id) {
         id = Array.from(crypto.getRandomValues(new Uint8Array(4)))
-          .map((b) => b.toString(16).padStart(2, '0')).join('');
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
         localStorage.setItem('bmacw.beta.id', id);
       }
       return id;
-    } catch (e) { return 'anon'; }
+    } catch (e) {
+      return 'anon';
+    }
   },
 
   buildReport(desc) {
-    const bus = (typeof busTrace !== 'undefined') ? busTrace : null;
-    const cable = (typeof document !== 'undefined')
-      ? document.getElementById('link-text') : null;
+    const bus = typeof busTrace !== 'undefined' ? busTrace : null;
+    const cable =
+      typeof document !== 'undefined'
+        ? document.getElementById('link-text')
+        : null;
     return {
       v: 1,
       app: (typeof BMACW_VERSION !== 'undefined' && BMACW_VERSION) || 'dev',
@@ -54,13 +61,17 @@ const Journal = {
       route: (typeof location !== 'undefined' && location.hash) || '',
       ua: (typeof navigator !== 'undefined' && navigator.userAgent) || '',
       platform: (typeof navigator !== 'undefined' && navigator.platform) || '',
-      screen: (typeof window !== 'undefined' && window.innerWidth)
-        ? { w: window.innerWidth, h: window.innerHeight } : null,
+      screen:
+        typeof window !== 'undefined' && window.innerWidth
+          ? { w: window.innerWidth, h: window.innerHeight }
+          : null,
       settings: {
-        theme: (typeof Settings !== 'undefined')
-          ? Settings.get('theme', 'instrument') : null,
-        demo: (typeof demoMode === 'function') ? demoMode() : null,
-        inpa: (typeof inpaMode === 'function') ? inpaMode() : null,
+        theme:
+          typeof Settings !== 'undefined'
+            ? Settings.get('theme', 'instrument')
+            : null,
+        demo: typeof demoMode === 'function' ? demoMode() : null,
+        inpa: typeof inpaMode === 'function' ? inpaMode() : null,
       },
       cable: cable ? cable.textContent : null,
       crashes: this.crashes,
@@ -68,19 +79,23 @@ const Journal = {
       // the always-on ring of recent telegrams, plus the verbose capture
       // when the tester had busTrace.start() running
       wire: bus ? bus.recent.slice() : [],
-      wireVerbose: (bus && bus.on) ? bus.rows.slice(-200) : undefined,
+      wireVerbose: bus && bus.on ? bus.rows.slice(-200) : undefined,
     };
   },
 
   download(report) {
-    const blob = new Blob([JSON.stringify(report, null, 1)],
-                          { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(report, null, 1)], {
+      type: 'application/json',
+    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `bmweb-report-${report.ts.replace(/[:.]/g, '-')}.json`;
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 2000);
   },
 
   endpoint() {
@@ -88,7 +103,7 @@ const Journal = {
     // reports, no sends -- the journal itself still runs for the dialog-less
     // file save nothing ever triggers
     if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return '';
-    return (typeof Settings !== 'undefined')
+    return typeof Settings !== 'undefined'
       ? Settings.get('betaEndpoint', BETA_ENDPOINT_DEFAULT)
       : BETA_ENDPOINT_DEFAULT;
   },
@@ -102,8 +117,11 @@ const Journal = {
   async maybeAutoReport(msg, ctx) {
     const m = /IFH-\d{4}/.exec(String(msg || ''));
     if (!m) return false;
-    if (typeof Settings !== 'undefined'
-        && Settings.get('betaReports', true) === false) return false;
+    if (
+      typeof Settings !== 'undefined' &&
+      Settings.get('betaReports', true) === false
+    )
+      return false;
     if (!this.endpoint()) return false;
     const code = m[0];
     if (this._auto.seen.has(code) || this._auto.sent >= this._auto.max) {
@@ -112,11 +130,14 @@ const Journal = {
     this._auto.seen.add(code);
     this._auto.sent += 1;
     const report = this.buildReport(
-      `[auto] ${code}${ctx ? ` · ${ctx}` : ''} · ${msg}`);
+      `[auto] ${code}${ctx ? ` · ${ctx}` : ''} · ${msg}`
+    );
     report.auto = 'ifh';
     const r = await this.send(report);
-    this.log('auto', `${code} auto-report `
-      + `${r.sent ? 'sent' : `failed (${r.why})`}`);
+    this.log(
+      'auto',
+      `${code} auto-report ` + `${r.sent ? 'sent' : `failed (${r.why})`}`
+    );
     return r.sent;
   },
 
@@ -136,8 +157,10 @@ const Journal = {
       if (!res.ok) return { sent: false, why: `HTTP ${res.status}` };
       return { sent: true };
     } catch (e) {
-      return { sent: false, why: e.name === 'AbortError' ? 'timeout'
-        : (e.message || 'network error') };
+      return {
+        sent: false,
+        why: e.name === 'AbortError' ? 'timeout' : e.message || 'network error',
+      };
     }
   },
 };
@@ -146,21 +169,28 @@ const Journal = {
 
 function _journalInstall() {
   // navigation: every screen the tester reaches, in order
-  window.addEventListener('hashchange',
-    () => Journal.log('nav', location.hash));
+  window.addEventListener('hashchange', () =>
+    Journal.log('nav', location.hash)
+  );
   Journal.log('nav', `start ${location.hash || '(root)'}`);
 
   // crashes: the failures nobody files by hand
   window.addEventListener('error', (e) => {
     Journal.crashes += 1;
-    Journal.log('crash', `${e.message || 'script error'} `
-      + `(${(e.filename || '').split('/').pop()}:${e.lineno || '?'})`);
+    Journal.log(
+      'crash',
+      `${e.message || 'script error'} ` +
+        `(${(e.filename || '').split('/').pop()}:${e.lineno || '?'})`
+    );
     _journalBadge();
   });
   window.addEventListener('unhandledrejection', (e) => {
     Journal.crashes += 1;
-    Journal.log('crash', `unhandled: `
-      + `${(e.reason && e.reason.message) || e.reason || 'rejected'}`);
+    Journal.log(
+      'crash',
+      `unhandled: ` +
+        `${(e.reason && e.reason.message) || e.reason || 'rejected'}`
+    );
     _journalBadge();
   });
 
@@ -176,27 +206,40 @@ function _journalInstall() {
         if (run) {
           let status = '';
           try {
-            for (const set of (d.sets || [])) {
+            for (const set of d.sets || []) {
               if (set && set.JOB_STATUS != null) {
                 status = String(set.JOB_STATUS);
                 break;
               }
             }
-          } catch (e) { /* verdict only */ }
-          Journal.log('job', `${run[1]} ${decodeURIComponent(run[2])}`
-            + ` · ${status || 'ok'} · ${Date.now() - t0}ms`);
+          } catch (e) {
+            /* verdict only */
+          }
+          Journal.log(
+            'job',
+            `${run[1]} ${decodeURIComponent(run[2])}` +
+              ` · ${status || 'ok'} · ${Date.now() - t0}ms`
+          );
         }
         return d;
       } catch (e) {
         if (run) {
-          Journal.log('job', `${run[1]} ${decodeURIComponent(run[2])}`
-            + ` · FAILED ${e.message} · ${Date.now() - t0}ms`);
+          Journal.log(
+            'job',
+            `${run[1]} ${decodeURIComponent(run[2])}` +
+              ` · FAILED ${e.message} · ${Date.now() - t0}ms`
+          );
           // not for the "is it there" jobs: a silent INITIALISIERUNG is how
           // a module that is not fitted answers, and the screen already says so
-          if (!/^(INITIALISIERUNG|IDENTIFIKATION|IDENT)$/i
-              .test(decodeURIComponent(run[2]))) {
-            Journal.maybeAutoReport(e.message,
-              `${run[1]} ${decodeURIComponent(run[2])}`);
+          if (
+            !/^(INITIALISIERUNG|IDENTIFIKATION|IDENT)$/i.test(
+              decodeURIComponent(run[2])
+            )
+          ) {
+            Journal.maybeAutoReport(
+              e.message,
+              `${run[1]} ${decodeURIComponent(run[2])}`
+            );
           }
         }
         throw e;
@@ -206,8 +249,12 @@ function _journalInstall() {
 
   // wire errors from ANY path (jobs, group resolution, entry probes) pass
   // through busTrace.add('err', ...) -- tap it for the auto-reporter
-  if (typeof busTrace !== 'undefined' && busTrace
-      && typeof busTrace.add === 'function' && !busTrace._journalTapped) {
+  if (
+    typeof busTrace !== 'undefined' &&
+    busTrace &&
+    typeof busTrace.add === 'function' &&
+    !busTrace._journalTapped
+  ) {
     busTrace._journalTapped = true;
     const innerAdd = busTrace.add.bind(busTrace);
     busTrace.add = function journaledAdd(tag, bytes, note) {
@@ -228,16 +275,20 @@ function _journalInstall() {
 // hides it)
 function _journalButton() {
   if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return;
-  if (typeof Settings !== 'undefined'
-      && Settings.get('betaReports', true) === false) return;
+  if (
+    typeof Settings !== 'undefined' &&
+    Settings.get('betaReports', true) === false
+  )
+    return;
   const anchor = document.getElementById('settings-btn');
   if (!anchor || document.getElementById('beta-btn')) return;
   const b = document.createElement('button');
   b.className = 'icon-btn';
   b.id = 'beta-btn';
   b.title = 'File a beta report (session log + wire trace)';
-  b.innerHTML = '<span class="btn-text">Report</span>'
-    + '<span class="btn-icon" aria-hidden="true">◉</span>';
+  b.innerHTML =
+    '<span class="btn-text">Report</span>' +
+    '<span class="btn-icon" aria-hidden="true">◉</span>';
   b.onclick = () => showBetaReport();
   anchor.parentNode.insertBefore(b, anchor);
 }
@@ -252,7 +303,7 @@ function _journalBadge() {
 function showBetaReport() {
   const hasEndpoint = !!Journal.endpoint();
   const n = Journal.rows.length;
-  const w = (typeof busTrace !== 'undefined') ? busTrace.recent.length : 0;
+  const w = typeof busTrace !== 'undefined' ? busTrace.recent.length : 0;
   const { overlay, close } = openModal(`
     <div class="modal" role="dialog" aria-modal="true" style="max-width:560px">
       <div class="modal-title">Beta report</div>

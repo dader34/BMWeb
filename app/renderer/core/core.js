@@ -1,34 +1,44 @@
 // core: API client, theme, util, dialogs, error formatting.
 // chassis -> section -> ECU -> fault flow against the local .NET sidecar (EDIABAS engine).
 
-const API = new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8777';
+const API =
+  new URLSearchParams(location.search).get('api') || 'http://127.0.0.1:8777';
 // IS_WEB / APP_NAME are declared inline in index.html so the name lands before first paint
 
 const Settings = {
   // native shell injects the durable copy at document start; localStorage alone resets every launch (ephemeral port, origin-scoped)
-  data: (typeof window !== 'undefined' && window.__bmacwSettings) ||
-        JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
-  get(key, def) { return key in this.data ? this.data[key] : def; },
+  data:
+    (typeof window !== 'undefined' && window.__bmacwSettings) ||
+    JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
+  get(key, def) {
+    return key in this.data ? this.data[key] : def;
+  },
   set(key, val) {
     this.data[key] = val;
     const json = JSON.stringify(this.data);
     localStorage.setItem('bmacw.settings', json);
-    if (window.bmacw && window.bmacw.saveSettings) window.bmacw.saveSettings(json);
+    if (window.bmacw && window.bmacw.saveSettings)
+      window.bmacw.saveSettings(json);
   },
 };
 const THEMES = [
   { id: 'instrument', name: 'Instrument' },
-  { id: 'inpa',       name: 'INPA' },
-  { id: 'aero',       name: 'Frutiger' },
-  { id: 'metal',      name: 'Brushed Metal' },
-  { id: 'brackets',   name: 'Brackets' },
-  { id: 'gt1',        name: 'GT1' },
+  { id: 'inpa', name: 'INPA' },
+  { id: 'aero', name: 'Frutiger' },
+  { id: 'metal', name: 'Brushed Metal' },
+  { id: 'brackets', name: 'Brackets' },
+  { id: 'gt1', name: 'GT1' },
 ];
 function applyTheme(id) {
-  if (!id || id === 'instrument') document.documentElement.removeAttribute('data-theme');
+  if (!id || id === 'instrument')
+    document.documentElement.removeAttribute('data-theme');
   else document.documentElement.setAttribute('data-theme', id);
   // repaint the F-key bar (its chrome is theme-dependent). Guarded: applyTheme is declared above ActionBar, so an early call hits the TDZ
-  try { actionBar.paint(actionBar.current); } catch { /* bar not built yet */ }
+  try {
+    actionBar.paint(actionBar.current);
+  } catch {
+    /* bar not built yet */
+  }
   // aero only: frameless + transparent window
   if (window.bmacw && window.bmacw.setTranslucent) {
     window.bmacw.setTranslucent(id === 'aero');
@@ -60,7 +70,7 @@ function updateDockIcon() {
   const q1 = styles.getPropertyValue('--logo-quad-1').trim() || '#eef2f5';
   const q2 = styles.getPropertyValue('--logo-quad-2').trim() || '#ff9e2c';
   const ib = styles.getPropertyValue('--logo-inner-border').trim() || '#0a0d11';
-  
+
   const resolvedSvg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 100 100">
       <circle cx="50" cy="50" r="48" fill="${bg}" stroke="${border}" stroke-width="3"/>
@@ -74,11 +84,13 @@ function updateDockIcon() {
       <circle cx="50" cy="50" r="31" fill="none" stroke="${ib}" stroke-width="2"/>
     </svg>
   `;
-  
+
   const img = new Image();
-  const svgBlob = new Blob([resolvedSvg], { type: 'image/svg+xml;charset=utf-8' });
+  const svgBlob = new Blob([resolvedSvg], {
+    type: 'image/svg+xml;charset=utf-8',
+  });
   const url = URL.createObjectURL(svgBlob);
-  
+
   img.onload = () => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -101,7 +113,7 @@ applyTheme(Settings.get('theme', 'instrument'));
 // 'en' = translated English, 'orig' = raw EDIABAS job names
 const lang = () => Settings.get('lang', 'en');
 // mined layout labels arrive in German (deGerman is memoized)
-const itemLabel = (it) => lang() === 'orig' ? it.job : deGerman(it.label);
+const itemLabel = (it) => (lang() === 'orig' ? it.job : deGerman(it.label));
 
 const view = document.getElementById('view');
 const crumbsEl = document.getElementById('crumbs');
@@ -117,45 +129,71 @@ const dispChassis = (id) => CHASSIS_DISPLAY[id] || id;
 
 // short tags for chassis cards
 const CHASSIS_TAG = {
-  E36:'3-series 90s', E46:'3-series 98-06', E60:'5-series', E65:'7-series',
-  E70:'X5', E83:'X3', E85:'Z4', E87:'1-series', E89:'Z4', E90:'3-series 05-12',
-  E39:'5-series 95-03', E52:'Z8', E53:'X5 99-06',
-  F01:'7-series', F07:'5 GT', F30:'3-series 12+', R50:'Mini', R56:'Mini',
-  RR1:'Rolls-Royce', F010:'5-series', F025:'X3',
+  E36: '3-series 90s',
+  E46: '3-series 98-06',
+  E60: '5-series',
+  E65: '7-series',
+  E70: 'X5',
+  E83: 'X3',
+  E85: 'Z4',
+  E87: '1-series',
+  E89: 'Z4',
+  E90: '3-series 05-12',
+  E39: '5-series 95-03',
+  E52: 'Z8',
+  E53: 'X5 99-06',
+  F01: '7-series',
+  F07: '5 GT',
+  F30: '3-series 12+',
+  R50: 'Mini',
+  R56: 'Mini',
+  RR1: 'Rolls-Royce',
+  F010: '5-series',
+  F025: 'X3',
 };
 
 let crumbs = []; // [{label, fn}]
 
 // escape server-sourced text (fault texts, labels, job names) for innerHTML
-const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, m => (
-  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+const esc = (s) =>
+  String(s == null ? '' : s).replace(
+    /[&<>"]/g,
+    (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]
+  );
 
 // "0x"-prefixed uppercase hex, zero-padded to `width` nibbles (default 2).
-const hex = (n, width = 2) => '0x' + (n >>> 0).toString(16).toUpperCase().padStart(width, '0');
+const hex = (n, width = 2) =>
+  '0x' + (n >>> 0).toString(16).toUpperCase().padStart(width, '0');
 
 // demo mode: synthesized job values so screens can be walked with no cable. Every response is badged so it can't pass for real. Opt-in via Settings or ?demo=1.
-const demoMode = () => Settings.get('demo', 'off') === 'on'
-  || new URLSearchParams(location.search).get('demo') === '1';
+const demoMode = () =>
+  Settings.get('demo', 'off') === 'on' ||
+  new URLSearchParams(location.search).get('demo') === '1';
 
 // INPA-style layout. Forced off below 760px (the mobile stylesheet strips what
 // makes it itself), so every screen follows one reader.
-const inpaMode = () => Settings.get('inpaScreens', 'off') === 'on'
-  && !window.matchMedia('(max-width: 760px)').matches;
+const inpaMode = () =>
+  Settings.get('inpaScreens', 'off') === 'on' &&
+  !window.matchMedia('(max-width: 760px)').matches;
 
 async function api(path, opts) {
   let url = `${API}${path}`;
   if (demoMode() && path.includes('/run/'))
     url += (url.includes('?') ? '&' : '?') + 'demo=1';
   const res = await fetch(url, opts);
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
+  if (!res.ok)
+    throw new Error(
+      (await res.json().catch(() => ({}))).error || res.statusText
+    );
   const data = await res.json();
   return data;
 }
 
 // api() with shared failure rendering: errorBlock into container, mark status line, return null on failure
 async function tryApi(path, opts, container, msg = 'failed') {
-  try { return await api(path, opts); }
-  catch (e) {
+  try {
+    return await api(path, opts);
+  } catch (e) {
     if (container) container.innerHTML = errorBlock(e.message);
     sbLeft.textContent = msg;
     return null;
@@ -163,7 +201,8 @@ async function tryApi(path, opts, container, msg = 'failed') {
 }
 
 // ?group= is the diagnostic-address group SGBD, so the server (LoadForJob) lets EDIABAS pick the installed variant
-const groupQuery = (o) => (o && o.group) ? `?group=${encodeURIComponent(o.group)}` : '';
+const groupQuery = (o) =>
+  o && o.group ? `?group=${encodeURIComponent(o.group)}` : '';
 
 // result sets minus the set-0 system summary (kept when it's the only set)
 // EDIABAS answers every job with a SYNTHETIC set 0 the runtime fills
@@ -174,8 +213,11 @@ const groupQuery = (o) => (o && o.group) ? `?group=${encodeURIComponent(o.group)
 // stored fault rendered as "clean fault memory", nine rendered as eight.
 // A system set is recognised by what it contains, never by where it sits.
 function isSystemSet(s) {
-  return !!s && typeof s === 'object'
-    && ('SAETZE' in s || 'JOBNAME' in s || 'OBJECT' in s);
+  return (
+    !!s &&
+    typeof s === 'object' &&
+    ('SAETZE' in s || 'JOBNAME' in s || 'OBJECT' in s)
+  );
 }
 function dataSets(sets) {
   const list = sets || [];
@@ -185,9 +227,11 @@ function dataSets(sets) {
 // flatten result sets into ordered [key, value] pairs, skipping internal keys
 function flatResults(sets) {
   const out = [];
-  dataSets(sets).forEach(s => Object.entries(s).forEach(([k, v]) => {
-    if (!k.startsWith('_') && k !== 'JOB_STATUS') out.push([k, v]);
-  }));
+  dataSets(sets).forEach((s) =>
+    Object.entries(s).forEach(([k, v]) => {
+      if (!k.startsWith('_') && k !== 'JOB_STATUS') out.push([k, v]);
+    })
+  );
   return out;
 }
 
@@ -200,56 +244,112 @@ function explainError(raw) {
   const lower = m.toLowerCase();
 
   // VM / app-side errors: the interpreter broke BEFORE the wire. Checked first so a VM checksum message can't fall into a wire branch and send the user chasing a non-existent hardware fault.
-  if (/vm ?error|unimplemented opcode|refusing to (run|transmit)|step limit at op|unknown register|operand mode|unresolved (jump|etag)|no telegram sink|raised error via eerr/i.test(m))
-    return { title: 'App error — not the car', detail: m || 'The job interpreter failed.',
-      fix: `This is a bug in ${APP_NAME}, not the cable or the car — nothing needs checking on the vehicle. Please report this exact message.` };
+  if (
+    /vm ?error|unimplemented opcode|refusing to (run|transmit)|step limit at op|unknown register|operand mode|unresolved (jump|etag)|no telegram sink|raised error via eerr/i.test(
+      m
+    )
+  )
+    return {
+      title: 'App error — not the car',
+      detail: m || 'The job interpreter failed.',
+      fix: `This is a bug in ${APP_NAME}, not the cable or the car — nothing needs checking on the vehicle. Please report this exact message.`,
+    };
 
-  if (lower.includes('no interface') || lower.includes('no serial') || lower.includes('no cable'))
-    return { title: 'No adapter connected', detail: `${APP_NAME} could not find the K+DCAN cable.`,
-      fix: 'Plug the cable into the Mac (directly, not through a hub) and into the car OBD-II port. The status light turns green when detected.' };
+  if (
+    lower.includes('no interface') ||
+    lower.includes('no serial') ||
+    lower.includes('no cable')
+  )
+    return {
+      title: 'No adapter connected',
+      detail: `${APP_NAME} could not find the K+DCAN cable.`,
+      fix: 'Plug the cable into the Mac (directly, not through a hub) and into the car OBD-II port. The status light turns green when detected.',
+    };
 
   if (lower.includes('security access') || lower.includes('denied'))
-    return { title: 'Security access denied', detail: 'The DME rejected the seed/key authentication needed to read protected memory.',
-      fix: 'Make sure the engine is OFF with ignition in position 2, the battery is healthy (or a charger is connected), and the cable is solid. Retry, the seed is random each attempt.' };
+    return {
+      title: 'Security access denied',
+      detail:
+        'The DME rejected the seed/key authentication needed to read protected memory.',
+      fix: 'Make sure the engine is OFF with ignition in position 2, the battery is healthy (or a charger is connected), and the cable is solid. Retry, the seed is random each attempt.',
+    };
 
   if (lower.includes('read failed') || lower.includes('no data at'))
-    return { title: 'Memory read failed', detail: `The DME stopped responding partway through the read (${m}).`,
-      fix: 'Usually a connection drop or low battery. Check the cable seating, keep ignition on / engine off, and ensure steady power, then read again.' };
+    return {
+      title: 'Memory read failed',
+      detail: `The DME stopped responding partway through the read (${m}).`,
+      fix: 'Usually a connection drop or low battery. Check the cable seating, keep ignition on / engine off, and ensure steady power, then read again.',
+    };
 
   if (lower.includes('conditions_not_correct') || lower.includes('sequence'))
-    return { title: 'ECU rejected the request', detail: 'The DME is not in a state that allows this, often the engine is running or ignition is not fully on.',
-      fix: 'Set ignition to position 2 with the engine OFF and try again.' };
+    return {
+      title: 'ECU rejected the request',
+      detail:
+        'The DME is not in a state that allows this, often the engine is running or ignition is not fully on.',
+      fix: 'Set ignition to position 2 with the engine OFF and try again.',
+    };
 
   // IFH-0009: the ECU said nothing at all (INPA's most common error)
   if (lower.includes('ifh-0009'))
-    return { title: 'No response from the ECU (IFH-0009)', detail: 'The request went out and nothing came back.',
-      fix: 'Ignition on (engine off), cable seated at both ends. If other modules answer, this one may not be fitted to the car.' };
+    return {
+      title: 'No response from the ECU (IFH-0009)',
+      detail: 'The request went out and nothing came back.',
+      fix: 'Ignition on (engine off), cable seated at both ends. If other modules answer, this one may not be fitted to the car.',
+    };
 
   // IFH-0003: something is wrong on the line itself
   if (lower.includes('ifh-0003') || lower.includes('echo'))
-    return { title: 'The cable is not hearing itself (IFH-0003)', detail: 'The K line echoes everything sent; that echo did not come back correctly.',
-      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency timer needs raising to 2 ms -- on macOS a 1 ms latency corrupts K-line reads (short-tail responses).' };
+    return {
+      title: 'The cable is not hearing itself (IFH-0003)',
+      detail:
+        'The K line echoes everything sent; that echo did not come back correctly.',
+      fix: 'Reseat the cable at both ends. If it persists, another device may be driving the bus, or the FTDI latency timer needs raising to 2 ms -- on macOS a 1 ms latency corrupts K-line reads (short-tail responses).',
+    };
 
   // IFH-0019: bytes arrived, but not a whole valid telegram
-  if (lower.includes('ifh-0019') || lower.includes('checksum') || lower.includes('incomplete'))
-    return { title: 'Damaged answer from the ECU (IFH-0019)', detail: 'The telegram arrived truncated or with a bad checksum.',
-      fix: 'Usually electrical: check power and the cable, and keep the engine off. Retrying often succeeds.' };
+  if (
+    lower.includes('ifh-0019') ||
+    lower.includes('checksum') ||
+    lower.includes('incomplete')
+  )
+    return {
+      title: 'Damaged answer from the ECU (IFH-0019)',
+      detail: 'The telegram arrived truncated or with a bad checksum.',
+      fix: 'Usually electrical: check power and the cable, and keep the engine off. Retrying often succeeds.',
+    };
 
-  if (lower.includes('ifh-0018') || lower.includes('ifh_0018') || lower.includes('interfaceconnect') || lower.includes('connect'))
-    return { title: 'Could not reach the ECU', detail: 'The cable is present but the DME did not answer.',
-      fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency timer is 2 ms or more -- on macOS a 1 ms latency corrupts K-line reads.' };
+  if (
+    lower.includes('ifh-0018') ||
+    lower.includes('ifh_0018') ||
+    lower.includes('interfaceconnect') ||
+    lower.includes('connect')
+  )
+    return {
+      title: 'Could not reach the ECU',
+      detail: 'The cable is present but the DME did not answer.',
+      fix: 'Turn the ignition on, confirm the cable is fully seated at both ends, and check the FTDI latency timer is 2 ms or more -- on macOS a 1 ms latency corrupts K-line reads.',
+    };
 
   if (lower.includes('error_f_code'))
-    return { title: 'This function needs a fault code', detail: 'The detailed fault job requires a specific DTC as input.',
-      fix: 'Read the fault codes first, then open the detail for a specific one.' };
+    return {
+      title: 'This function needs a fault code',
+      detail: 'The detailed fault job requires a specific DTC as input.',
+      fix: 'Read the fault codes first, then open the detail for a specific one.',
+    };
 
   if (lower.includes('timeout'))
-    return { title: 'The ECU timed out', detail: 'No response within the expected time.',
-      fix: 'Check the cable and ignition, then retry. A weak battery or loose connector is the usual cause.' };
+    return {
+      title: 'The ECU timed out',
+      detail: 'No response within the expected time.',
+      fix: 'Check the cable and ignition, then retry. A weak battery or loose connector is the usual cause.',
+    };
 
   if (lower.includes('engine failed to start'))
-    return { title: 'Engine failed to start', detail: 'The diagnostic engine (the bundled sidecar) did not come up.',
-      fix: `Press Retry. If it keeps failing, quit and reopen ${APP_NAME}.` };
+    return {
+      title: 'Engine failed to start',
+      detail: 'The diagnostic engine (the bundled sidecar) did not come up.',
+      fix: `Press Retry. If it keeps failing, quit and reopen ${APP_NAME}.`,
+    };
 
   // "no job X": the SGBD the car identified as does not implement this job. The
   // .IPO is shared across a family and offers every screen, but a variant need
@@ -258,16 +358,23 @@ function explainError(raw) {
   // -- so name the job honestly rather than "something went wrong".
   const nojob = m.match(/no job (?:code shipped for )?([A-Za-z0-9_]+)/i);
   if (nojob)
-    return { title: 'Not available on this control unit',
-      detail: `This variant does not implement ${nojob[1]}. The screen is part `
-        + `of the shared script, but the module the car identified as carries a `
-        + `different set of jobs.`,
-      fix: 'Nothing to fix -- the function simply is not offered by this ECU. '
-        + 'INPA behaves the same against this variant.' };
+    return {
+      title: 'Not available on this control unit',
+      detail:
+        `This variant does not implement ${nojob[1]}. The screen is part ` +
+        `of the shared script, but the module the car identified as carries a ` +
+        `different set of jobs.`,
+      fix:
+        'Nothing to fix -- the function simply is not offered by this ECU. ' +
+        'INPA behaves the same against this variant.',
+    };
 
   // fallback: raw message
-  return { title: 'Something went wrong', detail: m || 'Unknown error.',
-    fix: 'Check the cable and ignition (engine off, key on), then try again.' };
+  return {
+    title: 'Something went wrong',
+    detail: m || 'Unknown error.',
+    fix: 'Check the cable and ignition (engine off, key on), then try again.',
+  };
 }
 
 function errorBlock(raw, accent = 'amber') {
@@ -290,7 +397,8 @@ function setCrumbs(items) {
   items.forEach((c, i) => {
     if (i) {
       const sep = document.createElement('span');
-      sep.className = 'crumb-sep'; sep.textContent = '/';
+      sep.className = 'crumb-sep';
+      sep.textContent = '/';
       crumbsEl.appendChild(sep);
     }
     const el = document.createElement('span');
@@ -301,7 +409,8 @@ function setCrumbs(items) {
   });
   // reflect the current screen in the URL so Apps pages are linkable and Back
   // works. lastScreen is set at the top of every screen fn before it renders.
-  if (typeof routeSyncFromScreen === 'function') routeSyncFromScreen(lastScreen);
+  if (typeof routeSyncFromScreen === 'function')
+    routeSyncFromScreen(lastScreen);
 }
 
 // INPA function-key bar: screens declare actions bound to number keys 1..9,0.
@@ -311,11 +420,11 @@ const INPA_SLOTS = 10;
 
 class ActionBar {
   constructor() {
-    this.current = [];      // the row shown now [{ key:'1', label, fn, kind }]
-    this.base = [];         // the primary row
-    this.shift = null;      // the second row, when a screen has one
+    this.current = []; // the row shown now [{ key:'1', label, fn, kind }]
+    this.base = []; // the primary row
+    this.shift = null; // the second row, when a screen has one
     this.shiftHeld = false;
-    this.shiftRepaint = null;  // a screen's body-repaint when the row swaps
+    this.shiftRepaint = null; // a screen's body-repaint when the row swaps
     this._wireKeys();
   }
 
@@ -334,14 +443,16 @@ class ActionBar {
     const slots = new Array(INPA_SLOTS).fill(null);
     const spill = [];
     // sort back first so it claims F10 before a screen's own '0' can take it
-    const ordered = [...actions].sort((x, y) =>
-      (y.kind === 'back') - (x.kind === 'back'));
-    ordered.forEach(a => {
+    const ordered = [...actions].sort(
+      (x, y) => (y.kind === 'back') - (x.kind === 'back')
+    );
+    ordered.forEach((a) => {
       const i = this._slot(a);
-      if (i !== null && !slots[i]) slots[i] = a; else spill.push(a);
+      if (i !== null && !slots[i]) slots[i] = a;
+      else spill.push(a);
     });
     // letter-keyed actions and collisions fill the first empty slot
-    spill.forEach(a => {
+    spill.forEach((a) => {
       const i = slots.indexOf(null);
       if (i >= 0) slots[i] = a;
     });
@@ -358,8 +469,8 @@ class ActionBar {
       keys.appendChild(num);
 
       const el = document.createElement('div');
-      el.className = 'fkey' + (a && a.kind ? ' ' + a.kind : '')
-                   + (a ? '' : ' empty');
+      el.className =
+        'fkey' + (a && a.kind ? ' ' + a.kind : '') + (a ? '' : ' empty');
       if (a) {
         el.innerHTML = `<span class="fkey-label">${esc(a.label)}</span>`;
         el.onclick = () => this.fire(a);
@@ -387,18 +498,23 @@ class ActionBar {
   _syncNavFn() {
     const el = document.getElementById('nav-fn');
     if (!el) return;
-    const list = [...(this.base || []), ...(this.shift || [])]
-      .filter(a => a && a.fn && a.kind !== 'back' && a.kind !== 'navAction');
+    const list = [...(this.base || []), ...(this.shift || [])].filter(
+      (a) => a && a.fn && a.kind !== 'back' && a.kind !== 'navAction'
+    );
     el.hidden = !list.length;
     el.onclick = list.length ? () => this._openFnSheet(list) : null;
   }
 
   _openFnSheet(list) {
-    const rows = list.map((a, i) =>
-      `<button class="btn fn-sheet-row" data-i="${i}">
+    const rows = list
+      .map(
+        (a, i) =>
+          `<button class="btn fn-sheet-row" data-i="${i}">
          <span class="fn-sheet-label">${esc(a.label || '')}</span>
          ${a.keyLabel ? `<span class="fn-sheet-key">${esc(a.keyLabel)}</span>` : ''}
-       </button>`).join('');
+       </button>`
+      )
+      .join('');
     const { overlay, close } = openModal(`
       <div class="modal fn-sheet" role="dialog" aria-modal="true">
         <div class="modal-title">Functions</div>
@@ -408,7 +524,11 @@ class ActionBar {
         </div>
       </div>`);
     overlay.querySelectorAll('.fn-sheet-row').forEach((b) => {
-      b.onclick = () => { const a = list[+b.dataset.i]; close(); this.fire(a); };
+      b.onclick = () => {
+        const a = list[+b.dataset.i];
+        close();
+        this.fire(a);
+      };
     });
     overlay.querySelector('.modal-cancel').onclick = () => close();
   }
@@ -417,7 +537,7 @@ class ActionBar {
   _syncNavBack(actions) {
     const el = document.getElementById('nav-back');
     if (!el) return;
-    const back = (actions || []).find(a => a.kind === 'back');
+    const back = (actions || []).find((a) => a.kind === 'back');
     el.hidden = !back;
     el.onclick = back ? () => this.fire(back) : null;
   }
@@ -426,7 +546,7 @@ class ActionBar {
   _syncNavAction(actions) {
     const el = document.getElementById('nav-action');
     if (!el) return;
-    const act = (actions || []).find(a => a.kind === 'navAction');
+    const act = (actions || []).find((a) => a.kind === 'navAction');
     el.hidden = !act;
     if (act) {
       el.textContent = act.label || '';
@@ -448,7 +568,8 @@ class ActionBar {
   // leaving menu's OWN release (its Back-item job or a composite neutral word),
   // unless activationsHeld() -- a same-menu repaint after a drive is held.
   set(actions, shifted) {
-    stopLive(); stopLogging();
+    stopLive();
+    stopLogging();
     if (typeof dismissAttention === 'function') dismissAttention();
     if (!activationsHeld() && typeof runMenuLeave === 'function') {
       runMenuLeave();
@@ -458,7 +579,7 @@ class ActionBar {
     // session end having driven nothing. Held by the same repaint guard.
     if (!activationsHeld() && typeof endSession === 'function') endSession();
     this.base = actions;
-    this.shift = (shifted && shifted.length) ? shifted : null;
+    this.shift = shifted && shifted.length ? shifted : null;
     this.shiftHeld = false;
     this.shiftRepaint = null;
     this.current = actions;
@@ -467,7 +588,11 @@ class ActionBar {
 
   fire(a) {
     if (!a || !a.fn) return;
-    if (a._el) { a._el.classList.remove('flash'); void a._el.offsetWidth; a._el.classList.add('flash'); }
+    if (a._el) {
+      a._el.classList.remove('flash');
+      void a._el.offsetWidth;
+      a._el.classList.add('flash');
+    }
     a.fn();
   }
 
@@ -486,21 +611,34 @@ class ActionBar {
       // an open modal owns the keyboard; else Backspace behind a popup re-fires back and stacks it
       if (document.querySelector('.modal-overlay')) return;
       const t = e.target;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+      if (
+        t &&
+        (t.tagName === 'INPUT' ||
+          t.tagName === 'TEXTAREA' ||
+          t.tagName === 'SELECT')
+      )
+        return;
       const key = e.key;
       // Esc and Backspace both act as back (F10)
       if (key === 'Escape' || key === 'Backspace') {
-        const back = this.current.find(a => a.kind === 'back');
-        if (back) { e.preventDefault(); this.fire(back); }
+        const back = this.current.find((a) => a.kind === 'back');
+        if (back) {
+          e.preventDefault();
+          this.fire(back);
+        }
         return;
       }
       // Shift makes the browser report "!" for 1, so match the physical digit (e.code); "="/"_" alias +/- for zoom
       const digit = /^Digit(\d)$/.exec(e.code || '');
-      const alias = { '=': '+', '_': '-' }[key];
-      const match = this.current.find(a => a.key === key)
-        || (alias && this.current.find(a => a.key === alias))
-        || (digit && this.current.find(a => a.key === digit[1]));
-      if (match) { e.preventDefault(); this.fire(match); }
+      const alias = { '=': '+', _: '-' }[key];
+      const match =
+        this.current.find((a) => a.key === key) ||
+        (alias && this.current.find((a) => a.key === alias)) ||
+        (digit && this.current.find((a) => a.key === digit[1]));
+      if (match) {
+        e.preventDefault();
+        this.fire(match);
+      }
     });
   }
 }
@@ -508,8 +646,12 @@ class ActionBar {
 const actionBar = new ActionBar();
 
 // global delegators for existing call sites (setActions from ~14 screens; activations.js reads currentActions)
-function setActions(actions, shifted) { actionBar.set(actions, shifted); }
-function fireAction(a) { actionBar.fire(a); }
+function setActions(actions, shifted) {
+  actionBar.set(actions, shifted);
+}
+function fireAction(a) {
+  actionBar.fire(a);
+}
 Object.defineProperty(this, 'currentActions', { get: () => actionBar.current });
 
 // turn title= into an instant tooltip (the browser's own is ~1.5s, too slow to be seen); title stays for a11y
@@ -521,14 +663,20 @@ function tipify(root) {
     if (el.classList.contains('win-dot')) return;
     el.dataset.tip = text;
     // measured once on first hover: layout is settled by then
-    el.addEventListener('pointerenter', () => {
-      const r = el.getBoundingClientRect();
-      const half = Math.min(text.length * 6.2, 320) / 2;
-      el.classList.toggle('tip-left', r.left + r.width / 2 - half < 8);
-      el.classList.toggle('tip-right',
-        r.left + r.width / 2 + half > window.innerWidth - 8);
-      el.classList.toggle('tip-below', r.top < 92);
-    }, { once: false });
+    el.addEventListener(
+      'pointerenter',
+      () => {
+        const r = el.getBoundingClientRect();
+        const half = Math.min(text.length * 6.2, 320) / 2;
+        el.classList.toggle('tip-left', r.left + r.width / 2 - half < 8);
+        el.classList.toggle(
+          'tip-right',
+          r.left + r.width / 2 + half > window.innerWidth - 8
+        );
+        el.classList.toggle('tip-below', r.top < 92);
+      },
+      { once: false }
+    );
   });
 }
 
@@ -541,17 +689,23 @@ function head(eyebrow, title, subtitle) {
 }
 
 function stagger(container, step = 35) {
-  [...container.children].forEach((c, i) => { c.style.animationDelay = `${i * step}ms`; });
+  [...container.children].forEach((c, i) => {
+    c.style.animationDelay = `${i * step}ms`;
+  });
 }
 
 // shimmering placeholder list; `sub` adds a second bar per row for two-line cells
 function skeletonList(rows = 6, sub = true) {
-  const row = `<div class="sk-row" aria-hidden="true">`
-    + `<div class="sk-bar sk-title"></div>`
-    + (sub ? `<div class="sk-bar sk-sub"></div>` : '')
-    + `</div>`;
-  return `<div class="skeleton sk-list" role="status" aria-label="Loading">`
-    + row.repeat(rows) + `</div>`;
+  const row =
+    `<div class="sk-row" aria-hidden="true">` +
+    `<div class="sk-bar sk-title"></div>` +
+    (sub ? `<div class="sk-bar sk-sub"></div>` : '') +
+    `</div>`;
+  return (
+    `<div class="skeleton sk-list" role="status" aria-label="Loading">` +
+    row.repeat(rows) +
+    `</div>`
+  );
 }
 
 // shared modal lifecycle (overlay, capture keydown, backdrop click, 160ms fade-out).
@@ -570,17 +724,29 @@ function openModal(html, { onKey, onClose, backdropValue } = {}) {
   };
   const handler = (e) => {
     if (onKey) return onKey(e, close);
-    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
   };
   window.addEventListener('keydown', handler, true);
-  overlay.onclick = (e) => { if (e.target === overlay) close(backdropValue); };
+  overlay.onclick = (e) => {
+    if (e.target === overlay) close(backdropValue);
+  };
   return { overlay, close };
 }
 
 // confirm modal -> Promise<boolean>. Enter confirms, Esc cancels.
-function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
+function confirmDialog({
+  title,
+  body,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  danger = false,
+}) {
   return new Promise((resolve) => {
-    const { overlay, close } = openModal(`
+    const { overlay, close } = openModal(
+      `
       <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
         <div class="modal-title">${title}</div>
         <div class="modal-body">${body}</div>
@@ -588,14 +754,23 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
           <button class="btn modal-cancel">${cancelLabel}<span class="modal-key">Esc</span></button>
           <button class="btn ${danger ? 'danger' : 'primary'} modal-confirm">${confirmLabel}<span class="modal-key">⏎</span></button>
         </div>
-      </div>`, {
-      onClose: resolve,
-      backdropValue: false,
-      onKey: (e, close) => {
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); }
-        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); close(true); }
-      },
-    });
+      </div>`,
+      {
+        onClose: resolve,
+        backdropValue: false,
+        onKey: (e, close) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            close(false);
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            close(true);
+          }
+        },
+      }
+    );
     overlay.querySelector('.modal-cancel').onclick = () => close(false);
     overlay.querySelector('.modal-confirm').onclick = () => close(true);
     overlay.querySelector('.modal-confirm').focus();
@@ -607,33 +782,46 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
 // what INPA itself does ("Wrong JOB_STATUS : ...").
 function messageDialog({ title, body, danger = false }) {
   return new Promise((resolve) => {
-    const { overlay, close } = openModal(`
+    const { overlay, close } = openModal(
+      `
       <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
         <div class="modal-title">${title}</div>
         <div class="modal-body">${body}</div>
         <div class="modal-actions">
           <button class="btn primary modal-confirm">OK<span class="modal-key">⏎</span></button>
         </div>
-      </div>`, {
-      onClose: resolve,
-      backdropValue: true,
-      onKey: (e, close) => {
-        if (e.key === 'Escape' || e.key === 'Enter') {
-          e.preventDefault(); e.stopPropagation(); close(true);
-        }
-      },
-    });
+      </div>`,
+      {
+        onClose: resolve,
+        backdropValue: true,
+        onKey: (e, close) => {
+          if (e.key === 'Escape' || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            close(true);
+          }
+        },
+      }
+    );
     overlay.querySelector('.modal-confirm').onclick = () => close(true);
     overlay.querySelector('.modal-confirm').focus();
   });
 }
 
 // value-input modal for INPA functions; returns string or null. Enter submits, Esc cancels.
-function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 'Run', danger = false }) {
+function inputDialog({
+  title,
+  body,
+  kind = 'text',
+  example = '',
+  confirmLabel = 'Run',
+  danger = false,
+}) {
   return new Promise((resolve) => {
     const htmlType = kind === 'number' ? 'number' : 'text';
     const ph = example ? `e.g. ${example}` : '';
-    const { overlay, close } = openModal(`
+    const { overlay, close } = openModal(
+      `
       <div class="modal ${danger ? 'danger' : ''}" role="dialog" aria-modal="true">
         <div class="modal-title">${title}</div>
         <div class="modal-body">${body || ''}</div>
@@ -647,18 +835,32 @@ function inputDialog({ title, body, kind = 'text', example = '', confirmLabel = 
           <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
           <button class="btn ${danger ? 'danger' : 'primary'} modal-confirm">${confirmLabel}<span class="modal-key">⏎</span></button>
         </div>
-      </div>`, {
-      onClose: resolve,
-      backdropValue: null,
-      onKey: (e) => {
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(null); }
-        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); submit(); }
-      },
-    });
+      </div>`,
+      {
+        onClose: resolve,
+        backdropValue: null,
+        onKey: (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            close(null);
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            submit();
+          }
+        },
+      }
+    );
     const field = overlay.querySelector('.modal-input');
     const submit = () => {
       const v = field.value.trim();
-      if (v === '') { field.focus(); field.classList.add('shake'); setTimeout(() => field.classList.remove('shake'), 350); return; }
+      if (v === '') {
+        field.focus();
+        field.classList.add('shake');
+        setTimeout(() => field.classList.remove('shake'), 350);
+        return;
+      }
       close(v);
     };
     overlay.querySelector('.modal-cancel').onclick = () => close(null);
@@ -677,29 +879,40 @@ async function runInputFunction(ecu, input, container) {
   // among them, none of which contain an English verb. isWriteJob is
   // token-based and default-deny, and is the same gate bestvm enforces
   // before a job reaches the bus.
-  const danger = typeof isWriteJob === 'function'
-    ? isWriteJob(input.job || '')
-    // no classifier in scope: fall back to the prompt text rather than
-    // silently calling an unknown job safe
-    : /steuern|command|throttle|setpoint|write|store|reset/i.test(
-      (input.field || '') + ' ' + (input.job || ''));
+  const danger =
+    typeof isWriteJob === 'function'
+      ? isWriteJob(input.job || '')
+      : // no classifier in scope: fall back to the prompt text rather than
+        // silently calling an unknown job safe
+        /steuern|command|throttle|setpoint|write|store|reset/i.test(
+          (input.field || '') + ' ' + (input.job || '')
+        );
   const val = await inputDialog({
-    title: esc(typeof jobLabel === 'function' ? jobLabel(input.job) : input.job),
+    title: esc(
+      typeof jobLabel === 'function' ? jobLabel(input.job) : input.job
+    ),
     // input.field is the entry instruction ("Enter as LABEL;VALUE1"), shown as the prompt
-    body: `${input.field ? `<div>${esc(input.field)}</div>` : ''}`
-      + `${input.args_template ? `<span class="muted">${esc(input.args_template)}</span><br>` : ''}`
-      + `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
+    body:
+      `${input.field ? `<div>${esc(input.field)}</div>` : ''}` +
+      `${input.args_template ? `<span class="muted">${esc(input.args_template)}</span><br>` : ''}` +
+      `<span class="mono" style="font-size:11px;color:var(--ink-faint)">job: ${esc(input.job)}</span>`,
     kind: input.kind || 'text',
     example: input.example || '',
     confirmLabel: danger ? 'Send' : 'Run',
     danger,
   });
-  if (val == null) { sbLeft.textContent = 'cancelled'; return; }
+  if (val == null) {
+    sbLeft.textContent = 'cancelled';
+    return;
+  }
 
   container.className = 'results-panel';
   container.innerHTML = `<div class="empty"><span class="loader"></span><span>Running ${esc(input.field || input.job)}…</span></div>`;
   try {
-    const data = await api(`/api/ecu/${ecu.sgbd}/run/${input.job}?arg=${encodeURIComponent(val)}`, { method: 'POST' });
+    const data = await api(
+      `/api/ecu/${ecu.sgbd}/run/${input.job}?arg=${encodeURIComponent(val)}`,
+      { method: 'POST' }
+    );
     renderResultSets(data.sets, container, input.job);
     sbLeft.textContent = `${input.job} ${val} · done`;
   } catch (e) {

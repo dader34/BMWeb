@@ -28,20 +28,24 @@ async function showMemory(ecu, mem, container, onBack) {
 
   // INPA prints each region's limits on screen and refuses reads outside them
   const clamp = (n) => {
-    const lo = parseAddr(region.low), hi = parseAddr(region.high);
+    const lo = parseAddr(region.low),
+      hi = parseAddr(region.high);
     if (lo == null || hi == null) return Math.max(0, n);
     return Math.min(hi, Math.max(lo, n));
   };
 
   const read = async () => {
     addr = clamp(addr);
-    sub.textContent = `${region.label} · ${hex(addr, 6)} `
-      + `(${esc(region.low)}–${esc(region.high)})`;
+    sub.textContent =
+      `${region.label} · ${hex(addr, 6)} ` +
+      `(${esc(region.low)}–${esc(region.high)})`;
     dump.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading ${hex(addr, 6)}…</span></div>`;
     const arg = `${region.token};${hex(addr, 6)};${MEM_ROW}`;
     try {
-      const d = await api(`/api/ecu/${ecu.sgbd}/run/${mem.job}?arg=${encodeURIComponent(arg)}`,
-                          { method: 'POST' });
+      const d = await api(
+        `/api/ecu/${ecu.sgbd}/run/${mem.job}?arg=${encodeURIComponent(arg)}`,
+        { method: 'POST' }
+      );
       const vals = new Map(flatResults(d.sets));
       const bytes = String(vals.get('DATEN') ?? '').trim();
       const ascii = String(vals.get('DATEN_ASCII') ?? '').trim();
@@ -66,13 +70,20 @@ async function showMemory(ecu, mem, container, onBack) {
   const jump = async () => {
     const v = await inputDialog({
       title: 'Go to address',
-      body: `Hex address to read in <b>${esc(region.label)}</b>`
-          + ` (${esc(region.low)}–${esc(region.high)}, max ${mem.maxBytes} bytes).`,
-      kind: 'text', example: hex(addr, 6), confirmLabel: 'Read',
+      body:
+        `Hex address to read in <b>${esc(region.label)}</b>` +
+        ` (${esc(region.low)}–${esc(region.high)}, max ${mem.maxBytes} bytes).`,
+      kind: 'text',
+      example: hex(addr, 6),
+      confirmLabel: 'Read',
     });
     const n = parseAddr(v);
-    if (n == null) { sbLeft.textContent = 'cancelled'; return; }
-    addr = n; read();
+    if (n == null) {
+      sbLeft.textContent = 'cancelled';
+      return;
+    }
+    addr = n;
+    read();
   };
 
   const rebuild = () => {
@@ -81,18 +92,37 @@ async function showMemory(ecu, mem, container, onBack) {
       // hand-built layouts carry a short softkey caption (`key`) and INPA's
       // own long one (`fkey`); mined ones carry the region token and its
       // caption. Take whichever this layout has.
-      key: String(i + 1), keyLabel: `F${i + 1}`,
+      key: String(i + 1),
+      keyLabel: `F${i + 1}`,
       label: r.key || r.fkey || r.token || r.label,
       kind: r.token === region.token ? 'active' : undefined,
-      fn: () => { region = r; addr = parseAddr(r.start) || 0; read(); rebuild(); },
+      fn: () => {
+        region = r;
+        addr = parseAddr(r.start) || 0;
+        read();
+        rebuild();
+      },
     }));
-    mem.steps.forEach((s, i) => acts.push({
-      key: String(mem.regions.length + i + 1),
-      keyLabel: `F${mem.regions.length + i + 1}`, label: s.key || s.label,
-      fn: () => { addr = clamp(addr + s.delta); read(); rebuild(); },
-    }));
+    mem.steps.forEach((s, i) =>
+      acts.push({
+        key: String(mem.regions.length + i + 1),
+        keyLabel: `F${mem.regions.length + i + 1}`,
+        label: s.key || s.label,
+        fn: () => {
+          addr = clamp(addr + s.delta);
+          read();
+          rebuild();
+        },
+      })
+    );
     acts.push({ key: 'g', keyLabel: 'G', label: 'Go to…', fn: jump });
-    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: onBack });
+    acts.push({
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: onBack,
+    });
     setActions(acts);
   };
   rebuild();

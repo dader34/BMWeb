@@ -1,0 +1,26 @@
+# build output and deps
+node_modules/
+dist-web/
+src/*/bin/
+src/*/obj/
+
+# generated data blobs — large, machine-authored, never hand-edited
+app/renderer/data/faultdb.js
+app/renderer/data/pcodes.js
+app/renderer/data/faultinfo.js
+app/renderer/data/faultmeta.js
+app/renderer/data/faultindex.js
+app/renderer/data/codingmap.js
+app/renderer/data/datenmap.js
+app/renderer/data/envmap.js
+app/renderer/data/sanames.js
+app/renderer/data/sget.js
+app/renderer/data/tables.js
+
+# vendored third-party
+app/renderer/vendor/
+vendor/
+
+# data + generated assets
+data/
+*.min.js

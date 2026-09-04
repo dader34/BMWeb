@@ -17,9 +17,13 @@ async function codeableModules(chassisId, saCodes) {
   const key = `${id}|${(saCodes || []).join(',')}`;
   if (_codeableCache.has(key)) return _codeableCache.get(key);
   let ch;
-  try { ch = await api(`/api/chassis/${id}`); }
-  catch { return []; }
-  const seen = new Set(); const all = [];
+  try {
+    ch = await api(`/api/chassis/${id}`);
+  } catch {
+    return [];
+  }
+  const seen = new Set();
+  const all = [];
   for (const s of ch.sections || []) {
     for (const e of s.ecus) {
       if (seen.has(e.sgbd)) continue;
@@ -27,12 +31,16 @@ async function codeableModules(chassisId, saCodes) {
       all.push({ ...e, section: s.name });
     }
   }
-  const kinds = await Promise.all(all.map(async (e) => {
-    if (typeof codingFor === 'function' && await codingFor(e.sgbd)) return 'values';
-    if (typeof datenFor === 'function' && await datenFor(e.sgbd)) return 'map';
-    return null;
-  }));
-  let out = all.map((e, i) => ({ ...e, kind: kinds[i] })).filter(e => e.kind);
+  const kinds = await Promise.all(
+    all.map(async (e) => {
+      if (typeof codingFor === 'function' && (await codingFor(e.sgbd)))
+        return 'values';
+      if (typeof datenFor === 'function' && (await datenFor(e.sgbd)))
+        return 'map';
+      return null;
+    })
+  );
+  let out = all.map((e, i) => ({ ...e, kind: kinds[i] })).filter((e) => e.kind);
 
   // WHICH VARIANT OF EACH MODULE THIS CAR ACTUALLY HAS.
   //
@@ -49,7 +57,9 @@ async function codeableModules(chassisId, saCodes) {
     try {
       if (typeof loadSget === 'function') await loadSget();
       out = CodingSelect.applySelection(id, out, saCodes);
-    } catch (e) { /* no SGET for this chassis: keep the config's names */ }
+    } catch (e) {
+      /* no SGET for this chassis: keep the config's names */
+    }
   }
 
   _codeableCache.set(key, out);
@@ -77,8 +87,8 @@ async function codeableModules(chassisId, saCodes) {
 //   sgbd            retargeted to what the car named, when we can read it
 //   _codingVariant  'identified' | 'confirmed' | 'unverified' | 'sole'
 //   _variantOf      the configured name, when it was replaced
-const _codingGroupNames = () => (typeof groupNames === 'function'
-  ? groupNames() : Promise.resolve(null));
+const _codingGroupNames = () =>
+  typeof groupNames === 'function' ? groupNames() : Promise.resolve(null);
 
 async function codingResolveVariants(mods) {
   if (typeof demoMode === 'function' && demoMode()) return mods;
@@ -87,16 +97,29 @@ async function codingResolveVariants(mods) {
   const cache = new Map();
   for (const m of mods) {
     const g = String(m.group || '').toLowerCase();
-    if (!g) { m._codingVariant = 'sole'; continue; }
+    if (!g) {
+      m._codingVariant = 'sole';
+      continue;
+    }
     // a group that can name only one variant has nothing to resolve
-    if (amb && !amb[g]) { m._codingVariant = 'sole'; continue; }
+    if (amb && !amb[g]) {
+      m._codingVariant = 'sole';
+      continue;
+    }
     if (!cache.has(g)) {
       let v = null;
-      try { v = await webResolveVariant(g); } catch { v = null; }
+      try {
+        v = await webResolveVariant(g);
+      } catch {
+        v = null;
+      }
       cache.set(g, v);
     }
     const via = cache.get(g);
-    if (!via) { m._codingVariant = 'unverified'; continue; }
+    if (!via) {
+      m._codingVariant = 'unverified';
+      continue;
+    }
     if (via === String(m.sgbd).toLowerCase()) {
       m._codingVariant = 'confirmed';
       continue;
@@ -105,9 +128,13 @@ async function codingResolveVariants(mods) {
     // coding map for it -- otherwise the module is present but undecodable
     // here, which is a different statement from "wrong map applied".
     const entry = typeof codingFor === 'function' ? await codingFor(via) : null;
-    const daten = !entry && typeof datenFor === 'function'
-      ? await datenFor(via) : null;
-    if (!entry && !daten) { m._codingVariant = 'unbuilt'; m._variantVia = via; continue; }
+    const daten =
+      !entry && typeof datenFor === 'function' ? await datenFor(via) : null;
+    if (!entry && !daten) {
+      m._codingVariant = 'unbuilt';
+      m._variantVia = via;
+      continue;
+    }
     m._variantOf = m.sgbd;
     m.sgbd = via;
     m.kind = entry ? 'values' : 'map';
@@ -131,9 +158,12 @@ async function showCodingHub(chassisId, initialTab) {
   const myToken = () => showCodingHub(chassisId, initialTab);
   lastScreen = myToken;
   const alive = () => lastScreen === myToken;
-  const back = () => (typeof backToModules === 'function'
-    ? backToModules(chassisId)
-    : (typeof showSections === 'function' ? showSections(chassisId) : showChassis()));
+  const back = () =>
+    typeof backToModules === 'function'
+      ? backToModules(chassisId)
+      : typeof showSections === 'function'
+        ? showSections(chassisId)
+        : showChassis();
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(chassisId), fn: back },
@@ -144,9 +174,12 @@ async function showCodingHub(chassisId, initialTab) {
   const curated = typeof hasCurated === 'function' && hasCurated(chassisId);
   let tab = initialTab || (curated ? 'features' : 'expert');
 
-  view.innerHTML = head('Coding', dispChassis(chassisId),
-    'Change how the car is configured. Nothing is sent — changes are staged '
-    + 'for review.');
+  view.innerHTML = head(
+    'Coding',
+    dispChassis(chassisId),
+    'Change how the car is configured. Nothing is sent — changes are staged ' +
+      'for review.'
+  );
 
   // A CABLE IS REQUIRED TO CODE. Every toggle here is the car's current
   // setting, and a change is staged as a delta against it. With nothing
@@ -155,21 +188,32 @@ async function showCodingHub(chassisId, initialTab) {
   // Demo mode is exempt: it says outright that its values are simulated.
   if (!(typeof demoMode === 'function' && demoMode())) {
     let port = null;
-    try { ({ port } = await api('/api/port')); } catch { /* treated as none */ }
+    try {
+      ({ port } = await api('/api/port'));
+    } catch {
+      /* treated as none */
+    }
     if (!port) {
       const need = document.createElement('div');
       need.className = 'empty';
       need.innerHTML =
-        `<div class="empty-big" style="color:var(--amber)">Connect a cable to code</div>`
-        + `<div>Coding shows what the car is set to now, and stages changes `
-        + `against it. With nothing connected there is nothing to read.</div>`
-        + `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">`
-        + `Showing defaults here would look like the car’s own settings. `
-        + `Connect the adapter and open Coding again, or turn on Demo mode to `
-        + `explore the screens with simulated values.</div>`;
+        `<div class="empty-big" style="color:var(--amber)">Connect a cable to code</div>` +
+        `<div>Coding shows what the car is set to now, and stages changes ` +
+        `against it. With nothing connected there is nothing to read.</div>` +
+        `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">` +
+        `Showing defaults here would look like the car’s own settings. ` +
+        `Connect the adapter and open Coding again, or turn on Demo mode to ` +
+        `explore the screens with simulated values.</div>`;
       view.appendChild(need);
-      setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                    kind: 'back', fn: back }]);
+      setActions([
+        {
+          key: 'Escape',
+          keyLabel: 'Esc',
+          label: 'Back',
+          kind: 'back',
+          fn: back,
+        },
+      ]);
       sbLeft.textContent = 'coding needs a cable';
       return;
     }
@@ -183,14 +227,15 @@ async function showCodingHub(chassisId, initialTab) {
   // a progress bar arriving after the toggles.
   const loadHost = document.createElement('div');
   view.appendChild(loadHost);
-  const scanShell = (title, sub) => `<div class="coding-scan">`
-    + `<div class="coding-scan-title">${esc(title)}</div>`
-    + `<div class="coding-scan-bar coding-scan-indef"><span></span></div>`
-    + `<div class="coding-scan-mod mono">${esc(sub || '')}</div></div>`;
-  loadHost.innerHTML = scanShell('Reading the car…',
-    'identifying equipment…');
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                kind: 'back', fn: back }]);
+  const scanShell = (title, sub) =>
+    `<div class="coding-scan">` +
+    `<div class="coding-scan-title">${esc(title)}</div>` +
+    `<div class="coding-scan-bar coding-scan-indef"><span></span></div>` +
+    `<div class="coding-scan-mod mono">${esc(sub || '')}</div></div>`;
+  loadHost.innerHTML = scanShell('Reading the car…', 'identifying equipment…');
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
+  ]);
 
   // THE CAR'S EQUIPMENT FIRST, THEN THE MODULES.
   //
@@ -202,21 +247,25 @@ async function showCodingHub(chassisId, initialTab) {
   // A car that will not say is not a failure: with no codes the config's own
   // module names stand, exactly as before.
   const saCodes = await readVehicleSaCodes(chassisId);
-  if (!alive()) return;                       // backed out during identify
+  if (!alive()) return; // backed out during identify
 
   // Read the whole car up front so both tabs' toggles start at the car's
   // current values without per-module Read buttons. The scan paints its
   // determinate progress into the SAME host, so the bar continues from the
   // indeterminate identify phase with no flash of empty page between.
   let scan = await scanCoding(chassisId, loadHost, saCodes);
-  if (!alive()) { loadHost.remove(); return; }   // backed out mid-scan
+  if (!alive()) {
+    loadHost.remove();
+    return;
+  } // backed out mid-scan
   loadHost.remove();
 
   const tabs = document.createElement('div');
   tabs.className = 'coding-tabs';
   tabs.innerHTML =
-    (curated ? `<button class="coding-tab" data-tab="features">Features</button>` : '')
-    + `<button class="coding-tab" data-tab="expert">Expert</button>`;
+    (curated
+      ? `<button class="coding-tab" data-tab="features">Features</button>`
+      : '') + `<button class="coding-tab" data-tab="expert">Expert</button>`;
   view.appendChild(tabs);
   const panel = document.createElement('div');
   panel.className = 'coding-panel';
@@ -227,9 +276,13 @@ async function showCodingHub(chassisId, initialTab) {
   const reScan = async () => {
     const host = document.createElement('div');
     panel.replaceWith(host);
-    host.id = 'coding-panel'; host.className = 'coding-panel';
+    host.id = 'coding-panel';
+    host.className = 'coding-panel';
     scan = await scanCoding(chassisId, host, saCodes);
-    if (!alive()) { host.remove(); return; }
+    if (!alive()) {
+      host.remove();
+      return;
+    }
     host.replaceWith(panel);
     panel.innerHTML = '';
     select(tab);
@@ -237,16 +290,18 @@ async function showCodingHub(chassisId, initialTab) {
 
   const select = (t) => {
     tab = t;
-    tabs.querySelectorAll('.coding-tab').forEach(b =>
-      b.classList.toggle('active', b.dataset.tab === t));
+    tabs
+      .querySelectorAll('.coding-tab')
+      .forEach((b) => b.classList.toggle('active', b.dataset.tab === t));
     if (t === 'features' && typeof showCuratedCoding === 'function') {
       showCuratedCoding(chassisId, panel, back, scan, reScan);
     } else {
       showExpertCoding(chassisId, panel, back, scan, reScan);
     }
   };
-  tabs.querySelectorAll('.coding-tab').forEach(b =>
-    b.onclick = () => select(b.dataset.tab));
+  tabs
+    .querySelectorAll('.coding-tab')
+    .forEach((b) => (b.onclick = () => select(b.dataset.tab)));
   select(tab);
 }
 
@@ -260,7 +315,7 @@ async function showCodingHub(chassisId, initialTab) {
 // editable, and has to say so.
 function codingDecoded(entry, got) {
   if (!got || !got.size) return 0;
-  const names = new Set((entry && entry.fields || []).map((f) => f.name));
+  const names = new Set(((entry && entry.fields) || []).map((f) => f.name));
   let n = 0;
   for (const k of got.keys()) if (names.has(k)) n++;
   return n;
@@ -279,7 +334,7 @@ function codingDecoded(entry, got) {
 function codingPresent(mods, scan) {
   const status = (scan && scan.status) || new Map();
   if (typeof demoMode === 'function' && demoMode()) return mods;
-  if (!status.size) return mods;         // pre-scan callers: unchanged
+  if (!status.size) return mods; // pre-scan callers: unchanged
   return mods
     .map((m) => ({ ...m, coding: status.get(m.sgbd) || { state: 'silent' } }))
     .filter((m) => m.coding.state === 'ok' || m.coding.state === 'raw');
@@ -297,7 +352,8 @@ function codingPresent(mods, scan) {
 // what the car really has.
 async function scanCoding(chassisId, host, saCodes) {
   const mods = await codingResolveVariants(
-    await codeableModules(chassisId, saCodes));
+    await codeableModules(chassisId, saCodes)
+  );
   const cache = new Map();
   const status = new Map();
   cache.status = status;
@@ -306,27 +362,29 @@ async function scanCoding(chassisId, host, saCodes) {
   cache.mods = mods;
   const total = mods.length;
   const paint = (done, name) => {
-    host.innerHTML = `<div class="coding-scan">`
-      + `<div class="coding-scan-title">Reading the car…</div>`
-      + `<div class="coding-scan-bar"><span style="width:`
-      + `${Math.round(100 * done / Math.max(1, total))}%"></span></div>`
-      + `<div class="coding-scan-mod mono">${esc(name || '')}`
-      + ` · ${done}/${total} modules</div></div>`;
+    host.innerHTML =
+      `<div class="coding-scan">` +
+      `<div class="coding-scan-title">Reading the car…</div>` +
+      `<div class="coding-scan-bar"><span style="width:` +
+      `${Math.round((100 * done) / Math.max(1, total))}%"></span></div>` +
+      `<div class="coding-scan-mod mono">${esc(name || '')}` +
+      ` · ${done}/${total} modules</div></div>`;
   };
   paint(0, '');
   for (let i = 0; i < mods.length; i++) {
     const m = mods[i];
     paint(i, m.label);
-    const entry = typeof codingFor === 'function'
-      ? await codingFor(m.sgbd) : null;
+    const entry =
+      typeof codingFor === 'function' ? await codingFor(m.sgbd) : null;
     if (!entry || !entry.read) {
       // described by DATEN only: nothing to read, so nothing to stage against
       status.set(m.sgbd, { state: 'noread' });
       continue;
     }
     try {
-      const d = await api(`/api/ecu/${m.sgbd}/run/${entry.read}`,
-                          { method: 'POST' });
+      const d = await api(`/api/ecu/${m.sgbd}/run/${entry.read}`, {
+        method: 'POST',
+      });
       const got = new Map(flatResults(d.sets));
       // THE CODING INDEX, WHICH THE READ JOB USUALLY DOES NOT RETURN.
       // Only 3 of 29 coding modules name it in their own read; ZKE5's
@@ -344,13 +402,16 @@ async function scanCoding(chassisId, host, saCodes) {
           try {
             const names = await codingJobNames(m.sgbd);
             if (!names.includes(j)) continue;
-            const idr = await api(`/api/ecu/${m.sgbd}/run/${j}`,
-                                  { method: 'POST' });
+            const idr = await api(`/api/ecu/${m.sgbd}/run/${j}`, {
+              method: 'POST',
+            });
             for (const [k, v] of flatResults(idr.sets)) {
               if (CI_RESULTS.includes(k) && !got.has(k)) got.set(k, v);
             }
             if (CI_RESULTS.some((k) => got.has(k))) break;
-          } catch { /* no index from this job: try the next */ }
+          } catch {
+            /* no index from this job: try the next */
+          }
         }
       }
       const n = codingDecoded(entry, got);
@@ -367,7 +428,10 @@ async function scanCoding(chassisId, host, saCodes) {
       // not have (the E46 map lists SMG2, RDC, DWA, mirror memory... for cars
       // that carry them); it can also be one that is asleep or on another bus,
       // which is why this is recorded rather than assumed to mean "not fitted".
-      status.set(m.sgbd, { state: 'silent', error: String(e && e.message || e) });
+      status.set(m.sgbd, {
+        state: 'silent',
+        error: String((e && e.message) || e),
+      });
     }
   }
   paint(total, '');
@@ -378,15 +442,14 @@ async function scanCoding(chassisId, host, saCodes) {
 // from the SAME source (DATEN description fused with the scan's current
 // values) so a module reads identically on either.
 async function showExpertCoding(chassisId, cont, back, scan, reScan) {
-  const mobile = window.matchMedia
-    && window.matchMedia('(max-width: 760px)').matches;
+  const mobile =
+    window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
   // THE SAME LIST THE SCAN READ. This used to call codeableModules without
   // saCodes, so the expert tab built its tree from the UNSELECTED names while
   // the scan had read the selected ones -- the two disagreed about which
   // variant a slot holds. Take the scan's own modules, which are also the
   // ones codingResolveVariants retargeted.
-  const all = (scan && scan.mods)
-    || await codeableModules(chassisId);
+  const all = (scan && scan.mods) || (await codeableModules(chassisId));
   if (!all.length) {
     cont.innerHTML = errorBlock('No codeable modules on this chassis.');
     return;
@@ -399,8 +462,9 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
   const mods = codingPresent(all, scan);
   if (!mods.length) {
     cont.innerHTML = errorBlock(
-      'No module answered a coding read. Check the cable and ignition '
-      + '(engine off, key on), then re-read.');
+      'No module answered a coding read. Check the cable and ignition ' +
+        '(engine off, key on), then re-read.'
+    );
     return;
   }
   if (mobile) expertModuleList(chassisId, mods, cont, back, scan, reScan);
@@ -414,8 +478,13 @@ async function showExpertCoding(chassisId, cont, back, scan, reScan) {
 // The result names that carry a coding index, in the order
 // codingIndexFromScan reads them. Declared once so the scan can ask "did the
 // read already give me one?" with the same vocabulary.
-const CI_RESULTS = ['ID_COD_INDEX', 'CODIER_INDEX', 'CODIERINDEX',
-                    'COD_INDEX', 'ID_CODIERINDEX'];
+const CI_RESULTS = [
+  'ID_COD_INDEX',
+  'CODIER_INDEX',
+  'CODIERINDEX',
+  'COD_INDEX',
+  'ID_CODIERINDEX',
+];
 
 // Job names one SGBD declares, cached per session. Used only to avoid running
 // a job the module does not have -- a 404 there is noise, not information.
@@ -423,11 +492,17 @@ const _codJobNames = new Map();
 function codingJobNames(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!_codJobNames.has(key)) {
-    _codJobNames.set(key, api(`/api/ecu/${key}/jobs`).then((j) => {
-      const list = Array.isArray(j) ? j : (j && j.jobs) || [];
-      return list.map((x) => (typeof x === 'string' ? x : x && x.name))
-        .filter(Boolean);
-    }).catch(() => []));
+    _codJobNames.set(
+      key,
+      api(`/api/ecu/${key}/jobs`)
+        .then((j) => {
+          const list = Array.isArray(j) ? j : (j && j.jobs) || [];
+          return list
+            .map((x) => (typeof x === 'string' ? x : x && x.name))
+            .filter(Boolean);
+        })
+        .catch(() => [])
+    );
   }
   return _codJobNames.get(key);
 }
@@ -435,8 +510,13 @@ function codingJobNames(sgbd) {
 function codingIndexFromScan(scan, sgbd) {
   const res = scan && scan.get(String(sgbd).toLowerCase());
   if (!res) return null;
-  for (const k of ['ID_COD_INDEX', 'CODIER_INDEX', 'CODIERINDEX',
-                   'COD_INDEX', 'ID_CODIERINDEX']) {
+  for (const k of [
+    'ID_COD_INDEX',
+    'CODIER_INDEX',
+    'CODIERINDEX',
+    'COD_INDEX',
+    'ID_CODIERINDEX',
+  ]) {
     if (res.has(k)) {
       const n = parseInt(String(res.get(k)).replace(/^0x/i, ''), 16);
       if (Number.isFinite(n)) return n;
@@ -447,10 +527,12 @@ function codingIndexFromScan(scan, sgbd) {
 
 // A variant key ("C06", or a folded "C06+C07") contains coding index n?
 function variantHasCI(key, n) {
-  return String(key).split('+').some(k => {
-    const m = /C0*(\d+)/i.exec(k);
-    return m && parseInt(m[1], 10) === n;
-  });
+  return String(key)
+    .split('+')
+    .some((k) => {
+      const m = /C0*(\d+)/i.exec(k);
+      return m && parseInt(m[1], 10) === n;
+    });
 }
 
 // BMW's name for a coding block, e.g. block 12288 of alc_ds2 ->
@@ -470,7 +552,7 @@ function blockName(sgbd, block) {
   const entry = map && map[String(sgbd).toLowerCase()];
   const raw = entry && entry.blocks && entry.blocks[String(block)];
   const out = raw
-    ? { name: raw, en: (typeof datI18n === 'function' ? datI18n(raw) : '') }
+    ? { name: raw, en: typeof datI18n === 'function' ? datI18n(raw) : '' }
     : null;
   _blockNameCache.set(key, out);
   return out;
@@ -519,10 +601,14 @@ async function filterModulesByFa(chassisId, mods, saCodes) {
   return mods;
 
   /* eslint-disable no-unreachable */
-  if (!saCodes || !saCodes.length) return mods;          // nothing to test against
-  if (typeof loadSget !== 'function'
-      || typeof CodingAuftrag === 'undefined') return mods;
-  try { await loadSget(); } catch { return mods; }
+  if (!saCodes || !saCodes.length) return mods; // nothing to test against
+  if (typeof loadSget !== 'function' || typeof CodingAuftrag === 'undefined')
+    return mods;
+  try {
+    await loadSget();
+  } catch {
+    return mods;
+  }
   const all = (typeof window !== 'undefined' && window.BMW_SGET) || null;
   const ch = all && all[String(chassisId || '').toUpperCase()];
   if (!ch || !ch.rows || !ch.rows.length) return mods;
@@ -538,7 +624,7 @@ async function filterModulesByFa(chassisId, mods, saCodes) {
 
   return mods.filter((m) => {
     const rows = bySgbd.get(String(m.sgbd || '').toLowerCase());
-    if (!rows || !rows.length) return true;     // not in SGET: fail open
+    if (!rows || !rows.length) return true; // not in SGET: fail open
     // ANY row passing means the car can carry this module (rows are per
     // coding index / build variant, and only one needs to apply).
     return rows.some((r) => {
@@ -547,7 +633,7 @@ async function filterModulesByFa(chassisId, mods, saCodes) {
         const bytes = r.exprHex.match(/../g).map((h) => parseInt(h, 16));
         return CodingAuftrag.matchesAuftrag(bytes, saCodes);
       } catch {
-        return true;                            // unreadable predicate: fail open
+        return true; // unreadable predicate: fail open
       }
     });
   });
@@ -568,15 +654,20 @@ async function filterModulesByFa(chassisId, mods, saCodes) {
 // treat an empty list as "nothing known", which leaves the configured module
 // names in place rather than selecting on a guess.
 async function readVehicleSaCodes(chassisId) {
-  if (typeof showVehicleIdentity !== 'function'
-      || typeof VehicleIdentity === 'undefined') return [];
+  if (
+    typeof showVehicleIdentity !== 'function' ||
+    typeof VehicleIdentity === 'undefined'
+  )
+    return [];
   // Demo mode has no car to ask, and inventing an equipment list there would
   // silently re-point modules against codes nothing measured.
   if (typeof demoMode === 'function' && demoMode()) return [];
   try {
     const got = await readIdentityCodes(chassisId);
     return (got && got.codes) || [];
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
 // Extract SA codes from scan results for FA/ZCS filtering. Looks for ZCS
@@ -599,8 +690,11 @@ function extractSaCodesFromScan(scan) {
         const body = val.length >= 16 ? val.slice(0, 16) : null;
         // an all-FF / all-00 body is an erased or "no special equipment" key,
         // not a bitfield -- decoding it would invent ~60 phantom SA codes
-        if (body && /^[0-9A-F]{16}$/i.test(body)
-            && !CodingZcs.isBlankKeyBody(body)) {
+        if (
+          body &&
+          /^[0-9A-F]{16}$/i.test(body) &&
+          !CodingZcs.isBlankKeyBody(body)
+        ) {
           return CodingZcs.extractSaCodes(body);
         }
       }
@@ -621,17 +715,17 @@ function extractSaCodesFromScan(scan) {
 async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
   const daten = typeof datenFor === 'function' ? await datenFor(sgbd) : null;
   const byKey = new Map();
-  let resolved = false;    // did ci pick exactly the variants carrying it?
-  let variants = [];       // which variant keys the fields came from
+  let resolved = false; // did ci pick exactly the variants carrying it?
+  let variants = []; // which variant keys the fields came from
 
   if (daten) {
     const chId = String(chassisId || '').toUpperCase();
-    const chassis = daten.chassis[chId]
-      || daten.chassis[Object.keys(daten.chassis)[0]];
+    const chassis =
+      daten.chassis[chId] || daten.chassis[Object.keys(daten.chassis)[0]];
     if (chassis) {
       const keys = Object.keys(chassis);
-      const pick = (ci != null) ? keys.filter(k => variantHasCI(k, ci)) : [];
-      const use = pick.length ? pick : keys;   // matched index, else all
+      const pick = ci != null ? keys.filter((k) => variantHasCI(k, ci)) : [];
+      const use = pick.length ? pick : keys; // matched index, else all
       // Did the coding index actually resolve to ONE stamp? Only then are the
       // addresses below provably this ECU's. codingIsResolved is what the
       // write path gates on -- see assertResolvedForWrite().
@@ -660,7 +754,7 @@ async function moduleFunctions(chassisId, sgbd, ci = null, saCodes = null) {
 
   // Apply FA/ZCS filtering if we have SA codes
   if (saCodes && typeof CodingZcs !== 'undefined' && CodingZcs.matchesAsw) {
-    fns = fns.filter(f => CodingZcs.matchesAsw(f, saCodes));
+    fns = fns.filter((f) => CodingZcs.matchesAsw(f, saCodes));
   }
 
   // Carry HOW this list was resolved alongside it. Non-enumerable so the
@@ -688,23 +782,25 @@ function assertResolvedForWrite(sgbd, fns, mod) {
   // chose. codingResolveVariants asks the group; if it could not, refuse.
   if (mod && ['unverified', 'unbuilt'].includes(mod._codingVariant)) {
     throw new Error(
-      `refusing to write ${sgbd}: nothing confirmed this is the variant `
-      + `fitted. ${mod.label || sgbd} shares diagnostic address `
-      + `${mod.group || '?'} with other modules, and a coding write is a `
-      + `delta against the layout of whichever one answers. Reconnect and `
-      + `re-read so the address group can identify itself.`);
+      `refusing to write ${sgbd}: nothing confirmed this is the variant ` +
+        `fitted. ${mod.label || sgbd} shares diagnostic address ` +
+        `${mod.group || '?'} with other modules, and a coding write is a ` +
+        `delta against the layout of whichever one answers. Reconnect and ` +
+        `re-read so the address group can identify itself.`
+    );
   }
   if (fns && fns.codingIsResolved) return;
   const ci = fns ? fns.codingIndex : null;
   const vs = (fns && fns.codingVariants) || [];
   throw new Error(
-    `refusing to write ${sgbd}: coding index unresolved`
-    + (ci == null
+    `refusing to write ${sgbd}: coding index unresolved` +
+      (ci == null
         ? ' (the scan did not report one)'
-        : ` (C${String(ci).padStart(2, '0')} matches no shipped variant)`)
-    + (vs.length > 1 ? `; showing a union of ${vs.join(', ')}` : '')
-    + '. Addresses move between coding indices, so this view is a reference '
-    + 'only -- re-scan with the ECU connected to resolve its index.');
+        : ` (C${String(ci).padStart(2, '0')} matches no shipped variant)`) +
+      (vs.length > 1 ? `; showing a union of ${vs.join(', ')}` : '') +
+      '. Addresses move between coding indices, so this view is a reference ' +
+      'only -- re-scan with the ECU connected to resolve its index.'
+  );
 }
 
 // Seed per-function state {current, staged} for one module's functions from
@@ -724,7 +820,8 @@ function seedState(state, sgbd, fns, read) {
     let cur = read ? treeMatchRead(f.name, opts, read) : null;
     if (cur == null && numeric && read) {
       // a numeric field accepts ANY byte the read names, not just shipped ones
-      const num = typeof codMatchRead === 'function' ? codMatchRead(f.name, read) : null;
+      const num =
+        typeof codMatchRead === 'function' ? codMatchRead(f.name, read) : null;
       const w = String(vals[0][1]).length;
       if (num != null && num >= 0 && num <= parseInt('f'.repeat(w), 16)) {
         cur = num.toString(16).padStart(w, '0');
@@ -736,7 +833,7 @@ function seedState(state, sgbd, fns, read) {
         for (const c of f.name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
         cur = opts[h % opts.length][1];
       } else {
-        cur = String(vals[0][1]).toLowerCase();   // the factory default
+        cur = String(vals[0][1]).toLowerCase(); // the factory default
       }
     }
     state.set(fkey, { current: cur, staged: null });
@@ -745,9 +842,11 @@ function seedState(state, sgbd, fns, read) {
 
 // all-numeric-named, byte-sized values: the shape that takes free entry
 function treeNumericField(vals) {
-  return vals.length > 0
-    && vals.every(([n]) => treeIsNumericName(n))
-    && vals.every(([, v]) => typeof v === 'string' && v.length <= 4);
+  return (
+    vals.length > 0 &&
+    vals.every(([n]) => treeIsNumericName(n)) &&
+    vals.every(([, v]) => typeof v === 'string' && v.length <= 4)
+  );
 }
 
 // the ✎ chip tapped: prompt for a value (decimal, or 0x.. hex), bound it by
@@ -758,9 +857,12 @@ function treeEditPrompt(opt, s, draw) {
   const w = parseInt(opt.dataset.w || '2', 10);
   inputDialog({
     title: 'Set value',
-    body: `Any value 0–${max} can be staged. Only values BMW shipped are `
-      + `proven on real cars — a hand-typed one is on you.`,
-    kind: 'text', example: String(max), confirmLabel: 'Stage',
+    body:
+      `Any value 0–${max} can be staged. Only values BMW shipped are ` +
+      `proven on real cars — a hand-typed one is on you.`,
+    kind: 'text',
+    example: String(max),
+    confirmLabel: 'Stage',
   }).then((val) => {
     if (val == null || String(val).trim() === '') return;
     const t = String(val).trim().toLowerCase();
@@ -781,18 +883,31 @@ function expertModuleList(chassisId, mods, cont, back, scan, reScan) {
   const list = cont.querySelector('#exp-list');
   mods.forEach((m) => {
     const row = document.createElement('button');
-    row.className = 'cur-row exp-row'; row.type = 'button';
-    row.innerHTML = `<span class="cur-label">${esc(m.label)}`
-      + `<span class="exp-sgbd mono">${esc(m.sgbd)}.prg</span></span>`
-      + `<span class="exp-arrow">›</span>`;
+    row.className = 'cur-row exp-row';
+    row.type = 'button';
+    row.innerHTML =
+      `<span class="cur-label">${esc(m.label)}` +
+      `<span class="exp-sgbd mono">${esc(m.sgbd)}.prg</span></span>` +
+      `<span class="exp-arrow">›</span>`;
     row.onclick = () => expertModuleScreen(chassisId, m, back, scan);
     list.appendChild(row);
   });
   const acts = [];
-  if (reScan) acts.push({ key: '1', keyLabel: 'F1', kind: 'navAction',
-    label: 'Re-read', fn: reScan });
-  acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-              fn: back });
+  if (reScan)
+    acts.push({
+      key: '1',
+      keyLabel: 'F1',
+      kind: 'navAction',
+      label: 'Re-read',
+      fn: reScan,
+    });
+  acts.push({
+    key: 'Escape',
+    keyLabel: 'Esc',
+    label: 'Back',
+    kind: 'back',
+    fn: back,
+  });
   setActions(acts);
 }
 
@@ -815,21 +930,22 @@ async function expertModuleScreen(chassisId, m, back, scan) {
 
   const ci = codingIndexFromScan(scan, m.sgbd);
   const fns = await moduleFunctions(chassisId, m.sgbd, ci);
-  const label = (name) => (typeof datLabel === 'function' ? datLabel(name) : name);
+  const label = (name) =>
+    typeof datLabel === 'function' ? datLabel(name) : name;
   const state = new Map();
   const read = scan && scan.get(m.sgbd);
   seedState(state, m.sgbd, fns, read);
 
   // only functions that are a real multiple-choice show as editable groups;
   // the rest (numeric fields, buffers, defaults) render as static reference.
-  const rows = fns.filter(f => (f.values || []).length);
+  const rows = fns.filter((f) => (f.values || []).length);
   if (!rows.length) {
     host.innerHTML = errorBlock('No coding functions in this module.');
     return;
   }
 
   const stagedCount = () =>
-    [...state.values()].filter(s => s.staged != null).length;
+    [...state.values()].filter((s) => s.staged != null).length;
 
   // expanded functions, preserved across the redraw a value tap triggers.
   // Start collapsed: the list opens as a scannable index of function names.
@@ -842,16 +958,21 @@ async function expertModuleScreen(chassisId, m, back, scan) {
       const fkey = `${m.sgbd}:${f.name}`;
       const valsHtml = treeValues(f.values || [], label, fkey, state, f);
       const fl = document.createElement('details');
-      fl.className = 'tree-fn'; fl.dataset.fkey = fkey;
+      fl.className = 'tree-fn';
+      fl.dataset.fkey = fkey;
       fl.open = openFns.has(fkey);
-      fl.ontoggle = () => fl.open ? openFns.add(fkey) : openFns.delete(fkey);
-      fl.innerHTML = `<summary class="tree-fn-h">`
-        + `<span class="tree-name">${esc(label(f.name))}`
-        + `${state.has(fkey) && state.get(fkey).staged != null
-            ? '<span class="tree-staged-dot"></span>' : ''}</span>`
-        + `<span class="tree-key mono">blk ${f.block} · byte ${f.byte} · `
-        + `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>`
-        + `<div class="tree-vals">${valsHtml}</div>`;
+      fl.ontoggle = () => (fl.open ? openFns.add(fkey) : openFns.delete(fkey));
+      fl.innerHTML =
+        `<summary class="tree-fn-h">` +
+        `<span class="tree-name">${esc(label(f.name))}` +
+        `${
+          state.has(fkey) && state.get(fkey).staged != null
+            ? '<span class="tree-staged-dot"></span>'
+            : ''
+        }</span>` +
+        `<span class="tree-key mono">blk ${f.block} · byte ${f.byte} · ` +
+        `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>` +
+        `<div class="tree-vals">${valsHtml}</div>`;
       tree.appendChild(fl);
     }
     updateBar();
@@ -864,10 +985,13 @@ async function expertModuleScreen(chassisId, m, back, scan) {
     const fkey = wrap && wrap.dataset.fkey;
     const s = fkey && state.get(fkey);
     if (!s) return;
-    if (opt.dataset.edit != null) { treeEditPrompt(opt, s, draw); return; }
+    if (opt.dataset.edit != null) {
+      treeEditPrompt(opt, s, draw);
+      return;
+    }
     const v = opt.dataset.v;
-    s.staged = (String(v).toLowerCase() === String(s.current).toLowerCase())
-      ? null : v;
+    s.staged =
+      String(v).toLowerCase() === String(s.current).toLowerCase() ? null : v;
     draw();
   });
 
@@ -878,16 +1002,33 @@ async function expertModuleScreen(chassisId, m, back, scan) {
     const n = stagedCount();
     const acts = [];
     if (n) {
-      acts.push({ key: '2', keyLabel: 'F2', kind: 'navAction',
-        label: `Apply (${n})`, fn: () => treeReview(built, state, label) });
-      acts.push({ key: '3', keyLabel: 'F3', label: 'Discard',
-        fn: () => { for (const s of state.values()) s.staged = null; draw(); } });
+      acts.push({
+        key: '2',
+        keyLabel: 'F2',
+        kind: 'navAction',
+        label: `Apply (${n})`,
+        fn: () => treeReview(built, state, label),
+      });
+      acts.push({
+        key: '3',
+        keyLabel: 'F3',
+        label: 'Discard',
+        fn: () => {
+          for (const s of state.values()) s.staged = null;
+          draw();
+        },
+      });
     }
-    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: reopen });
+    acts.push({
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: reopen,
+    });
     setActions(acts);
-    sbLeft.textContent = `${dispChassis(chassisId)} · ${m.label}`
-      + `${n ? ` · ${n} staged` : ''}`;
+    sbLeft.textContent =
+      `${dispChassis(chassisId)} · ${m.label}` + `${n ? ` · ${n} staged` : ''}`;
   };
 
   draw();
@@ -896,8 +1037,11 @@ async function expertModuleScreen(chassisId, m, back, scan) {
 // A value NAME that is a bare number (or wert_NN) is not a real setting name
 // -- it is a numeric field's raw byte from another variant, not an enum label.
 function treeIsNumericName(n) {
-  return typeof n === 'number'
-    || /^-?\d+$/.test(String(n)) || /^wert_\d+$/i.test(String(n));
+  return (
+    typeof n === 'number' ||
+    /^-?\d+$/.test(String(n)) ||
+    /^wert_\d+$/i.test(String(n))
+  );
 }
 
 // The pickable options of a function: [[name, hexValue], ...] excluding
@@ -938,7 +1082,7 @@ function treeOptions(vals) {
     for (const [, v] of vals) seen.set(String(v).toLowerCase(), true);
     if (seen.size < 2) return [];
     return [...seen.keys()]
-      .map(v => [String(parseInt(v, 16)), v, true])
+      .map((v) => [String(parseInt(v, 16)), v, true])
       .sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
   }
 
@@ -957,10 +1101,10 @@ function treeOptions(vals) {
       out.push([String(parseInt(key, 16)), key, true]);
       continue;
     }
-    const dedupe = n + '\u0000' + key;         // identical row twice: once
+    const dedupe = n + '\u0000' + key; // identical row twice: once
     if (emitted.has(dedupe)) continue;
     emitted.add(dedupe);
-    out.push([String(n), key]);                 // label(): keeps translation
+    out.push([String(n), key]); // label(): keeps translation
   }
   if (out.length < 2) return [];
   if (anyNumeric) out.sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
@@ -972,7 +1116,8 @@ function treeOptions(vals) {
 // the answer to one of the function's known option hex values. Returns the
 // matched hex value string, or null.
 function treeMatchRead(kw, opts, read) {
-  const num = typeof codMatchRead === 'function' ? codMatchRead(kw, read) : null;
+  const num =
+    typeof codMatchRead === 'function' ? codMatchRead(kw, read) : null;
   if (num == null) return null;
   const hex = num.toString(16).padStart(2, '0');
   // only accept if it is actually one of this function's options
@@ -989,12 +1134,14 @@ function treeMatchRead(kw, opts, read) {
 function treeFmt(hex, f) {
   const raw = '0x' + hex;
   const u = f && f.unit;
-  if (!u || u === 'h' || (f && f.ops && f.ops.length)) return { text: raw, tip: '' };
+  if (!u || u === 'h' || (f && f.ops && f.ops.length))
+    return { text: raw, tip: '' };
   const n = parseInt(hex, 16);
   if (u === 'd') return { text: String(n), tip: raw };
-  if (u === 'b') return { text: n.toString(2).padStart(hex.length * 4, '0'), tip: raw };
+  if (u === 'b')
+    return { text: n.toString(2).padStart(hex.length * 4, '0'), tip: raw };
   if (u === 'a' || u === 'A') {
-    const ch = (n >= 0x20 && n < 0x7f) ? String.fromCharCode(n) : '.';
+    const ch = n >= 0x20 && n < 0x7f ? String.fromCharCode(n) : '.';
     return { text: `'${ch}'`, tip: raw };
   }
   return { text: raw, tip: '' };
@@ -1009,26 +1156,33 @@ function treeValues(vals, label, fkey, state, f) {
   // shipped default renders as a chip, and the ✎ chip takes any hand-typed
   // byte -- full access, same staging as everything else
   if (!opts.length && numeric && state && state.has(fkey)) {
-    opts = [...new Set(vals.map(([, v]) => String(v).toLowerCase()))]
-      .map(v => [String(parseInt(v, 16)), v, true]);
+    opts = [...new Set(vals.map(([, v]) => String(v).toLowerCase()))].map(
+      (v) => [String(parseInt(v, 16)), v, true]
+    );
   }
   if (opts.length && state && state.has(fkey)) {
-    const s = state.get(fkey);                 // {current, staged}
+    const s = state.get(fkey); // {current, staged}
     const sel = s.staged != null ? s.staged : s.current;
     // a hand-typed value isn't among the shipped chips: show it as one
-    if (numeric && sel
-        && !opts.some(([, v]) => v.toLowerCase() === String(sel).toLowerCase())) {
-      opts = [...opts, [String(parseInt(sel, 16)), String(sel).toLowerCase(), true]]
-        .sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
+    if (
+      numeric &&
+      sel &&
+      !opts.some(([, v]) => v.toLowerCase() === String(sel).toLowerCase())
+    ) {
+      opts = [
+        ...opts,
+        [String(parseInt(sel, 16)), String(sel).toLowerCase(), true],
+      ].sort((a, b) => parseInt(a[1], 16) - parseInt(b[1], 16));
     }
     // DIR "property" fields (VIN, date, keys) are computed/read-only -- no
     // free-entry chip; a raw hand-typed byte would bypass their transform
-    const edit = numeric && f && !f.dir
-      ? `<button class="tree-opt tree-opt-editbtn" data-edit="1" type="button"
-           data-max="${String(vals[0][1]).length > 2 ? 65535 : ((f.mask || 255) >> (f.shift || 0))}"
+    const edit =
+      numeric && f && !f.dir
+        ? `<button class="tree-opt tree-opt-editbtn" data-edit="1" type="button"
+           data-max="${String(vals[0][1]).length > 2 ? 65535 : (f.mask || 255) >> (f.shift || 0)}"
            data-w="${String(vals[0][1]).length}"
            title="Stage any value (expert)">✎ set…</button>`
-      : '';
+        : '';
     // FIRST MATCH WINS. Several options can share a byte -- 4/6/8/12-cylinder
     // gasoline are all 0x0A -- and the ECU only ever tells us the byte, never
     // which of them the installer meant. Marking every match lit four chips
@@ -1045,64 +1199,90 @@ function treeValues(vals, label, fkey, state, f) {
     const selIdx = firstAt(sel);
     const curIdx = firstAt(s.current);
 
-    return `<div class="tree-opts" data-fkey="${esc(fkey)}">`
-      + opts.map(([n, v, final], oi) => {
-        const on = oi === selIdx;
-        const isCur = oi === curIdx;
-        // a numeric chip shows its unit-formatted value; a named option keeps
-        // its label. The mono suffix is the raw byte either way.
-        const { text, tip } = numeric ? treeFmt(v, f) : { text: '0x' + v, tip: '' };
-        const nm = final ? n : (numeric ? text : label(n));
-        return `<button class="tree-opt${on ? ' sel' : ''}" `
-          + `data-v="${esc(v)}" type="button">`
-          + `<span class="tree-opt-n">${esc(nm)}</span>`
-          + `<span class="tree-opt-v mono"${tip ? ` title="${tip}"` : ''}>`
-          + `0x${esc(v)}</span>`
-          + `${isCur ? '<span class="tree-opt-cur">current</span>' : ''}`
-          + `</button>`;
-      }).join('') + edit + `</div>`;
+    return (
+      `<div class="tree-opts" data-fkey="${esc(fkey)}">` +
+      opts
+        .map(([n, v, final], oi) => {
+          const on = oi === selIdx;
+          const isCur = oi === curIdx;
+          // a numeric chip shows its unit-formatted value; a named option keeps
+          // its label. The mono suffix is the raw byte either way.
+          const { text, tip } = numeric
+            ? treeFmt(v, f)
+            : { text: '0x' + v, tip: '' };
+          const nm = final ? n : numeric ? text : label(n);
+          return (
+            `<button class="tree-opt${on ? ' sel' : ''}" ` +
+            `data-v="${esc(v)}" type="button">` +
+            `<span class="tree-opt-n">${esc(nm)}</span>` +
+            `<span class="tree-opt-v mono"${tip ? ` title="${tip}"` : ''}>` +
+            `0x${esc(v)}</span>` +
+            `${isCur ? '<span class="tree-opt-cur">current</span>' : ''}` +
+            `</button>`
+          );
+        })
+        .join('') +
+      edit +
+      `</div>`
+    );
   }
   // ---- static reference (numeric / default / buffer / unread) ----
   const long = vals.filter(([, v]) => typeof v === 'string' && v.length > 4);
   if (long.length === vals.length && vals.length > 1) {
     const bytes = String(vals[0][1]).length / 2;
-    return `<span class="tree-val" title="${esc(
-      vals.map(([n, v]) => `${n}: ${v}`).join('\n'))}">`
-      + `<span class="tree-val-n">${vals.length} variants</span>`
-      + `<span class="tree-val-v mono">${bytes} bytes each</span></span>`;
+    return (
+      `<span class="tree-val" title="${esc(
+        vals.map(([n, v]) => `${n}: ${v}`).join('\n')
+      )}">` +
+      `<span class="tree-val-n">${vals.length} variants</span>` +
+      `<span class="tree-val-v mono">${bytes} bytes each</span></span>`
+    );
   }
   if (vals.every(([n]) => treeIsNumericName(n))) {
     // numeric quantities read in their DATEN unit -- decimal by default (an
     // RPM threshold is 10, not 0x0a), the character for an ASCII field, the
     // raw byte for hex. A DIR property field (VIN/date/key) is read-only.
-    const uniq = [...new Set(vals.map(([, v]) => String(v)))]
-      .sort((a, b) => parseInt(a, 16) - parseInt(b, 16));
-    const tag = (f && f.dir) ? 'property'
-      : uniq.length === 1 ? 'default' : 'value';
-    return `<span class="tree-val"><span class="tree-val-n">${tag}</span>`
-      + uniq.map(v => {
-        const { text, tip } = treeFmt(v, f);
-        return `<span class="tree-val-v mono"${tip ? ` title="${tip}"` : ''}>`
-          + `${esc(text)}</span>`;
-      }).join('')
-      + `</span>`;
+    const uniq = [...new Set(vals.map(([, v]) => String(v)))].sort(
+      (a, b) => parseInt(a, 16) - parseInt(b, 16)
+    );
+    const tag =
+      f && f.dir ? 'property' : uniq.length === 1 ? 'default' : 'value';
+    return (
+      `<span class="tree-val"><span class="tree-val-n">${tag}</span>` +
+      uniq
+        .map((v) => {
+          const { text, tip } = treeFmt(v, f);
+          return (
+            `<span class="tree-val-v mono"${tip ? ` title="${tip}"` : ''}>` +
+            `${esc(text)}</span>`
+          );
+        })
+        .join('') +
+      `</span>`
+    );
   }
   // named options that all hold the SAME byte are one fact, not a choice --
   // two chips read as broken buttons (E46 EWS: gasoline and diesel cut-off
   // time both 0x01), so fold the names into a single reference chip
   const uniqV = [...new Set(vals.map(([, v]) => String(v).toLowerCase()))];
   if (uniqV.length === 1 && vals.length > 1 && String(vals[0][1]).length <= 4) {
-    return `<span class="tree-val">`
-      + `<span class="tree-val-n">${esc(vals.map(([n]) => label(n)).join(' / '))}</span>`
-      + `<span class="tree-val-v mono">0x${esc(vals[0][1])}</span></span>`;
+    return (
+      `<span class="tree-val">` +
+      `<span class="tree-val-n">${esc(vals.map(([n]) => label(n)).join(' / '))}</span>` +
+      `<span class="tree-val-v mono">0x${esc(vals[0][1])}</span></span>`
+    );
   }
-  return vals.map(([n, v]) => {
-    const big = typeof v === 'string' && v.length > 4;
-    return `<span class="tree-val"${big ? ` title="${esc(v)}"` : ''}>`
-      + `<span class="tree-val-n">${esc(label(n))}</span>`
-      + `<span class="tree-val-v mono">`
-      + `${big ? `${String(v).length / 2} bytes` : '0x' + esc(v)}</span></span>`;
-  }).join('');
+  return vals
+    .map(([n, v]) => {
+      const big = typeof v === 'string' && v.length > 4;
+      return (
+        `<span class="tree-val"${big ? ` title="${esc(v)}"` : ''}>` +
+        `<span class="tree-val-n">${esc(label(n))}</span>` +
+        `<span class="tree-val-v mono">` +
+        `${big ? `${String(v).length / 2} bytes` : '0x' + esc(v)}</span></span>`
+      );
+    })
+    .join('');
 }
 
 // DESKTOP: one searchable nested tree, Module > Function > Values, expand in
@@ -1131,8 +1311,12 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   // modules with no functions -- a 0-function row is a dead expand.
   const built = [];
   for (const m of shown) {
-    const fns = await moduleFunctions(chassisId, m.sgbd,
-      codingIndexFromScan(scan, m.sgbd), saCodes);
+    const fns = await moduleFunctions(
+      chassisId,
+      m.sgbd,
+      codingIndexFromScan(scan, m.sgbd),
+      saCodes
+    );
     if (fns.length) built.push({ ...m, fns, chassisId });
   }
 
@@ -1141,17 +1325,18 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   if (hidden > 0) {
     const note = document.createElement('div');
     note.className = 'cod-fa-note';
-    note.innerHTML = `${hidden} module${hidden === 1 ? '' : 's'} hidden — `
-      + `this car's equipment codes say it doesn't have `
-      + `${hidden === 1 ? 'it' : 'them'}. `
-      + `<button class="linklike" id="fa-show-all">Show all</button>`;
+    note.innerHTML =
+      `${hidden} module${hidden === 1 ? '' : 's'} hidden — ` +
+      `this car's equipment codes say it doesn't have ` +
+      `${hidden === 1 ? 'it' : 'them'}. ` +
+      `<button class="linklike" id="fa-show-all">Show all</button>`;
     cont.querySelector('.tree-bar').insertAdjacentElement('afterend', note);
     note.querySelector('#fa-show-all').onclick = () =>
       expertTree(chassisId, mods, cont, back, scan, reScan, true);
   }
 
-  const label = (name) => (typeof datLabel === 'function'
-    ? datLabel(name) : name);
+  const label = (name) =>
+    typeof datLabel === 'function' ? datLabel(name) : name;
 
   // Per-function state: fkey "sgbd:name" -> {current, staged}, seeded from the
   // scan (seedState), so a function shows the same current + options everywhere.
@@ -1165,18 +1350,23 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   const openMods = new Set();
   const openFns = new Set();
   const stagedCount = () =>
-    [...state.values()].filter(s => s.staged != null).length;
+    [...state.values()].filter((s) => s.staged != null).length;
 
   const draw = () => {
     const q = filterEl.value.trim().toLowerCase();
     treeEl.innerHTML = '';
     for (const m of built) {
       const fns = q
-        ? m.fns.filter(f => f.name.toLowerCase().includes(q)
-            || label(f.name).toLowerCase().includes(q))
+        ? m.fns.filter(
+            (f) =>
+              f.name.toLowerCase().includes(q) ||
+              label(f.name).toLowerCase().includes(q)
+          )
         : m.fns;
-      const moduleMatches = !q || m.label.toLowerCase().includes(q)
-        || m.sgbd.toLowerCase().includes(q);
+      const moduleMatches =
+        !q ||
+        m.label.toLowerCase().includes(q) ||
+        m.sgbd.toLowerCase().includes(q);
       if (!fns.length && !moduleMatches) continue;
 
       const node = document.createElement('details');
@@ -1184,18 +1374,20 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
       node.dataset.sgbd = m.sgbd;
       // keep whatever was open across a redraw; a filter also expands hits
       if (q || openMods.has(m.sgbd)) node.open = true;
-      node.ontoggle = () => node.open ? openMods.add(m.sgbd) : openMods.delete(m.sgbd);
+      node.ontoggle = () =>
+        node.open ? openMods.add(m.sgbd) : openMods.delete(m.sgbd);
       const shownFns = fns.length ? fns : m.fns;
-      node.innerHTML = `<summary class="tree-mod-h">`
-        + `<span class="tree-name">${esc(m.label)}</span>`
-        + `<span class="tree-meta mono">${esc(m.sgbd)}.prg · `
-        + `${shownFns.length} function${shownFns.length === 1 ? '' : 's'}</span>`
-        + `</summary>`;
+      node.innerHTML =
+        `<summary class="tree-mod-h">` +
+        `<span class="tree-name">${esc(m.label)}</span>` +
+        `<span class="tree-meta mono">${esc(m.sgbd)}.prg · ` +
+        `${shownFns.length} function${shownFns.length === 1 ? '' : 's'}</span>` +
+        `</summary>`;
       const body = document.createElement('div');
       body.className = 'tree-fns';
       // cap very large modules for performance; a filter reveals the rest
       const cap = q ? shownFns.length : Math.min(shownFns.length, 400);
-      let lastBlock = null;   // emit a group header when the block changes
+      let lastBlock = null; // emit a group header when the block changes
       for (let i = 0; i < cap; i++) {
         const f = shownFns[i];
         // BMW names each coding block ("Grundkonfiguration_ALC-SG"). Heading
@@ -1209,9 +1401,10 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
           if (bn) {
             const h = document.createElement('div');
             h.className = 'tree-blk-h';
-            h.innerHTML = `<span class="tree-blk-key mono">CODING</span>`
-              + `<span class="tree-blk-name">${esc(bn.name)}</span>`
-              + (bn.en ? `<span class="tree-blk-en">${esc(bn.en)}</span>` : '');
+            h.innerHTML =
+              `<span class="tree-blk-key mono">CODING</span>` +
+              `<span class="tree-blk-name">${esc(bn.name)}</span>` +
+              (bn.en ? `<span class="tree-blk-en">${esc(bn.en)}</span>` : '');
             body.appendChild(h);
           }
         }
@@ -1221,14 +1414,19 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
         fl.className = 'tree-fn';
         fl.dataset.fkey = fkey;
         if (openFns.has(fkey)) fl.open = true;
-        fl.ontoggle = () => fl.open ? openFns.add(fkey) : openFns.delete(fkey);
-        fl.innerHTML = `<summary class="tree-fn-h">`
-          + `<span class="tree-name">${esc(label(f.name))}`
-          + `${state.has(fkey) && state.get(fkey).staged != null
-              ? '<span class="tree-staged-dot"></span>' : ''}</span>`
-          + `<span class="tree-key mono">len ${f.byte} · `
-          + `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>`
-          + `<div class="tree-vals">${valsHtml}</div>`;
+        fl.ontoggle = () =>
+          fl.open ? openFns.add(fkey) : openFns.delete(fkey);
+        fl.innerHTML =
+          `<summary class="tree-fn-h">` +
+          `<span class="tree-name">${esc(label(f.name))}` +
+          `${
+            state.has(fkey) && state.get(fkey).staged != null
+              ? '<span class="tree-staged-dot"></span>'
+              : ''
+          }</span>` +
+          `<span class="tree-key mono">len ${f.byte} · ` +
+          `mask 0x${f.mask.toString(16).padStart(2, '0')}</span></summary>` +
+          `<div class="tree-vals">${valsHtml}</div>`;
         body.appendChild(fl);
       }
       if (cap < shownFns.length) {
@@ -1241,8 +1439,9 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
       treeEl.appendChild(node);
     }
     if (!treeEl.children.length) {
-      treeEl.innerHTML = `<div class="empty"><div>Nothing matches `
-        + `“${esc(filterEl.value)}”.</div></div>`;
+      treeEl.innerHTML =
+        `<div class="empty"><div>Nothing matches ` +
+        `“${esc(filterEl.value)}”.</div></div>`;
     }
     updateBar();
   };
@@ -1255,10 +1454,13 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
       const fkey = wrap && wrap.dataset.fkey;
       const s = fkey && state.get(fkey);
       if (!s) return;
-      if (opt.dataset.edit != null) { treeEditPrompt(opt, s, draw); return; }
+      if (opt.dataset.edit != null) {
+        treeEditPrompt(opt, s, draw);
+        return;
+      }
       const v = opt.dataset.v;
-      s.staged = (String(v).toLowerCase()
-        === String(s.current).toLowerCase()) ? null : v;
+      s.staged =
+        String(v).toLowerCase() === String(s.current).toLowerCase() ? null : v;
       draw();
     }
   });
@@ -1267,7 +1469,10 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
     const at = filterEl.selectionStart;
     draw();
     const again = cont.querySelector('#tree-filter');
-    if (again) { again.focus(); again.setSelectionRange(at, at); }
+    if (again) {
+      again.focus();
+      again.setSelectionRange(at, at);
+    }
   };
 
   // the softkey bar reflects the staged count: Review / Discard appear once
@@ -1275,19 +1480,41 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
   const updateBar = () => {
     const n = stagedCount();
     const acts = [];
-    if (reScan) acts.push({ key: '1', keyLabel: 'F1', kind: 'navAction',
-      label: 'Re-read', fn: reScan });
+    if (reScan)
+      acts.push({
+        key: '1',
+        keyLabel: 'F1',
+        kind: 'navAction',
+        label: 'Re-read',
+        fn: reScan,
+      });
     if (n) {
-      acts.push({ key: '2', keyLabel: 'F2', label: `Review (${n})`,
-        fn: () => treeReview(built, state, label) });
-      acts.push({ key: '3', keyLabel: 'F3', label: 'Discard',
-        fn: () => { for (const s of state.values()) s.staged = null; draw(); } });
+      acts.push({
+        key: '2',
+        keyLabel: 'F2',
+        label: `Review (${n})`,
+        fn: () => treeReview(built, state, label),
+      });
+      acts.push({
+        key: '3',
+        keyLabel: 'F3',
+        label: 'Discard',
+        fn: () => {
+          for (const s of state.values()) s.staged = null;
+          draw();
+        },
+      });
     }
-    acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: back });
+    acts.push({
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: back,
+    });
     setActions(acts);
-    sbLeft.textContent = `${dispChassis(chassisId)} · coding`
-      + `${n ? ` · ${n} staged` : ''}`;
+    sbLeft.textContent =
+      `${dispChassis(chassisId)} · coding` + `${n ? ` · ${n} staged` : ''}`;
   };
 
   draw();
@@ -1313,22 +1540,29 @@ async function treeReview(built, state, label) {
     for (const f of m.fns) {
       const s = state.get(`${m.sgbd}:${f.name}`);
       if (!s || s.staged == null) continue;
-      rows.push(codingReviewRow(label(f.name), `${m.sgbd}.prg · ${f.name}`,
-        `0x${s.current}`, `0x${s.staged}`));
+      rows.push(
+        codingReviewRow(
+          label(f.name),
+          `${m.sgbd}.prg · ${f.name}`,
+          `0x${s.current}`,
+          `0x${s.staged}`
+        )
+      );
     }
   }
 
   const demo = typeof demoMode === 'function' && demoMode();
   const foot = demo
-    ? `<b>Demo mode.</b> No car is connected, so "Write" only simulates the `
-      + `coding write — nothing leaves the app and no ECU is touched.`
-    : `<b>Ready to write.</b> This will send the changes to the car's ECUs. `
-      + `Each module is written, then re-read to verify the write succeeded.`;
+    ? `<b>Demo mode.</b> No car is connected, so "Write" only simulates the ` +
+      `coding write — nothing leaves the app and no ECU is touched.`
+    : `<b>Ready to write.</b> This will send the changes to the car's ECUs. ` +
+      `Each module is written, then re-read to verify the write succeeded.`;
 
   const ok = await confirmDialog({
     title: 'Review coding changes',
-    body: `<div class="cod-rev-list">${rows.join('')}</div>`
-      + `<div class="cod-rev-foot">${foot}</div>`,
+    body:
+      `<div class="cod-rev-list">${rows.join('')}</div>` +
+      `<div class="cod-rev-foot">${foot}</div>`,
     confirmLabel: demo ? 'Write (demo)' : 'Write to car',
     cancelLabel: 'Cancel',
     danger: !demo,
@@ -1339,7 +1573,7 @@ async function treeReview(built, state, label) {
   // Execute writes per module
   const results = [];
   for (const [sgbd, edits] of byMod.entries()) {
-    const mod = built.find(m => m.sgbd === sgbd);
+    const mod = built.find((m) => m.sgbd === sgbd);
     if (!mod) continue;
 
     try {
@@ -1348,15 +1582,19 @@ async function treeReview(built, state, label) {
       assertResolvedForWrite(sgbd, mod.fns, mod);
 
       // Read current netto
-      const entry = typeof codingFor === 'function' ? await codingFor(sgbd) : null;
+      const entry =
+        typeof codingFor === 'function' ? await codingFor(sgbd) : null;
       if (!entry || !entry.read) {
         results.push({ sgbd, ok: false, err: 'No read job defined' });
         continue;
       }
 
-      const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, { method: 'POST' });
+      const readRes = await api(`/api/ecu/${sgbd}/run/${entry.read}`, {
+        method: 'POST',
+      });
       const flatRes = new Map(flatResults(readRes.sets));
-      const nettoHex = flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
+      const nettoHex =
+        flatRes.get('COD_WERT_NETTO') || flatRes.get('CODIER_WERT_NETTO');
       if (!nettoHex) {
         results.push({ sgbd, ok: false, err: 'Read did not return netto' });
         continue;
@@ -1369,11 +1607,14 @@ async function treeReview(built, state, label) {
         netto.push(parseInt(hex.substr(i, 2), 16));
       }
 
-      const CodingEncode = typeof window !== 'undefined' && window.CodingEncode
-        ? window.CodingEncode
-        : require('../../core/coding-encode.js');
+      const CodingEncode =
+        typeof window !== 'undefined' && window.CodingEncode
+          ? window.CodingEncode
+          : require('../../core/coding-encode.js');
       const modified = CodingEncode.spliceEdits(new Uint8Array(netto), edits);
-      const modHex = Array.from(modified, b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('');
+      const modHex = Array.from(modified, (b) =>
+        ('0' + (b & 0xff).toString(16)).slice(-2)
+      ).join('');
 
       // Write via webWriteCoding
       if (typeof webWriteCoding !== 'function') {
@@ -1384,13 +1625,14 @@ async function treeReview(built, state, label) {
       // BACKUP BEFORE TRANSMIT. nettoHex is what the ECU holds right now;
       // once the write lands it is unrecoverable. Persist it here, while it
       // still exists. A failure to store is reported, never fatal.
-      const backup = (typeof saveCodingBackup === 'function')
-        ? saveCodingBackup(sgbd, nettoHex, {
-            chassis: mod.chassisId || null,
-            ci: mod.fns ? mod.fns.codingIndex : null,
-            note: 'pre-write (coding)',
-          })
-        : null;
+      const backup =
+        typeof saveCodingBackup === 'function'
+          ? saveCodingBackup(sgbd, nettoHex, {
+              chassis: mod.chassisId || null,
+              ci: mod.fns ? mod.fns.codingIndex : null,
+              note: 'pre-write (coding)',
+            })
+          : null;
 
       await webWriteCoding(sgbd, modHex, { confirmed: true });
       results.push({ sgbd, ok: true, backup: !!backup });
@@ -1403,25 +1645,29 @@ async function treeReview(built, state, label) {
           s.staged = null;
         }
       }
-
     } catch (err) {
       results.push({ sgbd, ok: false, err: String(err.message || err) });
     }
   }
 
   // Show results
-  const allOk = results.every(r => r.ok);
-  const body = results.map(r => {
-    const icon = r.ok ? '✓' : '✗';
-    const msg = r.ok
-      ? (r.backup ? 'Written and verified (previous coding backed up)'
-                  : 'Written and verified — NO BACKUP SAVED')
-      : `Failed: ${r.err}`;
-    return `<div class="cod-result-row">`
-      + `<span class="cod-result-icon ${r.ok ? 'ok' : 'err'}">${icon}</span>`
-      + `<span class="cod-result-sgbd mono">${esc(r.sgbd)}.prg</span>`
-      + `<span class="cod-result-msg">${esc(msg)}</span></div>`;
-  }).join('');
+  const allOk = results.every((r) => r.ok);
+  const body = results
+    .map((r) => {
+      const icon = r.ok ? '✓' : '✗';
+      const msg = r.ok
+        ? r.backup
+          ? 'Written and verified (previous coding backed up)'
+          : 'Written and verified — NO BACKUP SAVED'
+        : `Failed: ${r.err}`;
+      return (
+        `<div class="cod-result-row">` +
+        `<span class="cod-result-icon ${r.ok ? 'ok' : 'err'}">${icon}</span>` +
+        `<span class="cod-result-sgbd mono">${esc(r.sgbd)}.prg</span>` +
+        `<span class="cod-result-msg">${esc(msg)}</span></div>`
+      );
+    })
+    .join('');
 
   await confirmDialog({
     title: allOk ? 'Coding written' : 'Write completed with errors',

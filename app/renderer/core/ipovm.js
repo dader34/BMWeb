@@ -34,7 +34,9 @@
 // {__bound:true, s, slot, key, ...} / {__slot:true, sc, n}. Bare strings/ints
 // stay bare, so `typeof x === 'string'` still tests "a plain literal".
 
-const GLOBAL = 0, LOCAL = 2, LOCAL3 = 3;
+const GLOBAL = 0,
+  LOCAL = 2,
+  LOCAL3 = 3;
 
 class IpoError extends Error {}
 
@@ -42,18 +44,30 @@ class IpoError extends Error {}
 
 // An unset slot: reads as empty text but still names its slot, so a later draw
 // can look up the Result* key bound to it. Mirrors ipo_vm.py's _Slot.
-function mkSlot(sc, n) { return { __slot: true, sc: sc === 2 ? 2 : 0, n }; }
-function isSlot(x) { return x != null && x.__slot === true; }
+function mkSlot(sc, n) {
+  return { __slot: true, sc: sc === 2 ? 2 : 0, n };
+}
+function isSlot(x) {
+  return x != null && x.__slot === true;
+}
 
 // Text that remembers where it came from: `slot` it was built from, `key` a
 // Result* read bound to it, `extra` other keys folded into it, `amap` a lookup
 // table. Mirrors ipo_vm.py's _Bound (which subclasses str). Here it is a box;
 // str(x) is x.s.
 function mkBound(slot, text, key) {
-  return { __bound: true, s: text == null ? '' : String(text),
-           slot: slot || null, key: key || null, extra: [], amap: null };
+  return {
+    __bound: true,
+    s: text == null ? '' : String(text),
+    slot: slot || null,
+    key: key || null,
+    extra: [],
+    amap: null,
+  };
 }
-function isBound(x) { return x != null && x.__bound === true; }
+function isBound(x) {
+  return x != null && x.__bound === true;
+}
 
 // str(x): the display text of any VM value. _Slot -> '', _Bound -> its text.
 function asStr(x) {
@@ -64,7 +78,9 @@ function asStr(x) {
   return String(x);
 }
 // is x a plain string literal (not a _Bound box, not a _Slot)?
-function isPlainStr(x) { return typeof x === 'string'; }
+function isPlainStr(x) {
+  return typeof x === 'string';
+}
 function isPlainInt(x) {
   return typeof x === 'number' && Number.isInteger(x);
 }
@@ -81,8 +97,12 @@ function isRef(x) {
 // An unboxed 120.0 is Number.isInteger-true and would be misread as a col.
 // Pool doubles (tag 'd') are boxed here so the int/float split survives; every
 // numeric helper unwraps them. Mirrors Python's distinct float type.
-function mkFloat(v) { return { __float: true, v }; }
-function isFloat(x) { return x != null && x.__float === true; }
+function mkFloat(v) {
+  return { __float: true, v };
+}
+function isFloat(x) {
+  return x != null && x.__float === true;
+}
 
 class Halt extends Error {}
 
@@ -149,8 +169,11 @@ function binop(name, a, b) {
       // made a live accumulator compute '10'+10='1010' (llerh's setpoint on
       // the second keypress). boundNum keeps the slot and key riding on the
       // numeric result, so draw binding survives the arithmetic.
-      const numish = (x) => typeof x === 'number' || isFloat(x) || isSlot(x)
-        || (isBound(x) && /^-?\d+(\.\d+)?$/.test(String(x.s).trim()));
+      const numish = (x) =>
+        typeof x === 'number' ||
+        isFloat(x) ||
+        isSlot(x) ||
+        (isBound(x) && /^-?\d+(\.\d+)?$/.test(String(x.s).trim()));
       if (numish(a) && numish(b)) return boundNum(num(a) + num(b), a, b);
       // + is BOTH concatenation and arithmetic. A row is often
       // `<bound slot> + " Werte"`; a slot concatenated must keep its identity
@@ -177,28 +200,42 @@ function binop(name, a, b) {
       if (isPlainStr(a) || isPlainStr(b)) return asStr(a) + asStr(b);
       return boundNum(num(a) + num(b), a, b);
     }
-    case 'sub': return boundNum(num(a) - num(b), a, b);
-    case 'mul': return boundNum(num(a) * num(b), a, b);
-    case 'div': return boundNum(num(b) ? num(a) / num(b) : 0, a, b);
-    case 'eq': return cmpEq(a, b);
-    case 'ne': return !cmpEq(a, b);
-    case 'lt': return num(a) < num(b);
-    case 'gt': return num(a) > num(b);
-    case 'le': return num(a) <= num(b);
-    case 'ge': return num(a) >= num(b);
-    case 'and': return truthy(a) && truthy(b);
-    case 'or': return truthy(a) || truthy(b);
+    case 'sub':
+      return boundNum(num(a) - num(b), a, b);
+    case 'mul':
+      return boundNum(num(a) * num(b), a, b);
+    case 'div':
+      return boundNum(num(b) ? num(a) / num(b) : 0, a, b);
+    case 'eq':
+      return cmpEq(a, b);
+    case 'ne':
+      return !cmpEq(a, b);
+    case 'lt':
+      return num(a) < num(b);
+    case 'gt':
+      return num(a) > num(b);
+    case 'le':
+      return num(a) <= num(b);
+    case 'ge':
+      return num(a) >= num(b);
+    case 'and':
+      return truthy(a) && truthy(b);
+    case 'or':
+      return truthy(a) || truthy(b);
     case 'neg': {
       // 0x6d is UNARY MINUS (ipo_disasm ground truth): llerh's "-10" is
       // `const 10; neg`, the clamp bounds are `const 128; neg`. Boolean-not
       // only ever fit guard shapes; a numeric operand negates arithmetically.
       const x = a == null ? b : a;
-      const numish = typeof x === 'number' || isFloat(x)
-        || (isBound(x) && /^-?\d+(\.\d+)?$/.test(String(x.s).trim()));
+      const numish =
+        typeof x === 'number' ||
+        isFloat(x) ||
+        (isBound(x) && /^-?\d+(\.\d+)?$/.test(String(x.s).trim()));
       if (numish) return boundNum(-num(x), x, null);
       return !truthy(x);
     }
-    default: return null;
+    default:
+      return null;
   }
 }
 
@@ -219,38 +256,50 @@ function baseKey(key) {
 // live host would run the job through bestvm and hand back real results; the VM
 // does not know the difference.
 class OkHost {
-  job(_sgbd, _job, _arg, _results) { return {}; }
+  job(_sgbd, _job, _arg, _results) {
+    return {};
+  }
   result(key, opts = {}) {
     if (key === 'JOB_STATUS') return this.status();
     if (opts.integer) return 1;
     return opts.default != null ? opts.default : '';
   }
-  status() { return 'OKAY'; }
-  inputstate() { return 0; }
+  status() {
+    return 'OKAY';
+  }
+  inputstate() {
+    return 0;
+  }
 }
 
 // A host the guided driver FEEDS: resume(resultsMap) lands here, and the
 // machine's INPAapiResult* reads serve from the most recent job's results --
 // including JOB_STATUS, so INPAapiCheckJobStatus sees the wire's own verdict.
 class FeedHost {
-  constructor() { this.map = new Map(); }
+  constructor() {
+    this.map = new Map();
+  }
   feed(m) {
     this.map = m instanceof Map ? m : new Map(Object.entries(m || {}));
   }
-  job(_sgbd, _job, _arg, _results) { return {}; }
+  job(_sgbd, _job, _arg, _results) {
+    return {};
+  }
   result(key, opts = {}) {
     if (key === 'JOB_STATUS') return this.status();
     const v = this.map.get(key);
     if (v == null) {
-      return opts.integer ? 0 : (opts.default != null ? opts.default : '');
+      return opts.integer ? 0 : opts.default != null ? opts.default : '';
     }
-    return opts.integer ? (parseInt(v, 10) || 0) : String(v);
+    return opts.integer ? parseInt(v, 10) || 0 : String(v);
   }
   status() {
     const st = this.map.get('JOB_STATUS');
     return st != null ? String(st) : 'OKAY';
   }
-  inputstate() { return 0; }
+  inputstate() {
+    return 0;
+  }
 }
 
 // The quit-mode confirmation a machine pops after a successful drive:
@@ -262,7 +311,9 @@ class FeedHost {
 function scanQuitBox(toks) {
   if (!Array.isArray(toks)) return null;
   for (let i = 0; i + 4 < toks.length; i++) {
-    const a = toks[i], b = toks[i + 1], c = toks[i + 2];
+    const a = toks[i],
+      b = toks[i + 1],
+      c = toks[i + 2];
     if (a.op !== 'var' || b.op !== 'const' || b.v !== 1) continue;
     if (c.op !== 'binop' || c.name !== 'eq') continue;
     // guarded body within reach: frame, const title, const prefix, ...,
@@ -311,21 +362,29 @@ class Emissions {
 // compared by `eq` feeding a `jfalse`, before the body stores anything), never
 // a global read as real data. Ported from ipo_vm.py _keypress_guards.
 function keypressGuards(toks, start, end) {
-  const guards = new Set(), stored = new Set();
+  const guards = new Set(),
+    stored = new Set();
   const lim = Math.min(end, toks.length);
   for (let k = start; k < lim; k++) {
-    const t = toks[k], op = t.op;
+    const t = toks[k],
+      op = t.op;
     if (op === 'store' && (t.sc == null ? GLOBAL : t.sc) === GLOBAL) {
       stored.add(t.n);
     }
-    if (op === 'var' && (t.sc == null ? GLOBAL : t.sc) === GLOBAL
-        && !stored.has(t.n)) {
+    if (
+      op === 'var' &&
+      (t.sc == null ? GLOBAL : t.sc) === GLOBAL &&
+      !stored.has(t.n)
+    ) {
       const b = k + 1 < end ? toks[k + 1] : {};
       const c = k + 2 < end ? toks[k + 2] : {};
       if (b.op === 'const' && c.op === 'binop' && c.name === 'eq') {
         let gated = false;
         for (let j = k + 3; j < Math.min(k + 6, end); j++) {
-          if (toks[j].op === 'jfalse') { gated = true; break; }
+          if (toks[j].op === 'jfalse') {
+            gated = true;
+            break;
+          }
         }
         if (gated) guards.add(t.n);
       }
@@ -354,12 +413,12 @@ class IpoVm {
     this.onText = typeof opts.onText === 'function' ? opts.onText : null;
     this.budget = opts.budget || 200000;
 
-    this.globals = new Map();      // slot n (or ('ref',n) key) -> value
-    this.refslots = new Map();     // n -> value parked under ("ref", n)
+    this.globals = new Map(); // slot n (or ('ref',n) key) -> value
+    this.refslots = new Map(); // n -> value parked under ("ref", n)
     this.out = new Emissions();
     this.steps = 0;
     this.entered = new Set();
-    this.binds = new Map();        // "sc:n" -> result key
+    this.binds = new Map(); // "sc:n" -> result key
     this.files = new Map();
     this.fh = null;
     this.strArrays = new Map();
@@ -371,15 +430,20 @@ class IpoVm {
     this._maxglobal = 0;
     for (const toks of Object.values(this.procs)) {
       for (const t of toks) {
-        if ((t.op === 'var' || t.op === 'store')
-            && (t.sc == null ? 0 : t.sc) === 0 && t.n > this._maxglobal) {
+        if (
+          (t.op === 'var' || t.op === 'store') &&
+          (t.sc == null ? 0 : t.sc) === 0 &&
+          t.n > this._maxglobal
+        ) {
           this._maxglobal = t.n;
         }
       }
     }
   }
 
-  byid(type, id) { return this.byidRaw[`${type}:${id}`]; }
+  byid(type, id) {
+    return this.byidRaw[`${type}:${id}`];
+  }
 
   // Resolve a procref on the stack to a proc name.
   target(ref, kindName) {
@@ -387,9 +451,15 @@ class IpoVm {
     return null;
   }
 
-  bindKey(sc, n) { return this.binds.get(`${sc}:${n}`); }
-  setBind(sc, n, key) { this.binds.set(`${sc}:${n}`, key); }
-  delBind(sc, n) { this.binds.delete(`${sc}:${n}`); }
+  bindKey(sc, n) {
+    return this.binds.get(`${sc}:${n}`);
+  }
+  setBind(sc, n, key) {
+    this.binds.set(`${sc}:${n}`, key);
+  }
+  delBind(sc, n) {
+    this.binds.delete(`${sc}:${n}`);
+  }
 
   // ------------------------------------------------------------- run --
 
@@ -398,7 +468,9 @@ class IpoVm {
     if (!toks) throw new IpoError(`no proc ${proc}`);
     const frame = new Map();
     if (args) args.forEach((v, i) => frame.set(i, v));
-    try { this._exec(toks, frame); } catch (e) {
+    try {
+      this._exec(toks, frame);
+    } catch (e) {
       if (!(e instanceof Halt)) throw e;
     }
     return this.out;
@@ -435,8 +507,11 @@ class IpoVm {
   _exec(toks, frame, startAt = 0, stopAt = null) {
     const prev = this.frame;
     this.frame = frame;
-    try { return this._execIn(toks, frame, startAt, stopAt); }
-    finally { this.frame = prev; }
+    try {
+      return this._execIn(toks, frame, startAt, stopAt);
+    } finally {
+      this.frame = prev;
+    }
   }
 
   _execIn(toks, frame, startAt = 0, stopAt = null) {
@@ -449,7 +524,10 @@ class IpoVm {
     // own section, so garbage past the real end (unk tokens) would spin.
     let end = stopAt == null ? toks.length : stopAt;
     for (let j = 0; j < toks.length; j++) {
-      if (toks[j].op === 'unk' && j < end) { end = j; break; }
+      if (toks[j].op === 'unk' && j < end) {
+        end = j;
+        break;
+      }
     }
 
     let stack = [];
@@ -479,8 +557,12 @@ class IpoVm {
         let val = stack.length ? stack.pop() : null;
         const sc = t.sc == null ? GLOBAL : t.sc;
         // A record index the item selects: `const <v>; store <global>`.
-        if (curItem != null && sc === GLOBAL && !('_sel' in curItem)
-            && (isPlainInt(val) || isPlainStr(val))) {
+        if (
+          curItem != null &&
+          sc === GLOBAL &&
+          !('_sel' in curItem) &&
+          (isPlainInt(val) || isPlainStr(val))
+        ) {
           curItem._sel = [t.n, val];
         }
         // A coding image stored for sliced display (INPAapiResultBinary path).
@@ -548,16 +630,24 @@ class IpoVm {
     const name = this.byid('func', t.n);
     if (!name || !this.procs[name]) return;
     let inKey = null;
-    for (const x of stack) if (isBound(x) && x.key) { inKey = x.key; break; }
+    for (const x of stack)
+      if (isBound(x) && x.key) {
+        inKey = x.key;
+        break;
+      }
     const outs = stack.filter(isRef);
     const frame = new Map();
     stack.forEach((v, i) => frame.set(i, v));
     this._exec(this.procs[name], frame);
     if (inKey) {
       for (const ref of outs) {
-        const dsc = (ref[1] === 2 && this.frame != null) ? LOCAL : GLOBAL;
-        const cur = dsc === GLOBAL ? this.globals.get(ref[2])
-          : (this.frame ? this.frame.get(ref[2]) : null);
+        const dsc = ref[1] === 2 && this.frame != null ? LOCAL : GLOBAL;
+        const cur =
+          dsc === GLOBAL
+            ? this.globals.get(ref[2])
+            : this.frame
+              ? this.frame.get(ref[2])
+              : null;
         if (isBound(cur) && cur.key) continue;
         const val = mkBound(mkSlot(dsc, ref[2]), '0', inKey);
         this.setBind(dsc, ref[2], inKey);
@@ -605,7 +695,10 @@ class IpoVm {
     if (idx < 0) throw new IpoError(`no item ${nr} in ${procName}`);
     let end = this._procEnd(toks);
     for (let j = idx + 1; j < end; j++) {
-      if (toks[j].op === 'ITEM') { end = j; break; }
+      if (toks[j].op === 'ITEM') {
+        end = j;
+        break;
+      }
     }
     for (const g of keypressGuards(toks, idx + 1, end)) this.globals.set(g, 1);
     return this._beginRange(toks, idx + 1, end);
@@ -619,9 +712,16 @@ class IpoVm {
   }
 
   _beginRange(toks, i0, end) {
-    this._susp = { toks, frame: new Map(), i: i0, stack: [], callers: [],
-                   index: this._byteIndex(toks), end,
-                   remap: this._segRemap(toks) };
+    this._susp = {
+      toks,
+      frame: new Map(),
+      i: i0,
+      stack: [],
+      callers: [],
+      index: this._byteIndex(toks),
+      end,
+      remap: this._segRemap(toks),
+    };
     return this._drive();
   }
 
@@ -655,13 +755,18 @@ class IpoVm {
         // single number through the first ref only left every second field
         // (input2hexnum's number, input2int's Jahr) unset
         const store1 = (ref, v) => {
-          if (typeof v === 'string') { storeOut(this, [ref], v, null); return; }
+          if (typeof v === 'string') {
+            storeOut(this, [ref], v, null);
+            return;
+          }
           const n = Math.trunc(Number(v));
           storeOut(this, [ref], Number.isFinite(n) ? n : 0, null);
         };
         const refs = s.pendingStack.filter(isRef);
         if (Array.isArray(value)) {
-          refs.forEach((r, k) => { if (k < value.length) store1(r, value[k]); });
+          refs.forEach((r, k) => {
+            if (k < value.length) store1(r, value[k]);
+          });
         } else if (refs.length) {
           refs.forEach((r) => store1(r, value));
         }
@@ -678,7 +783,7 @@ class IpoVm {
       }
     }
     s.pending = null;
-    s.i += 1;                       // step past the suspending token
+    s.i += 1; // step past the suspending token
     // A yield is followed by its WAIT-LOOP back-edge: `state %Z; jump <exit>`
     // is INPA's %WARTEN -- following that jump leaves the machine. Being DRIVEN
     // forward (the user's pick) runs the segment body AFTER the jump instead.
@@ -699,13 +804,18 @@ class IpoVm {
     if (!s) return new Set();
     let end = s.end;
     for (let k = s.i + 1; k < s.end; k++) {
-      if (s.toks[k].op === 'state') { end = k; break; }
+      if (s.toks[k].op === 'state') {
+        end = k;
+        break;
+      }
     }
     return keypressGuards(s.toks, s.i + 1, end);
   }
 
   // Press a machine key: set its guard flag so the wait segment opens.
-  pressKey(n) { this.globals.set(n, 1); }
+  pressKey(n) {
+    this.globals.set(n, 1);
+  }
 
   // JUMP TARGETS PAST A STATE ARE SEGMENT-RELATIVE. The compiler emits a
   // jump's u16 as a dword index from its enclosing BLOCK -- the proc body, an
@@ -728,7 +838,7 @@ class IpoVm {
     const remap = new Map();
     if (!toks.length || toks[0].at == null) return remap;
     const at = (i) => toks[i].at;
-    let walker = at(0) + 4;      // dword 0 of the proc's own block
+    let walker = at(0) + 4; // dword 0 of the proc's own block
     let seg = walker;
     for (let i = 0; i < toks.length; i++) {
       const t = toks[i];
@@ -738,7 +848,7 @@ class IpoVm {
         seg = nxt;
       } else if (t.op === 'state') {
         let j = i + 1;
-        if (j < toks.length && toks[j].op === 'jump') j += 1;  // exit edge
+        if (j < toks.length && toks[j].op === 'jump') j += 1; // exit edge
         seg = j < toks.length ? at(j) : at(i);
       } else if (t.to != null) {
         const u16 = t.to - walker;
@@ -761,7 +871,10 @@ class IpoVm {
   _procEnd(toks) {
     let end = toks.length;
     for (let j = 0; j < toks.length; j++) {
-      if (toks[j].op === 'unk') { end = j; break; }
+      if (toks[j].op === 'unk') {
+        end = j;
+        break;
+      }
     }
     return end;
   }
@@ -777,7 +890,10 @@ class IpoVm {
       for (;;) {
         this.frame = s.frame;
         if (s.i >= s.end) {
-          if (s.callers && s.callers.length) { this._popCall(s); continue; }
+          if (s.callers && s.callers.length) {
+            this._popCall(s);
+            continue;
+          }
           break;
         }
         this.steps += 1;
@@ -794,13 +910,18 @@ class IpoVm {
         // single-step so the two executors cannot drift
         const sig = this._stepOne(t, op, s, s.index, s.end);
         if (sig === 'ret') {
-          if (s.callers && s.callers.length) { this._popCall(s); continue; }
+          if (s.callers && s.callers.length) {
+            this._popCall(s);
+            continue;
+          }
           break;
         }
-        if (sig === 'jumped') continue;      // _stepOne already moved s.i
-        if (sig === 'called') continue;      // switched into a callee
-        if (sig && (sig.kind === 'job' || sig.kind === 'wait'
-                    || sig.kind === 'input')) {
+        if (sig === 'jumped') continue; // _stepOne already moved s.i
+        if (sig === 'called') continue; // switched into a callee
+        if (
+          sig &&
+          (sig.kind === 'job' || sig.kind === 'wait' || sig.kind === 'input')
+        ) {
           // a wire job (the renderer runs it), a timed wait (it sleeps), or
           // a user prompt (it asks and hands the answer back)
           s.pending = sig.kind;
@@ -821,8 +942,9 @@ class IpoVm {
   // pending action | undefined (advance normally). s carries {stack, i, frame}.
   _stepOne(t, op, s, index, end) {
     let stack = s.stack;
-    if (op === 'frame') { s.stack = []; }
-    else if (op === 'const') {
+    if (op === 'frame') {
+      s.stack = [];
+    } else if (op === 'const') {
       stack.push(t.t === 'd' ? mkFloat(t.v) : t.v);
     } else if (op === 'var') {
       let val = this._read(t, s.frame);
@@ -849,12 +971,14 @@ class IpoVm {
       if (!truthy(cond)) {
         const nxt = this._jumpIndex(s, index, end);
         if (nxt >= end) return 'ret';
-        s.i = nxt; return 'jumped';
+        s.i = nxt;
+        return 'jumped';
       }
     } else if (op === 'jump') {
       const nxt = this._jumpIndex(s, index, end);
       if (nxt >= end) return 'ret';
-      s.i = nxt; return 'jumped';
+      s.i = nxt;
+      return 'jumped';
     } else if (op === 'ITEM') {
       s.stack = [];
     } else if (op === 'LINE') {
@@ -863,7 +987,7 @@ class IpoVm {
     } else if (op === 'call') {
       const sig = this._builtinDrive(t, stack);
       s.stack = [];
-      if (sig) return sig;             // a wire-job pending action
+      if (sig) return sig; // a wire-job pending action
     } else if (op === 'calluser') {
       const entered = this._pushCall(s, t, stack);
       s.stack = [];
@@ -885,13 +1009,25 @@ class IpoVm {
     const name = this.byid('func', t.n);
     if (!name || !this.procs[name]) return false;
     let inKey = null;
-    for (const x of stack) if (isBound(x) && x.key) { inKey = x.key; break; }
+    for (const x of stack)
+      if (isBound(x) && x.key) {
+        inKey = x.key;
+        break;
+      }
     const outs = stack.filter(isRef);
     const frame = new Map();
     stack.forEach((v, i) => frame.set(i, v));
     if (!s.callers) s.callers = [];
-    s.callers.push({ toks: s.toks, i: s.i, end: s.end, index: s.index,
-                     remap: s.remap, frame: s.frame, inKey, outs });
+    s.callers.push({
+      toks: s.toks,
+      i: s.i,
+      end: s.end,
+      index: s.index,
+      remap: s.remap,
+      frame: s.frame,
+      inKey,
+      outs,
+    });
     const toks = this.procs[name];
     s.toks = toks;
     s.i = 0;
@@ -909,9 +1045,13 @@ class IpoVm {
     this.frame = c.frame;
     if (c.inKey) {
       for (const ref of c.outs) {
-        const dsc = (ref[1] === 2 && this.frame != null) ? LOCAL : GLOBAL;
-        const cur = dsc === GLOBAL ? this.globals.get(ref[2])
-          : (this.frame ? this.frame.get(ref[2]) : null);
+        const dsc = ref[1] === 2 && this.frame != null ? LOCAL : GLOBAL;
+        const cur =
+          dsc === GLOBAL
+            ? this.globals.get(ref[2])
+            : this.frame
+              ? this.frame.get(ref[2])
+              : null;
         if (!(isBound(cur) && cur.key)) {
           const val = mkBound(mkSlot(dsc, ref[2]), '0', c.inKey);
           this.setBind(dsc, ref[2], c.inKey);
@@ -942,13 +1082,23 @@ class IpoVm {
   // drive job (STEUERN_*/START*) is not answered offline -- it returns a `job`
   // pending action so the renderer runs it through the audited safe drive path.
   _builtinDrive(t, stack) {
-    const name = t.name
-      || `builtin_${(t.n || 0).toString(16).padStart(2, '0')}`;
-    if (name === 'INPAapiJob' || name === 'INP1apiJob'
-        || name === 'INPAapiJobData') {
-      const strv = (x) => (isPlainStr(x) ? x : (isBound(x) ? x.s
-        : (typeof x === 'number' ? String(x)
-          : (isFloat(x) ? String(x.v) : null))));
+    const name =
+      t.name || `builtin_${(t.n || 0).toString(16).padStart(2, '0')}`;
+    if (
+      name === 'INPAapiJob' ||
+      name === 'INP1apiJob' ||
+      name === 'INPAapiJobData'
+    ) {
+      const strv = (x) =>
+        isPlainStr(x)
+          ? x
+          : isBound(x)
+            ? x.s
+            : typeof x === 'number'
+              ? String(x)
+              : isFloat(x)
+                ? String(x.v)
+                : null;
       const sgbd = stack.length > 0 ? strv(stack[0]) : null;
       const job = stack.length > 1 ? strv(stack[1]) : null;
       const arg = stack.length > 2 ? strv(stack[2]) : null;
@@ -957,32 +1107,43 @@ class IpoVm {
       // the car. That is the write classifier's verdict -- token-based,
       // default-deny, the same one the job route enforces -- not a name
       // prefix (ANSTEUERN_*, LAMPEN_TEST, SG_RESET are writes too).
-      const isDrive = (typeof isWriteJob === 'function') ? isWriteJob(job)
-        : true;                           // classifier absent: never assume safe
+      const isDrive = typeof isWriteJob === 'function' ? isWriteJob(job) : true; // classifier absent: never assume safe
       if (job && (this.wireJobs || isDrive)) {
         // hand the drive to the renderer; it confirms, registers for release,
         // sends on the wire, and hands the result sets back through resume()
-        return { kind: 'job', job, sgbd: sgbd || null,
-                 arg: arg || null, out: this.out };
+        return {
+          kind: 'job',
+          job,
+          sgbd: sgbd || null,
+          arg: arg || null,
+          out: this.out,
+        };
       }
     }
     // input builtins: INPA asks the user and parks until getinputstate says
     // confirmed. Offline they store '0' -- which a LIVE run must never send
     // (LLERH's Select would command idle target 0). Suspend instead; the
     // renderer shows INPA's own prompt and resume() stores the typed value.
-    if (this.wireJobs && (BUILTINS[name] === bInput
-                          || /^input(int|real|hex|string)?$/.test(name))) {
+    if (
+      this.wireJobs &&
+      (BUILTINS[name] === bInput || /^input(int|real|hex|string)?$/.test(name))
+    ) {
       const prompts = stack.filter((x) => isPlainStr(x) && x.trim());
       // bounds may be ints (inputint) or doubles (builtin_40: MS43 pushes
       // 512.0/1600.0); take the last two numerics either way
       const nums = stack
-        .map((x) => (isPlainInt(x) ? x : (isFloat(x) ? x.v : null)))
+        .map((x) => (isPlainInt(x) ? x : isFloat(x) ? x.v : null))
         .filter((x) => x != null && Number.isFinite(x));
-      return { kind: 'input', name, prompts,
-               refs: stack.filter(isRef).length,
-               lo: nums.length > 1 ? nums[nums.length - 2] : null,
-               hi: nums.length > 1 ? nums[nums.length - 1] : null,
-               stack, out: this.out };
+      return {
+        kind: 'input',
+        name,
+        prompts,
+        refs: stack.filter(isRef).length,
+        lo: nums.length > 1 ? nums[nums.length - 2] : null,
+        hi: nums.length > 1 ? nums[nums.length - 1] : null,
+        stack,
+        out: this.out,
+      };
     }
     // builtin_1b = wartezeit(ms). Offline a noop; a guided run honours it --
     // the S_ZUHEIZ Pruefung waits 2000ms after DIAGNOSE_ENDE and 10000ms for
@@ -1006,7 +1167,8 @@ class IpoVm {
     if (!seen) seen = new Set();
     hi = Math.min(hi, toks.length);
     for (let k = lo; k < hi; k++) {
-      const t = toks[k], op = t.op;
+      const t = toks[k],
+        op = t.op;
       if (op === 'calluser') {
         const name = this.byid('func', t.n);
         if (name && this.procs[name] && !seen.has(name)) {
@@ -1030,8 +1192,8 @@ class IpoVm {
 
   _read(t, frame) {
     const sc = t.sc == null ? GLOBAL : t.sc;
-    if (sc === GLOBAL) return this.globals.has(t.n) ? this.globals.get(t.n)
-      : null;
+    if (sc === GLOBAL)
+      return this.globals.has(t.n) ? this.globals.get(t.n) : null;
     return frame.has(t.n) ? frame.get(t.n) : null;
   }
 
@@ -1040,13 +1202,14 @@ class IpoVm {
     // the write lands in the CALLER's slot. Mirrors ipo_vm.py _write.
     if (t.ref) {
       const sc = t.sc == null ? GLOBAL : t.sc;
-      const src = sc !== GLOBAL ? (frame ? frame.get(t.n) : null)
-        : this.globals.get(t.n);
+      const src =
+        sc !== GLOBAL ? (frame ? frame.get(t.n) : null) : this.globals.get(t.n);
       if (isRef(src)) {
-        const dsc = (src[1] === 2 && frame != null) ? LOCAL : GLOBAL;
+        const dsc = src[1] === 2 && frame != null ? LOCAL : GLOBAL;
         const n = src[2];
-        const key = (isBound(val) && val.key) ? val.key : null;
-        if (key) this.setBind(dsc, n, key); else this.delBind(dsc, n);
+        const key = isBound(val) && val.key ? val.key : null;
+        if (key) this.setBind(dsc, n, key);
+        else this.delBind(dsc, n);
         if (dsc === GLOBAL) this.globals.set(n, val);
         else if (frame) frame.set(n, val);
         return;
@@ -1085,7 +1248,7 @@ function outRef(stack) {
 function storeOut(vm, stack, val, key) {
   const dest = outRef(stack);
   if (dest == null) return null;
-  const sc = (dest[1] === 2 && vm.frame != null) ? LOCAL : GLOBAL;
+  const sc = dest[1] === 2 && vm.frame != null ? LOCAL : GLOBAL;
   const n = dest[2];
   if (key != null) {
     const amap = isBound(val) ? val.amap : null;
@@ -1107,14 +1270,18 @@ function firstStr(stack) {
   for (const x of stack) if (isPlainStr(x)) return x;
   return null;
 }
-function allStrs(stack) { return stack.filter(isPlainStr); }
+function allStrs(stack) {
+  return stack.filter(isPlainStr);
+}
 function allInts(stack) {
   return stack.filter((x) => isPlainInt(x) && typeof x !== 'boolean');
 }
 
 // ----------------------------------------------------------- builtins --
 
-function bSetTitle(vm, stack) { if (stack.length) vm.out.title = asStr(stack[0]); }
+function bSetTitle(vm, stack) {
+  if (stack.length) vm.out.title = asStr(stack[0]);
+}
 
 function bSetitem(vm, stack) {
   const nr = stack.find(isPlainInt);
@@ -1125,13 +1292,19 @@ function bSetitem(vm, stack) {
 function bSetmenu(vm, stack, item) {
   const ref = stack.find(isRef);
   const tgt = vm.target(ref, 'menu');
-  if (tgt) { vm.out.menu = tgt; if (item) item.menu = tgt; }
+  if (tgt) {
+    vm.out.menu = tgt;
+    if (item) item.menu = tgt;
+  }
 }
 
 function bSetscreen(vm, stack, item) {
   const ref = stack.find(isRef);
   const tgt = vm.target(ref, 'screen');
-  if (tgt) { vm.out.screen = tgt; if (item) item.screen = tgt; }
+  if (tgt) {
+    vm.out.screen = tgt;
+    if (item) item.screen = tgt;
+  }
 }
 
 function bJob(vm, stack, item) {
@@ -1139,7 +1312,7 @@ function bJob(vm, stack, item) {
   // sgbd/job/arg are frequently concatenations (a bound value), so accept
   // those and read their text -- otherwise the job arg (LWS5's coding block
   // index, LAR;0x;0) and an empty-string sgbd are lost.
-  const strv = (x) => (isPlainStr(x) ? x : (isBound(x) ? x.s : null));
+  const strv = (x) => (isPlainStr(x) ? x : isBound(x) ? x.s : null);
   const sgbd = stack.length > 0 ? strv(stack[0]) : null;
   const job = stack.length > 1 ? strv(stack[1]) : null;
   const arg = stack.length > 2 ? strv(stack[2]) : null;
@@ -1153,7 +1326,8 @@ function bJob(vm, stack, item) {
   }
   // Per-line arg boundary (per-wheel loop draws one line per job arg).
   if (rec.arg) {
-    let last = vm.out.lines.length ? vm.out.lines[vm.out.lines.length - 1]
+    let last = vm.out.lines.length
+      ? vm.out.lines[vm.out.lines.length - 1]
       : null;
     const drawn = !!(last && last.elements && last.elements.length);
     if (drawn && last.jobArg != null && last.jobArg !== rec.arg) {
@@ -1165,9 +1339,13 @@ function bJob(vm, stack, item) {
   vm.globals.set('__last_job__', vm.host.job(sgbd, job, arg, null));
 }
 
-function bFsmode(vm, stack, item) { if (item) item.faultRead = true; }
+function bFsmode(vm, stack, item) {
+  if (item) item.faultRead = true;
+}
 
-function bCheckStatus(vm) { vm.globals.set('__status__', vm.host.status()); }
+function bCheckStatus(vm) {
+  vm.globals.set('__status__', vm.host.status());
+}
 
 function bResult(vm, stack, item, integer) {
   const key = stack.find(isPlainStr) || null;
@@ -1190,10 +1368,16 @@ function bResult(vm, stack, item, integer) {
     vm.out.reads.push(key);
   }
 }
-function bResultInt(vm, stack, item) { bResult(vm, stack, item, true); }
+function bResultInt(vm, stack, item) {
+  bResult(vm, stack, item, true);
+}
 
-function bErrorCode(vm, stack) { storeOut(vm, stack, 0); }
-function bErrorText(vm, stack) { storeOut(vm, stack, ''); }
+function bErrorCode(vm, stack) {
+  storeOut(vm, stack, 0);
+}
+function bErrorText(vm, stack) {
+  storeOut(vm, stack, '');
+}
 
 function bResultSets(vm, stack) {
   const refs = stack.filter(isRef);
@@ -1210,8 +1394,11 @@ function bStrArrayCreate(vm, stack) {
 }
 
 function bStrArrayWrite(vm, stack) {
-  const ints = stack.filter((x) => (typeof x === 'number' || isBound(x))
-    && typeof x !== 'boolean').map((x) => Math.trunc(num(x)));
+  const ints = stack
+    .filter(
+      (x) => (typeof x === 'number' || isBound(x)) && typeof x !== 'boolean'
+    )
+    .map((x) => Math.trunc(num(x)));
   const txt = stack.find((x) => isPlainStr(x));
   if (ints.length >= 2 && txt != null && vm.strArrays.has(ints[0])) {
     vm.strArrays.get(ints[0]).set(ints[1], txt);
@@ -1220,9 +1407,10 @@ function bStrArrayWrite(vm, stack) {
 
 function bStrArrayRead(vm, stack) {
   const vals = stack.filter((x) => !isRef(x));
-  const arr = vals.length ? (vm.strArrays.get(Math.trunc(num(vals[0])))
-    || new Map()) : new Map();
-  const text = vals.length > 1 ? (arr.get(Math.trunc(num(vals[1]))) || '') : '';
+  const arr = vals.length
+    ? vm.strArrays.get(Math.trunc(num(vals[0]))) || new Map()
+    : new Map();
+  const text = vals.length > 1 ? arr.get(Math.trunc(num(vals[1]))) || '' : '';
   const out = mkBound(null, text, keyed(stack));
   const amap = {};
   for (const [k, v] of arr) amap[String(k)] = v;
@@ -1232,15 +1420,19 @@ function bStrArrayRead(vm, stack) {
 
 function bResultBinary(vm, stack) {
   const key = stack.find(isPlainStr) || null;
-  if (key) { vm.globals.set('__pending_binary__', key); vm.out.reads.push(key); }
+  if (key) {
+    vm.globals.set('__pending_binary__', key);
+    vm.out.reads.push(key);
+  }
 }
 
 function bGetBinaryDataString(vm, stack) {
   const refs = stack.filter(isRef);
   if (refs.length < 2) return;
-  const dst = refs[0], src = refs[1];
-  const dsc = (dst[1] === 2 && vm.frame != null) ? LOCAL : GLOBAL;
-  const ssc = (src[1] === 2 && vm.frame != null) ? LOCAL : GLOBAL;
+  const dst = refs[0],
+    src = refs[1];
+  const dsc = dst[1] === 2 && vm.frame != null ? LOCAL : GLOBAL;
+  const ssc = src[1] === 2 && vm.frame != null ? LOCAL : GLOBAL;
   let key = vm.bindKey(ssc, src[2]);
   if (!key) {
     key = vm.globals.get('__pending_binary__');
@@ -1260,14 +1452,15 @@ function bTextout(vm, stack) {
   }
   // ftextout(text/slot, row, col, ...): a printed literal, or a printed VALUE
   // whose key comes from the binding. A bound value wins over a literal.
-  let key = null, also = [];
+  let key = null,
+    also = [];
   for (const x of stack) {
     if (isBound(x) && x.key) {
       key = x.key;
       also = (x.extra || []).filter((k) => k !== key);
       break;
     }
-    const sl = isBound(x) ? x.slot : (isSlot(x) ? x : null);
+    const sl = isBound(x) ? x.slot : isSlot(x) ? x : null;
     if (sl != null) {
       key = vm.bindKey(sl.sc, sl.n);
       if (key) break;
@@ -1282,8 +1475,11 @@ function bTextout(vm, stack) {
   if (key && /(_EINH|_EINHEIT)$/.test(key.toUpperCase())) {
     for (let e = line.elements.length - 1; e >= 0; e--) {
       const el = line.elements[e];
-      if (el.key && baseKey(el.key) === baseKey(key)
-          && !/(_EINH|_EINHEIT)$/.test(el.key.toUpperCase())) {
+      if (
+        el.key &&
+        baseKey(el.key) === baseKey(key) &&
+        !/(_EINH|_EINHEIT)$/.test(el.key.toUpperCase())
+      ) {
         el.unit = key;
         return;
       }
@@ -1293,13 +1489,15 @@ function bTextout(vm, stack) {
   if (key) {
     el = { t: 'value', key };
     if (also.length) el.also = also;
-    const amap = stack.map((x) => (isBound(x) ? x.amap : null))
-      .find((m) => m);
+    const amap = stack.map((x) => (isBound(x) ? x.amap : null)).find((m) => m);
     if (amap) el.map = amap;
   } else {
     el = { t: 'text', s: lit };
   }
-  if (ints.length >= 2) { el.row = ints[0]; el.col = ints[1]; }
+  if (ints.length >= 2) {
+    el.row = ints[0];
+    el.col = ints[1];
+  }
   line.elements.push(el);
 }
 
@@ -1307,11 +1505,18 @@ function field(vm, stack, kind) {
   const ints = allInts(stack);
   const strs = allStrs(stack);
   const el = { t: kind === 'analog' ? 'gauge' : 'lamp' };
-  if (ints.length >= 2) { el.row = ints[0]; el.col = ints[1]; }
+  if (ints.length >= 2) {
+    el.row = ints[0];
+    el.col = ints[1];
+  }
   let key = keyed(stack);
   if (key == null) {
     let sl = null;
-    for (const x of stack) if (isBound(x) && x.slot) { sl = x.slot; break; }
+    for (const x of stack)
+      if (isBound(x) && x.slot) {
+        sl = x.slot;
+        break;
+      }
     if (sl == null) sl = stack.find(isSlot) || null;
     if (sl != null) key = vm.bindKey(sl.sc, sl.n);
   }
@@ -1329,28 +1534,45 @@ function bAnalogout(vm, stack) {
   const el = field(vm, stack, 'analog');
   // Python: [x for x in stack[3:] if isinstance(x,(int,float)) and not bool].
   // Both ints and floats count; a boxed float unwraps via num().
-  const nums = stack.slice(3)
-    .filter((x) => (isFloat(x) || (typeof x === 'number' && typeof x
-      !== 'boolean')))
+  const nums = stack
+    .slice(3)
+    .filter(
+      (x) => isFloat(x) || (typeof x === 'number' && typeof x !== 'boolean')
+    )
     .map(num);
-  if (nums.length >= 2) { el.min = nums[0]; el.max = nums[1]; }
-  if (nums.length >= 4) { el.warnLo = nums[2]; el.warnHi = nums[3]; }
+  if (nums.length >= 2) {
+    el.min = nums[0];
+    el.max = nums[1];
+  }
+  if (nums.length >= 4) {
+    el.warnLo = nums[2];
+    el.warnHi = nums[3];
+  }
   // Python: next(x for x in stack if isinstance(x,str) and x.strip()) --
   // includes _Bound. A fmt built by concatenation is a _Bound.
-  const fmt = stack.find((x) => (isPlainStr(x) || isBound(x)) && asStr(x).trim());
+  const fmt = stack.find(
+    (x) => (isPlainStr(x) || isBound(x)) && asStr(x).trim()
+  );
   if (fmt) el.fmt = asStr(fmt).trim();
 }
 
 function bMultiAnalogout(vm, stack) {
-  let group = [], drawn = 0;
+  let group = [],
+    drawn = 0;
   for (const x of stack) {
     group.push(x);
-    if (isPlainStr(x) && x.trim()) { bAnalogout(vm, group); drawn += 1; group = []; }
+    if (isPlainStr(x) && x.trim()) {
+      bAnalogout(vm, group);
+      drawn += 1;
+      group = [];
+    }
   }
   if (!drawn) bAnalogout(vm, stack);
 }
 
-function bDigitalout(vm, stack) { field(vm, stack, 'digital'); }
+function bDigitalout(vm, stack) {
+  field(vm, stack, 'digital');
+}
 
 function bStrlen(vm, stack) {
   // Python's _b_strlen: next(x for x in stack if isinstance(x, str)) -- a
@@ -1368,8 +1590,12 @@ function bMidstr(vm, stack) {
   const src = strs.length ? strs[strs.length - 1] : '';
   const a = ints.length ? ints[0] - 1 : 0;
   const n = ints.length > 1 ? ints[1] : src.length;
-  storeOut(vm, stack, src.slice(Math.max(0, a), Math.max(0, a) + Math.max(0, n)),
-    keyed(stack));
+  storeOut(
+    vm,
+    stack,
+    src.slice(Math.max(0, a), Math.max(0, a) + Math.max(0, n)),
+    keyed(stack)
+  );
 }
 
 function bInttostring(vm, stack) {
@@ -1396,8 +1622,10 @@ function bMessage(vm, stack, item) {
   const strs = stack.filter((x) => isPlainStr(x) || isBound(x)).map(asStr);
   if (vm.onText && strs.length) vm.onText(strs.join(' — '));
   if (strs.length) {
-    vm.out.messages.push({ title: strs[0], body: strs.length > 1 ? strs[1]
-      : null });
+    vm.out.messages.push({
+      title: strs[0],
+      body: strs.length > 1 ? strs[1] : null,
+    });
     if (item) (item.messages = item.messages || []).push(strs[0]);
   }
 }
@@ -1416,7 +1644,7 @@ function bGetInputState(vm, stack) {
 // widget does at runtime -- so the INPAapiJob that reads that slot sends the
 // pick as its argument (STEUERN_DIGITAL <ORT>).
 function bToggleList(vm, stack) {
-  if (vm._pickInput == null) return;          // offline: noop, as before
+  if (vm._pickInput == null) return; // offline: noop, as before
   storeOut(vm, stack, vm._pickInput);
 }
 
@@ -1432,19 +1660,24 @@ function bInput(vm, stack, item) {
 }
 
 function bFileopen(vm, stack) {
-  const path = stack.filter((x) => (isPlainStr(x) || isSlot(x))
-    && !['r', 'w', 'a'].includes(x)).map(asStr).join('');
+  const path = stack
+    .filter((x) => (isPlainStr(x) || isSlot(x)) && !['r', 'w', 'a'].includes(x))
+    .map(asStr)
+    .join('');
   let mode = 'r';
   for (let k = stack.length - 1; k >= 0; k--) {
     if (isPlainStr(stack[k]) && ['r', 'w', 'a'].includes(stack[k])) {
-      mode = stack[k]; break;
+      mode = stack[k];
+      break;
     }
   }
   if (mode === 'w') vm.files.set(path, []);
   else if (mode === 'a' && !vm.files.has(path)) vm.files.set(path, []);
   vm.fh = { path, mode, line: 0 };
 }
-function bFileclose(vm) { vm.fh = null; }
+function bFileclose(vm) {
+  vm.fh = null;
+}
 function bFilewrite(vm, stack) {
   if (!vm.fh || vm.fh.mode === 'r') return;
   const txt = stack.find(isPlainStr) || '';
@@ -1455,7 +1688,10 @@ function bFileread(vm, stack) {
   let line = '';
   if (vm.fh && vm.fh.mode === 'r') {
     const lines = vm.files.get(vm.fh.path) || [];
-    if (vm.fh.line < lines.length) { line = lines[vm.fh.line]; vm.fh.line += 1; }
+    if (vm.fh.line < lines.length) {
+      line = lines[vm.fh.line];
+      vm.fh.line += 1;
+    }
   }
   storeOut(vm, stack, line);
 }
@@ -1466,10 +1702,18 @@ function bSelect(vm, stack, item) {
 function bDeselect(vm, stack, item) {
   if (item && !item.action) item.action = 'deselect';
 }
-function bExit(vm, stack, item) { if (item) item.action = 'exit'; }
-function bPrint(vm, stack, item) { if (item) item.action = 'printscreen'; }
-function bScriptchange(vm, stack, item) { if (item) item.appTool = true; }
-function bCallwin(vm, stack, item) { if (item) item.appTool = true; }
+function bExit(vm, stack, item) {
+  if (item) item.action = 'exit';
+}
+function bPrint(vm, stack, item) {
+  if (item) item.action = 'printscreen';
+}
+function bScriptchange(vm, stack, item) {
+  if (item) item.appTool = true;
+}
+function bCallwin(vm, stack, item) {
+  if (item) item.appTool = true;
+}
 function bNoop() {}
 
 // setstate/start: enter a state machine, run to its first yield, attribute the
@@ -1485,7 +1729,9 @@ function bSetstate(vm, stack, item) {
   if (vm.entered.has(name)) return;
   vm.entered.add(name);
   const before = vm.out.jobs.length;
-  try { vm._exec(vm.procs[name], new Map()); } catch (e) {
+  try {
+    vm._exec(vm.procs[name], new Map());
+  } catch (e) {
     if (!(e instanceof Halt)) throw e;
   }
   if (item && !('job' in item) && vm.out.jobs.length > before) {
@@ -1515,8 +1761,10 @@ function bHexconvert(vm, stack) {
   let v = parseInt(String(asStr(src) || '').trim() || '0', 16);
   if (!Number.isFinite(v)) v = 0;
   const refs = stack.filter(isRef);
-  const parts = [(v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF, (v >> 24) & 0xFF];
-  refs.forEach((r, k) => { if (k < 4) storeOut(vm, [r], parts[k]); });
+  const parts = [(v >> 16) & 0xff, (v >> 8) & 0xff, v & 0xff, (v >> 24) & 0xff];
+  refs.forEach((r, k) => {
+    if (k < 4) storeOut(vm, [r], parts[k]);
+  });
 }
 
 function bStrcat(vm, stack) {
@@ -1529,9 +1777,15 @@ function bNumconvert(vm, stack) {
   storeOut(vm, stack, n == null ? 0 : num(n), keyed(stack));
 }
 
-function bGetdate(vm, stack) { storeOut(vm, stack, '01.01.2000'); }
-function bGettime(vm, stack) { storeOut(vm, stack, '00:00:00'); }
-function bGetapistring(vm, stack) { storeOut(vm, stack, ''); }
+function bGetdate(vm, stack) {
+  storeOut(vm, stack, '01.01.2000');
+}
+function bGettime(vm, stack) {
+  storeOut(vm, stack, '00:00:00');
+}
+function bGetapistring(vm, stack) {
+  storeOut(vm, stack, '');
+}
 
 function bInputDigital(vm, stack, item) {
   // mirrors _b_inputdigital: capture+taint via bInput, then the CONFIRMING
@@ -1599,7 +1853,7 @@ const BUILTINS = {
   inputhex: bInput,
   inputdigital: bInputDigital,
   input2hex: bInput,
-  builtin_47: bInput,     // input2int (ACC: Kalenderwoche/Jahr)
+  builtin_47: bInput, // input2int (ACC: Kalenderwoche/Jahr)
   builtin_3f: bInput,
   builtin_40: bInput,
   input2text: bInput,
@@ -1622,25 +1876,25 @@ const BUILTINS = {
   // builtin_16 = togglelist: writes the picked row into an out variable. Offline
   // a noop (the pick is runtime-only); when driven it stores the user's pick.
   builtin_16: bToggleList,
-  builtin_12: bNoop,   // control (0x12)
+  builtin_12: bNoop, // control (0x12)
   // --- coverage sweep 2026-08-27: shapes proven against the corpus ---
   stringtoreal: bStringtoreal,
-  builtin_21: bStringtoint,       // stringtoint
-  builtin_22: bHexconvert,        // hexconvert
-  builtin_23: bStrcat,            // strcat (dest ref FIRST)
-  builtin_26: bNumconvert,        // inttoreal/realtoint family
-  formatnum: bInttostring,        // (src, dst): number -> display
+  builtin_21: bStringtoint, // stringtoint
+  builtin_22: bHexconvert, // hexconvert
+  builtin_23: bStrcat, // strcat (dest ref FIRST)
+  builtin_26: bNumconvert, // inttoreal/realtoint family
+  formatnum: bInttostring, // (src, dst): number -> display
   getdate: bGetdate,
   gettime: bGettime,
-  builtin_15: bGetapistring,      // getapistring(out s)
+  builtin_15: bGetapistring, // getapistring(out s)
   INPAapiResultSets: bResultSets, // single-ref INPA form
   INP1apiResultBinary: bResultBinary,
-  builtin_74: bResult,            // INP1apiResultReal(rc, val, KEY, set)
-  builtin_14: bNoop,              // stop
-  builtin_1a: bNoop,              // setcolor
-  builtin_51: bNoop,              // blankscreen
-  builtin_57: bNoop,              // userboxclear
-  builtin_58: bNoop,              // userboxsetcolor
+  builtin_74: bResult, // INP1apiResultReal(rc, val, KEY, set)
+  builtin_14: bNoop, // stop
+  builtin_1a: bNoop, // setcolor
+  builtin_51: bNoop, // blankscreen
+  builtin_57: bNoop, // userboxclear
+  builtin_58: bNoop, // userboxsetcolor
 };
 
 // Loaded two ways: as a <script> in the app (globals) and via require() in the
@@ -1653,6 +1907,17 @@ if (typeof window !== 'undefined') {
   window.scanQuitBox = scanQuitBox;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { IpoVm, IpoError, OkHost, FeedHost, scanQuitBox,
-                     Emissions, mkBound, mkSlot, isBound, isSlot, binop };
+  module.exports = {
+    IpoVm,
+    IpoError,
+    OkHost,
+    FeedHost,
+    scanQuitBox,
+    Emissions,
+    mkBound,
+    mkSlot,
+    isBound,
+    isSlot,
+    binop,
+  };
 }

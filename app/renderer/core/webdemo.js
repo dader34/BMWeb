@@ -11,8 +11,8 @@ const WEB_DEMO_STATES = ['ein', 'aus', 'aktiv', 'bereit', 'nicht aktiv'];
 // drifting seed (a gauge falling off a cliff every n reads). Fold walks
 // 0..n-1..0 so each shape wanders inside its band.
 function tri(i, n) {
-  const t = ((i % (n * 2)) + (n * 2)) % (n * 2);
-  return t < n ? t : (n * 2) - 1 - t;
+  const t = ((i % (n * 2)) + n * 2) % (n * 2);
+  return t < n ? t : n * 2 - 1 - t;
 }
 
 // unit -> a believable idling-engine value, so gauges sit mid-scale
@@ -67,9 +67,12 @@ function webDemoValue(name, desc, i, steady) {
   }
   // ...and so does one the NAME declares boolean (DWA4's _VERBAUT came back 34
   // and drew a bar)
-  if (/(_VERBAUT|_EIN|_AUS|_AKTIV|_INAKTIV|_MOEGLICH|_VORHANDEN|_OFFEN|_GESCHLOSSEN|_GEDRUECKT|_BETAETIGT|_GELOEST|_ERKANNT|_OK)\d*$/i
-      .test(name)) {
-    return (steady % 2) === 0 ? 'ja' : 'nein';
+  if (
+    /(_VERBAUT|_EIN|_AUS|_AKTIV|_INAKTIV|_MOEGLICH|_VORHANDEN|_OFFEN|_GESCHLOSSEN|_GEDRUECKT|_BETAETIGT|_GELOEST|_ERKANNT|_OK)\d*$/i.test(
+      name
+    )
+  ) {
+    return steady % 2 === 0 ? 'ja' : 'nein';
   }
   // the description often states the valid span ("Werte -48 bis 48"): sit inside it
   const span = /(-?\d+)\s*bis\s*(-?\d+)/.exec(desc || '');
@@ -108,8 +111,10 @@ function webDemoSets(meta, job, arg) {
   // _DEMO so no screen can render one without knowing.
   if (/^FS_/i.test(name)) return [{ JOB_STATUS: 'OKAY', F_ANZAHL: '0' }];
 
-  const j = meta && meta.jobs
-    && (meta.jobs[name] || meta.jobs[job] || meta.jobs[String(job)]);
+  const j =
+    meta &&
+    meta.jobs &&
+    (meta.jobs[name] || meta.jobs[job] || meta.jobs[String(job)]);
   const row = { JOB_STATUS: 'OKAY' };
   if (!j || !Array.isArray(j.results)) return [row];
 
@@ -128,10 +133,13 @@ function webDemoSets(meta, job, arg) {
     if (!rn || rn.startsWith('_') || rn === 'JOB_STATUS') continue;
     // an actuator's readback echoes what was just commanded, so driving a key
     // visibly moves its gauge instead of leaving it at 0
-    row[rn] = (arg != null && rn.startsWith('STAT_AUSGANG')
-               && !/_EINH$/.test(rn) && !/_TEXT$/.test(rn))
-      ? webDemoEcho(arg)
-      : webDemoValue(rn, r.comment || '', i++, steady++);
+    row[rn] =
+      arg != null &&
+      rn.startsWith('STAT_AUSGANG') &&
+      !/_EINH$/.test(rn) &&
+      !/_TEXT$/.test(rn)
+        ? webDemoEcho(arg)
+        : webDemoValue(rn, r.comment || '', i++, steady++);
   }
   return [row];
 }
@@ -141,10 +149,14 @@ function webDemoSets(meta, job, arg) {
 // Guarded, since the offline bundle may load this without the coding screen.
 async function webDemoCoding(sgbd, job, sets) {
   if (!/CODIER|^COD_/i.test(String(job))) return;
-  if (typeof codDatEnums !== 'function'
-      || typeof codEnumMatch !== 'function') return;
+  if (typeof codDatEnums !== 'function' || typeof codEnumMatch !== 'function')
+    return;
   let enums = null;
-  try { enums = await codDatEnums(String(sgbd).toLowerCase()); } catch { return; }
+  try {
+    enums = await codDatEnums(String(sgbd).toLowerCase());
+  } catch {
+    return;
+  }
   if (!enums) return;
   for (const row of sets || []) {
     const matched = codEnumMatch(Object.keys(row), enums);
@@ -156,7 +168,6 @@ async function webDemoCoding(sgbd, job, sets) {
     }
   }
 }
-
 
 // ---------------------------------------------------------------------------
 // Demo fault memory, drawn from the ECU's OWN fault table.
@@ -192,7 +203,7 @@ function webDemoFaultTable(sgbd) {
   const idx = (typeof window !== 'undefined' && window.BMW_FAULT_INDEX) || null;
   if (!idx || !idx.length) return null;
   const key = String(sgbd).toLowerCase();
-  const hits = idx.filter(e => String(e.sgbd || '').toLowerCase() === key);
+  const hits = idx.filter((e) => String(e.sgbd || '').toLowerCase() === key);
   if (!hits.length) return null;
   // Same SGBD across chassis: take the richest table rather than the first.
   hits.sort((a, b) => (b.faults || []).length - (a.faults || []).length);
@@ -207,13 +218,15 @@ function webDemoFaultRow(entry, seed) {
   return {
     // code scheme reads F_ORT_NR; text scheme is named from F_ORT_TEXT
     F_ORT_NR: code || '',
-    F_ORT_TEXT: textScheme ? key : (english || key),
+    F_ORT_TEXT: textScheme ? key : english || key,
     F_HFK: String(1 + (seed % 8)),
     F_ART_ANZ: '1',
     F_ART1_NR: String(1 + (seed % 3)),
-    F_ART1_TEXT: (seed % 3 === 0) ? 'Fehler sporadisch' : 'Fehler statisch',
-    F_VORHANDEN_TEXT: (seed % 4 === 0)
-      ? 'Fehler momentan vorhanden' : 'Fehler momentan nicht vorhanden',
+    F_ART1_TEXT: seed % 3 === 0 ? 'Fehler sporadisch' : 'Fehler statisch',
+    F_VORHANDEN_TEXT:
+      seed % 4 === 0
+        ? 'Fehler momentan vorhanden'
+        : 'Fehler momentan nicht vorhanden',
     F_LZ: String(1 + (seed % 250)),
     _DEMO: '1',
   };
@@ -222,9 +235,13 @@ function webDemoFaultRow(entry, seed) {
 // Replace a demo fault read with faults this ECU can actually report.
 // Async because faultindex.js is lazy-loaded; mirrors webDemoCoding.
 async function webDemoFaults(sgbd, job, sets) {
-  if (!/^FS_LESEN/i.test(String(job))) return;   // FS_LOESCHEN etc. stay as-is
+  if (!/^FS_LESEN/i.test(String(job))) return; // FS_LOESCHEN etc. stay as-is
   if (typeof loadFaultIndex === 'function') {
-    try { await loadFaultIndex(); } catch (e) { /* fall through to the check */ }
+    try {
+      await loadFaultIndex();
+    } catch (e) {
+      /* fall through to the check */
+    }
   }
   const entry = webDemoFaultTable(sgbd);
   // No table for this module: leave the clean memory. Borrowing another ECU's
@@ -250,7 +267,11 @@ async function webDemoFaults(sgbd, job, sets) {
   if (!picked.length) return;
 
   sets.length = 0;
-  sets.push({ JOB_STATUS: 'OKAY', F_ANZAHL: String(picked.length), _DEMO: '1' });
+  sets.push({
+    JOB_STATUS: 'OKAY',
+    F_ANZAHL: String(picked.length),
+    _DEMO: '1',
+  });
   for (const r of picked) sets.push(r);
 }
 
@@ -261,6 +282,13 @@ if (typeof window !== 'undefined') {
   window.webDemoFaults = webDemoFaults;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { webDemoSets, webDemoValue, webDemoEcho, webDemoCoding,
-                   webDemoFaults, webDemoFaultRow, webDemoFaultHash };
+  module.exports = {
+    webDemoSets,
+    webDemoValue,
+    webDemoEcho,
+    webDemoCoding,
+    webDemoFaults,
+    webDemoFaultRow,
+    webDemoFaultHash,
+  };
 }

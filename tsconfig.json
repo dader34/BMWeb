@@ -1,0 +1,33 @@
+{
+  "//": "CI-only type gate. checkJs + noEmit means tsc never produces output; it only type-checks the JS. Files opt in with a `// @ts-check` comment at the top -- until then a file is parsed but not type-checked, so this starts as a no-op and tightens per file as the roadmap adds @typedefs to load-bearing surfaces.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": []
+  },
+  "include": ["app/renderer/**/*.js"],
+  "exclude": [
+    "node_modules",
+    "dist-web",
+    "app/renderer/vendor",
+    "app/renderer/data/faultdb.js",
+    "app/renderer/data/pcodes.js",
+    "app/renderer/data/faultinfo.js",
+    "app/renderer/data/faultmeta.js",
+    "app/renderer/data/faultindex.js",
+    "app/renderer/data/codingmap.js",
+    "app/renderer/data/datenmap.js",
+    "app/renderer/data/envmap.js",
+    "app/renderer/data/sanames.js",
+    "app/renderer/data/sget.js",
+    "app/renderer/data/tables.js"
+  ]
+}

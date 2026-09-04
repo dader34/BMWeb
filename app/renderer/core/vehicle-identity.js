@@ -37,9 +37,12 @@
 (function (root) {
   'use strict';
 
-  const Zcs = (typeof window !== 'undefined' && window.CodingZcs)
-    ? window.CodingZcs
-    : (typeof require === 'function' ? require('./coding-zcs.js') : null);
+  const Zcs =
+    typeof window !== 'undefined' && window.CodingZcs
+      ? window.CodingZcs
+      : typeof require === 'function'
+        ? require('./coding-zcs.js')
+        : null;
 
   // ---- table access ------------------------------------------------------
 
@@ -97,12 +100,12 @@
     let any = false;
     for (let i = 0; i < mask.length; i++) {
       const m = parseInt(mask[i], 16);
-      if (!m) continue;                       // this nibble is unconstrained
+      if (!m) continue; // this nibble is unconstrained
       any = true;
       const k = parseInt(key[i], 16);
       if (Number.isNaN(k) || (k & m) !== m) return false;
     }
-    return any;                               // all-zero mask matches nothing
+    return any; // all-zero mask matches nothing
   }
 
   // Every ZST row whose masks hold for these keys.
@@ -120,10 +123,14 @@
     return rows.filter((r) => {
       if (r.empty) return false;
       let held = false;
-      for (const [field, key] of [['gm', gm], ['sa', sa], ['vn', vn]]) {
+      for (const [field, key] of [
+        ['gm', gm],
+        ['sa', sa],
+        ['vn', vn],
+      ]) {
         const mask = r[field];
-        if (!mask || !/[^0]/.test(mask)) continue;   // unconstrained here
-        if (!maskHolds(key, mask)) return false;     // constrained and failed
+        if (!mask || !/[^0]/.test(mask)) continue; // unconstrained here
+        if (!maskHolds(key, mask)) return false; // constrained and failed
         held = true;
       }
       return held;
@@ -131,7 +138,11 @@
   }
 
   function up(s) {
-    return s == null ? '' : String(s).replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    return s == null
+      ? ''
+      : String(s)
+          .replace(/[^0-9A-Fa-f]/g, '')
+          .toUpperCase();
   }
 
   // ---- the bridge: ZCS -> SA catalog numbers ------------------------------
@@ -154,11 +165,19 @@
     // is legitimately blank. Matching that blank against the assignment table
     // invents SA numbers the car does not have (the phantom-options bug), so
     // decline here and let the caller fall back to the FA or report "no VO".
-    if (Zcs && typeof Zcs.isBlankSaKey === 'function'
-        && Zcs.isBlankSaKey(keys && keys.sa)) {
+    if (
+      Zcs &&
+      typeof Zcs.isBlankSaKey === 'function' &&
+      Zcs.isBlankSaKey(keys && keys.sa)
+    ) {
       return {
-        codes: [], keywords: [], ci: {}, unresolved: [],
-        resolved: false, rows: 0, blank: true,
+        codes: [],
+        keywords: [],
+        ci: {},
+        unresolved: [],
+        resolved: false,
+        rows: 0,
+        blank: true,
       };
     }
     const t = tablesFor(chassis);
@@ -182,7 +201,9 @@
     }
     return {
       codes: codes.sort((a, b) => Number(a) - Number(b)),
-      keywords, ci, unresolved,
+      keywords,
+      ci,
+      unresolved,
       resolved: codes.length > 0,
       rows: rows.length,
     };
@@ -205,13 +226,13 @@
   // So the parse keeps each token's own marker, and the rebuild replays them.
 
   const FA_MARKERS = {
-    '_': 'br',
+    _: 'br',
     '#': 'date',
     '*': 'typ',
     '%': 'lack',
     '&': 'polster',
     '|': 'zusbau',
-    '$': 'sa',
+    $: 'sa',
   };
 
   // "E46_#0303*BW32..." -> { br, date, typ, lack, polster, zusbau[], sa[],
@@ -225,8 +246,14 @@
     if (first < 0) return null;
     const out = {
       br: raw.slice(0, first) || null,
-      date: null, typ: null, lack: null, polster: null,
-      zusbau: [], sa: [], tokens: [], raw,
+      date: null,
+      typ: null,
+      lack: null,
+      polster: null,
+      zusbau: [],
+      sa: [],
+      tokens: [],
+      raw,
     };
     // Walk marker-delimited runs, keeping the marker with its value.
     const re = /([_#*%&|$])([^_#*%&|$]*)/g;
@@ -239,14 +266,29 @@
       const field = FA_MARKERS[marker];
       out.tokens.push({ marker, value, field });
       switch (field) {
-        case 'br': if (m[2]) out.br = m[2]; break;
-        case 'date': out.date = value; break;
-        case 'typ': out.typ = m[2]; break;
-        case 'lack': out.lack = m[2]; break;
-        case 'polster': out.polster = m[2]; break;
-        case 'zusbau': if (m[2]) out.zusbau.push(m[2]); break;
-        case 'sa': if (m[2]) out.sa.push(m[2]); break;
-        default: break;
+        case 'br':
+          if (m[2]) out.br = m[2];
+          break;
+        case 'date':
+          out.date = value;
+          break;
+        case 'typ':
+          out.typ = m[2];
+          break;
+        case 'lack':
+          out.lack = m[2];
+          break;
+        case 'polster':
+          out.polster = m[2];
+          break;
+        case 'zusbau':
+          if (m[2]) out.zusbau.push(m[2]);
+          break;
+        case 'sa':
+          if (m[2]) out.sa.push(m[2]);
+          break;
+        default:
+          break;
       }
     }
     return out;
@@ -269,7 +311,7 @@
   // The SA numbers an order carries, normalised to the unpadded form SGET
   // predicates use (S205, never S0205).
   function saCodesFromFa(fa) {
-    const f = (typeof fa === 'string') ? parseFa(fa) : fa;
+    const f = typeof fa === 'string' ? parseFa(fa) : fa;
     if (!f) return [];
     const out = [];
     for (const s of f.sa) {
@@ -289,7 +331,7 @@
     const key = String(code).replace(/[^0-9]/g, '');
     if (!at || !at.sa || !key) return null;
     const names = at.sa[String(parseInt(key, 10))];
-    return (names && names.length) ? names.join(', ') : null;
+    return names && names.length ? names.join(', ') : null;
   }
 
   // What an SA number is CALLED, in English, off the ETK catalogue
@@ -315,8 +357,9 @@
     const inWindow = (r) => d >= r[1] && (!r[2] || d < r[2]);
     const pool = d ? rows.filter(inWindow) : rows;
     if (!pool.length) return null;
-    const best = pool.slice().sort((a, b) => rank(a) - rank(b)
-                                             || a[1] - b[1])[0];
+    const best = pool
+      .slice()
+      .sort((a, b) => rank(a) - rank(b) || a[1] - b[1])[0];
     return best[3] || null;
   }
 
@@ -335,10 +378,16 @@
   }
 
   const api = {
-    identityMasters, familyMap,
-    zstMatches, maskHolds,
+    identityMasters,
+    familyMap,
+    zstMatches,
+    maskHolds,
     saCodesFromZcs,
-    parseFa, formatFa, saCodesFromFa, saLabel, saName,
+    parseFa,
+    formatFa,
+    saCodesFromFa,
+    saLabel,
+    saName,
     keysFromRegion,
     FA_MARKERS,
   };

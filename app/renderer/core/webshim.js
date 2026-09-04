@@ -91,13 +91,27 @@ const busTrace = {
   // run busTrace.start() first.
   recent: [],
   recentLimit: 60,
-  start(limit) { this.on = true; this.rows = []; if (limit) this.limit = limit;
-    console.log('[bus] tracing ON — reproduce the failure, then busTrace.dump()');
-    return 'tracing'; },
-  stop() { this.on = false; return `tracing OFF (${this.rows.length} rows kept)`; },
+  start(limit) {
+    this.on = true;
+    this.rows = [];
+    if (limit) this.limit = limit;
+    console.log(
+      '[bus] tracing ON — reproduce the failure, then busTrace.dump()'
+    );
+    return 'tracing';
+  },
+  stop() {
+    this.on = false;
+    return `tracing OFF (${this.rows.length} rows kept)`;
+  },
   add(tag, bytes, note) {
-    const row = { t: Date.now(), tag, hex: busTrace.hex(bytes),
-                  n: bytes ? bytes.length : 0, note };
+    const row = {
+      t: Date.now(),
+      tag,
+      hex: busTrace.hex(bytes),
+      n: bytes ? bytes.length : 0,
+      note,
+    };
     // ring buffer: always on, bounded, drops the oldest
     this.recent.push(row);
     if (this.recent.length > this.recentLimit) this.recent.shift();
@@ -111,23 +125,42 @@ const busTrace = {
   dumpRecent(why) {
     if (!this.recent.length) return;
     const t0 = this.recent[0].t;
-    console.groupCollapsed(`[bus] wire trace before ${why || 'error'} `
-      + `(${this.recent.length} rows) — expand for telegrams`);
-    console.table(this.recent.map((r) => ({
-      'ms': r.t - t0, 'what': r.tag, 'len': r.n, 'bytes': r.hex, 'note': r.note || '',
-    })));
+    console.groupCollapsed(
+      `[bus] wire trace before ${why || 'error'} ` +
+        `(${this.recent.length} rows) — expand for telegrams`
+    );
+    console.table(
+      this.recent.map((r) => ({
+        ms: r.t - t0,
+        what: r.tag,
+        len: r.n,
+        bytes: r.hex,
+        note: r.note || '',
+      }))
+    );
     console.groupEnd();
   },
   hex(b) {
     if (!b) return '';
-    return Array.from(b, (x) => (x & 0xff).toString(16).padStart(2, '0').toUpperCase()).join(' ');
+    return Array.from(b, (x) =>
+      (x & 0xff).toString(16).padStart(2, '0').toUpperCase()
+    ).join(' ');
   },
   dump() {
-    if (!this.rows.length) { console.log('[bus] nothing traced — busTrace.start() first'); return; }
+    if (!this.rows.length) {
+      console.log('[bus] nothing traced — busTrace.start() first');
+      return;
+    }
     const t0 = this.rows[0].t;
-    console.table(this.rows.map((r) => ({
-      'ms': r.t - t0, 'what': r.tag, 'len': r.n, 'bytes': r.hex, 'note': r.note || '',
-    })));
+    console.table(
+      this.rows.map((r) => ({
+        ms: r.t - t0,
+        what: r.tag,
+        len: r.n,
+        bytes: r.hex,
+        note: r.note || '',
+      }))
+    );
     return `${this.rows.length} rows`;
   },
 };
@@ -144,9 +177,17 @@ const apiTrace = {
   on: false,
   rows: [],
   limit: 500,
-  start() { this.on = true; return 'api trace ON'; },
-  stop() { this.on = false; return 'api trace OFF'; },
-  clear() { this.rows = []; },
+  start() {
+    this.on = true;
+    return 'api trace ON';
+  },
+  stop() {
+    this.on = false;
+    return 'api trace OFF';
+  },
+  clear() {
+    this.rows = [];
+  },
   // record one job: {sgbd, job, arg, sets, status, error, demo, t}
   add(entry) {
     if (!this.on) return;
@@ -169,9 +210,18 @@ const XOR_CONCEPTS = new Set([1, 5, 6, 0x10d]);
 const SUM_CONCEPTS = new Set([0x10b, 0x10c, 0x10f, 0x110]);
 function checksumOf(bytes, c) {
   let sum = 0;
-  if (XOR_CONCEPTS.has(c)) { for (const b of bytes) sum ^= b; return sum; }
-  if (SUM_CONCEPTS.has(c)) { for (const b of bytes) sum = (sum + b) & 0xff; return sum; }
-  throw ifhError('IFH-0018', `concept 0x${c.toString(16)} is not supported on this interface`);
+  if (XOR_CONCEPTS.has(c)) {
+    for (const b of bytes) sum ^= b;
+    return sum;
+  }
+  if (SUM_CONCEPTS.has(c)) {
+    for (const b of bytes) sum = (sum + b) & 0xff;
+    return sum;
+  }
+  throw ifhError(
+    'IFH-0018',
+    `concept 0x${c.toString(16)} is not supported on this interface`
+  );
 }
 function withChecksum(out, comm) {
   return [...out, checksumOf(out, conceptOf(comm))];
@@ -185,7 +235,10 @@ function frameTotal(buf, comm) {
     // DS2: the SGBD declared the rule with xawlen (EdInterfaceObd.TelLengthDs2)
     const al = comm && comm.answerLen;
     if (!al || !al.length) {
-      throw ifhError('IFH-0018', 'DS2 answer length not set by the SGBD (xawlen)');
+      throw ifhError(
+        'IFH-0018',
+        'DS2 answer length not set by the SGBD (xawlen)'
+      );
     }
     if (al[0] > 0) return al[0];
     const off = -al[0];
@@ -198,10 +251,14 @@ function frameTotal(buf, comm) {
     const short = buf[0] & 0x3f;
     if (short) return short + 3 + 1;
     if (buf.length < 4) return null;
-    if (buf[3] === 0) return buf.length >= 6 ? ((buf[4] << 8) + buf[5]) + 6 + 1 : null;
+    if (buf[3] === 0)
+      return buf.length >= 6 ? (buf[4] << 8) + buf[5] + 6 + 1 : null;
     return buf[3] + 4 + 1;
   }
-  throw ifhError('IFH-0018', `concept 0x${c.toString(16)} is not supported on this interface`);
+  throw ifhError(
+    'IFH-0018',
+    `concept 0x${c.toString(16)} is not supported on this interface`
+  );
 }
 
 function verifyChecksum(frame, comm) {
@@ -215,16 +272,24 @@ function portConfig(comm) {
   const c = conceptOf(comm);
   if (isIso9141(c)) {
     // 8N1 after the handshake -- the init itself is bit-banged, not framed.
-    return { baudRate: (comm && comm.baud) || ISO9141_BAUD,
-             dataBits: 8, stopBits: 1, parity: 'none' };
+    return {
+      baudRate: (comm && comm.baud) || ISO9141_BAUD,
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'none',
+    };
   }
   if (isKline(c)) {
     // DS2 and KWP2000* are 8E1 at the rate the SGBD names (EdInterfaceObd.cs
     // case 0x0006: parity = Even, baudRate = CommParameter[1]). An earlier
     // 10400 8N1 override here came from an ISO 9141 experiment and does not
     // belong on these concepts.
-    return { baudRate: (comm && comm.baud) || 9600,
-             dataBits: 8, stopBits: 1, parity: 'even' };
+    return {
+      baudRate: (comm && comm.baud) || 9600,
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'even',
+    };
   }
   return KDCAN;
 }
@@ -252,7 +317,10 @@ async function readFrame(sent, timeoutMs, pump, comm) {
     for (let start = 0; start + echoLen <= buf.length; start++) {
       let ok = true;
       for (let i = 0; i < echoLen; i++) {
-        if (buf[start + i] !== sent[i]) { ok = false; break; }
+        if (buf[start + i] !== sent[i]) {
+          ok = false;
+          break;
+        }
       }
       if (ok) return start;
     }
@@ -274,11 +342,14 @@ async function readFrame(sent, timeoutMs, pump, comm) {
     else await new Promise((r) => setTimeout(r, 4));
   }
   if (echoLen && at < 0) {
-    throw ifhError('IFH-0003', buf.length
-      ? 'echo did not match the request (bus collision?)'
-      : 'no echo from the cable (is it connected to the car?)');
+    throw ifhError(
+      'IFH-0003',
+      buf.length
+        ? 'echo did not match the request (bus collision?)'
+        : 'no echo from the cable (is it connected to the car?)'
+    );
   }
-  buf.splice(0, at >= 0 ? at + echoLen : 0);   // drop leading noise AND the echo
+  buf.splice(0, at >= 0 ? at + echoLen : 0); // drop leading noise AND the echo
   // timeoutMs is ParTimeoutStd: how long the ECU may take to START answering.
   // EDIABAS ends the frame on inter-byte silence (ParTimeoutTelEnd), not on
   // that budget -- so once the first byte is here, a long answer at 9600 baud
@@ -298,7 +369,10 @@ async function readFrame(sent, timeoutMs, pump, comm) {
     const got = await pump();
     if (got && got.length) {
       buf.push(...got);
-      if (!started) { started = true; frameDeadline = Date.now() + Math.max(timeoutMs, 3000); }
+      if (!started) {
+        started = true;
+        frameDeadline = Date.now() + Math.max(timeoutMs, 3000);
+      }
     } else await new Promise((r) => setTimeout(r, 4));
   }
   // A half-received frame is NOT an answer -- handing it to the VM decodes
@@ -321,7 +395,7 @@ function isResponsePending(frame, comm) {
   if (isDs2(c)) body = frame.slice(2);
   else if (c === 0x10d) body = frame.slice(4);
   else if (frame[0] === 0xb8) body = frame.slice(4);
-  else body = (frame[0] & 0x3f) ? frame.slice(3) : frame.slice(4);
+  else body = frame[0] & 0x3f ? frame.slice(3) : frame.slice(4);
   return body[0] === 0x7f && body[2] === 0x78;
 }
 
@@ -382,14 +456,25 @@ async function runExchange(bus, out, comm) {
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      busTrace.add('tx', framed, `${attempt ? 'retransmit' : 'tx'} timeout=${timeoutMs}ms`);
+      busTrace.add(
+        'tx',
+        framed,
+        `${attempt ? 'retransmit' : 'tx'} timeout=${timeoutMs}ms`
+      );
       let frame = await bus.exchangeRaw(framed, timeoutMs, comm);
       // keep reading while the ECU says "still working" -- bounded, so a
       // stuck ECU still fails instead of hanging the screen
-      for (let pending = 0; pending < 30 && isResponsePending(frame, comm); pending++) {
+      for (
+        let pending = 0;
+        pending < 30 && isResponsePending(frame, comm);
+        pending++
+      ) {
         // ParTimeoutNr78: how long the ECU may say "busy" between polls
-        frame = await bus.exchangeRaw(null,
-          (comm && comm.timeoutNr78) || Math.max(timeoutMs, 5000), comm);
+        frame = await bus.exchangeRaw(
+          null,
+          (comm && comm.timeoutNr78) || Math.max(timeoutMs, 5000),
+          comm
+        );
       }
       busTrace.add('rx', frame, 'OK');
       bus.lastResponseAt = Date.now();
@@ -494,16 +579,20 @@ class SerialTransportBase {
   // can skip the (session-dropping) reopen. Baud and parity are the only
   // settings a concept changes; data/stop bits are constant here.
   _configUnchanged(cfg) {
-    return !!this.config
-      && this.config.baudRate === cfg.baudRate
-      && this.config.parity === cfg.parity;
+    return (
+      !!this.config &&
+      this.config.baudRate === cfg.baudRate &&
+      this.config.parity === cfg.parity
+    );
   }
 
   // One request/answer exchange. IDENTICAL for every transport -- the retry,
   // pacing, response-pending and framing all live in runExchange, which drives
   // the transport through its exchangeRaw/ensureConfig overrides. Kept in the
   // base (and reused by THOR below) so there is exactly one copy.
-  async exchange(out, comm) { return runExchange(this, out, comm); }
+  async exchange(out, comm) {
+    return runExchange(this, out, comm);
+  }
 }
 
 // The same bus, over the native bridge. A WKWebView has no Web Serial -- that
@@ -512,9 +601,15 @@ class SerialTransportBase {
 // checksums and echo handling stay here, identical to the Web Serial path;
 // only the four primitives differ.
 class NativeSerialBus extends SerialTransportBase {
-  constructor() { super(); this.path = null; this.config = null; }
+  constructor() {
+    super();
+    this.path = null;
+    this.config = null;
+  }
 
-  get connected() { return !!this.path; }
+  get connected() {
+    return !!this.path;
+  }
 
   async connect() {
     const r = await window.bmacw.serialOpen(null, KDCAN.baudRate, KDCAN.parity);
@@ -523,10 +618,16 @@ class NativeSerialBus extends SerialTransportBase {
     return this.portLabel();
   }
 
-  portLabel() { return (this.path || '').replace('/dev/', ''); }
+  portLabel() {
+    return (this.path || '').replace('/dev/', '');
+  }
 
   async disconnect() {
-    try { await window.bmacw.serialClose(); } catch { /* already closed */ }
+    try {
+      await window.bmacw.serialClose();
+    } catch {
+      /* already closed */
+    }
     this.path = null;
     this.config = null;
   }
@@ -540,8 +641,11 @@ class NativeSerialBus extends SerialTransportBase {
     // must be woken again. Without this a concept switch mid-job left
     // `inited` set and every following request went to a sleeping ECU.
     this._resetWakeState();
-    const r = await window.bmacw.serialOpen(this.path === 'serial'
-      ? null : this.path, cfg.baudRate, cfg.parity);
+    const r = await window.bmacw.serialOpen(
+      this.path === 'serial' ? null : this.path,
+      cfg.baudRate,
+      cfg.parity
+    );
     this.path = (r && r.port) || this.path;
     this.config = cfg;
   }
@@ -575,26 +679,36 @@ class NativeSerialBus extends SerialTransportBase {
       await window.bmacw.serialFlush();
       await window.bmacw.serialWrite(framed);
     }
-    return readFrame(framed, timeoutMs,
-      async () => window.bmacw.serialRead(), comm);
+    return readFrame(
+      framed,
+      timeoutMs,
+      async () => window.bmacw.serialRead(),
+      comm
+    );
   }
 }
 
 class WebSerialBus extends SerialTransportBase {
   constructor() {
     super();
-    this.port = null; this.reader = null; this.writer = null;
+    this.port = null;
+    this.reader = null;
+    this.writer = null;
     this.config = null;
   }
 
-  get connected() { return !!this.port; }
+  get connected() {
+    return !!this.port;
+  }
 
   // Must be called from a user gesture -- the browser will not show the port
   // picker otherwise. app.js wires this to the "connect cable" control.
   async connect() {
     if (!('serial' in navigator)) {
-      throw new Error('This browser has no Web Serial. Use Chrome or Edge '
-        + '(desktop), or the macOS app.');
+      throw new Error(
+        'This browser has no Web Serial. Use Chrome or Edge ' +
+          '(desktop), or the macOS app.'
+      );
     }
     this.port = await navigator.serial.requestPort();
     await this.port.open(KDCAN);
@@ -615,35 +729,46 @@ class WebSerialBus extends SerialTransportBase {
   async reconnect() {
     if (!('serial' in navigator) || this.connected) return null;
     let ports = [];
-    try { ports = await navigator.serial.getPorts(); }
-    catch (e) { console.info('[serial] getPorts() threw:', e.message); return null; }
+    try {
+      ports = await navigator.serial.getPorts();
+    } catch (e) {
+      console.info('[serial] getPorts() threw:', e.message);
+      return null;
+    }
     if (!ports.length) {
       // The browser remembers a granted port PER ORIGIN, but the grant is lost
       // if the origin changes, the device re-enumerated (some FTDI adapters do
       // on replug), or the user cleared site permissions. Nothing to reopen
       // silently -- the next connect() will ask once and it sticks again.
-      console.info('[serial] getPorts() returned no previously-granted port '
-        + '(first run here, or the grant was lost) -- a one-time pick is needed');
+      console.info(
+        '[serial] getPorts() returned no previously-granted port ' +
+          '(first run here, or the grant was lost) -- a one-time pick is needed'
+      );
       return null;
     }
     // Chrome 130+ exposes SerialPort.connected = is the device physically
     // present. Prefer a present one; a remembered-but-unplugged port would just
     // fail to open. Fall back to the first if the flag is unavailable.
-    this.port = ports.find(p => p.connected !== false) || ports[0];
+    this.port = ports.find((p) => p.connected !== false) || ports[0];
     try {
       await this.port.open(KDCAN);
     } catch (e) {
       // The commonest cause is the port being held by another tab/app, or the
       // device unplugged. Say which, rather than a silent "no cable".
-      console.info(`[serial] reopen of a granted port failed: ${e.message} `
-        + `(unplugged, or another tab/app holds it?)`);
-      this.port = null; return null;
+      console.info(
+        `[serial] reopen of a granted port failed: ${e.message} ` +
+          `(unplugged, or another tab/app holds it?)`
+      );
+      this.port = null;
+      return null;
     }
     this.config = KDCAN;
     this.writer = this.port.writable.getWriter();
     this.reader = this.port.readable.getReader();
     this._resetWireState();
-    console.info('[serial] reconnected to a previously-granted port, no picker');
+    console.info(
+      '[serial] reconnected to a previously-granted port, no picker'
+    );
     return this.portLabel();
   }
 
@@ -651,8 +776,19 @@ class WebSerialBus extends SerialTransportBase {
   // granted port needs no user gesture, only the first requestPort() does.
   async ensureConfig(cfg) {
     if (this._configUnchanged(cfg)) return;
-    try { if (this.reader) { await this.reader.cancel(); this.reader.releaseLock(); } } catch { /* reopening */ }
-    try { if (this.writer) this.writer.releaseLock(); } catch { /* reopening */ }
+    try {
+      if (this.reader) {
+        await this.reader.cancel();
+        this.reader.releaseLock();
+      }
+    } catch {
+      /* reopening */
+    }
+    try {
+      if (this.writer) this.writer.releaseLock();
+    } catch {
+      /* reopening */
+    }
     await this.port.close();
     await this.port.open(cfg);
     this.config = cfg;
@@ -668,9 +804,24 @@ class WebSerialBus extends SerialTransportBase {
   }
 
   async disconnect() {
-    try { if (this.reader) { await this.reader.cancel(); this.reader.releaseLock(); } } catch { /* closing */ }
-    try { if (this.writer) this.writer.releaseLock(); } catch { /* closing */ }
-    try { if (this.port) await this.port.close(); } catch { /* closing */ }
+    try {
+      if (this.reader) {
+        await this.reader.cancel();
+        this.reader.releaseLock();
+      }
+    } catch {
+      /* closing */
+    }
+    try {
+      if (this.writer) this.writer.releaseLock();
+    } catch {
+      /* closing */
+    }
+    try {
+      if (this.port) await this.port.close();
+    } catch {
+      /* closing */
+    }
     this.port = this.reader = this.writer = null;
     this._resetWireState();
   }
@@ -700,7 +851,7 @@ class WebSerialBus extends SerialTransportBase {
     return {
       battery: ubattMv / 1000,
       ignition: ignMv >= UTILITY_UBATT_MIN_MV,
-      derived: true,     // nominal, not measured -- this adapter has no sense line
+      derived: true, // nominal, not measured -- this adapter has no sense line
     };
   }
 
@@ -711,8 +862,11 @@ class WebSerialBus extends SerialTransportBase {
     if (this.port && this.port.getSignals) {
       try {
         const s = await this.port.getSignals();
-        if (s && s.dataSetReady === false && s.dataCarrierDetect === false) return 0;
-      } catch { /* no signal support */ }
+        if (s && s.dataSetReady === false && s.dataCarrierDetect === false)
+          return 0;
+      } catch {
+        /* no signal support */
+      }
     }
     return UTILITY_NOMINAL_MV;
   }
@@ -738,8 +892,11 @@ class WebSerialBus extends SerialTransportBase {
 
   async fastInit(comm) {
     if (!this.port.setSignals) {
-      throw ifhError('IFH-0018', 'this browser cannot drive the K line '
-        + '(no setSignals); use the macOS app for this ECU');
+      throw ifhError(
+        'IFH-0018',
+        'this browser cannot drive the K line ' +
+          '(no setSignals); use the macOS app for this ECU'
+      );
     }
     // DTR is this cable's transmit enable: EdiabasLib asserts it for the wake
     // and for the duration of every telegram it writes.
@@ -791,11 +948,18 @@ class WebSerialBus extends SerialTransportBase {
 
     // Break signalling needs the port open; parity/data bits are irrelevant
     // while the line is driven by hand.
-    await this.ensureConfig({ baudRate: baud, dataBits: 8, stopBits: 1,
-                              parity: 'none' });
+    await this.ensureConfig({
+      baudRate: baud,
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'none',
+    });
     if (!this.port.setSignals) {
-      throw ifhError('IFH-0018', 'this browser cannot bit-bang the K line '
-        + '(no setSignals); use the macOS app for this ECU');
+      throw ifhError(
+        'IFH-0018',
+        'this browser cannot bit-bang the K line ' +
+          '(no setSignals); use the macOS app for this ECU'
+      );
     }
 
     // start bit (low), 8 data bits LSB first, stop bit (high) -- 200 ms each
@@ -809,8 +973,12 @@ class WebSerialBus extends SerialTransportBase {
     await this.port.setSignals({ break: false });
 
     // Reopen so the break's framing errors are not read as data.
-    await this.reopen({ baudRate: baud, dataBits: 8, stopBits: 1,
-                        parity: 'none' });
+    await this.reopen({
+      baudRate: baud,
+      dataBits: 8,
+      stopBits: 1,
+      parity: 'none',
+    });
 
     // 0x55 then two key bytes, within ~300 ms of the stop bit
     const hdr = [];
@@ -822,14 +990,17 @@ class WebSerialBus extends SerialTransportBase {
     }
     const sync = hdr.indexOf(0x55);
     if (sync < 0 || hdr.length < sync + 3) {
-      throw ifhError('IFH-0009', 'the ECU did not answer the slow init '
-        + '(no 0x55 sync). Ignition on, engine off?');
+      throw ifhError(
+        'IFH-0009',
+        'the ECU did not answer the slow init ' +
+          '(no 0x55 sync). Ignition on, engine off?'
+      );
     }
     const kb2 = hdr[sync + 2];
 
     // Tester sends ~KB2; the ECU replies ~addr. W4 is 25-50 ms.
     await new Promise((r) => setTimeout(r, 30));
-    await this.writer.write(new Uint8Array([(~kb2) & 0xff]));
+    await this.writer.write(new Uint8Array([~kb2 & 0xff]));
     const ackDeadline = Date.now() + 400;
     const ack = [];
     while (ack.length < 2 && Date.now() < ackDeadline) {
@@ -847,8 +1018,19 @@ class WebSerialBus extends SerialTransportBase {
   // Close and reopen the port, dropping anything buffered. Used after the
   // slow init, whose break signalling leaves framing errors in the stream.
   async reopen(cfg) {
-    try { if (this.reader) { await this.reader.cancel(); this.reader.releaseLock(); } } catch { /* reopening */ }
-    try { if (this.writer) this.writer.releaseLock(); } catch { /* reopening */ }
+    try {
+      if (this.reader) {
+        await this.reader.cancel();
+        this.reader.releaseLock();
+      }
+    } catch {
+      /* reopening */
+    }
+    try {
+      if (this.writer) this.writer.releaseLock();
+    } catch {
+      /* reopening */
+    }
     this.pending = null;
     await this.port.close();
     await this.port.open(cfg);
@@ -869,13 +1051,16 @@ class WebSerialBus extends SerialTransportBase {
     const kline = isKline(concept) || isKline(this.sessionConcept);
     // Which ECU this telegram addresses (DS2: the first byte). Kept for the
     // trace and for the ISO 9141 wake, which IS per module.
-    const addr = (framed && framed.length) ? (framed[0] & 0xff) : null;
-    busTrace.add('kline', null,
-      `addr=0x${addr == null ? '??' : addr.toString(16)}`
-      + ` concept=0x${concept.toString(16)} kline=${kline}`
-      + ` session=${this.sessionConcept} inited=${this.inited}`
-      + ` initedAddr=${this.initedAddr}`
-      + ` cfg=${this.config && this.config.baudRate}/${this.config && this.config.parity}`);
+    const addr = framed && framed.length ? framed[0] & 0xff : null;
+    busTrace.add(
+      'kline',
+      null,
+      `addr=0x${addr == null ? '??' : addr.toString(16)}` +
+        ` concept=0x${concept.toString(16)} kline=${kline}` +
+        ` session=${this.sessionConcept} inited=${this.inited}` +
+        ` initedAddr=${this.initedAddr}` +
+        ` cfg=${this.config && this.config.baudRate}/${this.config && this.config.parity}`
+    );
     // DS2 IS NOT WOKEN. EdiabasLib's SendWakeFastInit has exactly ONE call
     // site -- inside TransKwp2000Bmw (EdInterfaceObd.cs:4698) -- and TransDs2
     // (4867-4956) contains no wake, no break, no 5-baud address at all. The
@@ -931,19 +1116,30 @@ class WebSerialBus extends SerialTransportBase {
         // cable talking while the ECU answers and the reply is lost. An
         // earlier +4 ms margin here produced a perfect echo and no answer.
         const bits = this.config && this.config.parity === 'none' ? 10 : 11;
-        const ms = (framed.length * bits * 1000) / (this.config.baudRate || 9600);
-        busTrace.add('kline', null,
-          `DTR held ${Math.max(1, Math.round(ms + 0.3))}ms for ${framed.length}B`
-          + ` @${this.config && this.config.baudRate}/${this.config && this.config.parity}`);
-        await new Promise((r) => setTimeout(r, Math.max(1, Math.round(ms + 0.3))));
+        const ms =
+          (framed.length * bits * 1000) / (this.config.baudRate || 9600);
+        busTrace.add(
+          'kline',
+          null,
+          `DTR held ${Math.max(1, Math.round(ms + 0.3))}ms for ${framed.length}B` +
+            ` @${this.config && this.config.baudRate}/${this.config && this.config.parity}`
+        );
+        await new Promise((r) =>
+          setTimeout(r, Math.max(1, Math.round(ms + 0.3)))
+        );
         await this.port.setSignals({ dataTerminalReady: false });
       }
     }
     const deadline = Date.now() + timeoutMs;
-    return readFrame(framed, timeoutMs, async () => {
-      const { value, done } = await this.readSome(deadline);
-      return done ? null : value;
-    }, comm);
+    return readFrame(
+      framed,
+      timeoutMs,
+      async () => {
+        const { value, done } = await this.readSome(deadline);
+        return done ? null : value;
+      },
+      comm
+    );
   }
 
   // Read with a deadline, WITHOUT losing bytes to an abandoned read.
@@ -986,7 +1182,7 @@ class WebSerialBus extends SerialTransportBase {
         this.pending.then((r) => ({ hit: true, r })),
         new Promise((res) => setTimeout(() => res({ hit: false }), 2)),
       ]);
-      if (!settled.hit) return;            // still outstanding: leave it be
+      if (!settled.hit) return; // still outstanding: leave it be
       const { value, done } = settled.r || {};
       if (done || !value || !value.length) return;
     }
@@ -997,8 +1193,15 @@ class WebSerialBus extends SerialTransportBase {
     if (!this.pending) {
       // Tag the read so a resolved value can be told from a stale handle.
       this.pending = this.reader.read().then(
-        (r) => { this.pending = null; return r; },
-        (e) => { this.pending = null; throw e; });
+        (r) => {
+          this.pending = null;
+          return r;
+        },
+        (e) => {
+          this.pending = null;
+          throw e;
+        }
+      );
     }
     let timer;
     const timeout = new Promise((res) => {
@@ -1010,7 +1213,9 @@ class WebSerialBus extends SerialTransportBase {
       // "nothing yet" rather than done -- done means the port closed.
       if (r === TIMED_OUT) return { value: null, done: false };
       return r;
-    } finally { clearTimeout(timer); }
+    } finally {
+      clearTimeout(timer);
+    }
   }
 }
 
@@ -1050,19 +1255,25 @@ const THOR_DIRECT_TIMEOUT_MS = 10000;
 function thorAdviceFor(failures, https, typedAddress) {
   const tried = failures.join('; ');
   if (https) {
-    return 'This page is served over https, which cannot open a ws:// '
-      + 'connection to the adapter (mixed content), and a bare IP cannot '
-      + 'have a certificate. Open this build over http:// or as an offline '
-      + `copy. (${tried})`;
+    return (
+      'This page is served over https, which cannot open a ws:// ' +
+      'connection to the adapter (mixed content), and a bare IP cannot ' +
+      'have a certificate. Open this build over http:// or as an offline ' +
+      `copy. (${tried})`
+    );
   }
   if (typedAddress) {
-    return `No adapter answered at ${typedAddress}. Check you are joined to `
-      + "the adapter's WiFi, that the address is right, and that it runs the "
-      + `WebSocket firmware (vendor/esp-link-ws). (${tried})`;
+    return (
+      `No adapter answered at ${typedAddress}. Check you are joined to ` +
+      "the adapter's WiFi, that the address is right, and that it runs the " +
+      `WebSocket firmware (vendor/esp-link-ws). (${tried})`
+    );
   }
-  return "No THOR adapter found. Join the adapter's WiFi, and check it has "
-    + 'the WebSocket firmware flashed (see vendor/esp-link-ws). '
-    + `(${tried})`;
+  return (
+    "No THOR adapter found. Join the adapter's WiFi, and check it has " +
+    'the WebSocket firmware flashed (see vendor/esp-link-ws). ' +
+    `(${tried})`
+  );
 }
 
 // "192.168.4.1" | "192.168.4.1:81" | "ws://host/path" -> a URL. Bare hosts
@@ -1078,13 +1289,13 @@ class ThorWifiBus {
   // directUrl: talk to the adapter's own WebSocket instead of the relay.
   constructor(directUrl) {
     this.ws = null;
-    this.native = false;                             // shell-owned TCP socket
-    this.direct = directUrl || null;                 // address the user chose
-    this.usingDirect = null;                         // address that answered
+    this.native = false; // shell-owned TCP socket
+    this.direct = directUrl || null; // address the user chose
+    this.usingDirect = null; // address that answered
     this.textFrames = false;
-    this._connecting = null;                         // in-flight connect()
-    this.fw = null;                                  // { type, version }
-    this.state = { battery: null, ignition: null };  // last ident readings
+    this._connecting = null; // in-flight connect()
+    this.fw = null; // { type, version }
+    this.state = { battery: null, ignition: null }; // last ident readings
     this.rx = [];
     // whether the adapter has been asked to wake the K line this session
     this.inited = false;
@@ -1114,15 +1325,25 @@ class ThorWifiBus {
       const timer = setTimeout(() => {
         if (settled || ws.readyState === 1) return;
         settled = true;
-        try { ws.close(); } catch { /* never opened */ }
-        rej(new Error(`no answer from ${url} within ${Math.round(ms / 1000)}s`));
+        try {
+          ws.close();
+        } catch {
+          /* never opened */
+        }
+        rej(
+          new Error(`no answer from ${url} within ${Math.round(ms / 1000)}s`)
+        );
       }, ms);
       ws.onopen = () => {
         clearTimeout(timer);
         if (settled) {
           // A late open after we gave up: do not hand back a socket the
           // caller has stopped waiting for, and do not leak it either.
-          try { ws.close(); } catch { /* already closing */ }
+          try {
+            ws.close();
+          } catch {
+            /* already closing */
+          }
           return;
         }
         settled = true;
@@ -1138,8 +1359,15 @@ class ThorWifiBus {
         // the socket, silence on the wire.
         clearInterval(this.keepAlive);
         this.keepAlive = setInterval(() => {
-          if (ws.readyState !== 1) { clearInterval(this.keepAlive); return; }
-          try { ws.send(new Uint8Array(0)); } catch { /* closing */ }
+          if (ws.readyState !== 1) {
+            clearInterval(this.keepAlive);
+            return;
+          }
+          try {
+            ws.send(new Uint8Array(0));
+          } catch {
+            /* closing */
+          }
         }, 5000);
         res(ws);
       };
@@ -1147,16 +1375,29 @@ class ThorWifiBus {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        try { ws.close(); } catch { /* already dead */ }
+        try {
+          ws.close();
+        } catch {
+          /* already dead */
+        }
         rej(new Error(`could not open ${url}`));
       };
       ws.onmessage = (e) => {
         if (typeof e.data === 'string') {
-          busTrace.add('ws.text', null, JSON.stringify(String(e.data).slice(0, 60)));
-          if (onText) onText(); return;
+          busTrace.add(
+            'ws.text',
+            null,
+            JSON.stringify(String(e.data).slice(0, 60))
+          );
+          if (onText) onText();
+          return;
         }
         const chunk = new Uint8Array(e.data);
-        busTrace.add('ws.recv', chunk, `rx ${this.rx.length} -> ${this.rx.length + chunk.length}`);
+        busTrace.add(
+          'ws.recv',
+          chunk,
+          `rx ${this.rx.length} -> ${this.rx.length + chunk.length}`
+        );
         this.rx.push(...chunk);
       };
       ws.onclose = (e) => {
@@ -1166,9 +1407,11 @@ class ThorWifiBus {
         // the culprit -- 1006 is an abnormal close (no close frame: the
         // peer vanished or the network dropped), 1001 is going-away,
         // 1000 is a clean close somebody asked for.
-        console.warn(`[thor] socket closed: code=${e && e.code} `
-          + `reason="${(e && e.reason) || ''}" `
-          + `clean=${e && e.wasClean} url=${url}`);
+        console.warn(
+          `[thor] socket closed: code=${e && e.code} ` +
+            `reason="${(e && e.reason) || ''}" ` +
+            `clean=${e && e.wasClean} url=${url}`
+        );
         this.ws = null;
       };
     });
@@ -1182,8 +1425,9 @@ class ThorWifiBus {
     // instead of starting a rival one.
     if (this._connecting) return this._connecting;
     if (this.connected) return this.portLabel();
-    this._connecting = this.connectOnce()
-      .finally(() => { this._connecting = null; });
+    this._connecting = this.connectOnce().finally(() => {
+      this._connecting = null;
+    });
     return this._connecting;
   }
 
@@ -1193,16 +1437,17 @@ class ThorWifiBus {
     // the only arrangement that works on a phone. The relay and the
     // shell's socket are the fallbacks, and each one is only offered where
     // it can actually work.
-    const https = typeof location !== 'undefined'
-      && location.protocol === 'https:';
+    const https =
+      typeof location !== 'undefined' && location.protocol === 'https:';
     const attempts = [];
     if (!https) {
       attempts.push({
         kind: 'direct',
         url: this.direct || thorDirectUrl(THOR_DEFAULT_IP),
         open: async (url) => {
-          this.ws = await this.openWs(url, THOR_DIRECT_TIMEOUT_MS,
-                                      () => { this.textFrames = true; });
+          this.ws = await this.openWs(url, THOR_DIRECT_TIMEOUT_MS, () => {
+            this.textFrames = true;
+          });
           this.usingDirect = url;
         },
       });
@@ -1230,7 +1475,9 @@ class ThorWifiBus {
     if (!this.direct && bootQuery.has('relay')) {
       attempts.push({
         kind: 'relay',
-        open: async () => { this.ws = await this.openWs(THOR_BRIDGE, 4000); },
+        open: async () => {
+          this.ws = await this.openWs(THOR_BRIDGE, 4000);
+        },
       });
     }
 
@@ -1245,15 +1492,20 @@ class ThorWifiBus {
     for (const a of attempts) {
       try {
         await a.open(a.url);
-        const fw = await this.special(0xFD, 9);
+        const fw = await this.special(0xfd, 9);
         this.fw = { type: (fw[4] << 8) | fw[5], version: (fw[6] << 8) | fw[7] };
         // the raw method, not the bus-locked wrapper installed below --
         // connect() already holds the lock, and the wrapper would deadlock
         await ThorWifiBus.prototype.readState.call(this);
         return this.portLabel();
       } catch (e) {
-        failures.push(`${a.kind}: ${this.textFrames
-          ? 'text frames, not a binary UART bridge' : e.message}`);
+        failures.push(
+          `${a.kind}: ${
+            this.textFrames
+              ? 'text frames, not a binary UART bridge'
+              : e.message
+          }`
+        );
         await this.dropTransport();
       }
     }
@@ -1264,9 +1516,17 @@ class ThorWifiBus {
   async dropTransport() {
     clearInterval(this.keepAlive);
     this.keepAlive = null;
-    try { if (this.ws) this.ws.close(); } catch { /* already gone */ }
+    try {
+      if (this.ws) this.ws.close();
+    } catch {
+      /* already gone */
+    }
     if (this.native) {
-      try { await window.bmacw.tcpClose(); } catch { /* already gone */ }
+      try {
+        await window.bmacw.tcpClose();
+      } catch {
+        /* already gone */
+      }
     }
     this.ws = null;
     this.native = false;
@@ -1279,7 +1539,9 @@ class ThorWifiBus {
   }
 
   portLabel() {
-    const v = this.fw ? ` v${this.fw.version >> 8}.${this.fw.version & 0xff}` : '';
+    const v = this.fw
+      ? ` v${this.fw.version >> 8}.${this.fw.version & 0xff}`
+      : '';
     // Name the mode that actually WON, not the one that was configured:
     // with the fallback in place those differ, and "direct" has to mean
     // "nothing else is running" or it is worse than no label at all.
@@ -1291,10 +1553,18 @@ class ThorWifiBus {
     clearInterval(this.keepAlive);
     this.keepAlive = null;
     if (this.native) {
-      try { await window.bmacw.tcpClose(); } catch { /* already gone */ }
+      try {
+        await window.bmacw.tcpClose();
+      } catch {
+        /* already gone */
+      }
       this.native = false;
     }
-    try { if (this.ws) this.ws.close(); } catch { /* already gone */ }
+    try {
+      if (this.ws) this.ws.close();
+    } catch {
+      /* already gone */
+    }
     this.ws = null;
     this.usingDirect = null;
     this.inited = false;
@@ -1307,9 +1577,9 @@ class ThorWifiBus {
   // the shell (same shape as NativeSerialBus, and the timeout policy stays
   // here either way).
   async special(cmd, respLen, timeoutMs = 2000) {
-    const req = [0x82, 0xF1, 0xF1, cmd, cmd];
+    const req = [0x82, 0xf1, 0xf1, cmd, cmd];
     req.push(req.reduce((a, b) => (a + b) & 0xff, 0));
-    if (this.native) await window.bmacw.tcpRead();  // drop anything stale
+    if (this.native) await window.bmacw.tcpRead(); // drop anything stale
     this.rx.length = 0;
     if (this.native) await window.bmacw.tcpWrite(req);
     else this.ws.send(new Uint8Array(req));
@@ -1318,21 +1588,30 @@ class ThorWifiBus {
     while (this.rx.length < want && Date.now() < deadline) {
       if (this.native) {
         const got = await window.bmacw.tcpRead();
-        if (got && got.length) { this.rx.push(...got); continue; }
+        if (got && got.length) {
+          this.rx.push(...got);
+          continue;
+        }
       }
       await new Promise((r) => setTimeout(r, 15));
     }
     if (this.rx.length < want) {
-      busTrace.add('thor.special', this.rx,
-        `cmd=0x${cmd.toString(16)} SHORT: wanted ${want}, got ${this.rx.length}`);
+      busTrace.add(
+        'thor.special',
+        this.rx,
+        `cmd=0x${cmd.toString(16)} SHORT: wanted ${want}, got ${this.rx.length}`
+      );
       throw new Error('THOR adapter did not answer');
     }
     const resp = this.rx.slice(req.length, want);
     busTrace.add('thor.special', resp, `cmd=0x${cmd.toString(16)} ok`);
     const sum = resp.slice(0, -1).reduce((a, b) => (a + b) & 0xff, 0);
     if (sum !== resp[resp.length - 1]) {
-      busTrace.add('thor.special', this.rx,
-        `cmd=0x${cmd.toString(16)} CHECKSUM bad`);
+      busTrace.add(
+        'thor.special',
+        this.rx,
+        `cmd=0x${cmd.toString(16)} CHECKSUM bad`
+      );
       throw new Error('THOR answer checksum bad');
     }
     return resp;
@@ -1341,10 +1620,10 @@ class ThorWifiBus {
   // ignition sense + battery voltage, read from the adapter (no car protocol
   // involved). Feeds /api/state, so the topbar KL30/KL15 indicators are real.
   async readState() {
-    const ign = await this.special(0xFE, 6);
+    const ign = await this.special(0xfe, 6);
     this.state.ignition = (ign[4] & 0x01) !== 0;
     if (this.fw && this.fw.type >= 2) {
-      const v = await this.special(0xFC, 6);
+      const v = await this.special(0xfc, 6);
       this.state.battery = v[4] / 10;
     }
     return this.state;
@@ -1374,8 +1653,14 @@ class ThorWifiBus {
   // flags1 bits, from EdiabasLib EdCustomAdapterCommon (KLINEF1_*). These are
   // the adapter's instructions for how to drive the wire.
   static get KLINEF1() {
-    return { PARITY_EVEN: 0x01, USE_LLINE: 0x08, SEND_PULSE: 0x10,
-             NO_ECHO: 0x20, FAST_INIT: 0x40, USE_KLINE: 0x80 };
+    return {
+      PARITY_EVEN: 0x01,
+      USE_LLINE: 0x08,
+      SEND_PULSE: 0x10,
+      NO_ECHO: 0x20,
+      FAST_INIT: 0x40,
+      USE_KLINE: 0x80,
+    };
   }
 
   // Build flags1 the way EdiabasLib does (EdCustomAdapterCommon
@@ -1403,10 +1688,10 @@ class ThorWifiBus {
     const F = ThorWifiBus.KLINEF1;
     const c = conceptOf(comm);
     const kline = isDs2(c) || c === 0x10d;
-    const baud = kline ? ((comm && comm.baud) || 9600) : 115200;
+    const baud = kline ? (comm && comm.baud) || 9600 : 115200;
     let flags1 = F.NO_ECHO | F.USE_KLINE;
     if (kline) {
-      flags1 |= F.PARITY_EVEN;                 // DS2/KWP2000* are 8E1
+      flags1 |= F.PARITY_EVEN; // DS2/KWP2000* are 8E1
       // setDtr is false for these concepts, so the L line carries the send
       flags1 |= F.USE_LLINE;
       // only the concepts that actually do a fast init ask for one
@@ -1423,12 +1708,28 @@ class ThorWifiBus {
     const cfg = ThorWifiBus.thorConfig(comm, fastInit);
     const v2 = this.fw && this.fw.version >= 0x0008;
     const head = v2
-      ? [0x00, 0x02, (cfg.baudHalf >> 8) & 0xff, cfg.baudHalf & 0xff,
-         cfg.flags1, 0x00, cfg.interByte, 0x3c,
-         (payload.length >> 8) & 0xff, payload.length & 0xff]
-      : [0x00, 0x00, (cfg.baudHalf >> 8) & 0xff, cfg.baudHalf & 0xff,
-         cfg.flags1, cfg.interByte,
-         (payload.length >> 8) & 0xff, payload.length & 0xff];
+      ? [
+          0x00,
+          0x02,
+          (cfg.baudHalf >> 8) & 0xff,
+          cfg.baudHalf & 0xff,
+          cfg.flags1,
+          0x00,
+          cfg.interByte,
+          0x3c,
+          (payload.length >> 8) & 0xff,
+          payload.length & 0xff,
+        ]
+      : [
+          0x00,
+          0x00,
+          (cfg.baudHalf >> 8) & 0xff,
+          cfg.baudHalf & 0xff,
+          cfg.flags1,
+          cfg.interByte,
+          (payload.length >> 8) & 0xff,
+          payload.length & 0xff,
+        ];
     const tel = [...head, ...payload];
     tel.push(tel.reduce((a, b) => (a + b) & 0xff, 0));
     return tel;
@@ -1438,7 +1739,9 @@ class ThorWifiBus {
   // adapter needs no port reconfiguration -- but runExchange calls this on
   // every exchange, so it has to exist and be cheap. Tracking the concept
   // keeps parity with the serial buses for anything that reads it back.
-  async ensureConfig(cfg) { this.config = cfg; }
+  async ensureConfig(cfg) {
+    this.config = cfg;
+  }
 
   // Same contract as the serial buses' exchangeRaw: write `framed` (null means
   // "keep reading the answer to what was already sent" -- the response-pending
@@ -1455,11 +1758,15 @@ class ThorWifiBus {
       // like the serial path's `inited` gate -- the wake belongs to the
       // CONNECTION, not to one telegram, so it is cleared on connect/drop.
       const concept = conceptOf(comm);
-      const wantWake = (isKline(concept) || isKline(this.sessionConcept)) && !this.inited;
-      busTrace.add('thor.wake?', null,
-        `concept=0x${concept.toString(16)} isKline=${isKline(concept)}`
-        + ` sessionConcept=${this.sessionConcept} inited=${this.inited}`
-        + ` -> wantWake=${wantWake}`);
+      const wantWake =
+        (isKline(concept) || isKline(this.sessionConcept)) && !this.inited;
+      busTrace.add(
+        'thor.wake?',
+        null,
+        `concept=0x${concept.toString(16)} isKline=${isKline(concept)}` +
+          ` sessionConcept=${this.sessionConcept} inited=${this.inited}` +
+          ` -> wantWake=${wantWake}`
+      );
       const tel = this.thorWrap(Array.from(framed), comm, wantWake);
       if (wantWake) this.inited = true;
       // No echo to skip: thorConfig sets KLINEF1_NO_ECHO, so the adapter
@@ -1468,11 +1775,18 @@ class ThorWifiBus {
       // BMW telegram, not the wrapper -- which is why echoLen was framed.length
       // and not tel.length. Kept as a note: the echo is a mode, not a given.)
       echoLen = 0;
-      busTrace.add('thor.telegram', framed, `concept 0x${conceptOf(comm).toString(16)}`);
-      busTrace.add('thor.wrapped', tel,
-        `echoLen=${echoLen} baud=${(comm && comm.baud) || ''}`
-        + ` flags1=0x${tel[4].toString(16)}${wantWake ? ' FAST_INIT' : ''}`);
-      if (this.native) await window.bmacw.tcpRead();    // drop anything stale
+      busTrace.add(
+        'thor.telegram',
+        framed,
+        `concept 0x${conceptOf(comm).toString(16)}`
+      );
+      busTrace.add(
+        'thor.wrapped',
+        tel,
+        `echoLen=${echoLen} baud=${(comm && comm.baud) || ''}` +
+          ` flags1=0x${tel[4].toString(16)}${wantWake ? ' FAST_INIT' : ''}`
+      );
+      if (this.native) await window.bmacw.tcpRead(); // drop anything stale
       this.rx.length = 0;
       if (this.native) await window.bmacw.tcpWrite(tel);
       else this.ws.send(new Uint8Array(tel));
@@ -1485,7 +1799,10 @@ class ThorWifiBus {
     while (this.rx.length < echoLen && Date.now() < deadline) {
       if (this.native) {
         const got = await window.bmacw.tcpRead();
-        if (got && got.length) { this.rx.push(...got); continue; }
+        if (got && got.length) {
+          this.rx.push(...got);
+          continue;
+        }
       }
       await new Promise((r) => setTimeout(r, 10));
     }
@@ -1493,7 +1810,8 @@ class ThorWifiBus {
       busTrace.add('thor.rx', this.rx, `SHORT: wanted echo of ${echoLen}`);
       throw new Error('no echo from the THOR adapter (timeout)');
     }
-    if (echoLen) busTrace.add('thor.echo', this.rx.slice(0, echoLen), 'echo (skipped)');
+    if (echoLen)
+      busTrace.add('thor.echo', this.rx.slice(0, echoLen), 'echo (skipped)');
     while (Date.now() < deadline) {
       const buf = this.rx.slice(echoLen);
       const total = frameTotal(buf, comm);
@@ -1507,16 +1825,24 @@ class ThorWifiBus {
       }
       if (this.native) {
         const got = await window.bmacw.tcpRead();
-        if (got && got.length) { this.rx.push(...got); continue; }
+        if (got && got.length) {
+          this.rx.push(...got);
+          continue;
+        }
       }
       await new Promise((r) => setTimeout(r, 10));
     }
     const partial = this.rx.length - echoLen;
-    busTrace.add('thor.rx', this.rx,
-      `TIMEOUT after echo: ${partial} byte(s) of answer, frameTotal=${frameTotal(this.rx.slice(echoLen), comm)}`);
-    throw new Error(partial > 0
-      ? `incomplete answer from ECU via THOR (${partial} bytes)`
-      : 'no answer from ECU (timeout)');
+    busTrace.add(
+      'thor.rx',
+      this.rx,
+      `TIMEOUT after echo: ${partial} byte(s) of answer, frameTotal=${frameTotal(this.rx.slice(echoLen), comm)}`
+    );
+    throw new Error(
+      partial > 0
+        ? `incomplete answer from ECU via THOR (${partial} bytes)`
+        : 'no answer from ECU (timeout)'
+    );
   }
 
   // The Transport interface's shared exchange: identical to the serial buses'
@@ -1524,7 +1850,9 @@ class ThorWifiBus {
   // SerialTransportBase -- it owns no port, so the reconfigure-guard and
   // wake-state reset there do not apply (SEAM 3) -- so it keeps its own copy of
   // this one-liner rather than inheriting the port-shaped base.
-  async exchange(out, comm) { return runExchange(this, out, comm); }
+  async exchange(out, comm) {
+    return runExchange(this, out, comm);
+  }
 }
 
 // Which transport this host can do. THOR is an explicit choice (?thor=1 or the
@@ -1534,19 +1862,27 @@ class ThorWifiBus {
 // shell's injected copy, which is a reload behind right after a change.
 const bootSettings = (() => {
   try {
-    return { ...(window.__bmacwSettings || {}),
-             ...JSON.parse(localStorage.getItem('bmacw.settings') || '{}') };
-  } catch { return {}; }
+    return {
+      ...(window.__bmacwSettings || {}),
+      ...JSON.parse(localStorage.getItem('bmacw.settings') || '{}'),
+    };
+  } catch {
+    return {};
+  }
 })();
 const bootQuery = (() => {
-  try { return new URLSearchParams(location.search); }
-  catch { return new URLSearchParams(); }
+  try {
+    return new URLSearchParams(location.search);
+  } catch {
+    return new URLSearchParams();
+  }
 })();
 
 const wantThor = (() => {
   // an https page cannot open ws://192.168.4.1, so the hosted site is
   // K+DCAN only whatever a carried-over setting says
-  if (typeof location !== 'undefined' && location.protocol === 'https:') return false;
+  if (typeof location !== 'undefined' && location.protocol === 'https:')
+    return false;
   if (bootQuery.has('thor') || bootQuery.has('ws')) return true;
   return bootSettings.adapter === 'thor';
 })();
@@ -1560,13 +1896,15 @@ const wantThor = (() => {
 const thorDirect = (() => {
   const q = bootQuery.get('ws');
   if (q) return thorDirectUrl(q === '1' ? THOR_DEFAULT_IP : q);
-  const s = bootSettings.thorAddress;      // honoured if an old copy set it
+  const s = bootSettings.thorAddress; // honoured if an old copy set it
   return s ? thorDirectUrl(s) : null;
 })();
 
-const webBus = wantThor ? new ThorWifiBus(thorDirect)
-  : (typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen)
-    ? new NativeSerialBus() : new WebSerialBus();
+const webBus = wantThor
+  ? new ThorWifiBus(thorDirect)
+  : typeof window !== 'undefined' && window.bmacw && window.bmacw.serialOpen
+    ? new NativeSerialBus()
+    : new WebSerialBus();
 
 // ONE EXCHANGE AT A TIME, BUS-WIDE. The K-line is half duplex and the THOR
 // socket has a single rx buffer: two concurrent callers interleave writes
@@ -1577,7 +1915,10 @@ const webBus = wantThor ? new ThorWifiBus(thorDirect)
 let busChain = Promise.resolve();
 function withBusLock(fn) {
   const run = busChain.then(fn, fn);
-  busChain = run.then(() => {}, () => {});
+  busChain = run.then(
+    () => {},
+    () => {}
+  );
   return run;
 }
 
@@ -1622,7 +1963,7 @@ function withBusLock(fn) {
 // ordinary job transmitted with default BMW-FAST framing and every K-line
 // module got 115200 8N1 line noise.
 // Keyed by SGBD; switching ECUs ends the previous session.
-const sessions = new Map();          // sgbd -> { shared, inited, comm }
+const sessions = new Map(); // sgbd -> { shared, inited, comm }
 
 function sessionFor(sgbd) {
   const key = String(sgbd).toLowerCase();
@@ -1639,15 +1980,23 @@ function sessionFor(sgbd) {
 async function endSession(sgbd) {
   const key = String(sgbd).toLowerCase();
   const s = sessions.get(key);
-  if (!s || !s.inited) { sessions.delete(key); return; }
+  if (!s || !s.inited) {
+    sessions.delete(key);
+    return;
+  }
   sessions.delete(key);
   try {
     const code = await webFetchJson(`data/job-code/${key}.json`);
     if (code && code.jobs && code.jobs.ENDE !== undefined) {
-      await webRunJob(sgbd, 'ENDE', null,
-                      { noInit: true, shared: s.shared, comm: s.comm });
+      await webRunJob(sgbd, 'ENDE', null, {
+        noInit: true,
+        shared: s.shared,
+        comm: s.comm,
+      });
     }
-  } catch { /* the session is over either way */ }
+  } catch {
+    /* the session is over either way */
+  }
 }
 
 // The currently-loaded SGBD. EDIABAS holds one at a time; switching ends
@@ -1680,8 +2029,8 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
   const code = await webFetchJson(`data/job-code/${sgbd.toLowerCase()}.json`);
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
   const sharedTables = await loadSharedTables();
-  const tables = await webFetchJson(
-    `data/sgbd-tables/${sgbd.toLowerCase()}.json`) || {};
+  const tables =
+    (await webFetchJson(`data/sgbd-tables/${sgbd.toLowerCase()}.json`)) || {};
   const session = opts.shared
     ? { shared: opts.shared, inited: true, comm: opts.comm || null }
     : sessionFor(sgbd);
@@ -1696,8 +2045,8 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
   // the request bytes, miss the memo, and re-transmit an already-sent telegram
   const jobNow = new Date();
   let sendSeq = 0;
-  let emptyAnswers = 0;   // telegrams the wire could not answer
-  let realAnswers = 0;    // telegrams that came back with bytes
+  let emptyAnswers = 0; // telegrams the wire could not answer
+  let realAnswers = 0; // telegrams that came back with bytes
   for (let attempt = 0; attempt < 64; attempt++) {
     let missing = null;
     sendSeq = 0;
@@ -1736,8 +2085,10 @@ async function webRunJob(sgbd, job, arg, opts = {}) {
       // car. Saying so is the only honest outcome: the alternative is a
       // "clean fault memory" that is really a dead wire.
       if (emptyAnswers && !realAnswers) {
-        throw ifhError('IFH-0009',
-          'the ECU did not answer any telegram in this job');
+        throw ifhError(
+          'IFH-0009',
+          'the ECU did not answer any telegram in this job'
+        );
       }
       return { sets };
     } catch (e) {
@@ -1820,10 +2171,13 @@ async function webFetchGz(path) {
     if (isGz && typeof fflate === 'undefined') {
       throw new Error('fflate decompression library not loaded');
     }
-    const text = new TextDecoder('utf-8')
-      .decode(isGz ? fflate.gunzipSync(buf) : buf);
+    const text = new TextDecoder('utf-8').decode(
+      isGz ? fflate.gunzipSync(buf) : buf
+    );
     return JSON.parse(text);
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function loadGroupCode(name) {
@@ -1841,7 +2195,7 @@ let sharedTablesPromise = null;
 function loadSharedTables() {
   if (!sharedTablesPromise) {
     sharedTablesPromise = webFetchGz('data/groups/shared-tables.json.gz')
-      .then((t) => (t && typeof t === 'object') ? t : {})
+      .then((t) => (t && typeof t === 'object' ? t : {}))
       .catch(() => ({}));
   }
   return sharedTablesPromise;
@@ -1866,7 +2220,9 @@ function loadGroupVariants() {
 // generic "no answer". Five exits share that null, and on a live car they
 // mean completely different things (silent bus vs. answered-but-unmatched).
 let _lastResolve = null;
-function webResolveVariantLast() { return _lastResolve; }
+function webResolveVariantLast() {
+  return _lastResolve;
+}
 
 async function webResolveVariant(groupName) {
   const key = String(groupName).toLowerCase();
@@ -1877,8 +2233,10 @@ async function webResolveVariant(groupName) {
     // into the session journal too: a beta Report must say WHY a module
     // was not identified, not just that inpainit stopped afterwards
     if (typeof Journal !== 'undefined' && Journal.log) {
-      Journal.log('variant', `${key}: ${path}`
-        + (extra ? ' ' + JSON.stringify(extra) : ''));
+      Journal.log(
+        'variant',
+        `${key}: ${path}` + (extra ? ' ' + JSON.stringify(extra) : '')
+      );
     }
   };
   const code = await loadGroupCode(key);
@@ -1902,16 +2260,17 @@ async function webResolveVariant(groupName) {
   if (variants && Array.isArray(variants.rows)) {
     const tname = variants.table || 'ZuordnungsTabelle';
     extTables.t_grtb[tname] = variants.rows;
-    const hasLocal = Object.keys(tables)
-      .some((k) => k.toUpperCase() === tname.toUpperCase());
+    const hasLocal = Object.keys(tables).some(
+      (k) => k.toUpperCase() === tname.toUpperCase()
+    );
     if (!hasLocal) tables[tname] = variants.rows;
   }
 
   const answers = new Map();
   const jobNow = new Date();
   let sets = null;
-  let emptyAnswers = 0;   // telegrams the wire could not answer
-  let realAnswers = 0;    // telegrams that came back with bytes
+  let emptyAnswers = 0; // telegrams the wire could not answer
+  let realAnswers = 0; // telegrams that came back with bytes
   try {
     for (let attempt = 0; attempt < 64; attempt++) {
       let missing = null;
@@ -1969,8 +2328,11 @@ async function webResolveVariant(groupName) {
   } catch (e) {
     // A job-level failure (bad bytecode, unusable answer) means the address
     // did not identify. Absence of an ANSWER is handled above.
-    diag('probe-error', { error: String(e && e.message || e),
-                          empty: emptyAnswers, real: realAnswers });
+    diag('probe-error', {
+      error: String((e && e.message) || e),
+      empty: emptyAnswers,
+      real: realAnswers,
+    });
     return null;
   }
   // Nothing on this address answered anything: the module is genuinely not
@@ -1988,8 +2350,11 @@ async function webResolveVariant(groupName) {
       return v;
     }
   }
-  diag('answered-but-unmatched', { empty: emptyAnswers, real: realAnswers,
-                                   sets: (sets || []).length });
+  diag('answered-but-unmatched', {
+    empty: emptyAnswers,
+    real: realAnswers,
+    sets: (sets || []).length,
+  });
   return null;
 }
 
@@ -2014,8 +2379,10 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
     throw new Error('coding-write.js is not loaded');
   }
   if (!opts.confirmed) {
-    throw new Error('coding write requires an explicit confirmation '
-      + '(opts.confirmed) from the UI before it can transmit');
+    throw new Error(
+      'coding write requires an explicit confirmation ' +
+        '(opts.confirmed) from the UI before it can transmit'
+    );
   }
   if (!webBus.connected) throw new Error('no cable connected');
 
@@ -2024,7 +2391,7 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
   // read path uses, so the strategy sees exactly the jobs this module exposes.
   const code = await webFetchJson(`data/job-code/${key}.json`);
   if (!code) throw new Error(`no job code shipped for ${sgbd}`);
-  const tables = await webFetchJson(`data/sgbd-tables/${key}.json`) || {};
+  const tables = (await webFetchJson(`data/sgbd-tables/${key}.json`)) || {};
 
   // DISPATCHER PROGRAM (optional). When a derived A_<cabd> coding dispatcher
   // is shipped for this module, writeCoding runs BMW's own dispatcher instead
@@ -2040,21 +2407,23 @@ async function webWriteCoding(sgbd, nettoHex, opts = {}) {
   // sequence under the bus lock so nothing else touches the wire mid-coding.
   await switchSession(sgbd);
   const session = sessionFor(sgbd);
-  return withBusLock(() => window.writeCoding(sgbd, nettoHex, {
-    confirmed: true,
-    code,
-    tables,
-    jobs: code.jobs,
-    // the bus-locked wire, called from inside the lock we already hold --
-    // webBus.exchange re-enters withBusLock, which the promise chain
-    // serialises, so pass the RAW exchange to avoid queuing behind ourselves
-    exchange: (out, comm) => webBusRawExchange(out, comm),
-    session,
-    // the dispatcher program + its word width, only when shipped for this CABD
-    dispatch: dispatchOk ? dispatch : null,
-    dataOrg: dispatchOk ? (dispatch.dataOrg || null) : null,
-    jobname: dispatchOk ? (opts.jobname || 'SG_CODIEREN') : undefined,
-  }));
+  return withBusLock(() =>
+    window.writeCoding(sgbd, nettoHex, {
+      confirmed: true,
+      code,
+      tables,
+      jobs: code.jobs,
+      // the bus-locked wire, called from inside the lock we already hold --
+      // webBus.exchange re-enters withBusLock, which the promise chain
+      // serialises, so pass the RAW exchange to avoid queuing behind ourselves
+      exchange: (out, comm) => webBusRawExchange(out, comm),
+      session,
+      // the dispatcher program + its word width, only when shipped for this CABD
+      dispatch: dispatchOk ? dispatch : null,
+      dataOrg: dispatchOk ? dispatch.dataOrg || null : null,
+      jobname: dispatchOk ? opts.jobname || 'SG_CODIEREN' : undefined,
+    })
+  );
 }
 
 // The raw exchange, unwrapped from the bus lock. webWriteCoding already holds
@@ -2080,8 +2449,11 @@ async function webFetchJson(path) {
 // dader34.github.io/api/chassis -- off the site entirely. Derive the base
 // from the document's own URL and hang every static path off it. Empty at a
 // domain root and inside the macOS app, so both behave exactly as before.
-const WEB_BASE = (typeof location !== 'undefined'
-  ? location.pathname.replace(/\/[^/]*$/, '') : '').replace(/\/$/, '');
+const WEB_BASE = (
+  typeof location !== 'undefined'
+    ? location.pathname.replace(/\/[^/]*$/, '')
+    : ''
+).replace(/\/$/, '');
 
 // Cache of chassis configs and their ECU zip buffers.
 // Format: chassisId -> { config: Object, ecuZips: Map(sgbd -> ArrayBuffer) }
@@ -2099,8 +2471,11 @@ async function loadChassis(chassisId, realFetch) {
   // where fetch() is blocked, so the offline export inlines each archive as
   // base64 in a <script> instead -- which file:// loads happily. Use that
   // when it is there, and only reach for the network otherwise.
-  if (typeof BMACW_INLINE === 'object' && BMACW_INLINE
-      && BMACW_INLINE[upperId]) {
+  if (
+    typeof BMACW_INLINE === 'object' &&
+    BMACW_INLINE &&
+    BMACW_INLINE[upperId]
+  ) {
     const bin = atob(BMACW_INLINE[upperId]);
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -2109,7 +2484,8 @@ async function loadChassis(chassisId, realFetch) {
 
   const fileUrl = `${WEB_BASE}/api/chassis/${upperId}.chassis`;
   const res = await realFetch(fileUrl);
-  if (!res.ok) throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
+  if (!res.ok)
+    throw new Error(`Failed to load chassis ${upperId}: ${res.statusText}`);
 
   const buffer = await res.arrayBuffer();
   return cacheChassis(upperId, new Uint8Array(buffer));
@@ -2124,7 +2500,8 @@ function cacheChassis(upperId, bytes) {
   const unzipped = fflate.unzipSync(bytes);
 
   const configBytes = unzipped['config.json'];
-  if (!configBytes) throw new Error(`Missing config.json in chassis ${upperId}`);
+  if (!configBytes)
+    throw new Error(`Missing config.json in chassis ${upperId}`);
   const config = JSON.parse(new TextDecoder('utf-8').decode(configBytes));
 
   const ecuZips = new Map();
@@ -2157,11 +2534,14 @@ async function loadEcu(sgbd, realFetch) {
   // them -- so find the car that owns this SGBD and load that. Costs one
   // chassis download, after which every ECU in the same car is already here.
   if (!ecuZipBytes) {
-    const idx = (typeof BMACW_INLINE === 'object' && BMACW_INLINE
-                 && BMACW_INLINE._index)
-      ? BMACW_INLINE._index
-      : await (await realFetch(
-          `${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)).json().catch(() => null);
+    const idx =
+      typeof BMACW_INLINE === 'object' && BMACW_INLINE && BMACW_INLINE._index
+        ? BMACW_INLINE._index
+        : await (
+            await realFetch(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`)
+          )
+            .json()
+            .catch(() => null);
     const cid = idx && idx[lowerSgbd];
     if (cid) {
       const data = await loadChassis(cid, realFetch);
@@ -2206,9 +2586,14 @@ function installWebShim() {
   // ISTA -- with no other change. offlineFsActive() is false on http(s) and
   // in the native app, where this is exactly nativeFetch.
   const real = async (input, init) => {
-    if (typeof offlineFsActive === 'function' && offlineFsActive()
-        && typeof offlineFsReady === 'function' && offlineFsReady()) {
-      const url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (
+      typeof offlineFsActive === 'function' &&
+      offlineFsActive() &&
+      typeof offlineFsReady === 'function' &&
+      offlineFsReady()
+    ) {
+      const url =
+        typeof input === 'string' ? input : (input && input.url) || '';
       // ONLY same-origin paths belong to the folder. A genuine remote URL (the
       // ETK/faults HF fallback) must still go to the network -- rerouting it to
       // a folder read would 404 a file that was meant to come from the internet.
@@ -2217,7 +2602,8 @@ function installWebShim() {
       const isRemote = /^https?:\/\//i.test(url);
       if (!isRemote) {
         let rel = url.replace(/^file:\/\/[^/]*/, '');
-        if (WEB_BASE && rel.startsWith(WEB_BASE)) rel = rel.slice(WEB_BASE.length);
+        if (WEB_BASE && rel.startsWith(WEB_BASE))
+          rel = rel.slice(WEB_BASE.length);
         rel = rel.replace(/^\/+/, '');
         if (rel) return offlineReadFile(rel);
       }
@@ -2230,23 +2616,35 @@ function installWebShim() {
   window.fetch = async (input, init) => {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
     let rel = url.replace(/^https?:\/\/[^/]+/, '');
-    
+
     // Normalize path relative to WEB_BASE
     if (WEB_BASE && rel.startsWith(WEB_BASE)) {
       rel = rel.slice(WEB_BASE.length);
     }
     if (!rel.startsWith('/')) rel = '/' + rel;
 
-    const ok = (body) => new Response(JSON.stringify(body),
-      { status: 200, headers: { 'Content-Type': 'application/json' } });
-    const err = (msg, status = 503) => new Response(
-      JSON.stringify({ error: msg }),
-      { status, headers: { 'Content-Type': 'application/json' } });
+    const ok = (body) =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const err = (msg, status = 503) =>
+      new Response(JSON.stringify({ error: msg }), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+      });
 
     // --- VM bytecode / sgbd-tables files interception (from cached ECUs)
-    if (rel.startsWith('/data/job-code/') && rel !== '/data/job-code/index.json') {
-      const sgbd = rel.split('?')[0].split('/').pop()
-        .replace(/\.json$/, '').toLowerCase();
+    if (
+      rel.startsWith('/data/job-code/') &&
+      rel !== '/data/job-code/index.json'
+    ) {
+      const sgbd = rel
+        .split('?')[0]
+        .split('/')
+        .pop()
+        .replace(/\.json$/, '')
+        .toLowerCase();
       try {
         const ecu = await loadEcu(sgbd, real);
         const code = ecu.get('job-code.json');
@@ -2258,8 +2656,12 @@ function installWebShim() {
     }
 
     if (rel.startsWith('/data/sgbd-tables/')) {
-      const sgbd = rel.split('?')[0].split('/').pop()
-        .replace(/\.json$/, '').toLowerCase();
+      const sgbd = rel
+        .split('?')[0]
+        .split('/')
+        .pop()
+        .replace(/\.json$/, '')
+        .toLowerCase();
       try {
         const ecu = await loadEcu(sgbd, real);
         const tables = ecu.get('sgbd-tables.json');
@@ -2283,15 +2685,25 @@ function installWebShim() {
       if (webBus.connected && webBus.readState) {
         try {
           const st = await webBus.readState();
-          return ok({ battery: st.battery, ignition: st.ignition,
-                      connected: true, derived: !!st.derived,
-                      detail: st.derived
-                        ? 'nominal: this adapter has no voltage sense'
-                        : null });
-        } catch { /* adapter went away; report disconnected below */ }
+          return ok({
+            battery: st.battery,
+            ignition: st.ignition,
+            connected: true,
+            derived: !!st.derived,
+            detail: st.derived
+              ? 'nominal: this adapter has no voltage sense'
+              : null,
+          });
+        } catch {
+          /* adapter went away; report disconnected below */
+        }
       }
-      return ok({ battery: null, ignition: null, connected: webBus.connected,
-                  detail: webBus.connected ? null : 'no cable connected' });
+      return ok({
+        battery: null,
+        ignition: null,
+        connected: webBus.connected,
+        detail: webBus.connected ? null : 'no cable connected',
+      });
     }
 
     // --- job execution
@@ -2328,12 +2740,23 @@ function installWebShim() {
           if (typeof webDemoFaults === 'function') {
             await webDemoFaults(sgbd, decodeURIComponent(run[2]), sets);
           }
-          apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
-            sets, status: (sets[0] && sets[0].JOB_STATUS) || '', demo: true });
+          apiTrace.add({
+            sgbd: run[1],
+            job: decodeURIComponent(run[2]),
+            arg,
+            sets,
+            status: (sets[0] && sets[0].JOB_STATUS) || '',
+            demo: true,
+          });
           return ok({ job: run[2], demo: true, sets, system: systemSet(sets) });
         } catch (e) {
-          apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
-            error: e.message, demo: true });
+          apiTrace.add({
+            sgbd: run[1],
+            job: decodeURIComponent(run[2]),
+            arg,
+            error: e.message,
+            demo: true,
+          });
           return err(e.message, 404);
         }
       }
@@ -2344,12 +2767,21 @@ function installWebShim() {
         // one initialises.
         await switchSession(run[1]);
         const r = await webRunJob(run[1], decodeURIComponent(run[2]), arg);
-        apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
-          sets: r.sets, status: (r.sets[0] && r.sets[0].JOB_STATUS) || '' });
+        apiTrace.add({
+          sgbd: run[1],
+          job: decodeURIComponent(run[2]),
+          arg,
+          sets: r.sets,
+          status: (r.sets[0] && r.sets[0].JOB_STATUS) || '',
+        });
         return ok({ job: run[2], sets: r.sets, system: systemSet(r.sets) });
       } catch (e) {
-        apiTrace.add({ sgbd: run[1], job: decodeURIComponent(run[2]), arg,
-          error: e.message });
+        apiTrace.add({
+          sgbd: run[1],
+          job: decodeURIComponent(run[2]),
+          arg,
+          error: e.message,
+        });
         // A WIRE error (IFH-*) that reaches the user is where the telegram
         // trace is worth seeing -- auto-dump the recent ring buffer so the
         // failing exchange is on the console with no busTrace.start() needed.
@@ -2362,7 +2794,6 @@ function installWebShim() {
     // The routes below still run through the VM's own gate, which is now
     // permissive by default rather than absent.
 
-
     // --- everything else is a static file route (served from the zip archives)
     //
     // SPLIT THE PATH, NOT THE QUERY. ecu.js asks for "/api/ecu/msv80/ir?code=
@@ -2370,7 +2801,11 @@ function installWebShim() {
     // whole string leaves the last segment as "ir?code=MSV80", which matches
     // no kind. Every ECU then fell through to "no screen definition" while its
     // archive sat there holding 161 screens.
-    const m = rel.split('?')[0].replace(/^\/api\//, '').split('/').filter(Boolean);
+    const m = rel
+      .split('?')[0]
+      .replace(/^\/api\//, '')
+      .split('/')
+      .filter(Boolean);
     if (!m.length) return err('not found', 404);
 
     if (m[0] === 'chassis') {
@@ -2405,8 +2840,11 @@ function installWebShim() {
     // then reported a CLEAN FAULT MEMORY, on a module holding two present
     // faults. Serve the file.
     if (m[0] === 'ecu-index.json') {
-      if (typeof BMACW_INLINE === 'object' && BMACW_INLINE
-          && BMACW_INLINE._index) {
+      if (
+        typeof BMACW_INLINE === 'object' &&
+        BMACW_INLINE &&
+        BMACW_INLINE._index
+      ) {
         return ok(BMACW_INLINE._index);
       }
       return real(`${WEB_BASE}/${WEB_API_BASE}/ecu-index.json`, init);
@@ -2427,8 +2865,12 @@ function installWebShim() {
           const info = ecu.get('ecu.json');
           return info ? ok(info) : err(`No record for ${sgbd}`, 404);
         }
-        if (kind === 'jobs' || kind === 'ir' || kind === 'tables'
-            || kind === 'ipoexec') {
+        if (
+          kind === 'jobs' ||
+          kind === 'ir' ||
+          kind === 'tables' ||
+          kind === 'ipoexec'
+        ) {
           const res = ecu.get(`${kind}.json`);
           if (!res) {
             if (kind === 'jobs') return ok([]);
@@ -2436,7 +2878,10 @@ function installWebShim() {
           }
           return ok(res);
         }
-        if ((kind === 'results' || kind === 'arguments' || kind === 'table') && m[3]) {
+        if (
+          (kind === 'results' || kind === 'arguments' || kind === 'table') &&
+          m[3]
+        ) {
           const subName = decodeURIComponent(m[3]).toUpperCase();
           const res = ecu.get(`${kind}/${subName}.json`);
           if (!res) return err(`${kind}/${subName} not found for ${sgbd}`, 404);

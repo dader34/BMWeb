@@ -34,9 +34,9 @@
   function XmlNode(tagName) {
     this.tagName = tagName;
     this.attributes = Object.create(null);
-    this.childNodes = [];          // element children only
+    this.childNodes = []; // element children only
     this.parentElement = null;
-    this._text = '';               // direct text content of this element
+    this._text = ''; // direct text content of this element
   }
   XmlNode.prototype.getAttribute = function (name) {
     const v = this.attributes[name];
@@ -75,17 +75,25 @@
   function decodeEntities(s) {
     return s.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/g, (m, ent) => {
       if (ent[0] === '#') {
-        const code = ent[1] === 'x' || ent[1] === 'X'
-          ? parseInt(ent.slice(2), 16) : parseInt(ent.slice(1), 10);
+        const code =
+          ent[1] === 'x' || ent[1] === 'X'
+            ? parseInt(ent.slice(2), 16)
+            : parseInt(ent.slice(1), 10);
         return Number.isFinite(code) ? String.fromCodePoint(code) : m;
       }
       switch (ent) {
-        case 'amp': return '&';
-        case 'lt': return '<';
-        case 'gt': return '>';
-        case 'quot': return '"';
-        case 'apos': return "'";
-        default: return m;
+        case 'amp':
+          return '&';
+        case 'lt':
+          return '<';
+        case 'gt':
+          return '>';
+        case 'quot':
+          return '"';
+        case 'apos':
+          return "'";
+        default:
+          return m;
       }
     });
   }
@@ -99,39 +107,50 @@
 
     while (i < n) {
       const lt = xml.indexOf('<', i);
-      if (lt === -1) { cur._text += decodeEntities(xml.slice(i)); break; }
+      if (lt === -1) {
+        cur._text += decodeEntities(xml.slice(i));
+        break;
+      }
       if (lt > i) {
         // text between tags -> attach to the current element
         const txt = xml.slice(i, lt);
         if (cur !== root) cur._text += decodeEntities(txt);
       }
       // dispatch on what follows '<'
-      if (xml.startsWith('<!--', lt)) {                       // comment
+      if (xml.startsWith('<!--', lt)) {
+        // comment
         const end = xml.indexOf('-->', lt + 4);
         i = end === -1 ? n : end + 3;
         continue;
       }
-      if (xml.startsWith('<![CDATA[', lt)) {                  // CDATA
+      if (xml.startsWith('<![CDATA[', lt)) {
+        // CDATA
         const end = xml.indexOf(']]>', lt + 9);
         const data = xml.slice(lt + 9, end === -1 ? n : end);
         if (cur !== root) cur._text += data;
         i = end === -1 ? n : end + 3;
         continue;
       }
-      if (xml.startsWith('<?', lt) || xml.startsWith('<!', lt)) { // PI / doctype
+      if (xml.startsWith('<?', lt) || xml.startsWith('<!', lt)) {
+        // PI / doctype
         const end = xml.indexOf('>', lt + 2);
         i = end === -1 ? n : end + 1;
         continue;
       }
       const gt = xml.indexOf('>', lt);
-      if (gt === -1) { throw new XdfParseError('malformed XML: unterminated tag'); }
+      if (gt === -1) {
+        throw new XdfParseError('malformed XML: unterminated tag');
+      }
       let raw = xml.slice(lt + 1, gt);
 
-      if (raw[0] === '/') {                                   // closing tag
+      if (raw[0] === '/') {
+        // closing tag
         const name = raw.slice(1).trim();
         if (cur === root) throw new XdfParseError(`unexpected </${name}>`);
         if (cur.tagName !== name) {
-          throw new XdfParseError(`mismatched tag: </${name}> closing <${cur.tagName}>`);
+          throw new XdfParseError(
+            `mismatched tag: </${name}> closing <${cur.tagName}>`
+          );
         }
         cur = cur.parentElement || root;
         i = gt + 1;
@@ -150,7 +169,8 @@
         const re = /([^\s=]+)\s*=\s*("([^"]*)"|'([^']*)')/g;
         let m;
         while ((m = re.exec(attrStr))) {
-          const val = m[3] !== undefined ? m[3] : (m[4] !== undefined ? m[4] : '');
+          const val =
+            m[3] !== undefined ? m[3] : m[4] !== undefined ? m[4] : '';
           el.attributes[m[1]] = decodeEntities(val);
         }
       }
@@ -184,7 +204,9 @@
 
   function parseMath(src) {
     let pos = 0;
-    const skipWs = () => { while (pos < src.length && /\s/.test(src[pos])) pos++; };
+    const skipWs = () => {
+      while (pos < src.length && /\s/.test(src[pos])) pos++;
+    };
 
     function parseNumber() {
       const start = pos;
@@ -196,7 +218,8 @@
       }
       const text = src.slice(start, pos);
       const value = Number(text);
-      if (!Number.isFinite(value)) throw new MathParseError(`Invalid number "${text}"`, src, start);
+      if (!Number.isFinite(value))
+        throw new MathParseError(`Invalid number "${text}"`, src, start);
       return { kind: 'num', value };
     }
     function parseIdent() {
@@ -207,14 +230,22 @@
     function parseFactor() {
       skipWs();
       const ch = src[pos];
-      if (ch === undefined) throw new MathParseError('Unexpected end of expression', src, pos);
-      if (ch === '-') { pos++; return { kind: 'neg', arg: parseFactor() }; }
-      if (ch === '+') { pos++; return parseFactor(); }
+      if (ch === undefined)
+        throw new MathParseError('Unexpected end of expression', src, pos);
+      if (ch === '-') {
+        pos++;
+        return { kind: 'neg', arg: parseFactor() };
+      }
+      if (ch === '+') {
+        pos++;
+        return parseFactor();
+      }
       if (ch === '(') {
         pos++;
         const inner = parseExpr();
         skipWs();
-        if (src[pos] !== ')') throw new MathParseError("Expected ')'", src, pos);
+        if (src[pos] !== ')')
+          throw new MathParseError("Expected ')'", src, pos);
         pos++;
         return inner;
       }
@@ -244,26 +275,35 @@
     }
     const expr = parseExpr();
     skipWs();
-    if (pos < src.length) throw new MathParseError(`Unexpected "${src[pos]}"`, src, pos);
+    if (pos < src.length)
+      throw new MathParseError(`Unexpected "${src[pos]}"`, src, pos);
     return expr;
   }
 
   function evalMath(expr, vars) {
     switch (expr.kind) {
-      case 'num': return expr.value;
+      case 'num':
+        return expr.value;
       case 'var': {
         const v = vars[expr.name];
-        if (typeof v !== 'number') throw new Error(`Unbound variable "${expr.name}"`);
+        if (typeof v !== 'number')
+          throw new Error(`Unbound variable "${expr.name}"`);
         return v;
       }
-      case 'neg': return -evalMath(expr.arg, vars);
+      case 'neg':
+        return -evalMath(expr.arg, vars);
       case 'binop': {
-        const l = evalMath(expr.left, vars), r = evalMath(expr.right, vars);
+        const l = evalMath(expr.left, vars),
+          r = evalMath(expr.right, vars);
         switch (expr.op) {
-          case '+': return l + r;
-          case '-': return l - r;
-          case '*': return l * r;
-          case '/': return l / r;
+          case '+':
+            return l + r;
+          case '-':
+            return l - r;
+          case '*':
+            return l * r;
+          case '/':
+            return l / r;
         }
       }
     }
@@ -281,7 +321,7 @@
   //
   // So every fallback records itself here. parseXdf attaches the tally to the
   // returned file as `mathFailures`, and the UI can say so.
-  const mathMisses = new Map();     // equation -> count, for the current parse
+  const mathMisses = new Map(); // equation -> count, for the current parse
 
   function noteMathMiss(eq) {
     const k = String(eq == null ? '(none)' : eq).slice(0, 120);
@@ -298,19 +338,27 @@
   function linearize(expr, varName) {
     const v = (varName || 'X').toUpperCase();
     switch (expr.kind) {
-      case 'num': return { a: 0, b: expr.value };
-      case 'var': return expr.name === v ? { a: 1, b: 0 } : null;
+      case 'num':
+        return { a: 0, b: expr.value };
+      case 'var':
+        return expr.name === v ? { a: 1, b: 0 } : null;
       case 'neg': {
         const inner = linearize(expr.arg, v);
         if (!inner) return null;
-        return { a: inner.a === 0 ? 0 : -inner.a, b: inner.b === 0 ? 0 : -inner.b };
+        return {
+          a: inner.a === 0 ? 0 : -inner.a,
+          b: inner.b === 0 ? 0 : -inner.b,
+        };
       }
       case 'binop': {
-        const l = linearize(expr.left, v), r = linearize(expr.right, v);
+        const l = linearize(expr.left, v),
+          r = linearize(expr.right, v);
         if (!l || !r) return null;
         switch (expr.op) {
-          case '+': return { a: l.a + r.a, b: l.b + r.b };
-          case '-': return { a: l.a - r.a, b: l.b - r.b };
+          case '+':
+            return { a: l.a + r.a, b: l.b + r.b };
+          case '-':
+            return { a: l.a - r.a, b: l.b - r.b };
           case '*':
             if (l.a === 0) return { a: l.b * r.a, b: l.b * r.b };
             if (r.a === 0) return { a: r.b * l.a, b: r.b * l.b };
@@ -339,7 +387,10 @@
   // ==========================================================================
 
   class XdfParseError extends Error {
-    constructor(message) { super(message); this.name = 'XdfParseError'; }
+    constructor(message) {
+      super(message);
+      this.name = 'XdfParseError';
+    }
   }
 
   // TunerPro numeric attributes come as decimal OR "0x.." hex, freely mixed.
@@ -351,7 +402,8 @@
     const trimmed = String(raw).trim();
     const isHex = /^-?0x/i.test(trimmed);
     const num = isHex
-      ? parseInt(trimmed.replace(/^-?0x/i, ''), 16) * (trimmed.startsWith('-') ? -1 : 1)
+      ? parseInt(trimmed.replace(/^-?0x/i, ''), 16) *
+        (trimmed.startsWith('-') ? -1 : 1)
       : Number(trimmed);
     if (!Number.isFinite(num)) {
       if (fallback !== undefined) return fallback;
@@ -372,11 +424,15 @@
 
   function decodeHexBytes(raw) {
     const cleaned = String(raw).replace(/\s+/g, '');
-    if (cleaned.length % 2 !== 0) throw new XdfParseError(`hex byte string has odd length: "${raw}"`);
+    if (cleaned.length % 2 !== 0)
+      throw new XdfParseError(`hex byte string has odd length: "${raw}"`);
     const out = new Uint8Array(cleaned.length / 2);
     for (let k = 0; k < out.length; k++) {
       const byte = parseInt(cleaned.slice(k * 2, k * 2 + 2), 16);
-      if (Number.isNaN(byte)) throw new XdfParseError(`invalid hex byte at position ${k * 2}: "${raw}"`);
+      if (Number.isNaN(byte))
+        throw new XdfParseError(
+          `invalid hex byte at position ${k * 2}: "${raw}"`
+        );
       out[k] = byte;
     }
     return out;
@@ -386,7 +442,11 @@
     const el = parent.getElementsByTagName(tag).item(0);
     if (!el) return fallback === undefined ? '' : fallback;
     const t = el.textContent;
-    return t === undefined || t === null ? (fallback === undefined ? '' : fallback) : t;
+    return t === undefined || t === null
+      ? fallback === undefined
+        ? ''
+        : fallback
+      : t;
   }
   const getAttr = (el, name) => el.getAttribute(name);
 
@@ -403,8 +463,13 @@
   function parseEmbeddedData(el, defaults) {
     if (!el) {
       return {
-        typeflags: 0, address: 0, elementsizebits: defaults.datasizeinbits,
-        rowcount: 0, colcount: 0, majorstridebits: 0, minorstridebits: 0,
+        typeflags: 0,
+        address: 0,
+        elementsizebits: defaults.datasizeinbits,
+        rowcount: 0,
+        colcount: 0,
+        majorstridebits: 0,
+        minorstridebits: 0,
         addressed: false,
       };
     }
@@ -412,7 +477,10 @@
       addressed: true,
       typeflags: parseNumber(getAttr(el, 'mmedtypeflags'), 0),
       address: parseNumber(getAttr(el, 'mmedaddress'), 0),
-      elementsizebits: parseNumber(getAttr(el, 'mmedelementsizebits'), defaults.datasizeinbits),
+      elementsizebits: parseNumber(
+        getAttr(el, 'mmedelementsizebits'),
+        defaults.datasizeinbits
+      ),
       rowcount: parseNumber(getAttr(el, 'mmedrowcount'), 0),
       colcount: parseNumber(getAttr(el, 'mmedcolcount'), 0),
       majorstridebits: parseNumber(getAttr(el, 'mmedmajorstridebits'), 0),
@@ -433,7 +501,10 @@
       signed: useFlags ? (flags & FLAG_SIGNED) !== 0 : defaults.signed,
       lsbfirst: useFlags ? (flags & FLAG_LSBFIRST) !== 0 : defaults.lsbfirst,
       float: useFlags ? (flags & FLAG_FLOAT) !== 0 : defaults.float,
-      sizeBits: embed.elementsizebits > 0 ? embed.elementsizebits : defaults.datasizeinbits,
+      sizeBits:
+        embed.elementsizebits > 0
+          ? embed.elementsizebits
+          : defaults.datasizeinbits,
       address: resolveAddress(embed.address, base),
     };
   }
@@ -443,7 +514,11 @@
   function readScalar(buffer, spec) {
     const bytes = Math.max(1, Math.ceil(spec.sizeBits / 8));
     if (spec.address < 0 || spec.address + bytes > buffer.length) return null;
-    const view = new DataView(buffer.buffer, buffer.byteOffset + spec.address, bytes);
+    const view = new DataView(
+      buffer.buffer,
+      buffer.byteOffset + spec.address,
+      bytes
+    );
     const le = spec.lsbfirst;
     if (spec.float) {
       if (bytes === 4) return view.getFloat32(0, le);
@@ -451,14 +526,20 @@
       return null;
     }
     switch (bytes) {
-      case 1: return spec.signed ? view.getInt8(0) : view.getUint8(0);
-      case 2: return spec.signed ? view.getInt16(0, le) : view.getUint16(0, le);
-      case 4: return spec.signed ? view.getInt32(0, le) : view.getUint32(0, le);
+      case 1:
+        return spec.signed ? view.getInt8(0) : view.getUint8(0);
+      case 2:
+        return spec.signed ? view.getInt16(0, le) : view.getUint16(0, le);
+      case 4:
+        return spec.signed ? view.getInt32(0, le) : view.getUint32(0, le);
       case 8: {
-        const big = spec.signed ? view.getBigInt64(0, le) : view.getBigUint64(0, le);
+        const big = spec.signed
+          ? view.getBigInt64(0, le)
+          : view.getBigUint64(0, le);
         return Number(big);
       }
-      default: return null;
+      default:
+        return null;
     }
   }
 
@@ -480,20 +561,35 @@
     const ranges = {
       1: spec.signed ? { lo: -0x80, hi: 0x7f } : { lo: 0, hi: 0xff },
       2: spec.signed ? { lo: -0x8000, hi: 0x7fff } : { lo: 0, hi: 0xffff },
-      4: spec.signed ? { lo: -0x80000000, hi: 0x7fffffff } : { lo: 0, hi: 0xffffffff },
+      4: spec.signed
+        ? { lo: -0x80000000, hi: 0x7fffffff }
+        : { lo: 0, hi: 0xffffffff },
     };
     const r = ranges[bytes];
     if (r && (intVal < r.lo || intVal > r.hi)) return null;
     switch (bytes) {
-      case 1: spec.signed ? view.setInt8(0, intVal) : view.setUint8(0, intVal); break;
-      case 2: spec.signed ? view.setInt16(0, intVal, le) : view.setUint16(0, intVal, le); break;
-      case 4: spec.signed ? view.setInt32(0, intVal, le) : view.setUint32(0, intVal, le); break;
+      case 1:
+        spec.signed ? view.setInt8(0, intVal) : view.setUint8(0, intVal);
+        break;
+      case 2:
+        spec.signed
+          ? view.setInt16(0, intVal, le)
+          : view.setUint16(0, intVal, le);
+        break;
+      case 4:
+        spec.signed
+          ? view.setInt32(0, intVal, le)
+          : view.setUint32(0, intVal, le);
+        break;
       case 8: {
         const big = BigInt(intVal);
-        spec.signed ? view.setBigInt64(0, big, le) : view.setBigUint64(0, big, le);
+        spec.signed
+          ? view.setBigInt64(0, big, le)
+          : view.setBigUint64(0, big, le);
         break;
       }
-      default: return null;
+      default:
+        return null;
     }
     return new Uint8Array(buf);
   }
@@ -503,7 +599,7 @@
     return (buffer[address] & mask) !== 0;
   }
   function applyFlag(byte, mask, on) {
-    return on ? (byte | mask) & 0xff : (byte & ~mask) & 0xff;
+    return on ? (byte | mask) & 0xff : byte & ~mask & 0xff;
   }
 
   // Byte offset of table cell (row, col) within a Z embed, per the .xdf stride
@@ -521,16 +617,23 @@
   }
 
   function patchEntryState(buffer, address, patchdata, basedata) {
-    if (address < 0 || address + patchdata.length > buffer.length) return 'neither';
+    if (address < 0 || address + patchdata.length > buffer.length)
+      return 'neither';
     let matchesPatch = true;
     for (let k = 0; k < patchdata.length; k++) {
-      if (buffer[address + k] !== patchdata[k]) { matchesPatch = false; break; }
+      if (buffer[address + k] !== patchdata[k]) {
+        matchesPatch = false;
+        break;
+      }
     }
     if (matchesPatch) return 'applied';
     if (basedata.length === patchdata.length && basedata.length > 0) {
       let matchesBase = true;
       for (let k = 0; k < basedata.length; k++) {
-        if (buffer[address + k] !== basedata[k]) { matchesBase = false; break; }
+        if (buffer[address + k] !== basedata[k]) {
+          matchesBase = false;
+          break;
+        }
       }
       if (matchesBase) return 'virgin';
     }
@@ -550,7 +653,7 @@
       if (!cm || cm.parentElement !== el) continue;
       const oneBased = parseNumber(getAttr(cm, 'category'), 0);
       if (oneBased < 1) continue;
-      const idx = oneBased - 1;            // TunerPro categories are 1-based
+      const idx = oneBased - 1; // TunerPro categories are 1-based
       if (seen.has(idx)) continue;
       seen.add(idx);
       out.push(idx);
@@ -568,7 +671,10 @@
   function parseHeader(el) {
     const baseEl = el.getElementsByTagName('BASEOFFSET').item(0);
     const baseOffset = baseEl
-      ? { offset: parseNumber(getAttr(baseEl, 'offset'), 0), subtract: parseBool(getAttr(baseEl, 'subtract'), false) }
+      ? {
+          offset: parseNumber(getAttr(baseEl, 'offset'), 0),
+          subtract: parseBool(getAttr(baseEl, 'subtract'), false),
+        }
       : { offset: 0, subtract: false };
 
     const defEl = el.getElementsByTagName('DEFAULTS').item(0);
@@ -600,7 +706,10 @@
     for (let k = 0; k < catList.length; k++) {
       const c = catList.item(k);
       if (!c) continue;
-      categories.push({ index: parseNumber(getAttr(c, 'index'), 0), name: getAttr(c, 'name') || '' });
+      categories.push({
+        index: parseNumber(getAttr(c, 'index'), 0),
+        name: getAttr(c, 'name') || '',
+      });
     }
 
     return {
@@ -609,7 +718,10 @@
       deftitle: getText(el, 'deftitle'),
       description: getText(el, 'description'),
       author: getText(el, 'author'),
-      baseOffset, defaults, regions, categories,
+      baseOffset,
+      defaults,
+      regions,
+      categories,
     };
   }
 
@@ -704,20 +816,27 @@
     // treat a missing one as an unaddressed axis rather than killing the file.
     const embedEl = el.getElementsByTagName('EMBEDDEDDATA').item(0);
     const id = (getAttr(el, 'id') || 'x').toLowerCase();
-    if (id !== 'x' && id !== 'y' && id !== 'z') throw new XdfParseError(`XDFAXIS has unexpected id "${id}"`);
+    if (id !== 'x' && id !== 'y' && id !== 'z')
+      throw new XdfParseError(`XDFAXIS has unexpected id "${id}"`);
     const labels = [];
     const labelList = el.getElementsByTagName('LABEL');
     for (let k = 0; k < labelList.length; k++) {
       const l = labelList.item(k);
       if (!l || l.parentElement !== el) continue;
-      labels.push({ index: parseNumber(getAttr(l, 'index'), 0), value: getAttr(l, 'value') || '' });
+      labels.push({
+        index: parseNumber(getAttr(l, 'index'), 0),
+        value: getAttr(l, 'value') || '',
+      });
     }
     let embedInfo;
     const embedInfoList = el.getElementsByTagName('embedinfo');
     for (let k = 0; k < embedInfoList.length; k++) {
       const ei = embedInfoList.item(k);
       if (!ei || ei.parentElement !== el) continue;
-      embedInfo = { type: parseNumber(getAttr(ei, 'type'), 0), linkObjId: parseNumber(getAttr(ei, 'linkobjid'), 0) };
+      embedInfo = {
+        type: parseNumber(getAttr(ei, 'type'), 0),
+        linkObjId: parseNumber(getAttr(ei, 'linkobjid'), 0),
+      };
       break;
     }
     return {
@@ -732,7 +851,8 @@
       units: getText(el, 'units', '') || undefined,
       min: optNum(el, 'min'),
       max: optNum(el, 'max'),
-      labels, embedInfo,
+      labels,
+      embedInfo,
       mathEquation: parseMathEquation(el),
     };
   }
@@ -764,9 +884,12 @@
   //   XDF XML v1.50  -- current; parsed directly.
   // ==========================================================================
 
-  const xmlEscape = (v) => String(v == null ? '' : v)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  const xmlEscape = (v) =>
+    String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
 
   // "(null)" is the flat format's empty marker, not a literal value.
   const nullish = (v) => (v === '(null)' || v == null ? '' : v);
@@ -788,8 +911,12 @@
     for (const line of lines) {
       const marker = /^%%([A-Z]+)%%\s*$/.exec(line);
       if (marker) {
-        if (marker[1] === 'END') { if (cur) { records.push(cur); cur = null; } }
-        else cur = { type: marker[1], fields: new Map() };
+        if (marker[1] === 'END') {
+          if (cur) {
+            records.push(cur);
+            cur = null;
+          }
+        } else cur = { type: marker[1], fields: new Map() };
         continue;
       }
       if (!cur) continue;
@@ -810,12 +937,14 @@
     const v = nullish(raw);
     if (!v) return 'X';
     const cut = v.indexOf(',TH|');
-    return ((cut === -1 ? v : v.slice(0, cut)).trim()) || 'X';
+    return (cut === -1 ? v : v.slice(0, cut)).trim() || 'X';
   }
 
   function embeddedTag(addr, sizeBits, rows, cols) {
-    const a = [`mmedaddress="0x${(addr >>> 0).toString(16).toUpperCase()}"`,
-               `mmedelementsizebits="${sizeBits}"`];
+    const a = [
+      `mmedaddress="0x${(addr >>> 0).toString(16).toUpperCase()}"`,
+      `mmedelementsizebits="${sizeBits}"`,
+    ];
     if (rows != null) a.push(`mmedrowcount="${rows}"`);
     if (cols != null) a.push(`mmedcolcount="${cols}"`);
     return `<EMBEDDEDDATA ${a.join(' ')} />`;
@@ -826,19 +955,34 @@
     const headerRec = records.find((r) => r.type === 'HEADER');
     const hf = headerRec ? headerRec.fields : new Map();
     const out = ['<XDFFORMAT version="1.50">', '  <XDFHEADER>'];
-    out.push(`    <flags>0x${legacyNum(hf.get('GenFlags'), 0).toString(16)}</flags>`);
-    out.push(`    <deftitle>${xmlEscape(nullish(hf.get('DefTitle')))}</deftitle>`);
-    out.push(`    <description>${xmlEscape(nullish(hf.get('Desc')))}</description>`);
+    out.push(
+      `    <flags>0x${legacyNum(hf.get('GenFlags'), 0).toString(16)}</flags>`
+    );
+    out.push(
+      `    <deftitle>${xmlEscape(nullish(hf.get('DefTitle')))}</deftitle>`
+    );
+    out.push(
+      `    <description>${xmlEscape(nullish(hf.get('Desc')))}</description>`
+    );
     out.push(`    <author>${xmlEscape(nullish(hf.get('Author')))}</author>`);
-    out.push(`    <baseoffset>${legacyNum(hf.get('BaseOffset'), 0)}</baseoffset>`);
-    out.push('    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />');
+    out.push(
+      `    <baseoffset>${legacyNum(hf.get('BaseOffset'), 0)}</baseoffset>`
+    );
+    out.push(
+      '    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />'
+    );
     const binSize = legacyNum(hf.get('BinSize'), 0);
     if (binSize > 0) {
-      out.push(`    <REGION type="0xFFFFFFFF" startaddress="0x0" size="0x${binSize.toString(16).toUpperCase()}" regionflags="0x0" name="Binary File" desc="" />`);
+      out.push(
+        `    <REGION type="0xFFFFFFFF" startaddress="0x0" size="0x${binSize.toString(16).toUpperCase()}" regionflags="0x0" name="Binary File" desc="" />`
+      );
     }
     for (let i = 0; i < 32; i++) {
       const c = hf.get(`Category${i}`);
-      if (c != null) out.push(`    <CATEGORY index="0x${i.toString(16)}" name="${xmlEscape(c)}" />`);
+      if (c != null)
+        out.push(
+          `    <CATEGORY index="0x${i.toString(16)}" name="${xmlEscape(c)}" />`
+        );
     }
     out.push('  </XDFHEADER>');
 
@@ -851,7 +995,8 @@
       for (let i = 0; i < 8; i++) {
         const ci = legacyNum(f.get(`Cat${i}ID`), 0);
         // Cat*ID is 1-based here with 0 meaning "unset".
-        if (ci > 0) cats.push(`    <CATEGORYMEM index="${i}" category="${ci}" />`);
+        if (ci > 0)
+          cats.push(`    <CATEGORYMEM index="${i}" category="${ci}" />`);
       }
 
       if (rec.type === 'CONSTANT') {
@@ -861,8 +1006,12 @@
         const units = xmlEscape(nullish(f.get('Units')));
         if (units) out.push(`    <units>${units}</units>`);
         out.push(...cats);
-        out.push(`    ${embeddedTag(legacyNum(f.get('Address'), 0), legacyNum(f.get('SizeInBits'), 8), null, null)}`);
-        out.push(`    <MATH equation="${xmlEscape(flatEquation(f.get('Equation')))}"><VAR id="X" /></MATH>`);
+        out.push(
+          `    ${embeddedTag(legacyNum(f.get('Address'), 0), legacyNum(f.get('SizeInBits'), 8), null, null)}`
+        );
+        out.push(
+          `    <MATH equation="${xmlEscape(flatEquation(f.get('Equation')))}"><VAR id="X" /></MATH>`
+        );
         out.push('  </XDFCONSTANT>');
       } else if (rec.type === 'FLAG') {
         const addr = legacyNum(f.get('Address'), 0);
@@ -872,8 +1021,12 @@
         if (desc) out.push(`    <description>${desc}</description>`);
         out.push(...cats);
         // v1.50 addresses the containing byte and masks the bit within it.
-        out.push(`    ${embeddedTag(addr + Math.floor(bit / 8), 8, null, null)}`);
-        out.push(`    <mask>0x${((1 << (bit % 8)) >>> 0).toString(16).toUpperCase()}</mask>`);
+        out.push(
+          `    ${embeddedTag(addr + Math.floor(bit / 8), 8, null, null)}`
+        );
+        out.push(
+          `    <mask>0x${((1 << (bit % 8)) >>> 0).toString(16).toUpperCase()}</mask>`
+        );
         out.push('  </XDFFLAG>');
       } else if (rec.type === 'TABLE') {
         const rows = legacyNum(f.get('Rows'), 1);
@@ -889,38 +1042,58 @@
           const units = xmlEscape(nullish(f.get(`${A}Units`)));
           out.push(`    <XDFAXIS id="${ax}">`);
           if (units) out.push(`      <units>${units}</units>`);
-          out.push(`      <indexcount>${ax === 'x' ? cols : rows}</indexcount>`);
+          out.push(
+            `      <indexcount>${ax === 'x' ? cols : rows}</indexcount>`
+          );
           if (nullish(aAddr) !== '') {
-            out.push(`      ${embeddedTag(legacyNum(aAddr, 0), aBits, null, null)}`);
+            out.push(
+              `      ${embeddedTag(legacyNum(aAddr, 0), aBits, null, null)}`
+            );
           }
           const labels = nullish(f.get(`${A}Labels`));
           if (labels) {
             labels.split(/\s*,\s*/).forEach((lv, li) => {
-              out.push(`      <LABEL index="${li}" value="${xmlEscape(lv)}" />`);
+              out.push(
+                `      <LABEL index="${li}" value="${xmlEscape(lv)}" />`
+              );
             });
           }
-          out.push(`      <MATH equation="${xmlEscape(flatEquation(f.get(`${A}Eq`)))}"><VAR id="X" /></MATH>`);
+          out.push(
+            `      <MATH equation="${xmlEscape(flatEquation(f.get(`${A}Eq`)))}"><VAR id="X" /></MATH>`
+          );
           out.push('    </XDFAXIS>');
         }
         out.push('    <XDFAXIS id="z">');
         const zUnits = xmlEscape(nullish(f.get('ZUnits')));
         if (zUnits) out.push(`      <units>${zUnits}</units>`);
-        out.push(`      ${embeddedTag(legacyNum(f.get('Address'), 0), legacyNum(f.get('SizeInBits'), 8), rows, cols)}`);
-        out.push(`      <MATH equation="${xmlEscape(flatEquation(f.get('ZEq')))}"><VAR id="X" /></MATH>`);
+        out.push(
+          `      ${embeddedTag(legacyNum(f.get('Address'), 0), legacyNum(f.get('SizeInBits'), 8), rows, cols)}`
+        );
+        out.push(
+          `      <MATH equation="${xmlEscape(flatEquation(f.get('ZEq')))}"><VAR id="X" /></MATH>`
+        );
         out.push('    </XDFAXIS>');
         out.push('  </XDFTABLE>');
-      }
-      else if (rec.type === 'CHECKSUM') {
+      } else if (rec.type === 'CHECKSUM') {
         // v1.50 spells this <XDFCHECKSUM> with a <CHECKSUMREGION>. The flat
         // fields map across one-for-one.
         out.push(`  <XDFCHECKSUM uniqueid="${uid}">`);
         out.push(`    <title>${title}</title>`);
-        out.push('    <CHECKSUMREGION '
-          + `datastart="0x${legacyNum(f.get('DataStart'), 0).toString(16).toUpperCase()}" `
-          + `datasize="0x${Math.max(0, legacyNum(f.get('DataEnd'), 0) - legacyNum(f.get('DataStart'), 0) + 1).toString(16).toUpperCase()}" `
-          + `storeaddress="0x${legacyNum(f.get('StoreAddr'), 0).toString(16).toUpperCase()}" `
-          + `calctype="0x${legacyNum(f.get('CalcMethod'), 0).toString(16)}" `
-          + `regionflags="0x${legacyNum(f.get('Flags'), 0).toString(16)}" />`);
+        out.push(
+          '    <CHECKSUMREGION ' +
+            `datastart="0x${legacyNum(f.get('DataStart'), 0).toString(16).toUpperCase()}" ` +
+            `datasize="0x${Math.max(
+              0,
+              legacyNum(f.get('DataEnd'), 0) -
+                legacyNum(f.get('DataStart'), 0) +
+                1
+            )
+              .toString(16)
+              .toUpperCase()}" ` +
+            `storeaddress="0x${legacyNum(f.get('StoreAddr'), 0).toString(16).toUpperCase()}" ` +
+            `calctype="0x${legacyNum(f.get('CalcMethod'), 0).toString(16)}" ` +
+            `regionflags="0x${legacyNum(f.get('Flags'), 0).toString(16)}" />`
+        );
         out.push('  </XDFCHECKSUM>');
       }
     }
@@ -934,39 +1107,52 @@
       .replace(/<XDFTABLE\b[\s\S]*?<\/XDFTABLE>/g, (table) => {
         // Row/col counts live on the x/y axes' <indexcount> in this dialect.
         const counts = {};
-        for (const m of table.matchAll(/<XDFAXIS\s+id="([xy])"[^>]*>([\s\S]*?)<\/XDFAXIS>/g)) {
+        for (const m of table.matchAll(
+          /<XDFAXIS\s+id="([xy])"[^>]*>([\s\S]*?)<\/XDFAXIS>/g
+        )) {
           const ic = /<indexcount>\s*([0-9]+)\s*<\/indexcount>/.exec(m[2]);
           counts[m[1]] = ic ? Number(ic[1]) : 1;
         }
         const cols = counts.x || 1;
         const rows = counts.y || 1;
-        return table.replace(/<XDFAXIS\s+id="([xyz])"([^>]*)>([\s\S]*?)<\/XDFAXIS>/g,
+        return table.replace(
+          /<XDFAXIS\s+id="([xyz])"([^>]*)>([\s\S]*?)<\/XDFAXIS>/g,
           (axis, id, attrs, body) => {
             if (/<EMBEDDEDDATA/.test(body)) return axis;
             const addr = /<address>\s*([^<]+?)\s*<\/address>/.exec(body);
-            const bits = /<indexsizebits>\s*([0-9]+)\s*<\/indexsizebits>/.exec(body);
+            const bits = /<indexsizebits>\s*([0-9]+)\s*<\/indexsizebits>/.exec(
+              body
+            );
             const a = [`mmedelementsizebits="${bits ? Number(bits[1]) : 8}"`];
             if (addr) a.push(`mmedaddress="${addr[1]}"`);
-            if (id === 'z') { a.push(`mmedrowcount="${rows}"`); a.push(`mmedcolcount="${cols}"`); }
+            if (id === 'z') {
+              a.push(`mmedrowcount="${rows}"`);
+              a.push(`mmedcolcount="${cols}"`);
+            }
             const cleaned = body
               .replace(/\s*<address>[^<]*<\/address>/g, '')
               .replace(/\s*<indexsizebits>[^<]*<\/indexsizebits>/g, '');
             return `<XDFAXIS id="${id}"${attrs}>\n      <EMBEDDEDDATA ${a.join(' ')} />${cleaned}</XDFAXIS>`;
-          });
+          }
+        );
       })
-      .replace(/<XDF(CONSTANT|FLAG)\b([^>]*)>([\s\S]*?)<\/XDF\1>/g,
+      .replace(
+        /<XDF(CONSTANT|FLAG)\b([^>]*)>([\s\S]*?)<\/XDF\1>/g,
         (item, kind, attrs, body) => {
           if (/<EMBEDDEDDATA/.test(body)) return item;
           const addr = /<address>\s*([^<]+?)\s*<\/address>/.exec(body);
           if (!addr) return item;
           const bits = /<sizeinbits>\s*([0-9]+)\s*<\/sizeinbits>/.exec(body);
-          const a = [`mmedaddress="${addr[1]}"`,
-                     `mmedelementsizebits="${bits ? Number(bits[1]) : 8}"`];
+          const a = [
+            `mmedaddress="${addr[1]}"`,
+            `mmedelementsizebits="${bits ? Number(bits[1]) : 8}"`,
+          ];
           const cleaned = body
             .replace(/\s*<address>[^<]*<\/address>/g, '')
             .replace(/\s*<sizeinbits>[^<]*<\/sizeinbits>/g, '');
           return `<XDF${kind}${attrs}>\n    <EMBEDDEDDATA ${a.join(' ')} />${cleaned}</XDF${kind}>`;
-        })
+        }
+      )
       .replace(/<XDFFORMAT version="0\.50">/, '<XDFFORMAT version="1.50">');
   }
 
@@ -975,7 +1161,7 @@
     const head = String(text).slice(0, 4096);
     if (!/<XDFFORMAT/i.test(head)) {
       if (/^\s*XDF\s*[\r\n]/.test(head)) return 'flat';
-      return 'xml';   // let the XML parser produce the real error
+      return 'xml'; // let the XML parser produce the real error
     }
     return /<XDFFORMAT\s+version="0\.\d+"/i.test(head) ? 'v050' : 'xml';
   }
@@ -983,20 +1169,25 @@
   // Normalise any supported spelling to v1.50 XML.
   function toV150Xml(text) {
     switch (detectXdfFormat(text)) {
-      case 'flat': return flatToXml(text);
-      case 'v050': return v050ToV150(text);
-      default: return text;
+      case 'flat':
+        return flatToXml(text);
+      case 'v050':
+        return v050ToV150(text);
+      default:
+        return text;
     }
   }
 
   // Parse a .xdf XML string into { header, items }.
   function parseXdf(xml) {
-    mathMisses.clear();          // per-parse: the tally belongs to THIS file
+    mathMisses.clear(); // per-parse: the tally belongs to THIS file
     const format = detectXdfFormat(xml);
     const doc = parseXml(toV150Xml(xml));
     const root = doc.documentElement;
     if (!root || root.tagName !== 'XDFFORMAT') {
-      throw new XdfParseError(`expected <XDFFORMAT> root, got <${root ? root.tagName : 'nothing'}>`);
+      throw new XdfParseError(
+        `expected <XDFFORMAT> root, got <${root ? root.tagName : 'nothing'}>`
+      );
     }
     const headerEl = root.getElementsByTagName('XDFHEADER').item(0);
     if (!headerEl) throw new XdfParseError('missing <XDFHEADER>');
@@ -1006,9 +1197,10 @@
     const modifyPw = getText(headerEl, 'modifypassword', '');
     if (openPw !== '' || modifyPw !== '') {
       throw new XdfParseError(
-        "encrypted .xdf -- this file uses TunerPro's openpassword/modifypassword "
-        + 'encryption, which this tool cannot decrypt. Ask the author for an '
-        + 'unencrypted copy.');
+        "encrypted .xdf -- this file uses TunerPro's openpassword/modifypassword " +
+          'encryption, which this tool cannot decrypt. Ask the author for an ' +
+          'unencrypted copy.'
+      );
     }
 
     const header = parseHeader(headerEl);
@@ -1017,13 +1209,25 @@
       const child = root.children.item(k);
       if (!child) continue;
       switch (child.tagName) {
-        case 'XDFHEADER': break;
-        case 'XDFCONSTANT': items.push(parseConstant(child, header.defaults)); break;
-        case 'XDFCHECKSUM': items.push(parseChecksum(child, header.defaults)); break;
-        case 'XDFFLAG': items.push(parseFlag(child, header.defaults)); break;
-        case 'XDFPATCH': items.push(parsePatch(child)); break;
-        case 'XDFTABLE': items.push(parseTable(child, header.defaults)); break;
-        default: break;                    // tolerate unknown children
+        case 'XDFHEADER':
+          break;
+        case 'XDFCONSTANT':
+          items.push(parseConstant(child, header.defaults));
+          break;
+        case 'XDFCHECKSUM':
+          items.push(parseChecksum(child, header.defaults));
+          break;
+        case 'XDFFLAG':
+          items.push(parseFlag(child, header.defaults));
+          break;
+        case 'XDFPATCH':
+          items.push(parsePatch(child));
+          break;
+        case 'XDFTABLE':
+          items.push(parseTable(child, header.defaults));
+          break;
+        default:
+          break; // tolerate unknown children
       }
     }
     // A STABLE PER-ITEM KEY. TunerPro's `uniqueid` is optional and real files
@@ -1033,7 +1237,9 @@
     // all. `key` is the item's index in document order: stable for a given
     // file, and unique by construction. uniqueid is left untouched for anyone
     // who needs the raw value.
-    items.forEach((it, i) => { it.key = `${i}:${it.uniqueid}`; });
+    items.forEach((it, i) => {
+      it.key = `${i}:${it.uniqueid}`;
+    });
 
     // What we could not compile. Note this counts equations seen DURING the
     // parse; decode-time failures (a table's MATH is compiled lazily, when it
@@ -1055,18 +1261,30 @@
 
   // Constant/axis scalar -> engineering value (number) or null.
   function decodeConstant(item, buffer, header) {
-    const spec = resolveEmbedded(item.embed, header.baseOffset, header.defaults);
+    const spec = resolveEmbedded(
+      item.embed,
+      header.baseOffset,
+      header.defaults
+    );
     const raw = readScalar(buffer, spec);
     if (raw === null) return null;
-    try { return compileMath(item.mathEquation)(raw); }
-    catch (e) { noteMathMiss(item.mathEquation); return raw; }   // raw, and counted
+    try {
+      return compileMath(item.mathEquation)(raw);
+    } catch (e) {
+      noteMathMiss(item.mathEquation);
+      return raw;
+    } // raw, and counted
   }
 
   // Engineering value -> the bytes to write, plus the absolute address, or null
   // when the MATH isn't invertible or the value won't fit. Does NOT mutate the
   // buffer -- the caller splices the returned bytes in (so edits stay undoable).
   function encodeConstant(item, engValue, header) {
-    const spec = resolveEmbedded(item.embed, header.baseOffset, header.defaults);
+    const spec = resolveEmbedded(
+      item.embed,
+      header.baseOffset,
+      header.defaults
+    );
     const inv = invertLinear(item.mathEquation);
     if (!inv) return null;
     const raw = Math.round(inv(engValue));
@@ -1089,8 +1307,12 @@
     if (cols < 1) cols = 1;
     const spec = resolveEmbedded(embed, header.baseOffset, header.defaults);
     let convert;
-    try { convert = compileMath(z.mathEquation); }
-    catch (e) { noteMathMiss(z.mathEquation); convert = (v) => v; }
+    try {
+      convert = compileMath(z.mathEquation);
+    } catch (e) {
+      noteMathMiss(z.mathEquation);
+      convert = (v) => v;
+    }
     const cells = [];
     for (let r = 0; r < rows; r++) {
       const rowArr = [];
@@ -1098,7 +1320,13 @@
         const addr = tableCellAddress(embed, r, c);
         let val = null;
         if (addr !== null) {
-          const cellSpec = { signed: spec.signed, lsbfirst: spec.lsbfirst, float: spec.float, sizeBits: spec.sizeBits, address: addr };
+          const cellSpec = {
+            signed: spec.signed,
+            lsbfirst: spec.lsbfirst,
+            float: spec.float,
+            sizeBits: spec.sizeBits,
+            address: addr,
+          };
           const raw = readScalar(buffer, cellSpec);
           if (raw !== null) val = convert(raw);
         }
@@ -1120,7 +1348,13 @@
     const inv = invertLinear(z.mathEquation);
     if (!inv) return null;
     const raw = Math.round(inv(engValue));
-    const cellSpec = { signed: spec.signed, lsbfirst: spec.lsbfirst, float: spec.float, sizeBits: spec.sizeBits, address: addr };
+    const cellSpec = {
+      signed: spec.signed,
+      lsbfirst: spec.lsbfirst,
+      float: spec.float,
+      sizeBits: spec.sizeBits,
+      address: addr,
+    };
     const bytes = encodeScalar(raw, cellSpec);
     if (!bytes) return null;
     return { address: addr, bytes, raw };
@@ -1134,13 +1368,23 @@
   // there are no bytes to write.
   function encodeAxisPoint(axis, header, index, engValue) {
     if (!axis || !axis.embed || !axis.embed.address) return null;
-    const spec = resolveEmbedded(axis.embed, header.baseOffset, header.defaults);
+    const spec = resolveEmbedded(
+      axis.embed,
+      header.baseOffset,
+      header.defaults
+    );
     const inv = invertLinear(axis.mathEquation);
     if (!inv) return null;
     const per = Math.max(1, Math.ceil(spec.sizeBits / 8));
     const addr = spec.address + index * per;
     const raw = Math.round(inv(engValue));
-    const bytes = encodeScalar(raw, { signed: spec.signed, lsbfirst: spec.lsbfirst, float: spec.float, sizeBits: spec.sizeBits, address: addr });
+    const bytes = encodeScalar(raw, {
+      signed: spec.signed,
+      lsbfirst: spec.lsbfirst,
+      float: spec.float,
+      sizeBits: spec.sizeBits,
+      address: addr,
+    });
     if (!bytes) return null;
     return { address: addr, bytes, raw };
   }
@@ -1149,13 +1393,24 @@
   // holds after quantisation rather than the text that was typed.
   function decodeAxisPoint(axis, buffer, header, index) {
     if (!axis || !axis.embed || !axis.embed.address) return null;
-    const spec = resolveEmbedded(axis.embed, header.baseOffset, header.defaults);
+    const spec = resolveEmbedded(
+      axis.embed,
+      header.baseOffset,
+      header.defaults
+    );
     const per = Math.max(1, Math.ceil(spec.sizeBits / 8));
-    const raw = readScalar(buffer, Object.assign({}, spec, { address: spec.address + index * per }));
+    const raw = readScalar(
+      buffer,
+      Object.assign({}, spec, { address: spec.address + index * per })
+    );
     if (raw === null) return null;
     let convert;
-    try { convert = compileMath(axis.mathEquation); }
-    catch (e) { noteMathMiss(axis.mathEquation); convert = (v) => v; }
+    try {
+      convert = compileMath(axis.mathEquation);
+    } catch (e) {
+      noteMathMiss(axis.mathEquation);
+      convert = (v) => v;
+    }
     return convert(raw);
   }
 
@@ -1179,10 +1434,10 @@
     const start = region.datastart;
     const size = region.datasize;
     if (!(size > 0)) return null;
-    const end = start + size;                    // exclusive
+    const end = start + size; // exclusive
     if (start < 0 || end > buffer.length) return null;
     let sum = 0;
-    for (let i = start; i < end; i++) sum = (sum + buffer[i]) & 0xFFFF;
+    for (let i = start; i < end; i++) sum = (sum + buffer[i]) & 0xffff;
     return { value: sum, start, end };
   }
 
@@ -1194,7 +1449,9 @@
     const base = {
       supported: region.calctype === CHECKSUM_SUM16,
       storeaddress: region.storeaddress,
-      stored: null, computed: null, ok: false,
+      stored: null,
+      computed: null,
+      ok: false,
     };
     if (!base.supported) return base;
     const c = computeChecksumRegion(region, buffer);
@@ -1202,7 +1459,7 @@
     const at = region.storeaddress;
     if (at < 0 || at + 2 > buffer.length) return base;
     base.computed = c.value;
-    base.stored = (buffer[at] << 8) | buffer[at + 1];   // big-endian
+    base.stored = (buffer[at] << 8) | buffer[at + 1]; // big-endian
     base.ok = base.stored === base.computed;
     return base;
   }
@@ -1219,9 +1476,13 @@
     const before = verifyChecksumRegion(region, buffer);
     if (!before.supported || before.computed === null) return before;
     const at = region.storeaddress;
-    buffer[at] = (before.computed >> 8) & 0xFF;
-    buffer[at + 1] = before.computed & 0xFF;
-    return Object.assign({}, before, { stored: before.computed, ok: true, written: true });
+    buffer[at] = (before.computed >> 8) & 0xff;
+    buffer[at + 1] = before.computed & 0xff;
+    return Object.assign({}, before, {
+      stored: before.computed,
+      ok: true,
+      written: true,
+    });
   }
 
   function applyChecksum(item, buffer) {
@@ -1233,26 +1494,52 @@
   // ==========================================================================
   const api = {
     // parsing
-    parseXdf, parseXml, resolveAddress,
+    parseXdf,
+    parseXml,
+    resolveAddress,
     // legacy formats (flat text v1.1, XDF XML v0.50) -> v1.50 XML
-    detectXdfFormat, toV150Xml, flatToXml, v050ToV150, parseFlatRecords,
+    detectXdfFormat,
+    toV150Xml,
+    flatToXml,
+    v050ToV150,
+    parseFlatRecords,
     // live tally of MATH the parser could not compile (see noteMathMiss)
-    mathMissReport: () => [...mathMisses.entries()]
-      .map(([equation, count]) => ({ equation, count }))
-      .sort((a, b) => b.count - a.count),
+    mathMissReport: () =>
+      [...mathMisses.entries()]
+        .map(([equation, count]) => ({ equation, count }))
+        .sort((a, b) => b.count - a.count),
     // math
-    parseMath, evalMath, compileMath, linearize, invertLinear,
+    parseMath,
+    evalMath,
+    compileMath,
+    linearize,
+    invertLinear,
     // codec (low level)
-    resolveEmbedded, readScalar, encodeScalar, readFlag, applyFlag,
-    tableCellAddress, patchEntryState, decodeHexBytes,
+    resolveEmbedded,
+    readScalar,
+    encodeScalar,
+    readFlag,
+    applyFlag,
+    tableCellAddress,
+    patchEntryState,
+    decodeHexBytes,
     // checksums (calctype 0 = 16-bit big-endian sum)
-    computeChecksumRegion, verifyChecksumRegion, verifyChecksum,
-    applyChecksumRegion, applyChecksum, CHECKSUM_SUM16,
+    computeChecksumRegion,
+    verifyChecksumRegion,
+    verifyChecksum,
+    applyChecksumRegion,
+    applyChecksum,
+    CHECKSUM_SUM16,
     // codec (high level)
-    decodeConstant, encodeConstant, decodeTable, encodeTableCell,
-    encodeAxisPoint, decodeAxisPoint,
+    decodeConstant,
+    encodeConstant,
+    decodeTable,
+    encodeTableCell,
+    encodeAxisPoint,
+    decodeAxisPoint,
     // errors
-    XdfParseError, MathParseError,
+    XdfParseError,
+    MathParseError,
   };
   root.XDF = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

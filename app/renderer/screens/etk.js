@@ -3,8 +3,8 @@
 // exploded-view images (jpg/png). Same archive shape and loading path as the
 // .wiring bundles -- fflate inflates, and the offline export inlines base64.
 
-const ETK_CACHE = new Map();       // chassis -> { tree, files: Map(name -> u8) }
-let etkChassisIds = null;          // memoised probe of which cars have data
+const ETK_CACHE = new Map(); // chassis -> { tree, files: Map(name -> u8) }
+let etkChassisIds = null; // memoised probe of which cars have data
 
 // The .etk bundles are 6.4 GB across 246 cars -- too big to ship in the Pages
 // repo. They live in a Hugging Face dataset and stream in at runtime (HF's
@@ -16,7 +16,7 @@ const ETK_HF_BASE =
 
 function etkBundleUrl(id, local) {
   if (local) {
-    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+    const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
     return `${base}/data/etk/${id}.etk`;
   }
   return `${ETK_HF_BASE}${id}.etk`;
@@ -28,13 +28,17 @@ async function loadEtk(chassisId, onProgress) {
   const id = chassisId.toUpperCase();
   if (ETK_CACHE.has(id)) return ETK_CACHE.get(id);
   let bytes;
-  const inline = (typeof BMACW_ETK === 'object' && BMACW_ETK) ? BMACW_ETK[id] : null;
+  const inline =
+    typeof BMACW_ETK === 'object' && BMACW_ETK ? BMACW_ETK[id] : null;
   if (inline) {
     const bin = atob(inline);
     bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   } else {
-    const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+    const real =
+      typeof webRealFetch === 'function'
+        ? webRealFetch
+        : window.fetch.bind(window);
     // try local first, then HF
     let r = await real(etkBundleUrl(id, true)).catch(() => null);
     if (!r || !r.ok) r = await real(etkBundleUrl(id, false)).catch(() => null);
@@ -70,7 +74,10 @@ async function readWithProgress(resp, onProgress) {
   }
   const out = new Uint8Array(loaded);
   let off = 0;
-  for (const c of chunks) { out.set(c, off); off += c.length; }
+  for (const c of chunks) {
+    out.set(c, off);
+    off += c.length;
+  }
   return out;
 }
 
@@ -79,20 +86,26 @@ async function readWithProgress(resp, onProgress) {
 async function hasEtk(chassisId) {
   const id = chassisId.toUpperCase();
   if (typeof BMACW_ETK === 'object' && BMACW_ETK) return !!BMACW_ETK[id];
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
   const probe = async (local) => {
     try {
       const r = await real(etkBundleUrl(id, local), { method: 'HEAD' });
       return r.ok;
-    } catch (e) { return false; }
+    } catch (e) {
+      return false;
+    }
   };
   return (await probe(true)) || (await probe(false));
 }
 
 // The Apps hub asks these two: is ETK in this build at all, and open it.
 function etkHasData() {
-  if (typeof BMACW_ETK === 'object' && BMACW_ETK) return Object.keys(BMACW_ETK).length > 0;
-  return true;   // web build: assume the data/ tree may carry it; the picker probes per car
+  if (typeof BMACW_ETK === 'object' && BMACW_ETK)
+    return Object.keys(BMACW_ETK).length > 0;
+  return true; // web build: assume the data/ tree may carry it; the picker probes per car
 }
 
 async function etkChassisList() {
@@ -103,14 +116,20 @@ async function etkChassisList() {
     etkChassisIds = Object.keys(BMACW_ETK).sort();
     return etkChassisIds;
   }
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
   const tryIndex = async (local) => {
     try {
-      const url = local ? etkBundleUrl('index', true).replace('.etk', '.json')
-                        : `${ETK_HF_BASE}index.json`;
+      const url = local
+        ? etkBundleUrl('index', true).replace('.etk', '.json')
+        : `${ETK_HF_BASE}index.json`;
       const r = await real(url);
       return r.ok ? await r.json() : null;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   };
   const idx = (await tryIndex(true)) || (await tryIndex(false));
   etkChassisIds = Array.isArray(idx) ? idx.slice().sort() : [];
@@ -135,14 +154,19 @@ function makeSelect(placeholder) {
   root.appendChild(menu);
   const cur = btn.querySelector('.etk-sel-cur');
 
-  let items = [];        // display strings
-  let value = '';        // '' (placeholder) or a 0-based index string of an item
+  let items = []; // display strings
+  let value = ''; // '' (placeholder) or a 0-based index string of an item
   let ph = placeholder || 'Select…';
   let disabled = false;
   let outside = null;
 
-  function label() { return value === '' ? ph : items[+value]; }
-  function paint() { cur.textContent = label(); cur.classList.toggle('etk-sel-ph', value === ''); }
+  function label() {
+    return value === '' ? ph : items[+value];
+  }
+  function paint() {
+    cur.textContent = label();
+    cur.classList.toggle('etk-sel-ph', value === '');
+  }
   function renderMenu() {
     menu.innerHTML = '';
     items.forEach((t, i) => {
@@ -150,19 +174,35 @@ function makeSelect(placeholder) {
       b.type = 'button';
       b.className = 'etk-sel-opt' + (value === String(i) ? ' active' : '');
       b.textContent = t;
-      b.onclick = (e) => { e.stopPropagation(); value = String(i); paint(); close(); fire(); };
+      b.onclick = (e) => {
+        e.stopPropagation();
+        value = String(i);
+        paint();
+        close();
+        fire();
+      };
       menu.appendChild(b);
     });
   }
   function open() {
     if (disabled || !items.length) return;
-    renderMenu(); menu.hidden = false; root.classList.add('etk-sel-open');
-    setTimeout(() => { outside = (e) => { if (!root.contains(e.target)) close(); };
-                       document.addEventListener('click', outside); }, 0);
+    renderMenu();
+    menu.hidden = false;
+    root.classList.add('etk-sel-open');
+    setTimeout(() => {
+      outside = (e) => {
+        if (!root.contains(e.target)) close();
+      };
+      document.addEventListener('click', outside);
+    }, 0);
   }
   function close() {
-    menu.hidden = true; root.classList.remove('etk-sel-open');
-    if (outside) { document.removeEventListener('click', outside); outside = null; }
+    menu.hidden = true;
+    root.classList.remove('etk-sel-open');
+    if (outside) {
+      document.removeEventListener('click', outside);
+      outside = null;
+    }
   }
   // fire both the event (for addEventListener) and the .onchange property the
   // cascade sets, since a div's onchange isn't auto-wired like a <select>'s.
@@ -171,27 +211,58 @@ function makeSelect(placeholder) {
     if (typeof root.onchange === 'function') root.onchange(new Event('change'));
   }
 
-  btn.onclick = (e) => { e.stopPropagation(); menu.hidden ? open() : close(); };
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    menu.hidden ? open() : close();
+  };
 
   // the <select>-ish surface the cascade code uses. Values are 0-based item
   // indices ('' = none). selectedIndex mirrors native semantics (0 = the
   // placeholder, 1..N = items) so the cascade's `sel.selectedIndex = 1` lines
   // still auto-pick the first real item.
   Object.defineProperties(root, {
-    value: { get: () => value, set: (v) => { value = v === '' ? '' : String(v); paint(); } },
-    disabled: { get: () => disabled, set: (d) => { disabled = !!d; root.classList.toggle('etk-sel-disabled', disabled); if (d) close(); } },
-    selectedIndex: {
-      get: () => value === '' ? 0 : +value + 1,
-      set: (i) => { value = (i && i >= 1) ? String(i - 1) : ''; paint(); },
+    value: {
+      get: () => value,
+      set: (v) => {
+        value = v === '' ? '' : String(v);
+        paint();
+      },
     },
-    options: { get: () => [{ textContent: ph }, ...items.map(t => ({ textContent: t }))] },
+    disabled: {
+      get: () => disabled,
+      set: (d) => {
+        disabled = !!d;
+        root.classList.toggle('etk-sel-disabled', disabled);
+        if (d) close();
+      },
+    },
+    selectedIndex: {
+      get: () => (value === '' ? 0 : +value + 1),
+      set: (i) => {
+        value = i && i >= 1 ? String(i - 1) : '';
+        paint();
+      },
+    },
+    options: {
+      get: () => [
+        { textContent: ph },
+        ...items.map((t) => ({ textContent: t })),
+      ],
+    },
   });
   // setOptions replaces the innerHTML-style population the cascade did via opt()
   root.setOptions = (arr, placeholderText) => {
     if (placeholderText != null) ph = placeholderText;
-    items = arr.slice(); value = ''; paint(); close();
+    items = arr.slice();
+    value = '';
+    paint();
+    close();
   };
-  root.setDisabledEmpty = () => { items = []; value = ''; paint(); };
+  root.setDisabledEmpty = () => {
+    items = [];
+    value = '';
+    paint();
+  };
   root.openMenu = () => open();
   paint();
   return root;
@@ -203,11 +274,20 @@ function makeSelect(placeholder) {
 let etkVehicles = null;
 async function loadVehicles() {
   if (etkVehicles) return etkVehicles;
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
-  const urls = [`${base}/data/etk/vehicles.json`, `${ETK_HF_BASE}vehicles.json`];
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  const urls = [
+    `${base}/data/etk/vehicles.json`,
+    `${ETK_HF_BASE}vehicles.json`,
+  ];
   let r = null;
-  for (const u of urls) { r = await real(u).catch(() => null); if (r && r.ok) break; }
+  for (const u of urls) {
+    r = await real(u).catch(() => null);
+    if (r && r.ok) break;
+  }
   if (!r || !r.ok) throw new Error('vehicle data not available');
   etkVehicles = await r.json();
   return etkVehicles;
@@ -218,15 +298,22 @@ async function loadVehicles() {
 // then the Hugging Face dataset (where the rest of the ETK data lives).
 // Non-fatal: the drill-down just keeps its silhouette if the set isn't there.
 let etkThumbs = null;
-let etkThumbsBase = '';   // the base URL thumbs.json resolved from
+let etkThumbsBase = ''; // the base URL thumbs.json resolved from
 async function loadEtkThumbs() {
   if (etkThumbs) return etkThumbs;
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   const bases = [`${base}/data/etk/thumbs/`, `${ETK_HF_BASE}thumbs/`];
   for (const b of bases) {
     const r = await real(`${b}thumbs.json`).catch(() => null);
-    if (r && r.ok) { etkThumbs = await r.json(); etkThumbsBase = b; return etkThumbs; }
+    if (r && r.ok) {
+      etkThumbs = await r.json();
+      etkThumbsBase = b;
+      return etkThumbs;
+    }
   }
   etkThumbs = {};
   return etkThumbs;
@@ -236,15 +323,24 @@ async function loadEtkThumbs() {
 // A BMW VIN's last 7 characters are the sequential production number. vin-index
 // maps each production-number range to a vehicle, so we can resolve a VIN to
 // its exact chassis + variant, then jump into that catalogue pre-filtered.
-let etkVinIndex = null;   // { variants:[[chassis,mospid,model,body,motor,steer]], ranges:[[von,bis,vidx,prod]] }
+let etkVinIndex = null; // { variants:[[chassis,mospid,model,body,motor,steer]], ranges:[[von,bis,vidx,prod]] }
 
 async function loadVinIndex(onProgress) {
   if (etkVinIndex) return etkVinIndex;
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
-  const urls = [`${base}/data/etk/vin-index.json.gz`, `${ETK_HF_BASE}vin-index.json.gz`];
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  const urls = [
+    `${base}/data/etk/vin-index.json.gz`,
+    `${ETK_HF_BASE}vin-index.json.gz`,
+  ];
   let r = null;
-  for (const u of urls) { r = await real(u).catch(() => null); if (r && r.ok) break; }
+  for (const u of urls) {
+    r = await real(u).catch(() => null);
+    if (r && r.ok) break;
+  }
   if (!r || !r.ok) throw new Error('VIN data not available');
   const bytes = await readWithProgress(r, onProgress);
   // the file is gzip; fflate ungzips it
@@ -256,24 +352,38 @@ async function loadVinIndex(onProgress) {
 // Resolve a VIN (or bare 7-char production number) -> { chassis, mospidIdx info }.
 // Returns null if not found. The ranges are sorted by `von`, so binary-search.
 function decodeVin(idx, vinRaw) {
-  const vin = String(vinRaw || '').trim().toUpperCase().replace(/\s/g, '');
+  const vin = String(vinRaw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s/g, '');
   // last 7 chars are the production number; a bare 7-char code is accepted too
   const pn = vin.length >= 7 ? vin.slice(-7) : vin.padStart(7, '0');
   const R = idx.ranges;
-  let lo = 0, hi = R.length - 1, hit = -1;
+  let lo = 0,
+    hi = R.length - 1,
+    hit = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
     const [von, bis] = R[mid];
     if (pn < von) hi = mid - 1;
     else if (pn > bis) lo = mid + 1;
-    else { hit = mid; break; }
+    else {
+      hit = mid;
+      break;
+    }
   }
   if (hit < 0) return null;
   const [von, bis, vi, prod] = R[hit];
-  const v = idx.variants[vi];   // [chassis,mospid,model,body,motor,steer]
+  const v = idx.variants[vi]; // [chassis,mospid,model,body,motor,steer]
   return {
-    pn, chassis: v[0], mospid: v[1],
-    model: v[2], body: v[3], motor: v[4], steer: v[5], prod,
+    pn,
+    chassis: v[0],
+    mospid: v[1],
+    model: v[2],
+    body: v[3],
+    motor: v[4],
+    steer: v[5],
+    prod,
   };
 }
 
@@ -294,13 +404,27 @@ function etkImageUrl(data, ref) {
 
 async function showEtk() {
   lastScreen = showEtk;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps }, { label: 'Parts Catalogue' }]);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
+    { label: 'Parts Catalogue' },
+  ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'parts';
-  view.innerHTML = head('ETK', 'Parts Catalogue',
-    "BMW's own parts diagrams. Pick a vehicle to browse its catalogue.");
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps }]);
+  view.innerHTML = head(
+    'ETK',
+    'Parts Catalogue',
+    "BMW's own parts diagrams. Pick a vehicle to browse its catalogue."
+  );
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showApps,
+    },
+  ]);
 
   // VIN decoder entry: a card (like the Apps hub cards) that opens the decoder
   // page -- enter a VIN there and jump to that exact vehicle's parts.
@@ -352,8 +476,18 @@ async function showEtk() {
   stagger(grid, 22);
   sbRight.textContent = `${ids.length} chassis`;
   setActions([
-    ...ids.slice(0, 9).map((id, i) => ({ key: String(i + 1), label: dispChassis(id), fn: () => showEtkChassis(id) })),
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps },
+    ...ids.slice(0, 9).map((id, i) => ({
+      key: String(i + 1),
+      label: dispChassis(id),
+      fn: () => showEtkChassis(id),
+    })),
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showApps,
+    },
   ]);
 }
 
@@ -364,17 +498,19 @@ async function showEtk() {
 // user is actually after under those codes, so we bucket by kind: modern cars
 // first (E/F/G/I/U + digits), then Minis (R5x/F5x/F6x), then everything else.
 function seriesRank(code) {
-  if (/^[EFGIU]\d/.test(code)) {          // BMW car chassis: E46, F30, G20...
+  if (/^[EFGIU]\d/.test(code)) {
+    // BMW car chassis: E46, F30, G20...
     const era = { E: 0, F: 1, G: 2, I: 3, U: 4 }[code[0]];
     const num = parseInt(code.slice(1), 10) || 0;
     return [0, era, num, code];
   }
-  if (/^(R5|F5|F6)/.test(code)) return [1, 0, 0, code];   // MINI
-  return [2, 0, 0, code];                 // bikes / classics / internal codes
+  if (/^(R5|F5|F6)/.test(code)) return [1, 0, 0, code]; // MINI
+  return [2, 0, 0, code]; // bikes / classics / internal codes
 }
 function seriesSort(codes) {
   return codes.slice().sort((a, b) => {
-    const ra = seriesRank(a), rb = seriesRank(b);
+    const ra = seriesRank(a),
+      rb = seriesRank(b);
     for (let i = 0; i < ra.length; i++) {
       if (ra[i] < rb[i]) return -1;
       if (ra[i] > rb[i]) return 1;
@@ -392,33 +528,47 @@ function seriesSort(codes) {
 function chassisSeries(code, models) {
   // hard overrides where the model prefix is ambiguous or the chassis predates
   // the numbering scheme
-  const HARD = { E52: 'Z', E26: 'M', E72: 'X6', E169: 'Moto',
-                 E3: 'Classic', E9: 'Classic' };
+  const HARD = {
+    E52: 'Z',
+    E26: 'M',
+    E72: 'X6',
+    E169: 'Moto',
+    E3: 'Classic',
+    E9: 'Classic',
+  };
   if (HARD[code]) return HARD[code];
-  if (/^I\d/.test(code)) return 'i';                 // i3 / i8
+  if (/^I\d/.test(code)) return 'i'; // i3 / i8
   if (/^(R5|R13|R56|R57|R58|R59|F5|F6)/.test(code)) return 'MINI';
   const list = [...models];
   const joined = list.join(' ');
   // motorcycles: R-/K-/F-/G-/C-prefixed engine names, or classic 3-digit bikes
-  const bike = list.filter(m => /^[RKC]\s?\d/.test(m.trim()) ||
-                                /^F \d{3}/.test(m.trim()) ||
-                                /^G \d{3}/.test(m.trim())).length;
+  const bike = list.filter(
+    (m) =>
+      /^[RKC]\s?\d/.test(m.trim()) ||
+      /^F \d{3}/.test(m.trim()) ||
+      /^G \d{3}/.test(m.trim())
+  ).length;
   if (bike > list.length / 2) return 'Moto';
   const tally = {};
   for (const m of list) {
     const t = m.trim();
     let key = null;
-    const x = t.match(/^(X\d)/);              // X3, X5
-    const z = /^Z\d/.test(t);                 // Z3, Z4 -> one "Z" series
-    const mm = t.match(/^M(\d)\b/);           // M3, M5
+    const x = t.match(/^(X\d)/); // X3, X5
+    const z = /^Z\d/.test(t); // Z3, Z4 -> one "Z" series
+    const mm = t.match(/^M(\d)\b/); // M3, M5
     if (x) key = x[1];
     else if (z) key = 'Z';
     else if (mm) key = 'M';
     else if (/^\d/.test(t)) key = t[0] + "'"; // 5xx -> 5'
     if (key) tally[key] = (tally[key] || 0) + 1;
   }
-  let best = null, n = -1;
-  for (const k in tally) if (tally[k] > n) { n = tally[k]; best = k; }
+  let best = null,
+    n = -1;
+  for (const k in tally)
+    if (tally[k] > n) {
+      n = tally[k];
+      best = k;
+    }
   return best || 'Other';
 }
 
@@ -440,12 +590,14 @@ function groupBySeries(veh) {
   const groups = {};
   for (const code of Object.keys(veh)) {
     const models = new Set();
-    for (const body in veh[code]) for (const m in veh[code][body]) models.add(m);
+    for (const body in veh[code])
+      for (const m in veh[code][body]) models.add(m);
     const s = chassisSeries(code, models);
     (groups[s] = groups[s] || []).push(code);
   }
   const order = Object.keys(groups).sort((a, b) => {
-    const ra = seriesGroupRank(a), rb = seriesGroupRank(b);
+    const ra = seriesGroupRank(a),
+      rb = seriesGroupRank(b);
     return ra[0] - rb[0] || ra[1] - rb[1] || (a < b ? -1 : 1);
   });
   for (const s of order) groups[s] = seriesSort(groups[s]);
@@ -463,17 +615,28 @@ function groupBySeries(veh) {
 //     -- gate + message for a decoded chassis the section can't open
 function showVinDecoder(opts) {
   opts = opts || {};
-  const onResolve = opts.onResolve || openDecoded;    // default: open the parts catalogue
+  const onResolve = opts.onResolve || openDecoded; // default: open the parts catalogue
   const backFn = opts.back || showEtk;
   lastScreen = () => showVinDecoder(opts);
-  setCrumbs(opts.crumbs || [{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps },
-             { label: 'Parts', fn: showEtk }, { label: 'VIN Decoder' }]);
+  setCrumbs(
+    opts.crumbs || [
+      { label: 'Vehicles', fn: showChassis },
+      { label: 'Apps', fn: showApps },
+      { label: 'Parts', fn: showEtk },
+      { label: 'VIN Decoder' },
+    ]
+  );
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'vin decoder';
-  view.innerHTML = head(opts.eyebrow || 'ETK', opts.title || 'Vehicle Identification',
-    opts.subtitle || 'Enter your VIN, or identify your vehicle by series, body and model.');
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: backFn }]);
+  view.innerHTML = head(
+    opts.eyebrow || 'ETK',
+    opts.title || 'Vehicle Identification',
+    opts.subtitle ||
+      'Enter your VIN, or identify your vehicle by series, body and model.'
+  );
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: backFn },
+  ]);
 
   // Two columns: the VIN box + attributes selector on the left, a full-height
   // saved-vehicles panel down the right.
@@ -519,18 +682,19 @@ function showVinDecoder(opts) {
     return Array.isArray(v) ? v : [];
   };
   const writeSaved = (list) => {
-    if (typeof Settings === 'object' && Settings.set) Settings.set(SAVED_KEY, list.slice(0, 12));
+    if (typeof Settings === 'object' && Settings.set)
+      Settings.set(SAVED_KEY, list.slice(0, 12));
   };
   const addSaved = (entry) => {
     const vin = String(entry.vin || '').toUpperCase();
     if (!vin) return;
-    const rest = readSaved().filter(e => String(e.vin).toUpperCase() !== vin);
+    const rest = readSaved().filter((e) => String(e.vin).toUpperCase() !== vin);
     writeSaved([{ ...entry, vin }, ...rest]);
     renderSaved();
   };
   const delSaved = (vin) => {
     const V = String(vin).toUpperCase();
-    writeSaved(readSaved().filter(e => String(e.vin).toUpperCase() !== V));
+    writeSaved(readSaved().filter((e) => String(e.vin).toUpperCase() !== V));
     renderSaved();
   };
   function renderSaved() {
@@ -559,8 +723,15 @@ function showVinDecoder(opts) {
         </button>
         <button type="button" class="etk-saved-del" title="Remove" aria-label="Remove">✕</button>`;
       row.querySelector('.etk-saved-open').onclick = () =>
-        onResolve({ chassis: it.chassis, model: it.model, body: it.body,
-                    motor: it.motor, steer: it.steer, prod: it.prod, vin: it.vin });
+        onResolve({
+          chassis: it.chassis,
+          model: it.model,
+          body: it.body,
+          motor: it.motor,
+          steer: it.steer,
+          prod: it.prod,
+          vin: it.vin,
+        });
       row.querySelector('.etk-saved-del').onclick = () => delSaved(it.vin);
       savedPanel.appendChild(row);
     });
@@ -578,7 +749,8 @@ function showVinDecoder(opts) {
     if (vin.length < 7) {
       result.hidden = false;
       result.className = 'etk-vin-result etk-vin-err';
-      result.textContent = 'Enter at least the 7-character production number (or a full VIN).';
+      result.textContent =
+        'Enter at least the 7-character production number (or a full VIN).';
       return;
     }
     result.hidden = false;
@@ -600,22 +772,39 @@ function showVinDecoder(opts) {
         return;
       }
       hit.vin = vin.toUpperCase();
-      const bits = [hit.model, bodyLabel(hit.body), hit.motor,
-                    hit.steer === 'R' ? 'RHD' : hit.steer === 'L' ? 'LHD' : '']
-                   .filter(Boolean).join(' · ');
-      const dateStr = hit.prod && String(hit.prod).length >= 6
-        ? ` · ${String(hit.prod).slice(0, 4)}-${String(hit.prod).slice(4, 6)}` : '';
+      const bits = [
+        hit.model,
+        bodyLabel(hit.body),
+        hit.motor,
+        hit.steer === 'R' ? 'RHD' : hit.steer === 'L' ? 'LHD' : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const dateStr =
+        hit.prod && String(hit.prod).length >= 6
+          ? ` · ${String(hit.prod).slice(0, 4)}-${String(hit.prod).slice(4, 6)}`
+          : '';
       const disp = dispChassis(hit.chassis);
       // Save was pressed: remember this vehicle (car above the VIN in the panel)
       if (alsoSave) {
-        addSaved({ vin: hit.vin, chassis: hit.chassis, disp,
-                   bits, date: dateStr.replace(/^ · /, ''),
-                   model: hit.model, body: hit.body, motor: hit.motor,
-                   steer: hit.steer, prod: hit.prod });
+        addSaved({
+          vin: hit.vin,
+          chassis: hit.chassis,
+          disp,
+          bits,
+          date: dateStr.replace(/^ · /, ''),
+          model: hit.model,
+          body: hit.body,
+          motor: hit.motor,
+          steer: hit.steer,
+          prod: hit.prod,
+        });
       }
       // the section may not be able to open every decoded chassis (wiring ships
       // fewer than the VIN index covers): gate, and say what it found either way
-      const canOpen = opts.resolvable ? await opts.resolvable(hit.chassis) : true;
+      const canOpen = opts.resolvable
+        ? await opts.resolvable(hit.chassis)
+        : true;
       result.className = 'etk-vin-result etk-vin-ok';
       if (canOpen) {
         result.innerHTML = `
@@ -635,8 +824,10 @@ function showVinDecoder(opts) {
   }
 
   go.onclick = () => decode(false);
-  saveBtn.onclick = () => decode(true);       // decode + remember
-  input.onkeydown = (e) => { if (e.key === 'Enter') decode(false); };
+  saveBtn.onclick = () => decode(true); // decode + remember
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') decode(false);
+  };
 
   // ---- identify by attributes: ETK's Vehicle Identification, 1:1 -----------
   // The terminal's lower group box: a Brand / Prod. type / Catalogue filter
@@ -665,7 +856,7 @@ function showVinDecoder(opts) {
     <span class="etk-idreq">* required attributes</span>`;
   const selBrand = makeSelect('BMW');
   selBrand.setOptions(['BMW', 'MINI'], 'BMW');
-  selBrand.selectedIndex = 1;   // BMW preselected
+  selBrand.selectedIndex = 1; // BMW preselected
   filters.querySelector('.etk-idfilter-brand').appendChild(selBrand);
   idCard.appendChild(filters);
 
@@ -674,7 +865,8 @@ function showVinDecoder(opts) {
     const box = document.createElement('div');
     box.className = 'etk-lb';
     box.tabIndex = 0;
-    let items = [], value = -1;   // value = selected index, -1 = none
+    let items = [],
+      value = -1; // value = selected index, -1 = none
     box._onpick = null;
     function render() {
       box.innerHTML = '';
@@ -684,7 +876,8 @@ function showVinDecoder(opts) {
         row.className = 'etk-lb-row' + (i === value ? ' active' : '');
         row.textContent = it.label;
         row.onclick = () => {
-          value = i; render();
+          value = i;
+          render();
           if (i === value) row.scrollIntoView({ block: 'nearest' });
           if (box._onpick) box._onpick(items[i].key, items[i].label);
         };
@@ -692,34 +885,47 @@ function showVinDecoder(opts) {
       });
       if (!items.length) {
         const e = document.createElement('div');
-        e.className = 'etk-lb-empty'; e.textContent = '—';
+        e.className = 'etk-lb-empty';
+        e.textContent = '—';
         box.appendChild(e);
       }
     }
-    box.setItems = (arr) => { items = arr; value = -1; render(); };
-    box.clear = () => { items = []; value = -1; render(); };
-    box.selected = () => value >= 0 ? items[value] : null;
+    box.setItems = (arr) => {
+      items = arr;
+      value = -1;
+      render();
+    };
+    box.clear = () => {
+      items = [];
+      value = -1;
+      render();
+    };
+    box.selected = () => (value >= 0 ? items[value] : null);
     render();
     return box;
   }
 
-  const lbSeries  = listBox();
+  const lbSeries = listBox();
   const lbChassis = listBox();
-  const lbBody    = listBox();
-  const lbModel   = listBox();
+  const lbBody = listBox();
+  const lbModel = listBox();
   const selSteer = makeSelect('All values');
-  const selGear  = makeSelect('All values');
-  const selYear  = makeSelect('All values');
+  const selGear = makeSelect('All values');
+  const selYear = makeSelect('All values');
   const selMonth = makeSelect('All values');
-  [selSteer, selGear, selYear, selMonth].forEach(s => { s.disabled = true; });
+  [selSteer, selGear, selYear, selMonth].forEach((s) => {
+    s.disabled = true;
+  });
 
   // labelled column wrapper (a heading over a list box or dropdown)
   const col = (labelText, el, cls) => {
     const c = document.createElement('div');
     c.className = 'etk-idcol' + (cls ? ' ' + cls : '');
     const l = document.createElement('span');
-    l.className = 'etk-idlabel'; l.textContent = labelText;
-    c.append(l, el); return c;
+    l.className = 'etk-idlabel';
+    l.textContent = labelText;
+    c.append(l, el);
+    return c;
   };
 
   // ETK's positioning: [Series | Chassis] paired on the left, then Body (with a
@@ -732,14 +938,17 @@ function showVinDecoder(opts) {
   // Series pane; the chassis pane is its unlabelled expansion)
   const leftBlock = document.createElement('div');
   leftBlock.className = 'etk-idpair';
-  leftBlock.append(col('Series*', lbSeries, 'etk-idcol-series'),
-                   col(' ', lbChassis, 'etk-idcol-chassis'));
+  leftBlock.append(
+    col('Series*', lbSeries, 'etk-idcol-series'),
+    col(' ', lbChassis, 'etk-idcol-chassis')
+  );
 
   // middle block: Body, with the car image beneath it
   const midBlock = document.createElement('div');
   midBlock.className = 'etk-idmid';
   const thumb = document.createElement('div');
-  thumb.className = 'etk-idthumb'; thumb.hidden = true;
+  thumb.className = 'etk-idthumb';
+  thumb.hidden = true;
   midBlock.append(col('Body*', lbBody), thumb);
 
   // right block: Model on top, the 2x2 dropdowns beneath it (ETK's Steering |
@@ -748,17 +957,25 @@ function showVinDecoder(opts) {
   rightBlock.className = 'etk-idright';
   const drops = document.createElement('div');
   drops.className = 'etk-iddrops';
-  drops.append(col('Steering', selSteer), col('Gearbox', selGear),
-               col('Year', selYear), col('Month', selMonth));
+  drops.append(
+    col('Steering', selSteer),
+    col('Gearbox', selGear),
+    col('Year', selYear),
+    col('Month', selMonth)
+  );
   rightBlock.append(col('Model*', lbModel), drops);
 
   lists.append(leftBlock, midBlock, rightBlock);
 
-  const foot = document.createElement('div'); foot.className = 'etk-idfoot';
-  const idHint = document.createElement('span'); idHint.className = 'etk-idhint';
+  const foot = document.createElement('div');
+  foot.className = 'etk-idfoot';
+  const idHint = document.createElement('span');
+  idHint.className = 'etk-idhint';
   idHint.textContent = 'Loading vehicles…';
   const idOpen = document.createElement('button');
-  idOpen.type = 'button'; idOpen.className = 'etk-vin-go etk-idgo'; idOpen.hidden = true;
+  idOpen.type = 'button';
+  idOpen.className = 'etk-vin-go etk-idgo';
+  idOpen.hidden = true;
   idOpen.setAttribute('aria-label', 'Open parts catalogue');
   idOpen.textContent = '→';
   foot.append(idHint, idOpen);
@@ -766,66 +983,95 @@ function showVinDecoder(opts) {
   idCard.append(lists, foot);
   leftCol.appendChild(idCard);
 
-  let veh = null;                 // the loaded vehicles.json
-  let grouped = null;             // { order, groups } from groupBySeries
-  let picked = null;              // { chassis, mospid, ... }
-  let chassisMaxYear = 0;         // newest intro-year anywhere in the chassis --
-                                  // a stand-in for end-of-build, so the Year list
-                                  // can run past the last per-model intro date
+  let veh = null; // the loaded vehicles.json
+  let grouped = null; // { order, groups } from groupBySeries
+  let picked = null; // { chassis, mospid, ... }
+  let chassisMaxYear = 0; // newest intro-year anywhere in the chassis --
+  // a stand-in for end-of-build, so the Year list
+  // can run past the last per-model intro date
   const state = { series: null, chassis: null, body: null, model: null };
 
   const opt = (sel, items, ph) => sel.setOptions(items, ph);
   // ETK stores gearbox N = "Neutral" on chassis whose catalogue isn't split by
   // transmission (the terminal shows "Neutral" there too, not a blank).
-  const gearLabel = (g) => ({ A: 'Automatic', M: 'Manual', N: 'Neutral' }[g] || g || 'Neutral');
-  const steerLabel = (s) => ({ L: 'Left-hand drive', R: 'Right-hand drive' }[s] || s);
-  const yearOf  = (d) => String(d).slice(0, 4);
+  const gearLabel = (g) =>
+    ({ A: 'Automatic', M: 'Manual', N: 'Neutral' })[g] || g || 'Neutral';
+  const steerLabel = (s) =>
+    ({ L: 'Left-hand drive', R: 'Right-hand drive' })[s] || s;
+  const yearOf = (d) => String(d).slice(0, 4);
   const monthOf = (d) => String(d).slice(4, 6);
 
   function resetDrops() {
-    picked = null; idOpen.hidden = true;
-    [selSteer, selGear, selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
+    picked = null;
+    idOpen.hidden = true;
+    [selSteer, selGear, selYear, selMonth].forEach((s) => {
+      s.setDisabledEmpty();
+      s.disabled = true;
+    });
   }
 
   // ---- the Brand / Prod. type / Catalogue filters narrow the Series pane ----
   // A code is "classic" when it isn't a modern car chassis code (E/F/G/I/U +
   // digits): the raw numeric and letter codes (114, 700, NK, V8...) are the
   // old-timers BMW Classic covers, plus the hard-bucketed Classic group.
-  const isClassicCode = (c, s) => s === 'Classic' || s === 'Other'
-    || !/^[EFGIUZ]\d/.test(c);   // Z covers the literal Z1/Z3 chassis codes
+  const isClassicCode = (c, s) =>
+    s === 'Classic' || s === 'Other' || !/^[EFGIUZ]\d/.test(c); // Z covers the literal Z1/Z3 chassis codes
   function refreshSeries() {
     if (!grouped) return;
-    const type  = filters.querySelector('input[name="etk-ptype"]:checked').value;
-    const scope = filters.querySelector('input[name="etk-scope"]:checked').value;
+    const type = filters.querySelector('input[name="etk-ptype"]:checked').value;
+    const scope = filters.querySelector(
+      'input[name="etk-scope"]:checked'
+    ).value;
     const brand = selBrand.value === '1' ? 'MINI' : 'BMW';
     const out = [];
     for (const s of grouped.order) {
       let codes = grouped.groups[s];
-      if (type === 'moto') { if (s !== 'Moto') continue; }
-      else {
+      if (type === 'moto') {
+        if (s !== 'Moto') continue;
+      } else {
         if (s === 'Moto') continue;
-        if (brand === 'MINI') { if (s !== 'MINI') continue; }
-        else {
+        if (brand === 'MINI') {
+          if (s !== 'MINI') continue;
+        } else {
           if (s === 'MINI') continue;
-          codes = codes.filter(c => isClassicCode(c, s) === (scope === 'classic'));
+          codes = codes.filter(
+            (c) => isClassicCode(c, s) === (scope === 'classic')
+          );
         }
       }
       if (codes.length) out.push({ series: s, codes });
     }
     state.series = state.chassis = state.body = state.model = null;
-    state.codesBySeries = Object.fromEntries(out.map(o => [o.series, o.codes]));
-    lbChassis.clear(); lbBody.clear(); lbModel.clear(); resetDrops(); thumb.hidden = true;
-    lbSeries.setItems(out.map(o => ({ key: o.series, label: o.series })));
+    state.codesBySeries = Object.fromEntries(
+      out.map((o) => [o.series, o.codes])
+    );
+    lbChassis.clear();
+    lbBody.clear();
+    lbModel.clear();
+    resetDrops();
+    thumb.hidden = true;
+    lbSeries.setItems(out.map((o) => ({ key: o.series, label: o.series })));
     idHint.textContent = 'Pick a series to begin.';
   }
-  filters.querySelectorAll('input[type="radio"]').forEach(r => { r.onchange = refreshSeries; });
+  filters.querySelectorAll('input[type="radio"]').forEach((r) => {
+    r.onchange = refreshSeries;
+  });
   selBrand.onchange = refreshSeries;
 
   // Series picked -> fill Chassis
   lbSeries._onpick = (series) => {
-    state.series = series; state.chassis = state.body = state.model = null;
-    lbBody.clear(); lbModel.clear(); resetDrops(); thumb.hidden = true;
-    lbChassis.setItems(state.codesBySeries[series].map(c => ({ key: c, label: dispChassis(c) })));
+    state.series = series;
+    state.chassis = state.body = state.model = null;
+    lbBody.clear();
+    lbModel.clear();
+    resetDrops();
+    thumb.hidden = true;
+    lbChassis.setItems(
+      state.codesBySeries[series].map((c) => ({
+        key: c,
+        label: dispChassis(c),
+      }))
+    );
     idHint.textContent = 'Pick a chassis.';
   };
   // swap the placeholder silhouette for the real ETK car photo when we have
@@ -833,8 +1079,7 @@ function showVinDecoder(opts) {
   function setThumb(ch, body) {
     const name = etkThumbs && ch && body ? etkThumbs[`${ch}_${body}`] : null;
     if (name) {
-      thumb.style.background =
-        `var(--bg) url("${etkThumbsBase}${name}") center/contain no-repeat`;
+      thumb.style.background = `var(--bg) url("${etkThumbsBase}${name}") center/contain no-repeat`;
       thumb.classList.add('etk-idthumb-photo');
     } else {
       thumb.style.background = '';
@@ -844,8 +1089,12 @@ function showVinDecoder(opts) {
 
   // Chassis picked -> fill Body
   lbChassis._onpick = (ch) => {
-    state.chassis = ch; state.body = state.model = null;
-    lbModel.clear(); resetDrops(); thumb.hidden = false; setThumb(null, null);
+    state.chassis = ch;
+    state.body = state.model = null;
+    lbModel.clear();
+    resetDrops();
+    thumb.hidden = false;
+    setThumb(null, null);
     // newest intro-year across every body/model of this chassis -- the upper
     // bound for the (expanded) Year dropdown, since no explicit end date exists
     chassisMaxYear = 0;
@@ -858,77 +1107,122 @@ function showVinDecoder(opts) {
       }
     }
     const bodies = Object.keys(veh[ch]);
-    lbBody.setItems(bodies.map(b => ({ key: b, label: bodyLabel(b) })));
+    lbBody.setItems(bodies.map((b) => ({ key: b, label: bodyLabel(b) })));
     idHint.textContent = 'Pick a body style.';
   };
   // Body picked -> fill Model (and show that body's car photo)
   lbBody._onpick = (body) => {
-    state.body = body; state.model = null; resetDrops();
+    state.body = body;
+    state.model = null;
+    resetDrops();
     setThumb(state.chassis, body);
     const models = Object.keys(veh[state.chassis][body]);
-    lbModel.setItems(models.map(m => ({ key: m, label: m })));
+    lbModel.setItems(models.map((m) => ({ key: m, label: m })));
     idHint.textContent = 'Pick a model.';
   };
   // Model picked -> fill the Steering / Gearbox / Year / Month dropdowns
   lbModel._onpick = (model) => {
-    state.model = model; resetDrops();
-    const variants = veh[state.chassis][state.body][model];   // [[steer,gear,date,mospid]]
+    state.model = model;
+    resetDrops();
+    const variants = veh[state.chassis][state.body][model]; // [[steer,gear,date,mospid]]
     state.variants = variants;
-    const steers = [...new Set(variants.map(v => v[0]))].filter(Boolean);
-    opt(selSteer, steers.map(steerLabel), steers.length > 1 ? 'All values' : '');
-    selSteer._vals = steers; selSteer.disabled = false;
-    if (steers.length === 1) { selSteer.selectedIndex = 1; }
+    const steers = [...new Set(variants.map((v) => v[0]))].filter(Boolean);
+    opt(
+      selSteer,
+      steers.map(steerLabel),
+      steers.length > 1 ? 'All values' : ''
+    );
+    selSteer._vals = steers;
+    selSteer.disabled = false;
+    if (steers.length === 1) {
+      selSteer.selectedIndex = 1;
+    }
     selSteer.onchange();
   };
 
   selSteer.onchange = () => {
-    [selGear, selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
-    const steer = selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
-    const vs = state.variants.filter(v => !steer || v[0] === steer);
-    const gears = [...new Set(vs.map(v => v[1]))].filter(Boolean);
+    [selGear, selYear, selMonth].forEach((s) => {
+      s.setDisabledEmpty();
+      s.disabled = true;
+    });
+    const steer =
+      selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
+    const vs = state.variants.filter((v) => !steer || v[0] === steer);
+    const gears = [...new Set(vs.map((v) => v[1]))].filter(Boolean);
     opt(selGear, gears.map(gearLabel), gears.length > 1 ? 'All values' : '');
-    selGear._vs = vs; selGear._vals = gears; selGear.disabled = false;
-    if (gears.length === 1) { selGear.selectedIndex = 1; }
+    selGear._vs = vs;
+    selGear._vals = gears;
+    selGear.disabled = false;
+    if (gears.length === 1) {
+      selGear.selectedIndex = 1;
+    }
     selGear.onchange();
   };
   selGear.onchange = () => {
-    [selYear, selMonth].forEach(s => { s.setDisabledEmpty(); s.disabled = true; });
+    [selYear, selMonth].forEach((s) => {
+      s.setDisabledEmpty();
+      s.disabled = true;
+    });
     const gear = selGear.value !== '' ? selGear._vals[+selGear.value] : null;
-    const vs = selGear._vs.filter(v => !gear || v[1] === gear);
+    const vs = selGear._vs.filter((v) => !gear || v[1] === gear);
     // The dates in the data are each variant's INTRODUCTION date, not the model
     // years it was sold. So a car whose build year sits between two intro dates
     // (a 2005 E46 325i, say) had no exact row and its year went missing from the
     // list. List every year from the first intro to the chassis's end of build,
     // and map each to the variant "in force" then (newest intro <= that year).
-    const introYears = [...new Set(vs.map(v => yearOf(v[2])))].filter(Boolean).sort();
-    let years = introYears, byYear = null;
+    const introYears = [...new Set(vs.map((v) => yearOf(v[2])))]
+      .filter(Boolean)
+      .sort();
+    let years = introYears,
+      byYear = null;
     if (introYears.length) {
       const lo = +introYears[0];
-      const hi = Math.max(+introYears[introYears.length - 1], chassisMaxYear || 0);
-      years = []; byYear = {};
+      const hi = Math.max(
+        +introYears[introYears.length - 1],
+        chassisMaxYear || 0
+      );
+      years = [];
+      byYear = {};
       for (let y = lo; y <= hi; y++) {
         const ys = String(y);
         // the newest intro-year at or before y -- the variant valid that year
-        const inForce = introYears.filter(iy => +iy <= y).pop();
-        if (inForce) { years.push(ys); byYear[ys] = inForce; }
+        const inForce = introYears.filter((iy) => +iy <= y).pop();
+        if (inForce) {
+          years.push(ys);
+          byYear[ys] = inForce;
+        }
       }
     }
     opt(selYear, years, years.length > 1 ? 'All values' : '');
-    selYear._vs = vs; selYear._vals = years; selYear._byYear = byYear;
+    selYear._vs = vs;
+    selYear._vals = years;
+    selYear._byYear = byYear;
     selYear.disabled = false;
-    if (years.length === 1) { selYear.selectedIndex = 1; }
+    if (years.length === 1) {
+      selYear.selectedIndex = 1;
+    }
     selYear.onchange();
   };
   selYear.onchange = () => {
-    selMonth.setDisabledEmpty(); selMonth.disabled = true;
+    selMonth.setDisabledEmpty();
+    selMonth.disabled = true;
     const picked = selYear.value !== '' ? selYear._vals[+selYear.value] : null;
     // resolve the displayed year to the intro-year of the variant in force
-    const introYear = picked && selYear._byYear ? selYear._byYear[picked] : picked;
-    const vs = selYear._vs.filter(v => !introYear || yearOf(v[2]) === introYear);
-    const months = [...new Set(vs.map(v => monthOf(v[2])))].filter(Boolean).sort();
+    const introYear =
+      picked && selYear._byYear ? selYear._byYear[picked] : picked;
+    const vs = selYear._vs.filter(
+      (v) => !introYear || yearOf(v[2]) === introYear
+    );
+    const months = [...new Set(vs.map((v) => monthOf(v[2])))]
+      .filter(Boolean)
+      .sort();
     opt(selMonth, months, months.length > 1 ? 'All values' : '');
-    selMonth._vs = vs; selMonth._vals = months; selMonth.disabled = false;
-    if (months.length === 1) { selMonth.selectedIndex = 1; }
+    selMonth._vs = vs;
+    selMonth._vals = months;
+    selMonth.disabled = false;
+    if (months.length === 1) {
+      selMonth.selectedIndex = 1;
+    }
     recompute();
   };
   selMonth.onchange = recompute;
@@ -938,29 +1232,54 @@ function showVinDecoder(opts) {
   // first match, same as the terminal's behaviour).
   function recompute() {
     let vs = state.variants || [];
-    const steer = selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
-    if (steer) vs = vs.filter(v => v[0] === steer);
-    const gear = (selGear._vals && selGear.value !== '') ? selGear._vals[+selGear.value] : null;
-    if (gear) vs = vs.filter(v => v[1] === gear);
-    const yearSel = (selYear._vals && selYear.value !== '') ? selYear._vals[+selYear.value] : null;
+    const steer =
+      selSteer.value !== '' ? selSteer._vals[+selSteer.value] : null;
+    if (steer) vs = vs.filter((v) => v[0] === steer);
+    const gear =
+      selGear._vals && selGear.value !== ''
+        ? selGear._vals[+selGear.value]
+        : null;
+    if (gear) vs = vs.filter((v) => v[1] === gear);
+    const yearSel =
+      selYear._vals && selYear.value !== ''
+        ? selYear._vals[+selYear.value]
+        : null;
     // displayed year -> the intro-year of the variant in force (see selGear.onchange)
-    const year = yearSel && selYear._byYear ? selYear._byYear[yearSel] : yearSel;
-    if (year) vs = vs.filter(v => yearOf(v[2]) === year);
-    const month = (selMonth._vals && selMonth.value !== '') ? selMonth._vals[+selMonth.value] : null;
-    if (month) vs = vs.filter(v => monthOf(v[2]) === month);
+    const year =
+      yearSel && selYear._byYear ? selYear._byYear[yearSel] : yearSel;
+    if (year) vs = vs.filter((v) => yearOf(v[2]) === year);
+    const month =
+      selMonth._vals && selMonth.value !== ''
+        ? selMonth._vals[+selMonth.value]
+        : null;
+    if (month) vs = vs.filter((v) => monthOf(v[2]) === month);
     const v = vs[0];
-    if (!v || !state.model) { picked = null; idOpen.hidden = true; return; }
-    picked = { chassis: state.chassis, mospid: v[3], model: state.model,
-               body: state.body, steer: v[0], gear: v[1], prod: v[2] };
-    idHint.textContent = `${dispChassis(picked.chassis)} · ${picked.model} · `
-      + `${bodyLabel(picked.body)} · ${steerLabel(picked.steer)}`;
+    if (!v || !state.model) {
+      picked = null;
+      idOpen.hidden = true;
+      return;
+    }
+    picked = {
+      chassis: state.chassis,
+      mospid: v[3],
+      model: state.model,
+      body: state.body,
+      steer: v[0],
+      gear: v[1],
+      prod: v[2],
+    };
+    idHint.textContent =
+      `${dispChassis(picked.chassis)} · ${picked.model} · ` +
+      `${bodyLabel(picked.body)} · ${steerLabel(picked.steer)}`;
     idOpen.hidden = false;
   }
 
   idOpen.onclick = async () => {
     if (!picked) return;
     // the section may not cover this manually-picked chassis (wiring)
-    const canOpen = opts.resolvable ? await opts.resolvable(picked.chassis) : true;
+    const canOpen = opts.resolvable
+      ? await opts.resolvable(picked.chassis)
+      : true;
     if (!canOpen) {
       idHint.textContent = opts.unavailable
         ? opts.unavailable(dispChassis(picked.chassis))
@@ -978,7 +1297,9 @@ function showVinDecoder(opts) {
       veh = await loadVehicles();
       grouped = groupBySeries(veh);
       refreshSeries();
-    } catch (e) { idHint.textContent = String(e.message || e); }
+    } catch (e) {
+      idHint.textContent = String(e.message || e);
+    }
   })();
 }
 
@@ -993,31 +1314,57 @@ async function openDecoded(hit) {
     const vs = data.tree.variants || [];
     const eq = (a, b) => (a || '') === (b || '');
     let match = -1;
-    if (hit.motor) {   // VIN path: model+body+motor+steer
-      match = vs.findIndex(v => eq(v.model, hit.model) && eq(v.body, hit.body) &&
-                                eq(v.motor, hit.motor) && eq(v.steer, hit.steer));
+    if (hit.motor) {
+      // VIN path: model+body+motor+steer
+      match = vs.findIndex(
+        (v) =>
+          eq(v.model, hit.model) &&
+          eq(v.body, hit.body) &&
+          eq(v.motor, hit.motor) &&
+          eq(v.steer, hit.steer)
+      );
     }
-    if (match < 0) match = vs.findIndex(v => eq(v.model, hit.model) &&
-                                             eq(v.body, hit.body) && eq(v.steer, hit.steer));
-    if (match < 0) match = vs.findIndex(v => eq(v.model, hit.model));
+    if (match < 0)
+      match = vs.findIndex(
+        (v) =>
+          eq(v.model, hit.model) &&
+          eq(v.body, hit.body) &&
+          eq(v.steer, hit.steer)
+      );
+    if (match < 0) match = vs.findIndex((v) => eq(v.model, hit.model));
     if (match >= 0) {
       ETK_STATE.variant = match;
       const cur = document.querySelector('.etk-vdd-cur');
-      if (cur) { cur.textContent = variantLabel(vs[match]); cur.classList.add('etk-vdd-filtered'); }
+      if (cur) {
+        cur.textContent = variantLabel(vs[match]);
+        cur.classList.add('etk-vdd-filtered');
+      }
     }
-  } catch (e) { /* the chassis still opened; just unfiltered */ }
+  } catch (e) {
+    /* the chassis still opened; just unfiltered */
+  }
 }
 
 // body-code -> readable (Lim=Sedan, Tou=Touring, Cou=Coupé, Cab=Convertible…)
 function bodyLabel(b) {
-  return ({ Lim: 'Sedan', Tou: 'Touring', Cou: 'Coupé', Cab: 'Convertible',
-            com: 'Compact', Cabrio: 'Convertible' }[b]) || b || '';
+  return (
+    {
+      Lim: 'Sedan',
+      Tou: 'Touring',
+      Cou: 'Coupé',
+      Cab: 'Convertible',
+      com: 'Compact',
+      Cabrio: 'Convertible',
+    }[b] ||
+    b ||
+    ''
+  );
 }
 
 // The chassis landing: ETK's "Search by Main Group" -- an icon grid of the HG
 // groups, plus a variant selector so parts can be filtered to one exact vehicle.
 // The selected variant is remembered across the whole chassis (module-level).
-const ETK_STATE = { variant: null };   // chosen variant index, or null = all
+const ETK_STATE = { variant: null }; // chosen variant index, or null = all
 
 async function showEtkChassis(chassisId) {
   const id = chassisId.toUpperCase();
@@ -1029,7 +1376,11 @@ async function showEtkChassis(chassisId) {
     { label: dispChassis(id) },
   ]);
   sbLeft.textContent = 'loading parts…';
-  view.innerHTML = head('ETK', dispChassis(id), 'Pick a variant to filter, then a main group.');
+  view.innerHTML = head(
+    'ETK',
+    dispChassis(id),
+    'Pick a variant to filter, then a main group.'
+  );
   document.body.classList.remove('wds-nofkeys');
   document.body.classList.add('apps-section');
 
@@ -1052,15 +1403,21 @@ async function showEtkChassis(chassisId) {
       loading.querySelector('.etk-progress-label').textContent =
         `Loading ${dispChassis(id)} parts catalogue… ${pct}%`;
     } else {
-      bar.classList.add('etk-progress-indeterminate');   // no length -> animate
+      bar.classList.add('etk-progress-indeterminate'); // no length -> animate
     }
   };
 
   let data;
-  try { data = await loadEtk(id, onProgress); }
-  catch (e) { loading.remove(); view.appendChild(errorBlock(String(e.message || e))); return; }
+  try {
+    data = await loadEtk(id, onProgress);
+  } catch (e) {
+    loading.remove();
+    view.appendChild(errorBlock(String(e.message || e)));
+    return;
+  }
   loading.remove();
-  ETK_STATE.variant = null; ETK_STATE.variantLabel = null;   // reset filter when entering a chassis
+  ETK_STATE.variant = null;
+  ETK_STATE.variantLabel = null; // reset filter when entering a chassis
 
   // --- variant selector (custom searchable dropdown) ---
   const vbar = document.createElement('div');
@@ -1095,8 +1452,19 @@ async function showEtkChassis(chassisId) {
   // Print here isn't the icon grid (a navigation menu) -- it's a clean catalogue
   // index: the vehicle and its list of main groups.
   setActions([
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showEtk },
-    { key: 'p', keyLabel: 'P', label: 'Print', fn: () => printEtkIndex(data, id) },
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showEtk,
+    },
+    {
+      key: 'p',
+      keyLabel: 'P',
+      label: 'Print',
+      fn: () => printEtkIndex(data, id),
+    },
   ]);
 }
 
@@ -1107,8 +1475,10 @@ function printEtkIndex(data, chassisId) {
   printDoc({
     title: `${dispChassis(chassisId)} · parts catalogue`,
     subtitle: ETK_STATE.variantLabel || '',
-    meta: [['Main groups', String(mgs.length)],
-           ['Variants', String((data.tree.variants || []).length)]],
+    meta: [
+      ['Main groups', String(mgs.length)],
+      ['Variants', String((data.tree.variants || []).length)],
+    ],
     sections: [printTable(['Group', 'Name'], rows, ['pr-mono', ''])],
     footer: `${APP_NAME} · BMW ETK · printed ${new Date().toLocaleDateString()}`,
   });
@@ -1118,9 +1488,13 @@ function printEtkIndex(data, chassisId) {
 // unstyleable and unsearchable. Options: "All variants" plus one per variant,
 // sorted by model+date, filterable by a search box. Sets ETK_STATE.variant.
 function buildVariantDropdown(variants) {
-  const order = variants.map((v, i) => ({ i, v, text: variantLabel(v) }))
-    .sort((a, b) => (a.v.model || '').localeCompare(b.v.model || '') ||
-                    String(a.v.date).localeCompare(String(b.v.date)));
+  const order = variants
+    .map((v, i) => ({ i, v, text: variantLabel(v) }))
+    .sort(
+      (a, b) =>
+        (a.v.model || '').localeCompare(b.v.model || '') ||
+        String(a.v.date).localeCompare(String(b.v.date))
+    );
 
   const root = document.createElement('div');
   root.className = 'etk-vdd';
@@ -1145,7 +1519,10 @@ function buildVariantDropdown(variants) {
   const cur = btn.querySelector('.etk-vdd-cur');
 
   function choose(idx, text, ev) {
-    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
     ETK_STATE.variant = idx;
     // the exact variant string ("325i · Lim · M54 · LHD · 2003-03"), so a
     // printed diagram names the vehicle it was filtered to; null = all variants
@@ -1160,17 +1537,19 @@ function buildVariantDropdown(variants) {
     const ql = (q || '').toLowerCase();
     const all = document.createElement('button');
     all.type = 'button';
-    all.className = 'etk-vdd-opt' + (ETK_STATE.variant == null ? ' active' : '');
+    all.className =
+      'etk-vdd-opt' + (ETK_STATE.variant == null ? ' active' : '');
     all.textContent = `All variants (${variants.length})`;
     all.onclick = (e) => choose(null, `All variants (${variants.length})`, e);
     if (!ql) list.appendChild(all);
     let shown = 0;
     for (const o of order) {
       if (ql && !o.text.toLowerCase().includes(ql)) continue;
-      if (++shown > 200) break;   // cap the DOM; search narrows it
+      if (++shown > 200) break; // cap the DOM; search narrows it
       const el = document.createElement('button');
       el.type = 'button';
-      el.className = 'etk-vdd-opt' + (ETK_STATE.variant === o.i ? ' active' : '');
+      el.className =
+        'etk-vdd-opt' + (ETK_STATE.variant === o.i ? ' active' : '');
       el.textContent = o.text;
       el.onclick = (e) => choose(o.i, o.text, e);
       list.appendChild(el);
@@ -1179,21 +1558,32 @@ function buildVariantDropdown(variants) {
 
   let outside = null;
   function open() {
-    menu.hidden = false; search.value = ''; renderList(''); search.focus();
+    menu.hidden = false;
+    search.value = '';
+    renderList('');
+    search.focus();
     // arm the outside-click closer on the NEXT tick so this same click that
     // opened the menu doesn't immediately close it.
     setTimeout(() => {
-      outside = (e) => { if (!root.contains(e.target)) close(); };
+      outside = (e) => {
+        if (!root.contains(e.target)) close();
+      };
       document.addEventListener('click', outside);
     }, 0);
   }
   function close() {
     menu.hidden = true;
-    if (outside) { document.removeEventListener('click', outside); outside = null; }
+    if (outside) {
+      document.removeEventListener('click', outside);
+      outside = null;
+    }
   }
 
   btn.type = 'button';
-  btn.onclick = (e) => { e.stopPropagation(); menu.hidden ? open() : close(); };
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    menu.hidden ? open() : close();
+  };
   search.oninput = () => renderList(search.value);
   search.onclick = (e) => e.stopPropagation();
 
@@ -1205,8 +1595,12 @@ function variantLabel(v) {
   if (v.model) parts.push(v.model);
   if (v.body) parts.push(v.body);
   if (v.motor) parts.push(v.motor);
-  if (v.steer) parts.push(v.steer === 'R' ? 'RHD' : v.steer === 'L' ? 'LHD' : v.steer);
-  if (v.gear) { const g = { A: 'auto', M: 'man.', N: '' }[v.gear]; if (g) parts.push(g); }
+  if (v.steer)
+    parts.push(v.steer === 'R' ? 'RHD' : v.steer === 'L' ? 'LHD' : v.steer);
+  if (v.gear) {
+    const g = { A: 'auto', M: 'man.', N: '' }[v.gear];
+    if (g) parts.push(g);
+  }
   if (v.date) {
     const d = String(v.date);
     if (d.length === 8) parts.push(`${d.slice(0, 4)}-${d.slice(4, 6)}`);
@@ -1252,7 +1646,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   bodyEl.dataset.pane = 'tree';
 
   let selectedLeaf = null;
-  let shownDiagram = null;                       // the diagram currently on screen
+  let shownDiagram = null; // the diagram currently on screen
   mg.groups.forEach((g) => {
     const grp = document.createElement('div');
     grp.className = 'etk-tgroup';
@@ -1278,7 +1672,7 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
         if (selectedLeaf) selectedLeaf.classList.remove('active');
         leaf.classList.add('active');
         selectedLeaf = leaf;
-        shownDiagram = d;                       // remember it for Print
+        shownDiagram = d; // remember it for Print
         renderDiagram(data, id, d, viewEl);
         if (phone()) bodyEl.dataset.pane = 'doc';
         // reflect the open diagram in the URL so it's a shareable deep link
@@ -1297,12 +1691,14 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
   // empty. A deep-linked leaf may sit in a collapsed group -- open it first.
   let target = null;
   if (openBtnr) {
-    target = [...treeEl.querySelectorAll('.etk-tleaf')].find(l => l._btnr === openBtnr);
+    target = [...treeEl.querySelectorAll('.etk-tleaf')].find(
+      (l) => l._btnr === openBtnr
+    );
     if (target) {
       const kids = target.closest('.etk-tkids');
       if (kids && kids.style.display === 'none') {
         const hdr = kids.previousElementSibling;
-        if (hdr) hdr.click();                 // expand the group
+        if (hdr) hdr.click(); // expand the group
       }
       target.scrollIntoView({ block: 'center' });
     }
@@ -1327,18 +1723,31 @@ function showEtkGroup(data, chassisId, mg, openBtnr = null) {
     showEtkChassis(id);
   };
   setActions([
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-      fn: leaveGroup },
-    { key: 'p', keyLabel: 'P', label: 'Print',
-      fn: () => { if (shownDiagram) printEtkDiagram(data, id, mg, shownDiagram); } },
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: leaveGroup,
+    },
+    {
+      key: 'p',
+      keyLabel: 'P',
+      label: 'Print',
+      fn: () => {
+        if (shownDiagram) printEtkDiagram(data, id, mg, shownDiagram);
+      },
+    },
   ]);
 }
 
 // A single ETK diagram as a clean printout: exploded-view image on top, the
 // numbered parts list below (filtered to the active variant, same as on screen).
 function printEtkDiagram(data, chassisId, mg, d) {
-  const parts = d.parts.filter((p) =>
-    ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant));
+  const parts = d.parts.filter(
+    (p) =>
+      ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant)
+  );
   const rows = parts.map((p) => [p.pos, fmtSachnr(p.sachnr, p.pre), p.name]);
   const veh = ETK_STATE.variantLabel || dispChassis(chassisId);
   printDoc({
@@ -1350,8 +1759,11 @@ function printEtkDiagram(data, chassisId, mg, d) {
     ],
     sections: [
       printImage(etkImageUrl(data, d.img), d.name),
-      printTable(['No.', 'Part number', 'Description'], rows,
-                 ['pr-num', 'pr-mono', '']),
+      printTable(['No.', 'Part number', 'Description'], rows, [
+        'pr-num',
+        'pr-mono',
+        '',
+      ]),
     ],
     footer: `${APP_NAME} · BMW ETK · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
   });
@@ -1363,22 +1775,28 @@ function printEtkDiagram(data, chassisId, mg, d) {
 // HG number, and hands off to showEtkGroup. Falls back to the chassis grid.
 async function showEtkDeep(chassisId, hg, btnr) {
   const id = String(chassisId || '').toUpperCase();
-  if (!hg) { return showEtkChassis(id); }
+  if (!hg) {
+    return showEtkChassis(id);
+  }
   // render the chassis screen first so a slow load still shows something and
   // Back has somewhere to go, then swap to the group once data is in hand.
   await showEtkChassis(id);
   try {
     const data = await loadEtk(id);
-    const mg = (data.tree.maingroups || [])
-      .find(m => String(m.hg) === String(hg));
+    const mg = (data.tree.maingroups || []).find(
+      (m) => String(m.hg) === String(hg)
+    );
     if (mg) showEtkGroup(data, id, mg, btnr || null);
-  } catch (e) { /* the chassis grid is already up */ }
+  } catch (e) {
+    /* the chassis grid is already up */
+  }
 }
 
 // parts count honouring the active variant filter
 function countFit(parts) {
   if (ETK_STATE.variant == null) return parts.length;
-  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant)).length;
+  return parts.filter((p) => !p.fit || p.fit.includes(ETK_STATE.variant))
+    .length;
 }
 
 // Render one diagram into the right pane: exploded-view image on top, its
@@ -1410,8 +1828,10 @@ function renderDiagram(data, chassisId, d, viewEl) {
   }
 
   // filter parts to the active variant (parts with no fit data always show)
-  const parts = d.parts.filter((p) =>
-    ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant));
+  const parts = d.parts.filter(
+    (p) =>
+      ETK_STATE.variant == null || !p.fit || p.fit.includes(ETK_STATE.variant)
+  );
 
   const table = document.createElement('table');
   table.className = 'etk-parts';
@@ -1429,8 +1849,9 @@ function renderDiagram(data, chassisId, d, viewEl) {
   viewEl.appendChild(wrap);
   viewEl.scrollTop = 0;
   const filtered = ETK_STATE.variant != null && parts.length < d.parts.length;
-  sbRight.textContent = `${parts.length} part${parts.length === 1 ? '' : 's'}`
-    + (filtered ? ` (of ${d.parts.length})` : '');
+  sbRight.textContent =
+    `${parts.length} part${parts.length === 1 ? '' : 's'}` +
+    (filtered ? ` (of ${d.parts.length})` : '');
 }
 
 // BMW part numbers print as the full 11-digit number when we have the group
