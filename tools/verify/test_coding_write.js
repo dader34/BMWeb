@@ -18,13 +18,17 @@
 // could not.
 
 const path = require('path');
-const cw = require(path.join(__dirname, '..', '..',
-  'app/renderer/core/coding-write.js'));
+const cw = require(
+  path.join(__dirname, '..', '..', 'app/renderer/core/coding-write.js')
+);
 
 let failures = 0;
 const ok = (cond, msg) => {
   if (cond) console.log(`  ok   ${msg}`);
-  else { console.error(`  FAIL ${msg}`); failures++; }
+  else {
+    console.error(`  FAIL ${msg}`);
+    failures++;
+  }
 };
 
 const toHex = cw._toHex;
@@ -38,9 +42,9 @@ const toHex = cw._toHex;
 // opts.acceptWrite=false makes CODIERDATEN_SCHREIBEN a no-op (the module
 // "rejects" the bytes silently) -- the negative re-read case.
 function makeStub(cfg) {
-  const state = { netto: cfg.initialNetto };          // hex string
-  const seen = [];                                    // [{job, allowWrites}]
-  const args = [];                                    // [{job, argText}]
+  const state = { netto: cfg.initialNetto }; // hex string
+  const seen = []; // [{job, allowWrites}]
+  const args = []; // [{job, argText}]
 
   function StubVm(code, opts) {
     this.opts = opts;
@@ -66,14 +70,19 @@ function makeStub(cfg) {
     if (J === 'CODIERDATEN_SCHREIBEN' || J === 'CODIERUNG_SCHREIBEN') {
       if (cfg.acceptWrite !== false) {
         // arg is ASCII-hex netto; take it verbatim
-        state.netto = String(argText).replace(/[^0-9a-fA-F]/g, '').toUpperCase();
+        state.netto = String(argText)
+          .replace(/[^0-9a-fA-F]/g, '')
+          .toUpperCase();
       }
       return [{ JOB_STATUS: 'OKAY' }];
     }
     if (J === 'C_S_AUFTRAG') {
       if (cfg.acceptWrite !== false) {
         // binary blob arrived as a char-code string; recover the bytes
-        const bytes = Array.from(String(argText), (c) => c.charCodeAt(0) & 0xff);
+        const bytes = Array.from(
+          String(argText),
+          (c) => c.charCodeAt(0) & 0xff
+        );
         state.netto = toHex(bytes);
       }
       return [{ JOB_STATUS: 'OKAY' }];
@@ -88,83 +97,150 @@ function makeStub(cfg) {
 
 // A no-op exchange: the stub VM never calls send(), so the wire is never
 // touched. Present because writeCoding requires an exchange function.
-const noExchange = () => { throw new Error('stub VM should not hit the wire'); };
+const noExchange = () => {
+  throw new Error('stub VM should not hit the wire');
+};
 
 async function run() {
   // -------------------------------------------------------------------------
   console.log('1. codingWriteStrategy picks per family');
-  ok(cw.codingWriteStrategy('kombi46',
-      ['CODIERDATEN_LESEN', 'CODIERDATEN_SCHREIBEN', 'SG_RESET']) === 'codierdaten',
-     'CODIERDATEN_SCHREIBEN -> codierdaten');
-  ok(cw.codingWriteStrategy('ihka46',
-      ['CODIERUNG_LESEN', 'CODIERUNG_SCHREIBEN']) === 'codierung',
-     'CODIERUNG_SCHREIBEN -> codierung');
-  ok(cw.codingWriteStrategy('zke5gm',
-      ['C_FG_LESEN', 'C_S_AUFTRAG', 'C_CHECKSUM']) === 'cfg-chunked',
-     'C_S_AUFTRAG -> cfg-chunked');
-  ok(cw.codingWriteStrategy('nada', ['STATUS_LESEN', 'IDENT']) === null,
-     'no coding write job -> null');
+  ok(
+    cw.codingWriteStrategy('kombi46', [
+      'CODIERDATEN_LESEN',
+      'CODIERDATEN_SCHREIBEN',
+      'SG_RESET',
+    ]) === 'codierdaten',
+    'CODIERDATEN_SCHREIBEN -> codierdaten'
+  );
+  ok(
+    cw.codingWriteStrategy('ihka46', [
+      'CODIERUNG_LESEN',
+      'CODIERUNG_SCHREIBEN',
+    ]) === 'codierung',
+    'CODIERUNG_SCHREIBEN -> codierung'
+  );
+  ok(
+    cw.codingWriteStrategy('zke5gm', [
+      'C_FG_LESEN',
+      'C_S_AUFTRAG',
+      'C_CHECKSUM',
+    ]) === 'cfg-chunked',
+    'C_S_AUFTRAG -> cfg-chunked'
+  );
+  ok(
+    cw.codingWriteStrategy('nada', ['STATUS_LESEN', 'IDENT']) === null,
+    'no coding write job -> null'
+  );
   // cfg wins when a module confusingly exposes both
-  ok(cw.codingWriteStrategy('both',
-      ['CODIERDATEN_SCHREIBEN', 'C_S_AUFTRAG']) === 'cfg-chunked',
-     'cfg-chunked wins over codierdaten when both present');
+  ok(
+    cw.codingWriteStrategy('both', ['CODIERDATEN_SCHREIBEN', 'C_S_AUFTRAG']) ===
+      'cfg-chunked',
+    'cfg-chunked wins over codierdaten when both present'
+  );
 
   // strategy step tables carry the documented order
-  const steps = cw.writeSteps('codierdaten', [0xA1, 0xB2],
-    ['AUTHENTISIERUNG', 'NORMALER_DATENVERKEHR', 'CODIERDATEN_SCHREIBEN',
-     'SG_RESET']).map((s) => s.job);
-  ok(JSON.stringify(steps) === JSON.stringify([
-      'AUTHENTISIERUNG', 'NORMALER_DATENVERKEHR', 'CODIERDATEN_SCHREIBEN',
-      'NORMALER_DATENVERKEHR', 'SG_RESET']),
-     `codierdaten step order: ${steps.join(' -> ')}`);
+  const steps = cw
+    .writeSteps(
+      'codierdaten',
+      [0xa1, 0xb2],
+      [
+        'AUTHENTISIERUNG',
+        'NORMALER_DATENVERKEHR',
+        'CODIERDATEN_SCHREIBEN',
+        'SG_RESET',
+      ]
+    )
+    .map((s) => s.job);
+  ok(
+    JSON.stringify(steps) ===
+      JSON.stringify([
+        'AUTHENTISIERUNG',
+        'NORMALER_DATENVERKEHR',
+        'CODIERDATEN_SCHREIBEN',
+        'NORMALER_DATENVERKEHR',
+        'SG_RESET',
+      ]),
+    `codierdaten step order: ${steps.join(' -> ')}`
+  );
 
   // -------------------------------------------------------------------------
   console.log('2. codierdaten write: re-read matches -> ok');
   {
-    const jobs = ['CODIERDATEN_LESEN', 'AUTHENTISIERUNG',
-      'NORMALER_DATENVERKEHR', 'CODIERDATEN_SCHREIBEN', 'SG_RESET'];
+    const jobs = [
+      'CODIERDATEN_LESEN',
+      'AUTHENTISIERUNG',
+      'NORMALER_DATENVERKEHR',
+      'CODIERDATEN_SCHREIBEN',
+      'SG_RESET',
+    ];
     const stub = makeStub({ initialNetto: '0011223344', acceptWrite: true });
     const r = await cw.writeCoding('kombi46', 'AABBCCDDEE', {
-      confirmed: true, jobs, code: { jobs: {} }, tables: {},
-      exchange: noExchange, Best2Vm: stub.StubVm,
+      confirmed: true,
+      jobs,
+      code: { jobs: {} },
+      tables: {},
+      exchange: noExchange,
+      Best2Vm: stub.StubVm,
     });
     ok(r.ok === true, 'writeCoding returned ok:true');
     ok(toHex(r.before) === '0011223344', `before = ${toHex(r.before)}`);
     ok(toHex(r.after) === 'AABBCCDDEE', `after  = ${toHex(r.after)}`);
     const seq = r.sequence.map((s) => s[0]);
-    ok(seq.indexOf('CODIERDATEN_SCHREIBEN') > seq.indexOf('AUTHENTISIERUNG'),
-       'sequence: AUTHENTISIERUNG before CODIERDATEN_SCHREIBEN');
-    ok(seq[seq.length - 1] === 'CODIERDATEN_LESEN',
-       'sequence ends on the prove-by-re-read');
+    ok(
+      seq.indexOf('CODIERDATEN_SCHREIBEN') > seq.indexOf('AUTHENTISIERUNG'),
+      'sequence: AUTHENTISIERUNG before CODIERDATEN_SCHREIBEN'
+    );
+    ok(
+      seq[seq.length - 1] === 'CODIERDATEN_LESEN',
+      'sequence ends on the prove-by-re-read'
+    );
 
     // THE GATE FLOW: the write permission reached the writes and ONLY the
     // writes. Every read/re-read was constructed allowWrites:false.
     const writes = stub.seen.filter((s) =>
-      /_SCHREIBEN$|^AUTHENTIS|^NORMALER|^SG_RESET/.test(s.job.toUpperCase()));
+      /_SCHREIBEN$|^AUTHENTIS|^NORMALER|^SG_RESET/.test(s.job.toUpperCase())
+    );
     const reads = stub.seen.filter((s) => /_LESEN$/.test(s.job.toUpperCase()));
-    ok(writes.length > 0 && writes.every((s) => s.allowWrites === true),
-       'every write step got allowWrites:true');
-    ok(reads.length >= 2 && reads.every((s) => s.allowWrites === false),
-       'every read/re-read step got allowWrites:false (no leak)');
+    ok(
+      writes.length > 0 && writes.every((s) => s.allowWrites === true),
+      'every write step got allowWrites:true'
+    );
+    ok(
+      reads.length >= 2 && reads.every((s) => s.allowWrites === false),
+      'every read/re-read step got allowWrites:false (no leak)'
+    );
   }
 
   // -------------------------------------------------------------------------
   console.log('3. NEGATIVE: module keeps old bytes -> ERROR_VERIFY');
   {
-    const jobs = ['CODIERDATEN_LESEN', 'AUTHENTISIERUNG',
-      'NORMALER_DATENVERKEHR', 'CODIERDATEN_SCHREIBEN', 'SG_RESET'];
+    const jobs = [
+      'CODIERDATEN_LESEN',
+      'AUTHENTISIERUNG',
+      'NORMALER_DATENVERKEHR',
+      'CODIERDATEN_SCHREIBEN',
+      'SG_RESET',
+    ];
     // acceptWrite:false -> CODIERDATEN_SCHREIBEN is a silent no-op; the
     // re-read returns the OLD netto, which must NOT satisfy the proof.
     const stub = makeStub({ initialNetto: '0011223344', acceptWrite: false });
     let threw = null;
     try {
       await cw.writeCoding('kombi46', 'AABBCCDDEE', {
-        confirmed: true, jobs, code: { jobs: {} }, tables: {},
-        exchange: noExchange, Best2Vm: stub.StubVm,
+        confirmed: true,
+        jobs,
+        code: { jobs: {} },
+        tables: {},
+        exchange: noExchange,
+        Best2Vm: stub.StubVm,
       });
-    } catch (e) { threw = e; }
-    ok(threw && threw.code === 'ERROR_VERIFY',
-       `re-read mismatch throws ERROR_VERIFY (got: ${threw && threw.message})`);
+    } catch (e) {
+      threw = e;
+    }
+    ok(
+      threw && threw.code === 'ERROR_VERIFY',
+      `re-read mismatch throws ERROR_VERIFY (got: ${threw && threw.message})`
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -175,12 +251,20 @@ async function run() {
     let threw = null;
     try {
       await cw.writeCoding('kombi46', 'AABB', {
-        confirmed: false, jobs, code: { jobs: {} }, tables: {},
-        exchange: noExchange, Best2Vm: stub.StubVm,
+        confirmed: false,
+        jobs,
+        code: { jobs: {} },
+        tables: {},
+        exchange: noExchange,
+        Best2Vm: stub.StubVm,
       });
-    } catch (e) { threw = e; }
-    ok(threw && /confirm/i.test(threw.message),
-       'unconfirmed write is refused before anything runs');
+    } catch (e) {
+      threw = e;
+    }
+    ok(
+      threw && /confirm/i.test(threw.message),
+      'unconfirmed write is refused before anything runs'
+    );
     ok(stub.seen.length === 0, 'NOTHING ran before the confirmation refusal');
   }
 
@@ -193,11 +277,17 @@ async function run() {
     const want = [0x00, 0x3b, 0x80, 0x9f, 0xff, 0x41];
     const stub = makeStub({ initialNetto: 'DEADBEEF', acceptWrite: true });
     const r = await cw.writeCoding('zke5gm', want, {
-      confirmed: true, jobs, code: { jobs: {} }, tables: {},
-      exchange: noExchange, Best2Vm: stub.StubVm,
+      confirmed: true,
+      jobs,
+      code: { jobs: {} },
+      tables: {},
+      exchange: noExchange,
+      Best2Vm: stub.StubVm,
     });
-    ok(r.ok === true && toHex(r.after) === toHex(want),
-       `binary netto round-trips: wrote ${toHex(want)}, read ${toHex(r.after)}`);
+    ok(
+      r.ok === true && toHex(r.after) === toHex(want),
+      `binary netto round-trips: wrote ${toHex(want)}, read ${toHex(r.after)}`
+    );
     const cs = stub.seen.find((s) => s.job === 'C_S_AUFTRAG');
     ok(cs && cs.allowWrites === true, 'C_S_AUFTRAG got allowWrites:true');
   }
@@ -208,32 +298,60 @@ async function run() {
     let threw = null;
     try {
       await cw.writeCoding('nada', 'AABB', {
-        confirmed: true, jobs: ['STATUS_LESEN', 'IDENT'],
-        code: { jobs: {} }, tables: {}, exchange: noExchange,
+        confirmed: true,
+        jobs: ['STATUS_LESEN', 'IDENT'],
+        code: { jobs: {} },
+        tables: {},
+        exchange: noExchange,
         Best2Vm: makeStub({ initialNetto: '00' }).StubVm,
       });
-    } catch (e) { threw = e; }
-    ok(threw && /no known coding write job/.test(threw.message),
-       'a module with no coding write job is refused (no strategy, no write)');
+    } catch (e) {
+      threw = e;
+    }
+    ok(
+      threw && /no known coding write job/.test(threw.message),
+      'a module with no coding write job is refused (no strategy, no write)'
+    );
   }
 
   // -------------------------------------------------------------------------
   console.log('7. no-op when netto already matches (gate stays shut)');
   {
-    const jobs = ['CODIERDATEN_LESEN', 'AUTHENTISIERUNG',
-      'NORMALER_DATENVERKEHR', 'CODIERDATEN_SCHREIBEN', 'SG_RESET'];
+    const jobs = [
+      'CODIERDATEN_LESEN',
+      'AUTHENTISIERUNG',
+      'NORMALER_DATENVERKEHR',
+      'CODIERDATEN_SCHREIBEN',
+      'SG_RESET',
+    ];
     const stub = makeStub({ initialNetto: 'AABBCC', acceptWrite: true });
     const r = await cw.writeCoding('kombi46', 'AABBCC', {
-      confirmed: true, jobs, code: { jobs: {} }, tables: {},
-      exchange: noExchange, Best2Vm: stub.StubVm,
+      confirmed: true,
+      jobs,
+      code: { jobs: {} },
+      tables: {},
+      exchange: noExchange,
+      Best2Vm: stub.StubVm,
     });
-    ok(r.ok === true && toHex(r.after) === 'AABBCC', 'already-equal returns ok');
-    ok(stub.seen.every((s) => s.allowWrites === false),
-       'no write step ran -- the gate never opened when nothing changed');
+    ok(
+      r.ok === true && toHex(r.after) === 'AABBCC',
+      'already-equal returns ok'
+    );
+    ok(
+      stub.seen.every((s) => s.allowWrites === false),
+      'no write step ran -- the gate never opened when nothing changed'
+    );
   }
 
-  console.log(failures ? `\n${failures} FAILURES` : '\ncoding-write dispatcher: all assertions passed.');
+  console.log(
+    failures
+      ? `\n${failures} FAILURES`
+      : '\ncoding-write dispatcher: all assertions passed.'
+  );
   process.exit(failures ? 1 : 0);
 }
 
-run().catch((e) => { console.error(e); process.exit(1); });
+run().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

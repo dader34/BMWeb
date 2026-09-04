@@ -31,10 +31,14 @@ const APP_REGISTRY = [
     // present if any chassis carries wiring data (same probe the card used)
     hasData: async () => {
       try {
-        const ids = typeof wiringChassisList === 'function'
-          ? await wiringChassisList() : [];
+        const ids =
+          typeof wiringChassisList === 'function'
+            ? await wiringChassisList()
+            : [];
         return ids.length > 0;
-      } catch (e) { return false; }
+      } catch (e) {
+        return false;
+      }
     },
   },
   {
@@ -49,9 +53,13 @@ const APP_REGISTRY = [
     // catalogue outright -- it ships without ETK support on purpose.
     hasData: async () => {
       if (typeof window !== 'undefined' && window.BMACW_NO_PARTS) return false;
-      if (typeof showEtk !== 'function' || typeof etkChassisList !== 'function') return false;
-      try { return (await etkChassisList()).length > 0; }
-      catch (e) { return false; }
+      if (typeof showEtk !== 'function' || typeof etkChassisList !== 'function')
+        return false;
+      try {
+        return (await etkChassisList()).length > 0;
+      } catch (e) {
+        return false;
+      }
     },
   },
   {
@@ -63,9 +71,16 @@ const APP_REGISTRY = [
     open: () => (typeof showTool32 === 'function' ? showTool32() : null),
     // present if the ECU index shipped (its keys are the runnable SGBDs)
     hasData: async () => {
-      if (typeof showTool32 !== 'function' || typeof tool32SgbdList !== 'function') return false;
-      try { return (await tool32SgbdList()).length > 0; }
-      catch (e) { return false; }
+      if (
+        typeof showTool32 !== 'function' ||
+        typeof tool32SgbdList !== 'function'
+      )
+        return false;
+      try {
+        return (await tool32SgbdList()).length > 0;
+      } catch (e) {
+        return false;
+      }
     },
   },
   {
@@ -76,19 +91,30 @@ const APP_REGISTRY = [
     tag: 'XDF',
     open: () => (typeof showTuning === 'function' ? showTuning() : null),
     // pure client-side editor -- available whenever its code shipped (no data bundle)
-    hasData: async () => typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
+    hasData: async () =>
+      typeof showTuning === 'function' && typeof window.XDF !== 'undefined',
   },
 ];
 
 async function showApps() {
   lastScreen = showApps;
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps' }]);
-  document.body.classList.add('apps-section');   // hides the F-key bar on mobile (touch nav)
+  document.body.classList.add('apps-section'); // hides the F-key bar on mobile (touch nav)
   sbLeft.textContent = 'apps';
-  view.innerHTML = head('Apps', 'Ported Apps',
-    "Reference tools ported from BMW's dealer software, offline.");
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: showChassis }]);
+  view.innerHTML = head(
+    'Apps',
+    'Ported Apps',
+    "Reference tools ported from BMW's dealer software, offline."
+  );
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showChassis,
+    },
+  ]);
 
   const list = document.createElement('div');
   list.className = 'apps-list stagger';
@@ -102,27 +128,34 @@ async function showApps() {
   view.appendChild(loading);
 
   // resolve availability once, in parallel; a card renders as soon as we know
-  const states = await Promise.all(APP_REGISTRY.map(async (a) => {
-    let ready = true;
-    if (typeof a.hasData === 'function') {
-      try { ready = await a.hasData(); } catch (e) { ready = false; }
-    }
-    return { app: a, ready };
-  }));
+  const states = await Promise.all(
+    APP_REGISTRY.map(async (a) => {
+      let ready = true;
+      if (typeof a.hasData === 'function') {
+        try {
+          ready = await a.hasData();
+        } catch (e) {
+          ready = false;
+        }
+      }
+      return { app: a, ready };
+    })
+  );
   loading.remove();
 
   const openable = [];
   states.forEach(({ app, ready }) => {
     const card = document.createElement('button');
     card.className = 'lookup-entry app-entry' + (ready ? '' : ' app-absent');
-    card.dataset.app = app.id;   // lets the guided tour spotlight a named app
+    card.dataset.app = app.id; // lets the guided tour spotlight a named app
     card.innerHTML = `
       <span class="lookup-entry-icon">${app.icon}</span>
       <span class="lookup-entry-text">
         <span class="lookup-entry-title">${esc(app.title)}
           <span class="app-tag">${esc(app.tag)}</span></span>
         <span class="lookup-entry-desc">${esc(app.desc)}${
-          ready ? '' : ' · not in this build'}</span>
+          ready ? '' : ' · not in this build'
+        }</span>
       </span>
       <span class="lookup-entry-arrow">${ready ? '→' : ''}</span>`;
     if (ready) {
@@ -138,8 +171,16 @@ async function showApps() {
 
   setActions([
     ...openable.slice(0, 8).map((a, i) => ({
-      key: String(i + 1), label: a.title.split(' ')[0], fn: () => a.open(),
+      key: String(i + 1),
+      label: a.title.split(' ')[0],
+      fn: () => a.open(),
     })),
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showChassis },
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showChassis,
+    },
   ]);
 }

@@ -24,7 +24,9 @@ eval(fs.readFileSync(path.join(R, 'app/renderer/core/xdf.js'), 'utf8'));
 const XDF = window.XDF;
 
 const fails = [];
-const ok = (cond, msg) => { if (!cond) fails.push(msg); };
+const ok = (cond, msg) => {
+  if (!cond) fails.push(msg);
+};
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
 
 // ============================================================================
@@ -114,26 +116,51 @@ const XDF_XML = `<?xml version="1.0" encoding="utf-8"?>
 
 // The firmware image the definition points into.
 const BIN = new Uint8Array(128);
-BIN[0x00] = 0x80;                                    // Coolant Trim raw = -128 (signed)
-BIN[0x10] = 0x00; BIN[0x11] = 0x10;                 // Rev Limit u16 LE = 0x1000 = 4096
-BIN[0x14] = 0x80; BIN[0x15] = 0x00;                 // Timing Offset s16 BE = -32768
-BIN[0x20] = 0x04;                                    // Enable Feature flag bit set
-BIN[0x30] = 1; BIN[0x31] = 2; BIN[0x32] = 3; BIN[0x33] = 4;  // Boost Row
+BIN[0x00] = 0x80; // Coolant Trim raw = -128 (signed)
+BIN[0x10] = 0x00;
+BIN[0x11] = 0x10; // Rev Limit u16 LE = 0x1000 = 4096
+BIN[0x14] = 0x80;
+BIN[0x15] = 0x00; // Timing Offset s16 BE = -32768
+BIN[0x20] = 0x04; // Enable Feature flag bit set
+BIN[0x30] = 1;
+BIN[0x31] = 2;
+BIN[0x32] = 3;
+BIN[0x33] = 4; // Boost Row
 // Fuel Map: u16 LE raw 100..105 (row-major, contiguous)
-[100, 101, 102, 103, 104, 105].forEach((v, i) => { BIN[0x40 + i * 2] = v & 0xff; BIN[0x41 + i * 2] = (v >> 8) & 0xff; });
+[100, 101, 102, 103, 104, 105].forEach((v, i) => {
+  BIN[0x40 + i * 2] = v & 0xff;
+  BIN[0x41 + i * 2] = (v >> 8) & 0xff;
+});
 
 // ============================================================================
 // (a) parse structure
 // ============================================================================
 const def = XDF.parseXdf(XDF_XML);
-ok(def.header.deftitle === 'Test Definition', `deftitle = ${def.header.deftitle}`);
+ok(
+  def.header.deftitle === 'Test Definition',
+  `deftitle = ${def.header.deftitle}`
+);
 ok(def.header.author === 'verify', `author = ${def.header.author}`);
-ok(def.header.baseOffset.offset === 0 && def.header.baseOffset.subtract === false, 'baseOffset');
-ok(def.header.defaults.datasizeinbits === 8, `defaults.datasizeinbits = ${def.header.defaults.datasizeinbits}`);
+ok(
+  def.header.baseOffset.offset === 0 &&
+    def.header.baseOffset.subtract === false,
+  'baseOffset'
+);
+ok(
+  def.header.defaults.datasizeinbits === 8,
+  `defaults.datasizeinbits = ${def.header.defaults.datasizeinbits}`
+);
 ok(def.header.defaults.lsbfirst === true, 'defaults.lsbfirst should be true');
 ok(def.header.defaults.signed === false, 'defaults.signed should be false');
-ok(def.header.categories.length === 2 && def.header.categories[1].name === 'Tables', 'categories');
-ok(def.header.regions.length === 1 && def.header.regions[0].size === 0x80, 'region size');
+ok(
+  def.header.categories.length === 2 &&
+    def.header.categories[1].name === 'Tables',
+  'categories'
+);
+ok(
+  def.header.regions.length === 1 && def.header.regions[0].size === 0x80,
+  'region size'
+);
 
 const byTitle = {};
 for (const it of def.items) byTitle[it.title] = it;
@@ -144,11 +171,17 @@ ok(byTitle['Boost Row'].kind === 'table', 'Boost Row kind');
 
 // constant fields parsed correctly
 const trim = byTitle['Coolant Trim'];
-ok(trim.embed.address === 0x00 && trim.embed.elementsizebits === 8, 'trim embed');
+ok(
+  trim.embed.address === 0x00 && trim.embed.elementsizebits === 8,
+  'trim embed'
+);
 ok(trim.embed.typeflags === 0x01, `trim typeflags = ${trim.embed.typeflags}`);
 ok(trim.mathEquation === '0.75*X-48', `trim math = ${trim.mathEquation}`);
 ok(trim.units === 'C', `trim units = ${trim.units}`);
-ok(trim.categoryIndices.length === 1 && trim.categoryIndices[0] === 0, 'trim category (1-based -> 0)');
+ok(
+  trim.categoryIndices.length === 1 && trim.categoryIndices[0] === 0,
+  'trim category (1-based -> 0)'
+);
 
 const rev = byTitle['Rev Limit'];
 ok(rev.embed.address === 0x10 && rev.embed.elementsizebits === 16, 'rev embed');
@@ -162,53 +195,86 @@ ok(flag.embed.address === 0x20, 'flag address');
 // ============================================================================
 // (b) resolveEmbedded flag decoding (signed / LE / float / defaults fallback)
 // ============================================================================
-const B = def.header.baseOffset, D = def.header.defaults;
+const B = def.header.baseOffset,
+  D = def.header.defaults;
 const trimSpec = XDF.resolveEmbedded(trim.embed, B, D);
-ok(trimSpec.signed === true && trimSpec.lsbfirst === false && trimSpec.float === false, 'trim spec signed BE');
+ok(
+  trimSpec.signed === true &&
+    trimSpec.lsbfirst === false &&
+    trimSpec.float === false,
+  'trim spec signed BE'
+);
 const revSpec = XDF.resolveEmbedded(rev.embed, B, D);
-ok(revSpec.signed === false && revSpec.lsbfirst === true, 'rev spec unsigned LE');
+ok(
+  revSpec.signed === false && revSpec.lsbfirst === true,
+  'rev spec unsigned LE'
+);
 // typeflags==0 -> DEFAULTS win (lsbfirst true, unsigned)
 const flagSpec = XDF.resolveEmbedded(flag.embed, B, D);
-ok(flagSpec.lsbfirst === true && flagSpec.signed === false, 'flag spec falls back to DEFAULTS');
+ok(
+  flagSpec.lsbfirst === true && flagSpec.signed === false,
+  'flag spec falls back to DEFAULTS'
+);
 
 // ============================================================================
 // (c) decode applies MATH scaling (exact hand-computed values)
 // ============================================================================
 // Coolant Trim: raw 0x80 signed = -128 -> 0.75*-128 - 48 = -144
-ok(near(XDF.decodeConstant(trim, BIN, def.header), -144), `Coolant Trim = ${XDF.decodeConstant(trim, BIN, def.header)}, want -144`);
+ok(
+  near(XDF.decodeConstant(trim, BIN, def.header), -144),
+  `Coolant Trim = ${XDF.decodeConstant(trim, BIN, def.header)}, want -144`
+);
 // Rev Limit: raw 4096 LE -> *0.25 = 1024
-ok(near(XDF.decodeConstant(rev, BIN, def.header), 1024), `Rev Limit = ${XDF.decodeConstant(rev, BIN, def.header)}, want 1024`);
+ok(
+  near(XDF.decodeConstant(rev, BIN, def.header), 1024),
+  `Rev Limit = ${XDF.decodeConstant(rev, BIN, def.header)}, want 1024`
+);
 // Timing Offset: s16 BE bytes 0x80 0x00 -> -32768
-ok(near(XDF.decodeConstant(byTitle['Timing Offset'], BIN, def.header), -32768), 'Timing Offset BE signed');
+ok(
+  near(XDF.decodeConstant(byTitle['Timing Offset'], BIN, def.header), -32768),
+  'Timing Offset BE signed'
+);
 
 // endianness cross-check: the SAME bytes read as LE would be 0x0080 = 128, not -32768
 const beSpec = XDF.resolveEmbedded(byTitle['Timing Offset'].embed, B, D);
 ok(XDF.readScalar(BIN, beSpec) === -32768, 'readScalar BE = -32768');
 const leSpec = Object.assign({}, beSpec, { lsbfirst: true });
-ok(XDF.readScalar(BIN, leSpec) === 128, `same bytes LE = ${XDF.readScalar(BIN, leSpec)}, want 128`);
+ok(
+  XDF.readScalar(BIN, leSpec) === 128,
+  `same bytes LE = ${XDF.readScalar(BIN, leSpec)}, want 128`
+);
 
 // ============================================================================
 // (d) value round-trip: decode -> edit -> encode -> bytes -> decode
 // ============================================================================
 function roundTripConstant(item, newEng) {
   const enc = XDF.encodeConstant(item, newEng, def.header);
-  ok(enc !== null, `encodeConstant returned null for ${item.title} = ${newEng}`);
+  ok(
+    enc !== null,
+    `encodeConstant returned null for ${item.title} = ${newEng}`
+  );
   if (!enc) return;
-  const buf = new Uint8Array(BIN);              // copy; splice the new bytes in
+  const buf = new Uint8Array(BIN); // copy; splice the new bytes in
   buf.set(enc.bytes, enc.address);
   const back = XDF.decodeConstant(item, buf, def.header);
-  ok(near(back, newEng, 1e-6), `round-trip ${item.title}: set ${newEng}, read ${back}`);
+  ok(
+    near(back, newEng, 1e-6),
+    `round-trip ${item.title}: set ${newEng}, read ${back}`
+  );
 }
 // Rev Limit: set 2000 rpm -> raw 8000 = 0x1F40 -> LE [0x40,0x1F]
 {
   const enc = XDF.encodeConstant(rev, 2000, def.header);
-  ok(enc && enc.bytes[0] === 0x40 && enc.bytes[1] === 0x1f, `Rev Limit 2000 -> bytes ${enc && [...enc.bytes]}`);
+  ok(
+    enc && enc.bytes[0] === 0x40 && enc.bytes[1] === 0x1f,
+    `Rev Limit 2000 -> bytes ${enc && [...enc.bytes]}`
+  );
   roundTripConstant(rev, 2000);
 }
-roundTripConstant(trim, -90);          // 0.75*X-48 = -90 -> X = -56 (exact, in range)
-roundTripConstant(trim, -144);         // the stock value re-writes identically
+roundTripConstant(trim, -90); // 0.75*X-48 = -90 -> X = -56 (exact, in range)
+roundTripConstant(trim, -144); // the stock value re-writes identically
 roundTripConstant(rev, 0);
-roundTripConstant(rev, 16383.75);      // near u16 top: raw 65535
+roundTripConstant(rev, 16383.75); // near u16 top: raw 65535
 
 // idempotent re-write: encode(decode(image)) must not move the owned bytes
 for (const item of [trim, rev, byTitle['Timing Offset']]) {
@@ -217,14 +283,19 @@ for (const item of [trim, rev, byTitle['Timing Offset']]) {
   ok(enc !== null, `idempotent encode null for ${item.title}`);
   if (enc) {
     for (let i = 0; i < enc.bytes.length; i++) {
-      ok(enc.bytes[i] === BIN[enc.address + i],
-        `idempotent re-write changed byte ${i} of ${item.title}: ${enc.bytes[i]} vs ${BIN[enc.address + i]}`);
+      ok(
+        enc.bytes[i] === BIN[enc.address + i],
+        `idempotent re-write changed byte ${i} of ${item.title}: ${enc.bytes[i]} vs ${BIN[enc.address + i]}`
+      );
     }
   }
 }
 
 // out-of-range and non-invertible are refused (not silently truncated)
-ok(XDF.encodeConstant(rev, 1e9, def.header) === null, 'over-range value should refuse to encode');
+ok(
+  XDF.encodeConstant(rev, 1e9, def.header) === null,
+  'over-range value should refuse to encode'
+);
 ok(XDF.invertLinear('X*X') === null, 'non-linear MATH is not invertible');
 ok(XDF.invertLinear('48') === null, 'constant MATH (no X) is not invertible');
 
@@ -234,23 +305,45 @@ ok(XDF.invertLinear('48') === null, 'constant MATH (no X) is not invertible');
 function scalarRT(sizeBits, signed, lsbfirst, value) {
   const spec = { sizeBits, signed, lsbfirst, float: false, address: 0 };
   const bytes = XDF.encodeScalar(value, spec);
-  ok(bytes !== null, `encodeScalar null for ${value} (${sizeBits}b signed=${signed})`);
+  ok(
+    bytes !== null,
+    `encodeScalar null for ${value} (${sizeBits}b signed=${signed})`
+  );
   if (!bytes) return;
   const buf = new Uint8Array(bytes.length + 3);
   buf.set(bytes, 0);
   const back = XDF.readScalar(buf, spec);
-  ok(back === value, `scalar RT ${sizeBits}b signed=${signed} le=${lsbfirst}: ${value} -> ${back}`);
+  ok(
+    back === value,
+    `scalar RT ${sizeBits}b signed=${signed} le=${lsbfirst}: ${value} -> ${back}`
+  );
 }
 for (const le of [true, false]) {
-  scalarRT(8, false, le, 0); scalarRT(8, false, le, 255); scalarRT(8, true, le, -128); scalarRT(8, true, le, 127);
-  scalarRT(16, false, le, 0); scalarRT(16, false, le, 65535); scalarRT(16, true, le, -32768); scalarRT(16, true, le, 32767);
-  scalarRT(32, false, le, 0); scalarRT(32, false, le, 4294967295); scalarRT(32, true, le, -2147483648); scalarRT(32, true, le, 2147483647);
+  scalarRT(8, false, le, 0);
+  scalarRT(8, false, le, 255);
+  scalarRT(8, true, le, -128);
+  scalarRT(8, true, le, 127);
+  scalarRT(16, false, le, 0);
+  scalarRT(16, false, le, 65535);
+  scalarRT(16, true, le, -32768);
+  scalarRT(16, true, le, 32767);
+  scalarRT(32, false, le, 0);
+  scalarRT(32, false, le, 4294967295);
+  scalarRT(32, true, le, -2147483648);
+  scalarRT(32, true, le, 2147483647);
 }
 // float32 round-trip (exact for a representable value)
 {
-  const spec = { sizeBits: 32, signed: true, lsbfirst: true, float: true, address: 0 };
+  const spec = {
+    sizeBits: 32,
+    signed: true,
+    lsbfirst: true,
+    float: true,
+    address: 0,
+  };
   const bytes = XDF.encodeScalar(1.5, spec);
-  const buf = new Uint8Array(4); buf.set(bytes, 0);
+  const buf = new Uint8Array(4);
+  buf.set(bytes, 0);
   ok(XDF.readScalar(buf, spec) === 1.5, 'float32 round-trip 1.5');
 }
 
@@ -267,43 +360,81 @@ ok(XDF.applyFlag(0xff, 0x04, false) === 0xfb, 'clear one bit leaves the rest');
 // (g) table geometry, cell addresses, decode + per-cell round-trip
 // ============================================================================
 const boost = XDF.decodeTable(byTitle['Boost Row'], BIN, def.header);
-ok(boost.rows === 1 && boost.cols === 4, `Boost Row geometry ${boost.rows}x${boost.cols}, want 1x4`);
-ok(JSON.stringify(boost.cells[0]) === JSON.stringify([2, 4, 6, 8]), `Boost Row cells = ${JSON.stringify(boost.cells[0])}, want [2,4,6,8]`);
+ok(
+  boost.rows === 1 && boost.cols === 4,
+  `Boost Row geometry ${boost.rows}x${boost.cols}, want 1x4`
+);
+ok(
+  JSON.stringify(boost.cells[0]) === JSON.stringify([2, 4, 6, 8]),
+  `Boost Row cells = ${JSON.stringify(boost.cells[0])}, want [2,4,6,8]`
+);
 
 const fuel = byTitle['Fuel Map'];
 const fmap = XDF.decodeTable(fuel, BIN, def.header);
-ok(fmap.rows === 2 && fmap.cols === 3, `Fuel Map geometry ${fmap.rows}x${fmap.cols}, want 2x3`);
+ok(
+  fmap.rows === 2 && fmap.cols === 3,
+  `Fuel Map geometry ${fmap.rows}x${fmap.cols}, want 2x3`
+);
 // raw 100..105, eng = X-100 -> 0..5 row-major
-ok(JSON.stringify(fmap.cells) === JSON.stringify([[0, 1, 2], [3, 4, 5]]), `Fuel Map cells = ${JSON.stringify(fmap.cells)}`);
+ok(
+  JSON.stringify(fmap.cells) ===
+    JSON.stringify([
+      [0, 1, 2],
+      [3, 4, 5],
+    ]),
+  `Fuel Map cells = ${JSON.stringify(fmap.cells)}`
+);
 // cell (1,2) address: 16-bit, 3 cols, contiguous -> 0x40 + 10 = 0x4A
-ok(XDF.tableCellAddress(fmap.embed, 1, 2) === 0x4a, `cell(1,2) addr = 0x${XDF.tableCellAddress(fmap.embed, 1, 2).toString(16)}, want 0x4a`);
+ok(
+  XDF.tableCellAddress(fmap.embed, 1, 2) === 0x4a,
+  `cell(1,2) addr = 0x${XDF.tableCellAddress(fmap.embed, 1, 2).toString(16)}, want 0x4a`
+);
 ok(XDF.tableCellAddress(fmap.embed, 0, 0) === 0x40, 'cell(0,0) addr');
 // per-cell round-trip: set (1,2) to eng 50 -> raw 150
 {
   const enc = XDF.encodeTableCell(fuel, def.header, 1, 2, 50);
-  ok(enc && enc.address === 0x4a && enc.raw === 150, `Fuel cell (1,2)=50 -> raw ${enc && enc.raw} @0x${enc && enc.address.toString(16)}`);
+  ok(
+    enc && enc.address === 0x4a && enc.raw === 150,
+    `Fuel cell (1,2)=50 -> raw ${enc && enc.raw} @0x${enc && enc.address.toString(16)}`
+  );
   const buf = new Uint8Array(BIN);
   buf.set(enc.bytes, enc.address);
   const re = XDF.decodeTable(fuel, buf, def.header);
-  ok(re.cells[1][2] === 50, `Fuel cell (1,2) read back ${re.cells[1][2]}, want 50`);
+  ok(
+    re.cells[1][2] === 50,
+    `Fuel cell (1,2) read back ${re.cells[1][2]}, want 50`
+  );
   // neighbours unchanged
-  ok(re.cells[1][1] === 4 && re.cells[0][2] === 2, 'editing one cell disturbed a neighbour');
+  ok(
+    re.cells[1][1] === 4 && re.cells[0][2] === 2,
+    'editing one cell disturbed a neighbour'
+  );
 }
 
 // ============================================================================
 // (h) parser robustness: bad root, encrypted file, entity decode
 // ============================================================================
 let threw = false;
-try { XDF.parseXdf('<NOTXDF></NOTXDF>'); } catch (e) { threw = e instanceof XDF.XdfParseError; }
+try {
+  XDF.parseXdf('<NOTXDF></NOTXDF>');
+} catch (e) {
+  threw = e instanceof XDF.XdfParseError;
+}
 ok(threw, 'non-XDFFORMAT root should throw XdfParseError');
 threw = false;
 try {
-  XDF.parseXdf('<XDFFORMAT><XDFHEADER><openpassword>x</openpassword></XDFHEADER></XDFFORMAT>');
-} catch (e) { threw = /encrypted/i.test(e.message); }
+  XDF.parseXdf(
+    '<XDFFORMAT><XDFHEADER><openpassword>x</openpassword></XDFHEADER></XDFFORMAT>'
+  );
+} catch (e) {
+  threw = /encrypted/i.test(e.message);
+}
 ok(threw, 'encrypted .xdf should be refused');
 // entity + attribute decode
 {
-  const d = XDF.parseXdf('<XDFFORMAT><XDFHEADER><deftitle>A &amp; B &lt;x&gt;</deftitle></XDFHEADER></XDFFORMAT>');
+  const d = XDF.parseXdf(
+    '<XDFFORMAT><XDFHEADER><deftitle>A &amp; B &lt;x&gt;</deftitle></XDFHEADER></XDFFORMAT>'
+  );
   ok(d.header.deftitle === 'A & B <x>', `entity decode = ${d.header.deftitle}`);
 }
 
@@ -320,13 +451,17 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
 // ============================================================================
 {
   const flat = [
-    'XDF', '1.110000', '', '%%HEADER%%',
+    'XDF',
+    '1.110000',
+    '',
+    '%%HEADER%%',
     '\t001005 DefTitle         ="Flat Test"',
     '\t001010 Author           ="tester"',
     '\t001030 BinSize          =0x8000',
     '\t001035 BaseOffset       =0',
     '\t002000 Category0        ="FuelMaps"',
-    '%%END%%', '',
+    '%%END%%',
+    '',
     '%%TABLE%%',
     '\t000002 UniqueID         =0x957',
     '\t040005 Title            ="Rev Limit"',
@@ -336,7 +471,8 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
     '\t040305 Cols             =0x2',
     '\t040350 XLabels          =(null)',
     '\t040354 XEq              =X,TH|0|0|0|0|',
-    '%%END%%', '',
+    '%%END%%',
+    '',
     '%%CONSTANT%%',
     '\t000002 UniqueID         =0x123',
     '\t020005 Title            ="Injector"',
@@ -346,7 +482,10 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
     '%%END%%',
   ].join('\r\n');
 
-  ok(XDF.detectXdfFormat(flat) === 'flat', 'flat text v1.1 is detected as flat');
+  ok(
+    XDF.detectXdfFormat(flat) === 'flat',
+    'flat text v1.1 is detected as flat'
+  );
   const d = XDF.parseXdf(flat);
   ok(d.format === 'flat', `parsed format = ${d.format}`);
   ok(d.header.deftitle === 'Flat Test', `flat deftitle = ${d.header.deftitle}`);
@@ -355,20 +494,39 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
 
   const t = d.items.find((i) => i.kind === 'table');
   ok(!!t, 'flat TABLE became an XDFTABLE');
-  ok(ax(t,'z').embed.address === 0x10, `flat table address = 0x${ax(t,'z').embed.address.toString(16)}`);
-  ok(ax(t,'z').embed.colcount === 2 && ax(t,'z').embed.rowcount === 1, 'flat table geometry survives');
+  ok(
+    ax(t, 'z').embed.address === 0x10,
+    `flat table address = 0x${ax(t, 'z').embed.address.toString(16)}`
+  );
+  ok(
+    ax(t, 'z').embed.colcount === 2 && ax(t, 'z').embed.rowcount === 1,
+    'flat table geometry survives'
+  );
   // ",TH|0|0|0|0|" is TunerPro's table-hooks tail, not part of the maths.
-  ok(ax(t,'z').mathEquation === 'X*40', `flat ZEq stripped to "${ax(t,'z').mathEquation}"`);
+  ok(
+    ax(t, 'z').mathEquation === 'X*40',
+    `flat ZEq stripped to "${ax(t, 'z').mathEquation}"`
+  );
   // A label-only axis has no address and must not kill the parse.
-  ok(ax(t,'x').embed.addressed === false, 'flat label-only x axis is unaddressed');
+  ok(
+    ax(t, 'x').embed.addressed === false,
+    'flat label-only x axis is unaddressed'
+  );
 
   const bin = new Uint8Array(0x8000);
-  bin[0x10] = 3; bin[0x11] = 4; bin[0x20] = 10;
+  bin[0x10] = 3;
+  bin[0x11] = 4;
+  bin[0x20] = 10;
   const dec = XDF.decodeTable(t, bin, d.header);
-  ok(dec.cells[0][0] === 120 && dec.cells[0][1] === 160,
-    `flat table decodes through MATH = [${dec.cells[0]}]`);
+  ok(
+    dec.cells[0][0] === 120 && dec.cells[0][1] === 160,
+    `flat table decodes through MATH = [${dec.cells[0]}]`
+  );
   const c = d.items.find((i) => i.kind === 'constant');
-  ok(XDF.decodeConstant(c, bin, d.header) === 5, 'flat constant decodes through MATH');
+  ok(
+    XDF.decodeConstant(c, bin, d.header) === 5,
+    'flat constant decodes through MATH'
+  );
 }
 
 {
@@ -395,38 +553,59 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
   ok(d.format === 'v050', `parsed format = ${d.format}`);
   ok(d.items.length === 2, `v050 item count = ${d.items.length}`);
   const t = d.items.find((i) => i.kind === 'table');
-  ok(ax(t,'z').embed.address === 0x30, `v050 <address> became mmedaddress 0x${ax(t,'z').embed.address.toString(16)}`);
+  ok(
+    ax(t, 'z').embed.address === 0x30,
+    `v050 <address> became mmedaddress 0x${ax(t, 'z').embed.address.toString(16)}`
+  );
   // Row/col counts live on the x/y <indexcount> in this dialect.
-  ok(ax(t,'z').embed.colcount === 2 && ax(t,'z').embed.rowcount === 1, 'v050 geometry from x/y indexcount');
+  ok(
+    ax(t, 'z').embed.colcount === 2 && ax(t, 'z').embed.rowcount === 1,
+    'v050 geometry from x/y indexcount'
+  );
 
   const bin = new Uint8Array(0x100);
-  bin[0x30] = 5; bin[0x31] = 6; bin[0x40] = 9;
+  bin[0x30] = 5;
+  bin[0x31] = 6;
+  bin[0x40] = 9;
   const dec = XDF.decodeTable(t, bin, d.header);
-  ok(dec.cells[0][0] === 10 && dec.cells[0][1] === 12,
-    `v050 table decodes = [${dec.cells[0]}]`);
+  ok(
+    dec.cells[0][0] === 10 && dec.cells[0][1] === 12,
+    `v050 table decodes = [${dec.cells[0]}]`
+  );
   const c = d.items.find((i) => i.kind === 'constant');
-  ok(XDF.decodeConstant(c, bin, d.header) === 10, 'v050 constant decodes through MATH');
+  ok(
+    XDF.decodeConstant(c, bin, d.header) === 10,
+    'v050 constant decodes through MATH'
+  );
 }
 
 {
   // A v1.50 axis with no EMBEDDEDDATA must degrade, not throw: in the real
   // definitions only about half of all axes carry one.
-  const d = XDF.parseXdf([
-    '<XDFFORMAT version="1.50">',
-    '  <XDFHEADER><deftitle>T</deftitle>',
-    '    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />',
-    '  </XDFHEADER>',
-    '  <XDFTABLE uniqueid="0x1"><title>M</title>',
-    '    <XDFAXIS id="x"><indexcount>1</indexcount><LABEL index="0" value="600" /></XDFAXIS>',
-    '    <XDFAXIS id="y"><indexcount>1</indexcount></XDFAXIS>',
-    '    <XDFAXIS id="z"><EMBEDDEDDATA mmedaddress="0x0" mmedelementsizebits="8" ',
-    '      mmedrowcount="1" mmedcolcount="1" /><MATH equation="X"><VAR id="X" /></MATH></XDFAXIS>',
-    '  </XDFTABLE>',
-    '</XDFFORMAT>',
-  ].join('\n'));
+  const d = XDF.parseXdf(
+    [
+      '<XDFFORMAT version="1.50">',
+      '  <XDFHEADER><deftitle>T</deftitle>',
+      '    <DEFAULTS datasizeinbits="8" sigdigits="2" outputtype="1" signed="0" lsbfirst="0" float="0" />',
+      '  </XDFHEADER>',
+      '  <XDFTABLE uniqueid="0x1"><title>M</title>',
+      '    <XDFAXIS id="x"><indexcount>1</indexcount><LABEL index="0" value="600" /></XDFAXIS>',
+      '    <XDFAXIS id="y"><indexcount>1</indexcount></XDFAXIS>',
+      '    <XDFAXIS id="z"><EMBEDDEDDATA mmedaddress="0x0" mmedelementsizebits="8" ',
+      '      mmedrowcount="1" mmedcolcount="1" /><MATH equation="X"><VAR id="X" /></MATH></XDFAXIS>',
+      '  </XDFTABLE>',
+      '</XDFFORMAT>',
+    ].join('\n')
+  );
   ok(d.items.length === 1, 'label-only axis does not kill the file');
-  ok(ax(d.items[0],'x').embed.addressed === false, 'label-only axis marked unaddressed');
-  ok(ax(d.items[0],'x').labels.length === 1, 'label-only axis keeps its LABELs');
+  ok(
+    ax(d.items[0], 'x').embed.addressed === false,
+    'label-only axis marked unaddressed'
+  );
+  ok(
+    ax(d.items[0], 'x').labels.length === 1,
+    'label-only axis keeps its LABELs'
+  );
 }
 
 // ============================================================================
@@ -439,10 +618,14 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
 // ============================================================================
 {
   const flat = [
-    'XDF', '1.110000', '', '%%HEADER%%',
+    'XDF',
+    '1.110000',
+    '',
+    '%%HEADER%%',
     '\t001005 DefTitle         ="CK"',
     '\t001030 BinSize          =0x100',
-    '%%END%%', '',
+    '%%END%%',
+    '',
     '%%CHECKSUM%%',
     '\t000002 UniqueID         =0x4968',
     '\t010005 Title            ="Main Checksum"',
@@ -459,12 +642,20 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
   ok(c.regions.length === 1, `checksum region count = ${c.regions.length}`);
   const r = c.regions[0];
   // DataEnd is INCLUSIVE in the flat format; datasize must cover it.
-  ok(r.datastart === 0x10 && r.datasize === 4,
-    `region = 0x${r.datastart.toString(16)} + ${r.datasize}`);
-  ok(r.storeaddress === 0x20, `store address = 0x${r.storeaddress.toString(16)}`);
+  ok(
+    r.datastart === 0x10 && r.datasize === 4,
+    `region = 0x${r.datastart.toString(16)} + ${r.datasize}`
+  );
+  ok(
+    r.storeaddress === 0x20,
+    `store address = 0x${r.storeaddress.toString(16)}`
+  );
 
   const bin = new Uint8Array(0x100);
-  bin[0x10] = 0xFF; bin[0x11] = 0x02; bin[0x12] = 0x03; bin[0x13] = 0x04;
+  bin[0x10] = 0xff;
+  bin[0x11] = 0x02;
+  bin[0x12] = 0x03;
+  bin[0x13] = 0x04;
   // 0xFF+2+3+4 = 0x108, and the sum is 16-bit so it does NOT truncate to a byte.
   const comp = XDF.computeChecksumRegion(r, bin);
   ok(comp.value === 0x108, `16-bit sum = 0x${comp.value.toString(16)}`);
@@ -480,23 +671,37 @@ const ax = (t, id) => t.axes.find((a) => a.id === id);
 
   // Editing a byte in the region must invalidate it, and apply must repair it.
   bin[0x11] = 0x09;
-  ok(XDF.verifyChecksumRegion(r, bin).ok === false, 'an edit invalidates the checksum');
+  ok(
+    XDF.verifyChecksumRegion(r, bin).ok === false,
+    'an edit invalidates the checksum'
+  );
   XDF.applyChecksumRegion(r, bin);
-  ok(XDF.verifyChecksumRegion(r, bin).ok === true, 'apply repairs the checksum');
+  ok(
+    XDF.verifyChecksumRegion(r, bin).ok === true,
+    'apply repairs the checksum'
+  );
 
   // An unknown method must NEVER be reported as passing.
   const unknown = Object.assign({}, r, { calctype: 3 });
   const uv = XDF.verifyChecksumRegion(unknown, bin);
-  ok(uv.supported === false && uv.ok === false,
-    'an unsupported calctype reports unsupported, not ok');
+  ok(
+    uv.supported === false && uv.ok === false,
+    'an unsupported calctype reports unsupported, not ok'
+  );
   const before = bin[0x20];
   XDF.applyChecksumRegion(unknown, bin);
   ok(bin[0x20] === before, 'an unsupported calctype writes nothing');
 
   // A region running past the end of the image must not throw or wrap.
-  const oob = Object.assign({}, r, { datastart: 0xF0, datasize: 0x80 });
-  ok(XDF.computeChecksumRegion(oob, bin) === null, 'out-of-range region returns null');
-  ok(XDF.verifyChecksumRegion(oob, bin).ok === false, 'out-of-range region never passes');
+  const oob = Object.assign({}, r, { datastart: 0xf0, datasize: 0x80 });
+  ok(
+    XDF.computeChecksumRegion(oob, bin) === null,
+    'out-of-range region returns null'
+  );
+  ok(
+    XDF.verifyChecksumRegion(oob, bin).ok === false,
+    'out-of-range region never passes'
+  );
 }
 
 // ============================================================================
@@ -507,7 +712,9 @@ if (fails.length) {
   for (const f of fails) console.error('  x ' + f);
   process.exit(1);
 }
-console.log('xdf OK: parsed 6 items, header/defaults/categories, scaling decode, '
-  + 'value round-trips (signed/unsigned/LE/BE/float), flags, 1D+2D tables & cell strides, '
-  + 'encrypted/entity guards, legacy flat-v1.1 + XML-v0.50 upconvert, label-only axes, '
-  + 'checksum sum16 verify/apply/repair');
+console.log(
+  'xdf OK: parsed 6 items, header/defaults/categories, scaling decode, ' +
+    'value round-trips (signed/unsigned/LE/BE/float), flags, 1D+2D tables & cell strides, ' +
+    'encrypted/entity guards, legacy flat-v1.1 + XML-v0.50 upconvert, label-only axes, ' +
+    'checksum sum16 verify/apply/repair'
+);

@@ -26,25 +26,37 @@
   // Only file:// needs this. http(s) fetch works; the native app has its own
   // file bridge. showDirectoryPicker is Chromium-only -- the SAME requirement
   // Web Serial already imposes to talk to the car, so it adds no new limit.
-  const IS_FILE = typeof location !== 'undefined' && location.protocol === 'file:';
-  const HAS_API = typeof window !== 'undefined'
-    && typeof window.showDirectoryPicker === 'function';
+  const IS_FILE =
+    typeof location !== 'undefined' && location.protocol === 'file:';
+  const HAS_API =
+    typeof window !== 'undefined' &&
+    typeof window.showDirectoryPicker === 'function';
 
-  let dirHandle = null;           // the granted FileSystemDirectoryHandle
-  let ready = null;               // the one-shot init promise
+  let dirHandle = null; // the granted FileSystemDirectoryHandle
+  let ready = null; // the one-shot init promise
 
-  function offlineFsActive() { return IS_FILE && HAS_API; }
+  function offlineFsActive() {
+    return IS_FILE && HAS_API;
+  }
   // a handle is in hand and usable
-  function offlineFsReady() { return !!dirHandle; }
+  function offlineFsReady() {
+    return !!dirHandle;
+  }
 
   // ---- IndexedDB: remember the handle across sessions ----------------------
   // A FileSystemDirectoryHandle is structured-cloneable, so it stores directly.
-  const DB = 'bmweb-offline', STORE = 'fs', KEY = 'root';
+  const DB = 'bmweb-offline',
+    STORE = 'fs',
+    KEY = 'root';
   function idb(mode, fn) {
     return new Promise((resolve, reject) => {
       let req;
-      try { req = indexedDB.open(DB, 1); }
-      catch (e) { reject(e); return; }
+      try {
+        req = indexedDB.open(DB, 1);
+      } catch (e) {
+        reject(e);
+        return;
+      }
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
@@ -55,14 +67,23 @@
         const tx = db.transaction(STORE, mode);
         const st = tx.objectStore(STORE);
         const r = fn(st);
-        tx.oncomplete = () => { db.close(); resolve(r && r.result); };
-        tx.onerror = () => { db.close(); reject(tx.error); };
+        tx.oncomplete = () => {
+          db.close();
+          resolve(r && r.result);
+        };
+        tx.onerror = () => {
+          db.close();
+          reject(tx.error);
+        };
       };
     });
   }
-  const saveHandle = (h) => idb('readwrite', (st) => st.put(h, KEY)).catch(() => {});
-  const loadHandle = () => idb('readonly', (st) => st.get(KEY)).catch(() => null);
-  const clearHandle = () => idb('readwrite', (st) => st.delete(KEY)).catch(() => {});
+  const saveHandle = (h) =>
+    idb('readwrite', (st) => st.put(h, KEY)).catch(() => {});
+  const loadHandle = () =>
+    idb('readonly', (st) => st.get(KEY)).catch(() => null);
+  const clearHandle = () =>
+    idb('readwrite', (st) => st.delete(KEY)).catch(() => {});
 
   // ---- permission ----------------------------------------------------------
   async function hasReadPerm(h, prompt) {
@@ -81,7 +102,9 @@
       const api = await h.getDirectoryHandle('api');
       await api.getFileHandle('chassis.json');
       return true;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   // ---- read one file by app-relative path ----------------------------------
@@ -98,7 +121,10 @@
   }
   async function offlineReadFile(path) {
     if (!dirHandle) return notFound();
-    const clean = String(path).replace(/^\.?\//, '').split('?')[0].split('#')[0];
+    const clean = String(path)
+      .replace(/^\.?\//, '')
+      .split('?')[0]
+      .split('#')[0];
     if (!clean) return notFound();
     const parts = clean.split('/').filter(Boolean);
     const file = parts.pop();
@@ -110,10 +136,13 @@
       const buf = await f.arrayBuffer();
       // carry the length so a progress reader can show a real percentage
       return new Response(buf, {
-        status: 200, statusText: 'OK',
+        status: 200,
+        statusText: 'OK',
         headers: { 'Content-Length': String(buf.byteLength) },
       });
-    } catch { return notFound(); }
+    } catch {
+      return notFound();
+    }
   }
 
   // ---- the pick overlay ----------------------------------------------------
@@ -127,47 +156,55 @@
       if (prev) prev.remove();
       const ov = document.createElement('div');
       ov.id = 'offline-fs-overlay';
-      ov.setAttribute('style', [
-        'position:fixed', 'inset:0', 'z-index:99999',
-        'display:flex', 'align-items:center', 'justify-content:center',
-        'background:#0b0b0d', 'color:#f2f2f4',
-        'font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
-      ].join(';'));
+      ov.setAttribute(
+        'style',
+        [
+          'position:fixed',
+          'inset:0',
+          'z-index:99999',
+          'display:flex',
+          'align-items:center',
+          'justify-content:center',
+          'background:#0b0b0d',
+          'color:#f2f2f4',
+          'font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+        ].join(';')
+      );
       const restore = opts.restore;
       ov.innerHTML =
-        '<div style="max-width:460px;padding:32px;text-align:center">'
-        + '<div style="margin-bottom:14px">'
-        + '<svg width="56" height="56" viewBox="0 0 100 100" role="img" aria-label="BMWeb">'
-        + '<circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="3"/>'
-        + '<clipPath id="ofs-disc"><circle cx="50" cy="50" r="31"/></clipPath>'
-        + '<g clip-path="url(#ofs-disc)">'
-        + '<rect x="19" y="19" width="31" height="31" fill="#eef2f5"/>'
-        + '<rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>'
-        + '<rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/>'
-        + '<rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>'
-        + '</g>'
-        + '<circle cx="50" cy="50" r="31" fill="none" stroke="#0a0d11" stroke-width="2"/>'
-        + '</svg>'
-        + '</div>'
-        + '<div style="font-size:20px;font-weight:600;margin-bottom:8px">'
-        + (restore ? 'Restore folder access' : 'BMWeb offline')
-        + '</div>'
-        + '<div style="opacity:.75;margin-bottom:24px">'
-        + (restore
-            ? 'Click below and re-select this BMWeb folder so it can load car data.'
-            : 'Select this BMWeb folder so the app can load its car data. '
-              + 'Choose the folder that contains this page (it has an "api" folder inside).')
-        + '</div>'
-        + '<button id="offline-fs-pick" style="'
-        + 'appearance:none;border:0;border-radius:10px;padding:12px 22px;'
-        + 'font:600 15px/1 inherit;color:#0b0b0d;background:#4da3ff;cursor:pointer">'
-        + 'Select folder</button>'
-        + '<div id="offline-fs-msg" style="min-height:20px;margin-top:16px;'
-        + 'font-size:13px;color:#ff8080"></div>'
-        + '<div style="margin-top:20px;font-size:12px;opacity:.5">'
-        + 'Chrome or Edge. Or serve this folder over any local web server and '
-        + 'open it there instead.</div>'
-        + '</div>';
+        '<div style="max-width:460px;padding:32px;text-align:center">' +
+        '<div style="margin-bottom:14px">' +
+        '<svg width="56" height="56" viewBox="0 0 100 100" role="img" aria-label="BMWeb">' +
+        '<circle cx="50" cy="50" r="48" fill="#11161c" stroke="#9aa6b2" stroke-width="3"/>' +
+        '<clipPath id="ofs-disc"><circle cx="50" cy="50" r="31"/></clipPath>' +
+        '<g clip-path="url(#ofs-disc)">' +
+        '<rect x="19" y="19" width="31" height="31" fill="#eef2f5"/>' +
+        '<rect x="50" y="50" width="31" height="31" fill="#eef2f5"/>' +
+        '<rect x="50" y="19" width="31" height="31" fill="#ff9e2c"/>' +
+        '<rect x="19" y="50" width="31" height="31" fill="#ff9e2c"/>' +
+        '</g>' +
+        '<circle cx="50" cy="50" r="31" fill="none" stroke="#0a0d11" stroke-width="2"/>' +
+        '</svg>' +
+        '</div>' +
+        '<div style="font-size:20px;font-weight:600;margin-bottom:8px">' +
+        (restore ? 'Restore folder access' : 'BMWeb offline') +
+        '</div>' +
+        '<div style="opacity:.75;margin-bottom:24px">' +
+        (restore
+          ? 'Click below and re-select this BMWeb folder so it can load car data.'
+          : 'Select this BMWeb folder so the app can load its car data. ' +
+            'Choose the folder that contains this page (it has an "api" folder inside).') +
+        '</div>' +
+        '<button id="offline-fs-pick" style="' +
+        'appearance:none;border:0;border-radius:10px;padding:12px 22px;' +
+        'font:600 15px/1 inherit;color:#0b0b0d;background:#4da3ff;cursor:pointer">' +
+        'Select folder</button>' +
+        '<div id="offline-fs-msg" style="min-height:20px;margin-top:16px;' +
+        'font-size:13px;color:#ff8080"></div>' +
+        '<div style="margin-top:20px;font-size:12px;opacity:.5">' +
+        'Chrome or Edge. Or serve this folder over any local web server and ' +
+        'open it there instead.</div>' +
+        '</div>';
       document.body.appendChild(ov);
       const msg = ov.querySelector('#offline-fs-msg');
       const btn = ov.querySelector('#offline-fs-pick');
@@ -175,10 +212,17 @@
         msg.textContent = '';
         let h;
         try {
-          h = await window.showDirectoryPicker({ id: 'bmweb-root', mode: 'read' });
+          h = await window.showDirectoryPicker({
+            id: 'bmweb-root',
+            mode: 'read',
+          });
         } catch (e) {
-          if (e && e.name === 'AbortError') { msg.textContent = 'Cancelled. Click Select folder to try again.'; return; }
-          msg.textContent = e && e.message ? e.message : 'Could not open the folder picker.';
+          if (e && e.name === 'AbortError') {
+            msg.textContent = 'Cancelled. Click Select folder to try again.';
+            return;
+          }
+          msg.textContent =
+            e && e.message ? e.message : 'Could not open the folder picker.';
           return;
         }
         if (!(await hasReadPerm(h, true))) {
@@ -186,8 +230,9 @@
           return;
         }
         if (!(await looksLikeAppFolder(h))) {
-          msg.textContent = 'That folder is not a BMWeb copy (no api/chassis.json). '
-            + 'Pick the folder that holds index.html.';
+          msg.textContent =
+            'That folder is not a BMWeb copy (no api/chassis.json). ' +
+            'Pick the folder that holds index.html.';
           return;
         }
         dirHandle = h;
@@ -206,13 +251,21 @@
     ready = (async () => {
       // try a remembered handle first
       let saved = null;
-      try { saved = await loadHandle(); } catch { saved = null; }
+      try {
+        saved = await loadHandle();
+      } catch {
+        saved = null;
+      }
       if (saved) {
         // silent reconnect if the grant survives; else a one-click restore
-        if (await hasReadPerm(saved, false) && await looksLikeAppFolder(saved)) {
-          dirHandle = saved; return true;
+        if (
+          (await hasReadPerm(saved, false)) &&
+          (await looksLikeAppFolder(saved))
+        ) {
+          dirHandle = saved;
+          return true;
         }
-        if (await hasReadPerm(saved, false) === false) {
+        if ((await hasReadPerm(saved, false)) === false) {
           // permission aged out but the handle is still valid -- offer restore
           // (requestPermission needs a gesture, so route through the overlay,
           // but pre-seed the saved handle so a plain re-grant works too)

@@ -5,12 +5,17 @@ function showSettings() {
   if (typeof cancelSweep === 'function') cancelSweep(); // stop a running sweep
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Settings' }]);
   sbLeft.textContent = 'settings';
-  view.innerHTML = head('Preferences', 'Settings', `Configure how ${APP_NAME} displays diagnostics.`);
+  view.innerHTML = head(
+    'Preferences',
+    'Settings',
+    `Configure how ${APP_NAME} displays diagnostics.`
+  );
 
   const wrap = document.createElement('div');
   // same rows in both layouts; only the class (presentation) changes
-  wrap.className = inpaMode() ? 'settings-list inpa-settings'
-                             : 'settings-list stagger';
+  wrap.className = inpaMode()
+    ? 'settings-list inpa-settings'
+    : 'settings-list stagger';
 
   const themeRow = document.createElement('div');
   themeRow.className = 'setting-row theme-row';
@@ -22,7 +27,7 @@ function showSettings() {
   const themeGrid = document.createElement('div');
   themeGrid.className = 'theme-grid';
   const cur = Settings.get('theme', 'instrument');
-  THEMES.forEach(t => {
+  THEMES.forEach((t) => {
     const card = document.createElement('button');
     card.className = 'theme-card' + (t.id === cur ? ' active' : '');
     card.dataset.theme = t.id;
@@ -32,107 +37,132 @@ function showSettings() {
     card.onclick = () => {
       Settings.set('theme', t.id);
       applyTheme(t.id);
-      themeGrid.querySelectorAll('.theme-card').forEach(c => c.classList.toggle('active', c === card));
+      themeGrid
+        .querySelectorAll('.theme-card')
+        .forEach((c) => c.classList.toggle('active', c === card));
     };
     themeGrid.appendChild(card);
   });
   themeRow.appendChild(themeGrid);
   wrap.appendChild(themeRow);
 
-
-  wrap.appendChild(settingRow(
-    'Function labels',
-    'Show translated English names, or the original EDIABAS job names.',
-    [
-      { val: 'en', label: 'English' },
-      { val: 'orig', label: 'Original (EDIABAS)' },
-    ],
-    lang(),
-    (v) => Settings.set('lang', v),
-  ));
+  wrap.appendChild(
+    settingRow(
+      'Function labels',
+      'Show translated English names, or the original EDIABAS job names.',
+      [
+        { val: 'en', label: 'English' },
+        { val: 'orig', label: 'Original (EDIABAS)' },
+      ],
+      lang(),
+      (v) => Settings.set('lang', v)
+    )
+  );
 
   // desktop only: inpaMode() forces off below 760px, so the toggle would do nothing there
   if (!window.matchMedia('(max-width: 760px)').matches) {
-    wrap.appendChild(settingRow(
-      'INPA-style screens',
-      'Lay out the ECU menu and fault memory exactly like the original INPA frontend.',
-      [
-        { val: 'on', label: 'INPA layout' },
-        { val: 'off', label: 'Modern' },
-      ],
-      Settings.get('inpaScreens', 'off'),
-      // re-render: this screen is itself laid out differently per mode
-      (v) => { Settings.set('inpaScreens', v); showSettings(); },
-    ));
+    wrap.appendChild(
+      settingRow(
+        'INPA-style screens',
+        'Lay out the ECU menu and fault memory exactly like the original INPA frontend.',
+        [
+          { val: 'on', label: 'INPA layout' },
+          { val: 'off', label: 'Modern' },
+        ],
+        Settings.get('inpaScreens', 'off'),
+        // re-render: this screen is itself laid out differently per mode
+        (v) => {
+          Settings.set('inpaScreens', v);
+          showSettings();
+        }
+      )
+    );
   }
 
-  wrap.appendChild(settingRow(
-    'Keep cable connected',
-    'Reopen the K+DCAN cable automatically after a reload, with no picker '
-      + '(the browser remembers the port). Off means you click to connect '
-      + 'each launch.',
-    [
-      { val: 'on', label: 'Stay connected' },
-      { val: 'off', label: 'Pick each time' },
-    ],
-    Settings.get('keepCable', 'on'),
-    (v) => { Settings.set('keepCable', v); },
-  ));
+  wrap.appendChild(
+    settingRow(
+      'Keep cable connected',
+      'Reopen the K+DCAN cable automatically after a reload, with no picker ' +
+        '(the browser remembers the port). Off means you click to connect ' +
+        'each launch.',
+      [
+        { val: 'on', label: 'Stay connected' },
+        { val: 'off', label: 'Pick each time' },
+      ],
+      Settings.get('keepCable', 'on'),
+      (v) => {
+        Settings.set('keepCable', v);
+      }
+    )
+  );
 
   // bus is chosen at page load, so switching adapters reloads.
   // Not offered on the hosted https site: a secure page cannot open the
   // adapter's ws:// socket, so K+DCAN over Web Serial is the only bus there.
   // Offline and local copies (http:// or file://) keep the choice.
-  const httpsSite = typeof location !== 'undefined' && location.protocol === 'https:';
-  const adapterRow = httpsSite ? null : settingRow(
-    'Adapter',
-    'K+DCAN over serial, or THOR WiFi adapter.',
-    [
-      { val: 'kdcan', label: 'K+DCAN' },
-      { val: 'thor', label: 'THOR' },
-    ],
-    Settings.get('adapter', 'kdcan'),
-    async (v) => {
-      Settings.set('adapter', v);
-      // join the adapter's network before the reload auto-connects; shell opens the Wi-Fi picker if it can't
-      if (v === 'thor' && window.bmacw && window.bmacw.wifiJoin) {
-        sbLeft.textContent = 'joining Thor_Wifi…';
-        try { await window.bmacw.wifiJoin('Thor_Wifi'); }
-        catch { /* the picker is open; the chip retries the connect */ }
-      }
-      // await the durable save: Settings.set fires it un-awaited, and a reload that wins the race boots from OLD settings
-      if (window.bmacw && window.bmacw.saveSettings) {
-        try { await window.bmacw.saveSettings(JSON.stringify(Settings.data)); }
-        catch { /* localStorage still carries it for this session */ }
-      }
-      location.reload();
-    },
-  );
+  const httpsSite =
+    typeof location !== 'undefined' && location.protocol === 'https:';
+  const adapterRow = httpsSite
+    ? null
+    : settingRow(
+        'Adapter',
+        'K+DCAN over serial, or THOR WiFi adapter.',
+        [
+          { val: 'kdcan', label: 'K+DCAN' },
+          { val: 'thor', label: 'THOR' },
+        ],
+        Settings.get('adapter', 'kdcan'),
+        async (v) => {
+          Settings.set('adapter', v);
+          // join the adapter's network before the reload auto-connects; shell opens the Wi-Fi picker if it can't
+          if (v === 'thor' && window.bmacw && window.bmacw.wifiJoin) {
+            sbLeft.textContent = 'joining Thor_Wifi…';
+            try {
+              await window.bmacw.wifiJoin('Thor_Wifi');
+            } catch {
+              /* the picker is open; the chip retries the connect */
+            }
+          }
+          // await the durable save: Settings.set fires it un-awaited, and a reload that wins the race boots from OLD settings
+          if (window.bmacw && window.bmacw.saveSettings) {
+            try {
+              await window.bmacw.saveSettings(JSON.stringify(Settings.data));
+            } catch {
+              /* localStorage still carries it for this session */
+            }
+          }
+          location.reload();
+        }
+      );
   if (adapterRow) wrap.appendChild(adapterRow);
 
   // demo values are synthesized and badged, never presented as real
-  wrap.appendChild(settingRow(
-    'Demo mode (no cable)',
-    'Fill live screens with sample values when no cable is connected, so the layouts can be explored. Readings are simulated, not from a car.',
-    [
-      { val: 'on', label: 'On' },
-      { val: 'off', label: 'Off' },
-    ],
-    Settings.get('demo', 'off'),
-    (v) => Settings.set('demo', v),
-  ));
+  wrap.appendChild(
+    settingRow(
+      'Demo mode (no cable)',
+      'Fill live screens with sample values when no cable is connected, so the layouts can be explored. Readings are simulated, not from a car.',
+      [
+        { val: 'on', label: 'On' },
+        { val: 'off', label: 'Off' },
+      ],
+      Settings.get('demo', 'off'),
+      (v) => Settings.set('demo', v)
+    )
+  );
 
   // actuator tests drive real components; confirm defaults ON. Off = INPA behavior (key press sends the job, no prompt).
-  wrap.appendChild(settingRow(
-    'Confirm actuator tests',
-    'Ask before firing activations',
-    [
-      { val: 'on', label: 'Ask first' },
-      { val: 'off', label: 'Send immediately (like INPA)' },
-    ],
-    Settings.get('confirmActuators', 'on'),
-    (v) => Settings.set('confirmActuators', v),
-  ));
+  wrap.appendChild(
+    settingRow(
+      'Confirm actuator tests',
+      'Ask before firing activations',
+      [
+        { val: 'on', label: 'Ask first' },
+        { val: 'off', label: 'Send immediately (like INPA)' },
+      ],
+      Settings.get('confirmActuators', 'on'),
+      (v) => Settings.set('confirmActuators', v)
+    )
+  );
 
   const tourRow = document.createElement('div');
   tourRow.className = 'setting-row tour-setting';
@@ -162,7 +192,6 @@ function showSettings() {
   hiwRow.appendChild(hiwBtn);
   wrap.appendChild(hiwRow);
 
-
   // beta feedback: the Report button + what a report carries
   const betaRow = document.createElement('div');
   betaRow.className = 'setting-row';
@@ -179,7 +208,7 @@ function showSettings() {
       <button class="btn" id="set-beta-toggle">${betaOn ? 'On' : 'Off'}</button>
     </div>`;
   betaRow.querySelector('#set-beta-file').onclick = () =>
-    (typeof showBetaReport === 'function' ? showBetaReport() : null);
+    typeof showBetaReport === 'function' ? showBetaReport() : null;
   betaRow.querySelector('#set-beta-toggle').onclick = () => {
     Settings.set('betaReports', !betaOn);
     const b = document.getElementById('beta-btn');
@@ -199,7 +228,7 @@ function showSettings() {
     </div>
     <button class="btn" id="set-remote">Open…</button>`;
   remoteRow.querySelector('#set-remote').onclick = () =>
-    (typeof showRemoteDialog === 'function' ? showRemoteDialog() : null);
+    typeof showRemoteDialog === 'function' ? showRemoteDialog() : null;
   // not in the offline builds: a session needs the signaling worker and a
   // peer on the internet, which is what an offline copy is for not having
   if (!(typeof window !== 'undefined' && window.BMACW_OFFLINE)) {
@@ -216,7 +245,8 @@ function showSettings() {
 
   const ver = document.createElement('div');
   ver.className = 'settings-version';
-  ver.textContent = `${APP_NAME} ${(window.bmacw && window.bmacw.version) ? 'v' + window.bmacw.version : (window.BMACW_VERSION ? 'v' + window.BMACW_VERSION : '')}`.trim();
+  ver.textContent =
+    `${APP_NAME} ${window.bmacw && window.bmacw.version ? 'v' + window.bmacw.version : window.BMACW_VERSION ? 'v' + window.BMACW_VERSION : ''}`.trim();
   view.appendChild(ver);
 
   stagger(wrap, 40);
@@ -227,12 +257,12 @@ function showSettings() {
     const activate = (row) => {
       const seg = [...row.querySelectorAll('.seg-btn')];
       if (seg.length) {
-        const i = seg.findIndex(b => b.classList.contains('active'));
+        const i = seg.findIndex((b) => b.classList.contains('active'));
         return seg[(i + 1) % seg.length].click();
       }
       const cards = [...row.querySelectorAll('.theme-card')];
       if (cards.length) {
-        const i = cards.findIndex(c => c.classList.contains('active'));
+        const i = cards.findIndex((c) => c.classList.contains('active'));
         return cards[(i + 1) % cards.length].click();
       }
       const btn = row.querySelector('.combo-btn, .btn');
@@ -244,8 +274,9 @@ function showSettings() {
       if (n > FKEY_SLOTS) return;
       const tag = document.createElement('span');
       tag.className = 'inpa-fn-key';
-      tag.innerHTML = shift ? `&lt; Shift &gt; + &lt; F${n} &gt;`
-                            : `&lt; F${n} &gt;`;
+      tag.innerHTML = shift
+        ? `&lt; Shift &gt; + &lt; F${n} &gt;`
+        : `&lt; F${n} &gt;`;
       row.prepend(tag);
       row.onclick = (e) => {
         if (e.target.closest('button, .combo')) return;
@@ -254,7 +285,15 @@ function showSettings() {
     });
   }
 
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => lastScreen() }]);
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: () => lastScreen(),
+    },
+  ]);
 }
 
 // searchable dropdown for long option lists; returns { el, setOptions(options, current) }
@@ -282,27 +321,45 @@ function settingCombo(title, desc, options, current, onChange) {
   let opts = options.slice();
   let sel = current;
 
-  const labelFor = (v) => (opts.find(o => o.val === v) || {}).label || v || '';
-  const renderVal = () => { valEl.textContent = labelFor(sel); };
+  const labelFor = (v) =>
+    (opts.find((o) => o.val === v) || {}).label || v || '';
+  const renderVal = () => {
+    valEl.textContent = labelFor(sel);
+  };
 
   const renderList = (filter = '') => {
     const f = filter.trim().toLowerCase();
     list.innerHTML = '';
-    opts.filter(o => !f || o.label.toLowerCase().includes(f) || String(o.val).toLowerCase().includes(f))
-      .forEach(o => {
+    opts
+      .filter(
+        (o) =>
+          !f ||
+          o.label.toLowerCase().includes(f) ||
+          String(o.val).toLowerCase().includes(f)
+      )
+      .forEach((o) => {
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'combo-item' + (o.val === sel ? ' active' : '');
         item.textContent = o.label;
-        item.onclick = () => { sel = o.val; renderVal(); onChange(sel); close(); };
+        item.onclick = () => {
+          sel = o.val;
+          renderVal();
+          onChange(sel);
+          close();
+        };
         list.appendChild(item);
       });
-    if (!list.children.length) list.innerHTML = '<div class="combo-empty">No matches</div>';
+    if (!list.children.length)
+      list.innerHTML = '<div class="combo-empty">No matches</div>';
   };
 
   const open = () => {
-    pop.hidden = false; combo.classList.add('open');
-    search.value = ''; renderList(); setTimeout(() => search.focus(), 10);
+    pop.hidden = false;
+    combo.classList.add('open');
+    search.value = '';
+    renderList();
+    setTimeout(() => search.focus(), 10);
     // flip upward if there isn't room below (bottom rows would be off-screen)
     requestAnimationFrame(() => {
       const btnRect = btn.getBoundingClientRect();
@@ -314,12 +371,20 @@ function settingCombo(title, desc, options, current, onChange) {
     window.addEventListener('keydown', onEsc, true);
   };
   const close = () => {
-    pop.hidden = true; combo.classList.remove('open', 'drop-up');
+    pop.hidden = true;
+    combo.classList.remove('open', 'drop-up');
     document.removeEventListener('mousedown', onDoc, true);
     window.removeEventListener('keydown', onEsc, true);
   };
-  const onDoc = (e) => { if (!combo.contains(e.target)) close(); };
-  const onEsc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const onDoc = (e) => {
+    if (!combo.contains(e.target)) close();
+  };
+  const onEsc = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      close();
+    }
+  };
 
   btn.onclick = () => (pop.hidden ? open() : close());
   search.oninput = () => renderList(search.value);
@@ -327,7 +392,11 @@ function settingCombo(title, desc, options, current, onChange) {
   renderVal();
   return {
     el: row,
-    setOptions(newOpts, cur) { opts = newOpts.slice(); if (cur !== undefined) sel = cur; renderVal(); },
+    setOptions(newOpts, cur) {
+      opts = newOpts.slice();
+      if (cur !== undefined) sel = cur;
+      renderVal();
+    },
   };
 }
 
@@ -341,12 +410,14 @@ function settingRow(title, desc, options, current, onChange) {
     </div>
     <div class="seg" role="group"></div>`;
   const seg = row.querySelector('.seg');
-  options.forEach(opt => {
+  options.forEach((opt) => {
     const b = document.createElement('button');
     b.className = 'seg-btn' + (opt.val === current ? ' active' : '');
     b.textContent = opt.label;
     b.onclick = () => {
-      seg.querySelectorAll('.seg-btn').forEach(x => x.classList.remove('active'));
+      seg
+        .querySelectorAll('.seg-btn')
+        .forEach((x) => x.classList.remove('active'));
       b.classList.add('active');
       onChange(opt.val);
     };
@@ -372,13 +443,18 @@ class StatusPoller {
   }
 
   async _pollEngine() {
-    try { await api('/api/health'); this.engineUp = true; }
-    catch { this.engineUp = false; }
+    try {
+      await api('/api/health');
+      this.engineUp = true;
+    } catch {
+      this.engineUp = false;
+    }
   }
 
   async _pollCable() {
     if (!this.engineUp) {
-      led.className = 'led off'; linkText.textContent = 'engine offline';
+      led.className = 'led off';
+      linkText.textContent = 'engine offline';
       return null;
     }
     try {
@@ -392,7 +468,8 @@ class StatusPoller {
       }
       return port;
     } catch {
-      led.className = 'led idle'; linkText.textContent = 'no cable';
+      led.className = 'led idle';
+      linkText.textContent = 'no cable';
       return null;
     }
   }
@@ -400,11 +477,19 @@ class StatusPoller {
   async _pollState(port) {
     if (!this.engineUp || !port || flashing) {
       // during a flash, leave the last reading and skip the bus
-      if (!flashing) { batLed.className = 'kl-led off'; batVal.textContent = '-'; ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
+      if (!flashing) {
+        batLed.className = 'kl-led off';
+        batVal.textContent = '-';
+        ignLed.className = 'kl-led off';
+        ignVal.textContent = '-';
+      }
       return;
     }
     try {
-      const s = await api('/api/state' + (stateSgbd ? `?sgbd=${encodeURIComponent(stateSgbd)}` : ''));
+      const s = await api(
+        '/api/state' +
+          (stateSgbd ? `?sgbd=${encodeURIComponent(stateSgbd)}` : '')
+      );
       if (s.battery != null) {
         batLed.className = 'kl-led on';
         // on/off, like INPA's own start screen -- it shows a lamp and the word,
@@ -412,15 +497,27 @@ class StatusPoller {
         // we have for a sense-less adapter is UTILITY's nominal, so showing it
         // would read as a measurement it isn't.
         batVal.textContent = 'on';
-      } else { batLed.className = 'kl-led off'; batVal.textContent = 'off'; }
+      } else {
+        batLed.className = 'kl-led off';
+        batVal.textContent = 'off';
+      }
       const klEl = document.getElementById('kl-state');
       if (klEl && s.detail) klEl.title = s.detail;
-      if (s.ignition === true) { ignLed.className = 'kl-led on'; ignVal.textContent = 'on'; }
-      else if (s.ignition === false) { ignLed.className = 'kl-led off'; ignVal.textContent = 'off'; }
-      else { ignLed.className = 'kl-led off'; ignVal.textContent = '-'; }
+      if (s.ignition === true) {
+        ignLed.className = 'kl-led on';
+        ignVal.textContent = 'on';
+      } else if (s.ignition === false) {
+        ignLed.className = 'kl-led off';
+        ignVal.textContent = 'off';
+      } else {
+        ignLed.className = 'kl-led off';
+        ignVal.textContent = '-';
+      }
     } catch {
-      batLed.className = 'kl-led off'; batVal.textContent = '-';
-      ignLed.className = 'kl-led off'; ignVal.textContent = '-';
+      batLed.className = 'kl-led off';
+      batVal.textContent = '-';
+      ignLed.className = 'kl-led off';
+      ignVal.textContent = '-';
     }
   }
 
@@ -440,10 +537,14 @@ class StatusPoller {
   }
 
   start() {
-    if (this.timer == null) this.timer = setInterval(() => this.refresh(), 3000);
+    if (this.timer == null)
+      this.timer = setInterval(() => this.refresh(), 3000);
   }
   stop() {
-    if (this.timer != null) { clearInterval(this.timer); this.timer = null; }
+    if (this.timer != null) {
+      clearInterval(this.timer);
+      this.timer = null;
+    }
   }
 }
 
@@ -463,7 +564,10 @@ function splashStatus(msg) {
 // pause polling while the window is hidden
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) statusPoller.stop();
-  else { statusPoller.refresh(); statusPoller.start(); }
+  else {
+    statusPoller.refresh();
+    statusPoller.start();
+  }
 });
 
 // wait for the sidecar health endpoint (300ms poll, up to 30s) behind the boot splash
@@ -472,7 +576,7 @@ async function waitForEngine() {
     await statusPoller._pollEngine();
     if (statusPoller.engineUp) return true;
     if (i === 8) splashStatus('warming up the engine');
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 300));
   }
   return false;
 }
@@ -498,24 +602,29 @@ function armNavCollapse() {
   document.body.classList.remove('nav-collapsed');
   if (window._navCollapseObs) window._navCollapseObs.disconnect();
   if (!titleEl || !('IntersectionObserver' in window)) return;
-  window._navCollapseObs = new IntersectionObserver(([e]) => {
-    document.body.classList.toggle('nav-collapsed', !e.isIntersecting);
-  }, { rootMargin: '-6px 0px 0px 0px', threshold: 0 });
+  window._navCollapseObs = new IntersectionObserver(
+    ([e]) => {
+      document.body.classList.toggle('nav-collapsed', !e.isIntersecting);
+    },
+    { rootMargin: '-6px 0px 0px 0px', threshold: 0 }
+  );
   window._navCollapseObs.observe(titleEl);
 }
 
 // Mobile bottom bar: the KL/cable nodes are MOVED here (not duplicated) so the by-id updaters keep driving them. No-op on desktop.
 function setupMobileTabbar() {
-  const isMobile = window.matchMedia
-    && window.matchMedia('(max-width: 760px)').matches;
+  const isMobile =
+    window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
   const host = document.getElementById('mtab-status');
   if (!host) return;
   const cars = document.getElementById('mtab-cars');
   const gear = document.getElementById('mtab-settings');
-  if (cars) cars.onclick = () => (typeof showChassis === 'function'
-    ? showChassis() : null);
-  if (gear) gear.onclick = () => (typeof showSettings === 'function'
-    ? showSettings() : null);
+  if (cars)
+    cars.onclick = () =>
+      typeof showChassis === 'function' ? showChassis() : null;
+  if (gear)
+    gear.onclick = () =>
+      typeof showSettings === 'function' ? showSettings() : null;
   const kl = document.getElementById('kl-state');
   const cable = document.getElementById('link-status');
   if (isMobile) {
@@ -540,15 +649,17 @@ function setupMobileTabbar() {
   // re-arm the large-title collapse whenever a screen swaps its content
   const _view = document.getElementById('view');
   if (_view && 'MutationObserver' in window) {
-    new MutationObserver(() => armNavCollapse())
-      .observe(_view, { childList: true });
+    new MutationObserver(() => armNavCollapse()).observe(_view, {
+      childList: true,
+    });
   }
   // custom window controls: absent on web and on Win/Linux (their own titlebar), so
   // guard on the element too -- checking only window.bmacw threw on null and killed boot behind the splash
   const winClose = document.getElementById('win-close');
   if (window.bmacw && winClose) {
     winClose.onclick = () => window.bmacw.winClose();
-    document.getElementById('win-min').onclick = () => window.bmacw.winMinimize();
+    document.getElementById('win-min').onclick = () =>
+      window.bmacw.winMinimize();
     document.getElementById('win-zoom').onclick = () => window.bmacw.winZoom();
   }
 
@@ -565,8 +676,11 @@ function setupMobileTabbar() {
           // THOR: join its network first
           if (webBus.readState && window.bmacw && window.bmacw.wifiJoin) {
             linkText.textContent = 'joining Thor_Wifi…';
-            try { await window.bmacw.wifiJoin('Thor_Wifi'); }
-            catch { /* picker opened; connect below still gets its say */ }
+            try {
+              await window.bmacw.wifiJoin('Thor_Wifi');
+            } catch {
+              /* picker opened; connect below still gets its say */
+            }
           }
           linkText.textContent = 'connecting…';
           await webBus.connect();
@@ -576,7 +690,7 @@ function setupMobileTabbar() {
         linkText.textContent = e.message;
         return;
       }
-      statusPoller.lastStatePoll = 0;   // show battery/ignition now, not in 12 s
+      statusPoller.lastStatePoll = 0; // show battery/ignition now, not in 12 s
       await statusPoller.refresh();
     };
 
@@ -591,24 +705,40 @@ function setupMobileTabbar() {
     // USB cable down the connect() path -- which pops the picker and loses the
     // "cable survives the reload" behaviour every time. Gate on reconnect.
     const canSilentReconnect = typeof webBus.reconnect === 'function';
-    if (canSilentReconnect && !webBus.connected
-        && Settings.get('keepCable', 'on') !== 'off') {
+    if (
+      canSilentReconnect &&
+      !webBus.connected &&
+      Settings.get('keepCable', 'on') !== 'off'
+    ) {
       // KEEP THE CABLE THROUGH A RELOAD. Web Serial remembers a granted K+DCAN
       // port, so reconnect() reopens it with no picker.
       linkText.textContent = 'reconnecting…';
-      webBus.reconnect()
+      webBus
+        .reconnect()
         .then((label) => {
-          if (!label) { linkText.textContent = 'no cable'; return; }
+          if (!label) {
+            linkText.textContent = 'no cable';
+            return;
+          }
           statusPoller.lastStatePoll = 0;
           return statusPoller.refresh();
         })
-        .catch(() => { linkText.textContent = 'no cable'; });
+        .catch(() => {
+          linkText.textContent = 'no cable';
+        });
     } else if (!canSilentReconnect && webBus.readState && !webBus.connected) {
       // THOR: a socket, connect on load with no gesture.
       linkText.textContent = 'connecting…';
-      webBus.connect()
-        .then(() => { statusPoller.lastStatePoll = 0; return statusPoller.refresh(); })
-        .catch((e) => { led.className = 'led off'; linkText.textContent = e.message; });
+      webBus
+        .connect()
+        .then(() => {
+          statusPoller.lastStatePoll = 0;
+          return statusPoller.refresh();
+        })
+        .catch((e) => {
+          led.className = 'led off';
+          linkText.textContent = e.message;
+        });
     }
   }
 
@@ -628,9 +758,17 @@ function setupMobileTabbar() {
       if (ids.includes(startChassis)) {
         if (startEcu) {
           const [sgbd, code, label] = startEcu.split('|');
-          if (sgbd) { await showEcu(startChassis, dispChassis(startChassis), { sgbd, code, label }); return; }
+          if (sgbd) {
+            await showEcu(startChassis, dispChassis(startChassis), {
+              sgbd,
+              code,
+              label,
+            });
+            return;
+          }
         }
-        if (inpaMode()) showScriptSelection(startChassis); else showSections(startChassis);
+        if (inpaMode()) showScriptSelection(startChassis);
+        else showSections(startChassis);
         return;
       }
     }
@@ -644,14 +782,19 @@ function setupMobileTabbar() {
     // shows a one-time picker. A no-op on http(s) and in the native app.
     if (typeof initOfflineFs === 'function') {
       splashStatus('opening offline folder');
-      try { await initOfflineFs(); } catch { /* fall through; reads will error visibly */ }
+      try {
+        await initOfflineFs();
+      } catch {
+        /* fall through; reads will error visibly */
+      }
     }
     splashStatus('starting engine');
     if (!(await waitForEngine())) {
       splashStatus('engine did not start');
       dismissSplash();
       statusPoller.start(); // keeps the LED honest and notices a late engine
-      view.innerHTML = errorBlock('engine failed to start', 'red') +
+      view.innerHTML =
+        errorBlock('engine failed to start', 'red') +
         `<div style="text-align:center"><button class="btn primary" id="boot-retry">Retry</button></div>`;
       sbLeft.textContent = 'engine offline';
       const retry = () => {
@@ -676,12 +819,14 @@ function setupMobileTabbar() {
       // builds have no remote feature (the Settings row is hidden and a
       // session needs the signaling worker + a peer on the internet), so
       // never re-open a share there.
-      if (typeof resumeRemoteShare === 'function'
-          && !(typeof window !== 'undefined' && window.BMACW_OFFLINE)) {
+      if (
+        typeof resumeRemoteShare === 'function' &&
+        !(typeof window !== 'undefined' && window.BMACW_OFFLINE)
+      ) {
         resumeRemoteShare();
       }
     }, wait);
-    openStart().catch(e => {
+    openStart().catch((e) => {
       view.innerHTML = errorBlock(e.message, 'red');
       sbLeft.textContent = 'failed';
     });

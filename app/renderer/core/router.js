@@ -16,15 +16,20 @@
 //   #apps/tool32          Tool32 (showTool32)
 
 const APPS_ROUTES = {
-  'apps': () => (typeof showApps === 'function' ? showApps() : null),
-  'apps/diagnostics': () => (typeof showLookup === 'function' ? showLookup() : null),
-  'apps/wiring': () => (typeof showWiringChassis === 'function' ? showWiringChassis() : null),
-  'apps/wiring/vin': () => (typeof showWiringVinDecoder === 'function' ? showWiringVinDecoder() : null),
+  apps: () => (typeof showApps === 'function' ? showApps() : null),
+  'apps/diagnostics': () =>
+    typeof showLookup === 'function' ? showLookup() : null,
+  'apps/wiring': () =>
+    typeof showWiringChassis === 'function' ? showWiringChassis() : null,
+  'apps/wiring/vin': () =>
+    typeof showWiringVinDecoder === 'function' ? showWiringVinDecoder() : null,
   'apps/parts': () => (typeof showEtk === 'function' ? showEtk() : null),
-  'apps/parts/vin': () => (typeof showVinDecoder === 'function' ? showVinDecoder() : null),
+  'apps/parts/vin': () =>
+    typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
-  'apps/documents': () => (typeof showWiringChassis === 'function' ? showWiringChassis() : null),
+  'apps/documents': () =>
+    typeof showWiringChassis === 'function' ? showWiringChassis() : null,
 };
 
 // The reverse map: which route a given show*() belongs to, so navigating by
@@ -49,7 +54,9 @@ function resolveRoute(route) {
   // #car/<CHASSIS>[/<SGBD>[/<MENU>]] -- the vehicle side. The module is keyed
   // by SGBD (stable, unlike a display label) and the submenu by its IR menu
   // name, which is the same key renderIrMenu already navigates by.
-  const c = /^car\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/(.+))?)?$/.exec(route);
+  const c = /^car\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/(.+))?)?$/.exec(
+    route
+  );
   if (c) {
     const chassis = c[1].toUpperCase();
     const sgbd = c[2] ? decodeURIComponent(c[2]).toLowerCase() : null;
@@ -71,17 +78,22 @@ function resolveRoute(route) {
   const dq = /^apps\/documents\/([A-Za-z0-9]+)(?:\/([0-9]+))?$/.exec(route);
   if (dq && typeof showWiring === 'function') {
     const chassis = dq[1].toUpperCase();
-    const docId = dq[2] ? ('d:' + dq[2]) : null;
+    const docId = dq[2] ? 'd:' + dq[2] : null;
     return () => showWiring(chassis, docId, null, 'repair');
   }
   // #apps/parts/<CHASSIS>[/<HG>[/<BTNR>]]  (vin is an exact route, handled above)
-  const p = /^apps\/parts\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(route);
+  const p =
+    /^apps\/parts\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/([A-Za-z0-9_-]+))?)?$/.exec(
+      route
+    );
   if (p && p[1].toLowerCase() !== 'vin') {
     const chassis = p[1].toUpperCase();
     const hg = p[2] ? decodeURIComponent(p[2]) : null;
     const btnr = p[3] ? decodeURIComponent(p[3]) : null;
-    if (hg && typeof showEtkDeep === 'function') return () => showEtkDeep(chassis, hg, btnr);
-    if (typeof showEtkChassis === 'function') return () => showEtkChassis(chassis);
+    if (hg && typeof showEtkDeep === 'function')
+      return () => showEtkDeep(chassis, hg, btnr);
+    if (typeof showEtkChassis === 'function')
+      return () => showEtkChassis(chassis);
   }
   return null;
 }
@@ -111,7 +123,7 @@ function currentRoute() {
 // a history entry (so Back returns to the previous one); re-rendering the same
 // route replaces, so Back doesn't get stuck on duplicates.
 function routeSyncFromScreen(fn) {
-  if (_routing) return;                       // we are already navigating by URL
+  if (_routing) return; // we are already navigating by URL
   const name = fn && fn.name;
   const route = ROUTE_FOR_SCREEN[name];
   if (route === undefined) {
@@ -122,14 +134,24 @@ function routeSyncFromScreen(fn) {
     // showSections owns its own #car hash (routeSetCarList); don't clear it here
     if (name === 'showSections') return;
     const here = currentRoute();
-    if (EXIT_APPS_SCREEN.has(name) && (here.startsWith('apps') || here.startsWith('car'))) {
-      _routing = true; _openRoute = null;
-      try { history.replaceState(null, '', location.pathname + location.search); }
-      finally { _routing = false; }
+    if (
+      EXIT_APPS_SCREEN.has(name) &&
+      (here.startsWith('apps') || here.startsWith('car'))
+    ) {
+      _routing = true;
+      _openRoute = null;
+      try {
+        history.replaceState(null, '', location.pathname + location.search);
+      } finally {
+        _routing = false;
+      }
     }
     return;
   }
-  if (currentRoute() === route) { _openRoute = route; return; }  // already there
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  } // already there
   _routing = true;
   try {
     // Backing out of any app should land on the hub, not skip past it to the
@@ -141,9 +163,11 @@ function routeSyncFromScreen(fn) {
     if (route !== 'apps' && !from.startsWith('apps')) {
       location.hash = '#apps';
     }
-    location.hash = '#' + route;               // pushes a history entry
+    location.hash = '#' + route; // pushes a history entry
     _openRoute = route;
-  } finally { _routing = false; }
+  } finally {
+    _routing = false;
+  }
 }
 
 // Navigate to whatever the current hash names. Returns true if it handled an
@@ -167,24 +191,36 @@ function routeApplyHash() {
     }
     _openRoute = route;
     open();
-  } finally { _routing = false; }
+  } finally {
+    _routing = false;
+  }
   return true;
 }
 
 // Replay the current hash into the app (used by both hashchange and popstate,
 // since pushState-created entries fire popstate but not hashchange on Back).
 function _onLocationChange() {
-  if (_routing) return;                        // our own hash write; ignore
+  if (_routing) return; // our own hash write; ignore
   const route = currentRoute();
-  if (route === _openRoute) return;            // already on this screen; no-op
+  if (route === _openRoute) return; // already on this screen; no-op
   const open = resolveRoute(route);
   if (open) {
-    _routing = true; _openRoute = route;
-    try { open(); } finally { _routing = false; }
+    _routing = true;
+    _openRoute = route;
+    try {
+      open();
+    } finally {
+      _routing = false;
+    }
   } else if (route === '' && typeof showChassis === 'function') {
     // hash cleared (Back out of the Apps section) -> home
-    _routing = true; _openRoute = null;
-    try { showChassis(); } finally { _routing = false; }
+    _routing = true;
+    _openRoute = null;
+    try {
+      showChassis();
+    } finally {
+      _routing = false;
+    }
   }
 }
 
@@ -202,27 +238,41 @@ function installRouter() {
 function routeSetCar(chassis, sgbd, menu) {
   if (_routing) return;
   if (!chassis || !sgbd) return;
-  const parts = ['car', String(chassis).toUpperCase(), encodeURIComponent(sgbd)];
+  const parts = [
+    'car',
+    String(chassis).toUpperCase(),
+    encodeURIComponent(sgbd),
+  ];
   if (menu) parts.push(encodeURIComponent(menu));
   const route = parts.join('/');
-  if (currentRoute() === route) { _openRoute = route; return; }
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
   _routing = true;
   try {
     history.replaceState(null, '', '#' + route);
     _openRoute = route;
-  } finally { _routing = false; }
+  } finally {
+    _routing = false;
+  }
 }
 
 // The chassis module list (#car/<CHASSIS>), so picking a car is linkable too.
 function routeSetCarList(chassis) {
   if (_routing || !chassis) return;
   const route = `car/${String(chassis).toUpperCase()}`;
-  if (currentRoute() === route) { _openRoute = route; return; }
+  if (currentRoute() === route) {
+    _openRoute = route;
+    return;
+  }
   _routing = true;
   try {
     history.replaceState(null, '', '#' + route);
     _openRoute = route;
-  } finally { _routing = false; }
+  } finally {
+    _routing = false;
+  }
 }
 
 // Called by the wiring viewer when a specific document opens, so the URL
@@ -235,8 +285,12 @@ function routeSetWiringDoc(chassis, doc) {
   const route = `apps/wiring/${String(chassis).toUpperCase()}/${encodeURIComponent(doc)}`;
   if (currentRoute() === route) return;
   _routing = true;
-  try { history.replaceState(null, '', '#' + route); _openRoute = route; }
-  finally { _routing = false; }
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
 }
 
 // Same, for an open ETK diagram: #apps/parts/<CHASSIS>/<HG>/<BTNR>.
@@ -245,18 +299,27 @@ function routeSetDocsDoc(chassis, docId) {
   const route = `apps/documents/${String(chassis).toUpperCase()}/${encodeURIComponent(docId)}`;
   if (currentRoute() === route) return;
   _routing = true;
-  try { history.replaceState(null, '', '#' + route); _openRoute = route; }
-  finally { _routing = false; }
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
 }
 
 function routeSetEtkDiagram(chassis, hg, btnr) {
   if (_routing || !chassis || !hg || !btnr) return;
-  const route = `apps/parts/${String(chassis).toUpperCase()}/`
-    + `${encodeURIComponent(hg)}/${encodeURIComponent(btnr)}`;
+  const route =
+    `apps/parts/${String(chassis).toUpperCase()}/` +
+    `${encodeURIComponent(hg)}/${encodeURIComponent(btnr)}`;
   if (currentRoute() === route) return;
   _routing = true;
-  try { history.replaceState(null, '', '#' + route); _openRoute = route; }
-  finally { _routing = false; }
+  try {
+    history.replaceState(null, '', '#' + route);
+    _openRoute = route;
+  } finally {
+    _routing = false;
+  }
 }
 
 if (typeof window !== 'undefined') {

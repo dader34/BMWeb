@@ -16,16 +16,22 @@ const FAULT_INDEX_HF =
 function loadFaultIndex() {
   if (window.BMW_FAULT_INDEX) return Promise.resolve();
   if (window.__faultIndexLoading) return window.__faultIndexLoading;
-  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   const urls = [`${base}/data/faultindex.js`, FAULT_INDEX_HF];
   window.__faultIndexLoading = new Promise((resolve, reject) => {
     let i = 0;
     const tryNext = () => {
-      if (i >= urls.length) { reject(new Error('failed to load fault index')); return; }
+      if (i >= urls.length) {
+        reject(new Error('failed to load fault index'));
+        return;
+      }
       const s = document.createElement('script');
       s.src = urls[i++];
       s.onload = () => resolve();
-      s.onerror = () => { s.remove(); tryNext(); };   // local missing -> HF
+      s.onerror = () => {
+        s.remove();
+        tryNext();
+      }; // local missing -> HF
       document.head.appendChild(s);
     };
     tryNext();
@@ -43,17 +49,25 @@ let _istaTests = null;
 function loadIstaTests() {
   if (_istaTests) return Promise.resolve(_istaTests);
   if (window.__istaTestsLoading) return window.__istaTestsLoading;
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
   window.__istaTestsLoading = (async () => {
     // local copy first (if a build ever ships one), then Hugging Face
     for (const u of [`${base}/data/ista/faulttests.json`, ISTA_TESTS_URL]) {
       try {
         const r = await real(u);
-        if (r && r.ok) { _istaTests = await r.json(); return _istaTests; }
-      } catch (e) { /* try next */ }
+        if (r && r.ok) {
+          _istaTests = await r.json();
+          return _istaTests;
+        }
+      } catch (e) {
+        /* try next */
+      }
     }
-    _istaTests = {};                          // give up quietly; modal still works
+    _istaTests = {}; // give up quietly; modal still works
     return _istaTests;
   })();
   return window.__istaTestsLoading;
@@ -66,7 +80,11 @@ function loadIstaTests() {
 function istaTestFor(faultText) {
   if (!_istaTests || !faultText) return null;
   let t = String(faultText).trim();
-  const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const slugify = (s) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '');
   // Drop a leading MODULE: prefix first. Fault names from the variant metadata
   // are qualified by their ECU ("KOMBI: Outside-temperature sensor"), and the
   // component is what follows -- without this, the phrase before the first
@@ -88,8 +106,11 @@ function istaTestFor(faultText) {
   if (leadSlug.length >= 4) {
     let best = null;
     for (const slug in _istaTests) {
-      if (slug === leadSlug || slug.startsWith(leadSlug + '-')
-          || leadSlug.startsWith(slug + '-')) {
+      if (
+        slug === leadSlug ||
+        slug.startsWith(leadSlug + '-') ||
+        leadSlug.startsWith(slug + '-')
+      ) {
         if (!best || slug.length < best.length) best = slug;
       }
     }
@@ -111,27 +132,39 @@ function setDtcParam(hex, sgbd, name) {
     const u = new URL(location.href);
     if (hex) {
       u.searchParams.set('dtc', String(hex).toUpperCase());
-      if (sgbd) u.searchParams.set('sgbd', String(sgbd)); else u.searchParams.delete('sgbd');
+      if (sgbd) u.searchParams.set('sgbd', String(sgbd));
+      else u.searchParams.delete('sgbd');
       // Carry the row's own label too. It comes from the per-chassis fault
       // file ("Outside temperature"), not the ISTA variant metadata
       // ("IHKA: Automatic heater - A/C system: fault stored"), so it cannot be
       // recovered from dtc+sgbd alone -- without it a shared link opens the
       // right fault under a different name than the sender saw.
-      if (name) u.searchParams.set('n', String(name)); else u.searchParams.delete('n');
+      if (name) u.searchParams.set('n', String(name));
+      else u.searchParams.delete('n');
     } else {
       u.searchParams.delete('dtc');
       u.searchParams.delete('sgbd');
       u.searchParams.delete('n');
     }
     history.replaceState(history.state, '', u.href);
-  } catch (e) { /* URL API missing: shareable link is best-effort */ }
+  } catch (e) {
+    /* URL API missing: shareable link is best-effort */
+  }
 }
 function getDtcParam() {
   try {
     const p = new URLSearchParams(location.search);
     const dtc = p.get('dtc');
-    return dtc ? { hex: dtc.toUpperCase(), sgbd: p.get('sgbd') || '', name: p.get('n') || '' } : null;
-  } catch (e) { return null; }
+    return dtc
+      ? {
+          hex: dtc.toUpperCase(),
+          sgbd: p.get('sgbd') || '',
+          name: p.get('n') || '',
+        }
+      : null;
+  } catch (e) {
+    return null;
+  }
 }
 const LOOKUP_MAX = 400; // cap rendered rows; the count line reports the true total
 
@@ -166,20 +199,23 @@ function lookupDropdown(placeholder, options, current, onChange) {
   let opts = options.slice();
   let sel = current;
 
-  const optFor = (v) => opts.find(o => o.val === v);
+  const optFor = (v) => opts.find((o) => o.val === v);
   const renderVal = () => {
     const o = optFor(sel);
-    valEl.textContent = o ? o.label : (placeholder || '');
+    valEl.textContent = o ? o.label : placeholder || '';
     valEl.classList.toggle('lkd-placeholder', !o || o.val === '');
   };
 
   const renderList = (filter = '') => {
     const f = filter.trim().toLowerCase();
     list.innerHTML = '';
-    const shown = opts.filter(o => !f
-      || o.label.toLowerCase().includes(f)
-      || (o.meta && o.meta.toLowerCase().includes(f))
-      || String(o.val).toLowerCase().includes(f));
+    const shown = opts.filter(
+      (o) =>
+        !f ||
+        o.label.toLowerCase().includes(f) ||
+        (o.meta && o.meta.toLowerCase().includes(f)) ||
+        String(o.val).toLowerCase().includes(f)
+    );
     for (const o of shown) {
       const item = document.createElement('button');
       item.type = 'button';
@@ -188,15 +224,24 @@ function lookupDropdown(placeholder, options, current, onChange) {
         <span class="lkd-item-label">${esc(o.label)}</span>
         ${o.meta ? `<span class="lkd-item-meta">${esc(o.meta)}</span>` : ''}
         ${o.count != null ? `<span class="lkd-item-count">${esc(String(o.count))}</span>` : ''}`;
-      item.onclick = () => { sel = o.val; renderVal(); onChange(sel); close(); };
+      item.onclick = () => {
+        sel = o.val;
+        renderVal();
+        onChange(sel);
+        close();
+      };
       list.appendChild(item);
     }
-    if (!list.children.length) list.innerHTML = '<div class="lkd-empty">No matches</div>';
+    if (!list.children.length)
+      list.innerHTML = '<div class="lkd-empty">No matches</div>';
   };
 
   const open = () => {
-    pop.hidden = false; root.classList.add('open');
-    search.value = ''; renderList(); setTimeout(() => search.focus(), 10);
+    pop.hidden = false;
+    root.classList.add('open');
+    search.value = '';
+    renderList();
+    setTimeout(() => search.focus(), 10);
     requestAnimationFrame(() => {
       const r = btn.getBoundingClientRect();
       const need = pop.offsetHeight + 8;
@@ -209,7 +254,7 @@ function lookupDropdown(placeholder, options, current, onChange) {
       const bar = document.getElementById('fkeybar');
       const floor = bar ? bar.getBoundingClientRect().top : window.innerHeight;
       const MARGIN = 12;
-      const avail = up ? (r.top - MARGIN) : (floor - r.bottom - MARGIN);
+      const avail = up ? r.top - MARGIN : floor - r.bottom - MARGIN;
       const searchH = search.offsetHeight || 42;
       list.style.maxHeight = Math.max(120, avail - searchH) + 'px';
     });
@@ -217,12 +262,20 @@ function lookupDropdown(placeholder, options, current, onChange) {
     window.addEventListener('keydown', onEsc, true);
   };
   const close = () => {
-    pop.hidden = true; root.classList.remove('open', 'drop-up');
+    pop.hidden = true;
+    root.classList.remove('open', 'drop-up');
     document.removeEventListener('mousedown', onDoc, true);
     window.removeEventListener('keydown', onEsc, true);
   };
-  const onDoc = (e) => { if (!root.contains(e.target)) close(); };
-  const onEsc = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const onDoc = (e) => {
+    if (!root.contains(e.target)) close();
+  };
+  const onEsc = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      close();
+    }
+  };
 
   btn.onclick = () => (pop.hidden ? open() : close());
   search.oninput = () => renderList(search.value);
@@ -230,9 +283,18 @@ function lookupDropdown(placeholder, options, current, onChange) {
   renderVal();
   return {
     el: root,
-    setOptions(newOpts, cur) { opts = newOpts.slice(); if (cur !== undefined) sel = cur; renderVal(); },
-    value() { return sel; },
-    set(v) { sel = v; renderVal(); },
+    setOptions(newOpts, cur) {
+      opts = newOpts.slice();
+      if (cur !== undefined) sel = cur;
+      renderVal();
+    },
+    value() {
+      return sel;
+    },
+    set(v) {
+      sel = v;
+      renderVal();
+    },
     close,
   };
 }
@@ -240,28 +302,44 @@ function lookupDropdown(placeholder, options, current, onChange) {
 async function showLookup() {
   cancelSweep();
   lastScreen = showLookup;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps }, { label: 'Diagnostics' }]);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
+    { label: 'Diagnostics' },
+  ]);
   sbLeft.textContent = 'diagnostics';
 
-  view.innerHTML = head('Reference', 'Diagnostic Plans and Trouble Codes',
-    'Search fault codes across every chassis; open one for its ISTA service '
-    + 'data and diagnostic procedure. Works offline, no cable needed.');
+  view.innerHTML = head(
+    'Reference',
+    'Diagnostic Plans and Trouble Codes',
+    'Search fault codes across every chassis; open one for its ISTA service ' +
+      'data and diagnostic procedure. Works offline, no cable needed.'
+  );
 
   // loading state while the index literal is injected + parsed
   const loading = document.createElement('div');
   loading.className = 'empty';
-  loading.innerHTML = '<span class="loader"></span><span>Loading fault database…</span>';
+  loading.innerHTML =
+    '<span class="loader"></span><span>Loading fault database…</span>';
   view.appendChild(loading);
 
-  if (typeof loadPcodes === 'function') loadPcodes();     // warm P-code map
+  if (typeof loadPcodes === 'function') loadPcodes(); // warm P-code map
   // warm ISTA metadata (per-variant names, P-codes, 6-digit fleet codes for
   // matchIsta); re-render when it lands so a pending query updates
-  if (typeof loadFaultMeta === 'function') loadFaultMeta().then(() => {
-    if (typeof render === 'function' && (lookupState.q || lookupState.chassis || lookupState.module)) render();
-  });
-  try { await loadFaultIndex(); }
-  catch (e) { loading.innerHTML = errorBlock(e.message, 'red'); return; }
+  if (typeof loadFaultMeta === 'function')
+    loadFaultMeta().then(() => {
+      if (
+        typeof render === 'function' &&
+        (lookupState.q || lookupState.chassis || lookupState.module)
+      )
+        render();
+    });
+  try {
+    await loadFaultIndex();
+  } catch (e) {
+    loading.innerHTML = errorBlock(e.message, 'red');
+    return;
+  }
   loading.remove();
 
   const index = window.BMW_FAULT_INDEX || [];
@@ -271,19 +349,30 @@ async function showLookup() {
   // results/dropdowns show "BMS46 for M43" not the raw "bms46" slug.
   // best-effort: on failure (engine offline) the raw value is used.
   async function ensureLabels(chassisIds) {
-    await Promise.all(chassisIds.map(async (id) => {
-      if (lookupLabels[id]) return;
-      lookupLabels[id] = {}; // mark attempted so we don't refetch every render
-      try {
-        const ch = await api(`/api/chassis/${id}`);
-        const sgbdToModule = {};
-        index.filter(e => e.chassis === id).forEach(e => { if (e.sgbd) sgbdToModule[e.sgbd.toLowerCase()] = e.module; });
-        (ch.sections || []).forEach(s => s.ecus.forEach(ecu => {
-          const mod = sgbdToModule[(ecu.sgbd || '').toLowerCase()];
-          if (mod && ecu.label && !lookupLabels[id][mod]) lookupLabels[id][mod] = ecu.label;
-        }));
-      } catch { /* engine offline: keep raw module values */ }
-    }));
+    await Promise.all(
+      chassisIds.map(async (id) => {
+        if (lookupLabels[id]) return;
+        lookupLabels[id] = {}; // mark attempted so we don't refetch every render
+        try {
+          const ch = await api(`/api/chassis/${id}`);
+          const sgbdToModule = {};
+          index
+            .filter((e) => e.chassis === id)
+            .forEach((e) => {
+              if (e.sgbd) sgbdToModule[e.sgbd.toLowerCase()] = e.module;
+            });
+          (ch.sections || []).forEach((s) =>
+            s.ecus.forEach((ecu) => {
+              const mod = sgbdToModule[(ecu.sgbd || '').toLowerCase()];
+              if (mod && ecu.label && !lookupLabels[id][mod])
+                lookupLabels[id][mod] = ecu.label;
+            })
+          );
+        } catch {
+          /* engine offline: keep raw module values */
+        }
+      })
+    );
   }
 
   // controls: search box + chassis filter + module filter
@@ -321,52 +410,76 @@ async function showLookup() {
   view.appendChild(results);
 
   // chassis dropdown
-  const chassisIds = [...new Set(index.map(e => e.chassis))].sort();
+  const chassisIds = [...new Set(index.map((e) => e.chassis))].sort();
   const chassisCounts = {};
-  index.forEach(e => { chassisCounts[e.chassis] = (chassisCounts[e.chassis] || 0) + e.faults.length; });
+  index.forEach((e) => {
+    chassisCounts[e.chassis] =
+      (chassisCounts[e.chassis] || 0) + e.faults.length;
+  });
   const grandTotal = index.reduce((n, e) => n + e.faults.length, 0);
-  const chassisOpts = [{ val: '', label: 'All chassis', count: grandTotal }].concat(
-    chassisIds.map(id => ({
-      val: id, label: id,
+  const chassisOpts = [
+    { val: '', label: 'All chassis', count: grandTotal },
+  ].concat(
+    chassisIds.map((id) => ({
+      val: id,
+      label: id,
       meta: (typeof CHASSIS_TAG !== 'undefined' && CHASSIS_TAG[id]) || '',
       count: chassisCounts[id],
-    })));
+    }))
+  );
 
-  const chassisDd = lookupDropdown('All chassis', chassisOpts, lookupState.chassis, (v) => {
-    lookupState.chassis = v;
-    lookupState.module = ''; // module list depends on chassis; reset
-    rebuildModuleControl();
-    render();
-  });
+  const chassisDd = lookupDropdown(
+    'All chassis',
+    chassisOpts,
+    lookupState.chassis,
+    (v) => {
+      lookupState.chassis = v;
+      lookupState.module = ''; // module list depends on chassis; reset
+      rebuildModuleControl();
+      render();
+    }
+  );
   controls.querySelector('#slot-chassis').appendChild(chassisDd.el);
 
   // module control: dropdown (modern) or INPA two-pane popup. options for the
   // current chassis scope; label uses the config name, value the raw module.
   function moduleOptsForScope() {
-    const pool = lookupState.chassis ? index.filter(e => e.chassis === lookupState.chassis) : index;
-    const byName = new Map();       // module value -> fault count
-    const chassisOf = new Map();    // module value -> Set of chassis
+    const pool = lookupState.chassis
+      ? index.filter((e) => e.chassis === lookupState.chassis)
+      : index;
+    const byName = new Map(); // module value -> fault count
+    const chassisOf = new Map(); // module value -> Set of chassis
     for (const e of pool) {
       // a module spans several variant entries sharing most faults, so show the
       // largest variant's count, not the sum
-      byName.set(e.module, Math.max(byName.get(e.module) || 0, e.faults.length));
+      byName.set(
+        e.module,
+        Math.max(byName.get(e.module) || 0, e.faults.length)
+      );
       if (!chassisOf.has(e.module)) chassisOf.set(e.module, new Set());
       chassisOf.get(e.module).add(e.chassis);
     }
     const oneChassis = (m) => [...chassisOf.get(m)][0];
-    const label = (m) => lookupModuleLabel(lookupState.chassis || oneChassis(m), m);
+    const label = (m) =>
+      lookupModuleLabel(lookupState.chassis || oneChassis(m), m);
     return [{ val: '', label: 'All modules' }].concat(
-      [...byName.keys()].sort((a, b) => label(a).localeCompare(label(b)))
-        .map(n => ({
-          val: n, label: label(n), count: byName.get(n),
+      [...byName.keys()]
+        .sort((a, b) => label(a).localeCompare(label(b)))
+        .map((n) => ({
+          val: n,
+          label: label(n),
+          count: byName.get(n),
           // "All chassis": the same module name can appear on several chassis;
           // tag it so duplicates are distinguishable
-          meta: lookupState.chassis ? '' : [...chassisOf.get(n)].sort().join(' · '),
-        })));
+          meta: lookupState.chassis
+            ? ''
+            : [...chassisOf.get(n)].sort().join(' · '),
+        }))
+    );
   }
 
-  let moduleDd = null;        // modern: the dropdown
-  let moduleBtn = null;       // inpa: the button that opens the two-pane popup
+  let moduleDd = null; // modern: the dropdown
+  let moduleBtn = null; // inpa: the button that opens the two-pane popup
   const moduleSlot = controls.querySelector('#slot-module');
 
   function rebuildModuleControl() {
@@ -377,14 +490,22 @@ async function showLookup() {
       moduleBtn = document.createElement('button');
       moduleBtn.type = 'button';
       moduleBtn.className = 'lkd-btn lkd-inpa-btn';
-      const cur = lookupState.module ? lookupModuleLabel(lookupState.chassis, lookupState.module) : 'All modules';
+      const cur = lookupState.module
+        ? lookupModuleLabel(lookupState.chassis, lookupState.module)
+        : 'All modules';
       moduleBtn.innerHTML = `<span class="lkd-val${lookupState.module ? '' : ' lkd-placeholder'}">${esc(cur)}</span><span class="lkd-caret">▾</span>`;
       moduleBtn.onclick = () => openInpaModulePicker();
       moduleSlot.appendChild(moduleBtn);
     } else {
-      moduleDd = lookupDropdown('All modules', moduleOptsForScope(), lookupState.module, (v) => {
-        lookupState.module = v; render();
-      });
+      moduleDd = lookupDropdown(
+        'All modules',
+        moduleOptsForScope(),
+        lookupState.module,
+        (v) => {
+          lookupState.module = v;
+          render();
+        }
+      );
       moduleSlot.appendChild(moduleDd.el);
     }
   }
@@ -400,55 +521,75 @@ async function showLookup() {
     }
     const chId = lookupState.chassis;
     let ch;
-    try { ch = await api(`/api/chassis/${chId}`); }
-    catch { ch = null; }
+    try {
+      ch = await api(`/api/chassis/${chId}`);
+    } catch {
+      ch = null;
+    }
 
     // index entries for this chassis keyed by sgbd, to attach the config's
     // prettified label to each module while still filtering by module value
-    const chEntries = index.filter(e => e.chassis === chId);
+    const chEntries = index.filter((e) => e.chassis === chId);
     const sgbdToModule = {};
-    chEntries.forEach(e => { if (e.sgbd) sgbdToModule[e.sgbd.toLowerCase()] = e.module; });
+    chEntries.forEach((e) => {
+      if (e.sgbd) sgbdToModule[e.sgbd.toLowerCase()] = e.module;
+    });
     const labelForModule = {};
 
     // build sections from the live config's grouping + labels; each entry is
     // { label (display), module (index value, for filtering) }
     let sections;
     if (ch && ch.sections) {
-      sections = ch.sections.map(s => {
-        const seen = new Set();
-        const modules = [];
-        for (const ecu of s.ecus) {
-          const mod = sgbdToModule[(ecu.sgbd || '').toLowerCase()];
-          if (!mod || seen.has(mod)) continue;
-          seen.add(mod);
-          const label = ecu.label || mod;
-          labelForModule[mod] = label;
-          modules.push({ label, module: mod });
-        }
-        return { name: s.name, modules };
-      }).filter(s => s.modules.length);
+      sections = ch.sections
+        .map((s) => {
+          const seen = new Set();
+          const modules = [];
+          for (const ecu of s.ecus) {
+            const mod = sgbdToModule[(ecu.sgbd || '').toLowerCase()];
+            if (!mod || seen.has(mod)) continue;
+            seen.add(mod);
+            const label = ecu.label || mod;
+            labelForModule[mod] = label;
+            modules.push({ label, module: mod });
+          }
+          return { name: s.name, modules };
+        })
+        .filter((s) => s.modules.length);
     } else {
-      sections = [{
-        name: 'Modules',
-        modules: [...new Set(chEntries.map(e => e.module))].sort()
-          .map(m => ({ label: m, module: m })),
-      }];
+      sections = [
+        {
+          name: 'Modules',
+          modules: [...new Set(chEntries.map((e) => e.module))]
+            .sort()
+            .map((m) => ({ label: m, module: m })),
+        },
+      ];
     }
     // indexed modules not matched into a config section go under "Other"
-    const placed = new Set(sections.flatMap(s => s.modules.map(m => m.module)));
-    const orphan = [...new Set(chEntries.map(e => e.module))]
-      .filter(m => !placed.has(m)).sort()
-      .map(m => ({ label: m, module: m }));
+    const placed = new Set(
+      sections.flatMap((s) => s.modules.map((m) => m.module))
+    );
+    const orphan = [...new Set(chEntries.map((e) => e.module))]
+      .filter((m) => !placed.has(m))
+      .sort()
+      .map((m) => ({ label: m, module: m }));
     if (orphan.length) sections.push({ name: 'Other', modules: orphan });
 
     // expose the config labels so render() shows pretty names too
     lookupLabels[chId] = labelForModule;
 
     const modalOpts = {
-      onKey: (e, c) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); c(); } },
+      onKey: (e, c) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          c();
+        }
+      },
       backdropValue: null,
     };
-    const { overlay, close } = openModal(`
+    const { overlay, close } = openModal(
+      `
       <div class="inpa-scriptsel lookup-modsel" role="dialog" aria-modal="true">
         <div class="inpa-ss-bar">Module — ${esc(chId)}&nbsp;&nbsp;&nbsp;<span class="inpa-ss-hint">(&lt;ESC&gt; to close)</span></div>
         <div class="inpa-ss-panes">
@@ -460,7 +601,9 @@ async function showLookup() {
             <div class="inpa-ss-jobs" id="lms-jobs"></div>
           </div>
         </div>
-      </div>`, modalOpts);
+      </div>`,
+      modalOpts
+    );
 
     const jobsPane = overlay.querySelector('#lms-jobs');
     const items = overlay.querySelectorAll('.inpa-ss-item');
@@ -471,19 +614,29 @@ async function showLookup() {
       render();
     };
     const showAll = () => {
-      items.forEach(it => it.classList.toggle('active', it.dataset.i === '-1'));
+      items.forEach((it) =>
+        it.classList.toggle('active', it.dataset.i === '-1')
+      );
       jobsPane.innerHTML = `<button class="inpa-ss-job lms-all">All modules${lookupState.chassis ? ` in ${esc(chId)}` : ''}</button>`;
       jobsPane.querySelector('.lms-all').onclick = () => pick('');
     };
     const showSection = (i) => {
-      items.forEach(it => it.classList.toggle('active', it.dataset.i === String(i)));
+      items.forEach((it) =>
+        it.classList.toggle('active', it.dataset.i === String(i))
+      );
       const sec = sections[i];
-      jobsPane.innerHTML = sec.modules.map(m =>
-        `<button class="inpa-ss-job${m.module === lookupState.module ? ' active' : ''}" data-m="${esc(m.module)}">${esc(m.label)}</button>`).join('')
-        || '<div class="inpa-ss-empty">No modules</div>';
-      jobsPane.querySelectorAll('.inpa-ss-job').forEach(b => b.onclick = () => pick(b.dataset.m));
+      jobsPane.innerHTML =
+        sec.modules
+          .map(
+            (m) =>
+              `<button class="inpa-ss-job${m.module === lookupState.module ? ' active' : ''}" data-m="${esc(m.module)}">${esc(m.label)}</button>`
+          )
+          .join('') || '<div class="inpa-ss-empty">No modules</div>';
+      jobsPane
+        .querySelectorAll('.inpa-ss-job')
+        .forEach((b) => (b.onclick = () => pick(b.dataset.m)));
     };
-    items.forEach(it => {
+    items.forEach((it) => {
       const i = Number(it.dataset.i);
       it.onclick = () => (i === -1 ? showAll() : showSection(i));
     });
@@ -503,29 +656,39 @@ async function showLookup() {
   // "LWS-ID wrong"), so a full 4-hex term records its HIGH BYTE ("0b") for the
   // fallback -- used ONLY when the exact code isn't found, else it floods.
   function parseTerms(q) {
-    return q.trim().toLowerCase().split(/\s+/).filter(Boolean).map(t => {
-      // a P-code term resolves to its BMW hex ("p2563" -> also match "27c3")
-      const alt = /^p[0-9a-u][0-9a-f]{3}$/i.test(t) && typeof hexForPcode === 'function'
-        ? (hexForPcode(t) || '').toLowerCase() || null : null;
-      const m = (alt || t).match(/^(?:0x)?([0-9a-f]{4})$/i); // a full 4-hex code
-      return { text: t, alt, hi: m ? m[1].slice(0, 2).toLowerCase() : null };
-    });
+    return q
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => {
+        // a P-code term resolves to its BMW hex ("p2563" -> also match "27c3")
+        const alt =
+          /^p[0-9a-u][0-9a-f]{3}$/i.test(t) && typeof hexForPcode === 'function'
+            ? (hexForPcode(t) || '').toLowerCase() || null
+            : null;
+        const m = (alt || t).match(/^(?:0x)?([0-9a-f]{4})$/i); // a full 4-hex code
+        return { text: t, alt, hi: m ? m[1].slice(0, 2).toLowerCase() : null };
+      });
   }
 
   // useHiByte: the high-byte fallback, kept off unless the exact code wasn't
   // found anywhere, so a full-DTC search stays precise and only widens when it
   // would otherwise return nothing.
   function matches(entry, terms, useHiByte) {
-    if (lookupState.chassis && entry.chassis !== lookupState.chassis) return null;
+    if (lookupState.chassis && entry.chassis !== lookupState.chassis)
+      return null;
     if (lookupState.module && entry.module !== lookupState.module) return null;
     if (!terms.length) return entry.faults;
     return entry.faults.filter(([k, en, code]) => {
       const hay = (k + ' ' + en + ' ' + (code || '')).toLowerCase();
       const loc = codeLocByte(code);
-      return terms.every(t =>
-        hay.includes(t.text) ||
-        (t.alt && hay.includes(t.alt)) ||            // P-code term -> BMW hex
-        (useHiByte && t.hi && loc && loc === t.hi)); // fallback: DTC -> location
+      return terms.every(
+        (t) =>
+          hay.includes(t.text) ||
+          (t.alt && hay.includes(t.alt)) || // P-code term -> BMW hex
+          (useHiByte && t.hi && loc && loc === t.hi)
+      ); // fallback: DTC -> location
     });
   }
 
@@ -538,14 +701,16 @@ async function showLookup() {
     let n = 0;
     for (const hex in meta) {
       if (n >= ISTA_META_MAX) break;
-      if (hex.length !== 6) continue;       // 6-digit F/G-series codes only
+      if (hex.length !== 6) continue; // 6-digit F/G-series codes only
       if (seenCodes.has(hex)) continue;
       const e = meta[hex];
       const pcodes = (e.pcodes || []).join(' ').toLowerCase();
       const hl = hex.toLowerCase();
-      for (const v of (e.variants || [])) {
+      for (const v of e.variants || []) {
         const hay = hl + ' ' + (v.name || '').toLowerCase() + ' ' + pcodes;
-        const ok = terms.every(t => hay.includes(t.text) || (t.alt && hl.includes(t.alt)));
+        const ok = terms.every(
+          (t) => hay.includes(t.text) || (t.alt && hl.includes(t.alt))
+        );
         if (!ok) continue;
         if (!bySgbd.has(v.sgbd)) bySgbd.set(v.sgbd, []);
         bySgbd.get(v.sgbd).push([hex, v.name, hex]);
@@ -554,18 +719,26 @@ async function showLookup() {
       }
     }
     return [...bySgbd.entries()].map(([sgbd, rows]) => ({
-      chassis: 'ISTA', module: sgbd, sgbd, scheme: 'code', rows,
+      chassis: 'ISTA',
+      module: sgbd,
+      sgbd,
+      scheme: 'code',
+      rows,
     }));
   }
 
   // is the exact code present anywhere? if so, skip the high-byte fallback.
   function hasExactCodeHit(terms) {
-    const hexTerms = terms.filter(t => t.hi);
+    const hexTerms = terms.filter((t) => t.hi);
     if (!hexTerms.length) return true; // no code terms -> nothing to fall back for
-    return index.some(e => e.faults.some(([k, en, code]) => {
-      const hay = (k + ' ' + en + ' ' + (code || '')).toLowerCase();
-      return terms.every(t => hay.includes(t.text) || (t.alt && hay.includes(t.alt)));
-    }));
+    return index.some((e) =>
+      e.faults.some(([k, en, code]) => {
+        const hay = (k + ' ' + en + ' ' + (code || '')).toLowerCase();
+        return terms.every(
+          (t) => hay.includes(t.text) || (t.alt && hay.includes(t.alt))
+        );
+      })
+    );
   }
 
   function render() {
@@ -575,7 +748,8 @@ async function showLookup() {
     // no query and no filter -> prompt rather than dump the whole database
     if (!terms.length && !lookupState.chassis && !lookupState.module) {
       results.innerHTML = '';
-      countLine.textContent = 'Search a fault code or description, or select a chassis / module to get started.';
+      countLine.textContent =
+        'Search a fault code or description, or select a chassis / module to get started.';
       sbRight.textContent = '';
       return;
     }
@@ -592,32 +766,49 @@ async function showLookup() {
       const rows = matches(entry, terms, useHiByte);
       if (!rows || !rows.length) continue;
       total += rows.length;
-      rows.forEach(r => { if (r[2]) seenCodes.add(String(r[2]).toUpperCase()); });
-      groups.push({ chassis: entry.chassis, module: entry.module, sgbd: entry.sgbd, scheme: entry.scheme, rows });
+      rows.forEach((r) => {
+        if (r[2]) seenCodes.add(String(r[2]).toUpperCase());
+      });
+      groups.push({
+        chassis: entry.chassis,
+        module: entry.module,
+        sgbd: entry.sgbd,
+        scheme: entry.scheme,
+        rows,
+      });
     }
 
     // ISTA fleet fallback, ONLY for 6-digit F/G-series codes the curated
     // E-series index doesn't carry. Skipped under a chassis/module filter (meta
     // has no chassis attribution).
-    const meta = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
-    const wants6 = terms.some(t => /^[0-9a-f]{6}$/i.test(t.text));
+    const meta =
+      (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
+    const wants6 = terms.some((t) => /^[0-9a-f]{6}$/i.test(t.text));
     if (meta && wants6 && !lookupState.chassis && !lookupState.module) {
       const istaGroups = matchIsta(meta, terms, seenCodes);
-      for (const g of istaGroups) { total += g.rows.length; groups.push(g); }
+      for (const g of istaGroups) {
+        total += g.rows.length;
+        groups.push(g);
+      }
     }
 
     if (!total) {
-      countLine.textContent = terms.length ? `No faults match “${lookupState.q}”.` : 'No faults in scope.';
+      countLine.textContent = terms.length
+        ? `No faults match “${lookupState.q}”.`
+        : 'No faults in scope.';
     } else {
       const scope = lookupState.chassis || 'all chassis';
       const capped = total > LOOKUP_MAX;
       // note when results came from the high-byte fallback, so extra rows make sense
-      const byLoc = useHiByte && terms.some(t => t.hi);
-      countLine.textContent = `${total.toLocaleString()} fault${total === 1 ? '' : 's'} across ${groups.length} module${groups.length === 1 ? '' : 's'} · ${scope}`
-        + (byLoc ? ' · matched by location byte' : '')
-        + (capped ? ` · showing first ${LOOKUP_MAX}` : '');
+      const byLoc = useHiByte && terms.some((t) => t.hi);
+      countLine.textContent =
+        `${total.toLocaleString()} fault${total === 1 ? '' : 's'} across ${groups.length} module${groups.length === 1 ? '' : 's'} · ${scope}` +
+        (byLoc ? ' · matched by location byte' : '') +
+        (capped ? ` · showing first ${LOOKUP_MAX}` : '');
     }
-    sbRight.textContent = total ? `${total.toLocaleString()} match${total === 1 ? '' : 'es'}` : '0 matches';
+    sbRight.textContent = total
+      ? `${total.toLocaleString()} match${total === 1 ? '' : 'es'}`
+      : '0 matches';
 
     results.innerHTML = '';
     if (!total) return;
@@ -642,20 +833,27 @@ async function showLookup() {
         row.className = 'lookup-row';
         // code column: hex/P-code (code===key for code-scheme, ORT for text).
         // where the BMW hex has a known SAE P-code, stack P-code over hex.
-        const pc = code && typeof pcodeForHex === 'function' ? pcodeForHex(code) : null;
+        const pc =
+          code && typeof pcodeForHex === 'function' ? pcodeForHex(code) : null;
         const codeCell = code
-          ? (pc
+          ? pc
             ? `<span class="lookup-code lookup-code-stack"><span class="lookup-pcode">${esc(pc)}</span><span class="lookup-hex">${esc(code)}</span></span>`
-            : `<span class="lookup-code">${esc(code)}</span>`)
+            : `<span class="lookup-code">${esc(code)}</span>`
           : `<span class="lookup-code lookup-code-none">—</span>`;
-        const keyCell = g.scheme === 'text'
-          ? `<span class="lookup-key lookup-key-text">${esc(k)}</span>`
-          : '';
+        const keyCell =
+          g.scheme === 'text'
+            ? `<span class="lookup-key lookup-key-text">${esc(k)}</span>`
+            : '';
         // when ISTA has richer data for this hex, make the row expandable
-        const hasDetail = code && typeof variantsForHex === 'function'
-          && variantsForHex(code).length > 0;
-        row.innerHTML = `${codeCell}${keyCell}<span class="lookup-en">${esc(en)}</span>`
-          + (hasDetail ? '<span class="lookup-more" aria-hidden="true">›</span>' : '');
+        const hasDetail =
+          code &&
+          typeof variantsForHex === 'function' &&
+          variantsForHex(code).length > 0;
+        row.innerHTML =
+          `${codeCell}${keyCell}<span class="lookup-en">${esc(en)}</span>` +
+          (hasDetail
+            ? '<span class="lookup-more" aria-hidden="true">›</span>'
+            : '');
         if (hasDetail) {
           row.classList.add('lookup-expandable');
           row.onclick = () => openFaultModal(code, en, g.sgbd);
@@ -672,19 +870,28 @@ async function showLookup() {
   // fault detail modal (ISTA variants + service document). The big info file is
   // loaded on demand on first open.
   const _infoFields = [
-    ['description', 'Description'], ['setCondition', 'Set condition'],
-    ['monitoring', 'Monitoring'], ['timeCondition', 'Time condition'],
-    ['terminal', 'Terminal'], ['impact', 'Fault impact'],
-    ['warningLamp', 'Warning lamp'], ['ccMessage', 'CC message'],
-    ['serviceMeasure', 'Service measure'], ['serviceNote', 'Service note'],
-    ['breakdownNote', 'Breakdown note'], ['driverInfo', 'Driver info'],
+    ['description', 'Description'],
+    ['setCondition', 'Set condition'],
+    ['monitoring', 'Monitoring'],
+    ['timeCondition', 'Time condition'],
+    ['terminal', 'Terminal'],
+    ['impact', 'Fault impact'],
+    ['warningLamp', 'Warning lamp'],
+    ['ccMessage', 'CC message'],
+    ['serviceMeasure', 'Service measure'],
+    ['serviceNote', 'Service note'],
+    ['breakdownNote', 'Breakdown note'],
+    ['driverInfo', 'Driver info'],
   ];
   function infoTable(info) {
     if (!info) return '';
     const rows = _infoFields
       .filter(([k]) => info[k] && String(info[k]).trim())
-      .map(([k, label]) => `<div class="fi-k">${esc(label)}</div>`
-        + `<div class="fi-v">${esc(info[k]).replace(/\n/g, '<br>')}</div>`)
+      .map(
+        ([k, label]) =>
+          `<div class="fi-k">${esc(label)}</div>` +
+          `<div class="fi-v">${esc(info[k]).replace(/\n/g, '<br>')}</div>`
+      )
       .join('');
     return rows ? `<div class="fi-grid">${rows}</div>` : '';
   }
@@ -692,23 +899,28 @@ async function showLookup() {
   // ISTA guided-diagnostic document for the component this fault names: how the
   // system works and how to test it. Rendered as a collapsible section below
   // the service fields so it never crowds the fault description.
-  const _isLegendKey = (s) => /^([0-9]{1,2}|[A-Z]{1,4}\s?[0-9]{0,2})$/.test(String(s).trim());
+  const _isLegendKey = (s) =>
+    /^([0-9]{1,2}|[A-Z]{1,4}\s?[0-9]{0,2})$/.test(String(s).trim());
 
   // A block is prose, a bullet, or a table. ISTA "legend" tables pack several
   // key→label pairs per row (1|Pedal|2|Sensor); flatten those to a key/label
   // list. A genuine data table (label|value rows) renders as a small grid.
   function _tpBlock(b) {
     if (b.t === 'p') return `<p class="fm-tp-p">${esc(b.s)}</p>`;
-    if (b.t === 'bullet') return `<p class="fm-tp-p fm-tp-bullet">${esc(b.s)}</p>`;
+    if (b.t === 'bullet')
+      return `<p class="fm-tp-p fm-tp-bullet">${esc(b.s)}</p>`;
     if (b.t !== 'table' || !b.rows || !b.rows.length) return '';
     const cols = Math.max(...b.rows.map((r) => r.length));
     // a legend table: even columns are keys, odd are their labels, repeating
-    const looksLegend = cols >= 2 && cols % 2 === 0 && b.rows.every((r) => {
-      for (let i = 0; i < r.length; i += 2) {
-        if (r[i] && !_isLegendKey(r[i])) return false;
-      }
-      return true;
-    });
+    const looksLegend =
+      cols >= 2 &&
+      cols % 2 === 0 &&
+      b.rows.every((r) => {
+        for (let i = 0; i < r.length; i += 2) {
+          if (r[i] && !_isLegendKey(r[i])) return false;
+        }
+        return true;
+      });
     if (looksLegend) {
       const pairs = [];
       for (const r of b.rows) {
@@ -716,37 +928,54 @@ async function showLookup() {
           if (r[i] || r[i + 1]) pairs.push([r[i], r[i + 1]]);
         }
       }
-      return pairs.map(([k, v]) => `<div class="fm-tp-leg">`
-        + `<span class="fm-tp-leg-k">${esc(k)}</span>`
-        + `<span>${esc(v)}</span></div>`).join('');
+      return pairs
+        .map(
+          ([k, v]) =>
+            `<div class="fm-tp-leg">` +
+            `<span class="fm-tp-leg-k">${esc(k)}</span>` +
+            `<span>${esc(v)}</span></div>`
+        )
+        .join('');
     }
     // otherwise a plain grid, sized to the widest row
-    const rows = b.rows.map((r, ri) => {
-      const cells = [];
-      for (let i = 0; i < cols; i++) {
-        cells.push(`<span class="fm-tp-td${ri === 0 ? ' fm-tp-th' : ''}">`
-          + `${esc(r[i] || '')}</span>`);
-      }
-      return `<div class="fm-tp-tr">${cells.join('')}</div>`;
-    }).join('');
+    const rows = b.rows
+      .map((r, ri) => {
+        const cells = [];
+        for (let i = 0; i < cols; i++) {
+          cells.push(
+            `<span class="fm-tp-td${ri === 0 ? ' fm-tp-th' : ''}">` +
+              `${esc(r[i] || '')}</span>`
+          );
+        }
+        return `<div class="fm-tp-tr">${cells.join('')}</div>`;
+      })
+      .join('');
     return `<div class="fm-tp-table" style="--cols:${cols}">${rows}</div>`;
   }
 
   function testPlanSection(doc) {
     if (!doc || !doc.chapters || !doc.chapters.length) return '';
-    const chapters = doc.chapters.map((ch) => {
-      const head = ch.heading
-        ? `<div class="fm-tp-h">${esc(ch.heading)}</div>` : '';
-      // support both the block shape and the older flat paras (defensive)
-      const items = ch.blocks
-        || (ch.paras || []).map((p) => (p.startsWith('• ')
-          ? { t: 'bullet', s: p.slice(2) } : { t: 'p', s: p }));
-      const body = items.map(_tpBlock).join('');
-      return `<div class="fm-tp-chap">${head}${body}</div>`;
-    }).join('');
+    const chapters = doc.chapters
+      .map((ch) => {
+        const head = ch.heading
+          ? `<div class="fm-tp-h">${esc(ch.heading)}</div>`
+          : '';
+        // support both the block shape and the older flat paras (defensive)
+        const items =
+          ch.blocks ||
+          (ch.paras || []).map((p) =>
+            p.startsWith('• ')
+              ? { t: 'bullet', s: p.slice(2) }
+              : { t: 'p', s: p }
+          );
+        const body = items.map(_tpBlock).join('');
+        return `<div class="fm-tp-chap">${head}${body}</div>`;
+      })
+      .join('');
     return `<details class="fm-tp" open>
         <summary class="fm-tp-sum">Diagnostic procedure${
-          doc.title ? ` · ${esc(doc.title)}` : ''}</summary>
+          doc.title ? ` · ${esc(doc.title)}` : ''
+        }</summary>
         <div class="fm-tp-body">${chapters}</div>
       </details>`;
   }
@@ -757,7 +986,8 @@ async function showLookup() {
     const hex = String(code).toUpperCase();
     const meta = (window.BMW_FAULT_META && window.BMW_FAULT_META[hex]) || {};
     const pcodes = meta.pcodes || [];
-    const variants = (typeof variantsForHex === 'function' ? variantsForHex(code) : []) || [];
+    const variants =
+      (typeof variantsForHex === 'function' ? variantsForHex(code) : []) || [];
     const wantName = (clickedName || '').trim().toLowerCase();
     const wantSgbd = (sgbd || '').toLowerCase();
     // pick the variant record for the clicked module, in order: exact sgbd,
@@ -765,22 +995,26 @@ async function showLookup() {
     // ONE -- never a fan-out.
     const famKey = wantSgbd.replace(/[^a-z0-9]/g, '');
     const picked =
-      variants.find(v => (v.sgbd || '').toLowerCase() === wantSgbd) ||
-      variants.find(v => { const s = (v.sgbd || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                           return famKey && (s.startsWith(famKey) || famKey.startsWith(s)); }) ||
-      variants.find(v => (v.name || '').trim().toLowerCase() === wantName) ||
-      variants[0] || null;
+      variants.find((v) => (v.sgbd || '').toLowerCase() === wantSgbd) ||
+      variants.find((v) => {
+        const s = (v.sgbd || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return famKey && (s.startsWith(famKey) || famKey.startsWith(s));
+      }) ||
+      variants.find((v) => (v.name || '').trim().toLowerCase() === wantName) ||
+      variants[0] ||
+      null;
     // the row's own text wins the title (it's what the user clicked)
     const title = clickedName || picked?.name || '';
 
     const pcodeBar = pcodes.length
-      ? `<div class="fm-pcodes">${pcodes.map(p => `<span class="fm-pcode">${esc(p)}</span>`).join('')}</div>`
+      ? `<div class="fm-pcodes">${pcodes.map((p) => `<span class="fm-pcode">${esc(p)}</span>`).join('')}</div>`
       : '';
     // reflect the open fault in the URL (?dtc=HEX) so it's shareable; strip it
     // when the modal closes. Uses replaceState so it doesn't stack history
     // entries as you browse faults.
     setDtcParam(hex, sgbd, title);
-    const { overlay, close } = openModal(`
+    const { overlay, close } = openModal(
+      `
       <div class="modal fault-modal" role="dialog" aria-modal="true">
         <div class="fm-head">
           <div class="fm-code">${esc(hex)}</div>
@@ -790,17 +1024,22 @@ async function showLookup() {
         </div>
         ${pcodeBar}
         <div class="fm-body" id="fm-body"><div class="fm-loading">Loading service data…</div></div>
-      </div>`, { backdropValue: null, onClose: () => setDtcParam(null) });
+      </div>`,
+      { backdropValue: null, onClose: () => setDtcParam(null) }
+    );
     overlay.querySelector('.fm-close').onclick = () => close();
 
     if (typeof loadFaultInfo === 'function') await loadFaultInfo();
     if (!document.body.contains(overlay)) return; // closed while loading
 
-    const info = (picked && picked.info != null && typeof faultInfoFor === 'function')
-      ? faultInfoFor(code, picked.info) : null;
+    const info =
+      picked && picked.info != null && typeof faultInfoFor === 'function'
+        ? faultInfoFor(code, picked.info)
+        : null;
     const body = overlay.querySelector('#fm-body');
-    body.innerHTML = infoTable(info)
-      || '<div class="fm-noinfo">No service document for this fault.</div>';
+    body.innerHTML =
+      infoTable(info) ||
+      '<div class="fm-noinfo">No service document for this fault.</div>';
 
     // Print builds a clean sheet from the data (hex, name, P-codes, service
     // fields, ISTA plan) -- not the modal DOM -- so it's theme-agnostic. The
@@ -816,9 +1055,12 @@ async function showLookup() {
     tpSlot.className = 'fm-tp-slot';
     body.appendChild(tpSlot);
     loadIstaTests().then(() => {
-      if (!document.body.contains(overlay)) return;   // closed while loading
+      if (!document.body.contains(overlay)) return; // closed while loading
       const doc = istaTestFor(title);
-      if (doc) { istaDoc = doc; tpSlot.innerHTML = testPlanSection(doc); }
+      if (doc) {
+        istaDoc = doc;
+        tpSlot.innerHTML = testPlanSection(doc);
+      }
     });
   }
 
@@ -832,20 +1074,32 @@ async function showLookup() {
       const rows = _infoFields
         .filter(([k]) => info[k] && String(info[k]).trim())
         .map(([k, label]) => [label, String(info[k])]);
-      if (rows.length) sections.push(printTable(['Field', 'Detail'], rows, ['pr-mono', '']));
+      if (rows.length)
+        sections.push(printTable(['Field', 'Detail'], rows, ['pr-mono', '']));
     }
     // ISTA diagnostic procedure -> heading + typed blocks per chapter
     if (doc && doc.chapters && doc.chapters.length) {
-      sections.push(printHeading('Diagnostic procedure'
-        + (doc.title ? ` · ${doc.title}` : '')));
+      sections.push(
+        printHeading(
+          'Diagnostic procedure' + (doc.title ? ` · ${doc.title}` : '')
+        )
+      );
       for (const ch of doc.chapters) {
         if (ch.heading) sections.push(printHeading(ch.heading));
-        const blocks = ch.blocks || (ch.paras || []).map((p) =>
-          p.startsWith('• ') ? { t: 'bullet', s: p.slice(2) } : { t: 'p', s: p });
+        const blocks =
+          ch.blocks ||
+          (ch.paras || []).map((p) =>
+            p.startsWith('• ')
+              ? { t: 'bullet', s: p.slice(2) }
+              : { t: 'p', s: p }
+          );
         sections.push(printBlocks(blocks));
       }
     }
-    if (!sections.length) sections.push(printHtml('<p class="pr-p">No service document for this fault.</p>'));
+    if (!sections.length)
+      sections.push(
+        printHtml('<p class="pr-p">No service document for this fault.</p>')
+      );
     printDoc({
       title: `${hex} · ${title}`,
       subtitle: pcodes && pcodes.length ? `P-codes: ${pcodes.join(', ')}` : '',
@@ -861,27 +1115,45 @@ async function showLookup() {
     clearTimeout(debounce);
     debounce = setTimeout(render, 120);
   };
-  clearBtn.onclick = () => { input.value = ''; lookupState.q = ''; render(); input.focus(); };
+  clearBtn.onclick = () => {
+    input.value = '';
+    lookupState.q = '';
+    render();
+    input.focus();
+  };
 
   render();
   setTimeout(() => input.focus(), 30);
 
   // fetch config labels in the background; re-render (and rebuild the module list)
   // once they arrive so results/dropdowns swap slugs for prettified ECU names.
-  ensureLabels([...new Set(index.map(e => e.chassis))]).then(() => {
+  ensureLabels([...new Set(index.map((e) => e.chassis))]).then(() => {
     rebuildModuleControl();
     render();
   });
 
   setActions([
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: () => showApps() },
-    { key: '1', label: 'Clear filters', fn: () => {
-        lookupState.q = ''; lookupState.chassis = ''; lookupState.module = '';
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: () => showApps(),
+    },
+    {
+      key: '1',
+      label: 'Clear filters',
+      fn: () => {
+        lookupState.q = '';
+        lookupState.chassis = '';
+        lookupState.module = '';
         input.value = '';
         chassisDd.set('');
         rebuildModuleControl();
-        render(); input.focus();
-      } },
+        render();
+        input.focus();
+      },
+    },
   ]);
 
   // shared link (?dtc=HEX): open that fault's detail. Guard on a modal not
@@ -891,7 +1163,7 @@ async function showLookup() {
   if (dtc && !document.querySelector('.fault-modal')) {
     (async () => {
       if (typeof loadFaultMeta === 'function') await loadFaultMeta();
-      if (!getDtcParam()) return;               // closed/navigated before load
+      if (!getDtcParam()) return; // closed/navigated before load
       // Resolve the NAME from the shared link's sgbd, not variants[0]. A hex
       // like 0XCE carries 18 variants across unrelated modules, so [0] is a
       // different fault on a different ECU than the one that was shared
@@ -899,19 +1171,28 @@ async function showLookup() {
       // sensor). clickedName wins the modal title, so passing [0]'s name
       // mislabels the fault even when the right sgbd is handed over. Match
       // the sgbd the same way openFaultModal does: exact, then family prefix.
-      const vs = (typeof variantsForHex === 'function' ? variantsForHex(dtc.hex) : []) || [];
+      const vs =
+        (typeof variantsForHex === 'function' ? variantsForHex(dtc.hex) : []) ||
+        [];
       const want = (dtc.sgbd || '').toLowerCase();
       const fam = want.replace(/[^a-z0-9]/g, '');
-      const v = (want && (
-          vs.find(x => (x.sgbd || '').toLowerCase() === want) ||
-          vs.find(x => { const t = (x.sgbd || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                         return fam && t && (t.startsWith(fam) || fam.startsWith(t)); })
-        )) || vs[0];
+      const v =
+        (want &&
+          (vs.find((x) => (x.sgbd || '').toLowerCase() === want) ||
+            vs.find((x) => {
+              const t = (x.sgbd || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              return fam && t && (t.startsWith(fam) || fam.startsWith(t));
+            }))) ||
+        vs[0];
       // ?n wins the title when present: it is the label the sender actually
       // saw on the row. The sgbd is passed through even when nothing matched,
       // so the modal reports the module that was shared rather than silently
       // substituting another one.
-      openFaultModal(dtc.hex, dtc.name || (v ? v.name : ''), dtc.sgbd || (v ? v.sgbd : ''));
+      openFaultModal(
+        dtc.hex,
+        dtc.name || (v ? v.name : ''),
+        dtc.sgbd || (v ? v.sgbd : '')
+      );
     })();
   }
 }

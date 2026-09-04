@@ -70,11 +70,37 @@ const FAULT_REPORT_CSS = `
 // on a module with no detailed read.
 function faultColumns() {
   return [
-    { key: 'code',  label: 'Code',        width: '112px', cls: 'c-code',  prCls: 'pr-code2' },
-    { key: 'name',  label: 'Description', width: '',      cls: 'c-name',  prCls: '' },
-    { key: 'type',  label: 'Type',        width: '84px',  cls: 'c-type',  prCls: '', detailOnly: true },
-    { key: 'count', label: 'Count',       width: '52px',  cls: 'c-count', prCls: 'pr-num', detailOnly: true },
-    { key: 'state', label: 'State',       width: '68px',  cls: 'c-state', prCls: 'pr-num' },
+    {
+      key: 'code',
+      label: 'Code',
+      width: '112px',
+      cls: 'c-code',
+      prCls: 'pr-code2',
+    },
+    { key: 'name', label: 'Description', width: '', cls: 'c-name', prCls: '' },
+    {
+      key: 'type',
+      label: 'Type',
+      width: '84px',
+      cls: 'c-type',
+      prCls: '',
+      detailOnly: true,
+    },
+    {
+      key: 'count',
+      label: 'Count',
+      width: '52px',
+      cls: 'c-count',
+      prCls: 'pr-num',
+      detailOnly: true,
+    },
+    {
+      key: 'state',
+      label: 'State',
+      width: '68px',
+      cls: 'c-state',
+      prCls: 'pr-num',
+    },
   ];
 }
 
@@ -83,31 +109,38 @@ function faultColumns() {
 // when this module's read carries them, so DS2 modules without the fields
 // keep the compact three-column table.
 function faultModuleBlock(label, sgbd, codes) {
-  const fields = codes.map(c => faultFields(c, sgbd));
-  const hasDetail = fields.some(f => f.ftype || f.count);
+  const fields = codes.map((c) => faultFields(c, sgbd));
+  const hasDetail = fields.some((f) => f.ftype || f.count);
   const columns = faultColumns();
   const cols = columns.length;
-  const colgroup = `<colgroup>${columns.map(c =>
-    `<col${c.width ? ` style="width:${c.width}"` : ''}>`).join('')}</colgroup>`;
-  const thead = `<thead><tr>${columns.map(c =>
-    `<th class="${c.cls}">${esc(c.label)}</th>`).join('')}</tr></thead>`;
+  const colgroup = `<colgroup>${columns
+    .map((c) => `<col${c.width ? ` style="width:${c.width}"` : ''}>`)
+    .join('')}</colgroup>`;
+  const thead = `<thead><tr>${columns
+    .map((c) => `<th class="${c.cls}">${esc(c.label)}</th>`)
+    .join('')}</tr></thead>`;
   // freeze-frame values ride in a full-width row under their own fault, so the
   // snapshot stays attached to the code it belongs to. break-inside:avoid on
   // both the fault row and this env row (in CSS) keeps the pair together.
   const envRow = (c) => {
     const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
     if (!pairs.length) return '';
-    const items = pairs.map(([k, v]) =>
-      `<span class="e-item"><span class="e-k">${esc(k)}</span>`
-      + `<span class="e-v">${esc(v)}</span></span>`).join('');
+    const items = pairs
+      .map(
+        ([k, v]) =>
+          `<span class="e-item"><span class="e-k">${esc(k)}</span>` +
+          `<span class="e-v">${esc(v)}</span></span>`
+      )
+      .join('');
     return `<tr class="envrow"><td colspan="${cols}"><div class="env">${items}</div></td></tr>`;
   };
   // Each fault emits its cells from the shared column list, so a cell is never
   // written for a header this table isn't showing (and vice versa).
   const cellFor = (f, key) => {
-    if (key === 'code') return f.pcode
-      ? `<div class="c-p">${esc(f.pcode)}</div><div class="c-hex">${esc(f.code)}</div>`
-      : `<div class="c-p">${esc(f.code)}</div>`;
+    if (key === 'code')
+      return f.pcode
+        ? `<div class="c-p">${esc(f.pcode)}</div><div class="c-hex">${esc(f.code)}</div>`
+        : `<div class="c-p">${esc(f.code)}</div>`;
     if (key === 'name') return esc(f.name);
     // Type/Count stay blank on a module with no detailed read, so the column is
     // reserved (STATE keeps its x-position) without inventing a value.
@@ -116,10 +149,17 @@ function faultModuleBlock(label, sgbd, codes) {
     if (key === 'state') return f.present ? 'PRESENT' : 'stored';
     return '';
   };
-  const rows = fields.map((f, i) =>
-    `<tr class="faultrow ${f.present ? 'present' : ''}">`
-    + columns.map(c => `<td class="${c.cls}">${cellFor(f, c.key)}</td>`).join('')
-    + `</tr>` + envRow(codes[i])).join('');
+  const rows = fields
+    .map(
+      (f, i) =>
+        `<tr class="faultrow ${f.present ? 'present' : ''}">` +
+        columns
+          .map((c) => `<td class="${c.cls}">${cellFor(f, c.key)}</td>`)
+          .join('') +
+        `</tr>` +
+        envRow(codes[i])
+    )
+    .join('');
   return `<section class="mod">
     <h2>${esc(label)} <span class="sgbd">${esc(sgbd)}</span>
       <span class="modcount">${codes.length} fault${codes.length === 1 ? '' : 's'}</span></h2>
@@ -130,7 +170,9 @@ function faultModuleBlock(label, sgbd, codes) {
 
 // assemble the full report document. metaPairs: [[label, value], ...]
 function faultReportHtml(sub, metaPairs, bodyHtml) {
-  const meta = metaPairs.map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`).join('');
+  const meta = metaPairs
+    .map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`)
+    .join('');
   return `<!doctype html><html><head><meta charset="utf-8"><style>${FAULT_REPORT_CSS}</style></head><body>
     <header>
       <div class="brand">${APP_NAME} Fault Report</div>
@@ -151,8 +193,12 @@ async function printFaultReport(chassisId, faulty, stats) {
   const totalFaults = faulty.reduce((n, f) => n + f.codes.length, 0);
   const sections = [];
   if (!faulty.length) {
-    sections.push(printHtml(`<p class="pr-p">No stored faults. `
-      + `${stats.scanned} module${stats.scanned === 1 ? '' : 's'} read, ${stats.skipped} skipped.</p>`));
+    sections.push(
+      printHtml(
+        `<p class="pr-p">No stored faults. ` +
+          `${stats.scanned} module${stats.scanned === 1 ? '' : 's'} read, ${stats.skipped} skipped.</p>`
+      )
+    );
   } else {
     // Every module renders the same fixed 5-column grid from the ONE shared
     // faultColumns() definition below -- Code / Description / Type / Count /
@@ -162,11 +208,13 @@ async function printFaultReport(chassisId, faulty, stats) {
     // longer wanders block to block. A module with no detailed read leaves its
     // Type/Count cells blank rather than dropping the columns.
     const columns = faultColumns();
-    const colgroup = `<colgroup>${columns.map((c) =>
-      `<col${c.width ? ` style="width:${c.width}"` : ''}>`).join('')}</colgroup>`;
+    const colgroup = `<colgroup>${columns
+      .map((c) => `<col${c.width ? ` style="width:${c.width}"` : ''}>`)
+      .join('')}</colgroup>`;
     const cls = (c) => (c.prCls ? ` class="${c.prCls}"` : '');
-    const thead = `<thead><tr>${columns.map((c) =>
-      `<th${cls(c)}>${esc(c.label)}</th>`).join('')}</tr></thead>`;
+    const thead = `<thead><tr>${columns
+      .map((c) => `<th${cls(c)}>${esc(c.label)}</th>`)
+      .join('')}</tr></thead>`;
     for (const f of faulty) {
       const fields = f.codes.map((c) => faultFields(c, f.ecu.sgbd));
       const hasDetail = fields.some((x) => x.ftype || x.count);
@@ -177,30 +225,45 @@ async function printFaultReport(chassisId, faulty, stats) {
       const cellFor = (x, key) => {
         if (key === 'code') return x.pcode ? `${x.pcode}  (${x.code})` : x.code;
         if (key === 'name') return x.name;
-        if (key === 'type') return hasDetail ? (x.ftype || '—') : '';
-        if (key === 'count') return hasDetail ? (x.count || '—') : '';
+        if (key === 'type') return hasDetail ? x.ftype || '—' : '';
+        if (key === 'count') return hasDetail ? x.count || '—' : '';
         if (key === 'state') return x.present ? 'PRESENT' : 'stored';
         return '';
       };
-      const body = fields.map((x, i) => {
-        // pr-faultrow + break-inside:avoid keeps a fault row and its env row on
-        // the same page (rule added to core/print.js pr-table CSS).
-        let row = `<tr class="pr-faultrow">${columns.map((c) =>
-          `<td${cls(c)}>${esc(cellFor(x, c.key))}</td>`).join('')}</tr>`;
-        const pairs = typeof envPairs === 'function' ? envPairs(f.codes[i]) : [];
-        if (pairs.length) {
-          const items = pairs.map(([k, v]) =>
-            `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>`
-            + `<span class="pr-env-v">${esc(v)}</span></div>`).join('');
-          row += `<tr class="pr-envtr"><td colspan="${columns.length}">`
-            + `<div class="pr-env"><div class="pr-env-head">environment at code entry</div>`
-            + `${items}</div></td></tr>`;
-        }
-        return row;
-      }).join('');
-      sections.push(printHeading(`${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  `
-        + `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`));
-      sections.push({ html: `<table class="pr-table pr-fault-table">${colgroup}${thead}<tbody>${body}</tbody></table>` });
+      const body = fields
+        .map((x, i) => {
+          // pr-faultrow + break-inside:avoid keeps a fault row and its env row on
+          // the same page (rule added to core/print.js pr-table CSS).
+          let row = `<tr class="pr-faultrow">${columns
+            .map((c) => `<td${cls(c)}>${esc(cellFor(x, c.key))}</td>`)
+            .join('')}</tr>`;
+          const pairs =
+            typeof envPairs === 'function' ? envPairs(f.codes[i]) : [];
+          if (pairs.length) {
+            const items = pairs
+              .map(
+                ([k, v]) =>
+                  `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>` +
+                  `<span class="pr-env-v">${esc(v)}</span></div>`
+              )
+              .join('');
+            row +=
+              `<tr class="pr-envtr"><td colspan="${columns.length}">` +
+              `<div class="pr-env"><div class="pr-env-head">environment at code entry</div>` +
+              `${items}</div></td></tr>`;
+          }
+          return row;
+        })
+        .join('');
+      sections.push(
+        printHeading(
+          `${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  ` +
+            `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`
+        )
+      );
+      sections.push({
+        html: `<table class="pr-table pr-fault-table">${colgroup}${thead}<tbody>${body}</tbody></table>`,
+      });
     }
   }
   printDoc({
@@ -226,23 +289,36 @@ async function exportFaultPdf(chassisId, faulty, stats) {
   const now = new Date();
   const totalFaults = faulty.reduce((n, f) => n + f.codes.length, 0);
   const body = faulty.length
-    ? faulty.map(f => faultModuleBlock(f.ecu.label, f.ecu.sgbd, f.codes)).join('')
+    ? faulty
+        .map((f) => faultModuleBlock(f.ecu.label, f.ecu.sgbd, f.codes))
+        .join('')
     : `<div class="clean-note">No stored faults. ${stats.scanned} module${stats.scanned === 1 ? '' : 's'} read, ${stats.skipped} skipped.</div>`;
   const html = faultReportHtml(
     `${dispChassis(chassisId)} · fault memory across all modules`,
-    [['Generated', now.toLocaleString()], ['Modules with faults', faulty.length],
-     ['Total faults', totalFaults], ['Read', `${stats.scanned} · skipped ${stats.skipped}`]],
-    body);
+    [
+      ['Generated', now.toLocaleString()],
+      ['Modules with faults', faulty.length],
+      ['Total faults', totalFaults],
+      ['Read', `${stats.scanned} · skipped ${stats.skipped}`],
+    ],
+    body
+  );
 
   const name = `${APP_NAME}-faults-${dispChassis(chassisId)}-${now.toISOString().slice(0, 10)}.pdf`;
   const btn = document.getElementById('quick-pdf');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  }
   try {
     const res = await window.bmacw.savePdf(name, html);
     if (btn) btn.textContent = res && res.ok ? 'Saved' : 'Export PDF';
     if (btn) btn.disabled = false;
   } catch {
-    if (btn) { btn.textContent = 'Export PDF'; btn.disabled = false; }
+    if (btn) {
+      btn.textContent = 'Export PDF';
+      btn.disabled = false;
+    }
   }
 }
 
@@ -255,8 +331,12 @@ async function exportFaultPdf(chassisId, faulty, stats) {
 function printIdentReport(chassisId, found, stats) {
   const sections = [];
   if (!found.length) {
-    sections.push(printHtml('<p class="pr-p">No modules answered. '
-      + 'Check the cable and the ignition, then run the scan again.</p>'));
+    sections.push(
+      printHtml(
+        '<p class="pr-p">No modules answered. ' +
+          'Check the cable and the ignition, then run the scan again.</p>'
+      )
+    );
   } else {
     // section order is the order the sweep walked them, which is chassis-config
     // order -- INPA's own menu order
@@ -267,11 +347,16 @@ function printIdentReport(chassisId, found, stats) {
       bySection.get(k).push(f);
     }
     for (const [name, list] of bySection) {
-      sections.push(printHeading(`${name}  ·  ${list.length} module${list.length === 1 ? '' : 's'}`));
+      sections.push(
+        printHeading(
+          `${name}  ·  ${list.length} module${list.length === 1 ? '' : 's'}`
+        )
+      );
       const t = printTable(
         ['Module', 'SGBD', 'Variant', 'Build'],
-        list.map(f => [f.label, f.sgbd, f.variant || '—', f.build || '—']),
-        ['', 'pr-code2', 'pr-code2', '']);
+        list.map((f) => [f.label, f.sgbd, f.variant || '—', f.build || '—']),
+        ['', 'pr-code2', 'pr-code2', '']
+      );
       t.avoidBreak = false;
       sections.push(t);
     }
@@ -293,5 +378,10 @@ function printIdentReport(chassisId, found, stats) {
 // render paths agree on the column grid. The browser never hits this branch
 // (no module), so it doesn't affect the shipped script.
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { faultColumns, faultModuleBlock, printFaultReport, faultReportHtml };
+  module.exports = {
+    faultColumns,
+    faultModuleBlock,
+    printFaultReport,
+    faultReportHtml,
+  };
 }

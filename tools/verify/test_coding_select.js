@@ -17,12 +17,17 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', '..');
 let passed = 0;
-const ok = (what) => { passed++; if (process.env.V) console.log('  ok', what); };
+const ok = (what) => {
+  passed++;
+  if (process.env.V) console.log('  ok', what);
+};
 
 global.window = global;
 const SGET = path.join(ROOT, 'app', 'renderer', 'data', 'sget.js');
-assert.ok(fs.existsSync(SGET),
-  'data/sget.js missing -- run tools/decompile/ncs_sget.py --write');
+assert.ok(
+  fs.existsSync(SGET),
+  'data/sget.js missing -- run tools/decompile/ncs_sget.py --write'
+);
 // eslint-disable-next-line no-eval
 eval(fs.readFileSync(SGET, 'utf8'));
 assert.ok(window.BMW_SGET, 'sget.js did not set BMW_SGET');
@@ -34,7 +39,7 @@ const S = require('../../app/renderer/core/coding-select.js');
 
 {
   // An absent predicate applies to every car -- the enumerator's own reading.
-  assert.strictEqual(S.rowApplies({ }, []), true);
+  assert.strictEqual(S.rowApplies({}, []), true);
   assert.strictEqual(S.rowApplies({ exprHex: '' }, ['205']), true);
   ok('row: no predicate applies to every car');
 }
@@ -67,7 +72,11 @@ const S = require('../../app/renderer/core/coding-select.js');
   // but keeping the wrong file would decode against the wrong map.
   const r = S.resolveSlot('E46', 'KMB', ['18', '199']);
   assert.ok(r);
-  assert.strictEqual(r.sgname, 'KMBE46M3', 'an M3 must take the M3 coding file');
+  assert.strictEqual(
+    r.sgname,
+    'KMBE46M3',
+    'an M3 must take the M3 coding file'
+  );
   assert.notStrictEqual(r.file, 'KMB_E46.C02');
   ok('select: an M3 takes the M3 coding file, not the base one');
 }
@@ -91,8 +100,10 @@ const S = require('../../app/renderer/core/coding-select.js');
   assert.ok(r, 'S121 must still resolve');
   assert.strictEqual(r.ambiguous, true, 'S121 is a known ambiguous car');
   assert.ok(r.matched > 1, 'more than one row applied');
-  assert.ok(r.alternatives.includes('kombi46r'),
-    `expected kombi46r among alternatives, got ${r.alternatives}`);
+  assert.ok(
+    r.alternatives.includes('kombi46r'),
+    `expected kombi46r among alternatives, got ${r.alternatives}`
+  );
   // first match wins, deterministically
   assert.strictEqual(r.sgbd, 'c_kmb46');
   ok('select: an ambiguous car resolves by row order AND reports it');
@@ -115,8 +126,10 @@ const S = require('../../app/renderer/core/coding-select.js');
     const r = S.resolveSlot('E46', 'KMB', codes);
     if (r && r.matched > 1 && !r.ambiguous) sameSgbdMulti++;
   }
-  assert.ok(sameSgbdMulti > 0,
-    'expected at least one car matching several rows on ONE module');
+  assert.ok(
+    sameSgbdMulti > 0,
+    'expected at least one car matching several rows on ONE module'
+  );
   ok('select: several rows on one module is not reported as ambiguity');
 }
 
@@ -138,10 +151,16 @@ const S = require('../../app/renderer/core/coding-select.js');
   // needs the group's identification job, which this module deliberately
   // does not use. Guarded so a later change cannot quietly claim otherwise.
   for (const sg of ['bc_v', 'uhr_bc', 'msd80', 'msv80', 'amph70']) {
-    assert.strictEqual(S.slotsForSgbd('E36', sg).length, 0,
-      `${sg} unexpectedly appeared in E36 SGET`);
-    assert.strictEqual(S.slotsForSgbd('E90', sg).length, 0,
-      `${sg} unexpectedly appeared in E90 SGET`);
+    assert.strictEqual(
+      S.slotsForSgbd('E36', sg).length,
+      0,
+      `${sg} unexpectedly appeared in E36 SGET`
+    );
+    assert.strictEqual(
+      S.slotsForSgbd('E90', sg).length,
+      0,
+      `${sg} unexpectedly appeared in E90 SGET`
+    );
   }
   ok('select: modules absent from SGET resolve to null (the documented gap)');
 }
@@ -149,8 +168,10 @@ const S = require('../../app/renderer/core/coding-select.js');
 // ---- 5. re-pointing a module list ------------------------------------------
 
 {
-  const mods = [{ sgbd: 'c_kmb46', label: 'Instrument cluster' },
-                { sgbd: 'lsz', label: 'Light switch' }];
+  const mods = [
+    { sgbd: 'c_kmb46', label: 'Instrument cluster' },
+    { sgbd: 'lsz', label: 'Light switch' },
+  ];
   // No codes: nothing is known about the car, so nothing is re-pointed.
   assert.deepStrictEqual(S.applySelection('E46', mods, []), mods);
   assert.deepStrictEqual(S.applySelection('E46', mods, null), mods);
@@ -166,9 +187,17 @@ const S = require('../../app/renderer/core/coding-select.js');
   const mods = [{ sgbd: 'lsz', label: 'Light switch' }];
   const out = S.applySelection('E46', mods, ['26', '195']);
   assert.strictEqual(out.length, 1);
-  assert.strictEqual(out[0].sgbd, 'lsz', 'the diagnostic name must not be rewritten');
+  assert.strictEqual(
+    out[0].sgbd,
+    'lsz',
+    'the diagnostic name must not be rewritten'
+  );
   assert.ok(out[0].select, 'the selection must be attached');
-  assert.strictEqual(out[0].select.sgbd, 'c_lsza', 'coding name goes in select');
+  assert.strictEqual(
+    out[0].select.sgbd,
+    'c_lsza',
+    'coding name goes in select'
+  );
   assert.strictEqual(out[0].select.file, 'LSZ.C31');
   ok('apply: keeps the diagnostic sgbd, attaches the coding variant');
 }
@@ -184,11 +213,18 @@ const S = require('../../app/renderer/core/coding-select.js');
 {
   // Selection must never add or drop modules -- it annotates a list, and a
   // list that changes length would silently hide or duplicate a module.
-  const mods = [{ sgbd: 'lsz' }, { sgbd: 'ews' }, { sgbd: 'zke5' },
-                { sgbd: 'unknown_thing' }];
+  const mods = [
+    { sgbd: 'lsz' },
+    { sgbd: 'ews' },
+    { sgbd: 'zke5' },
+    { sgbd: 'unknown_thing' },
+  ];
   const out = S.applySelection('E46', mods, ['26', '195']);
   assert.strictEqual(out.length, mods.length);
-  assert.deepStrictEqual(out.map((m) => m.sgbd), mods.map((m) => m.sgbd));
+  assert.deepStrictEqual(
+    out.map((m) => m.sgbd),
+    mods.map((m) => m.sgbd)
+  );
   ok('apply: annotates the list without adding or dropping modules');
 }
 
@@ -209,7 +245,7 @@ const S = require('../../app/renderer/core/coding-select.js');
     // Small enough to enumerate exhaustively; larger rows get a bounded
     // random search, which is sufficient to show reachability.
     if (refs.length <= 14) {
-      for (let m = 0; m < (1 << refs.length); m++) {
+      for (let m = 0; m < 1 << refs.length; m++) {
         const car = refs.filter((_, i) => m & (1 << i));
         if (S.rowApplies(row, car)) return true;
       }
@@ -222,7 +258,8 @@ const S = require('../../app/renderer/core/coding-select.js');
     return false;
   };
 
-  let chassis = 0, rows = 0;
+  let chassis = 0,
+    rows = 0;
   const dead = [];
   for (const ch of Object.keys(window.BMW_SGET)) {
     const rs = S.rowsFor(ch);
@@ -233,11 +270,19 @@ const S = require('../../app/renderer/core/coding-select.js');
       if (!satisfiable(r)) dead.push(`${ch} ${r.UMRSG} ${r.SGBD} ${r.expr}`);
     }
   }
-  assert.strictEqual(chassis, 8,
-    `expected 8 chassis with rows (E32 and E34 ship none), got ${chassis}`);
-  assert.deepStrictEqual(dead, [],
-    `rows no car can satisfy:\n  ${dead.join('\n  ')}`);
-  ok(`select: every SGET row is reachable by some car (${rows} rows, ${chassis} chassis)`);
+  assert.strictEqual(
+    chassis,
+    8,
+    `expected 8 chassis with rows (E32 and E34 ship none), got ${chassis}`
+  );
+  assert.deepStrictEqual(
+    dead,
+    [],
+    `rows no car can satisfy:\n  ${dead.join('\n  ')}`
+  );
+  ok(
+    `select: every SGET row is reachable by some car (${rows} rows, ${chassis} chassis)`
+  );
 }
 
 {

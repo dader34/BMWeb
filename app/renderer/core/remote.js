@@ -20,18 +20,18 @@
 // See tools/beta/worker.js for the signaling routes.
 
 const Remote = {
-  role: null,          // 'owner' | 'helper' | null
+  role: null, // 'owner' | 'helper' | null
   code: null,
-  pc: null,            // RTCPeerConnection
-  chan: null,          // RTCDataChannel
-  poll: null,          // signaling poll timer
-  pending: new Map(),  // helper: reqId -> {resolve, reject, timer}
+  pc: null, // RTCPeerConnection
+  chan: null, // RTCDataChannel
+  poll: null, // signaling poll timer
+  pending: new Map(), // helper: reqId -> {resolve, reject, timer}
   seq: 0,
-  onLog: null,         // owner console hook
-  onState: null,       // UI hook: 'connecting'|'live'|'closed'
+  onLog: null, // owner console hook
+  onState: null, // UI hook: 'connecting'|'live'|'closed'
   jobs: 0,
-  ending: false,       // set while end() runs, so onclose does not re-host
-  waiters: [],         // helper: resolvers parked until the channel opens
+  ending: false, // set while end() runs, so onclose does not re-host
+  waiters: [], // helper: resolvers parked until the channel opens
 
   // ---- OWNER-SIDE ACCESS POLICY (the security boundary) --------------------
   // The helper's browser is attacker-controllable, so NONE of the safety
@@ -46,9 +46,9 @@ const Remote = {
   access: 'rw',
   confirmActions: true,
   accepted: false,
-  onGate: null,        // (job, sgbd, arg) -> Promise<bool>  owner approves a write
-  onAccept: null,      // (info) -> Promise<bool>            owner admits a helper
-  peerInfo: null,      // {ip, ua, at} best-effort helper details for the prompt
+  onGate: null, // (job, sgbd, arg) -> Promise<bool>  owner approves a write
+  onAccept: null, // (info) -> Promise<bool>            owner admits a helper
+  peerInfo: null, // {ip, ua, at} best-effort helper details for the prompt
 
   // signaling endpoint: the beta worker, /rtc/*. Reuses the same base the
   // report endpoint uses so there is one worker to run, not two.
@@ -56,10 +56,12 @@ const Remote = {
     // the SAME endpoint the beta kit posts to; its default is baked in at
     // deploy so a fresh visitor on the hosted site needs no setup. Settings
     // 'betaEndpoint' overrides per install.
-    const dflt = (typeof BETA_ENDPOINT_DEFAULT === 'string')
-      ? BETA_ENDPOINT_DEFAULT : '';
-    const ep = (typeof Settings !== 'undefined')
-      ? Settings.get('betaEndpoint', dflt) : dflt;
+    const dflt =
+      typeof BETA_ENDPOINT_DEFAULT === 'string' ? BETA_ENDPOINT_DEFAULT : '';
+    const ep =
+      typeof Settings !== 'undefined'
+        ? Settings.get('betaEndpoint', dflt)
+        : dflt;
     // ".../report" -> ".../rtc"
     return ep ? ep.replace(/\/report$/, '') : '';
   },
@@ -68,8 +70,8 @@ const Remote = {
     // Google's public STUN (address reflection, free) + Cloudflare's free
     // TURN when configured (Settings 'turn' = {urls, username, credential}).
     const servers = [{ urls: 'stun:stun.l.google.com:19302' }];
-    const turn = (typeof Settings !== 'undefined')
-      ? Settings.get('turn', null) : null;
+    const turn =
+      typeof Settings !== 'undefined' ? Settings.get('turn', null) : null;
     if (turn && turn.urls) servers.push(turn);
     return { iceServers: servers };
   },
@@ -91,8 +93,9 @@ const Remote = {
       body: JSON.stringify({ code: this.code, ...body }),
     });
     if (!res.ok) {
-      throw new Error((await res.json().catch(() => ({}))).error
-        || `signaling ${res.status}`);
+      throw new Error(
+        (await res.json().catch(() => ({}))).error || `signaling ${res.status}`
+      );
     }
     return res.json();
   },
@@ -110,7 +113,8 @@ const Remote = {
     // only one that cannot be spoofed. The helper's request is DATA, never a
     // command we trust: validate the route, enforce the access level, and get
     // owner approval for writes -- all before window.fetch touches the wire.
-    const reply = (status, body) => this._send({ t: 'res', id: msg.id, status, body });
+    const reply = (status, body) =>
+      this._send({ t: 'res', id: msg.id, status, body });
 
     // (1) ROUTE ALLOWLIST on the owner side. The helper-side filter is on the
     // wrong side of the trust boundary; this is the one that counts. Only the
@@ -122,20 +126,27 @@ const Remote = {
     }
 
     // classify what this request would do to the car
-    const runM = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(rel);
+    const runM = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(
+      rel
+    );
     const sgbd = runM ? runM[1] : '';
-    const verb = runM ? runM[2] : (/\/(port|state)\b/.test(rel) ? 'read' : '');
+    const verb = runM ? runM[2] : /\/(port|state)\b/.test(rel) ? 'read' : '';
     const job = runM ? decodeURIComponent(runM[3]) : '';
     // clear/write/flash routes are writes by definition; a /run/ job is a write
     // when the classifier says so (same isWriteJob the local write-guard uses),
     // and STEUERN_/STELL_ actuator drives count as dangerous too. Routes with
     // NO job (/port, /state) are always reads -- never pass an empty name to
     // isWriteJob, whose default-deny would wrongly flag it as a write.
-    const isRunFamily = !!runM;              // /run|clear|write|flash/<job>
-    const isW = isRunFamily && typeof isWriteJob === 'function' && isWriteJob(job);
+    const isRunFamily = !!runM; // /run|clear|write|flash/<job>
+    const isW =
+      isRunFamily && typeof isWriteJob === 'function' && isWriteJob(job);
     const isActuator = isRunFamily && /^(STEUERN|STELL|START)/i.test(job);
-    const dangerous = verb === 'clear' || verb === 'write' || verb === 'flash'
-      || isW || isActuator;
+    const dangerous =
+      verb === 'clear' ||
+      verb === 'write' ||
+      verb === 'flash' ||
+      isW ||
+      isActuator;
 
     // (2) ACCESS LEVEL. A read-only share refuses every write/actuator, so the
     // car cannot be written no matter what the helper's browser sends.
@@ -151,26 +162,39 @@ const Remote = {
     if (dangerous && this.confirmActions && typeof this.onGate === 'function') {
       this.log(`awaiting your approval: ${sgbd} ${job || verb}`);
       let ok = false;
-      try { ok = await this.onGate({ sgbd, job: job || verb, arg: this._argOf(msg) }); }
-      catch { ok = false; }
+      try {
+        ok = await this.onGate({
+          sgbd,
+          job: job || verb,
+          arg: this._argOf(msg),
+        });
+      } catch {
+        ok = false;
+      }
       if (!ok) {
         this.log(`you declined: ${sgbd} ${job || verb}`);
-        return reply(403, { error: 'remote: the car owner declined this action' });
+        return reply(403, {
+          error: 'remote: the car owner declined this action',
+        });
       }
     }
 
     // approved -- run it through the owner's REAL shim and return the JSON.
     this.log(`job ${sgbd || ''} ${job || verb} · running…`);
-    let status = 200, body;
+    let status = 200,
+      body;
     try {
       const res = await window.fetch(rel, msg.init || undefined);
       status = res.status;
       body = await res.json().catch(() => ({}));
       if (runM || verb === 'read') {
-        this.log(`job ${sgbd || ''} ${job || verb} · ${status === 200 ? 'ok' : status}`);
+        this.log(
+          `job ${sgbd || ''} ${job || verb} · ${status === 200 ? 'ok' : status}`
+        );
       }
     } catch (e) {
-      status = 500; body = { error: e.message };
+      status = 500;
+      body = { error: e.message };
     }
     reply(status, body);
   },
@@ -181,7 +205,9 @@ const Remote = {
       const q = String(msg.path || '').split('?')[1] || '';
       const p = new URLSearchParams(q);
       return p.get('arg') || p.get('args') || (msg.init && msg.init.body) || '';
-    } catch { return ''; }
+    } catch {
+      return '';
+    }
   },
 
   // ---- helper: turn a car fetch into a peer request -----------------------
@@ -206,8 +232,12 @@ const Remote = {
     });
   },
   _wake(err) {
-    const ws = this.waiters; this.waiters = [];
-    for (const w of ws) { clearTimeout(w.timer); err ? w.reject(err) : w.resolve(); }
+    const ws = this.waiters;
+    this.waiters = [];
+    for (const w of ws) {
+      clearTimeout(w.timer);
+      err ? w.reject(err) : w.resolve();
+    }
   },
 
   async request(path, init) {
@@ -220,10 +250,12 @@ const Remote = {
       }, 60000);
       this.pending.set(id, { resolve, reject, timer });
       // strip method/body to a structured-clonable shape
-      const safeInit = init ? {
-        method: init.method || 'GET',
-        body: typeof init.body === 'string' ? init.body : undefined,
-      } : undefined;
+      const safeInit = init
+        ? {
+            method: init.method || 'GET',
+            body: typeof init.body === 'string' ? init.body : undefined,
+          }
+        : undefined;
       this._send({ t: 'req', id, path, init: safeInit });
     });
   },
@@ -234,10 +266,12 @@ const Remote = {
     clearTimeout(p.timer);
     this.pending.delete(msg.id);
     // hand back a Response the shim/api() consumes exactly like a real one
-    p.resolve(new Response(JSON.stringify(msg.body), {
-      status: msg.status || 200,
-      headers: { 'Content-Type': 'application/json' },
-    }));
+    p.resolve(
+      new Response(JSON.stringify(msg.body), {
+        status: msg.status || 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
   },
 
   _send(obj) {
@@ -248,14 +282,28 @@ const Remote = {
 
   _onMessage(ev) {
     let msg;
-    try { msg = JSON.parse(ev.data); } catch { return; }
+    try {
+      msg = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
     if (this.role === 'owner') {
       // the helper's greeting: hold it for the owner to accept before ANY job
       // is honoured. Until accepted, every request is refused.
-      if (msg.t === 'hello') { this._ownerAccept(msg); return; }
+      if (msg.t === 'hello') {
+        this._ownerAccept(msg);
+        return;
+      }
       if (!this.accepted) {
-        if (msg.t === 'req') this._send({ t: 'res', id: msg.id, status: 403,
-          body: { error: 'remote: the owner has not admitted this helper yet' } });
+        if (msg.t === 'req')
+          this._send({
+            t: 'res',
+            id: msg.id,
+            status: 403,
+            body: {
+              error: 'remote: the owner has not admitted this helper yet',
+            },
+          });
         return;
       }
       this._ownerHandle(msg);
@@ -276,8 +324,14 @@ const Remote = {
     };
     let ok = false;
     if (typeof this.onAccept === 'function') {
-      try { ok = await this.onAccept(this.peerInfo); } catch { ok = false; }
-    } else { ok = true; }            // no UI hook (headless/tests): admit
+      try {
+        ok = await this.onAccept(this.peerInfo);
+      } catch {
+        ok = false;
+      }
+    } else {
+      ok = true;
+    } // no UI hook (headless/tests): admit
     if (this.ending || this.role !== 'owner') return;
     if (!ok) {
       this.log('you declined the helper');
@@ -289,10 +343,16 @@ const Remote = {
     this.accepted = true;
     // the share is now established: it no longer expires, and a reload should
     // resume it silently rather than starting a fresh 5-minute window.
-    if (this._expiry) { clearTimeout(this._expiry); this._expiry = null; }
+    if (this._expiry) {
+      clearTimeout(this._expiry);
+      this._expiry = null;
+    }
     try {
       const s = JSON.parse(localStorage.getItem(this.SHARE_KEY) || 'null');
-      if (s) { s.everJoined = true; localStorage.setItem(this.SHARE_KEY, JSON.stringify(s)); }
+      if (s) {
+        s.everJoined = true;
+        localStorage.setItem(this.SHARE_KEY, JSON.stringify(s));
+      }
     } catch {}
     this.log('you admitted the helper');
     if (this.onState) this.onState('live');
@@ -330,8 +390,10 @@ const Remote = {
       } else {
         // HELPER: greet the owner; the session is not usable until admitted.
         this.log('connected. Waiting for the owner to admit you…');
-        this._send({ t: 'hello', ua: (typeof navigator !== 'undefined'
-          && navigator.userAgent) || '' });
+        this._send({
+          t: 'hello',
+          ua: (typeof navigator !== 'undefined' && navigator.userAgent) || '',
+        });
         // do NOT _wake here; _helperAdmitted does once the owner accepts.
       }
     };
@@ -340,7 +402,8 @@ const Remote = {
       // The helper closing its tab, or losing the network, must not end the
       // OWNER's share: the code they were given should keep working. Put a
       // fresh offer under the same code and wait again.
-      if (this.role === 'owner') this._rehost().catch((e) => this.end(e.message));
+      if (this.role === 'owner')
+        this._rehost().catch((e) => this.end(e.message));
       else this.end('the owner disconnected');
     };
     chan.onmessage = (ev) => this._onMessage(ev);
@@ -357,13 +420,17 @@ const Remote = {
     const lost = (why) => {
       if (this.ending || pc !== this.pc) return;
       if (this.chan && this.chan.onclose) this.chan.onclose();
-      else if (this.role === 'owner') this._rehost().catch((e) => this.end(e.message));
+      else if (this.role === 'owner')
+        this._rehost().catch((e) => this.end(e.message));
       else this.end(why);
     };
     pc.onconnectionstatechange = () => {
-      if (pc !== this.pc) return;                     // an old connection
+      if (pc !== this.pc) return; // an old connection
       const st = pc.connectionState;
-      if (st === 'connected' && grace) { clearTimeout(grace); grace = null; }
+      if (st === 'connected' && grace) {
+        clearTimeout(grace);
+        grace = null;
+      }
       if (st === 'disconnected' && !grace) {
         grace = setTimeout(() => {
           if (pc === this.pc && pc.connectionState !== 'connected') {
@@ -382,17 +449,31 @@ const Remote = {
     // carries across peers or across a re-host under the same code.
     this.accepted = false;
     this.peerInfo = null;
-    if (this.poll) { clearInterval(this.poll); this.poll = null; }
+    if (this.poll) {
+      clearInterval(this.poll);
+      this.poll = null;
+    }
     for (const [, p] of this.pending) {
       clearTimeout(p.timer);
       p.reject(new Error('remote session ended'));
     }
     this.pending.clear();
     this._wake(new Error('remote session ended'));
-    const chan = this.chan, pc = this.pc;
+    const chan = this.chan,
+      pc = this.pc;
     this.chan = this.pc = null;
-    if (chan) { chan.onclose = null; try { chan.close(); } catch {} }
-    if (pc) { pc.onconnectionstatechange = null; try { pc.close(); } catch {} }
+    if (chan) {
+      chan.onclose = null;
+      try {
+        chan.close();
+      } catch {}
+    }
+    if (pc) {
+      pc.onconnectionstatechange = null;
+      try {
+        pc.close();
+      } catch {}
+    }
   },
 
   // OWNER: the helper went away; offer again under the SAME code so the code
@@ -401,7 +482,8 @@ const Remote = {
   async _rehost() {
     const code = this.code;
     this._teardown();
-    this.role = 'owner'; this.code = code;
+    this.role = 'owner';
+    this.code = code;
     this.log('helper disconnected. The same code reconnects');
     if (this.onState) this.onState('connecting');
     await this._offer();
@@ -442,8 +524,11 @@ const Remote = {
   _gathered(pc, ms = 3000) {
     if (pc.iceGatheringState === 'complete') return Promise.resolve();
     return new Promise((resolve) => {
-      const done = () => { clearTimeout(t); resolve(); };
-      const t = setTimeout(done, ms);       // a slow TURN lookup must not stall
+      const done = () => {
+        clearTimeout(t);
+        resolve();
+      };
+      const t = setTimeout(done, ms); // a slow TURN lookup must not stall
       pc.onicegatheringstatechange = () => {
         if (pc.iceGatheringState === 'complete') done();
       };
@@ -454,7 +539,11 @@ const Remote = {
     const r = await this.sig('poll', { want: fromKey }).catch(() => null);
     if (r && r.ice) {
       for (const c of r.ice) {
-        try { await this.pc.addIceCandidate(c); } catch { /* stale */ }
+        try {
+          await this.pc.addIceCandidate(c);
+        } catch {
+          /* stale */
+        }
       }
     }
     return r;
@@ -465,10 +554,11 @@ const Remote = {
   // policy for THIS session, enforced in _ownerHandle. Defaults: full access,
   // confirm on -- the safe pair.
   async host(opts = {}) {
-    return this._share(this.newCode(),
-      { access: opts.access === 'ro' ? 'ro' : 'rw',
-        confirmActions: opts.confirmActions !== false,
-        startedAt: Date.now() });
+    return this._share(this.newCode(), {
+      access: opts.access === 'ro' ? 'ro' : 'rw',
+      confirmActions: opts.confirmActions !== false,
+      startedAt: Date.now(),
+    });
   },
 
   // Re-host an EXISTING share (page reload / auto-reconnect) under the SAME
@@ -486,8 +576,9 @@ const Remote = {
   // The share worker for host()/resume(): set the owner policy, remember it so
   // a reload can restore it, arm the "no helper in 5 min" expiry, then offer.
   async _share(code, policy) {
-    if (!this.base()) throw new Error('no signaling endpoint — set one in Settings');
-    this._teardown();                        // whatever came before
+    if (!this.base())
+      throw new Error('no signaling endpoint — set one in Settings');
+    this._teardown(); // whatever came before
     if (this.role === 'helper') uninstallRemoteHelperShim();
     this.role = 'owner';
     this.access = policy.access;
@@ -495,8 +586,8 @@ const Remote = {
     this.startedAt = policy.startedAt;
     this.accepted = false;
     this.code = code;
-    this._persist();                         // survive a reload
-    this._armExpiry();                       // end if nobody joins in 5 min
+    this._persist(); // survive a reload
+    this._armExpiry(); // end if nobody joins in 5 min
     if (this.onState) this.onState('connecting');
     await this._offer();
     return this.code;
@@ -512,14 +603,21 @@ const Remote = {
 
   _persist() {
     try {
-      localStorage.setItem(this.SHARE_KEY, JSON.stringify({
-        code: this.code, access: this.access,
-        confirmActions: this.confirmActions, startedAt: this.startedAt,
-      }));
+      localStorage.setItem(
+        this.SHARE_KEY,
+        JSON.stringify({
+          code: this.code,
+          access: this.access,
+          confirmActions: this.confirmActions,
+          startedAt: this.startedAt,
+        })
+      );
     } catch {}
   },
   _clearPersist() {
-    try { localStorage.removeItem(this.SHARE_KEY); } catch {}
+    try {
+      localStorage.removeItem(this.SHARE_KEY);
+    } catch {}
   },
   savedShare() {
     try {
@@ -527,29 +625,38 @@ const Remote = {
       if (!s || !s.code) return null;
       // an expired share (>5 min, never joined) is not resumable
       if (!s.everJoined && Date.now() - (s.startedAt || 0) > this.EXPIRE_MS) {
-        this._clearPersist(); return null;
+        this._clearPersist();
+        return null;
       }
       return s;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   },
   _armExpiry() {
     if (this._expiry) clearTimeout(this._expiry);
     // once a helper is admitted the share is "established" and does not expire;
     // until then, end it EXPIRE_MS after it first started.
     const left = this.EXPIRE_MS - (Date.now() - (this.startedAt || Date.now()));
-    this._expiry = setTimeout(() => {
-      if (this.role === 'owner' && !this.accepted) {
-        this.end('no one connected within 5 minutes');
-      }
-    }, Math.max(1000, left));
+    this._expiry = setTimeout(
+      () => {
+        if (this.role === 'owner' && !this.accepted) {
+          this.end('no one connected within 5 minutes');
+        }
+      },
+      Math.max(1000, left)
+    );
   },
 
   // HELPER: join by code, answer the owner's offer.
   async join(code) {
-    if (!this.base()) throw new Error('no signaling endpoint. Set one in Settings');
-    this._teardown();                        // a second connect starts clean
+    if (!this.base())
+      throw new Error('no signaling endpoint. Set one in Settings');
+    this._teardown(); // a second connect starts clean
     this.role = 'helper';
-    this.code = String(code || '').trim().toUpperCase();
+    this.code = String(code || '')
+      .trim()
+      .toUpperCase();
     try {
       this.pc = new RTCPeerConnection(this.ICE());
       this._watch(this.pc);
@@ -560,11 +667,15 @@ const Remote = {
       const answer = await this.pc.createAnswer();
       await this.pc.setLocalDescription(answer);
       await this._gathered(this.pc);
-      await this.sig('answer', { answer: this.pc.localDescription }).catch((e) => {
-        throw new Error(/taken/.test(e.message)
-          ? 'that session already has a helper. Ask the owner to end it and share again'
-          : e.message);
-      });
+      await this.sig('answer', { answer: this.pc.localDescription }).catch(
+        (e) => {
+          throw new Error(
+            /taken/.test(e.message)
+              ? 'that session already has a helper. Ask the owner to end it and share again'
+              : e.message
+          );
+        }
+      );
     } catch (e) {
       // never leave a half-joined helper behind: role set, no channel, and
       // every car fetch quietly answered by the local (cable-less) shim
@@ -573,7 +684,7 @@ const Remote = {
       throw e;
     }
     if (this.onState) this.onState('connecting');
-    installRemoteHelperShim();               // route car fetches to the peer
+    installRemoteHelperShim(); // route car fetches to the peer
     // the REMOTE badge waits until the owner admits (showHelperWaiting covers
     // the screen until then); _helperAdmitted brings it up.
     this.poll = setInterval(() => this._drainIce('ownerIce'), 1500);
@@ -583,8 +694,11 @@ const Remote = {
   end(why) {
     if (this.ending) return;
     this.ending = true;
-    if (this._expiry) { clearTimeout(this._expiry); this._expiry = null; }
-    this._clearPersist();                    // an ended share never auto-resumes
+    if (this._expiry) {
+      clearTimeout(this._expiry);
+      this._expiry = null;
+    }
+    this._clearPersist(); // an ended share never auto-resumes
     this._teardown();
     const wasHelper = this.role === 'helper';
     this.role = this.code = null;
@@ -656,7 +770,9 @@ function showRemoteDialog() {
     <div class="modal" role="dialog" aria-modal="true" style="max-width:540px">
       <div class="modal-title">Remote session</div>
       <div class="modal-body" id="remote-body">
-        ${configured ? `
+        ${
+          configured
+            ? `
         <p style="margin:0 0 14px;color:var(--ink-dim);font-size:13px">
           Share your car with someone, or connect to a shared car. The car
           stays on this machine. Only jobs cross the connection, and it
@@ -703,10 +819,12 @@ function showRemoteDialog() {
                    border:1px solid var(--line)">
           <button class="btn primary" id="rm-join-go"
             style="margin-top:8px">Connect</button>
-        </div>` : `
+        </div>`
+            : `
         <p style="color:var(--ink-dim);font-size:13px">Remote sessions need a
           signaling endpoint. Set <code>betaEndpoint</code> in Settings (the
-          same worker the beta reports use), then reopen this.</p>`}
+          same worker the beta reports use), then reopen this.</p>`
+        }
       </div>
       <div class="modal-actions">
         <button class="btn modal-cancel">Close<span class="modal-key">Esc</span></button>
@@ -736,9 +854,12 @@ function showRemoteDialog() {
     choose.style.display = 'flex';
   };
   overlay.querySelector('#rm-share-go').onclick = async () => {
-    const access = overlay.querySelector('input[name="rm-access"]:checked')?.value === 'ro'
-      ? 'ro' : 'rw';
-    const confirmActions = overlay.querySelector('#rm-confirm')?.checked !== false;
+    const access =
+      overlay.querySelector('input[name="rm-access"]:checked')?.value === 'ro'
+        ? 'ro'
+        : 'rw';
+    const confirmActions =
+      overlay.querySelector('#rm-confirm')?.checked !== false;
     try {
       const code = await Remote.host({ access, confirmActions });
       close();
@@ -752,7 +873,8 @@ function showRemoteDialog() {
     const code = overlay.querySelector('#rm-code').value.trim();
     if (!code) return;
     const btn = overlay.querySelector('#rm-join-go');
-    btn.disabled = true; btn.textContent = 'Connecting…';
+    btn.disabled = true;
+    btn.textContent = 'Connecting…';
     try {
       await Remote.join(code);
       close();
@@ -763,14 +885,16 @@ function showRemoteDialog() {
         sbLeft.textContent = 'waiting for the owner to let you in…';
       }
     } catch (e) {
-      btn.disabled = false; btn.textContent = 'Connect';
+      btn.disabled = false;
+      btn.textContent = 'Connect';
       overlay.querySelector('#rm-code').style.borderColor = '#d66';
       if (typeof sbLeft !== 'undefined') sbLeft.textContent = e.message;
     }
   };
   overlay.querySelector('#rm-join-go').onclick = go;
-  overlay.querySelector('#rm-code').addEventListener('keydown',
-    (e) => { if (e.key === 'Enter') go(); });
+  overlay.querySelector('#rm-code').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') go();
+  });
 }
 
 // ---- full-screen remote overlays -------------------------------------------
@@ -787,15 +911,25 @@ function remoteOverlay({ kind, title, body, actions }) {
       ${kind === 'wait' ? '<div class="ro-spinner" aria-hidden="true"></div>' : ''}
       <div class="ro-title">${esc(title)}</div>
       <div class="ro-body">${body || ''}</div>
-      <div class="ro-actions">${
-        (actions || []).map((a, i) => `<button class="btn ${a.cls || ''}"
-          data-i="${i}">${esc(a.label)}</button>`).join('')}</div>
+      <div class="ro-actions">${(actions || [])
+        .map(
+          (a, i) => `<button class="btn ${a.cls || ''}"
+          data-i="${i}">${esc(a.label)}</button>`
+        )
+        .join('')}</div>
     </div>`;
   document.body.appendChild(el);
   const close = () => el.remove();
   (actions || []).forEach((a, i) => {
     const b = el.querySelector(`[data-i="${i}"]`);
-    if (b) b.onclick = () => { if (a.keepOpen) a.fn(); else { close(); a.fn && a.fn(); } };
+    if (b)
+      b.onclick = () => {
+        if (a.keepOpen) a.fn();
+        else {
+          close();
+          a.fn && a.fn();
+        }
+      };
   });
   return { el, close };
 }
@@ -808,8 +942,13 @@ function showHelperWaiting() {
     title: 'Waiting for the owner to let you in',
     body: `<p>You're connected to the shared car. The owner has to admit you
       before you can run anything.</p>`,
-    actions: [{ label: 'Cancel', cls: 'danger',
-      fn: () => Remote.end('you cancelled the request') }],
+    actions: [
+      {
+        label: 'Cancel',
+        cls: 'danger',
+        fn: () => Remote.end('you cancelled the request'),
+      },
+    ],
   });
   return close;
 }
@@ -845,46 +984,56 @@ function showOwnerConsole(code, opts = {}) {
   // ADMIT a connecting helper -- a full-screen prompt so the owner can't miss
   // it. Nothing runs until they decide. Shows the best-effort details of who is
   // asking. The promise the accept flow awaits resolves on the click.
-  Remote.onAccept = (info) => new Promise((resolve) => {
-    const when = new Date(info.at || Date.now()).toLocaleTimeString();
-    const ua = (info.ua || '').replace(/\s+/g, ' ').slice(0, 120) || 'unknown device';
-    const ip = info.ip ? ` &middot; ${esc(info.ip)}` : '';
-    remoteOverlay({
-      kind: 'admit',
-      title: 'Someone wants to connect to your car',
-      body: `<div class="ro-detail mono">${esc(ua)}<br>connected ${esc(when)}${ip}</div>
+  Remote.onAccept = (info) =>
+    new Promise((resolve) => {
+      const when = new Date(info.at || Date.now()).toLocaleTimeString();
+      const ua =
+        (info.ua || '').replace(/\s+/g, ' ').slice(0, 120) || 'unknown device';
+      const ip = info.ip ? ` &middot; ${esc(info.ip)}` : '';
+      remoteOverlay({
+        kind: 'admit',
+        title: 'Someone wants to connect to your car',
+        body: `<div class="ro-detail mono">${esc(ua)}<br>connected ${esc(when)}${ip}</div>
         <p>They can read and (if you allow it) command your car. Only admit
         someone you are expecting.</p>`,
-      actions: [
-        { label: 'Admit', cls: 'primary', fn: () => resolve(true) },
-        { label: 'Reject', cls: 'danger', fn: () => resolve(false) },
-      ],
+        actions: [
+          { label: 'Admit', cls: 'primary', fn: () => resolve(true) },
+          { label: 'Reject', cls: 'danger', fn: () => resolve(false) },
+        ],
+      });
     });
-  });
 
   // APPROVE a single write/actuator -- also full-screen. Only fires when the
   // session allows writes and confirm is on; reads never reach here.
-  Remote.onGate = (j) => new Promise((resolve) => {
-    remoteOverlay({
-      kind: 'approve',
-      title: 'Helper wants to run an action on your car',
-      body: `<div class="ro-detail mono">${esc(j.sgbd || '')} &middot; ${esc(j.job || '')}${
-        j.arg ? ` (${esc(String(j.arg).slice(0, 60))})` : ''}</div>
+  Remote.onGate = (j) =>
+    new Promise((resolve) => {
+      remoteOverlay({
+        kind: 'approve',
+        title: 'Helper wants to run an action on your car',
+        body: `<div class="ro-detail mono">${esc(j.sgbd || '')} &middot; ${esc(j.job || '')}${
+          j.arg ? ` (${esc(String(j.arg).slice(0, 60))})` : ''
+        }</div>
         <p>This writes to or activates hardware on the car. Allow it only if you
         expect it.</p>`,
-      actions: [
-        { label: 'Allow', cls: 'primary', fn: () => resolve(true) },
-        { label: 'Deny', cls: 'danger', fn: () => resolve(false) },
-      ],
+        actions: [
+          { label: 'Allow', cls: 'primary', fn: () => resolve(true) },
+          { label: 'Deny', cls: 'danger', fn: () => resolve(false) },
+        ],
+      });
     });
-  });
   // the console sits over the bottom-right of the screen -- exactly where a
   // module's F-keys and readouts live. Collapse it to a pill and back.
-  const setMin = (min) => { el.classList.toggle('oc-min', min);
-    try { localStorage.setItem('bmweb.oc.min', min ? '1' : '0'); } catch {} };
+  const setMin = (min) => {
+    el.classList.toggle('oc-min', min);
+    try {
+      localStorage.setItem('bmweb.oc.min', min ? '1' : '0');
+    } catch {}
+  };
   el.querySelector('#oc-min').onclick = () => setMin(true);
   el.querySelector('#oc-pill').onclick = () => setMin(false);
-  try { if (localStorage.getItem('bmweb.oc.min') === '1') setMin(true); } catch {}
+  try {
+    if (localStorage.getItem('bmweb.oc.min') === '1') setMin(true);
+  } catch {}
   const logEl = el.querySelector('#oc-log');
   Remote.onLog = (text) => {
     const d = document.createElement('div');
@@ -895,13 +1044,17 @@ function showOwnerConsole(code, opts = {}) {
   Remote.onState = (s) => {
     const st = el.querySelector('#oc-state');
     if (!st) return;
-    st.textContent = s === 'live' ? '● live: helper is connected'
-      : s === 'connecting' ? 'waiting for the helper. The code above connects'
-      : 'session ended';
+    st.textContent =
+      s === 'live'
+        ? '● live: helper is connected'
+        : s === 'connecting'
+          ? 'waiting for the helper. The code above connects'
+          : 'session ended';
     st.className = 'oc-state' + (s === 'live' ? ' oc-live' : '');
     const ps = el.querySelector('#oc-pill-state');
     if (ps) {
-      ps.textContent = s === 'live' ? 'live' : s === 'connecting' ? 'waiting' : 'ended';
+      ps.textContent =
+        s === 'live' ? 'live' : s === 'connecting' ? 'waiting' : 'ended';
       ps.className = 'oc-pill-state' + (s === 'live' ? ' oc-live' : '');
     }
     if (s === 'closed') setTimeout(() => el.remove(), 1500);
@@ -910,7 +1063,9 @@ function showOwnerConsole(code, opts = {}) {
     navigator.clipboard?.writeText(code).catch(() => {});
     el.querySelector('#oc-code').classList.add('oc-copied');
   };
-  el.querySelector('#oc-end').onclick = () => { Remote.end('you ended it'); };
+  el.querySelector('#oc-end').onclick = () => {
+    Remote.end('you ended it');
+  };
 }
 
 // HELPER: the red border + badge, so it is never ambiguous that these jobs
@@ -924,7 +1079,9 @@ function showRemoteBar() {
   b.innerHTML = `<span class="rb-dot"></span>REMOTE
     <button class="rb-end" id="rb-end">disconnect</button>`;
   document.body.appendChild(b);
-  b.querySelector('#rb-end').onclick = () => { Remote.end('you disconnected'); };
+  b.querySelector('#rb-end').onclick = () => {
+    Remote.end('you disconnected');
+  };
   Remote.onState = (s) => {
     if (s === 'live' && typeof sbLeft !== 'undefined') {
       sbLeft.textContent = 'connected: driving the shared car';
@@ -932,7 +1089,8 @@ function showRemoteBar() {
     if (s === 'closed') {
       document.getElementById('remote-badge')?.remove();
       document.body.classList.remove('remote-helper');
-      if (typeof sbLeft !== 'undefined') sbLeft.textContent = 'remote session ended';
+      if (typeof sbLeft !== 'undefined')
+        sbLeft.textContent = 'remote session ended';
     }
   };
 }
@@ -947,8 +1105,10 @@ async function resumeRemoteShare() {
   try {
     const code = await Remote.resume(saved);
     if (typeof showOwnerConsole === 'function') {
-      showOwnerConsole(code, { access: saved.access,
-        confirmActions: saved.confirmActions });
+      showOwnerConsole(code, {
+        access: saved.access,
+        confirmActions: saved.confirmActions,
+      });
       if (Remote.onLog) Remote.onLog('reconnected — the same code still works');
     }
     return true;

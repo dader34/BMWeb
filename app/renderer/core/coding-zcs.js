@@ -20,9 +20,10 @@
   'use strict';
 
   // Import from coding-encode.js (Mod-36 helpers)
-  const CodingEncode = (typeof window !== 'undefined' && window.CodingEncode)
-    ? window.CodingEncode
-    : require('./coding-encode.js');
+  const CodingEncode =
+    typeof window !== 'undefined' && window.CodingEncode
+      ? window.CodingEncode
+      : require('./coding-encode.js');
 
   const { mod36, mod36Decode, mod36Encode } = CodingEncode;
 
@@ -115,7 +116,9 @@
   // a bitfield or matching it against the assignment table invents options a
   // car does not have. `saBody` is the hex body string (no check char).
   function isBlankKeyBody(body) {
-    const h = String(body || '').replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+    const h = String(body || '')
+      .replace(/[^0-9A-Fa-f]/g, '')
+      .toUpperCase();
     if (!h.length) return true;
     return /^F+$/.test(h) || /^0+$/.test(h);
   }
@@ -127,7 +130,9 @@
   // char, then test the 16-hex body -- otherwise the prefix (C2) makes an
   // all-F body read as non-blank and the guard never fires.
   function isBlankSaKey(value) {
-    let v = String(value || '').trim().toUpperCase();
+    let v = String(value || '')
+      .trim()
+      .toUpperCase();
     // drop a leading ZCS channel tag if present (C1 = GM, C2 = SA, C3 = VN)
     v = v.replace(/^C[123]/, '');
     // keep only hex; a Mod-36 check char (e.g. S, E, P) is non-hex and falls
@@ -148,23 +153,29 @@
     }
 
     // GM: 4 body bytes + 1 check
-    const gmHex = Array.from(bytes.slice(0, 4), b =>
+    const gmHex = Array.from(bytes.slice(0, 4), (b) =>
       ('0' + (b & 0xff).toString(16)).slice(-2)
-    ).join('').toUpperCase();
+    )
+      .join('')
+      .toUpperCase();
     const gmCheck = String.fromCharCode(bytes[4] & 0xff);
     const gm = gmHex + gmCheck;
 
     // SA: 8 body bytes + 1 check
-    const saHex = Array.from(bytes.slice(5, 13), b =>
+    const saHex = Array.from(bytes.slice(5, 13), (b) =>
       ('0' + (b & 0xff).toString(16)).slice(-2)
-    ).join('').toUpperCase();
+    )
+      .join('')
+      .toUpperCase();
     const saCheck = String.fromCharCode(bytes[13] & 0xff);
     const sa = saHex + saCheck;
 
     // VN: 5 body bytes + 1 check
-    const vnHex = Array.from(bytes.slice(14, 19), b =>
+    const vnHex = Array.from(bytes.slice(14, 19), (b) =>
       ('0' + (b & 0xff).toString(16)).slice(-2)
-    ).join('').toUpperCase();
+    )
+      .join('')
+      .toUpperCase();
     const vnCheck = String.fromCharCode(bytes[19] & 0xff);
     const vn = vnHex + vnCheck;
 
@@ -250,28 +261,39 @@
     if (!required.length) return true;
     if (!saCodes || !saCodes.length) return false; // field needs SA, car has none
     // Field shown if ANY required SA is present
-    return required.some(sa => saCodes.includes(sa));
+    return required.some((sa) => saCodes.includes(sa));
   }
 
   // ---- exports -----------------------------------------------------------
 
   const api = {
     // Validation
-    validateGm, validateSa, validateVn,
-    verifyGm, verifySa, verifyVn,
+    validateGm,
+    validateSa,
+    validateVn,
+    verifyGm,
+    verifySa,
+    verifyVn,
 
     // Format/strip
-    formatGm, formatSa, formatVn,
-    stripGmCheck, stripSaCheck, stripVnCheck,
+    formatGm,
+    formatSa,
+    formatVn,
+    stripGmCheck,
+    stripSaCheck,
+    stripVnCheck,
 
     // Region I/O
-    parseZcsRegion, buildZcsRegion,
+    parseZcsRegion,
+    buildZcsRegion,
 
     // FA/ZCS filtering
-    extractSaCodes, matchesAsw,
+    extractSaCodes,
+    matchesAsw,
 
     // Blank/unprogrammed key detection
-    isBlankKeyBody, isBlankSaKey,
+    isBlankKeyBody,
+    isBlankSaKey,
   };
 
   root.CodingZcs = api;

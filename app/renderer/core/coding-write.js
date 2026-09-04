@@ -60,7 +60,8 @@
 
   function toHex(bytes) {
     return Array.from(bytes, (b) => (b & 0xff).toString(16).padStart(2, '0'))
-      .join('').toUpperCase();
+      .join('')
+      .toUpperCase();
   }
 
   function bytesEqual(a, b) {
@@ -88,9 +89,14 @@
   function jobSet(jobs) {
     const s = new Set();
     if (!jobs) return s;
-    const add = (n) => { if (n) s.add(String(n).toUpperCase()); };
-    if (jobs instanceof Set || Array.isArray(jobs)) { for (const n of jobs) add(n); }
-    else if (typeof jobs === 'object') { for (const n of Object.keys(jobs)) add(n); }
+    const add = (n) => {
+      if (n) s.add(String(n).toUpperCase());
+    };
+    if (jobs instanceof Set || Array.isArray(jobs)) {
+      for (const n of jobs) add(n);
+    } else if (typeof jobs === 'object') {
+      for (const n of Object.keys(jobs)) add(n);
+    }
     return s;
   }
 
@@ -116,8 +122,11 @@
     if (strategy === 'codierung') {
       return j.has('CODIERUNG_LESEN') ? 'CODIERUNG_LESEN' : null;
     }
-    return j.has('CODIERDATEN_LESEN') ? 'CODIERDATEN_LESEN'
-      : (j.has('CODIERUNG_LESEN') ? 'CODIERUNG_LESEN' : null);
+    return j.has('CODIERDATEN_LESEN')
+      ? 'CODIERDATEN_LESEN'
+      : j.has('CODIERUNG_LESEN')
+        ? 'CODIERUNG_LESEN'
+        : null;
   }
 
   // The ordered write steps for a strategy. Each step is {job, arg} where arg
@@ -137,22 +146,26 @@
         { job: 'SG_RESET', arg: '' },
       ];
     } else if (strategy === 'codierung') {
-      steps = [
-        { job: 'CODIERUNG_SCHREIBEN', arg: hex, required: true },
-      ];
+      steps = [{ job: 'CODIERUNG_SCHREIBEN', arg: hex, required: true }];
     } else if (strategy === 'cfg-chunked') {
       // The SGBD's C_S_AUFTRAG takes the whole netto as a binary buffer and
       // writes it into the coding region itself (it walks its own slot table
       // internally, exactly as CDHGetApiJobData/CDHapiJobData feed it). We
       // hand it the whole blob once; C_CHECKSUM then validates the region.
       steps = [
-        { job: 'C_S_AUFTRAG', arg: { bin: nettoBytes.slice() }, required: true },
+        {
+          job: 'C_S_AUFTRAG',
+          arg: { bin: nettoBytes.slice() },
+          required: true,
+        },
         { job: 'C_CHECKSUM', arg: { bin: nettoBytes.slice() } },
       ];
     } else {
       return null;
     }
-    return steps.filter((s) => s.required || j.has(String(s.job).toUpperCase()));
+    return steps.filter(
+      (s) => s.required || j.has(String(s.job).toUpperCase())
+    );
   }
 
   // ---- the VM job runner (write-capable) -----------------------------------
@@ -174,9 +187,12 @@
     const answers = new Map();
     const jobNow = ctx.now || new Date();
     // Binary args ride as a char-code string; plain args pass through.
-    const argText = (arg && typeof arg === 'object' && arg.bin)
-      ? bytesToArgString(arg.bin)
-      : (arg == null ? '' : String(arg));
+    const argText =
+      arg && typeof arg === 'object' && arg.bin
+        ? bytesToArgString(arg.bin)
+        : arg == null
+          ? ''
+          : String(arg);
 
     for (let attempt = 0; attempt < 128; attempt++) {
       let missing = null;
@@ -231,7 +247,11 @@
   async function readNetto(ctx, sgbd, readJob) {
     if (!readJob) return null;
     const sets = await runJobOverBus(
-      { ...ctx, allowWrites: false }, sgbd, readJob, '');
+      { ...ctx, allowWrites: false },
+      sgbd,
+      readJob,
+      ''
+    );
     const st = jobStatusOf(sets);
     if (st && st !== 'OKAY') {
       throw errVerify(`re-read job ${readJob} returned JOB_STATUS ${st}`);
@@ -243,8 +263,14 @@
   // CODIERDATEN / CODIERDATENSATZ / CODIERUNG field, else the first field
   // whose value looks like packed or dash-separated hex.
   function extractNetto(sets) {
-    const PREF = ['CODIERDATEN', 'CODIERDATENSATZ', 'CODIERUNG',
-                  'CODIERSTRING', 'NETTODATEN', 'DATEN'];
+    const PREF = [
+      'CODIERDATEN',
+      'CODIERDATENSATZ',
+      'CODIERUNG',
+      'CODIERSTRING',
+      'NETTODATEN',
+      'DATEN',
+    ];
     for (const set of sets || []) {
       if (!set || typeof set !== 'object') continue;
       for (const key of PREF) {
@@ -278,7 +304,8 @@
     const hex = clean.replace(/[^0-9a-fA-F]/g, '');
     if (hex.length < 2 || hex.length % 2 !== 0) return null;
     const out = [];
-    for (let i = 0; i < hex.length; i += 2) out.push(parseInt(hex.slice(i, i + 2), 16));
+    for (let i = 0; i < hex.length; i += 2)
+      out.push(parseInt(hex.slice(i, i + 2), 16));
     return out;
   }
 
@@ -306,8 +333,10 @@
   // assert it equals nettoBytes, else throw ERROR_VERIFY.
   async function writeCoding(sgbd, nettoBytes, opts = {}) {
     if (!opts.confirmed) {
-      throw new Error('coding write refused: opts.confirmed must be set '
-        + '(the UI must confirm this actuation before it can transmit)');
+      throw new Error(
+        'coding write refused: opts.confirmed must be set ' +
+          '(the UI must confirm this actuation before it can transmit)'
+      );
     }
     const Best2Vm = getVm(opts);
     const want = toBytes(nettoBytes);
@@ -316,7 +345,11 @@
       throw new Error('coding write refused: no bus exchange provided');
     }
 
-    const session = opts.session || { shared: new Map(), inited: false, comm: null };
+    const session = opts.session || {
+      shared: new Map(),
+      inited: false,
+      comm: null,
+    };
     const baseCtx = {
       Best2Vm,
       code: opts.code,
@@ -339,8 +372,10 @@
     const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
     const strategy = codingWriteStrategy(sgbd, jobs);
     if (!strategy) {
-      throw new Error(`coding write refused: ${sgbd} exposes no known coding `
-        + 'write job (CODIERDATEN_SCHREIBEN / CODIERUNG_SCHREIBEN / C_S_AUFTRAG)');
+      throw new Error(
+        `coding write refused: ${sgbd} exposes no known coding ` +
+          'write job (CODIERDATEN_SCHREIBEN / CODIERUNG_SCHREIBEN / C_S_AUFTRAG)'
+      );
     }
 
     const readJob = readJobFor(strategy, jobs);
@@ -348,19 +383,28 @@
 
     // --- before: current netto (a READ; allowWrites stays false)
     const before = await readNetto(baseCtx, sgbd, readJob);
-    if (readJob) sequence.push([readJob, jobStatusOf([{ JOB_STATUS: 'OKAY' }])]);
+    if (readJob)
+      sequence.push([readJob, jobStatusOf([{ JOB_STATUS: 'OKAY' }])]);
 
     // Already equal? Nothing to transmit -- do NOT open the write gate.
     if (before && bytesEqual(before, want)) {
-      return { ok: true, before, after: before, sequence, strategy,
-               note: 'netto already matches; no write transmitted' };
+      return {
+        ok: true,
+        before,
+        after: before,
+        sequence,
+        strategy,
+        note: 'netto already matches; no write transmitted',
+      };
     }
 
     // --- the write steps (allowWrites TRUE, only here)
     const steps = writeSteps(strategy, want, jobs);
     if (!steps || !steps.length) {
-      throw new Error(`coding write refused: strategy ${strategy} produced `
-        + 'no runnable steps for this SGBD');
+      throw new Error(
+        `coding write refused: strategy ${strategy} produced ` +
+          'no runnable steps for this SGBD'
+      );
     }
     const writeCtx = { ...baseCtx, allowWrites: true };
     for (const step of steps) {
@@ -378,12 +422,16 @@
     const after = await readNetto(baseCtx, sgbd, readJob);
     if (readJob) sequence.push([readJob, 'OKAY']);
     if (after == null) {
-      throw errVerify('cannot prove the write: SGBD exposes no coding read job '
-        + 'to re-read and verify against');
+      throw errVerify(
+        'cannot prove the write: SGBD exposes no coding read job ' +
+          'to re-read and verify against'
+      );
     }
     if (!bytesEqual(after, want)) {
-      throw errVerify(`re-read does not match written netto `
-        + `(wanted ${toHex(want)}, read back ${toHex(after)})`);
+      throw errVerify(
+        `re-read does not match written netto ` +
+          `(wanted ${toHex(want)}, read back ${toHex(after)})`
+      );
     }
 
     return { ok: true, before, after, sequence, strategy };
@@ -406,15 +454,22 @@
     const byteFolge = org.byteFolge === 1 ? 1 : 0;
     // The netto to write as a byte-addressed slot table. The dispatcher's
     // CDHGetApiJobData walks these in address order to build each chunk.
-    const slots = want.map((v, addr) => ({ addr, value: v & 0xff, mask: 0xff, flags: 0 }));
+    const slots = want.map((v, addr) => ({
+      addr,
+      value: v & 0xff,
+      mask: 0xff,
+      flags: 0,
+    }));
 
     // runJob for the dispatcher: the SAME memoised bus replay the strategy
     // path uses, with allowWrites threaded per call. Reads (the dispatcher's
     // own ident/index/current-netto) come with the gate closed.
     const runJob = async (jobSgbd, job, argText, o) => {
       const ctx = { ...baseCtx, allowWrites: !!(o && o.allowWrites) };
-      const arg = (o && o.binary) ? { bin: Array.from(argText, (c) => c.charCodeAt(0)) }
-        : argText;
+      const arg =
+        o && o.binary
+          ? { bin: Array.from(argText, (c) => c.charCodeAt(0)) }
+          : argText;
       return runJobOverBus(ctx, jobSgbd || sgbd, job, arg);
     };
 
@@ -431,27 +486,43 @@
       runJob,
     });
     if (!result.ok) {
-      throw errVerify(`dispatcher reported failure (err ${result.err}, `
-        + `ret ${result.ret})`);
+      throw errVerify(
+        `dispatcher reported failure (err ${result.err}, ` +
+          `ret ${result.ret})`
+      );
     }
 
     // PROVE BY RE-READ, independent of the dispatcher's own verify. Use the
     // SGBD's coding read job; compare to what we asked to write.
     const jobs = opts.jobs || (opts.code && opts.code.jobs) || {};
-    const readJob = readJobFor('codierdaten', jobs)
-      || readJobFor('codierung', jobs);
+    const readJob =
+      readJobFor('codierdaten', jobs) || readJobFor('codierung', jobs);
     const after = readJob ? await readNetto(baseCtx, sgbd, readJob) : null;
     if (after == null) {
       // No read job to verify with: the dispatcher's post-write C_CHECKSUM is
       // the only proof. Report it but flag the missing independent re-read.
-      return { ok: true, before: null, after: null, strategy: 'dispatch',
-               log: result.log, note: 'no coding read job to prove by re-read' };
+      return {
+        ok: true,
+        before: null,
+        after: null,
+        strategy: 'dispatch',
+        log: result.log,
+        note: 'no coding read job to prove by re-read',
+      };
     }
     if (!bytesEqual(after, want)) {
-      throw errVerify(`re-read does not match written netto `
-        + `(wanted ${toHex(want)}, read back ${toHex(after)})`);
+      throw errVerify(
+        `re-read does not match written netto ` +
+          `(wanted ${toHex(want)}, read back ${toHex(after)})`
+      );
     }
-    return { ok: true, before: null, after, strategy: 'dispatch', log: result.log };
+    return {
+      ok: true,
+      before: null,
+      after,
+      strategy: 'dispatch',
+      log: result.log,
+    };
   }
 
   // ---- pre-write backup ----------------------------------------------------
@@ -467,7 +538,9 @@
   function backupStore() {
     try {
       if (typeof localStorage !== 'undefined') return localStorage;
-    } catch (e) { /* private mode / disabled: fall through */ }
+    } catch (e) {
+      /* private mode / disabled: fall through */
+    }
     return null;
   }
 
@@ -480,10 +553,12 @@
     if (!store) return null;
     const rec = {
       sgbd: String(sgbd),
-      netto: String(nettoHex || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase(),
+      netto: String(nettoHex || '')
+        .replace(/[^0-9a-fA-F]/g, '')
+        .toUpperCase(),
       at: (meta.now instanceof Date ? meta.now : new Date()).toISOString(),
       chassis: meta.chassis || null,
-      ci: (meta.ci == null ? null : meta.ci),
+      ci: meta.ci == null ? null : meta.ci,
       note: meta.note || null,
     };
     if (!rec.netto) return null;
@@ -494,7 +569,7 @@
       store.setItem(BACKUP_KEY, JSON.stringify(list.slice(0, BACKUP_MAX)));
       return rec;
     } catch (e) {
-      return null;   // quota, serialisation, whatever: never block the write
+      return null; // quota, serialisation, whatever: never block the write
     }
   }
 

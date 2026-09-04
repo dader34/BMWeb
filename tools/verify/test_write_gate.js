@@ -29,42 +29,72 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 
 let failures = 0;
 const ok = (cond, msg) => {
-  if (cond) { console.log(`  ok   ${msg}`); }
-  else { console.error(`  FAIL ${msg}`); failures++; }
+  if (cond) {
+    console.log(`  ok   ${msg}`);
+  } else {
+    console.error(`  FAIL ${msg}`);
+    failures++;
+  }
 };
 
-const { Best2Vm, VmError, isWriteJob,
-        READ_TOKEN, WRITE_TOKEN, INFO_READ_TOKEN } =
-  require(path.join(ROOT, 'app/renderer/core/bestvm.js'));
+const {
+  Best2Vm,
+  VmError,
+  isWriteJob,
+  READ_TOKEN,
+  WRITE_TOKEN,
+  INFO_READ_TOKEN,
+} = require(path.join(ROOT, 'app/renderer/core/bestvm.js'));
 
 // ---------------------------------------------------------------------------
 console.log('1. isWriteJob classifies writes as writes');
 // A spread of real BMW job names that MUST be treated as writes.
 const WRITES = [
-  'STEUERN_DIGITALAKTOR', 'STEUERN', 'CODIERDATEN_SCHREIBEN', 'SPEICHER_SCHREIBEN',
-  'C_FG_SCHREIBEN', 'FS_LOESCHEN', 'IS_LOESCHEN', 'HS_LOESCHEN', 'PARAMETER_SETZEN',
-  'FLASH_PROGRAMMIEREN', 'PROGRAMMIERUNG_START', 'STEUERGERAET_RESET', 'RESET',
-  'CODIERUNG_SCHREIBEN', 'EEPROM_SCHREIBEN', 'NM_SETZEN',
+  'STEUERN_DIGITALAKTOR',
+  'STEUERN',
+  'CODIERDATEN_SCHREIBEN',
+  'SPEICHER_SCHREIBEN',
+  'C_FG_SCHREIBEN',
+  'FS_LOESCHEN',
+  'IS_LOESCHEN',
+  'HS_LOESCHEN',
+  'PARAMETER_SETZEN',
+  'FLASH_PROGRAMMIEREN',
+  'PROGRAMMIERUNG_START',
+  'STEUERGERAET_RESET',
+  'RESET',
+  'CODIERUNG_SCHREIBEN',
+  'EEPROM_SCHREIBEN',
+  'NM_SETZEN',
   // INFO is a WEAK read token (checked after the write tokens): a name that
   // carries a write verb must stay a write no matter where INFO sits in it.
   // The old \bINFO in the strong read tier would have called the first two
   // reads -- \b matches at the start of a string -- which is exactly the
   // hazard the weak tier exists to close. No such job exists in the corpus
   // today; these pins keep it that way.
-  'INFO_SCHREIBEN', 'INFOSPEICHER_LOESCHEN', 'INFO_RESET',
+  'INFO_SCHREIBEN',
+  'INFOSPEICHER_LOESCHEN',
+  'INFO_RESET',
 ];
 for (const j of WRITES) ok(isWriteJob(j), `write: ${j}`);
 
 // And names that must NOT be misread as writes (reads / status).
 const READS = [
-  'CODIERUNG_LESEN', 'STATUS_LESEN', 'IDENT', 'FS_LESEN',
-  'MESSWERTE_LESEN', 'HERSTELLDATEN_LESEN',
+  'CODIERUNG_LESEN',
+  'STATUS_LESEN',
+  'IDENT',
+  'FS_LESEN',
+  'MESSWERTE_LESEN',
+  'HERSTELLDATEN_LESEN',
   // *_INFO reads: `_` is a word character, so \bINFO never matched these and
   // they used to fall to default-deny -- safe direction, but it blocked
   // legitimate info reads in the UI. The (?:\b|_)INFO weak tier fixed that;
   // the corpus diff (6147 names, 2026-08-17) flipped exactly CBS_INFO,
   // MODUL_INFO and DEBUGGING_INFORMATION write->read, all true reads.
-  'STEUERGERAETE_INFO', 'CBS_INFO', 'MODUL_INFO', 'DEBUGGING_INFORMATION',
+  'STEUERGERAETE_INFO',
+  'CBS_INFO',
+  'MODUL_INFO',
+  'DEBUGGING_INFORMATION',
 ];
 for (const j of READS) ok(!isWriteJob(j), `read (not write): ${j}`);
 
@@ -78,29 +108,39 @@ function refuses(job, allowWrites) {
   try {
     // Best2Vm(code, opts): code can be a minimal object; the gate at bestvm.js:437
     // checks isWriteJob(job) && !allowWrites before touching the program body.
-    const vm = new Best2Vm({ jobs: {}, tables: {}, strings: [] },
-                           { allowWrites });
+    const vm = new Best2Vm(
+      { jobs: {}, tables: {}, strings: [] },
+      { allowWrites }
+    );
     vm.run(job, '');
     return null; // did not throw
-  } catch (e) { return e; }
+  } catch (e) {
+    return e;
+  }
 }
 {
   const e = refuses('CODIERDATEN_SCHREIBEN', false);
-  ok(e instanceof Error && /refus/i.test(e.message),
-     'refuses write job with allowWrites:false');
+  ok(
+    e instanceof Error && /refus/i.test(e.message),
+    'refuses write job with allowWrites:false'
+  );
   // The stub VM's default send() throws 'no telegram sink' -- if THAT were
   // the error, bytecode ran far enough to attempt a transmit before any
   // refusal. The gate must fire first, so the error must not be the sink's.
   // (Replaces an assertion that was vacuously true whenever /refus/ matched.)
-  ok(e instanceof Error && !/no telegram sink/.test(e.message),
-     'refusal fires before any telegram is attempted (not the sink error)');
+  ok(
+    e instanceof Error && !/no telegram sink/.test(e.message),
+    'refusal fires before any telegram is attempted (not the sink error)'
+  );
 }
 {
   // A read job must NOT be refused by the gate (it may fail later for other
   // reasons, but not with the write-gate message).
   const e = refuses('CODIERUNG_LESEN', false);
-  ok(!(e && /refusing to (run|transmit) write job/i.test(e.message)),
-     'read job is not blocked by the write gate');
+  ok(
+    !(e && /refusing to (run|transmit) write job/i.test(e.message)),
+    'read job is not blocked by the write gate'
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -115,10 +155,11 @@ console.log('3. JS and Python classifier twins are identical');
 const pySrc = read('tools/verify/sgbd_bulk_verify.py');
 // pull the r"..." r"..." concatenation after `<NAME> = re.compile(`
 function pyPattern(name) {
-  const m = pySrc.match(new RegExp(
-    name + ' = re\\.compile\\(\\s*((?:r"[^"]*"\\s*)+)'));
+  const m = pySrc.match(
+    new RegExp(name + ' = re\\.compile\\(\\s*((?:r"[^"]*"\\s*)+)')
+  );
   if (!m) return null;
-  return (m[1].match(/r"([^"]*)"/g) || []).map(s => s.slice(2, -1)).join('');
+  return (m[1].match(/r"([^"]*)"/g) || []).map((s) => s.slice(2, -1)).join('');
 }
 for (const [name, jsRe] of [
   ['READ_TOKEN', READ_TOKEN],
@@ -127,15 +168,21 @@ for (const [name, jsRe] of [
 ]) {
   const py = pyPattern(name);
   ok(py !== null, `found Python ${name} regex`);
-  ok(py === jsRe.source,
-     `JS ${name} === Python ${name}\n       js: ${jsRe.source}\n       py: ${py}`);
+  ok(
+    py === jsRe.source,
+    `JS ${name} === Python ${name}\n       js: ${jsRe.source}\n       py: ${py}`
+  );
 }
 // The patterns matching is necessary but not sufficient: the SHIM must also
 // consult them in the same order. Pin the exact three-tier body of
 // _WriteJob.match -- a reordering (e.g. INFO before WRITE) would reclassify
 // write jobs as reads on one side only.
-ok(/if READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?if WRITE_TOKEN\.search\(n\):\s*\n\s*return True[\s\S]*?if INFO_READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?return True/.test(pySrc),
-   'Python _WriteJob keeps the tier order: read -> write -> INFO -> deny');
+ok(
+  /if READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?if WRITE_TOKEN\.search\(n\):\s*\n\s*return True[\s\S]*?if INFO_READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?return True/.test(
+    pySrc
+  ),
+  'Python _WriteJob keeps the tier order: read -> write -> INFO -> deny'
+);
 // And a behavioural cross-check: run the extracted Python patterns through
 // the same tier order and diff against isWriteJob over every name this file
 // exercises. Catches semantic drift the source-shape checks above miss.
@@ -143,14 +190,24 @@ ok(/if READ_TOKEN\.search\(n\):\s*\n\s*return None[\s\S]*?if WRITE_TOKEN\.search
   const pr = new RegExp(pyPattern('READ_TOKEN') || '$^', 'i');
   const pw = new RegExp(pyPattern('WRITE_TOKEN') || '$^', 'i');
   const pi = new RegExp(pyPattern('INFO_READ_TOKEN') || '$^', 'i');
-  const pyIsWrite = (n) => (pr.test(n) ? false : pw.test(n) ? true
-    : pi.test(n) ? false : true);
-  const probes = [...WRITES, ...READS,
-    'AUTHENTISIERUNG', 'BAUDRATE', 'LOESCHEN', 'UNBEKANNTER_JOB',
-    'STATUS_LDP_START', 'STEUERN_ROE_STOP', 'ABGLEICH_LESEN_HFM'];
+  const pyIsWrite = (n) =>
+    pr.test(n) ? false : pw.test(n) ? true : pi.test(n) ? false : true;
+  const probes = [
+    ...WRITES,
+    ...READS,
+    'AUTHENTISIERUNG',
+    'BAUDRATE',
+    'LOESCHEN',
+    'UNBEKANNTER_JOB',
+    'STATUS_LDP_START',
+    'STEUERN_ROE_STOP',
+    'ABGLEICH_LESEN_HFM',
+  ];
   const drift = probes.filter((n) => pyIsWrite(n) !== isWriteJob(n));
-  ok(drift.length === 0,
-     `twins agree on every probe${drift.length ? ` (drift: ${drift.join(', ')})` : ''}`);
+  ok(
+    drift.length === 0,
+    `twins agree on every probe${drift.length ? ` (drift: ${drift.join(', ')})` : ''}`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -163,8 +220,15 @@ console.log('4. isWriteJob is a superset of the per-screen dangerous regexes');
 // CODIERDATEN_SCHREIBEN). The VM regex keys on that (`.*_LOESCHEN`), so a
 // PREFIXED danger job is always caught:
 const SCREEN_DANGER_TOKENS = [
-  'FLASH', 'FS_LOESCHEN', 'CODIER_SCHREIBEN', 'STEUERGERAET_RESET',
-  'PROGRAMMIER', 'PARAMETER_SETZEN', 'X_SCHREIBEN', 'Y_LOESCHEN', 'Z_SETZEN',
+  'FLASH',
+  'FS_LOESCHEN',
+  'CODIER_SCHREIBEN',
+  'STEUERGERAET_RESET',
+  'PROGRAMMIER',
+  'PARAMETER_SETZEN',
+  'X_SCHREIBEN',
+  'Y_LOESCHEN',
+  'Z_SETZEN',
   'PROGRAMMIERUNG',
 ];
 for (const tok of SCREEN_DANGER_TOKENS) {
@@ -183,8 +247,10 @@ for (const tok of SCREEN_DANGER_TOKENS) {
 // So everything the per-screen regexes flag dangerous is now also a VM write.
 const CLOSED_GAPS = ['LOESCHEN', 'AUTHENTISIERUNG', 'BAUDRATE'];
 for (const tok of CLOSED_GAPS) {
-  ok(isWriteJob(tok),
-     `formerly UI-only, now caught by the VM gate too: ${tok}`);
+  ok(
+    isWriteJob(tok),
+    `formerly UI-only, now caught by the VM gate too: ${tok}`
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -198,19 +264,29 @@ for (const tok of CLOSED_GAPS) {
 // cannot quietly widen further.
 console.log('5. writes are enabled, and the read-only paths stay read-only');
 const shim = read('app/renderer/core/webshim.js');
-ok(/allowWrites: true/.test(shim),
-   'the job runner constructs the VM with allowWrites:true');
-ok(/allowWrites: false/.test(shim),
-   'group probing STILL passes allowWrites:false -- it walks addresses that '
-   + 'may not be the module we think, so it must never change one');
-const probe = shim.slice(shim.indexOf('Group probing walks diagnostic addresses'));
-ok(/allowWrites: false/.test(probe.slice(0, 400)),
-   'and that false belongs to the probe, not to a stale call site');
+ok(
+  /allowWrites: true/.test(shim),
+  'the job runner constructs the VM with allowWrites:true'
+);
+ok(
+  /allowWrites: false/.test(shim),
+  'group probing STILL passes allowWrites:false -- it walks addresses that ' +
+    'may not be the module we think, so it must never change one'
+);
+const probe = shim.slice(
+  shim.indexOf('Group probing walks diagnostic addresses')
+);
+ok(
+  /allowWrites: false/.test(probe.slice(0, 400)),
+  'and that false belongs to the probe, not to a stale call site'
+);
 
 // ---------------------------------------------------------------------------
 if (failures) {
   console.error(`\nWRITE-GATE GUARD FAILED: ${failures} assertion(s).`);
-  console.error('The write posture changed in a way this guard does not expect.');
+  console.error(
+    'The write posture changed in a way this guard does not expect.'
+  );
   process.exit(1);
 }
 console.log('\nwrite-gate guard: all assertions passed.');

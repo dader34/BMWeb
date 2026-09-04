@@ -27,8 +27,16 @@
 // the folder over any static HTTP server).
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, rmSync, mkdirSync, existsSync, writeFileSync, readFileSync,
-         readdirSync, statSync } from 'node:fs';
+import {
+  cpSync,
+  rmSync,
+  mkdirSync,
+  existsSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
 import { join, basename } from 'node:path';
 
 function arg(name, def) {
@@ -39,8 +47,10 @@ function arg(name, def) {
 const DIST = arg('dist', 'dist-web');
 const OUT = arg('out', 'release-builds');
 if (!existsSync(join(DIST, 'index.html'))) {
-  console.error(`error: ${DIST}/index.html not found -- build dist-web first `
-    + `(scripts/build/build-web.sh)`);
+  console.error(
+    `error: ${DIST}/index.html not found -- build dist-web first ` +
+      `(scripts/build/build-web.sh)`
+  );
   process.exit(1);
 }
 
@@ -50,7 +60,9 @@ function readVersion() {
     const v = readFileSync(join(DIST, 'version.js'), 'utf8');
     const m = v.match(/BMACW_VERSION\s*=\s*"([^"]+)"/);
     if (m && m[1] && m[1] !== 'web') return m[1];
-  } catch { /* fall through */ }
+  } catch {
+    /* fall through */
+  }
   return '0.0.0';
 }
 const VER = readVersion();
@@ -59,34 +71,48 @@ const VER = readVersion();
 //   wiring: data/wiring/*.wiring  (the WDS diagrams, ~150 MB as released)
 //   parts : data/etk/             (the ETK catalogue, ~5.8 GB; "complete" only)
 const ALL_VARIANTS = [
-  { name: '',            dropWiring: false, dropParts: true  },
-  { name: '-no-wiring',  dropWiring: true,  dropParts: true  },
-  { name: '-complete',   dropWiring: false, dropParts: false },
+  { name: '', dropWiring: false, dropParts: true },
+  { name: '-no-wiring', dropWiring: true, dropParts: true },
+  { name: '-complete', dropWiring: false, dropParts: false },
 ];
-const WANT = arg('variant', 'github');   // github = the two release-asset zips
-const VARIANTS = WANT === 'complete' ? ALL_VARIANTS.filter((v) => !v.dropParts)
-               : WANT === 'all'      ? ALL_VARIANTS
-               :                       ALL_VARIANTS.filter((v) => v.dropParts);
+const WANT = arg('variant', 'github'); // github = the two release-asset zips
+const VARIANTS =
+  WANT === 'complete'
+    ? ALL_VARIANTS.filter((v) => !v.dropParts)
+    : WANT === 'all'
+      ? ALL_VARIANTS
+      : ALL_VARIANTS.filter((v) => v.dropParts);
 
 // Offline means offline: the fault lookup data is fetched from Hugging Face by
 // the hosted site, so a dist-web straight out of web_export.py does not have
 // it. Refuse rather than ship a zip whose README promises fault lookup.
-const REQUIRED = ['data/faultdb.js', 'data/faultindex.js', 'data/faultmeta.js',
-                  'data/faultinfo.js', 'data/ista/faulttests.json'];
+const REQUIRED = [
+  'data/faultdb.js',
+  'data/faultindex.js',
+  'data/faultmeta.js',
+  'data/faultinfo.js',
+  'data/ista/faulttests.json',
+];
 const missing = REQUIRED.filter((f) => !existsSync(join(DIST, f)));
 if (missing.length) {
-  console.error(`error: ${DIST} is missing the fault-lookup data, so the build would `
-    + `not be offline:\n  ${missing.join('\n  ')}\n`
-    + `Fetch faults/*.js and ista/faulttests.json from the CraigFf/bmweb-etk dataset `
-    + `into ${DIST}/data first (release-web.yml shows how).`);
+  console.error(
+    `error: ${DIST} is missing the fault-lookup data, so the build would ` +
+      `not be offline:\n  ${missing.join('\n  ')}\n` +
+      `Fetch faults/*.js and ista/faulttests.json from the CraigFf/bmweb-etk dataset ` +
+      `into ${DIST}/data first (release-web.yml shows how).`
+  );
   process.exit(1);
 }
 if (VARIANTS.some((v) => !v.dropParts)) {
   const n = existsSync(join(DIST, 'data', 'etk'))
-    ? readdirSync(join(DIST, 'data', 'etk')).filter((f) => f.endsWith('.etk')).length : 0;
+    ? readdirSync(join(DIST, 'data', 'etk')).filter((f) => f.endsWith('.etk'))
+        .length
+    : 0;
   if (n < 200 || !existsSync(join(DIST, 'data', 'etk', 'index.json'))) {
-    console.error(`error: the complete variant needs the ETK tree in ${DIST}/data/etk `
-      + `(found ${n} .etk bundles, want 246 plus index.json).`);
+    console.error(
+      `error: the complete variant needs the ETK tree in ${DIST}/data/etk ` +
+        `(found ${n} .etk bundles, want 246 plus index.json).`
+    );
     process.exit(1);
   }
 }
@@ -99,8 +125,12 @@ const OFFLINE_JS = 'window.BMACW_OFFLINE=true;\n';
 
 function humanSize(bytes) {
   const u = ['B', 'KB', 'MB', 'GB'];
-  let i = 0, n = bytes;
-  while (n >= 1024 && i < u.length - 1) { n /= 1024; i += 1; }
+  let i = 0,
+    n = bytes;
+  while (n >= 1024 && i < u.length - 1) {
+    n /= 1024;
+    i += 1;
+  }
   return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
 function dirSize(dir) {
@@ -108,7 +138,12 @@ function dirSize(dir) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
     if (e.isDirectory()) total += dirSize(p);
-    else try { total += statSync(p).size; } catch { /* skip */ }
+    else
+      try {
+        total += statSync(p).size;
+      } catch {
+        /* skip */
+      }
   }
   return total;
 }
@@ -127,8 +162,10 @@ for (const v of VARIANTS) {
 
   if (v.dropWiring) {
     const w = join(stage, 'data', 'wiring');
-    if (existsSync(w)) { rmSync(w, { recursive: true, force: true });
-      console.log('    dropped data/wiring (WDS diagrams)'); }
+    if (existsSync(w)) {
+      rmSync(w, { recursive: true, force: true });
+      console.log('    dropped data/wiring (WDS diagrams)');
+    }
     // also the inline bundle, if a previous export left one
     const wj = join(stage, 'data', 'wiring.js');
     if (existsSync(wj)) rmSync(wj, { force: true });
@@ -138,8 +175,10 @@ for (const v of VARIANTS) {
   // version.js / no-parts.js: a tiny script before app.js.
   writeFileSync(join(stage, 'offline.js'), OFFLINE_JS);
   if (!readFileSync(join(stage, 'index.html'), 'utf8').includes('offline.js')) {
-    const html = readFileSync(join(stage, 'index.html'), 'utf8')
-      .replace('<head>', '<head>\n  <script src="offline.js"></script>');
+    const html = readFileSync(join(stage, 'index.html'), 'utf8').replace(
+      '<head>',
+      '<head>\n  <script src="offline.js"></script>'
+    );
     writeFileSync(join(stage, 'index.html'), html);
   }
 
@@ -147,57 +186,67 @@ for (const v of VARIANTS) {
     // The catalogue is 5.8 GB and lives only in the complete build; hide the
     // Parts entry here rather than offer a screen that would try the network.
     writeFileSync(join(stage, 'no-parts.js'), PARTS_OFF_JS);
-    if (!readFileSync(join(stage, 'index.html'), 'utf8').includes('no-parts.js')) {
-      const html = readFileSync(join(stage, 'index.html'), 'utf8')
-        .replace('<head>', '<head>\n  <script src="no-parts.js"></script>');
+    if (
+      !readFileSync(join(stage, 'index.html'), 'utf8').includes('no-parts.js')
+    ) {
+      const html = readFileSync(join(stage, 'index.html'), 'utf8').replace(
+        '<head>',
+        '<head>\n  <script src="no-parts.js"></script>'
+      );
       writeFileSync(join(stage, 'index.html'), html);
     }
     const etk = join(stage, 'data', 'etk');
-    if (existsSync(etk)) { rmSync(etk, { recursive: true, force: true });
-      console.log('    dropped data/etk (parts catalogue)'); }
+    if (existsSync(etk)) {
+      rmSync(etk, { recursive: true, force: true });
+      console.log('    dropped data/etk (parts catalogue)');
+    }
     console.log('    parts catalogue hidden (see the complete build)');
   }
 
   // a short readme so the download explains itself
-  writeFileSync(join(stage, 'OFFLINE-README.txt'),
-    `BMWeb ${VER} -- offline web build (offline${v.name})\n`
-    + `${'='.repeat(48)}\n\n`
-    + `HOW TO RUN\n`
-    + `  Easiest: unzip, then open index.html in Chrome or Edge. The first time,\n`
-    + `  click "Select folder" and choose THIS folder (the one holding\n`
-    + `  index.html). The app then loads its car data straight from the folder --\n`
-    + `  no internet, no server. It remembers the folder for next time.\n\n`
-    + `  Alternative: serve this folder over any static HTTP server (e.g.\n`
-    + `  "python3 -m http.server" in this folder, then open the shown URL). Then\n`
-    + `  no folder pick is needed.\n\n`
-    + `  Why the folder pick: a browser opening index.html directly (file://)\n`
-    + `  blocks a page from reading its own data files unless you grant access to\n`
-    + `  the folder. Chrome and Edge support this; Safari and Firefox do not, so\n`
-    + `  on those use the HTTP-server option above.\n\n`
-    + `Nothing in this build fetches from the internet. A K+DCAN cable talks to\n`
-    + `the car through the browser (Web Serial, Chrome or Edge) or over WiFi\n`
-    + `through the THOR adapter.\n\n`
-    + `This build includes:\n`
-    + `  - full diagnostics (every shipped SGBD), coding, fault memory\n`
-    + `  - fault code lookup with English descriptions and ISTA test plans\n`
-    + (v.dropWiring
+  writeFileSync(
+    join(stage, 'OFFLINE-README.txt'),
+    `BMWeb ${VER} -- offline web build (offline${v.name})\n` +
+      `${'='.repeat(48)}\n\n` +
+      `HOW TO RUN\n` +
+      `  Easiest: unzip, then open index.html in Chrome or Edge. The first time,\n` +
+      `  click "Select folder" and choose THIS folder (the one holding\n` +
+      `  index.html). The app then loads its car data straight from the folder --\n` +
+      `  no internet, no server. It remembers the folder for next time.\n\n` +
+      `  Alternative: serve this folder over any static HTTP server (e.g.\n` +
+      `  "python3 -m http.server" in this folder, then open the shown URL). Then\n` +
+      `  no folder pick is needed.\n\n` +
+      `  Why the folder pick: a browser opening index.html directly (file://)\n` +
+      `  blocks a page from reading its own data files unless you grant access to\n` +
+      `  the folder. Chrome and Edge support this; Safari and Firefox do not, so\n` +
+      `  on those use the HTTP-server option above.\n\n` +
+      `Nothing in this build fetches from the internet. A K+DCAN cable talks to\n` +
+      `the car through the browser (Web Serial, Chrome or Edge) or over WiFi\n` +
+      `through the THOR adapter.\n\n` +
+      `This build includes:\n` +
+      `  - full diagnostics (every shipped SGBD), coding, fault memory\n` +
+      `  - fault code lookup with English descriptions and ISTA test plans\n` +
+      (v.dropWiring
         ? `  - NO wiring diagrams (WDS) -- excluded to keep this build small\n`
-        : `  - WDS wiring diagrams (where covered)\n`)
-    + (v.dropParts
-        ? `  - NO parts catalogue (ETK). It is 5.8 GB, more than a GitHub release\n`
-          + `    asset may hold, so the build that has it lives on Hugging Face:\n`
-          + `    the "offline-complete" zip linked from the release notes.\n`
-        : `  - the ETK parts catalogue, every chassis\n`)
-    + `\nVersion ${VER}.\n`);
+        : `  - WDS wiring diagrams (where covered)\n`) +
+      (v.dropParts
+        ? `  - NO parts catalogue (ETK). It is 5.8 GB, more than a GitHub release\n` +
+          `    asset may hold, so the build that has it lives on Hugging Face:\n` +
+          `    the "offline-complete" zip linked from the release notes.\n`
+        : `  - the ETK parts catalogue, every chassis\n`) +
+      `\nVersion ${VER}.\n`
+  );
 
   const size = dirSize(stage);
   const zipPath = join(OUT, `${stageName}.zip`);
   rmSync(zipPath, { force: true });
   console.log(`    staged ${humanSize(size)}, zipping…`);
   // zip from inside OUT so the archive holds "<stageName>/..." not the full path
-  execFileSync('zip', ['-r', '-q', '-1', basename(zipPath), stageName],
-    { cwd: OUT, stdio: 'inherit' });
-  rmSync(stage, { recursive: true, force: true });   // keep only the .zip
+  execFileSync('zip', ['-r', '-q', '-1', basename(zipPath), stageName], {
+    cwd: OUT,
+    stdio: 'inherit',
+  });
+  rmSync(stage, { recursive: true, force: true }); // keep only the .zip
   const zsize = statSync(zipPath).size;
   console.log(`    -> ${basename(zipPath)} (${humanSize(zsize)})`);
   results.push({ name: v.name, zip: basename(zipPath), size: zsize });
@@ -208,5 +257,7 @@ for (const r of results) {
   console.log(`    ${r.zip.padEnd(40)} ${humanSize(r.size)}`);
 }
 // emit a machine-readable manifest for the release step
-writeFileSync(join(OUT, 'manifest.json'),
-  JSON.stringify({ version: VER, builds: results }, null, 2));
+writeFileSync(
+  join(OUT, 'manifest.json'),
+  JSON.stringify({ version: VER, builds: results }, null, 2)
+);

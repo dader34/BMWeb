@@ -2,7 +2,7 @@
 // archive per car: schematics as .svgz (gzipped SVG, vector) and functional
 // descriptions as HTML, straight out of WDS. Inflating is fflate.
 
-const WIRING_CACHE = new Map();   // chassis -> { tree, files: Map(name -> u8) }
+const WIRING_CACHE = new Map(); // chassis -> { tree, files: Map(name -> u8) }
 
 // WDS's pane buttons: a frame with the divider pushed one way; the filled block
 // is the pane that gets the room. doc=document, split=both, tree=tree.
@@ -36,14 +36,16 @@ const WIRING_KIND_LABEL = {
 // and returning to the wiring screen. Each tab is a doc entry reduced to what
 // re-opening needs: { doc, name, kind }. localStorage is best-effort -- a
 // private window or a wiped store just starts with no tabs.
-const WIRING_TABS_KEY = 'wiring.tabs';   // { CHASSIS: { open:[{doc,name,kind}], active:doc } }
+const WIRING_TABS_KEY = 'wiring.tabs'; // { CHASSIS: { open:[{doc,name,kind}], active:doc } }
 
 function wiringTabsLoad(chassisId) {
   try {
     const all = JSON.parse(localStorage.getItem(WIRING_TABS_KEY) || '{}');
     const st = all[chassisId.toUpperCase()];
     if (st && Array.isArray(st.open)) return st;
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    /* ignore */
+  }
   return { open: [], active: null };
 }
 
@@ -51,11 +53,13 @@ function wiringTabsSave(chassisId, state) {
   try {
     const all = JSON.parse(localStorage.getItem(WIRING_TABS_KEY) || '{}');
     all[chassisId.toUpperCase()] = {
-      open: state.open.map(t => ({ doc: t.doc, name: t.name, kind: t.kind })),
+      open: state.open.map((t) => ({ doc: t.doc, name: t.name, kind: t.kind })),
       active: state.active,
     };
     localStorage.setItem(WIRING_TABS_KEY, JSON.stringify(all));
-  } catch (e) { /* quota / private mode: tabs are a convenience, not critical */ }
+  } catch (e) {
+    /* quota / private mode: tabs are a convenience, not critical */
+  }
 }
 
 async function loadWiring(chassisId) {
@@ -63,16 +67,18 @@ async function loadWiring(chassisId) {
   if (WIRING_CACHE.has(id)) return WIRING_CACHE.get(id);
   // the offline export inlines archives as base64; use that when present
   let bytes;
-  const inline = (typeof BMACW_WIRING === 'object' && BMACW_WIRING)
-    ? BMACW_WIRING[id] : null;
+  const inline =
+    typeof BMACW_WIRING === 'object' && BMACW_WIRING ? BMACW_WIRING[id] : null;
   if (inline) {
     const bin = atob(inline);
     bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   } else {
-    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
-    const real = (typeof webRealFetch === 'function')
-      ? webRealFetch : window.fetch.bind(window);
+    const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+    const real =
+      typeof webRealFetch === 'function'
+        ? webRealFetch
+        : window.fetch.bind(window);
     const r = await real(`${base}/data/wiring/${id}.wiring`);
     if (!r.ok) throw new Error(`no wiring data shipped for ${dispChassis(id)}`);
     bytes = new Uint8Array(await r.arrayBuffer());
@@ -104,7 +110,7 @@ function wiringDoc(data, docId) {
 // deliberately.
 const WIRING_IMG_CDN =
   'https://cdn.jsdelivr.net/gh/dader34/BMacW-wiring-images@55cad337b4787326cfcacbea220fa4787aaa74e4/img/';
-const WIRING_IMG_CACHE = 'bmacw-wiring-images-v3';  // bump with the CDN URL
+const WIRING_IMG_CACHE = 'bmacw-wiring-images-v3'; // bump with the CDN URL
 
 // A blob URL per image, made once and kept: the same photo appears on many
 // documents, and minting a URL per view would leak one each time.
@@ -113,8 +119,10 @@ function wiringImageUrl(data, path, bytesOrBlob) {
   let url = data.imgUrls.get(path);
   if (!url) {
     // from the archive it is bytes; from the CDN it is already a Blob
-    const blob = (bytesOrBlob instanceof Blob) ? bytesOrBlob
-      : new Blob([bytesOrBlob], { type: 'image/png' });
+    const blob =
+      bytesOrBlob instanceof Blob
+        ? bytesOrBlob
+        : new Blob([bytesOrBlob], { type: 'image/png' });
     url = URL.createObjectURL(blob);
     data.imgUrls.set(path, url);
   }
@@ -138,7 +146,9 @@ async function wiringFetchImage(name) {
     try {
       const res = await fetch(url);
       return res.ok ? res.blob() : null;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -182,7 +192,8 @@ let wiringVinFilterOn = false;
 // (SP-doc -> chassis/engine, decoded from ISTA). 'match' | 'off' | 'neutral'.
 // Keyed by the SP DOC ID (leaf.doc), never the diagram name.
 function wiringDiagramMatch(doc) {
-  if (!wiringVinHit || typeof wiringApplicability === 'undefined') return 'neutral';
+  if (!wiringVinHit || typeof wiringApplicability === 'undefined')
+    return 'neutral';
   return wiringApplicability.match(doc, wiringVinHit);
 }
 
@@ -198,32 +209,43 @@ function wiringSubtreeHasMatch(node) {
   while (stack.length) {
     const n = stack.pop();
     for (const c of n.children || []) {
-      if (c.doc) { sawDoc = true; if (wiringDiagramMatch(c.doc) !== 'off') return true; }
-      else if (c.children) stack.push(c);
+      if (c.doc) {
+        sawDoc = true;
+        if (wiringDiagramMatch(c.doc) !== 'off') return true;
+      } else if (c.children) stack.push(c);
     }
   }
-  return !sawDoc;   // no diagrams at all -> keep (generic container)
+  return !sawDoc; // no diagrams at all -> keep (generic container)
 }
 
 // Is wiring shipped for this chassis? (the section's "resolvable" gate)
 async function wiringHasChassis(chassis) {
   const shipped = await wiringChassisList();
-  return shipped.some(id => String(id).toUpperCase() === String(chassis).toUpperCase());
+  return shipped.some(
+    (id) => String(id).toUpperCase() === String(chassis).toUpperCase()
+  );
 }
 
 // The wiring VIN decoder: the SAME screen the Parts catalogue uses (VIN box +
 // identify-by-attributes), retargeted to open wiring and remember the VIN.
 function showWiringVinDecoder() {
-  if (typeof showVinDecoder !== 'function') { showWiringChassis(); return; }
+  if (typeof showVinDecoder !== 'function') {
+    showWiringChassis();
+    return;
+  }
   showVinDecoder({
     eyebrow: 'WDS',
     title: 'Vehicle Identification',
-    subtitle: 'Enter your VIN, or identify your vehicle by series, body and model, to open its wiring.',
-    crumbs: [{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps },
-             { label: 'Wiring', fn: showWiringChassis }, { label: 'VIN' }],
+    subtitle:
+      'Enter your VIN, or identify your vehicle by series, body and model, to open its wiring.',
+    crumbs: [
+      { label: 'Vehicles', fn: showChassis },
+      { label: 'Apps', fn: showApps },
+      { label: 'Wiring', fn: showWiringChassis },
+      { label: 'VIN' },
+    ],
     back: showWiringChassis,
-    savedKey: WIRING_VINS_KEY,     // wiring keeps its own saved-vehicles list
+    savedKey: WIRING_VINS_KEY, // wiring keeps its own saved-vehicles list
     resolvable: (chassis) => wiringHasChassis(chassis),
     openLabel: (disp) => `Open ${disp} diagrams →`,
     unavailable: (disp) => `⚠ No wiring diagrams shipped for ${disp} yet.`,
@@ -253,13 +275,26 @@ function buildWiringVinBox() {
 // Wiring as its own section: pick the car here rather than arriving via chassis.
 async function showWiringChassis() {
   lastScreen = showWiringChassis;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps }, { label: 'Wiring' }]);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
+    { label: 'Wiring' },
+  ]);
   sbLeft.textContent = 'wiring';
-  view.innerHTML = head('WDS', 'Wiring Diagrams',
-    'BMW’s own schematics. Enter a VIN or pick a vehicle to browse its diagrams.');
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: showApps }]);
+  view.innerHTML = head(
+    'WDS',
+    'Wiring Diagrams',
+    'BMW’s own schematics. Enter a VIN or pick a vehicle to browse its diagrams.'
+  );
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showApps,
+    },
+  ]);
 
   // VIN search: decode the VIN to a chassis (same index the Parts catalogue
   // uses) and open its wiring. A saved VIN is remembered and pre-filled, so a
@@ -273,8 +308,9 @@ async function showWiringChassis() {
   // fill the page while the 21 probes run (several seconds on a hosted site)
   const wait = document.createElement('div');
   wait.className = 'wiring-loading';
-  wait.innerHTML = `<span class="wiring-spinner"></span>`
-    + `<span>Looking for the vehicles with diagrams…</span>`;
+  wait.innerHTML =
+    `<span class="wiring-spinner"></span>` +
+    `<span>Looking for the vehicles with diagrams…</span>`;
   view.appendChild(wait);
   view.appendChild(grid);
 
@@ -301,8 +337,9 @@ async function showWiringChassis() {
     if (classic) {
       // INPA idiom: an F-key list, not cards
       card.className = 'inpa-fn';
-      card.innerHTML = `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>`
-        + `<span class="inpa-fn-label">${esc(dispChassis(id))} · ${esc(tag)}</span>`;
+      card.innerHTML =
+        `<span class="inpa-fn-key">&lt; F${i + 1} &gt;</span>` +
+        `<span class="inpa-fn-label">${esc(dispChassis(id))} · ${esc(tag)}</span>`;
     } else {
       card.className = 'chassis-card';
       card.innerHTML = `
@@ -317,9 +354,17 @@ async function showWiringChassis() {
   sbRight.textContent = `${ids.length} chassis`;
   setActions([
     ...ids.slice(0, 9).map((id, i) => ({
-      key: String(i + 1), label: dispChassis(id), fn: () => showWiring(id),
+      key: String(i + 1),
+      label: dispChassis(id),
+      fn: () => showWiring(id),
     })),
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: showApps },
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: showApps,
+    },
   ]);
 }
 
@@ -328,7 +373,7 @@ async function showWiringChassis() {
 // against the vehicle, and a toggle can hide the off ones. Null = no filtering.
 function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   lastScreen = () => showWiring(chassisId, null, vin);
-  wiringVinHit = vin || null;   // module-level so renderTree/search can read it
+  wiringVinHit = vin || null; // module-level so renderTree/search can read it
   // which category the tree shows: diagrams (WDS schematics) | components |
   // repair (both ISTA documents). Remembered; a deep-linked doc picks its own.
   let wiringCat = category || Settings.get('wiringCat', 'diagrams');
@@ -352,7 +397,9 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   const split = document.createElement('div');
   split.className = 'split wiring-split' + (classic ? ' wds-frame' : '');
   split.innerHTML = `
-    ${classic ? `
+    ${
+      classic
+        ? `
     <div class="wds-toolbar">
       <button class="wds-btn" id="wds-series"
               title="Back to the vehicle list">&lt;&lt; Series</button>
@@ -374,8 +421,13 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
     <div class="wds-titlebar">
       <span>WDS BMW Wiring Diagram System - ${esc(dispChassis(chassisId))}</span>
       <span class="wds-version">Version</span>
-    </div>` : ''}
-    ${classic ? '' : `
+    </div>`
+        : ''
+    }
+    ${
+      classic
+        ? ''
+        : `
     <div class="wiring-toolbar">
       <button class="btn wiring-tbtn" id="wds-back"
               title="Back to the vehicle list (Esc)">←&nbsp;Back</button>
@@ -412,7 +464,8 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
               title="Print this diagram, filling the sheet">Print</button>
       <button class="btn wiring-tbtn" id="wds-help"
               title="How to use this screen">Help</button>
-    </div>`}
+    </div>`
+    }
     <div class="wiring-tabs" id="wiring-tabs" role="tablist" hidden></div>
     <div class="wiring-body">
       <nav class="split-nav wiring-nav">
@@ -420,7 +473,9 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
       </nav>
       <div class="split-content wiring-view" id="wiring-view"></div>
     </div>
-    ${classic ? `
+    ${
+      classic
+        ? `
     <div class="wds-footer">
       <label class="wds-searchlabel" for="wiring-search">Enter search word</label>
       <input class="wds-input" id="wiring-search" type="search" autocomplete="off"
@@ -438,14 +493,17 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
                 title="Give the whole window to the tree">${WDS_PANE_GLYPH.tree}</button>
       </span>
       <span class="wds-zoomgroup" id="wds-zoomgroup"></span>
-    </div>` : ''}`;
+    </div>`
+        : ''
+    }`;
   view.appendChild(split);
 
   const treeEl = split.querySelector('#wiring-tree');
   // the archive is 2-24 MB: real wait before the tree appears, so fill it
-  treeEl.innerHTML = `<div class="wiring-loading">`
-    + `<span class="wiring-spinner"></span>`
-    + `<span>Loading ${esc(dispChassis(chassisId))} diagrams…</span></div>`;
+  treeEl.innerHTML =
+    `<div class="wiring-loading">` +
+    `<span class="wiring-spinner"></span>` +
+    `<span>Loading ${esc(dispChassis(chassisId))} diagrams…</span></div>`;
   const viewEl = split.querySelector('#wiring-view');
   const searchEl = split.querySelector('#wiring-search');
 
@@ -474,8 +532,11 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   const body = split.querySelector('.wiring-body');
   const setPane = (mode, remember = true) => {
     body.dataset.pane = mode;
-    split.querySelectorAll('.wds-pane').forEach((b) =>
-      b.classList.toggle('active', b.id === `wds-pane-${mode}`));
+    split
+      .querySelectorAll('.wds-pane')
+      .forEach((b) =>
+        b.classList.toggle('active', b.id === `wds-pane-${mode}`)
+      );
     // an automatic switch (phone opening a diagram) must not overwrite the
     // choice the user made on desktop -- same setting
     if (remember) Settings.set('wdsPane', mode);
@@ -499,22 +560,35 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   // Back from the tree leaves wiring; back from a DIAGRAM on a phone returns to
   // the tree first -- panes are exclusive there, so leaving would skip a level.
   const leaveWiring = () => {
-    if (window.matchMedia('(max-width: 760px)').matches
-        && body.dataset.pane === 'doc') {
+    if (
+      window.matchMedia('(max-width: 760px)').matches &&
+      body.dataset.pane === 'doc'
+    ) {
       setPane('tree', false);
       return;
     }
     showWiringChassis();
   };
   const browseActions = [
-    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leaveWiring },
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: leaveWiring,
+    },
     // The visible Print control is the frame's own toolbar button, but the
     // action must ALSO be registered here: the Cmd/Ctrl+P interceptor
     // (core/print.js) looks up the current screen's print action, and without
     // one it lets the native dialog print the live page -- toolbar, tab bar
     // and all. The F-key bar is hidden on this screen, so no duplicate button.
-    { key: 'p', keyLabel: 'P', label: 'Print', kind: 'print',
-      fn: () => printWiring(chassisId) },
+    {
+      key: 'p',
+      keyLabel: 'P',
+      label: 'Print',
+      kind: 'print',
+      fn: () => printWiring(chassisId),
+    },
   ];
   setActions(browseActions);
 
@@ -522,274 +596,324 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
   // parallel, so leaves can be tagged the moment the tree renders
   Promise.all([
     loadWiring(chassisId),
-    (wiringVinHit && typeof wiringApplicability !== 'undefined')
-      ? wiringApplicability.load().catch(() => null) : Promise.resolve(),
-  ]).then(([data]) => {
-    const index = wiringIndex(data.tree);
-    sbLeft.textContent = 'wiring';
-    // sbRight is set by refreshCount() below so it stays faithful to the mode
+    wiringVinHit && typeof wiringApplicability !== 'undefined'
+      ? wiringApplicability.load().catch(() => null)
+      : Promise.resolve(),
+  ])
+    .then(([data]) => {
+      const index = wiringIndex(data.tree);
+      sbLeft.textContent = 'wiring';
+      // sbRight is set by refreshCount() below so it stays faithful to the mode
 
-    // ---- open-document tabs -------------------------------------------------
-    // A workspace of open documents shown as a tab strip above the panes. A
-    // tree click always opens a NEW tab (or focuses one already open); each tab
-    // remembers its entry so switching re-renders that document. Tabs persist
-    // per chassis (wiringTabsSave) so the workspace survives leaving/returning.
-    const tabsEl = split.querySelector('#wiring-tabs');
-    const tabs = { open: [], active: null };   // open:[entry], active:doc id
+      // ---- open-document tabs -------------------------------------------------
+      // A workspace of open documents shown as a tab strip above the panes. A
+      // tree click always opens a NEW tab (or focuses one already open); each tab
+      // remembers its entry so switching re-renders that document. Tabs persist
+      // per chassis (wiringTabsSave) so the workspace survives leaving/returning.
+      const tabsEl = split.querySelector('#wiring-tabs');
+      const tabs = { open: [], active: null }; // open:[entry], active:doc id
 
-    // a document tab keys on its doc id; a glossary leaf has none, so key it by
-    // a stable synthetic id ("glossary:<name>") and remember it's a glossary
-    const tabKey = (entry) =>
-      entry && (entry.doc || ('glossary:' + (entry.name || '')));
-    const persist = () => wiringTabsSave(chassisId, {
-      open: tabs.open, active: tabs.active,
-    });
+      // a document tab keys on its doc id; a glossary leaf has none, so key it by
+      // a stable synthetic id ("glossary:<name>") and remember it's a glossary
+      const tabKey = (entry) =>
+        entry && (entry.doc || 'glossary:' + (entry.name || ''));
+      const persist = () =>
+        wiringTabsSave(chassisId, {
+          open: tabs.open,
+          active: tabs.active,
+        });
 
-    function renderTabs() {
-      if (!tabs.open.length) {
-        tabsEl.hidden = true;
+      function renderTabs() {
+        if (!tabs.open.length) {
+          tabsEl.hidden = true;
+          tabsEl.innerHTML = '';
+          return;
+        }
+        tabsEl.hidden = false;
         tabsEl.innerHTML = '';
-        return;
+        tabs.open.forEach((entry) => {
+          const active = tabKey(entry) === tabs.active;
+          const tab = document.createElement('div');
+          tab.className = 'wiring-tab' + (active ? ' active' : '');
+          tab.setAttribute('role', 'tab');
+          tab.setAttribute('aria-selected', active ? 'true' : 'false');
+          tab.title = entry.name;
+          const kind = WIRING_KIND_LABEL[entry.kind] ? entry.kind : 'document';
+          tab.innerHTML =
+            `<span class="wiring-tab-dot kind-${esc(kind)}">` +
+            `<span class="wiring-dot"></span></span>` +
+            `<span class="wiring-tab-name">${esc(entry.name)}</span>` +
+            `<button class="wiring-tab-close" aria-label="Close tab"` +
+            ` title="Close">×</button>`;
+          tab.querySelector('.wiring-tab-name').onclick = () => focusTab(entry);
+          tab.querySelector('.wiring-tab-dot').onclick = () => focusTab(entry);
+          tab.querySelector('.wiring-tab-close').onclick = (ev) => {
+            ev.stopPropagation();
+            closeTab(entry);
+          };
+          // middle-click closes, like a browser
+          tab.onmousedown = (ev) => {
+            if (ev.button === 1) {
+              ev.preventDefault();
+              closeTab(entry);
+            }
+          };
+          tabsEl.appendChild(tab);
+        });
+        // keep the active tab in view when the strip overflows
+        const act = tabsEl.querySelector('.wiring-tab.active');
+        if (act && act.scrollIntoView) {
+          act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
       }
-      tabsEl.hidden = false;
-      tabsEl.innerHTML = '';
-      tabs.open.forEach((entry) => {
-        const active = tabKey(entry) === tabs.active;
-        const tab = document.createElement('div');
-        tab.className = 'wiring-tab' + (active ? ' active' : '');
-        tab.setAttribute('role', 'tab');
-        tab.setAttribute('aria-selected', active ? 'true' : 'false');
-        tab.title = entry.name;
-        const kind = WIRING_KIND_LABEL[entry.kind] ? entry.kind : 'document';
-        tab.innerHTML =
-          `<span class="wiring-tab-dot kind-${esc(kind)}">`
-          + `<span class="wiring-dot"></span></span>`
-          + `<span class="wiring-tab-name">${esc(entry.name)}</span>`
-          + `<button class="wiring-tab-close" aria-label="Close tab"`
-          + ` title="Close">×</button>`;
-        tab.querySelector('.wiring-tab-name').onclick = () => focusTab(entry);
-        tab.querySelector('.wiring-tab-dot').onclick = () => focusTab(entry);
-        tab.querySelector('.wiring-tab-close').onclick = (ev) => {
-          ev.stopPropagation();
-          closeTab(entry);
-        };
-        // middle-click closes, like a browser
-        tab.onmousedown = (ev) => {
-          if (ev.button === 1) { ev.preventDefault(); closeTab(entry); }
-        };
-        tabsEl.appendChild(tab);
-      });
-      // keep the active tab in view when the strip overflows
-      const act = tabsEl.querySelector('.wiring-tab.active');
-      if (act && act.scrollIntoView) {
-        act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-      }
-    }
 
-    // open-or-focus: focus the tab if the doc is already open, else add it
-    function openTab(entry) {
-      const existing = tabs.open.find(t => tabKey(t) === tabKey(entry));
-      if (existing) { focusTab(existing); return; }
-      tabs.open.push(entry);
-      tabs.active = tabKey(entry);
-      renderTabs();
-      persist();
-      renderActive(entry);
-    }
-
-    function focusTab(entry) {
-      if (tabs.active === tabKey(entry)) { renderTabs(); return; }
-      tabs.active = tabKey(entry);
-      renderTabs();
-      persist();
-      renderActive(entry);
-    }
-
-    function closeTab(entry) {
-      const i = tabs.open.findIndex(t => tabKey(t) === tabKey(entry));
-      if (i < 0) return;
-      const wasActive = tabs.active === tabKey(entry);
-      tabs.open.splice(i, 1);
-      if (wasActive) {
-        // focus the neighbour to the left, else the next one, else nothing
-        const next = tabs.open[i - 1] || tabs.open[i] || tabs.open[0] || null;
-        tabs.active = next ? tabKey(next) : null;
-        renderTabs();
-        persist();
-        if (next) renderActive(next); else showPlaceholder();
-      } else {
-        renderTabs();
-        persist();
-      }
-    }
-
-    // render a tab's document into the view pane (the actual drawing work).
-    // A glossary leaf has no doc id -- route it to the glossary viewer.
-    function renderActive(entry) {
-      if (entry.isDoc || (entry.doc && String(entry.doc).startsWith('d:'))) openIstaDoc(entry);
-      else if (!entry.doc) openGlossary(entry);
-      else openDocument(entry);
-    }
-
-    // render an ISTA reference document (Components/Repair) into the view pane,
-    // reusing the fault-modal typography. Docs are keyed "d:<id>".
-    async function openIstaDoc(entry) {
-      const id = entry.docId || String(entry.doc).replace(/^d:/, '');
-      if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
-      if (typeof routeSetDocsDoc === 'function') routeSetDocsDoc(chassisId, id);
-      viewEl.innerHTML = '';
-      const bar = document.createElement('div');
-      bar.className = 'wiring-bar';
-      bar.innerHTML = `<div class="wiring-title">${esc(entry.name)}</div>`
-        + `<div class="wiring-kind">${esc((typeof DOCS_TYPE_LABEL === 'object'
-            && DOCS_TYPE_LABEL[entry.kind]) || entry.kind || 'Document')}</div>`;
-      const share = document.createElement('button');
-      share.className = 'btn wiring-fit wiring-share';
-      share.textContent = 'Share';
-      share.title = 'Copy a link to this document';
-      share.onclick = () => wiringShareCurrent(share);
-      bar.appendChild(share);
-      viewEl.appendChild(bar);
-      setActions(browseActions);
-      if (!docsData) { try { docsData = await loadDocs(chassisId); } catch (e) { docsData = null; } }
-      const doc = docsData ? docsDoc(docsData, id) : null;
-      if (!doc || !doc.chapters || !doc.chapters.length) {
-        viewEl.insertAdjacentHTML('beforeend',
-          `<div class="empty"><div>This document has no readable content.</div></div>`);
-        return;
-      }
-      const art = document.createElement('article');
-      art.className = 'wiring-doc fm-tp-body docs-doc';
-      art.innerHTML = doc.chapters.map(docsChapterHtml).join('');
-      viewEl.appendChild(art);
-      viewEl.scrollTop = 0;
-      sbLeft.textContent = entry.name;
-    }
-
-    function showPlaceholder() {
-      viewEl.innerHTML = `<div class="empty"><div>`
-        + `<strong class="wiring-emptycount">${index.length} documents</strong></div>`
-        + `<div>Pick a diagram on the left, or search. Open documents stack as `
-        + `tabs above. Diagrams are vector: scroll to zoom, drag to pan.</div></div>`;
-      setActions(browseActions);
-      refreshCount();
-    }
-
-    // prev/next step through documents in tree order (the flat index IS that
-    // order)
-    let atIndex = -1;
-    const step = (d) => {
-      if (!index.length) return;
-      atIndex = (atIndex + d + index.length) % index.length;
-      // prev/next moves the active tab through tree order rather than opening a
-      // new tab per step -- stepping is browsing, not collecting
-      const entry = index[atIndex];
-      const active = tabs.open.find(t => tabKey(t) === tabs.active);
-      if (active && active.doc) {
-        const i = tabs.open.indexOf(active);
-        tabs.open[i] = entry;
+      // open-or-focus: focus the tab if the doc is already open, else add it
+      function openTab(entry) {
+        const existing = tabs.open.find((t) => tabKey(t) === tabKey(entry));
+        if (existing) {
+          focusTab(existing);
+          return;
+        }
+        tabs.open.push(entry);
         tabs.active = tabKey(entry);
         renderTabs();
         persist();
         renderActive(entry);
-      } else {
-        openTab(entry);
       }
-    };
-    on('#wds-prev', () => step(-1));
-    on('#wds-next', () => step(1));
 
-    // the tree: folders collapse, leaves open
-    const renderTree = (node, parent, depth) => {
-      for (const c of node.children || []) {
-        if (c.doc) {
-          const leaf = document.createElement('button');
-          const vm = wiringDiagramMatch(c.doc);   // match | off | neutral
-          leaf.className = `wiring-leaf kind-${c.kind}`
-            + (vm === 'match' ? ' vin-match' : vm === 'off' ? ' vin-off' : '');
-          leaf.dataset.vin = vm;
-          leaf.style.paddingLeft = `${10 + depth * 12}px`;
-          const star = vm === 'match'
-            ? '<span class="wiring-vinstar" title="Matches your vehicle">★</span>' : '';
-          leaf.innerHTML = `<span class="wiring-dot"></span>`
-            + `<span class="wiring-leaf-name">${esc(c.name)}</span>${star}`;
-          leaf.title = WIRING_KIND_LABEL[c.kind] || c.kind;
-          leaf.onclick = () => openTab(c);
-          parent.appendChild(leaf);
-        } else if (c.children && c.children.length > 0) {
-          const wrap = document.createElement('div');
-          wrap.className = 'wiring-folderwrap';
-          // whether this branch holds ANY diagram that isn't off-build for the
-          // VIN -- lets the filter hide a folder whose whole subtree is off-build
-          // without having to expand it first (the tree is lazy)
-          if (wiringVinHit && !wiringSubtreeHasMatch(c)) wrap.dataset.vinEmpty = '1';
-          const btn = document.createElement('button');
-          btn.className = 'wiring-folder';
-          btn.style.paddingLeft = `${10 + depth * 12}px`;
-          btn.innerHTML = `<span class="wiring-caret">▸</span>`
-            + `<span>${esc(c.name)}</span>`;
-          const kids = document.createElement('div');
-          kids.className = 'wiring-kids';
-          kids.hidden = true;
-          btn.onclick = () => {
-            kids.hidden = !kids.hidden;
-            btn.classList.toggle('open', !kids.hidden);
-            if (!kids.dataset.built) {
-              renderTree(c, kids, depth + 1);
-              kids.dataset.built = '1';
-            }
-          };
-          wrap.appendChild(btn);
-          wrap.appendChild(kids);
-          parent.appendChild(wrap);
+      function focusTab(entry) {
+        if (tabs.active === tabKey(entry)) {
+          renderTabs();
+          return;
+        }
+        tabs.active = tabKey(entry);
+        renderTabs();
+        persist();
+        renderActive(entry);
+      }
+
+      function closeTab(entry) {
+        const i = tabs.open.findIndex((t) => tabKey(t) === tabKey(entry));
+        if (i < 0) return;
+        const wasActive = tabs.active === tabKey(entry);
+        tabs.open.splice(i, 1);
+        if (wasActive) {
+          // focus the neighbour to the left, else the next one, else nothing
+          const next = tabs.open[i - 1] || tabs.open[i] || tabs.open[0] || null;
+          tabs.active = next ? tabKey(next) : null;
+          renderTabs();
+          persist();
+          if (next) renderActive(next);
+          else showPlaceholder();
         } else {
-          // Glossary / Signal definition leaf
-          const leaf = document.createElement('button');
-          leaf.className = 'wiring-leaf kind-specs';
-          leaf.style.paddingLeft = `${10 + depth * 12}px`;
-          leaf.innerHTML = `<span class="wiring-dot" style="background: var(--amber);"></span>`
-            + `<span class="wiring-leaf-name">${esc(c.name)}</span>`;
-          leaf.title = 'Signal / Component definition';
-          leaf.onclick = () => openTab(c);
-          parent.appendChild(leaf);
+          renderTabs();
+          persist();
         }
       }
-    };
-    treeEl.innerHTML = '';           // drop the "loading" placeholder
 
-    // Count docs the current mode would show (all, or only those not off-build).
-    const countShown = () => {
-      let n = 0;
-      (function walk(node) {
-        for (const c of node.children || []) {
-          if (c.doc) { if (!wiringVinFilterOn || wiringDiagramMatch(c.doc) !== 'off') n++; }
-          else if (c.children) walk(c);
+      // render a tab's document into the view pane (the actual drawing work).
+      // A glossary leaf has no doc id -- route it to the glossary viewer.
+      function renderActive(entry) {
+        if (entry.isDoc || (entry.doc && String(entry.doc).startsWith('d:')))
+          openIstaDoc(entry);
+        else if (!entry.doc) openGlossary(entry);
+        else openDocument(entry);
+      }
+
+      // render an ISTA reference document (Components/Repair) into the view pane,
+      // reusing the fault-modal typography. Docs are keyed "d:<id>".
+      async function openIstaDoc(entry) {
+        const id = entry.docId || String(entry.doc).replace(/^d:/, '');
+        if (window.matchMedia('(max-width: 760px)').matches)
+          setPane('doc', false);
+        if (typeof routeSetDocsDoc === 'function')
+          routeSetDocsDoc(chassisId, id);
+        viewEl.innerHTML = '';
+        const bar = document.createElement('div');
+        bar.className = 'wiring-bar';
+        bar.innerHTML =
+          `<div class="wiring-title">${esc(entry.name)}</div>` +
+          `<div class="wiring-kind">${esc(
+            (typeof DOCS_TYPE_LABEL === 'object' &&
+              DOCS_TYPE_LABEL[entry.kind]) ||
+              entry.kind ||
+              'Document'
+          )}</div>`;
+        const share = document.createElement('button');
+        share.className = 'btn wiring-fit wiring-share';
+        share.textContent = 'Share';
+        share.title = 'Copy a link to this document';
+        share.onclick = () => wiringShareCurrent(share);
+        bar.appendChild(share);
+        viewEl.appendChild(bar);
+        setActions(browseActions);
+        if (!docsData) {
+          try {
+            docsData = await loadDocs(chassisId);
+          } catch (e) {
+            docsData = null;
+          }
         }
-      })(data.tree);
-      return n;
-    };
-    // Keep the doc count (status bar + empty state) faithful to the mode.
-    const refreshCount = () => {
-      const n = countShown();
-      sbRight.textContent = `${n} diagram${n === 1 ? '' : 's'}`
-        + (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
-      const empty = viewEl.querySelector('.wiring-emptycount');
-      if (empty) empty.textContent = `${n} diagram${n === 1 ? '' : 's'}`
-        + (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
-    };
+        const doc = docsData ? docsDoc(docsData, id) : null;
+        if (!doc || !doc.chapters || !doc.chapters.length) {
+          viewEl.insertAdjacentHTML(
+            'beforeend',
+            `<div class="empty"><div>This document has no readable content.</div></div>`
+          );
+          return;
+        }
+        const art = document.createElement('article');
+        art.className = 'wiring-doc fm-tp-body docs-doc';
+        art.innerHTML = doc.chapters.map(docsChapterHtml).join('');
+        viewEl.appendChild(art);
+        viewEl.scrollTop = 0;
+        sbLeft.textContent = entry.name;
+      }
 
-    // VIN mode: a "your car" header at the top of the tree with a Show all /
-    // My car toggle. Opening via a VIN defaults to MY CAR (filtered) -- that is
-    // the whole point -- and the toggle flips to the full tree.
-    if (wiringVinHit) {
-      const bits = [wiringVinHit.model,
-        (typeof bodyLabel === 'function' && wiringVinHit.body ? bodyLabel(wiringVinHit.body) : ''),
-        wiringVinHit.motor,
-        wiringVinHit.prod ? `${String(wiringVinHit.prod).slice(0,4)}-${String(wiringVinHit.prod).slice(4,6)}` : '']
-        .filter(Boolean).join(' · ');
-      const banner = document.createElement('div');
-      banner.className = 'wiring-vinbanner';
-      banner.innerHTML = `
+      function showPlaceholder() {
+        viewEl.innerHTML =
+          `<div class="empty"><div>` +
+          `<strong class="wiring-emptycount">${index.length} documents</strong></div>` +
+          `<div>Pick a diagram on the left, or search. Open documents stack as ` +
+          `tabs above. Diagrams are vector: scroll to zoom, drag to pan.</div></div>`;
+        setActions(browseActions);
+        refreshCount();
+      }
+
+      // prev/next step through documents in tree order (the flat index IS that
+      // order)
+      let atIndex = -1;
+      const step = (d) => {
+        if (!index.length) return;
+        atIndex = (atIndex + d + index.length) % index.length;
+        // prev/next moves the active tab through tree order rather than opening a
+        // new tab per step -- stepping is browsing, not collecting
+        const entry = index[atIndex];
+        const active = tabs.open.find((t) => tabKey(t) === tabs.active);
+        if (active && active.doc) {
+          const i = tabs.open.indexOf(active);
+          tabs.open[i] = entry;
+          tabs.active = tabKey(entry);
+          renderTabs();
+          persist();
+          renderActive(entry);
+        } else {
+          openTab(entry);
+        }
+      };
+      on('#wds-prev', () => step(-1));
+      on('#wds-next', () => step(1));
+
+      // the tree: folders collapse, leaves open
+      const renderTree = (node, parent, depth) => {
+        for (const c of node.children || []) {
+          if (c.doc) {
+            const leaf = document.createElement('button');
+            const vm = wiringDiagramMatch(c.doc); // match | off | neutral
+            leaf.className =
+              `wiring-leaf kind-${c.kind}` +
+              (vm === 'match' ? ' vin-match' : vm === 'off' ? ' vin-off' : '');
+            leaf.dataset.vin = vm;
+            leaf.style.paddingLeft = `${10 + depth * 12}px`;
+            const star =
+              vm === 'match'
+                ? '<span class="wiring-vinstar" title="Matches your vehicle">★</span>'
+                : '';
+            leaf.innerHTML =
+              `<span class="wiring-dot"></span>` +
+              `<span class="wiring-leaf-name">${esc(c.name)}</span>${star}`;
+            leaf.title = WIRING_KIND_LABEL[c.kind] || c.kind;
+            leaf.onclick = () => openTab(c);
+            parent.appendChild(leaf);
+          } else if (c.children && c.children.length > 0) {
+            const wrap = document.createElement('div');
+            wrap.className = 'wiring-folderwrap';
+            // whether this branch holds ANY diagram that isn't off-build for the
+            // VIN -- lets the filter hide a folder whose whole subtree is off-build
+            // without having to expand it first (the tree is lazy)
+            if (wiringVinHit && !wiringSubtreeHasMatch(c))
+              wrap.dataset.vinEmpty = '1';
+            const btn = document.createElement('button');
+            btn.className = 'wiring-folder';
+            btn.style.paddingLeft = `${10 + depth * 12}px`;
+            btn.innerHTML =
+              `<span class="wiring-caret">▸</span>` +
+              `<span>${esc(c.name)}</span>`;
+            const kids = document.createElement('div');
+            kids.className = 'wiring-kids';
+            kids.hidden = true;
+            btn.onclick = () => {
+              kids.hidden = !kids.hidden;
+              btn.classList.toggle('open', !kids.hidden);
+              if (!kids.dataset.built) {
+                renderTree(c, kids, depth + 1);
+                kids.dataset.built = '1';
+              }
+            };
+            wrap.appendChild(btn);
+            wrap.appendChild(kids);
+            parent.appendChild(wrap);
+          } else {
+            // Glossary / Signal definition leaf
+            const leaf = document.createElement('button');
+            leaf.className = 'wiring-leaf kind-specs';
+            leaf.style.paddingLeft = `${10 + depth * 12}px`;
+            leaf.innerHTML =
+              `<span class="wiring-dot" style="background: var(--amber);"></span>` +
+              `<span class="wiring-leaf-name">${esc(c.name)}</span>`;
+            leaf.title = 'Signal / Component definition';
+            leaf.onclick = () => openTab(c);
+            parent.appendChild(leaf);
+          }
+        }
+      };
+      treeEl.innerHTML = ''; // drop the "loading" placeholder
+
+      // Count docs the current mode would show (all, or only those not off-build).
+      const countShown = () => {
+        let n = 0;
+        (function walk(node) {
+          for (const c of node.children || []) {
+            if (c.doc) {
+              if (!wiringVinFilterOn || wiringDiagramMatch(c.doc) !== 'off')
+                n++;
+            } else if (c.children) walk(c);
+          }
+        })(data.tree);
+        return n;
+      };
+      // Keep the doc count (status bar + empty state) faithful to the mode.
+      const refreshCount = () => {
+        const n = countShown();
+        sbRight.textContent =
+          `${n} diagram${n === 1 ? '' : 's'}` +
+          (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
+        const empty = viewEl.querySelector('.wiring-emptycount');
+        if (empty)
+          empty.textContent =
+            `${n} diagram${n === 1 ? '' : 's'}` +
+            (wiringVinHit && wiringVinFilterOn ? ' for your car' : '');
+      };
+
+      // VIN mode: a "your car" header at the top of the tree with a Show all /
+      // My car toggle. Opening via a VIN defaults to MY CAR (filtered) -- that is
+      // the whole point -- and the toggle flips to the full tree.
+      if (wiringVinHit) {
+        const bits = [
+          wiringVinHit.model,
+          typeof bodyLabel === 'function' && wiringVinHit.body
+            ? bodyLabel(wiringVinHit.body)
+            : '',
+          wiringVinHit.motor,
+          wiringVinHit.prod
+            ? `${String(wiringVinHit.prod).slice(0, 4)}-${String(wiringVinHit.prod).slice(4, 6)}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        const banner = document.createElement('div');
+        banner.className = 'wiring-vinbanner';
+        banner.innerHTML = `
         <div class="wiring-vinbanner-veh">
           <span class="wiring-vinbanner-desc">${esc(bits)}</span>
           <span class="wiring-vinbanner-vin">${esc(wiringVinHit.vin || '')}</span>
@@ -798,319 +922,404 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
           <button type="button" class="wiring-vinseg-btn" data-mode="mine">My car</button>
           <button type="button" class="wiring-vinseg-btn" data-mode="all">Show all</button>
         </div>`;
-      treeEl.appendChild(banner);
-      const seg = banner.querySelector('.wiring-vinseg');
-      const body = split.querySelector('.wiring-body');
-      const applyFilter = (on) => {
-        wiringVinFilterOn = on;
-        body?.classList.toggle('vin-filtered', on);   // CSS hides off leaves + empty folders
-        seg.querySelectorAll('.wiring-vinseg-btn').forEach(b =>
-          b.classList.toggle('active', b.dataset.mode === (on ? 'mine' : 'all')));
-        refreshCount();
-      };
-      seg.querySelectorAll('.wiring-vinseg-btn').forEach(b =>
-        b.onclick = () => applyFilter(b.dataset.mode === 'mine'));
-      // default ON when opened via a VIN
-      wiringVinFilterOn = true;
-      // applyFilter is called after renderTree below (folders must exist first)
-      banner._applyFilter = applyFilter;
-    }
-
-    // ---- category switching (Diagrams | Components | Repair) ---------------
-    // Diagrams renders the WDS tree above; Components and Repair render an ISTA
-    // document tree (loaded lazily) filtered to their doc types. The tab
-    // workspace, VIN filter and search all work across categories.
-    const COMPONENT_TYPES = new Set(['PIB', 'STA', 'EBO', 'FUB']);
-    let docsData = null;            // the .docs bundle, loaded on first non-diagram use
-    let docsIdxByCat = {};          // cat -> flat index for search
-    const catHost = split.querySelector('#wiring-cats');
-
-    // filter a docs tree to one category's types, dropping empty branches
-    function pruneDocsTree(node, keep) {
-      const docs = (node.docs || []).filter(d => keep(d.type));
-      const kids = (node.children || [])
-        .map(c => pruneDocsTree(c, keep)).filter(Boolean);
-      if (!docs.length && !kids.length) return null;
-      const out = { name: node.name };
-      if (kids.length) out.children = kids;
-      if (docs.length) out.docs = docs;
-      return out;
-    }
-    const catKeep = (cat) => (cat === 'components')
-      ? (t => COMPONENT_TYPES.has(t))
-      : (t => !COMPONENT_TYPES.has(t));   // repair = everything else
-
-    // a docs-tree node -> DOM (mirrors renderTree but for ISTA doc leaves)
-    function renderDocsTree(node, parent, depth) {
-      for (const d of node.docs || []) {
-        const leaf = document.createElement('button');
-        const kind = (typeof DOCS_TYPE_KIND === 'object' && DOCS_TYPE_KIND[d.type]) || 'document';
-        const vm = docVinMatch(d);
-        leaf.className = `wiring-leaf kind-${kind}`
-          + (vm === 'match' ? ' vin-match' : vm === 'off' ? ' vin-off' : '');
-        leaf.dataset.vin = vm;
-        leaf.style.paddingLeft = `${10 + depth * 12}px`;
-        const star = vm === 'match'
-          ? '<span class="wiring-vinstar" title="Matches your vehicle">★</span>' : '';
-        leaf.innerHTML = `<span class="wiring-dot"></span>`
-          + `<span class="wiring-leaf-name">${esc(d.title)}</span>${star}`
-          + `<span class="docs-badge">${esc(d.type)}</span>`;
-        leaf.title = (typeof DOCS_TYPE_LABEL === 'object' && DOCS_TYPE_LABEL[d.type]) || d.type;
-        leaf.onclick = () => openTab(docEntry(d));
-        parent.appendChild(leaf);
-      }
-      for (const c of node.children || []) {
-        if (!c.children && !c.docs) continue;
-        const wrap = document.createElement('div');
-        wrap.className = 'wiring-folderwrap';
-        if (wiringVinHit && !docsSubtreeHasMatch(c)) wrap.dataset.vinEmpty = '1';
-        const btn = document.createElement('button');
-        btn.className = 'wiring-folder';
-        btn.style.paddingLeft = `${10 + depth * 12}px`;
-        btn.innerHTML = `<span class="wiring-caret">▸</span><span>${esc(c.name)}</span>`;
-        const kids = document.createElement('div');
-        kids.className = 'wiring-kids';
-        kids.hidden = true;
-        btn.onclick = () => {
-          kids.hidden = !kids.hidden;
-          btn.classList.toggle('open', !kids.hidden);
-          if (!kids.dataset.built) { renderDocsTree(c, kids, depth + 1); kids.dataset.built = '1'; }
+        treeEl.appendChild(banner);
+        const seg = banner.querySelector('.wiring-vinseg');
+        const body = split.querySelector('.wiring-body');
+        const applyFilter = (on) => {
+          wiringVinFilterOn = on;
+          body?.classList.toggle('vin-filtered', on); // CSS hides off leaves + empty folders
+          seg
+            .querySelectorAll('.wiring-vinseg-btn')
+            .forEach((b) =>
+              b.classList.toggle(
+                'active',
+                b.dataset.mode === (on ? 'mine' : 'all')
+              )
+            );
+          refreshCount();
         };
-        wrap.appendChild(btn); wrap.appendChild(kids);
-        parent.appendChild(wrap);
+        seg
+          .querySelectorAll('.wiring-vinseg-btn')
+          .forEach(
+            (b) => (b.onclick = () => applyFilter(b.dataset.mode === 'mine'))
+          );
+        // default ON when opened via a VIN
+        wiringVinFilterOn = true;
+        // applyFilter is called after renderTree below (folders must exist first)
+        banner._applyFilter = applyFilter;
       }
-    }
 
-    // a tab entry for an ISTA doc: keyed by "d:<id>" so it never collides with a
-    // WDS SP doc id, and carries what the doc renderer + persistence need
-    function docEntry(d) {
-      return { doc: 'd:' + d.id, docId: d.id, name: d.title, kind: d.type, isDoc: true };
-    }
+      // ---- category switching (Diagrams | Components | Repair) ---------------
+      // Diagrams renders the WDS tree above; Components and Repair render an ISTA
+      // document tree (loaded lazily) filtered to their doc types. The tab
+      // workspace, VIN filter and search all work across categories.
+      const COMPONENT_TYPES = new Set(['PIB', 'STA', 'EBO', 'FUB']);
+      let docsData = null; // the .docs bundle, loaded on first non-diagram use
+      let docsIdxByCat = {}; // cat -> flat index for search
+      const catHost = split.querySelector('#wiring-cats');
 
-    // VIN match for an ISTA doc, from its embedded applicability {e,b}
-    function docVinMatch(d) {
-      if (!wiringVinHit || !d.a) return 'neutral';
-      const a = d.a;
-      let decided = false, ok = true;
-      if (a.e && a.e.length && wiringVinHit.motor) {
-        decided = true;
-        if (!a.e.some(e => e.toUpperCase() === String(wiringVinHit.motor).toUpperCase())) ok = false;
+      // filter a docs tree to one category's types, dropping empty branches
+      function pruneDocsTree(node, keep) {
+        const docs = (node.docs || []).filter((d) => keep(d.type));
+        const kids = (node.children || [])
+          .map((c) => pruneDocsTree(c, keep))
+          .filter(Boolean);
+        if (!docs.length && !kids.length) return null;
+        const out = { name: node.name };
+        if (kids.length) out.children = kids;
+        if (docs.length) out.docs = docs;
+        return out;
       }
-      if (ok && a.b && a.b.length && wiringVinHit.body && typeof istaBodyOf === 'function') {
-        decided = true;
-        const b = istaBodyOf(wiringVinHit.body);
-        if (b && !a.b.some(x => x.toUpperCase() === b)) ok = false;
-      }
-      if (!decided) return 'neutral';
-      return ok ? 'match' : 'off';
-    }
-    function docsSubtreeHasMatch(node) {
-      if (!wiringVinHit) return true;
-      for (const d of node.docs || []) if (docVinMatch(d) !== 'off') return true;
-      for (const c of node.children || []) if (docsSubtreeHasMatch(c)) return true;
-      return false;
-    }
+      const catKeep = (cat) =>
+        cat === 'components'
+          ? (t) => COMPONENT_TYPES.has(t)
+          : (t) => !COMPONENT_TYPES.has(t); // repair = everything else
 
-    // render whichever tree the active category calls for
-    async function renderCurrentTree() {
-      catHost && catHost.querySelectorAll('.wiring-cat').forEach(b =>
-        b.classList.toggle('active', b.dataset.cat === wiringCat));
-      searchEl.value = '';
-      searchEl.dispatchEvent(new Event('input'));
-      // clear the tree body but keep the VIN banner (first child) if present
-      const banner = treeEl.querySelector('.wiring-vinbanner');
-      treeEl.innerHTML = '';
-      if (banner) treeEl.appendChild(banner);
-      if (wiringCat === 'diagrams') {
-        renderTree(data.tree, treeEl, 0);
-        refreshCount();
-      } else {
-        if (!docsData) {
-          const wait = document.createElement('div');
-          wait.className = 'wiring-loading';
-          wait.innerHTML = `<span class="wiring-spinner"></span><span>Loading documents…</span>`;
-          treeEl.appendChild(wait);
-          try { docsData = await loadDocs(chassisId); }
-          catch (e) { wait.innerHTML = `<div class="wiring-empty">No documents shipped for ${esc(dispChassis(chassisId))}.</div>`; return; }
-          wait.remove();
-        }
-        const pruned = pruneDocsTree(docsData.tree, catKeep(wiringCat)) || { name: '' };
-        renderDocsTree(pruned, treeEl, 0);
-        if (wiringVinHit) {
-          const b = treeEl.querySelector('.wiring-vinbanner');
-          if (b && b._applyFilter) b._applyFilter(wiringVinFilterOn);
-        }
-        const n = docsCatCount(pruned);
-        sbRight.textContent = `${n} document${n === 1 ? '' : 's'}`;
-      }
-    }
-    function docsCatCount(node) {
-      let n = (node.docs || []).length;
-      for (const c of node.children || []) n += docsCatCount(c);
-      return n;
-    }
-
-    if (catHost) {
-      catHost.querySelectorAll('.wiring-cat').forEach(btn => {
-        btn.onclick = () => {
-          if (wiringCat === btn.dataset.cat) return;
-          wiringCat = btn.dataset.cat;
-          Settings.set('wiringCat', wiringCat);
-          renderCurrentTree();
-        };
-      });
-    }
-
-    // A deep-linked ISTA doc (openDoc looks like "d:<id>" or is numeric) forces
-    // its category; otherwise honour the remembered/param category.
-    const deepDocId = (openDoc && /^d:/.test(openDoc)) ? openDoc.slice(2)
-      : (openDoc && /^\d+$/.test(openDoc)) ? openDoc : null;
-    if (deepDocId) wiringCat = category || wiringCat;   // caller may name it
-
-    if (wiringCat === 'diagrams' && !deepDocId) {
-      renderTree(data.tree, treeEl, 0);
-      // now that the tree exists, apply the default VIN filter (folders present)
-      if (wiringVinHit) {
-        const banner = treeEl.querySelector('.wiring-vinbanner');
-        banner && banner._applyFilter(true);
-      }
-      refreshCount();
-    } else {
-      // a doc category (or a deep-linked doc): render that tree instead
-      if (deepDocId && wiringCat === 'diagrams') wiringCat = 'repair';
-      renderCurrentTree();
-    }
-
-    // Expand the tree down to a specific document and highlight/scroll to it.
-    // Used by the deep-link path so a shared #apps/wiring/<CHASSIS>/<DOC> link
-    // lands the reader IN CONTEXT, not on a diagram with a collapsed tree. The
-    // tree is lazy (folders build children only when opened), so walk the doc's
-    // path in the data and click each folder open in order, then find the leaf.
-    function docPathIn(node, doc, trail = []) {
-      for (const c of node.children || []) {
-        if (c.doc === doc) return trail.concat(c);
-        if (c.children && c.children.length) {
-          const r = docPathIn(c, doc, trail.concat(c));
-          if (r) return r;
-        }
-      }
-      return null;
-    }
-    // a folder button is "<caret>▸</caret><span>Name</span>" -- match on the
-    // label span, not textContent (which includes the caret glyph).
-    const folderLabel = (b) => {
-      const span = b.querySelector('span:not(.wiring-caret)');
-      return (span ? span.textContent : b.textContent).trim();
-    };
-    function expandTreeToDoc(doc) {
-      const path = docPathIn(data.tree, doc);
-      if (!path) return;
-      let container = treeEl;
-      // every path element except the last is a folder to open
-      for (let i = 0; i < path.length - 1; i++) {
-        const name = path[i].name;
-        const folder = [...container.querySelectorAll(':scope > div > .wiring-folder, :scope > .wiring-folder')]
-          .find(b => folderLabel(b) === name);
-        if (!folder) return;
-        if (!folder.classList.contains('open')) folder.click();  // builds+shows kids
-        container = folder.parentElement.querySelector('.wiring-kids') || container;
-      }
-      // highlight + scroll the leaf
-      const leaf = [...container.querySelectorAll(':scope > .wiring-leaf')]
-        .find(b => (b.querySelector('.wiring-leaf-name') || {}).textContent
-                   === path[path.length - 1].name);
-      if (leaf) {
-        treeEl.querySelectorAll('.wiring-leaf.active').forEach(a => a.classList.remove('active'));
-        leaf.classList.add('active');
-        leaf.scrollIntoView({ block: 'center' });
-      }
-    }
-
-    // search: flat results across the active category, tree hidden while typing.
-    // Diagrams searches the WDS index; Components/Repair search the docs of that
-    // category. A doc hit opens as an ISTA-doc tab.
-    let searchWrap = null;
-    const docsFlatIndex = (cat) => {
-      if (!docsData) return [];
-      const keep = catKeep(cat);
-      const out = [];
-      (function walk(node, trail) {
-        const here = node.name ? [...trail, node.name] : trail;
+      // a docs-tree node -> DOM (mirrors renderTree but for ISTA doc leaves)
+      function renderDocsTree(node, parent, depth) {
         for (const d of node.docs || []) {
-          if (keep(d.type)) out.push({ ...d, trail: here });
+          const leaf = document.createElement('button');
+          const kind =
+            (typeof DOCS_TYPE_KIND === 'object' && DOCS_TYPE_KIND[d.type]) ||
+            'document';
+          const vm = docVinMatch(d);
+          leaf.className =
+            `wiring-leaf kind-${kind}` +
+            (vm === 'match' ? ' vin-match' : vm === 'off' ? ' vin-off' : '');
+          leaf.dataset.vin = vm;
+          leaf.style.paddingLeft = `${10 + depth * 12}px`;
+          const star =
+            vm === 'match'
+              ? '<span class="wiring-vinstar" title="Matches your vehicle">★</span>'
+              : '';
+          leaf.innerHTML =
+            `<span class="wiring-dot"></span>` +
+            `<span class="wiring-leaf-name">${esc(d.title)}</span>${star}` +
+            `<span class="docs-badge">${esc(d.type)}</span>`;
+          leaf.title =
+            (typeof DOCS_TYPE_LABEL === 'object' && DOCS_TYPE_LABEL[d.type]) ||
+            d.type;
+          leaf.onclick = () => openTab(docEntry(d));
+          parent.appendChild(leaf);
         }
-        for (const c of node.children || []) walk(c, here);
-      })(docsData.tree, []);
-      return out;
-    };
-    searchEl.oninput = () => {
-      const q = searchEl.value.trim().toLowerCase();
-      if (searchWrap) { searchWrap.remove(); searchWrap = null; }
-      treeEl.hidden = !!q;
-      if (!q) return;
-      searchWrap = document.createElement('div');
-      searchWrap.className = 'wiring-results';
-      let hits;
-      if (wiringCat === 'diagrams') {
-        hits = index.filter(e => e.name.toLowerCase().includes(q)).slice(0, 300);
-        hits.forEach((e) => {
-          const b = document.createElement('button');
-          b.className = `wiring-leaf kind-${e.kind}`;
-          b.innerHTML = `<span class="wiring-dot"></span>`
-            + `<span class="wiring-leaf-name">${esc(e.name)}</span>`
-            + `<span class="wiring-trail">${esc(e.trail.slice(-1)[0] || '')}</span>`;
-          b.onclick = () => openTab(e);
-          searchWrap.appendChild(b);
-        });
-      } else {
-        hits = docsFlatIndex(wiringCat)
-          .filter(d => d.title.toLowerCase().includes(q)).slice(0, 300);
-        hits.forEach((d) => {
-          const b = document.createElement('button');
-          const kind = (typeof DOCS_TYPE_KIND === 'object' && DOCS_TYPE_KIND[d.type]) || 'document';
-          b.className = `wiring-leaf kind-${kind}`;
-          b.innerHTML = `<span class="wiring-dot"></span>`
-            + `<span class="wiring-leaf-name">${esc(d.title)}`
-            + `<span class="wiring-trail">${esc((d.trail || []).slice(-2).join(' › '))}</span></span>`
-            + `<span class="docs-badge">${esc(d.type)}</span>`;
-          b.onclick = () => openTab(docEntry(d));
-          searchWrap.appendChild(b);
+        for (const c of node.children || []) {
+          if (!c.children && !c.docs) continue;
+          const wrap = document.createElement('div');
+          wrap.className = 'wiring-folderwrap';
+          if (wiringVinHit && !docsSubtreeHasMatch(c))
+            wrap.dataset.vinEmpty = '1';
+          const btn = document.createElement('button');
+          btn.className = 'wiring-folder';
+          btn.style.paddingLeft = `${10 + depth * 12}px`;
+          btn.innerHTML = `<span class="wiring-caret">▸</span><span>${esc(c.name)}</span>`;
+          const kids = document.createElement('div');
+          kids.className = 'wiring-kids';
+          kids.hidden = true;
+          btn.onclick = () => {
+            kids.hidden = !kids.hidden;
+            btn.classList.toggle('open', !kids.hidden);
+            if (!kids.dataset.built) {
+              renderDocsTree(c, kids, depth + 1);
+              kids.dataset.built = '1';
+            }
+          };
+          wrap.appendChild(btn);
+          wrap.appendChild(kids);
+          parent.appendChild(wrap);
+        }
+      }
+
+      // a tab entry for an ISTA doc: keyed by "d:<id>" so it never collides with a
+      // WDS SP doc id, and carries what the doc renderer + persistence need
+      function docEntry(d) {
+        return {
+          doc: 'd:' + d.id,
+          docId: d.id,
+          name: d.title,
+          kind: d.type,
+          isDoc: true,
+        };
+      }
+
+      // VIN match for an ISTA doc, from its embedded applicability {e,b}
+      function docVinMatch(d) {
+        if (!wiringVinHit || !d.a) return 'neutral';
+        const a = d.a;
+        let decided = false,
+          ok = true;
+        if (a.e && a.e.length && wiringVinHit.motor) {
+          decided = true;
+          if (
+            !a.e.some(
+              (e) =>
+                e.toUpperCase() === String(wiringVinHit.motor).toUpperCase()
+            )
+          )
+            ok = false;
+        }
+        if (
+          ok &&
+          a.b &&
+          a.b.length &&
+          wiringVinHit.body &&
+          typeof istaBodyOf === 'function'
+        ) {
+          decided = true;
+          const b = istaBodyOf(wiringVinHit.body);
+          if (b && !a.b.some((x) => x.toUpperCase() === b)) ok = false;
+        }
+        if (!decided) return 'neutral';
+        return ok ? 'match' : 'off';
+      }
+      function docsSubtreeHasMatch(node) {
+        if (!wiringVinHit) return true;
+        for (const d of node.docs || [])
+          if (docVinMatch(d) !== 'off') return true;
+        for (const c of node.children || [])
+          if (docsSubtreeHasMatch(c)) return true;
+        return false;
+      }
+
+      // render whichever tree the active category calls for
+      async function renderCurrentTree() {
+        catHost &&
+          catHost
+            .querySelectorAll('.wiring-cat')
+            .forEach((b) =>
+              b.classList.toggle('active', b.dataset.cat === wiringCat)
+            );
+        searchEl.value = '';
+        searchEl.dispatchEvent(new Event('input'));
+        // clear the tree body but keep the VIN banner (first child) if present
+        const banner = treeEl.querySelector('.wiring-vinbanner');
+        treeEl.innerHTML = '';
+        if (banner) treeEl.appendChild(banner);
+        if (wiringCat === 'diagrams') {
+          renderTree(data.tree, treeEl, 0);
+          refreshCount();
+        } else {
+          if (!docsData) {
+            const wait = document.createElement('div');
+            wait.className = 'wiring-loading';
+            wait.innerHTML = `<span class="wiring-spinner"></span><span>Loading documents…</span>`;
+            treeEl.appendChild(wait);
+            try {
+              docsData = await loadDocs(chassisId);
+            } catch (e) {
+              wait.innerHTML = `<div class="wiring-empty">No documents shipped for ${esc(dispChassis(chassisId))}.</div>`;
+              return;
+            }
+            wait.remove();
+          }
+          const pruned = pruneDocsTree(docsData.tree, catKeep(wiringCat)) || {
+            name: '',
+          };
+          renderDocsTree(pruned, treeEl, 0);
+          if (wiringVinHit) {
+            const b = treeEl.querySelector('.wiring-vinbanner');
+            if (b && b._applyFilter) b._applyFilter(wiringVinFilterOn);
+          }
+          const n = docsCatCount(pruned);
+          sbRight.textContent = `${n} document${n === 1 ? '' : 's'}`;
+        }
+      }
+      function docsCatCount(node) {
+        let n = (node.docs || []).length;
+        for (const c of node.children || []) n += docsCatCount(c);
+        return n;
+      }
+
+      if (catHost) {
+        catHost.querySelectorAll('.wiring-cat').forEach((btn) => {
+          btn.onclick = () => {
+            if (wiringCat === btn.dataset.cat) return;
+            wiringCat = btn.dataset.cat;
+            Settings.set('wiringCat', wiringCat);
+            renderCurrentTree();
+          };
         });
       }
-      if (!hits.length) searchWrap.innerHTML = `<div class="wiring-empty">no match</div>`;
-      treeEl.parentNode.appendChild(searchWrap);
-      sbRight.textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
-    };
 
-    // the glossary / signal definition viewer
-    function openGlossary(entry) {
-      if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
-      viewEl.innerHTML = '';
-      const bar = document.createElement('div');
-      bar.className = 'wiring-bar';
-      bar.innerHTML = `<div class="wiring-title">${esc(entry.name)}</div>
+      // A deep-linked ISTA doc (openDoc looks like "d:<id>" or is numeric) forces
+      // its category; otherwise honour the remembered/param category.
+      const deepDocId =
+        openDoc && /^d:/.test(openDoc)
+          ? openDoc.slice(2)
+          : openDoc && /^\d+$/.test(openDoc)
+            ? openDoc
+            : null;
+      if (deepDocId) wiringCat = category || wiringCat; // caller may name it
+
+      if (wiringCat === 'diagrams' && !deepDocId) {
+        renderTree(data.tree, treeEl, 0);
+        // now that the tree exists, apply the default VIN filter (folders present)
+        if (wiringVinHit) {
+          const banner = treeEl.querySelector('.wiring-vinbanner');
+          banner && banner._applyFilter(true);
+        }
+        refreshCount();
+      } else {
+        // a doc category (or a deep-linked doc): render that tree instead
+        if (deepDocId && wiringCat === 'diagrams') wiringCat = 'repair';
+        renderCurrentTree();
+      }
+
+      // Expand the tree down to a specific document and highlight/scroll to it.
+      // Used by the deep-link path so a shared #apps/wiring/<CHASSIS>/<DOC> link
+      // lands the reader IN CONTEXT, not on a diagram with a collapsed tree. The
+      // tree is lazy (folders build children only when opened), so walk the doc's
+      // path in the data and click each folder open in order, then find the leaf.
+      function docPathIn(node, doc, trail = []) {
+        for (const c of node.children || []) {
+          if (c.doc === doc) return trail.concat(c);
+          if (c.children && c.children.length) {
+            const r = docPathIn(c, doc, trail.concat(c));
+            if (r) return r;
+          }
+        }
+        return null;
+      }
+      // a folder button is "<caret>▸</caret><span>Name</span>" -- match on the
+      // label span, not textContent (which includes the caret glyph).
+      const folderLabel = (b) => {
+        const span = b.querySelector('span:not(.wiring-caret)');
+        return (span ? span.textContent : b.textContent).trim();
+      };
+      function expandTreeToDoc(doc) {
+        const path = docPathIn(data.tree, doc);
+        if (!path) return;
+        let container = treeEl;
+        // every path element except the last is a folder to open
+        for (let i = 0; i < path.length - 1; i++) {
+          const name = path[i].name;
+          const folder = [
+            ...container.querySelectorAll(
+              ':scope > div > .wiring-folder, :scope > .wiring-folder'
+            ),
+          ].find((b) => folderLabel(b) === name);
+          if (!folder) return;
+          if (!folder.classList.contains('open')) folder.click(); // builds+shows kids
+          container =
+            folder.parentElement.querySelector('.wiring-kids') || container;
+        }
+        // highlight + scroll the leaf
+        const leaf = [
+          ...container.querySelectorAll(':scope > .wiring-leaf'),
+        ].find(
+          (b) =>
+            (b.querySelector('.wiring-leaf-name') || {}).textContent ===
+            path[path.length - 1].name
+        );
+        if (leaf) {
+          treeEl
+            .querySelectorAll('.wiring-leaf.active')
+            .forEach((a) => a.classList.remove('active'));
+          leaf.classList.add('active');
+          leaf.scrollIntoView({ block: 'center' });
+        }
+      }
+
+      // search: flat results across the active category, tree hidden while typing.
+      // Diagrams searches the WDS index; Components/Repair search the docs of that
+      // category. A doc hit opens as an ISTA-doc tab.
+      let searchWrap = null;
+      const docsFlatIndex = (cat) => {
+        if (!docsData) return [];
+        const keep = catKeep(cat);
+        const out = [];
+        (function walk(node, trail) {
+          const here = node.name ? [...trail, node.name] : trail;
+          for (const d of node.docs || []) {
+            if (keep(d.type)) out.push({ ...d, trail: here });
+          }
+          for (const c of node.children || []) walk(c, here);
+        })(docsData.tree, []);
+        return out;
+      };
+      searchEl.oninput = () => {
+        const q = searchEl.value.trim().toLowerCase();
+        if (searchWrap) {
+          searchWrap.remove();
+          searchWrap = null;
+        }
+        treeEl.hidden = !!q;
+        if (!q) return;
+        searchWrap = document.createElement('div');
+        searchWrap.className = 'wiring-results';
+        let hits;
+        if (wiringCat === 'diagrams') {
+          hits = index
+            .filter((e) => e.name.toLowerCase().includes(q))
+            .slice(0, 300);
+          hits.forEach((e) => {
+            const b = document.createElement('button');
+            b.className = `wiring-leaf kind-${e.kind}`;
+            b.innerHTML =
+              `<span class="wiring-dot"></span>` +
+              `<span class="wiring-leaf-name">${esc(e.name)}</span>` +
+              `<span class="wiring-trail">${esc(e.trail.slice(-1)[0] || '')}</span>`;
+            b.onclick = () => openTab(e);
+            searchWrap.appendChild(b);
+          });
+        } else {
+          hits = docsFlatIndex(wiringCat)
+            .filter((d) => d.title.toLowerCase().includes(q))
+            .slice(0, 300);
+          hits.forEach((d) => {
+            const b = document.createElement('button');
+            const kind =
+              (typeof DOCS_TYPE_KIND === 'object' && DOCS_TYPE_KIND[d.type]) ||
+              'document';
+            b.className = `wiring-leaf kind-${kind}`;
+            b.innerHTML =
+              `<span class="wiring-dot"></span>` +
+              `<span class="wiring-leaf-name">${esc(d.title)}` +
+              `<span class="wiring-trail">${esc((d.trail || []).slice(-2).join(' › '))}</span></span>` +
+              `<span class="docs-badge">${esc(d.type)}</span>`;
+            b.onclick = () => openTab(docEntry(d));
+            searchWrap.appendChild(b);
+          });
+        }
+        if (!hits.length)
+          searchWrap.innerHTML = `<div class="wiring-empty">no match</div>`;
+        treeEl.parentNode.appendChild(searchWrap);
+        sbRight.textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
+      };
+
+      // the glossary / signal definition viewer
+      function openGlossary(entry) {
+        if (window.matchMedia('(max-width: 760px)').matches)
+          setPane('doc', false);
+        viewEl.innerHTML = '';
+        const bar = document.createElement('div');
+        bar.className = 'wiring-bar';
+        bar.innerHTML = `<div class="wiring-title">${esc(entry.name)}</div>
         <div class="wiring-kind">Signal / Component Information</div>`;
-      viewEl.appendChild(bar);
+        viewEl.appendChild(bar);
 
-      const parts = entry.name.split(/\s+/);
-      const code = parts[0] || entry.name;
-      const desc = parts.slice(1).join(' ') || entry.name;
+        const parts = entry.name.split(/\s+/);
+        const code = parts[0] || entry.name;
+        const desc = parts.slice(1).join(' ') || entry.name;
 
-      const codeLower = code.toLowerCase();
-      const related = index.filter(e => e.name.toLowerCase().includes(codeLower)).slice(0, 40);
+        const codeLower = code.toLowerCase();
+        const related = index
+          .filter((e) => e.name.toLowerCase().includes(codeLower))
+          .slice(0, 40);
 
-      const art = document.createElement('article');
-      art.className = 'wiring-doc';
+        const art = document.createElement('article');
+        art.className = 'wiring-doc';
 
-      let relatedHtml = '';
-      if (related.length > 0) {
-        relatedHtml = `
+        let relatedHtml = '';
+        if (related.length > 0) {
+          relatedHtml = `
           <div style="margin-top: 20px;">
             <h2 style="font-size: 14px; font-weight: 700; color: var(--amber); margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.5px;">
               Referenced in ${related.length} Diagram${related.length === 1 ? '' : 's'}
             </h2>
             <div style="display: flex; flex-direction: column; gap: 6px;">
-              ${related.map((r, idx) => `
+              ${related
+                .map(
+                  (r, idx) => `
                 <div class="setting-row" style="cursor: pointer; padding: 10px 14px; border-radius: 6px; background: var(--panel-2); border: 1px solid var(--line);" data-doc="${esc(r.doc)}">
                   <div>
                     <div style="font-weight: 700; font-size: 13.5px; color: var(--ink);">${esc(r.name)}</div>
@@ -1118,19 +1327,21 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
                   </div>
                   <span style="color: var(--amber); font-size: 12px; font-weight: 700; white-space: nowrap;">View →</span>
                 </div>
-              `).join('')}
+              `
+                )
+                .join('')}
             </div>
           </div>`;
-      } else {
-        relatedHtml = `
+        } else {
+          relatedHtml = `
           <div style="margin-top: 20px; padding: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;">
             <div style="font-size: 13px; color: var(--ink-dim);">
               Use the search bar at the top to search across all vehicle schematics for <strong>${esc(code)}</strong>.
             </div>
           </div>`;
-      }
+        }
 
-      art.innerHTML = `
+        art.innerHTML = `
         <div style="padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px;">
           <div style="display: inline-block; font-family: var(--mono); font-size: 12px; font-weight: 800; color: var(--amber); background: rgba(255, 158, 44, 0.12); border: 1px solid rgba(255, 158, 44, 0.3); border-radius: 4px; padding: 2px 7px; margin-bottom: 8px;">
             ${esc(code)}
@@ -1143,199 +1354,261 @@ function showWiring(chassisId, openDoc = null, vin = null, category = null) {
         ${relatedHtml}
       `;
 
-      art.querySelectorAll('[data-doc]').forEach((el) => {
-        el.onclick = () => {
-          const did = el.getAttribute('data-doc');
-          const hit = index.find(e => e.doc === did);
-          if (hit) openTab(hit);
-        };
-      });
-
-      viewEl.appendChild(art);
-      viewEl.scrollTop = 0;
-      setActions(browseActions);
-    }
-
-    // the document pane
-    function openDocument(entry) {
-      atIndex = index.findIndex(e => e.doc === entry.doc);
-      // reflect the open diagram in the URL so it's a shareable deep link
-      // (#apps/wiring/<CHASSIS>/<DOC>). Best-effort; the viewer works without it.
-      if (typeof routeSetWiringDoc === 'function' && entry && entry.doc) {
-        routeSetWiringDoc(chassisId, entry.doc);
-      }
-      // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the unselected
-      // pane, so loading into it means a 0x0 stage. Switch to it; no-op on
-      // desktop.
-      if (window.matchMedia('(max-width: 760px)').matches) setPane('doc', false);
-      const doc = wiringDoc(data, entry.doc);
-      viewEl.innerHTML = '';
-      const bar = document.createElement('div');
-      bar.className = 'wiring-bar';
-      bar.innerHTML = `<div class="wiring-title">${esc(entry.name)}</div>
-        <div class="wiring-kind">${esc(WIRING_KIND_LABEL[entry.kind] || entry.kind)}</div>`;
-      viewEl.appendChild(bar);
-
-      setActions(browseActions);   // reset; a schematic adds its zoom keys
-      if (!doc) {
-        viewEl.insertAdjacentHTML('beforeend',
-          `<div class="empty"><div>This document is not in the WDS release the `
-          + `data was built from.</div></div>`);
-        return;
-      }
-      if (doc.type === 'html') {
-        // a description has no zoom controls, so give its bar a Share button
-        // (schematics get theirs from fitAndPan, into this same bar)
-        const share = document.createElement('button');
-        share.className = 'btn wiring-fit wiring-share';
-        share.textContent = 'Share';
-        share.title = 'Copy a link to this document';
-        share.onclick = () => wiringShareCurrent(share);
-        bar.appendChild(share);
-        const art = document.createElement('article');
-        art.className = 'wiring-doc';
-        art.innerHTML = doc.text;
-        // pictures live in the archive, not on a server, so an <img src> of
-        // "img/x.png" resolves to nothing -- hand each one its bytes as a blob
-        art.querySelectorAll('img[src^="img/"]').forEach((im) => {
-          const path = im.getAttribute('src');
-          const bytes = data.files.get(path);
-          if (bytes) { im.src = wiringImageUrl(data, path, bytes); return; }
-          // not in this archive: the hosted build keeps them on a CDN
-          im.classList.add('wiring-img-loading');
-          wiringFetchImage(path.slice(4)).then((blob) => {
-            im.classList.remove('wiring-img-loading');
-            if (!blob) { im.remove(); return; }  // gone: a box helps nobody
-            im.src = wiringImageUrl(data, path, blob);
-          });
-        });
-        // cross-document links resolve inside the app, never the network
-        art.querySelectorAll('a[href^="#wds/"]').forEach((a) => {
-          const target = a.getAttribute('href').slice(5);
-          a.onclick = (ev) => {
-            ev.preventDefault();
-            const hit = index.find(e => e.doc === target);
-            openTab(hit || { name: target, kind: 'document', doc: target });
+        art.querySelectorAll('[data-doc]').forEach((el) => {
+          el.onclick = () => {
+            const did = el.getAttribute('data-doc');
+            const hit = index.find((e) => e.doc === did);
+            if (hit) openTab(hit);
           };
         });
+
         viewEl.appendChild(art);
         viewEl.scrollTop = 0;
-        return;
+        setActions(browseActions);
       }
 
-      // a schematic: drop the SVG in, then pan/zoom
-      const stage = document.createElement('div');
-      stage.className = 'wiring-stage';
-      stage.innerHTML = doc.text;
-      viewEl.appendChild(stage);
-      const svg = stage.querySelector('svg');
-      if (svg) {
-        // drop BMW's per-drawing <title> ("...Copyright BMW AG 2004"): it's an
-        // SVG tooltip, so hovering popped a copyright notice. Name's in the bar.
-        svg.querySelectorAll(':scope > title').forEach((t) => t.remove());
-        // WDS kept zoom buttons in the footer; the modern layout on the bar
-        const zoomHost = classic ? split.querySelector('#wds-zoomgroup') : bar;
-        const zoom = fitAndPan(svg, stage, zoomHost, classic);
-        // zoom keys on the bar too (a trackpad-less machine)
-        setActions([
-          { key: '+', keyLabel: '+', label: 'Zoom in', fn: () => zoom.by(1 / 1.3) },
-          { key: '-', keyLabel: '-', label: 'Zoom out', fn: () => zoom.by(1.3) },
-          { key: '0', keyLabel: '0', label: 'Fit', fn: () => zoom.fit() },
-          // the schematic view replaces browseActions, so it must re-register
-          // Print too -- Cmd/Ctrl+P and the mobile ƒ sheet read THIS list
-          { key: 'p', keyLabel: 'P', label: 'Print', kind: 'print',
-            fn: () => printWiring(chassisId) },
-          // leaveWiring, not showWiringChassis: on a phone back from a diagram
-          // returns to the tree first (identical on desktop)
-          { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-            fn: leaveWiring },
-        ]);
-      }
-      sbLeft.textContent = entry.name;
-    }
+      // the document pane
+      function openDocument(entry) {
+        atIndex = index.findIndex((e) => e.doc === entry.doc);
+        // reflect the open diagram in the URL so it's a shareable deep link
+        // (#apps/wiring/<CHASSIS>/<DOC>). Best-effort; the viewer works without it.
+        if (typeof routeSetWiringDoc === 'function' && entry && entry.doc) {
+          routeSetWiringDoc(chassisId, entry.doc);
+        }
+        // ONE PANE AT A TIME ON A PHONE: below 760px the CSS hides the unselected
+        // pane, so loading into it means a 0x0 stage. Switch to it; no-op on
+        // desktop.
+        if (window.matchMedia('(max-width: 760px)').matches)
+          setPane('doc', false);
+        const doc = wiringDoc(data, entry.doc);
+        viewEl.innerHTML = '';
+        const bar = document.createElement('div');
+        bar.className = 'wiring-bar';
+        bar.innerHTML = `<div class="wiring-title">${esc(entry.name)}</div>
+        <div class="wiring-kind">${esc(WIRING_KIND_LABEL[entry.kind] || entry.kind)}</div>`;
+        viewEl.appendChild(bar);
 
-    // restore the persisted tab workspace for this chassis. Each saved tab is
-    // re-tied to the live index entry (so a rebuilt archive that dropped a doc
-    // just skips it); a saved glossary tab has no doc, so keep it as-is.
-    const saved = wiringTabsLoad(chassisId);
-    saved.open.forEach((t) => {
-      let entry;
-      if (t.doc && String(t.doc).startsWith('d:')) {
-        // an ISTA document tab: self-contained, keep as saved
-        entry = { doc: t.doc, docId: String(t.doc).slice(2),
-                  name: t.name, kind: t.kind, isDoc: true };
-      } else if (t.doc) {
-        entry = index.find(e => e.doc === t.doc) || null;   // WDS doc
-      } else {
-        entry = { name: t.name, kind: t.kind };             // glossary leaf
-      }
-      if (entry && !tabs.open.some(o => tabKey(o) === tabKey(entry))) tabs.open.push(entry);
-    });
-    tabs.active = tabs.open.some(t => tabKey(t) === saved.active)
-      ? saved.active : (tabs.open[0] ? tabKey(tabs.open[0]) : null);
-    renderTabs();
+        setActions(browseActions); // reset; a schematic adds its zoom keys
+        if (!doc) {
+          viewEl.insertAdjacentHTML(
+            'beforeend',
+            `<div class="empty"><div>This document is not in the WDS release the ` +
+              `data was built from.</div></div>`
+          );
+          return;
+        }
+        if (doc.type === 'html') {
+          // a description has no zoom controls, so give its bar a Share button
+          // (schematics get theirs from fitAndPan, into this same bar)
+          const share = document.createElement('button');
+          share.className = 'btn wiring-fit wiring-share';
+          share.textContent = 'Share';
+          share.title = 'Copy a link to this document';
+          share.onclick = () => wiringShareCurrent(share);
+          bar.appendChild(share);
+          const art = document.createElement('article');
+          art.className = 'wiring-doc';
+          art.innerHTML = doc.text;
+          // pictures live in the archive, not on a server, so an <img src> of
+          // "img/x.png" resolves to nothing -- hand each one its bytes as a blob
+          art.querySelectorAll('img[src^="img/"]').forEach((im) => {
+            const path = im.getAttribute('src');
+            const bytes = data.files.get(path);
+            if (bytes) {
+              im.src = wiringImageUrl(data, path, bytes);
+              return;
+            }
+            // not in this archive: the hosted build keeps them on a CDN
+            im.classList.add('wiring-img-loading');
+            wiringFetchImage(path.slice(4)).then((blob) => {
+              im.classList.remove('wiring-img-loading');
+              if (!blob) {
+                im.remove();
+                return;
+              } // gone: a box helps nobody
+              im.src = wiringImageUrl(data, path, blob);
+            });
+          });
+          // cross-document links resolve inside the app, never the network
+          art.querySelectorAll('a[href^="#wds/"]').forEach((a) => {
+            const target = a.getAttribute('href').slice(5);
+            a.onclick = (ev) => {
+              ev.preventDefault();
+              const hit = index.find((e) => e.doc === target);
+              openTab(hit || { name: target, kind: 'document', doc: target });
+            };
+          });
+          viewEl.appendChild(art);
+          viewEl.scrollTop = 0;
+          return;
+        }
 
-    // open straight to a document when asked (ECU / shared-link deep-link):
-    // that becomes a tab too, on top of any restored ones
-    // a deep-linked ISTA doc ("d:<id>" or a bare numeric id): open it as a tab
-    if (deepDocId) {
-      const entry = { doc: 'd:' + deepDocId, docId: deepDocId,
-                      name: 'Document', kind: '', isDoc: true };
-      // recover its title/type from the loaded docs tree if available
-      if (docsData) {
-        (function find(n) {
-          for (const d of n.docs || []) if (String(d.id) === String(deepDocId)) {
-            entry.name = d.title; entry.kind = d.type; return true;
-          }
-          for (const c of n.children || []) if (find(c)) return true;
-          return false;
-        })(docsData.tree);
+        // a schematic: drop the SVG in, then pan/zoom
+        const stage = document.createElement('div');
+        stage.className = 'wiring-stage';
+        stage.innerHTML = doc.text;
+        viewEl.appendChild(stage);
+        const svg = stage.querySelector('svg');
+        if (svg) {
+          // drop BMW's per-drawing <title> ("...Copyright BMW AG 2004"): it's an
+          // SVG tooltip, so hovering popped a copyright notice. Name's in the bar.
+          svg.querySelectorAll(':scope > title').forEach((t) => t.remove());
+          // WDS kept zoom buttons in the footer; the modern layout on the bar
+          const zoomHost = classic
+            ? split.querySelector('#wds-zoomgroup')
+            : bar;
+          const zoom = fitAndPan(svg, stage, zoomHost, classic);
+          // zoom keys on the bar too (a trackpad-less machine)
+          setActions([
+            {
+              key: '+',
+              keyLabel: '+',
+              label: 'Zoom in',
+              fn: () => zoom.by(1 / 1.3),
+            },
+            {
+              key: '-',
+              keyLabel: '-',
+              label: 'Zoom out',
+              fn: () => zoom.by(1.3),
+            },
+            { key: '0', keyLabel: '0', label: 'Fit', fn: () => zoom.fit() },
+            // the schematic view replaces browseActions, so it must re-register
+            // Print too -- Cmd/Ctrl+P and the mobile ƒ sheet read THIS list
+            {
+              key: 'p',
+              keyLabel: 'P',
+              label: 'Print',
+              kind: 'print',
+              fn: () => printWiring(chassisId),
+            },
+            // leaveWiring, not showWiringChassis: on a phone back from a diagram
+            // returns to the tree first (identical on desktop)
+            {
+              key: 'Escape',
+              keyLabel: 'Esc',
+              label: 'Back',
+              kind: 'back',
+              fn: leaveWiring,
+            },
+          ]);
+        }
+        sbLeft.textContent = entry.name;
       }
-      if (tabs.active === tabKey(entry) && tabs.open.some(t => tabKey(t) === tabKey(entry))) {
-        renderActiveById(tabs.active);
-      } else {
-        openTab(entry);
-      }
-    } else if (openDoc) {
-      const hit = index.find(e => e.doc === openDoc)
-        || index.find(e => e.name === openDoc);
-      if (hit) {
-        // openTab focuses an already-open tab, but focusTab short-circuits when
-        // that tab is already the active one -- which it is right after a reload
-        // that restored this same doc as the active tab, so nothing would draw.
-        // Render it explicitly in that case; otherwise open/focus as normal.
-        if (tabs.active === tabKey(hit)
-            && tabs.open.some(t => tabKey(t) === tabKey(hit))) {
+
+      // restore the persisted tab workspace for this chassis. Each saved tab is
+      // re-tied to the live index entry (so a rebuilt archive that dropped a doc
+      // just skips it); a saved glossary tab has no doc, so keep it as-is.
+      const saved = wiringTabsLoad(chassisId);
+      saved.open.forEach((t) => {
+        let entry;
+        if (t.doc && String(t.doc).startsWith('d:')) {
+          // an ISTA document tab: self-contained, keep as saved
+          entry = {
+            doc: t.doc,
+            docId: String(t.doc).slice(2),
+            name: t.name,
+            kind: t.kind,
+            isDoc: true,
+          };
+        } else if (t.doc) {
+          entry = index.find((e) => e.doc === t.doc) || null; // WDS doc
+        } else {
+          entry = { name: t.name, kind: t.kind }; // glossary leaf
+        }
+        if (entry && !tabs.open.some((o) => tabKey(o) === tabKey(entry)))
+          tabs.open.push(entry);
+      });
+      tabs.active = tabs.open.some((t) => tabKey(t) === saved.active)
+        ? saved.active
+        : tabs.open[0]
+          ? tabKey(tabs.open[0])
+          : null;
+      renderTabs();
+
+      // open straight to a document when asked (ECU / shared-link deep-link):
+      // that becomes a tab too, on top of any restored ones
+      // a deep-linked ISTA doc ("d:<id>" or a bare numeric id): open it as a tab
+      if (deepDocId) {
+        const entry = {
+          doc: 'd:' + deepDocId,
+          docId: deepDocId,
+          name: 'Document',
+          kind: '',
+          isDoc: true,
+        };
+        // recover its title/type from the loaded docs tree if available
+        if (docsData) {
+          (function find(n) {
+            for (const d of n.docs || [])
+              if (String(d.id) === String(deepDocId)) {
+                entry.name = d.title;
+                entry.kind = d.type;
+                return true;
+              }
+            for (const c of n.children || []) if (find(c)) return true;
+            return false;
+          })(docsData.tree);
+        }
+        if (
+          tabs.active === tabKey(entry) &&
+          tabs.open.some((t) => tabKey(t) === tabKey(entry))
+        ) {
           renderActiveById(tabs.active);
         } else {
-          openTab(hit);
+          openTab(entry);
         }
-        expandTreeToDoc(hit.doc);
-      } else if (tabs.active) { renderActiveById(tabs.active); }
-      else showPlaceholder();
-    } else if (tabs.active) {
-      // reopen the tab that was active when the user last left
-      renderActiveById(tabs.active);
-      const act = tabs.open.find(t => t.doc && tabKey(t) === tabs.active);
-      if (act) expandTreeToDoc(act.doc);
-    } else {
-      showPlaceholder();
-    }
+      } else if (openDoc) {
+        const hit =
+          index.find((e) => e.doc === openDoc) ||
+          index.find((e) => e.name === openDoc);
+        if (hit) {
+          // openTab focuses an already-open tab, but focusTab short-circuits when
+          // that tab is already the active one -- which it is right after a reload
+          // that restored this same doc as the active tab, so nothing would draw.
+          // Render it explicitly in that case; otherwise open/focus as normal.
+          if (
+            tabs.active === tabKey(hit) &&
+            tabs.open.some((t) => tabKey(t) === tabKey(hit))
+          ) {
+            renderActiveById(tabs.active);
+          } else {
+            openTab(hit);
+          }
+          expandTreeToDoc(hit.doc);
+        } else if (tabs.active) {
+          renderActiveById(tabs.active);
+        } else showPlaceholder();
+      } else if (tabs.active) {
+        // reopen the tab that was active when the user last left
+        renderActiveById(tabs.active);
+        const act = tabs.open.find((t) => t.doc && tabKey(t) === tabs.active);
+        if (act) expandTreeToDoc(act.doc);
+      } else {
+        showPlaceholder();
+      }
 
-    function renderActiveById(key) {
-      const entry = tabs.open.find(t => tabKey(t) === key);
-      if (entry) renderActive(entry); else showPlaceholder();
-    }
-  }).catch((e) => {
-    viewEl.innerHTML = errorBlock(e.message);
-    sbLeft.textContent = 'no wiring data';
-  });
+      function renderActiveById(key) {
+        const entry = tabs.open.find((t) => tabKey(t) === key);
+        if (entry) renderActive(entry);
+        else showPlaceholder();
+      }
+    })
+    .catch((e) => {
+      viewEl.innerHTML = errorBlock(e.message);
+      sbLeft.textContent = 'no wiring data';
+    });
 }
 
 // Zoom and pan by rewriting the viewBox: nothing re-renders but the attribute.
 function fitAndPan(svg, stage, bar, classic = false) {
   let rawVb = svg.getAttribute('viewBox') || svg.getAttribute('viewbox');
-  let vb = rawVb ? rawVb.trim().split(/[\s,]+/).map(Number) : [];
+  let vb = rawVb
+    ? rawVb
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number)
+    : [];
   if (vb.length !== 4 || vb.some(Number.isNaN)) {
     const w = parseFloat(svg.getAttribute('width')) || 10000;
     const h = parseFloat(svg.getAttribute('height')) || 2500;
@@ -1343,7 +1616,8 @@ function fitAndPan(svg, stage, bar, classic = false) {
   }
   const home = { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
   const cur = { ...home };
-  const apply = () => svg.setAttribute('viewBox', `${cur.x} ${cur.y} ${cur.w} ${cur.h}`);
+  const apply = () =>
+    svg.setAttribute('viewBox', `${cur.x} ${cur.y} ${cur.w} ${cur.h}`);
   svg.removeAttribute('width');
   svg.removeAttribute('height');
   svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -1356,7 +1630,8 @@ function fitAndPan(svg, stage, bar, classic = false) {
     const h = w * (cur.h / cur.w);
     cur.x += (cur.w - w) * fx;
     cur.y += (cur.h - h) * fy;
-    cur.w = w; cur.h = h;
+    cur.w = w;
+    cur.h = h;
     apply();
   };
 
@@ -1364,25 +1639,31 @@ function fitAndPan(svg, stage, bar, classic = false) {
     touched = false;
     const r = stage.getBoundingClientRect();
     const pw = r.width || window.innerWidth || 360;
-    const ph = r.height || (window.innerHeight - 100) || 600;
+    const ph = r.height || window.innerHeight - 100 || 600;
     const paneRatio = pw / ph;
-    let w = home.w, h = home.h;
+    let w = home.w,
+      h = home.h;
     if (home.w / home.h > paneRatio) h = home.w / paneRatio;
     else w = home.h * paneRatio;
     cur.x = home.x - (w - home.w) / 2;
     cur.y = home.y - (h - home.h) / 2;
-    cur.w = w; cur.h = h;
+    cur.w = w;
+    cur.h = h;
     apply();
   };
 
-  stage.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const r = stage.getBoundingClientRect();
-    const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
-    const fx = ((e.clientX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
-    const fy = ((e.clientY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
-    zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
-  }, { passive: false });
+  stage.addEventListener(
+    'wheel',
+    (e) => {
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
+      const fx = ((e.clientX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w;
+      const fy = ((e.clientY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h;
+      zoomBy(e.deltaY > 0 ? 1.12 : 1 / 1.12, fx, fy);
+    },
+    { passive: false }
+  );
 
   // touch: pinch-zoom + one-finger pan (iOS / mobile)
   let lastTouchDist = 0;
@@ -1391,63 +1672,91 @@ function fitAndPan(svg, stage, bar, classic = false) {
   let lastTouchX = 0;
   let lastTouchY = 0;
 
-  stage.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      lastTouchX = e.touches[0].clientX;
-      lastTouchY = e.touches[0].clientY;
-      lastTouchDist = 0;
-    } else if (e.touches.length >= 2) {
-      const t1 = e.touches[0], t2 = e.touches[1];
-      lastTouchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-      lastTouchMidX = (t1.clientX + t2.clientX) / 2;
-      lastTouchMidY = (t1.clientY + t2.clientY) / 2;
-    }
-  }, { passive: false });
+  stage.addEventListener(
+    'touchstart',
+    (e) => {
+      if (e.touches.length === 1) {
+        lastTouchX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
+        lastTouchDist = 0;
+      } else if (e.touches.length >= 2) {
+        const t1 = e.touches[0],
+          t2 = e.touches[1];
+        lastTouchDist = Math.hypot(
+          t1.clientX - t2.clientX,
+          t1.clientY - t2.clientY
+        );
+        lastTouchMidX = (t1.clientX + t2.clientX) / 2;
+        lastTouchMidY = (t1.clientY + t2.clientY) / 2;
+      }
+    },
+    { passive: false }
+  );
 
-  stage.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    touched = true;
+  stage.addEventListener(
+    'touchmove',
+    (e) => {
+      e.preventDefault();
+      touched = true;
 
-    if (e.touches.length >= 2) {
-      const t1 = e.touches[0], t2 = e.touches[1];
-      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-      const midX = (t1.clientX + t2.clientX) / 2;
-      const midY = (t1.clientY + t2.clientY) / 2;
+      if (e.touches.length >= 2) {
+        const t1 = e.touches[0],
+          t2 = e.touches[1];
+        const dist = Math.hypot(
+          t1.clientX - t2.clientX,
+          t1.clientY - t2.clientY
+        );
+        const midX = (t1.clientX + t2.clientX) / 2;
+        const midY = (t1.clientY + t2.clientY) / 2;
 
-      if (lastTouchDist > 0 && dist > 0) {
-        const factor = lastTouchDist / dist;
+        if (lastTouchDist > 0 && dist > 0) {
+          const factor = lastTouchDist / dist;
+          const r = stage.getBoundingClientRect();
+          const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
+          const fx = Math.max(
+            0,
+            Math.min(
+              1,
+              ((midX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w
+            )
+          );
+          const fy = Math.max(
+            0,
+            Math.min(
+              1,
+              ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h
+            )
+          );
+
+          zoomBy(factor, fx, fy); // around the touch centre
+          const dx = (lastTouchMidX - midX) * k; // pan with the midpoint
+          const dy = (lastTouchMidY - midY) * k;
+          cur.x += dx;
+          cur.y += dy;
+          apply();
+        }
+
+        lastTouchDist = dist;
+        lastTouchMidX = midX;
+        lastTouchMidY = midY;
+      } else if (e.touches.length === 1) {
+        const t = e.touches[0];
         const r = stage.getBoundingClientRect();
         const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
-        const fx = Math.max(0, Math.min(1, ((midX - r.left) * k - (r.width * k - cur.w) / 2) / cur.w));
-        const fy = Math.max(0, Math.min(1, ((midY - r.top) * k - (r.height * k - cur.h) / 2) / cur.h));
+        const dx = (lastTouchX - t.clientX) * k;
+        const dy = (lastTouchY - t.clientY) * k;
 
-        zoomBy(factor, fx, fy);        // around the touch centre
-        const dx = (lastTouchMidX - midX) * k;  // pan with the midpoint
-        const dy = (lastTouchMidY - midY) * k;
         cur.x += dx;
         cur.y += dy;
         apply();
+
+        lastTouchX = t.clientX;
+        lastTouchY = t.clientY;
+        lastTouchDist = 0;
       }
-
-      lastTouchDist = dist;
-      lastTouchMidX = midX;
-      lastTouchMidY = midY;
-    } else if (e.touches.length === 1) {
-      const t = e.touches[0];
-      const r = stage.getBoundingClientRect();
-      const k = Math.max(cur.w / (r.width || 1), cur.h / (r.height || 1));
-      const dx = (lastTouchX - t.clientX) * k;
-      const dy = (lastTouchY - t.clientY) * k;
-
-      cur.x += dx;
-      cur.y += dy;
-      apply();
-
-      lastTouchX = t.clientX;
-      lastTouchY = t.clientY;
-      lastTouchDist = 0;
-    }
-  }, { passive: false });
+    },
+    { passive: false }
+  );
 
   const onTouchEnd = (e) => {
     if (e.touches.length === 1) {
@@ -1488,10 +1797,15 @@ function fitAndPan(svg, stage, bar, classic = false) {
   // to this exact document so it can be sent to someone else)
   const controls = document.createElement('div');
   controls.className = 'wiring-zoom';
-  [[classic ? '⊕' : '+', 'Zoom in (+ key, or scroll the wheel)', () => zoomBy(1 / 1.3)],
-   [classic ? '⊖' : '−', 'Zoom out (- key)', () => zoomBy(1.3)],
-   [classic ? '⊡' : 'Fit', 'Fit the whole diagram (0 key)', fit]]
-    .forEach(([label, title, fn]) => {
+  [
+    [
+      classic ? '⊕' : '+',
+      'Zoom in (+ key, or scroll the wheel)',
+      () => zoomBy(1 / 1.3),
+    ],
+    [classic ? '⊖' : '−', 'Zoom out (- key)', () => zoomBy(1.3)],
+    [classic ? '⊡' : 'Fit', 'Fit the whole diagram (0 key)', fit],
+  ].forEach(([label, title, fn]) => {
     const b = document.createElement('button');
     b.className = classic ? 'wds-btn wds-btn-sq' : 'btn wiring-fit';
     b.textContent = label;
@@ -1549,7 +1863,9 @@ async function wiringShareCurrent(btn) {
       await navigator.clipboard.writeText(url);
       ok = true;
     }
-  } catch (e) { ok = false; }
+  } catch (e) {
+    ok = false;
+  }
   if (!ok) {
     try {
       const ta = document.createElement('textarea');
@@ -1560,7 +1876,9 @@ async function wiringShareCurrent(btn) {
       ta.select();
       ok = document.execCommand('copy');
       ta.remove();
-    } catch (e) { ok = false; }
+    } catch (e) {
+      ok = false;
+    }
   }
   if (!btn) return;
   const original = btn.textContent;
@@ -1591,18 +1909,22 @@ function printWiring(chassisId) {
   if (svg) {
     // clone so restoring the home viewBox for print doesn't disturb the live one
     const clone = svg.cloneNode(true);
-    if (clone.dataset.homeViewbox) clone.setAttribute('viewBox', clone.dataset.homeViewbox);
-    clone.removeAttribute('style');   // drop any on-screen zoom transform
+    if (clone.dataset.homeViewbox)
+      clone.setAttribute('viewBox', clone.dataset.homeViewbox);
+    clone.removeAttribute('style'); // drop any on-screen zoom transform
     // A WDS schematic is a wide strip (4:1 and wider). Width-fitted to one
     // sheet -- even landscape -- it prints a few cm tall with the lower page
     // empty. Slice a wide strip into stacked full-width segments, each with a
     // little overlap so a component at a cut shows whole on one of the two
     // sides; every segment then prints 2-3x larger.
-    const vb = (clone.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
-    const aspect = (vb.length === 4 && vb[3] > 0) ? vb[2] / vb[3] : 1;
+    const vb = (clone.getAttribute('viewBox') || '')
+      .split(/[\s,]+/)
+      .map(Number);
+    const aspect = vb.length === 4 && vb[3] > 0 ? vb[2] / vb[3] : 1;
     const slices = Math.min(3, Math.max(1, Math.round(aspect / 1.8)));
     if (slices > 1) {
-      const w = vb[2] / slices, pad = w * 0.03;
+      const w = vb[2] / slices,
+        pad = w * 0.03;
       const parts = [];
       for (let i = 0; i < slices; i++) {
         const s = clone.cloneNode(true);
@@ -1617,16 +1939,19 @@ function printWiring(chassisId) {
       section = printSvg(clone.outerHTML);
     }
   } else if (doc) {
-    section = printHtml(doc.innerHTML);   // a description document
+    section = printHtml(doc.innerHTML); // a description document
   } else {
     section = printHtml('');
   }
 
   printDoc({
     title: titleText,
-    meta: [['Vehicle', dispChassis(chassisId)], ['Type', kindText]],
+    meta: [
+      ['Vehicle', dispChassis(chassisId)],
+      ['Type', kindText],
+    ],
     sections: [section],
-    landscape: !!svg,   // a diagram wants landscape; a description reads portrait
+    landscape: !!svg, // a diagram wants landscape; a description reads portrait
     footer: `BMWeb · ${dispChassis(chassisId)} · printed ${new Date().toLocaleDateString()}`,
   });
 }
@@ -1682,20 +2007,34 @@ function showWiringHelp(chassisId) {
     <p>The diagrams, their titles and their arrangement are BMW's own, taken
        from WDS. Printing uses the browser's print dialog.</p>`;
   view.appendChild(art);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: () => showWiring(chassisId) }]);
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: () => showWiring(chassisId),
+    },
+  ]);
 }
 
 // Does this car have wiring data? Asked before drawing a button that'd fail.
 async function hasWiring(chassisId) {
   const id = chassisId.toUpperCase();
   if (WIRING_CACHE.has(id)) return true;
-  if (typeof BMACW_WIRING === 'object' && BMACW_WIRING) return !!BMACW_WIRING[id];
+  if (typeof BMACW_WIRING === 'object' && BMACW_WIRING)
+    return !!BMACW_WIRING[id];
   try {
-    const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
-    const real = (typeof webRealFetch === 'function')
-      ? webRealFetch : window.fetch.bind(window);
-    const r = await real(`${base}/data/wiring/${id}.wiring`, { method: 'HEAD' });
+    const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+    const real =
+      typeof webRealFetch === 'function'
+        ? webRealFetch
+        : window.fetch.bind(window);
+    const r = await real(`${base}/data/wiring/${id}.wiring`, {
+      method: 'HEAD',
+    });
     return r.ok;
-  } catch { return false; }
+  } catch {
+    return false;
+  }
 }

@@ -48,12 +48,21 @@ function printSvg(svgMarkup) {
 // A simple grid table. headers: [string]; rows: [[cell, cell, ...]]. Cells are
 // escaped. Optional per-column class list aligns/sizes columns (e.g. 'pr-mono').
 function printTable(headers, rows, colClasses) {
-  const cls = (i) => (colClasses && colClasses[i]) ? ` class="${colClasses[i]}"` : '';
-  const thead = headers && headers.length
-    ? `<thead><tr>${headers.map((h, i) => `<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead>` : '';
-  const body = (rows || []).map((r) =>
-    `<tr>${r.map((c, i) => `<td${cls(i)}>${esc(c == null ? '' : c)}</td>`).join('')}</tr>`).join('');
-  return { html: `<table class="pr-table">${thead}<tbody>${body}</tbody></table>` };
+  const cls = (i) =>
+    colClasses && colClasses[i] ? ` class="${colClasses[i]}"` : '';
+  const thead =
+    headers && headers.length
+      ? `<thead><tr>${headers.map((h, i) => `<th${cls(i)}>${esc(h)}</th>`).join('')}</tr></thead>`
+      : '';
+  const body = (rows || [])
+    .map(
+      (r) =>
+        `<tr>${r.map((c, i) => `<td${cls(i)}>${esc(c == null ? '' : c)}</td>`).join('')}</tr>`
+    )
+    .join('');
+  return {
+    html: `<table class="pr-table">${thead}<tbody>${body}</tbody></table>`,
+  };
 }
 
 // Typed blocks, the shape the ISTA test plans use: {t:'p'|'bullet',s} and
@@ -65,13 +74,17 @@ function printBlocks(blocks) {
     if (b.t === 'bullet') return `<p class="pr-p pr-bullet">${esc(b.s)}</p>`;
     if (b.t === 'table' && b.rows && b.rows.length) {
       const cols = Math.max(...b.rows.map((r) => r.length));
-      const rows = b.rows.map((r, ri) => {
-        const cells = [];
-        for (let i = 0; i < cols; i++) {
-          cells.push(`<${ri === 0 ? 'th' : 'td'}>${esc(r[i] || '')}</${ri === 0 ? 'th' : 'td'}>`);
-        }
-        return `<tr>${cells.join('')}</tr>`;
-      }).join('');
+      const rows = b.rows
+        .map((r, ri) => {
+          const cells = [];
+          for (let i = 0; i < cols; i++) {
+            cells.push(
+              `<${ri === 0 ? 'th' : 'td'}>${esc(r[i] || '')}</${ri === 0 ? 'th' : 'td'}>`
+            );
+          }
+          return `<tr>${cells.join('')}</tr>`;
+        })
+        .join('');
       return `<table class="pr-table pr-table-grid">${rows}</table>`;
     }
     return '';
@@ -80,10 +93,14 @@ function printBlocks(blocks) {
 }
 
 // A heading inside the body (chapter title within a section).
-function printHeading(text) { return { html: `<h2 class="pr-h2">${esc(text)}</h2>` }; }
+function printHeading(text) {
+  return { html: `<h2 class="pr-h2">${esc(text)}</h2>` };
+}
 
 // Escape hatch: markup the caller already built and escaped. Trusted input only.
-function printHtml(html) { return { html: html || '' }; }
+function printHtml(html) {
+  return { html: html || '' };
+}
 
 // ---- the document -----------------------------------------------------------
 
@@ -211,17 +228,23 @@ function printDoc(opts) {
   ensurePrintCss();
   const o = opts || {};
   const sections = (o.sections || []).filter(Boolean);
-  const bodyHtml = sections.map((sec) => {
-    const inner = typeof sec === 'string' ? sec : (sec.html || '');
-    if (!inner) return '';
-    return `<section class="pr-section${sec.avoidBreak ? ' avoid-break' : ''}">${inner}</section>`;
-  }).join('');
+  const bodyHtml = sections
+    .map((sec) => {
+      const inner = typeof sec === 'string' ? sec : sec.html || '';
+      if (!inner) return '';
+      return `<section class="pr-section${sec.avoidBreak ? ' avoid-break' : ''}">${inner}</section>`;
+    })
+    .join('');
 
-  const meta = (o.meta || []).filter(Boolean)
-    .map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`).join('');
-  const app = (typeof APP_NAME === 'string') ? APP_NAME : 'BMWeb';
-  const footer = o.footer != null ? o.footer
-    : `${app} · printed ${new Date().toLocaleDateString()}`;
+  const meta = (o.meta || [])
+    .filter(Boolean)
+    .map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`)
+    .join('');
+  const app = typeof APP_NAME === 'string' ? APP_NAME : 'BMWeb';
+  const footer =
+    o.footer != null
+      ? o.footer
+      : `${app} · printed ${new Date().toLocaleDateString()}`;
 
   const root = document.createElement('div');
   root.id = 'pr-root';
@@ -240,7 +263,7 @@ function printDoc(opts) {
 
   document.body.appendChild(root);
   document.head.appendChild(pageStyle);
-  document.body.classList.add('pr-active');   // gates the @media print takeover
+  document.body.classList.add('pr-active'); // gates the @media print takeover
 
   let done = false;
   const cleanup = () => {
@@ -258,16 +281,23 @@ function printDoc(opts) {
   const imgs = [...root.querySelectorAll('img')];
   const ready = imgs.length
     ? Promise.race([
-        Promise.all(imgs.map((im) => im.complete ? Promise.resolve()
-          : im.decode().catch(() => {}))),
+        Promise.all(
+          imgs.map((im) =>
+            im.complete ? Promise.resolve() : im.decode().catch(() => {})
+          )
+        ),
         new Promise((r) => setTimeout(r, 4000)),
       ])
     : Promise.resolve();
 
   return ready.then(() => {
-    if (typeof o.onReady === 'function') { try { o.onReady(); } catch {} }
+    if (typeof o.onReady === 'function') {
+      try {
+        o.onReady();
+      } catch {}
+    }
     const p = triggerPrint();
-    setTimeout(cleanup, 20000);   // last resort if afterprint never fires
+    setTimeout(cleanup, 20000); // last resort if afterprint never fires
     return p.then(cleanup, cleanup);
   });
 }
@@ -275,10 +305,16 @@ function printDoc(opts) {
 // The current screen's Print action, if it declared one via setActions. Matched
 // by kind/label/hotkey so screens don't need to know about this interceptor.
 function currentPrintAction() {
-  const bar = (typeof actionBar !== 'undefined') ? actionBar : null;
+  const bar = typeof actionBar !== 'undefined' ? actionBar : null;
   const list = (bar && bar.current) || [];
-  return list.find(a => a && a.fn &&
-    (a.kind === 'print' || a.label === 'Print' || a.key === 'p')) || null;
+  return (
+    list.find(
+      (a) =>
+        a &&
+        a.fn &&
+        (a.kind === 'print' || a.label === 'Print' || a.key === 'p')
+    ) || null
+  );
 }
 
 // Route the browser's native Cmd/Ctrl+P to the active screen's clean print, so
@@ -287,23 +323,31 @@ function currentPrintAction() {
 // Print action fall through to the browser's normal print (body isn't pr-active,
 // so the live page prints as-is).
 function installPrintHotkey() {
-  window.addEventListener('keydown', (e) => {
-    const p = (e.key === 'p' || e.key === 'P');
-    if (!p || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
-    if (document.getElementById('pr-root')) return;   // a print is already staged
-    const act = currentPrintAction();
-    if (!act) return;                                 // let the native dialog run
-    e.preventDefault();
-    // Flag the Cmd/Ctrl+P origin so an action that has nothing to print yet
-    // (a Print listed on a menu before anything was read) can fall through to
-    // the native dialog instead of no-opping and swallowing the shortcut.
-    window.__printViaHotkey = true;
-    try { act.fn(); } finally {
-      // clear on the next tick, after fn() has read it (fn may be async, but it
-      // reads the flag synchronously before its first await)
-      setTimeout(() => { window.__printViaHotkey = false; }, 0);
-    }
-  }, true);   // capture, to beat the app's own key handler and the dialog
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      const p = e.key === 'p' || e.key === 'P';
+      if (!p || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      if (document.getElementById('pr-root')) return; // a print is already staged
+      const act = currentPrintAction();
+      if (!act) return; // let the native dialog run
+      e.preventDefault();
+      // Flag the Cmd/Ctrl+P origin so an action that has nothing to print yet
+      // (a Print listed on a menu before anything was read) can fall through to
+      // the native dialog instead of no-opping and swallowing the shortcut.
+      window.__printViaHotkey = true;
+      try {
+        act.fn();
+      } finally {
+        // clear on the next tick, after fn() has read it (fn may be async, but it
+        // reads the flag synchronously before its first await)
+        setTimeout(() => {
+          window.__printViaHotkey = false;
+        }, 0);
+      }
+    },
+    true
+  ); // capture, to beat the app's own key handler and the dialog
 }
 
 if (typeof window !== 'undefined') {

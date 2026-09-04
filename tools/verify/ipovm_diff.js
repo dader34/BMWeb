@@ -63,8 +63,11 @@ elif mode == 'items':
 `;
 
 function pyRun(ecu, proc, mode) {
-  const out = execFileSync('python3', ['-c', PY, ecu, proc, mode],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const out = execFileSync('python3', ['-c', PY, ecu, proc, mode], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
   return JSON.parse(out);
 }
 
@@ -73,8 +76,9 @@ function pyRun(ecu, proc, mode) {
 function loadExec(stem) {
   const f = `/tmp/${stem}.ipoexec.json`;
   if (!fs.existsSync(f)) {
-    execFileSync('python3', ['tools/export/ipo_exec.py', stem, f],
-      { cwd: ROOT });
+    execFileSync('python3', ['tools/export/ipo_exec.py', stem, f], {
+      cwd: ROOT,
+    });
   }
   return JSON.parse(fs.readFileSync(f, 'utf8'));
 }
@@ -83,12 +87,20 @@ function jsRun(stem, proc) {
   const vm = new IpoVm(loadExec(stem), { budget: 80000 });
   const out = vm.run(proc);
   return {
-    title: out.title, menu: out.menu, screen: out.screen,
-    items: out.items, jobs: out.jobs,
-    reads: out.reads, messages: out.messages,
-    states: out.states, calls: out.calls,
-    lines: out.lines.map((l) => ({ label: l.label, elements: l.elements,
-      jobArg: l.jobArg == null ? null : l.jobArg })),
+    title: out.title,
+    menu: out.menu,
+    screen: out.screen,
+    items: out.items,
+    jobs: out.jobs,
+    reads: out.reads,
+    messages: out.messages,
+    states: out.states,
+    calls: out.calls,
+    lines: out.lines.map((l) => ({
+      label: l.label,
+      elements: l.elements,
+      jobArg: l.jobArg == null ? null : l.jobArg,
+    })),
   };
 }
 
@@ -105,7 +117,11 @@ function jsItems(stem, proc) {
     const end = idx + 1 < marks.length ? marks[idx + 1][0] : toks.length;
     const vm = new IpoVm(exec, { budget: 80000 });
     const cur = { nr, label };
-    try { vm.runItem(toks, k + 1, end, cur); } catch (e) { /* noop */ }
+    try {
+      vm.runItem(toks, k + 1, end, cur);
+    } catch (e) {
+      /* noop */
+    }
     res.push({ item: cur, jobs: vm.out.jobs, calls: vm.out.calls });
   });
   return res;
@@ -175,12 +191,22 @@ function caseItems(stem, proc) {
   report(`${stem}:${proc} run_item`, diffs);
 }
 
-const RUN_FIELDS = ['title', 'menu', 'screen', 'items', 'jobs', 'reads',
-  'messages', 'states', 'lines', 'calls'];
+const RUN_FIELDS = [
+  'title',
+  'menu',
+  'screen',
+  'items',
+  'jobs',
+  'reads',
+  'messages',
+  'states',
+  'lines',
+  'calls',
+];
 
 // --- lsz: messagebox + togglelist + STEUERN_IO ---
-caseRun('lsz', 'inpainit', RUN_FIELDS);      // the "variant checking" messagebox
-caseItems('lsz', 'm_steuern');               // STEUERN_IO + builtin_16 togglelist
+caseRun('lsz', 'inpainit', RUN_FIELDS); // the "variant checking" messagebox
+caseItems('lsz', 'm_steuern'); // STEUERN_IO + builtin_16 togglelist
 
 // --- MS450: fault screens draw DIFFERENTLY when helpers execute ---
 caseRun('MS450', 's_fs_kurz', RUN_FIELDS);
@@ -193,8 +219,10 @@ caseRun('gsds2', 's_ana2_834', RUN_FIELDS);
 const kurz = jsRun('MS450', 's_fs_kurz');
 const detail = jsRun('MS450', 's_fs_detail');
 const differ = !eq(kurz.reads, detail.reads);
-console.log(`${differ ? 'PASS' : 'FAIL'}  MS450 kurz vs detail reads differ `
-  + `(kurz=${kurz.reads.length} keys, detail=${detail.reads.length} keys)`);
+console.log(
+  `${differ ? 'PASS' : 'FAIL'}  MS450 kurz vs detail reads differ ` +
+    `(kurz=${kurz.reads.length} keys, detail=${detail.reads.length} keys)`
+);
 if (!differ) failures += 1;
 
 console.log(`\n${failures === 0 ? 'ALL PASS' : failures + ' FAILURE(S)'}`);

@@ -30,14 +30,16 @@ const { Best2Vm, VmError } = load('app/renderer/core/bestvm.js');
 const fixPath = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixPath)) {
   console.error('missing ' + path.relative(ROOT, fixPath));
-  console.error('run: python3 tools/vm_fixtures.py > '
-    + path.relative(ROOT, fixPath));
+  console.error(
+    'run: python3 tools/vm_fixtures.py > ' + path.relative(ROOT, fixPath)
+  );
   process.exit(2);
 }
 const fix = JSON.parse(fs.readFileSync(fixPath, 'utf8'));
 const verbose = process.argv.includes('--verbose');
 const only = process.argv.includes('--sgbd')
-  ? process.argv[process.argv.indexOf('--sgbd') + 1] : null;
+  ? process.argv[process.argv.indexOf('--sgbd') + 1]
+  : null;
 
 // Results the ENGINE derives from state a fresh VM cannot have.
 //
@@ -71,15 +73,29 @@ const UNINITIALIZED_READS = new Set(['ID_SG_ADR']);
 // sgbd:job:result -> [vm value, engine value], compared exactly. An entry
 // only excuses the disagreement it names; anything else still fails.
 const KNOWN_DISAGREEMENTS = new Map([
-  ['ms450ds0:IDENT:JOB_STATUS',
-    ['ERROR_ECU_INCORRECT_RESPONSE_ID', 'ERROR_ECU_INCORRECT_LEN']],
+  [
+    'ms450ds0:IDENT:JOB_STATUS',
+    ['ERROR_ECU_INCORRECT_RESPONSE_ID', 'ERROR_ECU_INCORRECT_LEN'],
+  ],
 ]);
 
 // Injected by EdiabasNet around job execution, not by job bytecode.
 const SYSTEM_RESULTS = new Set([
-  'OBJECT', 'JOBNAME', 'VARIANTE', 'GRUPPE', 'FAMILIE', 'SAETZE',
-  'JOBSTATUS', 'UBATTCURRENT', 'UBATTHISTORY', 'IGNITIONCURRENT',
-  'IGNITIONHISTORY', 'SPRACHE', 'DONE', 'QUALIFIER', 'RESULTSOURCE',
+  'OBJECT',
+  'JOBNAME',
+  'VARIANTE',
+  'GRUPPE',
+  'FAMILIE',
+  'SAETZE',
+  'JOBSTATUS',
+  'UBATTCURRENT',
+  'UBATTHISTORY',
+  'IGNITIONCURRENT',
+  'IGNITIONHISTORY',
+  'SPRACHE',
+  'DONE',
+  'QUALIFIER',
+  'RESULTSOURCE',
 ]);
 
 // Both come from data/chassis/<CHASSIS>/<ECU>/ now: the generated data is
@@ -109,21 +125,29 @@ function same(want, got) {
   // parseFloat("1F-27-2D") is 31 -- which accidentally equals the first
   // byte and would score a wrong value as correct.
   if (Array.isArray(got)) {
-    const hex = got.map(
-      (b) => b.toString(16).toUpperCase().padStart(2, '0')).join('-');
+    const hex = got
+      .map((b) => b.toString(16).toUpperCase().padStart(2, '0'))
+      .join('-');
     return String(want) === hex;
   }
-  const wn = parseFloat(want), gn = typeof got === 'number' ? got
-    : parseFloat(String(got));
-  if (Number.isFinite(wn) && Number.isFinite(gn)
-      && String(want).trim() !== ''
-      && /^[-+0-9.eE]+$/.test(String(want).trim())) {
+  const wn = parseFloat(want),
+    gn = typeof got === 'number' ? got : parseFloat(String(got));
+  if (
+    Number.isFinite(wn) &&
+    Number.isFinite(gn) &&
+    String(want).trim() !== '' &&
+    /^[-+0-9.eE]+$/.test(String(want).trim())
+  ) {
     return Math.abs(wn - gn) <= Math.max(1e-6, Math.abs(wn) * 1e-9);
   }
   return String(want) === String(got);
 }
 
-let jobs = 0, agree = 0, disagree = 0, missing = 0, crashed = 0;
+let jobs = 0,
+  agree = 0,
+  disagree = 0,
+  missing = 0,
+  crashed = 0;
 let knownDiff = 0;
 const errs = new Map();
 const diffs = [];
@@ -137,8 +161,7 @@ for (const c of fix.cases) {
   // call order. A sequential queue returns nothing once exhausted, and a
   // job that retries until it gets a valid answer (AIF_LESEN) then spins
   // forever -- that was every one of the step-limit "hangs".
-  const pairs = (c.telegrams || []).map(
-    (t) => [String(t.request), t.response]);
+  const pairs = (c.telegrams || []).map((t) => [String(t.request), t.response]);
   const byReq = new Map(pairs);
   let lastResp = pairs.length ? pairs[pairs.length - 1][1] : [];
   const machine = new Best2Vm(code, {
@@ -159,8 +182,10 @@ for (const c of fix.cases) {
     sets = machine.run(c.job);
   } catch (e) {
     crashed++;
-    const key = e instanceof VmError ? e.message.replace(/\d+/g, 'N')
-      : `${e.constructor.name}: ${e.message}`.replace(/\d+/g, 'N');
+    const key =
+      e instanceof VmError
+        ? e.message.replace(/\d+/g, 'N')
+        : `${e.constructor.name}: ${e.message}`.replace(/\d+/g, 'N');
     errs.set(key, (errs.get(key) || 0) + 1);
     continue;
   }
@@ -171,7 +196,8 @@ for (const c of fix.cases) {
   // The engine's set 0 is the injected system set, so its data sets start
   // at index 1; the VM emits data sets only.
   const engineSets = (c.sets || []).filter(
-    (s) => !Object.keys(s).some((k) => SYSTEM_RESULTS.has(k)));
+    (s) => !Object.keys(s).some((k) => SYSTEM_RESULTS.has(k))
+  );
   for (let si = 0; si < engineSets.length; si++) {
     const s = engineSets[si];
     const vmSet = sets[si] || {};
@@ -186,7 +212,8 @@ for (const c of fix.cases) {
       if (UNINITIALIZED_READS.has(k)) continue;
       if (!got.has(k)) {
         missing++;
-        if (diffs.length < 400) diffs.push([c.sgbd, c.job, k, '(absent)', want]);
+        if (diffs.length < 400)
+          diffs.push([c.sgbd, c.job, k, '(absent)', want]);
         continue;
       }
       if (same(want, got.get(k))) agree++;
@@ -215,14 +242,18 @@ const checked = agree + knownDiff + disagree + missing;
 const MIN_JOBS = 100;
 if (!only && jobs < MIN_JOBS) {
   console.error(`FAIL: only ${jobs} jobs replayed (< ${MIN_JOBS}).`);
-  console.error('data/chassis or vmfix.json is missing/mislaid -- the VM was'
-    + ' not actually exercised. Regenerate with tools/sgbd/ecu_tree.py and'
-    + ' tools/vm_fixtures.py.');
+  console.error(
+    'data/chassis or vmfix.json is missing/mislaid -- the VM was' +
+      ' not actually exercised. Regenerate with tools/sgbd/ecu_tree.py and' +
+      ' tools/vm_fixtures.py.'
+  );
   process.exit(1);
 }
 console.log(`jobs replayed : ${jobs}   (VM crashes: ${crashed})`);
 console.log(`results checked: ${checked}`);
-console.log(`  AGREE       : ${agree} (${(100 * agree / Math.max(checked, 1)).toFixed(1)}%)`);
+console.log(
+  `  AGREE       : ${agree} (${((100 * agree) / Math.max(checked, 1)).toFixed(1)}%)`
+);
 console.log(`  KNOWN DIFF  : ${knownDiff} (pinned in KNOWN_DISAGREEMENTS)`);
 console.log(`  DISAGREE    : ${disagree}`);
 console.log(`  MISSING     : ${missing}`);
@@ -238,12 +269,16 @@ if (diffs.length) {
   console.log('\ntop differing results:');
   for (const [k, v] of [...byKey].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
     const ex = diffs.find((d) => d[2] === k);
-    console.log(`  ${String(v).padStart(4)}  ${k}  e.g. ${ex[0]}:${ex[1]} vm=${JSON.stringify(ex[3])} engine=${JSON.stringify(ex[4])}`);
+    console.log(
+      `  ${String(v).padStart(4)}  ${k}  e.g. ${ex[0]}:${ex[1]} vm=${JSON.stringify(ex[3])} engine=${JSON.stringify(ex[4])}`
+    );
   }
   if (verbose) {
     console.log('\nall differences:');
     for (const d of diffs) {
-      console.log(`  ${d[0]}:${d[1]} ${d[2]} vm=${JSON.stringify(d[3])} engine=${JSON.stringify(d[4])}`);
+      console.log(
+        `  ${d[0]}:${d[1]} ${d[2]} vm=${JSON.stringify(d[3])} engine=${JSON.stringify(d[4])}`
+      );
     }
   }
 }

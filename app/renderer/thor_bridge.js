@@ -41,7 +41,12 @@ function wsFrame(payload) {
   const len = payload.length;
   let head;
   if (len < 126) head = Buffer.from([0x82, len]);
-  else { head = Buffer.alloc(4); head[0] = 0x82; head[1] = 126; head.writeUInt16BE(len, 2); }
+  else {
+    head = Buffer.alloc(4);
+    head[0] = 0x82;
+    head[1] = 126;
+    head.writeUInt16BE(len, 2);
+  }
   return Buffer.concat([head, payload]);
 }
 
@@ -55,8 +60,15 @@ function frameParser(onFrame) {
       const op = buf[0] & 0x0f;
       let len = buf[1] & 0x7f;
       let at = 2;
-      if (len === 126) { if (buf.length < 4) return; len = buf.readUInt16BE(2); at = 4; }
-      else if (len === 127) { if (buf.length < 10) return; len = Number(buf.readBigUInt64BE(2)); at = 10; }
+      if (len === 126) {
+        if (buf.length < 4) return;
+        len = buf.readUInt16BE(2);
+        at = 4;
+      } else if (len === 127) {
+        if (buf.length < 10) return;
+        len = Number(buf.readBigUInt64BE(2));
+        at = 10;
+      }
       const masked = (buf[1] & 0x80) !== 0;
       const need = at + (masked ? 4 : 0) + len;
       if (buf.length < need) return;
@@ -85,35 +97,74 @@ server.on('upgrade', (req, sock) => {
     return;
   }
   const key = req.headers['sec-websocket-key'];
-  if (!key) { sock.destroy(); return; }
-  const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
-  sock.write('HTTP/1.1 101 Switching Protocols\r\n'
-    + 'Upgrade: websocket\r\nConnection: Upgrade\r\n'
-    + `Sec-WebSocket-Accept: ${accept}\r\n\r\n`);
+  if (!key) {
+    sock.destroy();
+    return;
+  }
+  const accept = crypto
+    .createHash('sha1')
+    .update(key + WS_GUID)
+    .digest('base64');
+  sock.write(
+    'HTTP/1.1 101 Switching Protocols\r\n' +
+      'Upgrade: websocket\r\nConnection: Upgrade\r\n' +
+      `Sec-WebSocket-Accept: ${accept}\r\n\r\n`
+  );
 
-  console.log(`[ws] page connected, dialing ${ADAPTER_HOST}:${ADAPTER_PORT} ...`);
+  console.log(
+    `[ws] page connected, dialing ${ADAPTER_HOST}:${ADAPTER_PORT} ...`
+  );
   const tcp = net.connect(ADAPTER_PORT, ADAPTER_HOST);
   const closeBoth = (why) => {
     console.log(`[--] closed (${why})`);
-    try { sock.end(); } catch { /* gone */ }
-    try { tcp.destroy(); } catch { /* gone */ }
+    try {
+      sock.end();
+    } catch {
+      /* gone */
+    }
+    try {
+      tcp.destroy();
+    } catch {
+      /* gone */
+    }
   };
 
   tcp.on('connect', () => console.log('[tcp] adapter connected'));
-  tcp.on('data', (d) => { console.log('[<-]', hex(d)); sock.write(wsFrame(d)); });
+  tcp.on('data', (d) => {
+    console.log('[<-]', hex(d));
+    sock.write(wsFrame(d));
+  });
   tcp.on('error', (e) => closeBoth(`adapter: ${e.message}`));
   tcp.on('close', () => closeBoth('adapter closed'));
 
-  sock.on('data', frameParser((op, payload) => {
-    if (op === 8) { closeBoth('page closed'); return; }
-    if (op === 9) { sock.write(Buffer.concat([Buffer.from([0x8a, payload.length]), payload])); return; }
-    if (op === 1 || op === 2) { console.log('[->]', hex(payload)); tcp.write(payload); }
-  }));
+  sock.on(
+    'data',
+    frameParser((op, payload) => {
+      if (op === 8) {
+        closeBoth('page closed');
+        return;
+      }
+      if (op === 9) {
+        sock.write(
+          Buffer.concat([Buffer.from([0x8a, payload.length]), payload])
+        );
+        return;
+      }
+      if (op === 1 || op === 2) {
+        console.log('[->]', hex(payload));
+        tcp.write(payload);
+      }
+    })
+  );
   sock.on('error', (e) => closeBoth(`page: ${e.message}`));
   sock.on('close', () => closeBoth('page socket closed'));
 });
 
 server.listen(WS_PORT, '127.0.0.1', () => {
-  console.log(`THOR bridge: ws://127.0.0.1:${WS_PORT} <-> tcp ${ADAPTER_HOST}:${ADAPTER_PORT}`);
-  console.log('open the web build with ?thor=1 (or Settings -> Adapter -> THOR WiFi)');
+  console.log(
+    `THOR bridge: ws://127.0.0.1:${WS_PORT} <-> tcp ${ADAPTER_HOST}:${ADAPTER_PORT}`
+  );
+  console.log(
+    'open the web build with ?thor=1 (or Settings -> Adapter -> THOR WiFi)'
+  );
 });

@@ -24,9 +24,11 @@ async function navLanguages(sgbd) {
   let rows = [];
   try {
     rows = await api(`/api/ecu/${sgbd}/table/CODESPRACHEN`);
-  } catch { /* no table shipped: the extras below still work */ }
+  } catch {
+    /* no table shipped: the extras below still work */
+  }
   const out = [];
-  (rows || []).forEach(r => {
+  (rows || []).forEach((r) => {
     const code = parseInt(r.CODE, 16);
     if (!Number.isFinite(code)) return;
     out.push({ code, label: navLangLabel(r.SPRACHEN), raw: r.SPRACHEN });
@@ -34,10 +36,14 @@ async function navLanguages(sgbd) {
   // BMW's own extras, where the table does not reach
   Object.entries(NAV_LANG_EXTRA).forEach(([n, name]) => {
     const code = Number(n);
-    [code, code | 0x80].forEach(c => {
-      if (out.some(o => o.code === c)) return;
-      out.push({ code: c, label: `${name}, ${c & 0x80 ? 'female' : 'male'}`,
-                 raw: name, extra: true });
+    [code, code | 0x80].forEach((c) => {
+      if (out.some((o) => o.code === c)) return;
+      out.push({
+        code: c,
+        label: `${name}, ${c & 0x80 ? 'female' : 'male'}`,
+        raw: name,
+        extra: true,
+      });
     });
   });
   out.sort((a, b) => a.code - b.code);
@@ -46,13 +52,21 @@ async function navLanguages(sgbd) {
 
 // "englisch UK weiblich" -> "English UK, female"
 const NAV_LANG_WORDS = {
-  deutsch: 'German', englisch: 'English', italienisch: 'Italian',
-  spanisch: 'Spanish', franzoesisch: 'French', maennlich: 'male',
-  weiblich: 'female', keine: 'no', sprache: 'language',
+  deutsch: 'German',
+  englisch: 'English',
+  italienisch: 'Italian',
+  spanisch: 'Spanish',
+  franzoesisch: 'French',
+  maennlich: 'male',
+  weiblich: 'female',
+  keine: 'no',
+  sprache: 'language',
 };
 function navLangLabel(s) {
-  const parts = String(s || '').split(/\s+/).filter(Boolean);
-  const words = parts.map(p => NAV_LANG_WORDS[p.toLowerCase()] || p);
+  const parts = String(s || '')
+    .split(/\s+/)
+    .filter(Boolean);
+  const words = parts.map((p) => NAV_LANG_WORDS[p.toLowerCase()] || p);
   // the gender is the last word; set it off with a comma
   const last = words[words.length - 1];
   if (last === 'male' || last === 'female') {
@@ -70,34 +84,47 @@ function hasNavLanguages(ecu, ir) {
 
 async function showNavLanguages(ecu, container, back) {
   const cont = container || view;
-  const setPanel = () => { if (cont !== view) cont.className = 'results-panel'; };
+  const setPanel = () => {
+    if (cont !== view) cont.className = 'results-panel';
+  };
 
   const langs = await navLanguages(ecu.sgbd);
   let picked = [null, null, null];
 
-  const byCode = (c) => langs.find(l => l.code === c);
+  const byCode = (c) => langs.find((l) => l.code === c);
 
   const draw = () => {
     setPanel();
-    const chosen = picked.filter(c => c != null);
-    const opt = (sel, i) => `<option value=""${sel == null ? ' selected' : ''}>`
-      + `\u2014 slot ${i + 1} \u2014</option>`
-      + langs.map(l => `<option value="${l.code}"`
-        + `${l.code === sel ? ' selected' : ''}>`
-        + `${esc(l.label)} \u00b7 ${hex(l.code)}</option>`).join('');
+    const chosen = picked.filter((c) => c != null);
+    const opt = (sel, i) =>
+      `<option value=""${sel == null ? ' selected' : ''}>` +
+      `\u2014 slot ${i + 1} \u2014</option>` +
+      langs
+        .map(
+          (l) =>
+            `<option value="${l.code}"` +
+            `${l.code === sel ? ' selected' : ''}>` +
+            `${esc(l.label)} \u00b7 ${hex(l.code)}</option>`
+        )
+        .join('');
 
-    cont.innerHTML = `
+    cont.innerHTML =
+      `
       <div class="act-menu">
         <div class="act-menu-title">Load languages</div>
-        <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg \u00b7 `
-      + `SPEICHER_SCHREIBEN</div>
-        <div class="cod-note"><span class="cod-note-dim">INPA loads these `
-      + `three from a file on the PC. They are just language codes, so pick `
-      + `them here.</span></div>
+        <div class="act-menu-sub mono">${esc(ecu.sgbd)}.prg \u00b7 ` +
+      `SPEICHER_SCHREIBEN</div>
+        <div class="cod-note"><span class="cod-note-dim">INPA loads these ` +
+      `three from a file on the PC. They are just language codes, so pick ` +
+      `them here.</span></div>
         <div class="nav-pickers">
-          ${[0, 1, 2].map(i => `<label class="dat-pick">Language ${i + 1}
+          ${[0, 1, 2]
+            .map(
+              (i) => `<label class="dat-pick">Language ${i + 1}
             <select class="nav-pick" data-i="${i}">${opt(picked[i], i)}</select>
-          </label>`).join('')}
+          </label>`
+            )
+            .join('')}
         </div>
         <div class="cod-blocked" id="nav-send"></div>
       </div>`;
@@ -107,33 +134,50 @@ async function showNavLanguages(ecu, container, back) {
     if (chosen.length === 3) {
       const args = picked.map(hex).join(';');
       const names = picked
-        .map(c => (byCode(c) || {}).label || hex(c))
-        .map((n, i) => `${i + 1}. ${n}`).join('   ');
-      send.innerHTML = `<b>Not sent.</b> This would run `
-        + `<span class="mono">SPEICHER_SCHREIBEN</span> with `
-        + `<span class="mono">${esc(args)}</span><br>${esc(names)}<br><br>`
-        + `Sending is disabled: the nav reloads its voice data from this, and `
-        + `wrong codes leave it with no working language, which is recovered `
-        + `by writing again through the nav you just broke.`;
+        .map((c) => (byCode(c) || {}).label || hex(c))
+        .map((n, i) => `${i + 1}. ${n}`)
+        .join('   ');
+      send.innerHTML =
+        `<b>Not sent.</b> This would run ` +
+        `<span class="mono">SPEICHER_SCHREIBEN</span> with ` +
+        `<span class="mono">${esc(args)}</span><br>${esc(names)}<br><br>` +
+        `Sending is disabled: the nav reloads its voice data from this, and ` +
+        `wrong codes leave it with no working language, which is recovered ` +
+        `by writing again through the nav you just broke.`;
     } else {
-      send.innerHTML = `<span class="cod-note-dim">Choose three to see exactly `
-        + `what INPA would send. Nothing is written to the car.</span>`;
+      send.innerHTML =
+        `<span class="cod-note-dim">Choose three to see exactly ` +
+        `what INPA would send. Nothing is written to the car.</span>`;
     }
 
-    cont.querySelectorAll('.nav-pick').forEach(sel => {
+    cont.querySelectorAll('.nav-pick').forEach((sel) => {
       sel.onchange = () => {
-        picked[Number(sel.dataset.i)] = sel.value === '' ? null : Number(sel.value);
+        picked[Number(sel.dataset.i)] =
+          sel.value === '' ? null : Number(sel.value);
         draw();
       };
     });
 
     const acts = [];
     if (chosen.length) {
-      acts.push({ key: '3', keyLabel: 'F3', label: 'Clear',
-                  fn: () => { picked = [null, null, null]; draw(); } });
+      acts.push({
+        key: '3',
+        keyLabel: 'F3',
+        label: 'Clear',
+        fn: () => {
+          picked = [null, null, null];
+          draw();
+        },
+      });
     }
-    if (back) acts.push({ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                          kind: 'back', fn: back });
+    if (back)
+      acts.push({
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: back,
+      });
     setActions(acts);
     sbLeft.textContent = `${ecu.sgbd}.prg \u00b7 load languages`;
     tipify(cont);

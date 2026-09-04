@@ -15,7 +15,7 @@ function setStateSgbd(ch = null) {
   // identifier (ROOT_MOTOR), while `name` is a translated label -- a section
   // whose key is not in SECTION_ORDER gets pretty(key) instead, so "Antrieb"
   // would silently never match here
-  const sec = ch && (ch.sections || []).find(s => s.key === 'ROOT_MOTOR');
+  const sec = ch && (ch.sections || []).find((s) => s.key === 'ROOT_MOTOR');
   stateSgbd = (sec && sec.ecus && sec.ecus[0] && sec.ecus[0].sgbd) || null;
 }
 
@@ -46,11 +46,15 @@ async function autoScan(chassisId, ch) {
   const SCAN_SECTIONS = new Set(['ROOT_MOTOR', 'ROOT_GETRIEBE']);
   for (const sec of ch.sections) {
     if (!SCAN_SECTIONS.has(sec.key)) continue;
-    for (const e of (sec.ecus || [])) {
+    for (const e of sec.ecus || []) {
       if (!e.group) continue;
       const g = String(e.group).toLowerCase();
       let t = byGroup.get(g);
-      if (!t) { t = { group: g, section: sec.name, secEcus: sec.ecus, ecus: [] }; byGroup.set(g, t); targets.push(t); }
+      if (!t) {
+        t = { group: g, section: sec.name, secEcus: sec.ecus, ecus: [] };
+        byGroup.set(g, t);
+        targets.push(t);
+      }
       t.ecus.push(e);
     }
   }
@@ -64,14 +68,21 @@ async function autoScan(chassisId, ch) {
     // is the presence test (its IDENTIFIKATION names the read target), a
     // group it can't keeps the legacy try-each-configured-variant read.
     const groupIndex = await fetch('data/groups/index.json')
-      .then(r => (r.ok ? r.json() : null)).catch(() => null);
-    const groupRunnable = (g) => !!(typeof webResolveVariant === 'function'
-      && groupIndex && (groupIndex.groups || []).includes(g));
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    const groupRunnable = (g) =>
+      !!(
+        typeof webResolveVariant === 'function' &&
+        groupIndex &&
+        (groupIndex.groups || []).includes(g)
+      );
 
-    const findings = [];     // { label, sgbd, code, section, chassis, faults:[ detailed codes ] }
+    const findings = []; // { label, sgbd, code, section, chassis, faults:[ detailed codes ] }
     let anyResponse = false;
     for (const t of targets) {
-      let faults = null, sgbd, ecu;
+      let faults = null,
+        sgbd,
+        ecu;
       if (groupRunnable(t.group)) {
         // STRICT group semantics, exactly quickErrorSweep's: the group's
         // IDENTIFIKATION is the module-present test and names the variant
@@ -79,33 +90,59 @@ async function autoScan(chassisId, ch) {
         // background scan, so absent modules and unreadable variants both
         // pass in silence instead of raising UI noise.
         let via = null;
-        try { via = await webResolveVariant(t.group); } catch { via = null; }
+        try {
+          via = await webResolveVariant(t.group);
+        } catch {
+          via = null;
+        }
         if (!via) continue; // nothing answered at this address
         anyResponse = true; // the ident answered, so the bus is live
-        try { faults = await readFaults(via); }
-        catch { continue; } // identified but not readable in this build
+        try {
+          faults = await readFaults(via);
+        } catch {
+          continue;
+        } // identified but not readable in this build
         sgbd = via;
-        ecu = t.secEcus.find(e => String(e.sgbd).toLowerCase() === via
-              || (e.variants || []).some(v => String(v).toLowerCase() === via))
-              || t.ecus[0];
+        ecu =
+          t.secEcus.find(
+            (e) =>
+              String(e.sgbd).toLowerCase() === via ||
+              (e.variants || []).some((v) => String(v).toLowerCase() === via)
+          ) || t.ecus[0];
       } else {
         // no runnable group: old behavior. the configured variants share one
         // address, so try each in sequence and let the first non-throwing
         // read win (this is what the old E46 trans flag did).
         for (const e of t.ecus) {
-          try { faults = await readFaults(e.sgbd); }
-          catch { continue; } // no response = this variant isn't installed
-          anyResponse = true; sgbd = e.sgbd; ecu = e; break;
+          try {
+            faults = await readFaults(e.sgbd);
+          } catch {
+            continue;
+          } // no response = this variant isn't installed
+          anyResponse = true;
+          sgbd = e.sgbd;
+          ecu = e;
+          break;
         }
         if (!faults) continue; // whole group silent = module absent
       }
       if (!faults.length) continue;
       await fillFaultDetail(sgbd, faults); // detail reads target the RESOLVED sgbd
-      findings.push({ label: ecu.label, sgbd, code: ecu.code || sgbd,
-                      group: t.group, section: t.section, chassis: chassisId, faults });
+      findings.push({
+        label: ecu.label,
+        sgbd,
+        code: ecu.code || sgbd,
+        group: t.group,
+        section: t.section,
+        chassis: chassisId,
+        faults,
+      });
     }
     if (anyResponse) _autoScanRan = true; // mark done only after the bus answered, so a late connect rescans
-    if (findings.length) { await loadFaultDb(); showAttentionPopup(findings); }
+    if (findings.length) {
+      await loadFaultDb();
+      showAttentionPopup(findings);
+    }
   } finally {
     _autoScanning = false;
   }
@@ -117,10 +154,18 @@ async function fillFaultDetail(sgbd, faults) {
   for (const f of faults) {
     if (f.F_ORT_NR == null) continue;
     try {
-      const det = await api(`/api/ecu/${sgbd}/run/FS_LESEN_DETAIL?arg=${encodeURIComponent(f.F_ORT_NR)}`, { method: 'POST' });
+      const det = await api(
+        `/api/ecu/${sgbd}/run/FS_LESEN_DETAIL?arg=${encodeURIComponent(f.F_ORT_NR)}`,
+        { method: 'POST' }
+      );
       const dset = matchDetail(det.sets, f.F_ORT_NR);
-      if (dset) { const { F_HEX_CODE, F_ORT_TEXT, ...rich } = dset; Object.assign(f, rich); }
-    } catch { /* keep base entry */ }
+      if (dset) {
+        const { F_HEX_CODE, F_ORT_TEXT, ...rich } = dset;
+        Object.assign(f, rich);
+      }
+    } catch {
+      /* keep base entry */
+    }
   }
 }
 
@@ -128,17 +173,22 @@ async function fillFaultDetail(sgbd, faults) {
 // set only when no set has an F_ORT_NR, so wrong-fault data isnt attached
 function matchDetail(sets, nr) {
   const list = sets || [];
-  return list.find(s => s.F_ORT_NR == nr)
-      || (list.some(s => s.F_ORT_NR != null) ? null
-          : list.find(s => s.F_PCODE_STRING || s.F_HEX_CODE));
+  return (
+    list.find((s) => s.F_ORT_NR == nr) ||
+    (list.some((s) => s.F_ORT_NR != null)
+      ? null
+      : list.find((s) => s.F_PCODE_STRING || s.F_HEX_CODE))
+  );
 }
 
 // corner warning badge for stored faults. click expands the detail list; stays
 // until dismissed or the screen changes (setActions calls dismissAttention).
 let _attDismiss = null;
-function dismissAttention() { if (_attDismiss) _attDismiss(); }
+function dismissAttention() {
+  if (_attDismiss) _attDismiss();
+}
 function showAttentionPopup(findings) {
-  document.getElementById('att-badge')?.remove();   // replace any existing
+  document.getElementById('att-badge')?.remove(); // replace any existing
   document.getElementById('att-panel')?.remove();
   const total = findings.reduce((n, f) => n + f.faults.length, 0);
 
@@ -151,20 +201,26 @@ function showAttentionPopup(findings) {
   requestAnimationFrame(() => badge.classList.add('show'));
 
   // expanded detail panel, built once and toggled
-  const blocks = findings.map(g => `
+  const blocks = findings
+    .map(
+      (g) => `
     <div class="att-group">
       <div class="att-ecu">${esc(g.label)} · ${g.faults.length} fault${g.faults.length === 1 ? '' : 's'}</div>
-      ${g.faults.map(c => {
-        const hex = hexText(c.F_HEX_CODE);
-        const pstr = c.F_PCODE_STRING
-          || (typeof pcodeForHexSgbd === 'function' ? pcodeForHexSgbd(bmwCode(c.F_ORT_TEXT, hex), g.sgbd) : null) || '';
-        const { name, present } = faultFields(c, g.sgbd);
-        return `<div class="att-fault${present ? ' present' : ''}">
+      ${g.faults
+        .map((c) => {
+          // P-code from the ECU's own read only -- no local hex->P mapping on a
+          // fault read (the module is the authority).
+          const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
+          const { name, present } = faultFields(c, g.sgbd);
+          return `<div class="att-fault${present ? ' present' : ''}">
           <div class="att-name">${esc(name)}${present ? '<span class="att-badge">PRESENT</span>' : ''}</div>
-          <div class="att-meta">${esc(`${deGerman(c.F_SYMPTOM_TEXT) || ''}${pstr ? ` · ${pstr}` : ''}${(c.F_HFK || c.F_LZ) ? ` · seen ${c.F_HFK || c.F_LZ}×` : ''}`)}</div>
+          <div class="att-meta">${esc(`${deGerman(c.F_SYMPTOM_TEXT) || ''}${pstr ? ` · ${pstr}` : ''}${c.F_HFK || c.F_LZ ? ` · seen ${c.F_HFK || c.F_LZ}×` : ''}`)}</div>
         </div>`;
-      }).join('')}
-    </div>`).join('');
+        })
+        .join('')}
+    </div>`
+    )
+    .join('');
   const panel = document.createElement('div');
   panel.id = 'att-panel';
   panel.className = 'att-panel';
@@ -178,17 +234,32 @@ function showAttentionPopup(findings) {
   document.body.appendChild(panel);
 
   let open = false;
-  const setOpen = (v) => { open = v; panel.classList.toggle('show', v); badge.classList.toggle('expanded', v); };
+  const setOpen = (v) => {
+    open = v;
+    panel.classList.toggle('show', v);
+    badge.classList.toggle('expanded', v);
+  };
   const onDocClick = (e) => {
-    if (open && !panel.contains(e.target) && e.target !== badge && !badge.contains(e.target)) setOpen(false);
+    if (
+      open &&
+      !panel.contains(e.target) &&
+      e.target !== badge &&
+      !badge.contains(e.target)
+    )
+      setOpen(false);
   };
   const dismiss = () => {
-    document.removeEventListener('click', onDocClick); badge.remove(); panel.remove();
+    document.removeEventListener('click', onDocClick);
+    badge.remove();
+    panel.remove();
     if (_attDismiss === dismiss) _attDismiss = null;
   };
   _attDismiss = dismiss; // navigation (setActions) tears the popup down
   badge.onclick = () => setOpen(!open);
-  panel.querySelector('.att-x').onclick = (e) => { e.stopPropagation(); dismiss(); };
+  panel.querySelector('.att-x').onclick = (e) => {
+    e.stopPropagation();
+    dismiss();
+  };
   panel.querySelector('.att-open').onclick = () => {
     const g = findings[0];
     dismiss(); // navigating away, clean up badge + listener
@@ -196,7 +267,12 @@ function showAttentionPopup(findings) {
     // itself (autoScan is chassis-agnostic now; nothing here may assume E46)
     // carry the group so the module re-resolves its variant (irResolveGroup-
     // Variant needs it; without it the open stays on the configured SGBD)
-    showEcu(g.chassis, g.section, { sgbd: g.sgbd, code: g.code, label: g.label, group: g.group });
+    showEcu(g.chassis, g.section, {
+      sgbd: g.sgbd,
+      code: g.code,
+      label: g.label,
+      group: g.group,
+    });
   };
   document.addEventListener('click', onDocClick); // removed in dismiss()
 }

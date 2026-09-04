@@ -49,7 +49,10 @@ const ctx = {
 };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['app/renderer/core/bestvm.js', 'app/renderer/core/vmbridge.js']) {
+for (const f of [
+  'app/renderer/core/bestvm.js',
+  'app/renderer/core/vmbridge.js',
+]) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx);
 }
 
@@ -58,8 +61,10 @@ if (!fs.existsSync(fixP)) {
   // This used to exit 0 -- a machine without the gitignored fixture reported
   // the bridge fine having replayed nothing. A test that cannot run must say
   // so and fail, like the rest of the suite.
-  console.error('FAIL: missing data/sim-captures/vmfix.json;'
-    + ' run tools/vm_fixtures.py first (nothing was verified)');
+  console.error(
+    'FAIL: missing data/sim-captures/vmfix.json;' +
+      ' run tools/vm_fixtures.py first (nothing was verified)'
+  );
   process.exit(1);
 }
 const fix = JSON.parse(fs.readFileSync(fixP, 'utf8'));
@@ -67,11 +72,15 @@ const fix = JSON.parse(fs.readFileSync(fixP, 'utf8'));
 // Only cases where the engine actually published telegrams can be replayed
 // this way -- that IS the bridge's input, so a case without them is out of
 // scope rather than a failure.
-const usable = fix.cases.filter((c) => (c.sets || []).some(
-  (s) => s._TEL_ANTWORT));
+const usable = fix.cases.filter((c) =>
+  (c.sets || []).some((s) => s._TEL_ANTWORT)
+);
 
 (async () => {
-  let jobs = 0, checked = 0, disagreed = 0, skipped = 0;
+  let jobs = 0,
+    checked = 0,
+    disagreed = 0,
+    skipped = 0;
   const bySkip = {};
   const worst = [];
   for (const c of usable) {
@@ -82,7 +91,8 @@ const usable = fix.cases.filter((c) => (c.sets || []).some(
     if (st.skipped > st0.skipped) {
       skipped++;
       const why = Object.keys(st.bySkip).find(
-        (k) => st.bySkip[k] !== st0.bySkip[k]);
+        (k) => st.bySkip[k] !== st0.bySkip[k]
+      );
       bySkip[why] = (bySkip[why] || 0) + 1;
       continue;
     }
@@ -94,8 +104,10 @@ const usable = fix.cases.filter((c) => (c.sets || []).some(
   }
   console.log(`bridge replayed : ${jobs} jobs (${skipped} skipped)`);
   console.log(`results checked : ${checked}`);
-  console.log(`  AGREE         : ${checked - disagreed}`
-    + ` (${(100 * (checked - disagreed) / Math.max(checked, 1)).toFixed(1)}%)`);
+  console.log(
+    `  AGREE         : ${checked - disagreed}` +
+      ` (${((100 * (checked - disagreed)) / Math.max(checked, 1)).toFixed(1)}%)`
+  );
   console.log(`  DISAGREE      : ${disagreed}`);
   if (Object.keys(bySkip).length) {
     console.log('skip reasons:');

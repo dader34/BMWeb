@@ -22,14 +22,18 @@ function rangeFor(unit, num, key) {
   const k = (key || '').toLowerCase();
   if (u === '%') {
     // correction factors (adaption/trim) are symmetric about 0
-    if (/(adaption|adaptionsfaktor|korrektur|integrator|trim|gemischadaption|einspritzzeit)/.test(k))
+    if (
+      /(adaption|adaptionsfaktor|korrektur|integrator|trim|gemischadaption|einspritzzeit)/.test(
+        k
+      )
+    )
       return [-50, 50];
     return [0, 100];
   }
   if (u === 'mg/stk' || u === 'mg/hub') return [-700, 700];
   if (u === 'v') return [0, 16];
   if (u === '°' || u === '°c' || u === 'c') return [-40, 140];
-  if (u === '°kw' || u === 'kw') return [-30, 60];   // crank-angle (timing/VANOS)
+  if (u === '°kw' || u === 'kw') return [-30, 60]; // crank-angle (timing/VANOS)
   if (u === '1/min' || u === 'rpm' || u === 'u/min') return [0, 8000];
   if (u === 'km/h') return [0, 260];
   if (u === 'mbar' || u === 'hpa') return [0, 2500];
@@ -39,7 +43,7 @@ function rangeFor(unit, num, key) {
   if (u === 'l/h') return [0, 60];
   if (u === 'a') return [-30, 30];
   if (u === 'ohm') return [0, 100];
-  if (u === '' ) {
+  if (u === '') {
     // unitless: lambda sits near 1.0, flags are 0/1
     if (/lambda|lambdawert/.test(k)) return [0, 2];
     if (num === 0 || num === 1) return [0, 1];
@@ -67,17 +71,49 @@ function fmtRange(n) {
 // German measurement-key tokens -> English, for STAT_*_WERT keys on ECUs with
 // no mined layout (e.g. GSDS2 transmission)
 const KEY_TOKENS = {
-  MOTOR: 'engine', MOTORDREHZAHL: 'engine RPM', DREHZAHL: 'RPM', ABTRIEBSDREHZAHL: 'output speed',
-  STEGDREHZAHL: 'planetary speed', RADDREHZAHL: 'wheel speed', GETRIEBE: 'gearbox',
-  GETRIEBETEMPERATUR: 'gearbox temp', MOTORTEMPERATUR: 'engine temp', TEMPERATUR: 'temperature',
-  TEMP: 'temp', LAST: 'load', DKG: 'clutch', UBAT: 'battery voltage', SPANNUNG: 'voltage',
-  DRUCK: 'pressure', LADEDRUCK: 'boost', GANG: 'gear', FAHRSTUFE: 'gear position',
-  KUPPLUNG: 'clutch', BREMSE: 'brake', LAMBDA: 'lambda', GEMISCH: 'mixture',
-  ZUENDUNG: 'ignition', EINSPRITZ: 'injection', OEL: 'oil', KUEHL: 'coolant',
-  GESCHWINDIGKEIT: 'speed', POSITION: 'position', SOLL: 'target', IST: 'actual',
-  VL: 'front-left', VR: 'front-right', HL: 'rear-left', HR: 'rear-right',
-  EIN: '', AUS: '', STATUS: 'status', WERT: '',
-  ABGL: 'calibration', LRW: 'steering wheel', LWS: 'LWS', ID: 'ID',
+  MOTOR: 'engine',
+  MOTORDREHZAHL: 'engine RPM',
+  DREHZAHL: 'RPM',
+  ABTRIEBSDREHZAHL: 'output speed',
+  STEGDREHZAHL: 'planetary speed',
+  RADDREHZAHL: 'wheel speed',
+  GETRIEBE: 'gearbox',
+  GETRIEBETEMPERATUR: 'gearbox temp',
+  MOTORTEMPERATUR: 'engine temp',
+  TEMPERATUR: 'temperature',
+  TEMP: 'temp',
+  LAST: 'load',
+  DKG: 'clutch',
+  UBAT: 'battery voltage',
+  SPANNUNG: 'voltage',
+  DRUCK: 'pressure',
+  LADEDRUCK: 'boost',
+  GANG: 'gear',
+  FAHRSTUFE: 'gear position',
+  KUPPLUNG: 'clutch',
+  BREMSE: 'brake',
+  LAMBDA: 'lambda',
+  GEMISCH: 'mixture',
+  ZUENDUNG: 'ignition',
+  EINSPRITZ: 'injection',
+  OEL: 'oil',
+  KUEHL: 'coolant',
+  GESCHWINDIGKEIT: 'speed',
+  POSITION: 'position',
+  SOLL: 'target',
+  IST: 'actual',
+  VL: 'front-left',
+  VR: 'front-right',
+  HL: 'rear-left',
+  HR: 'rear-right',
+  EIN: '',
+  AUS: '',
+  STATUS: 'status',
+  WERT: '',
+  ABGL: 'calibration',
+  LRW: 'steering wheel',
+  LWS: 'LWS',
+  ID: 'ID',
   FGSTNR: 'chassis no. (VIN)',
 };
 // normalize an EDIABAS unit string to a compact symbol
@@ -98,11 +134,20 @@ function normUnit(u) {
   // rate units written as words ("kgperh" -> "kg/h"): the corpus ships many
   // (kgperh, mgperstk, gpers, perMinute), so translate "per" generally. Both
   // sides must be a known UNIT (or empty), so it doesn't eat an ordinary word.
-  const per = /^(|1|[munkcdhKMG]?(?:g|m|l|s|A|V|W|J|N|Pa|bar|Hz|U|km|mg|kg))per([a-z]+?)_?$/i
-    .exec(s);
+  const per =
+    /^(|1|[munkcdhKMG]?(?:g|m|l|s|A|V|W|J|N|Pa|bar|Hz|U|km|mg|kg))per([a-z]+?)_?$/i.exec(
+      s
+    );
   if (per) {
-    const DENOM = { h: 'h', s: 's', min: 'min', minute: 'min',
-                    stk: 'stk', stroke: 'stroke', hub: 'hub' };
+    const DENOM = {
+      h: 'h',
+      s: 's',
+      min: 'min',
+      minute: 'min',
+      stk: 'stk',
+      stroke: 'stroke',
+      hub: 'hub',
+    };
     const d = DENOM[per[2].toLowerCase()];
     if (d) return per[1] ? `${per[1]}/${d}` : `1/${d}`;
   }
@@ -110,12 +155,17 @@ function normUnit(u) {
 }
 // STAT_MOTORTEMPERATUR_WERT -> "Engine temp"
 function humanizeKey(key) {
-  let k = String(key).replace(/^STAT_/, '').replace(/_WERT$|_EINH$/i, '');
-  const words = k.split('_').map(tok => {
-    const up = tok.toUpperCase();
-    if (up in KEY_TOKENS) return KEY_TOKENS[up];
-    return tok.charAt(0) + tok.slice(1).toLowerCase();
-  }).filter(Boolean);
+  let k = String(key)
+    .replace(/^STAT_/, '')
+    .replace(/_WERT$|_EINH$/i, '');
+  const words = k
+    .split('_')
+    .map((tok) => {
+      const up = tok.toUpperCase();
+      if (up in KEY_TOKENS) return KEY_TOKENS[up];
+      return tok.charAt(0) + tok.slice(1).toLowerCase();
+    })
+    .filter(Boolean);
   const label = words.join(' ').replace(/\s+/g, ' ').trim();
   return label ? label.charAt(0).toUpperCase() + label.slice(1) : key;
 }
@@ -153,7 +203,16 @@ function pairWertEinh(merged) {
       continue;
     }
     // stray _EINH with no matching _WERT: show as text
-    if (/_EINH$/.test(k)) { seen.add(k); out.push({ key: k, label: humanizeKey(k), value: merged.get(k), unit: '' }); continue; }
+    if (/_EINH$/.test(k)) {
+      seen.add(k);
+      out.push({
+        key: k,
+        label: humanizeKey(k),
+        value: merged.get(k),
+        unit: '',
+      });
+      continue;
+    }
     seen.add(k);
     out.push({ key: k, label: humanizeKey(k), value: v, unit: '' });
   }

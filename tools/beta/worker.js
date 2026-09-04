@@ -16,7 +16,7 @@ const CORS = {
   'access-control-allow-methods': 'POST, GET, OPTIONS',
   'access-control-allow-headers': 'content-type, authorization',
 };
-const MAX_BYTES = 1_000_000;   // a report with a full wire ring is ~50-200 KB
+const MAX_BYTES = 1_000_000; // a report with a full wire ring is ~50-200 KB
 
 export default {
   async fetch(req, env) {
@@ -31,32 +31,42 @@ export default {
     if (req.method === 'POST' && url.pathname.startsWith('/rtc/')) {
       const action = url.pathname.slice(5);
       let m;
-      try { m = await req.json(); } catch { return json({ error: 'not json' }, 400); }
+      try {
+        m = await req.json();
+      } catch {
+        return json({ error: 'not json' }, 400);
+      }
       const code = String(m.code || '').toUpperCase();
-      if (!/^[A-Z0-9]{6,12}$/.test(code)) return json({ error: 'bad code' }, 400);
+      if (!/^[A-Z0-9]{6,12}$/.test(code))
+        return json({ error: 'bad code' }, 400);
       const K = (k) => `rtc/${code}/${k}`;
-      const TTL = { expirationTtl: 600 };   // 10 min; a session re-offers to refresh
+      const TTL = { expirationTtl: 600 }; // 10 min; a session re-offers to refresh
 
       if (action === 'offer') {
         // A new offer is a new round: the owner re-offers under the SAME code
         // when its helper drops, so the code they were given keeps working.
         // The previous answer and ICE must go, or the next join is 'taken'.
         // (Codes are unguessable, so a collision is a retry, not a takeover.)
-        await Promise.all([K('answer'), K('ownerIce'), K('helperIce')]
-          .map((k) => env.BETA.delete(k)));
+        await Promise.all(
+          [K('answer'), K('ownerIce'), K('helperIce')].map((k) =>
+            env.BETA.delete(k)
+          )
+        );
         await env.BETA.put(K('offer'), JSON.stringify(m.offer), TTL);
         return json({ ok: true });
       }
       if (action === 'answer') {
-        if (!(await env.BETA.get(K('offer')))) return json({ error: 'no session' }, 404);
+        if (!(await env.BETA.get(K('offer'))))
+          return json({ error: 'no session' }, 404);
         // one joiner: first answer wins, later ones are refused
-        if (await env.BETA.get(K('answer'))) return json({ error: 'taken' }, 409);
+        if (await env.BETA.get(K('answer')))
+          return json({ error: 'taken' }, 409);
         await env.BETA.put(K('answer'), JSON.stringify(m.answer), TTL);
         return json({ ok: true });
       }
       if (action === 'ice') {
         const side = m.from === 'owner' ? 'ownerIce' : 'helperIce';
-        const cur = JSON.parse(await env.BETA.get(K(side)) || '[]');
+        const cur = JSON.parse((await env.BETA.get(K(side))) || '[]');
         cur.push(m.candidate);
         await env.BETA.put(K(side), JSON.stringify(cur.slice(-40)), TTL);
         return json({ ok: true });
@@ -88,12 +98,16 @@ export default {
       const text = await req.text();
       if (text.length > MAX_BYTES) return json({ error: 'too large' }, 413);
       let body;
-      try { body = JSON.parse(text); }
-      catch { return json({ error: 'not json' }, 400); }
+      try {
+        body = JSON.parse(text);
+      } catch {
+        return json({ error: 'not json' }, 400);
+      }
       const day = new Date().toISOString().slice(0, 10);
-      const key = `r/${day}/${Date.now()}-`
-        + `${(body.tester || 'anon').slice(0, 16)}-`
-        + `${crypto.randomUUID().slice(0, 8)}.json`;
+      const key =
+        `r/${day}/${Date.now()}-` +
+        `${(body.tester || 'anon').slice(0, 16)}-` +
+        `${crypto.randomUUID().slice(0, 8)}.json`;
       body._received = new Date().toISOString();
       body._country = req.headers.get('cf-ipcountry') || null;
       await env.BETA.put(key, JSON.stringify(body));

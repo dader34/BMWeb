@@ -11,23 +11,25 @@
 // uses a labelled two-column grid.
 function identRows(fields, vals) {
   const inpa = inpaMode();
-  return fields.map(f => {
-    const raw = vals.get(f.key);
-    const val = esc(deGerman(raw) || raw);
-    // generated screens fall back to the SGBD's own German result description
-    // when INPA has no caption for a field, so labels get translated too
-    const label = esc(deGerman(f.label) || f.label);
-    // a field the SGBD contributed but INPA's own screen does not show
-    const extra = f.extra ? ' ident-extra' : '';
-    return inpa
-      ? `<div class="ident-line${extra}">`
-        + `<span class="ident-lk">${label}</span>`
-        + `<span class="ident-lc">:</span>`
-        + `<span class="ident-lv">${val}</span></div>`
-      : `<div class="ident-row${extra}">`
-        + `<span class="ident-k">${label}</span>`
-        + `<span class="ident-v">${val}</span></div>`;
-  }).join('');
+  return fields
+    .map((f) => {
+      const raw = vals.get(f.key);
+      const val = esc(deGerman(raw) || raw);
+      // generated screens fall back to the SGBD's own German result description
+      // when INPA has no caption for a field, so labels get translated too
+      const label = esc(deGerman(f.label) || f.label);
+      // a field the SGBD contributed but INPA's own screen does not show
+      const extra = f.extra ? ' ident-extra' : '';
+      return inpa
+        ? `<div class="ident-line${extra}">` +
+            `<span class="ident-lk">${label}</span>` +
+            `<span class="ident-lc">:</span>` +
+            `<span class="ident-lv">${val}</span></div>`
+        : `<div class="ident-row${extra}">` +
+            `<span class="ident-k">${label}</span>` +
+            `<span class="ident-v">${val}</span></div>`;
+    })
+    .join('');
 }
 
 async function renderIdentity(ecu, ident, container, exit) {
@@ -42,8 +44,14 @@ async function renderIdentity(ecu, ident, container, exit) {
     </div>`;
   const card = container.querySelector('#ident-card');
 
-  const acts = [{ key: '1', keyLabel: 'F1', label: 'Re-read',
-                  fn: () => renderIdentity(ecu, ident, container, exit) }];
+  const acts = [
+    {
+      key: '1',
+      keyLabel: 'F1',
+      label: 'Re-read',
+      fn: () => renderIdentity(ecu, ident, container, exit),
+    },
+  ];
   if (exit) acts.push(exit);
   setActions(acts);
 
@@ -53,19 +61,27 @@ async function renderIdentity(ecu, ident, container, exit) {
   // are read separately and stored under key+arg, or all seven rows would show
   // whatever the last pass returned.
   const vals = new Map();
-  let anyOk = false, lastErr = null;
-  const reads = [...ident.jobs.map(j => ({ job: j, arg: null })),
-                 ...ident.fields.filter(f => f.arg != null && f.job)
-                   .map(f => ({ job: f.job, arg: f.arg }))];
+  let anyOk = false,
+    lastErr = null;
+  const reads = [
+    ...ident.jobs.map((j) => ({ job: j, arg: null })),
+    ...ident.fields
+      .filter((f) => f.arg != null && f.job)
+      .map((f) => ({ job: f.job, arg: f.arg })),
+  ];
   for (const { job, arg } of reads) {
     try {
       const q = arg == null ? '' : `?arg=${encodeURIComponent(arg)}`;
-      const d = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`,
-                          { method: 'POST' });
+      const d = await api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, {
+        method: 'POST',
+      });
       flatResults(d.sets).forEach(([k, v]) =>
-        vals.set(arg == null ? k : `${k} ${arg}`, v));
+        vals.set(arg == null ? k : `${k} ${arg}`, v)
+      );
       anyOk = true;
-    } catch (e) { lastErr = e; }   // a missing job shouldn't blank the card
+    } catch (e) {
+      lastErr = e;
+    } // a missing job shouldn't blank the card
   }
 
   if (!anyOk) {
@@ -76,9 +92,10 @@ async function renderIdentity(ecu, ident, container, exit) {
 
   // a per-argument field looks its value up under the pass it was read in
   const shown = ident.fields
-    .map(f => (f.arg != null ? { ...f, key: `${f.key} ${f.arg}` } : f))
-    .filter(f => vals.has(f.key));
-  card.innerHTML = identRows(shown, vals)
-    || `<div class="empty"><div>The ECU returned no identity data.</div></div>`;
+    .map((f) => (f.arg != null ? { ...f, key: `${f.key} ${f.arg}` } : f))
+    .filter((f) => vals.has(f.key));
+  card.innerHTML =
+    identRows(shown, vals) ||
+    `<div class="empty"><div>The ECU returned no identity data.</div></div>`;
   sbLeft.textContent = `${shown.length} fields`;
 }

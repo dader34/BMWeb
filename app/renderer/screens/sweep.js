@@ -52,42 +52,57 @@ function sweepPlan(ch) {
   const targets = [];
   // the car's own names for variants the menu does not list (see nameFor)
   const variantNames = new Map();
-  for (const v of (ch.variants || [])) {
-    if (v && v.sgbd && v.label) variantNames.set(String(v.sgbd).toLowerCase(), v);
+  for (const v of ch.variants || []) {
+    if (v && v.sgbd && v.label)
+      variantNames.set(String(v.sgbd).toLowerCase(), v);
   }
   const byGroup = new Map();
   const seenSolo = new Set();
-  for (const sec of (ch.sections || [])) {
-    for (const ecu of (sec.ecus || [])) {
+  for (const sec of ch.sections || []) {
+    for (const ecu of sec.ecus || []) {
       const g = String(ecu.group || '').toLowerCase();
       if (g) {
         let t = byGroup.get(g);
         if (!t) {
-          t = { group: g, section: sec.name, ecus: [], label: ecu.label, variantNames };
+          t = {
+            group: g,
+            section: sec.name,
+            ecus: [],
+            label: ecu.label,
+            variantNames,
+          };
           byGroup.set(g, t);
           targets.push(t);
         }
         // every candidate variant at this address, so the identified name has
         // a config row to take its label and INPA code from
-        if (!t.ecus.some(e => sameSgbd(e.sgbd, ecu.sgbd))) t.ecus.push(ecu);
+        if (!t.ecus.some((e) => sameSgbd(e.sgbd, ecu.sgbd))) t.ecus.push(ecu);
       } else {
         const key = String(ecu.sgbd || '').toLowerCase();
         if (!key || seenSolo.has(key)) continue;
         seenSolo.add(key);
-        targets.push({ group: null, section: sec.name, ecus: [ecu], label: ecu.label, variantNames });
+        targets.push({
+          group: null,
+          section: sec.name,
+          ecus: [ecu],
+          label: ecu.label,
+          variantNames,
+        });
       }
     }
   }
   return targets;
 }
 
-const sameSgbd = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
+const sameSgbd = (a, b) =>
+  String(a || '').toLowerCase() === String(b || '').toLowerCase();
 
 // A target's display name. A group is a bus address with several possible
 // occupants, so before it answers there is no one right name: use the first
 // configured row's label (config order = INPA menu order, so this is the name
 // INPA shows too) and let resolution replace it with the real one.
-const targetLabel = (t) => t.label || (t.ecus[0] && t.ecus[0].label) || t.group || '?';
+const targetLabel = (t) =>
+  t.label || (t.ecus[0] && t.ecus[0].label) || t.group || '?';
 
 // Which config row does an identified variant correspond to? The ident names
 // an SGBD; match it against each candidate's own sgbd and its declared
@@ -118,7 +133,9 @@ const baseLabel = (label, sgbd) => {
   return m && m[2] === String(sgbd || '') ? m[1].trim() : l;
 };
 function familyLabel(t) {
-  const names = new Set((t.ecus || []).map(e => baseLabel(e.label, e.sgbd)).filter(Boolean));
+  const names = new Set(
+    (t.ecus || []).map((e) => baseLabel(e.label, e.sgbd)).filter(Boolean)
+  );
   return names.size === 1 ? [...names][0] : null;
 }
 // The identified variant's OWN record. The menu lists three transmissions
@@ -129,24 +146,34 @@ async function variantLabel(sgbd) {
   const key = String(sgbd || '').toLowerCase();
   if (!key) return null;
   if (!variantLabels.has(key)) {
-    variantLabels.set(key, api(`/api/ecu/${key}/ecu`)
-      .then(info => (info && info.label) ? baseLabel(info.label, key) : null)
-      .catch(() => null));
+    variantLabels.set(
+      key,
+      api(`/api/ecu/${key}/ecu`)
+        .then((info) =>
+          info && info.label ? baseLabel(info.label, key) : null
+        )
+        .catch(() => null)
+    );
   }
   return variantLabels.get(key);
 }
 async function nameFor(t, r) {
   if (r.ecu && r.ecu.label) return r.ecu.label;
   // this car's own record for the variant (chassis config `variants`)
-  const own = t.variantNames && t.variantNames.get(String(r.sgbd || '').toLowerCase());
+  const own =
+    t.variantNames && t.variantNames.get(String(r.sgbd || '').toLowerCase());
   if (own) return baseLabel(own.label, own.sgbd);
   return (await variantLabel(r.sgbd)) || familyLabel(t) || r.sgbd;
 }
 
 function rowForVariant(t, via) {
-  return t.ecus.find(e => sameSgbd(e.sgbd, via)
-      || (e.variants || []).some(v => sameSgbd(v, via)))
-    || null;
+  return (
+    t.ecus.find(
+      (e) =>
+        sameSgbd(e.sgbd, via) ||
+        (e.variants || []).some((v) => sameSgbd(v, via))
+    ) || null
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -158,8 +185,10 @@ function rowForVariant(t, via) {
 // session, shared by both sweeps (ecu.js and autoscan.js keep their own for
 // the same reason -- it is a small static file and the browser caches it).
 let _groupIndexP = null;
-const groupIndex = () => (_groupIndexP ??= fetch('data/groups/index.json')
-  .then(r => (r.ok ? r.json() : null)).catch(() => null));
+const groupIndex = () =>
+  (_groupIndexP ??= fetch('data/groups/index.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null));
 async function groupRunnable(g) {
   if (!g || typeof webResolveVariant !== 'function') return false;
   const idx = await groupIndex();
@@ -175,7 +204,11 @@ function variantResolver() {
   return async (g) => {
     if (!cache.has(g)) {
       let v = null;
-      try { v = await webResolveVariant(g); } catch { v = null; }
+      try {
+        v = await webResolveVariant(g);
+      } catch {
+        v = null;
+      }
       cache.set(g, v);
     }
     return cache.get(g);
@@ -197,11 +230,17 @@ const _jobNames = new Map();
 function jobNamesFor(sgbd) {
   const key = String(sgbd).toLowerCase();
   if (!_jobNames.has(key)) {
-    _jobNames.set(key, api(`/api/ecu/${key}/jobs`).then((j) => {
-      const list = Array.isArray(j) ? j : (j && j.jobs) || [];
-      return list.map(x => (typeof x === 'string' ? x : x && x.name))
-        .filter(Boolean);
-    }).catch(() => []));
+    _jobNames.set(
+      key,
+      api(`/api/ecu/${key}/jobs`)
+        .then((j) => {
+          const list = Array.isArray(j) ? j : (j && j.jobs) || [];
+          return list
+            .map((x) => (typeof x === 'string' ? x : x && x.name))
+            .filter(Boolean);
+        })
+        .catch(() => [])
+    );
   }
   return _jobNames.get(key);
 }
@@ -232,7 +271,7 @@ async function resolveTarget(t, resolve) {
   if (await groupRunnable(t.group)) {
     const via = await resolve(t.group);
     if (!via) return { state: 'absent' };
-    if (!await buildHasVariant(via)) return { state: 'unbuilt', via };
+    if (!(await buildHasVariant(via))) return { state: 'unbuilt', via };
     return { state: 'ok', sgbd: via, ecu: rowForVariant(t, via), strict: true };
   }
   // No runnable group: the only thing left is the configured SGBD, read
@@ -253,7 +292,7 @@ async function resolveTarget(t, resolve) {
 // so it 404'd and every module in the sweep reported "no response".
 async function readFaults(sgbd) {
   const d = await api(`/api/ecu/${sgbd}/run/FS_LESEN`, { method: 'POST' });
-  return dataSets(d.sets).filter(c => c.F_HEX_CODE || c.F_ORT_NR);
+  return dataSets(d.sets).filter((c) => c.F_HEX_CODE || c.F_ORT_NR);
 }
 
 // A module answers "no faults" and a module that is not there both produce a
@@ -261,7 +300,9 @@ async function readFaults(sgbd) {
 // on a wire failure and returns sets on an answer. `count` (the old field
 // read here) never existed outside the C# server.
 const isMissingJob = (e) =>
-  /404|not found|no job|unknown sgbd|no job code|no static route/i.test(String((e && e.message) || e));
+  /404|not found|no job|unknown sgbd|no job code|no static route/i.test(
+    String((e && e.message) || e)
+  );
 
 // stable fault signature for echo dedup. F_HEX_CODE is globally unique (BMW
 // DTC); F_ORT_NR is only an ECU-local index, so fall back to it only when hex
@@ -270,13 +311,17 @@ const isMissingJob = (e) =>
 // into a comma-joined signature and let two faults collide with one; '|' can't
 // appear in dashed hex.
 const _faultSig = (codes) =>
-  (codes || []).map(c => hexText(c.F_HEX_CODE) || `nr:${c.F_ORT_NR}`).join('|');
+  (codes || [])
+    .map((c) => hexText(c.F_HEX_CODE) || `nr:${c.F_ORT_NR}`)
+    .join('|');
 
 // each sweep takes a token; navigating away or starting another bumps it, and
 // the running loop bails on its next iteration -- stops hammering the K-line
 // once the user leaves.
 let _sweepToken = 0;
-const cancelSweep = () => { _sweepToken++; };
+const cancelSweep = () => {
+  _sweepToken++;
+};
 
 // ---------------------------------------------------------------------------
 // F4 -- Full Module Error Scan (INPA FSQUICK)
@@ -293,48 +338,74 @@ const cancelSweep = () => { _sweepToken++; };
 async function sweepNeedsCable(id, title, leave) {
   if (typeof demoMode === 'function' && demoMode()) return false;
   let port = null;
-  try { ({ port } = await api('/api/port')); } catch { /* treated as none */ }
+  try {
+    ({ port } = await api('/api/port'));
+  } catch {
+    /* treated as none */
+  }
   if (port) return false;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis },
-             { label: dispChassis(id), fn: leave }, { label: title }]);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: dispChassis(id), fn: leave },
+    { label: title },
+  ]);
   view.innerHTML = head('Whole vehicle', title, '');
   const need = document.createElement('div');
   need.className = 'empty';
   need.innerHTML =
-    `<div class="empty-big" style="color:var(--amber)">Connect a cable to scan</div>`
-    + `<div>A scan asks every module on the car to answer. With nothing `
-    + `connected there is nothing to ask, and reporting modules as present `
-    + `or absent would be a guess.</div>`
-    + `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">`
-    + `Connect the adapter and start the scan again, or turn on Demo mode `
-    + `to explore the screen with simulated values.</div>`;
+    `<div class="empty-big" style="color:var(--amber)">Connect a cable to scan</div>` +
+    `<div>A scan asks every module on the car to answer. With nothing ` +
+    `connected there is nothing to ask, and reporting modules as present ` +
+    `or absent would be a guess.</div>` +
+    `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">` +
+    `Connect the adapter and start the scan again, or turn on Demo mode ` +
+    `to explore the screen with simulated values.</div>`;
   view.appendChild(need);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                kind: 'back', fn: leave }]);
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
+  ]);
   sbLeft.textContent = 'scanning needs a cable';
   return true;
 }
 
 async function quickErrorSweep(chassisId) {
   const id = chassisId || 'E46';
-  if (await sweepNeedsCable(id, 'Full Module Error Scan',
-                            () => showSections(id))) return;
+  if (
+    await sweepNeedsCable(id, 'Full Module Error Scan', () => showSections(id))
+  )
+    return;
   // scanning every module holds the bus; confirm before touching the K-line
   const ok = await confirmDialog({
     title: 'Scan all modules?',
-    body: `Reads the fault memory of every module on the ${esc(dispChassis(id))}. `
-        + 'Each module takes a few seconds to answer, so a full scan can take '
-        + 'several minutes. You can leave the scan at any time with Esc.',
+    body:
+      `Reads the fault memory of every module on the ${esc(dispChassis(id))}. ` +
+      'Each module takes a few seconds to answer, so a full scan can take ' +
+      'several minutes. You can leave the scan at any time with Esc.',
     confirmLabel: 'Start scan',
   });
   if (!ok) return;
-  const token = ++_sweepToken;            // claim this run
+  const token = ++_sweepToken; // claim this run
   const alive = () => token === _sweepToken;
-  const leave = () => { cancelSweep(); showSections(id); };
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: leave }, { label: 'Full Module Error Scan' }]);
-  view.innerHTML = head('Whole vehicle', 'Full Module Error Scan', `Scanning every module on the ${dispChassis(id)} for stored faults…`);
-  const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave }]);
+  const leave = () => {
+    cancelSweep();
+    showSections(id);
+  };
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: dispChassis(id), fn: leave },
+    { label: 'Full Module Error Scan' },
+  ]);
+  view.innerHTML = head(
+    'Whole vehicle',
+    'Full Module Error Scan',
+    `Scanning every module on the ${dispChassis(id)} for stored faults…`
+  );
+  const out = document.createElement('div');
+  out.className = 'results-panel';
+  view.appendChild(out);
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
+  ]);
   loadFaultDb(); // warm the name db before detail rows render
   const ch = await tryApi(`/api/chassis/${id}`, null, out);
   if (!ch) return;
@@ -352,39 +423,50 @@ async function quickErrorSweep(chassisId) {
     <div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   const headEl = out.querySelector('.quick-head');
-  let withFaults = 0, read = 0, absent = 0, dupes = 0, unbuilt = 0;
-  const seen = new Map();          // fault-signature -> first ECU label
-  const faulty = [];               // modules with faults, for the deep pass
+  let withFaults = 0,
+    read = 0,
+    absent = 0,
+    dupes = 0,
+    unbuilt = 0;
+  const seen = new Map(); // fault-signature -> first ECU label
+  const faulty = []; // modules with faults, for the deep pass
   // ONE PHYSICAL MODULE, ONE ROW. Several groups can reach the same ECU --
   // E46 lists both D_0012 (address 12) and D_MOTOR (broadcast FF), and on an
   // MS45 car BOTH identify ms450ds0. Reading it twice showed the same faults
   // under two names, one of them an engine the car does not have.
-  const readSgbds = new Map();     // resolved sgbd -> the row that claimed it
+  const readSgbds = new Map(); // resolved sgbd -> the row that claimed it
   const progress = () => {
     headEl.textContent = `${read} read · ${absent} absent · ${withFaults} with faults`;
   };
 
   for (const t of targets) {
-    if (!alive()) return;          // user left the sweep; stop reading the bus
+    if (!alive()) return; // user left the sweep; stop reading the bus
     const row = addSweepRow(rows, targetLabel(t));
     const status = row.querySelector('.quick-status');
 
     let r;
-    try { r = await resolveTarget(t, resolve); }
-    catch { r = { state: 'absent' }; }
+    try {
+      r = await resolveTarget(t, resolve);
+    } catch {
+      r = { state: 'absent' };
+    }
 
     if (r.state === 'absent') {
-      absent++; row.classList.add('noresp');
+      absent++;
+      row.classList.add('noresp');
       status.textContent = t.group ? 'not installed' : 'no response';
-      progress(); continue;
+      progress();
+      continue;
     }
     if (r.state === 'unbuilt') {
       // The car answered and named itself; this build just has no job code
       // for that variant. Say exactly that -- reading a sibling instead is
       // what produces confident wrong answers.
-      unbuilt++; row.classList.add('noresp');
+      unbuilt++;
+      row.classList.add('noresp');
       status.textContent = `${r.via} not in build`;
-      progress(); continue;
+      progress();
+      continue;
     }
 
     const key = String(r.sgbd).toLowerCase();
@@ -393,7 +475,8 @@ async function quickErrorSweep(chassisId) {
       row.classList.add('noresp');
       setRowLabel(row, r.sgbd);
       status.textContent = `same module as ${readSgbds.get(key)}`;
-      progress(); continue;
+      progress();
+      continue;
     }
     readSgbds.set(key, await nameFor(t, r));
 
@@ -420,8 +503,10 @@ async function quickErrorSweep(chassisId) {
       // The job exists but the wire failed: that is a dead address, and it
       // must never be confused with a module that answered clean.
       row.classList.add('noresp');
-      absent++; status.textContent = 'no response';
-      progress(); continue;
+      absent++;
+      status.textContent = 'no response';
+      progress();
+      continue;
     }
 
     read++;
@@ -431,13 +516,19 @@ async function quickErrorSweep(chassisId) {
       if (seen.has(sig)) {
         // the identical fault list from two addresses is one module answering
         // twice (a gateway echoing, a satellite mirrored onto its master)
-        dupes++; row.classList.add('noresp');
+        dupes++;
+        row.classList.add('noresp');
         status.textContent = `echo of ${seen.get(sig)}`;
       } else {
         seen.set(sig, await nameFor(t, r));
-        withFaults++; row.classList.add('has-faults');
+        withFaults++;
+        row.classList.add('has-faults');
         status.innerHTML = `<b>${n} fault${n === 1 ? '' : 's'}</b>`;
-        faulty.push({ ecu: { ...(r.ecu || {}), sgbd: r.sgbd, label: await nameFor(t, r) }, row, codes });
+        faulty.push({
+          ecu: { ...(r.ecu || {}), sgbd: r.sgbd, label: await nameFor(t, r) },
+          row,
+          codes,
+        });
       }
     } else {
       row.classList.add('clean');
@@ -452,17 +543,20 @@ async function quickErrorSweep(chassisId) {
     await loadFaultDb(); // names resolve synchronously in the detail rows
     let done = 0;
     for (const f of faulty) {
-      if (!alive()) return;        // user left mid deep-read; stop
+      if (!alive()) return; // user left mid deep-read; stop
       f.row.classList.add('scanning-detail');
       f.row.querySelector('.quick-status').innerHTML =
         `<b>${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}</b> · reading…`;
-      try { await fillFaultDetail(f.ecu.sgbd, f.codes); } catch { /* keep base codes */ }
+      try {
+        await fillFaultDetail(f.ecu.sgbd, f.codes);
+      } catch {
+        /* keep base codes */
+      }
       f.row.classList.remove('scanning-detail');
       setRowFaultStatus(f);
       appendFaultDetailRows(f.row, f.codes, f.ecu.sgbd);
       done++;
-      headEl.textContent =
-        `${read} read · ${absent} absent · ${withFaults} with faults · details ${done}/${faulty.length}`;
+      headEl.textContent = `${read} read · ${absent} absent · ${withFaults} with faults · details ${done}/${faulty.length}`;
     }
   }
 
@@ -474,10 +568,12 @@ async function quickErrorSweep(chassisId) {
       const ok = await confirmDialog({
         title: 'Clear all fault memory?',
         body: `Erase stored faults on ${faulty.length} module${faulty.length === 1 ? '' : 's'}. This cannot be undone.`,
-        confirmLabel: 'Clear all', danger: true,
+        confirmLabel: 'Clear all',
+        danger: true,
       });
       if (!ok) return;
-      clearAllBtn.disabled = true; clearAllBtn.textContent = 'Clearing…';
+      clearAllBtn.disabled = true;
+      clearAllBtn.textContent = 'Clearing…';
       for (const f of faulty) await clearModule(f);
       clearAllBtn.textContent = 'Cleared';
     };
@@ -498,9 +594,20 @@ async function quickErrorSweep(chassisId) {
     // the current action list (core/print.js), and the mobile functions sheet
     // reads the same list -- without this, both print the live page instead
     setActions([
-      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
-      { key: 'p', keyLabel: 'P', label: 'Print report', kind: 'print',
-        fn: () => printFaultReport(id, faulty, stats) },
+      {
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: leave,
+      },
+      {
+        key: 'p',
+        keyLabel: 'P',
+        label: 'Print report',
+        kind: 'print',
+        fn: () => printFaultReport(id, faulty, stats),
+      },
     ]);
   }
 
@@ -508,8 +615,9 @@ async function quickErrorSweep(chassisId) {
     dupes ? `${dupes} echo${dupes === 1 ? '' : 'es'} hidden` : null,
     unbuilt ? `${unbuilt} not in build` : null,
   ].filter(Boolean);
-  headEl.textContent = `Done · ${read} read, ${absent} absent · `
-    + `${withFaults} with stored faults${extra.length ? ` · ${extra.join(' · ')}` : ''}`;
+  headEl.textContent =
+    `Done · ${read} read, ${absent} absent · ` +
+    `${withFaults} with stored faults${extra.length ? ` · ${extra.join(' · ')}` : ''}`;
   sbLeft.textContent = `full module error scan · ${withFaults} faulty`;
 }
 
@@ -519,17 +627,34 @@ async function quickErrorSweep(chassisId) {
 
 // Identification fields, in the order INPA prints them. Every one of these is
 // a real EDIABAS result name; the first present wins.
-const IDENT_FIELDS = ['SG_VARIANTE', 'VARIANTE', 'AIF_SG_VARIANTE', 'ID_SG_VARIANTE',
-                      'AIF_TYP', 'ID_TYP', 'HARDWARE_NUMMER', 'ID_HW_NR'];
+const IDENT_FIELDS = [
+  'SG_VARIANTE',
+  'VARIANTE',
+  'AIF_SG_VARIANTE',
+  'ID_SG_VARIANTE',
+  'AIF_TYP',
+  'ID_TYP',
+  'HARDWARE_NUMMER',
+  'ID_HW_NR',
+];
 // Build/version fields shown after the variant name, same rule.
-const IDENT_BUILD = ['AIF_SW_NR', 'ID_SW_NR', 'SOFTWARE_NUMMER', 'AIF_DATEN_NR',
-                     'ID_DATEN_NR', 'AIF_ZB_NR', 'ID_ZB_NR', 'BMW_NUMMER'];
+const IDENT_BUILD = [
+  'AIF_SW_NR',
+  'ID_SW_NR',
+  'SOFTWARE_NUMMER',
+  'AIF_DATEN_NR',
+  'ID_DATEN_NR',
+  'AIF_ZB_NR',
+  'ID_ZB_NR',
+  'BMW_NUMMER',
+];
 
 const identValue = (sets, keys) => {
   for (const s of dataSets(sets)) {
     for (const k of keys) {
       const v = s[k];
-      if (v != null && String(v).trim() && !String(v).startsWith('_')) return String(v).trim();
+      if (v != null && String(v).trim() && !String(v).startsWith('_'))
+        return String(v).trim();
     }
   }
   return null;
@@ -564,21 +689,39 @@ async function identJobFor(sgbd) {
   if (!cands.length) return null;
   // exact IDENT first, then the narrowest prefixed variant -- shortest name
   // wins, so IDENT_FUNKTIONAL is preferred over IDENT_READ_CURRENT_UIF_TABLE
-  return cands.includes('IDENT') ? 'IDENT'
-    : cands.slice().sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+  return cands.includes('IDENT')
+    ? 'IDENT'
+    : cands
+        .slice()
+        .sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
 }
 
 async function quickIdentSweep(chassisId) {
   const id = chassisId || 'E46';
-  if (await sweepNeedsCable(id, 'Identification',
-                            () => showSections(id))) return;
+  if (await sweepNeedsCable(id, 'Identification', () => showSections(id)))
+    return;
   const token = ++_sweepToken;
   const alive = () => token === _sweepToken;
-  const leave = () => { cancelSweep(); showSections(id); };
-  setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: dispChassis(id), fn: leave }, { label: 'Identification' }]);
-  view.innerHTML = head('Whole vehicle', 'Identification', `Identifying every module on the ${dispChassis(id)}…`);
-  const out = document.createElement('div'); out.className = 'results-panel'; view.appendChild(out);
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave }]);
+  const leave = () => {
+    cancelSweep();
+    showSections(id);
+  };
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: dispChassis(id), fn: leave },
+    { label: 'Identification' },
+  ]);
+  view.innerHTML = head(
+    'Whole vehicle',
+    'Identification',
+    `Identifying every module on the ${dispChassis(id)}…`
+  );
+  const out = document.createElement('div');
+  out.className = 'results-panel';
+  view.appendChild(out);
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
+  ]);
   const ch = await tryApi(`/api/chassis/${id}`, null, out);
   if (!ch) return;
   const targets = sweepPlan(ch);
@@ -594,47 +737,66 @@ async function quickIdentSweep(chassisId) {
     <div class="quick-rows" id="quick-rows"></div></div>`;
   const rows = out.querySelector('#quick-rows');
   const headEl = out.querySelector('.quick-head');
-  let present = 0, absent = 0, unbuilt = 0, dupes = 0;
-  const found = [];                // for the printable report
-  const seenSgbds = new Map();     // resolved sgbd -> row that claimed it (see error sweep)
-  const progress = () => { headEl.textContent = `${present} present · ${absent} absent`; };
+  let present = 0,
+    absent = 0,
+    unbuilt = 0,
+    dupes = 0;
+  const found = []; // for the printable report
+  const seenSgbds = new Map(); // resolved sgbd -> row that claimed it (see error sweep)
+  const progress = () => {
+    headEl.textContent = `${present} present · ${absent} absent`;
+  };
 
   for (const t of targets) {
-    if (!alive()) return;          // user left the sweep; stop reading the bus
+    if (!alive()) return; // user left the sweep; stop reading the bus
     const row = addSweepRow(rows, targetLabel(t));
     const status = row.querySelector('.quick-status');
 
     let r;
-    try { r = await resolveTarget(t, resolve); }
-    catch { r = { state: 'absent' }; }
+    try {
+      r = await resolveTarget(t, resolve);
+    } catch {
+      r = { state: 'absent' };
+    }
 
     if (r.state === 'absent') {
-      absent++; row.classList.add('noresp');
+      absent++;
+      row.classList.add('noresp');
       status.textContent = t.group ? 'not installed' : 'no response';
-      progress(); continue;
+      progress();
+      continue;
     }
     if (r.state === 'unbuilt') {
       // Present and named, just not readable here. That IS an identification
       // -- the group told us the variant -- so count it as present and show
       // the name the car gave.
-      unbuilt++; present++;
+      unbuilt++;
+      present++;
       row.classList.add('clean');
       setRowLabel(row, r.via);
       status.textContent = `${r.via} · not in build`;
-      found.push({ label: r.via, section: t.section, sgbd: r.via, variant: r.via, build: null });
-      progress(); continue;
+      found.push({
+        label: r.via,
+        section: t.section,
+        sgbd: r.via,
+        variant: r.via,
+        build: null,
+      });
+      progress();
+      continue;
     }
 
     const key = String(r.sgbd).toLowerCase();
     if (seenSgbds.has(key)) {
-      dupes++; row.classList.add('noresp');
+      dupes++;
+      row.classList.add('noresp');
       setRowLabel(row, r.sgbd);
       status.textContent = `same module as ${seenSgbds.get(key)}`;
-      progress(); continue;
+      progress();
+      continue;
     }
     seenSgbds.set(key, await nameFor(t, r));
-    setRowLabel(row, await nameFor(t, r),
-                r.strict ? null : 'direct read');
+    setRowLabel(row, await nameFor(t, r), r.strict ? null : 'direct read');
 
     // A strict resolution has ALREADY identified this module -- the group ran
     // IDENTIFIKATION and named the variant. Running a second ident job over
@@ -645,7 +807,9 @@ async function quickIdentSweep(chassisId) {
     try {
       const job = await identJobFor(r.sgbd);
       if (job) {
-        const d = await api(`/api/ecu/${r.sgbd}/run/${job}`, { method: 'POST' });
+        const d = await api(`/api/ecu/${r.sgbd}/run/${job}`, {
+          method: 'POST',
+        });
         variant = identValue(d.sets, IDENT_FIELDS) || variant;
         build = identValue(d.sets, IDENT_BUILD);
       } else if (!r.strict) {
@@ -653,23 +817,35 @@ async function quickIdentSweep(chassisId) {
         // car, so claiming it is present would be a guess. Report the gap.
         row.classList.add('noresp');
         status.textContent = 'no ident job';
-        progress(); continue;
+        progress();
+        continue;
       }
     } catch (e) {
       if (!r.strict) {
         // Direct read, and the wire refused: the module is not answering.
-        absent++; row.classList.add('noresp');
+        absent++;
+        row.classList.add('noresp');
         status.textContent = isMissingJob(e) ? 'no ident job' : 'no response';
-        progress(); continue;
+        progress();
+        continue;
       }
       // Strict path: the group already proved presence. A failed detail read
       // downgrades the row's detail, never its presence.
     }
 
-    present++; row.classList.add('clean');
-    status.textContent = [variant || r.sgbd, build].filter(Boolean).join(' · ').slice(0, 40);
-    found.push({ label: await nameFor(t, r), section: t.section,
-                 sgbd: r.sgbd, variant: variant || r.sgbd, build });
+    present++;
+    row.classList.add('clean');
+    status.textContent = [variant || r.sgbd, build]
+      .filter(Boolean)
+      .join(' · ')
+      .slice(0, 40);
+    found.push({
+      label: await nameFor(t, r),
+      section: t.section,
+      sgbd: r.sgbd,
+      variant: variant || r.sgbd,
+      build,
+    });
     progress();
   }
 
@@ -678,15 +854,27 @@ async function quickIdentSweep(chassisId) {
     printBtn.disabled = false;
     printBtn.onclick = () => printIdentReport(id, found, { present, absent });
     setActions([
-      { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
-      { key: 'p', keyLabel: 'P', label: 'Print report', kind: 'print',
-        fn: () => printIdentReport(id, found, { present, absent }) },
+      {
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: leave,
+      },
+      {
+        key: 'p',
+        keyLabel: 'P',
+        label: 'Print report',
+        kind: 'print',
+        fn: () => printIdentReport(id, found, { present, absent }),
+      },
     ]);
   }
 
-  headEl.textContent = `Done · ${present} present, ${absent} absent`
-    + (unbuilt ? ` · ${unbuilt} not in build` : '')
-    + (dupes ? ` · ${dupes} duplicate address${dupes === 1 ? '' : 'es'}` : '');
+  headEl.textContent =
+    `Done · ${present} present, ${absent} absent` +
+    (unbuilt ? ` · ${unbuilt} not in build` : '') +
+    (dupes ? ` · ${dupes} duplicate address${dupes === 1 ? '' : 'es'}` : '');
   sbLeft.textContent = `identification · ${present} present`;
 }
 
@@ -695,7 +883,8 @@ async function quickIdentSweep(chassisId) {
 // ---------------------------------------------------------------------------
 
 function addSweepRow(rows, label) {
-  const row = document.createElement('div'); row.className = 'quick-row';
+  const row = document.createElement('div');
+  row.className = 'quick-row';
   row.innerHTML = `<span class="quick-ecu">${esc(label)}</span><span class="quick-status">scanning…</span>`;
   rows.appendChild(row);
   return row;
@@ -726,11 +915,13 @@ async function clearModule(f) {
   const n = f.codes.length;
   const ok = await confirmDialog({
     title: `Clear ${esc(f.ecu.label)} fault memory?`,
-    body: `Erases ${n} stored fault${n === 1 ? '' : 's'} on `
-        + `<b>${esc(f.ecu.label)}</b> (<span class="mono">FS_LOESCHEN</span>). `
-        + `The memory is re-read afterwards; anything still present will `
-        + `show again.`,
-    confirmLabel: 'Clear', danger: true,
+    body:
+      `Erases ${n} stored fault${n === 1 ? '' : 's'} on ` +
+      `<b>${esc(f.ecu.label)}</b> (<span class="mono">FS_LOESCHEN</span>). ` +
+      `The memory is re-read afterwards; anything still present will ` +
+      `show again.`,
+    confirmLabel: 'Clear',
+    danger: true,
   });
   if (!ok) return;
   const st = f.row.querySelector('.quick-status');
@@ -744,7 +935,9 @@ async function clearModule(f) {
       const codes = await readFaults(f.ecu.sgbd);
       remaining = codes.length;
       if (remaining) f.codes = codes;
-    } catch { /* re-read failed; report the clear alone below */ }
+    } catch {
+      /* re-read failed; report the clear alone below */
+    }
     if (remaining) {
       setRowFaultStatus(f);
       const back = document.createElement('span');
@@ -753,15 +946,19 @@ async function clearModule(f) {
       st.appendChild(back);
       return;
     }
-    f.row.classList.remove('has-faults'); f.row.classList.add('clean');
-    st.innerHTML = remaining === null
-      ? '<span class="quick-cleared">cleared (re-read failed)</span>'
-      : '<span class="quick-cleared">cleared · re-read clean</span>';
-    if (f.row.nextElementSibling?.classList.contains('quick-detail')) f.row.nextElementSibling.remove();
+    f.row.classList.remove('has-faults');
+    f.row.classList.add('clean');
+    st.innerHTML =
+      remaining === null
+        ? '<span class="quick-cleared">cleared (re-read failed)</span>'
+        : '<span class="quick-cleared">cleared · re-read clean</span>';
+    if (f.row.nextElementSibling?.classList.contains('quick-detail'))
+      f.row.nextElementSibling.remove();
   } catch (e) {
     setRowFaultStatus(f); // rebuild the count + working Clear button
     const fail = document.createElement('span');
-    fail.className = 'quick-clear-fail'; fail.textContent = ' clear failed';
+    fail.className = 'quick-clear-fail';
+    fail.textContent = ' clear failed';
     fail.title = e.message;
     st.appendChild(fail);
     setTimeout(() => fail.remove(), 4000);
@@ -773,13 +970,15 @@ async function clearModule(f) {
 function appendFaultDetailRows(row, codes, sgbd) {
   const wrap = document.createElement('div');
   wrap.className = 'quick-detail';
-  wrap.innerHTML = codes.map(c => {
-    const { code, name, present } = faultFields(c, sgbd);
-    return `<div class="quick-detail-row${present ? ' present' : ''}">
+  wrap.innerHTML = codes
+    .map((c) => {
+      const { code, name, present } = faultFields(c, sgbd);
+      return `<div class="quick-detail-row${present ? ' present' : ''}">
       <span class="quick-detail-code">${esc(code)}</span>
       <span class="quick-detail-name">${esc(name)}</span>
       <span class="quick-detail-state">${present ? 'PRESENT' : 'stored'}</span>
     </div>`;
-  }).join('');
+    })
+    .join('');
   row.insertAdjacentElement('afterend', wrap);
 }

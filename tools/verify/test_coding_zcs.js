@@ -22,7 +22,11 @@ function assertEq(a, b, msg) {
     console.log('  ok   ', msg);
   } else {
     fail++;
-    console.log('  FAIL ', msg, `(expected ${JSON.stringify(b)}, got ${JSON.stringify(a)})`);
+    console.log(
+      '  FAIL ',
+      msg,
+      `(expected ${JSON.stringify(b)}, got ${JSON.stringify(a)})`
+    );
   }
 }
 
@@ -46,7 +50,11 @@ assert(CodingZcs.validateGm('123'), 'GM too short rejects');
 assert(CodingZcs.validateGm('123456789'), 'GM too long rejects');
 assert(CodingZcs.validateGm('GGGGGGGG'), 'GM non-hex rejects');
 
-assertEq(CodingZcs.validateSa('0000284803AC1400'), null, 'valid SA 16 hex chars');
+assertEq(
+  CodingZcs.validateSa('0000284803AC1400'),
+  null,
+  'valid SA 16 hex chars'
+);
 assert(CodingZcs.validateSa('123'), 'SA too short rejects');
 
 assertEq(CodingZcs.validateVn('0000640620'), null, 'valid VN 10 hex chars');
@@ -57,8 +65,16 @@ console.log('\n== ZCS format with check digit ==');
 assertEq(CodingZcs.formatGm('FFFFFFFF'), 'FFFFFFFFP', 'GM FFFFFFFF → P');
 assertEq(CodingZcs.formatGm('61630000'), '616300005', 'GM 61630000 → 5');
 
-assertEq(CodingZcs.formatSa('0000284803AC1400'), '0000284803AC1400G', 'SA with check G');
-assertEq(CodingZcs.formatSa('FFFFFFFFFFFFFFFF'), 'FFFFFFFFFFFFFFFFE', 'SA all F → E');
+assertEq(
+  CodingZcs.formatSa('0000284803AC1400'),
+  '0000284803AC1400G',
+  'SA with check G'
+);
+assertEq(
+  CodingZcs.formatSa('FFFFFFFFFFFFFFFF'),
+  'FFFFFFFFFFFFFFFFE',
+  'SA all F → E'
+);
 
 assertEq(CodingZcs.formatVn('0000640620'), '00006406201', 'VN with check 1');
 
@@ -77,13 +93,25 @@ assert(!CodingZcs.verifyVn('00006406209'), 'VN wrong check rejects');
 console.log('\n== ZCS strip check ==');
 
 assertEq(CodingZcs.stripGmCheck('FFFFFFFFP'), 'FFFFFFFF', 'strip GM check');
-assertEq(CodingZcs.stripSaCheck('0000284803AC1400G'), '0000284803AC1400', 'strip SA check');
+assertEq(
+  CodingZcs.stripSaCheck('0000284803AC1400G'),
+  '0000284803AC1400',
+  'strip SA check'
+);
 assertEq(CodingZcs.stripVnCheck('00006406201'), '0000640620', 'strip VN check');
-assertEq(CodingZcs.stripVnCheck('0000640620'), '0000640620', 'strip VN no check');
+assertEq(
+  CodingZcs.stripVnCheck('0000640620'),
+  '0000640620',
+  'strip VN no check'
+);
 
 console.log('\n== ZCS region build/parse ==');
 
-const region = CodingZcs.buildZcsRegion('61630000', '0000284803AC1400', '0000640620');
+const region = CodingZcs.buildZcsRegion(
+  '61630000',
+  '0000284803AC1400',
+  '0000640620'
+);
 assertEq(region.length, 20, 'region is 20 bytes');
 
 // Verify byte layout
@@ -135,11 +163,25 @@ const field1 = { name: 'TEST', asw: '206 302' };
 const field2 = { name: 'OTHER', asw: null };
 const field3 = { name: 'HIDDEN', asw: '999' };
 
-assert(CodingZcs.matchesAsw(field1, ['206', '302', '400']), 'field with matching SA shows');
-assert(CodingZcs.matchesAsw(field1, ['206']), 'field with one matching SA shows');
-assert(!CodingZcs.matchesAsw(field1, ['400']), 'field with no matching SA hidden');
+assert(
+  CodingZcs.matchesAsw(field1, ['206', '302', '400']),
+  'field with matching SA shows'
+);
+assert(
+  CodingZcs.matchesAsw(field1, ['206']),
+  'field with one matching SA shows'
+);
+assert(
+  !CodingZcs.matchesAsw(field1, ['400']),
+  'field with no matching SA hidden'
+);
 assert(CodingZcs.matchesAsw(field2, ['206']), 'field with no asw always shows');
-assert(!CodingZcs.matchesAsw(field3, []), 'field requiring SA hidden when car has none');
+assert(
+  !CodingZcs.matchesAsw(field3, []),
+  'field requiring SA hidden when car has none'
+);
 
-console.log('\n' + (fail ? `FAIL: ${fail} failed` : 'ZCS OK') + ` (${pass} passed)\n`);
+console.log(
+  '\n' + (fail ? `FAIL: ${fail} failed` : 'ZCS OK') + ` (${pass} passed)\n`
+);
 process.exit(fail ? 1 : 0);

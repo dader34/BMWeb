@@ -31,7 +31,8 @@ sock.on('data', (d) => {
   if (buf.includes('>') && pending) {
     const answer = buf.slice(0, buf.indexOf('>'));
     buf = '';
-    const done = pending; pending = null;
+    const done = pending;
+    pending = null;
     done.resolve(answer.replace(/\r/g, '\n').replace(/\n+/g, '\n').trim());
   }
 });
@@ -46,10 +47,15 @@ function send(cmd, timeoutMs = 8000) {
     buf = '';
     const t = setTimeout(() => {
       pending = null;
-      buf = '';                 // a late reply must not answer the next command
+      buf = ''; // a late reply must not answer the next command
       reject(new Error(`no prompt after "${cmd}" in ${timeoutMs} ms`));
     }, timeoutMs);
-    pending = { resolve: (a) => { clearTimeout(t); resolve(a); } };
+    pending = {
+      resolve: (a) => {
+        clearTimeout(t);
+        resolve(a);
+      },
+    };
     sock.write(cmd + '\r');
   });
 }
@@ -57,18 +63,27 @@ function send(cmd, timeoutMs = 8000) {
 // hex pairs out of an answer, dropping ELM chatter and multi-frame dressing
 // ("0:" line counters, "SEARCHING...", the echoed length line on CAN)
 function hexBytes(answer) {
-  return answer.split('\n')
-    .map((l) => l.replace(/^[0-9A-F]+:/i, ''))       // ISO-TP line counter
-    .filter((l) => !/SEARCHING|BUS INIT|^[0-9A-F]{3}$/i.test(l.trim()))
-    .join(' ')
-    .match(/\b[0-9A-F]{2}\b/gi) || [];
+  return (
+    answer
+      .split('\n')
+      .map((l) => l.replace(/^[0-9A-F]+:/i, '')) // ISO-TP line counter
+      .filter((l) => !/SEARCHING|BUS INIT|^[0-9A-F]{3}$/i.test(l.trim()))
+      .join(' ')
+      .match(/\b[0-9A-F]{2}\b/gi) || []
+  );
 }
 
 // everything after a mode/pid echo (e.g. "49 02 01 ..." -> the ...)
 function payload(answer, echo) {
   const b = hexBytes(answer).join(' ');
   const at = b.indexOf(echo);
-  return at < 0 ? [] : b.slice(at + echo.length).trim().split(/\s+/).filter(Boolean);
+  return at < 0
+    ? []
+    : b
+        .slice(at + echo.length)
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
 }
 
 const toCodes = (bytes) => {
@@ -76,10 +91,15 @@ const toCodes = (bytes) => {
   const letter = ['P', 'C', 'B', 'U'];
   const out = [];
   for (let i = 0; i + 1 < bytes.length; i += 2) {
-    const a = parseInt(bytes[i], 16), b = parseInt(bytes[i + 1], 16);
+    const a = parseInt(bytes[i], 16),
+      b = parseInt(bytes[i + 1], 16);
     if (!a && !b) continue;
-    out.push(letter[a >> 6] + ((a >> 4) & 3) + (a & 15).toString(16).toUpperCase()
-      + b.toString(16).padStart(2, '0').toUpperCase());
+    out.push(
+      letter[a >> 6] +
+        ((a >> 4) & 3) +
+        (a & 15).toString(16).toUpperCase() +
+        b.toString(16).padStart(2, '0').toUpperCase()
+    );
   }
   return out;
 };
@@ -89,21 +109,26 @@ const toCodes = (bytes) => {
 (async () => {
   console.log(`connecting to ${HOST}:${PORT} ...`);
   await new Promise((res, rej) => {
-    sock.setTimeout(10000, () => rej(new Error(`connect to ${HOST}:${PORT} timed out`)));
+    sock.setTimeout(10000, () =>
+      rej(new Error(`connect to ${HOST}:${PORT} timed out`))
+    );
     sock.once('error', rej);
     sock.connect(PORT, HOST, res);
   });
-  sock.setTimeout(0);           // connected; send() owns per-command timeouts
-  sock.on('error', (e) => { console.error('socket:', e.message); process.exit(1); });
+  sock.setTimeout(0); // connected; send() owns per-command timeouts
+  sock.on('error', (e) => {
+    console.error('socket:', e.message);
+    process.exit(1);
+  });
   console.log('connected\n');
 
   // who is this chip
   console.log('== adapter ==');
   console.log('reset:   ', (await send('ATZ')).replace(/\n/g, ' '));
-  await send('ATE0');                       // echo off: answers only
-  await send('ATL0');                       // no linefeed dressing
+  await send('ATE0'); // echo off: answers only
+  await send('ATL0'); // no linefeed dressing
   console.log('version: ', await send('ATI'));
-  console.log('voltage: ', await send('ATRV'));   // battery, from the OBD pin
+  console.log('voltage: ', await send('ATRV')); // battery, from the OBD pin
 
   // let the chip find the car's protocol (the 0100 both triggers the search
   // and asks "which PIDs do you support" -- every OBD-II car answers it)
@@ -123,19 +148,21 @@ const toCodes = (bytes) => {
   const vin = payload(await send('0902', 15000), '49 02')
     .map((h) => parseInt(h, 16))
     .filter((c) => c >= 0x20 && c < 0x7f)
-    .map((c) => String.fromCharCode(c)).join('');
+    .map((c) => String.fromCharCode(c))
+    .join('');
   console.log('VIN:         ', vin || '(not reported)');
 
   // a few live values, decoded per J1979
   const rpmB = payload(await send('010C'), '41 0C');
   if (rpmB.length >= 2)
-    console.log('RPM:         ', (parseInt(rpmB[0], 16) * 256 + parseInt(rpmB[1], 16)) / 4);
+    console.log(
+      'RPM:         ',
+      (parseInt(rpmB[0], 16) * 256 + parseInt(rpmB[1], 16)) / 4
+    );
   const spd = payload(await send('010D'), '41 0D');
-  if (spd.length)
-    console.log('speed:       ', parseInt(spd[0], 16), 'km/h');
+  if (spd.length) console.log('speed:       ', parseInt(spd[0], 16), 'km/h');
   const clt = payload(await send('0105'), '41 05');
-  if (clt.length)
-    console.log('coolant:     ', parseInt(clt[0], 16) - 40, '°C');
+  if (clt.length) console.log('coolant:     ', parseInt(clt[0], 16) - 40, '°C');
 
   // stored + pending fault codes
   const stored = toCodes(payload(await send('03', 15000), '43'));
@@ -144,4 +171,7 @@ const toCodes = (bytes) => {
   console.log('pending DTCs:', pend.length ? pend.join(', ') : 'none');
 
   sock.destroy();
-})().catch((e) => { console.error('probe failed:', e.message); process.exit(1); });
+})().catch((e) => {
+  console.error('probe failed:', e.message);
+  process.exit(1);
+});

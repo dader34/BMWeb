@@ -20,7 +20,7 @@
 
   // ---- 32-bit helpers -------------------------------------------------------
   const U32 = 0xffffffff;
-  const u32 = (n) => (n >>> 0);
+  const u32 = (n) => n >>> 0;
 
   // ---- OPERATION table (read direction) -------------------------------------
   // Applied in order on read; each transforms the assembled value.
@@ -29,16 +29,26 @@
     value = u32(value);
     const n = u32(operand);
     switch (op) {
-      case '!': return u32(value ^ U32);
-      case '&': return u32(value & n);
-      case '*': return u32(Math.imul(value, n));
-      case '+': return u32(value + n);
-      case '-': return u32(value - n);
-      case '/': return u32(n === 0 ? value : Math.floor(value / n));
-      case '>': return u32((value >>> n) & (n >= 32 ? 0 : ((1 << (32 - n)) - 1) >>> 0));
-      case '^': return u32(value ^ n);
-      case '|': return u32(value | n);
-      default:  return value;   // unknown op: pass through (matches NCSEXPER "skip + warn")
+      case '!':
+        return u32(value ^ U32);
+      case '&':
+        return u32(value & n);
+      case '*':
+        return u32(Math.imul(value, n));
+      case '+':
+        return u32(value + n);
+      case '-':
+        return u32(value - n);
+      case '/':
+        return u32(n === 0 ? value : Math.floor(value / n));
+      case '>':
+        return u32((value >>> n) & (n >= 32 ? 0 : ((1 << (32 - n)) - 1) >>> 0));
+      case '^':
+        return u32(value ^ n);
+      case '|':
+        return u32(value | n);
+      default:
+        return value; // unknown op: pass through (matches NCSEXPER "skip + warn")
     }
   }
 
@@ -48,16 +58,26 @@
     value = u32(value);
     const n = u32(operand);
     switch (op) {
-      case '!': return u32(value ^ U32);              // self-inverse
-      case '+': return u32(value - n);                // + -> -
-      case '-': return u32(value + n);                // - -> +
-      case '>': return u32((n >= 32 ? 0 : (value << n)) & U32);  // >(rshift) -> left-shift, 32b-bounded
-      case '*': return u32(n === 0 ? value : Math.floor(value / n));  // * -> /
-      case '/': return u32(Math.imul(value, n));      // / -> *
-      case '&': return u32(value & n);                // self-inverse over covered bits
-      case '|': return u32(value | n);                // self-inverse (idempotent set)
-      case '^': return u32(value ^ n);                // self-inverse
-      default:  return value;
+      case '!':
+        return u32(value ^ U32); // self-inverse
+      case '+':
+        return u32(value - n); // + -> -
+      case '-':
+        return u32(value + n); // - -> +
+      case '>':
+        return u32((n >= 32 ? 0 : value << n) & U32); // >(rshift) -> left-shift, 32b-bounded
+      case '*':
+        return u32(n === 0 ? value : Math.floor(value / n)); // * -> /
+      case '/':
+        return u32(Math.imul(value, n)); // / -> *
+      case '&':
+        return u32(value & n); // self-inverse over covered bits
+      case '|':
+        return u32(value | n); // self-inverse (idempotent set)
+      case '^':
+        return u32(value ^ n); // self-inverse
+      default:
+        return value;
     }
   }
 
@@ -88,8 +108,10 @@
       for (let i = 0; i < bytes.length; i++) {
         const c = bytes[i] & 0xff;
         let d;
-        if (c >= 0x30 && c <= 0x39) d = c - 0x30;       // '0'-'9'
-        else if (c >= 0x41 && c <= 0x5a) d = c - 0x37;  // 'A'-'Z' -> 10..35
+        if (c >= 0x30 && c <= 0x39)
+          d = c - 0x30; // '0'-'9'
+        else if (c >= 0x41 && c <= 0x5a)
+          d = c - 0x37; // 'A'-'Z' -> 10..35
         else d = 0;
         v = v * 36 + d;
       }
@@ -99,7 +121,7 @@
       // ASCII bitstring: char '0'/'1' at position i contributes bit i
       let v = 0;
       for (let i = 0; i < bytes.length; i++) {
-        if ((bytes[i] & 0xff) === 0x31) v |= (1 << i);
+        if ((bytes[i] & 0xff) === 0x31) v |= 1 << i;
       }
       return u32(v);
     }
@@ -119,14 +141,15 @@
       // MSB-first base-36 digits, one ASCII char per byte
       let v = value;
       for (let i = width - 1; i >= 0; i--) {
-        const d = v % 36; v = Math.floor(v / 36);
-        out[i] = d < 10 ? (0x30 + d) : (0x41 + d - 10);  // '0'+v / 'A'+v-10
+        const d = v % 36;
+        v = Math.floor(v / 36);
+        out[i] = d < 10 ? 0x30 + d : 0x41 + d - 10; // '0'+v / 'A'+v-10
       }
       return out;
     }
     if (u === 'b') {
       // bit i -> '0'/'1' char at position i
-      for (let i = 0; i < width; i++) out[i] = ((value >>> i) & 1) ? 0x31 : 0x30;
+      for (let i = 0; i < width; i++) out[i] = (value >>> i) & 1 ? 0x31 : 0x30;
       return out;
     }
     // 'h' / 'a' / 'd' / default: value straight into LE bytes.
@@ -139,7 +162,9 @@
   // (its trailing-zero count). For width>1 fields BMW ships mask 0xFF/shift 0,
   // i.e. raw contiguous LE bytes -- so only byte 0 ever carries a sub-byte mask.
   function firstMask(rule) {
-    return (rule.mask === undefined || rule.mask === null) ? 0xff : (rule.mask & 0xff);
+    return rule.mask === undefined || rule.mask === null
+      ? 0xff
+      : rule.mask & 0xff;
   }
   function firstShift(rule) {
     return rule.shift || 0;
@@ -150,7 +175,9 @@
   // VIN strings) -- coding-edit.js treats their `values` hex as an opaque
   // buffer, never a number. For those the codec's value is a lowercase hex
   // string in ADDRESS order (byte at `word` first), matching datenmap's hex.
-  function isBuffer(rule) { return (rule.byte || 1) > 4; }
+  function isBuffer(rule) {
+    return (rule.byte || 1) > 4;
+  }
   const HEX = '0123456789abcdef';
   const toHex = (b) => HEX[(b >> 4) & 0xf] + HEX[b & 0xf];
 
@@ -176,12 +203,13 @@
     const bytes = new Array(width);
     for (let i = 0; i < width; i++) {
       const raw = netto[at + i] & 0xff;
-      bytes[i] = (i === 0) ? ((raw & m0) >>> sh) : raw;
+      bytes[i] = i === 0 ? (raw & m0) >>> sh : raw;
     }
 
     let value = einheitDecode(rule.unit, bytes);
     const ops = rule.ops || [];
-    for (let k = 0; k < ops.length; k++) value = applyOp(ops[k][0], ops[k][1], value);
+    for (let k = 0; k < ops.length; k++)
+      value = applyOp(ops[k][0], ops[k][1], value);
     return u32(value);
   }
 
@@ -195,7 +223,8 @@
       let bytes;
       if (typeof value === 'string') {
         bytes = [];
-        for (let i = 0; i + 1 < value.length; i += 2) bytes.push(parseInt(value.substr(i, 2), 16) & 0xff);
+        for (let i = 0; i + 1 < value.length; i += 2)
+          bytes.push(parseInt(value.substr(i, 2), 16) & 0xff);
       } else {
         bytes = Array.from(value, (b) => b & 0xff);
       }
@@ -209,7 +238,8 @@
     // Stage 3: invert OPERATION list -- reverse order, each op inverted.
     let v = u32(value);
     const ops = rule.ops || [];
-    for (let k = ops.length - 1; k >= 0; k--) v = applyOpInverse(ops[k][0], ops[k][1], v);
+    for (let k = ops.length - 1; k >= 0; k--)
+      v = applyOpInverse(ops[k][0], ops[k][1], v);
 
     // Stage 4: invert EINHEIT to source bytes.
     const enc = einheitEncode(rule.unit, v, width);
@@ -234,7 +264,7 @@
   function spliceEdits(netto, edits) {
     const out = new Uint8Array(netto.length);
     out.set(netto);
-    for (const e of (edits || [])) encodeField(e.rule, e.value, out);
+    for (const e of edits || []) encodeField(e.rule, e.value, out);
     return out;
   }
 
@@ -261,7 +291,8 @@
     let sum = 0;
     for (let i = 0; i < input.length; i++) {
       let v = mod36Decode(input.charCodeAt(i));
-      if (v < 0) throw new Error('mod36: invalid char ' + JSON.stringify(input[i]));
+      if (v < 0)
+        throw new Error('mod36: invalid char ' + JSON.stringify(input[i]));
       if ((i & 1) === 0) v = v * 3;
       sum = (sum + v) & 0xffff;
     }
@@ -277,15 +308,15 @@
   function mod36(prefix, body) {
     return mod36Core(prefix + body);
   }
-  const formatGm = (body) => body + mod36('C1', body);   // 8 -> 9 chars
-  const formatSa = (body) => body + mod36('C2', body);   // 16 -> 17 chars
-  const formatVn = (body) => body + mod36('C3', body);   // 10 -> 11 chars
+  const formatGm = (body) => body + mod36('C1', body); // 8 -> 9 chars
+  const formatSa = (body) => body + mod36('C2', body); // 16 -> 17 chars
+  const formatVn = (body) => body + mod36('C3', body); // 10 -> 11 chars
 
   // VIN 18th char: Mod-36 over "FP" + vin (same core).
   function vinCheckChar(vin) {
     return mod36Core('FP' + vin);
   }
-  const formatFahrgestellNr = (vin) => vin + vinCheckChar(vin);  // 17 -> 18 chars
+  const formatFahrgestellNr = (vin) => vin + vinCheckChar(vin); // 17 -> 18 chars
 
   // ---- buildZcsRegion: the fixed 20-byte ZCS layout -------------------------
   // [GM 4B body][GM chk 1B][SA 8B body][SA chk 1B][VN 5B body][VN chk 1B]
@@ -302,8 +333,8 @@
   }
   function hexNibble(code) {
     if (code >= 0x30 && code <= 0x39) return code - 0x30;
-    if (code >= 0x41 && code <= 0x46) return code - 0x41 + 10;  // A-F
-    if (code >= 0x61 && code <= 0x66) return code - 0x61 + 10;  // a-f
+    if (code >= 0x41 && code <= 0x46) return code - 0x41 + 10; // A-F
+    if (code >= 0x61 && code <= 0x66) return code - 0x61 + 10; // a-f
     return 0;
   }
 
@@ -329,11 +360,21 @@
 
   // ---- exports (browser global, matching app/renderer/core/*.js style) ------
   const api = {
-    encodeField, decodeField, spliceEdits,
-    applyOp, applyOpInverse, einheitDecode, einheitEncode,
-    mod36, mod36Decode, mod36Encode,
-    formatGm, formatSa, formatVn,
-    vinCheckChar, formatFahrgestellNr,
+    encodeField,
+    decodeField,
+    spliceEdits,
+    applyOp,
+    applyOpInverse,
+    einheitDecode,
+    einheitEncode,
+    mod36,
+    mod36Decode,
+    mod36Encode,
+    formatGm,
+    formatSa,
+    formatVn,
+    vinCheckChar,
+    formatFahrgestellNr,
     buildZcsRegion,
   };
   root.CodingEncode = api;

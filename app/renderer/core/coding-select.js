@@ -33,9 +33,12 @@
 (function (root) {
   'use strict';
 
-  const Auftrag = (typeof window !== 'undefined' && window.CodingAuftrag)
-    ? window.CodingAuftrag
-    : (typeof require === 'function' ? require('./coding-auftrag.js') : null);
+  const Auftrag =
+    typeof window !== 'undefined' && window.CodingAuftrag
+      ? window.CodingAuftrag
+      : typeof require === 'function'
+        ? require('./coding-auftrag.js')
+        : null;
 
   // "2B53..." -> [0x2b, 0x53, ...]; null when unusable.
   function exprBytes(hex) {
@@ -58,8 +61,11 @@
     if (!row.exprHex) return true;
     const bytes = exprBytes(row.exprHex);
     if (!bytes || !Auftrag) return false;
-    try { return Auftrag.matchesAuftrag(bytes, codes || []); }
-    catch (e) { return false; }
+    try {
+      return Auftrag.matchesAuftrag(bytes, codes || []);
+    } catch (e) {
+      return false;
+    }
   }
 
   // The SGET rows for a chassis, or [].
@@ -77,8 +83,9 @@
   // for.
   function candidatesForSlot(chassisId, umrsg) {
     const want = String(umrsg || '').toUpperCase();
-    return rowsFor(chassisId)
-      .filter((r) => String(r.UMRSG || '').toUpperCase() === want);
+    return rowsFor(chassisId).filter(
+      (r) => String(r.UMRSG || '').toUpperCase() === want
+    );
   }
 
   // Which slot(s) is this SGBD a candidate for?
@@ -101,8 +108,9 @@
     if (!want) return [];
     const out = [];
     for (const r of rowsFor(chassisId)) {
-      const names = [r.SGBD, r.SGNAME, r.UMRSG]
-        .map((x) => String(x || '').toLowerCase());
+      const names = [r.SGBD, r.SGNAME, r.UMRSG].map((x) =>
+        String(x || '').toLowerCase()
+      );
       if (!names.includes(want)) continue;
       const u = String(r.UMRSG || '').toUpperCase();
       if (u && !out.includes(u)) out.push(u);
@@ -129,7 +137,7 @@
     if (!rows.length) return null;
     const hits = rows.filter((r) => rowApplies(r, codes));
     if (!hits.length) return null;
-    const first = hits[0];                      // NCS Expert: first match wins
+    const first = hits[0]; // NCS Expert: first match wins
     const sgbds = [];
     for (const h of hits) {
       const s = String(h.SGBD || '').toLowerCase();
@@ -142,8 +150,7 @@
       sgname: first.SGNAME || null,
       cbd: first.CBD || null,
       // the coding file NCS Expert would open for this row
-      file: (first.SGNAME && first.CBD)
-        ? `${first.SGNAME}.${first.CBD}` : null,
+      file: first.SGNAME && first.CBD ? `${first.SGNAME}.${first.CBD}` : null,
       umrsg: first.UMRSG || null,
       row: first,
       matched: hits.length,
@@ -188,8 +195,13 @@
   }
 
   const api = {
-    rowApplies, rowsFor, candidatesForSlot, slotsForSgbd,
-    resolveSlot, resolveModule, applySelection,
+    rowApplies,
+    rowsFor,
+    candidatesForSlot,
+    slotsForSgbd,
+    resolveSlot,
+    resolveModule,
+    applySelection,
   };
 
   root.CodingSelect = api;

@@ -23,17 +23,22 @@
 // not fire it.
 let leaveEcu = null;
 let leaveJob = null;
-let leaveKey = null;            // "sgbd:menu", so a repaint of the same menu is a no-op
-let _leftEnergized = false;     // did THIS menu fire a drive? (for pagehide only)
+let leaveKey = null; // "sgbd:menu", so a repaint of the same menu is a no-op
+let _leftEnergized = false; // did THIS menu fire a drive? (for pagehide only)
 
 function registerMenuLeave(ecu, menuKey, job) {
   // a different menu is being set up: run what the PREVIOUS one owed
   if (leaveKey && leaveKey !== menuKey) {
     if (compEcu?.sgbd && compJob) {
       try {
-        api(`/api/ecu/${compEcu.sgbd}/run/${compJob}`
-          + `?arg=${encodeURIComponent(compArg)}`, { method: 'POST' }).catch(() => {});
-      } catch (e) { /* leaving */ }
+        api(
+          `/api/ecu/${compEcu.sgbd}/run/${compJob}` +
+            `?arg=${encodeURIComponent(compArg)}`,
+          { method: 'POST' }
+        ).catch(() => {});
+      } catch (e) {
+        /* leaving */
+      }
       if (typeof irResetCompositeState === 'function') irResetCompositeState();
       _clearComposite();
     }
@@ -47,22 +52,32 @@ function registerMenuLeave(ecu, menuKey, job) {
 
 // ir.js calls this when a drive is fired in the current menu, so a tab-close
 // can run the Back job even for a menu whose release is a separate key.
-function markEnergized() { _leftEnergized = true; }
+function markEnergized() {
+  _leftEnergized = true;
+}
 
 // A composite actuator word (LSZ-style: several outputs in one job) releases
 // by being RE-COMMANDED to neutral -- INPA's own behavior, not a synthetic
 // _ENDE. ir.js registers the neutral word here; runMenuLeave re-sends it.
-let compEcu = null, compJob = null, compArg = null;
+let compEcu = null,
+  compJob = null,
+  compArg = null;
 function registerCompositeNeutral(ecu, job, neutralArg) {
-  compEcu = ecu || null; compJob = job || null; compArg = neutralArg;
+  compEcu = ecu || null;
+  compJob = job || null;
+  compArg = neutralArg;
 }
-function _clearComposite() { compEcu = compJob = compArg = null; }
+function _clearComposite() {
+  compEcu = compJob = compArg = null;
+}
 
 function _sendLeave(ecu, job) {
   if (!ecu?.sgbd || !job) return;
   try {
     api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' }).catch(() => {});
-  } catch (e) { /* leaving anyway */ }
+  } catch (e) {
+    /* leaving anyway */
+  }
 }
 
 // Called from the setActions leave hook (core.js). A same-menu repaint keeps
@@ -73,14 +88,20 @@ function runMenuLeave() {
   // a composite word: re-command it to neutral, then forget the flags
   if (compEcu?.sgbd && compJob) {
     try {
-      api(`/api/ecu/${compEcu.sgbd}/run/${compJob}`
-        + `?arg=${encodeURIComponent(compArg)}`, { method: 'POST' }).catch(() => {});
-    } catch (e) { /* leaving */ }
+      api(
+        `/api/ecu/${compEcu.sgbd}/run/${compJob}` +
+          `?arg=${encodeURIComponent(compArg)}`,
+        { method: 'POST' }
+      ).catch(() => {});
+    } catch (e) {
+      /* leaving */
+    }
     if (typeof irResetCompositeState === 'function') irResetCompositeState();
     _clearComposite();
   }
   if (leaveJob && leaveEcu) {
-    const ecu = leaveEcu, job = leaveJob;
+    const ecu = leaveEcu,
+      job = leaveJob;
     _sendLeave(ecu, job);
   }
   leaveEcu = leaveJob = leaveKey = null;
@@ -126,7 +147,11 @@ function endSession() {
 let _activationsHeld = false;
 function keepActivationsDuring(fn) {
   _activationsHeld = true;
-  try { fn(); } finally { _activationsHeld = false; }
+  try {
+    fn();
+  } finally {
+    _activationsHeld = false;
+  }
 }
 const activationsHeld = () => _activationsHeld;
 
@@ -137,11 +162,12 @@ const activationsHeld = () => _activationsHeld;
 window.addEventListener('pagehide', () => {
   if (_leftEnergized) {
     if (compEcu?.sgbd && compJob) {
-      _sendLeave(compEcu, compJob);   // best effort; arg lost on unload, but neutral job runs
+      _sendLeave(compEcu, compJob); // best effort; arg lost on unload, but neutral job runs
     }
     if (leaveEcu && leaveJob) _sendLeave(leaveEcu, leaveJob);
   }
-  const ecu = sessionEndEcu, job = sessionEndJob;
+  const ecu = sessionEndEcu,
+    job = sessionEndJob;
   sessionEndEcu = sessionEndJob = _pendingEnd = null;
   _sendLeave(ecu, job);
 });

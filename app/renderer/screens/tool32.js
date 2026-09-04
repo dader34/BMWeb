@@ -18,40 +18,72 @@
 let TOOL32_SGBDS = null;
 async function tool32SgbdList() {
   if (TOOL32_SGBDS) return TOOL32_SGBDS;
-  const fromIndex = (idx) => { TOOL32_SGBDS = Object.keys(idx || {}).sort(); return TOOL32_SGBDS; };
+  const fromIndex = (idx) => {
+    TOOL32_SGBDS = Object.keys(idx || {}).sort();
+    return TOOL32_SGBDS;
+  };
   // 1) inlined offline index, if the single-file export baked one in
   if (typeof BMACW_INLINE === 'object' && BMACW_INLINE && BMACW_INLINE._index) {
     return fromIndex(BMACW_INLINE._index);
   }
   // 2) the static file — raw fetch so the shim's /api catch-all doesn't 404 it
-  const base = (typeof WEB_BASE === 'string') ? WEB_BASE : '';
-  const apiBase = (typeof WEB_API_BASE === 'string') ? WEB_API_BASE : 'api';
-  const real = (typeof webRealFetch === 'function') ? webRealFetch : window.fetch.bind(window);
-  for (const u of [`${base}/${apiBase}/ecu-index.json`, '/api/ecu-index.json']) {
+  const base = typeof WEB_BASE === 'string' ? WEB_BASE : '';
+  const apiBase = typeof WEB_API_BASE === 'string' ? WEB_API_BASE : 'api';
+  const real =
+    typeof webRealFetch === 'function'
+      ? webRealFetch
+      : window.fetch.bind(window);
+  for (const u of [
+    `${base}/${apiBase}/ecu-index.json`,
+    '/api/ecu-index.json',
+  ]) {
     try {
       const r = await real(u);
       if (r && r.ok) return fromIndex(await r.json());
-    } catch (e) { /* try next */ }
+    } catch (e) {
+      /* try next */
+    }
   }
   // 3) desktop: it's a real server route
-  try { return fromIndex(await api('/api/ecu-index.json')); }
-  catch (e) { TOOL32_SGBDS = []; return TOOL32_SGBDS; }
+  try {
+    return fromIndex(await api('/api/ecu-index.json'));
+  } catch (e) {
+    TOOL32_SGBDS = [];
+    return TOOL32_SGBDS;
+  }
 }
 
 // a job entry may arrive as a bare name or as {name, args, results, comment}
-function tool32JobName(j) { return typeof j === 'string' ? j : (j && j.name) || ''; }
+function tool32JobName(j) {
+  return typeof j === 'string' ? j : (j && j.name) || '';
+}
 
 function showTool32() {
   lastScreen = showTool32;
-  setCrumbs([{ label: 'Vehicles', fn: showChassis },
-             { label: 'Apps', fn: showApps },
-             { label: 'Tool32' }]);
+  setCrumbs([
+    { label: 'Vehicles', fn: showChassis },
+    { label: 'Apps', fn: showApps },
+    { label: 'Tool32' },
+  ]);
   document.body.classList.add('apps-section');
   sbLeft.textContent = 'tool32';
-  view.innerHTML = head('EDIABAS', 'Tool32',
-    'Run any SGBD job directly against the ECU and read its raw results.');
-  setActions([{ key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back',
-                fn: () => { stopRepeat(); showApps(); } }]);
+  view.innerHTML = head(
+    'EDIABAS',
+    'Tool32',
+    'Run any SGBD job directly against the ECU and read its raw results.'
+  );
+  setActions([
+    {
+      key: 'Escape',
+      keyLabel: 'Esc',
+      label: 'Back',
+      kind: 'back',
+      fn: () => {
+        stopRepeat();
+        showApps();
+      },
+    },
+  ]);
 
   const card = document.createElement('div');
   card.className = 'etk-idcard t32-card';
@@ -64,8 +96,10 @@ function showTool32() {
   const sgbdCol = document.createElement('div');
   sgbdCol.className = 'etk-idcol t32-col';
   const sgbdFilter = document.createElement('input');
-  sgbdFilter.className = 't32-filter'; sgbdFilter.type = 'text';
-  sgbdFilter.placeholder = 'Filter SGBD…'; sgbdFilter.spellcheck = false;
+  sgbdFilter.className = 't32-filter';
+  sgbdFilter.type = 'text';
+  sgbdFilter.placeholder = 'Filter SGBD…';
+  sgbdFilter.spellcheck = false;
   const sgbdBox = tool32ListBox();
   sgbdCol.append(labelSpan('SGBD'), sgbdFilter, sgbdBox);
 
@@ -73,8 +107,11 @@ function showTool32() {
   const jobCol = document.createElement('div');
   jobCol.className = 'etk-idcol t32-col';
   const jobFilter = document.createElement('input');
-  jobFilter.className = 't32-filter'; jobFilter.type = 'text';
-  jobFilter.placeholder = 'Filter job…'; jobFilter.spellcheck = false; jobFilter.disabled = true;
+  jobFilter.className = 't32-filter';
+  jobFilter.type = 'text';
+  jobFilter.placeholder = 'Filter job…';
+  jobFilter.spellcheck = false;
+  jobFilter.disabled = true;
   const jobBox = tool32ListBox();
   jobCol.append(labelSpan('Job'), jobFilter, jobBox);
 
@@ -92,10 +129,15 @@ function showTool32() {
   const argRow = document.createElement('div');
   argRow.className = 't32-argrow';
   const argInput = document.createElement('input');
-  argInput.className = 't32-arg'; argInput.type = 'text'; argInput.spellcheck = false;
-  argInput.placeholder = 'argument (optional)'; argInput.disabled = true;
+  argInput.className = 't32-arg';
+  argInput.type = 'text';
+  argInput.spellcheck = false;
+  argInput.placeholder = 'argument (optional)';
+  argInput.disabled = true;
   const runBtn = document.createElement('button');
-  runBtn.type = 'button'; runBtn.className = 'etk-vin-go t32-run'; runBtn.textContent = 'Run';
+  runBtn.type = 'button';
+  runBtn.className = 'etk-vin-go t32-run';
+  runBtn.textContent = 'Run';
   runBtn.disabled = true;
   argRow.append(argInput, runBtn);
 
@@ -103,16 +145,24 @@ function showTool32() {
   //    change (EDIABAS ToolSet's Test menu). Off by default; when on, Run
   //    starts a loop and the button flips to Stop.
   const repRow = document.createElement('div');
-  repRow.className = 't32-reprow'; repRow.hidden = true;
+  repRow.className = 't32-reprow';
+  repRow.hidden = true;
   const repChk = document.createElement('input');
-  repChk.type = 'checkbox'; repChk.id = 't32-repeat'; repChk.className = 't32-check';
+  repChk.type = 'checkbox';
+  repChk.id = 't32-repeat';
+  repChk.className = 't32-check';
   const repLbl = document.createElement('label');
-  repLbl.htmlFor = 't32-repeat'; repLbl.textContent = 'Repeat every';
+  repLbl.htmlFor = 't32-repeat';
+  repLbl.textContent = 'Repeat every';
   const repMs = document.createElement('input');
-  repMs.type = 'number'; repMs.className = 't32-repms';
-  repMs.value = '500'; repMs.min = '100'; repMs.step = '100';
+  repMs.type = 'number';
+  repMs.className = 't32-repms';
+  repMs.value = '500';
+  repMs.min = '100';
+  repMs.step = '100';
   const repUnit = document.createElement('span');
-  repUnit.className = 't32-repunit'; repUnit.textContent = 'ms';
+  repUnit.className = 't32-repunit';
+  repUnit.textContent = 'ms';
   repRow.append(repChk, repLbl, repMs, repUnit);
 
   const out = document.createElement('div');
@@ -143,28 +193,43 @@ function showTool32() {
   function paintSgbds() {
     const q = sgbdFilter.value.trim().toLowerCase();
     const items = state.sgbds
-      .filter(s => !q || s.includes(q))
-      .map(s => ({ key: s, label: s }));
+      .filter((s) => !q || s.includes(q))
+      .map((s) => ({ key: s, label: s }));
     sgbdBox.setItems(items);
   }
   sgbdFilter.oninput = paintSgbds;
 
   sgbdBox.onpick = async (sgbd) => {
     stopRepeat();
-    state.sgbd = sgbd; state.job = null; state.jobs = [];
-    jobFilter.value = ''; jobFilter.disabled = false;
-    jobBox.setItems([]); jobBox.setLoading('Loading jobs…');
+    state.sgbd = sgbd;
+    state.job = null;
+    state.jobs = [];
+    jobFilter.value = '';
+    jobFilter.disabled = false;
+    jobBox.setItems([]);
+    jobBox.setLoading('Loading jobs…');
     runHead.textContent = `${sgbd}.prg · pick a job.`;
-    argInput.disabled = true; argInput.value = ''; runBtn.disabled = true;
-    repRow.hidden = true; out.innerHTML = '';
+    argInput.disabled = true;
+    argInput.value = '';
+    runBtn.disabled = true;
+    repRow.hidden = true;
+    out.innerHTML = '';
     try {
       const jobs = await api(`/api/ecu/${sgbd}/jobs`);
       // jobs.json is either an array or the spec object {jobs:[...]}
       const list = Array.isArray(jobs) ? jobs : (jobs && jobs.jobs) || [];
-      state.jobs = list.map(j => (typeof j === 'string'
-        ? { name: j } : { name: tool32JobName(j), args: j.args, results: j.results,
-                          comment: j.comment }))
-        .filter(j => j.name)
+      state.jobs = list
+        .map((j) =>
+          typeof j === 'string'
+            ? { name: j }
+            : {
+                name: tool32JobName(j),
+                args: j.args,
+                results: j.results,
+                comment: j.comment,
+              }
+        )
+        .filter((j) => j.name)
         .sort((a, b) => a.name.localeCompare(b.name));
       paintJobs();
       if (!state.jobs.length) jobBox.setLoading('This SGBD declares no jobs.');
@@ -177,8 +242,8 @@ function showTool32() {
   function paintJobs() {
     const q = jobFilter.value.trim().toLowerCase();
     const items = state.jobs
-      .filter(j => !q || j.name.toLowerCase().includes(q))
-      .map(j => {
+      .filter((j) => !q || j.name.toLowerCase().includes(q))
+      .map((j) => {
         const write = typeof isWriteJob === 'function' && isWriteJob(j.name);
         return { key: j.name, label: j.name, write };
       });
@@ -188,49 +253,72 @@ function showTool32() {
 
   jobBox.onpick = async (name) => {
     stopRepeat();
-    state.job = state.jobs.find(j => j.name === name) || { name };
+    state.job = state.jobs.find((j) => j.name === name) || { name };
     const write = typeof isWriteJob === 'function' && isWriteJob(name);
-    runHead.innerHTML = `<span class="t32-jobname">${esc(name)}</span>`
-      + (write ? ` <span class="t32-writetag">writes ECU</span>` : '')
-      + (state.job.comment ? `<span class="t32-comment">${esc(state.job.comment)}</span>` : '');
-    argInput.disabled = false; runBtn.disabled = false;
+    runHead.innerHTML =
+      `<span class="t32-jobname">${esc(name)}</span>` +
+      (write ? ` <span class="t32-writetag">writes ECU</span>` : '') +
+      (state.job.comment
+        ? `<span class="t32-comment">${esc(state.job.comment)}</span>`
+        : '');
+    argInput.disabled = false;
+    runBtn.disabled = false;
     repRow.hidden = false;
-    argInput.value = ''; argInput.placeholder = 'argument (optional)';
+    argInput.value = '';
+    argInput.placeholder = 'argument (optional)';
     out.innerHTML = '';
     // fetch the declared arguments + results (present in every build via the
     // arguments/:JOB and results/:JOB routes, independent of the jobs array).
     const jobKey = name;
     try {
-      const a = await api(`/api/ecu/${state.sgbd}/arguments/${encodeURIComponent(name)}`)
-        .catch(() => null);
-      if (jobKey !== state.job.name) return;   // user moved on
-      const argRows = a && (Array.isArray(a.arguments) ? a.arguments : (Array.isArray(a) ? a : []));
+      const a = await api(
+        `/api/ecu/${state.sgbd}/arguments/${encodeURIComponent(name)}`
+      ).catch(() => null);
+      if (jobKey !== state.job.name) return; // user moved on
+      const argRows =
+        a &&
+        (Array.isArray(a.arguments) ? a.arguments : Array.isArray(a) ? a : []);
       if (argRows && argRows.length) {
-        argInput.placeholder = `args: ${argRows.map(x => x.ARG || x.name || x).join(', ')}`;
+        argInput.placeholder = `args: ${argRows.map((x) => x.ARG || x.name || x).join(', ')}`;
       }
-    } catch (e) { /* no args declared */ }
+    } catch (e) {
+      /* no args declared */
+    }
     try {
-      const r = await api(`/api/ecu/${state.sgbd}/results/${encodeURIComponent(name)}`)
-        .catch(() => null);
+      const r = await api(
+        `/api/ecu/${state.sgbd}/results/${encodeURIComponent(name)}`
+      ).catch(() => null);
       if (jobKey !== state.job.name) return;
       renderResultSkeleton(r);
-    } catch (e) { /* no results declared */ }
+    } catch (e) {
+      /* no results declared */
+    }
   };
 
   // results/:JOB is either ["NAME : comment", ...] (web build) or
   // [{name, unit}, ...] (spec build); normalise to display rows.
   function renderResultSkeleton(results) {
-    const rows = (Array.isArray(results) ? results : []).map(r => {
-      if (typeof r === 'string') return { name: r.split(' : ')[0].trim() };
-      return { name: r.name, unit: r.unit };
-    }).filter(r => r.name);
-    if (!rows.length) { out.innerHTML = ''; return; }
-    out.innerHTML = `<div class="t32-outhead">declares ${rows.length} result`
-      + `${rows.length === 1 ? '' : 's'}</div>`
-      + `<table class="t32-table"><tbody>${rows.map(r =>
-          `<tr class="t32-pending"><td class="t32-k">${esc(r.name)}`
-          + `${r.unit ? ` <span class="t32-unit">[${esc(r.unit)}]</span>` : ''}</td>`
-          + `<td class="t32-v">—</td></tr>`).join('')}</tbody></table>`;
+    const rows = (Array.isArray(results) ? results : [])
+      .map((r) => {
+        if (typeof r === 'string') return { name: r.split(' : ')[0].trim() };
+        return { name: r.name, unit: r.unit };
+      })
+      .filter((r) => r.name);
+    if (!rows.length) {
+      out.innerHTML = '';
+      return;
+    }
+    out.innerHTML =
+      `<div class="t32-outhead">declares ${rows.length} result` +
+      `${rows.length === 1 ? '' : 's'}</div>` +
+      `<table class="t32-table"><tbody>${rows
+        .map(
+          (r) =>
+            `<tr class="t32-pending"><td class="t32-k">${esc(r.name)}` +
+            `${r.unit ? ` <span class="t32-unit">[${esc(r.unit)}]</span>` : ''}</td>` +
+            `<td class="t32-v">—</td></tr>`
+        )
+        .join('')}</tbody></table>`;
   }
 
   // ---- run --------------------------------------------------------------
@@ -249,22 +337,32 @@ function showTool32() {
     // It also ignored the user's own setting. Tool32 is the raw job runner --
     // someone who turned actuator confirmations off has said what they want,
     // and the same rule the IR screens follow applies here.
-    if (write && (typeof confirmActuators !== 'function' || confirmActuators())) {
-      const okGo = typeof confirmDialog === 'function'
-        ? await confirmDialog({
-            title: `${name} changes the ECU`,
-            body: 'This job commands or changes the ECU rather than reading '
-                + 'it, and Tool32 sends exactly what you type &mdash; no '
-                + 'release-on-leave, no re-read. Make sure the module and '
-                + 'anything it drives are safe to move.',
-            confirmLabel: 'Run', danger: true })
-        : true;
+    if (
+      write &&
+      (typeof confirmActuators !== 'function' || confirmActuators())
+    ) {
+      const okGo =
+        typeof confirmDialog === 'function'
+          ? await confirmDialog({
+              title: `${name} changes the ECU`,
+              body:
+                'This job commands or changes the ECU rather than reading ' +
+                'it, and Tool32 sends exactly what you type &mdash; no ' +
+                'release-on-leave, no re-read. Make sure the module and ' +
+                'anything it drives are safe to move.',
+              confirmLabel: 'Run',
+              danger: true,
+            })
+          : true;
       if (!okGo) return;
     }
     // REPEAT / TEST MODE. A write job never loops -- commanding an ECU on a
     // timer is exactly what you do NOT want -- so repeat is read-only.
     const repeat = repChk.checked && !write;
-    if (repeat) { startRepeat(name); return; }
+    if (repeat) {
+      startRepeat(name);
+      return;
+    }
     await runOnce(name);
   }
 
@@ -274,13 +372,16 @@ function showTool32() {
     const arg = argInput.value.trim();
     if (!quiet) {
       runBtn.disabled = true;
-      out.innerHTML = `<div class="t32-running"><span class="wiring-spinner"></span> `
-        + `running ${esc(name)}…</div>`;
+      out.innerHTML =
+        `<div class="t32-running"><span class="wiring-spinner"></span> ` +
+        `running ${esc(name)}…</div>`;
     }
     try {
       const q = arg ? `?arg=${encodeURIComponent(arg)}` : '';
-      const r = await api(`/api/ecu/${state.sgbd}/run/${encodeURIComponent(name)}${q}`,
-                          { method: 'POST' });
+      const r = await api(
+        `/api/ecu/${state.sgbd}/run/${encodeURIComponent(name)}${q}`,
+        { method: 'POST' }
+      );
       renderResults(r);
       trace.refresh();
       return true;
@@ -297,27 +398,34 @@ function showTool32() {
   // button becomes Stop; leaving the screen (or picking another job) clears it.
   let repTimer = null;
   function stopRepeat() {
-    if (repTimer) { clearInterval(repTimer); repTimer = null; }
-    runBtn.textContent = 'Run'; runBtn.classList.remove('t32-stop');
+    if (repTimer) {
+      clearInterval(repTimer);
+      repTimer = null;
+    }
+    runBtn.textContent = 'Run';
+    runBtn.classList.remove('t32-stop');
   }
   function startRepeat(name) {
     stopRepeat();
     const ms = Math.max(100, parseInt(repMs.value, 10) || 500);
-    runBtn.textContent = 'Stop'; runBtn.classList.add('t32-stop');
+    runBtn.textContent = 'Stop';
+    runBtn.classList.add('t32-stop');
     let inFlight = false;
     const tick = async () => {
-      if (inFlight) return;                 // never overlap exchanges
+      if (inFlight) return; // never overlap exchanges
       inFlight = true;
       const ok = await runOnce(name, true);
       inFlight = false;
-      if (!ok) stopRepeat();                // a failed exchange ends the loop
+      if (!ok) stopRepeat(); // a failed exchange ends the loop
     };
     tick();
     repTimer = setInterval(tick, ms);
   }
 
   runBtn.onclick = run;
-  argInput.onkeydown = (e) => { if (e.key === 'Enter') run(); };
+  argInput.onkeydown = (e) => {
+    if (e.key === 'Enter') run();
+  };
 
   function renderResults(r) {
     const pairs = typeof flatResults === 'function' ? flatResults(r.sets) : [];
@@ -327,22 +435,31 @@ function showTool32() {
     const demo = r.demo || (typeof demoMode === 'function' && demoMode());
     const badge = demo ? `<span class="t32-demobadge">DEMO</span>` : '';
     if (!pairs.length) {
-      out.innerHTML = `<div class="t32-outhead">${badge}`
-        + `${status ? esc(status) : 'no result values'}</div>`;
+      out.innerHTML =
+        `<div class="t32-outhead">${badge}` +
+        `${status ? esc(status) : 'no result values'}</div>`;
       return;
     }
-    out.innerHTML = `<div class="t32-outhead">${badge}${pairs.length} value`
-      + `${pairs.length === 1 ? '' : 's'}${status ? ` · ${esc(status)}` : ''}</div>`
-      + `<table class="t32-table${demo ? ' t32-demo' : ''}"><tbody>${pairs.map(([k, v]) =>
-          `<tr><td class="t32-k">${esc(k)}</td>`
-          + `<td class="t32-v">${esc(String(v))}</td></tr>`).join('')}</tbody></table>`;
+    out.innerHTML =
+      `<div class="t32-outhead">${badge}${pairs.length} value` +
+      `${pairs.length === 1 ? '' : 's'}${status ? ` · ${esc(status)}` : ''}</div>` +
+      `<table class="t32-table${demo ? ' t32-demo' : ''}"><tbody>${pairs
+        .map(
+          ([k, v]) =>
+            `<tr><td class="t32-k">${esc(k)}</td>` +
+            `<td class="t32-v">${esc(String(v))}</td></tr>`
+        )
+        .join('')}</tbody></table>`;
   }
 
   // load the SGBD list
   (async () => {
     sgbdBox.setLoading('Loading SGBDs…');
     state.sgbds = await tool32SgbdList();
-    if (!state.sgbds.length) { sgbdBox.setLoading('No ECU data in this build.'); return; }
+    if (!state.sgbds.length) {
+      sgbdBox.setLoading('No ECU data in this build.');
+      return;
+    }
     paintSgbds();
   })();
 }
@@ -359,11 +476,13 @@ function buildTraceSection() {
   bar.className = 't32-tracebar';
 
   const title = document.createElement('span');
-  title.className = 't32-tracetitle'; title.textContent = 'Trace';
+  title.className = 't32-tracetitle';
+  title.textContent = 'Trace';
 
   // on/off toggle
   const toggle = document.createElement('button');
-  toggle.type = 'button'; toggle.className = 't32-tracetoggle';
+  toggle.type = 'button';
+  toggle.className = 't32-tracetoggle';
 
   // layer switch: a fully custom dropdown (the native <select> opens the OS
   // menu even when styled). Reuses the Lookup screen's lookupDropdown so it
@@ -374,23 +493,39 @@ function buildTraceSection() {
     { val: 'ifh', label: 'Wire (IFH)' },
   ];
   let layerVal = 'both';
-  const layerDd = (typeof lookupDropdown === 'function')
-    ? lookupDropdown('API + Wire', LAYERS, 'both', (v) => { layerVal = v; refresh(); })
-    : null;
+  const layerDd =
+    typeof lookupDropdown === 'function'
+      ? lookupDropdown('API + Wire', LAYERS, 'both', (v) => {
+          layerVal = v;
+          refresh();
+        })
+      : null;
   // fallback to a native select only if the shared dropdown isn't loaded
   const layerSel = layerDd ? null : document.createElement('select');
   if (layerSel) {
     layerSel.className = 't32-select';
-    LAYERS.forEach(({ val, label }) => { const o = document.createElement('option'); o.value = val; o.textContent = label; layerSel.append(o); });
-    layerSel.onchange = () => { layerVal = layerSel.value; refresh(); };
+    LAYERS.forEach(({ val, label }) => {
+      const o = document.createElement('option');
+      o.value = val;
+      o.textContent = label;
+      layerSel.append(o);
+    });
+    layerSel.onchange = () => {
+      layerVal = layerSel.value;
+      refresh();
+    };
   }
   const layerEl = layerDd ? layerDd.el : layerSel;
   layerEl.classList.add('t32-tracelayer');
 
   const clearBtn = document.createElement('button');
-  clearBtn.type = 'button'; clearBtn.className = 't32-tracebtn'; clearBtn.textContent = 'Clear';
+  clearBtn.type = 'button';
+  clearBtn.className = 't32-tracebtn';
+  clearBtn.textContent = 'Clear';
   const exportBtn = document.createElement('button');
-  exportBtn.type = 'button'; exportBtn.className = 't32-tracebtn'; exportBtn.textContent = 'Export .trc';
+  exportBtn.type = 'button';
+  exportBtn.className = 't32-tracebtn';
+  exportBtn.textContent = 'Export .trc';
 
   bar.append(title, toggle, layerEl, clearBtn, exportBtn);
 
@@ -402,22 +537,36 @@ function buildTraceSection() {
   const AT = () => (typeof window !== 'undefined' ? window.apiTrace : null);
   const BT = () => (typeof window !== 'undefined' ? window.busTrace : null);
 
-  function isOn() { const a = AT(); return !!(a && a.on); }
+  function isOn() {
+    const a = AT();
+    return !!(a && a.on);
+  }
   function setToggle() {
     const on = isOn();
     toggle.textContent = on ? 'Tracing ON' : 'Tracing off';
     toggle.classList.toggle('on', on);
   }
   toggle.onclick = () => {
-    const a = AT(), b = BT();
-    if (isOn()) { if (a) a.stop(); if (b) b.stop(); }
-    else { if (a) a.start(); if (b) b.start(); }
-    setToggle(); refresh();
+    const a = AT(),
+      b = BT();
+    if (isOn()) {
+      if (a) a.stop();
+      if (b) b.stop();
+    } else {
+      if (a) a.start();
+      if (b) b.start();
+    }
+    setToggle();
+    refresh();
   };
   clearBtn.onclick = () => {
-    const a = AT(), b = BT();
+    const a = AT(),
+      b = BT();
     if (a) a.clear();
-    if (b) { b.rows = []; b.recent = []; }
+    if (b) {
+      b.rows = [];
+      b.recent = [];
+    }
     refresh();
   };
   exportBtn.onclick = () => exportTrc(mergedRows());
@@ -426,13 +575,15 @@ function buildTraceSection() {
   // ifh rows carry {tag, hex}. The layer switch filters which show.
   function mergedRows() {
     const layer = layerVal;
-    const a = AT(), b = BT();
+    const a = AT(),
+      b = BT();
     let rows = [];
-    if (layer !== 'ifh' && a) rows = rows.concat(a.rows.map((r) => ({ ...r, _layer: 'api' })));
+    if (layer !== 'ifh' && a)
+      rows = rows.concat(a.rows.map((r) => ({ ...r, _layer: 'api' })));
     if (layer !== 'api' && b) {
       // prefer the verbose buffer (only fills while tracing); fall back to the
       // always-on ring so something shows even before the toggle was flipped.
-      const src = (b.rows && b.rows.length) ? b.rows : b.recent;
+      const src = b.rows && b.rows.length ? b.rows : b.recent;
       rows = rows.concat((src || []).map((r) => ({ ...r, _layer: 'ifh' })));
     }
     rows.sort((x, y) => (x.t || 0) - (y.t || 0));
@@ -443,53 +594,72 @@ function buildTraceSection() {
     setToggle();
     const rows = mergedRows();
     if (!rows.length) {
-      log.innerHTML = `<div class="t32-traceempty">${isOn()
-        ? 'Tracing on. Run a job to record the API and wire layers.'
-        : 'Turn tracing on, then run a job. The wire ring buffer also shows here.'}</div>`;
+      log.innerHTML = `<div class="t32-traceempty">${
+        isOn()
+          ? 'Tracing on. Run a job to record the API and wire layers.'
+          : 'Turn tracing on, then run a job. The wire ring buffer also shows here.'
+      }</div>`;
       return;
     }
     const t0 = rows[0].t || 0;
-    log.innerHTML = rows.map((r) => {
-      const ms = String((r.t || 0) - t0).padStart(5, ' ');
-      if (r._layer === 'api') {
-        const st = r.error ? `ERROR ${r.error}` : (r.status || 'OKAY');
-        const stcls = r.error ? 't32-terr' : (/OKAY/i.test(st) ? 't32-rx' : 't32-tx');
-        const nsets = r.sets ? `${r.sets.length} set${r.sets.length === 1 ? '' : 's'}` : '';
-        return `<div class="t32-trow t32-apirow">`
-          + `<span class="t32-tms">${esc(ms)}</span>`
-          + `<span class="t32-ttag t32-apitag">JOB</span>`
-          + `<span class="t32-tapi">${esc(r.sgbd)}.${esc(r.job)}`
-          + `${r.arg ? `(${esc(r.arg)})` : ''}${r.demo ? ' ·DEMO' : ''}</span>`
-          + `<span class="t32-tnote ${stcls}">${esc(st)}${nsets ? ` · ${nsets}` : ''}</span></div>`;
-      }
-      // A real telegram: tx/rx, shown with its hex bytes.
-      if (r.tag === 'tx' || r.tag === 'rx') {
-        const cls = r.tag === 'tx' ? 't32-tx' : 't32-rx';
-        const tag = r.tag === 'tx' ? '→' : '←';
-        return `<div class="t32-trow ${cls}">`
-          + `<span class="t32-tms">${esc(ms)}</span>`
-          + `<span class="t32-ttag">${tag}</span>`
-          + `<span class="t32-thex">${esc(r.hex || '')}</span>`
-          + `<span class="t32-tnote">${esc(r.note || '')}</span></div>`;
-      }
-      // A real error.
-      if (r.tag === 'err') {
-        return `<div class="t32-trow t32-terr">`
-          + `<span class="t32-tms">${esc(ms)}</span>`
-          + `<span class="t32-ttag">!</span>`
-          + `<span class="t32-thex">${esc(r.note || '')}</span></div>`;
-      }
-      // Everything else (kline wake, config, ws notes) is INFO, not an error:
-      // one neutral row, just the note, no hex column and no red marker.
-      return `<div class="t32-trow t32-inforow">`
-        + `<span class="t32-tms">${esc(ms)}</span>`
-        + `<span class="t32-ttag t32-infotag">i</span>`
-        + `<span class="t32-tinfo">${esc(r.note || '')}</span></div>`;
-    }).join('');
+    log.innerHTML = rows
+      .map((r) => {
+        const ms = String((r.t || 0) - t0).padStart(5, ' ');
+        if (r._layer === 'api') {
+          const st = r.error ? `ERROR ${r.error}` : r.status || 'OKAY';
+          const stcls = r.error
+            ? 't32-terr'
+            : /OKAY/i.test(st)
+              ? 't32-rx'
+              : 't32-tx';
+          const nsets = r.sets
+            ? `${r.sets.length} set${r.sets.length === 1 ? '' : 's'}`
+            : '';
+          return (
+            `<div class="t32-trow t32-apirow">` +
+            `<span class="t32-tms">${esc(ms)}</span>` +
+            `<span class="t32-ttag t32-apitag">JOB</span>` +
+            `<span class="t32-tapi">${esc(r.sgbd)}.${esc(r.job)}` +
+            `${r.arg ? `(${esc(r.arg)})` : ''}${r.demo ? ' ·DEMO' : ''}</span>` +
+            `<span class="t32-tnote ${stcls}">${esc(st)}${nsets ? ` · ${nsets}` : ''}</span></div>`
+          );
+        }
+        // A real telegram: tx/rx, shown with its hex bytes.
+        if (r.tag === 'tx' || r.tag === 'rx') {
+          const cls = r.tag === 'tx' ? 't32-tx' : 't32-rx';
+          const tag = r.tag === 'tx' ? '→' : '←';
+          return (
+            `<div class="t32-trow ${cls}">` +
+            `<span class="t32-tms">${esc(ms)}</span>` +
+            `<span class="t32-ttag">${tag}</span>` +
+            `<span class="t32-thex">${esc(r.hex || '')}</span>` +
+            `<span class="t32-tnote">${esc(r.note || '')}</span></div>`
+          );
+        }
+        // A real error.
+        if (r.tag === 'err') {
+          return (
+            `<div class="t32-trow t32-terr">` +
+            `<span class="t32-tms">${esc(ms)}</span>` +
+            `<span class="t32-ttag">!</span>` +
+            `<span class="t32-thex">${esc(r.note || '')}</span></div>`
+          );
+        }
+        // Everything else (kline wake, config, ws notes) is INFO, not an error:
+        // one neutral row, just the note, no hex column and no red marker.
+        return (
+          `<div class="t32-trow t32-inforow">` +
+          `<span class="t32-tms">${esc(ms)}</span>` +
+          `<span class="t32-ttag t32-infotag">i</span>` +
+          `<span class="t32-tinfo">${esc(r.note || '')}</span></div>`
+        );
+      })
+      .join('');
     log.scrollTop = log.scrollHeight;
   }
 
-  setToggle(); refresh();
+  setToggle();
+  refresh();
   return { el, refresh };
 }
 
@@ -501,27 +671,36 @@ function exportTrc(rows) {
   const lines = rows.map((r) => {
     const ms = String((r.t || 0) - t0).padStart(7, ' ');
     if (r._layer === 'api') {
-      const st = r.error ? `ERROR ${r.error}` : (r.status || 'OKAY');
+      const st = r.error ? `ERROR ${r.error}` : r.status || 'OKAY';
       const nsets = r.sets ? ` sets=${r.sets.length}` : '';
-      return `${ms}  JOB  ${r.sgbd}.${r.job}${r.arg ? `(${r.arg})` : ''}`
-        + `${r.demo ? ' [DEMO]' : ''}  -> ${st}${nsets}`;
+      return (
+        `${ms}  JOB  ${r.sgbd}.${r.job}${r.arg ? `(${r.arg})` : ''}` +
+        `${r.demo ? ' [DEMO]' : ''}  -> ${st}${nsets}`
+      );
     }
     if (r.tag === 'tx' || r.tag === 'rx') {
       const tag = r.tag === 'tx' ? 'SEND' : 'RECV';
       return `${ms}  ${tag} ${r.hex || ''}${r.note ? `   ; ${r.note}` : ''}`;
     }
     if (r.tag === 'err') return `${ms}  ERR  ${r.note || ''}`;
-    return `${ms}  INFO ${r.note || ''}`;   // kline wake, config, etc.
+    return `${ms}  INFO ${r.note || ''}`; // kline wake, config, etc.
   });
-  const header = `EDIABAS-style trace (BMWeb Tool32)\n`
-    + `exported ${new Date().toISOString()}\n`
-    + `${rows.length} entries\n${'-'.repeat(60)}\n`;
-  const blob = new Blob([header + lines.join('\n') + '\n'], { type: 'text/plain' });
+  const header =
+    `EDIABAS-style trace (BMWeb Tool32)\n` +
+    `exported ${new Date().toISOString()}\n` +
+    `${rows.length} entries\n${'-'.repeat(60)}\n`;
+  const blob = new Blob([header + lines.join('\n') + '\n'], {
+    type: 'text/plain',
+  });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `bmweb-trace-${new Date().toISOString().replace(/[:.]/g, '-')}.trc`;
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 0);
 }
 
 // JOB_STATUS lives in the first set; surface it as a one-line status
@@ -534,7 +713,9 @@ function tool32Status(sets) {
 // caption helper matching the ETK columns
 function labelSpan(text) {
   const s = document.createElement('span');
-  s.className = 'etk-idlabel'; s.textContent = text; return s;
+  s.className = 'etk-idlabel';
+  s.textContent = text;
+  return s;
 }
 
 // a scrolling single-select list box with a loading/empty message and an
@@ -543,36 +724,53 @@ function labelSpan(text) {
 function tool32ListBox() {
   const box = document.createElement('div');
   box.className = 'etk-lb t32-lb';
-  let items = [], value = -1;
+  let items = [],
+    value = -1;
   box.onpick = null;
   function render() {
     box.innerHTML = '';
     if (!items.length) {
       const e = document.createElement('div');
-      e.className = 'etk-lb-empty'; e.textContent = box._msg || '—';
-      box.appendChild(e); return;
+      e.className = 'etk-lb-empty';
+      e.textContent = box._msg || '—';
+      box.appendChild(e);
+      return;
     }
     items.forEach((it, i) => {
       const row = document.createElement('button');
       row.type = 'button';
-      row.className = 'etk-lb-row' + (i === value ? ' active' : '')
-        + (it.write ? ' t32-row-write' : '');
+      row.className =
+        'etk-lb-row' +
+        (i === value ? ' active' : '') +
+        (it.write ? ' t32-row-write' : '');
       row.textContent = it.label;
       if (it.write) {
         const tag = document.createElement('span');
-        tag.className = 't32-rowtag'; tag.textContent = 'W';
+        tag.className = 't32-rowtag';
+        tag.textContent = 'W';
         row.appendChild(tag);
       }
       row.onclick = () => {
-        value = i; render();
+        value = i;
+        render();
         row.scrollIntoView({ block: 'nearest' });
         if (box.onpick) box.onpick(items[i].key, items[i].label);
       };
       box.appendChild(row);
     });
   }
-  box.setItems = (arr) => { items = arr; value = -1; box._msg = null; render(); };
-  box.setLoading = (msg) => { items = []; value = -1; box._msg = msg; render(); };
+  box.setItems = (arr) => {
+    items = arr;
+    value = -1;
+    box._msg = null;
+    render();
+  };
+  box.setLoading = (msg) => {
+    items = [];
+    value = -1;
+    box._msg = msg;
+    render();
+  };
   render();
   return box;
 }

@@ -50,13 +50,16 @@ async function viJobs(sgbd) {
   try {
     const list = await api(`/api/ecu/${sgbd}/jobs`);
     if (Array.isArray(list)) {
-      return list.map((j) => (typeof j === 'string' ? { name: j } : j))
+      return list
+        .map((j) => (typeof j === 'string' ? { name: j } : j))
         .filter((j) => j && j.name);
     }
     if (list && typeof list === 'object') {
       return Object.keys(list).map((k) => ({ name: k, ...(list[k] || {}) }));
     }
-  } catch (e) { /* no job table shipped for this module */ }
+  } catch (e) {
+    /* no job table shipped for this module */
+  }
   return [];
 }
 
@@ -67,13 +70,20 @@ async function viJobs(sgbd) {
 // plumbing is dropped.
 async function viJobResults(sgbd, job) {
   try {
-    const rows = await api(`/api/ecu/${sgbd}/results/${encodeURIComponent(job)}`);
+    const rows = await api(
+      `/api/ecu/${sgbd}/results/${encodeURIComponent(job)}`
+    );
     if (!Array.isArray(rows)) return [];
     return rows
-      .map((r) => String(typeof r === 'string' ? r : (r && r.name) || '')
-        .split(':')[0].trim())
+      .map((r) =>
+        String(typeof r === 'string' ? r : (r && r.name) || '')
+          .split(':')[0]
+          .trim()
+      )
       .filter((n) => n && !VI_INTERNAL.test(n));
-  } catch (e) { return []; }
+  } catch (e) {
+    return [];
+  }
 }
 
 // The identity-job index: which job on which SGBD answers with a key or an
@@ -103,8 +113,12 @@ async function viCodingSgbdFor(sgbd, code, chassisId) {
   // chassis with different CABDs, so scanning every table adds cross-chassis
   // noise. Fall back to all tables only when the chassis isn't resolvable.
   const one = t && chassisId && t[String(chassisId).toUpperCase()];
-  const tables = (one && one.sgfam) ? [one]
-    : (t ? Object.values(t).filter((x) => x && x.sgfam) : []);
+  const tables =
+    one && one.sgfam
+      ? [one]
+      : t
+        ? Object.values(t).filter((x) => x && x.sgfam)
+        : [];
   const wantKeys = viSgShortNames(sgbd, code);
   const cabds = [];
   for (const tbl of tables) {
@@ -112,14 +126,16 @@ async function viCodingSgbdFor(sgbd, code, chassisId) {
       if (!row || !row.cabd) continue;
       if (wantKeys.includes(sg.toUpperCase())) {
         // rank a row that declares a coding read ahead of a bare one
-        cabds.push({ cabd: String(row.cabd).toLowerCase(),
-                     rank: (row.zcs ? 2 : 0) + (row.fa ? 1 : 0) });
+        cabds.push({
+          cabd: String(row.cabd).toLowerCase(),
+          rank: (row.zcs ? 2 : 0) + (row.fa ? 1 : 0),
+        });
       }
     }
   }
   cabds.sort((a, b) => b.rank - a.rank);
   for (const { cabd } of cabds) {
-    if (cabd.startsWith('c_') && await viHasCodingRead(cabd)) return cabd;
+    if (cabd.startsWith('c_') && (await viHasCodingRead(cabd))) return cabd;
   }
   return null;
 }
@@ -137,7 +153,7 @@ function viSgShortNames(sgbd, code) {
   for (const r of raw) {
     const base = alias[r] || r;
     out.add(base);
-    out.add('A' + base);          // AKMB, ALSZ, AEWS variants share the CABD
+    out.add('A' + base); // AKMB, ALSZ, AEWS variants share the CABD
   }
   return [...out];
 }
@@ -166,7 +182,8 @@ async function viConfirmZcs(sgbd, job) {
   const names = await viJobResults(sgbd, job);
   const keys = VI_KEY_ROLE.map((re) => names.find((n) => re.test(n)));
   return keys.every(Boolean)
-    ? { job, keys: { gm: keys[0], sa: keys[1], vn: keys[2] } } : null;
+    ? { job, keys: { gm: keys[0], sa: keys[1], vn: keys[2] } }
+    : null;
 }
 
 async function viConfirmFa(sgbd, job) {
@@ -216,40 +233,51 @@ async function viPickFaJob(sgbd, jobs) {
 async function viIdentityModules(chassisId) {
   const id = String(chassisId || '').toUpperCase();
   let ch;
-  try { ch = await api(`/api/chassis/${id}`); }
-  catch (e) { return []; }
+  try {
+    ch = await api(`/api/chassis/${id}`);
+  } catch (e) {
+    return [];
+  }
   const seen = new Set();
   const ecus = [];
-  for (const s of (ch.sections || [])) {
-    for (const e of (s.ecus || [])) {
+  for (const s of ch.sections || []) {
+    for (const e of s.ecus || []) {
       if (!e.sgbd || seen.has(e.sgbd)) continue;
       seen.add(e.sgbd);
       ecus.push(e);
     }
   }
   if (typeof loadTables === 'function') await loadTables();
-  const probed = await Promise.all(ecus.map(async (e) => {
-    // READ CODING FROM THE CODING SGBD. The diagnostic SGBD a car lists
-    // (kombi46) answers ZCS_LESEN with a stale / uninitialised SA -- its
-    // region scan can lock onto a coincidentally-valid but WRONG 16 bytes
-    // (FFFFFFA8EF020F05 vs the true blank FFFFFFFFFFFFFFFF). The paired
-    // coding SGBD (c_kmb46) exposes C_ZCS_LESEN / C_FA_LESEN with NAMED
-    // GM/SA/VN keys and returns the authoritative value -- the same read
-    // NCS Expert performs. Prefer it whenever it ships (orphan .ecu, so it
-    // loads by name), falling back to the configured diagnostic SGBD.
-    const codingSgbd = await viCodingSgbdFor(e.sgbd, e.code, id);
-    for (const sgbd of [codingSgbd, e.sgbd]) {
-      if (!sgbd) continue;
-      const jobs = await viJobs(sgbd);
-      if (!jobs.length) continue;
-      const zcsJob = await viPickZcsJob(sgbd, jobs);
-      const faJob = await viPickFaJob(sgbd, jobs);
-      if (!zcsJob && !faJob) continue;
-      return { sgbd, label: e.label || e.sgbd,
-               fa: !!faJob, zcs: !!zcsJob, faJob, zcsJob };
-    }
-    return null;
-  }));
+  const probed = await Promise.all(
+    ecus.map(async (e) => {
+      // READ CODING FROM THE CODING SGBD. The diagnostic SGBD a car lists
+      // (kombi46) answers ZCS_LESEN with a stale / uninitialised SA -- its
+      // region scan can lock onto a coincidentally-valid but WRONG 16 bytes
+      // (FFFFFFA8EF020F05 vs the true blank FFFFFFFFFFFFFFFF). The paired
+      // coding SGBD (c_kmb46) exposes C_ZCS_LESEN / C_FA_LESEN with NAMED
+      // GM/SA/VN keys and returns the authoritative value -- the same read
+      // NCS Expert performs. Prefer it whenever it ships (orphan .ecu, so it
+      // loads by name), falling back to the configured diagnostic SGBD.
+      const codingSgbd = await viCodingSgbdFor(e.sgbd, e.code, id);
+      for (const sgbd of [codingSgbd, e.sgbd]) {
+        if (!sgbd) continue;
+        const jobs = await viJobs(sgbd);
+        if (!jobs.length) continue;
+        const zcsJob = await viPickZcsJob(sgbd, jobs);
+        const faJob = await viPickFaJob(sgbd, jobs);
+        if (!zcsJob && !faJob) continue;
+        return {
+          sgbd,
+          label: e.label || e.sgbd,
+          fa: !!faJob,
+          zcs: !!zcsJob,
+          faJob,
+          zcsJob,
+        };
+      }
+      return null;
+    })
+  );
   return probed.filter(Boolean);
 }
 
@@ -268,8 +296,11 @@ async function viIdentityModulesCached(chassisId) {
 // Does this chassis have anything that can answer? Drives the nav tile, and
 // is the same test the screen runs -- so the tile never opens a dead end.
 async function chassisHasIdentity(chassisId) {
-  try { return (await viIdentityModulesCached(chassisId)).length > 0; }
-  catch (e) { return false; }
+  try {
+    return (await viIdentityModulesCached(chassisId)).length > 0;
+  } catch (e) {
+    return false;
+  }
 }
 
 // hex text -> bytes, or null. Accepts "0A 0B", "0A-0B" and "0x0A0B".
@@ -283,7 +314,8 @@ function viBytes(v) {
   }
   if (/^[0-9A-Fa-f]+$/.test(s) && s.length % 2 === 0) {
     const out = [];
-    for (let i = 0; i < s.length; i += 2) out.push(parseInt(s.substr(i, 2), 16));
+    for (let i = 0; i < s.length; i += 2)
+      out.push(parseInt(s.substr(i, 2), 16));
     return out;
   }
   return null;
@@ -306,8 +338,12 @@ function viKeysFrom(values, keyNames) {
   const vn = pick(keyNames && keyNames.vn);
   // A key may carry its Mod-36 check character; the tables mask the body only.
   if (gm && sa && vn) {
-    return { gm: gm.slice(0, 8), sa: sa.slice(0, 16), vn: vn.slice(0, 10),
-             source: 'named' };
+    return {
+      gm: gm.slice(0, 8),
+      sa: sa.slice(0, 16),
+      vn: vn.slice(0, 10),
+      source: 'named',
+    };
   }
   // No named keys: the reply may still CONTAIN the region. Every non-internal
   // result is a candidate blob, and the region is found by verifying its
@@ -326,11 +362,15 @@ function viKeysFrom(values, keyNames) {
 // Find the 20-byte ZCS region inside a larger blob by verifying its check
 // characters. Returns {gm,sa,vn,offset} or null.
 function viFindRegion(bytes) {
-  if (typeof CodingZcs === 'undefined' || !CodingZcs.parseZcsRegion) return null;
+  if (typeof CodingZcs === 'undefined' || !CodingZcs.parseZcsRegion)
+    return null;
   for (let off = 0; off + 20 <= bytes.length; off++) {
     let r;
-    try { r = CodingZcs.parseZcsRegion(bytes.slice(off, off + 20)); }
-    catch (e) { continue; }
+    try {
+      r = CodingZcs.parseZcsRegion(bytes.slice(off, off + 20));
+    } catch (e) {
+      continue;
+    }
     // All three check characters must verify. One passing by chance is
     // common (1 in 36); three at the same offset is not.
     if (r.gm.valid && r.sa.valid && r.vn.valid) {
@@ -344,7 +384,7 @@ function viFindRegion(bytes) {
 function viFaFrom(values, resultName) {
   if (!resultName || !values.has(resultName)) return null;
   const s = String(values.get(resultName)).trim();
-  return (s && /[_#*%&|$]/.test(s)) ? s : null;
+  return s && /[_#*%&|$]/.test(s) ? s : null;
 }
 
 // THE IDENTITY READ, WITHOUT THE SCREEN.
@@ -368,21 +408,32 @@ async function readIdentityCodes(chassisId) {
     if (typeof VehicleIdentity === 'undefined') return empty;
     if (typeof loadTables === 'function') await loadTables();
     let masters = [];
-    try { masters = await viIdentityModulesCached(id); }
-    catch (e) { return empty; }
+    try {
+      masters = await viIdentityModulesCached(id);
+    } catch (e) {
+      return empty;
+    }
     if (!masters.length) return empty;
 
     // The order first: its tokens are already catalogue numbers.
     for (const m of masters.filter((x) => x.fa)) {
       try {
-        const d = await api(`/api/ecu/${m.sgbd}/run/${m.faJob.job}`,
-                            { method: 'POST' });
+        const d = await api(`/api/ecu/${m.sgbd}/run/${m.faJob.job}`, {
+          method: 'POST',
+        });
         const text = viFaFrom(new Map(flatResults(d.sets)), m.faJob.result);
         if (!text) continue;
         const fa = VehicleIdentity.parseFa(text);
-        return { codes: VehicleIdentity.saCodesFromFa(fa), ci: {}, fa,
-                 keys: null, source: `${m.sgbd}:${m.faJob.job}` };
-      } catch (e) { /* try the next master */ }
+        return {
+          codes: VehicleIdentity.saCodesFromFa(fa),
+          ci: {},
+          fa,
+          keys: null,
+          source: `${m.sgbd}:${m.faJob.job}`,
+        };
+      } catch (e) {
+        /* try the next master */
+      }
     }
 
     // Then the coding key, translated through BMW's chassis tables. A key
@@ -392,20 +443,29 @@ async function readIdentityCodes(chassisId) {
     let blankFallback = null;
     for (const m of masters.filter((x) => x.zcs)) {
       try {
-        const d = await api(`/api/ecu/${m.sgbd}/run/${m.zcsJob.job}`,
-                            { method: 'POST' });
+        const d = await api(`/api/ecu/${m.sgbd}/run/${m.zcsJob.job}`, {
+          method: 'POST',
+        });
         const keys = viKeysFrom(new Map(flatResults(d.sets)), m.zcsJob.keys);
         if (!keys) continue;
         const eq = VehicleIdentity.saCodesFromZcs(id, keys);
-        const result = { codes: eq.codes, ci: eq.ci, fa: null, keys,
-                         blank: !!eq.blank, source: `${m.sgbd}:${m.zcsJob.job}` };
+        const result = {
+          codes: eq.codes,
+          ci: eq.ci,
+          fa: null,
+          keys,
+          blank: !!eq.blank,
+          source: `${m.sgbd}:${m.zcsJob.job}`,
+        };
         if (eq.blank || (!eq.resolved && !eq.codes.length)) {
           // remember the first blank/unresolved key, but keep looking
           if (!blankFallback) blankFallback = result;
           continue;
         }
         return result;
-      } catch (e) { /* try the next master */ }
+      } catch (e) {
+        /* try the next master */
+      }
     }
     // nothing resolved: return the blank key honestly (codes:[]) so the UI
     // shows "no options decoded" rather than inventing any
@@ -462,10 +522,15 @@ async function viReadColumn(m, sources, famName) {
         col.fa = VehicleIdentity.parseFa(text);
         sources.push({ sg, ok: true, what: `order via ${m.faJob.job}` });
       } else {
-        sources.push({ sg, ok: false,
-                       what: `${m.faJob.job}: no order in reply` });
+        sources.push({
+          sg,
+          ok: false,
+          what: `${m.faJob.job}: no order in reply`,
+        });
       }
-    } catch (e) { sources.push({ sg, ok: false, what: 'no answer' }); }
+    } catch (e) {
+      sources.push({ sg, ok: false, what: 'no answer' });
+    }
   }
   if (m.zcs && !col.fa) {
     try {
@@ -473,27 +538,43 @@ async function viReadColumn(m, sources, famName) {
       const k = viKeysFrom(values, m.zcsJob.keys);
       if (k) {
         col.keys = k;
-        sources.push({ sg, ok: true,
-          what: k.source === 'named' ? `keys via ${m.zcsJob.job}`
-                                     : `key region at byte ${k.offset}` });
+        sources.push({
+          sg,
+          ok: true,
+          what:
+            k.source === 'named'
+              ? `keys via ${m.zcsJob.job}`
+              : `key region at byte ${k.offset}`,
+        });
       } else {
         // a reply whose keys do not check out is NOT shown as the car's
-        sources.push({ sg, ok: false,
-                       what: `${m.zcsJob.job}: no valid key in reply` });
+        sources.push({
+          sg,
+          ok: false,
+          what: `${m.zcsJob.job}: no valid key in reply`,
+        });
       }
-    } catch (e) { sources.push({ sg, ok: false, what: 'no answer' }); }
+    } catch (e) {
+      sources.push({ sg, ok: false, what: 'no answer' });
+    }
   }
   // VIN and odometer, from whatever job this module itself declares for them
   const jobs = await viJobs(m.sgbd);
-  for (const [field, role] of [['vin', VI_VIN_ROLE], ['km', VI_KM_ROLE]]) {
+  for (const [field, role] of [
+    ['vin', VI_VIN_ROLE],
+    ['km', VI_KM_ROLE],
+  ]) {
     const pick = await viPickInfoJob(m.sgbd, jobs, role);
     if (!pick) continue;
     try {
       const values = await viRunValues(m.sgbd, pick.job);
       const v = values.has(pick.result)
-        ? String(values.get(pick.result)).trim() : '';
+        ? String(values.get(pick.result)).trim()
+        : '';
       if (v) col[field] = v;
-    } catch (e) { /* that row shows an em dash */ }
+    } catch (e) {
+      /* that row shows an em dash */
+    }
   }
   return col;
 }
@@ -501,7 +582,9 @@ async function viReadColumn(m, sources, famName) {
 // A full 17-char VIN carries the type key at positions 4..7 (WBA AV36 ...).
 // A short VIN cannot say; the row stays honest and empty.
 function viTypeKey(vin) {
-  const v = String(vin || '').toUpperCase().replace(/\s/g, '');
+  const v = String(vin || '')
+    .toUpperCase()
+    .replace(/\s/g, '');
   return /^[A-Z0-9]{17}$/.test(v) ? v.slice(3, 7) : null;
 }
 
@@ -510,8 +593,12 @@ function viTypeKey(vin) {
 // adds that variant's gearbox. Best-effort: a build without the parts
 // catalogue simply leaves those rows empty.
 async function viEtkDecode(vin) {
-  if (typeof loadVinIndex !== 'function'
-      || typeof decodeVin !== 'function' || !vin) return null;
+  if (
+    typeof loadVinIndex !== 'function' ||
+    typeof decodeVin !== 'function' ||
+    !vin
+  )
+    return null;
   try {
     const d = decodeVin(await loadVinIndex(), vin);
     if (!d) return null;
@@ -522,15 +609,24 @@ async function viEtkDecode(vin) {
         const rows = ((veh[d.chassis] || {})[d.body] || {})[d.model] || [];
         const hit = rows.find((r) => r[3] === d.mospid);
         if (hit) gear = hit[1];
-      } catch (e) { /* no gearbox column then */ }
+      } catch (e) {
+        /* no gearbox column then */
+      }
     }
     return { ...d, gear };
-  } catch (e) { return null; }
+  } catch (e) {
+    return null;
+  }
 }
 
 // The ZST keywords name the body and engine in BMW's own vocabulary.
-const VI_BODY_WORDS = { LIM: 'Limousine', TOUR: 'Touring', COUP: 'Coupé',
-                        CABR: 'Cabrio', COMP: 'Compact' };
+const VI_BODY_WORDS = {
+  LIM: 'Limousine',
+  TOUR: 'Touring',
+  COUP: 'Coupé',
+  CABR: 'Cabrio',
+  COMP: 'Compact',
+};
 const VI_ENGINE_KW = /^[MNSW]\d{2,3}[A-Z]\d{2}/;
 
 // What one column SAYS about the car, decoded from its own record.
@@ -545,7 +641,7 @@ function viColInfo(id, col, etk) {
     model: (etk && etk.model) || null,
     body: (etk && etk.body) || (bodyKw ? VI_BODY_WORDS[bodyKw] : null),
     engine: engineKw || (etk && etk.motor) || null,
-    gearbox: etk && etk.gear ? (gearMap[etk.gear] || etk.gear) : null,
+    gearbox: etk && etk.gear ? gearMap[etk.gear] || etk.gear : null,
     typeKey: viTypeKey(col.vin) || (col.fa && col.fa.typ) || null,
     sa,
   };
@@ -557,7 +653,9 @@ function viZcsFmt(kind, body) {
   try {
     const f = CodingZcs['format' + kind](body);
     return `${f.slice(0, -1)}-${f.slice(-1)}`;
-  } catch (e) { return body; }
+  } catch (e) {
+    return body;
+  }
 }
 
 // Parameter table: label column plus one column per master. A row nobody
@@ -567,21 +665,24 @@ function viZcsFmt(kind, body) {
 // the same car, not a mismatch). `soft` rows never flag: the odometer copies
 // update at different moments and a 1 km skew is normal.
 function viNcsTable(cols, rows) {
-  let h = `<table class="vi-ncs"><thead><tr><th>Parameter</th>`
-    + cols.map((c) => `<th>${esc(c.title)}</th>`).join('')
-    + `</tr></thead><tbody>`;
+  let h =
+    `<table class="vi-ncs"><thead><tr><th>Parameter</th>` +
+    cols.map((c) => `<th>${esc(c.title)}</th>`).join('') +
+    `</tr></thead><tbody>`;
   for (const [label, get, soft] of rows) {
     const vals = cols.map(get);
     if (!vals.some(Boolean)) continue;
-    const norm = vals.filter(Boolean)
+    const norm = vals
+      .filter(Boolean)
       .map((v) => String(v).replace(/\s+/g, '').toUpperCase());
     const compatible = norm.every((a) =>
-      norm.every((b) => a.includes(b) || b.includes(a)));
+      norm.every((b) => a.includes(b) || b.includes(a))
+    );
     const mism = !soft && !compatible;
-    h += `<tr${mism ? ' class="vi-mismatch"' : ''}><td>${esc(label)}</td>`
-      + vals.map((v) =>
-        `<td class="mono">${v ? esc(v) : '—'}</td>`).join('')
-      + `</tr>`;
+    h +=
+      `<tr${mism ? ' class="vi-mismatch"' : ''}><td>${esc(label)}</td>` +
+      vals.map((v) => `<td class="mono">${v ? esc(v) : '—'}</td>`).join('') +
+      `</tr>`;
   }
   return h + `</tbody></table>`;
 }
@@ -594,46 +695,66 @@ function viNcsTable(cols, rows) {
 // predicates key on (KLIMAREGELUNG). The name leads; the keyword stays on
 // the row, dimmed, because it is what the coding filter actually matches.
 function viOptionsBox(id, cols) {
-  const lists = cols.map((c) => {
-    const codes = c.codes || [];
-    if (!codes.length) {
-      return `<div><h4>${esc(c.title)}</h4>`
-        + `<div class="vi-none">No options resolved.</div></div>`;
-    }
-    const date = (c.etk && c.etk.prod) || 0;
-    const items = codes.map((code) => {
-      const kw = VehicleIdentity.saLabel(id, code);
-      const name = VehicleIdentity.saName(code, date);
-      const num = `<span class="mono">&lt;${esc(String(code)
-        .padStart(4, '0'))}&gt;</span>`;
-      if (name) {
-        return `<li>${num} <span class="vi-opt-name">${esc(name)}</span>`
-          + (kw ? ` <span class="vi-opt-kw">${esc(kw)}</span>` : '') + `</li>`;
+  const lists = cols
+    .map((c) => {
+      const codes = c.codes || [];
+      if (!codes.length) {
+        return (
+          `<div><h4>${esc(c.title)}</h4>` +
+          `<div class="vi-none">No options resolved.</div></div>`
+        );
       }
-      return `<li>${num} ${kw ? esc(kw) : ''}</li>`;
-    }).join('');
-    return `<div><h4>${esc(c.title)}</h4><ul class="vi-opt">${items}</ul></div>`;
-  }).join('');
-  return `<div class="vi-block"><h3>Options</h3>`
-    + `<div class="vi-opt-grid" style="--vi-cols:${cols.length}">${lists}</div>`
-    + `</div>`;
+      const date = (c.etk && c.etk.prod) || 0;
+      const items = codes
+        .map((code) => {
+          const kw = VehicleIdentity.saLabel(id, code);
+          const name = VehicleIdentity.saName(code, date);
+          const num = `<span class="mono">&lt;${esc(
+            String(code).padStart(4, '0')
+          )}&gt;</span>`;
+          if (name) {
+            return (
+              `<li>${num} <span class="vi-opt-name">${esc(name)}</span>` +
+              (kw ? ` <span class="vi-opt-kw">${esc(kw)}</span>` : '') +
+              `</li>`
+            );
+          }
+          return `<li>${num} ${kw ? esc(kw) : ''}</li>`;
+        })
+        .join('');
+      return `<div><h4>${esc(c.title)}</h4><ul class="vi-opt">${items}</ul></div>`;
+    })
+    .join('');
+  return (
+    `<div class="vi-block"><h3>Options</h3>` +
+    `<div class="vi-opt-grid" style="--vi-cols:${cols.length}">${lists}</div>` +
+    `</div>`
+  );
 }
 
 // The wait: a read is several jobs against several modules over a slow bus,
 // so the pane says what it is doing rather than sitting empty.
 function viLoading(text) {
-  return `<div class="vi-loading"><span class="wiring-spinner"></span>`
-    + `<span>${esc(text)}</span></div>`;
+  return (
+    `<div class="vi-loading"><span class="wiring-spinner"></span>` +
+    `<span>${esc(text)}</span></div>`
+  );
 }
 
 // The source strip: which ECU answered, and how.
 function viSources(entries) {
   if (!entries.length) return '';
-  return `<div class="vi-src">`
-    + entries.map((e) =>
-      `<span class="vi-src-i ${e.ok ? 'ok' : 'bad'}">`
-      + `<b>${esc(e.sg)}</b> ${esc(e.what)}</span>`).join('')
-    + `</div>`;
+  return (
+    `<div class="vi-src">` +
+    entries
+      .map(
+        (e) =>
+          `<span class="vi-src-i ${e.ok ? 'ok' : 'bad'}">` +
+          `<b>${esc(e.sg)}</b> ${esc(e.what)}</span>`
+      )
+      .join('') +
+    `</div>`
+  );
 }
 
 // ---- screen ----------------------------------------------------------------
@@ -641,8 +762,10 @@ function viSources(entries) {
 async function showVehicleIdentity(chassisId) {
   const id = String(chassisId || '').toUpperCase();
   lastScreen = () => showVehicleIdentity(chassisId);
-  const back = () => (typeof showSections === 'function'
-    ? showSections(chassisId) : showChassis());
+  const back = () =>
+    typeof showSections === 'function'
+      ? showSections(chassisId)
+      : showChassis();
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(chassisId), fn: back },
@@ -650,22 +773,31 @@ async function showVehicleIdentity(chassisId) {
   ]);
   sbLeft.textContent = `${dispChassis(chassisId)} · identity`;
 
-  view.innerHTML = head('Identity', dispChassis(chassisId),
-    'What the car reports about its own build, and the equipment that follows '
-    + 'from it.');
+  view.innerHTML = head(
+    'Identity',
+    dispChassis(chassisId),
+    'What the car reports about its own build, and the equipment that follows ' +
+      'from it.'
+  );
   const panel = document.createElement('div');
   panel.className = 'vi-panel';
   view.appendChild(panel);
 
-  const acts = [{ key: '1', keyLabel: 'F1', label: 'Re-read',
-                  fn: () => showVehicleIdentity(chassisId) },
-                { key: 'Escape', keyLabel: 'Esc', label: 'Back',
-                  kind: 'back', fn: back }];
+  const acts = [
+    {
+      key: '1',
+      keyLabel: 'F1',
+      label: 'Re-read',
+      fn: () => showVehicleIdentity(chassisId),
+    },
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
+  ];
   setActions(acts);
 
   // A re-read while one is running: the older pass must not paint over the
   // newer one when its slower jobs come back.
-  const pass = (showVehicleIdentity._pass = (showVehicleIdentity._pass || 0) + 1);
+  const pass = (showVehicleIdentity._pass =
+    (showVehicleIdentity._pass || 0) + 1);
   const stale = () => showVehicleIdentity._pass !== pass;
   const wait = (text) => {
     if (stale()) return;
@@ -682,23 +814,27 @@ async function showVehicleIdentity(chassisId) {
   if (stale()) return;
   if (!masters.length) {
     panel.innerHTML = errorBlock(
-      `No control unit on ${esc(dispChassis(chassisId))} declares a job that `
-      + `returns the build record. Without one there is nothing to read.`);
+      `No control unit on ${esc(dispChassis(chassisId))} declares a job that ` +
+        `returns the build record. Without one there is nothing to read.`
+    );
     sbLeft.textContent = 'no identity source';
     return;
   }
 
   // SGFAM's family name, for labelling the source strip. Absent is fine --
   // it is a nicety, not the mechanism.
-  const fam = (typeof VehicleIdentity !== 'undefined')
-    ? VehicleIdentity.familyMap(id) : null;
+  const fam =
+    typeof VehicleIdentity !== 'undefined'
+      ? VehicleIdentity.familyMap(id)
+      : null;
   const famName = (sgbd) => {
     if (!fam) return null;
     const s = String(sgbd).toUpperCase();
     // an exact logical name, else the family whose CABD/ASW mentions it
     if (fam[s]) return s;
-    return Object.keys(fam).find((k) =>
-      s.startsWith(k) || k.startsWith(s)) || null;
+    return (
+      Object.keys(fam).find((k) => s.startsWith(k) || k.startsWith(s)) || null
+    );
   };
 
   // EVERY master is read, and each keeps its own column -- the copies are the
@@ -708,18 +844,21 @@ async function showVehicleIdentity(chassisId) {
   const cols = [];
   for (let i = 0; i < masters.length; i++) {
     const m = masters[i];
-    wait(`Reading ${famName(m.sgbd) || m.label || m.sgbd} `
-         + `(${i + 1} of ${masters.length})…`);
+    wait(
+      `Reading ${famName(m.sgbd) || m.label || m.sgbd} ` +
+        `(${i + 1} of ${masters.length})…`
+    );
     const col = await viReadColumn(m, sources, famName);
     if (stale()) return;
     if (col.keys || col.fa || col.vin || col.km) cols.push(col);
   }
 
   if (!cols.length) {
-    panel.innerHTML = errorBlock(
-      'No control unit answered with a build record. Check the cable and the '
-      + 'ignition (engine off, key on), then re-read.')
-      + viSources(sources);
+    panel.innerHTML =
+      errorBlock(
+        'No control unit answered with a build record. Check the cable and the ' +
+          'ignition (engine off, key on), then re-read.'
+      ) + viSources(sources);
     sbLeft.textContent = 'no identity';
     return;
   }
@@ -732,8 +871,9 @@ async function showVehicleIdentity(chassisId) {
   const fullVinFor = (short) => {
     const s = String(short || '');
     if (s.length >= 17) return s;
-    const hit = cols.find((o) => o.vin && String(o.vin).length >= 17
-                                  && String(o.vin).endsWith(s));
+    const hit = cols.find(
+      (o) => o.vin && String(o.vin).length >= 17 && String(o.vin).endsWith(s)
+    );
     return hit ? hit.vin : s;
   };
   for (const col of cols) {
@@ -745,11 +885,11 @@ async function showVehicleIdentity(chassisId) {
     }
     col.codes = col.fa
       ? VehicleIdentity.saCodesFromFa(col.fa)
-      : ((col.info.sa && col.info.sa.codes) || []);
+      : (col.info.sa && col.info.sa.codes) || [];
   }
 
-  const kmText = (v) => (v == null ? null
-    : (/^\d+(\.\d+)?$/.test(String(v)) ? `${v} km` : String(v)));
+  const kmText = (v) =>
+    v == null ? null : /^\d+(\.\d+)?$/.test(String(v)) ? `${v} km` : String(v);
 
   const infoRows = [
     ['Chassis', (c) => c.info.chassis],
@@ -763,28 +903,34 @@ async function showVehicleIdentity(chassisId) {
   ];
   const zcsRows = [
     ['Type-Key', (c) => c.info.typeKey],
-    ['ZCS GM', (c) => c.keys ? viZcsFmt('Gm', c.keys.gm) : null],
-    ['ZCS SA', (c) => c.keys ? viZcsFmt('Sa', c.keys.sa) : null],
-    ['ZCS VN', (c) => c.keys ? viZcsFmt('Vn', c.keys.vn) : null],
+    ['ZCS GM', (c) => (c.keys ? viZcsFmt('Gm', c.keys.gm) : null)],
+    ['ZCS SA', (c) => (c.keys ? viZcsFmt('Sa', c.keys.sa) : null)],
+    ['ZCS VN', (c) => (c.keys ? viZcsFmt('Vn', c.keys.vn) : null)],
     // the FA generation's record, in the same box (NCS titles it ZCS/FA)
-    ['Order date', (c) => c.fa && c.fa.date
-      ? String(c.fa.date).replace(/^#/, '') : null],
+    [
+      'Order date',
+      (c) => (c.fa && c.fa.date ? String(c.fa.date).replace(/^#/, '') : null),
+    ],
     ['Paint', (c) => c.fa && c.fa.lack],
     ['Upholstery', (c) => c.fa && c.fa.polster],
   ];
 
   if (stale()) return;
   panel.innerHTML =
-    `<div class="vi-block"><h3>Information about car</h3>`
-    + `<div class="vi-ncs-wrap">${viNcsTable(cols, infoRows)}</div></div>`
-    + `<div class="vi-block"><h3>ZCS/FA coding</h3>`
-    + `<div class="vi-ncs-wrap">${viNcsTable(cols, zcsRows)}</div></div>`
-    + viOptionsBox(id, cols)
-    + cols.filter((c) => c.faRaw).map((c) =>
-        `<details class="vi-raw"><summary>Raw order · ${esc(c.title)}`
-        + `</summary><code class="mono">${esc(c.faRaw)}</code></details>`)
-      .join('')
-    + viSources(sources);
+    `<div class="vi-block"><h3>Information about car</h3>` +
+    `<div class="vi-ncs-wrap">${viNcsTable(cols, infoRows)}</div></div>` +
+    `<div class="vi-block"><h3>ZCS/FA coding</h3>` +
+    `<div class="vi-ncs-wrap">${viNcsTable(cols, zcsRows)}</div></div>` +
+    viOptionsBox(id, cols) +
+    cols
+      .filter((c) => c.faRaw)
+      .map(
+        (c) =>
+          `<details class="vi-raw"><summary>Raw order · ${esc(c.title)}` +
+          `</summary><code class="mono">${esc(c.faRaw)}</code></details>`
+      )
+      .join('') +
+    viSources(sources);
 
   const nCodes = Math.max(...cols.map((c) => (c.codes || []).length), 0);
   sbLeft.textContent = nCodes

@@ -29,8 +29,10 @@ const ROOT = path.join(__dirname, '..', '..');
 
 let failures = 0;
 function check(what, ok) {
-  if (!ok) { failures++; console.log(`  FAIL  ${what}`); }
-  else console.log(`  ok    ${what}`);
+  if (!ok) {
+    failures++;
+    console.log(`  FAIL  ${what}`);
+  } else console.log(`  ok    ${what}`);
 }
 
 // ---- the floor: generated group data must EXIST. Like test_writeguard
@@ -41,8 +43,11 @@ const GROUPS = path.join(ROOT, 'data', 'groups');
 const needed = ['d_00a4.json.gz', 'd_0032.json.gz', 'variants.json'];
 const absent = needed.filter((f) => !fs.existsSync(path.join(GROUPS, f)));
 if (absent.length) {
-  check(`data/groups present (missing: ${absent.join(', ')}`
-    + ' -- regenerate with tools/export/sgbd_export.py --groups)', false);
+  check(
+    `data/groups present (missing: ${absent.join(', ')}` +
+      ' -- regenerate with tools/export/sgbd_export.py --groups)',
+    false
+  );
   console.log(`\n${failures} FAILURES`);
   process.exit(1);
 }
@@ -52,23 +57,31 @@ function loadGroup(name) {
   return JSON.parse(zlib.gunzipSync(gz).toString('utf8'));
 }
 const variants = JSON.parse(
-  fs.readFileSync(path.join(GROUPS, 'variants.json'), 'utf8'));
-check('variants.json carries the ZuordnungsTabelle rows',
-      variants.table === 'ZuordnungsTabelle'
-      && Array.isArray(variants.rows) && variants.rows.length > 500);
+  fs.readFileSync(path.join(GROUPS, 'variants.json'), 'utf8')
+);
+check(
+  'variants.json carries the ZuordnungsTabelle rows',
+  variants.table === 'ZuordnungsTabelle' &&
+    Array.isArray(variants.rows) &&
+    variants.rows.length > 500
+);
 
 // ---- load the VM (and later webshim) the way the other verify tests do
 const ctx = { module: { exports: {} }, console };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'), ctx);
+vm.runInContext(
+  fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
+  ctx
+);
 const { Best2Vm, isWriteJob } = ctx.module.exports;
 
 // IDENTIFIKATION is a pure read; the resolver must never need allowWrites.
 // (Asserted, not assumed -- the classifier is pinned by test_write_gate.js
 // and NOT modified here.)
-check('isWriteJob classifies IDENTIFIKATION as a read',
-      isWriteJob('IDENTIFIKATION') === false);
+check(
+  'isWriteJob classifies IDENTIFIKATION as a read',
+  isWriteJob('IDENTIFIKATION') === false
+);
 
 // Run a group's IDENTIFIKATION with a stub sink. No allowWrites: this is
 // exactly how the live resolver runs it, so a classifier regression that
@@ -77,19 +90,28 @@ function runGroup(name, answerFn, opts = {}) {
   const code = loadGroup(name);
   const sends = [];
   const tables = Object.assign({}, code.tables || {});
-  if (!Object.keys(tables)
-    .some((k) => k.toUpperCase() === variants.table.toUpperCase())) {
+  if (
+    !Object.keys(tables).some(
+      (k) => k.toUpperCase() === variants.table.toUpperCase()
+    )
+  ) {
     tables[variants.table] = variants.rows;
   }
-  const machine = new Best2Vm(code, Object.assign({
-    tables,
-    extTables: { t_grtb: { [variants.table]: variants.rows } },
-    send: (req) => {
-      const ans = answerFn(Array.from(req)) || [];
-      sends.push(Array.from(req));
-      return ans;
-    },
-  }, opts));
+  const machine = new Best2Vm(
+    code,
+    Object.assign(
+      {
+        tables,
+        extTables: { t_grtb: { [variants.table]: variants.rows } },
+        send: (req) => {
+          const ans = answerFn(Array.from(req)) || [];
+          sends.push(Array.from(req));
+          return ans;
+        },
+      },
+      opts
+    )
+  );
   return { sets: machine.run('IDENTIFIKATION', ''), sends };
 }
 
@@ -108,21 +130,25 @@ const A4_IDENT = String([0xa4, 4, 0]);
 // response a full DS2 frame [addr, totalLen, status, payload..., chk].
 {
   const ans = [0xa4, 0x0c, 0xa0, 0, 0, 0, 0, 0, 0x00, 0x09, 0, 0x01];
-  const r = runGroup('d_00a4',
-                     (req) => (String(req) === A4_IDENT ? ans : []));
-  check('d_00a4: byte[9] low nibble 9 resolves to MRS4',
-        varianteOf(r.sets) === 'MRS4');
-  check('d_00a4: one exchange settles the direct-ident path',
-        r.sends.length === 1);
+  const r = runGroup('d_00a4', (req) => (String(req) === A4_IDENT ? ans : []));
+  check(
+    'd_00a4: byte[9] low nibble 9 resolves to MRS4',
+    varianteOf(r.sets) === 'MRS4'
+  );
+  check(
+    'd_00a4: one exchange settles the direct-ident path',
+    r.sends.length === 1
+  );
 }
 
 // ---- d_00a4: byte[8] path (nibble 1) -> ZAE, when byte[9] matches nothing
 {
   const ans = [0xa4, 0x0c, 0xa0, 0, 0, 0, 0, 0, 0x01, 0x00, 0, 0x01];
-  const r = runGroup('d_00a4',
-                     (req) => (String(req) === A4_IDENT ? ans : []));
-  check('d_00a4: byte[8] low nibble 1 resolves to ZAE',
-        varianteOf(r.sets) === 'ZAE');
+  const r = runGroup('d_00a4', (req) => (String(req) === A4_IDENT ? ans : []));
+  check(
+    'd_00a4: byte[8] low nibble 1 resolves to ZAE',
+    varianteOf(r.sets) === 'ZAE'
+  );
 }
 
 // ---- d_00a4: a busy ECU (0xA2 ack, then 0x90-read) still resolves
@@ -136,27 +162,37 @@ const A4_IDENT = String([0xa4, 4, 0]);
         ? [0xa4, 0x04, 0xa2, 0x02]
         : [0xa4, 0x0c, 0xa0, 0, 0, 0, 0, 0, 0x00, 0x09, 0, 0x01];
     }
-    if (String(req) === readIdent) { phase = 1; return [0xa4, 0x04, 0xa0, 0x00]; }
+    if (String(req) === readIdent) {
+      phase = 1;
+      return [0xa4, 0x04, 0xa0, 0x00];
+    }
     return [];
   });
-  check('d_00a4: the 0xA2-ack + 0x90-read path also lands on MRS4',
-        varianteOf(r.sets) === 'MRS4');
+  check(
+    'd_00a4: the 0xA2-ack + 0x90-read path also lands on MRS4',
+    varianteOf(r.sets) === 'MRS4'
+  );
 }
 
 // ---- d_00a4: 0xA1 means "busy, ask again" -- bounded at 5 retries
 {
-  const r = runGroup('d_00a4', (req) => (String(req) === A4_IDENT
-    ? [0xa4, 0x04, 0xa1, 0x01] : []));
+  const r = runGroup('d_00a4', (req) =>
+    String(req) === A4_IDENT ? [0xa4, 0x04, 0xa1, 0x01] : []
+  );
   const identSends = r.sends.filter((s) => String(s) === A4_IDENT).length;
-  check('d_00a4: a stuck-busy ECU is retried 5 times then given up on',
-        identSends === 6 && varianteOf(r.sets) === null);
+  check(
+    'd_00a4: a stuck-busy ECU is retried 5 times then given up on',
+    identSends === 6 && varianteOf(r.sets) === null
+  );
 }
 
 // ---- d_00a4: silence yields NO variant -- never a fake one
 {
   const r = runGroup('d_00a4', () => []);
-  check('d_00a4: no answer -> no VARIANTE result (not a fake variant)',
-        varianteOf(r.sets) === null);
+  check(
+    'd_00a4: no answer -> no VARIANTE result (not a fake variant)',
+    varianteOf(r.sets) === null
+  );
 }
 
 // ---- d_0032: the ZuordnungsTabelle path. Pick a real row from
@@ -168,17 +204,29 @@ const A4_IDENT = String([0xa4, 4, 0]);
 // [3]=len=total-5 (>= 0x1f), [4]=0x5a (KWP positive reply to 0x1a).
 {
   const row = variants.rows.find((x) => x.ADR_VAR_DIAG === '32 .2M. 0550');
-  check('variants.json still carries the "32 .2M. 0550" -> GS30 row',
-        !!row && row.SGBD === 'GS30');
+  check(
+    'variants.json still carries the "32 .2M. 0550" -> GS30 row',
+    !!row && row.SGBD === 'GS30'
+  );
   const ans = new Array(36).fill(0);
-  ans[0] = 0xb8; ans[1] = 0xf1; ans[2] = 0x32;
-  ans[3] = 0x1f; ans[4] = 0x5a; ans[5] = 0x80;
-  ans[14] = 0x05; ans[15] = 0x50;               // -> "0550"
-  ans[16] = 0x32; ans[17] = 0x4d;               // '2','M' -> ".2M."
-  const r = runGroup('d_0032', (req) => (
-    String(req) === String([0xb8, 0x32, 0xf1, 2, 0x1a, 0x80]) ? ans : []));
-  check('d_0032: crafted gearbox ident resolves through ZuordnungsTabelle '
-    + 'to GS30', varianteOf(r.sets) === 'GS30');
+  ans[0] = 0xb8;
+  ans[1] = 0xf1;
+  ans[2] = 0x32;
+  ans[3] = 0x1f;
+  ans[4] = 0x5a;
+  ans[5] = 0x80;
+  ans[14] = 0x05;
+  ans[15] = 0x50; // -> "0550"
+  ans[16] = 0x32;
+  ans[17] = 0x4d; // '2','M' -> ".2M."
+  const r = runGroup('d_0032', (req) =>
+    String(req) === String([0xb8, 0x32, 0xf1, 2, 0x1a, 0x80]) ? ans : []
+  );
+  check(
+    'd_0032: crafted gearbox ident resolves through ZuordnungsTabelle ' +
+      'to GS30',
+    varianteOf(r.sets) === 'GS30'
+  );
 }
 
 // ---- d_0032: an ident that matches NO row never invents a REAL variant.
@@ -190,14 +238,23 @@ const A4_IDENT = String([0xa4, 4, 0]);
 // callers get the sentinel or nothing, never a wrong module.
 {
   const ans = new Array(36).fill(0);
-  ans[0] = 0xb8; ans[1] = 0xf1; ans[2] = 0x32;
-  ans[3] = 0x1f; ans[4] = 0x5a; ans[5] = 0x80;
-  ans[14] = 0xee; ans[15] = 0xee;               // key "32 0000 EEEE": no row
-  const r = runGroup('d_0032', (req) => (
-    String(req) === String([0xb8, 0x32, 0xf1, 2, 0x1a, 0x80]) ? ans : []));
+  ans[0] = 0xb8;
+  ans[1] = 0xf1;
+  ans[2] = 0x32;
+  ans[3] = 0x1f;
+  ans[4] = 0x5a;
+  ans[5] = 0x80;
+  ans[14] = 0xee;
+  ans[15] = 0xee; // key "32 0000 EEEE": no row
+  const r = runGroup('d_0032', (req) =>
+    String(req) === String([0xb8, 0x32, 0xf1, 2, 0x1a, 0x80]) ? ans : []
+  );
   const v = varianteOf(r.sets);
-  check('d_0032: an unmatched ident yields the XYZ sentinel or nothing, '
-    + 'never a real variant', v === null || v === 'XYZ');
+  check(
+    'd_0032: an unmatched ident yields the XYZ sentinel or nothing, ' +
+      'never a real variant',
+    v === null || v === 'XYZ'
+  );
 }
 
 // ---- tabsetex semantics, pinned directly (OpTabsetex): a non-empty file
@@ -209,26 +266,61 @@ const A4_IDENT = String([0xa4, 4, 0]);
     sgbd: 'syn',
     jobs: { IDENT_TABSETEX: 0 },
     ops: [
-      ['tabsetex', [[8, 0], [8, 1]]],
-      ['tabseek', [[8, 2], [8, 3]]],
-      ['tabget', [[1, 'S1'], [8, 4]]],
-      ['ergs', [[8, 5], [1, 'S1']]],
+      [
+        'tabsetex',
+        [
+          [8, 0],
+          [8, 1],
+        ],
+      ],
+      [
+        'tabseek',
+        [
+          [8, 2],
+          [8, 3],
+        ],
+      ],
+      [
+        'tabget',
+        [
+          [1, 'S1'],
+          [8, 4],
+        ],
+      ],
+      [
+        'ergs',
+        [
+          [8, 5],
+          [1, 'S1'],
+        ],
+      ],
       ['eoj', []],
     ],
-    strings: ['ZuordnungsTabelle', 't_grtb', 'ADR_VAR_DIAG',
-              '32 .2M. 0550', 'SGBD', 'VARIANTE'],
+    strings: [
+      'ZuordnungsTabelle',
+      't_grtb',
+      'ADR_VAR_DIAG',
+      '32 .2M. 0550',
+      'SGBD',
+      'VARIANTE',
+    ],
   };
-  const mk = (opts) => new Best2Vm(syn, Object.assign({ send: () => [] }, opts));
+  const mk = (opts) =>
+    new Best2Vm(syn, Object.assign({ send: () => [] }, opts));
   const viaExt = mk({
     extTables: { t_grtb: { ZuordnungsTabelle: variants.rows } },
   }).run('IDENT_TABSETEX', '');
-  check('tabsetex reaches ZuordnungsTabelle in the injected t_grtb',
-        varianteOf(viaExt) === 'GS30');
+  check(
+    'tabsetex reaches ZuordnungsTabelle in the injected t_grtb',
+    varianteOf(viaExt) === 'GS30'
+  );
   const localOnly = mk({
-    tables: { ZuordnungsTabelle: variants.rows },   // present, but LOCAL
+    tables: { ZuordnungsTabelle: variants.rows }, // present, but LOCAL
   }).run('IDENT_TABSETEX', '');
-  check('tabsetex does NOT fall back to local tables (OpTabsetex has none)',
-        varianteOf(localOnly) !== 'GS30');
+  check(
+    'tabsetex does NOT fall back to local tables (OpTabsetex has none)',
+    varianteOf(localOnly) !== 'GS30'
+  );
 }
 
 // ---- webshim's public resolver, end to end: loader (gz), variants.json,
@@ -247,31 +339,46 @@ const A4_IDENT = String([0xa4, 4, 0]);
     TextDecoder,
     Promise,
     JSON,
-    Response: class { /* never constructed: fetch below is the stub */ },
+    Response: class {
+      /* never constructed: fetch below is the stub */
+    },
   };
-  wctx.window = wctx;                       // webshim exports onto `window`
+  wctx.window = wctx; // webshim exports onto `window`
   wctx.self = wctx;
   // serve data/groups/* from disk; gunzip in JS to mimic fflate
-  wctx.fflate = { gunzipSync: (b) => zlib.gunzipSync(Buffer.from(b)),
-                  unzipSync: () => { throw new Error('not used here'); } };
+  wctx.fflate = {
+    gunzipSync: (b) => zlib.gunzipSync(Buffer.from(b)),
+    unzipSync: () => {
+      throw new Error('not used here');
+    },
+  };
   wctx.fetch = async (p) => {
     const file = path.join(ROOT, String(p).replace(/^\//, ''));
     if (!fs.existsSync(file)) return { ok: false };
     const bytes = fs.readFileSync(file);
     return {
       ok: true,
-      arrayBuffer: async () => bytes.buffer
-        .slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      arrayBuffer: async () =>
+        bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength
+        ),
       json: async () => JSON.parse(bytes.toString('utf8')),
     };
   };
   vm.createContext(wctx);
-  vm.runInContext(fs.readFileSync(
-    path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'), wctx);
-  vm.runInContext(fs.readFileSync(
-    path.join(ROOT, 'app/renderer/core/webshim.js'), 'utf8'), wctx);
-  check('webshim exports webResolveVariant on window',
-        typeof wctx.window.webResolveVariant === 'function');
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
+    wctx
+  );
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'app/renderer/core/webshim.js'), 'utf8'),
+    wctx
+  );
+  check(
+    'webshim exports webResolveVariant on window',
+    typeof wctx.window.webResolveVariant === 'function'
+  );
 
   // stub the bus AFTER load: same object the resolver closed over
   let answer = null;
@@ -287,12 +394,16 @@ const A4_IDENT = String([0xa4, 4, 0]);
   (async () => {
     answer = [0xa4, 0x0c, 0xa0, 0, 0, 0, 0, 0, 0x00, 0x09, 0, 0x01];
     const v1 = await wctx.window.webResolveVariant('d_00a4');
-    check('webResolveVariant resolves d_00a4 -> "mrs4" (lowercased)',
-          v1 === 'mrs4');
+    check(
+      'webResolveVariant resolves d_00a4 -> "mrs4" (lowercased)',
+      v1 === 'mrs4'
+    );
     const before = exchanges;
     const v2 = await wctx.window.webResolveVariant('d_00a4');
-    check('a second resolve is served from the session cache (no exchange)',
-          v2 === 'mrs4' && exchanges === before);
+    check(
+      'a second resolve is served from the session cache (no exchange)',
+      v2 === 'mrs4' && exchanges === before
+    );
     answer = null;
     const v3 = await wctx.window.webResolveVariant('d_0032');
     check('webResolveVariant returns null when nothing answers', v3 === null);
@@ -310,14 +421,16 @@ const A4_IDENT = String([0xa4, 4, 0]);
     // answering perfectly, and the sweep drew it as "not installed" while the
     // module held ten real stored faults.
     const tried = [];
-    const MS45 = [0xB8,0xF1,0x12,0x1F,0x5A,0x80,0x00,0x00,0x07,0x56,0x13,0x82,
-                  0x00,0x00,0x00,0x11,0x31,0x43,0x20,0x03,0x09,0x03,0x04,0x00,
-                  0x0D,0x91,0xFF,0xFF,0xFF,0x02,0x03,0x01,0xFF,0xFF,0xFF,0x8C];
+    const MS45 = [
+      0xb8, 0xf1, 0x12, 0x1f, 0x5a, 0x80, 0x00, 0x00, 0x07, 0x56, 0x13, 0x82,
+      0x00, 0x00, 0x00, 0x11, 0x31, 0x43, 0x20, 0x03, 0x09, 0x03, 0x04, 0x00,
+      0x0d, 0x91, 0xff, 0xff, 0xff, 0x02, 0x03, 0x01, 0xff, 0xff, 0xff, 0x8c,
+    ];
     wctx.window.webBus.exchange = async (out) => {
       const a = Array.from(out);
       tried.push(a.map((b) => b.toString(16).padStart(2, '0')).join(' '));
       // the car answers ONLY the KWP2000* ident, exactly as captured
-      if (a[0] === 0xB8 && a[1] === 0x12 && a[3] === 0x02 && a[4] === 0x1A) {
+      if (a[0] === 0xb8 && a[1] === 0x12 && a[3] === 0x02 && a[4] === 0x1a) {
         return MS45;
       }
       const e = new Error('no answer from ECU (timeout)');
@@ -325,10 +438,15 @@ const A4_IDENT = String([0xa4, 4, 0]);
       throw e;
     };
     const v5 = await wctx.window.webResolveVariant('d_0012');
-    check('d_0012 walks past its silent DS2 probe and resolves the MS45'
-          + ` (tried ${tried.length} telegrams)`, v5 === 'ms450ds0');
-    check('and it really did have to skip a silent probe first',
-          tried.length >= 2 && /^12 04 00/.test(tried[0]));
+    check(
+      'd_0012 walks past its silent DS2 probe and resolves the MS45' +
+        ` (tried ${tried.length} telegrams)`,
+      v5 === 'ms450ds0'
+    );
+    check(
+      'and it really did have to skip a silent probe first',
+      tried.length >= 2 && /^12 04 00/.test(tried[0])
+    );
 
     // The opposite case must still hold: an address where NOTHING answers is
     // absent. Without this the fix would turn every dead address into a
@@ -341,8 +459,9 @@ const A4_IDENT = String([0xa4, 4, 0]);
     const v6 = await wctx.window.webResolveVariant('d_0070');
     check('an address that answers NOTHING is still absent', v6 === null);
 
-    console.log(failures ? `\n${failures} FAILURES`
-      : '\ngroup variant resolution holds');
+    console.log(
+      failures ? `\n${failures} FAILURES` : '\ngroup variant resolution holds'
+    );
     process.exit(failures ? 1 : 0);
   })().catch((e) => {
     check(`webshim resolver ran (${e.message})`, false);

@@ -15,7 +15,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const root = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..'
+);
 const faultsDir = path.join(root, 'data', 'faults');
 
 // ORT fault-code map for text-scheme ECUs (whose faults key on German text, not a
@@ -32,28 +36,33 @@ let ortMap = {};
   // silently vanished from the Lookup screen.
   const ortPath = path.join(root, 'data', 'ort-codes.json');
   if (!fs.existsSync(ortPath)) {
-    console.warn('warning: no data/ort-codes.json - text rows will carry no ORT codes');
+    console.warn(
+      'warning: no data/ort-codes.json - text rows will carry no ORT codes'
+    );
   } else {
     let raw;
     try {
       raw = JSON.parse(fs.readFileSync(ortPath, 'utf8'));
     } catch (e) {
-      console.error(`FAILED: data/ort-codes.json exists but is unreadable: ${e.message}`);
+      console.error(
+        `FAILED: data/ort-codes.json exists but is unreadable: ${e.message}`
+      );
       process.exit(1);
     }
     for (const [sgbd, m] of Object.entries(raw)) ortMap[sgbd.toLowerCase()] = m;
   }
 }
 
-const codes = {};    // HEXCODE -> English
-const phrases = {};   // German fault text -> English
+const codes = {}; // HEXCODE -> English
+const phrases = {}; // German fault text -> English
 // per-SGBD code map: sgbd (lowercase, incl. variants) -> { HEXCODE -> English }.
 // The flat `codes` map collides across ECU families (27C3 is oil-level on the
 // E46 MS45 but something else on an S65) - the scoped map keeps each ECU's own
 // codespace so live reads resolve names/codes against the reading ECU first.
 const scoped = {};
 const errors = [];
-let codeFiles = 0, ecuFiles = 0;
+let codeFiles = 0,
+  ecuFiles = 0;
 
 // structured per-ECU index for the fault Lookup screen (lookup.js): keeps the
 // chassis/module grouping the flat DB throws away, so the UI can search and
@@ -62,15 +71,26 @@ const index = []; // [{ chassis, module, sgbd, scheme, faults: [[key, en], ...] 
 
 function addCode(key, val, where) {
   key = String(key).toUpperCase();
-  if (!/^[0-9A-F]{2,6}$/.test(key)) { errors.push(`${where}: bad code "${key}"`); return; }
-  if (typeof val !== 'string' || !val.trim()) { errors.push(`${where}: empty desc for "${key}"`); return; }
-  if (/[ÄÖÜäöüß]/.test(val)) errors.push(`${where}: German chars in "${key}": ${val}`);
+  if (!/^[0-9A-F]{2,6}$/.test(key)) {
+    errors.push(`${where}: bad code "${key}"`);
+    return;
+  }
+  if (typeof val !== 'string' || !val.trim()) {
+    errors.push(`${where}: empty desc for "${key}"`);
+    return;
+  }
+  if (/[ÄÖÜäöüß]/.test(val))
+    errors.push(`${where}: German chars in "${key}": ${val}`);
   codes[key] = val;
 }
 function addPhrase(de, en, where) {
   if (typeof de !== 'string' || !de.trim()) return;
-  if (typeof en !== 'string' || !en.trim()) { errors.push(`${where}: empty translation for "${de}"`); return; }
-  if (/[ÄÖÜäöüß]/.test(en)) errors.push(`${where}: German chars in value "${en}"`);
+  if (typeof en !== 'string' || !en.trim()) {
+    errors.push(`${where}: empty translation for "${de}"`);
+    return;
+  }
+  if (/[ÄÖÜäöüß]/.test(en))
+    errors.push(`${where}: German chars in value "${en}"`);
   phrases[de.trim()] = en;
 }
 
@@ -78,9 +98,11 @@ function addPhrase(de, en, where) {
 // fleet-wide base layer (BMW ISTA), loaded FIRST so the hand-curated per-family
 // files (dme/dsc/eseries-dtc) override the generic ISTA text where they overlap.
 {
-  const flat = fs.readdirSync(faultsDir).filter(f => f.endsWith('.json'));
-  const ordered = [...flat.filter(f => f === 'ista-dtc.json'),
-                   ...flat.filter(f => f !== 'ista-dtc.json').sort()];
+  const flat = fs.readdirSync(faultsDir).filter((f) => f.endsWith('.json'));
+  const ordered = [
+    ...flat.filter((f) => f === 'ista-dtc.json'),
+    ...flat.filter((f) => f !== 'ista-dtc.json').sort(),
+  ];
   for (const file of ordered) {
     const obj = JSON.parse(fs.readFileSync(path.join(faultsDir, file), 'utf8'));
     for (const [code, desc] of Object.entries(obj)) addCode(code, desc, file);
@@ -91,16 +113,25 @@ function addPhrase(de, en, where) {
 // 2) per-ECU chassis files (data/faults/<chassis>/*.json). Chassis dirs are
 // sorted: later files win colliding phrases, so raw readdir order made the
 // merged DB depend on the filesystem.
-for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(d => d.isDirectory())
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+for (const chassis of fs
+  .readdirSync(faultsDir, { withFileTypes: true })
+  .filter((d) => d.isDirectory())
+  .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
   const dir = path.join(faultsDir, chassis.name);
-  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort()) {
+  for (const file of fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith('.json'))
+    .sort()) {
     const where = `${chassis.name}/${file}`;
     const obj = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
-    if (!obj || typeof obj.faults !== 'object') { errors.push(`${where}: missing "faults" object`); continue; }
+    if (!obj || typeof obj.faults !== 'object') {
+      errors.push(`${where}: missing "faults" object`);
+      continue;
+    }
     const scheme = obj.scheme === 'text' ? 'text' : 'code';
     for (const [k, v] of Object.entries(obj.faults)) {
-      if (scheme === 'text') addPhrase(k, v, where); else addCode(k, v, where);
+      if (scheme === 'text') addPhrase(k, v, where);
+      else addCode(k, v, where);
     }
     // record the structured entry(ies) for the Lookup screen (skip empty modules,
     // should any file carry no translated faults). each fault is
@@ -110,20 +141,33 @@ for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(
     const baseSgbd = obj.sgbd || '';
     const enFor = (k) => obj.faults[k];
     const pushEntry = (module, sgbd, faultRows) => {
-      if (faultRows.length) index.push({ chassis: chId, module, sgbd, scheme, faults: faultRows });
+      if (faultRows.length)
+        index.push({ chassis: chId, module, sgbd, scheme, faults: faultRows });
     };
 
     if (scheme === 'code') {
-      pushEntry(baseModule, baseSgbd,
-        Object.entries(obj.faults).filter(([, v]) => typeof v === 'string' && v.trim()).map(([k, v]) => [k, v, k]));
+      pushEntry(
+        baseModule,
+        baseSgbd,
+        Object.entries(obj.faults)
+          .filter(([, v]) => typeof v === 'string' && v.trim())
+          .map(([k, v]) => [k, v, k])
+      );
       // scoped codespace under the base sgbd and every declared variant
-      const vars = new Set([baseSgbd, ...(Array.isArray(obj.variants) ? obj.variants : [])]
-        .filter(Boolean).map(s => String(s).toLowerCase()));
+      const vars = new Set(
+        [baseSgbd, ...(Array.isArray(obj.variants) ? obj.variants : [])]
+          .filter(Boolean)
+          .map((s) => String(s).toLowerCase())
+      );
       for (const v of vars) {
         scoped[v] = scoped[v] || {};
         for (const [k, val] of Object.entries(obj.faults)) {
           const key = String(k).toUpperCase();
-          if (/^[0-9A-F]{2,6}$/.test(key) && typeof val === 'string' && val.trim())
+          if (
+            /^[0-9A-F]{2,6}$/.test(key) &&
+            typeof val === 'string' &&
+            val.trim()
+          )
             scoped[v][key] = val;
         }
       }
@@ -146,8 +190,10 @@ for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(
         pushEntry(baseModule, baseSgbd, rowsFor(null));
       } else {
         // collapse variants with an identical code map (by signature over this file's phrases)
-        const phrases = Object.keys(obj.faults).filter(k => typeof obj.faults[k] === 'string' && obj.faults[k].trim());
-        const sig = (m) => phrases.map(k => (m && m[k]) || '').join('|');
+        const phrases = Object.keys(obj.faults).filter(
+          (k) => typeof obj.faults[k] === 'string' && obj.faults[k].trim()
+        );
+        const sig = (m) => phrases.map((k) => (m && m[k]) || '').join('|');
         const groups = new Map(); // signature -> { variants: [names], map }
         for (const [variant, m] of Object.entries(vmap)) {
           const s = sig(m);
@@ -160,7 +206,9 @@ for (const chassis of fs.readdirSync(faultsDir, { withFileTypes: true }).filter(
         // each showing that variant's own codes. The group containing the base sgbd
         // uses the base sgbd; others use their variant name.
         for (const { variants, map } of groups.values()) {
-          const isBaseGroup = variants.some(v => v.toLowerCase() === baseSgbd.toLowerCase());
+          const isBaseGroup = variants.some(
+            (v) => v.toLowerCase() === baseSgbd.toLowerCase()
+          );
           const primaryVar = variants.slice().sort()[0]; // stable pick for the variant sgbd
           const sgbd = isBaseGroup ? baseSgbd : primaryVar;
           pushEntry(baseModule, sgbd, rowsFor(map));
@@ -179,15 +227,20 @@ if (errors.length) {
 
 // emit code DB, grouped by 2-char prefix for readable diffs
 const ck = Object.keys(codes).sort();
-let cbody = '', last = null;
+let cbody = '',
+  last = null;
 for (const k of ck) {
   const pre = k.slice(0, 2);
-  if (pre !== last) { cbody += `  // ${pre}xx\n`; last = pre; }
+  if (pre !== last) {
+    cbody += `  // ${pre}xx\n`;
+    last = pre;
+  }
   cbody += `  ${JSON.stringify(k)}: ${JSON.stringify(codes[k])},\n`;
 }
 // emit phrase map, sorted
 let pbody = '';
-for (const k of Object.keys(phrases).sort()) pbody += `  ${JSON.stringify(k)}: ${JSON.stringify(phrases[k])},\n`;
+for (const k of Object.keys(phrases).sort())
+  pbody += `  ${JSON.stringify(k)}: ${JSON.stringify(phrases[k])},\n`;
 
 const header = `// GENERATED FILE - do not edit by hand. Regenerate: node scripts/build/build-faultdb.mjs
 // Source of truth: BMW SGBD FORTTEXTE tables (data/faults/**). Injected lazily via
@@ -197,16 +250,25 @@ const header = `// GENERATED FILE - do not edit by hand. Regenerate: node script
 const out = path.join(root, 'app', 'renderer', 'data', 'faultdb.js');
 const scopedSorted = {};
 for (const s of Object.keys(scoped).sort()) scopedSorted[s] = scoped[s];
-fs.writeFileSync(out, `${header}window.BMW_FAULT_DB = {\n${cbody}};\nwindow.BMW_FAULT_PHRASES = {\n${pbody}};\n`
-  + `// per-SGBD codespaces (collision-free): sgbd -> { code -> English }\n`
-  + `window.BMW_FAULT_DB_SCOPED = ${JSON.stringify(scopedSorted)};\n`);
-console.log(`Wrote ${ck.length} codes + ${Object.keys(phrases).length} phrases + ${Object.keys(scoped).length} scoped sgbds to ${path.relative(root, out)} (${codeFiles} flat + ${ecuFiles} per-ECU files).`);
+fs.writeFileSync(
+  out,
+  `${header}window.BMW_FAULT_DB = {\n${cbody}};\nwindow.BMW_FAULT_PHRASES = {\n${pbody}};\n` +
+    `// per-SGBD codespaces (collision-free): sgbd -> { code -> English }\n` +
+    `window.BMW_FAULT_DB_SCOPED = ${JSON.stringify(scopedSorted)};\n`
+);
+console.log(
+  `Wrote ${ck.length} codes + ${Object.keys(phrases).length} phrases + ${Object.keys(scoped).length} scoped sgbds to ${path.relative(root, out)} (${codeFiles} flat + ${ecuFiles} per-ECU files).`
+);
 
 // emit the structured index for the Lookup screen. sorted by chassis then module
 // for stable diffs; each entry's faults keep their source order. Plain code-unit
 // comparison, not localeCompare: that one sorts by the build machine's locale.
 const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-index.sort((a, b) => byCodeUnit(a.chassis, b.chassis) || byCodeUnit(String(a.module), String(b.module)));
+index.sort(
+  (a, b) =>
+    byCodeUnit(a.chassis, b.chassis) ||
+    byCodeUnit(String(a.module), String(b.module))
+);
 const idxHeader = `// GENERATED FILE - do not edit by hand. Regenerate: node scripts/build/build-faultdb.mjs
 // Structured per-ECU fault index for the Lookup screen (lookup.js). One entry per
 // per-ECU file: { chassis, module, sgbd, scheme, faults: [[key, english, code], ...] }.
@@ -216,5 +278,10 @@ const idxHeader = `// GENERATED FILE - do not edit by hand. Regenerate: node scr
 `;
 const idxOut = path.join(root, 'app', 'renderer', 'data', 'faultindex.js');
 const idxTotal = index.reduce((n, e) => n + e.faults.length, 0);
-fs.writeFileSync(idxOut, `${idxHeader}window.BMW_FAULT_INDEX = ${JSON.stringify(index)};\n`);
-console.log(`Wrote ${index.length} modules + ${idxTotal} faults to ${path.relative(root, idxOut)}.`);
+fs.writeFileSync(
+  idxOut,
+  `${idxHeader}window.BMW_FAULT_INDEX = ${JSON.stringify(index)};\n`
+);
+console.log(
+  `Wrote ${index.length} modules + ${idxTotal} faults to ${path.relative(root, idxOut)}.`
+);
