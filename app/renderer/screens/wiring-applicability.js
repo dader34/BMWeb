@@ -107,5 +107,9 @@
     // match(spId, hit): the doc id is what the tree carries (leaf.doc)
     match: matchDoc,
     ready: () => !!INDEX,
+    // map a VIN-index body code to ISTA's, for filtering ISTA docs by body
+    istaBody: istaBody,
   };
+  // a small global alias the merged wiring/docs screen uses for doc VIN matching
+  window.istaBodyOf = istaBody;
 })();
