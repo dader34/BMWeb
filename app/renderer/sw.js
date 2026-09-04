@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v68';   // bmweb-v68: extended tutorial -- optional guided Apps-hub tour after the base walkthrough
+const CACHE_NAME = 'bmweb-v70';   // bmweb-v70: wiring tabs restore-fit fix + Share (copy link)
 
 
 const CORE_ASSETS = [
