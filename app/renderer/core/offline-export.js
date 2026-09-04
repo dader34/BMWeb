@@ -41,6 +41,7 @@ const OFFLINE_SHELL = [
 
   'ui/typed-block.js',
   'ui/dropdown.js',
+  'ui/listbox.js',
 
   'screens/autoscan.js',
   'screens/sweep.js',

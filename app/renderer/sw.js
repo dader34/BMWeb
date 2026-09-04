@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v76'; // bmweb-v76: lookup dropdown wraps ui/dropdown (parts remap)
+const CACHE_NAME = 'bmweb-v77'; // bmweb-v77: shared ui/listbox (ETK cascade + Tool32 wrap it)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

@@ -721,56 +721,8 @@ function labelSpan(text) {
 // a scrolling single-select list box with a loading/empty message and an
 // optional per-row "write" marker. Mirrors etk.js's listBox but standalone so
 // Tool32 doesn't depend on the ETK screen being loaded.
+// Tool32's list box: the shared control (ui/listbox.js) with the write-job
+// marker (a "W" badge on items flagged write:true) and the t32-lb skin class.
 function tool32ListBox() {
-  const box = document.createElement('div');
-  box.className = 'etk-lb t32-lb';
-  let items = [],
-    value = -1;
-  box.onpick = null;
-  function render() {
-    box.innerHTML = '';
-    if (!items.length) {
-      const e = document.createElement('div');
-      e.className = 'etk-lb-empty';
-      e.textContent = box._msg || '—';
-      box.appendChild(e);
-      return;
-    }
-    items.forEach((it, i) => {
-      const row = document.createElement('button');
-      row.type = 'button';
-      row.className =
-        'etk-lb-row' +
-        (i === value ? ' active' : '') +
-        (it.write ? ' t32-row-write' : '');
-      row.textContent = it.label;
-      if (it.write) {
-        const tag = document.createElement('span');
-        tag.className = 't32-rowtag';
-        tag.textContent = 'W';
-        row.appendChild(tag);
-      }
-      row.onclick = () => {
-        value = i;
-        render();
-        row.scrollIntoView({ block: 'nearest' });
-        if (box.onpick) box.onpick(items[i].key, items[i].label);
-      };
-      box.appendChild(row);
-    });
-  }
-  box.setItems = (arr) => {
-    items = arr;
-    value = -1;
-    box._msg = null;
-    render();
-  };
-  box.setLoading = (msg) => {
-    items = [];
-    value = -1;
-    box._msg = msg;
-    render();
-  };
-  render();
-  return box;
+  return makeListBox({ extraClass: 't32-lb', writeTag: true });
 }
