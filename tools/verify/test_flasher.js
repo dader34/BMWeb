@@ -482,11 +482,27 @@ const jobs = (sgbd) => log.filter((l) => l[0] === sgbd).map((l) => l[1]);
   // the read must run inside a held Web Lock so a backgrounded tab is not
   // throttled; when the Web Locks API exists, flashBackup must take it
   console.log('\nbackground-tab hold');
-  // Node has a real navigator.locks (a LockManager), so spy on it by
-  // wrapping request rather than replacing navigator (which is read-only).
+  // Node 21+ ships a real navigator.locks (a LockManager); Node 20 (what CI
+  // runs) has no navigator at all. Provide a minimal locks stub when it is
+  // absent, and spy on request either way, so the hold path is exercised on
+  // every Node version.
   let heldDuringRead = false;
   let lockName = null;
   let heldNow = false;
+  if (typeof globalThis.navigator === 'undefined') {
+    globalThis.navigator = {
+      locks: { request: async (name, cb) => cb({ name }) },
+    };
+  } else if (!globalThis.navigator.locks) {
+    // navigator exists but without locks (older runtimes): add a stub
+    try {
+      globalThis.navigator.locks = {
+        request: async (name, cb) => cb({ name }),
+      };
+    } catch {
+      /* navigator is read-only and has no locks: skip this check */
+    }
+  }
   const realRequest = navigator.locks.request.bind(navigator.locks);
   navigator.locks.request = async (name, cb) => {
     lockName = name;
