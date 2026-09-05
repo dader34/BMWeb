@@ -664,8 +664,8 @@ function showTuning() {
         // same bytes so the dirty count starts at zero and any later edit is
         // measured against what the car actually holds.
         tuningState.bin = bytes;
-      tuningState.history = []; // the trail belonged to the old bytes
-      tuningState.redo = [];
+        tuningState.history = []; // the trail belonged to the old bytes
+        tuningState.redo = [];
         tuningState.orig = bytes.slice();
         tuningState.fileName = `${st.sgbd}-${r.job}.bin`;
         tuningState.changed = 0;
@@ -1194,6 +1194,25 @@ function showTuning() {
   // ==========================================================================
   els.save.onclick = async () => {
     if (!tuningState.bin) return;
+
+    // BMWeb edits and saves; it does NOT correct the image's checksum or
+    // signature. Most flashing tools (MS4X Flasher, WinKFP) do that on write,
+    // but a bin flashed by a tool that does not will be rejected by the ECU --
+    // so say it plainly before every save rather than let someone find out on
+    // a dead DME.
+    const okToSave = await confirmDialog({
+      title: 'Save tuned BIN',
+      body:
+        `<p>This saves your edited image as-is. BMWeb does <b>not</b> correct ` +
+        `the checksum or firmware signature.</p>` +
+        `<p>Correct the checksum in your flashing tool before writing it to ` +
+        `the ECU. MS4X Flasher and WinKFP do this automatically; a tool that ` +
+        `does not will produce an image the ECU rejects.</p>`,
+      confirmLabel: 'Save anyway',
+      cancelLabel: 'Cancel',
+    });
+    if (!okToSave) return;
+
     const name =
       tuningState.fileName.replace(/\.(bin|hex|ori|orig)$/i, '') + '-tuned.bin';
     try {
@@ -1962,8 +1981,47 @@ function showTuning() {
     // to the definition is what stops a bulk op from quietly writing nonsense.
     // XDFAXIS spells its limits <min>/<max> (XDFCONSTANT uses rangelow/
     // rangehigh); accept either so both shapes of definition are honoured.
-    const zLo = t.z.min != null ? t.z.min : t.z.rangelow;
-    const zHi = t.z.max != null ? t.z.max : t.z.rangehigh;
+    //
+    // min/max are in the STORAGE domain (raw bytes), but every value the user
+    // types and every cell shown is ENGINEERING (post-MATH). A table with
+    // math "32 * X" and max 255 means 8160 rpm, not 255 rpm -- comparing a
+    // typed 1600 rpm against a raw 255 clamped every cell to 255 (the "why is
+    // it 256" bug). Convert the limits through the same math and take the true
+    // low/high, since a subtractive equation (e.g. 0.375*X - 35.625) flips the
+    // ends. A math failure falls back to the raw limits rather than blocking.
+    const _rawLo = t.z.min != null ? t.z.min : t.z.rangelow;
+    const _rawHi = t.z.max != null ? t.z.max : t.z.rangehigh;
+    let zLo = _rawLo;
+    let zHi = _rawHi;
+    if (
+      (_rawLo != null || _rawHi != null) &&
+      t.z.mathEquation &&
+      window.XDF &&
+      window.XDF.compileMath
+    ) {
+      try {
+        const conv = window.XDF.compileMath(t.z.mathEquation);
+        const ends = [];
+        if (_rawLo != null) ends.push(conv(_rawLo));
+        if (_rawHi != null) ends.push(conv(_rawHi));
+        const finite = ends.filter((v) => Number.isFinite(v));
+        if (finite.length) {
+          zLo = _rawLo != null && _rawHi != null ? Math.min(...finite) : zLo;
+          zHi = _rawLo != null && _rawHi != null ? Math.max(...finite) : zHi;
+          // when only one end is given, map that one through
+          if (_rawLo != null && _rawHi == null) {
+            zLo = Math.min(...finite);
+            zHi = null;
+          }
+          if (_rawHi != null && _rawLo == null) {
+            zHi = Math.max(...finite);
+            zLo = null;
+          }
+        }
+      } catch (e) {
+        /* keep the raw limits: better a wide clamp than none */
+      }
+    }
     const hasLimit = zLo != null || zHi != null;
     function inRange(v) {
       if (zLo != null && v < zLo) return false;
