@@ -45,8 +45,9 @@ async function showFlasher() {
         <label class="flasher-label">What to read</label>
         <div class="flasher-regions" id="fl-regions"></div>
         <div class="flasher-note" id="fl-note">
-          Ignition on, engine off, battery healthy. A full flash read takes a
-          few minutes over K-line; don’t turn the key off until it finishes.
+          Ignition on, engine off, battery healthy. A full read takes a few
+          minutes at 115200 (MS45, MSV70, MSS70) and around ten at DS2’s 9600
+          (MS42, MS43); don’t turn the key off until it finishes.
         </div>
       </div>
       <div class="flasher-col flasher-run">
@@ -95,8 +96,21 @@ async function showFlasher() {
     row.dataset.id = p.id;
     row.innerHTML =
       `<span class="flasher-ecu-name">${esc(p.label)}</span>` +
-      `<span class="flasher-ecu-sgbd">${esc(p.sgbd)}</span>`;
+      `<span class="flasher-ecu-sgbd">${esc(p.sgbd)}` +
+      (p.verified ? '' : ' · <em>not yet proven on a car</em>') +
+      `</span>`;
     row.onclick = () => pickProfile(p);
+    ecusEl.appendChild(row);
+  });
+  // the DMEs people will look for, and why each is not here yet
+  const missing =
+    typeof FLASH_UNSUPPORTED !== 'undefined' ? FLASH_UNSUPPORTED : [];
+  missing.forEach((u) => {
+    const row = document.createElement('div');
+    row.className = 'flasher-ecu flasher-ecu-absent';
+    row.innerHTML =
+      `<span class="flasher-ecu-name">${esc(u.label)}</span>` +
+      `<span class="flasher-ecu-why">${esc(u.reason)}</span>`;
     ecusEl.appendChild(row);
   });
 
@@ -120,17 +134,22 @@ async function showFlasher() {
     const p = state.profile;
     if (!p) return;
     p.regions.forEach((r) => {
-      const size = r.end - r.start + 1;
+      const size = flashRegionSize(r);
       const kb = Math.round(size / 1024);
+      const span = r.parts
+        .map(
+          (q) =>
+            `${q.segment} 0x${q.start.toString(16).toUpperCase()}–0x${q.end
+              .toString(16)
+              .toUpperCase()}`
+        )
+        .join(' + ');
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'flasher-region' + (state.region === r ? ' active' : '');
       row.innerHTML =
         `<span class="flasher-region-name">${esc(r.label)}</span>` +
-        `<span class="flasher-region-meta">${esc(r.segment)} ` +
-        `0x${r.start.toString(16).toUpperCase()}–0x${r.end
-          .toString(16)
-          .toUpperCase()} · ${kb} KB</span>`;
+        `<span class="flasher-region-meta">${esc(span)} · ${kb} KB</span>`;
       row.onclick = () => {
         if (state.running) return;
         state.region = r;
