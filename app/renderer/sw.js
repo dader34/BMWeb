@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v96'; // bmweb-v96: XDF browser in the tuning page
+const CACHE_NAME = 'bmweb-v98'; // bmweb-v98: tuning Save confirms (no checksum correction)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
