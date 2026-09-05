@@ -161,8 +161,10 @@ let shortAt = null; // when set, KWP chunks at/after this address come back shor
 let protocol = 'KWP2000*'; // what DIAGNOSEPROTOKOLL_LESEN answers on MSx70
 let failIdent = false;
 
+let connected = null; // when set, every other SGBD fails like a dead bus
 global.webRunJob = async (sgbd, job, arg) => {
   log.push([sgbd, job, arg]);
+  if (connected && sgbd !== connected) throw new Error('no answer from ECU');
   const set = {};
   const kwpCommon = () => {
     if (job === 'daten_referenz_lesen') set.DATEN_REFERENZ = '1234';
@@ -397,6 +399,41 @@ const jobs = (sgbd) => log.filter((l) => l[0] === sgbd).map((l) => l[1]);
   await assert.rejects(() => F.flashBackup('ms430ds0', {}), /no flash profile/);
   failIdent = false;
   ok('DS2 profile needs IDENT to answer before it reads anything');
+
+  // ── detect ────────────────────────────────────────────────────────────────
+  console.log('\ndetect');
+  for (const [sgbd, type] of [
+    ['ms430ds0', 'MS43'],
+    ['mss70', 'MSS70'],
+    ['ms450ds0', 'MS45.1'],
+  ]) {
+    connected = sgbd;
+    log = [];
+    const stages = [];
+    const d = await F.flashDetect({ onStage: (t) => stages.push(t) });
+    assert.ok(d.profile, `detected something on ${sgbd}`);
+    assert.strictEqual(d.profile.sgbd, sgbd);
+    assert.strictEqual(d.info.type, type);
+    assert.ok(stages.length >= 1 && stages[0].startsWith('trying '));
+    // nothing but ident jobs went out: detection must never read or unlock
+    assert.ok(
+      log.every((l) =>
+        /^(hardware_referenz_lesen|daten_referenz_lesen|aif_lesen|IDENT|AIF_LESEN)$/.test(
+          l[1]
+        )
+      ),
+      'detect runs only ident jobs'
+    );
+  }
+  ok(
+    'detect finds MS43, MSS70 and MS45.1 by trying each SGBD, ident jobs only'
+  );
+
+  connected = 'nothing';
+  const none = await F.flashDetect({});
+  assert.strictEqual(none.profile, null);
+  ok('detect with no supported DME on the bus returns null, does not guess');
+  connected = null;
 
   // every unsupported entry says why
   assert.ok(F.FLASH_UNSUPPORTED.length >= 3);

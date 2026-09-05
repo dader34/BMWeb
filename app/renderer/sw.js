@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v83'; // bmweb-v83: ECU Backup profiles MSV70/MSS70/MS42/MS43 + unsupported list
+const CACHE_NAME = 'bmweb-v84'; // bmweb-v84: ECU Backup auto-detect
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

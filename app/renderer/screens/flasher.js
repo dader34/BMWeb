@@ -41,6 +41,10 @@ async function showFlasher() {
     <div class="flasher-grid">
       <div class="flasher-col">
         <label class="flasher-label">Control unit</label>
+        <div class="flasher-detect">
+          <button class="btn" id="fl-detect">Detect</button>
+          <span class="flasher-detect-msg" id="fl-detect-msg">or pick one below</span>
+        </div>
         <div class="flasher-ecus" id="fl-ecus"></div>
         <label class="flasher-label">What to read</label>
         <div class="flasher-regions" id="fl-regions"></div>
@@ -73,6 +77,8 @@ async function showFlasher() {
   const startBtn = wrap.querySelector('#fl-start');
   const cancelBtn = wrap.querySelector('#fl-cancel');
   const logEl = wrap.querySelector('#fl-log');
+  const detectBtn = wrap.querySelector('#fl-detect');
+  const detectMsg = wrap.querySelector('#fl-detect-msg');
 
   const state = { profile: null, region: null, running: false, abort: null };
 
@@ -230,6 +236,55 @@ async function showFlasher() {
       cancelBtn.hidden = true;
       ecusEl.classList.remove('flasher-locked');
       regionsEl.classList.remove('flasher-locked');
+    }
+  };
+
+  // -- detect: try each profiled DME on the bus, preselect the one that answers
+  detectBtn.onclick = async () => {
+    if (state.running) return;
+    state.running = true;
+    detectBtn.disabled = true;
+    startBtn.disabled = true;
+    detectMsg.textContent = 'asking the car…';
+    sbLeft.textContent = 'detecting ECU…';
+    try {
+      const found = await flashDetect({
+        onStage: (t) => {
+          detectMsg.textContent = `${t}…`;
+          log(t);
+        },
+      });
+      state.running = false;
+      if (found.profile) {
+        pickProfile(found.profile);
+        const info = found.info;
+        detectMsg.textContent = `found ${info.type}${info.vin ? ` · ${info.vin}` : ''}`;
+        identEl.innerHTML =
+          `<span class="flasher-ident-k">Module</span> ${esc(info.type)}` +
+          (info.swRef
+            ? ` &nbsp;<span class="flasher-ident-k">Software</span> ${esc(info.swRef)}`
+            : '') +
+          (info.vin
+            ? ` &nbsp;<span class="flasher-ident-k">VIN</span> ${esc(info.vin)}`
+            : '');
+        log(`detected ${info.type}`);
+        sbLeft.textContent = 'ecu detected';
+      } else {
+        detectMsg.textContent = found.info.hwRef
+          ? `no supported DME answered (hardware ref ${found.info.hwRef})`
+          : 'no supported DME answered';
+        log(detectMsg.textContent);
+        sbLeft.textContent = 'ecu backup';
+      }
+    } catch (e) {
+      state.running = false;
+      const msg = (e && e.message) || String(e);
+      detectMsg.textContent = msg;
+      log(`ERROR ${msg}`);
+      sbLeft.textContent = 'ecu backup';
+    } finally {
+      detectBtn.disabled = false;
+      startBtn.disabled = !state.profile;
     }
   };
 

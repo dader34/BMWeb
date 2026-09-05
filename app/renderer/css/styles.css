@@ -4511,6 +4511,8 @@ body.remote-helper::after {
   transition: width .15s linear;
 }
 .flasher-pct { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); min-height: 1.2em; }
+.flasher-detect { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.flasher-detect-msg { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
 .flasher-ecu-absent { opacity: .55; cursor: default; }
 .flasher-ecu-absent .flasher-ecu-name { text-decoration: line-through; }
 .flasher-ecu-why { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
