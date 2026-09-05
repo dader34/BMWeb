@@ -424,6 +424,19 @@ async function _runJob(sgbd, job, arg) {
   return webRunJob(sgbd, job, arg == null ? '' : arg);
 }
 
+// A job that must SUCCEED, the way the reference tool treats every step of
+// the unlock and the read: JOB_STATUS other than OKAY is a refusal from the
+// ECU (ERROR_ECU_..., ERROR_BIN_BUFFER, ...) and is surfaced by name. A job
+// that publishes no JOB_STATUS at all is judged by its data instead.
+async function _runJobOk(sgbd, job, arg) {
+  const res = await _runJob(sgbd, job, arg);
+  const status = _resultField(res, 'JOB_STATUS');
+  if (status != null && String(status).trim() !== 'OKAY') {
+    throw new Error(`${job}: ${String(status).trim()}`);
+  }
+  return res;
+}
+
 // ---- identify --------------------------------------------------------------
 // Runs the ident jobs of the profiles that belong to this SGBD and returns
 // the one whose hardware reference matches exactly. The last reference the
@@ -520,7 +533,11 @@ function _rsaSecurityMessage(sec, userId, serial, seed, type) {
 }
 
 // Returns true when a session was opened that `flashTeardown` must close.
-async function flashSecurityAccess(sgbd, profile, type, onStage) {
+// `onOpened` fires the moment the DME has accepted the key, BEFORE the
+// programming-mode ramp: a ramp that fails halfway has still switched the
+// DME's session, and the caller must tear it down even though this function
+// then throws.
+async function flashSecurityAccess(sgbd, profile, type, onStage, onOpened) {
   const sec = profile.security;
   if (!sec || sec.kind === 'none') return false; // no unlock needed
   if (sec.kind !== 'rsa') {
@@ -538,7 +555,7 @@ async function flashSecurityAccess(sgbd, profile, type, onStage) {
   // _TEL_ANTWORT is the raw answer telegram; the serial is its last 4 bytes
   // before the checksum (FlashService: Skip(len-5).Take(4)).
   const serBytes = _resultBytes(
-    await _runJob(sgbd, sec.serialJob[0], ''),
+    await _runJobOk(sgbd, sec.serialJob[0], ''),
     sec.serialJob[1]
   );
   if (serBytes.length < 5) throw new Error('could not read ECU serial');
@@ -557,7 +574,7 @@ async function flashSecurityAccess(sgbd, profile, type, onStage) {
 
   onStage && onStage('requesting seed');
   const seed = _resultBytes(
-    await _runJob(sgbd, sec.seedJob[0], `3;${userIdHex}`),
+    await _runJobOk(sgbd, sec.seedJob[0], `3;${userIdHex}`),
     sec.seedJob[1]
   );
   if (!seed.length) throw new Error('ECU returned no seed');
@@ -565,11 +582,12 @@ async function flashSecurityAccess(sgbd, profile, type, onStage) {
   onStage && onStage('sending key');
   const msg = _rsaSecurityMessage(sec, userId, serial, seed, type);
   // authentisierung_start takes the 90-byte message as a BINARY argument
-  await _runJob(sgbd, sec.startJob, _binArg(msg));
+  await _runJobOk(sgbd, sec.startJob, _binArg(msg));
+  onOpened && onOpened();
 
   onStage && onStage('entering programming mode');
   for (const [job, arg] of sec.afterAuth || []) {
-    await _runJob(sgbd, job, arg);
+    await _runJobOk(sgbd, job, arg);
   }
   return true;
 }
@@ -590,6 +608,97 @@ async function flashTeardown(sgbd, profile, onStage) {
   }
 }
 
+// ---- keep the read alive in a background tab -------------------------------
+// A backgrounded tab has its timers clamped to ~1/minute, which stalls the
+// read loop (every chunk pauses on a setTimeout for pacing and polling). A
+// held Web Lock keeps the browser from freezing the page, so the read runs
+// at full speed even when the tab is not in front; a screen Wake Lock is a
+// bonus so the display does not sleep mid-read. Both are best-effort: a
+// browser without them simply falls back to the old foreground-only speed.
+//
+// runWithHold(fn) holds both for the duration of fn. The Web Lock is held by
+// keeping a promise open that resolves only when fn settles; navigator.locks
+// hands us the lock inside a callback and holds it until that callback's
+// promise resolves.
+async function _runWithHold(fn) {
+  let wakeLock = null;
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.wakeLock &&
+      navigator.wakeLock.request
+    ) {
+      wakeLock = await navigator.wakeLock.request('screen').catch(() => null);
+    }
+  } catch (e) {
+    wakeLock = null;
+  }
+  // reacquire the screen wake lock if the tab was hidden and shown again
+  const onVisible = () => {
+    if (
+      wakeLock === null &&
+      typeof document !== 'undefined' &&
+      document.visibilityState === 'visible' &&
+      typeof navigator !== 'undefined' &&
+      navigator.wakeLock
+    ) {
+      navigator.wakeLock
+        .request('screen')
+        .then((l) => (wakeLock = l))
+        .catch(() => {});
+    }
+  };
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', onVisible);
+  }
+  const release = () => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisible);
+    }
+    if (wakeLock) {
+      try {
+        wakeLock.release();
+      } catch (e) {
+        /* already gone */
+      }
+      wakeLock = null;
+    }
+  };
+
+  const locks =
+    typeof navigator !== 'undefined' &&
+    navigator.locks &&
+    navigator.locks.request
+      ? navigator.locks
+      : null;
+  if (!locks) {
+    // no Web Locks API: run directly, releasing the wake lock after
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+  // Hold the Web Lock across fn: the lock is held until the callback's
+  // promise resolves, so resolve it exactly when fn settles.
+  let result,
+    error,
+    settled = false;
+  await locks.request('bmweb-ecu-backup', async () => {
+    try {
+      result = await fn();
+    } catch (e) {
+      error = e;
+    } finally {
+      settled = true;
+      release();
+    }
+  });
+  if (!settled) release(); // lock could not be taken; still clean up
+  if (error) throw error;
+  return result;
+}
+
 // ---- read a region ---------------------------------------------------------
 // opts: { onProgress(pct), abort: AbortSignal }
 async function flashReadRegion(sgbd, profile, region, opts = {}) {
@@ -607,7 +716,10 @@ async function flashReadRegion(sgbd, profile, region, opts = {}) {
       }
       const want = Math.min(rj.chunk, partTotal - partDone);
       const arg = rj.arg(part.segment, addr, want);
-      const bytes = _resultBytes(await _runJob(sgbd, rj.name, arg), rj.result);
+      const bytes = _resultBytes(
+        await _runJobOk(sgbd, rj.name, arg),
+        rj.result
+      );
       if (!bytes.length) {
         throw new Error(
           `read failed at 0x${addr.toString(16)} (${part.segment})`
@@ -676,18 +788,29 @@ async function flashBackup(sgbd, opts = {}) {
     profile.regions.find((r) => r.name === (opts.region || 'full')) ||
     profile.regions[profile.regions.length - 1];
 
-  let opened = false;
-  let bytes;
-  try {
-    opened = await flashSecurityAccess(sgbd, profile, info.type, onStage);
-    onStage(`reading ${region.label}`);
-    bytes = await flashReadRegion(sgbd, profile, region, {
-      onProgress: opts.onProgress,
-      abort: opts.abort,
-    });
-  } finally {
-    if (opened) await flashTeardown(sgbd, profile, onStage);
-  }
+  // Hold a Web Lock + Wake Lock for the whole unlock-and-read so a
+  // backgrounded tab does not get its timers throttled and stall the read.
+  const bytes = await _runWithHold(async () => {
+    let opened = false;
+    let data;
+    try {
+      opened = await flashSecurityAccess(
+        sgbd,
+        profile,
+        info.type,
+        onStage,
+        () => (opened = true)
+      );
+      onStage(`reading ${region.label}`);
+      data = await flashReadRegion(sgbd, profile, region, {
+        onProgress: opts.onProgress,
+        abort: opts.abort,
+      });
+    } finally {
+      if (opened) await flashTeardown(sgbd, profile, onStage);
+    }
+    return data;
+  });
 
   const name =
     `${info.type || profile.id}_${region.name}` +
