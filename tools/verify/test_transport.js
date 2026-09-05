@@ -133,10 +133,16 @@ const FAST = { concept: 0x10f, baud: 115200 };
     'a 0xB8 request is signed XOR instead (the car answers only this)',
     long[long.length - 1] === 0xc3
   );
-  const ans = [0x9b, 0xf1, 0x12, 0x42, 0x1a, 0x80];
+  // KWP2000* answers carry the B8 F1 12 address header, so the length is
+  // byte 3 (not byte 0's low bits): byte3 + 4 header + 1 checksum. Verified
+  // against a real MS45 trace: byte3 0x41 -> 70, 0x1F -> 36, 0xFF -> 260.
   check(
-    'KWP2000* answer length is byte 3 + 5',
-    frameTotal(ans.concat(new Array(0x42)), KWP) === 0x42 + 5
+    'KWP2000* answer length is byte 3 + 4 + checksum',
+    frameTotal([0xb8, 0xf1, 0x12, 0x41].concat(new Array(200)), KWP) === 70
+  );
+  check(
+    'KWP2000* a 254-byte read answer (byte3 0xFF) is 260 bytes',
+    frameTotal([0xb8, 0xf1, 0x12, 0xff].concat(new Array(300)), KWP) === 260
   );
 }
 
@@ -362,14 +368,17 @@ check(
 }
 
 // `wait` paces the bus. It cannot sleep inside a synchronous VM, so it has
-// to arrive at the transport instead of vanishing.
+// to arrive at the transport instead of vanishing. BEST/2 `wait` is in
+// SECONDS (EdOperations.OpWait sleeps arg * 1000 ms); `waitex` is the ms
+// form. So `wait 2` must reach the transport as 2000 ms.
 {
   const code = {
     format: 1,
     sgbd: 't',
     jobs: { T: 0 },
     ops: [
-      ['wait', [[7, 50]]],
+      ['wait', [[7, 2]]],
+      ['waitex', [[7, 50]]],
       [
         'xsend',
         [
@@ -395,8 +404,8 @@ check(
     /* not the point */
   }
   check(
-    'wait is carried to the transport as waitMs',
-    seen && seen.waitMs === 50
+    'wait (seconds) + waitex (ms) reach the transport as 2050 ms',
+    seen && seen.waitMs === 2050
   );
 }
 

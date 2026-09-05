@@ -160,6 +160,7 @@ let log = [];
 let shortAt = null; // when set, KWP chunks at/after this address come back short
 let protocol = 'KWP2000*'; // what DIAGNOSEPROTOKOLL_LESEN answers on MSx70
 let failIdent = false;
+let refuseSeed = false; // the ECU answers the seed request with an error status
 
 let connected = null; // when set, every other SGBD fails like a dead bus
 global.webRunJob = async (sgbd, job, arg) => {
@@ -171,9 +172,14 @@ global.webRunJob = async (sgbd, job, arg) => {
     else if (job === 'aif_lesen') set.AIF_FG_NR = 'WBATEST';
     else if (job === 'seriennummer_lesen')
       set._TEL_ANTWORT = 'B8-F1-12-01-02-03-04-99';
-    else if (job === 'authentisierung_zufallszahl_lesen')
-      set.ZUFALLSZAHL = 'AA-BB-CC-DD';
-    else if (job === 'authentisierung_start') {
+    else if (job === 'authentisierung_zufallszahl_lesen') {
+      if (refuseSeed) {
+        set.JOB_STATUS = 'ERROR_ECU_CONDITIONS_NOT_CORRECT';
+      } else {
+        set.JOB_STATUS = 'OKAY';
+        set.ZUFALLSZAHL = 'AA-BB-CC-DD';
+      }
+    } else if (job === 'authentisierung_start') {
       // the key arrives as a BINARY arg: a Latin-1 string, one char per byte
       assert.strictEqual(arg.length, 90, '90-byte message');
       assert.strictEqual(arg.charCodeAt(0), 1, 'header byte intact');
@@ -400,6 +406,43 @@ const jobs = (sgbd) => log.filter((l) => l[0] === sgbd).map((l) => l[1]);
   failIdent = false;
   ok('DS2 profile needs IDENT to answer before it reads anything');
 
+  // a ramp that fails after the key was accepted still tears the session down
+  let failRamp = true;
+  const saveRun = global.webRunJob;
+  global.webRunJob = async (sgbd, job, arg) => {
+    if (failRamp && job === 'SET_PARAMETER' && arg === ';115200') {
+      log.push([sgbd, job, arg]);
+      throw new TypeError('simulated VM fault in SET_PARAMETER');
+    }
+    return saveRun(sgbd, job, arg);
+  };
+  log = [];
+  await assert.rejects(
+    () => F.flashBackup('ms450ds0', { region: 'data' }),
+    /simulated VM fault/
+  );
+  j = jobs('ms450ds0');
+  assert.ok(j.includes('authentisierung_start'), 'key was sent');
+  assert.deepStrictEqual(j.slice(-2), ['diagnose_mode', 'SET_PARAMETER']);
+  assert.strictEqual(log[log.length - 2][2], 'DEFAULT;PC9600');
+  assert.ok(!j.includes('speicher_lesen_ascii'));
+  failRamp = false;
+  global.webRunJob = saveRun;
+  ok('a ramp that fails after the key still leaves programming mode');
+
+  // an ECU that refuses a step is reported by its JOB_STATUS, and the
+  // teardown is not attempted (no programming session was opened)
+  refuseSeed = true;
+  log = [];
+  await assert.rejects(
+    () => F.flashBackup('ms450ds0', { region: 'data' }),
+    /authentisierung_zufallszahl_lesen: ERROR_ECU_CONDITIONS_NOT_CORRECT/
+  );
+  assert.ok(!jobs('ms450ds0').includes('authentisierung_start'));
+  assert.ok(!jobs('ms450ds0').includes('speicher_lesen_ascii'));
+  refuseSeed = false;
+  ok('a non-OKAY JOB_STATUS stops the unlock and names the job and status');
+
   // ── detect ────────────────────────────────────────────────────────────────
   console.log('\ndetect');
   for (const [sgbd, type] of [
@@ -434,6 +477,45 @@ const jobs = (sgbd) => log.filter((l) => l[0] === sgbd).map((l) => l[1]);
   assert.strictEqual(none.profile, null);
   ok('detect with no supported DME on the bus returns null, does not guess');
   connected = null;
+
+  // ── background-tab hold ─────────────────────────────────────────────────
+  // the read must run inside a held Web Lock so a backgrounded tab is not
+  // throttled; when the Web Locks API exists, flashBackup must take it
+  console.log('\nbackground-tab hold');
+  // Node has a real navigator.locks (a LockManager), so spy on it by
+  // wrapping request rather than replacing navigator (which is read-only).
+  let heldDuringRead = false;
+  let lockName = null;
+  let heldNow = false;
+  const realRequest = navigator.locks.request.bind(navigator.locks);
+  navigator.locks.request = async (name, cb) => {
+    lockName = name;
+    heldNow = true;
+    return realRequest(name, async (lock) => {
+      try {
+        return await cb(lock);
+      } finally {
+        heldNow = false;
+      }
+    });
+  };
+  const saved = global.webRunJob;
+  global.webRunJob = async (sgbd, job, arg) => {
+    if (job === 'speicher_lesen_ascii') heldDuringRead = heldNow;
+    return saved(sgbd, job, arg);
+  };
+  connected = 'ms450ds0';
+  await F.flashBackup('ms450ds0', { region: 'data' });
+  global.webRunJob = saved;
+  navigator.locks.request = realRequest;
+  assert.strictEqual(
+    lockName,
+    'bmweb-ecu-backup',
+    'the read takes a named Web Lock'
+  );
+  assert.ok(heldDuringRead, 'the lock is held while chunks are being read');
+  assert.ok(!heldNow, 'the lock is released when the backup ends');
+  ok('the read holds a Web Lock so a background tab is not throttled');
 
   console.log(`\nflasher: ${passed} checks passed`);
 })().catch((e) => {
