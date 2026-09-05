@@ -16,6 +16,7 @@
 //
 // The public surface:
 //   flashIdentify(sgbd)               -> { hwRef, swRef, vin, type, profile }
+//   flashDetect({ onStage, abort })    -> { profile, info } for the DME on the bus
 //   flashReadRegion(sgbd, profile, region, { onProgress, abort }) -> Uint8Array
 //   flashBackup(sgbd, { region, onProgress, onStage, abort })
 //                                     -> { name, bytes, info, region }
@@ -471,6 +472,33 @@ async function flashIdentify(sgbd) {
   return { hwRef: seen, swRef: '', vin: '', type: 'unknown', profile: null };
 }
 
+// ---- detect ----------------------------------------------------------------
+// Which profiled DME is on the bus? Tries each profile's SGBD in turn and
+// returns the first whose identity matches. A DME that is not there fails
+// its INITIALISIERUNG or answers nothing, which is simply "not this one".
+// opts: { onStage(text), abort: AbortSignal }
+async function flashDetect(opts = {}) {
+  const onStage = opts.onStage || (() => {});
+  _requireRealCable();
+  const tried = new Set();
+  let lastRef = '';
+  for (const p of FLASH_PROFILES) {
+    if (tried.has(p.sgbd)) continue;
+    tried.add(p.sgbd);
+    if (opts.abort && opts.abort.aborted) throw new Error('detect cancelled');
+    onStage(`trying ${p.label}`);
+    let info;
+    try {
+      info = await flashIdentify(p.sgbd);
+    } catch (e) {
+      continue;
+    }
+    if (info.profile) return { profile: info.profile, info };
+    if (info.hwRef) lastRef = info.hwRef;
+  }
+  return { profile: null, info: { hwRef: lastRef, type: 'unknown' } };
+}
+
 // ---- security access (RSA seed/key, MS45 + MSx70 families) -----------------
 // Mirrors the reference GetSecurityAccessMessage byte for byte:
 //   MD5(userId ‖ serial ‖ seed) -> as a little-endian BigInt -> ^d mod n ->
@@ -688,6 +716,7 @@ async function flashBackup(sgbd, opts = {}) {
 if (typeof window !== 'undefined') {
   window.flashBackup = flashBackup;
   window.flashIdentify = flashIdentify;
+  window.flashDetect = flashDetect;
   window.flashProfileById = flashProfileById;
   window.flashRegionSize = flashRegionSize;
   window.FLASH_PROFILES = FLASH_PROFILES;
@@ -697,6 +726,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     flashBackup,
     flashIdentify,
+    flashDetect,
     flashTypeForHwRef,
     flashRegionSize,
     FLASH_PROFILES,
