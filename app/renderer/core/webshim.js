@@ -19,9 +19,6 @@ const KDCAN = { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' };
 // the interface cannot measure at all.
 const UTILITY_UBATT_MIN_MV = 10000;
 const UTILITY_NOMINAL_MV = 12000;
-// STATUS_ZUENDUNG's IDBSS branch (`move L0, 10000`, op132): the value UTILITY
-// substitutes for an interface with no KL15 sense line, i.e. "report on".
-const UTILITY_IDBSS_IGN_MV = 10000;
 
 // ---- concept-aware framing.
 //
@@ -833,58 +830,74 @@ class WebSerialBus extends SerialTransportBase {
     this._resetWireState();
   }
 
-  // KL30/KL15, the way INPA gets them. INPA's start screen calls UTILITY's
-  // STATUS_UBATT / STATUS_ZUENDUNG, whose bytecode reads the ADAPTER's own
-  // sense lines (BEST/2 xbatt op110, xignit op114) and compares against
-  // 10000 mV -- it never touches the diagnostic bus. A plain K+DCAN cable has
-  // neither sense line, which is exactly the case UTILITY itself handles: for
-  // an interface that cannot measure, it reports the nominal 12000 mV
-  // (UTILITY/INTERFACE op273) and, for one that cannot sense KL15, reports
-  // ignition on (the IDBSS branch, op132). Follow that precedent rather than
-  // inventing a reading -- and mark it derived so the UI can say so.
+  // KL30/KL15, exactly the way INPA gets them on this same K+DCAN cable.
+  //
+  // EdInterfaceObd (plain serial, which is what an FTDI K+DCAN cable is)
+  // derives BOTH battery and ignition from ONE modem line -- DSR:
+  //     BatteryVoltage  = GetDsrState() ? nominal : 0   (EdInterfaceObd.cs:1128)
+  //     IgnitionVoltage = GetDsrState() ? nominal : 0   (            :1152)
+  // A genuine K+DCAN cable wires KL15 through to the DSR pin, so DSR asserted
+  // means the ignition is on (report the nominal voltage), DSR low means off.
+  // UTILITY's STATUS_UBATT / STATUS_ZUENDUNG then just compare that against
+  // 10000 mV. So the honest reading is the DSR line, not a fixed nominal --
+  // and Web Serial exposes it as getSignals().dataSetReady.
+  //
+  // Only when the port cannot report signals at all do we fall back to the
+  // old nominal-on (a cable we cannot query is not evidence of ignition off).
   async readState() {
     if (!this.connected) return { battery: null, ignition: null };
 
-    // --- STATUS_UBATT: xbatt, then `comp 10000 / jae`.
-    const ubattMv = await this._senseKl30();
-    if (ubattMv < UTILITY_UBATT_MIN_MV) {
-      // BATTERIE.SRC: on STAT_UBATT == 0 INPA sets BOTH false and never runs
-      // STATUS_ZUENDUNG at all. Ignition is not "unknown" here, it is off.
-      return { battery: null, ignition: false, derived: true };
+    // On a plain FTDI K+DCAN cable, battery and ignition come from the SAME
+    // modem line -- exactly as EdInterfaceObd does it:
+    //     BatteryVoltage  = GetDsrState() ? nominal : 0   (EdInterfaceObd.cs:1128)
+    //     IgnitionVoltage = GetDsrState() ? nominal : 0   (            :1152)
+    // The separate ignition-status read (the 82 F1 F1 FA FA command) exists
+    // ONLY for the BT/WiFi/ELM adapters, where HasIgnitionStatus is wired up;
+    // for a serial FTDI cable it is null, so EDIABAS falls to the DSR path and
+    // both lamps track that one line together. So do we: no cable can tell
+    // battery-on-ignition-off apart on this hardware, and pretending it can
+    // would be the invention, not the fidelity.
+    //
+    // On this cable the line is DSR+DCD (both go high with the key, low with
+    // it out; RI is stuck high even unplugged, CTS stays low).
+    const on = await this._ignitionAsserted();
+    if (on === null) {
+      // the port cannot report its signals: fall back to the nominal "on",
+      // the same thing EDIABAS shows for an interface it cannot sample.
+      return {
+        battery: UTILITY_NOMINAL_MV / 1000,
+        ignition: true,
+        derived: true,
+      };
     }
-
-    // --- STATUS_ZUENDUNG: its own xignit read, only reached with battery up.
-    const ignMv = await this._senseKl15();
     return {
-      battery: ubattMv / 1000,
-      ignition: ignMv >= UTILITY_UBATT_MIN_MV,
-      derived: true, // nominal, not measured -- this adapter has no sense line
+      battery: on ? UTILITY_NOMINAL_MV / 1000 : null,
+      ignition: on,
+      sensed: true,
     };
   }
 
-  // xbatt equivalent. A K+DCAN cable is bus-powered from OBD pin 16 (KL30), so
-  // if a clone wires that through to a modem line, a de-asserted line is real
-  // evidence of no power. Otherwise UTILITY's "cannot measure" nominal.
-  async _senseKl30() {
-    if (this.port && this.port.getSignals) {
-      try {
-        const s = await this.port.getSignals();
-        if (s && s.dataSetReady === false && s.dataCarrierDetect === false)
-          return 0;
-      } catch {
-        /* no signal support */
-      }
+  // KL15 arrives on a modem line of the K+DCAN cable. EdInterfaceObd reads
+  // DSR; on real FTDI clones the ignition drives DSR AND DCD together (both
+  // seen going true with the key on and false with it out on this hardware),
+  // while RI sits high regardless (stuck, even unplugged) and CTS stays low.
+  // So take ignition as asserted when EITHER DSR or DCD is high -- covering
+  // both wirings -- and ignore RI/CTS, which carry no ignition here.
+  //   true  = ignition on, false = off, null = the port reports no signals
+  //           (caller falls back to "on").
+  async _ignitionAsserted() {
+    if (!this.port || !this.port.getSignals) return null;
+    try {
+      const s = await this.port.getSignals();
+      if (!s) return null;
+      const dsr = typeof s.dataSetReady === 'boolean' ? s.dataSetReady : null;
+      const dcd =
+        typeof s.dataCarrierDetect === 'boolean' ? s.dataCarrierDetect : null;
+      if (dsr === null && dcd === null) return null;
+      return !!dsr || !!dcd;
+    } catch {
+      return null;
     }
-    return UTILITY_NOMINAL_MV;
-  }
-
-  // xignit equivalent. A K+DCAN cable has no KL15 sense line at all. UTILITY's
-  // own precedent for exactly that interface (the IDBSS branch) is `move L0,
-  // 10000` -- report ignition ON rather than falsely reporting it off, because
-  // the cable cannot tell. The bus is the real arbiter: an ECU only answers
-  // with KL15 live, and a failed read already surfaces as such.
-  async _senseKl15() {
-    return UTILITY_IDBSS_IGN_MV;
   }
 
   // Send one request, read one answer. The VM calls this synchronously in
@@ -2697,9 +2710,11 @@ function installWebShim() {
             ignition: st.ignition,
             connected: true,
             derived: !!st.derived,
-            detail: st.derived
-              ? 'nominal: this adapter has no voltage sense'
-              : null,
+            detail: st.sensed
+              ? 'ignition (KL15) read from the cable’s DSR line, as INPA does'
+              : st.derived
+                ? 'nominal: this cable does not report its KL15 line'
+                : null,
           });
         } catch {
           /* adapter went away; report disconnected below */
