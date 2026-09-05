@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v89'; // bmweb-v89: hold Web+Wake lock during read (no background-tab throttle)
+const CACHE_NAME = 'bmweb-v92'; // bmweb-v92: full-flash read verified; translate 'noch nicht erfüllt'
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

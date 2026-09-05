@@ -244,9 +244,16 @@ function frameTotal(buf, comm) {
     const off = -al[0];
     return buf.length > off ? buf[off] + (al[1] || 0) : null;
   }
+  // KWP2000* (0x10d): these answers always carry the B8 F1 12 address header,
+  // so byte 0 (0xB8) is NOT a BMW-FAST length byte -- the length is byte 3,
+  // and the frame is byte3 + 4 header + 1 checksum. Verified against a real
+  // MS45 EDIABAS trace: byte3 0x1F -> 36 bytes, 0x41 -> 70, 0xFF -> 260. (Do
+  // NOT apply TelLengthBmwFast's byte0-&-0x3F rule here: 0xB8 & 0x3F = 56
+  // would force every answer to 60 bytes.)
   if (c === 0x10d) return buf.length >= 4 ? buf[3] + 4 + 1 : null;
   if (SUM_CONCEPTS.has(c)) {
-    // EdInterfaceBase.TelLengthBmwFast
+    // EdInterfaceBase.TelLengthBmwFast -- length in the low 6 bits of byte 0,
+    // with byte 3 (or bytes 4-5) as the long-form fallback.
     if (!buf.length) return null;
     const short = buf[0] & 0x3f;
     if (short) return short + 3 + 1;

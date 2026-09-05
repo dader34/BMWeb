@@ -43,7 +43,10 @@ const FAULT_PHRASES = [
     'Would trigger MIL',
   ],
   ['Fehler verursacht das Aufleuchten der Warnlampe (MIL)', 'Triggers MIL'],
-  // readiness (F_READY_TEXT)
+  // readiness (F_READY_TEXT). The "noch nicht" variant must precede the
+  // plain "nicht" one: whichever is a leading match wins, and this phrase is
+  // "not YET met", not "not met".
+  ['Testbedingungen noch nicht erfüllt', 'Test conditions not yet met'],
   ['Testbedingungen erfüllt', 'Test conditions met'],
   ['Testbedingungen nicht erfüllt', 'Test conditions not met'],
 ];
