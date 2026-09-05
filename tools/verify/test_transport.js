@@ -362,14 +362,17 @@ check(
 }
 
 // `wait` paces the bus. It cannot sleep inside a synchronous VM, so it has
-// to arrive at the transport instead of vanishing.
+// to arrive at the transport instead of vanishing. BEST/2 `wait` is in
+// SECONDS (EdOperations.OpWait sleeps arg * 1000 ms); `waitex` is the ms
+// form. So `wait 2` must reach the transport as 2000 ms.
 {
   const code = {
     format: 1,
     sgbd: 't',
     jobs: { T: 0 },
     ops: [
-      ['wait', [[7, 50]]],
+      ['wait', [[7, 2]]],
+      ['waitex', [[7, 50]]],
       [
         'xsend',
         [
@@ -395,8 +398,8 @@ check(
     /* not the point */
   }
   check(
-    'wait is carried to the transport as waitMs',
-    seen && seen.waitMs === 50
+    'wait (seconds) + waitex (ms) reach the transport as 2050 ms',
+    seen && seen.waitMs === 2050
   );
 }
 

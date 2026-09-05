@@ -2002,6 +2002,17 @@ class Best2Vm {
         // exchange via comm, where runExchange honors it before writing.
         // Pacing-sensitive sequences (reset-then-reident, adaptation
         // clears) stop firing back-to-back on a real wire.
+        //
+        // BEST/2 `wait` is in SECONDS: EdOperations.OpWait sleeps
+        // arg * 1000 ms. Treating it as milliseconds retried the MS45
+        // authentisierung_start key ~1 s too early -- the DME was still
+        // busy, answered nothing, and the retransmit collided with the
+        // late answer into an IFH-0003 cascade. `waitex` is the ms variant.
+        this.pendingWaitMs = (this.pendingWaitMs || 0) + this.val(A) * 1000;
+        return;
+      }
+      case 'waitex': {
+        // BEST/2 `waitex`: the same pause in MILLISECONDS (OpWaitex).
         this.pendingWaitMs = (this.pendingWaitMs || 0) + this.val(A);
         return;
       }
