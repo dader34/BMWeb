@@ -4465,3 +4465,64 @@ body.remote-helper::after {
 .owner-console.oc-min .oc-state, .owner-console.oc-min .oc-log,
 .owner-console.oc-min .oc-access, .owner-console.oc-min .oc-gate { display: none; }
 .owner-console.oc-min .oc-pill { display: flex; }
+
+/* ---- ECU Backup (screens/flasher.js) ----------------------------------------
+   Two columns: pick a module + region on the left, watch it run on the right.
+   Read-only screen; the run column doubles as the operator log. */
+.flasher-grid {
+  display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px;
+}
+.flasher-label {
+  display: block; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-dim);
+  margin: 0 0 6px;
+}
+.flasher-ecus, .flasher-regions { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.flasher-ecu, .flasher-region {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel-2); color: var(--ink);
+}
+.flasher-ecu:hover, .flasher-region:hover { border-color: var(--line-bright); }
+.flasher-ecu.active, .flasher-region.active {
+  border-color: var(--amber); box-shadow: inset 2px 0 0 var(--amber);
+}
+.flasher-ecu-name, .flasher-region-name { font-weight: 700; font-size: 13.5px; }
+.flasher-ecu-sgbd, .flasher-region-meta {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+}
+.flasher-locked { opacity: .55; pointer-events: none; }
+.flasher-note, .flasher-empty { font-size: 12.5px; color: var(--ink-dim); line-height: 1.45; }
+
+.flasher-run {
+  padding: 16px 18px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); display: flex; flex-direction: column; gap: 10px;
+}
+.flasher-ident { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); min-height: 1.2em; }
+.flasher-ident-k { color: var(--amber); font-weight: 700; margin-right: 4px; }
+.flasher-stage { font-size: 14px; font-weight: 600; }
+.flasher-bar {
+  height: 8px; border-radius: 4px; overflow: hidden;
+  background: rgba(127,127,127,.18);
+}
+.flasher-bar-fill {
+  display: block; height: 100%; width: 0; background: var(--amber);
+  transition: width .15s linear;
+}
+.flasher-pct { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); min-height: 1.2em; }
+.flasher-btns { display: flex; gap: 8px; }
+/* .btn sets display:inline-flex, which would beat the [hidden] attribute */
+.flasher-btns .btn[hidden] { display: none; }
+.flasher-log:empty { display: none; }
+.flasher-log {
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.5;
+  max-height: 260px; overflow-y: auto; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2);
+  color: var(--ink-dim);
+}
+.flasher-logline { white-space: pre-wrap; }
+
+@media (max-width: 760px) {
+  .flasher-grid { grid-template-columns: 1fr; }
+}

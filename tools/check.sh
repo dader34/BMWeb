@@ -86,6 +86,10 @@ echo "== IR interpreter renders known screens =="
 node tools/verify/test_ir_render.js
 
 echo
+echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
+node tools/verify/test_flasher.js
+
+echo
 echo "== no cross-file global-name collisions in the renderer =="
 node tools/verify/test_global_collisions.js
 

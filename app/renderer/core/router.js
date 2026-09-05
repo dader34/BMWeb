@@ -27,6 +27,8 @@ const APPS_ROUTES = {
   'apps/parts/vin': () =>
     typeof showVinDecoder === 'function' ? showVinDecoder() : null,
   'apps/tool32': () => (typeof showTool32 === 'function' ? showTool32() : null),
+  'apps/backup': () =>
+    typeof showFlasher === 'function' ? showFlasher() : null,
   'apps/tuning': () => (typeof showTuning === 'function' ? showTuning() : null),
   'apps/documents': () =>
     typeof showWiringChassis === 'function' ? showWiringChassis() : null,
@@ -41,6 +43,7 @@ const ROUTE_FOR_SCREEN = {
   showEtk: 'apps/parts',
   showVinDecoder: 'apps/parts/vin',
   showTool32: 'apps/tool32',
+  showFlasher: 'apps/backup',
   showTuning: 'apps/tuning',
 };
 
