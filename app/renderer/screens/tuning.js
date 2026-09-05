@@ -19,6 +19,11 @@ const tuningState = {
   // (the parsed graph is too big to store, and re-parsing
   // 4.7 MB costs ~290 ms -- see core/tuning-store.js)
   selectedId: null, // stable key of the open item (xdf.js `key`)
+  openTable: null, // key of the table whose editor dialog is open, kept across reloads
+  // Edit history for the loaded image: entries of {label, writes:[{address,
+  // before, after}]}. Shared by every table dialog and kept across reloads.
+  history: [],
+  redo: [],
   changed: 0, // count of bytes differing from orig
   highlight: null, // { start, end } byte range to spotlight in the hex view
   filter: '', // definition-tree search text
@@ -291,6 +296,8 @@ function showTuning() {
     try {
       const bytes = await readFileBytes(file);
       tuningState.bin = bytes;
+      tuningState.history = []; // the trail belonged to the old bytes
+      tuningState.redo = [];
       tuningState.orig = bytes.slice(); // snapshot for change tracking
       tuningState.fileName = file.name || 'firmware.bin';
       tuningState.changed = 0;
@@ -657,6 +664,8 @@ function showTuning() {
         // same bytes so the dirty count starts at zero and any later edit is
         // measured against what the car actually holds.
         tuningState.bin = bytes;
+      tuningState.history = []; // the trail belonged to the old bytes
+      tuningState.redo = [];
         tuningState.orig = bytes.slice();
         tuningState.fileName = `${st.sgbd}-${r.job}.bin`;
         tuningState.changed = 0;
@@ -1011,6 +1020,9 @@ function showTuning() {
       coverOn: tuningState.coverOn,
       kinds: tuningState.kinds,
       openCats: tuningState.openCats,
+      openTable: tuningState.openTable,
+      history: tuningState.history,
+      redo: tuningState.redo,
     };
   }
 
@@ -1069,6 +1081,8 @@ function showTuning() {
     tuningState.kinds =
       rec.kinds && rec.kinds.length ? new Set(rec.kinds) : null;
     tuningState.openCats = rec.openCats ? new Set(rec.openCats) : null;
+    tuningState.history = Array.isArray(rec.history) ? rec.history : [];
+    tuningState.redo = Array.isArray(rec.redo) ? rec.redo : [];
     // NOT the selection. Restoring selectedId made renderDefs() call
     // spotlight() for that item on load, painting a highlight over bytes the
     // user never clicked -- which then survived every reload and looked like
@@ -1082,6 +1096,15 @@ function showTuning() {
     if (tuningState.def) renderDefs();
     hex.refresh();
     updateStatus();
+
+    // A table editor that was open comes back open: mid-edit is exactly when
+    // a reload (or a crash) hurts most, and the bytes are already restored.
+    if (rec.openTable && tuningState.def && tuningState.bin) {
+      const item = tuningState.def.items.find(
+        (it) => it.key === rec.openTable && it.kind === 'table'
+      );
+      if (item) openTableModal(item);
+    }
 
     // Say so, rather than silently resurrecting files: seeing an image you did
     // not just load is confusing unless the app tells you why it is there.
@@ -1125,6 +1148,9 @@ function showTuning() {
     tuningState.defText = null;
     tuningState.defName = '';
     tuningState.selectedId = null;
+    tuningState.openTable = null;
+    tuningState.history = [];
+    tuningState.redo = [];
     tuningState.highlight = null;
     tuningState.changed = 0;
     tuningState.filter = '';
@@ -1905,6 +1931,8 @@ function showTuning() {
     const h = tuningState.def.header;
     const t0 = window.XDF.decodeTable(item, tuningState.bin, h);
     if (!t0) return;
+    tuningState.openTable = item.key;
+    saveSoon();
     let t = t0;
     const invertible = window.XDF.invertLinear(t.z.mathEquation) !== null;
     const dp = t.z.decimalpl != null ? t.z.decimalpl : h.defaults.sigdigits;
@@ -1976,6 +2004,7 @@ function showTuning() {
         <button type="button" class="btn tn-op" data-op="smooth" title="Smooth the selection (Shift+S)" ${invertible ? '' : 'disabled'}>smooth</button>
         <span class="tn-tool-sep"></span>
         <button type="button" class="btn tn-op" data-op="undo" title="Undo the last change (Cmd/Ctrl+Z)" ${invertible ? '' : 'disabled'}>undo</button>
+        <button type="button" class="btn tn-op" data-op="redo" title="Redo the change you undid (Cmd/Ctrl+Shift+Z)" ${invertible ? '' : 'disabled'}>redo</button>
         <button type="button" class="btn tn-op" data-op="revert" title="Revert the selection to the values this file loaded with" ${invertible ? '' : 'disabled'}>revert</button>
         <span class="tn-tool-sep"></span>
         <label class="tn-tool-check"><input type="checkbox" class="tn-cmp"> vs original</label>
@@ -1987,7 +2016,7 @@ function showTuning() {
       `${zLo != null || zHi != null ? ' · range ' + (zLo != null ? fmtNum(zLo, dp) : '−∞') + '…' + (zHi != null ? fmtNum(zHi, dp) : '∞') : ''}` +
       `${invertible ? '' : ' · read-only (MATH not invertible)'}</span>
         <span class="tn-heat-scale" hidden><b class="tn-hs-lo"></b><i></i><b class="tn-hs-hi"></b></span>
-        <span class="tn-modal-keys">+/− step ${fmtNum(coarseStep, Math.max(dp, 2))} · [ ] fine ${fmtNum(fineStep, Math.max(dp, 2))} · ⇧H/⇧V/⇧I interp · ⇧S smooth · ⌘Z undo</span>
+        <span class="tn-modal-keys">+/− step ${fmtNum(coarseStep, Math.max(dp, 2))} · [ ] fine ${fmtNum(fineStep, Math.max(dp, 2))} · ⇧H/⇧V/⇧I interp · ⇧S smooth · ⌘Z undo · ⇧⌘Z redo</span>
         <button type="button" class="btn tn-modal-done">Done</button>
       </div>`;
 
@@ -2007,17 +2036,30 @@ function showTuning() {
       ? window.XDF.decodeTable(item, tuningState.orig, h)
       : null;
 
-    // UNDO. Each entry is the set of byte writes an operation performed, held
-    // as {address, before} so undo is a straight replay backwards. Byte-level
-    // rather than cell-level because that is the layer edits actually land at,
-    // and it stays correct for axis writes too.
-    const history = [];
+    // UNDO / REDO. Each entry is the set of byte writes an operation
+    // performed, held as {address, before, after}: undo replays `before`
+    // backwards, redo replays `after` forwards. Byte-level rather than
+    // cell-level because that is the layer edits actually land at, and it
+    // stays correct for axis writes too. The stacks live on tuningState --
+    // one history per loaded image, shared by every table dialog and saved
+    // with the session -- so closing the dialog or reloading the page does
+    // not throw the trail away.
+    const HISTORY_MAX = 500;
     let batch = null; // collects writes while an op is running
     function beginBatch() {
       batch = [];
     }
     function endBatch(label) {
-      if (batch && batch.length) history.push({ label, writes: batch });
+      if (batch && batch.length) {
+        tuningState.history.push({ label, writes: batch });
+        if (tuningState.history.length > HISTORY_MAX)
+          tuningState.history.splice(
+            0,
+            tuningState.history.length - HISTORY_MAX
+          );
+        tuningState.redo.length = 0; // a new edit forks the timeline
+        saveSoon();
+      }
       batch = null;
       updateOpState();
     }
@@ -2029,19 +2071,36 @@ function showTuning() {
       // a no-op would make undo replay bytes that were never changed.
       const before = tuningState.bin.slice(address, address + bytes.length);
       const ok = writeBytes(address, bytes);
-      if (ok && batch) batch.push({ address, before });
+      if (ok && batch)
+        batch.push({ address, before, after: Uint8Array.from(bytes) });
       return ok;
     }
     function undoLast() {
-      const entry = history.pop();
+      const entry = tuningState.history.pop();
       if (!entry) return false;
       // backwards: later writes in the same op may overlap earlier ones
       for (let i = entry.writes.length - 1; i >= 0; i--) {
         const w = entry.writes[i];
         writeBytes(w.address, w.before);
       }
+      tuningState.redo.push(entry);
+      saveSoon();
       refresh();
+      updateOpState();
       flashInfo(`undid ${entry.label}`);
+      return true;
+    }
+    function redoLast() {
+      const entry = tuningState.redo.pop();
+      if (!entry) return false;
+      for (const w of entry.writes) {
+        if (w.after) writeBytes(w.address, w.after);
+      }
+      tuningState.history.push(entry);
+      saveSoon();
+      refresh();
+      updateOpState();
+      flashInfo(`redid ${entry.label}`);
       return true;
     }
 
@@ -2067,7 +2126,9 @@ function showTuning() {
 
     function updateOpState() {
       const u = box.querySelector('.tn-op[data-op="undo"]');
-      if (u) u.disabled = !invertible || !history.length;
+      if (u) u.disabled = !invertible || !tuningState.history.length;
+      const r = box.querySelector('.tn-op[data-op="redo"]');
+      if (r) r.disabled = !invertible || !tuningState.redo.length;
     }
 
     // SELECTION, spreadsheet semantics.
@@ -2269,6 +2330,14 @@ function showTuning() {
         input.value = labels[index] != null ? labels[index] : index;
         return;
       }
+      // unchanged breakpoint: leave the bytes, the undo stack and the
+      // changed-marker alone (same rule as commitCell)
+      const adp = axis.decimalpl != null ? axis.decimalpl : 0;
+      const cur = window.XDF.decodeAxisPoint(axis, tuningState.bin, h, index);
+      if (cur != null && fmtNum(v, adp) === fmtNum(cur, adp)) {
+        input.value = fmtNum(cur, adp);
+        return;
+      }
       const enc = window.XDF.encodeAxisPoint(axis, h, index, v);
       if (!enc) {
         shake(input);
@@ -2423,11 +2492,19 @@ function showTuning() {
     table.appendChild(tbody);
     gridWrap.appendChild(table);
     const endDrag = () => {
+      // fires on EVERY mouse-up in the window; only a drag that started on a
+      // cell gets to move focus, or clicking the value box (or any button)
+      // would lose focus the instant the mouse came up
+      const wasDragging = dragging;
       dragging = false;
       baseSel = null;
-      // hand focus to the clipboard proxy so Cmd-C / Cmd-V and the arrow keys
-      // reach the grid straight after a drag-select
-      if (sel.size) focusProxy();
+      if (!wasDragging) return;
+      // hand focus to the clipboard proxy so Cmd-C / Cmd-V, the arrow keys and
+      // the step keys reach the grid straight after a drag-select. A range
+      // means a real drag: take focus from the origin cell. A single cell is
+      // a click, and keeps focus for typing.
+      if (sel.size > 1) focusProxy(true);
+      else if (sel.size) focusProxy();
     };
     window.addEventListener('mouseup', endDrag);
 
@@ -2654,6 +2731,10 @@ function showTuning() {
         if (!undoLast()) flashInfo('nothing to undo');
         return;
       }
+      if (op === 'redo') {
+        if (!redoLast()) flashInfo('nothing to redo');
+        return;
+      }
       const b = selBounds();
       if (!b) {
         flashInfo('select some cells first');
@@ -2723,6 +2804,8 @@ function showTuning() {
 
     const close = () => {
       back.remove();
+      tuningState.openTable = null;
+      saveSoon();
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('mouseup', endDrag); // added per-modal
       if (infoTimer) clearTimeout(infoTimer);
@@ -2780,9 +2863,15 @@ function showTuning() {
 
     // Focus the proxy whenever the grid has the user's attention but no cell
     // is being typed in -- after a click, after a drag, after a bulk op.
-    function focusProxy() {
+    // `force` takes focus even from a cell: after a drag the cell the drag
+    // started on still holds it, and without this every key you press for the
+    // selection ([ ] +/- Cmd-C) was typed into that one cell instead.
+    function focusProxy(force) {
       const act = document.activeElement;
-      if (act && act.classList && act.classList.contains('tn-cell')) return;
+      if (!force && act && act.classList && act.classList.contains('tn-cell'))
+        return;
+      if (force && act && act.classList && act.classList.contains('tn-cell'))
+        act.blur(); // commits it -- a no-op unless something was typed
       try {
         proxy.focus({ preventScroll: true });
       } catch (e) {
@@ -2917,7 +3006,15 @@ function showTuning() {
         return;
       }
       const act = document.activeElement;
-      const inCell = act && act.classList && act.classList.contains('tn-cell');
+      // Any text field that is not the hidden key proxy is being typed in: a
+      // grid cell, an axis breakpoint, the value box. The shortcuts below
+      // must not eat its keystrokes -- '-' doubles as step-down, so a
+      // negative value could not be typed into the value box.
+      const inCell = !!(
+        act &&
+        act !== proxy &&
+        (act.tagName === 'INPUT' || act.tagName === 'TEXTAREA')
+      );
 
       // Arrow keys move the selection when not editing text -- the way a grid
       // is expected to behave, and what makes keyboard-only tuning possible.
@@ -2951,10 +3048,16 @@ function showTuning() {
 
       const mod = e.metaKey || e.ctrlKey;
 
-      // UNDO. Cmd/Ctrl+Z, the one shortcut users try without being told.
-      if (mod && !e.shiftKey && /^z$/i.test(e.key) && !inCell) {
+      // UNDO / REDO. Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y), the
+      // shortcuts users try without being told.
+      if (mod && /^z$/i.test(e.key) && !inCell) {
         e.preventDefault();
-        runOp('undo');
+        runOp(e.shiftKey ? 'redo' : 'undo');
+        return;
+      }
+      if (mod && /^y$/i.test(e.key) && !inCell) {
+        e.preventDefault();
+        runOp('redo');
         return;
       }
 
