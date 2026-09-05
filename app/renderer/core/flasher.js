@@ -20,7 +20,7 @@
 //   flashReadRegion(sgbd, profile, region, { onProgress, abort }) -> Uint8Array
 //   flashBackup(sgbd, { region, onProgress, onStage, abort })
 //                                     -> { name, bytes, info, region }
-//   FLASH_PROFILES / FLASH_UNSUPPORTED  what the screen lists, and why not
+//   FLASH_PROFILES                    what the screen lists
 // The UI (screens/flasher.js) drives flashBackup and saves the bytes.
 
 // ---- crypto: browser MD5 + BigInt modPow (WebCrypto has no MD5) -------------
@@ -346,27 +346,10 @@ const FLASH_PROFILES = [
   ),
 ];
 
-// DMEs people will look for here and why they are not offered. Listed on the
-// screen so the absence reads as a decision, not an oversight.
-const FLASH_UNSUPPORTED = [
-  {
-    id: 'MSS54',
-    label: 'MSS54 / MSS54HP (S54, E46 M3)',
-    reason:
-      'the SGBD has a flash read job, but no open source documents the flash map to read; coming once it is',
-  },
-  {
-    id: 'ME72',
-    label: 'ME7.2 (M62TU / S62 V8)',
-    reason:
-      'its diagnostic job set has no memory-read job at all; a backup needs the boot-mode bench path',
-  },
-  {
-    id: 'MSD80',
-    label: 'MSD80 / MSD81 / MSV80 (N54 / N52 2007+)',
-    reason: 'TriCore DMEs are read on the bench only',
-  },
-];
+// Not profiled, and why: MSS54/MSS54HP (the SGBD has ROM_LESEN but no open
+// source documents the flash map to read), ME7.2 (its diagnostic job set has
+// no memory-read job at all; a backup needs the boot-mode bench path), and
+// the TriCore MSD80/81/MSV80 (bench only).
 
 function flashProfileById(id) {
   return FLASH_PROFILES.find((p) => p.id === id) || null;
@@ -720,7 +703,6 @@ if (typeof window !== 'undefined') {
   window.flashProfileById = flashProfileById;
   window.flashRegionSize = flashRegionSize;
   window.FLASH_PROFILES = FLASH_PROFILES;
-  window.FLASH_UNSUPPORTED = FLASH_UNSUPPORTED;
 }
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -730,7 +712,6 @@ if (typeof module !== 'undefined' && module.exports) {
     flashTypeForHwRef,
     flashRegionSize,
     FLASH_PROFILES,
-    FLASH_UNSUPPORTED,
     _md5,
     _rsaSecurityMessage,
     _modPow,

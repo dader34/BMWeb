@@ -102,21 +102,8 @@ async function showFlasher() {
     row.dataset.id = p.id;
     row.innerHTML =
       `<span class="flasher-ecu-name">${esc(p.label)}</span>` +
-      `<span class="flasher-ecu-sgbd">${esc(p.sgbd)}` +
-      (p.verified ? '' : ' · <em>not yet proven on a car</em>') +
-      `</span>`;
+      `<span class="flasher-ecu-sgbd">${esc(p.sgbd)}</span>`;
     row.onclick = () => pickProfile(p);
-    ecusEl.appendChild(row);
-  });
-  // the DMEs people will look for, and why each is not here yet
-  const missing =
-    typeof FLASH_UNSUPPORTED !== 'undefined' ? FLASH_UNSUPPORTED : [];
-  missing.forEach((u) => {
-    const row = document.createElement('div');
-    row.className = 'flasher-ecu flasher-ecu-absent';
-    row.innerHTML =
-      `<span class="flasher-ecu-name">${esc(u.label)}</span>` +
-      `<span class="flasher-ecu-why">${esc(u.reason)}</span>`;
     ecusEl.appendChild(row);
   });
 
