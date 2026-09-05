@@ -324,12 +324,23 @@ function showBetaReport() {
       </div>
       <div class="modal-actions">
         <button class="btn modal-cancel">Cancel<span class="modal-key">Esc</span></button>
+        <button class="btn" id="beta-download">Download</button>
         <button class="btn primary" id="beta-send">
           Send report<span class="modal-key">⏎</span></button>
       </div>
     </div>`);
   const desc = overlay.querySelector('#beta-desc');
   desc.focus();
+  // save the exact JSON the Send button would POST, as a local file --
+  // no collector, no network, just what would go to the endpoint
+  overlay.querySelector('#beta-download').onclick = () => {
+    Journal.download(Journal.buildReport(desc.value));
+    close();
+    const b = document.getElementById('beta-btn');
+    if (b) b.classList.remove('beta-attn');
+    sbLeft.textContent = 'report downloaded';
+    Journal.log('report', 'downloaded');
+  };
   const finish = async () => {
     const report = Journal.buildReport(desc.value);
     let note;

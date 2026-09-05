@@ -53,6 +53,17 @@ public sealed class FlashService : IDisposable
         _ediabas.ResolveSgbdFile(sgbd);
     }
 
+    // Interface-level trace of every telegram sent and received, into
+    // <dir>/ifh.trc. Used to prove on a real car whether a step (the
+    // RSA authentisierung_start in particular) is accepted or ignored.
+    public void TraceTo(string dir)
+    {
+        _ediabas.SetConfigProperty("TracePath", dir);
+        _ediabas.SetConfigProperty("IfhTrace", "3");
+        _ediabas.SetConfigProperty("AppendTrace", "0");
+        _ediabas.SetConfigProperty("IfhTraceBuffering", "0");
+    }
+
     // ECU identity, read once before any flash op
     public sealed record EcuInfo(string DmeType, string Vin, string HwRef, string SwRef, string ProgrammingStatus, string DiagProtocol, bool Supported);
 
