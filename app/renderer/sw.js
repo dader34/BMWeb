@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v81'; // bmweb-v81: split remote.js into engine + remote-ui.js
+const CACHE_NAME = 'bmweb-v82'; // bmweb-v82: ECU Backup app (core/flasher.js + screens/flasher.js)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

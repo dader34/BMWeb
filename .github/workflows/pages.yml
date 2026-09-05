@@ -102,6 +102,7 @@ jobs:
           node tools/verify/test_writeguard.js
           node tools/verify/test_write_gate.js
           node tools/verify/test_irfaultread.js
+          node tools/verify/test_flasher.js
           node tools/verify/test_global_collisions.js
 
       - name: Build the static site
