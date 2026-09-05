@@ -4471,6 +4471,7 @@ body.remote-helper::after {
    Read-only screen; the run column doubles as the operator log. */
 .flasher-grid {
   display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 20px;
+  align-items: start; /* the run panel hugs its content; the ECU list sets the height */
 }
 .flasher-label {
   display: block; font-family: var(--mono); font-size: 10px;
@@ -4513,10 +4514,6 @@ body.remote-helper::after {
 .flasher-pct { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); min-height: 1.2em; }
 .flasher-detect { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .flasher-detect-msg { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
-.flasher-ecu-absent { opacity: .55; cursor: default; }
-.flasher-ecu-absent .flasher-ecu-name { text-decoration: line-through; }
-.flasher-ecu-why { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
-.flasher-ecu-sgbd em { font-style: normal; color: var(--amber); }
 .flasher-btns { display: flex; gap: 8px; }
 /* .btn sets display:inline-flex, which would beat the [hidden] attribute */
 .flasher-btns .btn[hidden] { display: none; }

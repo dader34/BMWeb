@@ -435,11 +435,6 @@ const jobs = (sgbd) => log.filter((l) => l[0] === sgbd).map((l) => l[1]);
   ok('detect with no supported DME on the bus returns null, does not guess');
   connected = null;
 
-  // every unsupported entry says why
-  assert.ok(F.FLASH_UNSUPPORTED.length >= 3);
-  for (const u of F.FLASH_UNSUPPORTED) assert.ok(u.label && u.reason);
-  ok(`${F.FLASH_UNSUPPORTED.length} unsupported DMEs each carry a reason`);
-
   console.log(`\nflasher: ${passed} checks passed`);
 })().catch((e) => {
   console.error('\nFAILED:', e.stack || e.message);
