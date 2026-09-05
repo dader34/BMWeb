@@ -19,6 +19,11 @@ const tuningState = {
   // (the parsed graph is too big to store, and re-parsing
   // 4.7 MB costs ~290 ms -- see core/tuning-store.js)
   selectedId: null, // stable key of the open item (xdf.js `key`)
+  openTable: null, // key of the table whose editor dialog is open, kept across reloads
+  // Edit history for the loaded image: entries of {label, writes:[{address,
+  // before, after}]}. Shared by every table dialog and kept across reloads.
+  history: [],
+  redo: [],
   changed: 0, // count of bytes differing from orig
   highlight: null, // { start, end } byte range to spotlight in the hex view
   filter: '', // definition-tree search text
@@ -101,6 +106,7 @@ function showTuning() {
     <button class="btn tn-load-bin">Load BIN…</button>
     <button class="btn tn-read-ecu">Read from ECU…</button>
     <button class="btn tn-load-xdf" disabled>Load .xdf…</button>
+    <button class="btn tn-browse-xdf" title="Browse the shared community definition library">Browse XDFs…</button>
     <button class="btn primary tn-save" disabled>Save BIN…</button>
     <button class="btn tn-clear" disabled title="Unload the firmware and definition, and forget the saved session">Clear</button>
     <span class="tn-file" id="tn-file"></span>
@@ -172,7 +178,7 @@ function showTuning() {
       <div class="tn-hex-status" id="tn-hex-status">
         <span class="tn-hs-cur" id="tn-hs-cur"></span>
         <span class="tn-hs-sel" id="tn-hs-sel"></span>
-        <span class="tn-hs-hint" id="tn-hs-hint">click-drag to select · ⇧-click extends · arrows move · dbl-click edits</span>
+        <span class="tn-hs-hint" id="tn-hs-hint">click a shaded byte to open its parameter · click-drag to select · ⇧-click extends · arrows move · dbl-click edits</span>
       </div>
     </section>`;
   view.appendChild(workspace);
@@ -181,6 +187,7 @@ function showTuning() {
     loadBin: bar.querySelector('.tn-load-bin'),
     readEcu: bar.querySelector('.tn-read-ecu'),
     loadXdf: bar.querySelector('.tn-load-xdf'),
+    browseXdf: bar.querySelector('.tn-browse-xdf'),
     clear: bar.querySelector('.tn-clear'),
     save: bar.querySelector('.tn-save'),
     file: bar.querySelector('#tn-file'),
@@ -213,7 +220,20 @@ function showTuning() {
   // multi-MB image scrolls without laying out hundreds of thousands of rows.
   // ==========================================================================
   const hex = createHexView(els, {
-    onByteClick: (off) => openItemAt(off),
+    onByteClick: (off, opts) => openItemAt(off, opts),
+    // the byte span and name of the parameter owning `off`, or null. The hex
+    // view uses it to turn a plain click on a shaded byte into a whole-region
+    // selection.
+    regionAt: (off) => {
+      const owner = tuningState.owner;
+      const owners = tuningState.owners;
+      if (!owner || !owners || off < 0 || off >= owner.length) return null;
+      const oid = owner[off];
+      const rec = oid ? owners[oid - 1] : null;
+      return rec
+        ? { start: rec.start, end: rec.end, title: rec.item.title || '' }
+        : null;
+    },
     onWriteByte: (off, val) => writeBytes(off, new Uint8Array([val])),
     // one call for a range: a fill or a paste is a single edit, so it should
     // be one write (and one undo step), not N
@@ -276,6 +296,8 @@ function showTuning() {
     try {
       const bytes = await readFileBytes(file);
       tuningState.bin = bytes;
+      tuningState.history = []; // the trail belonged to the old bytes
+      tuningState.redo = [];
       tuningState.orig = bytes.slice(); // snapshot for change tracking
       tuningState.fileName = file.name || 'firmware.bin';
       tuningState.changed = 0;
@@ -642,6 +664,8 @@ function showTuning() {
         // same bytes so the dirty count starts at zero and any later edit is
         // measured against what the car actually holds.
         tuningState.bin = bytes;
+      tuningState.history = []; // the trail belonged to the old bytes
+      tuningState.redo = [];
         tuningState.orig = bytes.slice();
         tuningState.fileName = `${st.sgbd}-${r.job}.bin`;
         tuningState.changed = 0;
@@ -677,6 +701,7 @@ function showTuning() {
   els.readEcu.onclick = onReadFromEcu;
   els.loadBin.onclick = () => els.binInput.click();
   els.loadXdf.onclick = () => els.xdfInput.click();
+  els.browseXdf.onclick = () => openXdfBrowser();
   els.binInput.onchange = () => {
     onBinChosen(els.binInput.files[0]);
     els.binInput.value = '';
@@ -854,14 +879,114 @@ function showTuning() {
     });
     if (!ok) return;
 
-    els.status.textContent = `downloading ${d.file}…`;
+    await downloadAndApplyDefinition(found.base, d.file);
+  }
+
+  // ---- XDF browser: the whole shared library, grouped by ECU --------------
+  // Lists every definition the mirrors carry so a user can pick one by hand
+  // (e.g. before loading a BIN, or when auto-match could not confirm one).
+  // Clicking a row downloads and opens it via the same path as auto-suggest.
+  async function openXdfBrowser() {
+    const { overlay, close } = openModal(
+      `<div class="modal tn-xdfb" role="dialog" aria-modal="true">
+         <div class="modal-title">Definition library</div>
+         <input class="tn-xdfb-search" type="search"
+                placeholder="Filter by ECU, software or file name…" aria-label="Filter definitions" />
+         <div class="tn-xdfb-list" id="tn-xdfb-list">
+           <div class="tn-xdfb-loading"><span class="wiring-spinner"></span> loading the shared library…</div>
+         </div>
+         <div class="modal-actions">
+           <button class="btn modal-cancel">Close<span class="modal-key">Esc</span></button>
+         </div>
+       </div>`
+    );
+    const listEl = overlay.querySelector('#tn-xdfb-list');
+    const searchEl = overlay.querySelector('.tn-xdfb-search');
+    overlay.querySelector('.modal-cancel').onclick = () => close();
+
+    const found = await fetchXdfIndex().catch(() => null);
+    if (!found) {
+      listEl.innerHTML =
+        `<div class="tn-xdfb-empty">Could not reach the definition library. ` +
+        `Check your connection, or load a .xdf file directly.</div>`;
+      return;
+    }
+    const defs = (found.index.definitions || [])
+      .slice()
+      .sort(
+        (a, b) =>
+          String(a.ecu || '').localeCompare(String(b.ecu || '')) ||
+          String(a.title || a.file).localeCompare(String(b.title || b.file))
+      );
+
+    const sizeLabel = (d) =>
+      d.bytes >= 1048576
+        ? `${(d.bytes / 1048576).toFixed(1)} MB`
+        : `${Math.max(1, Math.round((d.bytes || 0) / 1024))} KB`;
+
+    function render(filter) {
+      const q = (filter || '').trim().toLowerCase();
+      const shown = defs.filter(
+        (d) =>
+          !q ||
+          `${d.ecu} ${d.title} ${d.file} ${d.software || ''} ${d.author || ''}`
+            .toLowerCase()
+            .includes(q)
+      );
+      if (!shown.length) {
+        listEl.innerHTML = `<div class="tn-xdfb-empty">No definitions match “${esc(filter)}”.</div>`;
+        return;
+      }
+      let html = '';
+      let group = null;
+      for (const d of shown) {
+        const ecu = d.ecu || 'Other';
+        if (ecu !== group) {
+          group = ecu;
+          html += `<div class="tn-xdfb-group">${esc(ecu)}</div>`;
+        }
+        const bin =
+          d.regionSize >= 1048576 || d.binSize >= 1048576 ? '1 MB image' : '';
+        html +=
+          `<button class="tn-xdfb-row" data-file="${esc(d.file)}">` +
+          `<span class="tn-xdfb-title">${esc(d.title || d.file)}</span>` +
+          `<span class="tn-xdfb-meta">` +
+          (d.software ? `sw <code>${esc(d.software)}</code> · ` : '') +
+          (d.items ? `${esc(d.items)} params · ` : '') +
+          `${sizeLabel(d)}${bin ? ' · ' + bin : ''}` +
+          (d.author ? ` · ${esc(d.author)}` : '') +
+          `</span></button>`;
+      }
+      listEl.innerHTML = html;
+      listEl.querySelectorAll('.tn-xdfb-row').forEach((row) => {
+        row.onclick = async () => {
+          row.classList.add('loading');
+          const ok = await downloadAndApplyDefinition(
+            found.base,
+            row.dataset.file
+          );
+          if (ok) close();
+          else row.classList.remove('loading');
+        };
+      });
+    }
+
+    render('');
+    searchEl.oninput = () => render(searchEl.value);
+    searchEl.focus();
+  }
+
+  // Fetch a .xdf from a mirror and make it the open definition. Shared by the
+  // auto-suggest flow and the XDF browser so both apply it identically.
+  async function downloadAndApplyDefinition(base, file) {
+    els.status.textContent = `downloading ${file}…`;
     try {
-      const r = await fetch(found.base + d.file, { cache: 'no-store' });
+      const r = await fetch(base + file, { cache: 'no-store' });
       if (!r.ok) throw new Error(`mirror returned ${r.status}`);
       const text = await r.text();
       tuningState.def = window.XDF.parseXdf(text);
       tuningState.defText = text;
-      tuningState.defName = d.file;
+      tuningState.defName = file;
       tuningState.selectedId = null;
       tuningState.kinds = null;
       tuningState.openCats = null;
@@ -871,8 +996,10 @@ function showTuning() {
       renderDefs();
       hex.refresh();
       updateStatus();
+      return true;
     } catch (e) {
-      els.status.textContent = `could not load ${d.file}: ${e.message}`;
+      els.status.textContent = `could not load ${file}: ${e.message}`;
+      return false;
     }
   }
 
@@ -893,6 +1020,9 @@ function showTuning() {
       coverOn: tuningState.coverOn,
       kinds: tuningState.kinds,
       openCats: tuningState.openCats,
+      openTable: tuningState.openTable,
+      history: tuningState.history,
+      redo: tuningState.redo,
     };
   }
 
@@ -951,6 +1081,8 @@ function showTuning() {
     tuningState.kinds =
       rec.kinds && rec.kinds.length ? new Set(rec.kinds) : null;
     tuningState.openCats = rec.openCats ? new Set(rec.openCats) : null;
+    tuningState.history = Array.isArray(rec.history) ? rec.history : [];
+    tuningState.redo = Array.isArray(rec.redo) ? rec.redo : [];
     // NOT the selection. Restoring selectedId made renderDefs() call
     // spotlight() for that item on load, painting a highlight over bytes the
     // user never clicked -- which then survived every reload and looked like
@@ -964,6 +1096,15 @@ function showTuning() {
     if (tuningState.def) renderDefs();
     hex.refresh();
     updateStatus();
+
+    // A table editor that was open comes back open: mid-edit is exactly when
+    // a reload (or a crash) hurts most, and the bytes are already restored.
+    if (rec.openTable && tuningState.def && tuningState.bin) {
+      const item = tuningState.def.items.find(
+        (it) => it.key === rec.openTable && it.kind === 'table'
+      );
+      if (item) openTableModal(item);
+    }
 
     // Say so, rather than silently resurrecting files: seeing an image you did
     // not just load is confusing unless the app tells you why it is there.
@@ -1007,6 +1148,9 @@ function showTuning() {
     tuningState.defText = null;
     tuningState.defName = '';
     tuningState.selectedId = null;
+    tuningState.openTable = null;
+    tuningState.history = [];
+    tuningState.redo = [];
     tuningState.highlight = null;
     tuningState.changed = 0;
     tuningState.filter = '';
@@ -1414,7 +1558,7 @@ function showTuning() {
   // to other behaviour (raw editing) on an unmapped byte.
   let suppressSpotlightScroll = false; // set while opening from a hex click
 
-  function openItemAt(off) {
+  function openItemAt(off, opts = {}) {
     const owner = tuningState.owner;
     const owners = tuningState.owners;
     if (!owner || !owners || off < 0 || off >= owner.length) return false;
@@ -1441,13 +1585,20 @@ function showTuning() {
     if (row && row.scrollIntoView) {
       row.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
+    // The selection becomes the whole region: no crosshair, no single cursor
+    // byte, and the status strip names the parameter. The user is already
+    // looking at these bytes, so no scroll.
+    hex.selectRegion(
+      { start: rec.start, end: rec.end },
+      { scroll: false, label: rec.item.title || '' }
+    );
     hex.refresh(); // repaint with the new highlight
 
-    // A TABLE's home is the grid, not a row in the tree. Selecting it on the
-    // left and stopping there looked like nothing happened -- the row is one
-    // of thousands and may be scrolled far off. Constants and flags edit
-    // inline in the tree, so for those the selection IS the destination.
-    if (rec.item.kind === 'table' && tuningState.bin) {
+    // A TABLE's home is the grid, not a row in the tree. From the context
+    // menu's explicit "Open ..." that means the modal; a plain click only
+    // selects the row on the left, so a click never throws a dialog over the
+    // hex view.
+    if (opts.modal !== false && rec.item.kind === 'table' && tuningState.bin) {
       openTableModal(rec.item);
     }
     return true;
@@ -1458,9 +1609,12 @@ function showTuning() {
     const range = itemByteRange(item);
     tuningState.highlight = range;
     hex.refresh();
-    // Skip the scroll when the user got here BY clicking that byte -- they
-    // are already looking at it, and yanking the view is disorienting.
-    if (range && !opts.noScroll) hex.scrollTo(range.start);
+    // Only when the user picked the item in the tree: select its bytes and
+    // bring them on screen. A tree re-render (filter, collapse) passes
+    // noScroll and must not touch the hex selection -- that entanglement is
+    // what broke click-to-open the first time round.
+    if (range && !opts.noScroll)
+      hex.selectRegion(range, { scroll: true, label: item.title || '' });
   }
 
   function itemAddress(item) {
@@ -1777,6 +1931,8 @@ function showTuning() {
     const h = tuningState.def.header;
     const t0 = window.XDF.decodeTable(item, tuningState.bin, h);
     if (!t0) return;
+    tuningState.openTable = item.key;
+    saveSoon();
     let t = t0;
     const invertible = window.XDF.invertLinear(t.z.mathEquation) !== null;
     const dp = t.z.decimalpl != null ? t.z.decimalpl : h.defaults.sigdigits;
@@ -1848,6 +2004,7 @@ function showTuning() {
         <button type="button" class="btn tn-op" data-op="smooth" title="Smooth the selection (Shift+S)" ${invertible ? '' : 'disabled'}>smooth</button>
         <span class="tn-tool-sep"></span>
         <button type="button" class="btn tn-op" data-op="undo" title="Undo the last change (Cmd/Ctrl+Z)" ${invertible ? '' : 'disabled'}>undo</button>
+        <button type="button" class="btn tn-op" data-op="redo" title="Redo the change you undid (Cmd/Ctrl+Shift+Z)" ${invertible ? '' : 'disabled'}>redo</button>
         <button type="button" class="btn tn-op" data-op="revert" title="Revert the selection to the values this file loaded with" ${invertible ? '' : 'disabled'}>revert</button>
         <span class="tn-tool-sep"></span>
         <label class="tn-tool-check"><input type="checkbox" class="tn-cmp"> vs original</label>
@@ -1858,13 +2015,17 @@ function showTuning() {
       `${t.z.units ? ' · ' + esc(t.z.units) : ''}` +
       `${zLo != null || zHi != null ? ' · range ' + (zLo != null ? fmtNum(zLo, dp) : '−∞') + '…' + (zHi != null ? fmtNum(zHi, dp) : '∞') : ''}` +
       `${invertible ? '' : ' · read-only (MATH not invertible)'}</span>
-        <span class="tn-modal-keys">+/− step ${fmtNum(coarseStep, Math.max(dp, 2))} · [ ] fine ${fmtNum(fineStep, Math.max(dp, 2))} · ⇧H/⇧V/⇧I interp · ⇧S smooth · ⌘Z undo</span>
+        <span class="tn-heat-scale" hidden><b class="tn-hs-lo"></b><i></i><b class="tn-hs-hi"></b></span>
+        <span class="tn-modal-keys">+/− step ${fmtNum(coarseStep, Math.max(dp, 2))} · [ ] fine ${fmtNum(fineStep, Math.max(dp, 2))} · ⇧H/⇧V/⇧I interp · ⇧S smooth · ⌘Z undo · ⇧⌘Z redo</span>
         <button type="button" class="btn tn-modal-done">Done</button>
       </div>`;
 
     const gridWrap = box.querySelector('.tn-modal-grid');
     const heatBox = box.querySelector('.tn-heat');
     const cmpBox = box.querySelector('.tn-cmp');
+    const heatScale = box.querySelector('.tn-heat-scale');
+    const heatLo = box.querySelector('.tn-hs-lo');
+    const heatHi = box.querySelector('.tn-hs-hi');
     const selInfo = box.querySelector('.tn-sel-info');
     const bulkVal = box.querySelector('.tn-bulk-v');
 
@@ -1875,17 +2036,30 @@ function showTuning() {
       ? window.XDF.decodeTable(item, tuningState.orig, h)
       : null;
 
-    // UNDO. Each entry is the set of byte writes an operation performed, held
-    // as {address, before} so undo is a straight replay backwards. Byte-level
-    // rather than cell-level because that is the layer edits actually land at,
-    // and it stays correct for axis writes too.
-    const history = [];
+    // UNDO / REDO. Each entry is the set of byte writes an operation
+    // performed, held as {address, before, after}: undo replays `before`
+    // backwards, redo replays `after` forwards. Byte-level rather than
+    // cell-level because that is the layer edits actually land at, and it
+    // stays correct for axis writes too. The stacks live on tuningState --
+    // one history per loaded image, shared by every table dialog and saved
+    // with the session -- so closing the dialog or reloading the page does
+    // not throw the trail away.
+    const HISTORY_MAX = 500;
     let batch = null; // collects writes while an op is running
     function beginBatch() {
       batch = [];
     }
     function endBatch(label) {
-      if (batch && batch.length) history.push({ label, writes: batch });
+      if (batch && batch.length) {
+        tuningState.history.push({ label, writes: batch });
+        if (tuningState.history.length > HISTORY_MAX)
+          tuningState.history.splice(
+            0,
+            tuningState.history.length - HISTORY_MAX
+          );
+        tuningState.redo.length = 0; // a new edit forks the timeline
+        saveSoon();
+      }
       batch = null;
       updateOpState();
     }
@@ -1897,19 +2071,36 @@ function showTuning() {
       // a no-op would make undo replay bytes that were never changed.
       const before = tuningState.bin.slice(address, address + bytes.length);
       const ok = writeBytes(address, bytes);
-      if (ok && batch) batch.push({ address, before });
+      if (ok && batch)
+        batch.push({ address, before, after: Uint8Array.from(bytes) });
       return ok;
     }
     function undoLast() {
-      const entry = history.pop();
+      const entry = tuningState.history.pop();
       if (!entry) return false;
       // backwards: later writes in the same op may overlap earlier ones
       for (let i = entry.writes.length - 1; i >= 0; i--) {
         const w = entry.writes[i];
         writeBytes(w.address, w.before);
       }
+      tuningState.redo.push(entry);
+      saveSoon();
       refresh();
+      updateOpState();
       flashInfo(`undid ${entry.label}`);
+      return true;
+    }
+    function redoLast() {
+      const entry = tuningState.redo.pop();
+      if (!entry) return false;
+      for (const w of entry.writes) {
+        if (w.after) writeBytes(w.address, w.after);
+      }
+      tuningState.history.push(entry);
+      saveSoon();
+      refresh();
+      updateOpState();
+      flashInfo(`redid ${entry.label}`);
       return true;
     }
 
@@ -1935,7 +2126,9 @@ function showTuning() {
 
     function updateOpState() {
       const u = box.querySelector('.tn-op[data-op="undo"]');
-      if (u) u.disabled = !invertible || !history.length;
+      if (u) u.disabled = !invertible || !tuningState.history.length;
+      const r = box.querySelector('.tn-op[data-op="redo"]');
+      if (r) r.disabled = !invertible || !tuningState.redo.length;
     }
 
     // SELECTION, spreadsheet semantics.
@@ -2003,6 +2196,16 @@ function showTuning() {
         }
       }
       const focused = document.activeElement;
+      const tableEl = gridWrap.querySelector('.tn-table');
+      const heatOn = !!(heat && !cmp && span > 0);
+      if (tableEl) tableEl.classList.toggle('tn-heat-on', heatOn);
+      if (heatScale) {
+        heatScale.hidden = !heatOn;
+        if (heatOn) {
+          heatLo.textContent = fmtNum(lo, dp);
+          heatHi.textContent = fmtNum(lo + span, dp);
+        }
+      }
       for (const inp of gridWrap.querySelectorAll('.tn-cell')) {
         const r = +inp.dataset.r,
           c = +inp.dataset.c;
@@ -2022,16 +2225,25 @@ function showTuning() {
           const d = v == null || b0 == null ? 0 : v - b0;
           if (d !== 0 && dMax > 0) {
             const f = Math.min(1, Math.abs(d) / dMax);
-            inp.style.background = `hsla(${d > 0 ? 140 : 0}, 70%, 45%, ${0.15 + 0.35 * f})`;
+            inp.style.backgroundColor =
+              d > 0
+                ? `rgba(56, 224, 138, ${0.22 + 0.5 * f})`
+                : `rgba(255, 66, 66, ${0.22 + 0.5 * f})`;
           } else {
-            inp.style.background = '';
+            inp.style.backgroundColor = '';
           }
-        } else if (heat && v != null && Number.isFinite(v) && span > 0) {
-          const f = (v - lo) / span; // 0..1
-          const hue = 210 - 210 * f; // blue -> red
-          inp.style.background = `hsla(${hue}, 70%, 45%, ${0.13 + 0.3 * f})`;
+          inp.style.color = '';
+        } else if (heatOn && v != null && Number.isFinite(v)) {
+          // Full-strength colour, the way every map editor paints a table:
+          // the shape of the map is the thing you are judging, and a faint
+          // wash never showed it. The ink flips to keep contrast on the
+          // bright middle of the scale.
+          const hc = heatColor((v - lo) / span);
+          inp.style.backgroundColor = hc.bg;
+          inp.style.color = hc.ink;
         } else {
-          inp.style.background = '';
+          inp.style.backgroundColor = '';
+          inp.style.color = '';
         }
         // a cell sitting outside the definition's declared range is worth
         // flagging even when we did not put it there
@@ -2047,6 +2259,20 @@ function showTuning() {
               : '';
         } else if (inp.title) inp.title = '';
       }
+      // light up the breakpoints the selection sits under
+      if (tableEl) {
+        const selR = new Set();
+        const selC = new Set();
+        for (const k of sel) {
+          const i = k.indexOf(',');
+          selR.add(+k.slice(0, i));
+          selC.add(+k.slice(i + 1));
+        }
+        for (const th of tableEl.querySelectorAll('th[data-axis]')) {
+          const on = (th.dataset.axis === 'x' ? selC : selR).has(+th.dataset.i);
+          th.classList.toggle('tn-ax-hl', on);
+        }
+      }
       selInfo.textContent = sel.size
         ? `${sel.size} cell${sel.size === 1 ? '' : 's'} selected`
         : 'click, drag, or shift-click to select';
@@ -2055,6 +2281,29 @@ function showTuning() {
     // build the grid once; paint() refreshes values/heat/selection
     const table = document.createElement('table');
     table.className = 'tn-table tn-table-modal';
+    // Fixed layout: the only way an input can fill its cell exactly (see the
+    // GEOMETRY note in tuning.css). The grid takes the full width of the
+    // dialog the way a map view does, the row-axis column stays 64px, the
+    // data columns share the rest equally and never drop under 72px (seven
+    // tabular digits) -- past that the pane scrolls sideways.
+    {
+      const CW = 72;
+      const RW = 64;
+      table.style.tableLayout = 'fixed';
+      table.style.width = '100%';
+      const natural = RW + t.cols * CW;
+      table.style.minWidth = `${natural}px`;
+      // a table wider than the toolbar widens the dialog to fit it, up to
+      // the viewport; beyond that the grid pane scrolls
+      box.style.minWidth = `min(96vw, max(560px, ${natural + 2}px))`;
+      const cg = document.createElement('colgroup');
+      const c0 = document.createElement('col');
+      c0.style.width = `${RW}px`;
+      cg.appendChild(c0);
+      for (let c = 0; c < t.cols; c++)
+        cg.appendChild(document.createElement('col'));
+      table.appendChild(cg);
+    }
 
     // AXIS EDITING. The X/Y breakpoints are real values in the image just like
     // the Z cells, and every established tool lets you move them -- retuning a
@@ -2081,6 +2330,14 @@ function showTuning() {
         input.value = labels[index] != null ? labels[index] : index;
         return;
       }
+      // unchanged breakpoint: leave the bytes, the undo stack and the
+      // changed-marker alone (same rule as commitCell)
+      const adp = axis.decimalpl != null ? axis.decimalpl : 0;
+      const cur = window.XDF.decodeAxisPoint(axis, tuningState.bin, h, index);
+      if (cur != null && fmtNum(v, adp) === fmtNum(cur, adp)) {
+        input.value = fmtNum(cur, adp);
+        return;
+      }
       const enc = window.XDF.encodeAxisPoint(axis, h, index, v);
       if (!enc) {
         shake(input);
@@ -2102,6 +2359,16 @@ function showTuning() {
     const htr = document.createElement('tr');
     const corner = document.createElement('th');
     corner.className = 'tn-corner';
+    // name the axes where a printed map would: units when the definition
+    // gives them, the bare axis letter when it does not. A 1-row or 1-col
+    // table has only one axis worth naming.
+    {
+      const xName = (t.x && t.x.units) || 'x';
+      const yName = (t.y && t.y.units) || 'y';
+      corner.innerHTML =
+        (t.rows > 1 ? `<span class="tn-corner-y">${esc(yName)} ↓</span>` : '') +
+        (t.cols > 1 ? `<span class="tn-corner-x">${esc(xName)} →</span>` : '');
+    }
     htr.appendChild(corner);
     for (let c = 0; c < t.cols; c++) {
       const th = document.createElement('th');
@@ -2225,11 +2492,19 @@ function showTuning() {
     table.appendChild(tbody);
     gridWrap.appendChild(table);
     const endDrag = () => {
+      // fires on EVERY mouse-up in the window; only a drag that started on a
+      // cell gets to move focus, or clicking the value box (or any button)
+      // would lose focus the instant the mouse came up
+      const wasDragging = dragging;
       dragging = false;
       baseSel = null;
-      // hand focus to the clipboard proxy so Cmd-C / Cmd-V and the arrow keys
-      // reach the grid straight after a drag-select
-      if (sel.size) focusProxy();
+      if (!wasDragging) return;
+      // hand focus to the clipboard proxy so Cmd-C / Cmd-V, the arrow keys and
+      // the step keys reach the grid straight after a drag-select. A range
+      // means a real drag: take focus from the origin cell. A single cell is
+      // a click, and keeps focus for typing.
+      if (sel.size > 1) focusProxy(true);
+      else if (sel.size) focusProxy();
     };
     window.addEventListener('mouseup', endDrag);
 
@@ -2237,8 +2512,16 @@ function showTuning() {
       const r = Number(input.dataset.r),
         c = Number(input.dataset.c);
       const v = Number(input.value);
+      const cur = t.cells[r][c];
       if (!Number.isFinite(v)) {
-        input.value = fmtNum(t.cells[r][c], dp);
+        input.value = fmtNum(cur, dp);
+        return;
+      }
+      // Nothing typed: a click that focused the cell and a blur that left it
+      // is not an edit. Writing the same bytes back would still add an undo
+      // step and mark the cell changed.
+      if (cur != null && fmtNum(v, dp) === fmtNum(cur, dp)) {
+        input.value = fmtNum(cur, dp);
         return;
       }
       beginBatch();
@@ -2260,6 +2543,18 @@ function showTuning() {
       const back = t.cells[r][c];
       input.value = back == null ? '' : fmtNum(back, dp);
       input.classList.add('tn-cell-edited');
+      // Say so when the stored value is not the typed one: the cell holds a
+      // raw integer, so only multiples of the MATH slope exist, and "4" in
+      // a 0.375-degree map can only be 4.125. Silent snapping read as a bug.
+      if (
+        !res.clamped &&
+        back != null &&
+        Math.abs(back - v) > Math.pow(10, -dp) / 2
+      ) {
+        flashInfo(
+          `${fmtNum(v, dp)} stored as ${fmtNum(back, dp)} · this map's resolution is ${fmtNum(fineStep, Math.max(dp, 2))}${t.z.units ? ' ' + t.z.units : ''}`
+        );
+      }
     }
 
     // one cell -> bytes, via the same encoder the inline editor used
@@ -2436,6 +2731,10 @@ function showTuning() {
         if (!undoLast()) flashInfo('nothing to undo');
         return;
       }
+      if (op === 'redo') {
+        if (!redoLast()) flashInfo('nothing to redo');
+        return;
+      }
       const b = selBounds();
       if (!b) {
         flashInfo('select some cells first');
@@ -2505,6 +2804,8 @@ function showTuning() {
 
     const close = () => {
       back.remove();
+      tuningState.openTable = null;
+      saveSoon();
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('mouseup', endDrag); // added per-modal
       if (infoTimer) clearTimeout(infoTimer);
@@ -2562,9 +2863,15 @@ function showTuning() {
 
     // Focus the proxy whenever the grid has the user's attention but no cell
     // is being typed in -- after a click, after a drag, after a bulk op.
-    function focusProxy() {
+    // `force` takes focus even from a cell: after a drag the cell the drag
+    // started on still holds it, and without this every key you press for the
+    // selection ([ ] +/- Cmd-C) was typed into that one cell instead.
+    function focusProxy(force) {
       const act = document.activeElement;
-      if (act && act.classList && act.classList.contains('tn-cell')) return;
+      if (!force && act && act.classList && act.classList.contains('tn-cell'))
+        return;
+      if (force && act && act.classList && act.classList.contains('tn-cell'))
+        act.blur(); // commits it -- a no-op unless something was typed
       try {
         proxy.focus({ preventScroll: true });
       } catch (e) {
@@ -2699,7 +3006,15 @@ function showTuning() {
         return;
       }
       const act = document.activeElement;
-      const inCell = act && act.classList && act.classList.contains('tn-cell');
+      // Any text field that is not the hidden key proxy is being typed in: a
+      // grid cell, an axis breakpoint, the value box. The shortcuts below
+      // must not eat its keystrokes -- '-' doubles as step-down, so a
+      // negative value could not be typed into the value box.
+      const inCell = !!(
+        act &&
+        act !== proxy &&
+        (act.tagName === 'INPUT' || act.tagName === 'TEXTAREA')
+      );
 
       // Arrow keys move the selection when not editing text -- the way a grid
       // is expected to behave, and what makes keyboard-only tuning possible.
@@ -2733,10 +3048,16 @@ function showTuning() {
 
       const mod = e.metaKey || e.ctrlKey;
 
-      // UNDO. Cmd/Ctrl+Z, the one shortcut users try without being told.
-      if (mod && !e.shiftKey && /^z$/i.test(e.key) && !inCell) {
+      // UNDO / REDO. Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y), the
+      // shortcuts users try without being told.
+      if (mod && /^z$/i.test(e.key) && !inCell) {
         e.preventDefault();
-        runOp('undo');
+        runOp(e.shiftKey ? 'redo' : 'undo');
+        return;
+      }
+      if (mod && /^y$/i.test(e.key) && !inCell) {
+        e.preventDefault();
+        runOp('redo');
         return;
       }
 
@@ -2953,6 +3274,11 @@ function createHexView(els, hooks = {}) {
   let cursor = 0;
   let anchor = 0;
   let dragging = false;
+  // Set when the selection IS a mapped region (a click on a shaded byte, or
+  // an item picked in the tree): { label }. In that mode the crosshair and
+  // the single cursor byte are not drawn -- the region is the thing selected,
+  // not one byte inside it. Any cursor move clears it.
+  let region = null;
 
   // Find state. `hits` holds match START offsets, sorted -- a plain sorted
   // Int32Array so the render loop can binary-search a row's span in O(log n)
@@ -3137,7 +3463,7 @@ function createHexView(els, hooks = {}) {
       els.inspRows.innerHTML = '';
       return;
     }
-    const d = inspectAt(bytes, cursor);
+    const d = inspectAt(bytes, region ? selStart() : cursor);
     const rows = [
       ['int8', String(d.int8), ''],
       ['uint8', String(d.uint8), `0x${hex2(d.uint8)}`],
@@ -3176,6 +3502,15 @@ function createHexView(els, hooks = {}) {
   // ---- status strip ---------------------------------------------------------
   function paintStatus() {
     const bytes = tuningState.bin;
+    if (region && bytes) {
+      // a whole parameter is selected: name it, and give its span
+      const s = selStart();
+      const e = selEnd();
+      if (els.hsCur) els.hsCur.textContent = region.label || `0x${hexOff(s)}`;
+      if (els.hsSel)
+        els.hsSel.textContent = `0x${hexOff(s)}–0x${hexOff(e)} · ${(e - s + 1).toLocaleString()} bytes`;
+      return;
+    }
     if (els.hsCur) {
       els.hsCur.textContent = bytes
         ? `0x${hexOff(cursor)} · ${cursor.toLocaleString()} · row ${Math.floor(cursor / cols)} col ${cursor % cols}`
@@ -3204,8 +3539,9 @@ function createHexView(els, hooks = {}) {
     const cover = tuningState.coverOn ? tuningState.cover : null;
     const ss = selStart();
     const se = selEnd();
-    const curRow = Math.floor(cursor / cols) === Math.floor(off / cols);
-    const curCol = cursor % cols;
+    const curRow =
+      !region && Math.floor(cursor / cols) === Math.floor(off / cols);
+    const curCol = region ? -1 : cursor % cols;
     const patLen = find.pattern ? find.pattern.length : 0;
     let hexCells = '';
     let ascii = '';
@@ -3240,7 +3576,7 @@ function createHexView(els, hooks = {}) {
       if (inHl) cls += ' tn-hb-hl';
       if (inHit) cls += ' tn-hb-hit';
       if (inSel) cls += ' tn-hb-sel';
-      if (abs === cursor) cls += ' tn-hb-cur';
+      if (!region && abs === cursor) cls += ' tn-hb-cur';
       else if (curRow || i === curCol) cls += ' tn-hb-cross';
       hexCells += `<span class="${cls}" data-off="${abs}" title="0x${abs.toString(16).toUpperCase()}">${hex2(b)}</span>`;
       const ch = b >= 0x20 && b < 0x7f ? String.fromCharCode(b) : '.';
@@ -3322,6 +3658,7 @@ function createHexView(els, hooks = {}) {
   }
 
   function setCursor(off, extend) {
+    region = null;
     cursor = clampOff(off);
     if (!extend) anchor = cursor;
     // Repaint: the status strip and the data inspector both read `cursor`,
@@ -3347,6 +3684,26 @@ function createHexView(els, hooks = {}) {
     if (e.button !== 0 || !tuningState.bin) return;
     const off = offsetFromEvent(e);
     if (off == null) return;
+    // A plain click on a byte the coverage map shades selects the WHOLE
+    // parameter and opens it in the tree, instead of parking a one-byte
+    // cursor with a crosshair through it. Only with the map on: with it off
+    // nothing is shaded and this is a plain hex editor. Shift keeps extending
+    // a selection, and the second click of a double-click is left to the raw
+    // edit handler below.
+    if (
+      !e.shiftKey &&
+      e.detail < 2 &&
+      tuningState.coverOn &&
+      typeof hooks.regionAt === 'function' &&
+      hooks.regionAt(off)
+    ) {
+      e.preventDefault();
+      els.hexScroll.focus();
+      dragging = false;
+      if (typeof hooks.onByteClick === 'function')
+        hooks.onByteClick(off, { modal: false });
+      return;
+    }
     setCursor(off, e.shiftKey); // shift-click extends from the old anchor
     dragging = true;
     // Text selection would fight the drag, and the row is `white-space: pre`
@@ -3360,6 +3717,7 @@ function createHexView(els, hooks = {}) {
     if (!dragging) return;
     const off = offsetFromEvent(e);
     if (off == null || off === cursor) return;
+    region = null;
     cursor = clampOff(off);
     schedule();
   });
@@ -3369,14 +3727,12 @@ function createHexView(els, hooks = {}) {
     dragging = false;
   });
 
-  // NO click-to-open on the hex grid.
-  //
-  // Single-clicking a mapped byte used to select its whole region and open the
-  // owning parameter. It never worked reliably -- the highlight it painted was
-  // entangled with the definition tree's own spotlight logic -- and a plain
-  // click is better spent on moving the cursor, which is what a hex editor is
-  // expected to do. The same action lives on the right-click menu ("Open ..."),
-  // where it is explicit and does work.
+  // Click-to-open lives in the mousedown handler above. An earlier attempt
+  // was removed because the tree's spotlight() scrolled via setCursor() and
+  // collapsed the freshly selected region back to one byte; spotlight() now
+  // goes through selectRegion() and leaves the selection alone on tree
+  // re-renders, so the two no longer fight. The right-click menu's "Open ..."
+  // is the same action, plus the table modal.
 
   // ---- context menu ---------------------------------------------------------
   //
@@ -3774,6 +4130,23 @@ function createHexView(els, hooks = {}) {
       if (find.pattern) runFind();
       else schedule();
     },
+    // Select a mapped parameter's whole byte span. `label` names it in the
+    // status strip; `scroll` centres it (a tree pick), or not (a hex click:
+    // the user is already looking at it).
+    selectRegion(range, opts = {}) {
+      if (!tuningState.bin || !range || range.end <= range.start) return;
+      const s = clampOff(range.start);
+      const e = clampOff(range.end - 1);
+      anchor = Math.min(s, e);
+      cursor = Math.max(s, e);
+      region = { label: opts.label || '' };
+      if (opts.scroll) {
+        const row = Math.floor(anchor / cols);
+        const vh = els.hexScroll.clientHeight || 480;
+        els.hexScroll.scrollTop = Math.max(0, row * ROW_H - vh / 2);
+      }
+      schedule();
+    },
     scrollTo(off) {
       setCursor(off, false);
       const row = Math.floor(off / cols);
@@ -3805,6 +4178,38 @@ function createHexView(els, hooks = {}) {
 }
 
 // ---- small shared helpers --------------------------------------------------
+
+// The table heat scale: the blue -> green -> yellow -> red ramp every map
+// editor uses, at full strength. Returns the fill and an ink that keeps
+// contrast on it (dark on the bright yellow/green middle, light on the deep
+// blue and red ends).
+const HEAT_STOPS = [
+  [0x24, 0x47, 0xa8],
+  [0x1e, 0x8f, 0x8a],
+  [0x4c, 0xaf, 0x50],
+  [0xe3, 0xc2, 0x3a],
+  [0xef, 0x7d, 0x2a],
+  [0xd6, 0x3a, 0x2f],
+];
+function heatColor(f) {
+  if (!Number.isFinite(f)) f = 0;
+  f = f < 0 ? 0 : f > 1 ? 1 : f;
+  const n = HEAT_STOPS.length - 1;
+  const pos = f * n;
+  const i = Math.min(n - 1, Math.floor(pos));
+  const k = pos - i;
+  const a = HEAT_STOPS[i];
+  const b = HEAT_STOPS[i + 1];
+  const r = Math.round(a[0] + (b[0] - a[0]) * k);
+  const g = Math.round(a[1] + (b[1] - a[1]) * k);
+  const bl = Math.round(a[2] + (b[2] - a[2]) * k);
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * bl) / 255;
+  return {
+    bg: `rgb(${r}, ${g}, ${bl})`,
+    ink: lum > 0.5 ? '#0b0f14' : '#f4f7fa',
+  };
+}
+
 function fmtBytes(n) {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -3813,10 +4218,13 @@ function fmtBytes(n) {
 function fmtNum(v, dp) {
   if (v == null || !Number.isFinite(v)) return '';
   if (dp == null || dp < 0) dp = 2;
-  // integers show clean; otherwise fixed to dp then trim trailing zeros
+  // integers show clean; otherwise fixed to dp then trim trailing zeros --
+  // only AFTER a decimal point. The old /\.?0+$/ also ate the zeros of a
+  // whole number, so an axis breakpoint of 49.9998 at 0 dp came out as "5".
   if (Number.isInteger(v)) return String(v);
   const s = v.toFixed(Math.min(dp, 8));
-  return s.replace(/\.?0+$/, '');
+  if (s.indexOf('.') === -1) return s;
+  return s.replace(/0+$/, '').replace(/\.$/, '');
 }
 function makeEmpty(icon, title, sub) {
   const d = document.createElement('div');

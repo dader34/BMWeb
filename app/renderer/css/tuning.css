@@ -4,289 +4,706 @@
 
 /* ---- toolbar -------------------------------------------------------------- */
 .tn-bar {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   margin-bottom: 14px;
 }
 .tn-bar .tn-file {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
   padding-left: 4px;
 }
 .tn-bar .tn-status {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
-  margin-left: auto; display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.tn-status .tn-dirty { color: var(--amber); }
-.tn-status .tn-sep { color: var(--ink-faint); opacity: .6; }
-.tn-file-input { display: none; }
+.tn-status .tn-dirty {
+  color: var(--amber);
+}
+.tn-status .tn-sep {
+  color: var(--ink-faint);
+  opacity: 0.6;
+}
+.tn-file-input {
+  display: none;
+}
 
 /* ---- workspace layout ----------------------------------------------------- */
 .tn-workspace {
-  display: grid; grid-template-columns: minmax(300px, 1fr) minmax(360px, 1.1fr);
-  gap: 14px; align-items: stretch;
-  height: calc(100vh - 260px); min-height: 420px;
+  display: grid;
+  grid-template-columns: minmax(300px, 1fr) minmax(360px, 1.1fr);
+  gap: 14px;
+  align-items: stretch;
+  height: calc(100vh - 260px);
+  min-height: 420px;
 }
 @media (max-width: 900px) {
-  .tn-workspace { grid-template-columns: 1fr; height: auto; }
-  .tn-hexpane, .tn-defs { min-height: 340px; }
+  .tn-workspace {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .tn-hexpane,
+  .tn-defs {
+    min-height: 340px;
+  }
 }
 
-.tn-defs, .tn-hexpane {
-  display: flex; flex-direction: column; min-height: 0;
-  border: 1px solid var(--line); border-radius: 10px;
-  background: var(--panel); overflow: hidden;
+.tn-defs,
+.tn-hexpane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
 }
 
 /* ---- definitions pane ----------------------------------------------------- */
 .tn-defs-search {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
   background: var(--panel-2);
 }
 .tn-defs-title {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
-  color: var(--ink); text-transform: uppercase; white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .tn-defs-filter {
-  flex: 1; min-width: 0;
-  font-family: var(--display); font-size: 13px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line);
-  border-radius: 6px; padding: 6px 10px; outline: none;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--display);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 10px;
+  outline: none;
 }
-.tn-defs-filter:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
+.tn-defs-filter:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
 
-.tn-defs-list { flex: 1; overflow-y: auto; padding: 6px; }
+.tn-defs-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
 
-.tn-cat { margin-bottom: 4px; }
+.tn-cat {
+  margin-bottom: 4px;
+}
 .tn-cat-head {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 6px 8px; position: sticky; top: 0; z-index: 1;
-  background: var(--panel); border-radius: 6px;
-  border: none; cursor: pointer; text-align: left; color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
   font: inherit;
 }
-.tn-cat-head:hover { background: var(--raised); }
-.tn-cat-head:hover .tn-cat-name { color: var(--ink); }
-.tn-cat-caret {
-  font-size: 9px; color: var(--ink-faint); flex: none; width: 9px;
+.tn-cat-head:hover {
+  background: var(--raised);
 }
-.tn-cat.open > .tn-cat-head .tn-cat-caret { color: var(--amber); }
+.tn-cat-head:hover .tn-cat-name {
+  color: var(--ink);
+}
+.tn-cat-caret {
+  font-size: 9px;
+  color: var(--ink-faint);
+  flex: none;
+  width: 9px;
+}
+.tn-cat.open > .tn-cat-head .tn-cat-caret {
+  color: var(--amber);
+}
 /* a collapsed section draws no body at all -- the rows are not built */
-.tn-cat:not(.open) > .tn-cat-body { display: none; }
+.tn-cat:not(.open) > .tn-cat-body {
+  display: none;
+}
 .tn-cat-name {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 .tn-cat-count {
-  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
-  background: var(--panel-2); border: 1px solid var(--line);
-  border-radius: 10px; padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1px 7px;
 }
-.tn-cat-body { display: flex; flex-direction: column; gap: 3px; padding: 2px 2px 6px; }
+.tn-cat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 2px 2px 6px;
+}
 
 /* an item row */
-.tn-item { border-radius: 7px; border: 1px solid transparent; }
-.tn-item.open { border-color: var(--line); background: var(--panel-2); }
+.tn-item {
+  border-radius: 7px;
+  border: 1px solid transparent;
+}
+.tn-item.open {
+  border-color: var(--line);
+  background: var(--panel-2);
+}
 .tn-item-head {
-  display: flex; align-items: center; gap: 9px; width: 100%;
-  padding: 8px 10px; background: none; border: none; cursor: pointer;
-  text-align: left; color: var(--ink); border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+  border-radius: 7px;
 }
-.tn-item-head:hover { background: var(--raised); }
-.tn-item.open .tn-item-head:hover { background: transparent; }
+.tn-item-head:hover {
+  background: var(--raised);
+}
+.tn-item.open .tn-item-head:hover {
+  background: transparent;
+}
 .tn-item-kind {
-  font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .06em;
-  padding: 2px 6px; border-radius: 4px; flex: none;
-  border: 1px solid var(--line); color: var(--ink-dim); background: var(--bg);
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex: none;
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  background: var(--bg);
 }
-.tn-kind-constant { color: var(--cyan); border-color: color-mix(in srgb, var(--cyan) 40%, var(--line)); }
-.tn-kind-flag { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 40%, var(--line)); }
-.tn-kind-table { color: var(--green); border-color: color-mix(in srgb, var(--green) 40%, var(--line)); }
-.tn-kind-patch { color: var(--red); border-color: color-mix(in srgb, var(--red) 40%, var(--line)); }
+.tn-kind-constant {
+  color: var(--cyan);
+  border-color: color-mix(in srgb, var(--cyan) 40%, var(--line));
+}
+.tn-kind-flag {
+  color: var(--amber);
+  border-color: color-mix(in srgb, var(--amber) 40%, var(--line));
+}
+.tn-kind-table {
+  color: var(--green);
+  border-color: color-mix(in srgb, var(--green) 40%, var(--line));
+}
+.tn-kind-patch {
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 40%, var(--line));
+}
 .tn-item-title {
-  flex: 1; min-width: 0; font-size: 13px; color: var(--ink);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tn-item-addr {
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex: none;
 }
-.tn-item-body { padding: 0 10px; }
-.tn-item.open .tn-item-body { padding: 2px 10px 12px; }
+.tn-item-body {
+  padding: 0 10px;
+}
+.tn-item.open .tn-item-body {
+  padding: 2px 10px 12px;
+}
 
 /* ---- editors -------------------------------------------------------------- */
 .tn-desc {
-  font-size: 12px; color: var(--ink-dim); line-height: 1.5;
-  margin: 2px 0 10px; padding: 8px 10px;
-  background: var(--bg); border-radius: 6px; border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+  margin: 2px 0 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  border: 1px solid var(--line);
 }
-.tn-edit { display: flex; flex-direction: column; gap: 10px; }
+.tn-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 .tn-field label {
-  display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px;
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 6px;
 }
-.tn-unit { color: var(--ink-dim); text-transform: none; letter-spacing: 0; }
-.tn-input-row { display: flex; gap: 8px; }
-.tn-num, .tn-cell {
-  font-family: var(--mono); font-size: 13px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line);
-  border-radius: 6px; padding: 8px 10px; outline: none; min-width: 0;
+.tn-unit {
+  color: var(--ink-dim);
+  text-transform: none;
+  letter-spacing: 0;
 }
-.tn-num { flex: 1; }
-.tn-num:focus, .tn-cell:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
-.tn-num:disabled, .tn-cell:disabled { opacity: .5; cursor: not-allowed; }
+.tn-input-row {
+  display: flex;
+  gap: 8px;
+}
+.tn-num,
+.tn-cell {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  outline: none;
+  min-width: 0;
+}
+.tn-num {
+  flex: 1;
+}
+.tn-num:focus,
+.tn-cell:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
+.tn-num:disabled,
+.tn-cell:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .tn-meta {
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
 }
 .tn-meta code {
-  color: var(--ink-dim); background: var(--bg);
-  padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line);
+  color: var(--ink-dim);
+  background: var(--bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
 }
-.tn-raw { color: var(--ink-faint); }
-.tn-warn, .tn-warn-inline { color: var(--red); font-size: 11px; }
-.tn-note { font-size: 12px; color: var(--ink-dim); padding: 8px 0; }
+.tn-raw {
+  color: var(--ink-faint);
+}
+.tn-warn,
+.tn-warn-inline {
+  color: var(--red);
+  font-size: 11px;
+}
+.tn-note {
+  font-size: 12px;
+  color: var(--ink-dim);
+  padding: 8px 0;
+}
 
 /* flag toggle */
-.tn-toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; }
-.tn-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.tn-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.tn-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
 .tn-toggle-track {
-  width: 42px; height: 24px; border-radius: 999px;
-  background: var(--line); border: 1px solid var(--line-bright);
-  position: relative; transition: background .18s;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--line);
+  border: 1px solid var(--line-bright);
+  position: relative;
+  transition: background 0.18s;
 }
 .tn-toggle-dot {
-  position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
-  border-radius: 50%; background: var(--ink); transition: transform .18s;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform 0.18s;
 }
-.tn-toggle input:checked + .tn-toggle-track { background: var(--amber); }
-.tn-toggle input:checked + .tn-toggle-track .tn-toggle-dot { transform: translateX(18px); background: var(--amber-ink); }
-.tn-toggle-label { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+.tn-toggle input:checked + .tn-toggle-track {
+  background: var(--amber);
+}
+.tn-toggle input:checked + .tn-toggle-track .tn-toggle-dot {
+  transform: translateX(18px);
+  background: var(--amber-ink);
+}
+.tn-toggle-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+}
 
 /* table editor */
-.tn-table-scroll { overflow: auto; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; }
-.tn-table { border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
-.tn-table th, .tn-table td { border: 1px solid var(--line); padding: 0; }
-.tn-table thead th, .tn-table .tn-rowhead {
-  background: var(--panel-2); color: var(--ink-faint);
-  font-weight: 600; padding: 4px 8px; position: sticky; text-align: center;
+.tn-table-scroll {
+  overflow: auto;
+  max-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.tn-table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.tn-table th,
+.tn-table td {
+  border: 1px solid var(--line);
+  padding: 0;
+}
+.tn-table thead th,
+.tn-table .tn-rowhead {
+  background: var(--panel-2);
+  color: var(--ink-faint);
+  font-weight: 600;
+  padding: 4px 8px;
+  position: sticky;
+  text-align: center;
   white-space: nowrap;
 }
-.tn-table thead th { top: 0; z-index: 2; }
-.tn-table .tn-rowhead, .tn-table .tn-corner { left: 0; z-index: 1; }
-.tn-table thead .tn-corner { z-index: 3; }
-.tn-table td .tn-cell {
-  border: none; border-radius: 0; background: transparent;
-  width: 62px; text-align: right; padding: 5px 8px;
+.tn-table thead th {
+  top: 0;
+  z-index: 2;
 }
-.tn-table td .tn-cell:focus { box-shadow: inset 0 0 0 2px var(--amber); }
-.tn-cell-edited { color: var(--amber); font-weight: 700; }
+.tn-table .tn-rowhead,
+.tn-table .tn-corner {
+  left: 0;
+  z-index: 1;
+}
+.tn-table thead .tn-corner {
+  z-index: 3;
+}
+.tn-table td .tn-cell {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  width: 62px;
+  text-align: right;
+  padding: 5px 8px;
+}
+.tn-table td .tn-cell:focus {
+  box-shadow: inset 0 0 0 2px var(--amber);
+}
+.tn-cell-edited {
+  color: var(--amber);
+  font-weight: 700;
+}
 
 /* a value outside the definition's declared range: a warning, not a block --
    the bytes are legal, the tune may not be */
 .tn-cell-oor {
   box-shadow: inset 0 0 0 2px var(--red);
-  color: var(--red); font-weight: 700;
+  color: var(--red);
+  font-weight: 700;
 }
 
 /* axis breakpoints are editable in place; they stay visually part of the
    header rather than reading as another data cell */
 .tn-axis-cell {
-  border: none; border-radius: 0; background: transparent;
-  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
-  color: var(--ink-faint); width: 62px; text-align: center;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  width: 62px;
+  text-align: center;
   padding: 3px 6px;
 }
-.tn-table .tn-rowhead .tn-axis-cell { width: 56px; }
-.tn-axis-cell:focus {
-  box-shadow: inset 0 0 0 2px var(--amber); color: var(--ink); outline: none;
+.tn-table .tn-rowhead .tn-axis-cell {
+  width: 56px;
 }
-.tn-axis-cell.tn-cell-edited { color: var(--amber); }
+.tn-axis-cell:focus {
+  box-shadow: inset 0 0 0 2px var(--amber);
+  color: var(--ink);
+  outline: none;
+}
+.tn-axis-cell.tn-cell-edited {
+  color: var(--amber);
+}
 
 /* patch editor */
-.tn-patch { gap: 8px; }
-.tn-patch-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  padding: 8px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 7px;
+.tn-patch {
+  gap: 8px;
 }
-.tn-patch-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.tn-patch-name { font-size: 12.5px; color: var(--ink); }
-.tn-patch-addr { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); }
-.tn-patch-state { font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; }
-.tn-state-applied { color: var(--green); }
-.tn-state-virgin { color: var(--ink-faint); }
-.tn-state-neither { color: var(--amber); }
-.tn-patch-btns { display: flex; gap: 6px; flex: none; }
-.tn-patch-btns .btn { padding: 5px 12px; font-size: 11px; }
+.tn-patch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.tn-patch-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.tn-patch-name {
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.tn-patch-addr {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+.tn-patch-state {
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.tn-state-applied {
+  color: var(--green);
+}
+.tn-state-virgin {
+  color: var(--ink-faint);
+}
+.tn-state-neither {
+  color: var(--amber);
+}
+.tn-patch-btns {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.tn-patch-btns .btn {
+  padding: 5px 12px;
+  font-size: 11px;
+}
 
 /* ---- hex pane ------------------------------------------------------------- */
 .tn-hex-head {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
 }
 .tn-hex-title {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
-  color: var(--ink); text-transform: uppercase;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-transform: uppercase;
 }
 .tn-goto-wrap {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--ink-faint);
-  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .tn-goto {
-  font-family: var(--mono); font-size: 12px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
-  padding: 4px 8px; width: 92px; outline: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 92px;
+  outline: none;
 }
-.tn-goto:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
+.tn-goto:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
 .tn-hex-meta {
-  margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
 }
 
 .tn-hex-scroll {
-  flex: 1; overflow: auto; position: relative; outline: none;
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  outline: none;
   background: var(--bg);
 }
-.tn-hex-empty { padding: 24px; color: var(--ink-faint); font-family: var(--mono); font-size: 12px; }
-.tn-hex-spacer { position: relative; width: 100%; }
-.tn-hex-window { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
+.tn-hex-empty {
+  padding: 24px;
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.tn-hex-spacer {
+  position: relative;
+  width: 100%;
+}
+.tn-hex-window {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+}
 
 .tn-hex-row {
-  display: flex; align-items: center; gap: 14px;
-  font-family: var(--mono); font-size: 12px; line-height: 20px;
-  padding: 0 12px; white-space: pre;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 20px;
+  padding: 0 12px;
+  white-space: pre;
 }
-.tn-hoff { color: var(--ink-faint); flex: none; user-select: none; }
-.tn-hbytes { flex: none; color: var(--ink-dim); }
-.tn-hb { padding: 0 2px; border-radius: 3px; cursor: default; }
-.tn-hb:not(.tn-hb-pad):hover { background: var(--raised); cursor: pointer; }
-.tn-hb-pad { color: transparent; }
-.tn-hb-changed { color: var(--amber); font-weight: 700; }
-.tn-hb-hl { background: var(--amber-glow); color: var(--ink); box-shadow: inset 0 0 0 1px var(--amber); }
-.tn-hb-changed.tn-hb-hl { color: var(--amber); }
-.tn-hascii { flex: none; color: var(--ink-faint); user-select: none; }
-.tn-ha-hl { color: var(--ink); }
-.tn-ha-changed { color: var(--amber); }
+.tn-hoff {
+  color: var(--ink-faint);
+  flex: none;
+  user-select: none;
+}
+.tn-hbytes {
+  flex: none;
+  color: var(--ink-dim);
+}
+.tn-hb {
+  padding: 0 2px;
+  border-radius: 3px;
+  cursor: default;
+}
+.tn-hb:not(.tn-hb-pad):hover {
+  background: var(--raised);
+  cursor: pointer;
+}
+.tn-hb-pad {
+  color: transparent;
+}
+.tn-hb-changed {
+  color: var(--amber);
+  font-weight: 700;
+}
+.tn-hb-hl {
+  background: var(--amber-glow);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--amber);
+}
+.tn-hb-changed.tn-hb-hl {
+  color: var(--amber);
+}
+.tn-hascii {
+  flex: none;
+  color: var(--ink-faint);
+  user-select: none;
+}
+.tn-ha-hl {
+  color: var(--ink);
+}
+.tn-ha-changed {
+  color: var(--amber);
+}
 
 /* ---- shared empties / feedback -------------------------------------------- */
 .tn-empty {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  text-align: center; color: var(--ink-dim); font-size: 13px;
-  padding: 40px 20px; margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  color: var(--ink-dim);
+  font-size: 13px;
+  padding: 40px 20px;
+  margin: auto;
 }
-.tn-empty-icon { font-size: 34px; color: var(--ink-faint); opacity: .7; }
-.tn-empty-sub { font-size: 11px; color: var(--ink-faint); }
+.tn-empty-icon {
+  font-size: 34px;
+  color: var(--ink-faint);
+  opacity: 0.7;
+}
+.tn-empty-sub {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
 
-.tn-shake { animation: tn-shake .34s; }
-@keyframes tn-shake {
-  0%,100% { transform: translateX(0); }
-  20%,60% { transform: translateX(-5px); }
-  40%,80% { transform: translateX(5px); }
+.tn-shake {
+  animation: tn-shake 0.34s;
 }
-.tn-flash { animation: tn-flash .4s; }
+@keyframes tn-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+.tn-flash {
+  animation: tn-flash 0.4s;
+}
 @keyframes tn-flash {
-  0% { box-shadow: 0 0 0 0 var(--amber-glow); }
-  50% { box-shadow: 0 0 0 5px var(--amber-glow); }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0% {
+    box-shadow: 0 0 0 0 var(--amber-glow);
+  }
+  50% {
+    box-shadow: 0 0 0 5px var(--amber-glow);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 /* ---- kind filter chips ----------------------------------------------------
@@ -296,29 +713,66 @@
    are the same state -- everything shows -- so the bar can never filter the
    list down to nothing. */
 .tn-kind-bar {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  padding: 8px 12px; border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
   background: var(--panel-2);
 }
 .tn-kind-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 8px; border-radius: 999px; cursor: pointer;
-  background: var(--bg); border: 1px solid var(--line);
-  color: var(--ink-faint); font-family: var(--mono); font-size: 10px;
-  letter-spacing: .06em; transition: background .12s, border-color .12s, color .12s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
-.tn-kind-chip:hover { background: var(--raised); color: var(--ink); }
-.tn-kind-chip-t { font-weight: 700; }
+.tn-kind-chip:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+.tn-kind-chip-t {
+  font-weight: 700;
+}
 .tn-kind-chip-n {
-  font-size: 9px; opacity: .75;
-  padding-left: 6px; border-left: 1px solid var(--line);
+  font-size: 9px;
+  opacity: 0.75;
+  padding-left: 6px;
+  border-left: 1px solid var(--line);
 }
 /* lit: the kind's own accent, matching its row badge */
-.tn-kind-chip.on { color: var(--ink); background: var(--raised); }
-.tn-kind-chip.tn-kind-constant.on { border-color: var(--cyan); color: var(--cyan); }
-.tn-kind-chip.tn-kind-flag.on     { border-color: var(--amber); color: var(--amber); }
-.tn-kind-chip.tn-kind-table.on    { border-color: var(--green); color: var(--green); }
-.tn-kind-chip.tn-kind-patch.on    { border-color: var(--red); color: var(--red); }
+.tn-kind-chip.on {
+  color: var(--ink);
+  background: var(--raised);
+}
+.tn-kind-chip.tn-kind-constant.on {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+.tn-kind-chip.tn-kind-flag.on {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+.tn-kind-chip.tn-kind-table.on {
+  border-color: var(--green);
+  color: var(--green);
+}
+.tn-kind-chip.tn-kind-patch.on {
+  border-color: var(--red);
+  color: var(--red);
+}
 
 /* ---- coverage map ---------------------------------------------------------
    Shade every byte the loaded definition describes, rotating through eight
@@ -327,60 +781,124 @@
    because "I edited this" and "this is the parameter I opened" must stay
    readable on top of the map. Hues are spread around the wheel and kept at
    low alpha so hex digits stay legible in both themes. */
-.tn-hb.tn-cv { border-radius: 2px; }
-.tn-cv1 { background: rgba( 88, 166, 255, .20); }   /* blue    */
-.tn-cv2 { background: rgba( 63, 185, 128, .20); }   /* green   */
-.tn-cv3 { background: rgba(219, 109,  40, .20); }   /* orange  */
-.tn-cv4 { background: rgba(188, 140, 255, .20); }   /* violet  */
-.tn-cv5 { background: rgba(233, 196,  75, .20); }   /* yellow  */
-.tn-cv6 { background: rgba( 57, 197, 207, .20); }   /* cyan    */
-.tn-cv7 { background: rgba(247, 120, 186, .20); }   /* pink    */
-.tn-cv8 { background: rgba(145, 179,  61, .20); }   /* olive   */
+.tn-hb.tn-cv {
+  border-radius: 2px;
+}
+.tn-cv1 {
+  background: rgba(88, 166, 255, 0.2);
+} /* blue    */
+.tn-cv2 {
+  background: rgba(63, 185, 128, 0.2);
+} /* green   */
+.tn-cv3 {
+  background: rgba(219, 109, 40, 0.2);
+} /* orange  */
+.tn-cv4 {
+  background: rgba(188, 140, 255, 0.2);
+} /* violet  */
+.tn-cv5 {
+  background: rgba(233, 196, 75, 0.2);
+} /* yellow  */
+.tn-cv6 {
+  background: rgba(57, 197, 207, 0.2);
+} /* cyan    */
+.tn-cv7 {
+  background: rgba(247, 120, 186, 0.2);
+} /* pink    */
+.tn-cv8 {
+  background: rgba(145, 179, 61, 0.2);
+} /* olive   */
 
 /* the map toggle + its legend */
 .tn-map-toggle {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 3px 8px; border-radius: 999px; cursor: pointer;
-  background: var(--bg); border: 1px solid var(--line);
-  color: var(--ink-faint); font-family: var(--mono); font-size: 10px;
-  letter-spacing: .04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
-.tn-map-toggle:hover { background: var(--raised); color: var(--ink); }
-.tn-map-toggle.on { color: var(--ink); border-color: var(--amber); }
-.tn-map-toggle.on .tn-map-swatches { opacity: 1; }
-.tn-map-swatches { display: inline-flex; gap: 2px; opacity: .45; }
+.tn-map-toggle:hover {
+  background: var(--raised);
+  color: var(--ink);
+}
+.tn-map-toggle.on {
+  color: var(--ink);
+  border-color: var(--amber);
+}
+.tn-map-toggle.on .tn-map-swatches {
+  opacity: 1;
+}
+.tn-map-swatches {
+  display: inline-flex;
+  gap: 2px;
+  opacity: 0.45;
+}
 .tn-map-swatches i {
-  width: 6px; height: 10px; border-radius: 1px; display: block;
+  width: 6px;
+  height: 10px;
+  border-radius: 1px;
+  display: block;
 }
 
 /* restored-session notice: says WHY an image is already open after a reload */
-.tn-restored { color: var(--green); }
-.tn-linklike {
-  background: none; border: 0; padding: 0; font: inherit;
-  color: var(--ink-dim); cursor: pointer; text-decoration: underline;
+.tn-restored {
+  color: var(--green);
 }
-.tn-linklike:hover { color: var(--amber); }
+.tn-linklike {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--ink-dim);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.tn-linklike:hover {
+  color: var(--amber);
+}
 
 /* ---- table: summary row + modal editor ------------------------------------
    A 16x16 map inline pushes the rest of the definition list off screen and
    leaves cells too cramped to work in, so the row carries a summary and the
    grid opens in a dialog with room to tune. */
 .tn-tbl-summary {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
   padding: 8px 10px;
 }
-.tn-tbl-dims, .tn-tbl-range {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+.tn-tbl-dims,
+.tn-tbl-range {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
 }
-.tn-tbl-view { margin-left: auto; }
+.tn-tbl-view {
+  margin-left: auto;
+}
 
 .tn-modal-back {
-  position: fixed; inset: 0; z-index: 60;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, .55); padding: 24px;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 24px;
 }
 .tn-modal {
-  display: flex; flex-direction: column; gap: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   /* SIZE TO THE GRID, not to the viewport. A 6x6 table needs ~550px and a
      16x16 needs far more; a fixed width left small tables floating in an
      empty dialog. fit-content grows with the table and stops at 96vw, and
@@ -389,144 +907,307 @@
   min-width: min(560px, 96vw);
   max-width: 96vw;
   max-height: 90vh;
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 10px; overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
 }
 .tn-modal-head {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px; border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
   background: var(--panel-2);
 }
-.tn-modal-title { display: flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink); }
-.tn-modal-x {
-  margin-left: auto; background: none; border: none; cursor: pointer;
-  color: var(--ink-faint); font-size: 20px; line-height: 1; padding: 0 4px;
+.tn-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--ink);
 }
-.tn-modal-x:hover { color: var(--ink); }
+.tn-modal-x {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.tn-modal-x:hover {
+  color: var(--ink);
+}
 .tn-modal-desc {
-  padding: 10px 14px; font-size: 12.5px; color: var(--ink-dim);
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
   border-bottom: 1px solid var(--line);
 }
 .tn-modal-tools {
-  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  padding: 9px 14px; border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
   background: var(--panel-2);
 }
 .tn-tool-check {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-dim);
   cursor: pointer;
 }
-.tn-tool-sep { width: 1px; height: 16px; background: var(--line); }
-.tn-tool-spacer { flex: 1; }
+.tn-tool-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--line);
+}
+.tn-tool-spacer {
+  flex: 1;
+}
 /* The selection counter changes text constantly ("3 cells selected" ->
    "12 cells selected"), and the modal is width:fit-content -- so without a
    fixed box the whole dialog would grow and shrink on every drag. Reserve a
    stable width and let long text ellipsise inside it. */
 .tn-sel-info {
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint);
-  flex: 0 0 auto; width: 15em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  flex: 0 0 auto;
+  width: 15em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tn-bulk-v {
-  width: 86px; font-family: var(--mono); font-size: 12px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line);
-  border-radius: 5px; padding: 4px 7px; outline: none;
+  width: 86px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 4px 7px;
+  outline: none;
 }
-.tn-bulk-v:focus { border-color: var(--amber); }
-.tn-modal-tools .btn { padding: 4px 10px; font-size: 11.5px; }
+.tn-bulk-v:focus {
+  border-color: var(--amber);
+}
+.tn-modal-tools .btn {
+  padding: 4px 10px;
+  font-size: 11.5px;
+}
 .tn-modal-grid {
-  flex: 1; overflow: auto; padding: 10px 14px;
+  flex: 1;
+  overflow: auto;
+  padding: 10px 14px;
   /* the table decides the width; this pane just scrolls when it exceeds it */
   min-width: 0;
 }
-.tn-table-modal { width: auto; }
-.tn-modal-foot {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel-2);
+.tn-table-modal {
+  width: auto;
 }
-.tn-modal-meta { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
+.tn-modal-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.tn-modal-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
 /* keyboard crib: discoverability for the shortcuts, without a help dialog */
 .tn-modal-keys {
-  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
-  opacity: .75; margin-left: 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  opacity: 0.75;
+  margin-left: 14px;
 }
-@media (max-width: 900px) { .tn-modal-keys { display: none; } }
-.tn-modal-foot .btn { margin-left: auto; }
-/* a selected cell keeps its heat tint but gains a ring */
-.tn-table-modal .tn-cell.sel {
-  outline: 2px solid var(--amber); outline-offset: -2px;
+@media (max-width: 900px) {
+  .tn-modal-keys {
+    display: none;
+  }
+}
+.tn-modal-foot .btn {
+  margin-left: auto;
 }
 
 /* ---- definition auto-match prompt ----------------------------------------- */
 .tn-match {
-  margin: 10px 0; padding: 10px 12px;
+  margin: 10px 0;
+  padding: 10px 12px;
   border: 1px solid var(--line);
-  border-radius: 6px; background: var(--panel-2);
+  border-radius: 6px;
+  background: var(--panel-2);
 }
-.tn-match-row { margin-top: 3px; font-size: 12px; color: var(--ink-dim); }
-.tn-match-ok { margin-top: 7px; font-size: 12px; color: var(--green); }
-.tn-match-warn { margin-top: 7px; font-size: 12px; color: var(--amber); }
-.tn-match-foot { font-size: 11.5px; color: var(--ink-faint); }
+.tn-match-row {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--ink-dim);
+}
+.tn-match-ok {
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--green);
+}
+.tn-match-warn {
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--amber);
+}
+.tn-match-foot {
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
 
 /* Clipboard proxy: an off-screen textarea that holds focus for the grid so
    native Cmd-C / Cmd-V events fire without needing clipboard permissions.
    Not display:none -- a hidden element cannot take focus. */
 .tn-clip-proxy {
-  position: absolute; left: -9999px; top: 0;
-  width: 1px; height: 1px; opacity: 0; padding: 0; border: 0;
-  resize: none; overflow: hidden;
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  padding: 0;
+  border: 0;
+  resize: none;
+  overflow: hidden;
 }
 
 /* ---- hex editor: selection, cursor, find, inspector ------------------------ */
 /* The pane is a column: head / find bar / body / status. Only the body grows,
    so the strips stay put while a 1 MB image scrolls behind them. */
-.tn-hex-body { flex: 1; display: flex; min-height: 0; }
-.tn-hex-body .tn-hex-scroll { flex: 1; min-width: 0; }
+.tn-hex-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.tn-hex-body .tn-hex-scroll {
+  flex: 1;
+  min-width: 0;
+}
 
 .tn-cols {
-  font-family: var(--mono); font-size: 12px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
-  padding: 3px 6px; outline: none; cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 6px;
+  outline: none;
+  cursor: pointer;
 }
-.tn-cols:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
+.tn-cols:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
 
 /* find bar */
 .tn-find {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 12px; border-bottom: 1px solid var(--line); background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
 }
-.tn-find-q { width: 200px; }
-.tn-find-modes { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.tn-find-q {
+  width: 200px;
+}
+.tn-find-modes {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
 .tn-find-mode {
-  font-family: var(--mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
-  background: transparent; color: var(--ink-faint); border: 0; padding: 4px 9px; cursor: pointer;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--ink-faint);
+  border: 0;
+  padding: 4px 9px;
+  cursor: pointer;
 }
-.tn-find-mode + .tn-find-mode { border-left: 1px solid var(--line); }
-.tn-find-mode:hover { color: var(--ink); background: var(--raised); }
-.tn-find-mode.on { color: var(--bg); background: var(--amber); }
+.tn-find-mode + .tn-find-mode {
+  border-left: 1px solid var(--line);
+}
+.tn-find-mode:hover {
+  color: var(--ink);
+  background: var(--raised);
+}
+.tn-find-mode.on {
+  color: var(--bg);
+  background: var(--amber);
+}
 .tn-find-nav {
-  font-size: 10px; line-height: 1; color: var(--ink-dim); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--ink-dim);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 5px 8px;
+  cursor: pointer;
 }
-.tn-find-nav:hover { color: var(--ink); border-color: var(--amber); }
+.tn-find-nav:hover {
+  color: var(--ink);
+  border-color: var(--amber);
+}
 .tn-find-count {
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); min-width: 90px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  min-width: 90px;
 }
 
 /* status strip: cursor position in both bases, plus the live selection size */
 .tn-hex-status {
-  display: flex; align-items: center; gap: 16px; flex: none;
-  padding: 6px 12px; border-top: 1px solid var(--line); background: var(--panel-2);
-  font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim);
-  white-space: nowrap; overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+  padding: 6px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  overflow: hidden;
 }
-.tn-hs-sel { color: var(--cyan); }
-.tn-hs-hint { margin-left: auto; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
+.tn-hs-sel {
+  color: var(--cyan);
+}
+.tn-hs-hint {
+  margin-left: auto;
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* byte grouping + cursor crosshair. The gap is margin, not padding, so it does
    not widen the hit target and mis-align the click-to-open gesture. */
-.tn-hb-gap { margin-left: 7px; }
+.tn-hb-gap {
+  margin-left: 7px;
+}
 /* SELECTION OUTSHINES EVERYTHING.
    A selected byte also carries a coverage-map tint (.tn-cv1-8), and those are
    single-class rules of equal specificity -- so the map colour was winning and
@@ -555,41 +1236,93 @@
   font-weight: 700;
 }
 .tn-hb-cur {
-  background: var(--amber); color: var(--bg); font-weight: 700;
+  background: var(--amber);
+  color: var(--bg);
+  font-weight: 700;
 }
-.tn-hb-changed.tn-hb-cur { color: var(--bg); }
+.tn-hb-changed.tn-hb-cur {
+  color: var(--bg);
+}
 /* the crosshair is deliberately faint -- it orients you without competing with
    the coverage map underneath it */
-.tn-hb-cross { background: rgba(127, 127, 127, .10); }
-.tn-hex-row-cur .tn-hoff { color: var(--ink); }
-.tn-hb-hit { box-shadow: inset 0 0 0 1px var(--cyan); color: var(--cyan); }
-.tn-ha-hit { color: var(--cyan); }
-.tn-hb-hit.tn-hb-cur { color: var(--bg); }
+.tn-hb-cross {
+  background: rgba(127, 127, 127, 0.1);
+}
+.tn-hex-row-cur .tn-hoff {
+  color: var(--ink);
+}
+.tn-hb-hit {
+  box-shadow: inset 0 0 0 1px var(--cyan);
+  color: var(--cyan);
+}
+.tn-ha-hit {
+  color: var(--cyan);
+}
+.tn-hb-hit.tn-hb-cur {
+  color: var(--bg);
+}
 
 /* data inspector */
 .tn-insp {
-  flex: none; width: 208px; border-left: 1px solid var(--line);
-  background: var(--panel-2); overflow: auto; display: flex; flex-direction: column;
+  flex: none;
+  width: 208px;
+  border-left: 1px solid var(--line);
+  background: var(--panel-2);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 .tn-insp-head {
-  display: flex; align-items: center; gap: 8px; flex: none;
-  padding: 8px 10px; border-bottom: 1px solid var(--line);
-  font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
 }
-.tn-insp-rows { padding: 4px 0; }
+.tn-insp-rows {
+  padding: 4px 0;
+}
 .tn-insp-row {
-  display: flex; align-items: baseline; gap: 8px; padding: 3px 10px;
-  font-family: var(--mono); font-size: 11px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
 }
-.tn-insp-row:hover { background: var(--raised); }
-.tn-insp-k { flex: none; width: 68px; color: var(--ink-faint); }
-.tn-insp-v { flex: 1; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
-.tn-insp-alt { flex: none; color: var(--ink-faint); font-size: 10px; }
+.tn-insp-row:hover {
+  background: var(--raised);
+}
+.tn-insp-k {
+  flex: none;
+  width: 68px;
+  color: var(--ink-faint);
+}
+.tn-insp-v {
+  flex: 1;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tn-insp-alt {
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 10px;
+}
 
 @media (max-width: 1100px) {
-  .tn-insp { width: 168px; }
-  .tn-hs-hint { display: none; }
+  .tn-insp {
+    width: 168px;
+  }
+  .tn-hs-hint {
+    display: none;
+  }
 }
 
 /* ---- hex editor: breathing room ------------------------------------------- */
@@ -597,32 +1330,65 @@
    plus the inspector, so it needs a bigger share of the split than the old
    read-only dump did -- otherwise the ASCII column clips and the inspector
    truncates its int32s. The defs tree tolerates narrowing far better. */
-.tn-workspace { grid-template-columns: minmax(260px, .78fr) minmax(560px, 1.55fr); }
+.tn-workspace {
+  grid-template-columns: minmax(260px, 0.78fr) minmax(560px, 1.55fr);
+}
 
 /* Header and find bar share one line each but wrap gracefully rather than
    forcing the pane wider than its column. */
-.tn-hex-head, .tn-find { flex-wrap: wrap; row-gap: 6px; }
-.tn-hex-head { gap: 10px; }
-.tn-hex-meta { font-size: 10px; }
+.tn-hex-head,
+.tn-find {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.tn-hex-head {
+  gap: 10px;
+}
+.tn-hex-meta {
+  font-size: 10px;
+}
 
 /* Let the byte grid keep its natural width and give ASCII whatever is left,
    instead of both being `flex: none` and overflowing the pane. */
-.tn-hex-row { gap: 12px; }
-.tn-hascii { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.tn-hex-row {
+  gap: 12px;
+}
+.tn-hascii {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
 
 /* The inspector sizes to its content so 10-digit int32s stop being elided. */
-.tn-insp { width: auto; min-width: 190px; max-width: 240px; }
-.tn-insp-k { width: 62px; }
-.tn-insp-v { white-space: nowrap; }
+.tn-insp {
+  width: auto;
+  min-width: 190px;
+  max-width: 240px;
+}
+.tn-insp-k {
+  width: 62px;
+}
+.tn-insp-v {
+  white-space: nowrap;
+}
 /* the secondary (unsigned / hex) reading is a nicety -- drop it before the
    primary value is ever truncated */
-.tn-insp-alt { max-width: 78px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tn-insp-alt {
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 @media (max-width: 1500px) {
-  .tn-insp-alt { display: none; }
+  .tn-insp-alt {
+    display: none;
+  }
 }
 @media (max-width: 900px) {
-  .tn-workspace { grid-template-columns: 1fr; }
+  .tn-workspace {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---- hex editor: one scrollbar, not three --------------------------------- */
@@ -639,20 +1405,35 @@
    workspace just takes whatever height is left, with no magic number to drift
    out of date when the header or toolbar changes. */
 body.apps-section .view:has(.tn-workspace) {
-  display: flex; flex-direction: column; overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 body.apps-section .view:has(.tn-workspace) > .tn-workspace {
-  flex: 1; min-height: 0; height: auto;
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 /* the inspector rides along with the hex list rather than scrolling apart from
    it -- its content is a fixed dozen rows and always fits */
-.tn-insp { overflow: visible; }
-.tn-insp-rows { overflow-y: auto; min-height: 0; flex: 1; }
+.tn-insp {
+  overflow: visible;
+}
+.tn-insp-rows {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
 
 /* Two-line labels ("float32 LE" wrapping) made the inspector rows ragged and
    forced the extra height that caused the overflow in the first place. */
-.tn-insp-k { width: 70px; white-space: nowrap; }
-.tn-insp-row { padding: 2px 10px; }
+.tn-insp-k {
+  width: 70px;
+  white-space: nowrap;
+}
+.tn-insp-row {
+  padding: 2px 10px;
+}
 
 /* ---- hex context menu -----------------------------------------------------
    Replaces the browser menu, which offers nothing over a hex dump. Fixed
@@ -660,108 +1441,91 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
    coordinates -- keeping it out of the hex pane means the pane's own
    overflow/scroll can never clip it. */
 .tn-ctx {
-  position: fixed; z-index: 200; min-width: 208px;
-  padding: 4px; border: 1px solid var(--line);
-  border-radius: 7px; background: var(--panel);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, .5);
+  position: fixed;
+  z-index: 200;
+  min-width: 208px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
 }
 .tn-ctx-item {
-  display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 6px 10px; border: 0; border-radius: 5px; cursor: pointer;
-  background: none; color: var(--ink); text-align: left;
-  font-size: 12.5px; line-height: 1.3;
-}
-.tn-ctx-item:hover:not(.disabled) { background: var(--raised); }
-.tn-ctx-item.disabled { color: var(--ink-faint); cursor: default; }
-.tn-ctx-sub { margin-left: auto; font-size: 11px; color: var(--ink-faint); }
-.tn-ctx-sep { height: 1px; margin: 4px 6px; background: var(--line); }
-
-/* ============================================================================
-   TABLE EDITOR -- data grid, not a form
-   ============================================================================
-   The modal grid was inheriting the generic .tn-cell input styling: rounded
-   corners, a 1px border and padding on every cell. Eighty bordered pills in a
-   5x5 read as a WinForms dialog, not a map. A spreadsheet is a CONTINUOUS
-   surface -- one hairline lattice, cells flush against it, and the only
-   things that stand out are the ones you changed.
-
-   These override the earlier rules deliberately; they are last in the file. */
-
-.tn-modal .tn-table-scroll {
-  border: 1px solid var(--line); border-radius: 8px; max-height: none;
-  background: var(--bg);
-}
-.tn-modal .tn-table { border-collapse: separate; border-spacing: 0; width: auto; }
-
-/* one hairline lattice: each cell draws only its right+bottom edge, so
-   adjacent borders never double up into a 2px seam */
-.tn-modal .tn-table th,
-.tn-modal .tn-table td {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
   border: 0;
-  border-right: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.3;
 }
-.tn-modal .tn-table tr > *:last-child { border-right: 0; }
-.tn-modal .tn-table tbody tr:last-child > * { border-bottom: 0; }
-
-/* headers read as headers: quieter ground, tabular figures, no bold shouting */
-.tn-modal .tn-table thead th,
-.tn-modal .tn-table .tn-rowhead {
-  background: var(--panel-2); color: var(--ink-dim);
-  font-weight: 500; font-size: 10.5px; letter-spacing: .02em;
-  padding: 7px 10px; font-variant-numeric: tabular-nums;
+.tn-ctx-item:hover:not(.disabled) {
+  background: var(--raised);
 }
-.tn-modal .tn-table thead th { border-bottom: 1px solid var(--line-bright, var(--line)); }
-.tn-modal .tn-table .tn-rowhead { border-right: 1px solid var(--line-bright, var(--line)); }
-
-/* the cells themselves: flush, flat, monospaced, right-aligned like numbers */
-.tn-modal .tn-table td .tn-cell {
-  border: 0 !important; border-radius: 0 !important;
-  background: transparent; box-shadow: none;
-  width: 74px; padding: 7px 10px; text-align: right;
-  font-size: 12px; font-variant-numeric: tabular-nums;
-  transition: background .1s;
+.tn-ctx-item.disabled {
+  color: var(--ink-faint);
+  cursor: default;
 }
-.tn-modal .tn-table td .tn-cell:hover:not(:disabled) { background: var(--raised); }
-.tn-modal .tn-table td .tn-cell:focus {
-  box-shadow: inset 0 0 0 2px var(--amber) !important;
-  background: var(--bg);
+.tn-ctx-sub {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-faint);
 }
-.tn-modal .tn-table td .tn-cell:disabled { opacity: .45; }
-
-/* CHANGED beats OUT-OF-RANGE beats normal. Out-of-range was a red ring on
-   every cell, which turned a warning into wallpaper -- it is now a left edge
-   marker plus red text, so a grid full of them still reads as a grid. */
-.tn-modal .tn-cell-oor {
-  box-shadow: inset 3px 0 0 var(--red) !important;
-  color: var(--red); font-weight: 600;
+.tn-ctx-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
 }
-.tn-modal .tn-cell-edited { color: var(--amber); font-weight: 700; }
 
 /* ---- toolbar: grouped, not eleven identical buttons --------------------- */
 .tn-modal .tn-modal-tools {
-  gap: 4px; padding: 8px 12px;
+  gap: 4px;
+  padding: 8px 12px;
 }
 .tn-modal .tn-modal-tools .btn {
-  padding: 5px 9px; font-size: 11.5px; border-radius: 5px;
-  background: var(--bg); border: 1px solid var(--line); color: var(--ink-dim);
+  padding: 5px 9px;
+  font-size: 11.5px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
 }
 .tn-modal .tn-modal-tools .btn:hover:not(:disabled) {
-  background: var(--raised); color: var(--ink); border-color: var(--line-bright, var(--line));
+  background: var(--raised);
+  color: var(--ink);
+  border-color: var(--line-bright, var(--line));
 }
-.tn-modal .tn-modal-tools .btn:disabled { opacity: .4; cursor: not-allowed; }
+.tn-modal .tn-modal-tools .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 /* a hairline between logical groups instead of eleven equal-weight buttons */
 .tn-modal .tn-tool-sep {
-  width: 1px; height: 18px; margin: 0 4px;
-  background: var(--line); flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--line);
+  flex: none;
 }
 .tn-modal .tn-bulk-v {
-  width: 78px; padding: 5px 8px; font-size: 12px; border-radius: 5px;
+  width: 78px;
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 5px;
   font-variant-numeric: tabular-nums;
 }
 /* the footer crib line is reference, not chrome -- keep it quiet */
-.tn-modal .tn-modal-meta { font-size: 10px; color: var(--ink-faint); line-height: 1.5; }
+.tn-modal .tn-modal-meta {
+  font-size: 10px;
+  color: var(--ink-faint);
+  line-height: 1.5;
+}
 
 /* Weight by role, so eleven buttons stop reading as one undifferentiated row:
    the value ops (set / +− / ×%) act on what you typed and sit next to the
@@ -772,26 +1536,45 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
   color: var(--ink);
 }
 .tn-modal .tn-modal-tools .tn-bulk:hover:not(:disabled) {
-  border-color: var(--amber); color: var(--amber);
+  border-color: var(--amber);
+  color: var(--amber);
 }
 /* the value input + its three ops read as one control group */
-.tn-modal .tn-bulk-v { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -1px; }
-.tn-modal .tn-modal-tools .tn-bulk[data-op="set"] { border-radius: 0; margin-right: -1px; }
-.tn-modal .tn-modal-tools .tn-bulk[data-op="add"] { border-radius: 0; margin-right: -1px; }
-.tn-modal .tn-modal-tools .tn-bulk[data-op="scale"] { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.tn-modal .tn-bulk-v {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-right: -1px;
+}
+.tn-modal .tn-modal-tools .tn-bulk[data-op='set'] {
+  border-radius: 0;
+  margin-right: -1px;
+}
+.tn-modal .tn-modal-tools .tn-bulk[data-op='add'] {
+  border-radius: 0;
+  margin-right: -1px;
+}
+.tn-modal .tn-modal-tools .tn-bulk[data-op='scale'] {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
 
-.tn-modal .tn-modal-tools .tn-op[data-op="undo"],
-.tn-modal .tn-modal-tools .tn-op[data-op="revert"] {
+.tn-modal .tn-modal-tools .tn-op[data-op='undo'],
+.tn-modal .tn-modal-tools .tn-op[data-op='revert'] {
   color: var(--ink-faint);
 }
-.tn-modal .tn-modal-tools .tn-op[data-op="revert"]:hover:not(:disabled) {
-  color: var(--red); border-color: var(--red);
+.tn-modal .tn-modal-tools .tn-op[data-op='revert']:hover:not(:disabled) {
+  color: var(--red);
+  border-color: var(--red);
 }
 .tn-modal .tn-tool-check {
-  padding: 4px 8px; border-radius: 5px;
-  font-size: 11px; color: var(--ink-dim);
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--ink-dim);
 }
-.tn-modal .tn-tool-check:hover { color: var(--ink); }
+.tn-modal .tn-tool-check:hover {
+  color: var(--ink);
+}
 
 /* ---- reclaim vertical space for the editor --------------------------------
    The page header (eyebrow + 40px title + two lines of prose) was eating
@@ -803,157 +1586,617 @@ body.apps-section .view:has(.tn-workspace) > .tn-workspace {
 
    Scoped to :has(.tn-workspace) so no other screen is affected. */
 body.apps-section .view:has(.tn-workspace) .screen-head .eyebrow,
-body.apps-section .view:has(.tn-workspace) .screen-head .subtitle { display: none; }
+body.apps-section .view:has(.tn-workspace) .screen-head .subtitle {
+  display: none;
+}
 body.apps-section .view:has(.tn-workspace) .screen-head {
-  margin: 0 0 10px; padding-bottom: 0; border-bottom: 0;
+  margin: 0 0 10px;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 body.apps-section .view:has(.tn-workspace) .screen-head .title {
-  font-size: 19px; line-height: 1.2; margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+  margin: 0;
 }
 /* the load/save bar: tighter, and it no longer needs to shout */
 body.apps-section .view:has(.tn-workspace) .tn-bar {
-  margin: 0 0 10px; padding: 0;
+  margin: 0 0 10px;
+  padding: 0;
 }
-body.apps-section .view:has(.tn-workspace) .tn-bar .btn { padding: 7px 12px; font-size: 12.5px; }
+body.apps-section .view:has(.tn-workspace) .tn-bar .btn {
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
 
 /* give the panes a sane floor so the grid never collapses to a few rows */
 body.apps-section .view:has(.tn-workspace) > .tn-workspace {
-  min-height: 0;                 /* let the flex child actually shrink-to-fit */
+  min-height: 0; /* let the flex child actually shrink-to-fit */
 }
-.tn-hexpane, .tn-defs { min-height: 420px; }
-
-/* ---- table grid: match the hex editor's flat, continuous surface ----------
-   The hex pane reads as professional because it is ONE surface: monospaced,
-   flush, hairline-separated, with colour used only to mean something. The
-   table was still drawing each cell as a floating box on the panel ground.
-   These land last so they win. */
-
-.tn-modal .tn-modal-grid { padding: 0; background: var(--bg); }
-.tn-modal .tn-table-scroll {
-  border: 0; border-radius: 0; background: var(--bg);
+.tn-hexpane,
+.tn-defs {
+  min-height: 420px;
 }
-/* the grid itself: one ground, hairlines between, nothing floating */
-.tn-modal .tn-table { background: var(--bg); }
-.tn-modal .tn-table td { background: transparent; }
-.tn-modal .tn-table td .tn-cell {
-  background: transparent !important;
-  font-family: var(--mono);
-  font-size: 11.5px; letter-spacing: .01em;
-  padding: 6px 10px; width: 78px;
-  color: var(--ink);
-}
-/* zebra by ROW, the way a hex dump alternates -- orients the eye across a
-   wide table without drawing a box around anything */
-.tn-modal .tn-table tbody tr:nth-child(even) td { background: rgba(255,255,255,.014); }
-
-/* headers: same treatment as the hex offset column -- recessed, quiet, mono */
-.tn-modal .tn-table thead th,
-.tn-modal .tn-table .tn-rowhead {
-  background: var(--panel-2);
-  color: var(--ink-faint);
-  font-family: var(--mono); font-size: 10px; font-weight: 500;
-  letter-spacing: .06em; padding: 6px 10px;
-}
-.tn-modal .tn-table thead th { border-bottom: 1px solid var(--line-bright, var(--line)); }
-.tn-modal .tn-table .tn-rowhead { border-right: 1px solid var(--line-bright, var(--line)); }
-.tn-modal .tn-table .tn-corner { background: var(--panel-2); }
-
-/* the cursor cell gets the same amber treatment as the hex cursor byte */
-.tn-modal .tn-table td .tn-cell:focus {
-  background: var(--amber) !important;
-  color: var(--amber-ink, #11161c) !important;
-  box-shadow: none !important;
-}
-/* selection: solid, like the hex pane -- not a faint wash */
-.tn-modal .tn-table td .tn-cell.sel {
-  background: var(--amber-glow) !important;
-  outline: 1px solid var(--amber); outline-offset: -1px;
-}
-
-/* the modal chrome itself, quieter so the DATA is the loudest thing */
-.tn-modal { border-radius: 8px; }
-.tn-modal-head { padding: 10px 12px; }
-.tn-modal-desc {
-  padding: 8px 12px; font-size: 12px; color: var(--ink-dim);
-  background: var(--panel-2);
-}
-.tn-modal-foot { padding: 8px 12px; }
 
 /* ---- Read from ECU dialog -------------------------------------------------
    Regions are discovered from each job's own argument spec, so this list is
    whatever the module actually declares -- not a fixed menu. */
-.tn-ecu-modal { max-width: 520px; }
-.tn-ecu-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.tn-ecu-modal {
+  max-width: 520px;
+}
+.tn-ecu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
 .tn-ecu-lbl {
-  font-family: var(--mono); font-size: 11px; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--ink-faint); white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
 }
 /* The combo wraps the field so the caret can sit inside its border. */
 .tn-ecu-combo {
-  flex: 1; min-width: 0; position: relative; display: flex; align-items: center;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 .tn-ecu-in {
-  flex: 1; min-width: 0;
-  font-family: var(--mono); font-size: 13px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line);
-  border-radius: 6px; padding: 8px 30px 8px 10px; outline: none;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 30px 8px 10px;
+  outline: none;
 }
-.tn-ecu-in:focus { border-color: var(--amber); box-shadow: 0 0 0 3px var(--amber-glow); }
-.tn-ecu-in:disabled { opacity: .6; }
+.tn-ecu-in:focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber-glow);
+}
+.tn-ecu-in:disabled {
+  opacity: 0.6;
+}
 .tn-ecu-caret {
-  position: absolute; right: 1px; top: 1px; bottom: 1px; width: 26px;
-  display: flex; align-items: center; justify-content: center;
-  background: none; border: 0; cursor: pointer;
-  color: var(--ink-faint); font-size: 11px; line-height: 1;
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1;
   border-radius: 0 5px 5px 0;
 }
-.tn-ecu-caret:hover { color: var(--ink); }
-.tn-ecu-in[aria-expanded="true"] + .tn-ecu-caret { color: var(--amber); }
+.tn-ecu-caret:hover {
+  color: var(--ink);
+}
+.tn-ecu-in[aria-expanded='true'] + .tn-ecu-caret {
+  color: var(--amber);
+}
 
 /* Typeahead list. Sits in normal flow inside the modal rather than floating:
    a positioned overlay inside a scrolling dialog clips or escapes, and the
    native <datalist> this replaced did exactly that. */
 .tn-ecu-sug {
-  max-height: 240px; overflow-y: auto;
-  border: 1px solid var(--line); border-radius: 8px;
-  background: var(--bg); margin: -6px 0 12px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  margin: -6px 0 12px;
 }
 .tn-ecu-sug-row {
-  display: block; width: 100%; text-align: left;
-  background: none; border: 0; cursor: pointer;
-  font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim);
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink-dim);
   padding: 7px 11px;
 }
-.tn-ecu-sug-row:hover { background: var(--panel-2); color: var(--ink); }
-.tn-ecu-sug-row.active { background: var(--amber-glow); color: var(--ink); }
+.tn-ecu-sug-row:hover {
+  background: var(--panel-2);
+  color: var(--ink);
+}
+.tn-ecu-sug-row.active {
+  background: var(--amber-glow);
+  color: var(--ink);
+}
 .tn-ecu-sug-empty {
-  padding: 12px 11px; color: var(--ink-faint); font-size: 13px;
+  padding: 12px 11px;
+  color: var(--ink-faint);
+  font-size: 13px;
 }
 
-.tn-ecu-regions { display: flex; flex-direction: column; gap: 6px; }
-.tn-ecu-hint { color: var(--ink-faint); font-size: 13px; padding: 6px 2px; }
-.tn-ecu-region {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px;
-  background: var(--panel-2); cursor: pointer;
+.tn-ecu-regions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.tn-ecu-region:hover { border-color: var(--line-hover); }
-.tn-ecu-region:has(input:checked) { border-color: var(--amber); }
+.tn-ecu-hint {
+  color: var(--ink-faint);
+  font-size: 13px;
+  padding: 6px 2px;
+}
+.tn-ecu-region {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+.tn-ecu-region:hover {
+  border-color: var(--line-hover);
+}
+.tn-ecu-region:has(input:checked) {
+  border-color: var(--amber);
+}
 .tn-ecu-job {
-  font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-weight: 600;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  font-weight: 600;
 }
 .tn-ecu-meta {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-faint);
   margin-left: auto;
 }
 .tn-ecu-type {
-  font-family: var(--mono); font-size: 11.5px; color: var(--ink);
-  background: var(--bg); border: 1px solid var(--line);
-  border-radius: 5px; padding: 3px 6px; flex-basis: 100%;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 6px;
+  flex-basis: 100%;
 }
 .tn-ecu-prog {
-  margin-top: 12px; padding: 9px 11px; border-radius: 6px;
-  background: var(--bg); border: 1px solid var(--line);
-  font-family: var(--mono); font-size: 11.5px; color: var(--ink-dim);
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink-dim);
   word-break: break-all;
+}
+
+/* ============================================================================
+   TABLE EDITOR GRID
+   ============================================================================
+   The map view every tuning tool shares: one continuous colour field on dark
+   seams, breakpoints on recessed edges, the corner naming both axes, and a
+   changed cell marked with a tick. Colour IS the data here -- paint() sets a
+   full-strength heat colour and a contrast-checked ink per cell -- so the
+   chrome around it stays flat and quiet.
+   Last in the file so it wins over the generic .tn-table / .tn-cell rules. */
+
+/* The dialog is width: fit-content, sized by its toolbar. The grid must not
+   push that out: inline-size containment keeps a 100%-wide table from
+   counting toward the dialog's intrinsic width, so the grid fills whatever
+   the toolbar needs and scrolls sideways past it. A table too wide for that
+   raises the dialog's own min-width from the grid builder. */
+.tn-modal .tn-modal-grid {
+  padding: 0;
+  background: var(--bg);
+  contain: inline-size;
+}
+.tn-modal .tn-table-scroll {
+  border: 0;
+  border-radius: 0;
+  max-height: none;
+  background: var(--bg);
+}
+.tn-modal .tn-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  /* width, min-width and table-layout come from the grid builder */
+  background: var(--bg);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+/* one hairline lattice: every cell draws only its right+bottom edge */
+.tn-modal .tn-table th,
+.tn-modal .tn-table td {
+  border: 0;
+  padding: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.tn-modal .tn-table tr > *:last-child {
+  border-right: 0;
+}
+.tn-modal .tn-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.tn-modal .tn-table td {
+  background: transparent;
+}
+/* with heat on, the seams go dark so the colour field reads as one surface */
+.tn-modal .tn-table.tn-heat-on td {
+  border-color: rgba(0, 0, 0, 0.55);
+}
+/* with heat off, zebra by row orients the eye across a wide table */
+.tn-modal .tn-table:not(.tn-heat-on) tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.014);
+}
+
+/* ---- axes: recessed strips, breakpoints editable in place ---------------- */
+.tn-modal .tn-table thead th,
+.tn-modal .tn-table .tn-rowhead {
+  background: var(--panel-2);
+  color: var(--ink-dim);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  position: sticky;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.tn-modal .tn-table thead th {
+  top: 0;
+  z-index: 2;
+  text-align: center;
+  border-bottom: 1px solid var(--line-bright, var(--line));
+}
+.tn-modal .tn-table .tn-rowhead {
+  left: 0;
+  z-index: 1;
+  text-align: right;
+  border-right: 1px solid var(--line-bright, var(--line));
+}
+.tn-modal .tn-table thead .tn-corner {
+  z-index: 3;
+}
+/* GEOMETRY. The grid builder sets table-layout: fixed with a <colgroup>, so
+   every column has a definite width and an input can fill its cell to 100%
+   -- in an auto-layout table a percentage width falls back to the input's
+   intrinsic ~20-character width and the columns balloon. Row height is fixed
+   too, so a font with different metrics cannot leave a gap between the
+   colour and the seam. */
+.tn-modal .tn-table thead th:not(.tn-corner),
+.tn-modal .tn-table .tn-rowhead {
+  padding: 0 8px;
+  height: 26px;
+  line-height: 26px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tn-modal .tn-table th:has(.tn-axis-cell) {
+  padding: 0;
+}
+.tn-modal .tn-table th .tn-axis-cell {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+.tn-modal .tn-table thead th .tn-axis-cell {
+  text-align: center;
+}
+.tn-modal .tn-table .tn-rowhead .tn-axis-cell {
+  text-align: right;
+}
+.tn-modal .tn-table th .tn-axis-cell:focus {
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px var(--amber);
+}
+.tn-modal .tn-table th .tn-axis-cell.tn-cell-edited {
+  color: var(--amber);
+  font-weight: 700;
+}
+/* the axis a selection sits on lights up: you always know where you are */
+.tn-modal .tn-table th.tn-ax-hl {
+  background: var(--raised);
+  color: var(--ink);
+}
+
+/* the corner names both axes, the way a printed map does: row axis at the
+   left, column axis at the right, one line */
+.tn-modal .tn-table .tn-corner {
+  padding: 0 6px;
+  height: 26px;
+  line-height: 26px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+}
+.tn-corner-y {
+  float: left;
+}
+.tn-corner-x {
+  float: right;
+}
+
+/* ---- cells: flush numbers, colour from paint() ------------------------- */
+.tn-modal .tn-table td .tn-cell {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none;
+  background: transparent;
+  color: var(--ink);
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  text-align: right;
+  font: inherit;
+  font-size: 11.5px;
+  outline: none;
+  transition: box-shadow 0.08s;
+}
+.tn-modal .tn-table td .tn-cell:disabled {
+  opacity: 0.45;
+}
+.tn-modal .tn-table td .tn-cell:hover:not(:disabled):not(:focus):not(.sel) {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+}
+/* selection: a bright ring on a dark keyline, legible on any heat colour */
+.tn-modal .tn-table td .tn-cell.sel {
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.6);
+}
+/* editing: the cell steps out of the map and becomes an input again */
+.tn-modal .tn-table td .tn-cell:focus {
+  background: var(--bg) !important;
+  color: var(--ink) !important;
+  box-shadow: inset 0 0 0 2px var(--amber);
+}
+/* changed: bold figure and a corner tick. Amber text when there is no heat
+   colour; on a heat colour the inline contrast ink wins and the tick carries
+   the meaning. */
+.tn-modal .tn-table td .tn-cell.tn-cell-edited {
+  color: var(--amber);
+  font-weight: 700;
+  background-image: linear-gradient(
+    225deg,
+    var(--amber) 0 6px,
+    transparent 6px
+  );
+  background-repeat: no-repeat;
+}
+/* out of the definition's range: red edge marker, a warning that stays a
+   grid rather than wallpaper */
+.tn-modal .tn-table td .tn-cell.tn-cell-oor {
+  box-shadow: inset 3px 0 0 var(--red);
+  color: var(--red);
+  font-weight: 600;
+}
+.tn-modal .tn-table td .tn-cell.tn-cell-oor.sel {
+  box-shadow:
+    inset 3px 0 0 var(--red),
+    inset 0 0 0 2px var(--ink),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.6);
+}
+
+/* the colour scale in the footer, so the map has a key */
+.tn-heat-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.tn-heat-scale[hidden] {
+  display: none;
+}
+.tn-heat-scale i {
+  width: 72px;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    #2447a8,
+    #1e8f8a,
+    #4caf50,
+    #e3c23a,
+    #ef7d2a,
+    #d63a2f
+  );
+}
+
+/* the modal chrome itself, quieter so the DATA is the loudest thing */
+.tn-modal {
+  border-radius: 8px;
+}
+.tn-modal-head {
+  padding: 10px 12px;
+}
+.tn-modal-desc {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  background: var(--panel-2);
+}
+.tn-modal-foot {
+  padding: 8px 12px;
+}
+
+/* ---- scrollbars: the same thumb as every other pane in the app ----------- */
+.tn-defs-list::-webkit-scrollbar,
+.tn-hex-scroll::-webkit-scrollbar,
+.tn-insp-rows::-webkit-scrollbar,
+.tn-modal-grid::-webkit-scrollbar,
+.tn-table-scroll::-webkit-scrollbar {
+  width: var(--sb-size, 10px);
+  height: var(--sb-size, 10px);
+}
+.tn-defs-list::-webkit-scrollbar-track,
+.tn-hex-scroll::-webkit-scrollbar-track,
+.tn-insp-rows::-webkit-scrollbar-track,
+.tn-modal-grid::-webkit-scrollbar-track,
+.tn-table-scroll::-webkit-scrollbar-track {
+  background: var(--sb-track, transparent);
+}
+.tn-defs-list::-webkit-scrollbar-thumb,
+.tn-hex-scroll::-webkit-scrollbar-thumb,
+.tn-insp-rows::-webkit-scrollbar-thumb,
+.tn-modal-grid::-webkit-scrollbar-thumb,
+.tn-table-scroll::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb, var(--line));
+  border-radius: var(--sb-radius, 8px);
+  border: var(--sb-thumb-border, none);
+}
+.tn-defs-list::-webkit-scrollbar-thumb:hover,
+.tn-hex-scroll::-webkit-scrollbar-thumb:hover,
+.tn-insp-rows::-webkit-scrollbar-thumb:hover,
+.tn-modal-grid::-webkit-scrollbar-thumb:hover,
+.tn-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hover, var(--line-bright));
+}
+.tn-defs-list::-webkit-scrollbar-corner,
+.tn-hex-scroll::-webkit-scrollbar-corner,
+.tn-modal-grid::-webkit-scrollbar-corner,
+.tn-table-scroll::-webkit-scrollbar-corner {
+  background: var(--sb-track, transparent);
+}
+
+/* ---- XDF browser: the shared definition library, grouped by ECU -------- */
+.tn-xdfb {
+  width: min(680px, 92vw);
+  display: flex;
+  flex-direction: column;
+}
+.tn-xdfb-search {
+  margin: 10px 0 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font: inherit;
+  background: var(--panel-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.tn-xdfb-search:focus {
+  outline: none;
+  border-color: var(--amber);
+}
+.tn-xdfb-list {
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel-2);
+}
+.tn-xdfb-loading,
+.tn-xdfb-empty {
+  padding: 20px 14px;
+  font-size: 13px;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tn-xdfb-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 12px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+  background: var(--raised);
+  border-bottom: 1px solid var(--line);
+}
+.tn-xdfb-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  transition: background 0.12s;
+}
+.tn-xdfb-row:hover {
+  background: var(--raised);
+}
+.tn-xdfb-row:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: -2px;
+}
+.tn-xdfb-row.loading {
+  opacity: 0.55;
+  pointer-events: none;
+}
+.tn-xdfb-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.tn-xdfb-meta {
+  font-size: 11.5px;
+  color: var(--ink-dim);
+}
+.tn-xdfb-meta code {
+  font-family: var(--mono);
+  color: var(--ink);
+}
+
+/* with heat on, the colour field is the information: no out-of-range
+   markers competing with it. They return in the plain view. */
+.tn-modal .tn-table.tn-heat-on td .tn-cell.tn-cell-oor {
+  box-shadow: none;
+  font-weight: inherit;
+}
+.tn-modal .tn-table.tn-heat-on td .tn-cell.tn-cell-oor.sel {
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    inset 0 0 0 3px rgba(0, 0, 0, 0.6);
 }

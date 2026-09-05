@@ -209,11 +209,15 @@ ok(
   revSpec.signed === false && revSpec.lsbfirst === true,
   'rev spec unsigned LE'
 );
-// typeflags==0 -> DEFAULTS win (lsbfirst true, unsigned)
+// typeflags==0 -> unsigned, MSB-first, integer. DEFAULTS (lsbfirst="1" in
+// this fixture) are the editor's template for new items, never a runtime
+// fallback; honouring them byte-swapped every axis of a real MS45 definition.
 const flagSpec = XDF.resolveEmbedded(flag.embed, B, D);
 ok(
-  flagSpec.lsbfirst === true && flagSpec.signed === false,
-  'flag spec falls back to DEFAULTS'
+  flagSpec.lsbfirst === false &&
+    flagSpec.signed === false &&
+    flagSpec.float === false,
+  'typeflags 0 is literal (unsigned BE), not DEFAULTS'
 );
 
 // ============================================================================

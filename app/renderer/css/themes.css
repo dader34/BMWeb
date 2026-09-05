@@ -4,24 +4,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=VT323&family=Press+Start+2P&family=Audiowide&family=Michroma&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 /* FRUTIGER AERO: glossy Y2K glass, sky-blue to lime. */
-html[data-theme="aero"] {
+html[data-theme='aero'] {
   --bg: #0b3b6f;
-  --panel: rgba(255,255,255,.14);
-  --panel-2: rgba(255,255,255,.20);
-  --raised: rgba(255,255,255,.28);
-  --line: rgba(255,255,255,.35);
-  --line-bright: rgba(255,255,255,.6);
+  --panel: rgba(255, 255, 255, 0.14);
+  --panel-2: rgba(255, 255, 255, 0.2);
+  --raised: rgba(255, 255, 255, 0.28);
+  --line: rgba(255, 255, 255, 0.35);
+  --line-bright: rgba(255, 255, 255, 0.6);
   --ink: #ffffff;
   --ink-dim: #d6ecff;
   --ink-faint: #a9cdef;
-  --amber: #aaff00;        /* lime accent */
+  --amber: #aaff00; /* lime accent */
   --amber-soft: #7fd400;
-  --amber-glow: rgba(170,255,0,.18);
-  --amber-ink: #0b3b6f;    /* deep blue text on the lime fill */
+  --amber-glow: rgba(170, 255, 0, 0.18);
+  --amber-ink: #0b3b6f; /* deep blue text on the lime fill */
   --red: #ff5a7a;
   --green: #5dffb0;
   --cyan: #36d1ff;
-  --shadow: 0 14px 40px -10px rgba(0,40,90,.55), inset 0 1px 0 rgba(255,255,255,.6);
+  --shadow:
+    0 14px 40px -10px rgba(0, 40, 90, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
   --display: 'Segoe UI', 'Frutiger', 'Helvetica Neue', sans-serif;
   --mono: 'Consolas', ui-monospace, monospace;
   /* logo */
@@ -32,73 +34,151 @@ html[data-theme="aero"] {
   --logo-inner-border: rgba(255, 255, 255, 0.4);
 }
 /* scrollbar: translucent-white glass thumb */
-html[data-theme="aero"] {
-  --sb-size: 12px; --sb-radius: 999px; --sb-track: rgba(255,255,255,.08);
-  --sb-thumb: rgba(255,255,255,.45); --sb-thumb-hover: rgba(255,255,255,.7);
-  --sb-thumb-border: 2px solid rgba(255,255,255,.35);
+html[data-theme='aero'] {
+  --sb-size: 12px;
+  --sb-radius: 999px;
+  --sb-track: rgba(255, 255, 255, 0.08);
+  --sb-thumb: rgba(255, 255, 255, 0.45);
+  --sb-thumb-hover: rgba(255, 255, 255, 0.7);
+  --sb-thumb-border: 2px solid rgba(255, 255, 255, 0.35);
   /* gauge: lime fill on frosted track */
-  --gauge-track: rgba(255,255,255,.25); --gauge-fill: linear-gradient(180deg, #c6ff66, #8fe000);
+  --gauge-track: rgba(255, 255, 255, 0.25);
+  --gauge-fill: linear-gradient(180deg, #c6ff66, #8fe000);
 }
-html[data-theme="aero"] .gauge-track { border-radius: 999px !important; border: 1px solid rgba(255,255,255,.6) !important; }
-html[data-theme="aero"] .gauge-fill { border-radius: 999px; box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
-html[data-theme="aero"] .gauge-val { color: #fff !important; }
+html[data-theme='aero'] .gauge-track {
+  border-radius: 999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+}
+html[data-theme='aero'] .gauge-fill {
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+html[data-theme='aero'] .gauge-val {
+  color: #fff !important;
+}
 /* window is transparent:true, desktop shows through where CSS isnt fully opaque.
    keep a blue/lime tint so panels stay readable. */
-html[data-theme="aero"], html[data-theme="aero"] body { background: transparent !important; }
+html[data-theme='aero'],
+html[data-theme='aero'] body {
+  background: transparent !important;
+}
 /* glass opacity from --aero-opacity (0..1), set live by Settings slider */
-html[data-theme="aero"] {
+html[data-theme='aero'] {
   --aero-opacity: 0.82;
 }
-html[data-theme="aero"] body {
+html[data-theme='aero'] body {
   background:
-    radial-gradient(1100px 700px at 75% -15%, rgba(127,227,255, calc(var(--aero-opacity) * 0.90)) 0%, transparent 55%),
-    radial-gradient(900px 700px at -10% 120%, rgba(182,255,122, calc(var(--aero-opacity) * 0.80)) 0%, transparent 50%),
-    linear-gradient(160deg,
-      rgba(26,143,227, var(--aero-opacity)) 0%,
-      rgba(11,95,176, calc(var(--aero-opacity) * 0.97)) 45%,
-      rgba(7,61,130, calc(var(--aero-opacity) * 1.02)) 100%) !important;
+    radial-gradient(
+      1100px 700px at 75% -15%,
+      rgba(127, 227, 255, calc(var(--aero-opacity) * 0.9)) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 700px at -10% 120%,
+      rgba(182, 255, 122, calc(var(--aero-opacity) * 0.8)) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      160deg,
+      rgba(26, 143, 227, var(--aero-opacity)) 0%,
+      rgba(11, 95, 176, calc(var(--aero-opacity) * 0.97)) 45%,
+      rgba(7, 61, 130, calc(var(--aero-opacity) * 1.02)) 100%
+    ) !important;
 }
 /* splash matches the aero glass gradient instead of the dark radial */
-html[data-theme="aero"] .splash {
+html[data-theme='aero'] .splash {
   background:
-    radial-gradient(1100px 700px at 75% -15%, rgba(127,227,255,.92) 0%, transparent 55%),
-    radial-gradient(900px 700px at -10% 120%, rgba(182,255,122,.82) 0%, transparent 50%),
-    linear-gradient(160deg, rgba(26,143,227,.97) 0%, rgba(11,95,176,.96) 45%, rgba(7,61,130,1) 100%);
+    radial-gradient(
+      1100px 700px at 75% -15%,
+      rgba(127, 227, 255, 0.92) 0%,
+      transparent 55%
+    ),
+    radial-gradient(
+      900px 700px at -10% 120%,
+      rgba(182, 255, 122, 0.82) 0%,
+      transparent 50%
+    ),
+    linear-gradient(
+      160deg,
+      rgba(26, 143, 227, 0.97) 0%,
+      rgba(11, 95, 176, 0.96) 45%,
+      rgba(7, 61, 130, 1) 100%
+    );
 }
-html[data-theme="aero"] .splash-name { color: #fff; text-shadow: 0 2px 6px rgba(0,30,70,.5); }
-html[data-theme="aero"] .splash-tag { color: rgba(255,255,255,.82); }
-html[data-theme="aero"] .splash-bar { background: rgba(255,255,255,.28); }
-html[data-theme="aero"] .splash-status { color: rgba(255,255,255,.7); }
-html[data-theme="aero"] .splash-logo { filter: drop-shadow(0 14px 30px rgba(0,30,70,.45)); }
+html[data-theme='aero'] .splash-name {
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0, 30, 70, 0.5);
+}
+html[data-theme='aero'] .splash-tag {
+  color: rgba(255, 255, 255, 0.82);
+}
+html[data-theme='aero'] .splash-bar {
+  background: rgba(255, 255, 255, 0.28);
+}
+html[data-theme='aero'] .splash-status {
+  color: rgba(255, 255, 255, 0.7);
+}
+html[data-theme='aero'] .splash-logo {
+  filter: drop-shadow(0 14px 30px rgba(0, 30, 70, 0.45));
+}
 
 /* glossy glass panels with top highlight */
-html[data-theme="aero"] .section, html[data-theme="aero"] .chassis-card,
-html[data-theme="aero"] .group-tile, html[data-theme="aero"] .menu-section,
-html[data-theme="aero"] .fault, html[data-theme="aero"] .live-panel,
-html[data-theme="aero"] .modal, html[data-theme="aero"] .result-card,
-html[data-theme="aero"] .split-nav-item, html[data-theme="aero"] .act-card,
-html[data-theme="aero"] .setting-row, html[data-theme="aero"] .theme-card {
+html[data-theme='aero'] .section,
+html[data-theme='aero'] .chassis-card,
+html[data-theme='aero'] .group-tile,
+html[data-theme='aero'] .menu-section,
+html[data-theme='aero'] .fault,
+html[data-theme='aero'] .live-panel,
+html[data-theme='aero'] .modal,
+html[data-theme='aero'] .result-card,
+html[data-theme='aero'] .split-nav-item,
+html[data-theme='aero'] .act-card,
+html[data-theme='aero'] .setting-row,
+html[data-theme='aero'] .theme-card {
   backdrop-filter: blur(14px) saturate(1.4);
-  background: linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.12)) !important;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.32),
+    rgba(255, 255, 255, 0.12)
+  ) !important;
   border-radius: 14px !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 10px 30px -8px rgba(0,30,70,.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 10px 30px -8px rgba(0, 30, 70, 0.5);
 }
-html[data-theme="aero"] .btn, html[data-theme="aero"] .fkey, html[data-theme="aero"] .icon-btn {
+html[data-theme='aero'] .btn,
+html[data-theme='aero'] .fkey,
+html[data-theme='aero'] .icon-btn {
   border-radius: 999px !important;
-  background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.18)) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 4px 12px -4px rgba(0,30,70,.5);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0.18)
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 4px 12px -4px rgba(0, 30, 70, 0.5);
 }
-html[data-theme="aero"] .btn.primary {
-  background: linear-gradient(180deg, #c6ff66, #8fe000) !important; color: #16320a !important;
+html[data-theme='aero'] .btn.primary {
+  background: linear-gradient(180deg, #c6ff66, #8fe000) !important;
+  color: #16320a !important;
 }
-html[data-theme="aero"] .title, html[data-theme="aero"] .brand-name { text-shadow: 0 1px 2px rgba(0,30,70,.4); }
-html[data-theme="aero"] .topbar, html[data-theme="aero"] .fkeybar {
-  background: linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.05));
+html[data-theme='aero'] .title,
+html[data-theme='aero'] .brand-name {
+  text-shadow: 0 1px 2px rgba(0, 30, 70, 0.4);
+}
+html[data-theme='aero'] .topbar,
+html[data-theme='aero'] .fkeybar {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.2),
+    rgba(255, 255, 255, 0.05)
+  );
   backdrop-filter: blur(12px);
 }
 
 /* BRUSHED METAL: early-2000s Mac OS X aluminum, cool greys. */
-html[data-theme="metal"] {
+html[data-theme='metal'] {
   --bg: #b9bcc1;
   --panel: #cdd0d4;
   --panel-2: #c2c5ca;
@@ -108,14 +188,15 @@ html[data-theme="metal"] {
   --ink: #1e2227;
   --ink-dim: #4a4f56;
   --ink-faint: #74797f;
-  --amber: #2f6fd6;        /* aqua-blue accent */
+  --amber: #2f6fd6; /* aqua-blue accent */
   --amber-soft: #2257ac;
-  --amber-glow: rgba(47,111,214,.16);
-  --amber-ink: #ffffff;    /* white text on the blue fill */
+  --amber-glow: rgba(47, 111, 214, 0.16);
+  --amber-ink: #ffffff; /* white text on the blue fill */
   --red: #c0392b;
   --green: #2e8b57;
   --cyan: #2f6fd6;
-  --shadow: 0 6px 16px -8px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.8);
+  --shadow:
+    0 6px 16px -8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   --display: 'Lucida Grande', 'Helvetica Neue', sans-serif;
   --mono: 'Monaco', ui-monospace, monospace;
   /* logo */
@@ -125,53 +206,81 @@ html[data-theme="metal"] {
   --logo-quad-2: #2f6fd6;
   --logo-inner-border: #4a4f56;
 }
-html[data-theme="metal"] body {
+html[data-theme='metal'] body {
   background:
-    repeating-linear-gradient(0deg, rgba(0,0,0,.018) 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.018) 0 1px,
+      transparent 1px 2px
+    ),
     linear-gradient(180deg, #d2d5d9, #b3b6bb);
 }
 /* scrollbar: aluminum pill thumb on etched track */
-html[data-theme="metal"] {
-  --sb-size: 14px; --sb-radius: 999px;
+html[data-theme='metal'] {
+  --sb-size: 14px;
+  --sb-radius: 999px;
   --sb-track: linear-gradient(180deg, #c0c3c7, #aeb1b6);
   --sb-thumb: linear-gradient(180deg, #f0f1f2, #c4c7cb);
   --sb-thumb-hover: linear-gradient(180deg, #fbfbfc, #cfd2d6);
   --sb-thumb-border: 1px solid #9a9da3;
 }
-html[data-theme="metal"] .view::-webkit-scrollbar-thumb,
-html[data-theme="metal"] .modal::-webkit-scrollbar-thumb,
-html[data-theme="metal"] .live-panel::-webkit-scrollbar-thumb,
-html[data-theme="metal"] .split-list::-webkit-scrollbar-thumb {
+html[data-theme='metal'] .view::-webkit-scrollbar-thumb,
+html[data-theme='metal'] .modal::-webkit-scrollbar-thumb,
+html[data-theme='metal'] .live-panel::-webkit-scrollbar-thumb,
+html[data-theme='metal'] .split-list::-webkit-scrollbar-thumb {
   box-shadow: inset 0 1px 0 #fff;
 }
 /* gauge: aqua-blue fill on aluminum track */
-html[data-theme="metal"] {
-  --gauge-track: #aeb1b6; --gauge-fill: linear-gradient(180deg, #5aa0ec, #2f6fd6);
+html[data-theme='metal'] {
+  --gauge-track: #aeb1b6;
+  --gauge-fill: linear-gradient(180deg, #5aa0ec, #2f6fd6);
 }
-html[data-theme="metal"] .gauge-track { border-color: #9a9da3 !important; box-shadow: inset 0 1px 2px rgba(0,0,0,.25); }
-html[data-theme="metal"] .gauge-val { color: #1e2227 !important; }
-html[data-theme="metal"] .topbar, html[data-theme="metal"] .fkeybar,
-html[data-theme="metal"] .section-head, html[data-theme="metal"] .live-head {
+html[data-theme='metal'] .gauge-track {
+  border-color: #9a9da3 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+html[data-theme='metal'] .gauge-val {
+  color: #1e2227 !important;
+}
+html[data-theme='metal'] .topbar,
+html[data-theme='metal'] .fkeybar,
+html[data-theme='metal'] .section-head,
+html[data-theme='metal'] .live-head {
   background:
-    repeating-linear-gradient(0deg, rgba(0,0,0,.03) 0 1px, transparent 1px 2px),
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.03) 0 1px,
+      transparent 1px 2px
+    ),
     linear-gradient(180deg, #e2e4e7, #c3c6ca);
   border-color: #9a9da3;
 }
-html[data-theme="metal"] .btn, html[data-theme="metal"] .fkey, html[data-theme="metal"] .icon-btn,
-html[data-theme="metal"] .seg-btn {
+html[data-theme='metal'] .btn,
+html[data-theme='metal'] .fkey,
+html[data-theme='metal'] .icon-btn,
+html[data-theme='metal'] .seg-btn {
   background: linear-gradient(180deg, #f4f5f6, #cfd2d6) !important;
-  border-color: #92959b !important; color: #1e2227 !important;
-  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.25);
+  border-color: #92959b !important;
+  color: #1e2227 !important;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(0, 0, 0, 0.25);
 }
-html[data-theme="metal"] .btn.primary, html[data-theme="metal"] .seg-btn.active {
-  background: linear-gradient(180deg, #5aa0ec, #2f6fd6) !important; color: #fff !important;
+html[data-theme='metal'] .btn.primary,
+html[data-theme='metal'] .seg-btn.active {
+  background: linear-gradient(180deg, #5aa0ec, #2f6fd6) !important;
+  color: #fff !important;
 }
-html[data-theme="metal"] .title { text-shadow: 0 1px 0 #fff; }
-html[data-theme="metal"] .grain { display: none; }
+html[data-theme='metal'] .title {
+  text-shadow: 0 1px 0 #fff;
+}
+html[data-theme='metal'] .grain {
+  display: none;
+}
 
 /* INPA: white page, black text, Win9x chrome, grey beveled F-keys. mirrors INPA Loader. */
-html[data-theme="inpa"] {
-  --bg: #ffffff;           /* white work area */
+html[data-theme='inpa'] {
+  --bg: #ffffff; /* white work area */
   --panel: #ffffff;
   --panel-2: #f4f4f4;
   --raised: #ececec;
@@ -180,10 +289,10 @@ html[data-theme="inpa"] {
   --ink: #000000;
   --ink-dim: #1a1a1a;
   --ink-faint: #555555;
-  --amber: #000080;        /* navy accents/headings */
+  --amber: #000080; /* navy accents/headings */
   --amber-soft: #000060;
-  --amber-glow: #dbe6ff;   /* the pale selection blue Win9x lists use */
-  --amber-ink: #ffffff;    /* white text on the navy fill */
+  --amber-glow: #dbe6ff; /* the pale selection blue Win9x lists use */
+  --amber-ink: #ffffff; /* white text on the navy fill */
   --red: #c00000;
   --green: #00a000;
   --cyan: #000080;
@@ -197,42 +306,53 @@ html[data-theme="inpa"] {
   --logo-quad-2: #0066b2;
   --logo-inner-border: #000000;
 }
-html[data-theme="inpa"] body {
+html[data-theme='inpa'] body {
   background: #ffffff;
 }
 /* scrollbar: flat Win9x grey, square thumb */
-html[data-theme="inpa"] {
-  --sb-size: 16px; --sb-radius: 0; --sb-track: #f0f0f0;
-  --sb-thumb: #c8c4bc; --sb-thumb-hover: #b3afa6;
+html[data-theme='inpa'] {
+  --sb-size: 16px;
+  --sb-radius: 0;
+  --sb-track: #f0f0f0;
+  --sb-thumb: #c8c4bc;
+  --sb-thumb-hover: #b3afa6;
   --sb-thumb-border: 1px solid #fff;
   /* gauge: authentic INPA bar, black fill on bright-green track */
-  --gauge-track: #00d000; --gauge-fill: #000000;
+  --gauge-track: #00d000;
+  --gauge-fill: #000000;
 }
-html[data-theme="inpa"] .gauge-track { border-radius: 0 !important; border: 1px solid #000 !important; }
-html[data-theme="inpa"] .gauge-val { color: #000 !important; }
+html[data-theme='inpa'] .gauge-track {
+  border-radius: 0 !important;
+  border: 1px solid #000 !important;
+}
+html[data-theme='inpa'] .gauge-val {
+  color: #000 !important;
+}
 /* ETK Vehicle Identification: square Win9x chrome to match the skin */
-html[data-theme="inpa"] .etk-fs,
-html[data-theme="inpa"] .etk-vin-go,
-html[data-theme="inpa"] .etk-vin-input,
-html[data-theme="inpa"] .etk-lb,
-html[data-theme="inpa"] .etk-lb-row,
-html[data-theme="inpa"] .etk-sel-btn,
-html[data-theme="inpa"] .etk-sel-menu,
-html[data-theme="inpa"] .etk-sel-opt,
-html[data-theme="inpa"] .etk-idthumb { border-radius: 0; }
-html[data-theme="inpa"] .view::-webkit-scrollbar-thumb,
-html[data-theme="inpa"] .modal::-webkit-scrollbar-thumb,
-html[data-theme="inpa"] .live-panel::-webkit-scrollbar-thumb,
-html[data-theme="inpa"] .split-list::-webkit-scrollbar-thumb {
-  border-right: 1px solid #808080; border-bottom: 1px solid #808080;
+html[data-theme='inpa'] .etk-fs,
+html[data-theme='inpa'] .etk-vin-go,
+html[data-theme='inpa'] .etk-vin-input,
+html[data-theme='inpa'] .etk-lb,
+html[data-theme='inpa'] .etk-lb-row,
+html[data-theme='inpa'] .etk-sel-btn,
+html[data-theme='inpa'] .etk-sel-menu,
+html[data-theme='inpa'] .etk-sel-opt,
+html[data-theme='inpa'] .etk-idthumb {
+  border-radius: 0;
+}
+html[data-theme='inpa'] .view::-webkit-scrollbar-thumb,
+html[data-theme='inpa'] .modal::-webkit-scrollbar-thumb,
+html[data-theme='inpa'] .live-panel::-webkit-scrollbar-thumb,
+html[data-theme='inpa'] .split-list::-webkit-scrollbar-thumb {
+  border-right: 1px solid #808080;
+  border-bottom: 1px solid #808080;
   box-shadow: inset 1px 1px 0 #fff;
 }
-html[data-theme="inpa"] .view::-webkit-scrollbar-track,
-html[data-theme="inpa"] .modal::-webkit-scrollbar-track,
-html[data-theme="inpa"] .live-panel::-webkit-scrollbar-track,
-html[data-theme="inpa"] .split-list::-webkit-scrollbar-track {
-  background:
-    repeating-conic-gradient(#e9e9e9 0 25%, #f4f4f4 0 50%) 0 0/2px 2px;
+html[data-theme='inpa'] .view::-webkit-scrollbar-track,
+html[data-theme='inpa'] .modal::-webkit-scrollbar-track,
+html[data-theme='inpa'] .live-panel::-webkit-scrollbar-track,
+html[data-theme='inpa'] .split-list::-webkit-scrollbar-track {
+  background: repeating-conic-gradient(#e9e9e9 0 25%, #f4f4f4 0 50%) 0 0/2px 2px;
 }
 /* plain white canvas: kill gloss/blur/rounding */
 html[data-theme="inpa"] .section, html[data-theme="inpa"] .chassis-card,
@@ -243,165 +363,309 @@ html[data-theme="inpa"] .result-card, html[data-theme="inpa"] .split-nav-item,
 html[data-theme="inpa"] .act-card, html[data-theme="inpa"] .fault,
 html[data-theme="inpa"] .setting-row, html[data-theme="inpa"] .theme-card {
   border-radius: 0 !important;
-  background: #ffffff !important; color: #000 !important;
+  background: #ffffff !important;
+  color: #000 !important;
   border: 1px solid #c9c9c9 !important;
-  box-shadow: none !important; backdrop-filter: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 /* flat navy headings */
-html[data-theme="inpa"] .title, html[data-theme="inpa"] .brand-name {
-  color: #000 !important; font-weight: 400 !important; text-shadow: none !important;
+html[data-theme='inpa'] .title,
+html[data-theme='inpa'] .brand-name {
+  color: #000 !important;
+  font-weight: 400 !important;
+  text-shadow: none !important;
   letter-spacing: 0 !important;
 }
-html[data-theme="inpa"] .eyebrow { color: #000080 !important; }
-/* selected sidebar module: navy bar (overrides flat-white panel rule above) */
-html[data-theme="inpa"] .split-nav-item.active {
-  background: #000080 !important; border-color: #000060 !important;
+html[data-theme='inpa'] .eyebrow {
+  color: #000080 !important;
 }
-html[data-theme="inpa"] .split-nav-item.active .nav-name { color: #ffffff !important; }
-html[data-theme="inpa"] .split-nav-item:hover:not(.active) { background: #eef2ff !important; }
+/* selected sidebar module: navy bar (overrides flat-white panel rule above) */
+html[data-theme='inpa'] .split-nav-item.active {
+  background: #000080 !important;
+  border-color: #000060 !important;
+}
+html[data-theme='inpa'] .split-nav-item.active .nav-name {
+  color: #ffffff !important;
+}
+html[data-theme='inpa'] .split-nav-item:hover:not(.active) {
+  background: #eef2ff !important;
+}
 /* top chrome: flat light-grey Windows toolbar */
-html[data-theme="inpa"] .topbar {
+html[data-theme='inpa'] .topbar {
   background: linear-gradient(180deg, #fbfbfb, #ececec) !important;
-  border-bottom: 1px solid #a9a9a9 !important; color: #000 !important;
+  border-bottom: 1px solid #a9a9a9 !important;
+  color: #000 !important;
 }
 /* bottom F-key bar: grey strip with beveled buttons, F-numbers above */
-html[data-theme="inpa"] .fkeybar {
+html[data-theme='inpa'] .fkeybar {
   background: #d4d0c8 !important;
-  border-top: 1px solid #ffffff !important; color: #000 !important;
+  border-top: 1px solid #ffffff !important;
+  color: #000 !important;
 }
-html[data-theme="inpa"] .fkey {
+html[data-theme='inpa'] .fkey {
   border-radius: 0 !important;
-  background: #e9e6e1 !important; color: #000 !important;
+  background: #e9e6e1 !important;
+  color: #000 !important;
   border: 1px solid #fff !important;
-  border-right-color: #808080 !important; border-bottom-color: #808080 !important;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a9a5a0 !important;
+  border-right-color: #808080 !important;
+  border-bottom-color: #808080 !important;
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #a9a5a0 !important;
 }
-html[data-theme="inpa"] .fkey:hover { background: #f2efeb !important; }
-html[data-theme="inpa"] .fkey.primary { background: #d8e8ff !important; color: #000 !important; }
+html[data-theme='inpa'] .fkey:hover {
+  background: #f2efeb !important;
+}
+html[data-theme='inpa'] .fkey.primary {
+  background: #d8e8ff !important;
+  color: #000 !important;
+}
 /* buttons: Win outset bevel */
-html[data-theme="inpa"] .btn, html[data-theme="inpa"] .icon-btn, html[data-theme="inpa"] .seg-btn {
+html[data-theme='inpa'] .btn,
+html[data-theme='inpa'] .icon-btn,
+html[data-theme='inpa'] .seg-btn {
   border-radius: 0 !important;
-  background: #ececec !important; color: #000 !important;
+  background: #ececec !important;
+  color: #000 !important;
   border: 1px solid #fff !important;
-  border-right-color: #808080 !important; border-bottom-color: #808080 !important;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a0a0a0 !important;
+  border-right-color: #808080 !important;
+  border-bottom-color: #808080 !important;
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #a0a0a0 !important;
 }
-html[data-theme="inpa"] .btn.primary, html[data-theme="inpa"] .seg-btn.active {
-  background: #000080 !important; color: #fff !important; border-color: #000060 !important;
+html[data-theme='inpa'] .btn.primary,
+html[data-theme='inpa'] .seg-btn.active {
+  background: #000080 !important;
+  color: #fff !important;
+  border-color: #000060 !important;
 }
 /* green RUNNING status block */
-html[data-theme="inpa"] .live-v, html[data-theme="inpa"] .job-name { color: #000080 !important; }
-html[data-theme="inpa"] .grain { display: none; }
-
+html[data-theme='inpa'] .live-v,
+html[data-theme='inpa'] .job-name {
+  color: #000080 !important;
+}
+html[data-theme='inpa'] .grain {
+  display: none;
+}
 
 /* THEME PICKER (Settings): card grid with a swatch preview per skin. */
-.theme-row { flex-direction: column; align-items: stretch; }
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; width: 100%; }
-.theme-card {
-  display: flex; align-items: center; gap: 12px; cursor: pointer; text-align: left;
-  padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px;
-  background: var(--panel); color: var(--ink); transition: border-color .12s, transform .12s;
+.theme-row {
+  flex-direction: column;
+  align-items: stretch;
 }
-.theme-card:hover { border-color: var(--line-bright); transform: translateY(-1px); }
-.theme-card.active { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
-.theme-swatch { width: 44px; height: 44px; border-radius: 6px; flex: none;
-  border: 1px solid rgba(255,255,255,.25); overflow: hidden; position: relative; }
-.theme-meta { display: flex; align-items: center; min-width: 0; }
-.theme-name { font-weight: 700; font-size: 13.5px; }
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.theme-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  transition:
+    border-color 0.12s,
+    transform 0.12s;
+}
+.theme-card:hover {
+  border-color: var(--line-bright);
+  transform: translateY(-1px);
+}
+.theme-card.active {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 1px var(--amber);
+}
+.theme-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  position: relative;
+}
+.theme-meta {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.theme-name {
+  font-weight: 700;
+  font-size: 13.5px;
+}
 
 /* mini previews */
-.sw-instrument { background: linear-gradient(135deg, #11161c 50%, #ff9e2c 50%); }
-.sw-inpa { background: #ffffff; }
-.sw-inpa::after { content: ''; position:absolute; left:0; right:0; bottom:0; height:38%;
-  background: #d4d0c8; border-top: 1px solid #808080; }
-.sw-inpa::before { content: ''; position:absolute; left:4px; top:5px; width:60%; height:6px;
-  background: #00a000; }
-.sw-aero { background: linear-gradient(135deg, #1a8fe3, #b6ff7a); box-shadow: inset 0 6px 8px rgba(255,255,255,.5); }
-.sw-metal { background:
-  repeating-linear-gradient(0deg, rgba(0,0,0,.06) 0 1px, transparent 1px 2px),
-  linear-gradient(180deg, #e2e4e7, #b3b6bb); }
-.sw-brackets { background: linear-gradient(135deg, #1d1f21 50%, #f8de7e 50%); }
-.sw-gt1 { background: linear-gradient(180deg, #f2c500 0 28%, #c7cacf 28%); }
+.sw-instrument {
+  background: linear-gradient(135deg, #11161c 50%, #ff9e2c 50%);
+}
+.sw-inpa {
+  background: #ffffff;
+}
+.sw-inpa::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 38%;
+  background: #d4d0c8;
+  border-top: 1px solid #808080;
+}
+.sw-inpa::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 5px;
+  width: 60%;
+  height: 6px;
+  background: #00a000;
+}
+.sw-aero {
+  background: linear-gradient(135deg, #1a8fe3, #b6ff7a);
+  box-shadow: inset 0 6px 8px rgba(255, 255, 255, 0.5);
+}
+.sw-metal {
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.06) 0 1px,
+      transparent 1px 2px
+    ),
+    linear-gradient(180deg, #e2e4e7, #b3b6bb);
+}
+.sw-brackets {
+  background: linear-gradient(135deg, #1d1f21 50%, #f8de7e 50%);
+}
+.sw-gt1 {
+  background: linear-gradient(180deg, #f2c500 0 28%, #c7cacf 28%);
+}
 
 /* PER-THEME KEY BADGES: the number chips on the f-key bar + sidebar. */
 
 /* Aero: glossy aqua glass keys, navy digit on white glass, lime when active. */
-html[data-theme="aero"] .fkey-num,
-html[data-theme="aero"] .nav-key,
-html[data-theme="aero"] .fkey.back .fkey-num {
-  background: linear-gradient(180deg, #ffffff 0%, rgba(214,236,255,.9) 48%, rgba(127,200,255,.85) 100%) !important;
-  border: 1px solid rgba(255,255,255,.9) !important;
+html[data-theme='aero'] .fkey-num,
+html[data-theme='aero'] .nav-key,
+html[data-theme='aero'] .fkey.back .fkey-num {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    rgba(214, 236, 255, 0.9) 48%,
+    rgba(127, 200, 255, 0.85) 100%
+  ) !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
   border-radius: 8px !important;
   color: #0a3a6b !important;
   font-weight: 800 !important;
-  text-shadow: 0 1px 0 rgba(255,255,255,.7) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,1),
-    inset 0 -2px 4px rgba(40,120,200,.25),
-    0 2px 5px rgba(0,40,90,.3) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -2px 4px rgba(40, 120, 200, 0.25),
+    0 2px 5px rgba(0, 40, 90, 0.3) !important;
 }
 /* specular sweep across top half of key */
-html[data-theme="aero"] .fkey-num { position: relative; overflow: hidden; }
-html[data-theme="aero"] .fkey-num::after {
-  content: ''; position: absolute; left: 1px; right: 1px; top: 1px; height: 44%;
+html[data-theme='aero'] .fkey-num {
+  position: relative;
+  overflow: hidden;
+}
+html[data-theme='aero'] .fkey-num::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 1px;
+  height: 44%;
   border-radius: 7px 7px 60% 60%;
-  background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,0));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.85),
+    rgba(255, 255, 255, 0)
+  );
   pointer-events: none;
 }
-html[data-theme="aero"] .split-nav-item.active .nav-key {
-  background: linear-gradient(180deg, #e6ffb3 0%, #c6ff66 45%, #8fe000 100%) !important;
-  color: #16320a !important; border-color: rgba(255,255,255,.9) !important;
+html[data-theme='aero'] .split-nav-item.active .nav-key {
+  background: linear-gradient(
+    180deg,
+    #e6ffb3 0%,
+    #c6ff66 45%,
+    #8fe000 100%
+  ) !important;
+  color: #16320a !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
 }
 
 /* metal: aluminum key, aqua digit. include .fkey.back .fkey-num (Esc) so it
    doesnt fall back to base dark-slot/cyan look. */
-html[data-theme="metal"] .fkey-num,
-html[data-theme="metal"] .nav-key,
-html[data-theme="metal"] .fkey.back .fkey-num {
+html[data-theme='metal'] .fkey-num,
+html[data-theme='metal'] .nav-key,
+html[data-theme='metal'] .fkey.back .fkey-num {
   background: linear-gradient(180deg, #f4f5f6, #cfd2d6) !important;
-  border: 1px solid #92959b !important; color: #2257ac !important;
+  border: 1px solid #92959b !important;
+  color: #2257ac !important;
   border-radius: 4px !important;
-  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.2) !important;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(0, 0, 0, 0.2) !important;
   text-shadow: none !important;
 }
-html[data-theme="metal"] .split-nav-item.active .nav-key {
-  background: linear-gradient(180deg, #5aa0ec, #2f6fd6) !important; color: #fff !important;
+html[data-theme='metal'] .split-nav-item.active .nav-key {
+  background: linear-gradient(180deg, #5aa0ec, #2f6fd6) !important;
+  color: #fff !important;
   border-color: #2257ac !important;
 }
 
 /* INPA: navy digit on a flat grey beveled key */
-html[data-theme="inpa"] .fkey-num, html[data-theme="inpa"] .nav-key {
-  background: #e9e6e1 !important; color: #000080 !important;
-  border: 1px solid #fff !important; border-right-color: #808080 !important;
-  border-bottom-color: #808080 !important; border-radius: 0 !important;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a9a5a0;
+html[data-theme='inpa'] .fkey-num,
+html[data-theme='inpa'] .nav-key {
+  background: #e9e6e1 !important;
+  color: #000080 !important;
+  border: 1px solid #fff !important;
+  border-right-color: #808080 !important;
+  border-bottom-color: #808080 !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #a9a5a0;
 }
 /* active item is navy, keep a light beveled chip: navy badge would vanish on the
    navy selection bar. */
-html[data-theme="inpa"] .split-nav-item.active .nav-key {
-  background: #e9e6e1 !important; color: #000080 !important;
-  border: 1px solid #fff !important; border-right-color: #808080 !important;
+html[data-theme='inpa'] .split-nav-item.active .nav-key {
+  background: #e9e6e1 !important;
+  color: #000080 !important;
+  border: 1px solid #fff !important;
+  border-right-color: #808080 !important;
   border-bottom-color: #808080 !important;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a9a5a0;
+  box-shadow:
+    inset 1px 1px 0 #fff,
+    inset -1px -1px 0 #a9a5a0;
 }
 
 /* The INPA-layout settings list is a ruled list in every skin: the per-theme
    card treatment of .setting-row (borders above) must not box its rows. */
 html .inpa-settings .setting-row {
-  background: none !important; border: none !important;
+  background: none !important;
+  border: none !important;
   border-bottom: 1px dotted var(--line) !important;
-  border-radius: 0 !important; box-shadow: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
-html[data-theme="inpa"] .inpa-settings .setting-row {
+html[data-theme='inpa'] .inpa-settings .setting-row {
   border-bottom-color: #c9c9c9 !important;
 }
-
 
 /* GT1: the dealer tester. Two greys and black type; the yellow is the tab
    strip on the real unit, so it lives in the header and on the selected
    item only. Soft-keys are raised with a thick bottom edge, like the buttons
    under its screen. */
-html[data-theme="gt1"] {
+html[data-theme='gt1'] {
   --bg: #c7cacf;
   --panel: #f4f5f6;
   --panel-2: #dfe1e4;
@@ -416,12 +680,13 @@ html[data-theme="gt1"] {
      a fill only, so it is written literally where a fill is meant. */
   --amber: #8f7400;
   --amber-soft: #6e5a00;
-  --amber-glow: rgba(242,197,0,.28);
+  --amber-glow: rgba(242, 197, 0, 0.28);
   --amber-ink: #111214;
   --red: #c8321e;
   --green: #2e7d32;
   --cyan: #1f6f8b;
-  --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 1px 2px rgba(0,0,0,.12);
+  --shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 1px 2px rgba(0, 0, 0, 0.12);
   --display: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --mono: 'IBM Plex Mono', 'Consolas', ui-monospace, monospace;
   /* logo */
@@ -429,25 +694,35 @@ html[data-theme="gt1"] {
   --logo-border: #8f7400;
   --logo-quad-1: #f2c500;
   --logo-quad-2: #dfe1e4;
-  --logo-inner-border: rgba(242,197,0,.5);
-  --sb-size: 12px; --sb-radius: 2px; --sb-track: #dfe1e4;
-  --sb-thumb: #a3a7ad; --sb-thumb-hover: #7d8087; --sb-thumb-border: 1px solid #dfe1e4;
-  --gauge-track: #dfe1e4; --gauge-fill: #f2c500;
+  --logo-inner-border: rgba(242, 197, 0, 0.5);
+  --sb-size: 12px;
+  --sb-radius: 2px;
+  --sb-track: #dfe1e4;
+  --sb-thumb: #a3a7ad;
+  --sb-thumb-hover: #7d8087;
+  --sb-thumb-border: 1px solid #dfe1e4;
+  --gauge-track: #dfe1e4;
+  --gauge-fill: #f2c500;
 }
-html[data-theme="gt1"], html[data-theme="gt1"] body {
+html[data-theme='gt1'],
+html[data-theme='gt1'] body {
   background: #c7cacf !important;
   color: var(--ink);
 }
 /* the tab strip */
-html[data-theme="gt1"] .topbar {
+html[data-theme='gt1'] .topbar {
   background: #f2c500;
   color: #111214;
   border-bottom: 3px solid #8f7400;
 }
-html[data-theme="gt1"] .topbar .crumbs, html[data-theme="gt1"] .topbar .crumb,
-html[data-theme="gt1"] .topbar .crumb-sep { color: #4a3f00 !important; }
-html[data-theme="gt1"] .topbar .pill, html[data-theme="gt1"] .topbar .btn,
-html[data-theme="gt1"] .topbar .icon-btn {
+html[data-theme='gt1'] .topbar .crumbs,
+html[data-theme='gt1'] .topbar .crumb,
+html[data-theme='gt1'] .topbar .crumb-sep {
+  color: #4a3f00 !important;
+}
+html[data-theme='gt1'] .topbar .pill,
+html[data-theme='gt1'] .topbar .btn,
+html[data-theme='gt1'] .topbar .icon-btn {
   background: #fff7cc !important;
   border: 1px solid #8f7400 !important;
   color: #111214 !important;
@@ -455,80 +730,103 @@ html[data-theme="gt1"] .topbar .icon-btn {
   box-shadow: none !important;
 }
 /* the working area: lighter grey panel on the chassis grey */
-html[data-theme="gt1"] .view, html[data-theme="gt1"] .main, html[data-theme="gt1"] .content {
+html[data-theme='gt1'] .view,
+html[data-theme='gt1'] .main,
+html[data-theme='gt1'] .content {
   background: var(--panel-2);
 }
-html[data-theme="gt1"] .section, html[data-theme="gt1"] .chassis-card,
-html[data-theme="gt1"] .group-tile, html[data-theme="gt1"] .menu-section,
-html[data-theme="gt1"] .fault, html[data-theme="gt1"] .live-panel,
-html[data-theme="gt1"] .modal, html[data-theme="gt1"] .result-card,
-html[data-theme="gt1"] .act-card, html[data-theme="gt1"] .setting-row,
-html[data-theme="gt1"] .theme-card {
+html[data-theme='gt1'] .section,
+html[data-theme='gt1'] .chassis-card,
+html[data-theme='gt1'] .group-tile,
+html[data-theme='gt1'] .menu-section,
+html[data-theme='gt1'] .fault,
+html[data-theme='gt1'] .live-panel,
+html[data-theme='gt1'] .modal,
+html[data-theme='gt1'] .result-card,
+html[data-theme='gt1'] .act-card,
+html[data-theme='gt1'] .setting-row,
+html[data-theme='gt1'] .theme-card {
   background: var(--panel) !important;
   border: 1px solid var(--line) !important;
   border-top: 4px solid #f2c500 !important;
   border-radius: 2px !important;
   box-shadow: 0 1px 0 #fff inset !important;
 }
-html[data-theme="gt1"] .setting-row, html[data-theme="gt1"] .theme-card,
-html[data-theme="gt1"] .modal { border-top: 1px solid var(--line) !important; }
-html[data-theme="gt1"] .split-nav-item {
+html[data-theme='gt1'] .setting-row,
+html[data-theme='gt1'] .theme-card,
+html[data-theme='gt1'] .modal {
+  border-top: 1px solid var(--line) !important;
+}
+html[data-theme='gt1'] .split-nav-item {
   background: var(--raised) !important;
   border: 1px solid var(--line) !important;
   border-radius: 0 !important;
 }
-html[data-theme="gt1"] .split-nav-item.active, html[data-theme="gt1"] .split-nav-item[aria-current] {
+html[data-theme='gt1'] .split-nav-item.active,
+html[data-theme='gt1'] .split-nav-item[aria-current] {
   background: #f2c500 !important;
   color: var(--amber-ink) !important;
   font-weight: 600;
 }
-html[data-theme="gt1"] .sidebar {
+html[data-theme='gt1'] .sidebar {
   background: var(--raised);
   border-right: 1px solid var(--line);
 }
-html[data-theme="gt1"] .btn, html[data-theme="gt1"] .icon-btn {
+html[data-theme='gt1'] .btn,
+html[data-theme='gt1'] .icon-btn {
   border-radius: 2px !important;
   background: linear-gradient(#f8f9fa, #d9dbdf) !important;
   border: 1px solid var(--line-bright) !important;
   color: var(--ink) !important;
   box-shadow: 0 1px 0 #fff inset !important;
 }
-html[data-theme="gt1"] .btn:hover, html[data-theme="gt1"] .icon-btn:hover {
+html[data-theme='gt1'] .btn:hover,
+html[data-theme='gt1'] .icon-btn:hover {
   background: linear-gradient(#ffffff, #e6e8eb) !important;
 }
-html[data-theme="gt1"] .btn.primary {
+html[data-theme='gt1'] .btn.primary {
   background: linear-gradient(#ffe36e, #f2c500) !important;
   border-color: #8f7400 !important;
   color: #111214 !important;
 }
-html[data-theme="gt1"] .btn.primary:hover { background: linear-gradient(#fff0a0, #ffd21a) !important; }
-html[data-theme="gt1"] .btn.danger {
+html[data-theme='gt1'] .btn.primary:hover {
+  background: linear-gradient(#fff0a0, #ffd21a) !important;
+}
+html[data-theme='gt1'] .btn.danger {
   background: linear-gradient(#e26a58, #c8321e) !important;
   border-color: #7a1e12 !important;
   color: #fff !important;
 }
-html[data-theme="gt1"] input[type="text"], html[data-theme="gt1"] input[type="search"],
-html[data-theme="gt1"] select, html[data-theme="gt1"] textarea {
+html[data-theme='gt1'] input[type='text'],
+html[data-theme='gt1'] input[type='search'],
+html[data-theme='gt1'] select,
+html[data-theme='gt1'] textarea {
   background: #fff !important;
   border: 1px solid var(--line-bright) !important;
   border-radius: 2px !important;
   color: var(--ink) !important;
-  box-shadow: 0 1px 2px rgba(0,0,0,.08) inset !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset !important;
 }
-html[data-theme="gt1"] input:focus, html[data-theme="gt1"] select:focus,
-html[data-theme="gt1"] textarea:focus {
+html[data-theme='gt1'] input:focus,
+html[data-theme='gt1'] select:focus,
+html[data-theme='gt1'] textarea:focus {
   border-color: #8f7400 !important;
   box-shadow: 0 0 0 2px var(--amber-glow) !important;
   outline: none !important;
 }
-html[data-theme="gt1"] .gauge-track { border: 1px solid var(--line) !important; background: #fff !important; }
-html[data-theme="gt1"] .gauge-fill { background: #f2c500 !important; }
+html[data-theme='gt1'] .gauge-track {
+  border: 1px solid var(--line) !important;
+  background: #fff !important;
+}
+html[data-theme='gt1'] .gauge-fill {
+  background: #f2c500 !important;
+}
 /* the soft-keys under the screen: raised, thick bottom edge, yellow when lit */
-html[data-theme="gt1"] .fkeybar {
+html[data-theme='gt1'] .fkeybar {
   background: #b9bcc2;
   border-top: 1px solid #8e9198;
 }
-html[data-theme="gt1"] .fkey {
+html[data-theme='gt1'] .fkey {
   background: linear-gradient(#f8f9fa, #d9dbdf) !important;
   border: 1px solid var(--line-bright) !important;
   border-bottom-width: 3px !important;
@@ -536,41 +834,55 @@ html[data-theme="gt1"] .fkey {
   color: var(--ink) !important;
   box-shadow: none !important;
 }
-html[data-theme="gt1"] .fkey:hover { background: linear-gradient(#ffffff, #e6e8eb) !important; }
-html[data-theme="gt1"] .fkey.active, html[data-theme="gt1"] .fkey.current {
+html[data-theme='gt1'] .fkey:hover {
+  background: linear-gradient(#ffffff, #e6e8eb) !important;
+}
+html[data-theme='gt1'] .fkey.active,
+html[data-theme='gt1'] .fkey.current {
   background: linear-gradient(#ffe36e, #f2c500) !important;
   border-color: #8f7400 !important;
 }
-html[data-theme="gt1"] .fkey.active .fkey-num { color: #111214; }
-html[data-theme="gt1"] .fkey-btns .fkey.empty, html[data-theme="gt1"] .fkey-btns .fkey.empty:hover {
+html[data-theme='gt1'] .fkey.active .fkey-num {
+  color: #111214;
+}
+html[data-theme='gt1'] .fkey-btns .fkey.empty,
+html[data-theme='gt1'] .fkey-btns .fkey.empty:hover {
   background: #cfd2d6 !important;
   border-color: #a3a7ad !important;
 }
-html[data-theme="gt1"] .fkey-nums .fkey-num { color: #3b3e44 !important; font-weight: 600; }
-html[data-theme="gt1"] .nav-key, html[data-theme="gt1"] .fkey-num {
+html[data-theme='gt1'] .fkey-nums .fkey-num {
+  color: #3b3e44 !important;
+  font-weight: 600;
+}
+html[data-theme='gt1'] .nav-key,
+html[data-theme='gt1'] .fkey-num {
   color: #3b3e44 !important;
   background: #eceef0 !important;
   border: 1px solid var(--line) !important;
 }
 /* the real class names the modules screen uses (mock parity) */
-html[data-theme="gt1"] .view, html[data-theme="gt1"] #view {
+html[data-theme='gt1'] .view,
+html[data-theme='gt1'] #view {
   background: var(--panel-2) !important;
 }
-html[data-theme="gt1"] .ecu-card {
+html[data-theme='gt1'] .ecu-card {
   background: var(--panel) !important;
   border: 1px solid var(--line) !important;
   border-top: 4px solid #f2c500 !important;
   border-radius: 2px !important;
   box-shadow: 0 1px 0 #fff inset !important;
 }
-html[data-theme="gt1"] .ecu-card:hover { transform: none; background: #fff !important; }
-html[data-theme="gt1"] .split-nav {
+html[data-theme='gt1'] .ecu-card:hover {
+  transform: none;
+  background: #fff !important;
+}
+html[data-theme='gt1'] .split-nav {
   gap: 0 !important;
   border: 1px solid var(--line);
   background: var(--raised);
   align-self: start;
 }
-html[data-theme="gt1"] .sys-item {
+html[data-theme='gt1'] .sys-item {
   border: 0 !important;
   border-bottom: 1px solid var(--line) !important;
   border-radius: 0 !important;
@@ -578,74 +890,114 @@ html[data-theme="gt1"] .sys-item {
   color: var(--ink) !important;
   box-shadow: none !important;
 }
-html[data-theme="gt1"] .sys-item:last-child { border-bottom: 0 !important; }
-html[data-theme="gt1"] .sys-item.active {
+html[data-theme='gt1'] .sys-item:last-child {
+  border-bottom: 0 !important;
+}
+html[data-theme='gt1'] .sys-item.active {
   background: #f2c500 !important;
   color: #111214 !important;
   font-weight: 600;
 }
-html[data-theme="gt1"] .sys-item.active .nav-count, html[data-theme="gt1"] .sys-item.active .nav-name {
+html[data-theme='gt1'] .sys-item.active .nav-count,
+html[data-theme='gt1'] .sys-item.active .nav-name {
   color: #111214 !important;
 }
-html[data-theme="gt1"] .sys-item .nav-count { color: var(--ink-dim) !important; }
+html[data-theme='gt1'] .sys-item .nav-count {
+  color: var(--ink-dim) !important;
+}
 /* header controls: black keys with the strip's yellow lettering */
-html[data-theme="gt1"] .topbar .icon-btn, html[data-theme="gt1"] .topbar .nav-action,
-html[data-theme="gt1"] .topbar .nav-back, html[data-theme="gt1"] .topbar .nav-fn {
+html[data-theme='gt1'] .topbar .icon-btn,
+html[data-theme='gt1'] .topbar .nav-action,
+html[data-theme='gt1'] .topbar .nav-back,
+html[data-theme='gt1'] .topbar .nav-fn {
   background: #111214 !important;
   color: #f2c500 !important;
   border: 1px solid #111214 !important;
   font-weight: 600;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
-html[data-theme="gt1"] .topbar .icon-btn:hover, html[data-theme="gt1"] .topbar .nav-action:hover {
+html[data-theme='gt1'] .topbar .icon-btn:hover,
+html[data-theme='gt1'] .topbar .nav-action:hover {
   background: #2a2c30 !important;
 }
 /* soft-keys: raised, thick bottom edge (the app's own size) */
-html[data-theme="gt1"] .fkey-btns .fkey, html[data-theme="gt1"] .fkeybar .fkey {
+html[data-theme='gt1'] .fkey-btns .fkey,
+html[data-theme='gt1'] .fkeybar .fkey {
   background: linear-gradient(#f8f9fa, #d9dbdf) !important;
   border: 1px solid var(--line-bright) !important;
   border-bottom: 3px solid var(--line-bright) !important;
   border-radius: 3px !important;
 }
-html[data-theme="gt1"] .fkey-btns .fkey .fkey-label { color: #111214 !important; }
-html[data-theme="gt1"] .fkey-nums .fkey-num { font-weight: 600 !important; color: #3b3e44 !important; }
-html[data-theme="gt1"] .fkey-btns .fkey.active, html[data-theme="gt1"] .fkeybar .fkey.active,
-html[data-theme="gt1"] .fkey-btns .fkey.current {
+html[data-theme='gt1'] .fkey-btns .fkey .fkey-label {
+  color: #111214 !important;
+}
+html[data-theme='gt1'] .fkey-nums .fkey-num {
+  font-weight: 600 !important;
+  color: #3b3e44 !important;
+}
+html[data-theme='gt1'] .fkey-btns .fkey.active,
+html[data-theme='gt1'] .fkeybar .fkey.active,
+html[data-theme='gt1'] .fkey-btns .fkey.current {
   background: linear-gradient(#ffe36e, #f2c500) !important;
   border-color: #8f7400 !important;
 }
 /* selected segment / tab: the strip yellow with black type */
-html[data-theme="gt1"] .seg-btn.active, html[data-theme="gt1"] .seg .active, html[data-theme="gt1"] .seg button.active,
-html[data-theme="gt1"] .seg .on, html[data-theme="gt1"] .seg [aria-pressed="true"],
-html[data-theme="gt1"] .coding-tab.active, html[data-theme="gt1"] .inpa-ss-chassis.active,
-html[data-theme="gt1"] .chassis-filter-chip.active {
+html[data-theme='gt1'] .seg-btn.active,
+html[data-theme='gt1'] .seg .active,
+html[data-theme='gt1'] .seg button.active,
+html[data-theme='gt1'] .seg .on,
+html[data-theme='gt1'] .seg [aria-pressed='true'],
+html[data-theme='gt1'] .coding-tab.active,
+html[data-theme='gt1'] .inpa-ss-chassis.active,
+html[data-theme='gt1'] .chassis-filter-chip.active {
   background: #f2c500 !important;
   color: #111214 !important;
   border-color: #8f7400 !important;
 }
-html[data-theme="gt1"] .splash { background: #c7cacf; }
-html[data-theme="gt1"] .splash-name { color: #111214; }
-html[data-theme="gt1"] .splash-tag { color: #55585d; }
-html[data-theme="gt1"] .splash-bar { background: #f2c500; }
-html[data-theme="gt1"] .splash-status { color: #55585d; }
+html[data-theme='gt1'] .splash {
+  background: #c7cacf;
+}
+html[data-theme='gt1'] .splash-name {
+  color: #111214;
+}
+html[data-theme='gt1'] .splash-tag {
+  color: #55585d;
+}
+html[data-theme='gt1'] .splash-bar {
+  background: #f2c500;
+}
+html[data-theme='gt1'] .splash-status {
+  color: #55585d;
+}
 
 /* ---------------------------------------------------------------------------
    INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers
    above the keys, the RUNNING block) is structural and lives in styles.css,
    because it is INPA's bar in every skin. This block only skins it. */
-html[data-theme="inpa"] .fkeys.inpa-bar::before { color: #000; }
-html[data-theme="inpa"] .fkey-nums .fkey-num { color: #000 !important; }
-html[data-theme="inpa"] .fkey-btns .fkey .fkey-label { color: #000; }
-html[data-theme="inpa"] .fkey-btns .fkey.empty,
-html[data-theme="inpa"] .fkey-btns .fkey.empty:hover {
+html[data-theme='inpa'] .fkeys.inpa-bar::before {
+  color: #000;
+}
+html[data-theme='inpa'] .fkey-nums .fkey-num {
+  color: #000 !important;
+}
+html[data-theme='inpa'] .fkey-btns .fkey .fkey-label {
+  color: #000;
+}
+html[data-theme='inpa'] .fkey-btns .fkey.empty,
+html[data-theme='inpa'] .fkey-btns .fkey.empty:hover {
   background: #e9e6e1 !important;
 }
-html[data-theme="inpa"] .fkeybar-run { display: block; }
-html[data-theme="inpa"] .fkeybar-run::before { background: #00ff00; color: #000; }
+html[data-theme='inpa'] .fkeybar-run {
+  display: block;
+}
+html[data-theme='inpa'] .fkeybar-run::before {
+  background: #00ff00;
+  color: #000;
+}
 
 /* BRACKETS: dark code editor theme inspired by Adobe Brackets
    Charcoal background, subtle borders, clean flat design */
-html[data-theme="brackets"] {
+html[data-theme='brackets'] {
   --bg: #1d1f21;
   --panel: #2a2d2e;
   --panel-2: #323537;
@@ -657,7 +1009,7 @@ html[data-theme="brackets"] {
   --ink-faint: #6c6f71;
   --amber: #f8de7e;
   --amber-soft: #e6cc6c;
-  --amber-glow: rgba(248,222,126,.15);
+  --amber-glow: rgba(248, 222, 126, 0.15);
   --amber-ink: #1d1f21;
   --red: #f06c75;
   --green: #89ca78;
@@ -672,92 +1024,113 @@ html[data-theme="brackets"] {
   --logo-quad-2: #5db0d7;
   --logo-inner-border: rgba(248, 222, 126, 0.3);
 }
-html[data-theme="brackets"], html[data-theme="brackets"] body {
+html[data-theme='brackets'],
+html[data-theme='brackets'] body {
   background: #1d1f21 !important;
 }
-html[data-theme="brackets"] {
-  --sb-size: 10px; --sb-radius: 0px; --sb-track: #2a2d2e;
-  --sb-thumb: #404447; --sb-thumb-hover: #5a5d5f;
+html[data-theme='brackets'] {
+  --sb-size: 10px;
+  --sb-radius: 0px;
+  --sb-track: #2a2d2e;
+  --sb-thumb: #404447;
+  --sb-thumb-hover: #5a5d5f;
   --sb-thumb-border: none;
-  --gauge-track: #323537; --gauge-fill: #f8de7e;
+  --gauge-track: #323537;
+  --gauge-fill: #f8de7e;
 }
 /* flat panels with subtle borders */
-html[data-theme="brackets"] .section, html[data-theme="brackets"] .chassis-card,
-html[data-theme="brackets"] .group-tile, html[data-theme="brackets"] .menu-section,
-html[data-theme="brackets"] .fault, html[data-theme="brackets"] .live-panel,
-html[data-theme="brackets"] .modal, html[data-theme="brackets"] .result-card,
-html[data-theme="brackets"] .split-nav-item, html[data-theme="brackets"] .act-card,
-html[data-theme="brackets"] .setting-row, html[data-theme="brackets"] .theme-card {
+html[data-theme='brackets'] .section,
+html[data-theme='brackets'] .chassis-card,
+html[data-theme='brackets'] .group-tile,
+html[data-theme='brackets'] .menu-section,
+html[data-theme='brackets'] .fault,
+html[data-theme='brackets'] .live-panel,
+html[data-theme='brackets'] .modal,
+html[data-theme='brackets'] .result-card,
+html[data-theme='brackets'] .split-nav-item,
+html[data-theme='brackets'] .act-card,
+html[data-theme='brackets'] .setting-row,
+html[data-theme='brackets'] .theme-card {
   background: var(--panel) !important;
   border: 1px solid var(--line) !important;
   border-radius: 0 !important;
   box-shadow: none !important;
 }
-html[data-theme="brackets"] .btn, html[data-theme="brackets"] .fkey, html[data-theme="brackets"] .icon-btn {
+html[data-theme='brackets'] .btn,
+html[data-theme='brackets'] .fkey,
+html[data-theme='brackets'] .icon-btn {
   border-radius: 0 !important;
   background: var(--raised) !important;
   border: 1px solid var(--line) !important;
   box-shadow: none !important;
 }
-html[data-theme="brackets"] .btn.primary {
+html[data-theme='brackets'] .btn.primary {
   background: var(--amber) !important;
   color: var(--amber-ink) !important;
   border-color: var(--amber-soft) !important;
 }
-html[data-theme="brackets"] .btn:hover {
+html[data-theme='brackets'] .btn:hover {
   background: var(--line-bright) !important;
 }
-html[data-theme="brackets"] .btn.primary:hover {
+html[data-theme='brackets'] .btn.primary:hover {
   background: var(--amber-soft) !important;
 }
-html[data-theme="brackets"] .topbar, html[data-theme="brackets"] .fkeybar {
+html[data-theme='brackets'] .topbar,
+html[data-theme='brackets'] .fkeybar {
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
-html[data-theme="brackets"] .sidebar {
+html[data-theme='brackets'] .sidebar {
   background: var(--panel-2);
   border-right: 1px solid var(--line);
 }
 /* clean flat inputs */
-html[data-theme="brackets"] input[type="text"],
-html[data-theme="brackets"] input[type="search"],
-html[data-theme="brackets"] select,
-html[data-theme="brackets"] textarea {
+html[data-theme='brackets'] input[type='text'],
+html[data-theme='brackets'] input[type='search'],
+html[data-theme='brackets'] select,
+html[data-theme='brackets'] textarea {
   background: var(--bg) !important;
   border: 1px solid var(--line) !important;
   border-radius: 0 !important;
   color: var(--ink) !important;
 }
-html[data-theme="brackets"] input[type="text"]:focus,
-html[data-theme="brackets"] input[type="search"]:focus,
-html[data-theme="brackets"] select:focus,
-html[data-theme="brackets"] textarea:focus {
+html[data-theme='brackets'] input[type='text']:focus,
+html[data-theme='brackets'] input[type='search']:focus,
+html[data-theme='brackets'] select:focus,
+html[data-theme='brackets'] textarea:focus {
   border-color: var(--amber) !important;
   outline: none !important;
 }
 /* flat gauge bars */
-html[data-theme="brackets"] .gauge-track {
+html[data-theme='brackets'] .gauge-track {
   border-radius: 0 !important;
   border: 1px solid var(--line) !important;
 }
-html[data-theme="brackets"] .gauge-fill {
+html[data-theme='brackets'] .gauge-fill {
   border-radius: 0 !important;
   background: var(--amber) !important;
 }
-html[data-theme="brackets"] .splash {
+html[data-theme='brackets'] .splash {
   background: #1d1f21;
 }
-html[data-theme="brackets"] .splash-name { color: #f8de7e; }
-html[data-theme="brackets"] .splash-tag { color: #a0a3a5; }
-html[data-theme="brackets"] .splash-bar { background: #404447; }
-html[data-theme="brackets"] .splash-status { color: #6c6f71; }
-
+html[data-theme='brackets'] .splash-name {
+  color: #f8de7e;
+}
+html[data-theme='brackets'] .splash-tag {
+  color: #a0a3a5;
+}
+html[data-theme='brackets'] .splash-bar {
+  background: #404447;
+}
+html[data-theme='brackets'] .splash-status {
+  color: #6c6f71;
+}
 
 /* GT1: the dealer tester. Two greys and black type; the yellow is the tab
    strip on the real unit, so it lives in the header and on the selected
    item only. Soft-keys are raised with a thick bottom edge, like the buttons
    under its screen. */
-html[data-theme="gt1"] {
+html[data-theme='gt1'] {
   --bg: #c7cacf;
   --panel: #f4f5f6;
   --panel-2: #dfe1e4;
@@ -772,12 +1145,13 @@ html[data-theme="gt1"] {
      a fill only, so it is written literally where a fill is meant. */
   --amber: #8f7400;
   --amber-soft: #6e5a00;
-  --amber-glow: rgba(242,197,0,.28);
+  --amber-glow: rgba(242, 197, 0, 0.28);
   --amber-ink: #111214;
   --red: #c8321e;
   --green: #2e7d32;
   --cyan: #1f6f8b;
-  --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 1px 2px rgba(0,0,0,.12);
+  --shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 1px 2px rgba(0, 0, 0, 0.12);
   --display: 'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --mono: 'IBM Plex Mono', 'Consolas', ui-monospace, monospace;
   /* logo */
@@ -785,25 +1159,35 @@ html[data-theme="gt1"] {
   --logo-border: #8f7400;
   --logo-quad-1: #f2c500;
   --logo-quad-2: #dfe1e4;
-  --logo-inner-border: rgba(242,197,0,.5);
-  --sb-size: 12px; --sb-radius: 2px; --sb-track: #dfe1e4;
-  --sb-thumb: #a3a7ad; --sb-thumb-hover: #7d8087; --sb-thumb-border: 1px solid #dfe1e4;
-  --gauge-track: #dfe1e4; --gauge-fill: #f2c500;
+  --logo-inner-border: rgba(242, 197, 0, 0.5);
+  --sb-size: 12px;
+  --sb-radius: 2px;
+  --sb-track: #dfe1e4;
+  --sb-thumb: #a3a7ad;
+  --sb-thumb-hover: #7d8087;
+  --sb-thumb-border: 1px solid #dfe1e4;
+  --gauge-track: #dfe1e4;
+  --gauge-fill: #f2c500;
 }
-html[data-theme="gt1"], html[data-theme="gt1"] body {
+html[data-theme='gt1'],
+html[data-theme='gt1'] body {
   background: #c7cacf !important;
   color: var(--ink);
 }
 /* the tab strip */
-html[data-theme="gt1"] .topbar {
+html[data-theme='gt1'] .topbar {
   background: #f2c500;
   color: #111214;
   border-bottom: 3px solid #8f7400;
 }
-html[data-theme="gt1"] .topbar .crumbs, html[data-theme="gt1"] .topbar .crumb,
-html[data-theme="gt1"] .topbar .crumb-sep { color: #4a3f00 !important; }
-html[data-theme="gt1"] .topbar .pill, html[data-theme="gt1"] .topbar .btn,
-html[data-theme="gt1"] .topbar .icon-btn {
+html[data-theme='gt1'] .topbar .crumbs,
+html[data-theme='gt1'] .topbar .crumb,
+html[data-theme='gt1'] .topbar .crumb-sep {
+  color: #4a3f00 !important;
+}
+html[data-theme='gt1'] .topbar .pill,
+html[data-theme='gt1'] .topbar .btn,
+html[data-theme='gt1'] .topbar .icon-btn {
   background: #fff7cc !important;
   border: 1px solid #8f7400 !important;
   color: #111214 !important;
@@ -811,80 +1195,103 @@ html[data-theme="gt1"] .topbar .icon-btn {
   box-shadow: none !important;
 }
 /* the working area: lighter grey panel on the chassis grey */
-html[data-theme="gt1"] .view, html[data-theme="gt1"] .main, html[data-theme="gt1"] .content {
+html[data-theme='gt1'] .view,
+html[data-theme='gt1'] .main,
+html[data-theme='gt1'] .content {
   background: var(--panel-2);
 }
-html[data-theme="gt1"] .section, html[data-theme="gt1"] .chassis-card,
-html[data-theme="gt1"] .group-tile, html[data-theme="gt1"] .menu-section,
-html[data-theme="gt1"] .fault, html[data-theme="gt1"] .live-panel,
-html[data-theme="gt1"] .modal, html[data-theme="gt1"] .result-card,
-html[data-theme="gt1"] .act-card, html[data-theme="gt1"] .setting-row,
-html[data-theme="gt1"] .theme-card {
+html[data-theme='gt1'] .section,
+html[data-theme='gt1'] .chassis-card,
+html[data-theme='gt1'] .group-tile,
+html[data-theme='gt1'] .menu-section,
+html[data-theme='gt1'] .fault,
+html[data-theme='gt1'] .live-panel,
+html[data-theme='gt1'] .modal,
+html[data-theme='gt1'] .result-card,
+html[data-theme='gt1'] .act-card,
+html[data-theme='gt1'] .setting-row,
+html[data-theme='gt1'] .theme-card {
   background: var(--panel) !important;
   border: 1px solid var(--line) !important;
   border-top: 4px solid #f2c500 !important;
   border-radius: 2px !important;
   box-shadow: 0 1px 0 #fff inset !important;
 }
-html[data-theme="gt1"] .setting-row, html[data-theme="gt1"] .theme-card,
-html[data-theme="gt1"] .modal { border-top: 1px solid var(--line) !important; }
-html[data-theme="gt1"] .split-nav-item {
+html[data-theme='gt1'] .setting-row,
+html[data-theme='gt1'] .theme-card,
+html[data-theme='gt1'] .modal {
+  border-top: 1px solid var(--line) !important;
+}
+html[data-theme='gt1'] .split-nav-item {
   background: var(--raised) !important;
   border: 1px solid var(--line) !important;
   border-radius: 0 !important;
 }
-html[data-theme="gt1"] .split-nav-item.active, html[data-theme="gt1"] .split-nav-item[aria-current] {
+html[data-theme='gt1'] .split-nav-item.active,
+html[data-theme='gt1'] .split-nav-item[aria-current] {
   background: #f2c500 !important;
   color: var(--amber-ink) !important;
   font-weight: 600;
 }
-html[data-theme="gt1"] .sidebar {
+html[data-theme='gt1'] .sidebar {
   background: var(--raised);
   border-right: 1px solid var(--line);
 }
-html[data-theme="gt1"] .btn, html[data-theme="gt1"] .icon-btn {
+html[data-theme='gt1'] .btn,
+html[data-theme='gt1'] .icon-btn {
   border-radius: 2px !important;
   background: linear-gradient(#f8f9fa, #d9dbdf) !important;
   border: 1px solid var(--line-bright) !important;
   color: var(--ink) !important;
   box-shadow: 0 1px 0 #fff inset !important;
 }
-html[data-theme="gt1"] .btn:hover, html[data-theme="gt1"] .icon-btn:hover {
+html[data-theme='gt1'] .btn:hover,
+html[data-theme='gt1'] .icon-btn:hover {
   background: linear-gradient(#ffffff, #e6e8eb) !important;
 }
-html[data-theme="gt1"] .btn.primary {
+html[data-theme='gt1'] .btn.primary {
   background: linear-gradient(#ffe36e, #f2c500) !important;
   border-color: #8f7400 !important;
   color: #111214 !important;
 }
-html[data-theme="gt1"] .btn.primary:hover { background: linear-gradient(#fff0a0, #ffd21a) !important; }
-html[data-theme="gt1"] .btn.danger {
+html[data-theme='gt1'] .btn.primary:hover {
+  background: linear-gradient(#fff0a0, #ffd21a) !important;
+}
+html[data-theme='gt1'] .btn.danger {
   background: linear-gradient(#e26a58, #c8321e) !important;
   border-color: #7a1e12 !important;
   color: #fff !important;
 }
-html[data-theme="gt1"] input[type="text"], html[data-theme="gt1"] input[type="search"],
-html[data-theme="gt1"] select, html[data-theme="gt1"] textarea {
+html[data-theme='gt1'] input[type='text'],
+html[data-theme='gt1'] input[type='search'],
+html[data-theme='gt1'] select,
+html[data-theme='gt1'] textarea {
   background: #fff !important;
   border: 1px solid var(--line-bright) !important;
   border-radius: 2px !important;
   color: var(--ink) !important;
-  box-shadow: 0 1px 2px rgba(0,0,0,.08) inset !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08) inset !important;
 }
-html[data-theme="gt1"] input:focus, html[data-theme="gt1"] select:focus,
-html[data-theme="gt1"] textarea:focus {
+html[data-theme='gt1'] input:focus,
+html[data-theme='gt1'] select:focus,
+html[data-theme='gt1'] textarea:focus {
   border-color: #8f7400 !important;
   box-shadow: 0 0 0 2px var(--amber-glow) !important;
   outline: none !important;
 }
-html[data-theme="gt1"] .gauge-track { border: 1px solid var(--line) !important; background: #fff !important; }
-html[data-theme="gt1"] .gauge-fill { background: #f2c500 !important; }
+html[data-theme='gt1'] .gauge-track {
+  border: 1px solid var(--line) !important;
+  background: #fff !important;
+}
+html[data-theme='gt1'] .gauge-fill {
+  background: #f2c500 !important;
+}
 /* the soft-keys under the screen: raised, thick bottom edge, yellow when lit */
-html[data-theme="gt1"] .fkeybar {
+html[data-theme='gt1'] .fkeybar {
   background: #b9bcc2;
   border-top: 1px solid #8e9198;
 }
-html[data-theme="gt1"] .fkey {
+html[data-theme='gt1'] .fkey {
   background: linear-gradient(#f8f9fa, #d9dbdf) !important;
   border: 1px solid var(--line-bright) !important;
   border-bottom-width: 3px !important;
@@ -892,41 +1299,55 @@ html[data-theme="gt1"] .fkey {
   color: var(--ink) !important;
   box-shadow: none !important;
 }
-html[data-theme="gt1"] .fkey:hover { background: linear-gradient(#ffffff, #e6e8eb) !important; }
-html[data-theme="gt1"] .fkey.active, html[data-theme="gt1"] .fkey.current {
+html[data-theme='gt1'] .fkey:hover {
+  background: linear-gradient(#ffffff, #e6e8eb) !important;
+}
+html[data-theme='gt1'] .fkey.active,
+html[data-theme='gt1'] .fkey.current {
   background: linear-gradient(#ffe36e, #f2c500) !important;
   border-color: #8f7400 !important;
 }
-html[data-theme="gt1"] .fkey.active .fkey-num { color: #111214; }
-html[data-theme="gt1"] .fkey-btns .fkey.empty, html[data-theme="gt1"] .fkey-btns .fkey.empty:hover {
+html[data-theme='gt1'] .fkey.active .fkey-num {
+  color: #111214;
+}
+html[data-theme='gt1'] .fkey-btns .fkey.empty,
+html[data-theme='gt1'] .fkey-btns .fkey.empty:hover {
   background: #cfd2d6 !important;
   border-color: #a3a7ad !important;
 }
-html[data-theme="gt1"] .fkey-nums .fkey-num { color: #3b3e44 !important; font-weight: 600; }
-html[data-theme="gt1"] .nav-key, html[data-theme="gt1"] .fkey-num {
+html[data-theme='gt1'] .fkey-nums .fkey-num {
+  color: #3b3e44 !important;
+  font-weight: 600;
+}
+html[data-theme='gt1'] .nav-key,
+html[data-theme='gt1'] .fkey-num {
   color: #3b3e44 !important;
   background: #eceef0 !important;
   border: 1px solid var(--line) !important;
 }
 /* the real class names the modules screen uses (mock parity) */
-html[data-theme="gt1"] .view, html[data-theme="gt1"] #view {
+html[data-theme='gt1'] .view,
+html[data-theme='gt1'] #view {
   background: var(--panel-2) !important;
 }
-html[data-theme="gt1"] .ecu-card {
+html[data-theme='gt1'] .ecu-card {
   background: var(--panel) !important;
   border: 1px solid var(--line) !important;
   border-top: 4px solid #f2c500 !important;
   border-radius: 2px !important;
   box-shadow: 0 1px 0 #fff inset !important;
 }
-html[data-theme="gt1"] .ecu-card:hover { transform: none; background: #fff !important; }
-html[data-theme="gt1"] .split-nav {
+html[data-theme='gt1'] .ecu-card:hover {
+  transform: none;
+  background: #fff !important;
+}
+html[data-theme='gt1'] .split-nav {
   gap: 0 !important;
   border: 1px solid var(--line);
   background: var(--raised);
   align-self: start;
 }
-html[data-theme="gt1"] .sys-item {
+html[data-theme='gt1'] .sys-item {
   border: 0 !important;
   border-bottom: 1px solid var(--line) !important;
   border-radius: 0 !important;
@@ -934,70 +1355,110 @@ html[data-theme="gt1"] .sys-item {
   color: var(--ink) !important;
   box-shadow: none !important;
 }
-html[data-theme="gt1"] .sys-item:last-child { border-bottom: 0 !important; }
-html[data-theme="gt1"] .sys-item.active {
+html[data-theme='gt1'] .sys-item:last-child {
+  border-bottom: 0 !important;
+}
+html[data-theme='gt1'] .sys-item.active {
   background: #f2c500 !important;
   color: #111214 !important;
   font-weight: 600;
 }
-html[data-theme="gt1"] .sys-item.active .nav-count, html[data-theme="gt1"] .sys-item.active .nav-name {
+html[data-theme='gt1'] .sys-item.active .nav-count,
+html[data-theme='gt1'] .sys-item.active .nav-name {
   color: #111214 !important;
 }
-html[data-theme="gt1"] .sys-item .nav-count { color: var(--ink-dim) !important; }
+html[data-theme='gt1'] .sys-item .nav-count {
+  color: var(--ink-dim) !important;
+}
 /* header controls: black keys with the strip's yellow lettering */
-html[data-theme="gt1"] .topbar .icon-btn, html[data-theme="gt1"] .topbar .nav-action,
-html[data-theme="gt1"] .topbar .nav-back, html[data-theme="gt1"] .topbar .nav-fn {
+html[data-theme='gt1'] .topbar .icon-btn,
+html[data-theme='gt1'] .topbar .nav-action,
+html[data-theme='gt1'] .topbar .nav-back,
+html[data-theme='gt1'] .topbar .nav-fn {
   background: #111214 !important;
   color: #f2c500 !important;
   border: 1px solid #111214 !important;
   font-weight: 600;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
-html[data-theme="gt1"] .topbar .icon-btn:hover, html[data-theme="gt1"] .topbar .nav-action:hover {
+html[data-theme='gt1'] .topbar .icon-btn:hover,
+html[data-theme='gt1'] .topbar .nav-action:hover {
   background: #2a2c30 !important;
 }
 /* soft-keys: raised, thick bottom edge (the app's own size) */
-html[data-theme="gt1"] .fkey-btns .fkey, html[data-theme="gt1"] .fkeybar .fkey {
+html[data-theme='gt1'] .fkey-btns .fkey,
+html[data-theme='gt1'] .fkeybar .fkey {
   background: linear-gradient(#f8f9fa, #d9dbdf) !important;
   border: 1px solid var(--line-bright) !important;
   border-bottom: 3px solid var(--line-bright) !important;
   border-radius: 3px !important;
 }
-html[data-theme="gt1"] .fkey-btns .fkey .fkey-label { color: #111214 !important; }
-html[data-theme="gt1"] .fkey-nums .fkey-num { font-weight: 600 !important; color: #3b3e44 !important; }
-html[data-theme="gt1"] .fkey-btns .fkey.active, html[data-theme="gt1"] .fkeybar .fkey.active,
-html[data-theme="gt1"] .fkey-btns .fkey.current {
+html[data-theme='gt1'] .fkey-btns .fkey .fkey-label {
+  color: #111214 !important;
+}
+html[data-theme='gt1'] .fkey-nums .fkey-num {
+  font-weight: 600 !important;
+  color: #3b3e44 !important;
+}
+html[data-theme='gt1'] .fkey-btns .fkey.active,
+html[data-theme='gt1'] .fkeybar .fkey.active,
+html[data-theme='gt1'] .fkey-btns .fkey.current {
   background: linear-gradient(#ffe36e, #f2c500) !important;
   border-color: #8f7400 !important;
 }
 /* selected segment / tab: the strip yellow with black type */
-html[data-theme="gt1"] .seg-btn.active, html[data-theme="gt1"] .seg .active, html[data-theme="gt1"] .seg button.active,
-html[data-theme="gt1"] .seg .on, html[data-theme="gt1"] .seg [aria-pressed="true"],
-html[data-theme="gt1"] .coding-tab.active, html[data-theme="gt1"] .inpa-ss-chassis.active,
-html[data-theme="gt1"] .chassis-filter-chip.active {
+html[data-theme='gt1'] .seg-btn.active,
+html[data-theme='gt1'] .seg .active,
+html[data-theme='gt1'] .seg button.active,
+html[data-theme='gt1'] .seg .on,
+html[data-theme='gt1'] .seg [aria-pressed='true'],
+html[data-theme='gt1'] .coding-tab.active,
+html[data-theme='gt1'] .inpa-ss-chassis.active,
+html[data-theme='gt1'] .chassis-filter-chip.active {
   background: #f2c500 !important;
   color: #111214 !important;
   border-color: #8f7400 !important;
 }
-html[data-theme="gt1"] .splash { background: #c7cacf; }
-html[data-theme="gt1"] .splash-name { color: #111214; }
-html[data-theme="gt1"] .splash-tag { color: #55585d; }
-html[data-theme="gt1"] .splash-bar { background: #f2c500; }
-html[data-theme="gt1"] .splash-status { color: #55585d; }
+html[data-theme='gt1'] .splash {
+  background: #c7cacf;
+}
+html[data-theme='gt1'] .splash-name {
+  color: #111214;
+}
+html[data-theme='gt1'] .splash-tag {
+  color: #55585d;
+}
+html[data-theme='gt1'] .splash-bar {
+  background: #f2c500;
+}
+html[data-theme='gt1'] .splash-status {
+  color: #55585d;
+}
 
 /* ---------------------------------------------------------------------------
    INPA's bottom bar -- COLOURS ONLY. The layout (ten fixed slots, numbers
    above the keys, the RUNNING block) is structural and lives in styles.css,
    because it is INPA's bar in every skin. This block only skins it. */
-html[data-theme="inpa"] .fkeys.inpa-bar::before { color: #000; }
-html[data-theme="inpa"] .fkey-nums .fkey-num { color: #000 !important; }
-html[data-theme="inpa"] .fkey-btns .fkey .fkey-label { color: #000; }
-html[data-theme="inpa"] .fkey-btns .fkey.empty,
-html[data-theme="inpa"] .fkey-btns .fkey.empty:hover {
+html[data-theme='inpa'] .fkeys.inpa-bar::before {
+  color: #000;
+}
+html[data-theme='inpa'] .fkey-nums .fkey-num {
+  color: #000 !important;
+}
+html[data-theme='inpa'] .fkey-btns .fkey .fkey-label {
+  color: #000;
+}
+html[data-theme='inpa'] .fkey-btns .fkey.empty,
+html[data-theme='inpa'] .fkey-btns .fkey.empty:hover {
   background: #e9e6e1 !important;
 }
-html[data-theme="inpa"] .fkeybar-run { display: block; }
-html[data-theme="inpa"] .fkeybar-run::before { background: #00ff00; color: #000; }
+html[data-theme='inpa'] .fkeybar-run {
+  display: block;
+}
+html[data-theme='inpa'] .fkeybar-run::before {
+  background: #00ff00;
+  color: #000;
+}
 
 /* ---------------------------------------------------------------------------
    THE BAR'S F-NUMBERS ARE PRINTED LABELS, NOT KEYS -- in every skin.
@@ -1008,13 +1469,19 @@ html[data-theme="inpa"] .fkeybar-run::before { background: #00ff00; color: #000;
    styles.css can write, and themes.css loads second -- so the chip won and the
    number row arrived beveled. Undone last, here, where nothing follows it. */
 html .fkey-nums .fkey-num {
-  background: none !important; border: 0 !important; box-shadow: none !important;
-  border-radius: 0 !important; padding: 0 !important; min-width: 0 !important;
-  text-shadow: none !important; overflow: visible !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+  text-shadow: none !important;
+  overflow: visible !important;
 }
 html .fkey-nums .fkey-num::after,
 html .fkey-nums .fkey-num::before {
-  content: none !important; display: none !important;
+  content: none !important;
+  display: none !important;
 }
 
 /* ---- mobile ---------------------------------------------------------
@@ -1025,10 +1492,21 @@ html .fkey-nums .fkey-num::before {
   /* Two across instead of one. `minmax(210px, 1fr)` cannot fit two cards
      in 320px, so the Skin row alone ran to 386px of a 320px screen --
      the whole viewport before you reach anything else. */
-  .theme-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .theme-card { padding: 8px; gap: 8px; }
-  .theme-swatch { width: 28px; height: 28px; }
-  .theme-name { font-size: 12px; }
+  .theme-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .theme-card {
+    padding: 8px;
+    gap: 8px;
+  }
+  .theme-swatch {
+    width: 28px;
+    height: 28px;
+  }
+  .theme-name {
+    font-size: 12px;
+  }
 }
 
 /* Brackets: SQUARE EVERYTHING.
@@ -1042,16 +1520,17 @@ html .fkey-nums .fkey-num::before {
      - the roundel logo and any circular avatar/dot, which become squares
      - gauge tracks/fills, whose pill shape reads as a meter
      - toggle switches, where the pill IS the affordance */
-html[data-theme="brackets"] *:not(.logo-ring):not(.logo-inner-ring):not(circle) {
+html[data-theme='brackets']
+  *:not(.logo-ring):not(.logo-inner-ring):not(circle) {
   border-radius: 0 !important;
 }
-html[data-theme="brackets"] .gauge-track,
-html[data-theme="brackets"] .gauge-fill,
-html[data-theme="brackets"] .win-dot,
-html[data-theme="brackets"] .switch,
-html[data-theme="brackets"] .switch-knob,
-html[data-theme="brackets"] .brand-mark,
-html[data-theme="brackets"] .splash-logo,
-html[data-theme="brackets"] .brand-logo {
+html[data-theme='brackets'] .gauge-track,
+html[data-theme='brackets'] .gauge-fill,
+html[data-theme='brackets'] .win-dot,
+html[data-theme='brackets'] .switch,
+html[data-theme='brackets'] .switch-knob,
+html[data-theme='brackets'] .brand-mark,
+html[data-theme='brackets'] .splash-logo,
+html[data-theme='brackets'] .brand-logo {
   border-radius: 999px !important;
 }

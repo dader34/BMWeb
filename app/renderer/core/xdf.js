@@ -16,7 +16,12 @@
 //
 // Type-flag bit layout (mmedtypeflags):
 //   bit 0 (0x01) = signed   bit 1 (0x02) = lsbfirst (LE)   bit 2 (0x04) = float
-// When typeflags is 0 the file <DEFAULTS> supply the flags instead.
+// The flags are authoritative, and 0 means exactly what it says: unsigned,
+// MSB-first, integer. TunerPro omits the attribute when it is zero. The
+// header <DEFAULTS> are the editor's template for NEW items, not a runtime
+// fallback: an MS45 definition ships lsbfirst="1" in DEFAULTS while every one
+// of its 988 sixteen-bit axes only decodes in order MSB-first, so honouring
+// DEFAULTS for flag-less items byte-swapped every axis label in the app.
 
 (function (root) {
   'use strict';
@@ -492,15 +497,15 @@
     return base.subtract ? raw - base.offset : raw + base.offset;
   }
 
-  // Resolve EMBEDDEDDATA + BASEOFFSET + DEFAULTS into concrete params. When
-  // typeflags is 0, DEFAULTS win for the three flag bits; otherwise the bits do.
+  // Resolve EMBEDDEDDATA + BASEOFFSET + DEFAULTS into concrete params. The
+  // type flags are read literally (see the bit layout at the top of the
+  // file); DEFAULTS only supply a missing element size.
   function resolveEmbedded(embed, base, defaults) {
     const flags = embed.typeflags;
-    const useFlags = flags !== 0;
     return {
-      signed: useFlags ? (flags & FLAG_SIGNED) !== 0 : defaults.signed,
-      lsbfirst: useFlags ? (flags & FLAG_LSBFIRST) !== 0 : defaults.lsbfirst,
-      float: useFlags ? (flags & FLAG_FLOAT) !== 0 : defaults.float,
+      signed: (flags & FLAG_SIGNED) !== 0,
+      lsbfirst: (flags & FLAG_LSBFIRST) !== 0,
+      float: (flags & FLAG_FLOAT) !== 0,
       sizeBits:
         embed.elementsizebits > 0
           ? embed.elementsizebits

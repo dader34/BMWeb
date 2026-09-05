@@ -83,6 +83,21 @@
   // `state` is the subset worth keeping. Uint8Arrays are stored directly --
   // structured clone handles them, and a copy is taken so a later in-place
   // edit cannot mutate what we are mid-way through writing.
+  function packHistory(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map((e) => ({
+      label: e.label || '',
+      writes: (e.writes || []).map((w) => ({
+        address: w.address,
+        before: w.before ? Uint8Array.from(w.before) : null,
+        after: w.after ? Uint8Array.from(w.after) : null,
+      })),
+    }));
+  }
+  function unpackHistory(list) {
+    return packHistory(list).filter((e) => e.writes.length);
+  }
+
   async function saveSession(state) {
     const db = await open();
     if (!db) return false;
@@ -102,6 +117,12 @@
       coverOn: state.coverOn !== false,
       kinds: state.kinds ? [...state.kinds] : null,
       openCats: state.openCats ? [...state.openCats] : null,
+      // the table editor dialog that was open, by item key
+      openTable: state.openTable || null,
+      // the edit trail: byte-level undo/redo entries, copied so a later edit
+      // cannot alias the stored bytes
+      history: packHistory(state.history),
+      redo: packHistory(state.redo),
     };
     const ok = await tx(db, 'readwrite', (s) => s.put(rec, KEY));
     try {
@@ -139,6 +160,8 @@
       rec.bin = new Uint8Array(rec.bin);
     if (rec.orig && !(rec.orig instanceof Uint8Array))
       rec.orig = new Uint8Array(rec.orig);
+    rec.history = unpackHistory(rec.history);
+    rec.redo = unpackHistory(rec.redo);
     return rec;
   }
 
