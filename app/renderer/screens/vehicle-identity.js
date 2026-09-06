@@ -601,12 +601,10 @@ async function viReadEwsOdometer(sgbd) {
   } catch (e) {
     return null;
   }
-  const has = (name) =>
-    jobs &&
-    (Array.isArray(jobs)
-      ? jobs.includes(name)
-      : jobs[name] || jobs.has?.(name));
-  if (!has('KD_DATEN_LESEN')) return null;
+  // viJobs returns [{ name }]; match on the declared job name.
+  const hasKd =
+    Array.isArray(jobs) && jobs.some((j) => j && j.name === 'KD_DATEN_LESEN');
+  if (!hasKd) return null;
   try {
     // BLOCK 0. viRunValues drives the job the same way every other read here
     // does; the block index is the job's single int argument.
