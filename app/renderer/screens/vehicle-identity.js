@@ -504,8 +504,9 @@ async function viPickInfoJob(sgbd, jobs, role) {
   return null;
 }
 
-async function viRunValues(sgbd, job) {
-  const d = await api(`/api/ecu/${sgbd}/run/${job}`, { method: 'POST' });
+async function viRunValues(sgbd, job, arg) {
+  const q = arg != null ? `?arg=${encodeURIComponent(arg)}` : '';
+  const d = await api(`/api/ecu/${sgbd}/run/${job}${q}`, { method: 'POST' });
   return new Map(flatResults(d.sets));
 }
 
@@ -576,7 +577,72 @@ async function viReadColumn(m, sources, famName) {
       /* that row shows an em dash */
     }
   }
+  // EWS odometer: the EWS keeps its own mileage copy (the value the cluster
+  // cross-checks -- a divergence is what lights the tamper dot). It is not a
+  // named result: the SGBD only returns the raw customer-service blocks, and
+  // the odometer lives at KD block 0, bytes 2..4, as 3-byte LITTLE-ENDIAN km.
+  // Verified against a known 231,364 mi car: bytes 7A AE 05 -> 372,346 km
+  // (231,366 mi), a 2-mile match. Only attempted when the standard km read
+  // above found nothing, and only on a module that offers KD_DATEN_LESEN.
+  if (col.km == null) {
+    const ews = await viReadEwsOdometer(m.sgbd);
+    if (ews != null) col.km = ews;
+  }
   return col;
+}
+
+// Read KD block 0 from an EWS and decode the stored odometer (3-byte LE km at
+// offset 2). Returns the km number, or null when the module has no such job,
+// the block is blank, or the value is implausible.
+async function viReadEwsOdometer(sgbd) {
+  let jobs;
+  try {
+    jobs = await viJobs(sgbd);
+  } catch (e) {
+    return null;
+  }
+  const has = (name) =>
+    jobs &&
+    (Array.isArray(jobs)
+      ? jobs.includes(name)
+      : jobs[name] || jobs.has?.(name));
+  if (!has('KD_DATEN_LESEN')) return null;
+  try {
+    // BLOCK 0. viRunValues drives the job the same way every other read here
+    // does; the block index is the job's single int argument.
+    const values = await viRunValues(sgbd, 'KD_DATEN_LESEN', '0');
+    const raw = values.has('KD_DATEN') ? values.get('KD_DATEN') : null;
+    const bytes = viBytesOf(raw);
+    if (!bytes || bytes.length < 5) return null;
+    // an all-FF (uninitialised) block carries no odometer
+    if (bytes.slice(0, 5).every((b) => b === 0xff)) return null;
+    const km = bytes[2] | (bytes[3] << 8) | (bytes[4] << 16);
+    // a 3-byte field maxes at ~16.7M km; reject 0 and the all-FF sentinel
+    if (km === 0 || km === 0xffffff) return null;
+    return km;
+  } catch (e) {
+    return null;
+  }
+}
+
+// KD_DATEN comes back the way EDIABAS publishes a binary result: a byte array,
+// a "7A-AE-05" hex-dash string, or a plain hex string. Normalise to a number
+// array; return null on anything else.
+function viBytesOf(v) {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.map((x) => Number(x) & 0xff);
+  if (v instanceof Uint8Array) return Array.from(v);
+  const s = String(v).trim();
+  if (/^[0-9a-fA-F]{2}([-\s][0-9a-fA-F]{2})+$/.test(s)) {
+    return s.split(/[-\s]+/).map((h) => parseInt(h, 16));
+  }
+  if (/^[0-9a-fA-F]+$/.test(s) && s.length % 2 === 0) {
+    const out = [];
+    for (let i = 0; i < s.length; i += 2)
+      out.push(parseInt(s.substr(i, 2), 16));
+    return out;
+  }
+  return null;
 }
 
 // A full 17-char VIN carries the type key at positions 4..7 (WBA AV36 ...).

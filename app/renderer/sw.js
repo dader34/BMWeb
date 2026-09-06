@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v98'; // bmweb-v98: tuning Save confirms (no checksum correction)
+const CACHE_NAME = 'bmweb-v99'; // bmweb-v99: EWS stored odometer read (KD block 0)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 
