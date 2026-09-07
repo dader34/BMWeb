@@ -136,14 +136,22 @@ function loadExec(chassis, ecu) {
   // the folder is named by the menu CODE (E46's engine row is MS450 with
   // sgbd ms450ds0) or by the variant's own name (ihka46_3, derived from the
   // group); find it by the SGBD its ecu.json declares, then by folder name
+  // ...and the folder name itself compares case-insensitively: the runner's
+  // filesystem is case-sensitive (klima_5B is the E46 code, and that entry
+  // row's sgbd is ihka38), a Mac's is not, and the harness must agree.
+  const want = ecu.toLowerCase();
   const bySgbd = [];
   try {
     for (const d of fs.readdirSync(tree)) {
+      if (d.toLowerCase() === want) {
+        bySgbd.push(path.join(tree, d));
+        continue;
+      }
       try {
         const meta = JSON.parse(
           fs.readFileSync(path.join(tree, d, 'ecu.json'), 'utf8')
         );
-        if (String(meta.sgbd || '').toLowerCase() === ecu.toLowerCase())
+        if (String(meta.sgbd || '').toLowerCase() === want)
           bySgbd.push(path.join(tree, d));
       } catch (e) {
         /* not an ECU folder */
