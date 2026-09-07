@@ -202,13 +202,12 @@ tools/                 generators, exporters, verify/ test harnesses, beta/ coll
 scripts/setup/         fetch.sh, check-vendor.sh, data-cache.sh
 scripts/build/         build-web.sh, build-bundle.sh, offline-build.mjs, build-faultdb.mjs
 vendor/                build inputs: NOT in the repo
-src/BMacW.Host/        C# shell core: static host, cable proxy (not released)
-src/InpaMac.App/       macOS WKWebView shell around that core (not released)
+src/EdiabasMac/        C# engine library the reference CLI is built on
 src/InpaMac.Cli/       reference engine, kept only to verify the VM against
 ```
 
-The native macOS shell is kept in the tree and still holds the version stamp,
-but no desktop build is published; the browser is the product.
+No desktop build is published; the browser is the product. The version stamp
+lives in `package.json` and every build reads it from there.
 
 
 ## Credits and license

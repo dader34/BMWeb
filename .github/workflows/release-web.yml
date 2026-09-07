@@ -44,10 +44,10 @@ jobs:
         if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
-          ver=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)
-          echo "tag=${GITHUB_REF_NAME}  csproj=${ver}"
+          ver=$(node -p "require('./package.json').version")
+          echo "tag=${GITHUB_REF_NAME}  package.json=${ver}"
           test "v${ver}" = "${GITHUB_REF_NAME}" || {
-            echo "error: tag ${GITHUB_REF_NAME} != ApplicationDisplayVersion ${ver}" >&2
+            echo "error: tag ${GITHUB_REF_NAME} != package.json version ${ver}" >&2
             exit 1
           }
 

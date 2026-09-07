@@ -33,8 +33,9 @@ fi
 # the in-page exporter is what THIS replaces
 rm -f dist-web/core/offline-export.js
 
-# one version source: the csproj. Settings and OFFLINE-README both read it.
-VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)
+# one version source: package.json. Settings and OFFLINE-README both read it.
+VERSION=$(node -p "require('./package.json').version")
+test -n "$VERSION"
 printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION}\"" > dist-web/version.js
 grep -q 'version.js' dist-web/index.html \
   || sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html

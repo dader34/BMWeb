@@ -264,8 +264,8 @@ def _txt(raw):
 def _prg_tables(path):
     """Every table a .prg/.grp carries, read OFFLINE from the container.
 
-    The engine-backed harvest (sgbd_tables.py, /api/ecu/<s>/table/) needs the
-    app running; the tables it serves are sitting in the file all along.
+    An engine-backed harvest (/api/ecu/<s>/table/) needs the app running;
+    the tables it serves are sitting in the file all along.
     Layout, validated cell-for-cell against the engine's output for all 826
     E46 tables (823 exact, 2 en-dash encoding, 1 stale-harvest drift):
 

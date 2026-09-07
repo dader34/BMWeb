@@ -62,9 +62,9 @@ _SPAN = 900
 # Measured over the 89 ECUs that list a Coding key: 50 declare a real coding
 # screen, 39 do not, and the 39 are almost all engine/transmission ECUs (DME*,
 # DDE*, MS4xx, MSS5x, SMG2) -- coded by the factory tool, not by INPA. That
-# split is the reason this checks the DECLARATION rather than whether
-# tools/ipo_coding.py managed to read the screen: only 17 of the 50 are
-# currently readable, and the other 33 are a miner gap, not a dead key.
+# split is the reason this checks the DECLARATION rather than whether the
+# screen body could be mined: only 17 of the 50 were readable by the old
+# coding-screen miner, and the other 33 were a miner gap, not a dead key.
 _SECTION_DECL = {
     "coding": re.compile(r"^[sm]_(code|codier|kod)", re.I),
 }

@@ -4,8 +4,7 @@
 #   scripts/build/build-web.sh              -> dist-web/   (static, serve anywhere)
 #   BMACW_PORT=51234 scripts/build/build-web.sh
 #
-# The macOS app ships a C# server that answers /api/*. A browser has no such
-# thing, so the web build replaces it with two pieces:
+# A browser has no server behind it, so the web build is two pieces:
 #
 #   tools/export/web_export.py   freezes every GET the renderer makes into static
 #                         JSON (chassis config, job metadata, tables, IR)
@@ -15,30 +14,22 @@
 # Nothing in the renderer changes. webshim.js installs over window.fetch
 # before core.js loads, so api() cannot tell the difference.
 #
-# REQUIRES THE APP RUNNING: the chassis config is resolved from INPA's CFGDAT
-# against the .prg tree at request time, which is exactly what gets frozen.
-# Everything else is already a generated file.
+# No app is needed: web_export.py reads the committed chassis-config cache
+# (data/chassis-config), the same way CI does (scripts/build/ci-dist-web.sh).
+# Set BMACW_PORT to freeze against a running engine instead, which also
+# refreshes that cache.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 ROOT="$PWD"
 OUT="dist-web"
 
-# Find the running app if the caller did not name it. Its port is random.
-if [ -z "${BMACW_PORT:-}" ]; then
-  PID=$(pgrep -f "BMacW.app/Contents/MacOS/InpaMac.App" | head -1 || true)
-  if [ -n "$PID" ]; then
-    BMACW_PORT=$(lsof -nP -iTCP -sTCP:LISTEN -a -p "$PID" 2>/dev/null \
-      | grep -oE "127\.0\.0\.1:[0-9]+" | head -1 | cut -d: -f2 || true)
-  fi
+if [ -n "${BMACW_PORT:-}" ]; then
+  export BMACW_PORT
+  echo "==> using the engine on 127.0.0.1:$BMACW_PORT to resolve chassis config"
+else
+  echo "==> no BMACW_PORT: using the committed chassis-config cache"
 fi
-if [ -z "${BMACW_PORT:-}" ]; then
-  echo "error: no running app found and BMACW_PORT not set." >&2
-  echo "       start it first:  dotnet run --project src/InpaMac.App" >&2
-  exit 1
-fi
-export BMACW_PORT
-echo "==> using the app on 127.0.0.1:$BMACW_PORT to resolve chassis config"
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -49,12 +40,10 @@ python3 tools/export/web_export.py --out "$OUT" "$@"
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
 
-# Stamp the version into the web build. The native app injects window.bmacw
-# (with .version) at document start; a web build has no host, so index.html sees
-# window.BMACW_VERSION instead -- settings and the offline export both fall back
-# to it. Read from the csproj so there is ONE version source.
-VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' \
-  "$ROOT/src/InpaMac.App/InpaMac.App.csproj")
+# Stamp the version into the web build: index.html reads window.BMACW_VERSION
+# and settings and the offline export both fall back to it. Read from
+# package.json so there is ONE version source.
+VERSION=$(node -p "require('$ROOT/package.json').version")
 printf 'window.BMACW_VERSION=%s;\n' "\"${VERSION:-web}\"" > "$OUT/version.js"
 # load it before app.js reads it (right after the opening <head>, cheap + early)
 if ! grep -q 'version.js' "$OUT/index.html"; then
@@ -62,10 +51,8 @@ if ! grep -q 'version.js' "$OUT/index.html"; then
   sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' "$OUT/index.html"
   rm -f "$OUT/index.html.bak"
 fi
-# index.html already loads webshim.js: BOTH builds need it now. The macOS app
-# dropped its C# API too, so the shim is the only thing answering /api/* in
-# either host -- it picks its transport at load (Web Serial in a browser, the
-# native bridge inside the app).
+# index.html already loads webshim.js: the shim is the only thing answering
+# /api/*, and it picks its transport at load.
 
 # faultinfo.js is 60 MB of ISTA fault detail and faultmeta.js another 14 MB.
 # They load lazily in the app; on a static host they are just weight, so ship
