@@ -432,9 +432,6 @@ async function offlineExport(
     )
   );
 
-  // No relay launcher: flash the adapter (vendor/esp-link-ws) to serve the
-  // WebSocket instead of shipping a node script; the README says how.
-
   say('compressing');
   const opts = { level: 6 };
   const zipped = fflate.zipSync(files, opts);

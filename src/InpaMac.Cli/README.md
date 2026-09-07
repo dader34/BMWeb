@@ -1,9 +1,12 @@
 # InpaMac CLI
 
-A native macOS EDIABAS command-line front-end for BMW diagnostics, sharing the
-same `EdiabasMac` backend (`Diag`, `FaultReader`, `InpaConfig`, `MenuGen`,
-`FlashService`) that powers the GUI. Talks K+DCAN over an FTDI serial cable
-(`/dev/tty.usbserial*`, auto-detected). Default SGBD `ms450ds0` (E46 MS45.1 DME).
+A native macOS EDIABAS command-line front-end on the `EdiabasMac` backend
+(`Diag`, `FaultReader`, `InpaConfig`, `MenuGen`, `FlashService`). It is not
+part of the product any more: the browser app runs its own VM
+(`app/renderer/core/bestvm.js`), and this CLI is kept as the reference engine
+that VM is diffed against (`simrun`, `simbatch`). Talks K+DCAN over an FTDI
+serial cable (`/dev/tty.usbserial*`, auto-detected). Default SGBD `ms450ds0`
+(E46 MS45.1 DME).
 
 The original flat-argv commands live in `Program.cs`; the extended subcommand set
 lives in `Commands.cs` (the dispatcher) and its sibling `*Commands.cs` files.
