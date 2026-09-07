@@ -88,8 +88,8 @@ function overridesFor(ecu) {
   }
 }
 
-// The row label irLabel is handed is not always the raw .IPO caption: irRows
-// trims it and drops a trailing ":". A key written as it appears in the
+// The caption irLabel is handed is not always the raw .IPO string: the app
+// looks it up collapsed and without a trailing ":". A key written as in the
 // bytecode ("Haeufigkeitszaehler1:    ") would then never match the label
 // actually looked up ("Haeufigkeitszaehler1"), so both spellings ship. A
 // COMMA-split caption is deliberately not aliased -- its halves label

@@ -21,21 +21,6 @@ const IPO_MAX_HOPS = 4; // scriptchange chain bound
 const IPO_COLS = 80;
 const IPO_MAX_STEPS = 4000; // suspensions per drive, a runaway guard
 
-// The live runtime is the default; `?ir=1` forces the derived renderer for a
-// side-by-side comparison, and Settings 'liveIpo' turns it off persistently.
-function ipoLiveEnabled() {
-  try {
-    if (/[?&]ir=1\b/.test(String(location.search || ''))) return false;
-  } catch (e) {
-    /* no location: headless */
-  }
-  if (typeof Settings !== 'undefined' && Settings && Settings.get) {
-    const v = Settings.get('liveIpo', true);
-    return v !== false && v !== 'false' && v !== '0';
-  }
-  return true;
-}
-
 // ITEM tokens of a menu proc: [{nr, label, shift, start, end}] in proc order.
 function ipoMenuItems(exec, menuName) {
   const toks = exec && exec.procs && exec.procs[menuName];
@@ -479,6 +464,9 @@ class IpoProgram {
             : 'ERROR_NO_ANSWER';
       fed.set('JOB_STATUS', status);
       fed.sets = [{}]; // no sets came back
+      // no adapter at all: the script cannot ask the car anything, and the
+      // module view says so instead of running inpainit's error branch
+      if (/no cable/i.test(m)) this.noCable = true;
       if (
         /^INITIALISIERUNG$/i.test(job) &&
         /IFH-0009|IFH-0019|no answer/i.test(e.message || '')
@@ -1662,9 +1650,6 @@ function ipoMakeUi(ecu, container, back) {
       }
       if (titleEl) titleEl.textContent = ipoText(p.title || '');
       if (machineEl) machineEl.hidden = true;
-      const jc =
-        document.getElementById && document.getElementById('job-count');
-      if (jc) jc.textContent = `${p.items.length} keys`;
     },
     paint: (p) => {
       if (!gridEl) return;
@@ -1835,8 +1820,45 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
   sbLeft.textContent = `${ecu.sgbd}.prg · starting`;
   const r = await program.start();
   if (!r.ok) {
+    _ipoCurrent = null;
+    const backKey = [
+      {
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: () => back(),
+      },
+    ];
+    if (program.noCable) {
+      container.className = 'results-panel';
+      container.innerHTML = errorBlock('no cable connected');
+      sbLeft.textContent = `${ecu.sgbd}.prg · no cable`;
+      setActions(backKey);
+      return true;
+    }
     if (program.silent || r.reason === 'stopped') {
       const m = (program.messages || []).slice(-1)[0];
+      // WHY inpainit had nothing better than the SGBD filename to check:
+      // the group probe's own verdict (bus-silent, probe-error, ...) is the
+      // actionable half of this screen, so say it instead of leaving a
+      // self-contradictory "'SM46' not found, found 'SM46'".
+      const rd =
+        typeof webResolveVariantLast === 'function'
+          ? webResolveVariantLast()
+          : null;
+      const g = String(ecu.group || '').toLowerCase();
+      const why =
+        rd && g && rd.group === g && rd.path !== 'resolved'
+          ? `<div style="margin-top:14px;font-size:12px;color:var(--ink-faint)">` +
+            `Variant probe ${esc(g)}: <b>${esc(rd.path)}</b>` +
+            (rd.empty != null || rd.real != null
+              ? ` (${Number(rd.real || 0)} answered, ${Number(rd.empty || 0)} silent)`
+              : '') +
+            (rd.error ? ` — ${esc(String(rd.error))}` : '') +
+            `. The car did not name this module, so the script checked the ` +
+            `SGBD filename instead. Ignition on, reopen the module.</div>`
+          : '';
       container.className = 'results-panel';
       container.innerHTML =
         `<div class="empty"><div class="empty-big" style="color:var(--amber)">` +
@@ -1845,22 +1867,24 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
           m
             ? ipoText(m.body || '')
             : 'The cable is connected, but this module did not identify itself. It may not be fitted to this car, or the ignition may need to be on.'
-        )}</div></div>`;
+        )}</div>${why}</div>`;
       sbLeft.textContent = `${ecu.sgbd}.prg · ${program.silent ? 'no response' : 'stopped'}`;
-      setActions([
-        {
-          key: 'Escape',
-          keyLabel: 'Esc',
-          label: 'Back',
-          kind: 'back',
-          fn: () => back(),
-        },
-      ]);
-      _ipoCurrent = null;
+      setActions(backKey);
       return true;
     }
-    _ipoCurrent = null;
-    return false; // let the caller fall back to the derived renderer
+    if (r.reason === 'cancelled') {
+      back();
+      return true;
+    }
+    // the script itself failed before its root menu opened: an app error,
+    // not the car -- say which, there is no other renderer to fall back to
+    container.className = 'results-panel';
+    container.innerHTML = errorBlock(
+      `vm error: INPA's script for ${ecu.sgbd} did not start (${r.reason})`
+    );
+    sbLeft.textContent = `${ecu.sgbd}.prg · failed`;
+    setActions(backKey);
+    return true;
   }
   if (openMenu && openMenu !== program.menu && exec.procs[openMenu]) {
     await program.openMenu(openMenu);
@@ -1871,7 +1895,6 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
 if (typeof window !== 'undefined') {
   window.ipoProgramOpen = ipoProgramOpen;
   window.ipoPauseForRemote = ipoPauseForRemote;
-  window.ipoLiveEnabled = ipoLiveEnabled;
   window.IpoProgram = IpoProgram;
   window.ipoMenuItems = ipoMenuItems;
   window.ipoWireTarget = ipoWireTarget;
@@ -1887,7 +1910,6 @@ if (typeof module !== 'undefined' && module.exports) {
     ipoWireTarget,
     ipoProgramOpen,
     ipoMakeUi,
-    ipoLiveEnabled,
     ipoLineRows,
     ipoMenuTiles,
     ipoScreenComponents,

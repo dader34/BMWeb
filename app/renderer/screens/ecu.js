@@ -109,63 +109,6 @@ async function irResolveGroupVariant(ecu) {
   if (!ecu._variant) ecu._variant = v.toUpperCase();
 }
 
-// The set of job names the LOADED variant actually implements, cached on the
-// ecu. A shared .IPO offers every family screen, but a variant need not carry
-// every job (kombi46r dropped DPRAM_LESEN/ROM_LESEN), and renderIrMenu drops a
-// readout tile whose job this ECU lacks. null (never resolved / offline) means
-// "don't filter" -- we only hide a tile when we KNOW the job is absent.
-async function irLoadJobNames(ecu) {
-  if (ecu._jobNames) return ecu._jobNames;
-  try {
-    const jobs = await api(`/api/ecu/${ecu.sgbd}/jobs`);
-    ecu._jobNames = new Set(
-      (Array.isArray(jobs) ? jobs : []).map((j) =>
-        String(typeof j === 'string' ? j : (j && j.name) || '').toUpperCase()
-      )
-    );
-  } catch {
-    /* leave unset: offline -> do not filter */
-  }
-  return ecu._jobNames || null;
-}
-
-// SAY WHETHER THE CAR CONFIRMED THIS SGBD. A chassis config lists every
-// variant BMW fitted at a diagnostic address and the app opens the first that
-// matches; on 609 of the 1000 grouped rows the group can name a different one.
-// Opening a module with no cable therefore shows a GUESS, and rendering that
-// identically to a confirmed read is the same class of error as a fault scan
-// reporting "clean" for a module it never spoke to.
-//
-// The screen is not blocked: reading an IR offline is useful and harmless.
-// What changes is that the pill states which of the two it is.
-function irShowVariantSource(ecu, bar) {
-  if (!bar) return;
-  const src = ecu._variantSource;
-  if (!src || src === 'ungrouped' || src === 'nogroup') return;
-  let el = bar.querySelector('#variant-pill');
-  if (!el) {
-    el = document.createElement('span');
-    el.id = 'variant-pill';
-    el.className = 'pill';
-    bar.appendChild(el);
-  }
-  if (src === 'identified' || src === 'confirmed') {
-    el.className = 'pill pill-ok';
-    el.textContent = `variant ${ecu.sgbd} · confirmed by the car`;
-    el.title =
-      'The diagnostic-address group ran IDENTIFIKATION and the car ' +
-      'named this SGBD.';
-    return;
-  }
-  // unverified / unavailable
-  el.className = 'pill pill-warn';
-  el.textContent = `variant not verified · showing ${ecu.sgbd}`;
-  el.title =
-    `${ecu.label} shares diagnostic address ${ecu.group} with other ` +
-    'variants. Nothing answered, so this is the configuration\u2019s pick, not ' +
-    'the car\u2019s answer -- connect the cable and reopen to confirm.';
-}
-
 async function showEcuDeep(chassisId, sgbd, menuName) {
   const ch = await tryApi(
     `/api/chassis/${chassisId}`,
@@ -185,14 +128,18 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
   return showSections(chassisId);
 }
 
-// ECU main menu: section categories on the F-key bar, each opens a sub-screen.
-// openMenu (optional) is an IR menu name to descend into once the IR is loaded,
-// so a deep link lands on the submenu rather than the root.
+// ECU main menu: the running .IPO (screens/ipo-runtime.js). inpainit names
+// the root, keys run their own bodies, screens send their own jobs; the
+// module view is whatever the script draws. openMenu (optional) is a menu a
+// deep link descends into once the script is up.
+//
+// Nothing here checks for a cable. The script's first job (INITIALISIERUNG)
+// fails without one, and that failure IS the gate: "No adapter connected"
+// with a Back key, the same words every other cable-needing screen shows.
 async function showEcu(chassisId, sectionName, ecu, openMenu) {
   lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu);
   // the ECU object comes from the chassis config and doesn't know which chassis
-  // it came from; screens that build links/reports off it need that (exportFaults
-  // already read ecu.chassis, which was always undefined until now)
+  // it came from; screens that build links/reports off it need that
   ecu.chassis = chassisId;
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
@@ -203,290 +150,75 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
   view.innerHTML = head(
     `${sectionName} · ${ecu.code}`,
     ecu.label,
-    `SGBD ${ecu.sgbd}.prg · choose a function group below`
+    `SGBD ${ecu.sgbd}.prg · running INPA's script`
   );
-
-  const bar = document.createElement('div');
-  bar.className = 'toolbar';
-  bar.innerHTML = `<span class="pill" id="port-pill">cable: …</span>
-                   <span class="pill" id="job-count">loading…</span>`;
-  view.appendChild(bar);
 
   const grid = document.createElement('div');
   grid.className = 'group-grid stagger';
   view.appendChild(grid);
-
-  // shimmer placeholders while the IR loads, so the function list has shape
-  // from the first frame rather than a blank pane behind "loading…"
+  // shimmer placeholders while the script loads and identifies the module
   grid.innerHTML = skeletonList(6, false);
 
-  api('/api/port')
-    .then((p) => {
-      document.getElementById('port-pill').textContent = p.port
-        ? `cable: ${p.port.replace('/dev/', '')}`
-        : 'no cable';
-    })
-    .catch(() => {});
+  // the silent reconnect on load may still be running: wait for it, or a
+  // reload on a module deep link runs inpainit before the cable is back
+  if (window.cableReady) await window.cableReady.catch(() => {});
 
-  // THE IR IS THE ONLY SOURCE OF A SCREEN. Three renderers used to compete
-  // here -- the mined /layout, the inpa2json menu tree, and a menu built
-  // locally from the raw job list (menugen.js) -- each a fallback for the
-  // last. They are gone: every ECU the app can open has an IR that yields a
-  // root menu (verified 1000/1000 across all 21 chassis), so the fallbacks
-  // were unreachable code that could only ever disagree with the interpreter.
-  try {
-    // group first, so the IR fetched below already belongs to the variant
-    // the car actually carries (zae's IR is useless against an MRS4)
-    await irResolveGroupVariant(ecu);
-    // THE HEADER WAS WRITTEN BEFORE WE KNEW WHICH MODULE THIS IS. It renders
-    // from the chassis config's name 30 lines above, and resolution runs
-    // here -- so an E46 whose climate unit identifies as ihka46_3 kept
-    // reading "SGBD ihka38.prg", an E38 part, for the whole session. The
-    // jobs, screens and fault text below all belong to the resolved variant;
-    // only the caption still claimed otherwise.
-    if (ecu._sgbdBase && ecu._sgbdBase !== ecu.sgbd) {
-      const sub = view.querySelector('.subtitle');
-      if (sub) {
-        sub.textContent =
-          `SGBD ${ecu.sgbd}.prg · identified by the car ` +
-          `(configured ${ecu._sgbdBase}) · choose a function group below`;
-      }
+  // group first, so the script runs against the variant the car actually
+  // carries (zae's script is useless against an MRS4); the runtime hands
+  // inpainit the name the group's IDENTIFIKATION returned
+  await irResolveGroupVariant(ecu);
+  // THE HEADER WAS WRITTEN BEFORE WE KNEW WHICH MODULE THIS IS: an E46
+  // whose climate unit identifies as ihka46_3 must not read "ihka38.prg"
+  if (ecu._sgbdBase && ecu._sgbdBase !== ecu.sgbd) {
+    const sub = view.querySelector('.subtitle');
+    if (sub) {
+      sub.textContent =
+        `SGBD ${ecu.sgbd}.prg · identified by the car ` +
+        `(configured ${ecu._sgbdBase}) · running INPA's script`;
     }
-    // an informational pill showing whether the group's IDENTIFIKATION named
-    // this SGBD -- status only, it gates nothing (inpainit is the gate now).
-    irShowVariantSource(ecu, bar);
-    // THE SGBD IS WHAT WE TALK TO; THE SCRIPT IS WHAT DRAWS. INPA never loads
-    // a UI per variant -- it loads ONE script per diagnostic address and picks
-    // the matching screens inside it. E46's climate entry is klima_5B, and
-    // KLIMA_5B.IPO carries 87 screens covering every IHKA variant, named for
-    // the variant they serve (s_eingaenge_ihka46_2, s_steuern_motoren_
-    // ihka38_ihka38_2_ihka38_3). BMW ships no IHKA46_3.IPO and never did:
-    // ihka46_3 appears in that script's dispatch list and shares IHKA46's
-    // pages.
-    //
-    // So retargeting the SGBD must NOT retarget the UI. Asking for
-    // ihka46_3's own IR got "this ECU has no INPA screen definition", which
-    // is true and useless -- the right screens were in the script all along.
-    // Fall back to the CONFIGURED sgbd's archive, which is where this entry's
-    // script ships; inpainit then reads the variant and selects within it.
-    // 1116 of 2942 shipped archives carry no ir.json, most of them this shape.
-    const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
-    ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`).catch(() => null);
-    if (
-      (!ecu._ir || !Object.keys(ecu._ir.menus || {}).length) &&
-      ecu._sgbdBase &&
-      ecu._sgbdBase !== ecu.sgbd
-    ) {
-      const base = await api(`/api/ecu/${ecu._sgbdBase}/ir${codeHint}`).catch(
-        () => null
-      );
-      if (base && Object.keys(base.menus || {}).length) {
-        ecu._ir = base;
-        ecu._irFrom = ecu._sgbdBase;
-      }
-    }
-    if (!ecu._ir) throw new Error('no IR for this module');
-    // the loaded variant's job list, so renderIrMenu can drop readout tiles for
-    // jobs this ECU does not implement (kombi46r has no DPRAM_LESEN). Awaited
-    // here so it is ready before any menu draws; a failure leaves it unset and
-    // nothing is filtered.
-    await irLoadJobNames(ecu);
-    sbLeft.textContent = `${ecu.sgbd}.prg`;
-  } catch {
-    ecu._ir = null;
   }
-
-  // ENTRY GATE = INPA's inpainit, run LIVE. This is the ONE authority on
-  // "is this the right control unit, and does it answer". INPA reads
-  // INITIALISIERUNG->VARIANTE and INFO->{REVISION,SPRACHE,...}, compares each to
-  // what the script was compiled for, and pops a messagebox on a variant /
-  // version / LANGUAGE mismatch -- or "Program will be stopped!" when the ECU
-  // cannot be identified. We run that bytecode and show exactly what it draws.
-  // There is no JS re-implementation any more (the variant "block", the silence
-  // probe, the _variantSource state machine are gone): the .IPO shipped the real
-  // check and it works, so we run it instead of guessing. Cable + a runnable
-  // inpainit required; with no cable there is nothing to ask and the module
-  // opens offline for browsing.
-  // THE LIVE PROGRAM. With a cable, the module view is the running .IPO
-  // (screens/ipo-runtime.js): inpainit names the root, keys run their own
-  // bodies, screens send their own jobs. The derived renderer below stays
-  // for offline browsing, modules without a runnable twin, and `?ir=1`. See docs/live-ipo-runtime.md.
+  // THE SGBD IS WHAT WE TALK TO; THE SCRIPT IS WHAT DRAWS. INPA loads ONE
+  // script per diagnostic address (E46 climate = klima_5B, whose inpainit
+  // hands an IHKA46_3 to IHKA46.IPO) and BMW ships no IHKA46_3.IPO. So when
+  // the identified variant has no archive of its own, the configured base
+  // SGBD's script is the one to run (irExecSgbd reads _irFrom). The archive's
+  // ir carries the per-ECU caption dictionary (ir.i18n) the runtime draws with.
+  const codeHint = ecu.code ? `?code=${encodeURIComponent(ecu.code)}` : '';
+  ecu._ir = await api(`/api/ecu/${ecu.sgbd}/ir${codeHint}`).catch(() => null);
   if (
-    ecu._ir &&
-    typeof ipoLiveEnabled === 'function' &&
-    ipoLiveEnabled() &&
-    typeof ipoProgramOpen === 'function'
+    (!ecu._ir || !Object.keys(ecu._ir.menus || {}).length) &&
+    ecu._sgbdBase &&
+    ecu._sgbdBase !== ecu.sgbd
   ) {
-    // the silent reconnect on load may still be running: wait for it, or a
-    // reload on a module deep link opens offline with the cable attached
-    if (window.cableReady) await window.cableReady.catch(() => {});
-    const p0 = await api('/api/port').catch(() => null);
-    if (p0 && p0.port) {
-      if (bar) bar.remove();
-      const took = await ipoProgramOpen(
-        ecu,
-        grid,
-        () => backToModules(chassisId),
-        openMenu
-      );
-      if (took) return;
-      // not runnable live: the derived path draws it
-      grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
+    const base = await api(`/api/ecu/${ecu._sgbdBase}/ir${codeHint}`).catch(
+      () => null
+    );
+    if (base && Object.keys(base.menus || {}).length) {
+      ecu._ir = base;
+      ecu._irFrom = ecu._sgbdBase;
     }
-  }
-  if (ecu._ir) {
-    if (window.cableReady) await window.cableReady.catch(() => {});
-    const p = await api('/api/port').catch(() => null);
-    const cable = !!(p && p.port);
-    let entry =
-      cable && typeof irRunEntry === 'function'
-        ? await irRunEntry(ecu)
-        : { ran: false };
-    // inpainit may not finish in this script at all: KLIMA_5B's variant
-    // check calls scriptchange("IHKA46") for an IHKA46_3, and INPA then
-    // draws IHKA46.IPO's menus -- the only ones whose guards name that
-    // variant. Staying in KLIMA_5B left "Activate" with no menu for it, and
-    // the name-tag fallback handed an E46 the E39 heater's page.
-    if (entry.ran && entry.script && typeof irFollowScriptChange === 'function')
-      entry = await irFollowScriptChange(ecu, entry);
-    if (entry.ran) {
-      // inpainit IS the variant read -- the live wire answer is the variant.
-      if (entry.variant) {
-        ecu._variant = String(entry.variant).toUpperCase();
-        if (ecu._ir) ecu._ir._variant = ecu._variant;
-      }
-      const msgs = entry.messages || [];
-      // "Program will be stopped!" (variant not found / silent) is BLOCKING:
-      // INPA does not open the module.
-      const stop = msgs.find((m) => /stopped/i.test(m.body || ''));
-      if (stop || entry.silent) {
-        if (bar) bar.remove();
-        grid.className = 'results-panel';
-        const m = stop || {
-          title: `${esc(ecu.label)} is not answering`,
-          body:
-            'The cable is connected, but this module did not identify ' +
-            'itself. It may not be fitted to this car, or the ignition may ' +
-            'need to be on.',
-        };
-        // WHY inpainit had nothing better than the SGBD filename to check:
-        // the group probe's own verdict (bus-silent, probe-error, ...) is the
-        // actionable half of this screen, so say it instead of leaving a
-        // self-contradictory "'SM46' not found, found 'SM46'".
-        const rd =
-          typeof webResolveVariantLast === 'function'
-            ? webResolveVariantLast()
-            : null;
-        const g = String(ecu.group || '').toLowerCase();
-        const why =
-          rd && g && rd.group === g && rd.path !== 'resolved'
-            ? `<div style="margin-top:14px;font-size:12px;color:var(--ink-faint)">` +
-              `Variant probe ${esc(g)}: <b>${esc(rd.path)}</b>` +
-              (rd.empty != null || rd.real != null
-                ? ` (${Number(rd.real || 0)} answered, ${Number(rd.empty || 0)} silent)`
-                : '') +
-              (rd.error ? ` — ${esc(String(rd.error))}` : '') +
-              `. The car did not name this module, so the script checked the ` +
-              `SGBD filename instead. Ignition on, reopen the module.</div>`
-            : '';
-        grid.innerHTML =
-          `<div class="empty"><div class="empty-big"` +
-          ` style="color:var(--amber)">${esc(irLabel(m.title) || m.title)}` +
-          `</div><div>${esc(irLabel(m.body) || m.body || '')}</div>${why}</div>`;
-        sbLeft.textContent = `${ecu.sgbd}.prg · ${stop ? 'stopped' : 'no response'}`;
-        setActions([
-          {
-            key: 'Escape',
-            keyLabel: 'Esc',
-            label: 'Back',
-            kind: 'back',
-            fn: () => backToModules(chassisId),
-          },
-        ]);
-        return;
-      }
-      // version / LANGUAGE mismatch ("Malfunction possible!") is a WARNING:
-      // INPA shows it, then proceeds. Show each once before the menu.
-      for (const m of msgs) {
-        if (typeof messageDialog === 'function') {
-          await messageDialog({
-            title: irLabel(m.title) || m.title,
-            body: irLabel(m.body) || m.body || '',
-            danger: true,
-          });
-        }
-      }
-    }
-    // entry.ran === false means no cable or no runnable inpainit -- open for
-    // browsing. We do NOT fabricate a block from a failed JS probe: the .IPO is
-    // the source of truth, and not being able to run it is our gap, not a reason
-    // to refuse a module that may well answer.
   }
 
-  // INPA's own keys, in INPA's own order, each opening whatever it opens.
-  const irRoot =
-    ecu._ir && typeof irRootMenu === 'function'
-      ? irRootMenu(ecu._ir, ecu._variant)
-      : null;
-  if (irRoot) {
-    const items =
-      typeof irMenuItems === 'function' ? irMenuItems(ecu._ir, irRoot) : [];
-    document.getElementById('job-count').textContent =
-      `${items.length} functions`;
-    if (bar) bar.remove();
-    grid.className = inpaMode() ? 'inpa-haupt' : 'group-grid stagger';
-    // Coding no longer hangs off the per-ECU menu -- it is a chassis-level
-    // destination (the Coding tile -> Coding hub). So no root-menu extras here.
-    if (typeof setIrRootExtras === 'function') setIrRootExtras(null);
-    const toRoot = () =>
-      renderIrMenu(ecu, ecu._ir, irRoot, grid, () => backToModules(chassisId));
-    // A deep link naming a submenu opens it directly, with Back going to the
-    // root menu (not out to the module list) so the hierarchy still reads
-    // right. But the URL is untrusted: it can name a menu belonging to another
-    // variant of this family (a link shared from a different car, or a stale
-    // bookmark). inpainit has already resolved the variant above, so check the link
-    // against INPA's own dispatch before honouring it -- otherwise the address
-    // bar walks straight past the variant guards.
-    if (
-      openMenu &&
-      openMenu !== irRoot &&
-      irMenuItems(ecu._ir, openMenu).length
-    ) {
-      const okForVariant =
-        typeof irMenuAllowedForVariant !== 'function' ||
-        irMenuAllowedForVariant(ecu._ir, openMenu, ecu._variant);
-      if (okForVariant) {
-        if (renderIrMenu(ecu, ecu._ir, openMenu, grid, toRoot, [])) return;
-      } else {
-        // land on the root instead of another variant's page, and say why
-        sbLeft.textContent = `${openMenu} is not part of ${ecu._variant} — opened the main menu`;
-      }
-    }
-    toRoot();
-    return;
-  }
+  const back = () => backToModules(chassisId);
+  const took =
+    typeof ipoProgramOpen === 'function' &&
+    (await ipoProgramOpen(ecu, grid, back, openMenu));
+  if (took) return;
 
-  // No IR, or an IR with no root menu. Only reachable for the handful of ECUs
-  // BMW itself never drew a UI for -- they carry "[OBT_SCREEN] ScreenCount=0"
-  // in INPA's own .ini, and INPA shows them nothing either. Say so rather
-  // than rendering a menu we invented.
-  document.getElementById('job-count').textContent = '0 functions';
+  // No runnable script. Only reachable for the handful of ECUs BMW itself
+  // never drew a UI for -- they carry "[OBT_SCREEN] ScreenCount=0" in INPA's
+  // own .ini, and INPA shows them nothing either. Say so rather than
+  // rendering a menu we invented.
+  grid.className = 'results-panel';
   grid.innerHTML = errorBlock(
     'This ECU has no INPA screen definition (ScreenCount=0). ' +
       'Its jobs are shipped in ecus/ but INPA draws no UI for it.'
   );
   sbLeft.textContent = 'no screen';
+  setActions([
+    { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
+  ]);
 }
-
-// INPA softkey captions, kept verbatim in both UI modes — except the
-// German-only ones, which read in English
-const FKEY_LABEL = {
-  Abgas: 'Exhaust',
-  Laufunruhe: 'Rough running',
-  Überdrehzahl: 'Overrev',
-  Übertemp: 'Overtemp',
-};
-const fkeyLabel = (l) => FKEY_LABEL[l] || irLabel(l) || l;
 
 // number keys 1..9 bind to footer F-keys; anything past that needs another selector
 const FKEY_SLOTS = 9;

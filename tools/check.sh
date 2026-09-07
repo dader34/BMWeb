@@ -42,7 +42,7 @@
 #
 # Run i18n before --write and step 1 overwrites its work: every IR lands with
 # i18n {} and the app renders raw German captions ("Control zurück an DME").
-# test_ir_render.js is what catches it -- and `git status` will NOT, because
+# test_ir_i18n.js is what catches it -- and `git status` will NOT, because
 # data/* and ecus/ are gitignored, so a clean tree says nothing about whether
 # the generated content is right. Trust check.sh, not git.
 #
@@ -82,8 +82,8 @@ echo "== freeze-frame (Umwelt) dictionary is a pure lookup =="
 node tools/verify/test_env_i18n.js
 
 echo
-echo "== IR interpreter renders known screens =="
-node tools/verify/test_ir_render.js
+echo "== captions translate through exact dictionaries only =="
+node tools/verify/test_ir_i18n.js
 
 echo
 echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
@@ -165,14 +165,6 @@ echo "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallb
 node tools/verify/test_longform.js || exit 1
 
 echo
-echo "== prompted activations: INPA's own range, appended to the job argument =="
-node tools/verify/test_irprompt.js || exit 1
-
-echo
-echo "== fault-read entries that carry no job (INPA shows the list implicitly) =="
-node tools/verify/test_irfaultread.js || exit 1
-
-echo
 echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
 node tools/verify/test_coding_auftrag.js || exit 1
 
@@ -193,8 +185,7 @@ echo "== Coding selection: SGET predicates pick the module and its coding file =
 node tools/verify/test_coding_select.js || exit 1
 
 echo
-echo "== scriptchange: the entry script's hand-off to another .IPO is followed =="
-node tools/verify/test_scriptchange.js || exit 1
+echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
 node tools/verify/test_ipo_runtime.js || exit 1
 
 echo

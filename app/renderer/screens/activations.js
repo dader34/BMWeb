@@ -40,7 +40,6 @@ function registerMenuLeave(ecu, menuKey, job, arg) {
       } catch (e) {
         /* leaving */
       }
-      if (typeof irResetCompositeState === 'function') irResetCompositeState();
       _clearComposite();
     }
     if (leaveJob && leaveEcu) _sendLeave(leaveEcu, leaveJob, leaveArg);
@@ -101,7 +100,6 @@ function runMenuLeave() {
     } catch (e) {
       /* leaving */
     }
-    if (typeof irResetCompositeState === 'function') irResetCompositeState();
     _clearComposite();
   }
   if (leaveJob && leaveEcu) {

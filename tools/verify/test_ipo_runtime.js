@@ -1238,6 +1238,60 @@ const sysSet = (sgbd) => ({
     }
   }
 
+  // ===========================================================================
+  // scriptchange: KLIMA_5B is the E46 climate ENTRY script; its inpainit
+  // reads VARIANTE and hands an IHKA46_3 to IHKA46.IPO, whose own inpainit
+  // then runs and names the root. The module view opens klima_5B (the
+  // configured base, since BMW ships no IHKA46_3.IPO) and must end up in
+  // IHKA46's menus -- the derived path once stayed in KLIMA_5B and had no
+  // Activate arm for the car.
+  // ===========================================================================
+  {
+    const kexec = loadExec('E46', 'klima_5b');
+    const iexec = loadExec('E46', 'ihka46');
+    assert.ok(kexec && kexec.procs.inpainit, 'klima_5b exec missing');
+    const kecu = {
+      sgbd: 'ihka46_3',
+      _irFrom: 'klima_5b',
+      label: 'IHKA',
+      _variant: 'IHKA46_3',
+      chassis: 'E46',
+    };
+    const ksent = fakeApi((job) => {
+      if (job === 'INITIALISIERUNG')
+        return { system: sysSet('ihka46_3'), sets: [{ DONE: '1' }] };
+      if (job === 'INFO')
+        return {
+          system: sysSet('ihka46_3'),
+          sets: [{ SPRACHE: 'englisch', REVISION: '1.04', ECU: 'IHKA46' }],
+        };
+      return { system: sysSet('ihka46_3'), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const kui = fakeUi();
+    const loads = [];
+    kui.loadExec = async (name) => {
+      loads.push(name);
+      return name === 'ihka46' ? iexec : null;
+    };
+    const kp = new IpoProgram(kecu, kexec, kui);
+    const kr = await kp.start();
+    assert.strictEqual(kr.ok, true, `klima_5b start failed: ${kr.reason}`);
+    assert.deepStrictEqual(loads, ['ihka46'], 'KLIMA_5B hands off to IHKA46');
+    assert.strictEqual(kp.script, 'ihka46', 'the running script is IHKA46');
+    assert.strictEqual(kp.exec, iexec, 'the VM runs IHKA46.IPO now');
+    assert.strictEqual(kp.menu, 'm_main', 'IHKA46 inpainit names its root');
+    assert.ok(
+      kui.keys.some((k) => /Ansteuern|Activate/i.test(k.label)),
+      `IHKA46 root lists Activate: ${JSON.stringify(kui.keys)}`
+    );
+    assert.ok(
+      ksent.filter((s) => s.job === 'INITIALISIERUNG').length >= 2,
+      'both scripts identify the module over the wire'
+    );
+    ok('scriptchange: KLIMA_5B -> IHKA46 followed live, root = m_main');
+    kp.close();
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();

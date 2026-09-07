@@ -124,8 +124,8 @@ def main():
 
 
     # -- corpus floor --------------------------------------------------------
-    # Counted from data/inpa-ir/*.json, the artifacts the app renders
-    # (app/renderer/screens/ir.js). The old floor read
+    # Counted from data/inpa-ir/*.json, the decompiled corpus that feeds the
+    # per-ECU caption dictionaries. The old floor read
     # data/inpa-screens/_decompiled.json -- a snapshot frozen on Aug 2 that
     # nothing regenerated -- so the guard passed forever and could never
     # catch a shrunken rebuild. Measured 2026-08-17: 1124 ECUs, 21393
