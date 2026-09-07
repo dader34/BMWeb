@@ -48,7 +48,7 @@ const tuningState = {
   kinds: null,
 };
 
-// Where the shared definition library lives. Same pattern as screens/etk.js
+// Where the shared definition library lives. Same pattern as screens/etk/data.js
 // and core/translate.js: a HuggingFace dataset served over plain HTTPS, no
 // auth, CORS-readable. The three mirrors carry identical content -- if one is
 // unreachable we try the next rather than giving up.
