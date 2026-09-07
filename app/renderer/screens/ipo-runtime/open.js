@@ -129,6 +129,85 @@ async function ipoLoadKnownSgbds(ecu) {
  * @param {string|null} [openMenu] - a menu to open (a deep link)
  * @returns {Promise<boolean>}
  */
+/** The shipped group -> identifiable variants map, fetched once. */
+let _ipoVariantsByGroupP = null;
+function ipoVariantsByGroup() {
+  return (_ipoVariantsByGroupP ??= fetch('data/groups/variants-by-group.json')
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null));
+}
+
+/**
+ * The variant names a script's entry accepts: the string constants of its
+ * inpainit that name a shipped SGBD ("B_SM46_3", "EASY_E_B").
+ * @param {IpoExec} exec - the script
+ * @param {Set<string>} known - every shipped SGBD, lowercased
+ * @returns {string[]} lowercased
+ */
+function ipoScriptVariants(exec, known) {
+  const toks =
+    (exec.procs && (exec.procs.inpainit || exec.procs.SgbdInpaCheck)) || [];
+  const out = [];
+  for (const t of toks) {
+    if (t.op !== 'const' || typeof t.v !== 'string') continue;
+    const v = t.v.trim().toLowerCase();
+    if (v && known.has(v) && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
+/**
+ * The module a scriptchange target addresses. The new script's inpainit
+ * names the variants it accepts; the group whose IDENTIFIKATION can name
+ * one of them is asked live, and the car's answer is the SGBD the program
+ * talks to from then on. With no group to ask, the first shipped variant
+ * the script names is taken.
+ * @param {EcuRecord} ecu - the module the view opened
+ * @param {string} script - the script the key named, lowercased
+ * @param {IpoExec} exec - that script
+ * @returns {Promise<EcuRecord|null>} the target, null when nothing answered
+ */
+async function ipoResolveScriptEcu(ecu, script, exec) {
+  const known = ecu._ipoKnownSgbds || new Set();
+  const wants = ipoScriptVariants(exec, known);
+  const byGroup = (await ipoVariantsByGroup()) || {};
+  let group = null;
+  let best = 0;
+  for (const [g, list] of Object.entries(byGroup)) {
+    const hits = (list || []).filter((v) =>
+      wants.includes(String(v).toLowerCase())
+    ).length;
+    if (hits > best) {
+      best = hits;
+      group = g;
+    }
+  }
+  let sgbd = null;
+  if (group && typeof webResolveVariant === 'function') {
+    try {
+      sgbd = await webResolveVariant(group);
+    } catch (e) {
+      sgbd = null;
+    }
+    if (!sgbd) return null; // the group asked and nothing answered
+  } else if (wants.length) {
+    sgbd = wants[0];
+  } else if (known.has(script)) {
+    sgbd = script;
+  }
+  if (!sgbd) return null;
+  return {
+    ...ecu,
+    code: script,
+    sgbd: String(sgbd).toLowerCase(),
+    group: group ? group.toUpperCase() : ecu.group,
+    _variant: String(sgbd).toUpperCase(),
+    _irFrom: script,
+    _sgbdBase: undefined,
+    _scriptChangeOf: ecu.sgbd,
+  };
+}
+
 async function ipoProgramOpen(ecu, container, back, openMenu) {
   if (typeof IpoVm === 'undefined' || typeof FeedHost === 'undefined')
     return false;
@@ -216,7 +295,18 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
 
 if (typeof window !== 'undefined') {
   window.ipoProgramOpen = ipoProgramOpen;
+  window.ipoResolveScriptEcu = ipoResolveScriptEcu;
   window.ipoPauseForRemote = ipoPauseForRemote;
+  // Cmd/Ctrl+P on an open module view prints its sheet (core/print.js asks)
+  window.ipoPrintAvailable = () => !!(_ipoCurrent && !_ipoCurrent.closed);
+  window.ipoPrintCurrent = () =>
+    _ipoCurrent
+      ? ipoPrintScreen(
+          _ipoCurrent,
+          _ipoCurrent.ecu,
+          typeof inpaMode === 'function' && inpaMode()
+        )
+      : null;
   window.IpoProgram = IpoProgram;
   window.ipoMenuItems = ipoMenuItems;
   window.ipoWireTarget = ipoWireTarget;
@@ -231,6 +321,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ipoMenuItems,
     ipoWireTarget,
     ipoProgramOpen,
+    ipoResolveScriptEcu,
+    ipoScriptVariants,
     ipoMakeUi,
     ipoLineRows,
     ipoMenuTiles,

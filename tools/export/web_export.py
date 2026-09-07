@@ -338,11 +338,47 @@ def main():
         ntab += counts["tables"]
         orphan_zips[sgbd] = make_zip(ecu_contents, compress=True)
         n_orphan += 1
+
+    # 2c. SCRIPT-ONLY STEMS. A .IPO that no SGBD shares a name with: B_SM46
+    # is the passenger seat memory script, and the modules it talks to are
+    # b_sm46_3 / b_sm46_4 (orphans, packed above). SM46's own key hands the
+    # view to it with scriptchange("B_SM46"), so the runtime must be able to
+    # load the script by that name -- but with no job-code of its own it was
+    # never an .ecu and irLiveExec 404ed. Pack the script (its runnable twin,
+    # screens, captions) under its stem, into the same catch-all, so a
+    # hand-off resolves through the one path everything else uses.
+    n_script = 0
+    for d in sorted(glob.glob(os.path.join(T.TREE, "other", "*"))):
+        try:
+            with open(os.path.join(d, "ecu.json")) as f:
+                stem = (json.load(f).get("sgbd") or "").lower()
+        except (OSError, ValueError):
+            continue
+        if not stem or stem in ecu_zips or stem in orphan_zips:
+            continue
+        if not os.path.exists(os.path.join(d, "ipoexec.json.gz")):
+            continue
+        if os.path.exists(os.path.join(d, "job-code.json.gz")):
+            continue  # a real SGBD: step 2b's business
+
+        def dir_read(name, _d=d):
+            """`name` from this script's own tree folder, decompressed."""
+            q = os.path.join(_d, name)
+            if not os.path.exists(q):
+                return None
+            op = gzip.open if q.endswith(".gz") else open
+            with op(q, "rb") as f:
+                return f.read()
+        ecu_contents, _counts = build_ecu_contents(stem, dir_read)
+        if "ipoexec.json" not in ecu_contents:
+            continue
+        orphan_zips[stem] = make_zip(ecu_contents, compress=True)
+        n_script += 1
     ecu_zips.update(orphan_zips)
 
     print(f"  packaged {len(ecu_zips)} .ecu archives "
-          f"({n_orphan} orphans; {njobs} jobs, {nres} result schemas, "
-          f"{ntab} tables, {nir} IRs)")
+          f"({n_orphan} orphans, {n_script} script-only stems; {njobs} jobs, "
+          f"{nres} result schemas, {ntab} tables, {nir} IRs)")
 
     # 3. Package each chassis configuration and its ECUs into a .chassis archive
     os.makedirs(os.path.join(api, "chassis"), exist_ok=True)

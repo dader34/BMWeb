@@ -8550,4 +8550,20 @@ body.remote-helper::after {
     text-shadow: none !important;
     box-shadow: none !important;
   }
+  /* a lamp's state is its fill, which browsers drop with page backgrounds;
+     force it, and the bars' bands, onto the paper */
+  body:not(.pr-active) .ipo-dot {
+    border-color: #14181d !important;
+    background: #fff !important;
+  }
+  body:not(.pr-active) .ipo-dot.on {
+    background: #14181d !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  body:not(.pr-active) .ipo-gauge-track,
+  body:not(.pr-active) .ipo-gauge-fill {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

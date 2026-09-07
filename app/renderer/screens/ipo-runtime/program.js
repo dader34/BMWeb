@@ -103,6 +103,8 @@ const IPO_SILENT_RE = /IFH-0009|IFH-0019|no answer/i;
  * @property {(p: IpoProgram, step: IpoStep) => Promise<IpoPick|null>} pickComponent - the togglelist picker
  * @property {(p: IpoProgram, names: string[], multiple: boolean, current: Set<string>|null) => Promise<string[]|null>} pickLines - INPA's Select
  * @property {(p: IpoProgram) => void} printScreen - INPA's printscreen
+ * @property {(ecu: EcuRecord, script: string, exec: IpoExec) => Promise<EcuRecord|null>} [resolveScriptEcu] -
+ *   the module a scriptchange target addresses, identified by the car
  * @property {(p: IpoProgram, step: IpoStep, guards: Set<number>) => Promise<'tick'|'press'|'stop'>} machineTick - a %STATE park
  * @property {(p: IpoProgram) => void} renderKeys - the F-key bar
  * @property {(p: IpoProgram) => void} paint - the screen
@@ -485,6 +487,66 @@ class IpoProgram {
     this.frequent = !!out.screenFrequent;
     this.title = out.title || null;
     return { ok: true };
+  }
+
+  /**
+   * Follow a key's scriptchange: load the named script, let the car name the
+   * module it addresses (the script's inpainit lists the variants it
+   * accepts; the group that can identify one of them is asked live), then
+   * run the new script's entry and open the menu it names. The original
+   * module record stays on the UI adapter (title, route); the program
+   * itself talks to the new one from here on. A script this build does not
+   * carry, or a module that does not answer, is reported and the current
+   * screen stays.
+   * @param {string} name - the script the key named (any case)
+   * @param {number} gen - the generation the key press belongs to
+   * @returns {Promise<boolean>} true (the press was handled)
+   */
+  async _changeScript(name, gen) {
+    const next = String(name || '')
+      .trim()
+      .toLowerCase();
+    const nexec = next ? await this.ui.loadExec(next) : null;
+    if (!nexec || !nexec.procs || !Object.keys(nexec.procs).length) {
+      await this.ui.message(
+        'Script not in this build',
+        `${name} is not shipped with this vehicle.`
+      );
+      this._rescheduleIfFrequent(gen);
+      return true;
+    }
+    const target = this.ui.resolveScriptEcu
+      ? await this.ui.resolveScriptEcu(this.ecu, next, nexec)
+      : null;
+    if (this.closed || gen !== this.gen) return true;
+    if (!target) {
+      await this.ui.message(
+        'Module not answering',
+        `The module ${name} addresses did not identify itself.`
+      );
+      this._rescheduleIfFrequent(gen);
+      return true;
+    }
+    this.stopCycle();
+    this.ecu = target;
+    this.exec = nexec;
+    this.script = next;
+    this.hops = 0;
+    this.confirmedWrites.clear();
+    this.lineFilter = null;
+    this.messages = [];
+    this.vm = this.newVm(nexec);
+    this.ui.status(this, `${next}.ipo · starting`);
+    const r = await this.runEntry();
+    if (this.closed) return true;
+    if (!r.ok) {
+      if (r.reason !== 'stopped' && r.reason !== 'cancelled')
+        this.ui.error(this, r.reason);
+      return true;
+    }
+    if (!this.menu) return true;
+    await this.openMenu(this.menu, { fromEntry: true });
+    return true;
   }
 
   // ---- menus ----------------------------------------------------------------
@@ -977,6 +1039,11 @@ class IpoProgram {
       return true;
     }
     if (out.title) this.title = out.title;
+    // scriptchange from a key: INPA drops this script for another one --
+    // SM46's "change to passenger's side" hands the view to B_SM46.IPO, a
+    // different module on its own address
+    if (out.scriptChange)
+      return this._changeScript(String(out.scriptChange), gen);
     // the body painted (userbox text, a result line): show it with the screen
     this.takeCells(out);
     if (followMachine && out.stateEnter && this.exec.procs[out.stateEnter]) {

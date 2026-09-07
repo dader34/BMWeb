@@ -398,14 +398,26 @@ function printDoc(opts) {
 function currentPrintAction() {
   const bar = typeof actionBar !== 'undefined' ? actionBar : null;
   const list = (bar && bar.current) || [];
-  return (
-    list.find(
-      (a) =>
-        a &&
-        a.fn &&
-        (a.kind === 'print' || a.label === 'Print' || a.key === 'p')
-    ) || null
+  const fromBar = list.find(
+    (a) =>
+      a && a.fn && (a.kind === 'print' || a.label === 'Print' || a.key === 'p')
   );
+  if (fromBar) return fromBar;
+  // a module view prints its sheet whether or not the script put a Print
+  // key on this menu (INPA's own F9 is per menu; the shortcut is not)
+  if (
+    typeof window !== 'undefined' &&
+    typeof window.ipoPrintCurrent === 'function' &&
+    typeof window.ipoPrintAvailable === 'function' &&
+    window.ipoPrintAvailable()
+  ) {
+    return {
+      label: 'Print',
+      kind: 'print',
+      fn: () => window.ipoPrintCurrent(),
+    };
+  }
+  return null;
 }
 
 // Route the browser's native Cmd/Ctrl+P to the active screen's clean print, so

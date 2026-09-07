@@ -102,7 +102,7 @@ function ipoMakeUi(ecu, container, back) {
     },
     status: (p, text) => {
       if (statusEl) statusEl.textContent = text;
-      sbLeft.textContent = `${ecu.sgbd}.prg · ${p.menu || ''} · ${text}`;
+      sbLeft.textContent = `${(p.ecu || ecu).sgbd}.prg · ${p.menu || ''} · ${text}`;
     },
     error: (p, text) => {
       if (statusEl) statusEl.textContent = `error: ${text}`;
@@ -143,7 +143,9 @@ function ipoMakeUi(ecu, container, back) {
     pickLines: (p, names, multiple, current) =>
       ipoPickLines(names, multiple, current),
     // INPA's printscreen: the module view as a clean sheet (print.js)
-    printScreen: (p) => ipoPrintScreen(p, ecu, inpa),
+    printScreen: (p) => ipoPrintScreen(p, p.ecu || ecu, inpa),
+    resolveScriptEcu: (from, script, exec) =>
+      ipoResolveScriptEcu(from, script, exec),
     machineTick: (p, step, guards) => ipoMachineTick(machineEl, step, guards),
     renderKeys,
     paint: (p) => {

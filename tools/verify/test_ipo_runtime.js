@@ -1498,6 +1498,126 @@ const sysSet = (sgbd) => ({
     ok('print screen: a clean sheet in both modes, keys listed');
   }
 
+  // ===========================================================================
+  // scriptchange FROM A KEY: SM46's Shift+F9 "change to passenger's side" is
+  // scriptchange("B_SM46") -- INPA drops the driver's script for the
+  // passenger module's own, a different ECU on its own address. The runtime
+  // loads the script, lets the car name the module it addresses (the
+  // script's inpainit lists B_SM46_3 / B_SM46_4 / EASY_E_B, the group that
+  // identifies one of them is asked), runs its entry and opens its menu.
+  // ===========================================================================
+  {
+    const { ipoScriptVariants } = RT;
+    const dexec = loadExec('E46', 'sm46');
+    const bexec = loadExec('other', 'B_SM46');
+    assert.ok(dexec && bexec, 'both seat scripts ship');
+    const known = new Set([
+      'sm46_3',
+      'sm46_4',
+      'b_sm46_3',
+      'b_sm46_4',
+      'easy_e_b',
+      'bsm46c_4',
+    ]);
+    assert.deepStrictEqual(
+      ipoScriptVariants(bexec, known),
+      ['b_sm46_3', 'b_sm46_4', 'easy_e_b'],
+      'the passenger script names the variants it accepts'
+    );
+    const decu = {
+      sgbd: 'sm46_4',
+      label: 'Seat memory M46',
+      _variant: 'SM46_4',
+      chassis: 'E46',
+      group: 'D_0072',
+    };
+    const dsent = fakeApi((job, arg, target) => {
+      if (job === 'INITIALISIERUNG')
+        return {
+          system: sysSet(target),
+          sets: [{ VARIANTE: target.toUpperCase() }],
+        };
+      return { system: sysSet(target), sets: [{ JOB_STATUS: 'OKAY' }] };
+    });
+    const dui = fakeUi();
+    dui.loadExec = async (name) =>
+      name === 'b_sm46' ? bexec : name === 'sm46' ? dexec : null;
+    const bySgbd = { b_sm46: 'b_sm46_3', sm46: 'sm46_4' };
+    dui.resolveScriptEcu = async (from, script) =>
+      bySgbd[script]
+        ? {
+            ...from,
+            code: script,
+            sgbd: bySgbd[script],
+            _variant: bySgbd[script].toUpperCase(),
+            _irFrom: script,
+          }
+        : null;
+    const dp = new IpoProgram(decu, dexec, dui);
+    const dr = await dp.start();
+    assert.strictEqual(dr.ok, true, `sm46 start: ${dr.reason}`);
+    // the key whose body calls scriptchange (Shift+F1 "Change Editor" is a
+    // different key with a similar caption)
+    const changeKey = (exec, menu) => {
+      const toks = exec.procs[menu] || [];
+      let nr = null;
+      for (const t of toks) {
+        if (t.op === 'ITEM') nr = t.nr;
+        else if (t.op === 'call' && t.name === 'scriptchange' && nr != null)
+          return nr;
+      }
+      return null;
+    };
+    const change = dp.items.find((it) => it.nr === changeKey(dexec, dp.menu));
+    assert.ok(
+      change,
+      `the driver's menu offers the passenger key: ${JSON.stringify(dp.items.map((i) => i.label))}`
+    );
+    // a press while the screen cycle runs is queued and drained after it
+    const until = async (cond) => {
+      for (let n = 0; n < 200 && !cond(); n++)
+        await new Promise((r) => setTimeout(r, 10));
+    };
+    dsent.length = 0;
+    await dp.press(change.nr);
+    await until(() => dp.script === 'b_sm46' && dp.menu);
+    assert.strictEqual(dp.script, 'b_sm46', 'the passenger script runs now');
+    assert.strictEqual(
+      dp.ecu.sgbd,
+      'b_sm46_3',
+      'the program talks to the passenger module'
+    );
+    const init = dsent.find((s) => s.job === 'INITIALISIERUNG');
+    assert.ok(
+      init && init.target === 'b_sm46_3',
+      `entry identifies the passenger module: ${JSON.stringify(dsent.slice(0, 3))}`
+    );
+    assert.ok(dp.menu, 'the passenger script opened its menu');
+    assert.ok(dui.keys.length > 3, 'its keys are listed');
+    // ...and the way back
+    const back = dp.items.find((it) => it.nr === changeKey(bexec, dp.menu));
+    if (back) {
+      dsent.length = 0;
+      await dp.press(back.nr);
+      await until(() => dp.script === 'sm46' && dp.menu);
+      assert.strictEqual(dp.script, 'sm46', 'back on the driver script');
+      assert.strictEqual(dp.ecu.sgbd, 'sm46_4');
+    }
+    // a script the build lacks: the current screen stays, the user is told
+    dui.loadExec = async () => null;
+    const before = dui.messages.length;
+    const vm0 = dp.vm;
+    await dp._changeScript('nowhere', dp.gen);
+    assert.strictEqual(
+      dui.messages.length,
+      before + 1,
+      'told the script is missing'
+    );
+    assert.strictEqual(dp.vm, vm0, 'nothing swapped');
+    dp.close();
+    ok('scriptchange from a key: SM46 -> B_SM46 (passenger seat) and back');
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();
