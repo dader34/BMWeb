@@ -166,17 +166,23 @@ async function ipoProgramOpen(ecu, container, back, openMenu) {
   _ipoCurrent = program;
   sbLeft.textContent = `${ecu.sgbd}.prg · starting`;
   const r = await program.start();
+  // No adapter at all: the entry jobs could not reach the car. Some scripts
+  // tolerate a failed INITIALISIERUNG and still open their root menu, which
+  // would read as an offline view of a module nothing has talked to -- so
+  // the gate fires whether or not the script carried on.
+  if (program.noCable) {
+    program.close();
+    _ipoCurrent = null;
+    ipoNotice(
+      container,
+      errorBlock('no cable connected'),
+      `${ecu.sgbd}.prg · no cable`,
+      back
+    );
+    return true;
+  }
   if (!r.ok) {
     _ipoCurrent = null;
-    if (program.noCable) {
-      ipoNotice(
-        container,
-        errorBlock('no cable connected'),
-        `${ecu.sgbd}.prg · no cable`,
-        back
-      );
-      return true;
-    }
     if (program.silent || r.reason === 'stopped') {
       ipoNotice(
         container,

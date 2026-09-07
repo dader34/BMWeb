@@ -75,6 +75,7 @@ const IPO_SILENT_RE = /IFH-0009|IFH-0019|no answer/i;
  * @property {boolean} done - the run finished
  * @property {boolean} [exit] - the script ended itself
  * @property {boolean} [cancelled] - the user declined a prompt, or the view closed
+ * @property {boolean} [noCable] - the entry run stopped because no adapter is connected
  */
 
 /**
@@ -228,6 +229,11 @@ class IpoProgram {
       if (step.kind === 'job') {
         const fed = await this.runJob(step.sgbd, step.job, step.arg, ctx);
         if (fed == null) return { done: false, cancelled: true };
+        // no adapter while identifying the module: stop here rather than let
+        // the script raise its own "Program will be stopped" box over a car
+        // it never reached -- the opener shows the no-cable notice instead
+        if (this.noCable && ctx && ctx.scope === 'entry')
+          return { done: false, cancelled: true, noCable: true };
         step = vm.resume(fed);
       } else if (step.kind === 'wait') {
         await this.ui.sleep(Math.min(Number(step.ms) || 0, IPO_WAIT_MAX_MS));
