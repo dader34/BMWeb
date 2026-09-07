@@ -239,7 +239,14 @@
   <script src="data/i18n-shared.js"></script>
   <script src="core/nav.js"></script>
   <script src="core/tuning-store.js"></script>
-  <script src="core/xdf.js"></script>
+  <!-- The XDF engine: six pieces that each add to window.XDF, in this order
+       (parser.js is last: it reads the others at load). -->
+  <script src="core/xdf/xml.js"></script>
+  <script src="core/xdf/math.js"></script>
+  <script src="core/xdf/codec.js"></script>
+  <script src="core/xdf/legacy.js"></script>
+  <script src="core/xdf/checksum.js"></script>
+  <script src="core/xdf/parser.js"></script>
   <script src="core/flasher.js"></script>
   <script src="ui/typed-block.js"></script>
   <script src="ui/dropdown.js"></script>
@@ -325,8 +332,29 @@
   <script src="screens/etk.js"></script>
   <script src="screens/tool32.js"></script>
   <script src="screens/flasher.js"></script>
-  <script src="screens/tuning-memory.js"></script>
-  <script src="screens/tuning.js"></script>
+  <script src="screens/tuning/memory-spec.js"></script>
+  <script src="screens/tuning/memory-read.js"></script>
+  <!-- The Tuning screen, one piece per concern. state.js first (the shared
+       state and constants), screen.js last (the entry point); nothing in
+       between reads a later piece at load time. -->
+  <script src="screens/tuning/state.js"></script>
+  <script src="screens/tuning/helpers.js"></script>
+  <script src="screens/tuning/hex-find.js"></script>
+  <script src="screens/tuning/hex-inspector.js"></script>
+  <script src="screens/tuning/hex-view.js"></script>
+  <script src="screens/tuning/coverage.js"></script>
+  <script src="screens/tuning/table-ops.js"></script>
+  <script src="screens/tuning/edit-history.js"></script>
+  <script src="screens/tuning/item-editors.js"></script>
+  <script src="screens/tuning/definition-tree.js"></script>
+  <script src="screens/tuning/table-grid.js"></script>
+  <script src="screens/tuning/table-actions.js"></script>
+  <script src="screens/tuning/table-editor.js"></script>
+  <script src="screens/tuning/xdf-library.js"></script>
+  <script src="screens/tuning/module-picker.js"></script>
+  <script src="screens/tuning/read-ecu-dialog.js"></script>
+  <script src="screens/tuning/session.js"></script>
+  <script src="screens/tuning/screen.js"></script>
   <script src="screens/apps.js"></script>
   <script src="screens/tutorial.js"></script>
   <script src="app.js"></script>
