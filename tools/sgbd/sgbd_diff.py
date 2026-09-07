@@ -58,8 +58,7 @@ def api(port, path):
 
 def find_port():
     # discovery (env vars, 8777 probe, lsof/pgrep) lives in _engine, shared
-    # with sgbd_harvest and sgbd_tables -- the three used to carry drifted
-    # copies of this
+    # with sgbd_harvest -- each used to carry a drifted copy of this
     port = _engine.find_port()
     if port is None:
         raise SystemExit("no running engine: start the app or InpaMac.Server, "

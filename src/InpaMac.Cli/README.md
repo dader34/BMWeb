@@ -123,7 +123,6 @@ ECU/SGBD **stems** (e.g. `GSDS2`, `ms450ds0`), never file paths.
 | `vm` | `ipo_vm.py` | `tools vm GSDS2 m_status` (run the VM on a proc) |
 | `status` | `ipo_status.py` | `tools status GSDS2` |
 | `memory` | `ipo_memory.py` | `tools memory MS450` |
-| `coding` | `ipo_coding.py` | `tools coding ZKE5` |
 | `spec` | `sgbd/sgbd_spec.py` | `tools spec ms450ds0 STATUS_UBATT` |
 
 ## Safety

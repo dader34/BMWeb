@@ -108,9 +108,8 @@ jobs:
       - name: Build the static site
         run: |
           set -euo pipefail
-          # build-web.sh insists on a running app to resolve the chassis
-          # config; here the exporter reads the committed cache instead, so
-          # call the pieces directly rather than fighting that check.
+          # The exporter reads the committed chassis-config cache here (no
+          # BMACW_PORT), so call the pieces directly.
           mkdir -p dist-web
           python3 tools/export/web_export.py --out dist-web
           cp -R app/renderer/. dist-web/
@@ -120,8 +119,7 @@ jobs:
           # Version stamp, exactly as build-web.sh does it. This step calls
           # the exporter directly and skipped the stamp, so the deployed app
           # had no BMACW_VERSION and every beta report said app "dev".
-          VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' \
-            src/InpaMac.App/InpaMac.App.csproj | head -1)
+          VERSION=$(node -p "require('./package.json').version")
           test -n "$VERSION"
           printf 'window.BMACW_VERSION="%s";\n' "$VERSION" > dist-web/version.js
           sed -i 's#<head>#<head>\n  <script src="version.js"></script>#' dist-web/index.html

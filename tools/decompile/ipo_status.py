@@ -11,8 +11,8 @@ Our Status section was a flat MenuGen job list. INPA's is a menu of pages:
                           Analog2    -> s_ana2_732_832_851
 
 so picking "Read status" should land on that list, not on every STATUS_* job the
-SGBD happens to own. tools/ipo_gauges.py already mines each readout's unit and
-range; this mines which PAGE a readout belongs to.
+SGBD happens to own. ir_build already derives each readout's unit and range by
+executing the .IPO; this mines which PAGE a readout belongs to.
 
 Menu bodies are delimited by the next declaration, not by a fixed span: INPA
 emits `0c 81 <len> 00 <type> <name>` per proc, and everything between one

@@ -15,18 +15,10 @@
 # SOME GENERATORS ARE RUN BY HAND and so are named by no code. They look
 # orphaned to a grep -- a reference count says 1, itself -- but their output
 # is load-bearing. Do not delete them:
-#   sgbd_tables.py      -> data/inpa-screens/_tables.json  (NO readers today;
-#                          kept as a reference dump, not consumed by anything)
-#   ipo_actmenus.py     -> _actmenus.json  \  satellites of the DELETED
-#   ipo_coding.py       -> _coding.json     > ipo_enrich.py pipeline (the app
-#   ipo_submenus.py     -> _submenus.json  /  renders from the IR now), so
-#                          these outputs have NO reader -- reference dumps.
-#                          ipo_gauges.py -> _gauges.json is now a reference dump
-#                          too: ir_build derives gauge bounds by executing the
-#                          .IPO, so nothing reads _gauges.json any more.
 #   vm_fixtures.py      -> vmfix.json      (input to test_bestvm.js)
 #   sgbd_code.py        -> data/job-code/  (input to the VM)
-# (actuator captions live in the IR itself now: ir_build emits them)
+# (actuator captions live in the IR itself now: ir_build emits them; the
+# old reference-dump generators whose _*.json nothing read are gone)
 #
 # THE HAND-RUN GENERATORS ARE ORDERED. Regenerating everything before a build
 # is not a set of independent commands -- three of them feed each other, and
@@ -90,6 +82,14 @@ echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =
 node tools/verify/test_flasher.js
 
 echo
+echo "== MS45 image validation math: CRC-32/MPEG-2, RSA signature, region/address =="
+node tools/verify/test_ms45_bin.js || exit 1
+
+echo
+echo "== XDF parser + raw<->engineering codec the Tuning screen writes through =="
+node tools/verify/test_xdf.js || exit 1
+
+echo
 echo "== no cross-file global-name collisions in the renderer =="
 node tools/verify/test_global_collisions.js
 
@@ -145,6 +145,18 @@ echo "== ZCS: validation, format, parse, SA code extraction, FA/ZCS filtering ==
 node tools/verify/test_coding_zcs.js || exit 1
 
 echo
+echo "== custom coding parameters encode through the real codec (mask/shift) =="
+node tools/verify/test_coding_custom.js || exit 1
+
+echo
+echo "== coding dispatch: derived A_<cabd> program runs end-to-end, frames the request =="
+node tools/verify/test_coding_dispatch.js || exit 1
+
+echo
+echo "== coding UI -> write flow: review builds the payload, write needs confirmed =="
+node tools/verify/test_coding_ui_flow.js || exit 1
+
+echo
 echo "== ECU memory read: region units (word vs byte), chunking, refused reads =="
 node tools/verify/test_tuning_memory.js || exit 1
 
@@ -181,12 +193,20 @@ echo "== Vehicle identity: masters, ZCS->SA bridge, FA round-trip, discovery =="
 node tools/verify/test_vehicle_identity.js || exit 1
 
 echo
+echo "== identity screen end to end: shipped tables + fa decode against a stubbed E46 =="
+node tools/verify/test_identity_screen.js || exit 1
+
+echo
 echo "== Coding selection: SGET predicates pick the module and its coding file =="
 node tools/verify/test_coding_select.js || exit 1
 
 echo
 echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
 node tools/verify/test_ipo_runtime.js || exit 1
+
+echo
+echo "== guided procedures: suspend on every job, honour waits, resolve segment jumps =="
+node tools/verify/test_guided.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="
@@ -207,6 +227,10 @@ node tools/verify/test_commpars.js || exit 1
 echo
 echo "== remote session seam: car routes wait for the owner, never go local =="
 node tools/verify/test_remote.js || exit 1
+
+echo
+echo "== beta journal: VINs scrubbed, ring bounded, report shape =="
+node tools/verify/test_journal.js || exit 1
 
 echo
 echo "== fault-report PDF: one fixed column grid, both render paths agree =="

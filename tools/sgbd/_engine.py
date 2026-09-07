@@ -9,7 +9,7 @@ It lives here once so the list of directories cannot drift between copies.
 It also owns find_port()/find_base(): three scripts each carried their own
 copy of "where is the running engine listening?", and the copies had already
 drifted -- sgbd_diff probed `pgrep -f BMacW` and env BMACW_PORT while
-sgbd_harvest/sgbd_tables used `lsof -c InpaMac.A` and env BMACW_API, so a
+sgbd_harvest used `lsof -c InpaMac.A` and env BMACW_API, so a
 port that one tool found the next tool missed.
 """
 import os
@@ -31,14 +31,12 @@ def find_port():
 
       1. BMACW_PORT -- the canonical env var: tools/check.sh, tools/verify/*,
          tools/export/* and scripts/build/build-web.sh all read or export it.
-      2. BMACW_API -- the older spelling sgbd_harvest/sgbd_tables grew, a full
-         base URL rather than a port. Honoured so existing invocations keep
-         working; the port is parsed out of it.
+      2. BMACW_API -- the older spelling sgbd_harvest grew, a full base URL
+         rather than a port. Honoured so existing invocations keep working;
+         the port is parsed out of it.
       3. Probe 8777, the dev-run default (InpaMac.Server).
-      4. lsof by process name. The packaged binary is
-         BMacW.app/Contents/MacOS/InpaMac.App (see scripts/build/build-web.sh,
-         which pgreps exactly that path), and `lsof -c` matches by prefix, so
-         "InpaMac" catches the kernel-truncated name too.
+      4. lsof by process name: `lsof -c` matches by prefix, so "InpaMac"
+         catches the kernel-truncated name too.
       5. pgrep -f BMacW + lsof on the pid -- covers a process whose command
          name lsof -c cannot see (e.g. started via a wrapper) but whose .app
          path still says BMacW.

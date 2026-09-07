@@ -25,7 +25,6 @@ internal static class ToolCommands
         ("vm",      "tools/decompile/ipo_vm.py",      "run the VM on a proc: tools vm <ECU> [PROC]"),
         ("status",  "tools/decompile/ipo_status.py",  "status menu + pages:  tools status <ECU>"),
         ("memory",  "tools/decompile/ipo_memory.py",  "read-memory screen:   tools memory <ECU>"),
-        ("coding",  "tools/decompile/ipo_coding.py",  "coding screen decode: tools coding <ECU>"),
         ("spec",    "tools/sgbd/sgbd_spec.py",        "lift a job to a spec: tools spec <sgbd> <JOB>"),
     };
 
