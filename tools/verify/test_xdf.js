@@ -1,5 +1,5 @@
-// Guard: app/renderer/core/xdf.js is the parser + raw<->engineering codec the
-// Tuning screen (screens/tuning.js) uses to read and WRITE firmware bytes. A
+// Guard: app/renderer/core/xdf/ is the parser + raw<->engineering codec the
+// Tuning screen (screens/tuning/) uses to read and WRITE firmware bytes. A
 // wrong scale, endianness or inverse silently corrupts an ECU image the user
 // then flashes -- so every load-bearing property is pinned here:
 //
@@ -18,9 +18,15 @@ const path = require('path');
 const R = path.join(__dirname, '..', '..');
 
 // Load the module under test the way the app would -- as a browser global.
-// eval into a window shim so we test the SHIPPED file, not a copy.
+// eval into a window shim so we test the SHIPPED files, not a copy. The
+// pieces each add to window.XDF, in the order index.html loads them.
 const window = {};
-eval(fs.readFileSync(path.join(R, 'app/renderer/core/xdf.js'), 'utf8'));
+const XDF_PIECES = ['xml', 'math', 'codec', 'legacy', 'checksum', 'parser'];
+for (const piece of XDF_PIECES) {
+  eval(
+    fs.readFileSync(path.join(R, `app/renderer/core/xdf/${piece}.js`), 'utf8')
+  );
+}
 const XDF = window.XDF;
 
 const fails = [];
@@ -442,7 +448,7 @@ ok(threw, 'encrypted .xdf should be refused');
   ok(d.header.deftitle === 'A & B <x>', `entity decode = ${d.header.deftitle}`);
 }
 
-// Axes are a list, matching how tuning.js reads them.
+// Axes are a list, matching how the Tuning screen reads them.
 const ax = (t, id) => t.axes.find((a) => a.id === id);
 
 // ============================================================================

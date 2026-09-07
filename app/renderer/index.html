@@ -197,7 +197,14 @@
   <script src="data/i18n-shared.js"></script>
   <script src="core/nav.js"></script>
   <script src="core/tuning-store.js"></script>
-  <script src="core/xdf.js"></script>
+  <!-- The XDF engine: six pieces that each add to window.XDF, in this order
+       (parser.js is last: it reads the others at load). -->
+  <script src="core/xdf/xml.js"></script>
+  <script src="core/xdf/math.js"></script>
+  <script src="core/xdf/codec.js"></script>
+  <script src="core/xdf/legacy.js"></script>
+  <script src="core/xdf/checksum.js"></script>
+  <script src="core/xdf/parser.js"></script>
   <script src="core/flasher.js"></script>
   <script src="ui/typed-block.js"></script>
   <script src="ui/dropdown.js"></script>
