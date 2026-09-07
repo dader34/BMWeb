@@ -1,24 +1,75 @@
-// first-run tutorial: a one-time offer dialog, and a coach-mark tour that
-// spotlights the app's real controls and walks into a real module along the
-// way. Re-runnable any time from Settings.
-//
-// the tour root carries the modal-overlay class so the global action-key
-// handler (core.js) stands down while it's up; the tour owns Esc/arrows.
-// steps may live on different screens: each declares `screen`, and the tour
-// navigates (home = vehicle picker, module = a real ECU opened offline)
-// whenever the step's screen differs from the current one.
+/**
+ * @file First-run tutorial: a one-time offer dialog, and a coach-mark tour
+ * that spotlights the app's real controls and walks into a real module along
+ * the way. Re-runnable any time from Settings. Also the "How it works" info
+ * walkthrough.
+ *
+ * The tour root carries the modal-overlay class so the global action-key
+ * handler (core.js) stands down while it's up; the tour owns Esc/arrows.
+ * Steps may live on different screens: each declares `screen`, and the tour
+ * navigates (home = vehicle picker, module = a real ECU opened offline)
+ * whenever the step's screen differs from the current one.
+ *
+ * The step selectors below name controls of OTHER screens (the link LED, the
+ * chassis grid, the F-key bar, the hub cards...): renaming any of those
+ * breaks the tour silently, because a missing target is simply skipped.
+ */
 
-// open the tour's demo module: the E46 engine ECU, which renders fully
-// offline (menu, layouts, fault screen). falls back to the first module of
-// the first section when the expected one is missing.
+/* exported maybeOfferTutorial, startTutorial, showHowItWorks */
+
+/**
+ * One coach-mark step.
+ * @typedef {object} TourStep
+ * @property {'home'|'module'|'apps'} screen - the screen the target lives on (see TOUR_SCREENS)
+ * @property {string} sel - CSS selector of the control to spotlight; a missing target skips the step
+ * @property {string} title - tip heading
+ * @property {string} body - tip text
+ */
+
+/**
+ * One slide of the "How it works" walkthrough.
+ * @typedef {object} HowItWorksSlide
+ * @property {string} icon - a single emoji
+ * @property {string} title - slide heading
+ * @property {string} body - slide text
+ */
+
+/** Padding of the spotlight ring around its target, in px. */
+const TOUR_RING_PAD = 8;
+
+/** Minimum gap between the tip and the viewport edge, in px. */
+const TOUR_VIEWPORT_MARGIN = 12;
+
+/** How long the overlay's fade-out runs before it is removed, in ms. */
+const TOUR_FADE_MS = 160;
+
+/** The demo module's chassis: the E46 renders fully offline. */
+const TOUR_MODULE_CHASSIS = 'E46';
+
+/** The config's own section key for the engine group (not its translated display name; see autoscan.js). */
+const TOUR_MODULE_SECTION = 'ROOT_MOTOR';
+
+/** The demo module's SGBD: the engine ECU (menu, layouts, fault screen all work offline). */
+const TOUR_MODULE_SGBD_RE = /ms45/i;
+
+/**
+ * Open the tour's demo module. Falls back to the first module of the first
+ * section when the expected one is missing.
+ * @returns {Promise<void>}
+ */
 async function openTourModule() {
-  const ch = await api('/api/chassis/E46');
-  // the config's own key, not its translated display name (see autoscan.js)
-  const sec = ch.sections.find((s) => s.key === 'ROOT_MOTOR') || ch.sections[0];
-  const ecu = sec.ecus.find((e) => /ms45/i.test(e.sgbd)) || sec.ecus[0];
-  await showEcu('E46', sec.name, ecu);
+  const ch = await api(`/api/chassis/${TOUR_MODULE_CHASSIS}`);
+  const sec =
+    ch.sections.find((s) => s.key === TOUR_MODULE_SECTION) || ch.sections[0];
+  const ecu =
+    sec.ecus.find((e) => TOUR_MODULE_SGBD_RE.test(e.sgbd)) || sec.ecus[0];
+  await showEcu(TOUR_MODULE_CHASSIS, sec.name, ecu);
 }
 
+/**
+ * How the tour reaches each screen a step can live on.
+ * @type {Record<TourStep['screen'], () => Promise<void>|void>}
+ */
 const TOUR_SCREENS = {
   home: () => showChassis(),
   module: () => openTourModule(),
@@ -26,10 +77,13 @@ const TOUR_SCREENS = {
   apps: () => showApps(),
 };
 
-// The optional extended tour: a guided walk of the Apps hub. Only the apps that
-// actually shipped in this build render a card (apps.js greys/omits the rest),
-// so each step guards on its card being present -- a missing target is skipped
-// by the tour driver, exactly like the classic/modern step split.
+/**
+ * The optional extended tour: a guided walk of the Apps hub. Only the apps
+ * that actually shipped in this build render a card (apps.js greys the
+ * rest), so each step guards on its card being present -- a missing target
+ * is skipped by the tour driver, exactly like the classic/modern step split.
+ * @returns {TourStep[]}
+ */
 function appsTourSteps() {
   return [
     {
@@ -100,8 +154,11 @@ function appsTourSteps() {
   ];
 }
 
-// steps are built at start time so they match the active layout mode (classic
-// F-key list vs modern cards).
+/**
+ * The base tour. Built at start time so it matches the active layout mode
+ * (classic F-key list vs modern cards).
+ * @returns {TourStep[]}
+ */
 function tourSteps() {
   const classic = typeof inpaMode === 'function' && inpaMode();
   const steps = [
@@ -191,9 +248,13 @@ function tourSteps() {
   return steps;
 }
 
-// Did the user arrive on a deep link (a shared #apps/... route or a ?dtc=
-// fault link)? Then they came to view one specific thing -- the tour would be
-// noise. Bare '#' / '#apps' don't count; only an actual sub-destination does.
+/**
+ * Did the user arrive on a deep link (a shared #apps/... route or a ?dtc=
+ * fault link)? Then they came to view one specific thing -- the tour would
+ * be noise. Bare '#' / '#apps' don't count; only an actual sub-destination
+ * does.
+ * @returns {boolean}
+ */
 function bootedIntoDeepLink() {
   try {
     const h = (location.hash || '').replace(/^#\/?/, '').replace(/\/$/, '');
@@ -205,8 +266,11 @@ function bootedIntoDeepLink() {
   }
 }
 
-// one-time offer on first boot. whatever the answer, never ask again
-// (re-runnable from Settings). easily dismissed: Esc / Not now / backdrop.
+/**
+ * One-time offer on first boot. Whatever the answer, never ask again
+ * (re-runnable from Settings). Easily dismissed: Esc / Not now / backdrop.
+ * @returns {Promise<void>}
+ */
 async function maybeOfferTutorial() {
   if (Settings.get('tutorialSeen', 'no') === 'yes') return;
   // A first-timer who followed a deep link is here for that one page, not a
@@ -225,9 +289,14 @@ async function maybeOfferTutorial() {
   if (go) startTutorial();
 }
 
-// spotlight tour over the live UI. Esc/Skip ends it; ←/→ and the buttons
-// navigate (crossing screens when the step calls for it); the ring and tip
-// track their target on window resize. Ends back on the vehicle screen.
+/**
+ * Spotlight tour over the live UI. Esc/Skip ends it; left/right arrows and
+ * the buttons navigate (crossing screens when the step calls for it); the
+ * ring and tip track their target on window resize. Ends back on the vehicle
+ * screen (or stays on the Apps hub when the apps walk ran).
+ * @param {{ full?: boolean }} [opts] - full: replay base + apps walk without the offer in between
+ * @returns {Promise<void>}
+ */
 async function startTutorial(opts) {
   opts = opts || {};
   if (document.querySelector('.tour-overlay')) return; // one tour at a time
@@ -264,6 +333,7 @@ async function startTutorial(opts) {
   let i = 0;
 
   // dots track the current step count -- the apps tour can grow `steps` mid-run
+  /** Redraw the progress dots for the current step. */
   function renderDots() {
     if (dots.children.length !== steps.length) {
       dots.innerHTML = steps
@@ -275,8 +345,12 @@ async function startTutorial(opts) {
       .forEach((d, n) => d.classList.toggle('active', n === i));
   }
 
-  // enter step n (dir = which way to keep moving when a target is missing),
-  // navigating between screens when the step lives elsewhere
+  /**
+   * Enter step n, navigating between screens when the step lives elsewhere.
+   * A step whose target is missing in this mode/screen is skipped in `dir`.
+   * @param {number} n - the step to enter
+   * @param {number} [dir] - which way to keep moving when a target is missing
+   */
   async function show(n, dir = 1) {
     if (navigating) return;
     while (n >= 0 && n < steps.length) {
@@ -301,6 +375,7 @@ async function startTutorial(opts) {
     end();
   }
 
+  /** Put the ring around the current step's target and the tip beside it. */
   function place() {
     const step = steps[i];
     const el = document.querySelector(step.sel);
@@ -308,7 +383,7 @@ async function startTutorial(opts) {
       show(i + 1, 1);
       return;
     }
-    const pad = 8;
+    const pad = TOUR_RING_PAD;
     const r = el.getBoundingClientRect();
     ring.style.left = `${r.left - pad}px`;
     ring.style.top = `${r.top - pad}px`;
@@ -326,25 +401,28 @@ async function startTutorial(opts) {
     nextBtn.textContent = atFinish ? 'Done' : 'Next';
 
     // tip below the target when there's room, else above; clamped to viewport
+    const margin = TOUR_VIEWPORT_MARGIN;
     tip.style.visibility = 'hidden';
     requestAnimationFrame(() => {
       const t = tip.getBoundingClientRect();
       let top = r.bottom + pad * 2;
-      if (top + t.height > innerHeight - 12) top = r.top - t.height - pad * 2;
-      top = Math.max(12, Math.min(top, innerHeight - t.height - 12));
+      if (top + t.height > innerHeight - margin)
+        top = r.top - t.height - pad * 2;
+      top = Math.max(margin, Math.min(top, innerHeight - t.height - margin));
       let left = r.left + r.width / 2 - t.width / 2;
-      left = Math.max(12, Math.min(left, innerWidth - t.width - 12));
+      left = Math.max(margin, Math.min(left, innerWidth - t.width - margin));
       tip.style.top = `${top}px`;
       tip.style.left = `${left}px`;
       tip.style.visibility = 'visible';
     });
   }
 
+  /** Tear the tour down and land the user somewhere sensible. */
   function end() {
     window.removeEventListener('keydown', onKey, true);
     window.removeEventListener('resize', onResize);
     overlay.classList.remove('show');
-    setTimeout(() => overlay.remove(), 160);
+    setTimeout(() => overlay.remove(), TOUR_FADE_MS);
     // Don't strand the user mid-demo. If the apps tour ran, leave them on the
     // Apps hub (they just explored it); otherwise return to the vehicle screen.
     if (currentScreen === 'apps') {
@@ -355,9 +433,13 @@ async function startTutorial(opts) {
       } catch {}
     }
   }
-  // At the end of the BASE tour, offer the extended Apps walk before finishing.
-  // Choosing "See more" appends the apps steps and continues; "I'll explore"
-  // ends. Once the apps tour is running (offeredMore), Next just advances/ends.
+
+  /**
+   * Advance. At the end of the BASE tour, offer the extended Apps walk
+   * before finishing: "See more" appends the apps steps and continues, "I'll
+   * explore" ends. Once the apps tour is running (offeredMore), Next just
+   * advances/ends.
+   */
   async function next() {
     if (!offeredMore && i === baseLen - 1) {
       offeredMore = true;
@@ -394,6 +476,10 @@ async function startTutorial(opts) {
   };
   const onResize = () => place();
 
+  /**
+   * The tour owns Esc / Enter / arrows while it is up.
+   * @param {KeyboardEvent} e - the key event
+   */
   function onKey(e) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -421,9 +507,11 @@ async function startTutorial(opts) {
   await show(0, 1);
 }
 
-// "How it works": a stepped, centered info walkthrough (not a UI spotlight)
-// that explains what BMacW is, how it talks to the car, and which BMW software
-// and data it draws from. Esc closes; ←/→ or the buttons page; backdrop closes.
+/**
+ * The "How it works" slides: what the app is, how it talks to the car, and
+ * which BMW software and data it draws from.
+ * @returns {HowItWorksSlide[]}
+ */
 function howItWorksSlides() {
   const ver =
     window.bmacw && window.bmacw.version ? `v${window.bmacw.version}` : '';
@@ -479,6 +567,11 @@ function howItWorksSlides() {
   ];
 }
 
+/**
+ * "How it works": a stepped, centered info walkthrough (not a UI spotlight).
+ * Esc closes; left/right arrows or the buttons page; backdrop closes.
+ * @returns {void}
+ */
 function showHowItWorks() {
   if (document.querySelector('.hiw-overlay')) return;
   const slides = howItWorksSlides();
@@ -509,6 +602,7 @@ function showHowItWorks() {
   const nextBtn = overlay.querySelector('.hiw-next');
   let i = 0;
 
+  /** Draw the current slide. */
   const render = () => {
     const s = slides[i];
     iconEl.textContent = s.icon;
@@ -518,17 +612,26 @@ function showHowItWorks() {
     backBtn.disabled = i === 0;
     nextBtn.textContent = i === slides.length - 1 ? 'Done' : 'Next';
   };
+  /**
+   * Page by `d` slides; paging past the last one closes.
+   * @param {number} d - +1 or -1
+   */
   const go = (d) => {
     if (i + d < 0) return;
     if (i + d >= slides.length) return end();
     i += d;
     render();
   };
+  /** Fade the walkthrough out and remove it. */
   const end = () => {
     overlay.classList.remove('show');
     window.removeEventListener('keydown', onKey, true);
-    setTimeout(() => overlay.remove(), 160);
+    setTimeout(() => overlay.remove(), TOUR_FADE_MS);
   };
+  /**
+   * The walkthrough owns Esc / Enter / arrows while it is up.
+   * @param {KeyboardEvent} e - the key event
+   */
   const onKey = (e) => {
     if (e.key === 'Escape') {
       e.preventDefault();
