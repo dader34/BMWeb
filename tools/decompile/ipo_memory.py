@@ -38,6 +38,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import ipo_screens as L1                                        # noqa: E402
+from _cli import parse_args                                     # noqa: E402
 
 OUT = L1.OUT
 
@@ -114,6 +115,15 @@ def regions(data, start, end):
 
 
 def extract(path):
+    """The Read-memory screen an .IPO declares: title, job and its regions.
+
+    Args:
+        path: The .IPO file.
+
+    Returns:
+        ``{"ecu": stem, "memory": {...} | None}``; None when the script has
+        no memory-dump screen or no decodable regions.
+    """
     with open(path, "rb") as f:
         data = f.read()
     ecu = os.path.basename(path)[:-4]
@@ -135,8 +145,15 @@ def extract(path):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    write = "--write" in sys.argv
+    """CLI entry: dump one ECU, or summarise the corpus (``--write`` saves it).
+
+    Returns:
+        The process exit code (1 when a named .IPO does not exist).
+    """
+    ns = parse_args(__doc__,
+                    positional=("ecu", "*", "an ECU (.IPO stem); none = the corpus"),
+                    flags={"--write": "write the corpus result to _memory.json"})
+    args, write = ns.ecu, ns.write
 
     if args:
         rec = extract(L1.ipo_path(args[0]))

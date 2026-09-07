@@ -34,9 +34,13 @@ un-representable.
 Read-only against cars: files only.
 """
 import os
+import re
+import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
 import ipo_codec as C                                          # noqa: E402
 
 # opcode byte <-> mnemonic (INPA v5.x)
@@ -114,8 +118,8 @@ def _kv(line, key):
     return unesc(line[i:j + 1])
 
 
-def _kvint(line, key, default=0):
-    import re
+def _kvint(line: str, key: str, default: int = 0) -> int:
+    """The integer after `key=` on a header line, or `default`."""
     m = re.search(rf"\b{key}=(-?\d+)", line)
     return int(m.group(1)) if m else default
 
@@ -161,6 +165,7 @@ def disassemble(data):
 
 
 def _instr_comment(op, a, c):
+    """The trailing comment for one instruction: what its operands mean."""
     mn = OPCODES.get(op)
     if mn in ("LOAD", "PUSHREF", "LOADINOUTREF", "PUSHR", "PUSHREFSTORE"):
         sc = {0x00: "global", 0x01: "const", 0x02: "local", 0x40: "screen",
@@ -183,6 +188,7 @@ def _instr_comment(op, a, c):
 
 
 def _const_line(t, v):
+    """One constant-pool entry as its listing line (`<type> <value>`)."""
     name = C.VT_NAMES.get(t, f"0x{t:02x}")
     if t == C.VT_STRING:
         return f"string {esc(v)}"
@@ -191,7 +197,6 @@ def _const_line(t, v):
     if t == C.VT_REAL:
         # repr() round-trips IEEE754 exactly in CPython; keep a hex fallback
         # so a value that somehow does not re-pack identically is still exact.
-        import struct
         if struct.pack("<d", float(repr(v))) == struct.pack("<d", v):
             return f"real {v!r}"
         return f"real# {struct.pack('<d', v).hex()}"
@@ -208,6 +213,7 @@ def assemble(text):
     cur = None          # (header dict, payload accumulator list)
 
     def flush():
+        """Close the block being collected and append it to `blocks`."""
         nonlocal cur
         if cur is None:
             return
@@ -250,7 +256,8 @@ def assemble(text):
     return C.IpoFile(ver_hi, ver_lo, magic, blocks).write()
 
 
-def _strip_comment(s):
+def _strip_comment(s: str) -> str:
+    """A listing line without its `;` note (a quoted `;` is data)."""
     # a ';' inside a quoted string is data; only an unquoted ';' starts a note
     q = False
     for i, ch in enumerate(s):
@@ -262,6 +269,19 @@ def _strip_comment(s):
 
 
 def _assemble_payload(btype, lines):
+    """Encode one block's listing lines back to bytes.
+
+    Args:
+        btype: The block type byte, which picks the payload grammar.
+        lines: The listing lines between this header and the next.
+
+    Returns:
+        ``(payload_bytes, size)`` -- `size` is the header's count field
+        (instructions, constants, globals or table rows).
+
+    Raises:
+        ipo_codec.IpoError: On an unknown mnemonic.
+    """
     body = [_strip_comment(x.strip()) for x in lines]
     body = [x for x in body if x]
     if btype in C.CODE_BLOCKS:
@@ -316,7 +336,7 @@ def _assemble_payload(btype, lines):
 
 
 def _parse_const(x):
-    import struct
+    """One constant listing line -> ``(type_byte, value)``."""
     parts = x.split(None, 1)
     kind = parts[0]
     rest = parts[1] if len(parts) > 1 else ""
@@ -337,25 +357,30 @@ def _parse_const(x):
 # ---------------------------------------------------------------- main ------
 
 def main():
-    args = sys.argv[1:]
-    if not args or "-h" in args or "--help" in args:
+    """CLI entry: compile a listing, or ``--disasm`` / ``--roundtrip`` an .IPO.
+
+    Returns:
+        The process exit code (1 when a round-trip is not byte-identical).
+    """
+    ns = parse_args(__doc__,
+                    positional=("source", "?", "an .ipsasm listing to compile"),
+                    options={"-o": ("FILE", "write the output here instead of stdout"),
+                             "--disasm": ("IPO", "disassemble this .IPO to a listing"),
+                             "--roundtrip": ("IPO", "prove disassemble->assemble is byte-identical")})
+    if not (ns.source or ns.disasm or ns.roundtrip):
         print(__doc__)
         return 0
-    out = None
-    if "-o" in args:
-        k = args.index("-o")
-        out = args[k + 1]
-        del args[k:k + 2]
-    if args and args[0] == "--roundtrip":
-        data = open(args[1], "rb").read()
+    out = ns.o
+    if ns.roundtrip:
+        data = open(ns.roundtrip, "rb").read()
         text = disassemble(data)
         back = assemble(text)
         ok = back == data
-        print(f"{args[1]}: disasm->assemble byte-identical="
+        print(f"{ns.roundtrip}: disasm->assemble byte-identical="
               f"{'OK' if ok else 'MISMATCH'} ({len(data)} bytes)")
         return 0 if ok else 1
-    if args and args[0] == "--disasm":
-        data = open(args[1], "rb").read()
+    if ns.disasm:
+        data = open(ns.disasm, "rb").read()
         text = disassemble(data)
         if out:
             open(out, "w").write(text)
@@ -364,7 +389,7 @@ def main():
             sys.stdout.write(text)
         return 0
     # default: compile a .ipsasm file to .IPO
-    text = open(args[0]).read()
+    text = open(ns.source).read()
     data = assemble(text)
     if out:
         open(out, "wb").write(data)

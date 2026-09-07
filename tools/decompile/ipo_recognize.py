@@ -40,6 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import ipo_screens as L1                                        # noqa: E402
+from _cli import parse_args                                     # noqa: E402
 
 OUT = L1.OUT
 
@@ -70,6 +71,7 @@ def _claim(rec, pred):
 
 
 def recognise_identity(rec):
+    """An ID-data screen, when at least four identity-looking keys agree."""
     got = _claim(rec, lambda k: _IDENT_KEY.search(k) and not _AIF_KEY.match(k))
     # an ident card is several fields agreeing, not one stray match
     if len(got) < 4:
@@ -80,6 +82,7 @@ def recognise_identity(rec):
 
 
 def recognise_aif(rec):
+    """An AIF (programming history) screen, from four or more AIF keys."""
     got = _claim(rec, lambda k: _AIF_KEY.match(k))
     if len(got) < 4:
         return None
@@ -133,9 +136,17 @@ def root_signature(rec):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    write = "--write" in sys.argv
-    show_unclaimed = "--unclaimed" in sys.argv
+    """CLI entry: recognise one ECU's screens, or summarise the corpus (``--write`` saves it).
+
+    Returns:
+        The process exit code (1 when a named .IPO does not exist).
+    """
+    ns = parse_args(__doc__,
+                    positional=("ecu", "*", "an ECU (.IPO stem); none = the corpus"),
+                    flags={"--write": "write the corpus result to _recognized.json",
+                           "--unclaimed": "list the result keys no recogniser claimed"})
+    args, write = ns.ecu, ns.write
+    show_unclaimed = ns.unclaimed
 
     if args:
         path = L1.ipo_path(args[0])

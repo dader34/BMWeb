@@ -40,6 +40,9 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(HERE))          # tools/, for _cli
+from _cli import parse_args                                     # noqa: E402
+
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 SRC = os.path.join(ROOT, 'data', 'ecu-src')
 DE_JSON = os.path.join(HERE, 'env_i18n_de.json')
@@ -335,6 +338,13 @@ SEED = {
 
 
 def build():
+    """Regenerate env_i18n_de.json and envmap.js from the table dumps.
+
+    Returns:
+        ``(corpus, de_sorted, shipped, n_files)``: string frequencies, the
+        full dictionary (None = untranslated), the shipped subset, and how
+        many table dumps were scanned.
+    """
     labels, values, n_files = collect()
     corpus = dict(labels)
     for k, v in values.items():
@@ -362,6 +372,7 @@ def build():
     # frequency order, most common first; ties broken alphabetically so the
     # file is stable across runs. keys absent from the corpus sort last.
     def rank(k):
+        """Sort key: most frequent first, then alphabetical."""
         return (-corpus.get(k, 0), k)
 
     ordered = sorted(de.keys(), key=rank)
@@ -387,6 +398,8 @@ def build():
 
 
 def stats(corpus, de_sorted, shipped):
+    """Print coverage by distinct strings and by occurrences, then the most
+    frequent untranslated strings."""
     total = sum(corpus.values())
     covered = sum(corpus.get(k, 0) for k in shipped)
     n_keys = len(corpus)
@@ -411,8 +424,11 @@ def stats(corpus, de_sorted, shipped):
 
 
 def main():
+    """CLI entry: regenerate both files; ``--stats`` prints coverage instead
+    of the write summary."""
+    ns = parse_args(__doc__, flags={'--stats': 'print coverage figures'})
     corpus, de_sorted, shipped, n_files = build()
-    if '--stats' in sys.argv:
+    if ns.stats:
         stats(corpus, de_sorted, shipped)
     else:
         print('scanned {} SGBD table dumps'.format(n_files))

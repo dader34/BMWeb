@@ -36,6 +36,7 @@ import json
 import os
 import re
 import sys
+from typing import Set
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ncs_daten as N                                    # noqa: E402
@@ -68,16 +69,13 @@ CHASSIS = ('E36', 'E38', 'E39', 'E46', 'E52', 'E53', 'E60', 'E65',
            'R56', 'RR1')
 
 
-def stem(s):
-    s = re.sub(r'^(COD|STAT|STATUS|CODIER)_', '', s.upper())
-    return set(t for t in s.split('_') if len(t) > 2)
-
-
-def sgbd_tokens(cm, name):
+def sgbd_tokens(cm: dict, name: str) -> Set[str]:
+    """The keyword vocabulary of one SGBD's own coding map (binary fields
+    carry no names and are skipped)."""
     out = set()
     for f in cm.get(name, {}).get('fields', []):
         if f.get('type') != 'binary':
-            out |= stem(f['name'])
+            out |= N.stem_tokens(f['name'])
     return out
 
 
@@ -130,7 +128,7 @@ def load_translations():
     return out
 
 
-def shift_of(mask):
+def shift_of(mask: int) -> int:
     """Trailing-zero count: how far the field sits up inside its byte."""
     if not mask:
         return 0
@@ -210,6 +208,8 @@ def read_module(paths):
 
 
 def main():
+    """CLI entry: build datenmap.js from every DATEN module the app ships an
+    SGBD for, and report what was covered. Run from the repository root."""
     cm = {}
     try:
         cm = json.load(open('data/inpa-screens/_codingmap.json'))

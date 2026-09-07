@@ -22,7 +22,15 @@ Heuristics from the observed string layout in BMW MSD/MSV/MEVD .IPOs:
   - ergebnisAnalogAusgabe nearby = gauge bars; ergebnisDigitalAusgabe = text.
   - lines with 'input'/'Eingabe'/'parameter input' = input-required.
 """
-import sys, os, re, json, subprocess
+import json
+import os
+import re
+import subprocess
+import sys
+from typing import Optional
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
 
 SGDAT = os.path.join(os.path.dirname(__file__), "..", "..", "vendor", "EC-APPS",
                      "INPA", "SGDAT")
@@ -199,7 +207,8 @@ def extract_menus(path):
     return [{"name": n, "items": menus[n]} for n in order if menus[n]]
 
 
-def looks_like_labels(s):
+def looks_like_labels(s: str) -> bool:
+    """Does a strings-table line read as a comma list of row labels?"""
     if ";" in s or "_WERT" in s:
         return False
     if not ("," in s or len(s.split()) >= 2):
@@ -313,7 +322,16 @@ def extract_triplets(lines):
     return screens
 
 
-def extract(path):
+def extract(path: str) -> dict:
+    """Screens, input prompts and menus inferred from one .IPO's strings.
+
+    Args:
+        path: The .IPO file.
+
+    Returns:
+        ``{"ecu", "screens", "inputs", "menus"}`` -- see the module docstring
+        for what each screen record carries.
+    """
     lines = ipo_strings(path)
     screens = []
     inputs = []
@@ -375,7 +393,8 @@ def extract(path):
             "menus": menus}
 
 
-def resolve(base):
+def resolve(base: str) -> Optional[str]:
+    """The SGDAT path of `<base>.IPO` in either extension case, or None."""
     for ext in (".IPO", ".ipo"):
         p = os.path.join(SGDAT, base + ext)
         if os.path.exists(p):
@@ -384,25 +403,34 @@ def resolve(base):
 
 
 def main():
-    args = sys.argv[1:]
-    as_json = "--json" in args
-    args = [a for a in args if a != "--json"]
-    if not args:
-        print(__doc__)
-        return 2
-    if args[0] == "--list":
+    """CLI entry: one .IPO (by path or ``--base`` name) as a summary or
+    ``--json``, or ``--list`` every base name in SGDAT.
+
+    Returns:
+        The process exit code (2 with nothing to do, 1 for an unknown name).
+    """
+    ns = parse_args(__doc__,
+                    positional=("file", "?", "an .IPO file"),
+                    flags={"--json": "print the extraction as JSON",
+                           "--list": "list every ECU base name in SGDAT"},
+                    options={"--base": ("NAME", "resolve <NAME>.IPO in SGDAT")})
+    as_json = ns.json
+    if ns.list:
         bases = sorted({os.path.splitext(f)[0]
                         for f in os.listdir(SGDAT)
                         if f.lower().endswith(".ipo")})
         print("\n".join(bases))
         return 0
-    if args[0] == "--base":
-        path = resolve(args[1])
+    if ns.base:
+        path = resolve(ns.base)
         if not path:
-            print(f"not found: {args[1]}", file=sys.stderr)
+            print(f"not found: {ns.base}", file=sys.stderr)
             return 1
+    elif ns.file:
+        path = ns.file
     else:
-        path = args[0]
+        print(__doc__)
+        return 2
     data = extract(path)
     if as_json:
         print(json.dumps(data, ensure_ascii=False, indent=2))

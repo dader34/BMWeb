@@ -61,7 +61,7 @@ NOISE = re.compile(r'^(JOB_STATUS|_TEL|_SG|SG_)', re.I)
 EDITABLE = ('int', 'real', 'string')
 
 
-def strip_prefix(name):
+def strip_prefix(name: str) -> str:
     """The bare field name, for pairing a read against a write.
 
     BMW prefixes reads and not writes (STAT_AREACODE vs AREACODE), and
@@ -75,7 +75,7 @@ def strip_prefix(name):
     return n.rstrip('_')
 
 
-def clean_comment(c):
+def clean_comment(c: str) -> str:
     """BMW's own description, minus the part that says nothing.
 
     Almost every coding comment opens with "0 oder 1" or "0/1", which is the
@@ -88,7 +88,7 @@ def clean_comment(c):
     return c.strip()
 
 
-def is_switch(result, comment):
+def is_switch(result: dict, comment: str) -> bool:
     """Does this field only ever hold 0 or 1?
 
     Worth knowing: a switch is a toggle in the UI, anything else is a number
@@ -101,6 +101,15 @@ def is_switch(result, comment):
 
 
 def mine(path):
+    """One SGBD's self-described coding, from its meta.json.gz.
+
+    Args:
+        path: The `data/ecu-src/<sgbd>.meta.json.gz` file.
+
+    Returns:
+        ``(sgbd, entry)`` with the read job, its named fields and the paired
+        write job; None when the SGBD has no coding read or only a blob.
+    """
     sgbd = os.path.basename(path).split('.')[0]
     try:
         meta = json.loads(gzip.open(path).read())
@@ -196,6 +205,8 @@ def presentable(entry):
 
 
 def main():
+    """CLI entry: mine every SGBD and write the map plus the renderer's copy.
+    Run from the repository root."""
     out = {}
     for p in sorted(glob.glob(f'{SRC}/*.meta.json.gz')):
         got = mine(p)

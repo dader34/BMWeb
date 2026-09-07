@@ -31,7 +31,8 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import ncs_daten as N   # framing (records), schema walker, string scan
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # tools/
+from _cli import parse_args                                     # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
 DATEN = os.path.join(ROOT, 'vendor', 'EC-APPS', 'NCSEXPER', 'DATEN')
@@ -105,6 +106,8 @@ def parse_file(path):
     n = len(data)
 
     def read_row(i):
+        """One row at offset `i`: five NUL-terminated names, a length byte and
+        the predicate blob; None when the bytes there do not form a row."""
         names = []
         for _ in range(5):
             j = data.find(0, i)
@@ -194,6 +197,7 @@ def parse_file(path):
 
 
 def corpus():
+    """Every SGET file under DATEN (`<CHASSIS>SGET.<nnn>`), sorted."""
     out = []
     for dirpath, _, names in os.walk(DATEN):
         for n in names:
@@ -203,12 +207,17 @@ def corpus():
 
 
 def main():
+    """CLI entry: summarise the corpus, ``--check`` its invariants (exit 1 on
+    failure), or ``--write`` the JSON and JS outputs."""
+    ns = parse_args(__doc__,
+                    flags={'--write': 'write data/ncs-sget.json and the renderer JS',
+                           '--check': 'verify the invariants; exit 1 on failure'})
     files = corpus()
     if not files:
         sys.exit(f'no SGET files under {DATEN} (run scripts/setup/fetch.sh)')
 
-    write = '--write' in sys.argv
-    check = '--check' in sys.argv
+    write = ns.write
+    check = ns.check
 
     seen, tot_rows, tot_fail, with_expr = {}, 0, 0, 0
     for f in files:

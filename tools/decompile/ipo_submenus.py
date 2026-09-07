@@ -48,13 +48,13 @@ import os
 import re
 import sys
 import json
-import collections
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import ipo_screens as L1                                        # noqa: E402
+from _cli import parse_args                                     # noqa: E402
 import ipo_layout as L2                                         # noqa: E402
 
 OUT = L1.OUT
@@ -168,6 +168,7 @@ def job_sites(data):
 
 
 def _norm(s):
+    """A caption reduced to lowercase words, for tolerant matching."""
     return re.sub(r"[^a-z0-9]+", " ", (s or "").lower()).strip()
 
 
@@ -413,6 +414,16 @@ def tree(levels, root, seen=None, shorts=()):
 
 
 def extract(path, roots=("Activate", "Ansteuern")):
+    """The nested activation submenus an .IPO declares under each root caption.
+
+    Args:
+        path: The .IPO file.
+        roots: The root captions (English and German) to resolve trees for.
+
+    Returns:
+        ``{"ecu": stem, "submenus": {root: tree}}``; a root appears only
+        when something actually nests under it.
+    """
     with open(path, "rb") as f:
         data = f.read()
     levels = menus(data)
@@ -439,10 +450,12 @@ def extract(path, roots=("Activate", "Ansteuern")):
 
 
 def _count(items):
+    """How many entries a tree holds, nested ones included."""
     return sum(1 + _count(e.get("items", [])) for e in items)
 
 
 def _show(items, depth=1):
+    """Print a tree as an indented listing of F-key, label and job."""
     for e in items:
         job = (f"   -> {e['job']}" if e.get("job")
                else f"   = {e['argValue']}" if e.get("argValue") else "")
@@ -452,8 +465,15 @@ def _show(items, depth=1):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    write = "--write" in sys.argv
+    """CLI entry: dump one ECU, or summarise the corpus (``--write`` saves it).
+
+    Returns:
+        The process exit code (1 when a named .IPO does not exist).
+    """
+    ns = parse_args(__doc__,
+                    positional=("ecu", "*", "an ECU (.IPO stem); none = the corpus"),
+                    flags={"--write": "write the corpus result to _submenus.json"})
+    args, write = ns.ecu, ns.write
 
     if args:
         rec = extract(L1.ipo_path(args[0]))

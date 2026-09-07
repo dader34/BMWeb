@@ -40,6 +40,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import ipo_screens as L1                                        # noqa: E402
+from _cli import parse_args                                     # noqa: E402
 
 OUT = L1.OUT
 
@@ -93,6 +94,7 @@ _TAIL = 96
 
 
 def _doubles(data, pos):
+    """Up to two IEEE doubles found after `pos`, within the gauge tail."""
     out = []
     for m in _DOUBLE.finditer(data, pos, pos + _TAIL):
         # _DOUBLE's group is exactly 8 bytes (`.{8}` with DOTALL), so the
@@ -154,14 +156,22 @@ def gauges(data):
 
 
 def extract(path):
+    """Every gauge an .IPO declares, as ``{"ecu": stem, "gauges": [...]}``."""
     with open(path, "rb") as f:
         data = f.read()
     return {"ecu": os.path.basename(path)[:-4], "gauges": list(gauges(data).values())}
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    write = "--write" in sys.argv
+    """CLI entry: dump one ECU, or summarise the corpus (``--write`` saves it).
+
+    Returns:
+        The process exit code (1 when a named .IPO does not exist).
+    """
+    ns = parse_args(__doc__,
+                    positional=("ecu", "*", "an ECU (.IPO stem); none = the corpus"),
+                    flags={"--write": "write the corpus result to _gauges.json"})
+    args, write = ns.ecu, ns.write
 
     if args:
         rec = extract(L1.ipo_path(args[0]))

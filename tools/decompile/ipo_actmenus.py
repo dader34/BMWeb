@@ -42,6 +42,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import ipo_screens as L1                                        # noqa: E402
+from _cli import parse_args                                     # noqa: E402
 
 OUT = L1.OUT
 
@@ -159,8 +160,15 @@ def extract(path):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    write = "--write" in sys.argv
+    """CLI entry: dump one ECU, or summarise the corpus (``--write`` saves it).
+
+    Returns:
+        The process exit code (1 when a named .IPO does not exist).
+    """
+    ns = parse_args(__doc__,
+                    positional=("ecu", "*", "an ECU (.IPO stem); none = the corpus"),
+                    flags={"--write": "write the corpus result to _actmenus.json"})
+    args, write = ns.ecu, ns.write
 
     if args:
         path = L1.ipo_path(args[0])
