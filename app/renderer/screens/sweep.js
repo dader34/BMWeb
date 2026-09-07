@@ -253,6 +253,25 @@ function jobNamesFor(sgbd) {
 // it retargets a screen.
 const buildHasVariant = async (sgbd) => (await jobNamesFor(sgbd)).length > 0;
 
+// What to print for a target the resolver could not place. The group probe
+// records WHY it gave up (webResolveVariantLast): silence on the bus is the
+// only case that means "not installed"; a module that answered but matched
+// no variant, or a probe that failed, must not be reported as absent -- the
+// steering-angle sensor on a real E46 was, for a transport bug, and the row
+// read as a missing part.
+function absentLabel(t) {
+  if (!t.group) return 'no response';
+  const rd =
+    typeof webResolveVariantLast === 'function'
+      ? webResolveVariantLast()
+      : null;
+  if (rd && rd.group === String(t.group).toLowerCase()) {
+    if (rd.path === 'answered-but-unmatched') return 'answered, not identified';
+    if (rd.path === 'probe-error') return 'probe failed';
+  }
+  return 'not installed';
+}
+
 // Resolve one target to the SGBD to talk to.
 //
 // Returns one of:
@@ -332,11 +351,9 @@ const cancelSweep = () => {
 // is a claim about a car it never spoke to. (The two groups whose probes
 // identify without wire traffic even split the labels: their reads fail a
 // stage later and said "no response" while everything else said "not
-// installed".) Same gate the coding hub uses; demo mode is exempt because
-// its synthesized answers are labelled as such. Returns true when blocked,
+// installed".) Same gate the coding hub uses. Returns true when blocked,
 // after rendering the explanation in place of the sweep.
 async function sweepNeedsCable(id, title, leave) {
-  if (typeof demoMode === 'function' && demoMode()) return false;
   let port = null;
   try {
     ({ port } = await api('/api/port'));
@@ -358,8 +375,7 @@ async function sweepNeedsCable(id, title, leave) {
     `connected there is nothing to ask, and reporting modules as present ` +
     `or absent would be a guess.</div>` +
     `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">` +
-    `Connect the adapter and start the scan again, or turn on Demo mode ` +
-    `to explore the screen with simulated values.</div>`;
+    `Connect the cable and start the scan again.</div>`;
   view.appendChild(need);
   setActions([
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: leave },
@@ -454,7 +470,7 @@ async function quickErrorSweep(chassisId) {
     if (r.state === 'absent') {
       absent++;
       row.classList.add('noresp');
-      status.textContent = t.group ? 'not installed' : 'no response';
+      status.textContent = absentLabel(t);
       progress();
       continue;
     }
@@ -762,7 +778,7 @@ async function quickIdentSweep(chassisId) {
     if (r.state === 'absent') {
       absent++;
       row.classList.add('noresp');
-      status.textContent = t.group ? 'not installed' : 'no response';
+      status.textContent = absentLabel(t);
       progress();
       continue;
     }

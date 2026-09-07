@@ -145,6 +145,120 @@
           .toUpperCase();
   }
 
+  // Every SABITS row (ZST.K00, SA number -> the bits that option sets)
+  // whose masks hold for these keys. Same rule as zstMatches: a row is a
+  // match only where it constrains something, and all it constrains holds.
+  //
+  // This is the table the factory ENCODES a key from, and it outlives the
+  // decoding table: E39's ZST.000 retired 0194/0364/0645 and never listed
+  // 0223/0316/0403/0677, all of which K00 still carries. Without it an E39
+  // shows six of the thirteen options the car actually has.
+  function sabitsMatches(chassis, keys) {
+    const t = tablesFor(chassis);
+    const rows = (t && t.sabits) || [];
+    const gm = up(keys && keys.gm);
+    const sa = up(keys && keys.sa);
+    const vn = up(keys && keys.vn);
+    return rows.filter((r) => {
+      let held = false;
+      for (const [field, key] of [
+        ['gm', gm],
+        ['sa', sa],
+        ['vn', vn],
+      ]) {
+        const mask = r[field];
+        if (!mask || !/[^0]/.test(mask)) continue;
+        if (!maskHolds(key, mask)) return false;
+        held = true;
+      }
+      return held;
+    });
+  }
+
+  // ---- the type-key row: the ONE row that says what the car is -------------
+
+  // Bits set in a hex mask.
+  function popcount(mask) {
+    let n = 0;
+    for (const ch of String(mask || '')) {
+      const v = parseInt(ch, 16);
+      if (!Number.isNaN(v))
+        n += (v & 1) + ((v >> 1) & 1) + ((v >> 2) & 1) + ((v >> 3) & 1);
+    }
+    return n;
+  }
+
+  // A type-key row is one keyed by a type (DE93), not an option number, and
+  // constraining the GM. Several hold for one car -- the GM column is a
+  // mask, and 54110000 (DE11, the 535i) is a subset of 54930000 (DE93, the
+  // M5) bit for bit -- so "holds" is not "is". The row that NAMES the car is
+  // the most specific one: the exact value first, else the most bits. Its
+  // keywords are the car's body, engine, gearbox and market; the weaker
+  // rows' keywords (M62B35 for an S62 car) are not.
+  function typeRows(chassis, keys) {
+    const gm = up(keys && keys.gm);
+    const t = tablesFor(chassis);
+    const rows = (t && t.zst) || [];
+    // ON THE GM ALONE. A type row may also stamp a VN bit (DE93 carries
+    // 0000000001), but the type is the GM value; the SA/VN keys say what
+    // was fitted, not what the car is, and must not veto the name.
+    return rows
+      .filter(
+        (r) =>
+          !r.empty &&
+          r.gm &&
+          /[^0]/.test(r.gm) &&
+          !/^\d+$/.test(r.key) &&
+          maskHolds(gm, r.gm)
+      )
+      .sort((a, b) => {
+        const ea = a.gm === gm ? 1 : 0;
+        const eb = b.gm === gm ? 1 : 0;
+        return (
+          eb - ea ||
+          popcount(b.gm) - popcount(a.gm) ||
+          b.keywords.length - a.keywords.length
+        );
+      });
+  }
+
+  // ---- which car is this: the chassis, from the GM key alone ---------------
+
+  // The chassis a set of keys belongs to, ranked: [{ chassis, key, keywords,
+  // exact, bits, rows }], best first, empty when no table claims the key.
+  //
+  // THIS IS HOW A PLUG-IN-AND-GO TOOL KNOWS THE CAR WITHOUT BEING TOLD. The
+  // Grundmerkmal key (54930000) is the car's type key in BMW's own numbering,
+  // and every chassis ZST carries the type-key rows for the types it was
+  // built as (DE93 -> LIM, S62B50, MAN, LL, US). Asking every table for its
+  // most specific holding type row names the chassis -- no address list, no
+  // VIN prefix table, and it keeps working for a car whose VIN the cluster
+  // cannot say in full. An exact type value beats any subset (E38's GJ83
+  // mask sits inside the M5's GM bit for bit; DE93 equals it).
+  function chassisFromKeys(keys) {
+    const t = tables();
+    if (!t) return [];
+    const gm = up(keys && keys.gm);
+    const out = [];
+    for (const chassis of Object.keys(t)) {
+      if (chassis.startsWith('_')) continue;
+      const held = typeRows(chassis, keys);
+      if (!held.length) continue;
+      const best = held[0];
+      out.push({
+        chassis,
+        key: best.key,
+        keywords: best.keywords,
+        exact: best.gm === gm,
+        bits: popcount(best.gm),
+        rows: held.length,
+      });
+    }
+    return out.sort(
+      (a, b) => (b.exact ? 1 : 0) - (a.exact ? 1 : 0) || b.bits - a.bits
+    );
+  }
+
   // ---- the bridge: ZCS -> SA catalog numbers ------------------------------
 
   // What the car's ZCS keys say about its equipment.
@@ -183,9 +297,14 @@
     const t = tablesFor(chassis);
     const at = (t && t.at) || null;
     const rows = zstMatches(chassis, keys);
+    // Of the type-key rows only the most specific one speaks for the car
+    // (see typeRows); every other row is an option or a series stamp.
+    const types = typeRows(chassis, keys);
+    const spoken = new Set(types.slice(1));
     const keywords = [];
     const ci = {};
     for (const r of rows) {
+      if (spoken.has(r)) continue;
       for (const k of r.keywords) if (!keywords.includes(k)) keywords.push(k);
       for (const sg of Object.keys(r.ci || {})) ci[sg] = r.ci[sg];
     }
@@ -199,6 +318,23 @@
         unresolved.push(k);
       }
     }
+    // A ZST row KEYED BY A NUMBER is an option row, and the key is the SA
+    // number itself (H 0214 ... ASC): that is how the chassis without an AT
+    // dictionary -- every ZCS chassis but E46 -- still name their options.
+    // Type-key rows (DE93) and words (GVN, PU97) are not numbers and fall
+    // through to the keyword path above.
+    for (const r of rows) {
+      if (!/^\d+$/.test(r.key)) continue;
+      const n = String(parseInt(r.key, 10));
+      if (!codes.includes(n)) codes.push(n);
+    }
+    // The SA numbers straight off the encoding table. Unpadded, the way the
+    // AT numbers and the SGET predicates (S261) spell them.
+    const bits = sabitsMatches(chassis, keys);
+    for (const r of bits) {
+      const n = String(parseInt(r.key, 10));
+      if (!codes.includes(n)) codes.push(n);
+    }
     return {
       codes: codes.sort((a, b) => Number(a) - Number(b)),
       keywords,
@@ -206,14 +342,20 @@
       unresolved,
       resolved: codes.length > 0,
       rows: rows.length,
+      bits: bits.length,
     };
   }
 
   // ---- FA: the vehicle order, as text -------------------------------------
   //
   // Wire form:
-  //   E46_#0303*BW32%0A08&N6TT|7531125$205$210
-  //     ^BR  ^date ^type ^lack ^polster ^zusbau ^SA...
+  //   E46_#0303*BW32%0A08&N6TT|7531125$205$210+633L-1234
+  //     ^BR  ^date ^type ^lack ^polster ^zusbau ^SA...  ^HO word ^E word
+  //
+  // The marker set is FA.PRG's own: its decoder answers with SA_n, HO_WORT_n,
+  // E_WORT_n and ZUSBAU_n, and STANDARD_FA spells them `$`, `+`, `-`, `|`.
+  // A HO word (+633L) is a build code, not an option; read as the tail of
+  // the SA before it, it turned `$992+633L` into a phantom option 992633.
   //
   // Two traps, both of which produce a rejected write if got wrong:
   //
@@ -233,16 +375,19 @@
     '&': 'polster',
     '|': 'zusbau',
     $: 'sa',
+    '+': 'howort',
+    '-': 'ewort',
   };
+  const FA_MARKER_RE = /[_#*%&|$+-]/;
 
   // "E46_#0303*BW32..." -> { br, date, typ, lack, polster, zusbau[], sa[],
-  //                          tokens[{marker,value}], raw }
+  //                          howort[], ewort[], tokens[{marker,value}], raw }
   // Returns null for input that carries no marker at all.
   function parseFa(text) {
     const raw = String(text == null ? '' : text).trim();
     if (!raw) return null;
     // The chassis is everything before the first marker; `_` terminates it.
-    const first = raw.search(/[_#*%&|$]/);
+    const first = raw.search(FA_MARKER_RE);
     if (first < 0) return null;
     const out = {
       br: raw.slice(0, first) || null,
@@ -252,11 +397,13 @@
       polster: null,
       zusbau: [],
       sa: [],
+      howort: [],
+      ewort: [],
       tokens: [],
       raw,
     };
     // Walk marker-delimited runs, keeping the marker with its value.
-    const re = /([_#*%&|$])([^_#*%&|$]*)/g;
+    const re = /([_#*%&|$+-])([^_#*%&|$+-]*)/g;
     let m;
     while ((m = re.exec(raw)) !== null) {
       const marker = m[1];
@@ -287,6 +434,12 @@
         case 'sa':
           if (m[2]) out.sa.push(m[2]);
           break;
+        case 'howort':
+          if (m[2]) out.howort.push(m[2]);
+          break;
+        case 'ewort':
+          if (m[2]) out.ewort.push(m[2]);
+          break;
         default:
           break;
       }
@@ -308,29 +461,52 @@
     return out;
   }
 
-  // The SA numbers an order carries, normalised to the unpadded form SGET
-  // predicates use (S205, never S0205).
+  // An SA code as the catalogue spells it: a number loses its zero padding
+  // (S205, never S0205, the way SGET predicates write it); a code that is
+  // not a number (1CA, the E46 "Nummernschild" code) is itself. Stripping
+  // such a code to its digits would turn it into a DIFFERENT option -- 1CA
+  // is not SA 1 -- so anything that is not purely numeric is kept whole.
+  // Returns null for an empty token.
+  function saCode(s) {
+    const v = String(s == null ? '' : s)
+      .trim()
+      .toUpperCase();
+    if (!v) return null;
+    return /^\d+$/.test(v) ? String(parseInt(v, 10)) : v;
+  }
+
+  // Numbers first, in order; then the alphanumeric codes as the order lists
+  // them.
+  function saCompare(a, b) {
+    const na = /^\d+$/.test(a);
+    const nb = /^\d+$/.test(b);
+    if (na && nb) return Number(a) - Number(b);
+    return na === nb ? 0 : na ? -1 : 1;
+  }
+
+  // The SA codes an order carries, normalised (see saCode). Only the `$`
+  // tokens: the HO and E words beside them are build codes, not options.
   function saCodesFromFa(fa) {
     const f = typeof fa === 'string' ? parseFa(fa) : fa;
     if (!f) return [];
     const out = [];
     for (const s of f.sa) {
-      const n = String(s).replace(/[^0-9]/g, '');
-      if (!n) continue;
-      const k = String(parseInt(n, 10));
-      if (!out.includes(k)) out.push(k);
+      const k = saCode(s);
+      if (k && !out.includes(k)) out.push(k);
     }
-    return out.sort((a, b) => Number(a) - Number(b));
+    return out.sort(saCompare);
   }
 
   // What an SA number means, from the order dictionary. Falls back to null so
-  // a caller can show the bare number rather than invent a label.
+  // a caller can show the bare number rather than invent a label. The
+  // dictionaries are keyed by number; an alphanumeric code has no entry and
+  // must not borrow one by way of its digits.
   function saLabel(chassis, code) {
     const t = tablesFor(chassis);
     const at = t && t.at;
-    const key = String(code).replace(/[^0-9]/g, '');
-    if (!at || !at.sa || !key) return null;
-    const names = at.sa[String(parseInt(key, 10))];
+    const key = saCode(code);
+    if (!at || !at.sa || !key || !/^\d+$/.test(key)) return null;
+    const names = at.sa[key];
     return names && names.length ? names.join(', ') : null;
   }
 
@@ -348,9 +524,9 @@
   const SA_ART_RANK = { S: 0, L: 1, Q: 2, N: 3, Y: 4, X: 5, V: 6 };
   function saName(code, date) {
     const db = (typeof window !== 'undefined' && window.BMW_SA_NAMES) || null;
-    const key = String(code == null ? '' : code).replace(/[^0-9]/g, '');
-    if (!db || !key) return null;
-    const rows = db[String(parseInt(key, 10))];
+    const key = saCode(code);
+    if (!db || !key || !/^\d+$/.test(key)) return null;
+    const rows = db[key];
     if (!rows || !rows.length) return null;
     const d = Number(date) || 0;
     const rank = (r) => (r[0] in SA_ART_RANK ? SA_ART_RANK[r[0]] : 9);
@@ -381,10 +557,14 @@
     identityMasters,
     familyMap,
     zstMatches,
+    sabitsMatches,
+    chassisFromKeys,
+    typeRows,
     maskHolds,
     saCodesFromZcs,
     parseFa,
     formatFa,
+    saCode,
     saCodesFromFa,
     saLabel,
     saName,

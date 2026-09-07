@@ -146,6 +146,113 @@ const VI = require('../../app/renderer/core/vehicle-identity.js');
 
 // ---- 3. the bridge: ZCS keys -> SA catalog numbers --------------------------
 
+// ---- 3a. the K00 encoding table, pinned to a real E39 -----------------------
+//
+// Ground truth: a PA Soft "Information about car and ZCS/FA coding" photo of
+// an E39 M5 (2026-09-05), keys GM 54930000-E, SA 55A0001A914D9167-4,
+// VN 4B10100009-I, listing options 0602 0550 0214 0645 0670 0677 0194 0223
+// 0260 0261 0316 0364 0403. E39ZST.000 alone yields six of those; the other
+// seven exist only in E39ZST.K00's MONTAGEAUFTRAG section.
+const E39_M5 = { gm: '54930000', sa: '55A0001A914D9167', vn: '4B10100009' };
+const E39_M5_OPTIONS = [
+  '194',
+  '214',
+  '223',
+  '260',
+  '261',
+  '316',
+  '364',
+  '403',
+  '550',
+  '602',
+  '645',
+  '670',
+  '677',
+];
+
+{
+  const rows = VI.sabitsMatches('E39', E39_M5);
+  assert.ok(rows.length >= 13, `only ${rows.length} K00 rows hold`);
+  const held = new Set(rows.map((r) => String(parseInt(r.key, 10))));
+  for (const n of ['194', '223', '316', '364', '403', '645', '677']) {
+    assert.ok(held.has(n), `K00 row for ${n} does not hold`);
+  }
+  ok('K00: the seven E39 options ZST.000 lost all hold for the M5 keys');
+}
+
+{
+  const r = VI.saCodesFromZcs('E39', E39_M5);
+  for (const n of E39_M5_OPTIONS) {
+    assert.ok(r.codes.includes(n), `${n} missing from ${r.codes}`);
+  }
+  assert.ok(r.resolved);
+  // the type-key row carries what the car IS
+  for (const k of ['LIM', 'S62B50', 'MAN', 'US']) {
+    assert.ok(r.keywords.includes(k), `${k} missing`);
+  }
+  ok("bridge (E39): the photo's 13 options and the DE93 body/engine/gearbox");
+}
+
+{
+  // A retired number stays retired: 0194's ZST.000 row is all-zero and the
+  // K00 row needs SA bit 0x0080000000000000. A key without that bit must not
+  // list remote start.
+  const r = VI.saCodesFromZcs('E39', {
+    gm: '54930000',
+    sa: '0000000000000001',
+    vn: '0000000000',
+  });
+  assert.ok(r.codes.includes('223'), '223 (EDC) is SA bit 0');
+  assert.ok(!r.codes.includes('194'), '194 must not hold without its bit');
+  ok('K00: a row matches only where its bits are actually set');
+}
+
+// ---- 3b. the car names itself: chassis from the GM key ----------------------
+
+{
+  // The M5's GM alone must land on E39 -- that is the whole auto-detect.
+  const r = VI.chassisFromKeys({ gm: E39_M5.gm, sa: '', vn: '' });
+  assert.ok(r.length >= 1, 'no chassis claims the GM');
+  assert.strictEqual(r[0].chassis, 'E39');
+  assert.strictEqual(r[0].key, 'DE93');
+  assert.ok(r[0].keywords.includes('S62B50'));
+  ok('detect: GM 54930000 names E39 (type DE93) with no chassis given');
+}
+
+{
+  // Every chassis table must be able to name at least one of its own types,
+  // and an option-only key (SA bits, no GM) must name nothing: option rows
+  // are shared across chassis and would otherwise vote for the wrong car.
+  const t = window.BMW_TABLES;
+  for (const ch of Object.keys(t)) {
+    if (ch.startsWith('_')) continue;
+    const row = (t[ch].zst || []).find(
+      (r) => /[^0]/.test(r.gm) && !/^\d+$/.test(r.key)
+    );
+    if (!row) continue;
+    const r = VI.chassisFromKeys({ gm: row.gm, sa: '', vn: '' });
+    assert.ok(
+      r.some((x) => x.chassis === ch),
+      `${ch}: its own type key ${row.key} (GM ${row.gm}) is not claimed`
+    );
+  }
+  const none = VI.chassisFromKeys({
+    gm: '00000000',
+    sa: 'FFFFFFFFFFFFFFFF',
+    vn: 'FFFFFFFFFF',
+  });
+  assert.deepStrictEqual(none, []);
+  ok('detect: every chassis claims its own type keys; SA bits alone name none');
+}
+
+{
+  const m = VI.identityMasters('E39')
+    .map((x) => x.sg)
+    .sort();
+  assert.deepStrictEqual(m, ['EWS', 'IKE', 'KMB']);
+  ok('SGFAM: E39 identity masters are the cluster and EWS, as PA Soft reads');
+}
+
 {
   // Ground truth from E46ZST.000:
   //   H 261 N0699 00000000 0000000000000080 0000000000 1 FOND_AIRBAG

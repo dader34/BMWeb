@@ -229,6 +229,154 @@ const ok = (m) => {
     assert.strictEqual(oreq.at(-1).status, 200, `read runs through: ${p}`);
   }
   assert.strictEqual(gateCalls, 0, 'no read of any kind prompts the owner');
+  // ONE APPROVAL PER USER ACTION. A key press is several jobs; the runtime
+  // tags each with the action, the owner is asked once, the rest pass. A
+  // different action asks again; the script's session plumbing never asks.
+  gateCalls = 0;
+  const seenActions = [];
+  Remote.onGate = async (j) => {
+    gateCalls++;
+    seenActions.push(j.action && j.action.label);
+    return true;
+  };
+  const act = {
+    id: 'a1',
+    label: '+10',
+    jobs: ['STOP_SYSTEMCHECK_LLERH', 'START_SYSTEMCHECK_LLERH'],
+  };
+  for (const job of [
+    'STOP_SYSTEMCHECK_LLERH',
+    'START_SYSTEMCHECK_LLERH',
+    'DIAGNOSE_AUFRECHT',
+  ]) {
+    await Remote._ownerHandle({
+      t: 'req',
+      id: 'act_' + job,
+      path: `/api/ecu/ms450ds0/run/${job}?arg=730`,
+      init: { method: 'POST', action: act },
+    });
+    assert.strictEqual(oreq.at(-1).status, 200, `${job} runs under the action`);
+  }
+  assert.strictEqual(gateCalls, 1, `the action asked once: ${gateCalls}`);
+  assert.deepStrictEqual(
+    seenActions,
+    ['+10'],
+    'the owner saw the action, not a job'
+  );
+  await Remote._ownerHandle({
+    t: 'req',
+    id: 'act_other',
+    path: '/api/ecu/ms450ds0/run/STEUERN_EKP?arg=1',
+    init: {
+      method: 'POST',
+      action: { id: 'a2', label: 'Fuel pump on', jobs: ['STEUERN_EKP'] },
+    },
+  });
+  assert.strictEqual(gateCalls, 2, 'a different action asks again');
+  // plumbing on its own never asks, even untagged
+  await Remote._ownerHandle({
+    t: 'req',
+    id: 'pl',
+    path: '/api/ecu/ms450ds0/run/DIAGNOSE_AUFRECHT',
+  });
+  assert.strictEqual(gateCalls, 2, 'a keep-alive never prompts');
+  // WAITING ON A PERSON: a helper's write/activation request raises the
+  // awaiting flag until the owner answers; a read never does
+  {
+    Remote.role = 'helper';
+    Remote.access = 'rw';
+    Remote.accepted = true;
+    const hsent = [];
+    Remote.chan = {
+      readyState: 'open',
+      send: (s) => hsent.push(JSON.parse(s)),
+    };
+    const waits = [];
+    Remote.onAwait = (w) => waits.push(w);
+    const pr = Remote.request('/api/ecu/zke5/run/STEUERN_DIGITAL?arg=SFBA');
+    await tick(); // request() first awaits the channel
+    assert.deepStrictEqual(waits, [true], 'a write request says it waits');
+    Remote._helperResponse({
+      t: 'res',
+      id: hsent.at(-1).id,
+      status: 200,
+      body: { ok: 1 },
+    });
+    await pr;
+    assert.deepStrictEqual(waits, [true, false], 'answered: no longer waiting');
+    const pr2 = Remote.request('/api/ecu/zke5/run/STATUS_LESEN');
+    await tick();
+    assert.strictEqual(waits.length, 2, 'a read never raises the flag');
+    Remote._helperResponse({
+      t: 'res',
+      id: hsent.at(-1).id,
+      status: 200,
+      body: {},
+    });
+    await pr2;
+    Remote.onAwait = null;
+  }
+
+  // VERSION GATE: a helper on another build is refused before the owner is
+  // asked, and told both versions; the same build is admitted as before
+  {
+    Remote._teardown();
+    Remote.role = 'owner';
+    Remote.chan = { readyState: 'open', send: (s) => oreq.push(JSON.parse(s)) };
+    Remote.ending = false;
+    let asked = 0;
+    Remote.onAccept = async () => {
+      asked++;
+      return true;
+    };
+    Remote._rehost = async () => {};
+    global.window = { BMACW_VERSION: '1.2.3' };
+    await Remote._ownerAccept({ ua: 'x', v: '1.2.2' });
+    const last = oreq.at(-1);
+    assert.strictEqual(last.t, 'admit');
+    assert.strictEqual(last.ok, false, 'a mismatched helper is refused');
+    assert.strictEqual(last.reason, 'version');
+    assert.deepStrictEqual([last.owner, last.helper], ['1.2.3', '1.2.2']);
+    assert.strictEqual(asked, 0, 'the owner is not even asked');
+    assert.strictEqual(Remote.accepted, false);
+    await Remote._ownerAccept({ ua: 'x', v: '1.2.3' });
+    assert.strictEqual(oreq.at(-1).ok, true, 'the same version is admitted');
+    assert.strictEqual(asked, 1, 'and the owner was asked for consent');
+    // the helper side reports both versions and ends
+    Remote.role = 'helper';
+    let ended = '';
+    const realEnd = Remote.end;
+    Remote.end = (why) => {
+      ended = String(why);
+    };
+    Remote._helperAdmitted({
+      t: 'admit',
+      ok: false,
+      reason: 'version',
+      owner: '1.2.3',
+      helper: '1.2.2',
+    });
+    assert.ok(
+      /1\.2\.2/.test(ended) && /1\.2\.3/.test(ended),
+      `helper told both versions: ${ended}`
+    );
+    Remote.end = realEnd;
+    Remote.onAccept = null;
+    global.window = undefined;
+  }
+
+  // an approval does not survive the session
+  Remote._teardown();
+  Remote.role = 'owner';
+  Remote.chan = { readyState: 'open', send: (s) => oreq.push(JSON.parse(s)) };
+  Remote.accepted = true;
+  await Remote._ownerHandle({
+    t: 'req',
+    id: 'act_again',
+    path: '/api/ecu/ms450ds0/run/START_SYSTEMCHECK_LLERH?arg=740',
+    init: { method: 'POST', action: act },
+  });
+  assert.strictEqual(gateCalls, 3, 'a new session asks afresh');
   // a request before the owner admits is refused
   Remote.accepted = false;
   Remote._onMessage({

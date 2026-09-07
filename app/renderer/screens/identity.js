@@ -14,10 +14,10 @@ function identRows(fields, vals) {
   return fields
     .map((f) => {
       const raw = vals.get(f.key);
-      const val = esc(deGerman(raw) || raw);
+      const val = esc(irLabel(raw) || raw);
       // generated screens fall back to the SGBD's own German result description
       // when INPA has no caption for a field, so labels get translated too
-      const label = esc(deGerman(f.label) || f.label);
+      const label = esc(irLabel(f.label) || f.label);
       // a field the SGBD contributed but INPA's own screen does not show
       const extra = f.extra ? ' ident-extra' : '';
       return inpa

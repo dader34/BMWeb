@@ -62,6 +62,8 @@ const grabConst = (name) => {
 const sandbox = new Function(
   grabConst('XOR_CONCEPTS') +
     '\n' +
+    grabConst('DS_ANSWER_LEN_DEFAULT') +
+    '\n' +
     grabConst('SUM_CONCEPTS') +
     '\n' +
     grab('checksumOf') +
@@ -213,7 +215,7 @@ console.log('\nDTR is asserted for every K-line write');
   // the UART, and never reach the K line -- silence that reads as a dead ECU.
   const web = src.slice(
     src.indexOf('class WebSerialBus'),
-    src.indexOf('class ThorWifiBus')
+    src.indexOf('const webBus =')
   );
   ok(/dataTerminalReady: true/.test(web), 'DTR is raised before the write');
   ok(/dataTerminalReady: false/.test(web), 'and dropped after it');
@@ -233,7 +235,7 @@ console.log('\nthe wake lives on the bus that owns the wires');
   // nothing about the app said why.
   const web = src.slice(
     src.indexOf('class WebSerialBus'),
-    src.indexOf('class ThorWifiBus')
+    src.indexOf('const webBus =')
   );
   const nat = src.slice(
     src.indexOf('class NativeSerialBus'),

@@ -1383,12 +1383,19 @@ class Best2Vm {
         const idx = A[0] === 9 ? A[2] : this.getReg(A[2]);
         const n = this.val(B);
         const buf = this.getS(reg);
-        const out = new Uint8Array(Math.max(0, buf.length - Math.max(0, n)));
-        let w = 0;
-        for (let i = 0; i < buf.length; i++) {
-          if (i < idx || i >= idx + n) out[w++] = buf[i];
-        }
-        this.setS(reg, out.slice(0, w));
+        // The gap is CLIPPED to the string: an erase at or past the end
+        // removes nothing, and one that runs past the end removes only what
+        // is there. Sizing the result as length-minus-count instead dropped
+        // the surviving bytes whenever the range overhung -- FA.PRG's
+        // `serase S4[1], 1` on a one-byte S4 emptied it, and the vehicle
+        // order decode stopped at its third option with
+        // ERROR_UNKNOWN_IDENTIFIER.
+        const from = Math.max(0, Math.min(buf.length, idx));
+        const to = Math.max(from, Math.min(buf.length, idx + Math.max(0, n)));
+        const out = new Uint8Array(buf.length - (to - from));
+        out.set(buf.subarray(0, from), 0);
+        out.set(buf.subarray(to), from);
+        this.setS(reg, out);
         return;
       }
       case 'srevrs': {

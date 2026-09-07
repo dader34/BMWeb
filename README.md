@@ -56,10 +56,10 @@ the app runs fully for everything offline — fault lookup, wiring diagrams,
 service documents, the parts catalogue — but cannot reach the car from the
 browser.
 
-**K+DCAN cable** (Settings → Adapter → K+DCAN, the default). Plug the cable
-straight into the machine, no hub, and click the cable chip in the top bar;
-Web Serial only opens its port picker from a click, so there is no automatic
-connect. On macOS the port is `cu.usbserial*`, `cu.SLAB*` or
+**K+DCAN cable.** Plug the cable straight into the machine, no hub, and click
+the cable chip in the top bar; Web Serial only opens its port picker from a
+click, so the first connect is always yours. After that the browser remembers
+the port and the app reopens it on every load with no picker. On macOS the port is `cu.usbserial*`, `cu.SLAB*` or
 `cu.wchusbserial*`; on Linux `ttyUSB*` or `ttyACM*`
 (`scripts/setup/99-bmacw-kdcan.rules` grants the permission). The app opens
 at 115200 8N1 and re-opens at 9600 8E1 for DS2/KWP2000 modules on its own.
@@ -70,9 +70,6 @@ you when `IFH-0003` looks like that.
 "Share my car" and gets an 8-character code; anyone else opens the same app,
 enters the code, and drives the car over a WebRTC data channel. Only the
 car-touching requests cross the link; the helper sees the same screens.
-
-**Demo mode** (Settings, or `?demo=1`) runs every screen against simulated
-values, clearly badged, with no cable.
 
 
 ## What it does
@@ -166,7 +163,6 @@ Flashing is backup (read) only.
 
 | Flag | Effect |
 |---|---|
-| `?demo=1` | demo mode, simulated values |
 | `?api=<base>` | alternate API base |
 | `?dtc=<code>&sgbd=<name>` | deep link to a fault lookup entry |
 | `#apps`, `#apps/wiring/…`, `#apps/parts/…`, `#apps/tool32` | Apps hub routes |

@@ -42,7 +42,7 @@
 #
 # Run i18n before --write and step 1 overwrites its work: every IR lands with
 # i18n {} and the app renders raw German captions ("Control zurück an DME").
-# test_ir_render.js is what catches it -- and `git status` will NOT, because
+# test_ir_i18n.js is what catches it -- and `git status` will NOT, because
 # data/* and ecus/ are gitignored, so a clean tree says nothing about whether
 # the generated content is right. Trust check.sh, not git.
 #
@@ -82,8 +82,8 @@ echo "== freeze-frame (Umwelt) dictionary is a pure lookup =="
 node tools/verify/test_env_i18n.js
 
 echo
-echo "== IR interpreter renders known screens =="
-node tools/verify/test_ir_render.js
+echo "== captions translate through exact dictionaries only =="
+node tools/verify/test_ir_i18n.js
 
 echo
 echo "== ECU backup engine: crypto bit-exact, reads byte-identical, rails hold =="
@@ -114,6 +114,7 @@ fi
 echo
 echo "== the VM against captured telegrams =="
 node tools/verify/test_bestvm.js || exit 1
+node tools/verify/test_fa_stream.js || exit 1
 
 echo
 echo "== group SGBDs resolve variants (address -> concrete SGBD) =="
@@ -148,6 +149,10 @@ echo "== ECU memory read: region units (word vs byte), chunking, refused reads =
 node tools/verify/test_tuning_memory.js || exit 1
 
 echo
+echo "== ECU read dialog: count/range comments, profile regions, status origin, identify =="
+node tools/verify/test_tuning_read.js || exit 1
+
+echo
 echo "== Web Serial read: a timed-out read is resumed, not orphaned (echo loss) =="
 node tools/verify/test_readsome.js || exit 1
 
@@ -158,14 +163,6 @@ node tools/verify/test_iso9141.js || exit 1
 echo
 echo "== BMW-FAST long form (0xB8): XOR checksum, length byte, short->long fallback =="
 node tools/verify/test_longform.js || exit 1
-
-echo
-echo "== prompted activations: INPA's own range, appended to the job argument =="
-node tools/verify/test_irprompt.js || exit 1
-
-echo
-echo "== fault-read entries that carry no job (INPA shows the list implicitly) =="
-node tools/verify/test_irfaultread.js || exit 1
 
 echo
 echo "== AUFTRAGSAUSDRUCK: byte-coded predicate, precedence, real SGET bytes =="
@@ -186,6 +183,10 @@ node tools/verify/test_vehicle_identity.js || exit 1
 echo
 echo "== Coding selection: SGET predicates pick the module and its coding file =="
 node tools/verify/test_coding_select.js || exit 1
+
+echo
+echo "== live .IPO runtime: entry, keys, screens, machines, scriptchange =="
+node tools/verify/test_ipo_runtime.js || exit 1
 
 echo
 echo "== renderer's VM bridge reconstructs frames the engine consumed =="

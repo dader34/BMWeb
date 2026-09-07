@@ -56,7 +56,7 @@ function resolveRoute(route) {
   if (exact) return exact;
   // #car/<CHASSIS>[/<SGBD>[/<MENU>]] -- the vehicle side. The module is keyed
   // by SGBD (stable, unlike a display label) and the submenu by its IR menu
-  // name, which is the same key renderIrMenu already navigates by.
+  // name, which is the same key the live runtime navigates by.
   const c = /^car\/([A-Za-z0-9]+)(?:\/([A-Za-z0-9_-]+)(?:\/(.+))?)?$/.exec(
     route
   );

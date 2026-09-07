@@ -91,7 +91,6 @@ const _codingGroupNames = () =>
   typeof groupNames === 'function' ? groupNames() : Promise.resolve(null);
 
 async function codingResolveVariants(mods) {
-  if (typeof demoMode === 'function' && demoMode()) return mods;
   if (typeof webResolveVariant !== 'function') return mods;
   const amb = await _codingGroupNames();
   const cache = new Map();
@@ -185,8 +184,7 @@ async function showCodingHub(chassisId, initialTab) {
   // setting, and a change is staged as a delta against it. With nothing
   // connected the reads all fail and the editor used to draw the whole car
   // anyway, at library defaults -- settings that look read but are invented.
-  // Demo mode is exempt: it says outright that its values are simulated.
-  if (!(typeof demoMode === 'function' && demoMode())) {
+  {
     let port = null;
     try {
       ({ port } = await api('/api/port'));
@@ -202,8 +200,7 @@ async function showCodingHub(chassisId, initialTab) {
         `against it. With nothing connected there is nothing to read.</div>` +
         `<div style="font-size:12px;color:var(--ink-faint);max-width:48ch">` +
         `Showing defaults here would look like the car’s own settings. ` +
-        `Connect the adapter and open Coding again, or turn on Demo mode to ` +
-        `explore the screens with simulated values.</div>`;
+        `Connect the cable and open Coding again.</div>`;
       view.appendChild(need);
       setActions([
         {
@@ -328,12 +325,8 @@ function codingDecoded(entry, got) {
 // decoder here, so it is kept and marked rather than shown as toggles it
 // cannot back. One that never answered is dropped: on a real car that is
 // almost always hardware this car does not carry.
-//
-// Demo mode keeps everything -- there is no car to answer, and the point there
-// is to see the screens.
 function codingPresent(mods, scan) {
   const status = (scan && scan.status) || new Map();
-  if (typeof demoMode === 'function' && demoMode()) return mods;
   if (!status.size) return mods; // pre-scan callers: unchanged
   return mods
     .map((m) => ({ ...m, coding: status.get(m.sgbd) || { state: 'silent' } }))
@@ -659,9 +652,6 @@ async function readVehicleSaCodes(chassisId) {
     typeof VehicleIdentity === 'undefined'
   )
     return [];
-  // Demo mode has no car to ask, and inventing an equipment list there would
-  // silently re-point modules against codes nothing measured.
-  if (typeof demoMode === 'function' && demoMode()) return [];
   try {
     const got = await readIdentityCodes(chassisId);
     return (got && got.codes) || [];
@@ -1521,7 +1511,7 @@ async function expertTree(chassisId, mods, cont, back, scan, reScan, showAll) {
 }
 
 // The staged-changes review for the Expert tree, sharing the curated review's
-// readable row + demo-aware footer.
+// readable row.
 async function treeReview(built, state, label) {
   // Gather staged changes per module: sgbd -> [{rule, value}]
   const byMod = new Map();
@@ -1551,21 +1541,18 @@ async function treeReview(built, state, label) {
     }
   }
 
-  const demo = typeof demoMode === 'function' && demoMode();
-  const foot = demo
-    ? `<b>Demo mode.</b> No car is connected, so "Write" only simulates the ` +
-      `coding write — nothing leaves the app and no ECU is touched.`
-    : `<b>Ready to write.</b> This will send the changes to the car's ECUs. ` +
-      `Each module is written, then re-read to verify the write succeeded.`;
+  const foot =
+    `<b>Ready to write.</b> This will send the changes to the car's ECUs. ` +
+    `Each module is written, then re-read to verify the write succeeded.`;
 
   const ok = await confirmDialog({
     title: 'Review coding changes',
     body:
       `<div class="cod-rev-list">${rows.join('')}</div>` +
       `<div class="cod-rev-foot">${foot}</div>`,
-    confirmLabel: demo ? 'Write (demo)' : 'Write to car',
+    confirmLabel: 'Write to car',
     cancelLabel: 'Cancel',
-    danger: !demo,
+    danger: true,
   });
 
   if (!ok) return;

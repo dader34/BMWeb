@@ -356,9 +356,14 @@ function showTuning() {
   // on it unchanged. READ ONLY: every job offered here is a *_LESEN.
   //
   // The regions are not hardcoded and not mined from an INPA screen -- they
-  // come from each job's own argument spec, which declares its address range,
-  // its max chunk, and crucially its UNIT. kombi46's EEPROM_LESEN addresses
-  // and counts 2-byte WORDS; its ROM_LESEN counts BYTES. See tuning-memory.js.
+  // come from a sourced flash profile where one exists, else from each job's
+  // own argument spec (address range, max chunk, and crucially its UNIT), else
+  // the user types a start and a length. See tuning-memory.js.
+  //
+  // Before any read the module is IDENTIFIED (group probe or IDENT), so a
+  // module that is not on this car says so in words, instead of a bare status
+  // token. A refused read shows the SGBD's own status text, and says whether
+  // the ECU refused or the job never transmitted.
   async function onReadFromEcu() {
     if (typeof window.TuningMemory === 'undefined') {
       els.status.textContent = 'memory reader not loaded';
@@ -380,6 +385,12 @@ function showTuning() {
         <div class="modal-title">Read memory from an ECU</div>
         <div class="modal-body">
           <div class="tn-ecu-row">
+            <label class="tn-ecu-lbl" for="tn-ecu-car">Car</label>
+            <select class="tn-ecu-car" id="tn-ecu-car">
+              <option value="">any chassis</option>
+            </select>
+          </div>
+          <div class="tn-ecu-row">
             <label class="tn-ecu-lbl" for="tn-ecu-sgbd">Module</label>
             <div class="tn-ecu-combo" id="tn-ecu-combo">
               <input class="tn-ecu-in" id="tn-ecu-sgbd" role="combobox"
@@ -390,8 +401,19 @@ function showTuning() {
             </div>
           </div>
           <div class="tn-ecu-sug" id="tn-ecu-sug" role="listbox" hidden></div>
+          <div class="tn-ecu-ident" id="tn-ecu-ident" hidden></div>
           <div class="tn-ecu-regions" id="tn-ecu-regions">
             <div class="tn-ecu-hint">Pick a module to see what it can read.</div>
+          </div>
+          <div class="tn-ecu-span" id="tn-ecu-span" hidden>
+            <label class="tn-ecu-field">Start
+              <input class="tn-ecu-num" id="tn-ecu-start" spellcheck="false" autocomplete="off"></label>
+            <label class="tn-ecu-field">Length
+              <input class="tn-ecu-num" id="tn-ecu-len" inputmode="numeric" autocomplete="off">
+              <span id="tn-ecu-unit">bytes</span></label>
+            <label class="tn-ecu-field">Per read
+              <input class="tn-ecu-num" id="tn-ecu-chunk" inputmode="numeric" autocomplete="off"></label>
+            <div class="tn-ecu-span-note" id="tn-ecu-span-note"></div>
           </div>
           <div class="tn-ecu-prog" id="tn-ecu-prog" hidden></div>
         </div>
@@ -404,8 +426,16 @@ function showTuning() {
     );
 
     const $ = (sel) => overlay.querySelector(sel);
+    const carSel = $('#tn-ecu-car');
     const sgbdIn = $('#tn-ecu-sgbd');
+    const identEl = $('#tn-ecu-ident');
     const regionBox = $('#tn-ecu-regions');
+    const spanBox = $('#tn-ecu-span');
+    const startIn = $('#tn-ecu-start');
+    const lenIn = $('#tn-ecu-len');
+    const unitEl = $('#tn-ecu-unit');
+    const chunkIn = $('#tn-ecu-chunk');
+    const spanNote = $('#tn-ecu-span-note');
     const prog = $('#tn-ecu-prog');
     const goBtn = $('#tn-ecu-go');
     const st = {
@@ -414,6 +444,10 @@ function showTuning() {
       pick: null,
       busy: false,
       cancel: false,
+      car: '',
+      carRows: [], // { sgbd, label, section, group } from the chassis config
+      other: [],
+      ident: new Map(), // sgbd -> identify result, once per dialog
     };
 
     $('#tn-ecu-cancel').onclick = () => {
@@ -421,46 +455,181 @@ function showTuning() {
       close();
     };
 
-    const fmtAddr = (n, wide) =>
+    const fmtAddr = (n, digits) =>
       '0x' +
       n
         .toString(16)
         .toUpperCase()
-        .padStart(wide ? 4 : 2, '0');
+        .padStart(digits || 2, '0');
+    const groupOf = (sgbd) => {
+      const row = st.carRows.find((r) => r.sgbd === sgbd);
+      return row ? row.group : null;
+    };
+    const setBusy = (b) => {
+      st.busy = b;
+      goBtn.disabled = b || !st.pick || !!(st.pick && st.pick.locked);
+      sgbdIn.disabled = b;
+      carSel.disabled = b;
+    };
+
+    // -- the car ---------------------------------------------------------------
+    // The chassis config lists the modules this car carries, with their labels
+    // and diagnostic groups; those go first in the picker, and the group is
+    // what lets a module be identified before it is read.
+    async function setCar(id) {
+      st.car = String(id || '').toUpperCase();
+      st.carRows = [];
+      st.other = sgbds.slice();
+      if (st.car) {
+        const cfg = await TM.chassisConfig(st.car);
+        const ranked = TM.rankModules(sgbds, cfg);
+        st.carRows = ranked.car;
+        st.other = ranked.other;
+      }
+    }
+    (async () => {
+      const ids = await TM.chassisList();
+      for (const id of ids) {
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent =
+          typeof dispChassis === 'function' ? dispChassis(id) : id;
+        carSel.appendChild(o);
+      }
+      const def = await TM.defaultChassis();
+      if (def && ids.includes(def)) carSel.value = def;
+      await setCar(carSel.value);
+    })();
+    carSel.onchange = async () => {
+      TM.rememberChassis(carSel.value);
+      await setCar(carSel.value);
+      if (sugOpen) openSug(!sgbdIn.value.trim());
+    };
+
+    // -- identify --------------------------------------------------------------
+    function paintIdent(sgbd, r) {
+      if (!r) {
+        identEl.hidden = true;
+        identEl.innerHTML = '';
+        return;
+      }
+      identEl.hidden = false;
+      identEl.className =
+        'tn-ecu-ident ' +
+        (r.state === 'ok'
+          ? 'ok'
+          : r.state === 'pending' || r.state === 'no-cable'
+            ? 'dim'
+            : 'bad');
+      if (r.state === 'pending') {
+        identEl.textContent = `Identifying ${sgbd}…`;
+        return;
+      }
+      identEl.textContent = TM.identText(sgbd, r);
+      if (r.state === 'variant') {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn tn-ecu-use';
+        b.textContent = `Use ${r.variant}`;
+        b.onclick = () => choose(r.variant);
+        identEl.appendChild(b);
+      }
+    }
+
+    // One probe per module per dialog. Runs when a module is picked and again
+    // on Read only if the earlier attempt could not reach the car.
+    async function identify(sgbd, force) {
+      const had = st.ident.get(sgbd);
+      if (
+        had &&
+        !force &&
+        had.state !== 'pending' &&
+        had.state !== 'no-cable' &&
+        had.state !== 'error'
+      ) {
+        return had;
+      }
+      st.ident.set(sgbd, { state: 'pending' });
+      if (st.sgbd === sgbd) paintIdent(sgbd, { state: 'pending' });
+      let r;
+      try {
+        r = await TM.identify(sgbd, groupOf(sgbd));
+      } catch (e) {
+        r = { state: 'error', detail: String((e && e.message) || e) };
+      }
+      st.ident.set(sgbd, r);
+      if (st.sgbd === sgbd) paintIdent(sgbd, r);
+      return r;
+    }
+
+    // -- regions ---------------------------------------------------------------
+    function regionMeta(r) {
+      const span = r.hi != null ? r.hi - r.lo + 1 : 0;
+      const bytes = span * r.wordBytes;
+      const unitWord = r.unit === 'word';
+      let range;
+      if (r.rangeKind === 'profile') {
+        range = `${fmtAddr(r.lo, r.addrDigits)}–${fmtAddr(r.hi, r.addrDigits)} · ${fmtBytes(bytes)}`;
+      } else if (r.rangeKind === 'declared') {
+        range =
+          `${fmtAddr(r.lo, r.addrDigits)}–${fmtAddr(r.hi, r.addrDigits)}` +
+          ` · ${span} ${unitWord ? 'words' : 'bytes'}` +
+          (unitWord ? ` (${bytes} bytes)` : '');
+      } else if (r.rangeKind === 'field') {
+        range = `${r.addrDigits * 4}-bit address field · extent not declared`;
+      } else {
+        range = 'range not declared';
+      }
+      const chunk = r.maxKnown
+        ? `${r.max}${unitWord ? ' words' : ''}/read`
+        : `per read not declared (${TM.UNKNOWN_CHUNK} default)`;
+      return `${range} · ${chunk}`;
+    }
+
+    function regionNote(r) {
+      if (r.locked) return r.locked;
+      if (r.source === 'profile') {
+        return (
+          `${r.profile} flash profile` +
+          (r.verified ? ' · real-car verified' : ' · not yet real-car verified')
+        );
+      }
+      const bits = [];
+      if (r.addrComment) bits.push(`${r.addrArg}: ${r.addrComment}`);
+      if (r.countComment) bits.push(`${r.lenArg}: ${r.countComment}`);
+      return bits.join(' · ') || 'the job documents no bounds';
+    }
 
     function paintRegions() {
+      spanBox.hidden = true;
       if (!st.regions.length) {
         regionBox.innerHTML =
           `<div class="tn-ecu-hint">` +
-          `This module declares no readable memory region.</div>`;
+          `This module declares no memory-read job (RAM/ROM/EEPROM/SPEICHER_LESEN).</div>`;
         goBtn.disabled = true;
         return;
       }
       regionBox.innerHTML = st.regions
         .map((r, i) => {
-          const wide = r.hi > 0xff;
-          const span = r.hi - r.lo + 1;
-          const bytes = span * r.wordBytes;
           const sel = r.types.length
             ? `<select class="tn-ecu-type" data-i="${i}">${r.types
                 .map((t) => `<option>${esc(t)}</option>`)
                 .join('')}</select>`
             : '';
-          return (
-            `<label class="tn-ecu-region">
-          <input type="radio" name="tn-ecu-r" value="${i}">
+          const title = r.source === 'profile' ? r.label : r.kind;
+          return `<label class="tn-ecu-region${r.locked ? ' locked' : ''}">
+          <input type="radio" name="tn-ecu-r" value="${i}"${r.locked ? ' disabled' : ''}>
+          <span class="tn-ecu-kind">${esc(title)}</span>
           <span class="tn-ecu-job">${esc(r.job)}</span>
-          <span class="tn-ecu-meta">${fmtAddr(r.lo, wide)}–${fmtAddr(r.hi, wide)}` +
-            ` · ${span} ${r.unit === 'word' ? 'words' : 'bytes'}` +
-            (r.unit === 'word' ? ` (${bytes} bytes)` : '') +
-            ` · ${r.max}/read</span>${sel}</label>`
-          );
+          <span class="tn-ecu-meta">${esc(regionMeta(r))}</span>
+          <span class="tn-ecu-comment">${esc(regionNote(r))}</span>${sel}</label>`;
         })
         .join('');
       regionBox.querySelectorAll('input[name=tn-ecu-r]').forEach((el) => {
         el.onchange = () => {
           st.pick = st.regions[+el.value];
-          goBtn.disabled = false;
+          paintSpan();
+          goBtn.disabled = !!st.pick.locked;
         };
       });
       regionBox.querySelectorAll('.tn-ecu-type').forEach((sel) => {
@@ -470,14 +639,84 @@ function showTuning() {
       });
     }
 
+    // The span to read. Prefilled from what is known; a field-width or
+    // undeclared range leaves the length for the user, since nothing sourced
+    // says how much memory is there.
+    function paintSpan() {
+      const r = st.pick;
+      if (!r) {
+        spanBox.hidden = true;
+        return;
+      }
+      spanBox.hidden = false;
+      const unitWord = r.unit === 'word';
+      unitEl.textContent = unitWord ? 'words' : 'bytes';
+      startIn.value = fmtAddr(r.lo, r.addrDigits);
+      chunkIn.value = String(r.max);
+      const cap = r.source === 'profile' ? Infinity : TM.MAX_TOTAL;
+      const span = r.hi != null ? r.hi - r.lo + 1 : 0;
+      if (r.rangeKind === 'profile' || r.rangeKind === 'declared') {
+        lenIn.value = String(span);
+        spanNote.textContent =
+          r.rangeKind === 'profile'
+            ? `Whole region as the ${r.profile} profile documents it.`
+            : 'Whole declared range; shorten it to read part.';
+      } else if (r.rangeKind === 'field' && span * r.wordBytes <= cap) {
+        lenIn.value = String(span);
+        spanNote.textContent =
+          `The whole ${r.addrDigits * 4}-bit address field. The module may hold less ` +
+          'and answer short, which ends the read.';
+      } else {
+        // nothing sourced bounds this memory: start small, say so, and let
+        // the user widen it
+        const dflt = Math.max(1, Math.floor(256 / r.wordBytes));
+        lenIn.value = String(dflt);
+        spanNote.textContent =
+          `The module's memory map is not declared anywhere this build can read: ` +
+          `this reads ${fmtBytes(dflt * r.wordBytes)} from the start. Change the start and ` +
+          `length as needed (up to ${fmtBytes(TM.MAX_TOTAL)}).`;
+      }
+      if (!r.maxKnown) {
+        spanNote.textContent +=
+          ' The job does not say how many bytes one read may return; lower "per read" if the module refuses.';
+      }
+    }
+
+    // Validate the typed span -> { start, end, chunk } or a string error.
+    function readPlan() {
+      const r = st.pick;
+      if (!r) return 'pick a region';
+      const startTxt = startIn.value.trim().replace(/^0x/i, '');
+      if (!/^[0-9a-f]+$/i.test(startTxt)) return 'start must be a hex address';
+      const start = parseInt(startTxt, 16);
+      const len = parseInt(lenIn.value.trim(), 10);
+      if (!Number.isFinite(len) || len <= 0)
+        return 'length must be a positive number';
+      const chunk = parseInt(chunkIn.value.trim(), 10);
+      if (!Number.isFinite(chunk) || chunk <= 0)
+        return 'per read must be a positive number';
+      if (r.maxKnown && chunk > r.max)
+        return `this job allows at most ${r.max} per read`;
+      if (chunk > 255) return 'per read cannot exceed 255';
+      const end = start + len - 1;
+      if (r.hi != null && (start < r.lo || end > r.hi)) {
+        return `outside the region ${fmtAddr(r.lo, r.addrDigits)}–${fmtAddr(r.hi, r.addrDigits)}`;
+      }
+      const cap = r.source === 'profile' ? Infinity : TM.MAX_TOTAL;
+      if (len * r.wordBytes > cap)
+        return `at most ${fmtBytes(cap)} per read session`;
+      return { start, end, chunk };
+    }
+
+    // -- the module picker -----------------------------------------------------
     // A DROPDOWN, not a bare search box. A native <datalist> renders in OS
     // chrome -- it escaped the modal, ignored the theme, and offered no way to
     // browse. This opens on click showing every module, and typing narrows it.
-    // The list is in normal flow inside the dialog rather than floating, so it
-    // can neither be clipped by the modal nor overlap the page behind it.
+    // The car's own modules come first under their own heading, the rest of
+    // the build under "Other modules".
     const sug = $('#tn-ecu-sug');
     const caret = $('#tn-ecu-caret');
-    let sugItems = [];
+    let sugItems = []; // { sgbd, text, head }
     let sugAt = -1;
     let sugOpen = false;
 
@@ -500,9 +739,16 @@ function showTuning() {
       }
       sug.innerHTML = sugItems
         .map(
-          (name, i) =>
+          (it, i) =>
+            (it.head
+              ? `<div class="tn-ecu-sug-head">${esc(it.head)}</div>`
+              : '') +
             `<button type="button" class="etk-lb-row tn-ecu-sug-row${i === sugAt ? ' active' : ''}"` +
-            ` role="option" data-i="${i}">${esc(name)}</button>`
+            ` role="option" data-i="${i}"><span class="tn-ecu-sug-sgbd">${esc(it.sgbd)}</span>` +
+            (it.text
+              ? `<span class="tn-ecu-sug-text">${esc(it.text)}</span>`
+              : '') +
+            `</button>`
         )
         .join('');
       sug.hidden = false;
@@ -511,7 +757,7 @@ function showTuning() {
         el.onmousedown = (ev) => {
           // mousedown: fires before the input blurs
           ev.preventDefault();
-          choose(sugItems[+el.dataset.i]);
+          choose(sugItems[+el.dataset.i].sgbd);
         };
       });
       const active = sug.querySelector('.active');
@@ -528,23 +774,51 @@ function showTuning() {
     function openSug(all) {
       sugOpen = true;
       const q = all ? '' : sgbdIn.value.trim().toLowerCase();
-      if (!q) {
-        sugItems = sgbds.slice(0, 400);
-      } else {
-        // Prefix matches first: typing "kom" should put kombi46 above a module
-        // that merely contains those letters somewhere.
+      const match = (row) => {
+        if (!q) return 2;
+        const s = row.sgbd.toLowerCase();
+        if (s.startsWith(q)) return 2;
+        if (
+          s.includes(q) ||
+          String(row.label || '')
+            .toLowerCase()
+            .includes(q)
+        )
+          return 1;
+        return 0;
+      };
+      // Prefix matches first: typing "kom" should put kombi46 above a module
+      // that merely contains those letters somewhere.
+      const rank = (rows) => {
         const starts = [],
           has = [];
-        for (const n of sgbds) {
-          const l = n.toLowerCase();
-          if (l.startsWith(q)) starts.push(n);
-          else if (l.includes(q)) has.push(n);
+        for (const row of rows) {
+          const m = match(row);
+          if (m === 2) starts.push(row);
+          else if (m === 1) has.push(row);
         }
-        sugItems = starts.concat(has).slice(0, 400);
-      }
+        return starts.concat(has);
+      };
+      const carLabel = st.car
+        ? `This car (${typeof dispChassis === 'function' ? dispChassis(st.car) : st.car})`
+        : '';
+      const car = rank(st.carRows).map((row) => ({
+        sgbd: row.sgbd,
+        text: `${row.label}${row.section ? ' · ' + row.section : ''}`,
+      }));
+      const other = rank(st.other.map((s) => ({ sgbd: s }))).map((row) => ({
+        sgbd: row.sgbd,
+        text: '',
+      }));
+      if (car.length) car[0].head = carLabel;
+      if (other.length)
+        other[0].head = car.length || st.car ? 'Other modules' : '';
+      sugItems = car.concat(other).slice(0, 400);
       // Keep the current value highlighted so reopening lands where you were.
       const cur = sgbdIn.value.trim().toLowerCase();
-      sugAt = cur ? sugItems.findIndex((n) => n.toLowerCase() === cur) : -1;
+      sugAt = cur
+        ? sugItems.findIndex((n) => n.sgbd.toLowerCase() === cur)
+        : -1;
       paintSug();
     }
 
@@ -577,7 +851,7 @@ function showTuning() {
       } else if (e.key === 'Enter') {
         if (sugOpen && sugAt >= 0) {
           e.preventDefault();
-          choose(sugItems[sugAt]);
+          choose(sugItems[sugAt].sgbd);
         }
       } else if (e.key === 'Escape') {
         // Escape closes the list first, and only then the dialog.
@@ -594,6 +868,9 @@ function showTuning() {
       st.sgbd = sgbd;
       st.pick = null;
       goBtn.disabled = true;
+      spanBox.hidden = true;
+      prog.hidden = true;
+      paintIdent(sgbd, st.ident.get(sgbd) || null);
       if (!sgbd) {
         regionBox.innerHTML =
           `<div class="tn-ecu-hint">` +
@@ -611,6 +888,9 @@ function showTuning() {
       if (seq !== lookupSeq) return; // a newer lookup already won
       st.regions = regions;
       paintRegions();
+      // Ask the car whether this module is there, as soon as it is named:
+      // the answer is what the user actually needs before choosing a range.
+      if (regions.length && sgbds.includes(sgbd)) identify(sgbd, false);
     }
     sgbdIn.oninput = () => {
       openSug(false); // typing always narrows the open list
@@ -618,46 +898,71 @@ function showTuning() {
       sgbdIn._t = setTimeout(lookup, 250);
     };
 
+    const showFail = (x) => {
+      prog.hidden = false;
+      prog.innerHTML =
+        `<b>${esc(x.headline)}</b>` + (x.detail ? `<br>${esc(x.detail)}` : '');
+    };
+
     goBtn.onclick = async () => {
       if (!st.pick || st.busy) return;
-      st.busy = true;
+      const plan = readPlan();
+      if (typeof plan === 'string') {
+        showFail({ headline: plan, detail: '' });
+        return;
+      }
       st.cancel = false;
-      goBtn.disabled = true;
-      sgbdIn.disabled = true;
+      setBusy(true);
       prog.hidden = false;
-      prog.textContent = 'Reading…';
       const r = st.pick;
+      const sgbd = st.sgbd;
       try {
-        const { bytes, firstArg, demo } = await TM.readRange(
-          st.sgbd,
+        // 1. Is the module there? A probe that could not reach the car
+        //    earlier (no cable then) is retried now.
+        prog.textContent = `Identifying ${sgbd}…`;
+        const idr = await identify(sgbd, true);
+        if (
+          idr.state === 'silent' ||
+          idr.state === 'unmatched' ||
+          idr.state === 'variant' ||
+          idr.state === 'refused' ||
+          idr.state === 'no-cable' ||
+          idr.state === 'error'
+        ) {
+          showFail({
+            headline: TM.identText(sgbd, idr),
+            detail:
+              idr.state === 'variant'
+                ? 'Switch to that module to read it.'
+                : idr.state === 'silent'
+                  ? 'Nothing was read. Check the module is fitted and the ignition is on.'
+                  : '',
+          });
+          setBusy(false);
+          return;
+        }
+        // 2. Read.
+        prog.textContent = 'Reading…';
+        const { bytes, firstArg } = await TM.readRange(
+          sgbd,
           r,
-          r.lo,
-          r.hi,
+          plan.start,
+          plan.end,
           (done, total, arg) => {
             if (st.cancel) return false;
             const pct = Math.min(100, Math.round((done / total) * 100));
             prog.textContent = `${pct}%  ·  ${arg}`;
             return true;
-          }
+          },
+          { chunk: plan.chunk }
         );
-        // REFUSE a synthesized answer. With no cable the shim badges its reply
-        // demo:true and hands back invented bytes; loading those into the hex
-        // editor produces something indistinguishable from a real dump of the
-        // car. A memory image you cannot trust is worse than no image.
-        if (demo) {
-          prog.innerHTML =
-            '<b>No car is answering.</b><br>' +
-            'Connect the cable (or the WiFi adapter) and try again.';
-          st.busy = false;
-          goBtn.disabled = false;
-          sgbdIn.disabled = false;
-          return;
-        }
         if (!bytes.length) {
-          prog.textContent = 'The ECU returned no data.';
-          st.busy = false;
-          goBtn.disabled = false;
-          sgbdIn.disabled = false;
+          showFail({
+            headline: `${sgbd} returned no data for ${firstArg}.`,
+            detail:
+              'The module answered, but with an empty block at this address.',
+          });
+          setBusy(false);
           return;
         }
         // Hand it to the editor as a loaded image. tuningState.orig is the
@@ -667,7 +972,7 @@ function showTuning() {
         tuningState.history = []; // the trail belonged to the old bytes
         tuningState.redo = [];
         tuningState.orig = bytes.slice();
-        tuningState.fileName = `${st.sgbd}-${r.job}.bin`;
+        tuningState.fileName = `${sgbd}-${r.job}-${fmtAddr(plan.start, r.addrDigits)}.bin`;
         tuningState.changed = 0;
         tuningState.highlight = null;
         // Reading is not editing: the image came off a car, and there is no
@@ -682,16 +987,31 @@ function showTuning() {
         hex.refresh();
         if (tuningState.def) renderDefs();
         updateStatus();
-        els.status.textContent = `read ${bytes.length} B from ${st.sgbd} · ${firstArg}`;
+        els.status.textContent = `read ${bytes.length} B from ${sgbd} · ${firstArg}`;
         close();
       } catch (e) {
-        // Show the argument that failed: with a job whose spec we parsed, a
-        // failure is usually the ECU refusing the range, not a bad format.
-        const extra = e && e.arg ? ` · sent ${e.arg}` : '';
-        prog.textContent = `${String(e.message || e)}${extra}`;
-        st.busy = false;
-        goBtn.disabled = false;
-        sgbdIn.disabled = false;
+        // Name the failure in the SGBD's own words, and say whether the ECU
+        // refused or the job never transmitted (an argument the job itself
+        // rejects, e.g. a count above its "max.", sends nothing at all).
+        let info = {};
+        if (e && e.jobStatus) {
+          try {
+            info = await TM.statusInfo(sgbd, e.jobStatus);
+          } catch (e2) {
+            info = {};
+          }
+        }
+        showFail(
+          TM.explainFailure({
+            ...info,
+            status: e && e.jobStatus,
+            arg: e && e.arg,
+            job: e && e.job,
+            message: String((e && e.message) || e),
+            sgbd,
+          })
+        );
+        setBusy(false);
       }
     };
 

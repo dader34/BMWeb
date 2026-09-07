@@ -2,7 +2,7 @@
 // The freeze-frame (Umwelt) dictionary: envmap.js ships curated English for
 // the common env labels/enum values, and envLabel() is a pure lookup over it --
 // a hit returns the English, a miss passes the German through unchanged, and it
-// never calls the deGerman heuristic. Sandbox-eval like the other data files.
+// never guesses at a word. Sandbox-eval like the other data files.
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');

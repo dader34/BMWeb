@@ -7,8 +7,7 @@
 // sitting behind a confirm dialog a wrong keypress could clear.
 
 // ONE dictionary translating both the result NAME and BMW's German comment.
-// NOT deGerman() -- that's tuned for fault prose and mistranslates this
-// vocabulary ("auf" is "up" in prose, "on" here). Longest match must win:
+// NOT the fault-phrase dictionary -- "auf" is "up" in prose, "on" here. Longest match must win:
 // German glues nouns together (KALTUEBERWACHUNG is one word, not KALT +
 // UEBERWACHUNG).
 const COD_VOCAB = {

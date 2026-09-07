@@ -475,7 +475,6 @@ async function flashIdentify(sgbd) {
 // opts: { onStage(text), abort: AbortSignal }
 async function flashDetect(opts = {}) {
   const onStage = opts.onStage || (() => {});
-  _requireRealCable();
   const tried = new Set();
   let lastRef = '';
   for (const p of FLASH_PROFILES) {
@@ -743,38 +742,10 @@ async function flashReadRegion(sgbd, profile, region, opts = {}) {
   return out;
 }
 
-// A backup must come from a real cable. The demo shim answers every job with
-// plausible simulated bytes, which would produce a convincing-looking .bin
-// that is pure fiction.
-function _requireRealCable() {
-  // the two ways the app enters demo mode: the ?demo=1 URL flag (webshim
-  // switches to the simulated answer set on it) and the Settings toggle
-  let demo = false;
-  try {
-    if (typeof location !== 'undefined') {
-      demo = new URLSearchParams(location.search).get('demo') === '1';
-    }
-  } catch (e) {
-    /* no URL API: not a browser demo */
-  }
-  if (
-    !demo &&
-    typeof Settings !== 'undefined' &&
-    Settings.get &&
-    Settings.get('demo', 'no') === 'yes'
-  ) {
-    demo = true;
-  }
-  if (demo) {
-    throw new Error('a backup needs a real cable; demo mode is simulated data');
-  }
-}
-
 // ---- orchestrate a full backup ---------------------------------------------
 // opts: { region: 'data'|'full', onProgress(pct), onStage(text), abort }
 async function flashBackup(sgbd, opts = {}) {
   const onStage = opts.onStage || (() => {});
-  _requireRealCable();
 
   onStage('identifying ECU');
   const info = await flashIdentify(sgbd);

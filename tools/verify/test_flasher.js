@@ -16,8 +16,8 @@
 //      teardown after the last, also when the read fails; BMW-FAST cars skip
 //      the unlock; DS2 DMEs run no security job at all.
 //   4. The safety rails: a short chunk is refused rather than padded into a
-//      silent hole, demo mode is refused outright, and a hardware reference
-//      must match a profile EXACTLY (a superstring is not a match).
+//      silent hole, and a hardware reference must match a profile EXACTLY (a
+//      superstring is not a match).
 //
 // Run: node tools/verify/test_flasher.js
 const assert = require('assert');
@@ -382,11 +382,6 @@ const jobs = (sgbd) => log.filter((l) => l[0] === sgbd).map((l) => l[1]);
     /backup cancelled/
   );
   ok('cancel is honoured');
-
-  global.Settings = { get: () => 'yes' };
-  await assert.rejects(() => F.flashBackup('ms450ds0', {}), /demo mode/);
-  ok('demo mode is refused: simulated answers must never become a backup');
-  global.Settings = { get: () => 'no' };
 
   // a superstring of a known reference is NOT a match, and the refusal
   // names what the car said

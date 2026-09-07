@@ -41,10 +41,14 @@ if (!body) {
 }
 
 const TIMED_OUT = Symbol('timed-out');
+// the shim's waits run on a worker-backed clock in the browser; here the
+// plain timer stands in for it
+const bmwSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const readSome = new Function(
   'TIMED_OUT',
+  'bmwSleep',
   'return async function ' + body[0].replace(/^async /, '') + ';'
-)(TIMED_OUT);
+)(TIMED_OUT, bmwSleep);
 
 // A reader that answers after `delayMs`, and counts how many reads it saw.
 function fakeReader(chunks, delayMs) {

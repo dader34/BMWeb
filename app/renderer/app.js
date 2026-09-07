@@ -79,77 +79,6 @@ function showSettings() {
     );
   }
 
-  wrap.appendChild(
-    settingRow(
-      'Keep cable connected',
-      'Reopen the K+DCAN cable automatically after a reload, with no picker ' +
-        '(the browser remembers the port). Off means you click to connect ' +
-        'each launch.',
-      [
-        { val: 'on', label: 'Stay connected' },
-        { val: 'off', label: 'Pick each time' },
-      ],
-      Settings.get('keepCable', 'on'),
-      (v) => {
-        Settings.set('keepCable', v);
-      }
-    )
-  );
-
-  // bus is chosen at page load, so switching adapters reloads.
-  // Not offered on the hosted https site: a secure page cannot open the
-  // adapter's ws:// socket, so K+DCAN over Web Serial is the only bus there.
-  // Offline and local copies (http:// or file://) keep the choice.
-  const httpsSite =
-    typeof location !== 'undefined' && location.protocol === 'https:';
-  const adapterRow = httpsSite
-    ? null
-    : settingRow(
-        'Adapter',
-        'K+DCAN over serial, or THOR WiFi adapter.',
-        [
-          { val: 'kdcan', label: 'K+DCAN' },
-          { val: 'thor', label: 'THOR' },
-        ],
-        Settings.get('adapter', 'kdcan'),
-        async (v) => {
-          Settings.set('adapter', v);
-          // join the adapter's network before the reload auto-connects; shell opens the Wi-Fi picker if it can't
-          if (v === 'thor' && window.bmacw && window.bmacw.wifiJoin) {
-            sbLeft.textContent = 'joining Thor_Wifi…';
-            try {
-              await window.bmacw.wifiJoin('Thor_Wifi');
-            } catch {
-              /* the picker is open; the chip retries the connect */
-            }
-          }
-          // await the durable save: Settings.set fires it un-awaited, and a reload that wins the race boots from OLD settings
-          if (window.bmacw && window.bmacw.saveSettings) {
-            try {
-              await window.bmacw.saveSettings(JSON.stringify(Settings.data));
-            } catch {
-              /* localStorage still carries it for this session */
-            }
-          }
-          location.reload();
-        }
-      );
-  if (adapterRow) wrap.appendChild(adapterRow);
-
-  // demo values are synthesized and badged, never presented as real
-  wrap.appendChild(
-    settingRow(
-      'Demo mode (no cable)',
-      'Fill live screens with sample values when no cable is connected, so the layouts can be explored. Readings are simulated, not from a car.',
-      [
-        { val: 'on', label: 'On' },
-        { val: 'off', label: 'Off' },
-      ],
-      Settings.get('demo', 'off'),
-      (v) => Settings.set('demo', v)
-    )
-  );
-
   // actuator tests drive real components; confirm defaults ON. Off = INPA behavior (key press sends the job, no prompt).
   wrap.appendChild(
     settingRow(
@@ -563,21 +492,12 @@ function setupMobileTabbar() {
   if (window.webBus) {
     const chip = document.getElementById('link-status');
     chip.style.cursor = 'pointer';
-    chip.title = 'Click to connect or disconnect the adapter';
+    chip.title = 'Click to connect or disconnect the cable';
     chip.onclick = async () => {
       try {
         if (webBus.connected) {
           await webBus.disconnect();
         } else {
-          // THOR: join its network first
-          if (webBus.readState && window.bmacw && window.bmacw.wifiJoin) {
-            linkText.textContent = 'joining Thor_Wifi…';
-            try {
-              await window.bmacw.wifiJoin('Thor_Wifi');
-            } catch {
-              /* picker opened; connect below still gets its say */
-            }
-          }
           linkText.textContent = 'connecting…';
           await webBus.connect();
         }
@@ -590,26 +510,20 @@ function setupMobileTabbar() {
       await statusPoller.refresh();
     };
 
-    // The two transports reconnect on load in opposite ways, and the tell is
-    // whether the bus can reconnect() WITHOUT a gesture:
-    //   * Web Serial CAN (getPorts() returns a previously-granted port), but its
-    //     connect() opens the PORT PICKER -- a user gesture the browser refuses
-    //     on page load. So it must use reconnect(), never connect(), here.
-    //   * THOR is a socket with no picker, so plain connect() needs no gesture
-    //     and it exposes no reconnect().
-    // Both buses have readState (battery/ignition), so gating on THAT sent the
-    // USB cable down the connect() path -- which pops the picker and loses the
-    // "cable survives the reload" behaviour every time. Gate on reconnect.
+    // KEEP THE CABLE THROUGH A RELOAD, ALWAYS. Web Serial remembers a granted
+    // K+DCAN port (getPorts() returns it), so reconnect() reopens it with no
+    // picker. It must be reconnect(), never connect(), here: connect() opens
+    // the PORT PICKER, a user gesture the browser refuses on page load. The
+    // native bridge exposes no reconnect() -- its shell owns the port -- so
+    // the chip click is the only entry there.
     const canSilentReconnect = typeof webBus.reconnect === 'function';
-    if (
-      canSilentReconnect &&
-      !webBus.connected &&
-      Settings.get('keepCable', 'on') !== 'off'
-    ) {
-      // KEEP THE CABLE THROUGH A RELOAD. Web Serial remembers a granted K+DCAN
-      // port, so reconnect() reopens it with no picker.
+    if (canSilentReconnect && !webBus.connected) {
       linkText.textContent = 'reconnecting…';
-      webBus
+      // A deep link into a module (#car/E46/ms450ds0) renders while this is
+      // still in flight; the module view asks /api/port first and, seeing no
+      // cable yet, drew the offline screens instead of running the script.
+      // Publish the reconnect so a screen can wait for its verdict.
+      window.cableReady = webBus
         .reconnect()
         .then((label) => {
           if (!label) {
@@ -621,19 +535,6 @@ function setupMobileTabbar() {
         })
         .catch(() => {
           linkText.textContent = 'no cable';
-        });
-    } else if (!canSilentReconnect && webBus.readState && !webBus.connected) {
-      // THOR: a socket, connect on load with no gesture.
-      linkText.textContent = 'connecting…';
-      webBus
-        .connect()
-        .then(() => {
-          statusPoller.lastStatePoll = 0;
-          return statusPoller.refresh();
-        })
-        .catch((e) => {
-          led.className = 'led off';
-          linkText.textContent = e.message;
         });
     }
   }

@@ -19,7 +19,6 @@ const OFFLINE_SHELL = [
 
   'vendor/fflate.min.js',
 
-  'core/webdemo.js',
   'core/offline-fs.js',
   'core/webshim.js',
   'core/bestvm.js',
@@ -33,6 +32,7 @@ const OFFLINE_SHELL = [
   // carries it — it must be listed here to mirror index.html, or the inliner
   // throws on a src it can't resolve.
   'data/envmap.js',
+  'data/i18n-shared.js',
   'core/nav.js',
   'core/tuning-store.js',
   'core/xdf.js',
@@ -49,6 +49,7 @@ const OFFLINE_SHELL = [
   'screens/sweep.js',
   'screens/fault-report.js',
   'screens/ir.js',
+  'screens/ipo-runtime.js',
   'screens/ecu.js',
   'screens/activations.js',
 
@@ -58,6 +59,7 @@ const OFFLINE_SHELL = [
   'core/coding-custom.js',
   'core/coding-select.js',
   'core/vehicle-identity.js',
+  'core/coding-dispatch.js',
   'core/coding-write.js',
 
   'screens/coding-edit.js',
@@ -74,6 +76,7 @@ const OFFLINE_SHELL = [
   'screens/lookup.js',
   'screens/wiring-applicability.js',
   'screens/wiring.js',
+  'screens/docs.js',
   'screens/etk.js',
   'screens/tool32.js',
   'screens/flasher.js',
@@ -272,8 +275,7 @@ page opened straight from disk read it at all.
 WHAT WORKS OFFLINE
 
   reading screens, jobs, tables and coding data for ${chassis}
-${withWiring ? `  the wiring diagrams, where WDS covers ${chassis}\n` : ''}  the demo mode, which fills screens with plausible values
-${withFaults ? '  fault code lookup with full English descriptions\n' : '  fault codes read off a car (their English text is NOT included)\n'}
+${withWiring ? `  the wiring diagrams, where WDS covers ${chassis}\n` : ''}${withFaults ? '  fault code lookup with full English descriptions\n' : '  fault codes read off a car (their English text is NOT included)\n'}
 WHAT NEEDS A CABLE
 
 Running a job against a real ECU needs a K+DCAN cable and a browser with
@@ -484,7 +486,6 @@ async function offlineSingleFile(
   say('collecting the app');
   const shell = {};
   for (const f of OFFLINE_SHELL) {
-    if (f === 'thor_bridge.js') continue; // a page cannot run node
     if (f === 'index.html') continue; // fetched by name below
     shell[f] = await offlineGet(f);
   }
@@ -571,8 +572,8 @@ async function offlineSingleFile(
   // that tag is the anchor; a MARK sentinel reserves the spot. The sentinel must
   // not appear in source or prose or it corrupts the output silently.
   const MARK = '<!--BMWEB_DATA_HERE-->';
-  // tags a single file leaves out: no node, and no copies of itself
-  const OMIT = new Set(['thor_bridge.js', 'core/offline-export.js']);
+  // tags a single file leaves out: no copies of itself
+  const OMIT = new Set(['core/offline-export.js']);
   let sawWebshim = false;
   html = html.replace(
     /[ \t]*<script src="([^"]+)"><\/script>\n?/g,

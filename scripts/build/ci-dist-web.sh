@@ -30,8 +30,8 @@ if ls data/docs/*.docs >/dev/null 2>&1; then
   mkdir -p dist-web/data/docs
   cp data/docs/*.docs dist-web/data/docs/
 fi
-# the relay is not shipped, and the in-page exporter is what THIS replaces
-rm -f dist-web/thor_bridge.js dist-web/core/offline-export.js
+# the in-page exporter is what THIS replaces
+rm -f dist-web/core/offline-export.js
 
 # one version source: the csproj. Settings and OFFLINE-README both read it.
 VERSION=$(sed -n 's:.*<ApplicationDisplayVersion>\(.*\)</ApplicationDisplayVersion>.*:\1:p' src/InpaMac.App/InpaMac.App.csproj)

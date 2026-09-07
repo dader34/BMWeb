@@ -27,6 +27,7 @@ stays behind bestvm's write gate in the app, unchanged.
 """
 
 import os
+import re
 import sys
 
 sys.path[:0] = [os.path.join(os.path.dirname(os.path.abspath(__file__)), d)
@@ -301,7 +302,9 @@ class VM:
                 self._write(t, frame, val)
             elif op == "binop":
                 b = stack.pop() if stack else None
-                a = stack.pop() if stack else None
+                # neg (0x6d) is UNARY: the top value only. Popping two ate the
+                # operand underneath and shifted every later call argument.
+                a = None if t.get("name") == "neg" else (stack.pop() if stack else None)
                 # A READING CONSUMED BY A COMPARISON IS A CONTROL VALUE. The
                 # script reads STAT_GETRIEBE_NR only to gate `if == 1` on the
                 # transmission block, never to show it; recording the key here
@@ -605,7 +608,16 @@ def _binop(name, a, b):
     if name == "or":
         return _truthy(a) or _truthy(b)
     if name == "neg":
-        return not _truthy(b if a is None else a)
+        # unary minus on a number (llerh's -10, the clamp bounds); boolean
+        # not only ever fit guard shapes
+        x = b if a is None else a
+        if isinstance(x, bool):
+            return not x
+        if isinstance(x, (int, float)):
+            return -x
+        if isinstance(x, str) and re.fullmatch(r"-?\d+(\.\d+)?", x.strip()):
+            return -float(x) if "." in x else -int(x)
+        return not _truthy(x)
     return None
 
 
@@ -1158,6 +1170,19 @@ def _b_inttostring(vm, stack, item):
     _store_out(vm, stack, str(int(n)), _keyed(stack))
 
 
+def _b_intwiden(vm, stack, item):
+    # inttolong / bytetoint: a NUMBER out, not its text (see ipovm.js
+    # bIntwiden -- the fault printer compares and converts the result).
+    n = next((x for x in stack if isinstance(x, (int, float))), None)
+    if n is None:
+        n = next((x for x in stack if isinstance(x, str)), 0)
+        try:
+            n = float(n)
+        except (TypeError, ValueError):
+            n = 0
+    _store_out(vm, stack, int(n), _keyed(stack))
+
+
 def _b_fileopen(vm, stack, item):
     """fileopen(path, mode) -- INPA scripts keep user data in text files.
 
@@ -1290,7 +1315,14 @@ def _b_numconvert(vm, stack, item):
     # inttoreal/realtoint family by position. The value passes through
     # unchanged; which exact cast it is does not survive the corpus, and
     # identity is right for every candidate but the truncation edge.
-    n = next((x for x in stack if isinstance(x, (int, float))), 0)
+    n = next((x for x in stack if isinstance(x, (int, float))), None)
+    if n is None:
+        # a bound job result is a str subclass: convert its text
+        s = next((x for x in stack if isinstance(x, str)), None)
+        try:
+            n = float(s) if s is not None else 0
+        except (TypeError, ValueError):
+            n = 0
     _store_out(vm, stack, n, _keyed(stack))
 
 
@@ -1553,8 +1585,8 @@ _BUILTINS = {
     "strlen": _b_strlen,
     "midstr": _b_midstr,
     "inttostring": _b_inttostring,
-    "inttolong": _b_inttostring,
-    "bytetoint": _b_inttostring,
+    "inttolong": _b_intwiden,
+    "bytetoint": _b_intwiden,
     # no IR effect, but known and accounted for
     "SetStructureMode": _b_noop, "CreateStructure": _b_noop,
     "StructureByte": _b_noop, "StructureString": _b_noop,
@@ -1597,6 +1629,8 @@ _BUILTINS = {
     "builtin_22": _b_hexconvert,         # hexconvert
     "builtin_23": _b_strcat,             # strcat (dest ref FIRST)
     "builtin_26": _b_numconvert,         # inttoreal/realtoint family
+    "builtin_2a": _b_numconvert,         # longtoreal (see ipo_disasm)
+    "longtoreal": _b_numconvert,
     "formatnum": _b_inttostring,         # (src, dst): number -> display
     "getdate": _b_getdate, "gettime": _b_gettime,
     "builtin_15": _b_getapistring,       # getapistring(out s)

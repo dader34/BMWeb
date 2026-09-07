@@ -48,10 +48,6 @@ python3 tools/export/web_export.py --out "$OUT" "$@"
 
 echo "==> copying the renderer"
 cp -R "$ROOT/app/renderer/." "$OUT/"
-# The relay is not part of the product any more: it needed node running
-# beside the page, which no phone can do. Kept in the repo for anyone who
-# still starts one by hand (?relay=1), but not shipped.
-rm -f "$OUT/thor_bridge.js"
 
 # Stamp the version into the web build. The native app injects window.bmacw
 # (with .version) at document start; a web build has no host, so index.html sees
@@ -111,7 +107,7 @@ server. Running a job needs a K+DCAN cable and a browser with Web Serial
 Safety, in one line: unknown jobs are classified as writes and refused;
 actuator tests confirm before firing and release when you leave the screen;
 permanent writes always confirm; coding writes back up first and re-read to
-prove what landed. Demo mode works with no car attached.
+prove what landed.
 
 Files: $RAW  Size: $SIZE
 EOF

@@ -27,6 +27,24 @@
 // shim (remote-ui.js), so it lives here in the engine.
 const REMOTE_CAR_ROUTE =
   /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b|state\b)/;
+// what a script sends on its own to hold a session -- never a car command
+const REMOTE_PLUMBING =
+  /^(INITIALISIERUNG|IDENT|IDENT_\w+|INFO|DIAGNOSE_(AUFRECHT|ENDE|MODE)|ENDE)$/i;
+// an approved action stays approved this long
+const REMOTE_APPROVAL_MS = 15 * 60 * 1000;
+
+// THE APP VERSION BOTH ENDS MUST SHARE. The helper drives the owner's car
+// through the owner's shim, so both sides must speak the same routes, job
+// classifier and runtime; a helper on an older build could ask for things
+// the owner's build no longer means. The native shell injects
+// window.bmacw.version, a web build ships version.js (BMACW_VERSION), a dev
+// checkout has neither and reports 'dev'.
+function remoteVersion() {
+  if (typeof window === 'undefined') return 'dev';
+  if (window.bmacw && window.bmacw.version) return String(window.bmacw.version);
+  if (window.BMACW_VERSION) return String(window.BMACW_VERSION);
+  return 'dev';
+}
 
 const Remote = {
   role: null, // 'owner' | 'helper' | null
@@ -56,8 +74,11 @@ const Remote = {
   confirmActions: true,
   accepted: false,
   onGate: null, // (job, sgbd, arg) -> Promise<bool>  owner approves a write
+  onAwait: null, // helper: (waiting: bool, path) -- a request awaits the owner
+  awaiting: 0, // helper: how many such requests are outstanding
   onAccept: null, // (info) -> Promise<bool>            owner admits a helper
   peerInfo: null, // {ip, ua, at} best-effort helper details for the prompt
+  approved: new Map(), // action id -> {label, at}: actions the owner allowed
 
   // signaling endpoint: the beta worker, /rtc/*. Reuses the same base the
   // report endpoint uses so there is one worker to run, not two.
@@ -111,7 +132,20 @@ const Remote = {
 
   log(text) {
     this.jobs += /job/.test(text) ? 1 : 0;
+    // the gap since the previous line: on the owner it shows the helper's
+    // cadence (how long the cable sat idle between its requests)
+    const now = Date.now();
+    const gap = this._lastLogAt ? now - this._lastLogAt : 0;
+    this._lastLogAt = now;
+    if (gap >= 700 && /running/.test(text)) text = `+${gap} ms · ${text}`;
     if (this.onLog) this.onLog(text);
+    // the helper has no console panel: its lines go to the browser console
+    // (and a timing line to the status bar) so a slow session can be read
+    if (this.role === 'helper') {
+      if (typeof console !== 'undefined') console.log('[remote] ' + text);
+      if (/^(slow|helper idle)/.test(text) && typeof sbLeft !== 'undefined')
+        sbLeft.textContent = text;
+    }
   },
 
   // ---- owner: run a forwarded request through the REAL shim ----------------
@@ -122,8 +156,8 @@ const Remote = {
     // only one that cannot be spoofed. The helper's request is DATA, never a
     // command we trust: validate the route, enforce the access level, and get
     // owner approval for writes -- all before window.fetch touches the wire.
-    const reply = (status, body) =>
-      this._send({ t: 'res', id: msg.id, status, body });
+    const reply = (status, body, took) =>
+      this._send({ t: 'res', id: msg.id, status, body, took });
 
     // (1) ROUTE ALLOWLIST on the owner side. The helper-side filter is on the
     // wrong side of the trust boundary; this is the one that counts. Only the
@@ -165,31 +199,59 @@ const Remote = {
     }
 
     // (3) PER-ACTION CONFIRM. When on (default), a write/actuator waits for the
-    // owner to approve THIS job before it runs -- the confirm lives here, not
-    // in the helper's UI which the attacker controls. Reads never prompt, so a
+    // owner's approval before it runs -- the confirm lives here, not in the
+    // helper's UI which the attacker controls. Reads never prompt, so a
     // normal session stays frictionless.
-    if (dangerous && this.confirmActions && typeof this.onGate === 'function') {
-      this.log(`awaiting your approval: ${sgbd} ${job || verb}`);
-      let ok = false;
-      try {
-        ok = await this.onGate({
-          sgbd,
-          job: job || verb,
-          arg: this._argOf(msg),
-        });
-      } catch {
-        ok = false;
-      }
-      if (!ok) {
-        this.log(`you declined: ${sgbd} ${job || verb}`);
-        return reply(403, {
-          error: 'remote: the car owner declined this action',
-        });
+    //
+    // The unit of consent is the USER ACTION, not the job: one INPA key
+    // press is several jobs (stop, start with the new setpoint, the screen's
+    // keep-alive every tick), and asking for each made a session
+    // unusable. The helper's runtime tags every job with the action it
+    // serves; the owner approves that action once and its later jobs pass
+    // until the session ends or the approval ages out. Session plumbing a
+    // script sends on its own (INITIALISIERUNG, IDENT, DIAGNOSE_AUFRECHT...)
+    // is not a car command and never prompts. The tag is helper-supplied
+    // DATA: it can only widen consent the owner already gave to that action,
+    // never grant it, and a read-only session still refuses every write.
+    const act = this._actionOf(msg);
+    const plumbing = isRunFamily && REMOTE_PLUMBING.test(job);
+    if (
+      dangerous &&
+      !plumbing &&
+      this.confirmActions &&
+      typeof this.onGate === 'function'
+    ) {
+      const under = act && this._approvedAction(act.id);
+      if (under) {
+        this.log(`under your approval "${under.label}": ${sgbd} ${job}`);
+      } else {
+        this.log(`awaiting your approval: ${sgbd} ${job || verb}`);
+        let ok = false;
+        try {
+          ok = await this.onGate({
+            sgbd,
+            job: job || verb,
+            arg: this._argOf(msg),
+            action: act,
+          });
+        } catch {
+          ok = false;
+        }
+        if (!ok) {
+          this.log(`you declined: ${sgbd} ${job || verb}`);
+          return reply(403, {
+            error: 'remote: the car owner declined this action',
+          });
+        }
+        if (act) this._approveAction(act);
       }
     }
 
     // approved -- run it through the owner's REAL shim and return the JSON.
+    // Timed, so a slow session can be read: the owner's line is the time on
+    // this machine's cable; the helper's line is the whole round trip.
     this.log(`job ${sgbd || ''} ${job || verb} · running…`);
+    const t0 = Date.now();
     let status = 200,
       body;
     try {
@@ -198,14 +260,43 @@ const Remote = {
       body = await res.json().catch(() => ({}));
       if (runM || verb === 'read') {
         this.log(
-          `job ${sgbd || ''} ${job || verb} · ${status === 200 ? 'ok' : status}`
+          `job ${sgbd || ''} ${job || verb} · ${status === 200 ? 'ok' : status} · ${Date.now() - t0} ms on the cable`
         );
       }
     } catch (e) {
       status = 500;
       body = { error: e.message };
     }
-    reply(status, body);
+    reply(status, body, Date.now() - t0);
+  },
+
+  // the action tag the helper's runtime put on a request, validated
+  _actionOf(msg) {
+    const a = msg && msg.init && msg.init.action;
+    if (!a || typeof a !== 'object') return null;
+    const id = String(a.id || '').slice(0, 64);
+    if (!id) return null;
+    return {
+      id,
+      label: String(a.label || '').slice(0, 80),
+      jobs: Array.isArray(a.jobs)
+        ? a.jobs.slice(0, 30).map((j) => String(j).slice(0, 40))
+        : [],
+    };
+  },
+
+  // an approval the owner gave for an action, while it is still fresh
+  _approvedAction(id) {
+    const a = this.approved.get(id);
+    if (!a) return null;
+    if (Date.now() - a.at > REMOTE_APPROVAL_MS) {
+      this.approved.delete(id);
+      return null;
+    }
+    return a;
+  },
+  _approveAction(act) {
+    this.approved.set(act.id, { label: act.label, at: Date.now() });
   },
 
   _argOf(msg) {
@@ -249,20 +340,87 @@ const Remote = {
     }
   },
 
+  // A request the owner may have to approve: the same shape the owner's gate
+  // classifies (a clear/write/flash route, or a run job the write classifier
+  // or the actuator prefix flags). Used only to tell the helper it is waiting
+  // on a person, not on the car.
+  _needsApproval(path) {
+    const m = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(
+      String(path || '')
+    );
+    if (!m) return false;
+    if (m[2] !== 'run') return true;
+    const job = decodeURIComponent(m[3]);
+    if (/^(STEUERN|STELL|START)/i.test(job)) return true;
+    return typeof isWriteJob === 'function' && isWriteJob(job);
+  },
+
   async request(path, init) {
     await this._ready();
+    // where a slow session spends its time when the owner's cable is quick:
+    // the gap between the last answer and this request is the helper's own
+    // think time -- a background tab's throttled timers show up here
+    if (this._lastRes) {
+      const idle = Date.now() - this._lastRes;
+      if (idle > 800) {
+        const m = /\/run\/([^/?]+)/.exec(String(path || ''));
+        const hidden =
+          typeof document !== 'undefined' && document.hidden ? 'yes' : 'no';
+        this.log(
+          `helper idle ${idle} ms before ${m ? decodeURIComponent(m[1]) : path} (tab hidden: ${hidden})`
+        );
+      }
+    }
+    // tell the helper why this one may take a moment: a person is asked
+    const gated = this._needsApproval(path) && this.access !== 'ro';
+    if (gated) {
+      this.awaiting = (this.awaiting || 0) + 1;
+      if (this.onAwait) this.onAwait(true, path);
+    }
+    const settle = () => {
+      if (!gated) return;
+      this.awaiting = Math.max(0, (this.awaiting || 0) - 1);
+      if (this.onAwait) this.onAwait(this.awaiting > 0, path);
+    };
     return new Promise((resolve, reject) => {
       const id = `${++this.seq}`;
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error('remote timeout: the owner did not answer'));
       }, 60000);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, {
+        resolve: (v) => {
+          settle();
+          resolve(v);
+        },
+        reject: (e) => {
+          settle();
+          reject(e);
+        },
+        timer,
+        at: Date.now(),
+        path,
+      });
       // strip method/body to a structured-clonable shape
+      // ...plus the user action the runtime tagged the job with (id, label,
+      // the jobs the key can send), so the owner approves the action once
+      const act =
+        init && init.action && typeof init.action === 'object'
+          ? {
+              id: String(init.action.id || '').slice(0, 64),
+              label: String(init.action.label || '').slice(0, 80),
+              jobs: Array.isArray(init.action.jobs)
+                ? init.action.jobs
+                    .slice(0, 30)
+                    .map((j) => String(j).slice(0, 40))
+                : [],
+            }
+          : undefined;
       const safeInit = init
         ? {
             method: init.method || 'GET',
             body: typeof init.body === 'string' ? init.body : undefined,
+            action: act && act.id ? act : undefined,
           }
         : undefined;
       this._send({ t: 'req', id, path, init: safeInit });
@@ -274,6 +432,18 @@ const Remote = {
     if (!p) return;
     clearTimeout(p.timer);
     this.pending.delete(msg.id);
+    // where a slow answer spent its time: on the owner's cable, or between
+    const total = Date.now() - (p.at || Date.now());
+    this._lastRes = Date.now();
+    if (total > 1500) {
+      const m = /\/run\/([^/?]+)/.exec(String(p.path || ''));
+      this.log(
+        `slow: ${m ? decodeURIComponent(m[1]) : p.path} took ${total} ms` +
+          (msg.took != null
+            ? ` (${msg.took} ms of it on the owner's cable)`
+            : '')
+      );
+    }
     // hand back a Response the shim/api() consumes exactly like a real one
     p.resolve(
       new Response(JSON.stringify(msg.body), {
@@ -326,6 +496,23 @@ const Remote = {
   // anything until the owner clicks accept -- connecting the DataChannel is not
   // consent. Show who is asking (best-effort details) and wait.
   async _ownerAccept(hello) {
+    // VERSIONS MUST MATCH before the owner is even asked: a mismatched
+    // helper is refused outright, told both versions, and the code stays
+    // live for a helper on the right build.
+    const mine = remoteVersion();
+    const theirs = String((hello && hello.v) || '').slice(0, 40) || 'unknown';
+    if (theirs !== mine) {
+      this.log(`refused: helper runs ${theirs}, you run ${mine}`);
+      this._send({
+        t: 'admit',
+        ok: false,
+        reason: 'version',
+        owner: mine,
+        helper: theirs,
+      });
+      this._rehost().catch((e) => this.end(e.message));
+      return;
+    }
     this.peerInfo = {
       ua: String((hello && hello.ua) || '').slice(0, 200),
       at: Date.now(),
@@ -364,6 +551,12 @@ const Remote = {
       }
     } catch {}
     this.log('you admitted the helper');
+    // one driver on the cable: close the owner's own live module so the
+    // helper's jobs are not queued behind its screen cycles
+    if (typeof ipoPauseForRemote === 'function') {
+      ipoPauseForRemote();
+      this.log('your own module screens are paused while the helper drives');
+    }
     if (this.onState) this.onState('live');
     this._send({ t: 'admit', ok: true, access: this.access });
   },
@@ -380,6 +573,11 @@ const Remote = {
       this._wake();
       if (this.onState) this.onState('live');
       this.log('the owner admitted you. Connected to the car');
+    } else if (msg.reason === 'version') {
+      this.end(
+        `versions differ: you run ${msg.helper || remoteVersion()}, the owner runs ${msg.owner || '?'}. ` +
+          'Both must be on the same BMWeb version to share a car'
+      );
     } else {
       this.end('the owner declined the connection');
     }
@@ -402,6 +600,7 @@ const Remote = {
         this._send({
           t: 'hello',
           ua: (typeof navigator !== 'undefined' && navigator.userAgent) || '',
+          v: remoteVersion(),
         });
         // do NOT _wake here; _helperAdmitted does once the owner accepts.
       }
@@ -458,6 +657,7 @@ const Remote = {
     // carries across peers or across a re-host under the same code.
     this.accepted = false;
     this.peerInfo = null;
+    this.approved.clear(); // consent to an action ends with the session
     if (this.poll) {
       clearInterval(this.poll);
       this.poll = null;

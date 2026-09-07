@@ -70,7 +70,6 @@ const Journal = {
           typeof Settings !== 'undefined'
             ? Settings.get('theme', 'instrument')
             : null,
-        demo: typeof demoMode === 'function' ? demoMode() : null,
         inpa: typeof inpaMode === 'function' ? inpaMode() : null,
       },
       cable: cable ? cable.textContent : null,

@@ -268,6 +268,12 @@ async function viIdentityModules(chassisId) {
         if (!zcsJob && !faJob) continue;
         return {
           sgbd,
+          // The diagnostic SGBD the car lists for the same module. The coding
+          // SGBD answers the identity; the VIN and the stored odometer often
+          // live only on the diagnostic one (EWS keeps its KD blocks on `ews`,
+          // c_ews3 declares no such read), so both are asked in turn.
+          diagSgbd: String(e.sgbd).toLowerCase(),
+          code: e.code || null,
           label: e.label || e.sgbd,
           fa: !!faJob,
           zcs: !!zcsJob,
@@ -387,6 +393,53 @@ function viFaFrom(values, resultName) {
   return s && /[_#*%&|$]/.test(s) ? s : null;
 }
 
+// The vehicle order as TEXT, whatever form the module keeps it in.
+//
+// A ZCS-era coding module (E46 c_kmb46, c_lsza) hands the order back exactly
+// as its memory holds it: a bit-packed stream, six bits a character, that
+// starts with a version byte and carries no marker characters at all. EDIABAS
+// ships the decoder for that stream as its own SGBD -- FA.PRG's
+// FA_STREAM2STRUCT takes the block number and the raw stream and answers
+// with the marker-delimited order (STANDARD_FA) the parser understands. So a
+// reply that is not already text is put through that job, and only the
+// job's own answer is trusted: no hand-rolled unpacking of a format BMW
+// already decodes for us.
+async function viFaText(values, resultName) {
+  if (!resultName || !values.has(resultName)) return null;
+  const raw = values.get(resultName);
+  const stream = Array.isArray(raw)
+    ? String.fromCharCode(...raw.map((b) => Number(b) & 0xff))
+    : String(raw);
+  // Text or stream is decided by the BYTES, never by which characters happen
+  // to occur: a packed stream carries 0x24 ('$') as data, and reading that
+  // as "it has a marker, so it is text" fed the raw bytes to the order
+  // parser. Text is printable ASCII throughout; a stream is not.
+  const packed = Array.from(stream).some((c) => {
+    const b = c.charCodeAt(0);
+    return b < 0x20 || b > 0x7e;
+  });
+  if (!packed) return viFaFrom(values, resultName);
+  // an empty or erased region (all 0xFF / 0x00) carries no order
+  if (
+    !stream ||
+    !Array.from(stream).some((c) => {
+      const b = c.charCodeAt(0);
+      return b !== 0 && b !== 0xff;
+    })
+  )
+    return null;
+  try {
+    const decoded = await viRunValues('fa', 'FA_STREAM2STRUCT', `1;${stream}`);
+    const status = decoded.has('JOB_STATUS')
+      ? String(decoded.get('JOB_STATUS'))
+      : '';
+    if (status !== 'OKAY') return null;
+    return viFaFrom(decoded, 'STANDARD_FA');
+  } catch (e) {
+    return null;
+  }
+}
+
 // THE IDENTITY READ, WITHOUT THE SCREEN.
 //
 // The coding hub needs the car's equipment codes before it can decide which
@@ -421,7 +474,10 @@ async function readIdentityCodes(chassisId) {
         const d = await api(`/api/ecu/${m.sgbd}/run/${m.faJob.job}`, {
           method: 'POST',
         });
-        const text = viFaFrom(new Map(flatResults(d.sets)), m.faJob.result);
+        const text = await viFaText(
+          new Map(flatResults(d.sets)),
+          m.faJob.result
+        );
         if (!text) continue;
         const fa = VehicleIdentity.parseFa(text);
         return {
@@ -488,35 +544,79 @@ async function readIdentityCodes(chassisId) {
 // same contract as VI_KEY_ROLE: the regex names the ROLE, never one spelling.
 // (kombi46 declares AIF_FG_NR, ews declares FG_NR; both are the VIN.)
 const VI_VIN_ROLE = /^(AIF_)?FG_?NR$|^FGSTNR/i;
-const VI_KM_ROLE =
-  /^STAT_KILOMETERSTAND_WERT$|^KILOMETERSTAND$|^KM_?STAND\b|GESAMTWEGSTRECKE/i;
+// The STORED odometer a cluster declares outright: the Gesamtwegstrecken-
+// zaehler out of its Anwenderinfofeld (AIF_GWSZ_LESEN on kombi39, kombi46,
+// ike). Exact name, so GWSZ_MINUS_OFFSET's derived value never stands in.
+const VI_KM_STORED_ROLE = /^STAT_GWSZ_WERT$/i;
 
 // The read job on this ECU declaring a result in `role`. Scanning is archive
 // reads only (each job's result table ships in the .ecu); the wire sees just
 // the one job that wins.
+//
+// Several jobs may declare the role: the E46 light module's service-interval
+// read (SIA_LESEN) returns FG_NR beside a dozen counters, and C_FG_LESEN
+// returns FG_NR alone. The job that EXISTS to answer the question is the one
+// declaring the fewest other results, so that is the one asked -- not the
+// first in declaration order, which is where SIA_LESEN happens to sit.
 async function viPickInfoJob(sgbd, jobs, role) {
+  let best = null;
   for (const j of jobs) {
     if (!viIsRead(j.name)) continue;
     const names = await viJobResults(sgbd, j.name);
     const hit = names.find((n) => role.test(n));
-    if (hit) return { job: j.name, result: hit };
+    if (!hit) continue;
+    const others = names.filter((n) => n !== hit && n !== 'JOB_STATUS').length;
+    if (!best || others < best.others) {
+      best = { job: j.name, result: hit, others };
+    }
   }
-  return null;
+  return best ? { job: best.job, result: best.result } : null;
 }
 
-async function viRunValues(sgbd, job) {
-  const d = await api(`/api/ecu/${sgbd}/run/${job}`, { method: 'POST' });
-  return new Map(flatResults(d.sets));
+// Run a job and answer with its results by name. flatResults drops the
+// engine's JOB_STATUS as non-data, which it is for display -- but a decoder
+// (FA_STREAM2STRUCT) says whether it understood its input ONLY through that
+// status, so it travels along here under its own name.
+async function viRunValues(sgbd, job, arg) {
+  const q = arg != null ? `?arg=${encodeURIComponent(arg)}` : '';
+  const d = await api(`/api/ecu/${sgbd}/run/${job}${q}`, { method: 'POST' });
+  const values = new Map(flatResults(d.sets));
+  const status = (d.sets || [])
+    .map((s) => s && s.JOB_STATUS)
+    .find((v) => v != null);
+  if (status != null) values.set('JOB_STATUS', String(status));
+  return values;
+}
+
+// The SGFAM family a master belongs to, for the column title and the source
+// strip: EWS, KMB, LSZ -- the terse names NCS Expert's own dialog uses. The
+// bridge is the one that chose the coding SGBD (viSgShortNames), read back:
+// of the families the module's config names could be, the base name (KMB)
+// beats its "A" variant (AKMB, the same module's second coding role), and
+// between equals the family whose CABD is the SGBD that answered wins.
+// Absent is fine -- it is a nicety, and the config label stands in.
+function viFamilyName(fam, m) {
+  if (!fam || !m) return null;
+  const sg = String(m.sgbd || '').toUpperCase();
+  const want = viSgShortNames(m.diagSgbd || m.sgbd, m.code);
+  const cands = Object.keys(fam).filter((k) => k === sg || want.includes(k));
+  if (!cands.length) return null;
+  const cabdIs = (k) =>
+    String((fam[k] && fam[k].cabd) || '').toUpperCase() === sg ? 0 : 1;
+  cands.sort(
+    (a, b) => a.length - b.length || cabdIs(a) - cabdIs(b) || (a < b ? -1 : 1)
+  );
+  return cands[0];
 }
 
 // Read ONE master completely: its record (FA or ZCS), its VIN, its odometer.
 async function viReadColumn(m, sources, famName) {
   const col = { m, keys: null, fa: null, faRaw: null, vin: null, km: null };
-  const sg = famName(m.sgbd) || m.sgbd;
+  const sg = famName(m) || m.sgbd;
   if (m.fa) {
     try {
       const values = await viRunValues(m.sgbd, m.faJob.job);
-      const text = viFaFrom(values, m.faJob.result);
+      const text = await viFaText(values, m.faJob.result);
       if (text) {
         col.faRaw = text;
         col.fa = VehicleIdentity.parseFa(text);
@@ -558,25 +658,177 @@ async function viReadColumn(m, sources, famName) {
       sources.push({ sg, ok: false, what: 'no answer' });
     }
   }
-  // VIN and odometer, from whatever job this module itself declares for them
-  const jobs = await viJobs(m.sgbd);
-  for (const [field, role] of [
-    ['vin', VI_VIN_ROLE],
-    ['km', VI_KM_ROLE],
-  ]) {
-    const pick = await viPickInfoJob(m.sgbd, jobs, role);
+  // VIN and odometer, from whatever job the module declares for them -- on
+  // its coding SGBD first, then on its diagnostic one.
+  const sgbds = [m.sgbd];
+  if (m.diagSgbd && m.diagSgbd !== m.sgbd) sgbds.push(m.diagSgbd);
+  const jobsOf = new Map();
+  for (const sg of sgbds) jobsOf.set(sg, await viJobs(sg));
+  // VIN from the module's own named result.
+  for (const sg of sgbds) {
+    if (col.vin) break;
+    const pick = await viPickInfoJob(sg, jobsOf.get(sg), VI_VIN_ROLE);
     if (!pick) continue;
     try {
-      const values = await viRunValues(m.sgbd, pick.job);
+      const values = await viRunValues(sg, pick.job);
       const v = values.has(pick.result)
         ? String(values.get(pick.result)).trim()
         : '';
-      if (v) col[field] = v;
+      if (v) col.vin = viVinBody(v);
     } catch (e) {
-      /* that row shows an em dash */
+      /* try the next source; the row shows an em dash if none answers */
+    }
+  }
+
+  // ODOMETER. Prefer the STORED value each module keeps in non-volatile
+  // memory, never a live CAN broadcast:
+  //   - Cluster (KMB): EEPROM word 0x28, bytes 1..3 BE km. The named
+  //     STAT_KILOMETERSTAND_WERT is the CAN-signal mileage, which reads stale
+  //     and DIFFERENT every time with the engine off (it is not being
+  //     broadcast) -- exactly the drifting 79k/82k/94k values that looked like
+  //     a mismatch. The EEPROM copy is stable and matches the dash.
+  //   - EWS: KD block 0, bytes 2..4 LE km.
+  // Both verified on a 231,364 mi car: KMB 372,358 km, EWS 372,346 km -- they
+  // agree, which is why the car shows no tamper dot. Only if neither stored
+  // read is available do we fall back to the module's named km result.
+  // STORED copies only. A module without one shows an em dash rather than
+  // a stand-in: the light module's service-interval counter is kept in
+  // 100 km steps, and the cluster's CAN mileage drifts with the engine off
+  // -- neither is the odometer, and putting either in the row made the
+  // copies look like they disagreed.
+  for (const sg of sgbds) {
+    const stored = await viReadStoredOdometer(sg, jobsOf.get(sg));
+    if (stored != null) {
+      col.km = stored;
+      break;
     }
   }
   return col;
+}
+
+// The stored (non-volatile) odometer for a module, or null. Cluster reads its
+// EEPROM; EWS reads its KD block. Both return km. See viReadColumn's note for
+// why the stored copy is preferred over any CAN-signal km.
+async function viReadStoredOdometer(sgbd, jobs) {
+  const has = (name) =>
+    Array.isArray(jobs) && jobs.some((j) => j && j.name === name);
+  // A cluster that DECLARES its stored odometer is asked for it by name.
+  // The EEPROM word below was verified on an E46 cluster only; an E39 IKE
+  // also answers EEPROM_LESEN, with a layout nobody has checked, so the
+  // declared job goes first wherever one exists.
+  {
+    const pick = await viPickInfoJob(sgbd, jobs, VI_KM_STORED_ROLE);
+    if (pick) {
+      try {
+        const values = await viRunValues(sgbd, pick.job);
+        const v = values.has(pick.result)
+          ? Number(String(values.get(pick.result)).trim())
+          : NaN;
+        if (Number.isFinite(v) && v > 0 && v < 2000000) return v;
+      } catch (e) {
+        /* fall through to the raw reads */
+      }
+    }
+  }
+  if (has('EEPROM_LESEN')) {
+    const km = await viReadKmbOdometer(sgbd);
+    if (km != null) return km;
+  }
+  if (has('KD_DATEN_LESEN')) {
+    const km = await viReadEwsOdometer(sgbd);
+    if (km != null) return km;
+  }
+  return null;
+}
+
+// Cluster stored odometer: EEPROM word 0x28 (4 words read), the mileage is
+// bytes 1..3 big-endian km. Verified: 00 05 AE 86 ... -> 0x05AE86 = 372,358
+// km, matching the dash. Rejects a blank/implausible read.
+async function viReadKmbOdometer(sgbd) {
+  try {
+    const values = await viRunValues(sgbd, 'EEPROM_LESEN', '0x28;4');
+    const bytes = viBytesOf(values.has('DATEN') ? values.get('DATEN') : null);
+    if (!bytes || bytes.length < 4) return null;
+    const km = (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
+    if (km === 0 || km === 0xffffff) return null;
+    // an E46 cluster tops out well under 2M km; anything past that is a
+    // misread, not an odometer
+    if (km > 2000000) return null;
+    return km;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Read KD block 0 from an EWS and decode the stored odometer (3-byte LE km at
+// offset 2). Returns the km number, or null when the module has no such job,
+// the block is blank, or the value is implausible.
+async function viReadEwsOdometer(sgbd) {
+  let jobs;
+  try {
+    jobs = await viJobs(sgbd);
+  } catch (e) {
+    return null;
+  }
+  // viJobs returns [{ name }]; match on the declared job name.
+  const hasKd =
+    Array.isArray(jobs) && jobs.some((j) => j && j.name === 'KD_DATEN_LESEN');
+  if (!hasKd) return null;
+  try {
+    // BLOCK 0. viRunValues drives the job the same way every other read here
+    // does; the block index is the job's single int argument.
+    const values = await viRunValues(sgbd, 'KD_DATEN_LESEN', '0');
+    const raw = values.has('KD_DATEN') ? values.get('KD_DATEN') : null;
+    const bytes = viBytesOf(raw);
+    if (!bytes || bytes.length < 5) return null;
+    // an all-FF (uninitialised) block carries no odometer
+    if (bytes.slice(0, 5).every((b) => b === 0xff)) return null;
+    const km = bytes[2] | (bytes[3] << 8) | (bytes[4] << 16);
+    // a 3-byte field maxes at ~16.7M km; reject 0 and the all-FF sentinel
+    if (km === 0 || km === 0xffffff) return null;
+    return km;
+  } catch (e) {
+    return null;
+  }
+}
+
+// KD_DATEN comes back the way EDIABAS publishes a binary result: a byte array,
+// a "7A-AE-05" hex-dash string, or a plain hex string. Normalise to a number
+// array; return null on anything else.
+function viBytesOf(v) {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.map((x) => Number(x) & 0xff);
+  if (v instanceof Uint8Array) return Array.from(v);
+  const s = String(v).trim();
+  if (/^[0-9a-fA-F]{2}([-\s][0-9a-fA-F]{2})+$/.test(s)) {
+    return s.split(/[-\s]+/).map((h) => parseInt(h, 16));
+  }
+  if (/^[0-9a-fA-F]+$/.test(s) && s.length % 2 === 0) {
+    const out = [];
+    for (let i = 0; i < s.length; i += 2)
+      out.push(parseInt(s.substr(i, 2), 16));
+    return out;
+  }
+  return null;
+}
+
+// The VIN as the car is registered by: a coding SGBD's C_FG_LESEN answers
+// with the check character appended (WBAET37495NJ87379 + Q), the diagnostic
+// SGBDs without it. The check is verified where the Mod-36 helper is
+// loaded, and the body is what the row shows either way.
+function viVinBody(v) {
+  const s = String(v || '')
+    .toUpperCase()
+    .replace(/\s/g, '');
+  if (!/^[A-Z0-9]{18}$/.test(s)) return s;
+  if (typeof CodingEncode !== 'undefined' && CodingEncode.vinCheckChar) {
+    try {
+      if (CodingEncode.vinCheckChar(s.slice(0, 17)) !== s[17]) return s;
+    } catch (e) {
+      /* no helper: trust the shape */
+    }
+  }
+  return s.slice(0, 17);
 }
 
 // A full 17-char VIN carries the type key at positions 4..7 (WBA AV36 ...).
@@ -636,12 +888,21 @@ function viColInfo(id, col, etk) {
   const bodyKw = kws.find((k) => VI_BODY_WORDS[k]);
   const engineKw = kws.find((k) => VI_ENGINE_KW.test(k));
   const gearMap = { M: 'Manual', A: 'Automatic' };
+  // The type-key row of the ZST names the gearbox too (MAN / AUT beside
+  // LIM and S62B50), which is how the original fills the cell without a
+  // parts catalogue. ETK, when present, still wins: it knows the exact
+  // variant.
+  const gearKw = kws.includes('AUT')
+    ? 'Automatic'
+    : kws.includes('MAN')
+      ? 'Manual'
+      : null;
   return {
     chassis: (col.fa && col.fa.br) || id,
     model: (etk && etk.model) || null,
     body: (etk && etk.body) || (bodyKw ? VI_BODY_WORDS[bodyKw] : null),
     engine: engineKw || (etk && etk.motor) || null,
-    gearbox: etk && etk.gear ? gearMap[etk.gear] || etk.gear : null,
+    gearbox: etk && etk.gear ? gearMap[etk.gear] || etk.gear : gearKw,
     typeKey: viTypeKey(col.vin) || (col.fa && col.fa.typ) || null,
     sa,
   };
@@ -709,9 +970,12 @@ function viOptionsBox(id, cols) {
         .map((code) => {
           const kw = VehicleIdentity.saLabel(id, code);
           const name = VehicleIdentity.saName(code, date);
-          const num = `<span class="mono">&lt;${esc(
-            String(code).padStart(4, '0')
-          )}&gt;</span>`;
+          // numbers are shown four wide (<0205>); an alphanumeric code
+          // (<1CA>) is a name, not a number, and is shown as itself
+          const shown = /^\d+$/.test(String(code))
+            ? String(code).padStart(4, '0')
+            : String(code);
+          const num = `<span class="mono">&lt;${esc(shown)}&gt;</span>`;
           if (name) {
             return (
               `<li>${num} <span class="vi-opt-name">${esc(name)}</span>` +
@@ -757,11 +1021,181 @@ function viSources(entries) {
   );
 }
 
+// ---- which car is plugged in, asked of the car --------------------------------
+//
+// PA Soft / NCS Expert do not ask the user which chassis it is. They put the
+// cluster's own group probe on the wire (D_0080, the same bytecode INPA runs
+// on open), read the coding key off whatever cluster answers, and the GM key
+// names the car. The chassis tables do the naming here (chassisFromKeys); the
+// group probe is the shipped D_0080 / D_0044 bytecode run in the VM, so this
+// path has no address or variant list of its own.
+//
+// Returns { chassis, sgbd, keys, via, type } or throws with a reason the
+// screen can print. `via` is 'gm' when the key named the chassis and
+// 'config' when only the config membership of the answering SGBD did.
+const VI_DETECT_GROUPS = ['d_0080', 'd_0044']; // cluster, then EWS
+
+async function viDetectCar(wait) {
+  if (typeof webResolveVariant !== 'function') {
+    throw new Error('this build cannot probe the car (no group resolver)');
+  }
+  let sgbd = null;
+  let group = null;
+  for (const g of VI_DETECT_GROUPS) {
+    wait(`Asking the ${g === 'd_0080' ? 'cluster' : 'EWS'} who it is…`);
+    let v;
+    try {
+      v = await webResolveVariant(g);
+    } catch (e) {
+      v = null;
+    }
+    if (v) {
+      sgbd = String(v).toLowerCase();
+      group = g;
+      break;
+    }
+  }
+  if (!sgbd) {
+    const why =
+      typeof webResolveVariantLast === 'function'
+        ? webResolveVariantLast()
+        : null;
+    throw new Error(
+      'neither the cluster (0x80) nor the EWS (0x44) answered its group probe' +
+        (why && why.path ? ` (${why.path})` : '')
+    );
+  }
+  wait(`${sgbd.toUpperCase()} answered · reading its coding key…`);
+  const jobs = await viJobs(sgbd);
+  const zcsJob = await viPickZcsJob(sgbd, jobs);
+  if (!zcsJob) {
+    throw new Error(`${sgbd} answered but declares no coding-key read`);
+  }
+  const values = await viRunValues(sgbd, zcsJob.job);
+  const keys = viKeysFrom(values, zcsJob.keys);
+  if (!keys) {
+    throw new Error(`${sgbd}: ${zcsJob.job} returned no valid coding key`);
+  }
+  // The key names the chassis. A key no table claims falls back to which
+  // chassis configs list the answering SGBD -- data too, just weaker: a
+  // cluster variant can serve more than one chassis.
+  const byKey =
+    typeof VehicleIdentity !== 'undefined'
+      ? VehicleIdentity.chassisFromKeys(keys)
+      : [];
+  let listed = [];
+  try {
+    const ids = await api('/api/chassis');
+    const cfgs = await Promise.all(
+      (ids || []).map((c) => api(`/api/chassis/${c}`).catch(() => null))
+    );
+    listed = cfgs
+      .filter(Boolean)
+      .filter((c) =>
+        (c.sections || []).some((sec) =>
+          (sec.ecus || []).some(
+            (e) => String(e.sgbd || '').toLowerCase() === sgbd
+          )
+        )
+      )
+      .map((c) => String(c.id).toUpperCase());
+  } catch (e) {
+    listed = [];
+  }
+  const agreed = byKey.filter((c) => listed.includes(c.chassis));
+  // WHICH MODULE ANSWERED OUTRANKS WHAT ITS KEY SAYS. A cluster that only
+  // one chassis config lists (kombi46r: E46) is the car; its GM key may be
+  // stale or unprogrammed on an FA-era car (a 2004 325i answered 00020002,
+  // which happens to be an E39 type row) and must not overrule that.
+  const pick =
+    agreed[0] ||
+    (listed.length === 1 ? { chassis: listed[0], viaConfig: true } : null) ||
+    byKey[0] ||
+    null;
+  if (pick && pick.viaConfig) {
+    return { chassis: pick.chassis, sgbd, group, keys, via: 'config' };
+  }
+  if (pick) {
+    return {
+      chassis: pick.chassis,
+      sgbd,
+      group,
+      keys,
+      via: 'gm',
+      type: pick.key,
+      keywords: pick.keywords,
+    };
+  }
+  throw new Error(
+    `no chassis table claims GM ${keys.gm}` +
+      (listed.length
+        ? ` (the ${sgbd} cluster is listed on ${listed.join(', ')})`
+        : '')
+  );
+}
+
+// The chassis-free entry: identify the car, then show its identity.
+async function identifyCar() {
+  return showVehicleIdentity(null);
+}
+
 // ---- screen ----------------------------------------------------------------
 
-async function showVehicleIdentity(chassisId) {
+async function showVehicleIdentity(chassisId, opts) {
+  // No chassis given: ask the car, then come back here with the answer.
+  if (!chassisId) {
+    lastScreen = () => showVehicleIdentity(null);
+    setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Identity' }]);
+    sbLeft.textContent = 'identifying the car';
+    view.innerHTML = head(
+      'Identity',
+      'Any car',
+      'Asks the cluster which car this is, then reads its build record.'
+    );
+    const panel = document.createElement('div');
+    panel.className = 'vi-panel';
+    view.appendChild(panel);
+    setActions([
+      {
+        key: '1',
+        keyLabel: 'F1',
+        label: 'Retry',
+        fn: () => showVehicleIdentity(null),
+      },
+      {
+        key: 'Escape',
+        keyLabel: 'Esc',
+        label: 'Back',
+        kind: 'back',
+        fn: showChassis,
+      },
+    ]);
+    const pass = (showVehicleIdentity._pass =
+      (showVehicleIdentity._pass || 0) + 1);
+    const stale = () => showVehicleIdentity._pass !== pass;
+    const wait = (text) => {
+      if (stale()) return;
+      panel.innerHTML = viLoading(text);
+      sbLeft.textContent = text;
+    };
+    if (typeof loadTables === 'function') await loadTables();
+    let found;
+    try {
+      found = await viDetectCar(wait);
+    } catch (e) {
+      if (stale()) return;
+      panel.innerHTML = errorBlock(
+        `Could not identify the car: ${esc(e && e.message ? e.message : e)}`
+      );
+      sbLeft.textContent = 'car not identified';
+      return;
+    }
+    if (stale()) return;
+    return showVehicleIdentity(found.chassis, { detected: found });
+  }
   const id = String(chassisId || '').toUpperCase();
-  lastScreen = () => showVehicleIdentity(chassisId);
+  const detected = (opts && opts.detected) || null;
+  lastScreen = () => showVehicleIdentity(chassisId, opts);
   const back = () =>
     typeof showSections === 'function'
       ? showSections(chassisId)
@@ -788,7 +1222,7 @@ async function showVehicleIdentity(chassisId) {
       key: '1',
       keyLabel: 'F1',
       label: 'Re-read',
-      fn: () => showVehicleIdentity(chassisId),
+      fn: () => showVehicleIdentity(chassisId, opts),
     },
     { key: 'Escape', keyLabel: 'Esc', label: 'Back', kind: 'back', fn: back },
   ];
@@ -821,31 +1255,37 @@ async function showVehicleIdentity(chassisId) {
     return;
   }
 
-  // SGFAM's family name, for labelling the source strip. Absent is fine --
-  // it is a nicety, not the mechanism.
+  // SGFAM's family name, for the column titles and the source strip.
   const fam =
     typeof VehicleIdentity !== 'undefined'
       ? VehicleIdentity.familyMap(id)
       : null;
-  const famName = (sgbd) => {
-    if (!fam) return null;
-    const s = String(sgbd).toUpperCase();
-    // an exact logical name, else the family whose CABD/ASW mentions it
-    if (fam[s]) return s;
-    return (
-      Object.keys(fam).find((k) => s.startsWith(k) || k.startsWith(s)) || null
-    );
-  };
+  const famName = (m) => viFamilyName(fam, m);
 
   // EVERY master is read, and each keeps its own column -- the copies are the
   // point. A master that answers nothing at all drops out of the table but
   // stays on the source strip, so a dead module is a finding, not a blank.
   const sources = [];
+  if (detected) {
+    sources.push({
+      sg: detected.sgbd.toUpperCase(),
+      ok: true,
+      what:
+        detected.via === 'gm'
+          ? `identified ${dispChassis(id)} from its GM key ` +
+            `(type ${detected.type}${
+              detected.keywords && detected.keywords.length
+                ? ': ' + detected.keywords.join(' ')
+                : ''
+            })`
+          : `identified ${dispChassis(id)} by which chassis list ${detected.sgbd}`,
+    });
+  }
   const cols = [];
   for (let i = 0; i < masters.length; i++) {
     const m = masters[i];
     wait(
-      `Reading ${famName(m.sgbd) || m.label || m.sgbd} ` +
+      `Reading ${famName(m) || m.label || m.sgbd} ` +
         `(${i + 1} of ${masters.length})…`
     );
     const col = await viReadColumn(m, sources, famName);
@@ -877,7 +1317,7 @@ async function showVehicleIdentity(chassisId) {
     return hit ? hit.vin : s;
   };
   for (const col of cols) {
-    col.title = famName(col.m.sgbd) || col.m.label || col.m.sgbd;
+    col.title = famName(col.m) || col.m.label || col.m.sgbd;
     col.etk = await viEtkDecode(col.vin);
     col.info = viColInfo(id, col, col.etk);
     if (!col.info.typeKey && col.vin) {
@@ -940,6 +1380,7 @@ async function showVehicleIdentity(chassisId) {
 
 if (typeof window !== 'undefined') {
   window.showVehicleIdentity = showVehicleIdentity;
+  window.identifyCar = identifyCar;
   window.chassisHasIdentity = chassisHasIdentity;
   window.readIdentityCodes = readIdentityCodes;
 }

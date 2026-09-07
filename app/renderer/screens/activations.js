@@ -23,10 +23,11 @@
 // not fire it.
 let leaveEcu = null;
 let leaveJob = null;
+let leaveArg = null; // the Back key's argument (STEUERN_DISPLAY "0"): sent with it
 let leaveKey = null; // "sgbd:menu", so a repaint of the same menu is a no-op
 let _leftEnergized = false; // did THIS menu fire a drive? (for pagehide only)
 
-function registerMenuLeave(ecu, menuKey, job) {
+function registerMenuLeave(ecu, menuKey, job, arg) {
   // a different menu is being set up: run what the PREVIOUS one owed
   if (leaveKey && leaveKey !== menuKey) {
     if (compEcu?.sgbd && compJob) {
@@ -39,13 +40,13 @@ function registerMenuLeave(ecu, menuKey, job) {
       } catch (e) {
         /* leaving */
       }
-      if (typeof irResetCompositeState === 'function') irResetCompositeState();
       _clearComposite();
     }
-    if (leaveJob && leaveEcu) _sendLeave(leaveEcu, leaveJob);
+    if (leaveJob && leaveEcu) _sendLeave(leaveEcu, leaveJob, leaveArg);
   }
   leaveEcu = ecu || null;
   leaveJob = job || null;
+  leaveArg = arg != null && arg !== '' ? String(arg) : null;
   leaveKey = menuKey || null;
   _leftEnergized = false;
 }
@@ -71,10 +72,13 @@ function _clearComposite() {
   compEcu = compJob = compArg = null;
 }
 
-function _sendLeave(ecu, job) {
+function _sendLeave(ecu, job, arg) {
   if (!ecu?.sgbd || !job) return;
   try {
-    api(`/api/ecu/${ecu.sgbd}/run/${job}`, { method: 'POST' }).catch(() => {});
+    const q = arg != null ? `?arg=${encodeURIComponent(arg)}` : '';
+    api(`/api/ecu/${ecu.sgbd}/run/${job}${q}`, { method: 'POST' }).catch(
+      () => {}
+    );
   } catch (e) {
     /* leaving anyway */
   }
@@ -96,15 +100,15 @@ function runMenuLeave() {
     } catch (e) {
       /* leaving */
     }
-    if (typeof irResetCompositeState === 'function') irResetCompositeState();
     _clearComposite();
   }
   if (leaveJob && leaveEcu) {
     const ecu = leaveEcu,
-      job = leaveJob;
-    _sendLeave(ecu, job);
+      job = leaveJob,
+      arg = leaveArg;
+    _sendLeave(ecu, job, arg);
   }
-  leaveEcu = leaveJob = leaveKey = null;
+  leaveEcu = leaveJob = leaveArg = leaveKey = null;
 }
 
 // ---- ECU session end (inpaexit's DIAGNOSE_ENDE) ----------------------------
@@ -164,7 +168,7 @@ window.addEventListener('pagehide', () => {
     if (compEcu?.sgbd && compJob) {
       _sendLeave(compEcu, compJob); // best effort; arg lost on unload, but neutral job runs
     }
-    if (leaveEcu && leaveJob) _sendLeave(leaveEcu, leaveJob);
+    if (leaveEcu && leaveJob) _sendLeave(leaveEcu, leaveJob, leaveArg);
   }
   const ecu = sessionEndEcu,
     job = sessionEndJob;
