@@ -20,7 +20,20 @@ const OFFLINE_SHELL = [
   'vendor/fflate.min.js',
 
   'core/offline-fs.js',
-  'core/webshim.js',
+  'core/webshim/timers.js',
+  'core/webshim/trace.js',
+  'core/webshim/framing.js',
+  'core/webshim/exchange.js',
+  'core/webshim/transport-base.js',
+  'core/webshim/native-bus.js',
+  'core/webshim/web-serial-bus.js',
+  'core/webshim/bus.js',
+  'core/webshim/data-fetch.js',
+  'core/webshim/job-runner.js',
+  'core/webshim/variant-resolver.js',
+  'core/webshim/coding.js',
+  'core/webshim/api-router.js',
+  'core/webshim/install.js',
   'core/bestvm.js',
   'core/ipovm.js',
   'core/core.js',
@@ -220,7 +233,7 @@ function offlineFilterIndex(idx, ids, allCars, warnings) {
   return out;
 }
 
-// FETCH THE FILE, NOT THE ROUTE. webshim.js installs over window.fetch and
+// FETCH THE FILE, NOT THE ROUTE. The transport shim installs over window.fetch and
 // answers /api/... from the archives, so use the real pre-shim fetch (which
 // the shim stores) to read the bytes on disk.
 const OFFLINE_FETCH =
@@ -308,16 +321,17 @@ async function offlineExport(
   for (const f of OFFLINE_SHELL) {
     files[f] = await offlineGet(f);
   }
-  // the inline data has to exist before webshim.js looks for it
+  // the inline data has to exist before the transport shim (core/webshim/,
+  // whose first piece is timers.js) looks for it
   {
     const html = new TextDecoder()
       .decode(files['index.html'])
       .replace(
-        '<script src="core/webshim.js"></script>',
+        '<script src="core/webshim/timers.js"></script>',
         '<script src="data/inline.js"></script>\n' +
           '  <script src="data/wiring.js"></script>\n' +
           '  <script src="data/docs.js"></script>\n' +
-          '  <script src="core/webshim.js"></script>'
+          '  <script src="core/webshim/timers.js"></script>'
       );
     files['index.html'] = enc0.encode(html);
   }
@@ -488,12 +502,12 @@ async function offlineSingleFile(
   }
   // THE APP IS NOT ALWAYS index.html: on the published site the installer holds
   // that name and the app is app.html. Ask for both, real app first, and pick
-  // the one that actually has the webshim.js tag.
+  // the one that actually has the transport shim's tags.
   for (const name of ['app.html', 'index.html']) {
     try {
       const doc = await offlineGet(name);
       const txt = new TextDecoder().decode(doc);
-      if (txt.includes('webshim.js')) {
+      if (txt.includes('core/webshim/')) {
         shell['index.html'] = doc;
         break;
       }
@@ -565,9 +579,10 @@ async function offlineSingleFile(
   );
 
   // Then the scripts, each in place, preserving load order. The car's data must
-  // be defined BEFORE webshim.js runs (it reads BMACW_INLINE as it loads), so
-  // that tag is the anchor; a MARK sentinel reserves the spot. The sentinel must
-  // not appear in source or prose or it corrupts the output silently.
+  // be defined BEFORE the transport shim runs (it reads BMACW_INLINE), so the
+  // shim's first piece (core/webshim/timers.js) is the anchor; a MARK sentinel
+  // reserves the spot. The sentinel must not appear in source or prose or it
+  // corrupts the output silently.
   const MARK = '<!--BMWEB_DATA_HERE-->';
   // tags a single file leaves out: no copies of itself
   const OMIT = new Set(['core/offline-export.js']);
@@ -589,14 +604,14 @@ async function offlineSingleFile(
       const tag =
         `  <script>window.__bmwebMark&&window.__bmwebMark('loading ${src}');</script>\n` +
         `  <script>\n${js}\n  </script>\n`;
-      if (src === 'core/webshim.js') {
+      if (src === 'core/webshim/timers.js') {
         sawWebshim = true;
         return MARK + tag;
       }
       return tag;
     }
   );
-  if (!sawWebshim) throw new Error('index.html has no webshim.js tag');
+  if (!sawWebshim) throw new Error('index.html has no core/webshim/ tag');
 
   // the car's data, as the same globals the zip build sets
   const b64 = (u8) => {

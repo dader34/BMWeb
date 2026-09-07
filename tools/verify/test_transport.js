@@ -16,12 +16,10 @@ const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..', '..');
 
-// webshim.js is a browser file: it ends by touching `window`. Take the pure
-// helpers, which is everything above the first class.
-const src = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/webshim.js'),
-  'utf8'
-);
+// The shim (core/webshim/, joined in load order) is browser code: it ends by
+// touching `window`. Take the pure helpers, which is everything above the
+// first transport class.
+const src = require('./webshim_src').readWebshimSource();
 const helpers = src.slice(0, src.indexOf('class NativeSerialBus'));
 const ctx = { exports: {}, console, Date, setTimeout, Error };
 vm.createContext(ctx);

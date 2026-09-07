@@ -481,10 +481,7 @@ const SHIPPED = new Set(GROUPS.groups || []);
     'sweep.js must clear via run/FS_LOESCHEN'
   );
 
-  const shim = fs.readFileSync(
-    path.join(ROOT, 'app/renderer/core/webshim.js'),
-    'utf8'
-  );
+  const shim = require('./webshim_src').readWebshimSource();
   const run =
     /\/\^\\\/api\\\/ecu\\\/\(\[\^\/\]\+\)\\\/run/.test(shim) ||
     /api\\\/ecu\\\/\(\[\^\/\]\+\)\\\/run/.test(shim);

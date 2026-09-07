@@ -3,7 +3,7 @@
 //
 // This app can read and STAGE coding/actuator changes but must never TRANSMIT
 // a write in the web build. That guarantee rests on a small, load-bearing set
-// of facts spread across bestvm.js / webshim.js / the per-screen dangerous-job
+// of facts spread across bestvm.js / core/webshim/ / the per-screen dangerous-job
 // regexes and the Python bulk-verify tool. A refactor could silently loosen any
 // of them. This test fails loudly if the guarantee erodes.
 //
@@ -263,7 +263,8 @@ for (const tok of CLOSED_GAPS) {
 // These assertions now guard the parts that MUST stay narrow, so the change
 // cannot quietly widen further.
 console.log('5. writes are enabled, and the read-only paths stay read-only');
-const shim = read('app/renderer/core/webshim.js');
+// the shim's pieces (core/webshim/) joined in load order
+const shim = require('./webshim_src').readWebshimSource();
 ok(
   /allowWrites: true/.test(shim),
   'the job runner constructs the VM with allowWrites:true'
