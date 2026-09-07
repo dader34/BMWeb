@@ -6,7 +6,7 @@
 // and share no CSS -- so `classPrefix` picks the class family and the rest are
 // behaviour flags. Each caller keeps its exact look and behaviour.
 //
-// It intentionally does NOT cover etk.js's makeSelect: that is a native-<select>
+// It intentionally does NOT cover etk/select.js's makeSelect: that is a native-<select>
 // emulation (index-string .value, .selectedIndex, .onchange dual-fire, a _vals
 // sidecar) that the parts cascade depends on -- a different contract, left alone.
 //

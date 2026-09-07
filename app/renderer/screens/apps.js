@@ -1,15 +1,38 @@
-// The Apps hub: reference tools ported from BMW's own dealer software, each
-// its own self-contained screen with its own data bundle. WDS wiring was the
-// first; this section is where the rest land (ETK parts catalogue next). A
-// port here is always the wiring shape: raw BMW data stripped of its viewer,
-// packed into archives the renderer inflates, drawn by a dedicated screen.
-//
-// APP_REGISTRY is the single list. To add a ported app: give it an id, the
-// card copy, the screen function to open, and (optionally) an async check for
-// whether its data actually shipped in this build -- an app with no data is
-// shown greyed with a "not in this build" note rather than hidden, so the
-// section reads the same whether or not the heavy bundles are present.
+/**
+ * @file The Apps hub: reference tools ported from BMW's own dealer software,
+ * each its own self-contained screen with its own data bundle. WDS wiring was
+ * the first; this section is where the rest land. A port here is always the
+ * wiring shape: raw BMW data stripped of its viewer, packed into archives the
+ * renderer inflates, drawn by a dedicated screen.
+ *
+ * APP_REGISTRY is the single list. To add a ported app: give it an id, the
+ * card copy, the screen function to open, and (optionally) an async check for
+ * whether its data actually shipped in this build -- an app with no data is
+ * shown greyed with a "not in this build" note rather than hidden, so the
+ * section reads the same whether or not the heavy bundles are present.
+ */
 
+/* exported showApps */
+
+/**
+ * One ported app on the hub.
+ * @typedef {object} AppEntry
+ * @property {string} id - stable id; also the card's data-app, which the guided tour spotlights
+ * @property {string} icon - a single glyph for the card
+ * @property {string} title - card title
+ * @property {string} desc - one-line description
+ * @property {string} tag - the BMW tool it was ported from ("ETK", "WDS · ISTA")
+ * @property {() => void} open - opens the app's screen
+ * @property {() => Promise<boolean>} [hasData] - did the app's data ship in this build? Absent = always
+ */
+
+/** How many openable apps get a number key. */
+const APPS_FKEY_SLOTS = 8;
+
+/** Stagger step (ms) of the app cards. */
+const APPS_STAGGER = 20;
+
+/** @type {AppEntry[]} */
 const APP_REGISTRY = [
   {
     id: 'lookup',
@@ -109,6 +132,50 @@ const APP_REGISTRY = [
   },
 ];
 
+/**
+ * Resolve whether an app's data shipped; a throwing check counts as absent.
+ * @param {AppEntry} app - the app
+ * @returns {Promise<boolean>}
+ */
+async function appIsReady(app) {
+  if (typeof app.hasData !== 'function') return true;
+  try {
+    return await app.hasData();
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * One hub card. An absent app renders greyed and disabled with a "not in
+ * this build" note.
+ * @param {AppEntry} app - the app
+ * @param {boolean} ready - its data shipped
+ * @returns {HTMLButtonElement}
+ */
+function appCard(app, ready) {
+  const card = document.createElement('button');
+  card.className = 'lookup-entry app-entry' + (ready ? '' : ' app-absent');
+  card.dataset.app = app.id; // lets the guided tour spotlight a named app
+  card.innerHTML = `
+      <span class="lookup-entry-icon">${app.icon}</span>
+      <span class="lookup-entry-text">
+        <span class="lookup-entry-title">${esc(app.title)}
+          <span class="app-tag">${esc(app.tag)}</span></span>
+        <span class="lookup-entry-desc">${esc(app.desc)}${
+          ready ? '' : ' · not in this build'
+        }</span>
+      </span>
+      <span class="lookup-entry-arrow">${ready ? '→' : ''}</span>`;
+  if (ready) card.onclick = () => app.open();
+  else card.disabled = true;
+  return card;
+}
+
+/**
+ * Show the Apps hub.
+ * @returns {Promise<void>}
+ */
 async function showApps() {
   lastScreen = showApps;
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Apps' }]);
@@ -119,15 +186,14 @@ async function showApps() {
     'Ported Apps',
     "Reference tools ported from BMW's dealer software, offline."
   );
-  setActions([
-    {
-      key: 'Escape',
-      keyLabel: 'Esc',
-      label: 'Back',
-      kind: 'back',
-      fn: showChassis,
-    },
-  ]);
+  const backAction = {
+    key: 'Escape',
+    keyLabel: 'Esc',
+    label: 'Back',
+    kind: 'back',
+    fn: showChassis,
+  };
+  setActions([backAction]);
 
   const list = document.createElement('div');
   list.className = 'apps-list stagger';
@@ -142,58 +208,24 @@ async function showApps() {
 
   // resolve availability once, in parallel; a card renders as soon as we know
   const states = await Promise.all(
-    APP_REGISTRY.map(async (a) => {
-      let ready = true;
-      if (typeof a.hasData === 'function') {
-        try {
-          ready = await a.hasData();
-        } catch (e) {
-          ready = false;
-        }
-      }
-      return { app: a, ready };
-    })
+    APP_REGISTRY.map(async (app) => ({ app, ready: await appIsReady(app) }))
   );
   loading.remove();
 
   const openable = [];
   states.forEach(({ app, ready }) => {
-    const card = document.createElement('button');
-    card.className = 'lookup-entry app-entry' + (ready ? '' : ' app-absent');
-    card.dataset.app = app.id; // lets the guided tour spotlight a named app
-    card.innerHTML = `
-      <span class="lookup-entry-icon">${app.icon}</span>
-      <span class="lookup-entry-text">
-        <span class="lookup-entry-title">${esc(app.title)}
-          <span class="app-tag">${esc(app.tag)}</span></span>
-        <span class="lookup-entry-desc">${esc(app.desc)}${
-          ready ? '' : ' · not in this build'
-        }</span>
-      </span>
-      <span class="lookup-entry-arrow">${ready ? '→' : ''}</span>`;
-    if (ready) {
-      card.onclick = () => app.open();
-      openable.push(app);
-    } else {
-      card.disabled = true;
-    }
-    list.appendChild(card);
+    list.appendChild(appCard(app, ready));
+    if (ready) openable.push(app);
   });
-  stagger(list, 20);
+  stagger(list, APPS_STAGGER);
   sbRight.textContent = `${openable.length} app${openable.length === 1 ? '' : 's'}`;
 
   setActions([
-    ...openable.slice(0, 8).map((a, i) => ({
+    ...openable.slice(0, APPS_FKEY_SLOTS).map((a, i) => ({
       key: String(i + 1),
       label: a.title.split(' ')[0],
       fn: () => a.open(),
     })),
-    {
-      key: 'Escape',
-      keyLabel: 'Esc',
-      label: 'Back',
-      kind: 'back',
-      fn: showChassis,
-    },
+    backAction,
   ]);
 }

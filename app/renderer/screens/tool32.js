@@ -749,7 +749,7 @@ function labelSpan(text) {
 }
 
 // a scrolling single-select list box with a loading/empty message and an
-// optional per-row "write" marker. Mirrors etk.js's listBox but standalone so
+// optional per-row "write" marker. Mirrors etk/attributes.js's listBox but standalone so
 // Tool32 doesn't depend on the ETK screen being loaded.
 /**
  * Tool32's list box: the shared control (ui/listbox.js) with the write-job
