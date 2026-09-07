@@ -38,6 +38,7 @@ FIXTURES = os.path.join(HERE, "fixtures", "ipo")
 
 
 def corpus():
+    """The .IPO files to round-trip: BMACW_IPO_CORPUS, else the fixtures."""
     ext = os.environ.get("BMACW_IPO_CORPUS")
     if ext:
         files = sorted(glob.glob(os.path.join(ext, "*.IPO"))
@@ -48,6 +49,11 @@ def corpus():
 
 
 def main():
+    """Run the codec, compiler, decoder and editor round-trips.
+
+    Returns:
+        The process exit code (1 on any failure or with no corpus).
+    """
     files = corpus()
     if not files:
         print("no corpus found -- fixtures/ipo/ is empty and "

@@ -39,6 +39,7 @@ passed = 0
 
 
 def ok(what):
+    """Count one passed check (printed when V is set)."""
     global passed
     passed += 1
     if os.environ.get("V"):
@@ -46,6 +47,7 @@ def ok(what):
 
 
 def fail(what):
+    """Print a failure and exit 1."""
     print(f"  FAIL  {what}")
     sys.exit(1)
 

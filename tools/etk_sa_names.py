@@ -51,6 +51,8 @@ WHERE s.bedsala_produktart = 'P'
 
 
 def main():
+    """CLI entry: dump the dated SA-number -> English name table as JSON and
+    as the renderer's sanames.js."""
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--db', required=True, help='etk.sqlite (the dumped catalogue)')
     args = ap.parse_args()

@@ -34,7 +34,6 @@ import re
 import sys
 import json
 import glob
-import struct
 import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +42,7 @@ sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import sgbd_spec as SP                                        # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 SIM_DIR = os.path.join(ROOT, "data", "sim-captures")
 CLI = os.path.join(ROOT, "src", "InpaMac.Cli")
@@ -55,17 +55,26 @@ def fast_telegram(dst, src, payload):
     return tel + [sum(tel) & 0xff]
 
 
-def hexcsv(bs):
+def hexcsv(bs) -> str:
+    """Bytes as the comma-separated upper-case hex a .sim file wants."""
     return ",".join(f"{b:02X}" for b in bs)
 
 
-def write_sim(sim_dir, sgbd, pairs):
+def write_sim(sim_dir: str, sgbd: str, pairs) -> str:
     """pairs: [(request_bytes, response_bytes)] -> <sgbd>.sim and obd.sim.
 
     Both files are needed: EdiabasLib looks up an INTERFACE sim file named
     after the interface type (obd.sim) at connect time, and an SGBD sim file
     named after the .prg. Bytes are COMMA separated -- space separated values
     parse as one oversized token and the file is silently rejected (IFH-0026).
+
+    With NO pairs an empty but VALID sim file is written: the engine still
+    connects, sends, and records the telegram, then reports no data. That is
+    the bulk verifier's discovery pass -- a missing file instead fails at
+    connect (IFH-0026) and nothing reaches the trace.
+
+    Returns:
+        The file body written.
     """
     # Clear any SGBD sim file left by a previous case. obd.sim is shared (the
     # interface-level file EdiabasLib looks up at connect time), so a stale
@@ -74,9 +83,12 @@ def write_sim(sim_dir, sgbd, pairs):
     os.makedirs(sim_dir, exist_ok=True)
     for old in glob.glob(os.path.join(sim_dir, "*.sim")):
         os.remove(old)
-    req = "\n".join(f"R{i+1} = {hexcsv(q)}" for i, (q, _) in enumerate(pairs))
-    rsp = "\n".join(f"R{i+1} = {hexcsv(a)}" for i, (_, a) in enumerate(pairs))
-    body = f"[REQUEST]\n{req}\n\n[RESPONSE]\n{rsp}\n"
+    if pairs:
+        req = "\n".join(f"R{i+1} = {hexcsv(q)}" for i, (q, _) in enumerate(pairs))
+        rsp = "\n".join(f"R{i+1} = {hexcsv(a)}" for i, (_, a) in enumerate(pairs))
+        body = f"[REQUEST]\n{req}\n\n[RESPONSE]\n{rsp}\n"
+    else:
+        body = "[REQUEST]\nR1 = 00\n\n[RESPONSE]\nR1 = 00\n"
     for name in (sgbd.lower() + ".sim", "obd.sim"):
         with open(os.path.join(sim_dir, name), "w") as f:
             f.write(body)
@@ -352,6 +364,13 @@ def ds2_telegram(addr, payload):
 
 
 def run_case(sgbd, job, req, payload, verbose=True, ds2=False, ecu_addr=0x12):
+    """Run one job through the engine against a synthetic response and
+    compare with the spec decoder.
+
+    Returns:
+        ``(agree, disagree, unknown)`` result counts; an engine or decode
+        failure counts as one disagreement.
+    """
     # `ecu_addr`, not `addr`: the ECU's bus address collided with the job's
     # BYTECODE address below, so every DS2 frame was built with a 20-bit
     # code offset as its address byte and the engine rejected the file.
@@ -406,14 +425,23 @@ def selftest():
 
 
 def main():
-    if "--selftest" in sys.argv or len(sys.argv) == 1:
+    """CLI entry: the self-test (default), or decode `SGBD JOB` against the
+    ``--raw`` response bytes with the lifted spec.
+
+    Returns:
+        The process exit code.
+    """
+    ns = parse_args(__doc__,
+                    positional=("args", "*", "SGBD JOB"),
+                    flags={"--selftest": "run the fixed cases against the engine"},
+                    options={"--raw": ("HEX,HEX,...", "the response bytes to decode")})
+    if ns.selftest or not ns.args:
         return selftest()
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    args = ns.args
     sgbd, job = args[0].lower(), args[1].upper()
     raw = []
-    if "--raw" in sys.argv:
-        raw = [int(x, 16) for x in
-               sys.argv[sys.argv.index("--raw") + 1].split(",")]
+    if ns.raw:
+        raw = [int(x, 16) for x in ns.raw.split(",")]
     data, jobs = SP.load(sgbd)
     addr = SP.job_addr(data, jobs, job)
     if addr is None:

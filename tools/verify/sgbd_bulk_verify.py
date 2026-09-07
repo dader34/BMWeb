@@ -54,6 +54,7 @@ sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
 import sgbd_spec as SP                                        # noqa: E402
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_value_diff as V                                   # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 WORK = os.path.join(ROOT, "data", "sim-captures", "bulk")
 CLI = os.path.join(ROOT, "src", "InpaMac.Cli")
@@ -93,6 +94,7 @@ class _WriteJob:
     read-wins / default-deny classifier, so `WRITE_JOB.match(name)` callers
     keep working unchanged."""
     def match(self, name):
+        """True when `name` is (or defaults to) a write; None for a read."""
         n = name or ""
         if READ_TOKEN.search(n):
             return None                       # a read of anything is a read
@@ -114,6 +116,8 @@ WRITE_JOB = _WriteJob()
 # a .sim file and never onto a bus. That is what makes exercising the write
 # PATH (argument handling, request assembly, status decode) safe, and 192
 # such jobs had never been executed even once.
+# Read at import time (not in main) because sgbd_export and vm_fixtures
+# import this module and their own command lines must not be parsed here.
 INCLUDE_WRITES = "--writes" in sys.argv
 
 # a payload byte pattern that makes a misread offset obvious: every byte
@@ -140,6 +144,7 @@ def cli_cmd(*args):
     global _CLI_BIN
     if _CLI_BIN is None:
         def newest_dll():
+            """The most recently built CLI assembly, or None."""
             hits = glob.glob(os.path.join(CLI, "bin", "**",
                                           "InpaMac.Cli.dll"), recursive=True)
             return max(hits, key=os.path.getmtime) if hits else None
@@ -180,23 +185,8 @@ def batch(requests):
     return out
 
 
-def write_sim(sim_dir, sgbd, pairs):
-    os.makedirs(sim_dir, exist_ok=True)
-    for old in glob.glob(os.path.join(sim_dir, "*.sim")):
-        os.remove(old)
-    if pairs:
-        req = "\n".join(f"R{i+1} = {V.hexcsv(q)}" for i, (q, _) in enumerate(pairs))
-        rsp = "\n".join(f"R{i+1} = {V.hexcsv(a)}" for i, (_, a) in enumerate(pairs))
-        body = f"[REQUEST]\n{req}\n\n[RESPONSE]\n{rsp}\n"
-    else:
-        # an empty but VALID sim file: the engine still connects, sends, and
-        # records the telegram, then reports no data. That is the discovery
-        # pass -- a missing file instead fails at connect (IFH-0026) and
-        # nothing reaches the trace.
-        body = "[REQUEST]\nR1 = 00\n\n[RESPONSE]\nR1 = 00\n"
-    for name in (sgbd.lower() + ".sim", "obd.sim"):
-        with open(os.path.join(sim_dir, name), "w") as f:
-            f.write(body)
+# one writer for both harnesses; the empty-pairs discovery stub lives there
+write_sim = V.write_sim
 
 
 def all_sends(trace_dir):
@@ -288,15 +278,18 @@ def synth_response(req):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    limit = None
-    if "--limit" in sys.argv:
-        # index()+1 IndexErrors when the flag is last; say what is wrong
-        # instead of tracebacking.
-        i = sys.argv.index("--limit")
-        if i + 1 >= len(sys.argv):
-            sys.exit("--limit needs a number, e.g. --limit 40")
-        limit = int(sys.argv[i + 1])
+    """CLI entry: value-check every IR-referenced job of the named SGBDs
+    (default: E46's) against the engine.
+
+    Returns:
+        The process exit code (1 when any spec disagreed with the engine).
+    """
+    ns = parse_args(__doc__,
+                    positional=("sgbd", "*", "SGBDs to check (default: E46's)"),
+                    flags={"--writes": "include write jobs (simulated interface only)"},
+                    options={"--limit": ("N", "check at most N jobs per SGBD")})
+    args = ns.sgbd
+    limit = int(ns.limit) if ns.limit else None
 
     targets = [a.lower() for a in args] if args else S.e46_sgbds()
     os.makedirs(WORK, exist_ok=True)

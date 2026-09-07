@@ -27,9 +27,10 @@ from collections import Counter
 
 R = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
-sys.path[:0] = [os.path.join(R, "tools", "decompile")]
+sys.path[:0] = [os.path.join(R, "tools", "decompile"), os.path.join(R, "tools")]
 import ipo_disasm as D                                          # noqa: E402
 import ipo_vm as V                                              # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 IR_DIR = os.path.join(R, "data", "inpa-ir")
 
@@ -155,6 +156,7 @@ def vm_screen(ecu, name, budget=20000):
 
 
 def ir_screen(scr):
+    """One IR screen reduced to its keys and element-type counts."""
     els = [e for ln in (scr.get("lines") or []) for e in (ln.get("elements") or [])]
     return {
         "keys": [e["key"] for e in els if e.get("key")],
@@ -266,13 +268,22 @@ def compare(ecu, verbose=False, want_calls=False):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    verbose = not ("--corpus" in sys.argv)
-    only = None
-    if "--field" in sys.argv:
-        only = sys.argv[sys.argv.index("--field") + 1]
+    """CLI entry: one ECU verbosely, ``--corpus`` every ECU as a summary
+    (``--field`` narrows the table), or ``--screens`` the screen comparison.
 
-    if "--screens" in sys.argv:
+    Returns:
+        The process exit code (1 when the named ECU has no IR).
+    """
+    ns = parse_args(__doc__,
+                    positional=("ecu", "*", "an ECU (.IPO stem)"),
+                    flags={"--corpus": "every ECU, summary only",
+                           "--screens": "compare screens instead of menus"},
+                    options={"--field": ("NAME", "report only this menu-item field")})
+    args = ns.ecu
+    verbose = not ns.corpus
+    only = ns.field
+
+    if ns.screens:
         names = sorted(f[:-5] for f in os.listdir(IR_DIR)
                        if f.endswith(".json"))
         tot = Counter()
@@ -305,7 +316,7 @@ def main():
         print(f"  lamps  same={tot['lamps-same']} differ={tot['lamps-differ']}")
         return 0
 
-    if "--corpus" in sys.argv:
+    if ns.corpus:
         names = sorted(f[:-5] for f in os.listdir(IR_DIR)
                        if f.endswith(".json"))
         total = {f: Counter() for f in list(FIELDS) + ["_item"]}

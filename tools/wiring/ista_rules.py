@@ -14,6 +14,7 @@ places, combined:
      from the nearest ancestor that has any.
 """
 import struct
+from typing import Set
 
 CHASSIS_ROOT = 53088651   # E-Bezeichnung (Development code)
 ENGINE_ROOT = 53363595    # Motor (Engine)
@@ -21,7 +22,14 @@ BODY_ROOT = 53046411      # Karosserie (Body): LIM/COU/TOU/CAB/COM/ROA/SAV...
 
 
 class RuleDecoder:
+    """Decodes XEP_RULES blobs over one DiagDocDb connection.
+
+    Loads the characteristic classification, every rule, and the
+    diagnosis-tree maps once, so per-document lookups are dictionary hits.
+    """
+
     def __init__(self, con):
+        """Preload the lookup tables from an open DiagDocDb connection."""
         cur = con.cursor()
         self.chars = {}
         self.kind_of = {}
@@ -82,7 +90,7 @@ class RuleDecoder:
                     dto = v if dto is None else max(dto, v)
         return c, e, bod, dfrom, dto
 
-    def inherited_engines(self, io_id):
+    def inherited_engines(self, io_id) -> Set[str]:
         """Engine set from the nearest diagnosis-tree ancestor that has one."""
         starts = self.doc_controlids.get(io_id)
         if not starts:
@@ -98,7 +106,7 @@ class RuleDecoder:
                 seen += 1
         return set()
 
-    def doc_applicability(self, io_id):
+    def doc_applicability(self, io_id) -> dict:
         """{e:[engines], b:[bodies], f:dateFrom, t:dateTo} for a document, with
         engines inherited from ancestors when the doc's own rule names none.
         Chassis is omitted -- the bundle is already chassis-scoped."""

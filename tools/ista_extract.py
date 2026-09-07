@@ -84,6 +84,7 @@ def _text_of(el):
     parts = []
 
     def walk(node):
+        """Collect each block's text, keeping nested blocks as separate lines."""
         for child in node:
             if child.tag in _BLOCK_TAGS:
                 # a LISTENTRY may itself wrap PARAGRAPHs: take its direct
@@ -173,6 +174,7 @@ def _collect_blocks(el):
     blocks = []
 
     def walk(node):
+        """Append paragraph, bullet and table blocks; headings are skipped."""
         for child in node:
             tag = child.tag
             if tag == "HEADING":
@@ -273,10 +275,12 @@ class Content:
     GetXmlValuePrimitivesById: SELECT data ... WHERE id=@id)."""
 
     def __init__(self, path):
+        """Open the content database read-only."""
         self.con = sqlite3.connect(path)
         self.con.execute("PRAGMA query_only=1")
 
     def get(self, cid):
+        """The newest live content for `cid` as text, or None."""
         if not cid:
             return None
         row = self.con.execute(
@@ -383,6 +387,8 @@ def extract_diagnosis_docs(diag, content, limit=None):
 
 
 def main():
+    """CLI entry: write faultinfo.json and (unless ``--fkb-only``)
+    faulttests.json into the output directory."""
     ap = argparse.ArgumentParser(description="Extract ISTA diagnostic content")
     ap.add_argument("--diagdoc", required=True, help="DiagDocDb.decrypted.sqlite")
     ap.add_argument("--content", required=True, help="xmlvalueprimitive_ENGB.sqlite")

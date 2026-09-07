@@ -310,6 +310,7 @@ def build_vin_index(con, out_dir):
         "ORDER BY f.fgstnr_von").fetchall()
     variants = {}          # (chassis,mospid,model,body,motor,steer) -> index
     def vidx(r):
+        """The index of this row's variant tuple, interned on first sight."""
         key = (r[2], r[3], r[5] or '', r[6] or '', r[7] or '', r[8] or '')
         if key not in variants:
             variants[key] = len(variants)
@@ -404,6 +405,8 @@ def build_vehicle_thumbs(con, out_dir):
 
 
 def main():
+    """CLI entry: pack the catalogue per chassis, plus the VIN index, the
+    vehicle drill-down and the thumbnails on request."""
     ap = argparse.ArgumentParser(description="Pack ETK into per-chassis .etk bundles")
     ap.add_argument('--db', required=True, help='etk.sqlite (the dumped catalogue)')
     ap.add_argument('--chassis', help='one chassis id (default: all)')
