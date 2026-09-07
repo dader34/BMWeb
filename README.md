@@ -193,7 +193,8 @@ saves the report as a `.json` you can attach by hand.
 app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
   core/                bestvm/ (the job VM, one piece per concern), ipovm/ (the .IPO VM), webshim/ (the transport shim), vehicle-identity/, xdf/ (TunerPro .xdf engine), remote.js, journal.js; coding/ (codec, ZCS, SGET selection, dispatcher, write runner)
   core/core/           settings, ui helpers, api client, error explaining, F-key bar, dialogs
-  screens/             ipo-runtime/ (module view), sweep/ (whole-car scans), vehicle-identity/, tuning/ (firmware editor), lookup/ (fault search), etk/ (parts catalogue), wiring, apps hub, tool32; coding/ (hub, expert tree, curated, ZCS editor)
+  screens/             ipo-runtime/ (module view), sweep/ (whole-car scans), vehicle-identity/, tuning/ (firmware editor), lookup/ (fault search), etk/ (parts catalogue), apps hub, tool32; coding/ (hub, expert tree, curated, ZCS editor)
+  screens/wiring/      the Wiring & Documents app, one piece per concern (archive, docs, vin, tabs, tree, viewer, document, share-print, picker, screen)
   data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition
 data/inpa-ir/          decompiled module scripts and their caption dictionaries (gzipped)
