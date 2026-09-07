@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+/**
+ * @file Collapse a built index.html's renderer script tags into one bundle tag.
+ */
 // Collapse a built index.html's renderer <script src> tags into a single
 // <script src="bundle.js">, at the position of the LAST such tag -- the app's
 // scripts sit at the END of <body> (after the DOM), and app.js in particular
