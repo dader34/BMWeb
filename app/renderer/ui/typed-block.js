@@ -18,18 +18,56 @@
 //   {t:'h', s}       sub-heading inside a chapter
 //   {t:'table', rows:[[cell,...], ...]}  first row is the header
 
-// key that looks like an ISTA legend marker: a 1-2 digit number, or a short
-// letter code optionally followed by digits (A, X12, ABS3...)
+/**
+ * One ISTA typed block.
+ * @typedef {Object} TypedBlock
+ * @property {'p'|'bullet'|'h'|'table'} t - Block kind.
+ * @property {string} [s] - Text (p, bullet, h).
+ * @property {string[][]} [rows] - Table rows; the first row is the header.
+ */
+
+/**
+ * A chapter: a heading and its blocks (or the older flat `paras` list).
+ * @typedef {Object} TypedChapter
+ * @property {string} [heading] - Chapter title.
+ * @property {TypedBlock[]} [blocks] - The blocks.
+ * @property {string[]} [paras] - Legacy flat paragraphs ('• ' prefix = bullet).
+ */
+
+/**
+ * Rendering options.
+ * @typedef {Object} TypedBlockOpts
+ * @property {boolean} [legend] - Render ISTA legend tables as key/label lists.
+ * @property {boolean} [breaks] - Turn newlines in prose/bullets into <br>.
+ */
+
+/**
+ * Whether a cell looks like an ISTA legend marker: a 1-2 digit number, or a
+ * short letter code optionally followed by digits (A, X12, ABS3...).
+ * @param {any} s - The cell.
+ * @returns {boolean}
+ */
 function _tbIsLegendKey(s) {
   return /^([0-9]{1,2}|[A-Z]{1,4}\s?[0-9]{0,2})$/.test(String(s).trim());
 }
 
+/**
+ * Escape inline text, optionally keeping its line breaks.
+ * @param {string} s - The text.
+ * @param {boolean} [breaks] - Turn newlines into <br>.
+ * @returns {string} HTML.
+ */
 function _tbInline(s, breaks) {
   const e = esc(s);
   return breaks ? e.replace(/\n/g, '<br>') : e;
 }
 
-// One typed block -> HTML string. `esc` is the app-global escaper.
+/**
+ * One typed block -> HTML string. `esc` is the app-global escaper.
+ * @param {TypedBlock} b - The block.
+ * @param {TypedBlockOpts} [opts] - Rendering options.
+ * @returns {string} HTML ('' for an empty or unknown block).
+ */
 function renderTpBlock(b, opts = {}) {
   if (b.t === 'h') return `<div class="fm-tp-subh">${esc(b.s)}</div>`;
   if (b.t === 'p')
@@ -85,8 +123,13 @@ function renderTpBlock(b, opts = {}) {
   return `<div class="fm-tp-table" style="--cols:${cols}">${rows}</div>`;
 }
 
-// One chapter {heading, blocks:[...]} -> HTML (heading + its blocks). Tolerates
-// the older flat `paras` shape the fault viewer still guards for.
+/**
+ * One chapter -> HTML (heading + its blocks). Tolerates the older flat `paras`
+ * shape the fault viewer still guards for.
+ * @param {TypedChapter} ch - The chapter.
+ * @param {TypedBlockOpts} [opts] - Rendering options.
+ * @returns {string} HTML.
+ */
 function renderTpChapter(ch, opts = {}) {
   const head = ch.heading
     ? `<div class="fm-tp-h">${esc(ch.heading)}</div>`

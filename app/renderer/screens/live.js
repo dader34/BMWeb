@@ -1,4 +1,10 @@
 // raw job runner: argument dialogs, runJob, generic result cards
+
+/**
+ * Hand-tuned argument handling for jobs whose SGBD schema is not enough: a
+ * fixed value, or a prompt with a placeholder and an optional fixed suffix.
+ * @type {Object<string, {fixed?: string, prompt?: string, placeholder?: string, suffix?: string}>}
+ */
 const JOB_ARGS = {
   MESSWERTBLOCK_LESEN: {
     prompt: 'Measurement IDs, comma-separated (e.g. 0x4300,0x4301)',
@@ -24,7 +30,15 @@ const JOB_ARGS = {
   },
 };
 
-// text-input modal -> Promise<string|null>
+/**
+ * A single text-input modal.
+ * @param {Object} opts
+ * @param {string} opts.title - Dialog title (trusted HTML).
+ * @param {string} opts.body - Prompt text (trusted HTML).
+ * @param {string} [opts.placeholder=''] - Field placeholder.
+ * @param {string} [opts.value=''] - Initial value.
+ * @returns {Promise<string|null>} The trimmed value, or null when cancelled/empty.
+ */
 function promptDialog({ title, body, placeholder = '', value = '' }) {
   return new Promise((resolve) => {
     const { overlay, close } = openModal(
@@ -62,7 +76,22 @@ function promptDialog({ title, body, placeholder = '', value = '' }) {
   });
 }
 
-// fetch a job's declared _ARGUMENTS from the SGBD; [] if none / on error.
+/**
+ * An argument spec from a job's declared _ARGUMENTS, with any table-backed
+ * options resolved.
+ * @typedef {Object} JobArgSpec
+ * @property {string} ARG - Argument name.
+ * @property {string} [ARGTYPE] - EDIABAS type (string, int, binary, ...).
+ * @property {Array<{value: string, label: string}>} [_options] - Values from a referenced SGBD table.
+ */
+
+/**
+ * Fetch a job's declared _ARGUMENTS from the SGBD, resolving "table X" hints
+ * into option lists.
+ * @param {{sgbd: string}} ecu - The ECU.
+ * @param {string} job - The job name.
+ * @returns {Promise<JobArgSpec[]>} The specs; [] when none or on error.
+ */
 async function fetchJobArgs(ecu, job) {
   try {
     const d = await api(
@@ -98,6 +127,12 @@ async function fetchJobArgs(ecu, job) {
 
 // group table-backed options by the first word of their label (INPA's Activate
 // layout). Groups of one collapse into an "Other" bucket.
+/**
+ * `<optgroup>` markup for table-backed options, grouped by label prefix.
+ * @param {Array<{value: string, label: string}>} options - The options.
+ * @param {(s: string) => string} tr - Label translator.
+ * @returns {string} HTML.
+ */
 function optGroupHtml(options, tr) {
   const groups = new Map();
   options.forEach((o) => {
@@ -132,8 +167,12 @@ function optGroupHtml(options, tr) {
   return parts.join('');
 }
 
-// multi-field argument dialog built from the _ARGUMENTS schema. resolves to the
-// ';'-joined arg string EDIABAS expects, or null if cancelled.
+/**
+ * A multi-field argument dialog built from the _ARGUMENTS schema.
+ * @param {string} job - The job name (for the title).
+ * @param {JobArgSpec[]} argSpecs - The argument specs.
+ * @returns {Promise<string|null>} The ';'-joined argument string EDIABAS expects, or null if cancelled.
+ */
 function argsDialog(job, argSpecs) {
   return new Promise((resolve) => {
     const tr = (s) =>
@@ -224,11 +263,27 @@ function argsDialog(job, argSpecs) {
 // Three job names for the one thing (a single-name search misses most):
 // FS_SHADOW_LESEN, FS_LESEN_SHADOW (newer DDEs), READ_SHADOW (E65 tailgate).
 // Decodes to the same F_* results as a normal read, so renderFaults handles it.
+/** The three names of the shadow fault-memory read. */
 const SHADOW_JOB_RE = /^(FS_SHADOW_LESEN|FS_LESEN_SHADOW|READ_SHADOW)$/i;
+
+/**
+ * Whether a job reads the shadow fault memory.
+ * @param {string|null|undefined} job - The job name.
+ * @returns {boolean}
+ */
 const isShadowJob = (job) => SHADOW_JOB_RE.test(String(job || ''));
 
-// run a job and render its result sets. FS_LESEN gets the fault-card view, others
-// a generic key/value table.
+/**
+ * Run a job (prompting for arguments and confirming a dangerous one) and
+ * render its result sets: fault jobs get the fault-card view, others a generic
+ * key/value table. A clear is followed by a re-read, as INPA does.
+ * @param {{sgbd: string, label: string, group?: string}} ecu - The ECU.
+ * @param {string} job - The job name.
+ * @param {HTMLElement} container - Where the result renders.
+ * @param {boolean} [danger] - Confirm before running.
+ * @param {string|null} [presetArg] - An argument to use instead of prompting.
+ * @returns {Promise<void>}
+ */
 async function runJob(ecu, job, container, danger, presetArg) {
   if (job === 'FS_LESEN' || job === 'FS_LESEN_DETAIL' || isShadowJob(job)) {
     loadFaultDb(); // warm the name db
@@ -334,8 +389,15 @@ async function runJob(ecu, job, container, danger, presetArg) {
 
 // a screen change stops whatever polling loop was running; the live .IPO
 // runtime owns its own cycle now, so this only has a timer left to clear
+/** The legacy polling timer handle. @type {ReturnType<typeof setTimeout>|null} */
 let liveTimer = null;
+/** Bumped on every stop so an in-flight poll knows it is stale. */
 let _liveToken = 0;
+
+/**
+ * Stop whatever polling loop was running (called on every screen change).
+ * @returns {void}
+ */
 function stopLive() {
   _liveToken++;
   if (liveTimer) {
@@ -344,14 +406,25 @@ function stopLive() {
   }
 }
 
-// CSV logging handle from the main process
+/** CSV logging handle from the main process. @type {any} */
 let logId = null;
+
+/**
+ * Stop the native CSV log, if one is running.
+ * @returns {void}
+ */
 function stopLogging() {
   if (logId && window.bmacw) window.bmacw.stopLog(logId);
   logId = null;
 }
 
-// generic result renderer: one card per result set, key/value rows
+/**
+ * Generic result renderer: one card per data set, key/value rows.
+ * @param {object[]|null|undefined} sets - The job's result sets.
+ * @param {HTMLElement} container - Where the cards render.
+ * @param {string} job - The job name (for the empty state).
+ * @returns {void}
+ */
 function renderResultSets(sets, container, job) {
   if (!sets || sets.length === 0) {
     container.innerHTML = `<div class="empty"><div>No results from ${esc(job)}.</div></div>`;

@@ -15,6 +15,11 @@
 //   #apps/parts/vin       the VIN Decoder page (showVinDecoder)
 //   #apps/tool32          Tool32 (showTool32)
 
+/**
+ * Exact route -> opener. Each opener guards on its screen existing, so a
+ * build without that app simply ignores the hash.
+ * @type {Object<string, () => any>}
+ */
 const APPS_ROUTES = {
   apps: () => (typeof showApps === 'function' ? showApps() : null),
   'apps/diagnostics': () =>
@@ -36,6 +41,7 @@ const APPS_ROUTES = {
 
 // The reverse map: which route a given show*() belongs to, so navigating by
 // click (not by URL) still updates the hash. Keyed by function name.
+/** @type {Object<string, string>} */
 const ROUTE_FOR_SCREEN = {
   showApps: 'apps',
   showLookup: 'apps/diagnostics',
@@ -51,6 +57,11 @@ const ROUTE_FOR_SCREEN = {
 // schematic is shareable. Resolve a route string to an opener, exact table
 // first then these patterns. `#apps/wiring/E46` opens the E46 diagrams;
 // `#apps/wiring/E46/SP0000014337` opens that exact document.
+/**
+ * Resolve a route string (the hash without '#') to a screen opener.
+ * @param {string} route - e.g. 'apps/parts/E46'.
+ * @returns {(() => any)|null} The opener, or null for an unknown route.
+ */
 function resolveRoute(route) {
   const exact = APPS_ROUTES[route];
   if (exact) return exact;
@@ -104,17 +115,24 @@ function resolveRoute(route) {
 // Screens that mean "left the Apps section" -- reaching one clears the apps
 // hash. Deeper un-named sub-screens (chassis grid inside Parts, a single wiring
 // diagram) are NOT here: they keep the section's hash rather than clearing it.
+/** @type {Set<string>} */
 const EXIT_APPS_SCREEN = new Set(['showChassis', 'showSettings']);
 
 // true while the router itself is driving navigation, so the hashchange it
 // causes doesn't loop back into another navigation.
+/** @type {boolean} */
 let _routing = false;
 // the route we last actually opened, so a redundant hashchange/popstate (e.g.
 // the ones our own replaceState+pushState seeding can emit) doesn't re-render
 // the same screen -- which, for an async screen like showLookup, double-appends
 // its body and shows the search UI twice.
+/** @type {string|null} */
 let _openRoute = null;
 
+/**
+ * The current hash as a route: no '#', no leading or trailing slash.
+ * @returns {string}
+ */
 function currentRoute() {
   const h = (location.hash || '').replace(/^#\/?/, '').replace(/\/$/, '');
   return h;
@@ -125,6 +143,11 @@ function currentRoute() {
 // without touching each show*(). push vs replace: a genuinely new screen pushes
 // a history entry (so Back returns to the previous one); re-rendering the same
 // route replaces, so Back doesn't get stuck on duplicates.
+/**
+ * Mirror a screen the app opened by direct call into the URL hash.
+ * @param {Function|null|undefined} fn - The screen function (matched by name).
+ * @returns {void}
+ */
 function routeSyncFromScreen(fn) {
   if (_routing) return; // we are already navigating by URL
   const name = fn && fn.name;
@@ -176,6 +199,10 @@ function routeSyncFromScreen(fn) {
 // Navigate to whatever the current hash names. Returns true if it handled an
 // Apps route, false if the hash is empty/unknown (caller does its default).
 // On a deep link into a sub-app, seed the hub behind it so Back reaches it.
+/**
+ * Open whatever the current hash names.
+ * @returns {boolean} true when a route was handled; false for an empty/unknown hash.
+ */
 function routeApplyHash() {
   const route = currentRoute();
   const open = resolveRoute(route);
@@ -202,6 +229,11 @@ function routeApplyHash() {
 
 // Replay the current hash into the app (used by both hashchange and popstate,
 // since pushState-created entries fire popstate but not hashchange on Back).
+/**
+ * hashchange/popstate handler: replay the hash into the app, or go home when
+ * it was cleared.
+ * @returns {void}
+ */
 function _onLocationChange() {
   if (_routing) return; // our own hash write; ignore
   const route = currentRoute();
@@ -228,6 +260,10 @@ function _onLocationChange() {
 }
 
 // Back/forward and manual hash edits replay into the app.
+/**
+ * Start listening for hash and history changes. Called once at boot.
+ * @returns {void}
+ */
 function installRouter() {
   window.addEventListener('hashchange', _onLocationChange);
   window.addEventListener('popstate', _onLocationChange);
@@ -238,6 +274,13 @@ function installRouter() {
 // walking a menu tree shouldn't stack a history entry per level -- Back should
 // leave the ECU, which is what the in-app Back key already does.
 // Pass menu = null for the ECU root, and call with chassis = null to clear.
+/**
+ * Set the hash to a module (and submenu) link: #car/<CHASSIS>/<SGBD>[/<MENU>].
+ * @param {string|null} chassis - Chassis id.
+ * @param {string|null} sgbd - The module's SGBD.
+ * @param {string|null} [menu] - The open submenu's IR name, or null for the root.
+ * @returns {void}
+ */
 function routeSetCar(chassis, sgbd, menu) {
   if (_routing) return;
   if (!chassis || !sgbd) return;
@@ -262,6 +305,11 @@ function routeSetCar(chassis, sgbd, menu) {
 }
 
 // The chassis module list (#car/<CHASSIS>), so picking a car is linkable too.
+/**
+ * Set the hash to a chassis's module list: #car/<CHASSIS>.
+ * @param {string|null} chassis - Chassis id.
+ * @returns {void}
+ */
 function routeSetCarList(chassis) {
   if (_routing || !chassis) return;
   const route = `car/${String(chassis).toUpperCase()}`;
@@ -283,6 +331,12 @@ function routeSetCarList(chassis) {
 // not a hash push: browsing diagram-to-diagram shouldn't stack history, and
 // Back should still leave the wiring section, not step through every schematic
 // viewed. Marks _openRoute so the resulting no-op location check stays quiet.
+/**
+ * Set the hash to an open wiring diagram: #apps/wiring/<CHASSIS>/<DOC>.
+ * @param {string|null} chassis - Chassis id.
+ * @param {string|null} doc - The schematic id.
+ * @returns {void}
+ */
 function routeSetWiringDoc(chassis, doc) {
   if (_routing || !chassis || !doc) return;
   const route = `apps/wiring/${String(chassis).toUpperCase()}/${encodeURIComponent(doc)}`;
@@ -296,7 +350,12 @@ function routeSetWiringDoc(chassis, doc) {
   }
 }
 
-// Same, for an open ETK diagram: #apps/parts/<CHASSIS>/<HG>/<BTNR>.
+/**
+ * Set the hash to an open reference document: #apps/documents/<CHASSIS>/<DOCID>.
+ * @param {string|null} chassis - Chassis id.
+ * @param {string|null} docId - The document id.
+ * @returns {void}
+ */
 function routeSetDocsDoc(chassis, docId) {
   if (_routing || !chassis || !docId) return;
   const route = `apps/documents/${String(chassis).toUpperCase()}/${encodeURIComponent(docId)}`;
@@ -310,6 +369,14 @@ function routeSetDocsDoc(chassis, docId) {
   }
 }
 
+// Same, for an open ETK diagram: #apps/parts/<CHASSIS>/<HG>/<BTNR>.
+/**
+ * Set the hash to an open parts diagram: #apps/parts/<CHASSIS>/<HG>/<BTNR>.
+ * @param {string|null} chassis - Chassis id.
+ * @param {string|null} hg - The main group.
+ * @param {string|null} btnr - The diagram number.
+ * @returns {void}
+ */
 function routeSetEtkDiagram(chassis, hg, btnr) {
   if (_routing || !chassis || !hg || !btnr) return;
   const route =

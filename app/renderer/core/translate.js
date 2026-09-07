@@ -4,6 +4,12 @@
 // wrote it. Gated on Settings language (lang()==='orig' keeps German for
 // EDIABAS-faithful mode). Captions from the .IPO scripts are NOT handled here
 // -- each ECU carries its own map (data/inpa-i18n, irLabel in screens/ir.js).
+/**
+ * Exact German -> English pairs for the fault texts the SGBD sends at runtime
+ * (symptom, fault-type, presence, warning lamp, readiness). Order matters
+ * where one phrase leads another.
+ * @type {Array<[string, string]>}
+ */
 const FAULT_PHRASES = [
   // symptom (F_SYMPTOM_TEXT)
   ['kein Signal oder Wert', 'No signal or value'],
@@ -64,6 +70,7 @@ const FAULT_PHRASES = [
 ];
 // Exact full-sentence translations for job-argument comments. Keyed on
 // trimmed text.
+/** Job-argument comment -> English, keyed on the trimmed German. @type {Object<string, string>} */
 const ARG_PHRASES = {
   'Als Argument wird ein vorgefuellter Binaerbuffer uebergeben':
     'Pass a pre-built binary buffer as the argument',
@@ -117,6 +124,12 @@ const ARG_PHRASES = {
 // entry is returned as BMW wrote it -- there is no word-level rewriting.
 // Captions the .IPO prints are translated by the per-ECU i18n map instead
 // (irLabel, built from data/inpa-i18n/<ECU>.json).
+/**
+ * Exact-match English for runtime SGBD text; the input unchanged when no
+ * dictionary carries it whole, or in Original mode.
+ * @param {string|number|null|undefined} text - Text from the ECU.
+ * @returns {string|number|null|undefined} The translation, or `text` as given.
+ */
 function phraseText(text) {
   if (!text) return text;
   if (typeof lang === 'function' && lang() === 'orig') return text;
@@ -141,6 +154,12 @@ function phraseText(text) {
 // enum value carries ("2 IS - Motor im Leerlauf"). Skipped in Original mode.
 // Deliberately does NOT call phraseText -- that heuristic path never touches
 // environment text.
+/**
+ * English for a freeze-frame (Umwelt) field label or enum value, from the
+ * maintained dictionary; the German unchanged when absent or in Original mode.
+ * @param {string|null|undefined} text - The exact German string.
+ * @returns {string|null|undefined}
+ */
 function envLabel(text) {
   if (lang() === 'orig' || !text) return text;
   const s = String(text).trim();
@@ -151,6 +170,7 @@ function envLabel(text) {
 
 // BMW hex fault number (e.g. 27DA) -> OBD-II P-code. only real mappings; no
 // fabricated codes.
+/** Fallback BMW hex code -> SAE P-code, the few pinned by hand. @type {Object<string, string>} */
 const PCODE_MAP = {
   2761: 'P0410', // secondary air system
   '27C3': 'P2563', // oil level sensor (thermal)
@@ -165,6 +185,12 @@ const PCODE_MAP = {
 // screens that only ever saw the native path's strings funnel through here.
 // An empty binary result ([]) is truthy but must read as "no code", which the
 // join handles by yielding ''.
+/**
+ * Flatten an EDIABAS result value to the native bridge's text form: byte
+ * arrays as dashed hex ("27-DA"), numbers as 4-digit hex, else the string.
+ * @param {any} v - A result value (string, number, byte array, or empty).
+ * @returns {string} The text, '' for empty/zero.
+ */
 function hexText(v) {
   if (v == null || v === '') return '';
   if (typeof v === 'string') return v;
@@ -187,6 +213,13 @@ function hexText(v) {
 // the dash strip below), but the web VM hands us the raw Uint8Array, which has
 // no .replace. Most ECUs never reach here because their F_ORT_TEXT leads with
 // the code; KOMBI's text is German-only, so it falls through to `hex`.
+/**
+ * The BMW fault number for a fault: the leading hex token of F_ORT_TEXT, else
+ * the first two bytes of F_HEX_CODE.
+ * @param {string|null|undefined} loc - F_ORT_TEXT.
+ * @param {any} hex - F_HEX_CODE (string, number, or bytes).
+ * @returns {string|null} The uppercase code, or null when neither yields one.
+ */
 function bmwCode(loc, hex) {
   const text = loc == null ? '' : String(loc);
   if (text) {
@@ -201,6 +234,11 @@ function bmwCode(loc, hex) {
 // on (IHKA 0x1F, LWS 0x0B). For a 16-bit value (LWS 0x0B3F) the location is the
 // HIGH byte; the low byte is symptom detail. EDIABAS gives it decimal ("2879");
 // hex ("0x0B3F"/"1F") is accepted too. Returns two hex digits.
+/**
+ * The FORTTEXTE location byte for an F_ORT_NR value, as two hex digits.
+ * @param {string|number|null|undefined} nr - F_ORT_NR (decimal or hex text).
+ * @returns {string|null} Two hex digits, the input as-is when unparseable, or null when empty.
+ */
 function ortNrCode(nr) {
   if (nr == null) return null;
   const s = String(nr).trim();
@@ -215,6 +253,12 @@ function ortNrCode(nr) {
   const loc = val > 0xff ? (val >> 8) & 0xff : val; // high byte if 16-bit
   return loc.toString(16).toUpperCase().padStart(2, '0');
 }
+/**
+ * The hand-pinned P-code for a fault, via {@link PCODE_MAP} only.
+ * @param {string|null|undefined} loc - F_ORT_TEXT.
+ * @param {any} hex - F_HEX_CODE.
+ * @returns {string|null}
+ */
 function pCode(loc, hex) {
   const code = bmwCode(loc, hex);
   return code && PCODE_MAP[code] ? PCODE_MAP[code] : null;
@@ -223,6 +267,11 @@ function pCode(loc, hex) {
 // full 16-bit F_ORT_NR as 4-hex ("24002" -> "5DC2"), or null for single bytes.
 // Lets the caller tell a real 2-byte DTC (DSC 5DC2, in the DB) from a text-scheme
 // location+detail word (LWS 0B3F, not in the DB -> show the location byte).
+/**
+ * The full 16-bit F_ORT_NR as four hex digits, or null for a single byte.
+ * @param {string|number|null|undefined} nr - F_ORT_NR (decimal or hex text).
+ * @returns {string|null}
+ */
 function ortNrFull(nr) {
   if (nr == null) return null;
   const s = String(nr).trim();
@@ -239,7 +288,12 @@ function ortNrFull(nr) {
 
 // P-code lookup backed by window.BMW_PCODES (BMW hex -> [SAE P-codes], primary
 // first); PCODE_MAP is the fallback. Lazy-injected; fault screens warm it.
+/** The in-flight pcodes.js load, so concurrent callers share one tag. @type {Promise<void>|null} */
 let _pcodesPromise = null;
+/**
+ * Load data/pcodes.js (sets window.BMW_PCODES) once; resolves even on failure.
+ * @returns {Promise<void>}
+ */
 function loadPcodes() {
   if (typeof window === 'undefined') return Promise.resolve();
   if (window.BMW_PCODES) return Promise.resolve();
@@ -267,9 +321,24 @@ function loadPcodes() {
 // at runtime, with a local `data/` copy taking precedence when a build ships
 // one (offline/desktop). Loading is a plain <script src> that sets a window
 // global; cross-origin classic scripts load fine from HF.
+/** Where the BMW-derived fault tables are hosted when a build ships none. */
 const FAULT_HF_BASE =
   'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
 
+/**
+ * Shared state of one lazy-loaded data script.
+ * @typedef {Object} LazyScriptHolder
+ * @property {Promise<void>|null} [p] - The in-flight load, if any.
+ */
+
+/**
+ * Make a loader for a data script that sets a window global: local `src`
+ * first, then the hosted copy; resolves once either loads (or both fail).
+ * @param {string} src - Relative path (e.g. 'data/faultmeta.js').
+ * @param {string} ready - The window global the script sets.
+ * @param {LazyScriptHolder} holder - Where the in-flight promise is kept.
+ * @returns {() => Promise<void>} The loader.
+ */
 function _lazyScript(src, ready, holder) {
   return function () {
     if (typeof window === 'undefined') return Promise.resolve();
@@ -301,41 +370,52 @@ function _lazyScript(src, ready, holder) {
     return holder.p;
   };
 }
+/** @type {LazyScriptHolder} */
 const _metaHolder = {},
   _infoHolder = {},
   _codingHolder = {},
   _datenHolder = {};
+/** Load the ISTA fault metadata (window.BMW_FAULT_META, 14 MB). @type {() => Promise<void>} */
 const loadFaultMeta = _lazyScript(
   'data/faultmeta.js',
   'BMW_FAULT_META',
   _metaHolder
 );
+/** Load the service-info documents (window.BMW_FAULT_INFO, 60 MB). @type {() => Promise<void>} */
 const loadFaultInfo = _lazyScript(
   'data/faultinfo.js',
   'BMW_FAULT_INFO',
   _infoHolder
 );
 // what an ECU's coding values MEAN, for the SGBDs that name their own
+/** Load the SGBD coding-value meanings (window.BMW_CODING_MAP). @type {() => Promise<void>} */
 const loadCodingMap = _lazyScript(
   'data/codingmap.js',
   'BMW_CODING_MAP',
   _codingHolder
 );
 // ...and from BMW's DATEN, for ECUs whose SGBD says nothing
+/** Load BMW's DATEN coding map (window.BMW_DATEN_MAP). @type {() => Promise<void>} */
 const loadDatenMap = _lazyScript(
   'data/datenmap.js',
   'BMW_DATEN_MAP',
   _datenHolder
 );
 // which ECUs a car actually has: SGET rows + their AUFTRAGSAUSDRUCK predicate
+/** @type {LazyScriptHolder} */
 const _sgetHolder = {};
+/** Load the SGET fitment rows (window.BMW_SGET). @type {() => Promise<void>} */
 const loadSget = _lazyScript('data/sget.js', 'BMW_SGET', _sgetHolder);
 // SGFAM (which ECU holds the vehicle order / the central coding key), AT
 // (SA number -> equipment keywords) and ZST (ZCS key bits -> keywords)
+/** @type {LazyScriptHolder} */
 const _tablesHolder = {};
+/** Load the SGFAM / AT / ZST tables (window.BMW_TABLES). @type {() => Promise<void>} */
 const loadTables = _lazyScript('data/tables.js', 'BMW_TABLES', _tablesHolder);
 // SA option numbers -> English names, dated (BMW reused the numbers)
+/** @type {LazyScriptHolder} */
 const _saNamesHolder = {};
+/** Load the dated SA option names (window.BMW_SA_NAMES). @type {() => Promise<void>} */
 const loadSaNames = _lazyScript(
   'data/sanames.js',
   'BMW_SA_NAMES',
@@ -344,6 +424,11 @@ const loadSaNames = _lazyScript(
 
 // per-ECU-variant records for a hex code: [{sgbd, name, info?}], or []. `info`
 // indexes into BMW_FAULT_INFO[hex].
+/**
+ * The per-ECU-variant records ISTA carries for a BMW hex code.
+ * @param {string|null|undefined} code - The hex code (with or without 0x).
+ * @returns {Array<{sgbd: string, name: string, info?: number}>} Empty when unknown or not loaded.
+ */
 function variantsForHex(code) {
   if (!code) return [];
   const c = String(code).replace(/^0x/i, '').toUpperCase();
@@ -352,6 +437,12 @@ function variantsForHex(code) {
 }
 
 // the service-info document for a hex code + variant info-index, or null.
+/**
+ * The service-info document for a hex code and a variant's info index.
+ * @param {string|null|undefined} code - The hex code.
+ * @param {number|string|null|undefined} infoIdx - The variant's `info` index.
+ * @returns {any|null} The document, or null when absent or not loaded.
+ */
 function faultInfoFor(code, infoIdx) {
   if (code == null || infoIdx == null) return null;
   const c = String(code).replace(/^0x/i, '').toUpperCase();
@@ -362,6 +453,11 @@ function faultInfoFor(code, infoIdx) {
 
 // all SAE P-codes for a BMW hex code ("27C3" -> ["P0456"], primary first), or [].
 // Prefers ISTA meta, then the pcodes map, then the fallback.
+/**
+ * Every SAE P-code for a BMW hex code, primary first.
+ * @param {string|null|undefined} code - The hex code.
+ * @returns {string[]} Empty when none is known.
+ */
 function pcodesForHex(code) {
   if (!code) return [];
   const c = String(code).replace(/^0x/i, '').toUpperCase();
@@ -377,6 +473,13 @@ function pcodesForHex(code) {
 // SEVERAL SAE P-codes gated by ECU variant; guessing the first misleads, so
 // offline we return one ONLY when the code has exactly one. A live read's own
 // F_PCODE_STRING is exact and always preferred.
+/**
+ * The one unambiguous offline P-code for a hex code, or null when the code
+ * maps to several.
+ * @param {string|null|undefined} code - The hex code.
+ * @param {string} [sgbd] - The reading ECU (reserved for a variant-scoped lookup).
+ * @returns {string|null}
+ */
 function pcodeForHexSgbd(code, sgbd) {
   if (!code) return null;
   const list = pcodesForHex(code);
@@ -384,6 +487,11 @@ function pcodeForHexSgbd(code, sgbd) {
 }
 
 // primary P-code for a bare BMW hex code ("27C3" -> "P0456"), or null.
+/**
+ * The primary P-code for a BMW hex code.
+ * @param {string|null|undefined} code - The hex code.
+ * @returns {string|null}
+ */
 function pcodeForHex(code) {
   const list = pcodesForHex(code);
   return list.length ? list[0] : null;
@@ -391,8 +499,14 @@ function pcodeForHex(code) {
 
 // reverse lookup for search: "P0456" -> "27C3", null if unknown. Built once from
 // the richest source available (BMW_FAULT_META, then BMW_PCODES, then fallback).
+/** P-code -> hex reverse map, and the source object it was built from. */
 let _PCODE_REV = null,
   _PCODE_REV_SRC = null;
+/**
+ * Reverse lookup for search: an SAE P-code to the BMW hex code that carries it.
+ * @param {string} p - The P-code (any case).
+ * @returns {string|null} The hex code, or null when unknown.
+ */
 function hexForPcode(p) {
   const meta = (typeof window !== 'undefined' && window.BMW_FAULT_META) || null;
   const db = (typeof window !== 'undefined' && window.BMW_PCODES) || null;

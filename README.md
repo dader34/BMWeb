@@ -192,6 +192,7 @@ saves the report as a `.json` you can attach by hand.
 ```
 app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
   core/                bestvm/ (the job VM, one piece per concern), ipovm/ (the .IPO VM), webshim/ (the transport shim), coding-write.js, remote.js, journal.js
+  core/core/           settings, ui helpers, api client, error explaining, F-key bar, dialogs
   screens/             ipo-runtime/ (module view), apps hub, lookup, wiring, etk, tool32, tuning, coding
   data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition

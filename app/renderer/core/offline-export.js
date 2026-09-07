@@ -7,6 +7,7 @@
 // carries appears here (or in offlineSingleFile's OMIT set). The single-file
 // build FAILS LOUDLY on a tag it can't inline — a silently dropped script boots
 // broken in the field with nothing to say why.
+/** The app files every export carries, mirroring index.html. @type {string[]} */
 const OFFLINE_SHELL = [
   // the page itself, plus the icon it names
   'index.html',
@@ -55,7 +56,12 @@ const OFFLINE_SHELL = [
   'core/ipovm/structures.js',
   'core/ipovm/suspensions.js',
   'core/ipovm/vm.js',
-  'core/core.js',
+  'core/core/settings.js',
+  'core/core/ui.js',
+  'core/core/api.js',
+  'core/core/errors.js',
+  'core/core/actionbar.js',
+  'core/core/dialogs.js',
   'core/print.js',
   'core/router.js',
   'core/translate.js',
@@ -138,6 +144,7 @@ const OFFLINE_SHELL = [
 
 // The fault tables, 80 MB together, so opt-in: without them CODES still read,
 // they just show without English text.
+/** The opt-in fault tables (80 MB together). @type {string[]} */
 const OFFLINE_FAULTS = [
   'data/faultdb.js',
   'data/faultindex.js',
@@ -149,12 +156,18 @@ const OFFLINE_FAULTS = [
 // The single file drops faultinfo (60 MB) + faultmeta (14 MB) and ships only
 // the names and P-codes (5 MB) — a code still reads "Oil level sensor" not hex;
 // only the extended prose is lost. 82 MB is too much for one .html on a phone.
+/** The fault tables a single-file export carries (names + P-codes only). @type {string[]} */
 const SINGLE_FAULTS = [
   'data/faultdb.js',
   'data/faultindex.js',
   'data/pcodes.js',
 ];
 
+/**
+ * The directory the app is served from (no trailing slash), for building
+ * offline fetch URLs.
+ * @returns {string}
+ */
 function offlineBase() {
   const p = location.pathname.replace(/\/[^/]*$/, '');
   return p.replace(/\/$/, '');
@@ -162,6 +175,10 @@ function offlineBase() {
 
 // Who built this copy, and when. Stamped into every export because a field file
 // with no version is undebuggable.
+/**
+ * The "who built this copy, and when" stamp written into every export.
+ * @returns {string}
+ */
 function offlineStamp() {
   const app = typeof APP_NAME === 'string' ? APP_NAME : 'BMWeb';
   const ver =
@@ -177,6 +194,12 @@ function offlineStamp() {
 // (right for a car WDS never covered), but other failures used to ship a copy
 // silently missing pieces while the button read "saved". They collect here and
 // this surfaces them, since the caller only prints success.
+/**
+ * Surface any per-item export failures (a dropped piece must be said), both to
+ * the console and as a dismissable banner.
+ * @param {string[]} warnings - The collected warnings.
+ * @returns {void}
+ */
 function offlineWarn(warnings) {
   if (!warnings.length) return;
   warnings.forEach((w) => console.warn('offline export:', w));
@@ -224,6 +247,13 @@ const OFFLINE_SGBD_CATCHALL = '_SGBD';
 // Append the catch-all to a whole-site export's id list IF its archive exists.
 // Guarded by a real fetch so a build made before the catch-all shipped (or one
 // that never had orphans) simply omits it rather than inlining a 404.
+/**
+ * Append the orphan catch-all chassis to a whole-site export's id list, if its
+ * archive exists.
+ * @param {string[]} ids - The chassis ids so far.
+ * @param {string} chassis - The requested chassis, or '*' for all.
+ * @returns {Promise<string[]>}
+ */
 async function offlineWithCatchAll(ids, chassis) {
   if (chassis !== '*') return ids;
   try {
@@ -237,6 +267,15 @@ async function offlineWithCatchAll(ids, chassis) {
   return ids;
 }
 
+/**
+ * Keep only the ECU-index entries this export can resolve; warn by chassis for
+ * any dropped in a whole-site export.
+ * @param {Object<string,string>} idx - The sgbd -> chassis index.
+ * @param {string[]} ids - The chassis ids inlined in this export.
+ * @param {boolean} allCars - Whether this is a whole-site export.
+ * @param {string[]} warnings - Collected warnings, appended to.
+ * @returns {Object<string,string>} The filtered index.
+ */
 function offlineFilterIndex(idx, ids, allCars, warnings) {
   const have = new Set(ids.map((i) => String(i).toUpperCase()));
   const out = {};
@@ -267,6 +306,12 @@ function offlineFilterIndex(idx, ids, allCars, warnings) {
 const OFFLINE_FETCH =
   typeof webRealFetch === 'function' ? webRealFetch : window.fetch.bind(window);
 
+/**
+ * Fetch one file (not a shimmed route) as bytes.
+ * @param {string} path - Path relative to {@link offlineBase}.
+ * @returns {Promise<Uint8Array>}
+ * @throws {Error} `missing ${path}` when the file is not there.
+ */
 async function offlineGet(path) {
   const r = await OFFLINE_FETCH(`${offlineBase()}/${path}`);
   if (!r.ok) throw new Error(`missing ${path}`);
@@ -282,6 +327,13 @@ async function offlineGet(path) {
 const OFFLINE_FAULT_HF =
   'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/';
 
+/**
+ * Fetch a fault table, falling back to the Hugging Face dataset the hosted app
+ * uses (the tables are not in the repo).
+ * @param {string} path - The data/ path.
+ * @returns {Promise<Uint8Array>}
+ * @throws {Error} The original miss when both sources fail.
+ */
 async function offlineGetFault(path) {
   try {
     return await offlineGet(path);
@@ -294,6 +346,13 @@ async function offlineGetFault(path) {
 }
 
 // README for the folder, so it is obvious how to open it a year from now.
+/**
+ * The README shipped in a zip export.
+ * @param {string} chassis - The chassis name (or a joined list for all-cars).
+ * @param {boolean} withFaults - Whether fault text is included.
+ * @param {boolean} withWiring - Whether wiring diagrams are included.
+ * @returns {string}
+ */
 function offlineReadme(chassis, withFaults, withWiring) {
   return `BMWeb offline copy - ${chassis}
 ${'='.repeat(21 + chassis.length)}
@@ -327,6 +386,16 @@ Other chassis are not included. Export them separately from Settings.
 }
 
 // Build the zip. onProgress(text) is called as it goes; runs in the tab.
+/**
+ * Build a zip export of one car (or all cars) in the browser and hand it to the
+ * user as a download.
+ * @param {string} chassis - The chassis id, or '*' for every car.
+ * @param {boolean} withFaults - Include the fault tables.
+ * @param {(text: string) => void} [onProgress] - Progress callback.
+ * @param {boolean} [withWiring=true] - Include wiring diagrams and documents.
+ * @returns {Promise<number>} The zip size in bytes.
+ * @throws {Error} When fflate is missing or the save is cancelled.
+ */
 async function offlineExport(
   chassis,
   withFaults,
@@ -508,6 +577,16 @@ async function offlineExport(
 // ONE FILE, EVERY PLATFORM. A phone can't unpack a zip and open one page, but a
 // single .html taps open on every OS. Everything is inlined (file:// blocks
 // fetch). Wiring is opt-in and expensive (72 MB for E46), so the caller chooses.
+/**
+ * Build a single self-contained .html export (everything inlined, since file://
+ * blocks fetch) and hand it to the user.
+ * @param {string} chassis - The chassis id, or '*' for every car.
+ * @param {boolean} withFaults - Include the names + P-codes tables.
+ * @param {(text: string) => void} [onProgress] - Progress callback.
+ * @param {boolean} [withWiring=false] - Include wiring diagrams and documents.
+ * @returns {Promise<number>} The document size in bytes.
+ * @throws {Error} When the app page or the data marker cannot be resolved, or the save is cancelled.
+ */
 async function offlineSingleFile(
   chassis,
   withFaults,

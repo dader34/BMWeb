@@ -1,6 +1,17 @@
 // settings, connection status, boot + wiring
-let lastScreen = showChassis; // where to return to when leaving settings
 
+/**
+ * Where to return to when leaving the Settings screen; every screen updates it
+ * as it renders.
+ * @type {() => (void|Promise<void>)}
+ */
+let lastScreen = showChassis;
+
+/**
+ * Render the Settings screen (skin, language, INPA layout, actuator confirm,
+ * beta reports, remote session).
+ * @returns {void}
+ */
 function showSettings() {
   if (typeof cancelSweep === 'function') cancelSweep(); // stop a running sweep
   setCrumbs([{ label: 'Vehicles', fn: showChassis }, { label: 'Settings' }]);
@@ -225,6 +236,15 @@ function showSettings() {
   ]);
 }
 
+/**
+ * A segmented-control settings row.
+ * @param {string} title - Row title.
+ * @param {string} desc - Row description.
+ * @param {Array<{val: string, label: string}>} options - The segments.
+ * @param {string} current - The currently selected value.
+ * @param {(val: string) => void} onChange - Selection callback.
+ * @returns {HTMLElement} The row element.
+ */
 function settingRow(title, desc, options, current, onChange) {
   const row = document.createElement('div');
   row.className = 'setting-row';
@@ -260,13 +280,24 @@ const ignVal = document.getElementById('ign-val');
 
 // Connection-status poller. Paints #led (host/cable) fast, and KL30/KL15
 // (battery+ignition, a real DME transaction) slowly. Driven via refresh()/start().
+/**
+ * The topbar connection poller: a fast engine/cable check and a slow
+ * battery/ignition read, each painting its indicators.
+ */
 class StatusPoller {
   constructor() {
+    /** Whether the diagnostic engine answered its health check. */
     this.engineUp = false;
+    /** Timestamp of the last battery/ignition read, for the slow cadence. */
     this.lastStatePoll = 0;
+    /** The poll interval handle. @type {ReturnType<typeof setInterval>|null} */
     this.timer = null;
   }
 
+  /**
+   * Ping the engine health endpoint and set `engineUp`.
+   * @returns {Promise<void>}
+   */
   async _pollEngine() {
     try {
       await api('/api/health');
@@ -276,6 +307,10 @@ class StatusPoller {
     }
   }
 
+  /**
+   * Read which cable is attached and paint the status light.
+   * @returns {Promise<string|null>} The port, or null when none/offline.
+   */
   async _pollCable() {
     if (!this.engineUp) {
       led.className = 'led off';
@@ -299,6 +334,12 @@ class StatusPoller {
     }
   }
 
+  /**
+   * Read battery (KL30) and ignition (KL15) and paint their indicators; a flash
+   * in progress holds the bus, so the read is skipped.
+   * @param {string|null} port - The attached port, or null to clear.
+   * @returns {Promise<void>}
+   */
   async _pollState(port) {
     if (!this.engineUp || !port || flashing) {
       // during a flash, leave the last reading and skip the bus
@@ -347,6 +388,10 @@ class StatusPoller {
   }
 
   // poll battery/ignition slowly (~12s) and only with a cable: hammering the DME collides with other reads and can wake/sleep the bus
+  /**
+   * One poll cycle: engine, cable, and (throttled) battery/ignition.
+   * @returns {Promise<void>}
+   */
   async refresh() {
     await this._pollEngine();
     const port = await this._pollCable();
@@ -361,10 +406,18 @@ class StatusPoller {
     }
   }
 
+  /**
+   * Start polling every 3 s (idempotent).
+   * @returns {void}
+   */
   start() {
     if (this.timer == null)
       this.timer = setInterval(() => this.refresh(), 3000);
   }
+  /**
+   * Stop polling.
+   * @returns {void}
+   */
   stop() {
     if (this.timer != null) {
       clearInterval(this.timer);
@@ -373,14 +426,25 @@ class StatusPoller {
   }
 }
 
+/** The app's one connection poller. */
 const statusPoller = new StatusPoller();
 
+/**
+ * Fade out and remove the boot splash.
+ * @returns {void}
+ */
 function dismissSplash() {
   const s = document.getElementById('splash');
   if (!s || s.classList.contains('hide')) return;
   s.classList.add('hide');
   setTimeout(() => s.remove(), 600);
 }
+
+/**
+ * Set the splash status line.
+ * @param {string} msg - The message.
+ * @returns {void}
+ */
 function splashStatus(msg) {
   const el = document.getElementById('splash-status');
   if (el) el.textContent = msg;
@@ -396,6 +460,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // wait for the sidecar health endpoint (300ms poll, up to 30s) behind the boot splash
+/**
+ * Poll the engine health endpoint until it answers or ~30 s elapse.
+ * @returns {Promise<boolean>} true once the engine is up, false on timeout.
+ */
 async function waitForEngine() {
   for (let i = 0; i < 100; i++) {
     await statusPoller._pollEngine();
@@ -407,6 +475,11 @@ async function waitForEngine() {
 }
 
 // a boot throw must drop the splash and show the error, not hang on "starting engine"
+/**
+ * Drop the splash and show a boot error instead of hanging.
+ * @param {Error|any} e - The failure.
+ * @returns {void}
+ */
 function bootFail(e) {
   dismissSplash();
   view.innerHTML = errorBlock((e && e.message) || String(e), 'red');
@@ -415,6 +488,11 @@ function bootFail(e) {
 
 // iOS large-title collapse (mobile only): show the title in the nav bar once it scrolls off.
 // Re-armed on every render because each screen replaces its own .title node.
+/**
+ * Arm the mobile large-title collapse: mirror the screen title into the nav bar
+ * once the H1 scrolls off. No-op on desktop.
+ * @returns {void}
+ */
 function armNavCollapse() {
   if (!window.matchMedia || !window.matchMedia('(max-width: 760px)').matches) {
     document.body.classList.remove('nav-collapsed');
@@ -437,6 +515,11 @@ function armNavCollapse() {
 }
 
 // Mobile bottom bar: the KL/cable nodes are MOVED here (not duplicated) so the by-id updaters keep driving them. No-op on desktop.
+/**
+ * Wire the mobile bottom tab bar, moving the KL/cable status nodes into it (and
+ * restoring them to the top bar above the breakpoint).
+ * @returns {void}
+ */
 function setupMobileTabbar() {
   const isMobile =
     window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
@@ -466,6 +549,11 @@ function setupMobileTabbar() {
   }
 }
 
+/**
+ * Boot: wire the topbar, mobile tabbar, router and print hotkey, resolve the
+ * offline folder, wait for the engine behind the splash, then open the startup
+ * screen (a deep link, a preselected vehicle, or the chassis picker).
+ */
 (async function boot() {
   document.getElementById('settings-btn').onclick = showSettings;
   tipify(document.querySelector('.topbar'));

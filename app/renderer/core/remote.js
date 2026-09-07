@@ -25,12 +25,21 @@
 // the helper sees dashes for a live car). Everything else is answered locally.
 // Used by BOTH the owner-side gate (_ownerHandle, below) and the helper's fetch
 // shim (remote-ui.js), so it lives here in the engine.
+/**
+ * The car-touching routes that cross the wire: job runs and the coding
+ * write/clear/flash routes, the cable-port probe, and /api/state.
+ * @type {RegExp}
+ */
 const REMOTE_CAR_ROUTE =
   /\/api\/(ecu\/[^/]+\/(run|clear|write|flash)\/|port\b|state\b)/;
-// what a script sends on its own to hold a session -- never a car command
+/**
+ * Jobs a script sends on its own to hold a session -- never a car command, so
+ * they never prompt the owner.
+ * @type {RegExp}
+ */
 const REMOTE_PLUMBING =
   /^(INITIALISIERUNG|IDENT|IDENT_\w+|INFO|DIAGNOSE_(AUFRECHT|ENDE|MODE)|ENDE)$/i;
-// an approved action stays approved this long
+/** How long an owner's approval of a user action stays valid, in ms. */
 const REMOTE_APPROVAL_MS = 15 * 60 * 1000;
 
 // THE APP VERSION BOTH ENDS MUST SHARE. The helper drives the owner's car
@@ -39,6 +48,10 @@ const REMOTE_APPROVAL_MS = 15 * 60 * 1000;
 // the owner's build no longer means. The native shell injects
 // window.bmacw.version, a web build ships version.js (BMACW_VERSION), a dev
 // checkout has neither and reports 'dev'.
+/**
+ * The app version both ends of a session must share.
+ * @returns {string} The native shell / web build version, or 'dev'.
+ */
 function remoteVersion() {
   if (typeof window === 'undefined') return 'dev';
   if (window.bmacw && window.bmacw.version) return String(window.bmacw.version);
@@ -46,6 +59,39 @@ function remoteVersion() {
   return 'dev';
 }
 
+/**
+ * The user action a helper's runtime tags a job with, so the owner approves
+ * the action once rather than each job it sends. Helper-supplied DATA: it can
+ * only widen consent the owner already gave, never grant it.
+ * @typedef {Object} RemoteAction
+ * @property {string} id - Stable id for the action (<=64 chars).
+ * @property {string} label - Human label shown to the owner (<=80 chars).
+ * @property {string[]} jobs - The jobs this key can send (<=30, each <=40 chars).
+ */
+
+/**
+ * A message on the data channel between the two peers. The protocol is
+ * byte-compatible across builds; these are the exact shapes on the wire.
+ * @typedef {Object} RemoteMessage
+ * @property {'hello'|'admit'|'req'|'res'} t - Message type.
+ * @property {string} [id] - Request/response id (req, res).
+ * @property {string} [path] - The forwarded route (req).
+ * @property {{method?: string, body?: string, action?: RemoteAction}} [init] - fetch init (req).
+ * @property {number} [status] - HTTP status (res).
+ * @property {any} [body] - Response JSON (res).
+ * @property {number} [took] - ms the job spent on the owner's cable (res).
+ * @property {boolean} [ok] - Whether the helper was admitted (admit).
+ * @property {'version'} [reason] - Why admission failed (admit).
+ * @property {string} [ua] - Helper user agent (hello).
+ * @property {string} [v] - Helper app version (hello).
+ * @property {'rw'|'ro'} [access] - The access the owner granted (admit).
+ */
+
+/**
+ * The remote-diagnostics engine: signaling, WebRTC, session state and the
+ * owner-side security gate. A single object (not a class) because it is one
+ * long-lived session actor; the UI in remote-ui.js drives it through hooks.
+ */
 const Remote = {
   role: null, // 'owner' | 'helper' | null
   code: null,
@@ -82,6 +128,10 @@ const Remote = {
 
   // signaling endpoint: the beta worker, /rtc/*. Reuses the same base the
   // report endpoint uses so there is one worker to run, not two.
+  /**
+   * The signaling base (`.../rtc`), derived from the beta report endpoint.
+   * @returns {string} The base URL, or '' when none is configured.
+   */
   base() {
     // the SAME endpoint the beta kit posts to; its default is baked in at
     // deploy so a fresh visitor on the hosted site needs no setup. Settings
@@ -96,6 +146,10 @@ const Remote = {
     return ep ? ep.replace(/\/report$/, '') : '';
   },
 
+  /**
+   * The ICE configuration: Google's public STUN, plus a configured TURN.
+   * @returns {{iceServers: object[]}}
+   */
   ICE() {
     // Google's public STUN (address reflection, free) + Cloudflare's free
     // TURN when configured (Settings 'turn' = {urls, username, credential}).
@@ -106,6 +160,10 @@ const Remote = {
     return { iceServers: servers };
   },
 
+  /**
+   * A fresh session code: 8 unambiguous characters (no 0/O/1/I/L).
+   * @returns {string}
+   */
   newCode() {
     // 8 unambiguous chars: a one-shot capability to command a car, so no
     // 0/O/1/I/L, and short enough to read aloud.
@@ -114,6 +172,13 @@ const Remote = {
     return Array.from(a, (b) => abc[b % abc.length]).join('');
   },
 
+  /**
+   * POST to a signaling route, tagged with the session code.
+   * @param {string} action - The route under `/rtc/` (offer, answer, poll).
+   * @param {object} body - The JSON payload.
+   * @returns {Promise<any>} The parsed response.
+   * @throws {Error} When no endpoint is configured or the request fails.
+   */
   async sig(action, body) {
     const base = this.base();
     if (!base) throw new Error('no signaling endpoint configured');
@@ -130,6 +195,12 @@ const Remote = {
     return res.json();
   },
 
+  /**
+   * Record a session log line: the owner sees the helper's cadence; the helper
+   * echoes to the console and the status bar.
+   * @param {string} text - The line (a leading gap is prefixed for slow ones).
+   * @returns {void}
+   */
   log(text) {
     this.jobs += /job/.test(text) ? 1 : 0;
     // the gap since the previous line: on the owner it shows the helper's
@@ -150,6 +221,13 @@ const Remote = {
 
   // ---- owner: run a forwarded request through the REAL shim ----------------
 
+  /**
+   * OWNER: run a helper's forwarded request through the real shim, after the
+   * route allowlist, the access level and (for a write/actuator) the owner's
+   * per-action approval. The single security boundary; the helper is untrusted.
+   * @param {RemoteMessage} msg - The helper's `req` message.
+   * @returns {Promise<void>}
+   */
   async _ownerHandle(msg) {
     if (msg.t !== 'req') return;
     // EVERYTHING below runs on the OWNER, the only party at the car and the
@@ -270,7 +348,11 @@ const Remote = {
     reply(status, body, Date.now() - t0);
   },
 
-  // the action tag the helper's runtime put on a request, validated
+  /**
+   * The validated action tag the helper's runtime put on a request.
+   * @param {RemoteMessage} msg - The request.
+   * @returns {RemoteAction|null}
+   */
   _actionOf(msg) {
     const a = msg && msg.init && msg.init.action;
     if (!a || typeof a !== 'object') return null;
@@ -285,7 +367,12 @@ const Remote = {
     };
   },
 
-  // an approval the owner gave for an action, while it is still fresh
+  /**
+   * A still-fresh approval the owner gave for an action, or null (expired ones
+   * are dropped).
+   * @param {string} id - The action id.
+   * @returns {{label: string, at: number}|null}
+   */
   _approvedAction(id) {
     const a = this.approved.get(id);
     if (!a) return null;
@@ -295,10 +382,20 @@ const Remote = {
     }
     return a;
   },
+  /**
+   * Record the owner's approval of an action.
+   * @param {RemoteAction} act - The approved action.
+   * @returns {void}
+   */
   _approveAction(act) {
     this.approved.set(act.id, { label: act.label, at: Date.now() });
   },
 
+  /**
+   * Best-effort argument of a request, to show the owner what a write would do.
+   * @param {RemoteMessage} msg - The request.
+   * @returns {string}
+   */
   _argOf(msg) {
     // best-effort: show the owner the job's argument if the helper sent one
     try {
@@ -317,6 +414,13 @@ const Remote = {
   // to the local shim: on the helper's machine the local shim has no cable,
   // and "no cable" is exactly the wrong answer for "the owner is not here
   // yet". Rejects if the session ends or the peer never shows.
+  /**
+   * HELPER: resolve once the channel is open, parking the caller while ICE or a
+   * reconnect is still in flight (a car request must wait for the owner, not
+   * fall through to the cable-less local shim).
+   * @param {number} [ms=20000] - How long to wait before rejecting.
+   * @returns {Promise<void>}
+   */
   _ready(ms = 20000) {
     if (this.chan && this.chan.readyState === 'open') return Promise.resolve();
     if (this.role !== 'helper') {
@@ -331,6 +435,11 @@ const Remote = {
       this.waiters.push(w);
     });
   },
+  /**
+   * Resolve or reject every parked `_ready` waiter.
+   * @param {Error} [err] - Reject with this; resolve when absent.
+   * @returns {void}
+   */
   _wake(err) {
     const ws = this.waiters;
     this.waiters = [];
@@ -344,6 +453,13 @@ const Remote = {
   // classifies (a clear/write/flash route, or a run job the write classifier
   // or the actuator prefix flags). Used only to tell the helper it is waiting
   // on a person, not on the car.
+  /**
+   * Whether a route would need the owner's approval (a clear/write/flash, or a
+   * run job the write classifier or actuator prefix flags). Used only to tell
+   * the helper it is waiting on a person.
+   * @param {string} path - The route.
+   * @returns {boolean}
+   */
   _needsApproval(path) {
     const m = /\/api\/ecu\/([^/]+)\/(run|clear|write|flash)\/([^/?]+)/.exec(
       String(path || '')
@@ -355,6 +471,14 @@ const Remote = {
     return typeof isWriteJob === 'function' && isWriteJob(job);
   },
 
+  /**
+   * HELPER: turn a car fetch into a peer request and resolve with a Response
+   * the shim consumes exactly like a real one.
+   * @param {string} path - The car route.
+   * @param {RequestInit & {action?: RemoteAction}} [init] - fetch init, plus the tagged action.
+   * @returns {Promise<Response>}
+   * @throws {Error} On timeout or a dropped session.
+   */
   async request(path, init) {
     await this._ready();
     // where a slow session spends its time when the owner's cable is quick:
@@ -427,6 +551,12 @@ const Remote = {
     });
   },
 
+  /**
+   * HELPER: settle the pending request a `res` message answers, logging a slow
+   * round trip and handing back a Response.
+   * @param {RemoteMessage} msg - The owner's `res` message.
+   * @returns {void}
+   */
   _helperResponse(msg) {
     const p = this.pending.get(msg.id);
     if (!p) return;
@@ -453,12 +583,23 @@ const Remote = {
     );
   },
 
+  /**
+   * Send a message over the data channel when it is open.
+   * @param {RemoteMessage} obj - The message.
+   * @returns {void}
+   */
   _send(obj) {
     if (this.chan && this.chan.readyState === 'open') {
       this.chan.send(JSON.stringify(obj));
     }
   },
 
+  /**
+   * Route an inbound channel message by role: owner admits then handles;
+   * helper takes admit/res.
+   * @param {MessageEvent} ev - The channel message event.
+   * @returns {void}
+   */
   _onMessage(ev) {
     let msg;
     try {
@@ -495,6 +636,12 @@ const Remote = {
   // OWNER: a helper's channel opened and it said hello. Do NOT go live or run
   // anything until the owner clicks accept -- connecting the DataChannel is not
   // consent. Show who is asking (best-effort details) and wait.
+  /**
+   * OWNER: a helper's channel opened and greeted; refuse a version mismatch,
+   * else ask the owner to admit. Nothing runs until they accept.
+   * @param {RemoteMessage} hello - The helper's `hello` message.
+   * @returns {Promise<void>}
+   */
   async _ownerAccept(hello) {
     // VERSIONS MUST MATCH before the owner is even asked: a mismatched
     // helper is refused outright, told both versions, and the code stays
@@ -562,6 +709,11 @@ const Remote = {
   },
 
   // HELPER: the owner accepted (or refused). Only now is the session usable.
+  /**
+   * HELPER: the owner accepted or refused; reveal the app or end the session.
+   * @param {RemoteMessage} msg - The owner's `admit` message.
+   * @returns {void}
+   */
   _helperAdmitted(msg) {
     if (msg.ok) {
       this.access = msg.access || 'rw';
@@ -585,6 +737,11 @@ const Remote = {
 
   // ---- connection lifecycle ------------------------------------------------
 
+  /**
+   * Wire a data channel's open/close/message handlers for the current role.
+   * @param {RTCDataChannel} chan - The channel.
+   * @returns {void}
+   */
   _wire(chan) {
     this.chan = chan;
     chan.onopen = () => {
@@ -620,6 +777,12 @@ const Remote = {
   // A closed data channel is not always reported (a peer that vanishes mid-
   // ICE, a laptop lid): the connection state is. 'disconnected' gets a grace
   // period since it flaps on WiFi; 'failed'/'closed' are final.
+  /**
+   * Watch a peer connection's state for a loss the channel's onclose never
+   * reported, routing every loss through that one decision point.
+   * @param {RTCPeerConnection} pc - The connection.
+   * @returns {void}
+   */
   _watch(pc) {
     let grace = null;
     // The channel's onclose is the one place that decides "re-host or end";
@@ -652,6 +815,11 @@ const Remote = {
 
   // Drop every piece of a previous session so a new host()/join() starts
   // clean. Silent: no hooks, no log. end() is the loud version.
+  /**
+   * Drop every piece of the current session so a new host()/join() starts
+   * clean. Silent; end() is the loud version.
+   * @returns {void}
+   */
   _teardown() {
     // a new/reconnecting helper must be admitted afresh -- consent never
     // carries across peers or across a re-host under the same code.
@@ -688,6 +856,11 @@ const Remote = {
   // OWNER: the helper went away; offer again under the SAME code so the code
   // they already have still connects. The worker treats a new offer as a new
   // round (it clears the old answer), so the helper's next join is accepted.
+  /**
+   * OWNER: the helper went away; offer again under the SAME code so the code
+   * already given out still connects.
+   * @returns {Promise<void>}
+   */
   async _rehost() {
     const code = this.code;
     this._teardown();
@@ -698,6 +871,11 @@ const Remote = {
     await this._offer();
   },
 
+  /**
+   * OWNER: create the peer connection, gather ICE, post the offer, and poll for
+   * the helper's answer.
+   * @returns {Promise<void>}
+   */
   async _offer() {
     this.pc = new RTCPeerConnection(this.ICE());
     this._watch(this.pc);
@@ -730,6 +908,13 @@ const Remote = {
   // the writes. Same-LAN peers hit one PoP and never saw it; a phone on
   // data or a parent across town did, every first attempt. So: gather
   // first, then post ONE description with every candidate inside it.
+  /**
+   * Resolve once ICE gathering completes, so the description carries every
+   * candidate (a slow TURN lookup must not stall past `ms`).
+   * @param {RTCPeerConnection} pc - The connection.
+   * @param {number} [ms=3000] - Cap on the wait.
+   * @returns {Promise<void>}
+   */
   _gathered(pc, ms = 3000) {
     if (pc.iceGatheringState === 'complete') return Promise.resolve();
     return new Promise((resolve) => {
@@ -744,6 +929,11 @@ const Remote = {
     });
   },
 
+  /**
+   * Apply any trickled ICE candidates an older client posted under `fromKey`.
+   * @param {string} fromKey - The signaling key to poll (helperIce, ownerIce).
+   * @returns {Promise<any>} The poll response, or null.
+   */
   async _drainIce(fromKey) {
     const r = await this.sig('poll', { want: fromKey }).catch(() => null);
     if (r && r.ice) {
@@ -762,6 +952,13 @@ const Remote = {
   // opts.access ('rw'|'ro') and opts.confirmActions (bool) are the owner's
   // policy for THIS session, enforced in _ownerHandle. Defaults: full access,
   // confirm on -- the safe pair.
+  /**
+   * OWNER: start a new session under a fresh code with a chosen policy.
+   * @param {Object} [opts]
+   * @param {'rw'|'ro'} [opts.access='rw'] - Access ceiling for the helper.
+   * @param {boolean} [opts.confirmActions=true] - Ask before each write/actuator.
+   * @returns {Promise<string>} The session code.
+   */
   async host(opts = {}) {
     return this._share(this.newCode(), {
       access: opts.access === 'ro' ? 'ro' : 'rw',
@@ -773,6 +970,12 @@ const Remote = {
   // Re-host an EXISTING share (page reload / auto-reconnect) under the SAME
   // code and the SAME policy, so the code the owner already gave out keeps
   // working. The worker re-offer clears the stale answer/ICE for us.
+  /**
+   * OWNER: re-host a saved share (a reload) under the same code and policy.
+   * @param {{code: string, access?: string, confirmActions?: boolean, startedAt?: number}} saved - A saved share.
+   * @returns {Promise<string>} The session code.
+   * @throws {Error} When there is no session to resume.
+   */
   async resume(saved) {
     if (!saved || !saved.code) throw new Error('no session to resume');
     return this._share(saved.code, {
@@ -784,6 +987,14 @@ const Remote = {
 
   // The share worker for host()/resume(): set the owner policy, remember it so
   // a reload can restore it, arm the "no helper in 5 min" expiry, then offer.
+  /**
+   * The shared worker for host()/resume(): set the owner policy, remember it so
+   * a reload can restore it, arm the "no helper in 5 min" expiry, then offer.
+   * @param {string} code - The session code.
+   * @param {{access: 'rw'|'ro', confirmActions: boolean, startedAt: number}} policy - The owner policy.
+   * @returns {Promise<string>} The session code.
+   * @throws {Error} When no signaling endpoint is configured.
+   */
   async _share(code, policy) {
     if (!this.base())
       throw new Error('no signaling endpoint — set one in Settings');
@@ -814,6 +1025,11 @@ const Remote = {
   SHARE_KEY: 'bmweb.remote.share',
   EXPIRE_MS: 5 * 60 * 1000,
 
+  /**
+   * Persist the owner's share (code + policy + start time) so a reload can
+   * re-host it.
+   * @returns {void}
+   */
   _persist() {
     try {
       localStorage.setItem(
@@ -827,11 +1043,20 @@ const Remote = {
       );
     } catch {}
   },
+  /**
+   * Forget the persisted share.
+   * @returns {void}
+   */
   _clearPersist() {
     try {
       localStorage.removeItem(this.SHARE_KEY);
     } catch {}
   },
+  /**
+   * The resumable saved share, or null (an unjoined share older than the expiry
+   * is not resumable and is cleared).
+   * @returns {{code: string, access?: string, confirmActions?: boolean, startedAt?: number, everJoined?: boolean}|null}
+   */
   savedShare() {
     try {
       const s = JSON.parse(localStorage.getItem(this.SHARE_KEY) || 'null');
@@ -846,6 +1071,10 @@ const Remote = {
       return null;
     }
   },
+  /**
+   * Arm the "no helper in 5 min" timer (an admitted helper cancels it).
+   * @returns {void}
+   */
   _armExpiry() {
     if (this._expiry) clearTimeout(this._expiry);
     // once a helper is admitted the share is "established" and does not expire;
@@ -862,6 +1091,13 @@ const Remote = {
   },
 
   // HELPER: join by code, answer the owner's offer.
+  /**
+   * HELPER: join by code, answer the owner's offer, and install the car-fetch
+   * shim; a full-screen wait covers the app until the owner admits.
+   * @param {string} code - The session code.
+   * @returns {Promise<boolean>} true once the answer is posted.
+   * @throws {Error} On a missing/expired session or a taken slot.
+   */
   async join(code) {
     if (!this.base())
       throw new Error('no signaling endpoint. Set one in Settings');
@@ -905,6 +1141,12 @@ const Remote = {
     return true;
   },
 
+  /**
+   * End the session loudly: clear the persisted share, tear down, drop the
+   * helper shim/overlays, and notify via the state hook.
+   * @param {string} [why] - Reason, logged for the user.
+   * @returns {void}
+   */
   end(why) {
     if (this.ending) return;
     this.ending = true;

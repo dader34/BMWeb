@@ -2,20 +2,43 @@
 // Tool32 each carried their own copy; this is the one implementation, a
 // superset of both. Items are { key, label, write? }.
 //
-// makeListBox(opts) -> a &lt;div&gt; element with:
-//   .setItems(arr)     replace items, clear selection, render
-//   .setLoading(msg)   show a single placeholder row (msg), clear items
-//   .clear()           empty it
-//   .selected()        the selected item object, or null
-//   .onpick            callback(key, label) assigned by the caller
-//
-// opts:
-//   extraClass   extra class on the root (e.g. 't32-lb')
-//   focusable    set tabIndex=0 (ETK wants keyboard focus)
-//   writeTag     mark items with `write:true` -- adds .t32-row-write + a "W"
-//                badge (Tool32's write-job marker)
-//   emptyText    placeholder for an empty list (default '—')
+/**
+ * One list-box row.
+ * @typedef {Object} ListBoxItem
+ * @property {string} key - The value handed to onpick.
+ * @property {string} label - The row text.
+ * @property {boolean} [write] - Flag the row as a write job (with `writeTag`).
+ */
 
+/**
+ * Options for {@link makeListBox}.
+ * @typedef {Object} ListBoxOpts
+ * @property {string} [extraClass] - Extra class on the root (e.g. 't32-lb').
+ * @property {boolean} [focusable] - Set tabIndex=0 (ETK wants keyboard focus).
+ * @property {boolean} [writeTag] - Mark items with `write:true` -- adds
+ *   .t32-row-write + a "W" badge (Tool32's write-job marker).
+ * @property {string} [emptyText='—'] - Placeholder for an empty list.
+ */
+
+/**
+ * The element {@link makeListBox} returns: a div carrying its own API.
+ * @typedef {HTMLDivElement & {
+ *   setItems: (arr: ListBoxItem[]) => void,
+ *   setLoading: (msg: string) => void,
+ *   clear: () => void,
+ *   selected: () => ListBoxItem|null,
+ *   onpick: ((key: string, label: string) => void)|null
+ * }} ListBoxElement
+ */
+
+/**
+ * Build a single-select list box. `.setItems(arr)` replaces the items, clears
+ * the selection and renders; `.setLoading(msg)` shows one placeholder row;
+ * `.clear()` empties it; `.selected()` is the picked item or null; the caller
+ * assigns `.onpick(key, label)`.
+ * @param {ListBoxOpts} [opts] - Skin and behaviour options.
+ * @returns {ListBoxElement}
+ */
 function makeListBox(opts) {
   const o = opts || {};
   const box = document.createElement('div');

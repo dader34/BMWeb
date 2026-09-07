@@ -3,7 +3,19 @@
 // range is INPA's presentation choice, not in the protocol, so we reproduce
 // common ranges by unit and auto-scale the rest.
 
-// split "38.67", "1.02 V", "98 %" into { num, unit, raw }
+/**
+ * A parsed measurement string.
+ * @typedef {Object} Measurement
+ * @property {number|null} num - The numeric part, or null when not a number.
+ * @property {string} unit - The unit text ('' when none; "grad" -> '°').
+ * @property {string} raw - The trimmed input.
+ */
+
+/**
+ * Split "38.67", "1.02 V", "98 %" into number, unit and raw text.
+ * @param {any} raw - The value as the ECU / VM delivered it.
+ * @returns {Measurement}
+ */
 function parseMeasurement(raw) {
   const s = String(raw).trim();
   const m = s.match(/^(-?\d+(?:[.,]\d+)?(?:[eE][-+]?\d+)?)\s*(.*)$/);
@@ -15,8 +27,14 @@ function parseMeasurement(raw) {
   return { num, unit, raw: s };
 }
 
-// pick [min,max] for a measurement, by unit first, then by magnitude as a
-// fallback for uncatalogued units
+/**
+ * Pick a gauge [min,max] for a measurement, by unit first, then by magnitude
+ * as a fallback for uncatalogued units.
+ * @param {string} unit - The unit text.
+ * @param {number} num - The observed value.
+ * @param {string} [key] - The result key, for context (trim factors, lambda).
+ * @returns {[number, number]}
+ */
 function rangeFor(unit, num, key) {
   const u = (unit || '').toLowerCase();
   const k = (key || '').toLowerCase();
@@ -55,6 +73,11 @@ function rangeFor(unit, num, key) {
   return [0, roundNice(mag * 1.5)];
 }
 
+/**
+ * Round up to a "nice" gauge limit: 1, 2, 5 or 10 times a power of ten.
+ * @param {number} x - A positive magnitude.
+ * @returns {number}
+ */
 function roundNice(x) {
   if (x <= 1) return 1;
   const pow = Math.pow(10, Math.floor(Math.log10(x)));
@@ -63,13 +86,21 @@ function roundNice(x) {
   return step * pow;
 }
 
+/**
+ * Format a gauge limit: integers as-is, small fractions to one decimal.
+ * @param {number} n - The limit.
+ * @returns {string}
+ */
 function fmtRange(n) {
   if (Number.isInteger(n)) return String(n);
   return n.toFixed(Math.abs(n) < 10 ? 1 : 0);
 }
 
-// German measurement-key tokens -> English, for STAT_*_WERT keys on ECUs with
-// no mined layout (e.g. GSDS2 transmission)
+/**
+ * German measurement-key tokens -> English, for STAT_*_WERT keys on ECUs with
+ * no mined layout (e.g. GSDS2 transmission). An empty value drops the token.
+ * @type {Object<string, string>}
+ */
 const KEY_TOKENS = {
   MOTOR: 'engine',
   MOTORDREHZAHL: 'engine RPM',
@@ -116,7 +147,12 @@ const KEY_TOKENS = {
   ID: 'ID',
   FGSTNR: 'chassis no. (VIN)',
 };
-// normalize an EDIABAS unit string to a compact symbol
+/**
+ * Normalize an EDIABAS unit string to a compact symbol ("Grad C" -> "°C",
+ * "kgperh" -> "kg/h"); unknown units pass through trimmed.
+ * @param {any} u - The unit as delivered.
+ * @returns {string}
+ */
 function normUnit(u) {
   const s = String(u || '').trim();
   if (/^grad\s*c$/i.test(s) || /^°?\s*c$/i.test(s)) return '°C';
@@ -153,7 +189,11 @@ function normUnit(u) {
   }
   return s;
 }
-// STAT_MOTORTEMPERATUR_WERT -> "Engine temp"
+/**
+ * A result key as a caption: STAT_MOTORTEMPERATUR_WERT -> "Engine temp".
+ * @param {string} key - The result register name.
+ * @returns {string}
+ */
 function humanizeKey(key) {
   let k = String(key)
     .replace(/^STAT_/, '')
@@ -174,6 +214,12 @@ function humanizeKey(key) {
 // key _WERT -> _EINH hop. GOTCHA: without it, a layout omitting the literal
 // "[unit]" text (MSD80's whole VANOS page) printed cam angles as bare numbers,
 // dropping the °CRK the ECU already sent.
+/**
+ * The unit the ECU shipped beside one `_WERT` value (its `_EINH` sibling).
+ * @param {string} key - A result key ending in _WERT.
+ * @param {Map<string, any>} vals - The merged result values.
+ * @returns {string|null} The normalised unit, or null when absent/blank.
+ */
 function irUnitFor(key, vals) {
   const m = String(key || '').match(/^(.*)_WERT$/);
   if (!m || !vals) return null;
@@ -184,8 +230,22 @@ function irUnitFor(key, vals) {
   return t && t !== '-' && t !== '--' ? t : null;
 }
 
-// pair STAT_X_WERT with STAT_X_EINH and humanize the key, merging the unit ("13"
-// + "Grad C" -> "13 °C"). keys without the _WERT/_EINH structure pass through.
+/**
+ * A display row built from the merged result values.
+ * @typedef {Object} MeasurementRow
+ * @property {string} key - The result key.
+ * @property {string} label - The humanised caption.
+ * @property {any} value - The value.
+ * @property {string} unit - The normalised unit ('' when none).
+ */
+
+/**
+ * Pair STAT_X_WERT with STAT_X_EINH and humanize the key, merging the unit
+ * ("13" + "Grad C" -> "13 °C"). Keys without the _WERT/_EINH structure pass
+ * through.
+ * @param {Map<string, any>} merged - The merged result values, in order.
+ * @returns {MeasurementRow[]}
+ */
 function pairWertEinh(merged) {
   const out = [];
   const seen = new Set();

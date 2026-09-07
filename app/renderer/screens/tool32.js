@@ -15,7 +15,14 @@
 // only handles /api/ecu/…), so fetch it raw — via webRealFetch in the web
 // build (bypassing the fetch override), or api() on desktop where it's a real
 // route. In the web build an inlined index may also be present.
+/** The sorted runnable SGBD names, cached after the first load. @type {string[]|null} */
 let TOOL32_SGBDS = null;
+
+/**
+ * Load the runnable SGBD list from the ECU index (inlined, static file, or
+ * server route, in that order).
+ * @returns {Promise<string[]>} Sorted SGBD names; empty when no data ships.
+ */
 async function tool32SgbdList() {
   if (TOOL32_SGBDS) return TOOL32_SGBDS;
   const fromIndex = (idx) => {
@@ -53,11 +60,21 @@ async function tool32SgbdList() {
   }
 }
 
-// a job entry may arrive as a bare name or as {name, args, results, comment}
+/**
+ * The name of a job entry, which may arrive as a bare string or as
+ * `{name, args, results, comment}`.
+ * @param {string|{name?: string}} j - The job entry.
+ * @returns {string}
+ */
 function tool32JobName(j) {
   return typeof j === 'string' ? j : (j && j.name) || '';
 }
 
+/**
+ * Render the Tool32 screen: SGBD list, job list, run panel, and the trace
+ * section.
+ * @returns {void}
+ */
 function showTool32() {
   lastScreen = showTool32;
   setCrumbs([
@@ -464,6 +481,10 @@ function showTool32() {
 // both webshim recorders -- apiTrace for the job layer, busTrace for the wire
 // layer), a layer switch, a cumulative merged log, Clear, and Export to a
 // .trc-style text file. Returns { el, refresh }.
+/**
+ * Build the Trace section (toggle, layer switch, merged log, Clear, Export).
+ * @returns {{el: HTMLElement, refresh: () => void}}
+ */
 function buildTraceSection() {
   const el = document.createElement('div');
   el.className = 't32-tracesec';
@@ -661,6 +682,11 @@ function buildTraceSection() {
 
 // Export the merged trace as a .trc-style text file, the way ToolSet saves
 // api.trc / ifh.trc -- one line per entry, API and wire interleaved by time.
+/**
+ * Download the merged trace as a .trc-style text file.
+ * @param {Array<{t?: number, _layer?: string, tag?: string, hex?: string, note?: string, sgbd?: string, job?: string, arg?: string, status?: string, error?: string, sets?: object[]}>} rows - Time-ordered trace rows.
+ * @returns {void}
+ */
 function exportTrc(rows) {
   if (!rows || !rows.length) return;
   const t0 = rows[0].t || 0;
@@ -699,14 +725,22 @@ function exportTrc(rows) {
   }, 0);
 }
 
-// JOB_STATUS lives in the first set; surface it as a one-line status
+/**
+ * The job's one-line status (JOB_STATUS lives in the first set).
+ * @param {object[]|null|undefined} sets - A job's result sets.
+ * @returns {string}
+ */
 function tool32Status(sets) {
   const list = sets || [];
   const first = list[0] || {};
   return first.JOB_STATUS || first._STATUS || '';
 }
 
-// caption helper matching the ETK columns
+/**
+ * A column caption matching the ETK columns.
+ * @param {string} text - The caption.
+ * @returns {HTMLSpanElement}
+ */
 function labelSpan(text) {
   const s = document.createElement('span');
   s.className = 'etk-idlabel';
@@ -717,8 +751,11 @@ function labelSpan(text) {
 // a scrolling single-select list box with a loading/empty message and an
 // optional per-row "write" marker. Mirrors etk.js's listBox but standalone so
 // Tool32 doesn't depend on the ETK screen being loaded.
-// Tool32's list box: the shared control (ui/listbox.js) with the write-job
-// marker (a "W" badge on items flagged write:true) and the t32-lb skin class.
+/**
+ * Tool32's list box: the shared control (ui/listbox.js) with the write-job
+ * marker (a "W" badge on items flagged write:true) and the t32-lb skin class.
+ * @returns {HTMLDivElement} The list box element (see makeListBox).
+ */
 function tool32ListBox() {
   return makeListBox({ extraClass: 't32-lb', writeTag: true });
 }

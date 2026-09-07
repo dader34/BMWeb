@@ -35,11 +35,11 @@ const SRC = fs.readFileSync(
   'utf8'
 );
 
-// core.js's own dataSets, so the lifted code sees the projection the renderer
-// gives it: set 0 is the EDIABAS system summary and is dropped whenever there
-// is anything else, and kept when it is all there is.
+// the API client's own dataSets, so the lifted code sees the projection the
+// renderer gives it: set 0 is the EDIABAS system summary and is dropped
+// whenever there is anything else, and kept when it is all there is.
 const CORE = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/core.js'),
+  path.join(ROOT, 'app/renderer/core/core/api.js'),
   'utf8'
 );
 // (dataSets recognises the system set by content through isSystemSet, so
@@ -50,7 +50,7 @@ const DATASETS = CORE.slice(
 );
 assert.ok(
   /function dataSets/.test(DATASETS),
-  'core.js no longer defines dataSets'
+  'core/api.js no longer defines dataSets'
 );
 
 // The file with comments stripped. Several checks below assert that a dead

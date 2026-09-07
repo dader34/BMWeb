@@ -1,4 +1,27 @@
 // ECU menu: job labels, variant resolution, showEcu.
+
+/**
+ * A control module as the chassis config lists it, plus the fields the
+ * screens attach while it is open.
+ * @typedef {Object} EcuRecord
+ * @property {string} sgbd - The SGBD that drives it (retargeted after group resolution).
+ * @property {string} code - The module designation shown on the card.
+ * @property {string} label - The module name.
+ * @property {string} [group] - The diagnostic-address group SGBD, when grouped.
+ * @property {string} [chassis] - The chassis it was opened from (set by showEcu).
+ * @property {string} [_variant] - The variant name the car answered with, upper-cased.
+ * @property {'ungrouped'|'unavailable'|'nogroup'|'unverified'|'confirmed'|'identified'|null} [_variantSource] -
+ *   How much the car confirmed about `sgbd`.
+ * @property {string} [_sgbdBase] - The configured SGBD, once `sgbd` was retargeted.
+ * @property {boolean} [_groupTried] - Whether group resolution ran this screen entry.
+ * @property {object|null} [_ir] - The loaded script IR.
+ * @property {string} [_irFrom] - The SGBD whose script `_ir` came from, when not `sgbd`.
+ */
+
+/**
+ * English captions for the handful of raw job names the screens show as-is.
+ * @type {Object<string, string>}
+ */
 const JOB_LABELS = {
   FS_LESEN: 'Read fault codes',
   FS_LESEN_DETAIL: 'Read fault codes (detail)',
@@ -10,6 +33,11 @@ const JOB_LABELS = {
   CBS_DATEN_LESEN: 'Read CBS service data',
 };
 
+/**
+ * A caption for a job name: the curated label, else the SNAKE_CASE humanised.
+ * @param {string} j - The job name.
+ * @returns {string}
+ */
 const jobLabel = (j) => {
   if (JOB_LABELS[j]) return JOB_LABELS[j];
   // humanise SNAKE_CASE
@@ -27,11 +55,26 @@ const jobLabel = (j) => {
 // (D_00A4 bytecode in the VM) is immune to that mixup. One attempt per ecu
 // per screen entry; webResolveVariant caches per session underneath, so the
 // wire sees one ident exchange per group per connection.
+/** The one in-flight/settled fetch of the group index. @type {Promise<{groups?: string[]}|null>|null} */
 let _ecuGroupIndexP = null;
+
+/**
+ * The shipped group index (which diagnostic-address groups carry bytecode),
+ * fetched once per session; null when the build has none.
+ * @returns {Promise<{groups?: string[]}|null>}
+ */
 const ecuGroupIndex = () =>
   (_ecuGroupIndexP ??= fetch('data/groups/index.json')
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null));
+
+/**
+ * Let the ECU's diagnostic-address group name the real variant before the IR
+ * loads, recording how much the car confirmed in `_variantSource` and
+ * retargeting `sgbd` only when a concrete variant SGBD actually ships.
+ * @param {EcuRecord} ecu - The module being opened (mutated in place).
+ * @returns {Promise<void>}
+ */
 async function irResolveGroupVariant(ecu) {
   // One attempt per screen entry, EXCEPT after a failure to verify: a user
   // who plugs the cable in and re-opens the module must get a real answer,
@@ -109,6 +152,14 @@ async function irResolveGroupVariant(ecu) {
   if (!ecu._variant) ecu._variant = v.toUpperCase();
 }
 
+/**
+ * Open a module from a deep link (#car/<CHASSIS>/<SGBD>[/<MENU>]): find it in
+ * the chassis config and open it, else fall back to the module list.
+ * @param {string} chassisId - The chassis id.
+ * @param {string} sgbd - The module's SGBD (case-insensitive).
+ * @param {string|null} [menuName] - A submenu to descend into once the script is up.
+ * @returns {Promise<void>}
+ */
 async function showEcuDeep(chassisId, sgbd, menuName) {
   const ch = await tryApi(
     `/api/chassis/${chassisId}`,
@@ -136,6 +187,15 @@ async function showEcuDeep(chassisId, sgbd, menuName) {
 // Nothing here checks for a cable. The script's first job (INITIALISIERUNG)
 // fails without one, and that failure IS the gate: "No adapter connected"
 // with a Back key, the same words every other cable-needing screen shows.
+/**
+ * The module view: resolve the variant, load the script IR, and hand the
+ * screen to the live .IPO runtime (or say there is no script to run).
+ * @param {string} chassisId - The chassis id.
+ * @param {string} sectionName - The config section the module sits in.
+ * @param {EcuRecord} ecu - The module (mutated: chassis, variant, IR).
+ * @param {string|null} [openMenu] - A menu a deep link descends into once the script is up.
+ * @returns {Promise<void>}
+ */
 async function showEcu(chassisId, sectionName, ecu, openMenu) {
   lastScreen = () => showEcu(chassisId, sectionName, ecu, openMenu);
   // the ECU object comes from the chassis config and doesn't know which chassis
@@ -220,5 +280,9 @@ async function showEcu(chassisId, sectionName, ecu, openMenu) {
   ]);
 }
 
-// number keys 1..9 bind to footer F-keys; anything past that needs another selector
+/**
+ * Number keys 1..9 bind to footer F-keys; anything past that needs another
+ * selector (the Settings screen spells the overflow as Shift+Fn).
+ * @type {number}
+ */
 const FKEY_SLOTS = 9;
