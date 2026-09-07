@@ -719,6 +719,19 @@ class IpoVm {
         }
         if (sig === 'jumped') continue; // _stepOne already moved s.i
         if (sig === 'called') continue; // switched into a callee
+        if (sig === 'stop') {
+          // INPA's `stop`: leave the body being run. In a helper that is
+          // its return; at the top it skips to the next ITEM/LINE of the
+          // proc (a screen's other lines still draw), or to the end.
+          if (s.callers && s.callers.length) {
+            this._popCall(s);
+            continue;
+          }
+          const nxt = this._segmentEnd(s);
+          if (nxt >= s.end) break;
+          s.i = nxt;
+          continue;
+        }
         if (sig && IPO_SUSPEND_KINDS.has(sig.kind)) {
           // a wire job (the renderer runs it), a timed wait (it sleeps), a
           // user prompt / message / picker (it asks and hands the answer
@@ -747,8 +760,8 @@ class IpoVm {
    * @param {IpoSuspension} s - the suspension ({stack, i, frame} are advanced in place)
    * @param {Map<number, number>} index - the tape's byte index
    * @param {number} end - the run's end
-   * @returns {'ret'|'jumped'|'called'|IpoStep|undefined} how the loop should
-   *   continue: undefined = advance normally
+   * @returns {'ret'|'jumped'|'called'|'stop'|IpoStep|undefined} how the loop
+   *   should continue: undefined = advance normally
    */
   _stepOne(t, op, s, index, end) {
     const stack = s.stack;
@@ -810,6 +823,20 @@ class IpoVm {
       return 'ret';
     }
     return undefined;
+  }
+
+  /**
+   * Where the body being run ends: the next ITEM or LINE token after the
+   * current one, or the run's end when this is the last body.
+   * @param {IpoSuspension} s - the suspension
+   * @returns {number} token index
+   */
+  _segmentEnd(s) {
+    for (let j = s.i + 1; j < s.end; j++) {
+      const op = s.toks[j].op;
+      if (op === 'ITEM' || op === 'LINE') return j;
+    }
+    return s.end;
   }
 
   /**

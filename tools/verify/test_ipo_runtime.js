@@ -1391,6 +1391,56 @@ const sysSet = (sgbd) => ({
     ok('measurement-block labels translate through the env dictionary');
   }
 
+  // ===========================================================================
+  // INPA's `stop`: MS45's injector screen sends STEUERN_EV_<n> only once a
+  // valve is picked -- `if (sel == 0) stop` guards it. As a noop the script
+  // fell through and put a job named "2000" (the on-time) on the wire every
+  // cycle, and the ECU's silence popped "STEUERN_EV / ERROR_NO_ANSWER" each
+  // tick. With stop ending the LINE, nothing is sent until F1..F6.
+  // ===========================================================================
+  {
+    const eexec = loadExec('E46', 'ms450ds0');
+    const eecu = {
+      sgbd: 'ms450ds0',
+      label: 'MS45',
+      _variant: 'MS450DS0',
+      chassis: 'E46',
+    };
+    const esent = fakeApi(() => ({
+      system: sysSet('ms450ds0'),
+      sets: [{ JOB_STATUS: 'OKAY' }],
+    }));
+    const eui = fakeUi();
+    const ep = new IpoProgram(eecu, eexec, eui);
+    await ep.start();
+    esent.length = 0;
+    await ep.openMenu('m_ev_auswahl');
+    assert.ok(
+      eui.keys.some((k) => /EV1/.test(k.label)),
+      'injector keys listed'
+    );
+    assert.deepStrictEqual(
+      esent.map((s) => s.job),
+      [],
+      `nothing selected: nothing sent (${esent.map((s) => s.job)})`
+    );
+    await ep.press(1);
+    const ev = esent.find((s) => /^STEUERN_EV_/.test(s.job));
+    assert.ok(ev, `F1 sends the valve job (${esent.map((s) => s.job)})`);
+    assert.strictEqual(ev.job, 'STEUERN_EV_1');
+    assert.strictEqual(
+      ev.arg,
+      '2000;2000;',
+      'on-time and period as the script builds them'
+    );
+    assert.ok(
+      !esent.some((s) => /^\d+$/.test(s.job)),
+      'no job named after a number'
+    );
+    ep.close();
+    ok('stop: MS45 injector screen sends nothing until a valve is picked');
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();

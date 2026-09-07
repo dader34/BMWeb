@@ -89,6 +89,12 @@ function flagArg(v) {
 }
 
 /**
+ * INPA's `stop` keyword as the disassembler names it: builtin 0x14.
+ * @type {string}
+ */
+const IPO_STOP_BUILTIN = 'builtin_14';
+
+/**
  * Builtin dispatch for the resumable path. Identical to `_builtin` EXCEPT
  * that, in wire mode, the builtins the renderer must answer are not run
  * offline -- they return a pending action instead. Which jobs must reach the
@@ -203,6 +209,13 @@ function ipoDriveBuiltin(vm, t, stack) {
     const ms = stack.find((x) => isPlainInt(x));
     return { kind: 'wait', ms: ms != null ? ms : 0, out: vm.out };
   }
+  // INPA's `stop`: end the body being run (this LINE, this ITEM, this
+  // proc) here. The corpus puts it after an error messagebox ("box, then
+  // stop, else read the results") and at the head of a screen that has
+  // nothing selected yet -- MS45's injector screen guards its STEUERN_EV_n
+  // send with `if (sel == 0) stop`, and falling through sent a job named
+  // after the on-time. Offline it stays a noop (the derived twin's stamp).
+  if (vm.wireJobs && name === IPO_STOP_BUILTIN) return 'stop';
   // not a drive: run it exactly as the offline builtin would
   vm._builtin(t, stack, null);
   return null;
