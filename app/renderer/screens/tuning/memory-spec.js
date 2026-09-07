@@ -38,6 +38,8 @@
  *     unknown chunk is now unknown -- small default, editable, and labelled.
  */
 
+/* exported TM_MAX_TOTAL, TM_UNKNOWN_CHUNK, tmParseRange, tmParseCount, tmMemoryKind, tmRegionFromArgs, tmDataField, tmProfileRegions, tmStatusGloss, tmClassifyStatus, tmExplainFailure, tmRankModules, tmParseBytes, tmJobStatus, tmChunkArg */
+
 /** Cap for spec-derived and typed spans, in bytes. */
 const TM_MAX_TOTAL = 64 * 1024;
 /** Per-read count when the job does not say how much one read may return. */

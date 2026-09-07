@@ -1,4 +1,4 @@
-/* Tuning screen (screens/tuning.js): firmware BIN editor -- toolbar, a
+/* Tuning screen (screens/tuning/): firmware BIN editor -- toolbar, a
    virtualized hex grid, and a TunerPro .xdf definition tree with per-item
    editors. All colours come from the theme tokens so it tracks the 4 themes. */
 

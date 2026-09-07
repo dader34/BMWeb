@@ -191,8 +191,8 @@ saves the report as a `.json` you can attach by hand.
 
 ```
 app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
-  core/                bestvm.js, ipovm.js, webshim.js, coding-write.js, remote.js, journal.js
-  screens/             ipo-runtime.js (module view), apps hub, lookup, wiring, etk, tool32, tuning, coding
+  core/                bestvm.js, ipovm.js, webshim.js, coding-write.js, remote.js, journal.js, xdf/ (TunerPro .xdf engine)
+  screens/             ipo-runtime.js (module view), apps hub, lookup, wiring, etk, tool32, tuning/ (firmware editor), coding
   data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition
 data/inpa-ir/          decompiled module scripts and their caption dictionaries (gzipped)
