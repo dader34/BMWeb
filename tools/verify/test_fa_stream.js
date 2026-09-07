@@ -19,7 +19,9 @@ const zlib = require('zlib');
 
 const ROOT = path.join(__dirname, '..', '..');
 global.window = global;
-const { Best2Vm } = require(path.join(ROOT, 'app/renderer/core/bestvm.js'));
+const { Best2Vm } = require(
+  path.join(ROOT, 'app/renderer/core/bestvm/index.js')
+);
 
 const rd = (f) =>
   JSON.parse(

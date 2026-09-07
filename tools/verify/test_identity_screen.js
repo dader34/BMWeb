@@ -99,7 +99,7 @@ assert.ok(window.BMW_TABLES && window.BMW_SA_NAMES);
 global.loadTables = async () => window.BMW_TABLES;
 global.loadSaNames = async () => window.BMW_SA_NAMES;
 
-const bestvm = require(R('core/bestvm.js'));
+const bestvm = require(R('core/bestvm/index.js'));
 const { Best2Vm } = bestvm;
 global.isWriteJob = bestvm.isWriteJob;
 global.CodingEncode = require(R('core/coding-encode.js'));

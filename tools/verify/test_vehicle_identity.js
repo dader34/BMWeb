@@ -592,15 +592,12 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 
 (async () => {
   const zlib = require('zlib');
+  // only isWriteJob is needed here: the classifier is its own piece
   const bestvm = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'core', 'bestvm.js'),
+    path.join(ROOT, 'app', 'renderer', 'core', 'bestvm', 'write-guard.js'),
     'utf8'
   );
-  try {
-    eval(bestvm);
-  } catch (e) {
-    /* only isWriteJob is needed here */
-  }
+  eval(bestvm);
   assert.strictEqual(
     typeof isWriteJob,
     'function',

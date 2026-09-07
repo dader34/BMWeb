@@ -3,7 +3,7 @@
 //
 // This app can read and STAGE coding/actuator changes but must never TRANSMIT
 // a write in the web build. That guarantee rests on a small, load-bearing set
-// of facts spread across bestvm.js / webshim.js / the per-screen dangerous-job
+// of facts spread across bestvm/ / webshim.js / the per-screen dangerous-job
 // regexes and the Python bulk-verify tool. A refactor could silently loosen any
 // of them. This test fails loudly if the guarantee erodes.
 //
@@ -44,7 +44,7 @@ const {
   READ_TOKEN,
   WRITE_TOKEN,
   INFO_READ_TOKEN,
-} = require(path.join(ROOT, 'app/renderer/core/bestvm.js'));
+} = require(path.join(ROOT, 'app/renderer/core/bestvm/index.js'));
 
 // ---------------------------------------------------------------------------
 console.log('1. isWriteJob classifies writes as writes');
@@ -106,8 +106,9 @@ console.log('2. VM refuses write jobs when allowWrites is false');
 // is the gate, not an unrelated parse error.
 function refuses(job, allowWrites) {
   try {
-    // Best2Vm(code, opts): code can be a minimal object; the gate at bestvm.js:437
-    // checks isWriteJob(job) && !allowWrites before touching the program body.
+    // Best2Vm(code, opts): code can be a minimal object; the gate in
+    // bestvm/machine.js run() checks isWriteJob(job) && !allowWrites before
+    // touching the program body.
     const vm = new Best2Vm(
       { jobs: {}, tables: {}, strings: [] },
       { allowWrites }
@@ -238,7 +239,7 @@ for (const tok of SCREEN_DANGER_TOKENS) {
 // FORMER KNOWN GAPS, now CLOSED -- these three were asserted as NOT writes
 // while the old leading-verb WRITE_JOB regex couldn't catch them, with a note
 // that improving the classifier should flip the assertions. The token-based
-// default-deny classifier (bestvm.js isWriteJob) did exactly that:
+// default-deny classifier (bestvm/write-guard.js isWriteJob) did exactly that:
 //   - bare 'LOESCHEN': the LOESCH token needs no prefix any more.
 //   - AUTHENTISIERUNG: AUTHENTIS is a write token now -- auth unlocks
 //     protected services, which is the write path, not a read.

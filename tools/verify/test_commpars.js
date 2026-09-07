@@ -6,7 +6,7 @@ const assert = require('assert');
 const fs = require('fs');
 const zlib = require('zlib');
 const path = require('path');
-const { Best2Vm } = require('../../app/renderer/core/bestvm.js');
+const { Best2Vm } = require('../../app/renderer/core/bestvm/index.js');
 const ROOT = path.join(__dirname, '..', '..');
 const load = (f) =>
   JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(ROOT, f))));

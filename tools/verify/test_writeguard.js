@@ -12,13 +12,10 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..', '..');
+const { loadBestvm } = require('./load_bestvm.js');
 const ctx = { module: { exports: {} }, console };
 vm.createContext(ctx);
-vm.runInContext(
-  fs.readFileSync(path.join(ROOT, 'app/renderer/core/bestvm.js'), 'utf8'),
-  ctx
-);
-const { Best2Vm, isWriteJob } = ctx.module.exports;
+const { Best2Vm, isWriteJob } = loadBestvm(ctx);
 
 let failures = 0;
 function check(what, ok) {

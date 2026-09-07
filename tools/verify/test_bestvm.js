@@ -19,13 +19,10 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..', '..');
-function load(rel) {
-  const ctx = { module: { exports: {} }, console };
-  vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), ctx);
-  return ctx.module.exports;
-}
-const { Best2Vm, VmError } = load('app/renderer/core/bestvm.js');
+const { loadBestvm } = require('./load_bestvm.js');
+const vmCtx = { module: { exports: {} }, console };
+vm.createContext(vmCtx);
+const { Best2Vm, VmError } = loadBestvm(vmCtx);
 
 const fixPath = path.join(ROOT, 'data/sim-captures/vmfix.json');
 if (!fs.existsSync(fixPath)) {
@@ -170,7 +167,7 @@ for (const c of fix.cases) {
     // This harness replays CAPTURED telegrams into a callback; nothing
     // reaches a bus, so the write guard is opted past deliberately. That is
     // the only place in the repo that should do so without a human saying
-    // yes -- see the guard's comment in bestvm.js.
+    // yes -- see the guard's comment in bestvm/executor.js (xsend).
     allowWrites: true,
     send: (req) => {
       const hit = byReq.get(String(Array.from(req)));

@@ -81,7 +81,7 @@ require(R('core/ipovm.js'));
 const { IpoVm, FeedHost } = require(R('core/ipovm.js'));
 global.IpoVm = IpoVm;
 global.FeedHost = FeedHost;
-const bv = require(R('core/bestvm.js'));
+const bv = require(R('core/bestvm/index.js'));
 global.isWriteJob = bv.isWriteJob || global.isWriteJob;
 assert.strictEqual(typeof global.isWriteJob, 'function', 'isWriteJob missing');
 
