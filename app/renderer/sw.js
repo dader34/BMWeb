@@ -10,7 +10,7 @@
 // Bumping CACHE_NAME drops the old cache on activate; with skipWaiting +
 // clients.claim a new worker takes over immediately.
 
-const CACHE_NAME = 'bmweb-v109'; // bmweb-v109: the derived renderer is gone, the module view always runs the script (bmweb-v108: catch-all repacked; component picker (bmweb-v107: demo mode, the adapter choice and the keep-cable setting removed -- K+DCAN over Web Serial, always reconnecting (v106: instrument cells (lamps, bars), runtime text translation, fault list fixes (v105: i18n regenerated without the word-rule fallback, modern skin for the live runtime (v104: live .IPO runtime is the module view; (v103: identity FA decode, IHKA scriptchange, tuning read dialog)
+const CACHE_NAME = 'bmweb-v110'; // bmweb-v110: renderer split into per-concern folders, JSDoc everywhere, dead files/CSS removed (bmweb-v109: the derived renderer is gone, the module view always runs the script (bmweb-v108: catch-all repacked; component picker (bmweb-v107: demo mode, the adapter choice and the keep-cable setting removed -- K+DCAN over Web Serial, always reconnecting (v106: instrument cells (lamps, bars), runtime text translation, fault list fixes (v105: i18n regenerated without the word-rule fallback, modern skin for the live runtime (v104: live .IPO runtime is the module view; (v103: identity FA decode, IHKA scriptchange, tuning read dialog)
 
 const CORE_ASSETS = ['./', './index.html', './manifest.webmanifest'];
 

@@ -110,7 +110,8 @@
   function getVm(opts) {
     if (opts && opts.Best2Vm) return opts.Best2Vm;
     if (typeof root.Best2Vm !== 'undefined') return root.Best2Vm;
-    if (typeof require !== 'undefined') return require('../bestvm/index.js').Best2Vm;
+    if (typeof require !== 'undefined')
+      return require('../bestvm/index.js').Best2Vm;
     throw new Error('coding-write: Best2Vm not available');
   }
 
