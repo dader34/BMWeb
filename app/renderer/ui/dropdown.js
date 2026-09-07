@@ -10,30 +10,51 @@
 // emulation (index-string .value, .selectedIndex, .onchange dual-fire, a _vals
 // sidecar) that the parts cascade depends on -- a different contract, left alone.
 //
-// makeDropdown(opts) -> { el, value(), set(v), setOptions(items, cur), open(), close() }
-//
-// opts:
-//   items            array of item objects
-//   value            initial selected value (=== compared to itemValue(item))
-//   onChange(v,item) selection callback
-//   placeholder      shown when nothing (or a blank-value item) is selected
-//   classPrefix      'lkd' | 'etk-vdd' | ... -- drives every class name
-//   searchable       show the search box (default true)
-//   searchPlaceholder / searchType   the search input's placeholder / type attr
-//   itemValue(item,i)  -> value          (default item.val)
-//   itemLabel(item)    -> display string (default item.label)
-//   renderRow(item, active) -> innerHTML  (default: escaped label)
-//   filterItem(item, q) -> bool           (default: label / value contains q)
-//   emptyText        "no matches" row text; falsy -> no empty row
-//   rowCap           max rendered rows (default Infinity)
-//   synthetic        { value, label } permanent first row, hidden while querying
-//   flip             drop-up when no room below (default true)
-//   clampToBar       selector: cap list height to this element's top (or null)
-//   escClose         Esc closes (default true)
-//   closeOn          'mousedown' | 'click' (default 'mousedown')
-//   focusDelay       ms before focusing search (default 10; null = immediate)
-//   activeClass      extra class on the button while a non-default value is set
+/**
+ * Options for {@link makeDropdown}. `classPrefix` picks the class family; the
+ * rest are behaviour flags so each caller keeps its exact look and behaviour.
+ * @typedef {Object} DropdownOpts
+ * @property {any[]} [items] - The item objects.
+ * @property {any} [value] - Initial selected value (=== compared to itemValue(item)).
+ * @property {(v: any, item: any|null) => void} [onChange] - Selection callback.
+ * @property {string} [placeholder] - Shown when nothing (or a blank-value item) is selected.
+ * @property {string} [classPrefix='lkd'] - 'lkd' | 'etk-vdd' | ... -- drives every class name.
+ * @property {{cur?: string, menu?: string, opt?: string}} [parts] - Class-suffix remap
+ *   for skins whose CSS predates this factory (default cur/menu/opt).
+ * @property {boolean} [searchable=true] - Show the search box.
+ * @property {string} [searchPlaceholder] - The search input's placeholder.
+ * @property {string} [searchType] - The search input's type attribute.
+ * @property {(item: any, i: number) => any} [itemValue] - Item -> value (default item.val).
+ * @property {(item: any) => string} [itemLabel] - Item -> display string (default item.label).
+ * @property {(item: any, active: boolean) => string} [renderRow] - Item -> row innerHTML (default: escaped label).
+ * @property {(item: any, q: string) => boolean} [filterItem] - Query filter (default: label / value contains q).
+ * @property {string} [emptyText] - "no matches" row text; falsy -> no empty row.
+ * @property {number} [rowCap=Infinity] - Max rendered rows.
+ * @property {{value: any, label: string}} [synthetic] - Permanent first row, hidden while querying.
+ * @property {boolean} [flip=true] - Drop-up when no room below.
+ * @property {string|null} [clampToBar] - Selector: cap list height to this element's top.
+ * @property {boolean} [escClose=true] - Esc closes.
+ * @property {'mousedown'|'click'} [closeOn='mousedown'] - Outside event that closes.
+ * @property {number|null} [focusDelay=10] - ms before focusing search (null = immediate).
+ * @property {string} [activeClass] - Extra class on the button while a non-default value is set.
+ */
 
+/**
+ * The handle {@link makeDropdown} returns.
+ * @typedef {Object} DropdownHandle
+ * @property {HTMLElement} el - The root element to mount.
+ * @property {() => any} value - The selected value.
+ * @property {(v: any) => void} set - Select a value without firing onChange.
+ * @property {(items: any[], cur?: any) => void} setOptions - Replace the items (and optionally the selection).
+ * @property {() => void} open - Open the menu.
+ * @property {() => void} close - Close the menu.
+ */
+
+/**
+ * Build a searchable dropdown.
+ * @param {DropdownOpts} [opts] - Behaviour and skin options.
+ * @returns {DropdownHandle}
+ */
 function makeDropdown(opts) {
   const o = opts || {};
   const P = o.classPrefix || 'lkd';

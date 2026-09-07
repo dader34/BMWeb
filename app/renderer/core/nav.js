@@ -1,16 +1,37 @@
-// navigation: chassis select, INPA script picker, functional-jobs menu, sections.
-// sweeps live in sweep.js, chassis auto-scan in autoscan.js, PDF report in fault-report.js.
+/**
+ * @file Navigation: chassis select, INPA script picker, functional-jobs menu,
+ * sections. Sweeps live in sweep.js, chassis auto-scan in autoscan.js, the
+ * PDF report in fault-report.js.
+ */
+
+/**
+ * One control module as the chassis config lists it.
+ * @typedef {Object} EcuRecord
+ * @property {string} sgbd - The SGBD (.prg) that drives it.
+ * @property {string} code - The module designation (DME, KOMBI, ...).
+ * @property {string} label - Human name.
+ * @property {string} [group] - Diagnostic-address group SGBD, when grouped.
+ */
 
 // Coding is not ready for the public build yet, so it is hidden on the
 // deployed site (bmweb.danner.ink and any *.github.io mirror). It stays
 // available everywhere else -- localhost dev and the macOS app -- where it is
 // being worked on. Host-based, not build-flag, so the same bundle serves both.
+/**
+ * Whether the Coding entries may be shown on this host.
+ * @returns {boolean}
+ */
 function codingReady() {
   if (typeof location === 'undefined') return true; // packaged app
   const h = String(location.hostname || '').toLowerCase();
   const hidden = h === 'bmweb.danner.ink' || h.endsWith('.github.io');
   return !hidden;
 }
+
+/**
+ * Screen 1: the vehicle picker (INPA vehicle-select or the modern card grid).
+ * @returns {Promise<void>}
+ */
 async function showChassis() {
   cancelSweep(); // leaving the chassis list stops any sweep (sweep.js)
   lastScreen = showChassis;
@@ -194,6 +215,12 @@ async function showChassis() {
 }
 
 // INPA script-selection popup: left lists section categories, right shows the section's ECUs
+/**
+ * The INPA script-selection popup for a chassis (falls back to the sections
+ * screen when the config cannot load).
+ * @param {string} chassisId - Chassis id (E46, ...).
+ * @returns {Promise<void>}
+ */
 async function showScriptSelection(chassisId) {
   setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (autoscan.js)
   let ch;
@@ -333,6 +360,11 @@ async function showScriptSelection(chassisId) {
 }
 
 // INPA "Functional Jobs" menu: F2 Identification, F4 Fault Memory (sweeps in sweep.js)
+/**
+ * The whole-vehicle Functional Jobs menu.
+ * @param {string} chassisId - Chassis id.
+ * @returns {void}
+ */
 function showFunctionalJobs(chassisId) {
   const id = chassisId || 'E46';
   setCrumbs([
@@ -392,6 +424,11 @@ function showFunctionalJobs(chassisId) {
 }
 
 // "Old models" popup (INPA Shift+F9): chassis hidden from the main list
+/**
+ * The "Other models" popup listing the chassis not on the INPA main list.
+ * @param {string[]} ids - Chassis ids to list.
+ * @returns {void}
+ */
 function showOtherModels(ids) {
   const { overlay, close } = openModal(`
     <div class="modal inpa-pop" role="dialog" aria-modal="true">
@@ -418,6 +455,11 @@ function showOtherModels(ids) {
 }
 
 // mirror topbar Battery/Ignition state into the INPA vehicle-select indicators
+/**
+ * Mirror the topbar KL30/KL15 state into the INPA vehicle-select lamps.
+ * No-op when that screen is not up.
+ * @returns {void}
+ */
 function syncVselState() {
   const bs = document.getElementById('vsel-bat'),
     bv = document.getElementById('vsel-bat-s');
@@ -434,6 +476,11 @@ function syncVselState() {
 
 // where "Back" from an ECU should land. in INPA mode the module list is the
 // Script selection popup, so return there; in modern mode, the sections screen.
+/**
+ * Return from a module to its chassis's module list, per layout mode.
+ * @param {string} chassisId - Chassis id.
+ * @returns {void}
+ */
 function backToModules(chassisId) {
   if (typeof inpaMode === 'function' && inpaMode())
     showScriptSelection(chassisId);
@@ -441,6 +488,12 @@ function backToModules(chassisId) {
 }
 
 // screen 2: sections sidebar + ECU list
+/**
+ * Screen 2: the system rail and the selected section's module cards.
+ * @param {string} id - Chassis id.
+ * @param {number} [selectIndex=0] - Section to open first.
+ * @returns {Promise<void>}
+ */
 async function showSections(id, selectIndex = 0) {
   let wiringKey = null; // the F-key, added only if WDS data is here
   cancelSweep(); // entering the section list stops any sweep (sweep.js)

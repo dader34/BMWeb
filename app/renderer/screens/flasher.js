@@ -10,6 +10,11 @@
 // greying most of them would invite people to try an unsupported DME and get
 // a confusing failure; the honest list is the short one.
 
+/**
+ * Render the ECU Backup screen: pick a profiled module (or detect it), pick a
+ * region, run the read-only backup and save the bytes.
+ * @returns {Promise<void>}
+ */
 async function showFlasher() {
   lastScreen = showFlasher;
   setCrumbs([

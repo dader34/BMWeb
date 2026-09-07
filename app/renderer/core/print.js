@@ -28,7 +28,29 @@
 
 // ---- section builders -------------------------------------------------------
 
+/**
+ * One section of a print document, as the builders below produce it.
+ * @typedef {Object} PrintSection
+ * @property {string} html - The section's markup (already escaped).
+ * @property {boolean} [needsImages] - The doc waits for images to decode first.
+ * @property {boolean} [avoidBreak] - Keep the section on one page when possible.
+ */
+
+/**
+ * A typed content block, the shape the ISTA test plans use.
+ * @typedef {Object} PrintBlock
+ * @property {'p'|'bullet'|'table'} t - Block kind.
+ * @property {string} [s] - Text for a paragraph or bullet.
+ * @property {string[][]} [rows] - Table rows; the first row is the header.
+ */
+
 // A figure. `url` may be an <img> src or (SVG string) inlined verbatim.
+/**
+ * A figure section.
+ * @param {string} url - The image source.
+ * @param {string} [alt] - Alt text.
+ * @returns {PrintSection}
+ */
 function printImage(url, alt) {
   if (!url) return { html: '' };
   return {
@@ -40,6 +62,11 @@ function printImage(url, alt) {
 
 // An inline SVG figure (the wiring diagrams): the markup is trusted (it's the
 // document we loaded), and inlining keeps it lossless and printable.
+/**
+ * An inline SVG figure section (trusted markup).
+ * @param {string} svgMarkup - The SVG document markup.
+ * @returns {PrintSection}
+ */
 function printSvg(svgMarkup) {
   if (!svgMarkup) return { html: '' };
   return { html: `<figure class="pr-fig pr-fig-svg">${svgMarkup}</figure>` };
@@ -47,6 +74,13 @@ function printSvg(svgMarkup) {
 
 // A simple grid table. headers: [string]; rows: [[cell, cell, ...]]. Cells are
 // escaped. Optional per-column class list aligns/sizes columns (e.g. 'pr-mono').
+/**
+ * A simple grid table section.
+ * @param {string[]} headers - Column headers (empty for none).
+ * @param {Array<Array<string|number|null>>} rows - Table rows; cells are escaped.
+ * @param {string[]} [colClasses] - Per-column class names (e.g. 'pr-mono').
+ * @returns {PrintSection}
+ */
 function printTable(headers, rows, colClasses) {
   const cls = (i) =>
     colClasses && colClasses[i] ? ` class="${colClasses[i]}"` : '';
@@ -67,6 +101,11 @@ function printTable(headers, rows, colClasses) {
 
 // Typed blocks, the shape the ISTA test plans use: {t:'p'|'bullet',s} and
 // {t:'table',rows:[[...]]}. Rendered to fixed print markup, no app classes.
+/**
+ * Typed blocks rendered to fixed print markup.
+ * @param {PrintBlock[]} blocks - The blocks.
+ * @returns {PrintSection}
+ */
 function printBlocks(blocks) {
   const one = (b) => {
     if (!b) return '';
@@ -93,11 +132,21 @@ function printBlocks(blocks) {
 }
 
 // A heading inside the body (chapter title within a section).
+/**
+ * A chapter heading section.
+ * @param {string} text - The heading text (escaped).
+ * @returns {PrintSection}
+ */
 function printHeading(text) {
   return { html: `<h2 class="pr-h2">${esc(text)}</h2>` };
 }
 
 // Escape hatch: markup the caller already built and escaped. Trusted input only.
+/**
+ * A section of trusted, already-escaped markup.
+ * @param {string} html - The markup.
+ * @returns {PrintSection}
+ */
 function printHtml(html) {
   return { html: html || '' };
 }
@@ -107,6 +156,7 @@ function printHtml(html) {
 // The self-contained print stylesheet. Everything the printout needs, defined
 // from scratch in fixed light colours and real print units -- it names no theme
 // custom property, so aero/metal/inpa and any layout mode all print the same.
+/** The self-contained print stylesheet (fixed light colours, print units). @type {string} */
 const PRINT_CSS = `
   #pr-root { display: none; }
   @media print {
@@ -203,6 +253,10 @@ const PRINT_CSS = `
   }`;
 
 // inject the print stylesheet once
+/**
+ * Inject the print stylesheet into the document head (once).
+ * @returns {void}
+ */
 function ensurePrintCss() {
   if (document.getElementById('pr-css')) return;
   const s = document.createElement('style');
@@ -214,6 +268,10 @@ function ensurePrintCss() {
 // window.print() is a no-op inside a WKWebView (no dialog behind it), so the Mac
 // app runs an NSPrintOperation over the live view; the browser build's dialog is
 // real. The promise resolves when the panel closes (native) or immediately (web).
+/**
+ * Open the print dialog: the native shell's print operation, or window.print().
+ * @returns {Promise<void>} Settles when the panel closes (native) or at once (web).
+ */
 function triggerPrint() {
   if (window.bmacw && typeof window.bmacw.printPage === 'function') {
     return window.bmacw.printPage().catch(() => {});
@@ -222,8 +280,25 @@ function triggerPrint() {
   return Promise.resolve();
 }
 
+/**
+ * What a screen hands printDoc().
+ * @typedef {Object} PrintDocOptions
+ * @property {string} [title] - Big heading (defaults to the app name).
+ * @property {string} [subtitle] - Line under the title.
+ * @property {Array<[string, string]>} [meta] - Key/value chips.
+ * @property {Array<PrintSection|string>} [sections] - Sections in order; falsy entries are skipped.
+ * @property {string|null} [footer] - Footer text; omitted when null, defaults to the app + date.
+ * @property {boolean} [landscape] - Page orientation.
+ * @property {() => void} [onReady] - Fires once images have decoded, before the dialog.
+ */
+
 // Build the print document, print it, and tear it down afterwards. Returns a
 // promise that settles when printing is done (or abandoned).
+/**
+ * Build the print document, print it, and tear it down afterwards.
+ * @param {PrintDocOptions} opts - The document.
+ * @returns {Promise<void>} Settles when printing is done (or abandoned).
+ */
 function printDoc(opts) {
   ensurePrintCss();
   const o = opts || {};
@@ -304,6 +379,10 @@ function printDoc(opts) {
 
 // The current screen's Print action, if it declared one via setActions. Matched
 // by kind/label/hotkey so screens don't need to know about this interceptor.
+/**
+ * The current screen's Print action from the F-key bar, or null.
+ * @returns {{label: string, fn: () => void, kind?: string, key?: string}|null}
+ */
 function currentPrintAction() {
   const bar = typeof actionBar !== 'undefined' ? actionBar : null;
   const list = (bar && bar.current) || [];
@@ -322,6 +401,10 @@ function currentPrintAction() {
 // page (the app's own action bar ignores Cmd-modified keys). Screens with no
 // Print action fall through to the browser's normal print (body isn't pr-active,
 // so the live page prints as-is).
+/**
+ * Route Cmd/Ctrl+P to the active screen's Print action (capture phase).
+ * @returns {void}
+ */
 function installPrintHotkey() {
   window.addEventListener(
     'keydown',

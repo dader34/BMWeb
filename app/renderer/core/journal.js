@@ -11,9 +11,16 @@
 // keeps the world-maker/type half and masks the 7-char serial. Raw wire hex
 // is included as captured (it is the evidence), which the dialog says.
 
+/** The default collector / signaling endpoint, baked in at deploy. */
 const BETA_ENDPOINT_DEFAULT =
   'https://bmweb-beta.danner-baumgartner.workers.dev/report';
 
+/**
+ * Mask the serial half of any 17-character VIN in a string, keeping the
+ * world-maker/type half.
+ * @param {string|null|undefined} text - Text that may contain VINs.
+ * @returns {string} The text with VIN serials masked.
+ */
 function scrubVin(text) {
   return String(text == null ? '' : text).replace(
     /\b([A-HJ-NPR-Z0-9]{10})([A-HJ-NPR-Z0-9]{7})\b/g,
@@ -21,16 +28,54 @@ function scrubVin(text) {
   );
 }
 
+/**
+ * One journal event.
+ * @typedef {Object} JournalEntry
+ * @property {number} t - Timestamp (ms since epoch).
+ * @property {string} k - Kind ('nav', 'job', 'crash', 'wire', 'report', 'auto').
+ * @property {string} s - The (VIN-scrubbed) text.
+ */
+
+/**
+ * A beta report payload.
+ * @typedef {Object} BetaReport
+ * @property {number} v - Schema version.
+ * @property {string} app - App version.
+ * @property {string} ts - ISO timestamp.
+ * @property {string} tester - Anonymous tester id.
+ * @property {string} desc - The tester's description (scrubbed).
+ * @property {JournalEntry[]} journal - The session ring.
+ * @property {object[]} wire - Recent wire telegrams.
+ * @property {number} crashes - Captured crash count.
+ */
+
+/**
+ * The session journal: a bounded ring of what the session did, plus the
+ * one-keypress bug-report plumbing.
+ */
 const Journal = {
+  /** @type {JournalEntry[]} */
   rows: [],
+  /** Ring size. */
   limit: 500,
+  /** Captured crashes this session. */
   crashes: 0,
 
+  /**
+   * Append an event (VIN-scrubbed) and keep the ring bounded.
+   * @param {string} kind - Event kind.
+   * @param {string} text - Event text.
+   * @returns {void}
+   */
   log(kind, text) {
     this.rows.push({ t: Date.now(), k: kind, s: scrubVin(text) });
     if (this.rows.length > this.limit) this.rows.shift();
   },
 
+  /**
+   * A stable anonymous tester id, generated once and persisted.
+   * @returns {string}
+   */
   testerId() {
     try {
       let id = localStorage.getItem('bmacw.beta.id');
@@ -46,6 +91,12 @@ const Journal = {
     }
   },
 
+  /**
+   * Assemble the report payload: app/browser identity, current screen, the
+   * journal ring, and the wire-trace ring.
+   * @param {string} [desc] - The tester's description.
+   * @returns {BetaReport}
+   */
   buildReport(desc) {
     const bus = typeof busTrace !== 'undefined' ? busTrace : null;
     const cable =
@@ -82,6 +133,11 @@ const Journal = {
     };
   },
 
+  /**
+   * Save a report as a local .json download.
+   * @param {BetaReport} report - The report.
+   * @returns {void}
+   */
   download(report) {
     const blob = new Blob([JSON.stringify(report, null, 1)], {
       type: 'application/json',
@@ -97,6 +153,10 @@ const Journal = {
     }, 2000);
   },
 
+  /**
+   * The collector endpoint, or '' when there is none (offline builds).
+   * @returns {string}
+   */
   endpoint() {
     // an offline build has no collector to talk to: no button, no auto
     // reports, no sends -- the journal itself still runs for the dialog-less
@@ -112,7 +172,15 @@ const Journal = {
   // press Report. One auto-report per distinct code per session, five per
   // session at most, silent, and only while beta reporting is on -- a dead
   // cable repeating IFH-0009 on every job must not flood the collector.
+  /** Auto-report bookkeeping: distinct codes seen, count sent, and the cap. */
   _auto: { seen: new Set(), sent: 0, max: 5 },
+  /**
+   * File one silent auto-report for an IFH-xxxx wire error: once per distinct
+   * code, capped per session, only while beta reporting is on.
+   * @param {string} msg - The error message (must contain an IFH code).
+   * @param {string} [ctx] - Context (the job that failed).
+   * @returns {Promise<boolean>} Whether a report was sent.
+   */
   async maybeAutoReport(msg, ctx) {
     const m = /IFH-\d{4}/.exec(String(msg || ''));
     if (!m) return false;
@@ -140,6 +208,11 @@ const Journal = {
     return r.sent;
   },
 
+  /**
+   * POST a report to the collector, with an 8 s timeout.
+   * @param {BetaReport} report - The report.
+   * @returns {Promise<{sent: boolean, why?: string}>}
+   */
   async send(report) {
     const url = this.endpoint();
     if (!url) return { sent: false, why: 'no endpoint configured' };
@@ -166,6 +239,12 @@ const Journal = {
 
 // ---- hooks: the journal writes itself -------------------------------------
 
+/**
+ * Wire the journal into the app: log navigations, wrap api() to log job
+ * verdicts, tap the wire-trace for errors, capture crashes, and add the
+ * Report button.
+ * @returns {void}
+ */
 function _journalInstall() {
   // navigation: every screen the tester reaches, in order
   window.addEventListener('hashchange', () =>
@@ -272,6 +351,10 @@ function _journalInstall() {
 
 // the topbar Report button (beta builds; Settings.set('betaReports', false)
 // hides it)
+/**
+ * Add the topbar Report button (beta builds only), before the Settings gear.
+ * @returns {void}
+ */
 function _journalButton() {
   if (typeof window !== 'undefined' && window.BMACW_OFFLINE) return;
   if (
@@ -292,6 +375,10 @@ function _journalButton() {
   anchor.parentNode.insertBefore(b, anchor);
 }
 
+/**
+ * Flag the Report button so a crash is visible without opening the dialog.
+ * @returns {void}
+ */
 function _journalBadge() {
   const b = document.getElementById('beta-btn');
   if (b && !b.classList.contains('beta-attn')) b.classList.add('beta-attn');
@@ -299,6 +386,11 @@ function _journalBadge() {
 
 // ---- the report dialog ------------------------------------------------------
 
+/**
+ * Open the beta-report dialog: collect a description, then send or download the
+ * report.
+ * @returns {void}
+ */
 function showBetaReport() {
   const hasEndpoint = !!Journal.endpoint();
   const n = Journal.rows.length;
