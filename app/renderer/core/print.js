@@ -244,6 +244,18 @@ const PRINT_CSS = `
     .pr-env-k { color: #555; white-space: nowrap; }
     .pr-env-v { font: 600 11px "SF Mono", Menlo, Consolas, monospace; color: #14181d;
                 text-align: right; overflow-wrap: anywhere; }
+    /* a module screen: INPA's 80-column grid as printed text, or its rows */
+    .pr-screen { font: 10.5px/1.35 "SF Mono", Menlo, Consolas, monospace; white-space: pre;
+                 margin: 0; padding: 8px 10px; border: 1px solid #ccc; background: #fafafa;
+                 color: #14181d; overflow: hidden; }
+    .pr-screen-table td { font-size: 12px; }
+    .pr-screen-table td:first-child { width: 46%; color: #333; }
+    .pr-screen-table .pr-unit { color: #666; white-space: nowrap; }
+    .pr-screen-table .pr-note { color: #555; padding-top: 6px; }
+    .pr-screen-table tr.pr-band td { border-top: 2px solid #ddd; padding-top: 7px; }
+    .pr-keys td:first-child { width: 90px; color: #555; }
+    .pr-keys td:nth-child(2) { width: 30%; font-weight: 600; }
+    .pr-keys .pr-legend { color: #555; }
     /* text blocks */
     .pr-p { margin: 0 0 6px; }
     .pr-bullet { padding-left: 16px; position: relative; }

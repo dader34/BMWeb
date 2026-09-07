@@ -8510,3 +8510,44 @@ body.remote-helper::after {
   background: none;
   padding: 0;
 }
+
+/* PRINTING A SCREEN THAT BUILT NO SHEET. Screens with a Print action hand
+   core/print.js a document (body.pr-active) and the rules there take the
+   page over. Everything else -- a bare Cmd+P on the vehicle list, an app hub
+   page -- printed the live page as-is: the fixed viewport clipped it to one
+   sheet, the narrow paper width put the app into its phone layout (back
+   arrow, key sheet), and the theme's dark ground went to paper. Release
+   the viewport, drop the chrome, and print black on white. */
+@media print {
+  html,
+  body:not(.pr-active) {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    background: #fff !important;
+    color: #14181d !important;
+  }
+  body:not(.pr-active) .topbar,
+  body:not(.pr-active) #fkeybar,
+  body:not(.pr-active) #mobile-tabbar,
+  body:not(.pr-active) .fn-sheet-rows,
+  body:not(.pr-active) .modal-overlay,
+  body:not(.pr-active) [data-tip]::after {
+    display: none !important;
+  }
+  body:not(.pr-active) #view {
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #14181d !important;
+  }
+  body:not(.pr-active) #view * {
+    color: inherit;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+}

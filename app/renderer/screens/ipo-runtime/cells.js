@@ -72,6 +72,22 @@ function ipoScaleLabel(v) {
 }
 
 /**
+ * Is a lamp lit? The word the script printed against its declared TrueText /
+ * FalseText, else the usual on-words.
+ * @param {{text: string, meta: IpoCellMeta|null}} c - the lamp cell
+ * @returns {boolean}
+ */
+function ipoLampOn(c) {
+  const m = c.meta || {};
+  const word = String(c.text || '').trim();
+  return m.on != null && word && word === String(m.on).trim()
+    ? true
+    : m.off != null && word === String(m.off).trim()
+      ? false
+      : IPO_LAMP_ON_RE.test(word);
+}
+
+/**
  * digitalout(val, row, col, TrueText, FalseText) is a lamp: a filled circle
  * with the TrueText beside it when the value is set, an empty circle with
  * the FalseText otherwise.
@@ -79,14 +95,8 @@ function ipoScaleLabel(v) {
  * @returns {string} HTML
  */
 function ipoLampHtml(c) {
-  const m = c.meta || {};
   const word = String(c.text || '').trim();
-  const on =
-    m.on != null && word && word === String(m.on).trim()
-      ? true
-      : m.off != null && word === String(m.off).trim()
-        ? false
-        : IPO_LAMP_ON_RE.test(word);
+  const on = ipoLampOn(c);
   const key = c.key ? ` data-key="${esc(c.key)}"` : '';
   return (
     `<span class="ipo-lamp-cell"${key}>` +
@@ -155,6 +165,7 @@ function ipoGaugeHtml(c) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    ipoLampOn,
     IPO_GAUGE_COLS,
     ipoKeyLabel,
     ipoText,

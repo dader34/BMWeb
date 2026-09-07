@@ -1441,6 +1441,63 @@ const sysSet = (sgbd) => ({
     ok('stop: MS45 injector screen sends nothing until a valve is picked');
   }
 
+  // ===========================================================================
+  // Print screen: INPA's F9 builds a clean sheet (core/print.js document),
+  // not the browser's print of the live page with its chrome. INPA mode =
+  // the text grid; modern mode = caption/value rows; both list the keys.
+  // ===========================================================================
+  {
+    const { ipoPrintDocument, ipoPrintGridText } = RT;
+    const pexec = loadExec('E46', 'ms450ds0');
+    const pecu = {
+      sgbd: 'ms450ds0',
+      label: 'MS45.1 for M54',
+      _variant: 'MS450DS0',
+      chassis: 'E46',
+    };
+    fakeApi(() => ({
+      system: sysSet('ms450ds0'),
+      sets: [{ JOB_STATUS: 'OKAY' }],
+    }));
+    const pui = fakeUi();
+    const pp = new IpoProgram(pecu, pexec, pui);
+    await pp.start();
+    const grid = ipoPrintGridText(pp);
+    assert.ok(grid.length > 3, `the main screen prints rows (${grid.length})`);
+    assert.ok(
+      grid.some((l) => /< F1/.test(l)),
+      `the legend is on the sheet: ${grid[0]}`
+    );
+    assert.ok(
+      grid.every((l) => !/<span|&lt;/.test(l)),
+      'plain text, no markup'
+    );
+    const inpaDoc = ipoPrintDocument(pp, pecu, true);
+    assert.strictEqual(inpaDoc.title, 'MS45.1 for M54');
+    assert.ok(
+      inpaDoc.sections[0].html.startsWith('<pre class="pr-screen">'),
+      'INPA mode: the grid'
+    );
+    assert.ok(
+      inpaDoc.sections.some((x) => /pr-keys/.test(x.html)),
+      'the keys table'
+    );
+    assert.ok(
+      inpaDoc.meta.some(([k, v]) => k === 'SGBD' && v === 'ms450ds0.prg')
+    );
+    const modernDoc = ipoPrintDocument(pp, pecu, false);
+    assert.ok(
+      modernDoc.sections.some((x) => /pr-keys/.test(x.html)),
+      'modern: keys listed'
+    );
+    assert.ok(
+      !/<pre/.test(modernDoc.sections.map((x) => x.html).join('')),
+      'modern: no grid'
+    );
+    pp.close();
+    ok('print screen: a clean sheet in both modes, keys listed');
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();

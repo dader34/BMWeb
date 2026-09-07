@@ -142,11 +142,8 @@ function ipoMakeUi(ecu, container, back) {
     pickComponent: (p, step) => ipoPickComponent(p, step),
     pickLines: (p, names, multiple, current) =>
       ipoPickLines(names, multiple, current),
-    // INPA's printscreen: the browser's own print of the page
-    printScreen: () => {
-      if (typeof window !== 'undefined' && typeof window.print === 'function')
-        window.print();
-    },
+    // INPA's printscreen: the module view as a clean sheet (print.js)
+    printScreen: (p) => ipoPrintScreen(p, ecu, inpa),
     machineTick: (p, step, guards) => ipoMachineTick(machineEl, step, guards),
     renderKeys,
     paint: (p) => {

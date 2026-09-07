@@ -105,6 +105,7 @@ const OFFLINE_SHELL = [
   'screens/ipo-runtime/paint-modern.js',
   'screens/ipo-runtime/paint-grid.js',
   'screens/ipo-runtime/dialogs.js',
+  'screens/ipo-runtime/print.js',
   'screens/ipo-runtime/ui.js',
   'screens/ipo-runtime/open.js',
   'screens/ecu.js',
