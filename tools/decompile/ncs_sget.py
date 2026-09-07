@@ -43,7 +43,7 @@ OUT_JS = os.path.join(ROOT, 'app', 'renderer', 'data', 'sget.js')
 
 # ---- the predicate, decoded to text ---------------------------------------
 #
-# Mirrors app/renderer/core/coding-auftrag.js. Kept as TEXT here (not a tree):
+# Mirrors app/renderer/core/coding/auftrag.js. Kept as TEXT here (not a tree):
 # the JS side owns evaluation, this side just has to hand it the bytes and a
 # human-readable form for tooling. Verified equal by test_coding_auftrag.js.
 
