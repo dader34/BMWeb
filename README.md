@@ -9,9 +9,9 @@ nothing to install.
 
 > **This project is in development. Use write jobs at your own risk.**
 
-Each module's screens are described in JSON and drawn by an interpreter; each
-module's diagnostic logic runs in the app's own bytecode virtual machine. The
-car is reached over a K+DCAN USB cable through Web Serial.
+Each module's screens are BMW's own INPA script, executed live in the app;
+each module's diagnostic logic runs in the app's own bytecode virtual machine.
+The car is reached over a K+DCAN USB cable through Web Serial.
 
 
 ## Using it
@@ -59,7 +59,9 @@ browser.
 **K+DCAN cable.** Plug the cable straight into the machine, no hub, and click
 the cable chip in the top bar; Web Serial only opens its port picker from a
 click, so the first connect is always yours. After that the browser remembers
-the port and the app reopens it on every load with no picker. On macOS the port is `cu.usbserial*`, `cu.SLAB*` or
+the port and the app reopens it on every load with no picker. Opening a module
+with no cable shows "No adapter connected" rather than an offline view: the
+module's script asks the car first, and nothing is drawn from a guess. On macOS the port is `cu.usbserial*`, `cu.SLAB*` or
 `cu.wchusbserial*`; on Linux `ttyUSB*` or `ttyACM*`
 (`scripts/setup/99-bmacw-kdcan.rules` grants the permission). The app opens
 at 115200 8N1 and re-opens at 9600 8E1 for DS2/KWP2000 modules on its own.
@@ -69,17 +71,22 @@ you when `IFH-0003` looks like that.
 **Remote session** (Settings → Remote session). Whoever has the cable picks
 "Share my car" and gets an 8-character code; anyone else opens the same app,
 enters the code, and drives the car over a WebRTC data channel. Only the
-car-touching requests cross the link; the helper sees the same screens.
+car-touching requests cross the link; the helper sees the same screens. Both
+sides must run the same version, and the owner approves each action the helper
+takes (a read, an activation, a clear) before it reaches the cable.
 
 
 ## What it does
 
-Every module screen is rendered from its own screen definition, as designed.
-Modules with no screen definition say so rather than guessing at a layout. A
-key press runs that key's own logic in the VM, so computed arguments
-(idle-raise setpoints, CO trim steps, adaptation clears) go to the wire as
-designed, and guided procedures (activate, wait, observe, tear down) run
-their state machines live.
+Every module screen is the module's own INPA script, running: its entry
+check identifies the module, its menus and F-keys are the ones it prints, and
+each screen sends the jobs it was written to send. Modules BMW never drew a
+screen for say so rather than guessing at a layout. A key press runs that
+key's own script body, so computed arguments (idle-raise setpoints, CO trim
+steps, adaptation clears) go to the wire as designed, and guided procedures
+(activate, wait, observe, tear down) run their state machines live. Captions
+are translated through exact per-module dictionaries; anything without an
+entry shows as BMW wrote it.
 
 - **Fault memory** — read stored codes with English text and detail, clear them.
 - **Error scan** — sweep every module in the car in one pass, export a PDF report.
@@ -106,9 +113,9 @@ their state machines live.
 | | |
 |---|---|
 | Chassis | 26: E31 E34 E36 E38 E39 E46 E52 E53 E60 E65 E70 E83 E85 E87 E89 E90 F01 F07 F10 F25 F30 K25 K40 R50 R56 RR1 |
-| ECU definitions | 950 |
-| Module screens | ~19,500 across ~800 ECUs |
-| Diagnostic jobs | ~55,000 |
+| ECU definitions | 1,003, on 1,060 menu rows plus every variant a car can identify |
+| Module scripts | 1,130 decompiled, 809 runnable, ~19,800 screens |
+| Diagnostic jobs | ~59,000 |
 | Fault codes | 51,484 |
 | Wiring diagrams | 15 chassis, E38 through F01 |
 
@@ -120,21 +127,24 @@ module definitions, an E60 91, an E90 61, an E46 55, an F30 19.
 
 Four pieces.
 
-**The screen interpreter** draws each module's screens from a JSON
-description: menus, F-key numbers, screens, gauges with their scales, lamps,
-and which job feeds each row.
+**The screen runtime** (`app/renderer/screens/ipo-runtime.js` over
+`core/ipovm.js`) executes each module's INPA script: the entry check, the
+menus and F-keys, the screens with their gauges and lamps, the input
+dialogs, and the guided-procedure state machines. The scripts are decompiled
+from BMW's `.IPO` files by `tools/decompile/` into `data/inpa-ir/`, together
+with the per-module caption dictionaries.
 
 **The virtual machine** (`app/renderer/core/bestvm.js`) executes each
 module's diagnostic logic, a 184-opcode instruction set — register file, byte
 stack, string table, table lookups — and turns raw bytes off the wire into
 named results. Diffed offline against a reference engine (`src/InpaMac.Cli`
-exists for exactly that), it agrees on 3,729 of 3,730 results over 460 jobs
+exists for exactly that), it agreed on 3,729 of 3,730 results over 460 jobs
 on an E46 corpus.
 
-**The static data layer** holds what the VM needs — job code, tables, job
-metadata and per-ECU screens — generated by the tools in `tools/`.
-`data/ecu-src/` is one gzipped copy per ECU definition and is what is
-committed; `data/chassis/<CAR>/<ECU>/` is built from it and ignored.
+**The static data layer** holds what the runtime and the VM need — job code,
+tables, job metadata, scripts and dictionaries — generated by the tools in
+`tools/`. `data/ecu-src/` is one gzipped copy per ECU definition and is what
+is committed; `data/chassis/<CAR>/<ECU>/` is built from it and ignored.
 
 **The transport** moves bytes over Web Serial in the browser.
 `app/renderer/core/webshim.js` installs itself over `fetch`, so the renderer
@@ -180,12 +190,13 @@ saves the report as a `.json` you can attach by hand.
 ## Layout
 
 ```
-app/renderer/          the app: screen interpreter, bytecode VM, transport shim, screens
-  core/                bestvm.js, webshim.js, coding-write.js, remote.js, journal.js
-  screens/             apps hub, lookup, wiring, etk, tool32, tuning, coding
-  data/                generated JS data (fault DB, coding labels, wiring archives)
+app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
+  core/                bestvm.js, ipovm.js, webshim.js, coding-write.js, remote.js, journal.js
+  screens/             ipo-runtime.js (module view), apps hub, lookup, wiring, etk, tool32, tuning, coding
+  data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition
-data/inpa-ir/          module screens (gzipped)
+data/inpa-ir/          decompiled module scripts and their caption dictionaries (gzipped)
+data/inpa-i18n/        hand-kept translation overrides, one file per ECU plus the shared table
 data/chassis/          derived per-car tree (gitignored)
 tools/                 generators, exporters, verify/ test harnesses, beta/ collector
 scripts/setup/         fetch.sh, check-vendor.sh, data-cache.sh
