@@ -203,7 +203,7 @@ const PRINT_CSS = `
     .pr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .pr-table thead { display: table-header-group; }
     /* The fault report drives every module table from ONE shared <colgroup>
-       (screens/fault-report.js faultColumns). table-layout:fixed makes the
+       (screens/sweep/report.js faultColumns). table-layout:fixed makes the
        browser honour those widths exactly instead of auto-sizing per block, so
        Code/Type/Count/State sit at the same x-position in every module table
        and on every printed page. Description takes the remaining width. */

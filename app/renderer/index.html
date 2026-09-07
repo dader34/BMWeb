@@ -244,9 +244,14 @@
   <script src="ui/typed-block.js"></script>
   <script src="ui/dropdown.js"></script>
   <script src="ui/listbox.js"></script>
-  <script src="screens/autoscan.js"></script>
-  <script src="screens/sweep.js"></script>
-  <script src="screens/fault-report.js"></script>
+  <script src="screens/sweep/plan.js"></script>
+  <script src="screens/sweep/resolve.js"></script>
+  <script src="screens/sweep/wire.js"></script>
+  <script src="screens/sweep/rows.js"></script>
+  <script src="screens/sweep/error-sweep.js"></script>
+  <script src="screens/sweep/ident-sweep.js"></script>
+  <script src="screens/sweep/autoscan.js"></script>
+  <script src="screens/sweep/report.js"></script>
   <script src="screens/ir.js"></script>
   <!-- The live script runtime: the program driver, then the painters and
        dialogs its UI adapter composes, then the entry point (it exports the
@@ -274,7 +279,11 @@
   <script src="core/coding/auftrag.js"></script>
   <script src="core/coding/custom.js"></script>
   <script src="core/coding/select.js"></script>
-  <script src="core/vehicle-identity.js"></script>
+  <script src="core/vehicle-identity/tables.js"></script>
+  <script src="core/vehicle-identity/zcs.js"></script>
+  <script src="core/vehicle-identity/fa.js"></script>
+  <script src="core/vehicle-identity/sa-names.js"></script>
+  <script src="core/vehicle-identity/index.js"></script>
   <script src="core/coding/dispatch-host.js"></script>
   <script src="core/coding/dispatch.js"></script>
   <script src="core/coding/write-strategy.js"></script>
@@ -292,9 +301,19 @@
   <script src="screens/coding/write-review.js"></script>
   <script src="screens/coding/hub.js"></script>
   <script src="screens/coding/zcs-editor.js"></script>
+  <!-- The coding codec/write stack. coding-encode defines CodingEncode, which
+       coding-zcs reads at load, so ORDER MATTERS: encode, then zcs, then the
+       write dispatcher, then the screens that call them. Without these the
+       write path is unreachable and webWriteCoding throws "not loaded". -->
   <script src="screens/navlang.js"></script>
   <script src="screens/identity.js"></script>
-  <script src="screens/vehicle-identity.js"></script>
+  <script src="screens/vehicle-identity/discovery.js"></script>
+  <script src="screens/vehicle-identity/record.js"></script>
+  <script src="screens/vehicle-identity/codes.js"></script>
+  <script src="screens/vehicle-identity/column.js"></script>
+  <script src="screens/vehicle-identity/render.js"></script>
+  <script src="screens/vehicle-identity/detect.js"></script>
+  <script src="screens/vehicle-identity/screen.js"></script>
   <script src="screens/special.js"></script>
   <script src="screens/measurements.js"></script>
   <script src="screens/live.js"></script>

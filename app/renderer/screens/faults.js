@@ -1,15 +1,65 @@
-// fault rendering. German→English tables and the bmwCode/pCode/phraseText/
-// envLabel helpers live in translate.js (loaded before this file).
+/**
+ * @file Fault rendering: the fault-name database, the shared fault
+ * projection every fault view and report draws from, the two fault views
+ * (INPA-style and modern card), and the freeze-frame environment blocks.
+ *
+ * German->English tables and the bmwCode/pCode/phraseText/envLabel helpers
+ * live in core/translate.js (loaded before this file).
+ */
 
-// fault-name DB (faultdb.js, generated): a big literal kept out of the initial
-// script list so it isn't parsed before first paint. Injected on demand;
-// resolves once window.BMW_FAULT_DB is set. Screens kick this off before
-// rendering so faultName lookups stay synchronous.
+/**
+ * The fault projection shared by the screen rows and the printed reports:
+ * one home for the "momentan vorhanden && !nicht vorhanden" logic.
+ * @typedef {object} FaultFields
+ * @property {string} code - The code shown: the text's own DTC, else the
+ *   ECU's P-code, else the location number, else the raw hex.
+ * @property {string} hex - The raw fault word when it differs from `code`.
+ * @property {string} pcode - The SAE P-code when it differs from `code`.
+ * @property {string} name - The English fault name.
+ * @property {boolean} present - Present now, as opposed to stored.
+ * @property {string} ftype - 'static' / 'intermittent' / the ECU's own text.
+ * @property {string|number} count - Occurrence counter (F_HFK, else F_LZ).
+ */
+
+/**
+ * The module a fault view is drawn for.
+ * @typedef {object} FaultEcu
+ * @property {string} sgbd - The SGBD.
+ * @property {string} [label] - Display label.
+ * @property {string} [chassis] - Chassis id, for the printed report.
+ */
+
+/**
+ * The pending fault-name database load, so screens that kick it off before
+ * rendering can await the same promise.
+ * @type {Promise<void>|null}
+ */
 let _faultDbPromise = null;
-// faultdb.js (BMW_FAULT_DB / BMW_FAULT_PHRASES) is large BMW-derived data, not
-// shipped in the repo: local build copy first, then the Hugging Face dataset.
+
+/**
+ * Where faultdb.js (BMW_FAULT_DB / BMW_FAULT_PHRASES) is fetched from when
+ * the local build has no copy: it is large BMW-derived data, not shipped in
+ * the repo.
+ */
 const FAULT_DB_HF =
   'https://huggingface.co/datasets/CraigFf/bmweb-etk/resolve/main/faults/faultdb.js';
+
+/** The last F_UWn field a detailed read may carry. */
+const ENV_FIELDS_MAX = 8;
+/** How many F_UWn fields the modern card shows inline. */
+const ENV_INLINE_MAX = 4;
+/** The unit EDIABAS reports for a unitless value. */
+const ENV_NO_UNIT = '0-n';
+
+/**
+ * Load the fault-name DB (faultdb.js, generated): a big literal kept out of
+ * the initial script list so it isn't parsed before first paint. Injected on
+ * demand; resolves once window.BMW_FAULT_DB is set, or once every source has
+ * failed (faultName then falls back to phraseText). Screens kick this off
+ * before rendering so faultName lookups stay synchronous. Local build copy
+ * first, then the dataset mirror.
+ * @returns {Promise<void>} Resolves when the DB is present or unavailable.
+ */
 function loadFaultDb() {
   if (typeof loadPcodes === 'function') loadPcodes();
   if (typeof loadFaultMeta === 'function') loadFaultMeta();
@@ -39,18 +89,28 @@ function loadFaultDb() {
   return _faultDbPromise;
 }
 
-// the reading ECU's own codespace ({ code -> English }), or null. GOTCHA: the
-// flat BMW_FAULT_DB collides across ECU families (27C3 is oil-level on the E46
-// MS45, something else on an S65) -- the per-SGBD scoped map wins.
+/**
+ * The reading ECU's own codespace ({ code -> English }), or null. GOTCHA:
+ * the flat BMW_FAULT_DB collides across ECU families (27C3 is oil-level on
+ * the E46 MS45, something else on an S65) -- the per-SGBD scoped map wins.
+ * @param {string|null|undefined} sgbd - The SGBD.
+ * @returns {Object<string, string>|null} The scoped map, or null.
+ */
 function scopedFaultDb(sgbd) {
   const s =
     (typeof window !== 'undefined' && window.BMW_FAULT_DB_SCOPED) || null;
   return (s && sgbd && s[String(sgbd).toLowerCase()]) || null;
 }
 
-// fault name: look up the BMW code for the English component name (27DA ->
-// "Alternator BSD fault"), scoped codespace over flat DB. Falls back to
-// translating F_ORT_TEXT; orig (EDIABAS) mode keeps raw German.
+/**
+ * Fault name: look up the BMW code for the English component name (27DA ->
+ * "Alternator BSD fault"), scoped codespace over flat DB. Falls back to
+ * translating F_ORT_TEXT; orig (EDIABAS) mode keeps raw German.
+ * @param {string|null|undefined} loc - F_ORT_TEXT.
+ * @param {string} hex - The raw fault word as dashed hex.
+ * @param {string|null|undefined} sgbd - The SGBD, for the scoped map.
+ * @returns {string} The name, "CODE Name" where the DB knows it.
+ */
 function faultName(loc, hex, sgbd) {
   if (lang() === 'orig') return loc || '';
   const code = bmwCode(loc, hex);
@@ -61,9 +121,14 @@ function faultName(loc, hex, sgbd) {
   return phraseText(loc) || loc || '';
 }
 
-// The ECU's fault-type list (F_ART1..F_ART_ANZ), "--" entries dropped, joined
-// for a one-line display. This is what a body module reports in place of the
-// DME's F_SYMPTOM -- IHKA46_3's 0x20 comes back as "Kurzschluss gegen U-Batt".
+/**
+ * The ECU's fault-type list (F_ART1..F_ART_ANZ), "--" entries dropped,
+ * joined for a one-line display. This is what a body module reports in
+ * place of the DME's F_SYMPTOM -- IHKA46_3's 0x20 comes back as
+ * "Kurzschluss gegen U-Batt".
+ * @param {FaultEntry} c - The fault entry.
+ * @returns {string} The types, comma-joined; '' when none.
+ */
 function faultTypeText(c) {
   const n = parseInt(c.F_ART_ANZ, 10) || 0;
   const parts = [];
@@ -76,26 +141,33 @@ function faultTypeText(c) {
   return parts.join(', ');
 }
 
-// shared fault projection: code, English name, present/stored. one home for the
-// "momentan vorhanden && !nicht vorhanden" logic.
+/**
+ * The shared fault projection: code, English name, present/stored, type
+ * and count.
+ *
+ * F_ORT_NR: a 16-bit value is either a real 2-byte DTC (DSC 0x5DC2, in the
+ * DB -- show the whole code) or a text-scheme location+detail word (LWS
+ * 0x0B3F, unknown as a code -- show the location byte FORTTEXTE keys on).
+ * The scoped codespace decides; flat DB as fallback.
+ *
+ * SAE P-code: the ECU's own F_PCODE_STRING (a live detail read) is the ONLY
+ * source. No BMW-hex -> P-code mapping on our side during a fault read: the
+ * module is the authority, and a plain read that carries no P-code simply
+ * shows none rather than a value we inferred.
+ * @param {FaultEntry} c - The fault entry.
+ * @param {string|null|undefined} sgbd - The SGBD it was read from.
+ * @returns {FaultFields} The projection.
+ */
 function faultFields(c, sgbd) {
   const hex = hexText(c.F_HEX_CODE);
   // a real 4-hex DTC only when the fault TEXT leads with one ("27DA
   // BSD-Generator"). NOT bmwCode's hex fallback -- that would surface the full
   // F_HEX_CODE and defeat the location-byte preference below.
   const textCode = bmwCode(c.F_ORT_TEXT, '');
-  // P-code comes ONLY from the ECU's own detailed read (F_PCODE_STRING /
-  // F_PCODE7_STRING). We do not map BMW-hex -> SAE P-code ourselves during a
-  // fault read: the module is the authority, and a plain read that carries no
-  // P-code simply shows none rather than a value we inferred.
   const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
   const vt = String(c.F_VORHANDEN_TEXT || '').toLowerCase();
   const present =
     vt.includes('momentan vorhanden') && !vt.includes('nicht vorhanden');
-  // F_ORT_NR: a 16-bit value is either a real 2-byte DTC (DSC 0x5DC2, in the DB
-  // -- show the whole code) or a text-scheme location+detail word (LWS 0x0B3F,
-  // unknown as a code -- show the location byte FORTTEXTE keys on). The scoped
-  // codespace decides; flat DB as fallback.
   const ortFull = ortNrFull(c.F_ORT_NR);
   const own = scopedFaultDb(sgbd);
   const flat = (typeof window !== 'undefined' && window.BMW_FAULT_DB) || {};
@@ -111,8 +183,6 @@ function faultFields(c, sgbd) {
       ? 'intermittent'
       : phraseText(art) || art || '';
   const count = c.F_HFK || c.F_LZ || '';
-  // SAE P-code: the ECU's own F_PCODE_STRING (a live detail read) is the ONLY
-  // source. No BMW-hex -> P-code mapping on our side during a fault read.
   const code = textCode || pstr || ortNr || hex || '—';
   const pcode = c.F_PCODE_STRING || c.F_PCODE7_STRING || '';
   // `hex` is the ECU's raw fault word ("F6-88-A6"); `code` is the shorter
@@ -128,9 +198,19 @@ function faultFields(c, sgbd) {
   };
 }
 
-// INPA layout is a desktop mode: it reproduces a keyboard-driven Windows UI, and
-// INPA "Comment" (F7): attach a free-text note to the current fault read, stored
-// locally so it shows in the export/print.
+/**
+ * The free-text note attached to the current fault read (INPA "Comment").
+ * @type {string}
+ */
+let faultComment = '';
+
+/**
+ * INPA "Comment" (F7): attach a free-text note to the current fault read,
+ * stored locally so it shows in the export/print.
+ * @param {FaultEcu} ecu - The module.
+ * @param {HTMLElement} container - The fault view, to show the note in.
+ * @returns {Promise<void>} Resolves once the note is saved or cancelled.
+ */
 async function addFaultComment(ecu, container) {
   const note = await inputDialog({
     title: 'Add comment',
@@ -151,9 +231,17 @@ async function addFaultComment(ecu, container) {
   }
   sbLeft.textContent = 'comment saved';
 }
-let faultComment = '';
 
-// INPA "Printing" (F9): single-ECU fault report PDF from the last fault read.
+/**
+ * INPA "Printing" (F9): single-ECU fault report PDF from the last fault
+ * read. Native saves through the bridge; the web build prints the shared
+ * sheet.
+ * @param {FaultEcu} ecu - The module.
+ * @param {HTMLElement} view - The current view (unused; kept for the F-key
+ *   handler signature).
+ * @param {{ viaHotkey?: boolean }} [opts] - Set when Cmd/Ctrl+P routed here.
+ * @returns {Promise<void>} Resolves once the export finishes or is refused.
+ */
 async function exportFaults(ecu, view, opts = {}) {
   const faults = lastFaultRead || [];
   if (!faults.length) {
@@ -221,31 +309,50 @@ async function exportFaults(ecu, view, opts = {}) {
   }
 }
 
-// environment snapshot the DME captured when the fault was logged (RPM,
-// voltages, engine state, mileage), only present after a detailed read (F_UW*).
-// [label, value] pairs for one fault's snapshot. Shared by the screen and the
-// printed report so both show the same environment, formatted the same way.
+/**
+ * One freeze-frame value as shown: long decimals rounded
+ * (13.1015625 -> 13.10), the unit appended unless it is the unitless
+ * marker. String(): on web the VM hands back live numbers, and the
+ * leading-digit test needs a string.
+ * @param {unknown} val - F_UWn_WERT.
+ * @param {unknown} unit - F_UWn_EINH.
+ * @returns {string} The translated value text with its unit.
+ */
+function envValueText(val, unit) {
+  const s = String(val);
+  let shown = s;
+  const n = parseFloat(s);
+  if (isFinite(n) && !Number.isInteger(n) && /^-?\d/.test(s))
+    shown = n.toFixed(2);
+  const u = unit && String(unit) !== ENV_NO_UNIT ? ` ${unit}` : '';
+  return envLabel(String(shown)) + u;
+}
+
+/**
+ * The environment snapshot the DME captured when the fault was logged (RPM,
+ * voltages, engine state, mileage), only present after a detailed read
+ * (F_UW*), as [label, value] pairs. Shared by the screen and the printed
+ * report so both show the same environment, formatted the same way.
+ * @param {FaultEntry} c - The fault entry.
+ * @returns {[string, string][]} The pairs; empty without a detailed read.
+ */
 function envPairs(c) {
   const out = [];
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= ENV_FIELDS_MAX; i++) {
     const t = c[`F_UW${i}_TEXT`];
     if (t == null) continue;
     const val = c[`F_UW${i}_WERT`];
-    const unit = c[`F_UW${i}_EINH`];
     if (val == null) continue;
-    // round long decimals (13.1015625 -> 13.10). String(): on web the VM hands
-    // back live numbers, and the leading-digit test needs a string.
-    const s = String(val);
-    let shown = s;
-    const n = parseFloat(s);
-    if (isFinite(n) && !Number.isInteger(n) && /^-?\d/.test(s))
-      shown = n.toFixed(2);
-    const u = unit && String(unit) !== '0-n' ? ` ${unit}` : '';
-    out.push([envLabel(t), envLabel(String(shown)) + u]);
+    out.push([envLabel(t), envValueText(val, c[`F_UW${i}_EINH`])]);
   }
   return out;
 }
 
+/**
+ * The INPA-style environment block for one fault.
+ * @param {FaultEntry} c - The fault entry.
+ * @returns {string} The block HTML, '' without a snapshot.
+ */
 function envBlock(c) {
   const rows = envPairs(c).map(
     ([k, v]) =>
@@ -255,8 +362,21 @@ function envBlock(c) {
   return `<div class="inpa-env"><div class="inpa-env-head">environment: values at code entry</div>${rows.join('')}</div>`;
 }
 
-// INPA fault view: mirrors the "MS45 error memory with environment" screen --
-// a numbered block per fault with the BMW fault title and MIL state.
+/**
+ * INPA fault view: mirrors the "MS45 error memory with environment" screen
+ * -- a numbered block per fault with the BMW fault title and MIL state.
+ *
+ * DRAW THE FIELDS THE ECU ACTUALLY RETURNED, not a fixed OBD template. A
+ * DME's FS_LESEN declares F_SYMPTOM/F_READY/F_VORHANDEN/F_WARNUNG; a body
+ * module (IHKA46_3) declares none of those -- it reports the fault type in
+ * F_ART1..F_ART_ANZ_TEXT instead. Showing the DME labels as "-" on an IHKA
+ * both hid its real type field and invented four the module never sends.
+ * Each row is emitted only if its result is present.
+ * @param {FaultEntry[]|null|undefined} codes - The fault list.
+ * @param {HTMLElement} container - The view to draw into.
+ * @param {FaultEcu|null|undefined} ecu - The module.
+ * @returns {void}
+ */
 function renderFaultsInpa(codes, container, ecu) {
   const faults = (codes || []).filter((c) => c.F_HEX_CODE || c.F_ORT_NR);
   container.className = 'inpa-faults';
@@ -276,12 +396,6 @@ function renderFaultsInpa(codes, container, ecu) {
       const freq = c.F_HFK || c.F_LZ; // how many times seen
       const km = c.F_UW_KM; // mileage at entry
       const { present } = faultFields(c, ecu && ecu.sgbd);
-      // DRAW THE FIELDS THE ECU ACTUALLY RETURNED, not a fixed OBD template.
-      // A DME's FS_LESEN declares F_SYMPTOM/F_READY/F_VORHANDEN/F_WARNUNG; a
-      // body module (IHKA46_3) declares none of those -- it reports the fault
-      // type in F_ART1..F_ART_ANZ_TEXT instead. Showing the DME labels as "-"
-      // on an IHKA both hid its real type field and invented four the module
-      // never sends. Each row below is emitted only if its result is present.
       const has = (k) => c[k] != null && String(c[k]).trim() !== '';
       const row = (label, k, nrKey) =>
         has(k)
@@ -327,9 +441,15 @@ function renderFaultsInpa(codes, container, ecu) {
   container.innerHTML = `<div class="inpa-fault-title">${esc(ecu && ecu.sgbd ? ecu.sgbd.toUpperCase() : 'ECU')} error memory with environment</div>${blocks}`;
 }
 
-// INPA "Detail" (F2): normal read for every fault number, then FS_LESEN_DETAIL
-// per number, merging rich detail onto each. GOTCHA: FS_LESEN_DETAIL needs the
-// fault number as arg; with none it returns nothing (hence "0 codes").
+/**
+ * INPA "Detail" (F2): normal read for every fault number, then
+ * FS_LESEN_DETAIL per number, merging rich detail onto each. GOTCHA:
+ * FS_LESEN_DETAIL needs the fault number as arg; with none it returns
+ * nothing (hence "0 codes").
+ * @param {FaultEcu} ecu - The module.
+ * @param {HTMLElement} container - The view to draw into.
+ * @returns {Promise<void>} Resolves once the view is drawn.
+ */
 async function readFaultsDetailed(ecu, container) {
   loadFaultDb(); // warm the name db while the bus works
   container.className = 'results-panel';
@@ -361,12 +481,28 @@ async function readFaultsDetailed(ecu, container) {
   }
 }
 
-let lastFaultRead = []; // most recent fault list (for Comment/Print/export)
+/**
+ * The most recent fault list, for Comment/Print/export.
+ * @type {FaultEntry[]}
+ */
+let lastFaultRead = [];
+
+/**
+ * Draw a fault list in the current UI mode. The UI mode is STYLE ONLY --
+ * modern must show the same fields INPA mode does, just as a card. A detail
+ * row is emitted only when the ECU returned that field (numbered `(NN) text`
+ * like INPA), so nothing is invented or hidden.
+ * @param {FaultEntry[]|null|undefined} codes - The fault list; only real
+ *   fault entries (with a hex/ort code) are drawn, which filters the
+ *   telegram/summary sets.
+ * @param {HTMLElement} container - The view to draw into.
+ * @param {FaultEcu|null|undefined} ecu - The module.
+ * @returns {void}
+ */
 function renderFaults(codes, container, ecu) {
   lastFaultRead = (codes || []).filter((c) => c.F_HEX_CODE || c.F_ORT_NR);
   if (inpaMode()) return renderFaultsInpa(codes, container, ecu);
   container.className = 'faults';
-  // only real fault entries have a hex/ort code (filters telegram/summary sets)
   const faults = (codes || []).filter((c) => c.F_HEX_CODE || c.F_ORT_NR);
   if (faults.length === 0) {
     container.innerHTML = `<div class="empty">
@@ -377,54 +513,63 @@ function renderFaults(codes, container, ecu) {
   container.innerHTML = '';
   container.className = 'faults stagger';
   faults.forEach((c) => {
-    const ff = faultFields(c, ecu && ecu.sgbd);
-    const present = ff.present;
-    const hex = hexText(c.F_HEX_CODE);
-    // prefer the detailed P-code (FS_LESEN_DETAIL) over our static map
-    const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || ff.pcode || '';
-    const ptext = phraseText(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
-    const warn = phraseText(c.F_WARNUNG_TEXT);
-    const freq = c.F_HFK || c.F_LZ;
-    const km = c.F_UW_KM;
-    // The UI mode is STYLE ONLY -- modern must show the same fields INPA mode
-    // does, just as a card. Emit a detail row only when the ECU returned that
-    // field (numbered `(NN) text` like INPA), so nothing is invented or hidden.
-    const has = (k) => c[k] != null && String(c[k]).trim() !== '';
-    const numbered = (k, nrKey) =>
-      `${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${phraseText(c[k])}`;
-    const detRow = (label, k, nrKey) =>
-      has(k)
-        ? `<div class="fd-row"><span class="fd-k">${label}</span>` +
-          `<span class="fd-v">${esc(numbered(k, nrKey))}</span></div>`
-        : '';
-    // fault-type: F_SYMPTOM, or the F_ART1..N list (body modules use that)
-    const typeText = has('F_SYMPTOM_TEXT')
-      ? numbered('F_SYMPTOM_TEXT', 'F_SYMPTOM_NR')
-      : faultTypeText(c) || '';
-    const rows = [
-      typeText
-        ? `<div class="fd-row"><span class="fd-k">Type of error</span><span class="fd-v">${esc(typeText)}</span></div>`
-        : '',
-      detRow('Readiness flag', 'F_READY_TEXT', 'F_READY_NR'),
-      detRow('Error status', 'F_VORHANDEN_TEXT', 'F_VORHANDEN_NR'),
-      detRow('Warning lamp', 'F_WARNUNG_TEXT', 'F_WARNUNG_NR'),
-      ptext
-        ? `<div class="fd-row"><span class="fd-k">Meaning</span><span class="fd-v">${esc(ptext)}</span></div>`
-        : '',
-      `<div class="fd-row"><span class="fd-k">F-Code</span><span class="fd-v mono">${esc(`${hex || '-'}${ff.code ? `  ·  ${ff.code}` : ''}`)}</span></div>`,
-      freq
-        ? `<div class="fd-row"><span class="fd-k">Frequency</span><span class="fd-v">${esc(freq)}</span></div>`
-        : '',
-      km
-        ? `<div class="fd-row"><span class="fd-k">At mileage</span><span class="fd-v">${esc(km)} km</span></div>`
-        : '',
-      faultEnvInline(c),
-    ]
-      .filter(Boolean)
-      .join('');
-    const el = document.createElement('div');
-    el.className = 'fault';
-    el.innerHTML = `
+    container.appendChild(faultCard(c, ecu));
+  });
+  stagger(container, 40);
+}
+
+/**
+ * One fault as a modern card.
+ * @param {FaultEntry} c - The fault entry.
+ * @param {FaultEcu|null|undefined} ecu - The module.
+ * @returns {HTMLElement} The card.
+ */
+function faultCard(c, ecu) {
+  const ff = faultFields(c, ecu && ecu.sgbd);
+  const present = ff.present;
+  const hex = hexText(c.F_HEX_CODE);
+  // prefer the detailed P-code (FS_LESEN_DETAIL) over our static map
+  const pstr = c.F_PCODE_STRING || c.F_PCODE7_STRING || ff.pcode || '';
+  const ptext = phraseText(c.F_PCODE_TEXT || c.F_PCODE7_TEXT || '');
+  const warn = phraseText(c.F_WARNUNG_TEXT);
+  const freq = c.F_HFK || c.F_LZ;
+  const km = c.F_UW_KM;
+  const has = (k) => c[k] != null && String(c[k]).trim() !== '';
+  const numbered = (k, nrKey) =>
+    `${nrKey && c[nrKey] != null ? `(${c[nrKey]}) ` : ''}${phraseText(c[k])}`;
+  const detRow = (label, k, nrKey) =>
+    has(k)
+      ? `<div class="fd-row"><span class="fd-k">${label}</span>` +
+        `<span class="fd-v">${esc(numbered(k, nrKey))}</span></div>`
+      : '';
+  // fault-type: F_SYMPTOM, or the F_ART1..N list (body modules use that)
+  const typeText = has('F_SYMPTOM_TEXT')
+    ? numbered('F_SYMPTOM_TEXT', 'F_SYMPTOM_NR')
+    : faultTypeText(c) || '';
+  const rows = [
+    typeText
+      ? `<div class="fd-row"><span class="fd-k">Type of error</span><span class="fd-v">${esc(typeText)}</span></div>`
+      : '',
+    detRow('Readiness flag', 'F_READY_TEXT', 'F_READY_NR'),
+    detRow('Error status', 'F_VORHANDEN_TEXT', 'F_VORHANDEN_NR'),
+    detRow('Warning lamp', 'F_WARNUNG_TEXT', 'F_WARNUNG_NR'),
+    ptext
+      ? `<div class="fd-row"><span class="fd-k">Meaning</span><span class="fd-v">${esc(ptext)}</span></div>`
+      : '',
+    `<div class="fd-row"><span class="fd-k">F-Code</span><span class="fd-v mono">${esc(`${hex || '-'}${ff.code ? `  ·  ${ff.code}` : ''}`)}</span></div>`,
+    freq
+      ? `<div class="fd-row"><span class="fd-k">Frequency</span><span class="fd-v">${esc(freq)}</span></div>`
+      : '',
+    km
+      ? `<div class="fd-row"><span class="fd-k">At mileage</span><span class="fd-v">${esc(km)} km</span></div>`
+      : '',
+    faultEnvInline(c),
+  ]
+    .filter(Boolean)
+    .join('');
+  const el = document.createElement('div');
+  el.className = 'fault';
+  el.innerHTML = `
       <div class="fault-code">
         <div class="fault-hex">${esc(ff.code)}</div>
         ${pstr ? `<div class="fault-pcode">${esc(pstr)}</div>` : ''}
@@ -438,28 +583,24 @@ function renderFaults(codes, container, ecu) {
         ${present ? '<span class="flag present">present</span>' : '<span class="flag">stored</span>'}
         ${warn ? `<span class="flag">${esc(warn)}</span>` : ''}
       </div>`;
-    container.appendChild(el);
-  });
-  stagger(container, 40);
+  return el;
 }
 
-// inline environment values for the modern fault card, shown only when a
-// detailed read captured them
+/**
+ * Inline environment values for the modern fault card, shown only when a
+ * detailed read captured them.
+ * @param {FaultEntry} c - The fault entry.
+ * @returns {string} The row HTML, '' without a snapshot.
+ */
 function faultEnvInline(c) {
   const items = [];
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= ENV_INLINE_MAX; i++) {
     const t = c[`F_UW${i}_TEXT`];
     if (t == null) continue;
     const v = c[`F_UW${i}_WERT`];
     if (v == null) continue;
-    const u = c[`F_UW${i}_EINH`];
-    const unit = u && u !== '0-n' ? ` ${u}` : '';
-    let shown = v;
-    const n = parseFloat(v);
-    if (isFinite(n) && !Number.isInteger(n) && /^-?\d/.test(String(v)))
-      shown = n.toFixed(2);
     items.push(
-      `<span class="fd-env"><span class="fd-env-k">${esc(envLabel(t))}:</span> ${esc(envLabel(String(shown)) + unit)}</span>`
+      `<span class="fd-env"><span class="fd-env-k">${esc(envLabel(t))}:</span> ${esc(envValueText(v, c[`F_UW${i}_EINH`]))}</span>`
     );
   }
   return items.length ? `<div class="fd-env-row">${items.join('')}</div>` : '';

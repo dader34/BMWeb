@@ -104,7 +104,7 @@ const { Best2Vm } = bestvm;
 global.isWriteJob = bestvm.isWriteJob;
 global.CodingEncode = require(R('core/coding/encode.js'));
 global.CodingZcs = require(R('core/coding/zcs.js'));
-global.VehicleIdentity = require(R('core/vehicle-identity.js'));
+global.VehicleIdentity = require(R('core/vehicle-identity/index.js'));
 
 // ---- the car ---------------------------------------------------------------
 
@@ -307,7 +307,18 @@ global.api = async (url, init) => {
 
 // ---- the screen --------------------------------------------------------------
 
-const screenSrc = fs.readFileSync(R('screens/vehicle-identity.js'), 'utf8');
+// The screen is split into pieces (screens/vehicle-identity/*.js) that share
+// one scope, loaded in the order index.html lists them -- so that order is
+// read from index.html and the pieces evaluated as one script, the way the
+// bundle concatenates them.
+const indexHtml = fs.readFileSync(R('index.html'), 'utf8');
+const screenPieces = [
+  ...indexHtml.matchAll(/<script src="(screens\/vehicle-identity\/[^"]+)">/g),
+].map((m) => m[1]);
+assert.ok(screenPieces.length > 1, 'index.html lists no identity pieces');
+const screenSrc = screenPieces
+  .map((p) => fs.readFileSync(R(p), 'utf8'))
+  .join('\n');
 eval(screenSrc);
 assert.strictEqual(typeof window.showVehicleIdentity, 'function');
 

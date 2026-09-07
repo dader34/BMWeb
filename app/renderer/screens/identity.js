@@ -1,14 +1,43 @@
-// Identity: INPA's "ID-data" card — the ECU's part number, versions, build date
-// and references. Read-only, and read once rather than polled: none of it
-// changes while the car sits there.
-//
-// The field order is INPA's own (decoded from the .IPO captions), which differs
-// from the order the SGBD returns them in.
+/**
+ * @file Identity: INPA's "ID-data" card -- the ECU's part number, versions,
+ * build date and references. Read-only, and read once rather than polled:
+ * none of it changes while the car sits there.
+ *
+ * The field order is INPA's own (decoded from the .IPO captions), which
+ * differs from the order the SGBD returns them in.
+ */
 
-// The card's two layouts. Kept here rather than in CSS because the modes are
-// not a restyling of one layout: INPA draws a colon-aligned monospace list, the
-// way its own screen does ('BMWTeilenummer          :  '), while modern mode
-// uses a labelled two-column grid.
+/**
+ * One field of the ID card.
+ * @typedef {object} IdentField
+ * @property {string} key - The result name (BMW_TEILENUMMER), or, for a
+ *   per-argument field, "RESULT arg" once resolved.
+ * @property {string} label - INPA's caption, or the SGBD's own description.
+ * @property {string} [job] - The job to run for a per-argument field.
+ * @property {string|number} [arg] - That job's argument.
+ * @property {boolean} [extra] - Contributed by the SGBD, not shown by INPA's
+ *   own screen.
+ */
+
+/**
+ * The ID-card layout, decoded from the .IPO.
+ * @typedef {object} IdentLayout
+ * @property {string} title - Card title.
+ * @property {string} subtitle - Card subtitle.
+ * @property {string[]} jobs - The jobs read once, without arguments.
+ * @property {IdentField[]} fields - The fields, in INPA's order.
+ */
+
+/**
+ * The card's rows, in one of its two layouts. Kept here rather than in CSS
+ * because the modes are not a restyling of one layout: INPA draws a
+ * colon-aligned monospace list, the way its own screen does
+ * ('BMWTeilenummer          :  '), while modern mode uses a labelled
+ * two-column grid.
+ * @param {IdentField[]} fields - The fields to show.
+ * @param {Map<string, unknown>} vals - The values by resolved key.
+ * @returns {string} The rows' HTML.
+ */
 function identRows(fields, vals) {
   const inpa = inpaMode();
   return fields
@@ -32,6 +61,20 @@ function identRows(fields, vals) {
     .join('');
 }
 
+/**
+ * Read the ID data and draw the card.
+ *
+ * One read per job, then the fields in INPA's order. A field may name a job
+ * ARGUMENT: INPA reads the same result once per pass and labels each ("Data
+ * Block 0..6" from CODIERUNG_LESEN "0".."6"). Those are read separately and
+ * stored under key+arg, or all seven rows would show whatever the last pass
+ * returned.
+ * @param {{ sgbd: string }} ecu - The module.
+ * @param {IdentLayout} ident - The card layout.
+ * @param {HTMLElement} container - The view to draw into.
+ * @param {object|null|undefined} exit - The exit action to append, if any.
+ * @returns {Promise<void>} Resolves once the card is drawn.
+ */
 async function renderIdentity(ecu, ident, container, exit) {
   container.className = 'results-panel';
   container.innerHTML = `
@@ -55,11 +98,6 @@ async function renderIdentity(ecu, ident, container, exit) {
   if (exit) acts.push(exit);
   setActions(acts);
 
-  // one read per job, then lay the fields out in INPA's order.
-  // A field may name a job ARGUMENT: INPA reads the same result once per pass
-  // and labels each ("Data Block 0..6" from CODIERUNG_LESEN "0".."6"). Those
-  // are read separately and stored under key+arg, or all seven rows would show
-  // whatever the last pass returned.
   const vals = new Map();
   let anyOk = false,
     lastErr = null;

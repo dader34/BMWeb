@@ -1,7 +1,44 @@
-// self-contained fault-report PDF generation, saved via the Electron bridge
-// (window.bmacw.savePdf). Shared by the whole-car quick sweep (sweep.js) and the
-// single-ECU export (faults.js) so both reports look identical, via the shared
-// faultFields projection (faults.js) so codes/names/state match the on-screen rows.
+/**
+ * @file Whole-vehicle sweep: the printed reports -- the fault report (native
+ * PDF via the Electron bridge, or the shared web print helper) and the
+ * identification report.
+ *
+ * Last piece of screens/sweep/. Shared by the whole-car error sweep and the
+ * single-ECU export (faults.js) so both reports look identical, via the
+ * shared faultFields projection (faults.js) so codes/names/state match the
+ * on-screen rows.
+ */
+
+/**
+ * One column of the fault table, the ONE definition both report paths
+ * render from.
+ * @typedef {object} FaultColumn
+ * @property {'code'|'name'|'type'|'count'|'state'} key - Which value.
+ * @property {string} label - Header text.
+ * @property {string} width - CSS width for the <colgroup>, '' for elastic.
+ * @property {string} cls - Cell class in the native table.
+ * @property {string} prCls - Cell class in the web print table.
+ * @property {boolean} [detailOnly] - Left blank on a module with no
+ *   detailed read.
+ */
+
+/**
+ * A fault projected for display (faults.js faultFields).
+ * @typedef {object} FaultFields
+ * @property {string} code - The code shown (text code, P-code, location or
+ *   hex).
+ * @property {string} hex - The raw fault word when it differs from `code`.
+ * @property {string} pcode - The SAE P-code when it differs from `code`.
+ * @property {string} name - The English name.
+ * @property {boolean} present - Present now, as opposed to stored.
+ * @property {string} ftype - static / intermittent / the ECU's own text.
+ * @property {string|number} count - Occurrence counter.
+ */
+
+/** A [label, value] pair of the meta strip under the report title. */
+/** @typedef {[string, string|number]} ReportMetaPair */
+
+/** The native PDF's stylesheet. */
 const FAULT_REPORT_CSS = `
     * { box-sizing: border-box; }
     body { font: 13px -apple-system, "Helvetica Neue", Arial, sans-serif; color: #14181d; margin: 0; padding: 0 4px; }
@@ -51,23 +88,24 @@ const FAULT_REPORT_CSS = `
                   border: 1px solid #cde6cd; border-radius: 6px; background: #f3faf3; }
     footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 10px; color: #999; }`;
 
-// The ONE column definition both report paths render from -- the native
-// savePdf table (faultModuleBlock) and the web print table (printFaultReport).
-// Header labels, order, widths and alignment live here once so the two paths
-// cannot drift into a header that no longer sits over its column.
-//
-// Every module renders the SAME five fixed-width columns, even a module with no
-// detail read (DS2): its Type/Count cells are simply left blank. That is the
-// point -- each faulty module is its own <table>, and if the compact modules
-// dropped Type/Count their STATE column would land at a different x-position
-// than the detailed tables above them, so scanning the report the STATE column
-// would wander. One shared <colgroup> of explicit widths (table-layout:fixed)
-// pins Code / Type / Count / State to the same x across every module block and
-// every printed page; DESCRIPTION takes the remaining elastic width.
-//
-// `width` feeds the <colgroup>; `cls` is the native table's cell class, `prCls`
-// the web print table's. `key` selects the value; `detailOnly` cells stay blank
-// on a module with no detailed read.
+/**
+ * The ONE column definition both report paths render from -- the native
+ * savePdf table (faultModuleBlock) and the web print table
+ * (printFaultReport). Header labels, order, widths and alignment live here
+ * once so the two paths cannot drift into a header that no longer sits over
+ * its column.
+ *
+ * Every module renders the SAME five fixed-width columns, even a module with
+ * no detail read (DS2): its Type/Count cells are simply left blank. That is
+ * the point -- each faulty module is its own <table>, and if the compact
+ * modules dropped Type/Count their STATE column would land at a different
+ * x-position than the detailed tables above them, so scanning the report the
+ * STATE column would wander. One shared <colgroup> of explicit widths
+ * (table-layout:fixed) pins Code / Type / Count / State to the same x across
+ * every module block and every printed page; DESCRIPTION takes the remaining
+ * elastic width.
+ * @returns {FaultColumn[]} The five columns, in order.
+ */
 function faultColumns() {
   return [
     {
@@ -104,18 +142,41 @@ function faultColumns() {
   ];
 }
 
-// one module -> a <section> block of its faults. Type/Count columns (fault
-// type + occurrence counter from the fault entry's detail byte) appear only
-// when this module's read carries them, so DS2 modules without the fields
-// keep the compact three-column table.
+/**
+ * The <colgroup> for the shared columns.
+ * @param {FaultColumn[]} columns - The columns.
+ * @returns {string} The colgroup HTML.
+ */
+function faultColgroup(columns) {
+  return `<colgroup>${columns
+    .map((c) => `<col${c.width ? ` style="width:${c.width}"` : ''}>`)
+    .join('')}</colgroup>`;
+}
+
+/**
+ * The freeze-frame pairs for one fault, or none.
+ * @param {FaultEntry} c - The fault entry.
+ * @returns {[string, string][]} Label/value pairs.
+ */
+const reportEnvPairs = (c) =>
+  typeof envPairs === 'function' ? envPairs(c) : [];
+
+/**
+ * One module -> a <section> block of its faults, for the native PDF.
+ * Type/Count columns (fault type + occurrence counter from the fault entry's
+ * detail byte) carry values only when this module's read has them, so DS2
+ * modules without the fields keep their cells blank.
+ * @param {string} label - The module's name.
+ * @param {string} sgbd - Its SGBD.
+ * @param {FaultEntry[]} codes - Its faults.
+ * @returns {string} The section HTML.
+ */
 function faultModuleBlock(label, sgbd, codes) {
   const fields = codes.map((c) => faultFields(c, sgbd));
   const hasDetail = fields.some((f) => f.ftype || f.count);
   const columns = faultColumns();
   const cols = columns.length;
-  const colgroup = `<colgroup>${columns
-    .map((c) => `<col${c.width ? ` style="width:${c.width}"` : ''}>`)
-    .join('')}</colgroup>`;
+  const colgroup = faultColgroup(columns);
   const thead = `<thead><tr>${columns
     .map((c) => `<th class="${c.cls}">${esc(c.label)}</th>`)
     .join('')}</tr></thead>`;
@@ -123,7 +184,7 @@ function faultModuleBlock(label, sgbd, codes) {
   // snapshot stays attached to the code it belongs to. break-inside:avoid on
   // both the fault row and this env row (in CSS) keeps the pair together.
   const envRow = (c) => {
-    const pairs = typeof envPairs === 'function' ? envPairs(c) : [];
+    const pairs = reportEnvPairs(c);
     if (!pairs.length) return '';
     const items = pairs
       .map(
@@ -168,7 +229,13 @@ function faultModuleBlock(label, sgbd, codes) {
   </section>`;
 }
 
-// assemble the full report document. metaPairs: [[label, value], ...]
+/**
+ * Assemble the full native report document.
+ * @param {string} sub - The subtitle under the brand.
+ * @param {ReportMetaPair[]} metaPairs - The meta strip.
+ * @param {string} bodyHtml - The module blocks or the clean note.
+ * @returns {string} The complete HTML document.
+ */
 function faultReportHtml(sub, metaPairs, bodyHtml) {
   const meta = metaPairs
     .map(([k, v]) => `<span>${esc(k)} <b>${esc(v)}</b></span>`)
@@ -184,9 +251,76 @@ function faultReportHtml(sub, metaPairs, bodyHtml) {
   </body></html>`;
 }
 
-// Web build: the same whole-car report, printed via the shared theme-agnostic
-// helper (core/print.js) instead of the Electron savePdf bridge. One section per
-// faulty module; a clean bill if none. Same faultFields projection as on screen.
+/**
+ * One faulty module's table for the web print path. Hand-built rather than
+ * printTable(): a fault that carries a freeze-frame snapshot (detailed read,
+ * F_UW*) gets a full-width row with the environment grid directly under its
+ * own code, like the native savePdf report -- not a separate block after the
+ * table.
+ * @param {FaultyModule} f - The module.
+ * @param {FaultColumn[]} columns - The shared columns.
+ * @returns {string} The table HTML.
+ */
+function printFaultTable(f, columns) {
+  const fields = f.codes.map((c) => faultFields(c, f.ecu.sgbd));
+  const hasDetail = fields.some((x) => x.ftype || x.count);
+  const cls = (c) => (c.prCls ? ` class="${c.prCls}"` : '');
+  const thead = `<thead><tr>${columns
+    .map((c) => `<th${cls(c)}>${esc(c.label)}</th>`)
+    .join('')}</tr></thead>`;
+  const cellFor = (x, key) => {
+    if (key === 'code') return x.pcode ? `${x.pcode}  (${x.code})` : x.code;
+    if (key === 'name') return x.name;
+    if (key === 'type') return hasDetail ? x.ftype || '—' : '';
+    if (key === 'count') return hasDetail ? x.count || '—' : '';
+    if (key === 'state') return x.present ? 'PRESENT' : 'stored';
+    return '';
+  };
+  const body = fields
+    .map((x, i) => {
+      // pr-faultrow + break-inside:avoid keeps a fault row and its env row on
+      // the same page (rule added to core/print.js pr-table CSS).
+      let row = `<tr class="pr-faultrow">${columns
+        .map((c) => `<td${cls(c)}>${esc(cellFor(x, c.key))}</td>`)
+        .join('')}</tr>`;
+      const pairs = reportEnvPairs(f.codes[i]);
+      if (pairs.length) {
+        const items = pairs
+          .map(
+            ([k, v]) =>
+              `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>` +
+              `<span class="pr-env-v">${esc(v)}</span></div>`
+          )
+          .join('');
+        row +=
+          `<tr class="pr-envtr"><td colspan="${columns.length}">` +
+          `<div class="pr-env"><div class="pr-env-head">environment at code entry</div>` +
+          `${items}</div></td></tr>`;
+      }
+      return row;
+    })
+    .join('');
+  return `<table class="pr-table pr-fault-table">${faultColgroup(columns)}${thead}<tbody>${body}</tbody></table>`;
+}
+
+/**
+ * Web build: the same whole-car report, printed via the shared
+ * theme-agnostic helper (core/print.js) instead of the Electron savePdf
+ * bridge. One section per faulty module; a clean bill if none. Same
+ * faultFields projection as on screen.
+ *
+ * Every module renders the same fixed 5-column grid from the ONE shared
+ * faultColumns() definition -- Code / Description / Type / Count / State --
+ * with an explicit <colgroup> and table-layout:fixed (in the pr-table CSS).
+ * That pins Code/Type/Count/State to the same x-position in every module
+ * block, so scanning the whole report the STATE column no longer wanders
+ * block to block. A module with no detailed read leaves its Type/Count cells
+ * blank rather than dropping the columns.
+ * @param {string} chassisId - Chassis id.
+ * @param {FaultyModule[]} faulty - The modules with faults.
+ * @param {SweepStats} stats - The sweep's tallies.
+ * @returns {Promise<void>} Resolves once the print document is handed off.
+ */
 async function printFaultReport(chassisId, faulty, stats) {
   if (typeof loadFaultMeta === 'function') await loadFaultMeta();
   if (typeof loadPcodes === 'function') await loadPcodes();
@@ -200,70 +334,15 @@ async function printFaultReport(chassisId, faulty, stats) {
       )
     );
   } else {
-    // Every module renders the same fixed 5-column grid from the ONE shared
-    // faultColumns() definition below -- Code / Description / Type / Count /
-    // State -- with an explicit <colgroup> and table-layout:fixed (in the
-    // pr-table CSS). That pins Code/Type/Count/State to the same x-position in
-    // every module block, so scanning the whole report the STATE column no
-    // longer wanders block to block. A module with no detailed read leaves its
-    // Type/Count cells blank rather than dropping the columns.
     const columns = faultColumns();
-    const colgroup = `<colgroup>${columns
-      .map((c) => `<col${c.width ? ` style="width:${c.width}"` : ''}>`)
-      .join('')}</colgroup>`;
-    const cls = (c) => (c.prCls ? ` class="${c.prCls}"` : '');
-    const thead = `<thead><tr>${columns
-      .map((c) => `<th${cls(c)}>${esc(c.label)}</th>`)
-      .join('')}</tr></thead>`;
     for (const f of faulty) {
-      const fields = f.codes.map((c) => faultFields(c, f.ecu.sgbd));
-      const hasDetail = fields.some((x) => x.ftype || x.count);
-      // Hand-built table rather than printTable(): a fault that carries a
-      // freeze-frame snapshot (detailed read, F_UW*) gets a full-width row
-      // with the environment grid directly under its own code, like the
-      // native savePdf report -- not a separate block after the table.
-      const cellFor = (x, key) => {
-        if (key === 'code') return x.pcode ? `${x.pcode}  (${x.code})` : x.code;
-        if (key === 'name') return x.name;
-        if (key === 'type') return hasDetail ? x.ftype || '—' : '';
-        if (key === 'count') return hasDetail ? x.count || '—' : '';
-        if (key === 'state') return x.present ? 'PRESENT' : 'stored';
-        return '';
-      };
-      const body = fields
-        .map((x, i) => {
-          // pr-faultrow + break-inside:avoid keeps a fault row and its env row on
-          // the same page (rule added to core/print.js pr-table CSS).
-          let row = `<tr class="pr-faultrow">${columns
-            .map((c) => `<td${cls(c)}>${esc(cellFor(x, c.key))}</td>`)
-            .join('')}</tr>`;
-          const pairs =
-            typeof envPairs === 'function' ? envPairs(f.codes[i]) : [];
-          if (pairs.length) {
-            const items = pairs
-              .map(
-                ([k, v]) =>
-                  `<div class="pr-env-row"><span class="pr-env-k">${esc(k)}</span>` +
-                  `<span class="pr-env-v">${esc(v)}</span></div>`
-              )
-              .join('');
-            row +=
-              `<tr class="pr-envtr"><td colspan="${columns.length}">` +
-              `<div class="pr-env"><div class="pr-env-head">environment at code entry</div>` +
-              `${items}</div></td></tr>`;
-          }
-          return row;
-        })
-        .join('');
       sections.push(
         printHeading(
           `${f.ecu.label}  ·  ${f.ecu.sgbd}  ·  ` +
             `${f.codes.length} fault${f.codes.length === 1 ? '' : 's'}`
         )
       );
-      sections.push({
-        html: `<table class="pr-table pr-fault-table">${colgroup}${thead}<tbody>${body}</tbody></table>`,
-      });
+      sections.push({ html: printFaultTable(f, columns) });
     }
   }
   printDoc({
@@ -280,8 +359,15 @@ async function printFaultReport(chassisId, faulty, stats) {
   });
 }
 
-// whole-car quick-sweep export: one module block per faulty ECU (or a clean-bill
-// note), saved as a PDF. driven from the sweep screen's Export PDF button.
+/**
+ * Whole-car quick-sweep export: one module block per faulty ECU (or a
+ * clean-bill note), saved as a PDF. Driven from the sweep screen's Export
+ * PDF button.
+ * @param {string} chassisId - Chassis id.
+ * @param {FaultyModule[]} faulty - The modules with faults.
+ * @param {SweepStats} stats - The sweep's tallies.
+ * @returns {Promise<void>} Resolves once the save finishes or fails.
+ */
 async function exportFaultPdf(chassisId, faulty, stats) {
   // ensure ISTA P-code / name data is loaded so the printed report shows P-codes
   if (typeof loadFaultMeta === 'function') await loadFaultMeta();
@@ -322,12 +408,18 @@ async function exportFaultPdf(chassisId, faulty, stats) {
   }
 }
 
-// Identification report (Functional Jobs F2): every module the car answered
-// for, grouped by the chassis section it lives in, in sweep order. Printed
-// through the same shared helper as the fault report, so both sheets look
-// like one tool. Native gets the same document via the browser print dialog:
-// unlike the fault report there is no savePdf-only path worth splitting for,
-// because an ident list carries no freeze-frame blocks to lay out specially.
+/**
+ * Identification report (Functional Jobs F2): every module the car answered
+ * for, grouped by the chassis section it lives in, in sweep order. Printed
+ * through the same shared helper as the fault report, so both sheets look
+ * like one tool. Native gets the same document via the browser print dialog:
+ * unlike the fault report there is no savePdf-only path worth splitting for,
+ * because an ident list carries no freeze-frame blocks to lay out specially.
+ * @param {string} chassisId - Chassis id.
+ * @param {IdentFound[]} found - The identified modules.
+ * @param {{ present: number, absent: number }} stats - The tallies.
+ * @returns {void}
+ */
 function printIdentReport(chassisId, found, stats) {
   const sections = [];
   if (!found.length) {

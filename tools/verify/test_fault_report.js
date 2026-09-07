@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Full Module Error Scan PDF: layout invariants for the two report builders
-// in app/renderer/screens/fault-report.js.
+// in app/renderer/screens/sweep/report.js.
 //
 // The bug this guards against: each faulty module renders its OWN <table>, and
 // with an elastic DESCRIPTION column and no shared fixed <colgroup> the browser
@@ -34,7 +34,7 @@ const ok = (what) => {
 };
 
 // ---- stub the free globals the browser script leans on --------------------
-// fault-report.js is a browser <script>; in Node we give it just enough of the
+// report.js is a browser <script>; in Node we give it just enough of the
 // renderer's ambient helpers to run the pure builders. faultFields / envPairs
 // are stubbed so THIS test controls whether a module reads as detailed and
 // whether a fault carries an env snapshot -- the point is the column grid, not
@@ -77,7 +77,8 @@ const R = require(
     'app',
     'renderer',
     'screens',
-    'fault-report.js'
+    'sweep',
+    'report.js'
   )
 );
 

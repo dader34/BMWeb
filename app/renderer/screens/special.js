@@ -1,15 +1,56 @@
-// Special: INPA's Speicher (memory dump). A real INPA screen, root F7 ("MS45
-// Read memory"), reading through SPEICHER_LESEN_ASCII with a
-// "<REGION>;0x<addr>;<n>" argument. Read-only.
+/**
+ * @file Special: INPA's Speicher (memory dump). A real INPA screen, root F7
+ * ("MS45 Read memory"), reading through SPEICHER_LESEN_ASCII with a
+ * "<REGION>;0x<addr>;<n>" argument. Read-only.
+ */
 
-// how many bytes one dump row shows, matching INPA's hex layout
+/**
+ * One memory region the layout offers.
+ * @typedef {object} MemRegion
+ * @property {string} token - The region token sent in the job argument.
+ * @property {string} label - Display label.
+ * @property {string} start - Start address, hex.
+ * @property {string} low - Lowest readable address, hex.
+ * @property {string} high - Highest readable address, hex.
+ * @property {string} [key] - Short softkey caption (hand-built layouts).
+ * @property {string} [fkey] - INPA's own long caption.
+ */
+
+/**
+ * The memory-dump layout, decoded from the .IPO.
+ * @typedef {object} MemLayout
+ * @property {string} title - Screen title.
+ * @property {string} job - The read job (SPEICHER_LESEN_ASCII).
+ * @property {number} maxBytes - The most bytes one read may ask for.
+ * @property {MemRegion[]} regions - The regions, in INPA key order.
+ * @property {{ delta: number, key?: string, label: string }[]} steps
+ *   - The address steps (±10h / ±100h).
+ */
+
+/** How many bytes one dump row shows, matching INPA's hex layout. */
 const MEM_ROW = 16;
+/** Digits an address is printed with. */
+const MEM_ADDR_WIDTH = 6;
 
+/**
+ * Parse a hex address, with or without its 0x prefix.
+ * @param {unknown} s - The address text.
+ * @returns {number|null} The address, or null when not a non-negative hex
+ *   number.
+ */
 const parseAddr = (s) => {
   const n = parseInt(String(s).replace(/^0x/i, ''), 16);
   return Number.isFinite(n) && n >= 0 ? n : null;
 };
-// INPA's memory dump: a region, an address, and ±10h/±100h stepping
+
+/**
+ * INPA's memory dump: a region, an address, and ±10h/±100h stepping.
+ * @param {{ sgbd: string }} ecu - The module.
+ * @param {MemLayout} mem - The layout.
+ * @param {HTMLElement} container - The view to draw into.
+ * @param {() => void} onBack - Back action.
+ * @returns {Promise<void>} Resolves once the screen is drawn.
+ */
 async function showMemory(ecu, mem, container, onBack) {
   let region = mem.regions[0];
   let addr = parseAddr(region.start) || 0;
@@ -37,10 +78,10 @@ async function showMemory(ecu, mem, container, onBack) {
   const read = async () => {
     addr = clamp(addr);
     sub.textContent =
-      `${region.label} · ${hex(addr, 6)} ` +
+      `${region.label} · ${hex(addr, MEM_ADDR_WIDTH)} ` +
       `(${esc(region.low)}–${esc(region.high)})`;
-    dump.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading ${hex(addr, 6)}…</span></div>`;
-    const arg = `${region.token};${hex(addr, 6)};${MEM_ROW}`;
+    dump.innerHTML = `<div class="empty"><span class="loader"></span><span>Reading ${hex(addr, MEM_ADDR_WIDTH)}…</span></div>`;
+    const arg = `${region.token};${hex(addr, MEM_ADDR_WIDTH)};${MEM_ROW}`;
     try {
       const d = await api(
         `/api/ecu/${ecu.sgbd}/run/${mem.job}?arg=${encodeURIComponent(arg)}`,
@@ -56,7 +97,7 @@ async function showMemory(ecu, mem, container, onBack) {
           <span class="mem-ascii">ASCII</span>
         </div>
         <div class="mem-row">
-          <span class="mem-addr">${esc(hex(addr, 6))}</span>
+          <span class="mem-addr">${esc(hex(addr, MEM_ADDR_WIDTH))}</span>
           <span class="mem-bytes">${esc(bytes || '--')}</span>
           <span class="mem-ascii">${esc(ascii || '')}</span>
         </div>`;
@@ -74,7 +115,7 @@ async function showMemory(ecu, mem, container, onBack) {
         `Hex address to read in <b>${esc(region.label)}</b>` +
         ` (${esc(region.low)}–${esc(region.high)}, max ${mem.maxBytes} bytes).`,
       kind: 'text',
-      example: hex(addr, 6),
+      example: hex(addr, MEM_ADDR_WIDTH),
       confirmLabel: 'Read',
     });
     const n = parseAddr(v);
@@ -126,5 +167,5 @@ async function showMemory(ecu, mem, container, onBack) {
     setActions(acts);
   };
   rebuild();
-  sub.textContent = `${region.label} · ${hex(addr, 6)} (${region.low}–${region.high})`;
+  sub.textContent = `${region.label} · ${hex(addr, MEM_ADDR_WIDTH)} (${region.low}–${region.high})`;
 }

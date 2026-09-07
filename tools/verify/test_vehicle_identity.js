@@ -19,17 +19,22 @@ const ok = (what) => {
   if (process.env.V) console.log('  ok', what);
 };
 
-// Lift a run of functions out of the screen file to exercise them directly.
-// The screen is a browser script, not a module, so there is nothing to
-// require -- but slicing on a comment that has since been reworded silently
-// returns -1 and evaluates the WHOLE FILE, which then throws somewhere far
-// from the real cause. Both ends are asserted instead.
-function liftFrom(src, from, to) {
-  const a = src.indexOf(from);
-  const b = src.indexOf(to);
-  assert.ok(a >= 0, `marker not found in vehicle-identity.js: ${from}`);
-  assert.ok(b > a, `marker not found after ${from}: ${to}`);
-  return src.slice(a, b);
+// One piece of the identity screen (screens/vehicle-identity/<piece>.js), to
+// exercise its helpers directly. The screen is a browser script split into
+// pieces by concern, so a piece is the unit to lift: it declares nothing
+// that runs at load beyond its constants, and its functions resolve their
+// cross-piece calls lazily.
+function pieceSrc(piece) {
+  const p = path.join(
+    ROOT,
+    'app',
+    'renderer',
+    'screens',
+    'vehicle-identity',
+    `${piece}.js`
+  );
+  assert.ok(fs.existsSync(p), `identity screen piece missing: ${p}`);
+  return fs.readFileSync(p, 'utf8');
 }
 
 // The module reads its tables off a window global, the way the renderer does.
@@ -43,11 +48,7 @@ assert.ok(
 eval(fs.readFileSync(TABLES, 'utf8'));
 assert.ok(window.BMW_TABLES, 'tables.js did not set BMW_TABLES');
 
-// The ZCS helpers now live under core/coding/; publish them on the window
-// shim first so vehicle-identity.js picks them up the way the renderer
-// does (window.CodingZcs) instead of resolving its own require path.
-global.CodingZcs = require('../../app/renderer/core/coding/zcs.js');
-const VI = require('../../app/renderer/core/vehicle-identity.js');
+const VI = require('../../app/renderer/core/vehicle-identity/index.js');
 
 // ---- 1. SGFAM: who holds the identity --------------------------------------
 
@@ -539,12 +540,8 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
 {
   const Zcs = require('../../app/renderer/core/coding/zcs.js');
   global.CodingZcs = Zcs;
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'),
-    'utf8'
-  );
-  // eslint-disable-next-line no-eval
-  eval(liftFrom(screen, 'function viFindRegion', '// The vehicle order,'));
+  eval(pieceSrc('record'));
+  assert.strictEqual(typeof viFindRegion, 'function');
 
   const region = (gm, sa, vn) => {
     const out = [];
@@ -629,11 +626,8 @@ const FA = 'E46_#0303*BW32%0A08&N6TT|7531125$205$210$880';
     return (j.results || []).map((r) => `${r.name} : ${r.comment || ''}`);
   };
 
-  const screen = fs.readFileSync(
-    path.join(ROOT, 'app', 'renderer', 'screens', 'vehicle-identity.js'),
-    'utf8'
-  );
-  eval(liftFrom(screen, 'const VI_KEY_ROLE', '// WHICH CONTROL UNITS HOLD'));
+  eval(pieceSrc('discovery'));
+  assert.strictEqual(typeof viPickZcsJob, 'function');
 
   const jobsOf = async (sgbd) => viJobs(sgbd);
 
