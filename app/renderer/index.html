@@ -221,7 +221,19 @@
   <script src="screens/sweep.js"></script>
   <script src="screens/fault-report.js"></script>
   <script src="screens/ir.js"></script>
-  <script src="screens/ipo-runtime.js"></script>
+  <!-- The live script runtime: the program driver, then the painters and
+       dialogs its UI adapter composes, then the entry point (it exports the
+       API). -->
+  <script src="screens/ipo-runtime/script-scan.js"></script>
+  <script src="screens/ipo-runtime/translate-sets.js"></script>
+  <script src="screens/ipo-runtime/wire-policy.js"></script>
+  <script src="screens/ipo-runtime/program.js"></script>
+  <script src="screens/ipo-runtime/cells.js"></script>
+  <script src="screens/ipo-runtime/paint-modern.js"></script>
+  <script src="screens/ipo-runtime/paint-grid.js"></script>
+  <script src="screens/ipo-runtime/dialogs.js"></script>
+  <script src="screens/ipo-runtime/ui.js"></script>
+  <script src="screens/ipo-runtime/open.js"></script>
   <script src="screens/ecu.js"></script>
   <script src="screens/activations.js"></script>
   <!-- The coding codec/write stack. coding-encode defines CodingEncode, which

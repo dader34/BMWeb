@@ -117,7 +117,7 @@ global.irItemBodyJobs = (exec, toks, i0, end) => {
   return out;
 };
 
-const RT = require(R('screens/ipo-runtime.js'));
+const RT = loadClassic('screens/ipo-runtime/');
 const {
   IpoProgram,
   ipoMenuItems,
