@@ -88,8 +88,8 @@ jobs:
 
       # NO DEPLOY OF UNTESTED CODE. These are the verify tests whose inputs
       # are all in git (plus the data/chassis tree assembled above): the VM
-      # against captured telegrams, the wire framing, the VM bridge, the IR
-      # interpreter, and -- critically -- the safety write-guard and its gate,
+      # against captured telegrams, the wire framing, the VM bridge, the live .IPO$
+      # runtime and its captions, and -- critically -- the safety write-guard and its gate,
       # which keep an unrecognised job from ever reaching the car. They need no
       # app, no vendor tree and no cable.
       - name: Run the verify tests
@@ -98,10 +98,10 @@ jobs:
           node tools/verify/test_bestvm.js
           node tools/verify/test_transport.js
           node tools/verify/test_vmbridge.js
-          node tools/verify/test_ir_render.js
+          node tools/verify/test_ir_i18n.js
           node tools/verify/test_writeguard.js
           node tools/verify/test_write_gate.js
-          node tools/verify/test_irfaultread.js
+          node tools/verify/test_ipo_runtime.js
           node tools/verify/test_flasher.js
           node tools/verify/test_global_collisions.js
 
