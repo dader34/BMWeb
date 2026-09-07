@@ -45,6 +45,7 @@ import sgbd_spec as SP
 import ecu_tree as ET                                        # noqa: E402
 import sgbd_value_diff as V                                   # noqa: E402
 import sgbd_bulk_verify as B                                  # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..")
 SPEC_DIR = os.path.join(ROOT, "data", "job-specs")
@@ -117,6 +118,11 @@ def _export_one(sgbd):
 
 
 def export_specs(targets):
+    """Extract every target's job specs to data/job-specs, in a process pool.
+
+    Returns:
+        The SGBDs whose connection-discovery probe itself failed.
+    """
     os.makedirs(SPEC_DIR, exist_ok=True)
     # Extraction is pure Python and the probes are dotnet subprocesses, so
     # a PROCESS pool parallelises both; the serial run spent most of its
@@ -158,6 +164,12 @@ def export_specs(targets):
 
 
 def export_tables(targets):
+    """Export every target's tables to data/sgbd-tables.
+
+    Returns:
+        ``(no_listing, dropped)``: SGBDs whose table listing failed, and how
+        many declared tables could not be fetched.
+    """
     os.makedirs(TABLE_DIR, exist_ok=True)
     # the .prg parse is CPU-bound and quick; the pool just keeps the loop shape
     from concurrent.futures import ThreadPoolExecutor
@@ -289,6 +301,7 @@ def _prg_tables(path):
         return {}
 
     def xi(off):
+        """A little-endian int32 at `off`, un-XORed from the .prg stream."""
         return struct.unpack("<i",
                              bytes(b ^ 0xF7 for b in data[off:off + 4]))[0]
 
@@ -600,6 +613,7 @@ def coverage(targets):
 
 
 def all_chassis():
+    """The chassis ids the running app serves (needs BMACW_PORT)."""
     import urllib.request
     port = os.environ.get("BMACW_PORT")
     return json.load(urllib.request.urlopen(
@@ -607,6 +621,7 @@ def all_chassis():
 
 
 def chassis_sgbds(chassis):
+    """The SGBDs one chassis' menu names, from the running app."""
     import urllib.request
     port = os.environ.get("BMACW_PORT")
     c = json.load(urllib.request.urlopen(
@@ -663,6 +678,7 @@ def ship(chassis="E46"):
             parts = {"ecu": True}
 
             def put(name, obj):
+                """Write `obj` as `<name>.json` into the ECU folder."""
                 with open(os.path.join(d, name + ".json"), "w") as f:
                     json.dump(obj, f, ensure_ascii=False,
                               separators=(",", ":"))
@@ -736,21 +752,33 @@ def ship(chassis="E46"):
 
 
 def main():
-    argv = sys.argv[1:]
-    allow_partial = "--allow-partial" in argv
+    """CLI entry: run the selected export modes over the target SGBDs.
+
+    Returns:
+        The process exit code: 1 when any mode reported a failure and
+        ``--allow-partial`` was not given.
+    """
+    ns = parse_args(__doc__,
+                    positional=("names", "*", "SGBDs (default: E46's), or chassis ids for --ship"),
+                    flags={"--specs": "extract job specs", "--tables": "export tables",
+                           "--coverage": "measure spec coverage", "--groups": "export group SGBDs",
+                           "--audit": "check shipped tables against the declarations (needs the app)",
+                           "--ship": "assemble per-chassis ship trees",
+                           "--all-chassis": "every SGBD any car names", "--force": "re-extract existing specs",
+                           "--allow-partial": "exit 0 even when a mode reported failures"})
+    argv = list(ns.names)
+    allow_partial = ns.allow_partial
     # --ship's chassis names are ARGUMENTS TO --SHIP, not SGBDs. They used
     # to fall through into the target list too, so `--ship E46 --specs`
     # also tried to extract an SGBD called "e46" -- carve them out before
     # any mode reads targets. (The heuristic matches ship()'s old one: all
     # caps, four chars or fewer, which no SGBD name on disk is.)
     ship_chassis = []
-    if "--ship" in argv:
-        ship_chassis = [a for a in argv if not a.startswith("--")
-                        and a.upper() == a and len(a) <= 4]
-    targets = [a.lower() for a in argv
-               if not a.startswith("--") and a not in ship_chassis]
+    if ns.ship:
+        ship_chassis = [a for a in argv if a.upper() == a and len(a) <= 4]
+    targets = [a.lower() for a in argv if a not in ship_chassis]
     if not targets:
-        if "--all-chassis" in argv:
+        if ns.all_chassis:
             # ecu_tree.all_sgbds(), not the menu. A chassis config lists the
             # variants INPA offers; owners() adds every variant a group can
             # IDENTIFY (see ecu_tree.group_variants), and those are exactly
@@ -761,7 +789,7 @@ def main():
             # module is unavailable for any reason.
             targets = sorted(ET.all_sgbds() or {g for ch in all_chassis()
                                                 for g in chassis_sgbds(ch)})
-            if "--force" not in argv:
+            if not ns.force:
                 # keep what an earlier run already extracted
                 targets = [t for t in targets if not os.path.exists(
                     os.path.join(SPEC_DIR, f"{t}.json"))]
@@ -772,14 +800,14 @@ def main():
     # (dist-web and the wiring both shipped broken from exporters that
     # printed WARNING and exited 0 -- this list is what ends that.)
     failures = []
-    if "--specs" in argv:
+    if ns.specs:
         conn_failed = export_specs(targets)
         if conn_failed:
             failures.append("specs: connection discovery FAILED for "
                             f"{len(conn_failed)} SGBDs "
                             f"({', '.join(conn_failed[:10])}"
                             + (" ...)" if len(conn_failed) > 10 else ")"))
-    if "--tables" in argv:
+    if ns.tables:
         no_listing, dropped = export_tables(targets)
         if no_listing:
             failures.append(f"tables: listing failed for {len(no_listing)} "
@@ -789,17 +817,17 @@ def main():
         if dropped:
             failures.append(f"tables: {dropped} declared tables failed to "
                             "fetch and were dropped")
-    if "--coverage" in argv:
+    if ns.coverage:
         coverage(targets)          # a measurement, not an artifact
-    if "--groups" in argv:
+    if ns.groups:
         _, grp_failed = export_groups()
         if grp_failed:
             failures.append(f"groups: {len(grp_failed)} groups failed to "
                             f"export ({', '.join(grp_failed[:10])}"
                             + (" ...)" if len(grp_failed) > 10 else ")"))
-    if "--audit" in argv:
+    if ns.audit:
         return audit_tables(targets)
-    if "--ship" in argv:
+    if ns.ship:
         for ch in (ship_chassis or all_chassis()):
             print(f"[{ch}]")
             try:

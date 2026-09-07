@@ -151,6 +151,7 @@ def _variants_in_bytecode(data):
     ops = data.get("ops") or []
 
     def lit(a):
+        """The pool string a `[8, idx]` operand names, or None."""
         # a string operand [8, idx] into the pool; the pool holds strings as
         # str OR as raw byte arrays (this group file uses bytes)
         if (isinstance(a, list) and len(a) >= 2 and a[0] == 8

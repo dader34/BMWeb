@@ -32,6 +32,7 @@ import urllib.parse
 import urllib.request
 
 import _engine                            # noqa: E402  engine discovery
+from _cli import parse_args                                   # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ECU_DIR = os.path.join(HERE, "..", "..", "vendor", "EDIABAS", "Ecu")
@@ -56,6 +57,7 @@ def _base():
 
 
 def _get(base, path, timeout=60):
+    """GET a JSON endpoint from the engine at `base`."""
     with urllib.request.urlopen(base + path, timeout=timeout) as r:
         return json.load(r)
 
@@ -83,7 +85,9 @@ def referenced_tables(base, sgbd, jobs):
     return refs
 
 
-def kind_of(name, refs):
+def kind_of(name: str, refs) -> str:
+    """"location" for an ORT table, "options" when a job argument names it,
+    else "reference"."""
     if LOCATION.search(name):
         return "location"
     if name.upper() in refs:
@@ -125,8 +129,16 @@ def harvest(base, sgbd):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    write = "--write" in sys.argv
+    """CLI entry: harvest one SGBD's tables as JSON, or the whole corpus
+    (``--write`` saves it). Needs the app or BMACW_PORT/BMACW_API.
+
+    Returns:
+        The process exit code (2 without an engine, 1 for an SGBD without tables).
+    """
+    ns = parse_args(__doc__,
+                    positional=("sgbd", "*", "one SGBD to dump; none = the corpus"),
+                    flags={"--write": "write data/inpa-screens/_tables.json"})
+    args, write = ns.sgbd, ns.write
 
     base = _base()
     if not base:

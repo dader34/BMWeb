@@ -31,6 +31,7 @@ import struct
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 import _engine                            # noqa: E402,F401  sys.path setup
+from _cli import parse_args                                   # noqa: E402
 import sgbd_survey as S                                       # noqa: E402
 import sgbd_spec as SP                                        # noqa: E402
 
@@ -120,6 +121,13 @@ def parse(data):
 
 
 def export(sgbd, write=True):
+    """Parse one SGBD's description block and (optionally) write meta.json
+    into every car folder that uses it.
+
+    Returns:
+        ``(sgbd, n_jobs, n_results, n_arguments, bytes_written)``, or None
+        when the block declares no jobs.
+    """
     data, _ = SP.load(sgbd)
     meta = parse(data)
     meta["format"] = 1
@@ -139,11 +147,20 @@ def export(sgbd, write=True):
 
 
 def main():
-    args = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
+    """CLI entry: export metadata for the named SGBDs (default: E46's, or
+    every shipped one with ``--all-chassis``).
+
+    Returns:
+        The process exit code (1 when any .prg failed to parse).
+    """
+    ns = parse_args(__doc__,
+                    positional=("sgbd", "*", "SGBDs to export (default: E46's)"),
+                    flags={"--all-chassis": "every SGBD any shipped ECU names"})
+    args = [a.lower() for a in ns.sgbd]
     # --all-chassis: every SGBD any shipped ECU names, so an offline browse of
     # a non-E46 car has its job list and result schema too. The description
     # block is read straight from the .prg, so this needs no running app.
-    if "--all-chassis" in sys.argv:
+    if ns.all_chassis:
         targets = args or S.all_shipped_sgbds()
     else:
         targets = args or S.e46_sgbds()

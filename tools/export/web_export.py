@@ -31,7 +31,9 @@ SGBD_CATCHALL = "_SGBD"
 FALLBACKS = []
 
 sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
+sys.path.insert(0, os.path.dirname(HERE))                    # tools/, for _cli
 import ecu_tree as T                                          # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 
 def _ecu_src_sgbds():
@@ -222,16 +224,21 @@ def make_zip(contents_dict, compress=True):
 
 
 def main():
+    """CLI entry: freeze the API surface into `<out>/api` and copy the
+    runtime data trees beside it.
+
+    Returns:
+        The process exit code: 1 when the export is incomplete or mixed
+        fresh and cached configs, unless the matching --allow flag is set.
+    """
+    ns = parse_args(__doc__,
+                    flags={"--allow-partial": "ship without group resolution when data/groups is incomplete",
+                           "--allow-stale": "accept a tree mixing fresh and cached chassis configs"},
+                    options={"--out": ("DIR", "the output directory (default: dist-web)")})
     port = os.environ.get("BMACW_PORT")
     if not port:
         print("  (no BMACW_PORT: using cached chassis config)")
-    out = os.path.join(ROOT, "dist-web")
-    if "--out" in sys.argv:
-        i = sys.argv.index("--out")
-        if i + 1 >= len(sys.argv):
-            # a trailing --out used to die with a bare IndexError
-            raise SystemExit("--out needs a directory argument")
-        out = sys.argv[i + 1]
+    out = ns.out or os.path.join(ROOT, "dist-web")
     api = os.path.join(out, "api")
     os.makedirs(api, exist_ok=True)
 
@@ -280,6 +287,7 @@ def main():
         # and returns its DECOMPRESSED bytes so build_ecu_contents does not
         # have to know whether a kind is stored gzipped (job-code) or plain.
         def tree_read(name, _sgbd=sgbd):
+            """`name` from whichever car folder holds this SGBD, decompressed."""
             for d in T.ecu_dirs(_sgbd):
                 q = os.path.join(d, name)
                 if os.path.exists(q):
@@ -318,6 +326,7 @@ def main():
     n_orphan = 0
     for sgbd in _orphan_sgbds():
         def src_read(name, _sgbd=sgbd):
+            """`name` from this orphan's committed source in data/ecu-src."""
             return _ecu_src_read(_sgbd, name)
         ecu_contents, counts = build_ecu_contents(sgbd, src_read)
         # job-code is the one kind the VM cannot run without; an orphan with no
@@ -546,7 +555,7 @@ def main():
         print("EXPORT INCOMPLETE:")
         for p in problems:
             print(f"  - {p}")
-        if "--allow-partial" not in sys.argv:
+        if not ns.allow_partial:
             print("  exiting 1; pass --allow-partial to ship without "
                   "group resolution")
             return 1
@@ -561,7 +570,7 @@ def main():
         # that exits 0 is how it shipped -- fail instead. (A run with no
         # BMACW_PORT at all reads the cache uniformly and records no
         # fallbacks, so the offline CI path is untouched.)
-        if "--allow-stale" not in sys.argv:
+        if not ns.allow_stale:
             print("  exiting 1; pass --allow-stale to accept the mixed tree")
             return 1
         print("  continuing anyway (--allow-stale)")

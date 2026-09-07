@@ -24,8 +24,10 @@ import glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
+sys.path.insert(0, os.path.dirname(HERE))                    # tools/, for _cli
 ROOT = os.path.join(HERE, "..", "..")
 import ecu_tree as T                                          # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 # what lands in an ECU folder, and where it comes from
 SOURCES = [
@@ -83,7 +85,15 @@ def ir_for(code, sgbd, stems):
 
 
 def main():
-    want = {a.upper() for a in sys.argv[1:] if not a.startswith("-")}
+    """CLI entry: assemble data/chassis/<CHASSIS>/<ECU>/ for the named chassis
+    (default: all, plus the unclaimed ECUs under other/ and vehicle/).
+
+    Returns:
+        The process exit code: 1 when a source kind loaded for nobody or an
+        ECU folder got no data at all.
+    """
+    ns = parse_args(__doc__, positional=("chassis", "*", "chassis ids to build (default: all)"))
+    want = {a.upper() for a in ns.chassis}
 
     ir_dir = os.path.join(ROOT, "data", "inpa-ir")
     stems = {}
@@ -214,6 +224,7 @@ def main():
                        for q in glob.glob(os.path.join(T.CONFIG, "*.json"))} - {"INDEX"}
 
         def bucket(stem_name):
+            """"vehicle" for a per-car .IPO stem, "other" for a real orphan."""
             u = stem_name.upper()
             if u in chassis_ids or any(u.startswith(c + "_") for c in chassis_ids):
                 return "vehicle"
@@ -294,6 +305,7 @@ def main():
 
 
 def _write(d, name, payload):
+    """Write `payload` bytes as `<d>/<name>`."""
     with open(os.path.join(d, name), "wb") as f:
         f.write(payload)
 
@@ -309,6 +321,8 @@ _ECU_NAME_CACHE = {}
 
 
 def _own_name(sgbd):
+    """The model name an SGBD gives itself in its description block (the
+    " fuer ..." / " mit ..." tail dropped), cached; None when it has none."""
     key = sgbd.lower()
     if key in _ECU_NAME_CACHE:
         return _ECU_NAME_CACHE[key]
@@ -354,6 +368,7 @@ def _by_chassis():
         # to a derived variant; a mixed one must not, so the variant is named
         # by itself.
         def _family_label(grp):
+            """The one label every menu entry of group `grp` shares, or None."""
             labels = set()
             for sec in cfg.get("sections", []):
                 for e in sec.get("ecus", []):

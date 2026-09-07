@@ -23,6 +23,7 @@ sys.path.insert(0, os.path.dirname(HERE))  # tools/, for sibling modules
 sys.path[:0] = [os.path.join(os.path.dirname(HERE), d)
                 for d in ("decompile", "sgbd", "export", "verify")]
 import sgbd_bulk_verify as B                                  # noqa: E402
+from _cli import parse_args                                   # noqa: E402
 
 ROOT = os.path.join(HERE, "..", "..")
 BULK = os.path.join(ROOT, "data", "sim-captures", "bulk")
@@ -49,9 +50,16 @@ def sim_pairs(d):
 
 
 def main():
+    """CLI entry: replay every captured job (or just the named SGBDs')
+    through the engine and print the fixture JSON to stdout.
+
+    Returns:
+        0, for the process exit code.
+    """
+    ns = parse_args(__doc__, positional=("sgbd", "*", "restrict to these SGBDs"))
     dirs = [d for d in sorted(os.listdir(BULK))
             if os.path.isdir(os.path.join(BULK, d)) and "_" in d]
-    only = [a.lower() for a in sys.argv[1:] if not a.startswith("--")]
+    only = [a.lower() for a in ns.sgbd]
     jobs = []
     for d in dirs:
         sgbd, job = d.split("_", 1)

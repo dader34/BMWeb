@@ -35,9 +35,11 @@ import os
 import re
 import sys
 import json
+from typing import Optional
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 import _engine                            # noqa: E402,F401  sys.path setup
+from _cli import parse_args                                   # noqa: E402
 import sgbd_survey as S                                       # noqa: E402
 import best2_abstract as BA                                   # noqa: E402
 
@@ -73,6 +75,19 @@ def _num(s):
 
 
 def extract(data, addr, sgbd, job):
+    """Lift one job's declarative spec from its bytecode.
+
+    Args:
+        data: The decoded .prg bytes.
+        addr: The job's code address.
+        sgbd: The SGBD name (recorded in the spec).
+        job: The job name (recorded in the spec).
+
+    Returns:
+        The spec dict: request template, response layout, results with
+        their byte sources and transforms, plus `gaps` naming whatever
+        could not be lifted.
+    """
     # Decode the bytecode ONCE and hand the list to every pass that used to
     # walk for itself (classify, resolve_transforms, resolve_result_bytes,
     # detect_loop): the decode dominated extraction time, and each job was
@@ -983,11 +998,20 @@ def extract(data, addr, sgbd, job):
     return spec
 
 
-def job_addr(data, jobs, want):
+def job_addr(data: bytes, jobs, want: str) -> Optional[int]:
+    """The code address of job `want` (case-insensitive), or None."""
     return next((a for n, a in jobs if n.upper() == want.upper()), None)
 
 
-def load(sgbd):
+def load(sgbd: str):
+    """Read an SGBD (.prg or .grp) and its job table.
+
+    Returns:
+        ``(data, jobs)`` as `sgbd_survey.read_jobs` gives them.
+
+    Raises:
+        SystemExit: When no such SGBD exists.
+    """
     # .grp GROUP files are the same container as .prg -- same XOR 0xF7
     # stream, same job table at *0x88, same 0x44-byte entries. They are how
     # EDIABAS resolves "which variant is this ECU?": the group runs an
@@ -1002,14 +1026,24 @@ def load(sgbd):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    """CLI entry: one job's spec as JSON, or every job (``--all``) with a
+    gap summary; ``--write`` saves the set to data/job-specs.
+
+    Returns:
+        0, for the process exit code.
+    """
+    ns = parse_args(__doc__,
+                    positional=("args", "*", "SGBD [JOB]"),
+                    flags={"--all": "extract every job and summarise the gaps",
+                           "--write": "write data/job-specs/<sgbd>.json (implies --all)"})
+    args = ns.args
     if not args:
         print(__doc__)
         return 0
     sgbd = args[0].lower()
     data, jobs = load(sgbd)
 
-    if "--all" in sys.argv or "--write" in sys.argv:
+    if ns.all or ns.write:
         specs = []
         for n, a in jobs:
             if n.startswith("_"):
@@ -1023,7 +1057,7 @@ def main():
                 by_gap[g] = by_gap.get(g, 0) + 1
         for g, c in sorted(by_gap.items(), key=lambda kv: -kv[1]):
             print(f"  {c:4}  {g}")
-        if "--write" in sys.argv:
+        if ns.write:
             os.makedirs(OUT_DIR, exist_ok=True)
             out = os.path.join(OUT_DIR, sgbd + ".json")
             with open(out, "w", encoding="utf-8") as f:

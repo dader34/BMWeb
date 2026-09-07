@@ -44,7 +44,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(HERE, "..", "..")
 sys.path.insert(0, os.path.join(HERE, "..", "sgbd"))
 sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.dirname(HERE))                      # tools/, for _cli
 
+from _cli import parse_args                                   # noqa: E402
 import ecu_tree as ET                                          # noqa: E402
 import sgbd_spec as SP                                         # noqa: E402
 import sgbd_code as C                                          # noqa: E402
@@ -136,13 +138,22 @@ def derive_one(sgbd):
 
 
 def main():
-    argv = sys.argv[1:]
-    if "--list" in argv:
+    """CLI entry: ``--list`` the orphans, derive the named (or every) orphan
+    into data/ecu-src, or ``--missing`` every SGBD without job code.
+
+    Returns:
+        The process exit code (1 when any target yielded no job code).
+    """
+    ns = parse_args(__doc__,
+                    positional=("sgbd", "*", "orphan SGBDs to derive (default: all)"),
+                    flags={"--list": "print the orphan SGBDs and exit",
+                           "--missing": "derive every SGBD with no job code in ecu-src, owned or not"})
+    if ns.list:
         for o in orphans():
             print(o)
         print(f"\n{len(orphans())} orphans", file=sys.stderr)
         return 0
-    named = [a.lower() for a in argv if not a.startswith("--")]
+    named = [a.lower() for a in ns.sgbd]
     # --missing: every corpus SGBD with no job code in ecu-src, OWNED OR NOT.
     # A car's group can identify a variant its menu never lists (telibus2 on
     # the E46's D_00C8, the whole GS8/DDE family on D_0032/D_0012); owners()
@@ -150,7 +161,7 @@ def main():
     # them one job and nothing was written. 53 SGBDs, all in car configs,
     # all identifiable on the wire, all "not in build". Same derivation as
     # an orphan: all jobs, offline, into the committed source.
-    if "--missing" in sys.argv:
+    if ns.missing:
         have = {os.path.basename(f).split(".")[0]
                 for f in glob.glob(os.path.join(SRC, "*.job-code.json.gz"))}
         names = sorted(s for s in ET.all_sgbds() if s.lower() not in have)
