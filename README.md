@@ -127,8 +127,8 @@ module definitions, an E60 91, an E90 61, an E46 55, an F30 19.
 
 Four pieces.
 
-**The screen runtime** (`app/renderer/screens/ipo-runtime.js` over
-`core/ipovm.js`) executes each module's INPA script: the entry check, the
+**The screen runtime** (`app/renderer/screens/ipo-runtime/` over
+`core/ipovm/`) executes each module's INPA script: the entry check, the
 menus and F-keys, the screens with their gauges and lamps, the input
 dialogs, and the guided-procedure state machines. The scripts are decompiled
 from BMW's `.IPO` files by `tools/decompile/` into `data/inpa-ir/`, together
@@ -191,8 +191,8 @@ saves the report as a `.json` you can attach by hand.
 
 ```
 app/renderer/          the app: script runtime, bytecode VM, transport shim, screens
-  core/                bestvm.js, ipovm.js, webshim.js, coding-write.js, remote.js, journal.js
-  screens/             ipo-runtime.js (module view), apps hub, lookup, wiring, etk, tool32, tuning, coding
+  core/                bestvm.js, ipovm/ (the .IPO VM), webshim.js, coding-write.js, remote.js, journal.js
+  screens/             ipo-runtime/ (module view), apps hub, lookup, wiring, etk, tool32, tuning, coding
   data/                generated JS data (fault DB, caption dictionary, coding labels, wiring archives)
 data/ecu-src/          committed source: one gzipped copy per ECU definition
 data/inpa-ir/          decompiled module scripts and their caption dictionaries (gzipped)
