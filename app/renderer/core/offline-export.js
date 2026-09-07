@@ -87,6 +87,7 @@ const OFFLINE_SHELL = [
   'screens/etk/select.js',
   'screens/etk/series.js',
   'screens/etk/vin.js',
+  'screens/etk/attributes.js',
   'screens/etk/identify.js',
   'screens/etk/catalogue.js',
   'screens/etk/diagram.js',
