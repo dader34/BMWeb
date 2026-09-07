@@ -132,10 +132,34 @@ const {
 
 // ---- execs ------------------------------------------------------------------
 function loadExec(chassis, ecu) {
-  const cands = [
-    path.join(ROOT, 'data', 'chassis', chassis, ecu, 'ipoexec.json.gz'),
-    path.join(ROOT, 'data', 'chassis', chassis, ecu, 'ipoexec.json'),
-  ];
+  const tree = path.join(ROOT, 'data', 'chassis', chassis);
+  // the folder is named by the menu CODE (E46's engine row is MS450 with
+  // sgbd ms450ds0) or by the variant's own name (ihka46_3, derived from the
+  // group); find it by the SGBD its ecu.json declares, then by folder name
+  const bySgbd = [];
+  try {
+    for (const d of fs.readdirSync(tree)) {
+      try {
+        const meta = JSON.parse(
+          fs.readFileSync(path.join(tree, d, 'ecu.json'), 'utf8')
+        );
+        if (String(meta.sgbd || '').toLowerCase() === ecu.toLowerCase())
+          bySgbd.push(path.join(tree, d));
+      } catch (e) {
+        /* not an ECU folder */
+      }
+    }
+  } catch (e) {
+    /* no tree: the archive fallback below */
+  }
+  const cands = [];
+  for (const d of bySgbd) {
+    cands.push(path.join(d, 'ipoexec.json.gz'), path.join(d, 'ipoexec.json'));
+  }
+  cands.push(
+    path.join(tree, ecu, 'ipoexec.json.gz'),
+    path.join(tree, ecu, 'ipoexec.json')
+  );
   for (const p of cands) {
     if (!fs.existsSync(p)) continue;
     const raw = fs.readFileSync(p);

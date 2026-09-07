@@ -48,10 +48,22 @@ RESERVED_NAMES = {
 
 
 def _prg_names():
-    """Every SGBD BMW actually ships a .prg for, lowercased."""
+    """Every SGBD the build ships data for, lowercased.
+
+    The committed per-SGBD sources (data/ecu-src/<sgbd>.job-code.json.gz,
+    one per .prg the harvester read) are the primary list: they are in git,
+    so CI has them. The vendor .prg folder is a supplement for a tree with
+    originals present. Validating against the vendor folder ALONE meant a
+    checkout without it (every CI runner) derived ZERO group variants -- the
+    hosted build shipped no ihka46_3 / ms450ds0 / mrs4 folder, and the
+    identified variant a real car names could not be opened online.
+    """
     global _PRGS
     if _PRGS is None:
         out = set()
+        suf = ".job-code.json.gz"
+        for p in glob.glob(os.path.join(ROOT, "data", "ecu-src", "*" + suf)):
+            out.add(os.path.basename(p)[:-len(suf)].lower())
         for pat in ("*.prg", "*.PRG"):
             for p in glob.glob(os.path.join(ECU_DIR, pat)):
                 out.add(os.path.basename(p)[:-4].lower())
