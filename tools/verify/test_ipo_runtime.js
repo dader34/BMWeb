@@ -76,9 +76,10 @@ global.dataSets = (sets) => {
   return list.length && isSystemSet(list[0]) ? list.slice(1) : list;
 };
 
-// the VM and the write classifier, as shipped
-require(R('core/ipovm.js'));
-const { IpoVm, FeedHost } = require(R('core/ipovm.js'));
+// the VM and the write classifier, as shipped (the VM is a folder of classic
+// scripts sharing one scope, loaded in index.html order)
+const { loadClassic } = require('./lib/load_classic.js');
+const { IpoVm, FeedHost } = loadClassic('core/ipovm/');
 global.IpoVm = IpoVm;
 global.FeedHost = FeedHost;
 const bv = require(R('core/bestvm/index.js'));
@@ -116,7 +117,7 @@ global.irItemBodyJobs = (exec, toks, i0, end) => {
   return out;
 };
 
-const RT = require(R('screens/ipo-runtime.js'));
+const RT = loadClassic('screens/ipo-runtime/');
 const {
   IpoProgram,
   ipoMenuItems,

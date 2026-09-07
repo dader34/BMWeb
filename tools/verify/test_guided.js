@@ -10,11 +10,8 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const assert = require('assert');
-const {
-  IpoVm,
-  FeedHost,
-  scanQuitBox,
-} = require('../../app/renderer/core/ipovm.js');
+const { loadClassic } = require('./lib/load_classic.js');
+const { IpoVm, FeedHost, scanQuitBox } = loadClassic('core/ipovm/');
 
 const ROOT = path.join(__dirname, '..', '..');
 const load = (p) =>

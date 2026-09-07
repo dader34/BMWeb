@@ -1,37 +1,66 @@
-// What the live .IPO runtime (screens/ipo-runtime.js) borrows from the module
-// view: the shipped bytecode per SGBD, INPA's input dialogs, the job names a
-// key's body can send, and the exact-dictionary caption translation
-// (irLabel). The derived renderer that once drew screens from
-// data/inpa-ir/<ECU>.json is gone -- the module view is the running script.
+/**
+ * @file What the live .IPO runtime (screens/ipo-runtime/) borrows from the
+ * module view: the shipped bytecode per SGBD, INPA's input dialogs, the job
+ * names a key's body can send, and the exact-dictionary caption translation
+ * (irLabel). The derived renderer that once drew screens from
+ * data/inpa-ir/<ECU>.json is gone -- the module view is the running script.
+ */
 
-// The SGBD whose SCRIPT draws: the configured base when the car identified a
-// variant that ships no .IPO of its own (INPA loads one script per address).
+/** How many helper levels irItemBodyJobs follows into calluser bodies. */
+const IR_JOB_SCAN_DEPTH = 2;
+
+/** How many tokens before an INPAapiJob call its job-name constant may sit. */
+const IR_JOB_LOOKBACK = 8;
+
+/** A job name as the scripts write them: upper-case, at least four chars. */
+const IR_JOB_NAME_RE = /^[A-Z][A-Z0-9_]{3,}$/;
+
+/** The INPAapiJob / INP1apiJob call names. */
+const IR_JOB_CALL_RE = /^INP.?apiJob/;
+
+/**
+ * The SGBD whose SCRIPT draws: the configured base when the car identified a
+ * variant that ships no .IPO of its own (INPA loads one script per address).
+ * @param {object} ecu - the module ({_irFrom, sgbd})
+ * @returns {string} lower-case SGBD name
+ */
 function irExecSgbd(ecu) {
   return String((ecu && (ecu._irFrom || ecu.sgbd)) || '').toLowerCase();
 }
 
-// {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
-// twin (an orphan, or a pre-phase-1 archive) -- callers fall back to frozen IR.
-const _ipoExecCache = new Map();
+/** @type {Map<string, Promise<object|null>>} exec per SGBD, fetched once */
+const _irExecCache = new Map();
+
+/**
+ * {procs, byid} for an ECU, fetched once. null when the ECU ships no runnable
+ * twin (an orphan, or a pre-phase-1 archive).
+ * @param {string} sgbd - SGBD name
+ * @returns {Promise<object|null>}
+ */
 function irLiveExec(sgbd) {
   const key = String(sgbd).toLowerCase();
-  if (!_ipoExecCache.has(key)) {
-    _ipoExecCache.set(
+  if (!_irExecCache.has(key)) {
+    _irExecCache.set(
       key,
       api(`/api/ecu/${key}/ipoexec`)
         .then((x) => (x && x.procs ? x : null))
         .catch(() => null)
     );
   }
-  return _ipoExecCache.get(key);
+  return _irExecCache.get(key);
 }
 
-// One INPA ask, in INPA's own words. The driven VM suspends at every input
-// builtin; this renders the right dialog for its kind and returns what
-// resume() stores: a number (inputint/inputnum), a hex STRING (inputhex),
-// 1/0 from the two-choice box (inputdigital), or an ARRAY for the two-field
-// forms (input2int's Kalenderwoche/Jahr) -- one element per out-ref. null =
-// cancelled, and the keypress is abandoned.
+/**
+ * One INPA ask, in INPA's own words. The driven VM suspends at every input
+ * builtin; this renders the right dialog for its kind and returns what
+ * resume() stores: a number (inputint/inputnum), a hex STRING (inputhex),
+ * 1/0 from the two-choice box (inputdigital), or an ARRAY for the two-field
+ * forms (input2int's Kalenderwoche/Jahr) -- one element per out-ref.
+ * @param {IpoStep} step - the input suspension ({name, prompts, refs, lo, hi})
+ * @param {string} [fallbackTitle] - the title when the script gave no prompt
+ * @returns {Promise<number|string|Array<number|string>|null>} null =
+ *   cancelled, and the keypress is abandoned
+ */
 async function irAskInput(step, fallbackTitle) {
   const refs = Math.max(1, Number(step.refs || 1));
   const name = String(step.name || '');
@@ -106,28 +135,34 @@ async function irAskInput(step, fallbackTitle) {
   return refs > 1 ? vals : vals[0];
 }
 
-// The key's body in its menu proc: [toks, bodyStart, bodyEnd], or null when
-
-// Every job name an item's body (and its helpers, one level) can send.
+/**
+ * Every job name an item's body (and its helpers, one level) can send: the
+ * job-name constant pushed before each INPAapiJob call.
+ * @param {object} exec - the decoded script ({procs, byid})
+ * @param {IpoToken[]} toks - the menu proc's tokens
+ * @param {number} i0 - first token index of the body
+ * @param {number} end - token index the body ends at (exclusive)
+ * @returns {string[]}
+ */
 function irItemBodyJobs(exec, toks, i0, end) {
   const out = [];
   const scan = (tk, a, b, depth) => {
     for (let i = a; i < Math.min(b, tk.length); i++) {
       const t = tk[i];
-      if (t.op === 'call' && /^INP.?apiJob/.test(t.name || '')) {
-        for (let j = i - 1; j >= Math.max(0, i - 8); j--) {
+      if (t.op === 'call' && IR_JOB_CALL_RE.test(t.name || '')) {
+        for (let j = i - 1; j >= Math.max(0, i - IR_JOB_LOOKBACK); j--) {
           const c = tk[j];
           if (
             c.op === 'const' &&
             c.t === 's' &&
-            /^[A-Z][A-Z0-9_]{3,}$/.test(String(c.v))
+            IR_JOB_NAME_RE.test(String(c.v))
           ) {
             if (!out.includes(c.v)) out.push(c.v);
             break;
           }
           if (c.op === 'frame') break;
         }
-      } else if (t.op === 'calluser' && depth < 2) {
+      } else if (t.op === 'calluser' && depth < IR_JOB_SCAN_DEPTH) {
         const nm = (exec.byid || {})[`func:${t.n}`];
         const body = nm && exec.procs[nm];
         if (Array.isArray(body)) scan(body, 0, body.length, depth + 1);
@@ -142,27 +177,51 @@ function irItemBodyJobs(exec, toks, i0, end) {
 // Per-ECU map from data/inpa-i18n/<ECU>.json (shipped as ir.i18n), then the
 // shared INPA chrome table (data/i18n-shared.js). No word rules: a caption
 // with no entry shows as BMW wrote it.
+
+/** @type {Record<string, string>|null} the current ECU's caption map */
 let _irI18n = null;
+/** @type {Map<string, string>|null} that map keyed by collapsed caption */
 let _irI18nNorm = null;
+/** @type {(Map<string, string> & {src?: object})|null} the shared table, collapsed */
 let _irSharedNorm = null;
+
+/**
+ * Take an ECU's caption dictionary as the current one.
+ * @param {{i18n?: Record<string, string>}|null} ir - the ECU's shipped IR
+ * @returns {void}
+ */
 function irUseTranslations(ir) {
   _irI18n = (ir && ir.i18n) || null;
   _irI18nNorm = null;
 }
+
+/**
+ * The shared INPA chrome table, when data/i18n-shared.js is loaded.
+ * @returns {Record<string, string>|null}
+ */
 function irI18nShared() {
   return (typeof window !== 'undefined' && window.BMW_I18N_SHARED) || null;
 }
 
-// The .IPO prints a caption padded to its column ("Drehzahl      :") and the
-// same words appear elsewhere trimmed; both mean one thing. Look the string up
-// as written, then by its collapsed form, and put the original's leading
-// indentation back so a translated cell keeps its place on the grid.
+/**
+ * A caption's lookup form. The .IPO prints a caption padded to its column
+ * ("Drehzahl      :") and the same words appear elsewhere trimmed; both mean
+ * one thing, so whitespace collapses and a trailing ':' or '=' is dropped.
+ * @param {string} s - the caption
+ * @returns {string}
+ */
 function irI18nKey(s) {
   return String(s)
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\s*[:=]\s*$/, '');
 }
+
+/**
+ * A dictionary keyed by collapsed caption (first entry wins).
+ * @param {Record<string, string>} map - the dictionary
+ * @returns {Map<string, string>}
+ */
 function irNormMap(map) {
   const out = new Map();
   for (const k of Object.keys(map)) {
@@ -171,25 +230,37 @@ function irNormMap(map) {
   }
   return out;
 }
-// INPA's key-legend notation: a menu screen prints "< F4  >   Fehlerspeicher
-// lesen" or "< Shift > + < F6 >  EWS" as ONE string. The caption after the
-// key is what the dictionaries carry, so it is looked up on its own and the
-// key prefix is kept as printed. Syntax of the notation only, no word rules.
+
+/**
+ * INPA's key-legend notation: a menu screen prints "< F4  >   Fehlerspeicher
+ * lesen" or "< Shift > + < F6 >  EWS" as ONE string. The caption after the
+ * key is what the dictionaries carry, so it is looked up on its own and the
+ * key prefix is kept as printed. Syntax of the notation only, no word rules.
+ * Group 1 = the key prefix as printed, 2 = the caption.
+ * @type {RegExp}
+ */
 const IR_KEY_LEGEND =
   /^(\s*(?:<\s*Shift\s*>\s*\+\s*)?<\s*F\s*\d+\s*>\s*)(\S.*)$/i;
+
+/**
+ * Translate a caption through the exact dictionaries: the ECU's own map,
+ * then the shared table, first as written, then by its collapsed form with
+ * the original's leading indentation and trailing ':' put back so a
+ * translated cell keeps its place on the grid. "Function labels: Original
+ * (EDIABAS)" (lang() === 'orig') shows BMW's own strings verbatim.
+ * @param {string} s - the caption as the script printed it
+ * @returns {string} the translation, or `s` when no dictionary has it
+ */
 function irLabel(s) {
   if (!s) return s;
-  // "Function labels: Original (EDIABAS)" shows BMW's own strings verbatim --
-  // no i18n lookup. The setting is global (lang() in core.js).
   if (typeof lang === 'function' && lang() === 'orig') return s;
   const shared = irI18nShared();
   if (!_irI18n && !shared) return s;
-  const legend = typeof s === 'string' ? s.match(IR_KEY_LEGEND) : null;
-  if (legend) {
-    const has = (m) => m && Object.prototype.hasOwnProperty.call(m, s);
-    if (!has(_irI18n) && !has(shared)) return legend[1] + irLabel(legend[2]);
-  }
   const has = (m) => m && Object.prototype.hasOwnProperty.call(m, s);
+  const legend = typeof s === 'string' ? s.match(IR_KEY_LEGEND) : null;
+  if (legend && !has(_irI18n) && !has(shared)) {
+    return legend[1] + irLabel(legend[2]);
+  }
   if (has(_irI18n)) return _irI18n[s];
   if (has(shared)) return shared[s];
   const str = String(s);
@@ -210,4 +281,15 @@ function irLabel(s) {
   const lead = (str.match(/^\s*/) || [''])[0];
   const tail = (str.match(/\s*[:=]?\s*$/) || [''])[0];
   return lead + hit + tail;
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    irExecSgbd,
+    irLiveExec,
+    irAskInput,
+    irItemBodyJobs,
+    irUseTranslations,
+    irLabel,
+  };
 }
