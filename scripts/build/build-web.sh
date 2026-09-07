@@ -8,10 +8,10 @@
 #
 #   tools/export/web_export.py   freezes every GET the renderer makes into static
 #                         JSON (chassis config, job metadata, tables, IR)
-#   app/renderer/core/webshim.js  intercepts fetch: static files for reads, and
+#   app/renderer/core/webshim/    intercepts fetch: static files for reads, and
 #                         our BEST2 VM over Web Serial for job runs
 #
-# Nothing in the renderer changes. webshim.js installs over window.fetch
+# Nothing in the renderer changes. The shim installs over window.fetch
 # before core.js loads, so api() cannot tell the difference.
 #
 # No app is needed: web_export.py reads the committed chassis-config cache
@@ -51,8 +51,10 @@ if ! grep -q 'version.js' "$OUT/index.html"; then
   sed -i.bak 's#<head>#<head>\n  <script src="version.js"></script>#' "$OUT/index.html"
   rm -f "$OUT/index.html.bak"
 fi
-# index.html already loads webshim.js: the shim is the only thing answering
-# /api/*, and it picks its transport at load.
+# index.html already loads the shim (core/webshim/): BOTH builds need it now. The macOS app
+# dropped its C# API too, so the shim is the only thing answering /api/* in
+# either host -- it picks its transport at load (Web Serial in a browser, the
+# native bridge inside the app).
 
 # faultinfo.js is 60 MB of ISTA fault detail and faultmeta.js another 14 MB.
 # They load lazily in the app; on a static host they are just weight, so ship

@@ -9,12 +9,9 @@
 // IFH-0003 "no echo from the cable" on a cable that echoes perfectly (verified
 // against a real FT232R on an E46: all 6 bytes came straight back).
 //
-// This drives the real readSome from webshim.js against a fake reader whose
+// This drives the real readSome from the transport shim against a fake reader whose
 // data arrives LATER than the deadline -- the exact orphan case.
 
-const fs = require('fs');
-const path = require('path');
-const ROOT = path.resolve(__dirname, '..', '..');
 let failures = 0;
 const ok = (c, m) => {
   if (c) console.log('  ok   ' + m);
@@ -24,11 +21,9 @@ const ok = (c, m) => {
   }
 };
 
-// Pull readSome out of the class without booting the whole shim.
-const src = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/webshim.js'),
-  'utf8'
-);
+// Pull readSome out of the class without booting the whole shim (the pieces
+// of core/webshim/, joined in load order).
+const src = require('./webshim_src').readWebshimSource();
 const m = src.match(/const TIMED_OUT = Symbol\('timed-out'\);/);
 if (!m) {
   console.error('TIMED_OUT sentinel missing -- was the fix reverted?');

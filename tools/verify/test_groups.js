@@ -365,10 +365,8 @@ const A4_IDENT = String([0xa4, 4, 0]);
   };
   vm.createContext(wctx);
   loadBestvm(wctx);
-  vm.runInContext(
-    fs.readFileSync(path.join(ROOT, 'app/renderer/core/webshim.js'), 'utf8'),
-    wctx
-  );
+  // the shim's pieces (core/webshim/) joined in load order, as the page loads them
+  vm.runInContext(require('./webshim_src').readWebshimSource(), wctx);
   check(
     'webshim exports webResolveVariant on window',
     typeof wctx.window.webResolveVariant === 'function'

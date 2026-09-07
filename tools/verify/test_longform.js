@@ -14,9 +14,6 @@
 //   2. a B8 frame's length is BYTE 3, not the low 6 bits
 //   3. the fallback belongs to the SGBD, not the transport
 
-const fs = require('fs');
-const path = require('path');
-const ROOT = path.resolve(__dirname, '..', '..');
 let failures = 0;
 const ok = (c, m) => {
   if (c) console.log('  ok   ' + m);
@@ -27,10 +24,8 @@ const ok = (c, m) => {
 };
 const hex = (a) => a.map((b) => b.toString(16).padStart(2, '0')).join(' ');
 
-const src = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/webshim.js'),
-  'utf8'
-);
+// the shim's pieces (core/webshim/) joined in load order
+const src = require('./webshim_src').readWebshimSource();
 const grab = (name) => {
   const m = src.match(new RegExp('function ' + name + '\\([\\s\\S]*?\\n\\}'));
   if (!m) throw new Error('could not find ' + name);
@@ -152,7 +147,7 @@ console.log('\n4. the SGBD owns the fallback, not the transport');
     'a silent ECU (0009) AND a failed echo (0003) both become an empty answer'
   );
   ok(
-    /else throw err;/.test(src),
+    /if \(!isNoUsableAnswer\(err\)\) throw err;/.test(src),
     'and every OTHER interface error still throws'
   );
   const guard = src.slice(

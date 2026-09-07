@@ -13,9 +13,6 @@
 //   tester ~KB2 (f7)    -> ECU ack cc  (= ~0x33)
 //   mode01 pid00        -> 48 6b 12 41 00 bf 9f e8 91   (0x12 = DME)
 
-const fs = require('fs');
-const path = require('path');
-const ROOT = path.resolve(__dirname, '..', '..');
 let failures = 0;
 const ok = (c, m) => {
   if (c) console.log('  ok   ' + m);
@@ -25,10 +22,8 @@ const ok = (c, m) => {
   }
 };
 
-const src = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/core/webshim.js'),
-  'utf8'
-);
+// the shim's pieces (core/webshim/) joined in load order
+const src = require('./webshim_src').readWebshimSource();
 
 console.log('concept 0x10C is no longer refused');
 {
@@ -65,6 +60,8 @@ const sandbox = new Function(
     grabConst('DS_ANSWER_LEN_DEFAULT') +
     '\n' +
     grabConst('SUM_CONCEPTS') +
+    '\n' +
+    grabConst('KLINE_DEFAULT_BAUD') +
     '\n' +
     grab('checksumOf') +
     '\n' +
@@ -144,9 +141,14 @@ console.log('\nthe 5-baud bit pattern');
 console.log('\nsession lifecycle');
 {
   ok(/this\.inited = null;/.test(src), 'inited is reset somewhere');
-  const ec = src.match(/async ensureConfig\(cfg\)[\s\S]*?\n  \}/)[0];
+  const wake = src.match(/_resetWakeState\(\) \{[\s\S]*?\n  \}/)[0];
   ok(
-    /this\.inited = null/.test(ec),
+    /this\.inited = null/.test(wake),
+    'the wake-state reset clears the woken session'
+  );
+  const ec = src.match(/async ensureConfig\(cfg\) \{[\s\S]*?\n  \}/)[0];
+  ok(
+    /this\._resetWakeState\(\)/.test(ec),
     'reopening the port for a new concept clears the woken session'
   );
   ok(
@@ -177,9 +179,14 @@ console.log('\nBMW K-line fast init (the wake that was missing)');
   // Deadline-based, not two sleeps: EdiabasLib measures the 50 ms from the
   // START of the break (SendWakeFastInit, EdInterfaceObd.cs:3521-3530), so
   // sleeping 25+25 plus four awaits' latency overshot it (61 ms, measured).
-  ok(/await until\(25\)/.test(fi), 'the break is held until start+25 ms');
   ok(
-    /await until\(50\)/.test(fi),
+    /const FAST_INIT_BREAK_MS = 25;/.test(src) &&
+      /await until\(FAST_INIT_BREAK_MS\)/.test(fi),
+    'the break is held until start+25 ms'
+  );
+  ok(
+    /const FAST_INIT_DTR_MS = 50;/.test(src) &&
+      /await until\(FAST_INIT_DTR_MS\)/.test(fi),
     'and DTR drops at start+50 ms, measured from the break, not added after'
   );
   ok(/dataTerminalReady: false/.test(fi), 'DTR is dropped after the wake');
@@ -220,9 +227,9 @@ console.log('\nDTR is asserted for every K-line write');
   ok(/dataTerminalReady: true/.test(web), 'DTR is raised before the write');
   ok(/dataTerminalReady: false/.test(web), 'and dropped after it');
   ok(
-    /const wantDtr = isKline\(concept\) \|\| isKline\(this\.sessionConcept\)/.test(
+    /const kline = isKline\(concept\) \|\| isKline\(this\.sessionConcept\)/.test(
       web
-    ),
+    ) && /if \(kline && this\.port\.setSignals\)/.test(web),
     'only on K-line concepts, including a BMW-FAST job on a K-line session'
   );
 }
