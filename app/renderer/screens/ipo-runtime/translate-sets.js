@@ -118,7 +118,7 @@ function ipoTranslateSet(set, sgbd) {
       else if (IPO_ENV_TEXT_KEY_RE.test(k)) t = ipoEnvText(v);
       else if (IPO_ENV_VALUE_KEY_RE.test(k) && /[A-Za-z]/.test(v))
         t = ipoEnvText(v); // an enum value, not a number
-      else if (/_TEXT$/.test(k)) t = phraseText(v);
+      else if (/_TEXT$/.test(k)) t = ipoEnvText(v); // MESSWERTBLOCK rows carry FUMWELTTEXTE labels
     }
     out[k] = t;
   }

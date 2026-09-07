@@ -63,6 +63,41 @@ function ipoNeedsConfirm(job) {
   return true;
 }
 
+/**
+ * Writes that change the module for good, whatever the setting says: coding,
+ * flashing, EEPROM/adaptation writes, resets, clears. An actuator drive is
+ * not one of these (STEUERN_*, START_/STOP_*, AKTIVIER*): it energises a
+ * component for the moment and releases when the key or screen is left.
+ * @type {RegExp}
+ */
+const IPO_PERMANENT_WRITE_RE = new RegExp(
+  '(SCHREIB|LOESCH|FLASH|PROGRAMMIER|RESET|CODIER|WRITE|DOWNLOAD|UPLOAD' +
+    '|ABGLEICH|ADAPTION|ANLERN|TEACH|CLEAR|SETZEN|(?:\\b|_)SET(?:\\b|_)|EINSTELL|TILGUNG' +
+    '|AUTHENTIS|SLEEP|WAKEUP|POWER_?DOWN)',
+  'i'
+);
+
+/**
+ * Does this write still ask, given Settings 'confirmActuators'? "Send
+ * immediately (like INPA)" turns the prompt off for actuator drives only; a
+ * permanent write asks whatever the setting says (the README's promise).
+ * @param {string} job - job name
+ * @returns {boolean} true when the prompt must be shown
+ */
+function ipoConfirmWanted(job) {
+  const n = String(job || '').trim();
+  if (IPO_PERMANENT_WRITE_RE.test(n)) return true;
+  if (typeof Settings === 'undefined' || !Settings || !Settings.get)
+    return true;
+  return Settings.get('confirmActuators', 'on') !== 'off';
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { IPO_PLUMBING, ipoWireTarget, ipoNeedsConfirm };
+  module.exports = {
+    IPO_PLUMBING,
+    IPO_PERMANENT_WRITE_RE,
+    ipoWireTarget,
+    ipoNeedsConfirm,
+    ipoConfirmWanted,
+  };
 }

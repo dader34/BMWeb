@@ -2245,5 +2245,6 @@
   "MONITOR - AGR monitoring - READINESS": "MONITOR - EGR monitoring - READINESS",
   "MONITOR - Parts monitoring - READINESS": "MONITOR - component monitoring - READINESS",
   "Lambda monitoring,LambdaHeating monitoring": "Lambda monitoring, lambda heater monitoring",
-  "MONITOR - LambdaHeating monitoring - READINESS": "MONITOR - lambda heater monitoring - READINESS"
+  "MONITOR - LambdaHeating monitoring - READINESS": "MONITOR - lambda heater monitoring - READINESS",
+  "Messwertblock lesen": "Read measurement block"
 }

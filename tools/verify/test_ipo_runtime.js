@@ -1325,6 +1325,72 @@ const sysSet = (sgbd) => ({
     kp.close();
   }
 
+  // ===========================================================================
+  // Settings 'confirmActuators' = "Send immediately (like INPA)": an actuator
+  // drive runs without the prompt; a permanent write (SCHREIBEN, LOESCHEN,
+  // CODIER, RESET...) still asks whatever the setting says.
+  // ===========================================================================
+  {
+    const { ipoConfirmWanted, ipoTranslateSet } = RT;
+    const saved = global.Settings;
+    global.Settings = { get: (k, d) => (k === 'confirmActuators' ? 'off' : d) };
+    assert.strictEqual(ipoConfirmWanted('STEUERN_DISPLAY'), false);
+    assert.strictEqual(ipoConfirmWanted('START_SYSTEMCHECK_LLERH'), false);
+    assert.strictEqual(ipoConfirmWanted('STEUERN_IO'), false);
+    for (const j of [
+      'CODIERDATEN_SCHREIBEN',
+      'FS_LOESCHEN',
+      'ECU_CONFIG_RESET',
+      'ANPASSUNG_LOESCHEN',
+      'ABGLEICH_HFM',
+      'SET_KILOMETERSTAND',
+    ])
+      assert.strictEqual(ipoConfirmWanted(j), true, `${j} must still ask`);
+    // through the program: a drive key sends without asking, a write asks
+    const cexec = loadExec('E46', 'ihka46');
+    const cecu = {
+      sgbd: 'ihka46_3',
+      label: 'IHKA',
+      _variant: 'IHKA46_3',
+      chassis: 'E46',
+    };
+    fakeApi(() => ({
+      system: sysSet('ihka46_3'),
+      sets: [{ JOB_STATUS: 'OKAY' }],
+    }));
+    const cui = fakeUi();
+    const cp = new IpoProgram(cecu, cexec, cui);
+    await cp.runJob('ihka46_3', 'STEUERN_DISPLAY', '1', { scope: 'key:test' });
+    assert.strictEqual(cui.confirms.length, 0, 'drive sent without a prompt');
+    await cp.runJob('ihka46_3', 'CODIERDATEN_SCHREIBEN', '00', {
+      scope: 'key:test',
+    });
+    assert.strictEqual(cui.confirms.length, 1, 'a permanent write still asks');
+    global.Settings = { get: (k, d) => d };
+    await cp.runJob('ihka46_3', 'STEUERN_DISPLAY', '2', { scope: 'key:other' });
+    assert.strictEqual(
+      cui.confirms.length,
+      2,
+      'default setting asks for a drive'
+    );
+    global.Settings = saved;
+    cp.close();
+    ok('confirmActuators off: drives send immediately, permanent writes ask');
+
+    // MESSWERTBLOCK rows carry FUMWELTTEXTE labels: the env dictionary
+    // translates them like a freeze-frame field
+    const t = ipoTranslateSet(
+      {
+        STAT_MESSWERT0_TEXT: '(Motor) - Öltemperatur',
+        STAT_MESSWERT0_WERT: '22',
+      },
+      'ms450ds0'
+    );
+    assert.strictEqual(t.STAT_MESSWERT0_TEXT, 'Engine oil temperature');
+    assert.strictEqual(t.STAT_MESSWERT0_WERT, '22');
+    ok('measurement-block labels translate through the env dictionary');
+  }
+
   // stop every refresh timer so the process can exit
   p.close();
   if (lp) lp.close();

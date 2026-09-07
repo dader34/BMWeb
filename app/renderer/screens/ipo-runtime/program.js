@@ -354,6 +354,7 @@ class IpoProgram {
     const ckey = `${ctx && ctx.scope ? ctx.scope : '*'}:${job}`;
     if (
       write &&
+      ipoConfirmWanted(job) &&
       !this.confirmedWrites.has(ckey) &&
       !(ctx && ctx.preConfirmed)
     ) {
@@ -899,8 +900,11 @@ class IpoProgram {
       jobs: jobs.slice(0, IPO_ACTION_JOBS_MAX),
     };
     let preConfirmed = false;
-    if (writes.length) {
-      const ok = await this.ui.confirmKey(this, it, jobs, writes);
+    // "Send immediately" drops the prompt for actuator drives; a key whose
+    // writes are all drives then runs like INPA's own keypress
+    const asks = writes.filter(ipoConfirmWanted);
+    if (asks.length) {
+      const ok = await this.ui.confirmKey(this, it, jobs, asks);
       if (!ok) {
         this._rescheduleIfFrequent(gen);
         return true;
