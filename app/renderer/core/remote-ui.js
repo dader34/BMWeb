@@ -20,7 +20,14 @@
 // answered locally by the shim exactly as always. So the helper's app is fully
 // itself, and only the car reaches across.
 
+/** The real window.fetch, saved while the helper shim is installed. @type {typeof fetch|null} */
 let _remoteBaseFetch = null;
+
+/**
+ * Install the helper's fetch interception: car routes go to the owner over the
+ * data channel, everything else is answered locally. Idempotent.
+ * @returns {void}
+ */
 function installRemoteHelperShim() {
   if (_remoteBaseFetch) return;
   _remoteBaseFetch = window.fetch;
@@ -39,6 +46,10 @@ function installRemoteHelperShim() {
     document.body.classList.add('remote-helper');
   }
 }
+/**
+ * Restore the real window.fetch, undoing {@link installRemoteHelperShim}.
+ * @returns {void}
+ */
 function uninstallRemoteHelperShim() {
   if (!_remoteBaseFetch) return;
   window.fetch = _remoteBaseFetch;
@@ -54,6 +65,11 @@ if (typeof window !== 'undefined') {
 
 // ---- UI ---------------------------------------------------------------------
 
+/**
+ * Open the Remote session dialog: start a share (with an access level and a
+ * confirm setting) or join one by code.
+ * @returns {void}
+ */
 function showRemoteDialog() {
   if (typeof openModal !== 'function') return;
   const configured = !!Remote.base();
@@ -192,6 +208,17 @@ function showRemoteDialog() {
 // A single centred, blocking overlay used for the moments that need the user's
 // whole attention on BOTH sides: the helper waiting to be admitted, and the
 // owner admitting a helper or approving a write. Returns { close }.
+/**
+ * One centred, blocking full-screen overlay for the moments that need the
+ * user's whole attention (helper waiting to be admitted; owner admitting or
+ * approving a write).
+ * @param {Object} opts
+ * @param {'wait'|'admit'|'approve'} [opts.kind] - Visual variant.
+ * @param {string} opts.title - Overlay title.
+ * @param {string} [opts.body] - Trusted HTML body.
+ * @param {Array<{label: string, cls?: string, fn?: () => void, keepOpen?: boolean}>} [opts.actions] - Buttons.
+ * @returns {{el: HTMLElement, close: () => void}}
+ */
 function remoteOverlay({ kind, title, body, actions }) {
   document.getElementById('remote-overlay')?.remove();
   const el = document.createElement('div');
@@ -227,6 +254,11 @@ function remoteOverlay({ kind, title, body, actions }) {
 
 // HELPER: the full-screen "waiting to be admitted" screen, shown from the
 // moment the channel connects until the owner admits (or declines / cancel).
+/**
+ * HELPER: the full-screen "waiting to be admitted" screen, up from the moment
+ * the channel connects until the owner admits (or declines / cancel).
+ * @returns {() => void} A closer.
+ */
 function showHelperWaiting() {
   const { close } = remoteOverlay({
     kind: 'wait',
@@ -247,6 +279,14 @@ function showHelperWaiting() {
 // OWNER: a persistent console -- the code to share, a live log of what the
 // helper runs on the car, and a big end button. This is the owner's window
 // onto their own car while someone else drives it.
+/**
+ * OWNER: a persistent console -- the code to share, a live log of what the
+ * helper runs, and an end button -- and the admit/approve hooks the engine
+ * calls. Collapses to a pill.
+ * @param {string} code - The session code to display.
+ * @param {{access?: 'rw'|'ro', confirmActions?: boolean}} [opts] - The session policy (display only).
+ * @returns {void}
+ */
 function showOwnerConsole(code, opts = {}) {
   document.getElementById('owner-console')?.remove();
   const el = document.createElement('div');
@@ -370,6 +410,12 @@ function showOwnerConsole(code, opts = {}) {
 
 // HELPER: the red border + badge, so it is never ambiguous that these jobs
 // touch someone else's car.
+/**
+ * HELPER: the red border + REMOTE badge (so it is never ambiguous that these
+ * jobs touch someone else's car), plus the "waiting for the owner's Allow"
+ * card and the disconnect button.
+ * @returns {void}
+ */
 function showRemoteBar() {
   document.body.classList.add('remote-helper');
   if (document.getElementById('remote-badge')) return;
@@ -424,6 +470,11 @@ function showRemoteBar() {
 // share (owner, not yet expired), re-host it under the SAME code and bring the
 // console back, so a refresh does not drop a session the owner set up and does
 // not force them to re-share a new code. Called once at boot.
+/**
+ * Auto-resume an owner's share across a page reload: re-host under the same
+ * code and bring the console back. No-op when there was no active share.
+ * @returns {Promise<boolean>} Whether a share was resumed.
+ */
 async function resumeRemoteShare() {
   const saved = Remote.savedShare && Remote.savedShare();
   if (!saved || !Remote.base()) return false;

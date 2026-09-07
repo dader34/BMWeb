@@ -24,8 +24,12 @@
 // The UI (screens/flasher.js) drives flashBackup and saves the bytes.
 
 // ---- crypto: browser MD5 + BigInt modPow (WebCrypto has no MD5) -------------
-// Small, self-contained MD5 (RFC 1321). Used only for the MS45-family security
-// access, where the seed/serial/userId are MD5'd before RSA signing.
+/**
+ * Small, self-contained MD5 (RFC 1321). Used only for the MS45-family security
+ * access, where the seed/serial/userId are MD5'd before RSA signing.
+ * @param {Uint8Array|number[]} bytes - The message to hash.
+ * @returns {Uint8Array} The 16-byte digest.
+ */
 function _md5(bytes) {
   // all arithmetic kept in unsigned 32-bit space
   const add = (...xs) => xs.reduce((a, b) => (a + b) >>> 0, 0) >>> 0;
@@ -108,6 +112,13 @@ function _md5(bytes) {
   return out;
 }
 
+/**
+ * Modular exponentiation for the RSA sign (base^exp mod mod).
+ * @param {bigint} base - The base.
+ * @param {bigint} exp - The exponent (the private key d).
+ * @param {bigint} mod - The modulus (the key modulus n).
+ * @returns {bigint}
+ */
 function _modPow(base, exp, mod) {
   let r = 1n,
     b = base % mod;
@@ -120,11 +131,25 @@ function _modPow(base, exp, mod) {
   }
   return r;
 }
+
+/**
+ * Little-endian bytes to a BigInt (matches C# `new BigInteger(byte[])`).
+ * @param {Uint8Array|number[]} bytes - Little-endian bytes.
+ * @returns {bigint}
+ */
 function _bytesLEToBigInt(bytes) {
   let v = 0n;
   for (let i = bytes.length - 1; i >= 0; i--) v = (v << 8n) | BigInt(bytes[i]);
   return v;
 }
+
+/**
+ * A BigInt to a fixed-length little-endian byte array (high bytes truncated /
+ * zero-padded to `outLen`).
+ * @param {bigint} value - The value.
+ * @param {number} outLen - Output length in bytes.
+ * @returns {Uint8Array}
+ */
 function _bigIntToBytesLE(value, outLen) {
   const o = new Uint8Array(outLen);
   let v = value;
@@ -157,11 +182,60 @@ function _bigIntToBytesLE(value, outLen) {
 // Address ranges are quoted from the reference tool for each DME, never
 // inferred: a wrong range reads the wrong memory and the .bin looks fine.
 
+/**
+ * One contiguous span of a memory segment.
+ * @typedef {Object} RegionPart
+ * @property {string} segment - The SGBD segment name (ROMX, LAR, FLASH, LIN).
+ * @property {number} start - First address (inclusive).
+ * @property {number} end - Last address (inclusive).
+ */
+
+/**
+ * A backup choice: one or more parts read in order and concatenated.
+ * @typedef {Object} FlashRegion
+ * @property {string} name - Stable id ('data' | 'full').
+ * @property {string} label - Human label for the UI.
+ * @property {RegionPart[]} parts - The spans that make up the region.
+ */
+
+/**
+ * An RSA private key pair (a 512-bit modulus and exponent).
+ * @typedef {Object} RsaKey
+ * @property {bigint} n - The modulus.
+ * @property {bigint} d - The private exponent.
+ */
+
+/**
+ * One DME family's read/backup description, keyed to the SGBD that drives it.
+ * @typedef {Object} FlashProfile
+ * @property {string} id - Short type id (MS45, MSV70, ...).
+ * @property {string} label - Human label.
+ * @property {string} sgbd - The SGBD whose jobs drive this DME.
+ * @property {Object<string,string>|null} hwRefs - HARDWARE_REFERENZ -> type
+ *   name; null for the DS2 DMEs, whose identity is the SGBD's own IDENT.
+ * @property {{hw: [string,string], sw: [string,string], vin: [string,string]}} identJobs -
+ *   [job, resultField] for hardware / software / VIN.
+ * @property {Object} security - `{kind:'rsa', ...}` or `{kind:'none'}`.
+ * @property {{name: string, arg: (seg: string, start: number, len: number) => string, result: string, chunk: number}} readJob -
+ *   How to read one chunk: the job, its argument, the result field, the max bytes per call.
+ * @property {FlashRegion[]} regions - The backup choices.
+ * @property {boolean} verified - Whether a real car has been read end-to-end.
+ */
+
 // The MSx70 family shares one job set and one message layout with MS45; only
 // the key pair (per hardware reference) and the segments differ. Both read
 // the whole external flash (LAR, 1.5 MB) then the CPU's internal flash
 // (FLASH, 512 KB), and the reference tool concatenates them into one 2 MB
 // file, external first.
+/**
+ * Build an MSx70-family profile.
+ * @param {string} id - Type id (MSV70, MSS70).
+ * @param {string} label - Human label.
+ * @param {string} sgbd - Driving SGBD.
+ * @param {string} hwRef - The exact HARDWARE_REFERENZ this profile matches.
+ * @param {RsaKey} key - The level-3 login key pair for this hardware reference.
+ * @returns {FlashProfile}
+ */
 function _msx70Profile(id, label, sgbd, hwRef, key) {
   return {
     id,
@@ -227,6 +301,16 @@ function _msx70Profile(id, label, sgbd, hwRef, key) {
 // one AM29F400 (512 KB) mapped from 0; the calibration block sits at the top
 // on MS43 and mid-flash on MS42, per the memory layout each community wiki
 // page documents for the chip.
+/**
+ * Build a C167 DS2 linear-read profile (MS42/MS43): no crypto, no
+ * programming-mode ramp, one AM29F400 mapped from 0.
+ * @param {string} id - Type id (MS42, MS43).
+ * @param {string} label - Human label.
+ * @param {string} sgbd - Driving SGBD.
+ * @param {number} dataStart - First address of the calibration block.
+ * @param {number} dataEnd - Last address of the calibration block.
+ * @returns {FlashProfile}
+ */
 function _ds2LinearProfile(id, label, sgbd, dataStart, dataEnd) {
   return {
     id,
@@ -266,6 +350,9 @@ function _ds2LinearProfile(id, label, sgbd, dataStart, dataEnd) {
   };
 }
 
+/**
+ * Every DME family the ECU-backup screen can read. @type {FlashProfile[]}
+ */
 const FLASH_PROFILES = [
   {
     id: 'MS45',
@@ -351,19 +438,34 @@ const FLASH_PROFILES = [
 // no memory-read job at all; a backup needs the boot-mode bench path), and
 // the TriCore MSD80/81/MSV80 (bench only).
 
+/**
+ * The profile with this id, or null.
+ * @param {string} id - A profile id (MS45, ...).
+ * @returns {FlashProfile|null}
+ */
 function flashProfileById(id) {
   return FLASH_PROFILES.find((p) => p.id === id) || null;
 }
 
-// Profiles driven by this SGBD (an SGBD is one DME family, but one family can
-// carry several profiles in principle).
+/**
+ * Profiles driven by this SGBD (an SGBD is one DME family, but one family can
+ * carry several profiles in principle).
+ * @param {string} sgbd - The SGBD.
+ * @returns {FlashProfile[]}
+ */
 function flashProfilesForSgbd(sgbd) {
   return FLASH_PROFILES.filter((p) => p.sgbd === sgbd);
 }
 
-// The type name for a hardware reference, by EXACT match against the
-// profile's table (the reference tools compare the whole string). Null when
-// the profile keys identity on the SGBD instead.
+/**
+ * The type name for a hardware reference, by EXACT match against the profile's
+ * table (the reference tools compare the whole string). Returns the profile id
+ * when the profile keys identity on the SGBD, and null when the reference is
+ * present but does not match.
+ * @param {FlashProfile} profile - The profile.
+ * @param {string} hwRef - The HARDWARE_REFERENZ read from the ECU.
+ * @returns {string|null}
+ */
 function flashTypeForHwRef(profile, hwRef) {
   if (!profile.hwRefs) return profile.id;
   const h = String(hwRef || '').trim();
@@ -372,7 +474,11 @@ function flashTypeForHwRef(profile, hwRef) {
     : null;
 }
 
-// Total bytes a region will produce.
+/**
+ * Total bytes a region will produce.
+ * @param {FlashRegion} region - The region.
+ * @returns {number}
+ */
 function flashRegionSize(region) {
   return region.parts.reduce((n, p) => n + (p.end - p.start + 1), 0);
 }
@@ -383,6 +489,12 @@ function flashRegionSize(region) {
 // request, the key, the programming-mode switch, and hundreds of read chunks
 // -- reuses that one inited session. A fresh session per job would re-init
 // and drop the security-access unlock.
+/**
+ * The first result set carrying `field`, or undefined.
+ * @param {{sets?: object[]}} res - A job result.
+ * @param {string} field - The register name.
+ * @returns {any}
+ */
 function _resultField(res, field) {
   const sets = (res && res.sets) || [];
   for (const s of sets) {
@@ -394,6 +506,12 @@ function _resultField(res, field) {
 // Result bytes come back the way EDIABAS publishes them: a "AA-BB-CC" hex
 // string for telegram fields (_TEL_ANTWORT), sometimes a number array. Same
 // rule vmbridge.js uses.
+/**
+ * A result field as bytes, decoding the dashed-hex or number-array forms.
+ * @param {{sets?: object[]}} res - A job result.
+ * @param {string} field - The register name.
+ * @returns {Uint8Array} The bytes, or an empty array when absent/unparseable.
+ */
 function _resultBytes(res, field) {
   const v = _resultField(res, field);
   if (v instanceof Uint8Array) return v;
@@ -414,12 +532,24 @@ function _resultBytes(res, field) {
 // A binary job argument. The VM derives the arg bytes from the arg STRING via
 // CP1252 (Best2Vm.strBytes: char code <= 0xFF -> that byte), so a byte blob
 // is passed as a Latin-1 string, one char per byte -- NOT as hex text.
+/**
+ * Bytes as a Latin-1 string, the form the VM reads a binary argument from.
+ * @param {Iterable<number>} bytes - The bytes.
+ * @returns {string}
+ */
 function _binArg(bytes) {
   let s = '';
   for (const b of bytes) s += String.fromCharCode(b);
   return s;
 }
 
+/**
+ * Run one job on the shared per-SGBD session.
+ * @param {string} sgbd - The SGBD.
+ * @param {string} job - The job name.
+ * @param {string|null} [arg] - The argument (null/undefined => '').
+ * @returns {Promise<{sets?: object[]}>}
+ */
 async function _runJob(sgbd, job, arg) {
   return webRunJob(sgbd, job, arg == null ? '' : arg);
 }
@@ -428,6 +558,14 @@ async function _runJob(sgbd, job, arg) {
 // the unlock and the read: JOB_STATUS other than OKAY is a refusal from the
 // ECU (ERROR_ECU_..., ERROR_BIN_BUFFER, ...) and is surfaced by name. A job
 // that publishes no JOB_STATUS at all is judged by its data instead.
+/**
+ * Run a job that must succeed, throwing the ECU's refusal by name.
+ * @param {string} sgbd - The SGBD.
+ * @param {string} job - The job name.
+ * @param {string} [arg] - The argument.
+ * @returns {Promise<{sets?: object[]}>}
+ * @throws {Error} `${job}: ${JOB_STATUS}` when JOB_STATUS is not OKAY.
+ */
 async function _runJobOk(sgbd, job, arg) {
   const res = await _runJob(sgbd, job, arg);
   const status = _resultField(res, 'JOB_STATUS');
@@ -438,10 +576,25 @@ async function _runJobOk(sgbd, job, arg) {
 }
 
 // ---- identify --------------------------------------------------------------
+/**
+ * What identifying a DME returned.
+ * @typedef {Object} FlashInfo
+ * @property {string} hwRef - The hardware reference the ECU answered with.
+ * @property {string} swRef - The software / data reference.
+ * @property {string} vin - The VIN, when the ident job carried one.
+ * @property {string} type - The matched type name, or 'unknown'.
+ * @property {FlashProfile|null} profile - The matched profile, or null.
+ */
+
 // Runs the ident jobs of the profiles that belong to this SGBD and returns
 // the one whose hardware reference matches exactly. The last reference the
 // car actually answered with is kept even when nothing matches, so the
 // refusal can name it instead of saying "unknown".
+/**
+ * Identify the DME on `sgbd` against its profiles.
+ * @param {string} sgbd - The SGBD to talk to.
+ * @returns {Promise<FlashInfo>}
+ */
 async function flashIdentify(sgbd) {
   const read = async (pair) => {
     if (!pair) return '';
@@ -472,7 +625,14 @@ async function flashIdentify(sgbd) {
 // Which profiled DME is on the bus? Tries each profile's SGBD in turn and
 // returns the first whose identity matches. A DME that is not there fails
 // its INITIALISIERUNG or answers nothing, which is simply "not this one".
-// opts: { onStage(text), abort: AbortSignal }
+/**
+ * Find the profiled DME on the bus.
+ * @param {Object} [opts]
+ * @param {(text: string) => void} [opts.onStage] - Progress callback.
+ * @param {AbortSignal} [opts.abort] - Cancels the probe.
+ * @returns {Promise<{profile: FlashProfile|null, info: Partial<FlashInfo>}>}
+ * @throws {Error} 'detect cancelled' when aborted.
+ */
 async function flashDetect(opts = {}) {
   const onStage = opts.onStage || (() => {});
   const tried = new Set();
@@ -499,6 +659,16 @@ async function flashDetect(opts = {}) {
 //   MD5(userId ‖ serial ‖ seed) -> as a little-endian BigInt -> ^d mod n ->
 //   64 LE bytes, each 4-byte word byte-swapped -> + level byte 3 ->
 //   prefixed with the fixed 25-byte EDIABAS header.
+/**
+ * Build the 90-byte security-access message the DME expects.
+ * @param {Object} sec - The profile's `security` block.
+ * @param {Uint8Array} userId - The random 4-byte user id.
+ * @param {Uint8Array} serial - The 4-byte ECU serial.
+ * @param {Uint8Array} seed - The seed the ECU returned.
+ * @param {string} type - The DME type, to pick the key from `sec.keys`.
+ * @returns {Uint8Array} The 25-byte header + 65-byte payload.
+ * @throws {Error} When no key exists for `type`.
+ */
 function _rsaSecurityMessage(sec, userId, serial, seed, type) {
   const key = sec.keys ? sec.keys[type] : sec;
   if (!key || !key.n || !key.d) {
@@ -536,6 +706,17 @@ function _rsaSecurityMessage(sec, userId, serial, seed, type) {
 // programming-mode ramp: a ramp that fails halfway has still switched the
 // DME's session, and the caller must tear it down even though this function
 // then throws.
+/**
+ * Unlock the DME for a protected read (RSA seed/key + programming-mode ramp),
+ * skipping it for a BMW-FAST car or a DS2 DME that needs none.
+ * @param {string} sgbd - The SGBD.
+ * @param {FlashProfile} profile - The profile.
+ * @param {string} type - The DME type, to pick the RSA key.
+ * @param {(text: string) => void} [onStage] - Progress callback.
+ * @param {() => void} [onOpened] - Fires once the key is accepted, before the ramp.
+ * @returns {Promise<boolean>} true when a session was opened that teardown must close.
+ * @throws {Error} On an unimplemented security kind or a refused step.
+ */
 async function flashSecurityAccess(sgbd, profile, type, onStage, onOpened) {
   const sec = profile.security;
   if (!sec || sec.kind === 'none') return false; // no unlock needed
@@ -594,6 +775,13 @@ async function flashSecurityAccess(sgbd, profile, type, onStage, onOpened) {
 // Put the DME back into its normal diagnostic session. Best effort: a read
 // that already failed must not be masked by a teardown error, so failures
 // are reported through onStage and swallowed.
+/**
+ * Return the DME to its normal diagnostic session (best effort).
+ * @param {string} sgbd - The SGBD.
+ * @param {FlashProfile} profile - The profile.
+ * @param {(text: string) => void} [onStage] - Progress / failure callback.
+ * @returns {Promise<void>}
+ */
 async function flashTeardown(sgbd, profile, onStage) {
   const steps = (profile.security && profile.security.teardown) || [];
   if (!steps.length) return;
@@ -619,6 +807,14 @@ async function flashTeardown(sgbd, profile, onStage) {
 // keeping a promise open that resolves only when fn settles; navigator.locks
 // hands us the lock inside a callback and holds it until that callback's
 // promise resolves.
+/**
+ * Run `fn` while holding a Web Lock and screen Wake Lock so a backgrounded tab
+ * does not throttle the read loop. Both are best-effort.
+ * @template T
+ * @param {() => Promise<T>} fn - The work to run under the locks.
+ * @returns {Promise<T>} Whatever `fn` resolves to.
+ * @throws Whatever `fn` throws.
+ */
 async function _runWithHold(fn) {
   let wakeLock = null;
   try {
@@ -699,7 +895,18 @@ async function _runWithHold(fn) {
 }
 
 // ---- read a region ---------------------------------------------------------
-// opts: { onProgress(pct), abort: AbortSignal }
+/**
+ * Read a region chunk by chunk and reassemble it. A short chunk is refused
+ * rather than padded into a silent hole in the backup.
+ * @param {string} sgbd - The SGBD.
+ * @param {FlashProfile} profile - The profile.
+ * @param {FlashRegion} region - The region to read.
+ * @param {Object} [opts]
+ * @param {(pct: number) => void} [opts.onProgress] - Progress 0..100.
+ * @param {AbortSignal} [opts.abort] - Cancels the read.
+ * @returns {Promise<Uint8Array>} The region's bytes.
+ * @throws {Error} On cancel, an empty answer, or a short read.
+ */
 async function flashReadRegion(sgbd, profile, region, opts = {}) {
   const rj = profile.readJob;
   const total = flashRegionSize(region);
@@ -743,7 +950,27 @@ async function flashReadRegion(sgbd, profile, region, opts = {}) {
 }
 
 // ---- orchestrate a full backup ---------------------------------------------
-// opts: { region: 'data'|'full', onProgress(pct), onStage(text), abort }
+/**
+ * A finished backup.
+ * @typedef {Object} FlashResult
+ * @property {string} name - Suggested filename (type_region[_vin].bin).
+ * @property {Uint8Array} bytes - The read bytes.
+ * @property {FlashInfo} info - What the DME identified as.
+ * @property {FlashRegion} region - The region read.
+ */
+
+/**
+ * Identify the DME, unlock it if needed, read the chosen region, tear the
+ * session down, and return the bytes with a suggested filename.
+ * @param {string} sgbd - The SGBD.
+ * @param {Object} [opts]
+ * @param {'data'|'full'} [opts.region='full'] - Which region to read.
+ * @param {(pct: number) => void} [opts.onProgress] - Progress 0..100.
+ * @param {(text: string) => void} [opts.onStage] - Stage callback.
+ * @param {AbortSignal} [opts.abort] - Cancels the read.
+ * @returns {Promise<FlashResult>}
+ * @throws {Error} When no profile matches, or the unlock/read fails.
+ */
 async function flashBackup(sgbd, opts = {}) {
   const onStage = opts.onStage || (() => {});
 
