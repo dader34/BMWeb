@@ -1,5 +1,5 @@
 // navigation: chassis select, INPA script picker, functional-jobs menu, sections.
-// sweeps live in sweep.js, chassis auto-scan in autoscan.js, PDF report in fault-report.js.
+// sweeps, the chassis auto-scan and the printed reports live in screens/sweep/.
 
 // Coding is not ready for the public build yet, so it is hidden on the
 // deployed site (bmweb.danner.ink and any *.github.io mirror). It stays
@@ -195,7 +195,7 @@ async function showChassis() {
 
 // INPA script-selection popup: left lists section categories, right shows the section's ECUs
 async function showScriptSelection(chassisId) {
-  setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (autoscan.js)
+  setStateSgbd(null); // reset the battery/ignition poll target now, re-aim below (screens/sweep/autoscan.js)
   let ch;
   try {
     ch = await api(`/api/chassis/${chassisId}`);
@@ -203,7 +203,7 @@ async function showScriptSelection(chassisId) {
     showSections(chassisId);
     return;
   } // fall back to the full screen
-  setStateSgbd(ch); // retarget the battery/ignition poll at this chassis's DME (autoscan.js)
+  setStateSgbd(ch); // retarget the battery/ignition poll at this chassis's DME (screens/sweep/autoscan.js)
   autoScan(chassisId, ch).catch(() => {}); // background engine/trans scan; no-ops when the config has no grouped targets
 
   // INPA semantics: <ESC> aborts to the vehicle-select screen (not whatever the popup covered); picking an ECU closes with no value so it doesn't navigate
@@ -445,7 +445,7 @@ async function showSections(id, selectIndex = 0) {
   let wiringKey = null; // the F-key, added only if WDS data is here
   cancelSweep(); // entering the section list stops any sweep (sweep.js)
   lastScreen = () => showSections(id, selectIndex);
-  setStateSgbd(null); // reset the battery/ignition poll target now, re-aim once the config is here (autoscan.js)
+  setStateSgbd(null); // reset the battery/ignition poll target now, re-aim once the config is here (screens/sweep/autoscan.js)
   setCrumbs([
     { label: 'Vehicles', fn: showChassis },
     { label: dispChassis(id) },
@@ -476,7 +476,7 @@ async function showSections(id, selectIndex = 0) {
     `failed to load ${dispChassis(id)}`
   );
   if (!ch) return;
-  setStateSgbd(ch); // retarget the battery/ignition poll at this chassis's DME (autoscan.js)
+  setStateSgbd(ch); // retarget the battery/ignition poll at this chassis's DME (screens/sweep/autoscan.js)
   autoScan(id, ch).catch(() => {}); // background engine/trans scan; no-ops when the config has no grouped targets
   const nav = split.querySelector('#split-nav');
   const content = split.querySelector('#split-content');

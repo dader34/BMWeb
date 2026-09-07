@@ -26,14 +26,22 @@ const ok = (what) => {
 };
 
 // ---- load the sweep's pure half -------------------------------------------
-// sweep.js is a browser script, not a module. Lift the planning functions by
-// name into a sandbox instead of slicing on comments: a reworded comment
-// silently returns -1 from indexOf and evaluates the whole file, throwing far
-// from the real cause.
-const SRC = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/screens/sweep.js'),
-  'utf8'
-);
+// The sweep is a set of browser scripts (screens/sweep/*.js) sharing one
+// scope, not a module. They are read in the order index.html loads them and
+// treated as one source, and the planning functions are lifted by NAME into
+// a sandbox instead of slicing on comments: a reworded comment silently
+// returns -1 from indexOf and evaluates the whole file, throwing far from
+// the real cause.
+const RENDERER = path.join(ROOT, 'app/renderer');
+const SWEEP_PIECES = [
+  ...fs
+    .readFileSync(path.join(RENDERER, 'index.html'), 'utf8')
+    .matchAll(/<script src="(screens\/sweep\/[^"]+)">/g),
+].map((m) => m[1]);
+assert.ok(SWEEP_PIECES.length > 1, 'index.html lists no sweep pieces');
+const SRC = SWEEP_PIECES.map((p) =>
+  fs.readFileSync(path.join(RENDERER, p), 'utf8')
+).join('\n');
 
 // core.js's own dataSets, so the lifted code sees the projection the renderer
 // gives it: set 0 is the EDIABAS system summary and is dropped whenever there
@@ -60,51 +68,59 @@ const CODE = SRC.split('\n')
   .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
   .join('\n');
 
+// One top-level declaration's source, pulled out by a balanced-brace scan
+// from its declaration site.
+function declSource(n) {
+  const decl = new RegExp(
+    `^(?:async function ${n}\\b|function ${n}\\b|const ${n} =)`,
+    'm'
+  );
+  const m = decl.exec(SRC);
+  assert.ok(m, `screens/sweep no longer declares ${n}`);
+  const i = m.index;
+  let end = -1;
+  if (/^(async )?function/.test(SRC.slice(i, i + 15))) {
+    // a function declaration ends at the brace that closes its BODY, so
+    // only braces count -- the parameter list's parens must not open depth
+    let depth = 0,
+      seen = false;
+    for (let j = SRC.indexOf('{', i); j < SRC.length; j++) {
+      const c = SRC[j];
+      if (c === '{') {
+        depth++;
+        seen = true;
+      } else if (c === '}' && --depth === 0 && seen) {
+        end = j + 1;
+        break;
+      }
+    }
+  } else {
+    // `const x = ...;` -- the terminating semicolon at bracket depth 0
+    let depth = 0;
+    for (let j = i; j < SRC.length; j++) {
+      const c = SRC[j];
+      if ('{(['.includes(c)) depth++;
+      else if ('})]'.includes(c)) depth--;
+      else if (c === ';' && depth === 0) {
+        end = j + 1;
+        break;
+      }
+    }
+  }
+  assert.ok(end > i, `could not delimit ${n} in screens/sweep`);
+  return SRC.slice(i, end);
+}
+
 function lift(names) {
   const ctx = { console };
   vm.createContext(ctx);
   vm.runInContext(DATASETS, ctx);
-  // Only the declarations we need, pulled out by a balanced-brace scan from
-  // each declaration site. Nothing here touches the DOM or the wire.
+  // Only the declarations we need. Nothing here touches the DOM or the wire.
   for (const n of names) {
-    const decl = new RegExp(`^(?:function ${n}\\b|const ${n} =)`, 'm');
-    const m = decl.exec(SRC);
-    assert.ok(m, `sweep.js no longer declares ${n}`);
-    const i = m.index;
-    let end = -1;
-    if (SRC.startsWith('function', i)) {
-      // a function declaration ends at the brace that closes its BODY, so
-      // only braces count -- the parameter list's parens must not open depth
-      let depth = 0,
-        seen = false;
-      for (let j = SRC.indexOf('{', i); j < SRC.length; j++) {
-        const c = SRC[j];
-        if (c === '{') {
-          depth++;
-          seen = true;
-        } else if (c === '}' && --depth === 0 && seen) {
-          end = j + 1;
-          break;
-        }
-      }
-    } else {
-      // `const x = ...;` -- the terminating semicolon at bracket depth 0
-      let depth = 0;
-      for (let j = i; j < SRC.length; j++) {
-        const c = SRC[j];
-        if ('{(['.includes(c)) depth++;
-        else if ('})]'.includes(c)) depth--;
-        else if (c === ';' && depth === 0) {
-          end = j + 1;
-          break;
-        }
-      }
-    }
-    assert.ok(end > i, `could not delimit ${n} in sweep.js`);
     // `const` in a vm context is a lexical binding, not a property of the
     // context object, so it would be invisible to the caller. Assign each
     // lifted name onto the context explicitly.
-    vm.runInContext(`${SRC.slice(i, end)}\n;this.${n} = ${n};`, ctx);
+    vm.runInContext(`${declSource(n)}\n;this.${n} = ${n};`, ctx);
   }
   return ctx;
 }
@@ -495,7 +511,10 @@ const SHIPPED = new Set(GROUPS.groups || []);
 {
   // Same dead route in the background scan.
   const auto = fs
-    .readFileSync(path.join(ROOT, 'app/renderer/screens/autoscan.js'), 'utf8')
+    .readFileSync(
+      path.join(ROOT, 'app/renderer/screens/sweep/autoscan.js'),
+      'utf8'
+    )
     .split('\n')
     .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
     .join('\n');
@@ -523,10 +542,7 @@ const SHIPPED = new Set(GROUPS.groups || []);
   // the module is ABSENT and no configured sibling may be read instead. The
   // E46 config maps Airbag to `zae` while many cars carry an MRS, and `zae`
   // will answer an MRS and decode a confident "0 faults".
-  const body = SRC.slice(
-    SRC.indexOf('async function resolveTarget'),
-    SRC.indexOf('// wire helpers')
-  );
+  const body = declSource('resolveTarget');
   assert.ok(
     /state: 'absent'/.test(body),
     'resolveTarget no longer reports absence'
@@ -545,7 +561,7 @@ const SHIPPED = new Set(GROUPS.groups || []);
 
 {
   // A clear must be proven by re-reading, not trusted.
-  const clear = SRC.slice(SRC.indexOf('async function clearModule'));
+  const clear = declSource('clearModule');
   assert.ok(
     /re-read/i.test(clear) && /readFaults/.test(clear),
     'clearModule no longer proves the clear by re-reading'
