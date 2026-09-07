@@ -66,10 +66,17 @@ let apiStub = async () => ({ sets: [] });
 let fetchStub = async () => ({ ok: false });
 let resolveStub = async () => null;
 let resolveLast = () => null;
-const src = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/screens/tuning-memory.js'),
-  'utf8'
-);
+// screens/tuning/memory-spec.js + memory-read.js, concatenated in the order
+// index.html loads them (the export block in memory-read reads the pure
+// helpers from memory-spec at load time)
+const src = ['memory-spec', 'memory-read']
+  .map((piece) =>
+    fs.readFileSync(
+      path.join(ROOT, `app/renderer/screens/tuning/${piece}.js`),
+      'utf8'
+    )
+  )
+  .join('\n');
 const sandbox = { window: {} };
 new Function(
   'window',
@@ -97,7 +104,7 @@ new Function(
 );
 const TM = sandbox.window.TuningMemory;
 if (!TM) {
-  console.error('tuning-memory.js did not export window.TuningMemory');
+  console.error('memory-read.js did not export window.TuningMemory');
   process.exit(1);
 }
 

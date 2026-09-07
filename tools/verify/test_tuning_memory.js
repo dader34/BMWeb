@@ -25,10 +25,17 @@ function ok(cond, msg) {
 }
 
 // --- load the module under test (browser global, no exports) ----------------
-const src = fs.readFileSync(
-  path.join(ROOT, 'app/renderer/screens/tuning-memory.js'),
-  'utf8'
-);
+// screens/tuning/memory-spec.js + memory-read.js, concatenated in the order
+// index.html loads them (the export block in memory-read reads the pure
+// helpers from memory-spec at load time)
+const src = ['memory-spec', 'memory-read']
+  .map((piece) =>
+    fs.readFileSync(
+      path.join(ROOT, `app/renderer/screens/tuning/${piece}.js`),
+      'utf8'
+    )
+  )
+  .join('\n');
 // Mirror core.js: dataSets() unwraps, and flatResults() DELIBERATELY drops
 // JOB_STATUS (core.js:177). That filtering is exactly what the status check
 // has to survive, so the stubs reproduce it rather than simplifying it.
@@ -53,7 +60,7 @@ new Function('window', 'api', 'flatResults', 'dataSets', src)(
 );
 const TM = sandbox.window.TuningMemory;
 if (!TM) {
-  console.error('tuning-memory.js did not export window.TuningMemory');
+  console.error('memory-read.js did not export window.TuningMemory');
   process.exit(1);
 }
 
